@@ -1,7 +1,6 @@
 ---
 title: "Tools"
-description:
-  "Understanding tools and how they enable human-in-the-loop AI workflows"
+description: "Understanding tools and how they enable human-in-the-loop AI workflows"
 ---
 
 # Tools
@@ -31,16 +30,16 @@ expected parameters:
 
 ```typescript
 interface Tool {
-  name: string // Unique identifier for the tool
-  description: string // Human-readable explanation of what the tool does
+  name: string; // Unique identifier for the tool
+  description: string; // Human-readable explanation of what the tool does
   parameters: {
     // JSON Schema defining the tool's parameters
-    type: "object"
+    type: "object";
     properties: {
       // Tool-specific parameters
-    }
-    required: string[] // Array of required parameter names
-  }
+    };
+    required: string[]; // Array of required parameter names
+  };
 }
 ```
 
@@ -74,13 +73,13 @@ const userConfirmationTool = {
     },
     required: ["action"],
   },
-}
+};
 
 // Pass tools to the agent during execution
 agent.runAgent({
   tools: [userConfirmationTool],
   // Other parameters...
-})
+});
 ```
 
 This approach has several advantages:
@@ -196,7 +195,6 @@ AG-UI tools in React applications through its
 [`useCopilotAction`](https://docs.copilotkit.ai/guides/frontend-actions) hook:
 
 ```tsx
-
 // Define a tool for user confirmation
 useCopilotAction({
   name: "confirmAction",
@@ -213,10 +211,10 @@ useCopilotAction({
   },
   handler: async ({ action }) => {
     // Show a confirmation dialog
-    const confirmed = await showConfirmDialog(action)
-    return confirmed ? "approved" : "rejected"
+    const confirmed = await showConfirmDialog(action);
+    return confirmed ? "approved" : "rejected";
   },
-})
+});
 ```
 
 This approach makes it easy to define tools that integrate with your React

@@ -12,7 +12,6 @@ Update the incoming context object to refresh what the agent sees. This is the v
 ## Signature
 
 ```tsx
-
 function useAgentContext(context: AgentContextInput): void;
 ```
 
@@ -21,9 +20,10 @@ function useAgentContext(context: AgentContextInput): void;
 <PropertyReference name="context" type="AgentContextInput" required>
   An object describing the context to expose to the agent.
 
-  <PropertyReference name="description" type="string" required>
-    A human-readable description of the context. The agent uses this to understand what the value represents and when to reference it.
-  </PropertyReference>
+<PropertyReference name="description" type="string" required>
+  A human-readable description of the context. The agent uses this to understand
+  what the value represents and when to reference it.
+</PropertyReference>
 
   <PropertyReference name="value" type="JsonSerializable" required>
     The context value to provide. Must be JSON-serializable: `string`, `number`, `boolean`, `null`, arrays, or plain objects with string keys and serializable values. Object values are serialized automatically.
@@ -37,7 +37,6 @@ function useAgentContext(context: AgentContextInput): void;
 Provide simple application state as context for the agent.
 
 ```tsx
-
 function UserGreeting({ user }: { user: { name: string; role: string } }) {
   useAgentContext({
     description: "The currently logged-in user",
@@ -53,7 +52,6 @@ function UserGreeting({ user }: { user: { name: string; role: string } }) {
 The context updates automatically when the value changes between renders.
 
 ```tsx
-
 function ProductCatalog() {
   const [selectedCategory, setSelectedCategory] = useState("electronics");
   const [priceRange, setPriceRange] = useState({ min: 0, max: 500 });
@@ -87,7 +85,6 @@ function ProductCatalog() {
 Each component can register its own context. All registered contexts are visible to the agent simultaneously.
 
 ```tsx
-
 function Dashboard() {
   useAgentContext({
     description: "Current dashboard view and layout",

@@ -16,12 +16,12 @@ assumptions.
 typed snapshot of everything the agent currently supports:
 
 ```typescript
-const agent = new HttpAgent({ url: "https://my-agent.example.com/api" })
+const agent = new HttpAgent({ url: "https://my-agent.example.com/api" });
 
-const capabilities = await agent.getCapabilities?.()
+const capabilities = await agent.getCapabilities?.();
 
 if (capabilities?.tools?.supported) {
-  console.log(`Agent provides ${capabilities.tools.items?.length} tools`)
+  console.log(`Agent provides ${capabilities.tools.items?.length} tools`);
 }
 
 if (capabilities?.reasoning?.supported) {
@@ -47,27 +47,27 @@ aspect of agent functionality:
 ```typescript
 interface AgentCapabilities {
   /** Agent identity and metadata. */
-  identity?: IdentityCapabilities
+  identity?: IdentityCapabilities;
   /** Supported transport mechanisms (SSE, WebSocket, binary, etc.). */
-  transport?: TransportCapabilities
+  transport?: TransportCapabilities;
   /** Tools the agent provides and tool calling configuration. */
-  tools?: ToolsCapabilities
+  tools?: ToolsCapabilities;
   /** Output format support (structured output, MIME types). */
-  output?: OutputCapabilities
+  output?: OutputCapabilities;
   /** State and memory management (snapshots, deltas, persistence). */
-  state?: StateCapabilities
+  state?: StateCapabilities;
   /** Multi-agent coordination (delegation, handoffs, sub-agents). */
-  multiAgent?: MultiAgentCapabilities
+  multiAgent?: MultiAgentCapabilities;
   /** Reasoning and thinking support (chain-of-thought, encrypted thinking). */
-  reasoning?: ReasoningCapabilities
+  reasoning?: ReasoningCapabilities;
   /** Multimodal input/output support organized by direction (input vs output). */
-  multimodal?: MultimodalCapabilities
+  multimodal?: MultimodalCapabilities;
   /** Execution control and limits (code execution, timeouts, iteration caps). */
-  execution?: ExecutionCapabilities
+  execution?: ExecutionCapabilities;
   /** Human-in-the-loop support (approvals, interventions, feedback). */
-  humanInTheLoop?: HumanInTheLoopCapabilities
+  humanInTheLoop?: HumanInTheLoopCapabilities;
   /** Integration-specific capabilities not covered by the standard categories. */
-  custom?: Record<string, unknown>
+  custom?: Record<string, unknown>;
 }
 ```
 
@@ -85,19 +85,19 @@ when multiple agents are available and users need to pick one.
 ```typescript
 interface IdentityCapabilities {
   /** Human-readable name shown in UIs and agent selectors. */
-  name?: string
+  name?: string;
   /** The framework or platform powering this agent (e.g., "langgraph", "mastra", "crewai"). */
-  type?: string
+  type?: string;
   /** What this agent does — helps users and routing logic decide when to use it. */
-  description?: string
+  description?: string;
   /** Semantic version of the agent (e.g., "1.2.0"). Useful for compatibility checks. */
-  version?: string
+  version?: string;
   /** Organization or team that maintains this agent. */
-  provider?: string
+  provider?: string;
   /** URL to the agent's documentation or homepage. */
-  documentationUrl?: string
+  documentationUrl?: string;
   /** Arbitrary key-value pairs for integration-specific identity info. */
-  metadata?: Record<string, unknown>
+  metadata?: Record<string, unknown>;
 }
 ```
 
@@ -110,15 +110,15 @@ actually handles — omit or set `false` for unsupported ones.
 ```typescript
 interface TransportCapabilities {
   /** Set `true` if the agent streams responses via SSE. Most agents enable this. */
-  streaming?: boolean
+  streaming?: boolean;
   /** Set `true` if the agent accepts persistent WebSocket connections. */
-  websocket?: boolean
+  websocket?: boolean;
   /** Set `true` if the agent supports the AG-UI binary protocol (protobuf over HTTP). */
-  httpBinary?: boolean
+  httpBinary?: boolean;
   /** Set `true` if the agent can send async updates via webhooks after a run finishes. */
-  pushNotifications?: boolean
+  pushNotifications?: boolean;
   /** Set `true` if the agent supports resuming interrupted streams via sequence numbers. */
-  resumable?: boolean
+  resumable?: boolean;
 }
 ```
 
@@ -133,14 +133,14 @@ web, execute code, etc.
 interface ToolsCapabilities {
   /** Set `true` if the agent can make tool calls at all. Set `false` to explicitly
    *  signal tool calling is disabled even if items are present. */
-  supported?: boolean
+  supported?: boolean;
   /** The tools this agent provides on its own (full JSON Schema definitions).
    *  These are distinct from client-provided tools passed in `RunAgentInput.tools`. */
-  items?: Tool[]
+  items?: Tool[];
   /** Set `true` if the agent can invoke multiple tools concurrently within a single step. */
-  parallelCalls?: boolean
+  parallelCalls?: boolean;
   /** Set `true` if the agent accepts and uses tools provided by the client at runtime. */
-  clientProvided?: boolean
+  clientProvided?: boolean;
 }
 ```
 
@@ -153,10 +153,10 @@ consumption.
 ```typescript
 interface OutputCapabilities {
   /** Set `true` if the agent can produce structured JSON output matching a provided schema. */
-  structuredOutput?: boolean
+  structuredOutput?: boolean;
   /** MIME types the agent can produce (e.g., `["text/plain", "application/json"]`).
    *  Omit if the agent only produces plain text. */
-  supportedMimeTypes?: string[]
+  supportedMimeTypes?: string[];
 }
 ```
 
@@ -168,15 +168,15 @@ handles shared state and whether conversation context persists across runs.
 ```typescript
 interface StateCapabilities {
   /** Set `true` if the agent emits `STATE_SNAPSHOT` events (full state replacement). */
-  snapshots?: boolean
+  snapshots?: boolean;
   /** Set `true` if the agent emits `STATE_DELTA` events (JSON Patch incremental updates). */
-  deltas?: boolean
+  deltas?: boolean;
   /** Set `true` if the agent has long-term memory beyond the current thread
    *  (e.g., vector store, knowledge base, or cross-session recall). */
-  memory?: boolean
+  memory?: boolean;
   /** Set `true` if state is preserved across multiple runs within the same thread.
    *  When `false`, state resets on each run. */
-  persistentState?: boolean
+  persistentState?: boolean;
 }
 ```
 
@@ -188,13 +188,13 @@ orchestrate or hand off work to other agents.
 ```typescript
 interface MultiAgentCapabilities {
   /** Set `true` if the agent participates in any form of multi-agent coordination. */
-  supported?: boolean
+  supported?: boolean;
   /** Set `true` if the agent can delegate subtasks to other agents while retaining control. */
-  delegation?: boolean
+  delegation?: boolean;
   /** Set `true` if the agent can transfer the conversation entirely to another agent. */
-  handoffs?: boolean
+  handoffs?: boolean;
   /** List of sub-agents this agent can invoke. Helps clients build agent selection UIs. */
-  subAgents?: Array<{ name: string; description?: string }>
+  subAgents?: Array<{ name: string; description?: string }>;
 }
 ```
 
@@ -206,12 +206,12 @@ internal thought process (e.g., chain-of-thought, extended thinking).
 ```typescript
 interface ReasoningCapabilities {
   /** Set `true` if the agent produces reasoning/thinking tokens visible to the client. */
-  supported?: boolean
+  supported?: boolean;
   /** Set `true` if reasoning tokens are streamed incrementally (vs. returned all at once). */
-  streaming?: boolean
+  streaming?: boolean;
   /** Set `true` if reasoning content is encrypted (zero-data-retention mode).
    *  Clients should expect opaque `encryptedValue` fields instead of readable content. */
-  encrypted?: boolean
+  encrypted?: boolean;
 }
 ```
 
@@ -225,29 +225,29 @@ image pickers, etc.
 ```typescript
 interface MultimodalInputCapabilities {
   /** Set `true` if the agent can process image inputs (e.g., screenshots, photos). */
-  image?: boolean
+  image?: boolean;
   /** Set `true` if the agent can process audio inputs (speech, recordings). */
-  audio?: boolean
+  audio?: boolean;
   /** Set `true` if the agent can process video inputs. */
-  video?: boolean
+  video?: boolean;
   /** Set `true` if the agent can process PDF documents. */
-  pdf?: boolean
+  pdf?: boolean;
   /** Set `true` if the agent can process arbitrary file uploads. */
-  file?: boolean
+  file?: boolean;
 }
 
 interface MultimodalOutputCapabilities {
   /** Set `true` if the agent can generate images as part of its response. */
-  image?: boolean
+  image?: boolean;
   /** Set `true` if the agent can produce audio output (text-to-speech, audio files). */
-  audio?: boolean
+  audio?: boolean;
 }
 
 interface MultimodalCapabilities {
   /** Modalities the agent can accept as input (images, audio, video, PDFs, files). */
-  input?: MultimodalInputCapabilities
+  input?: MultimodalInputCapabilities;
   /** Modalities the agent can produce as output (images, audio). */
-  output?: MultimodalOutputCapabilities
+  output?: MultimodalOutputCapabilities;
 }
 ```
 
@@ -259,15 +259,15 @@ how long or how many steps an agent run might take.
 ```typescript
 interface ExecutionCapabilities {
   /** Set `true` if the agent can execute code (e.g., Python, JavaScript) during a run. */
-  codeExecution?: boolean
+  codeExecution?: boolean;
   /** Set `true` if code execution happens in a sandboxed/isolated environment.
    *  Only meaningful when `codeExecution` is `true`. */
-  sandboxed?: boolean
+  sandboxed?: boolean;
   /** Maximum number of tool-call/reasoning iterations the agent will perform per run.
    *  Helps clients display progress or set timeout expectations. */
-  maxIterations?: number
+  maxIterations?: number;
   /** Maximum wall-clock time (in milliseconds) the agent will run before timing out. */
-  maxExecutionTime?: number
+  maxExecutionTime?: number;
 }
 ```
 
@@ -279,15 +279,15 @@ execution to request human input, approval, or feedback before continuing.
 ```typescript
 interface HumanInTheLoopCapabilities {
   /** Set `true` if the agent supports any form of human-in-the-loop interaction. */
-  supported?: boolean
+  supported?: boolean;
   /** Set `true` if the agent can pause and request explicit approval before
    *  performing sensitive actions (e.g., sending emails, deleting data). */
-  approvals?: boolean
+  approvals?: boolean;
   /** Set `true` if the agent allows humans to intervene and modify its plan mid-execution. */
-  interventions?: boolean
+  interventions?: boolean;
   /** Set `true` if the agent can incorporate user feedback (thumbs up/down, corrections)
    *  to improve its behavior within the current session. */
-  feedback?: boolean
+  feedback?: boolean;
 }
 ```
 
@@ -299,7 +299,6 @@ Implement `getCapabilities()` on your agent subclass, returning only the
 capabilities you actually support:
 
 ```typescript
-
 class MyAgent extends AbstractAgent {
   async getCapabilities(): Promise<AgentCapabilities> {
     return {
@@ -320,7 +319,7 @@ class MyAgent extends AbstractAgent {
         snapshots: true,
         deltas: true,
       },
-    }
+    };
   }
 
   // ... run() implementation
@@ -333,16 +332,16 @@ Since `getCapabilities()` returns a live snapshot, it reflects the agent's
 current state:
 
 ```typescript
-const agent = new MyAgent(config)
+const agent = new MyAgent(config);
 
-let caps = await agent.getCapabilities()
-console.log(caps.tools?.items?.length) // 5
+let caps = await agent.getCapabilities();
+console.log(caps.tools?.items?.length); // 5
 
 // Register more tools at runtime
-agent.registerTool(newTool)
+agent.registerTool(newTool);
 
-caps = await agent.getCapabilities()
-console.log(caps.tools?.items?.length) // 6
+caps = await agent.getCapabilities();
+console.log(caps.tools?.items?.length); // 6
 ```
 
 ## Client Usage Patterns
@@ -352,21 +351,21 @@ console.log(caps.tools?.items?.length) // 6
 Render UI components based on what the agent supports:
 
 ```typescript
-const capabilities = await agent.getCapabilities?.()
+const capabilities = await agent.getCapabilities?.();
 
 // Only show reasoning panel if supported
 if (capabilities?.reasoning?.supported) {
-  showReasoningPanel()
+  showReasoningPanel();
 }
 
 // Only show sub-agent selector if available
 if (capabilities?.multiAgent?.subAgents?.length) {
-  showSubAgentSelector(capabilities.multiAgent.subAgents)
+  showSubAgentSelector(capabilities.multiAgent.subAgents);
 }
 
 // Only show approval UI if HITL is supported
 if (capabilities?.humanInTheLoop?.approvals) {
-  enableApprovalWorkflow()
+  enableApprovalWorkflow();
 }
 ```
 
@@ -375,10 +374,10 @@ if (capabilities?.humanInTheLoop?.approvals) {
 Disable features the agent doesn't support instead of failing at runtime:
 
 ```typescript
-const capabilities = await agent.getCapabilities?.()
+const capabilities = await agent.getCapabilities?.();
 
-const canUseStructuredOutput = capabilities?.output?.structuredOutput ?? false
-const canStream = capabilities?.transport?.streaming ?? false
+const canUseStructuredOutput = capabilities?.output?.structuredOutput ?? false;
+const canStream = capabilities?.transport?.streaming ?? false;
 ```
 
 ### Custom Capabilities
@@ -386,13 +385,13 @@ const canStream = capabilities?.transport?.streaming ?? false
 Access integration-specific capabilities via the `custom` field:
 
 ```typescript
-const capabilities = await agent.getCapabilities?.()
+const capabilities = await agent.getCapabilities?.();
 
 const rateLimit = capabilities?.custom?.rateLimit as
   | { maxRequestsPerMinute: number }
-  | undefined
+  | undefined;
 
 if (rateLimit) {
-  configureThrottling(rateLimit.maxRequestsPerMinute)
+  configureThrottling(rateLimit.maxRequestsPerMinute);
 }
 ```

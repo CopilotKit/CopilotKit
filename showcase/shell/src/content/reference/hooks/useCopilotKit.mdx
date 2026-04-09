@@ -8,7 +8,8 @@ description: "Low-level React hook for accessing the CopilotKit context"
 `useCopilotKit` is a low-level React hook that returns the CopilotKit context value, providing direct access to the core instance and provider-level state. It subscribes to runtime connection status changes and triggers re-renders when the connection status updates.
 
 <Callout type="info">
-  `useCopilotKit` is a low-level hook. Most applications should use higher-level hooks like `useAgent` or `useFrontendTool` instead.
+  `useCopilotKit` is a low-level hook. Most applications should use higher-level
+  hooks like `useAgent` or `useFrontendTool` instead.
 </Callout>
 
 **Throws an error** if used outside of a `CopilotKitProvider` (or the `<CopilotKit>` wrapper component).
@@ -16,8 +17,7 @@ description: "Low-level React hook for accessing the CopilotKit context"
 ## Signature
 
 ```tsx
-
-function useCopilotKit(): CopilotKitContextValue
+function useCopilotKit(): CopilotKitContextValue;
 ```
 
 ## Parameters
@@ -38,6 +38,7 @@ This hook takes no parameters.
     - Event subscription via `subscribe()`
 
     The core instance is created once per `CopilotKitProvider` and is stable across re-renders.
+
   </PropertyReference>
 
   <PropertyReference name="executingToolCallIds" type="ReadonlySet<string>">
@@ -50,7 +51,6 @@ This hook takes no parameters.
 ### Accessing the Core Instance
 
 ```tsx
-
 function DebugPanel() {
   const { copilotkit } = useCopilotKit();
 
@@ -72,7 +72,6 @@ function DebugPanel() {
 ### Subscribing to Core Events
 
 ```tsx
-
 function ConnectionMonitor() {
   const { copilotkit } = useCopilotKit();
 
@@ -97,7 +96,6 @@ function ConnectionMonitor() {
 `copilotkit.runTool()` lets you execute a registered frontend tool directly from code — no LLM turn required. The tool's handler runs, render components appear in the UI, and both the tool call and result are added to the agent's message history.
 
 ```tsx
-
 function ExportButton() {
   const { copilotkit } = useCopilotKit();
 
@@ -133,13 +131,17 @@ function ExportButton() {
     Name of the registered frontend tool to execute.
   </PropertyReference>
 
-  <PropertyReference name="agentId" type="string">
-    Agent ID for tool and message scoping. Defaults to `"default"`.
-  </PropertyReference>
+<PropertyReference name="agentId" type="string">
+  Agent ID for tool and message scoping. Defaults to `"default"`.
+</PropertyReference>
 
-  <PropertyReference name="parameters" type="Record<string, unknown>" default="{}">
-    Arguments passed to the tool handler.
-  </PropertyReference>
+<PropertyReference
+  name="parameters"
+  type="Record<string, unknown>"
+  default="{}"
+>
+  Arguments passed to the tool handler.
+</PropertyReference>
 
   <PropertyReference name="followUp" type="string | false" default="false">
     Controls whether an LLM follow-up is triggered after execution:
@@ -156,9 +158,10 @@ function ExportButton() {
     Unique ID of the tool call, matching the message added to history.
   </PropertyReference>
 
-  <PropertyReference name="result" type="string">
-    Stringified return value from the tool handler (empty string for render-only tools).
-  </PropertyReference>
+<PropertyReference name="result" type="string">
+  Stringified return value from the tool handler (empty string for render-only
+  tools).
+</PropertyReference>
 
   <PropertyReference name="error" type="string | undefined">
     Error message if the handler threw. The tool result message will contain `"Error: ..."`.
@@ -168,7 +171,6 @@ function ExportButton() {
 ### Checking Tool Execution State
 
 ```tsx
-
 function ToolExecutionIndicator() {
   const { executingToolCallIds } = useCopilotKit();
 
@@ -176,11 +178,7 @@ function ToolExecutionIndicator() {
     return null;
   }
 
-  return (
-    <div>
-      Executing {executingToolCallIds.size} tool call(s)...
-    </div>
-  );
+  return <div>Executing {executingToolCallIds.size} tool call(s)...</div>;
 }
 ```
 

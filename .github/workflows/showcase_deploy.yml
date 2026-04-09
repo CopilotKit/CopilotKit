@@ -2,7 +2,7 @@ name: "Showcase: Build & Deploy"
 
 on:
   push:
-    branches: [feature/unified-showcase-platform, main]
+    branches: [main]
     paths:
       - "showcase/**"
       - "examples/integrations/**"
@@ -444,7 +444,7 @@ jobs:
           curl -sf -X POST https://backboard.railway.com/graphql/v2 \
             -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"87f60507-5a3d-4b8a-9e23-2b1de85d939c\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"4a37481b-f264-4eb7-a9cd-0a9ebb9ac05c\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
             && echo "ag2 deploy triggered"
 
   build-agno:
@@ -659,7 +659,7 @@ jobs:
           curl -sf -X POST https://backboard.railway.com/graphql/v2 \
             -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"66246d3b-a18e-46f0-be51-5f3ff7a36e5a\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"6dd9cb0a-66cc-46f1-972e-7cd74756157d\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
             && echo "langroid deploy triggered"
 
   build-spring_ai:
@@ -702,7 +702,7 @@ jobs:
           curl -sf -X POST https://backboard.railway.com/graphql/v2 \
             -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"66246d3b-a18e-46f0-be51-5f3ff7a36e5a\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"eed5d041-91be-4282-b414-beea00843401\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
             && echo "spring-ai deploy triggered"
 
   build-strands:
@@ -831,7 +831,7 @@ jobs:
           curl -sf -X POST https://backboard.railway.com/graphql/v2 \
             -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"655db75a-af8d-427d-a4f9-441570ae5003\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"18a98727-5700-44aa-b497-b60795dbbd6a\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
             && echo "claude-sdk-typescript deploy triggered"
 
   build-ms_agent_dotnet:
@@ -917,7 +917,7 @@ jobs:
           curl -sf -X POST https://backboard.railway.com/graphql/v2 \
             -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"beeb2dd6-87a4-4599-aa07-0578f7bd6519\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"b122ab65-9854-4cb2-a68e-b50ff13f7481\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
             && echo "claude-sdk-python deploy triggered"
 
   build-test_integration_tmp:
@@ -955,13 +955,7 @@ jobs:
           cache-from: type=gha,scope=test_integration_tmp
           cache-to: type=gha,scope=test_integration_tmp,mode=max
 
-      - name: Trigger Railway deploy
-        run: |
-          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
-            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"RAILWAY_SERVICE_ID\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
-            && echo "test-integration-tmp deploy triggered"
+      # No Railway service exists for test-integration-tmp — deploy step omitted
 
   build-starter_langgraph_python:
     name: Build & Push Starter LangGraph Python

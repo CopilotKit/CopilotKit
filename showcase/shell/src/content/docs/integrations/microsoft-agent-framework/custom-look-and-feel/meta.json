@@ -1,7 +1,5 @@
 {
   "title": "Custom Look and Feel",
   "icon": "lucide/LayoutDashboard",
-  "pages": [
-    "headless-ui"
-  ]
+  "pages": ["headless-ui"]
 }

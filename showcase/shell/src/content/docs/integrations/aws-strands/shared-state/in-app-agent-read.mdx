@@ -14,7 +14,8 @@ description: Read the realtime agent state in your native application.
 />
 
 <Callout type="info">
-  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/aws-strands/feature/shared_state).
+  This example demonstrates reading from shared state in the [CopilotKit Feature
+  Viewer](https://feature-viewer.copilotkit.ai/aws-strands/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -73,6 +74,7 @@ state updates, you can reflect these updates natively in your application.
 
     app = create_strands_app(agui_agent)
     ```
+
   </Step>
 
   <Step>
@@ -111,6 +113,7 @@ state updates, you can reflect these updates natively in your application.
     <Callout type="info">
       The `agent.state` in `useAgent` is reactive and will automatically update when the agent state changes.
     </Callout>
+
   </Step>
 
   <Step>
@@ -118,6 +121,7 @@ state updates, you can reflect these updates natively in your application.
 
     As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
     language set to "spanish" as that's the initial state we set.
+
   </Step>
 </Steps>
 
@@ -127,11 +131,10 @@ You can also render the agent state in the chat UI. This is useful for informing
 more in-context way. To do this, you can use the `useAgent` hook with a `render` function.
 
 ```tsx title="ui/app/page.tsx"
-
 // Define the agent state type, should match the actual state of your agent
 type AgentState = {
   language: "english" | "spanish";
-}
+};
 
 function YourMainContent() {
   // ...
@@ -148,5 +151,6 @@ function YourMainContent() {
 ```
 
 <Callout type="info">
-  The `agent.state` in `useAgent` is reactive and will automatically update when the agent state changes.
+  The `agent.state` in `useAgent` is reactive and will automatically update when
+  the agent state changes.
 </Callout>

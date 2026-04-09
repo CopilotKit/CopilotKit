@@ -15,7 +15,15 @@ hideTOC: true
 />
 
 <Callout>
-  This example demonstrates the [implementation](#implementation) section applied in the <a href="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat" target="_blank">CopilotKit feature viewer</a>.
+  This example demonstrates the [implementation](#implementation) section
+  applied in the{" "}
+  <a
+    href="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat"
+    target="_blank"
+  >
+    CopilotKit feature viewer
+  </a>
+  .
 </Callout>
 
 ## What is this?
@@ -97,6 +105,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         }
         ```
     </Tab>
+
 </Tabs>
 </Step>
 <Step>
@@ -106,7 +115,8 @@ we just need to add a `useRenderTool` hook to render the tool call in
 the UI.
 
 <Callout type="info" title="Important">
-  In order to render a tool call in the UI, the name must match the name of the tool.
+  In order to render a tool call in the UI, the name must match the name of the
+  tool.
 </Callout>
 
 ```tsx title="app/page.tsx"
@@ -126,13 +136,14 @@ const YourMainContent = () => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
-          {status === "complete" && `Called the weather API for ${parameters.location}.`}
+          {status === "complete" &&
+            `Called the weather API for ${parameters.location}.`}
         </p>
       );
     },
   });
   // ...
-}
+};
 ```
 
 </Step>

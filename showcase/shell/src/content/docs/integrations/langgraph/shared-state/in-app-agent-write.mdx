@@ -14,7 +14,8 @@ description: Write to agent's state from your application.
 />
 
 <Callout type="info">
-  This example demonstrates writing to shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state).
+  This example demonstrates writing to shared state in the [CopilotKit Feature
+  Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -59,6 +60,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         ```
       </Tab>
     </Tabs>
+
   </Step>
   <Step>
     ### Use the `useAgent` hook to read and write state
@@ -94,6 +96,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
       );
     }
     ```
+
   </Step>
   <Step>
     ### Give it a try!
@@ -104,6 +107,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     <Callout>
       This video shows the result of `npx copilotkit@latest init` with the [implementation](#implementation) section applied to it!
     </Callout>
+
   </Step>
 </Steps>
 
@@ -142,7 +146,8 @@ function YourMainContent() {
 ```
 
 ### Intermediately Stream and Render Agent State
-By default, the LangGraph agent state will only update *between* LangGraph node transitions --
+
+By default, the LangGraph agent state will only update _between_ LangGraph node transitions --
 which means state updates will be discontinuous and delayed.
 
 You likely want to render the agent state as it updates **continuously.**

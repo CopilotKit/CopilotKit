@@ -1,4 +1,4 @@
-import { IframeSwitcher } from "@/components/content"
+import { IframeSwitcher } from "@/components/content";
 
 <IframeSwitcher
   id="frontend-tools-based-hitl-example"
@@ -18,6 +18,7 @@ This can be utilized for UI control, generative UI, or Human-in-the-loop interac
 ## When should I use this?
 
 Use frontend tools when you need your agent to interact with client-side primitives such as:
+
 - Reading or modifying React component state
 - Accessing browser APIs like localStorage, sessionStorage, or cookies
 - Triggering UI updates or animations
@@ -31,7 +32,7 @@ Frontend tools can be leveraged in a variety of ways. One of those ways is to ha
 In this example we will simulate an "approval" flow for executing a command. Use the `useHumanInTheLoop` hook to create a tool that prompts the user for approval.
 
 ```tsx title="page.tsx"
-import { useHumanInTheLoop } from "@copilotkit/react-core/v2" // [!code highlight]
+import { useHumanInTheLoop } from "@copilotkit/react-core/v2"; // [!code highlight]
 import { z } from "zod";
 
 export function Page() {
@@ -41,15 +42,23 @@ export function Page() {
   useHumanInTheLoop({
     name: "humanApprovedCommand",
     description: "Ask human for approval to run a command.",
-    parameters: z.object({ command: z.string().describe("The command to run") }),
+    parameters: z.object({
+      command: z.string().describe("The command to run"),
+    }),
     render: ({ args, respond, status }) => {
       if (status !== "executing") return <></>;
       return (
         <div>
           <pre>{args.command}</pre>
           {/* [!code highlight:2] */}
-          <button onClick={() => respond?.(`Tell the user the command ran`)}>Approve</button>
-          <button onClick={() => respond?.(`Tell the user the command wasn't run`)}>Deny</button>
+          <button onClick={() => respond?.(`Tell the user the command ran`)}>
+            Approve
+          </button>
+          <button
+            onClick={() => respond?.(`Tell the user the command wasn't run`)}
+          >
+            Deny
+          </button>
         </div>
       );
     },

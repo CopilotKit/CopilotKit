@@ -1,10 +1,14 @@
-import { CopilotRuntime, createCopilotEndpoint, InMemoryAgentRunner } from "@copilotkitnext/runtime";
+import {
+  CopilotRuntime,
+  createCopilotEndpoint,
+  InMemoryAgentRunner,
+} from "@copilotkitnext/runtime";
 import { BuiltInAgent } from "@copilotkitnext/agent";
 import { handle } from "hono/vercel";
 
 const agent = new BuiltInAgent({
-    model: "openai/gpt-4o",
-    prompt: `You are the CopilotKit Showcase assistant. You help developers explore CopilotKit integrations, find the right agent framework, and try live demos.
+  model: "openai/gpt-4o",
+  prompt: `You are the CopilotKit Showcase assistant. You help developers explore CopilotKit integrations, find the right agent framework, and try live demos.
 
 You should:
 - Help users understand what CopilotKit does and how different frameworks integrate
@@ -15,17 +19,18 @@ You should:
 When suggesting demos, provide links like /integrations/{slug}/{demoId}.
 Available integrations: LangGraph (Python) at /integrations/langgraph-python, Mastra at /integrations/mastra.
 Available features: agentic-chat, human-in-the-loop, tool-rendering, gen-ui-tool-based.`,
-    maxSteps: 3,
+  maxSteps: 3,
 });
 
 const runtime = new CopilotRuntime({
-    agents: { default: agent },
-    runner: new InMemoryAgentRunner(),
+  // @ts-ignore — BuiltInAgent type mismatch with AbstractAgent, pending upstream fix
+  agents: { default: agent },
+  runner: new InMemoryAgentRunner(),
 });
 
 const app = createCopilotEndpoint({
-    runtime,
-    basePath: "/api/copilotkit",
+  runtime,
+  basePath: "/api/copilotkit",
 });
 
 export const GET = handle(app);

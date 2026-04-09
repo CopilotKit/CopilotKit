@@ -117,7 +117,7 @@ export const menuIntegrations: MenuIntegrationConfig[] = [
     name: "OpenAI Server",
     features: ["agentic_chat"],
   },
-]
+];
 ```
 
 And `apps/dojo/src/agents.ts`:
@@ -133,10 +133,10 @@ export const agentsIntegrations: AgentIntegrationConfig[] = [
     agents: async () => {
       return {
         agentic_chat: new OpenAIServerAgent(),
-      }
+      };
     },
   },
-]
+];
 ```
 
 ## Step 2 – Add package to dojo dependencies
@@ -510,6 +510,7 @@ Let's break down what your server is doing:
 4. **Finish** – We emit `RUN_FINISHED` (or `RUN_ERROR` if something goes wrong)
 
 Test your endpoint with:
+
 ```bash
 curl -X POST http://localhost:8000/ \
   -H "Content-Type: application/json" \

@@ -10,6 +10,7 @@ remote AI agents. It handles the request/response cycle and transforms the HTTP
 event stream into standard Agent User Interaction Protocol events.
 
 ```typescript
+
 ```
 
 ## Configuration
@@ -18,8 +19,8 @@ When creating an HTTP agent, you need to provide an `HttpAgentConfig` object:
 
 ```typescript
 interface HttpAgentConfig extends AgentConfig {
-  url: string // Endpoint URL for the agent service
-  headers?: Record<string, string> // Optional HTTP headers
+  url: string; // Endpoint URL for the agent service
+  headers?: Record<string, string>; // Optional HTTP headers
 }
 ```
 
@@ -31,7 +32,7 @@ const agent = new HttpAgent({
   headers: {
     Authorization: "Bearer your-api-key",
   },
-})
+});
 ```
 
 ## Methods
@@ -55,8 +56,8 @@ specific run.
 
 ```typescript
 interface RunAgentResult {
-  result: any // The final result returned by the agent
-  newMessages: Message[] // New messages added during this run
+  result: any; // The final result returned by the agent
+  newMessages: Message[]; // New messages added during this run
 }
 ```
 

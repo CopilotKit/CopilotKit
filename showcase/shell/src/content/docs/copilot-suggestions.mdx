@@ -13,15 +13,16 @@ Chat suggestions let you auto-generate contextual actions in the chat window bas
   <Tab value="page.tsx">
   ```tsx
 
-  export function MyComponent() {
-    useConfigureSuggestions({
-      instructions: "Suggest the most relevant next actions.",
-      minSuggestions: 1,
-      maxSuggestions: 2,
-    });
-  }
-  ```
-  </Tab>
+export function MyComponent() {
+  useConfigureSuggestions({
+    instructions: "Suggest the most relevant next actions.",
+    minSuggestions: 1,
+    maxSuggestions: 2,
+  });
+}
+
+```
+</Tab>
 </Tabs>
 
 ## When should I use this?
@@ -30,3 +31,4 @@ Use chat suggestions when you want to:
 - Guide users toward relevant actions based on current context
 - Reduce friction by offering one-tap shortcuts
 - Surface capabilities the user might not know about
+```

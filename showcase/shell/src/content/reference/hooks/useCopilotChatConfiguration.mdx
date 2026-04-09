@@ -34,19 +34,25 @@ A provider component that exposes localized labels, agent and thread IDs, and op
 </PropertyReference>
 
 <PropertyReference name="labels" type="Partial<CopilotChatLabels>">
-  Partial set of label overrides. Any labels not provided will fall back to defaults, then to any parent provider's labels. See the [CopilotChatLabels](#copilotchatlabels) section below for all available keys.
+  Partial set of label overrides. Any labels not provided will fall back to
+  defaults, then to any parent provider's labels. See the
+  [CopilotChatLabels](#copilotchatlabels) section below for all available keys.
 </PropertyReference>
 
 <PropertyReference name="agentId" type="string" default='"default"'>
-  The agent ID to associate with this chat context. Falls back to the parent provider's `agentId`, then to `"default"`.
+  The agent ID to associate with this chat context. Falls back to the parent
+  provider's `agentId`, then to `"default"`.
 </PropertyReference>
 
 <PropertyReference name="threadId" type="string">
-  The thread ID for conversation continuity. If omitted, falls back to the parent provider's `threadId`, or a new random UUID is generated.
+  The thread ID for conversation continuity. If omitted, falls back to the
+  parent provider's `threadId`, or a new random UUID is generated.
 </PropertyReference>
 
 <PropertyReference name="isModalDefaultOpen" type="boolean">
-  When provided, creates modal open/close state within this provider. The initial value is used as the default state. If omitted, modal state is inherited from the parent provider (if any).
+  When provided, creates modal open/close state within this provider. The
+  initial value is used as the default state. If omitted, modal state is
+  inherited from the parent provider (if any).
 </PropertyReference>
 
 ## useCopilotChatConfiguration
@@ -54,8 +60,7 @@ A provider component that exposes localized labels, agent and thread IDs, and op
 ### Signature
 
 ```tsx
-
-function useCopilotChatConfiguration(): CopilotChatConfigurationValue | null
+function useCopilotChatConfiguration(): CopilotChatConfigurationValue | null;
 ```
 
 ### Parameters
@@ -69,21 +74,24 @@ Returns `null` if used outside of a `CopilotChatConfigurationProvider`. Otherwis
 <PropertyReference name="config" type="CopilotChatConfigurationValue">
   The resolved chat configuration.
 
-  <PropertyReference name="labels" type="CopilotChatLabels">
-    The fully resolved labels object, merged from defaults, parent providers, and the nearest provider's overrides. See [CopilotChatLabels](#copilotchatlabels) for all keys.
-  </PropertyReference>
+<PropertyReference name="labels" type="CopilotChatLabels">
+  The fully resolved labels object, merged from defaults, parent providers, and
+  the nearest provider's overrides. See [CopilotChatLabels](#copilotchatlabels)
+  for all keys.
+</PropertyReference>
 
-  <PropertyReference name="agentId" type="string">
-    The resolved agent ID for this chat context.
-  </PropertyReference>
+<PropertyReference name="agentId" type="string">
+  The resolved agent ID for this chat context.
+</PropertyReference>
 
-  <PropertyReference name="threadId" type="string">
-    The resolved thread ID for this chat context.
-  </PropertyReference>
+<PropertyReference name="threadId" type="string">
+  The resolved thread ID for this chat context.
+</PropertyReference>
 
-  <PropertyReference name="isModalOpen" type="boolean | undefined">
-    The current modal open state. `undefined` if no provider in the tree has created modal state via `isModalDefaultOpen`.
-  </PropertyReference>
+<PropertyReference name="isModalOpen" type="boolean | undefined">
+  The current modal open state. `undefined` if no provider in the tree has
+  created modal state via `isModalDefaultOpen`.
+</PropertyReference>
 
   <PropertyReference name="setModalOpen" type="((open: boolean) => void) | undefined">
     Function to control the modal open state. `undefined` if no provider in the tree has created modal state.
@@ -94,28 +102,28 @@ Returns `null` if used outside of a `CopilotChatConfigurationProvider`. Otherwis
 
 The `CopilotChatLabels` type defines all customizable text strings used by the chat UI. The following keys are available with their default values:
 
-| Key | Default Value |
-|-----|---------------|
-| `chatInputPlaceholder` | `"Type a message..."` |
-| `chatInputToolbarStartTranscribeButtonLabel` | `"Transcribe"` |
-| `chatInputToolbarCancelTranscribeButtonLabel` | `"Cancel"` |
-| `chatInputToolbarFinishTranscribeButtonLabel` | `"Finish"` |
-| `chatInputToolbarAddButtonLabel` | `"Add photos or files"` |
-| `chatInputToolbarToolsButtonLabel` | `"Tools"` |
-| `assistantMessageToolbarCopyCodeLabel` | `"Copy"` |
-| `assistantMessageToolbarCopyCodeCopiedLabel` | `"Copied"` |
-| `assistantMessageToolbarCopyMessageLabel` | `"Copy"` |
-| `assistantMessageToolbarThumbsUpLabel` | `"Good response"` |
-| `assistantMessageToolbarThumbsDownLabel` | `"Bad response"` |
-| `assistantMessageToolbarReadAloudLabel` | `"Read aloud"` |
-| `assistantMessageToolbarRegenerateLabel` | `"Regenerate"` |
-| `userMessageToolbarCopyMessageLabel` | `"Copy"` |
-| `userMessageToolbarEditMessageLabel` | `"Edit"` |
-| `chatDisclaimerText` | `"AI can make mistakes. Please verify important information."` |
-| `chatToggleOpenLabel` | `"Open chat"` |
-| `chatToggleCloseLabel` | `"Close chat"` |
-| `modalHeaderTitle` | `"CopilotKit Chat"` |
-| `welcomeMessageText` | `"How can I help you today?"` |
+| Key                                           | Default Value                                                  |
+| --------------------------------------------- | -------------------------------------------------------------- |
+| `chatInputPlaceholder`                        | `"Type a message..."`                                          |
+| `chatInputToolbarStartTranscribeButtonLabel`  | `"Transcribe"`                                                 |
+| `chatInputToolbarCancelTranscribeButtonLabel` | `"Cancel"`                                                     |
+| `chatInputToolbarFinishTranscribeButtonLabel` | `"Finish"`                                                     |
+| `chatInputToolbarAddButtonLabel`              | `"Add photos or files"`                                        |
+| `chatInputToolbarToolsButtonLabel`            | `"Tools"`                                                      |
+| `assistantMessageToolbarCopyCodeLabel`        | `"Copy"`                                                       |
+| `assistantMessageToolbarCopyCodeCopiedLabel`  | `"Copied"`                                                     |
+| `assistantMessageToolbarCopyMessageLabel`     | `"Copy"`                                                       |
+| `assistantMessageToolbarThumbsUpLabel`        | `"Good response"`                                              |
+| `assistantMessageToolbarThumbsDownLabel`      | `"Bad response"`                                               |
+| `assistantMessageToolbarReadAloudLabel`       | `"Read aloud"`                                                 |
+| `assistantMessageToolbarRegenerateLabel`      | `"Regenerate"`                                                 |
+| `userMessageToolbarCopyMessageLabel`          | `"Copy"`                                                       |
+| `userMessageToolbarEditMessageLabel`          | `"Edit"`                                                       |
+| `chatDisclaimerText`                          | `"AI can make mistakes. Please verify important information."` |
+| `chatToggleOpenLabel`                         | `"Open chat"`                                                  |
+| `chatToggleCloseLabel`                        | `"Close chat"`                                                 |
+| `modalHeaderTitle`                            | `"CopilotKit Chat"`                                            |
+| `welcomeMessageText`                          | `"How can I help you today?"`                                  |
 
 ## Usage
 
@@ -145,7 +153,6 @@ function App() {
 ### Reading Configuration in a Component
 
 ```tsx
-
 function ChatHeader() {
   const config = useCopilotChatConfiguration();
 
@@ -160,7 +167,6 @@ function ChatHeader() {
 ### Binding to a Specific Agent and Thread
 
 ```tsx
-
 function SupportChat() {
   return (
     <CopilotChatConfigurationProvider
@@ -213,7 +219,6 @@ function ToggleButton() {
 Providers can be nested. Child providers inherit and merge labels from their parent, with child overrides taking precedence.
 
 ```tsx
-
 function App() {
   return (
     <CopilotChatConfigurationProvider

@@ -65,7 +65,6 @@ useRenderTool(
 ### Named tool renderer
 
 ```tsx
-
 function App() {
   useRenderTool(
     {
@@ -73,7 +72,8 @@ function App() {
       parameters: z.object({ query: z.string() }),
       render: ({ name, parameters, status, result }) => {
         if (status === "inProgress") return <div>Preparing {name}…</div>;
-        if (status === "executing") return <div>Searching for: {parameters.query}</div>;
+        if (status === "executing")
+          return <div>Searching for: {parameters.query}</div>;
         return <div>Done: {result}</div>;
       },
     },
@@ -87,7 +87,6 @@ function App() {
 ### Wildcard fallback renderer
 
 ```tsx
-
 function App() {
   useRenderTool(
     {

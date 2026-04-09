@@ -124,7 +124,6 @@ sends a stream of `BaseEvent` objects.
 `HttpAgent` supports the following transports:
 
 - **HTTP SSE (Server-Sent Events)**
-
   - Text-based streaming for wide compatibility
   - Easy to read and debug
 
@@ -138,20 +137,16 @@ AG-UI defines several event categories for different aspects of agent
 communication:
 
 - **Lifecycle events**
-
   - `RUN_STARTED`, `RUN_FINISHED`, `RUN_ERROR`
   - `STEP_STARTED`, `STEP_FINISHED`
 
 - **Text message events**
-
   - `TEXT_MESSAGE_START`, `TEXT_MESSAGE_CONTENT`, `TEXT_MESSAGE_END`
 
 - **Tool call events**
-
   - `TOOL_CALL_START`, `TOOL_CALL_ARGS`, `TOOL_CALL_END`
 
 - **State management events**
-
   - `STATE_SNAPSHOT`, `STATE_DELTA`, `MESSAGES_SNAPSHOT`
 
 - **Special events**
@@ -216,9 +211,9 @@ All communication in AG-UI is based on typed events. Every event inherits from
 
 ```typescript
 interface BaseEvent {
-  type: EventType
-  timestamp?: number
-  rawEvent?: any
+  type: EventType;
+  timestamp?: number;
+  rawEvent?: any;
 }
 ```
 

@@ -24,7 +24,7 @@ package main
     "fmt"
     "log"
     "time"
-    
+
     "github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/client/sse"
     "github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/core/events"
 )
@@ -38,7 +38,7 @@ func main() {
         ReadTimeout:    5 * time.Minute,
     })
     defer client.Close()
-    
+
     // Prepare the request payload
     payload := map[string]interface{}{
         "threadId": "thread_123",
@@ -50,7 +50,7 @@ func main() {
             },
         },
     }
-    
+
     // Start streaming
     frames, errors, err := client.Stream(sse.StreamOptions{
         Context: context.Background(),
@@ -59,10 +59,10 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
-    
+
     // Create event decoder
     decoder := events.NewEventDecoder()
-    
+
     // Handle incoming events
     for {
         select {
@@ -70,14 +70,14 @@ func main() {
             if frame == nil {
                 return // Stream ended
             }
-            
+
             // Decode the event
             event, err := decoder.Decode(frame.Data)
             if err != nil {
                 log.Printf("decode error: %v", err)
                 continue
             }
-            
+
             // Handle different event types
             switch e := event.(type) {
             case *events.TextMessageStartEvent:
@@ -89,7 +89,7 @@ func main() {
             case *events.ToolCallStartEvent:
                 fmt.Printf("Tool call: %s\n", e.ToolName)
             }
-            
+
         case err := <-errors:
             log.Printf("stream error: %v", err)
             return
@@ -103,27 +103,35 @@ func main() {
 The Go SDK is organized into several focused packages, each handling a specific aspect of the AG-UI protocol:
 
 ### Core Package (`core/events`)
+
 The foundation of the SDK, providing event types, interfaces, and decoding capabilities. This package defines all the event structures used in AG-UI communication, including text messages, tool calls, state management, and lifecycle events.
 
 ```go
+
 ```
 
 ### Client Package (`client/sse`)
+
 Handles Server-Sent Events (SSE) connectivity to AG-UI agents. This package provides a robust SSE client with automatic reconnection, timeout handling, and authentication support.
 
 ```go
+
 ```
 
 ### Encoding Package (`encoding`)
+
 Provides flexible encoding and decoding for different content types. Includes JSON encoding/decoding, SSE writing for servers, and content negotiation for handling different MIME types.
 
 ```go
+
 ```
 
 ### Errors Package (`errors`)
+
 Comprehensive error handling with typed errors, severity levels, and retry logic. This package helps you handle different error scenarios gracefully with built-in retry capabilities.
 
 ```go
+
 ```
 
 ## Next Steps
@@ -147,7 +155,8 @@ Explore the detailed documentation for each package to learn more about specific
   color="#3B82F6"
   iconType="solid"
 >
-  Detailed guide on SSE client configuration, streaming, and connection management
+  Detailed guide on SSE client configuration, streaming, and connection
+  management
 </Card>
 
 <Card
@@ -157,7 +166,8 @@ Explore the detailed documentation for each package to learn more about specific
   color="#3B82F6"
   iconType="solid"
 >
-  Work with different encodings, content negotiation, and SSE server implementation
+  Work with different encodings, content negotiation, and SSE server
+  implementation
 </Card>
 
 <Card

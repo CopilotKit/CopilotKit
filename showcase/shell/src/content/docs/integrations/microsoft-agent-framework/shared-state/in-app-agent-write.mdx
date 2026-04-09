@@ -5,6 +5,7 @@ description: Write to agent's state from your application.
 ---
 
 {/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
+
 <IframeSwitcher
   id="shared-state-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state?sidebar=false&chatDefaultOpen=false"
@@ -15,7 +16,8 @@ description: Write to agent's state from your application.
 />
 
 <Callout type="info">
-  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state).
+  This example demonstrates reading from shared state in the [CopilotKit Feature
+  Viewer](https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -102,6 +104,7 @@ You can use this when you need to update agent state from your application — f
       language: "english" | "spanish";
     }
     ```
+
   </Step>
   <Step>
     ### Call `agent.setState` from the `useAgent` hook
@@ -141,6 +144,7 @@ You can use this when you need to update agent state from your application — f
       );
     }
     ```
+
   </Step>
   <Step>
     ### Give it a try!
@@ -195,4 +199,5 @@ function YourMainContent() {
 ```
 
 ### Notes on state updates
+
 Depending on your agent implementation, you may choose to surface progress via tool responses or messages rather than frequent state snapshots. See [Generative UI](/microsoft-agent-framework/generative-ui/tool-rendering) for recommended patterns.

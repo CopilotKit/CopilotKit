@@ -1,7 +1,6 @@
 ---
 title: "State Management"
-description:
-  "Understanding state synchronization between agents and frontends in AG-UI"
+description: "Understanding state synchronization between agents and frontends in AG-UI"
 ---
 
 # State Management
@@ -39,8 +38,8 @@ current state:
 
 ```typescript
 interface StateSnapshotEvent {
-  type: EventType.STATE_SNAPSHOT
-  snapshot: any // Complete state object
+  type: EventType.STATE_SNAPSHOT;
+  snapshot: any; // Complete state object
 }
 ```
 
@@ -61,8 +60,8 @@ Patch format (RFC 6902):
 
 ```typescript
 interface StateDeltaEvent {
-  type: EventType.STATE_DELTA
-  delta: JsonPatchOperation[] // Array of JSON Patch operations
+  type: EventType.STATE_DELTA;
+  delta: JsonPatchOperation[]; // Array of JSON Patch operations
 }
 ```
 
@@ -80,10 +79,10 @@ standardized way to express changes to a JSON document:
 
 ```typescript
 interface JsonPatchOperation {
-  op: "add" | "remove" | "replace" | "move" | "copy" | "test"
-  path: string // JSON Pointer (RFC 6901) to the target location
-  value?: any // The value to apply (for add, replace)
-  from?: string // Source path (for move, copy)
+  op: "add" | "remove" | "replace" | "move" | "copy" | "test";
+  path: string; // JSON Pointer (RFC 6901) to the target location
+  value?: any; // The value to apply (for add, replace)
+  from?: string; // Source path (for move, copy)
 }
 ```
 
@@ -191,7 +190,7 @@ CopilotKit's shared state system is implemented through:
 const { state: agentState, setState: setAgentState } = useCoAgent({
   name: "agent",
   initialState: { someProperty: "initialValue" },
-})
+});
 ```
 
 This hook creates a real-time connection to the agent's state, allowing:

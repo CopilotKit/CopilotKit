@@ -4,7 +4,6 @@ icon: "lucide/ArrowLeft"
 description: Read the realtime agent state in your native application.
 ---
 
-
 <Frame>
   <ImageZoom
     src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/read-agent-state.png"
@@ -110,7 +109,6 @@ You can also render the agent's state in the chat UI. This is useful for informi
 more in-context way. To do this, you can use the `useAgent` hook with a `render` function.
 
 ```tsx title="ui/app/page.tsx"
-
 // Define the agent state type, should match the actual state of your agent
 type AgentState = {
   language: "english" | "spanish";
@@ -131,8 +129,8 @@ function YourMainContent() {
 ```
 
 <Callout type="info">
-  The `agent.state` in `useAgent` is reactive and will automatically
-  update when the agent's state changes.
+  The `agent.state` in `useAgent` is reactive and will automatically update when
+  the agent's state changes.
 </Callout>
 
 ## Intermediately Stream and Render Agent State

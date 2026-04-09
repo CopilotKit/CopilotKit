@@ -34,10 +34,10 @@ The `ReasoningMessage` type represents reasoning content in the message history:
 
 ```typescript
 interface ReasoningMessage {
-  id: string
-  role: "reasoning"
-  content: string // Reasoning content (visible to client)
-  encryptedValue?: string // Optional encrypted reasoning for state continuity
+  id: string;
+  role: "reasoning";
+  content: string; // Reasoning content (visible to client)
+  encryptedValue?: string; // Optional encrypted reasoning for state continuity
 }
 ```
 
@@ -348,32 +348,31 @@ yield {
 ### Handling Reasoning Events
 
 ```typescript
-
 function handleEvent(event: BaseEvent) {
   switch (event.type) {
     case EventType.REASONING_START:
       // Initialize reasoning UI (e.g., "thinking" indicator)
-      console.log("Agent is reasoning...")
-      break
+      console.log("Agent is reasoning...");
+      break;
 
     case EventType.REASONING_MESSAGE_CONTENT:
       // Append visible reasoning to UI
-      appendReasoningText(event.messageId, event.delta)
-      break
+      appendReasoningText(event.messageId, event.delta);
+      break;
 
     case EventType.REASONING_ENCRYPTED_VALUE:
       // Store encrypted value for the referenced entity
       if (event.subtype === "message") {
-        storeMessageEncryptedValue(event.entityId, event.encryptedValue)
+        storeMessageEncryptedValue(event.entityId, event.encryptedValue);
       } else if (event.subtype === "tool-call") {
-        storeToolCallEncryptedValue(event.entityId, event.encryptedValue)
+        storeToolCallEncryptedValue(event.entityId, event.encryptedValue);
       }
-      break
+      break;
 
     case EventType.REASONING_END:
       // Finalize reasoning UI
-      console.log("Reasoning complete")
-      break
+      console.log("Reasoning complete");
+      break;
   }
 }
 ```
@@ -399,7 +398,7 @@ const response = await agent.run({
       content: "Follow up question...",
     },
   ],
-})
+});
 ```
 
 ## Migration from Thinking Events

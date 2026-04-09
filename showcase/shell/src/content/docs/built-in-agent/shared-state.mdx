@@ -21,7 +21,6 @@ Shared state lets your frontend and agent stay in sync. The agent can update sta
 Use the `useAgent` hook to access the agent's current state:
 
 ```tsx title="app/page.tsx"
-
 function TaskBoard() {
   // [!code highlight:3]
   const { agent } = useAgent({
@@ -47,7 +46,8 @@ function TaskBoard() {
 ```
 
 <Callout type="info">
-  `agent.state` is reactive — your component re-renders automatically when the agent updates state.
+  `agent.state` is reactive — your component re-renders automatically when the
+  agent updates state.
 </Callout>
 
 ## Writing state from the frontend
@@ -55,14 +55,14 @@ function TaskBoard() {
 You can also push state from the frontend to the agent:
 
 ```tsx title="app/page.tsx"
-
 function SettingsPanel() {
   const { agent } = useAgent({
     agentId: "assistant",
   });
 
   const handleThemeChange = (theme: string) => {
-    agent.setState({ // [!code highlight]
+    agent.setState({
+      // [!code highlight]
       ...agent.state, // [!code highlight]
       userPreferences: { theme }, // [!code highlight]
     }); // [!code highlight]
@@ -92,7 +92,6 @@ No additional backend configuration is required — state tools are available to
 Here's a complete example where the agent can add and manage tasks:
 
 ```tsx title="app/page.tsx"
-
 function TodoApp() {
   const { agent } = useAgent({
     agentId: "assistant",
@@ -106,7 +105,10 @@ function TodoApp() {
         <h2>My Todos</h2>
         <ul>
           {todos.map((todo, i) => (
-            <li key={i} style={{ textDecoration: todo.done ? "line-through" : "none" }}>
+            <li
+              key={i}
+              style={{ textDecoration: todo.done ? "line-through" : "none" }}
+            >
               {todo.text}
             </li>
           ))}
@@ -114,7 +116,8 @@ function TodoApp() {
       </div>
       <CopilotChat
         labels={{
-          welcomeMessageText: "I can help manage your todos. Try 'Add a task to buy groceries'.",
+          welcomeMessageText:
+            "I can help manage your todos. Try 'Add a task to buy groceries'.",
         }}
       />
     </div>

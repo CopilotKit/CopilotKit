@@ -10,9 +10,11 @@ The AG-UI protocol defines 25 event types that represent the complete lifecycle 
 ## Event Categories
 
 ### Message Events (4)
+
 Handle text message streaming from agents.
 
 #### TextMessageStartEvent
+
 Agent begins a text message response.
 
 ```kotlin
@@ -24,6 +26,7 @@ data class TextMessageStartEvent(
 ```
 
 **Usage:**
+
 ```kotlin
 when (event) {
     is TextMessageStartEvent -> {
@@ -35,6 +38,7 @@ when (event) {
 ```
 
 #### TextMessageContentEvent
+
 Streaming text content chunk.
 
 ```kotlin
@@ -47,6 +51,7 @@ data class TextMessageContentEvent(
 ```
 
 **Usage:**
+
 ```kotlin
 when (event) {
     is TextMessageContentEvent -> {
@@ -57,6 +62,7 @@ when (event) {
 ```
 
 #### TextMessageEndEvent
+
 Agent completes text message.
 
 ```kotlin
@@ -68,6 +74,7 @@ data class TextMessageEndEvent(
 ```
 
 **Usage:**
+
 ```kotlin
 when (event) {
     is TextMessageEndEvent -> {
@@ -78,6 +85,7 @@ when (event) {
 ```
 
 #### TextMessageChunkEvent
+
 Chunk-based text streaming (automatically converted to start/content/end sequence).
 
 ```kotlin
@@ -90,9 +98,11 @@ data class TextMessageChunkEvent(
 ```
 
 ### Thinking Events (5)
+
 Handle agent internal reasoning processes.
 
 #### ThinkingStartEvent
+
 Agent begins internal reasoning.
 
 ```kotlin
@@ -103,6 +113,7 @@ data class ThinkingStartEvent(
 ```
 
 **Usage:**
+
 ```kotlin
 when (event) {
     is ThinkingStartEvent -> {
@@ -113,6 +124,7 @@ when (event) {
 ```
 
 #### ThinkingTextMessageStartEvent
+
 Agent starts thinking text message.
 
 ```kotlin
@@ -124,6 +136,7 @@ data class ThinkingTextMessageStartEvent(
 ```
 
 #### ThinkingTextMessageContentEvent
+
 Streaming thinking content.
 
 ```kotlin
@@ -136,6 +149,7 @@ data class ThinkingTextMessageContentEvent(
 ```
 
 **Usage:**
+
 ```kotlin
 when (event) {
     is ThinkingTextMessageContentEvent -> {
@@ -146,6 +160,7 @@ when (event) {
 ```
 
 #### ThinkingTextMessageEndEvent
+
 Agent completes thinking text.
 
 ```kotlin
@@ -157,6 +172,7 @@ data class ThinkingTextMessageEndEvent(
 ```
 
 #### ThinkingEndEvent
+
 Agent finishes reasoning process.
 
 ```kotlin
@@ -167,6 +183,7 @@ data class ThinkingEndEvent(
 ```
 
 **Usage:**
+
 ```kotlin
 when (event) {
     is ThinkingEndEvent -> {
@@ -177,9 +194,11 @@ when (event) {
 ```
 
 ### Tool Events (5)
+
 Handle client-side tool execution lifecycle.
 
 #### ToolCallStartEvent
+
 Agent requests tool execution.
 
 ```kotlin
@@ -193,6 +212,7 @@ data class ToolCallStartEvent(
 ```
 
 **Usage:**
+
 ```kotlin
 when (event) {
     is ToolCallStartEvent -> {
@@ -203,6 +223,7 @@ when (event) {
 ```
 
 #### ToolCallArgsEvent
+
 Streaming tool arguments.
 
 ```kotlin
@@ -215,17 +236,19 @@ data class ToolCallArgsEvent(
 ```
 
 **Usage:**
+
 ```kotlin
 when (event) {
     is ToolCallArgsEvent -> {
         // Accumulate arguments for tool execution
-        toolArgsBuffer[event.toolCallId] = 
+        toolArgsBuffer[event.toolCallId] =
             (toolArgsBuffer[event.toolCallId] ?: "") + event.delta
     }
 }
 ```
 
 #### ToolCallEndEvent
+
 Tool call arguments complete.
 
 ```kotlin
@@ -237,6 +260,7 @@ data class ToolCallEndEvent(
 ```
 
 #### ToolCallChunkEvent
+
 Chunk-based tool streaming (automatically converted to start/args/end sequence).
 
 ```kotlin
@@ -251,6 +275,7 @@ data class ToolCallChunkEvent(
 ```
 
 #### ToolCallResultEvent
+
 Contains the result of a tool execution.
 
 ```kotlin
@@ -263,6 +288,7 @@ data class ToolCallResultEvent(
 ```
 
 #### ToolResultEvent
+
 Tool execution result.
 
 ```kotlin
@@ -277,6 +303,7 @@ data class ToolResultEvent(
 ```
 
 **Usage:**
+
 ```kotlin
 when (event) {
     is ToolResultEvent -> {
@@ -287,9 +314,11 @@ when (event) {
 ```
 
 ### State Events (2)
+
 Handle agent state synchronization.
 
 #### StateSnapshotEvent
+
 Complete state snapshot.
 
 ```kotlin
@@ -301,6 +330,7 @@ data class StateSnapshotEvent(
 ```
 
 **Usage:**
+
 ```kotlin
 when (event) {
     is StateSnapshotEvent -> {
@@ -311,6 +341,7 @@ when (event) {
 ```
 
 #### StateDeltaEvent
+
 Incremental state change using JSON Patch.
 
 ```kotlin
@@ -322,6 +353,7 @@ data class StateDeltaEvent(
 ```
 
 **Usage:**
+
 ```kotlin
 when (event) {
     is StateDeltaEvent -> {
@@ -333,9 +365,11 @@ when (event) {
 ```
 
 ### Lifecycle Events (2)
+
 Handle run lifecycle management.
 
 #### RunStartedEvent
+
 Agent run begins.
 
 ```kotlin
@@ -348,6 +382,7 @@ data class RunStartedEvent(
 ```
 
 **Usage:**
+
 ```kotlin
 when (event) {
     is RunStartedEvent -> {
@@ -358,6 +393,7 @@ when (event) {
 ```
 
 #### RunFinishedEvent
+
 Agent run completes.
 
 ```kotlin
@@ -370,6 +406,7 @@ data class RunFinishedEvent(
 ```
 
 **Usage:**
+
 ```kotlin
 when (event) {
     is RunFinishedEvent -> {
@@ -380,9 +417,11 @@ when (event) {
 ```
 
 ### Error Events (1)
+
 Handle protocol and execution errors.
 
 #### ErrorEvent
+
 Protocol or execution error.
 
 ```kotlin
@@ -394,6 +433,7 @@ data class ErrorEvent(
 ```
 
 **Usage:**
+
 ```kotlin
 when (event) {
     is ErrorEvent -> {
@@ -411,12 +451,13 @@ when (event) {
 ## Complete Event Handling
 
 ### Comprehensive Handler
+
 ```kotlin
 class EventHandler {
     private val messageBuffers = mutableMapOf<String, StringBuilder>()
     private val toolArgsBuffers = mutableMapOf<String, StringBuilder>()
     private var currentState: JsonElement = JsonObject(emptyMap())
-    
+
     fun handleEvent(event: BaseEvent) {
         when (event) {
             // Message Events
@@ -432,12 +473,12 @@ class EventHandler {
                 val fullMessage = messageBuffers.remove(event.messageId)?.toString()
                 println("\n📝 Message complete: $fullMessage")
             }
-            
-            // Thinking Events  
+
+            // Thinking Events
             is ThinkingStartEvent -> println("🤔 Agent thinking...")
             is ThinkingTextMessageContentEvent -> println("💭 ${event.delta}")
             is ThinkingEndEvent -> println("💡 Thinking complete")
-            
+
             // Tool Events
             is ToolCallStartEvent -> {
                 println("🔧 Tool call: ${event.toolCallName} (${event.toolCallId})")
@@ -453,7 +494,7 @@ class EventHandler {
             is ToolResultEvent -> {
                 println("🔧 Tool result: ${event.content}")
             }
-            
+
             // State Events
             is StateSnapshotEvent -> {
                 currentState = event.snapshot
@@ -463,17 +504,17 @@ class EventHandler {
                 // Apply JSON patch (simplified)
                 println("📊 State delta applied")
             }
-            
+
             // Lifecycle Events
             is RunStartedEvent -> println("🚀 Run ${event.runId} started")
             is RunFinishedEvent -> println("✅ Run ${event.runId} finished")
-            
+
             // Error Events
             is ErrorEvent -> {
                 println("❌ Error: ${event.error.message}")
                 println("   Type: ${event.error.type}")
             }
-            
+
             // Chunk Events (handled by ChunkTransform)
             is TextMessageChunkEvent -> {
                 // Usually processed by transform before reaching handler
@@ -491,12 +532,13 @@ class EventHandler {
 ### Event Flow Examples
 
 #### Text Message Flow
+
 ```kotlin
 // Typical text message event sequence:
 // 1. RunStartedEvent
 // 2. TextMessageStartEvent
 // 3. TextMessageContentEvent (multiple)
-// 4. TextMessageEndEvent  
+// 4. TextMessageEndEvent
 // 5. RunFinishedEvent
 
 agent.sendMessage("Hello").collect { event ->
@@ -511,6 +553,7 @@ agent.sendMessage("Hello").collect { event ->
 ```
 
 #### Tool Call Flow
+
 ```kotlin
 // Typical tool call event sequence:
 // 1. RunStartedEvent
@@ -533,6 +576,7 @@ agent.sendMessage("What's the weather?").collect { event ->
 ```
 
 #### Thinking Flow
+
 ```kotlin
 // Agents may think before responding:
 // 1. RunStartedEvent
@@ -559,6 +603,7 @@ agent.sendMessage("Complex question").collect { event ->
 ## Best Practices
 
 ### Exhaustive Handling
+
 ```kotlin
 // Always handle all event types
 fun processEvent(event: BaseEvent): Unit = when (event) {
@@ -586,16 +631,17 @@ fun processEvent(event: BaseEvent): Unit = when (event) {
 ```
 
 ### Event Buffering
+
 ```kotlin
 class EventBuffer {
     private val textBuffers = mutableMapOf<String, StringBuilder>()
     private val toolArgsBuffers = mutableMapOf<String, StringBuilder>()
-    
+
     fun bufferTextContent(event: TextMessageContentEvent) {
         textBuffers.getOrPut(event.messageId) { StringBuilder() }
             .append(event.delta)
     }
-    
+
     fun getCompleteText(messageId: String): String? {
         return textBuffers.remove(messageId)?.toString()
     }
@@ -603,6 +649,7 @@ class EventBuffer {
 ```
 
 ### Error Handling
+
 ```kotlin
 fun handleEventSafely(event: BaseEvent) {
     try {

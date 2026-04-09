@@ -10,6 +10,7 @@ description: Base class for implementing custom agent connectivity patterns
 ## Overview
 
 AbstractAgent provides:
+
 - Core HTTP client configuration and management
 - Authentication handling
 - Request/response lifecycle hooks
@@ -25,12 +26,12 @@ class CustomAgent(
     url: String,
     configure: AgUiAgentConfig.() -> Unit = {}
 ) : AbstractAgent(url, configure) {
-    
+
     override fun run(input: RunAgentInput): Flow<BaseEvent> {
         return flow {
             // Custom pre-processing
             val processedInput = preprocessInput(input)
-            
+
             // Execute request using inherited HTTP client
             httpClient.post(agentUrl) {
                 contentType(ContentType.Application.Json)
@@ -41,14 +42,14 @@ class CustomAgent(
             }
         }
     }
-    
+
     private fun preprocessInput(input: RunAgentInput): RunAgentInput {
         // Custom input processing logic
         return input.copy(
             context = input.context + mapOf("customFlag" to "true")
         )
     }
-    
+
     private fun processEvent(event: BaseEvent): BaseEvent {
         // Custom event processing logic
         return when (event) {
@@ -69,28 +70,28 @@ class BatchAgent(
     url: String,
     configure: AgUiAgentConfig.() -> Unit = {}
 ) : AbstractAgent(url, configure) {
-    
+
     private val messageQueue = mutableListOf<String>()
-    
+
     fun queueMessage(message: String) {
         messageQueue.add(message)
     }
-    
+
     fun processBatch(threadId: String = "batch"): Flow<BaseEvent> {
         val messages = messageQueue.map { content ->
             UserMessage(id = generateId("user"), content = content)
         }
-        
+
         val input = RunAgentInput(
             threadId = threadId,
             runId = generateRunId(),
             messages = messages
         )
-        
+
         messageQueue.clear()
         return run(input)
     }
-    
+
     override fun run(input: RunAgentInput): Flow<BaseEvent> {
         // Custom batching logic
         return super.run(input.copy(
@@ -112,7 +113,7 @@ abstract class MyAgent(
     url: String,
     configure: AgUiAgentConfig.() -> Unit
 ) : AbstractAgent(url, configure) {
-    
+
     init {
         // Access configuration through inherited 'config' property
         println("System prompt: ${config.systemPrompt}")
@@ -127,6 +128,7 @@ abstract class MyAgent(
 ### Abstract Methods
 
 #### run
+
 Must be implemented by subclasses to define request execution:
 
 ```kotlin
@@ -134,6 +136,7 @@ abstract fun run(input: RunAgentInput): Flow<BaseEvent>
 ```
 
 **Parameters:**
+
 - `input`: Complete AG-UI protocol input
 
 **Returns:** `Flow<BaseEvent>` - Stream of protocol events
@@ -141,6 +144,7 @@ abstract fun run(input: RunAgentInput): Flow<BaseEvent>
 ### Protected Properties
 
 #### httpClient
+
 Pre-configured HTTP client with authentication:
 
 ```kotlin
@@ -159,6 +163,7 @@ class MyAgent : AbstractAgent(url, config) {
 ```
 
 #### config
+
 Access to agent configuration:
 
 ```kotlin
@@ -169,7 +174,7 @@ class MyAgent : AbstractAgent(url, config) {
             requestTimeoutMillis = config.requestTimeout.inWholeMilliseconds
             connectTimeoutMillis = config.connectTimeout.inWholeMilliseconds
         }
-        
+
         // Add custom headers from config
         config.headers.forEach { (key, value) ->
             header(key, value)
@@ -179,6 +184,7 @@ class MyAgent : AbstractAgent(url, config) {
 ```
 
 #### agentUrl
+
 The configured agent endpoint URL:
 
 ```kotlin
@@ -195,6 +201,7 @@ class MyAgent : AbstractAgent(url, config) {
 ### Utility Methods
 
 #### generateId
+
 Generate unique IDs for messages and runs:
 
 ```kotlin
@@ -209,6 +216,7 @@ class MyAgent : AbstractAgent(url, config) {
 ```
 
 #### generateRunId
+
 Generate unique run identifiers:
 
 ```kotlin
@@ -226,22 +234,27 @@ class MyAgent : AbstractAgent(url, config) {
 AbstractAgent automatically configures the HTTP client with:
 
 ### Authentication
+
 Based on config, sets up:
+
 - Bearer token authentication
-- API key authentication  
+- API key authentication
 - Basic authentication
 - Custom authentication providers
 
 ### Platform-Specific Engines
+
 - **Android**: `ktor-client-android`
 - **iOS**: `ktor-client-darwin`
 - **JVM**: `ktor-client-cio`
 
 ### Content Negotiation
+
 - JSON serialization with kotlinx.serialization
 - Automatic request/response handling
 
 ### Logging
+
 Optional request/response logging when `config.debug = true`
 
 ## Common Implementation Patterns
@@ -259,7 +272,7 @@ class PreprocessingAgent : AbstractAgent(url, config) {
                     "requestTime" to System.currentTimeMillis().toString()
                 )
             )
-            
+
             // Execute with enhanced input
             processRequest(enhancedInput).collect { emit(it) }
         }
@@ -302,7 +315,7 @@ class TransformingAgent : AbstractAgent(url, config) {
                 }
             }
     }
-    
+
     private fun formatContent(content: String): String {
         // Custom content formatting
         return content.trim().replace("\\n", "\n")
@@ -346,8 +359,8 @@ class ValidatingAgent : AbstractAgent(url, config) {
         require(config.systemPrompt?.isNotBlank() == true) {
             "System prompt is required"
         }
-        
-        require(config.bearerToken?.isNotBlank() == true || 
+
+        require(config.bearerToken?.isNotBlank() == true ||
                config.apiKey?.isNotBlank() == true) {
             "Authentication is required"
         }
@@ -360,16 +373,16 @@ class ValidatingAgent : AbstractAgent(url, config) {
 ```kotlin
 class ResourceAwareAgent : AbstractAgent(url, config) {
     private val requestCounter = AtomicInteger(0)
-    
+
     override fun run(input: RunAgentInput): Flow<BaseEvent> {
         val requestId = requestCounter.incrementAndGet()
-        
+
         return flow {
             try {
                 if (config.debug) {
                     println("Starting request $requestId")
                 }
-                
+
                 processRequest(input).collect { event ->
                     emit(event)
                 }
@@ -388,14 +401,14 @@ class ResourceAwareAgent : AbstractAgent(url, config) {
 ```kotlin
 class ThreadSafeAgent : AbstractAgent(url, config) {
     private val activeRequests = ConcurrentHashMap<String, Job>()
-    
+
     override fun run(input: RunAgentInput): Flow<BaseEvent> {
         return flow {
             val requestKey = "${input.threadId}-${input.runId}"
-            
+
             // Track active request
             activeRequests[requestKey] = currentCoroutineContext().job
-            
+
             try {
                 processRequest(input).collect { event ->
                     emit(event)
@@ -405,7 +418,7 @@ class ThreadSafeAgent : AbstractAgent(url, config) {
             }
         }
     }
-    
+
     fun cancelRequest(threadId: String, runId: String) {
         val requestKey = "$threadId-$runId"
         activeRequests[requestKey]?.cancel()

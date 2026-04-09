@@ -13,19 +13,20 @@ Frontend tools let your AI agents directly interact with and update your applica
   <Tab value="page.tsx">
   ```tsx
 
-  useFrontendTool({
-    name: "setTheme",
-    description: "Switch the app's color theme",
-    parameters: z.object({
-      theme: z.enum(["light", "dark"]),
-    }),
-    handler: async ({ theme }) => {
-      document.documentElement.dataset.theme = theme;
-      return `Theme set to ${theme}!`;
-    },
-  });
-  ```
-  </Tab>
+useFrontendTool({
+name: "setTheme",
+description: "Switch the app's color theme",
+parameters: z.object({
+theme: z.enum(["light", "dark"]),
+}),
+handler: async ({ theme }) => {
+document.documentElement.dataset.theme = theme;
+return `Theme set to ${theme}!`;
+},
+});
+
+```
+</Tab>
 </Tabs>
 
 ## When should I use this?
@@ -41,3 +42,4 @@ Use frontend tools when your agent needs to:
 ## Get started by choosing your AI backend
 
 <IntegrationGrid path="frontend-tools" />
+```

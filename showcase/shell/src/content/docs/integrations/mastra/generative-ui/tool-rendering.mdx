@@ -4,7 +4,6 @@ icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 ---
 
-
 <IframeSwitcher
   id="tool-based-generative-ui-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/mastra/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
@@ -37,7 +36,6 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 Add a new tool definition:
 
 ```ts title="src/mastra/tools/weatherInfo.ts"
-
 export const weatherInfo = createTool({
   id: "weatherInfo",
   inputSchema: z.object({
@@ -55,7 +53,6 @@ export const weatherInfo = createTool({
 Then, pass the tool to the agent:
 
 ```ts title="src/mastra/agents/weatherAgent.ts"
-
 export const weatherAgent = new Agent({
   name: "Weather Agent",
   instructions:

@@ -15,10 +15,14 @@ function will pause the node at the call site and rerun the node with the user's
 All together, this process will look like this:
 
 <Frame>
-    <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-hitl-infographic.png" alt="Human in the loop" />
+  <img
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-hitl-infographic.png"
+    alt="Human in the loop"
+  />
 </Frame>
 
 The implementation of all of this is actually quite simple, but understanding how it all fits together is key.
+
 </Step>
 <Step>
 ## Add `useLangGraphInterrupt` to the frontend
@@ -28,31 +32,36 @@ If you recall from when we started the agent, the interrupt will stop the node w
 CopilotKit allows us to render a UI to get the user's decision for this interrupt and respond accordingly via the `useLangGraphInterrupt` hook.
 
 In our `page.tsx` file, add the following code.
+
 ```tsx title="frontend/src/app/page.tsx"
 // ...
 // ...
 
 export default function HomePage() {
-    // ...
-    const { state: researchState, setResearchState } = useResearch()
+  // ...
+  const { state: researchState, setResearchState } = useResearch();
 
-    const streamingSection = useStreamingContent(researchState);
+  const streamingSection = useStreamingContent(researchState);
 
-    // [!code ++:12]
-    useLangGraphInterrupt<Proposal>({
-      render: ({ resolve, event }) => {
-        return <ProposalViewer
+  // [!code ++:12]
+  useLangGraphInterrupt<Proposal>({
+    render: ({ resolve, event }) => {
+      return (
+        <ProposalViewer
           proposal={event.value}
-          onSubmit={(approved, proposal) => resolve(
-            JSON.stringify({
-              ...proposal,
-              approved,
-            })
-          )}
+          onSubmit={(approved, proposal) =>
+            resolve(
+              JSON.stringify({
+                ...proposal,
+                approved,
+              }),
+            )
+          }
         />
-      }
-    })
-    // ...
+      );
+    },
+  });
+  // ...
 }
 ```
 
@@ -63,12 +72,15 @@ will be called with the user's decision.
 Checkout the `ProposalViewer` component code in the `frontend/src/components/ProposalViewer.tsx` file for more details about rendering.
 
 It's just a standard React component with some styling, a form, and a submit button.
+
 </Callout>
 </Step>
 </Steps>
 
 ## Recap
+
 It is really as simple as that! Now, we've implemented human-in-the-loop for our agent. To recap, we did the following:
+
 - Learned about human-in-the-loop in LangGraph.
 - Added the `useLangGraphInterrupt` hook to our application.
 - Rendered a `ProposalViewer` component to the user in the chat
@@ -80,7 +92,13 @@ Please research dogs!
 ```
 
 <Frame className="mt-0">
-  <ImageZoom className="mt-0" src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/research-ana/fe-step-5-finish.png" alt="CopilotCloud API Key" height={1000} width={1000} />
+  <ImageZoom
+    className="mt-0"
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/research-ana/fe-step-5-finish.png"
+    alt="CopilotCloud API Key"
+    height={1000}
+    width={1000}
+  />
 </Frame>
 
 Now, we can completely run our agent from start to finish to conduct research. However, you may notice that the research does not populate in the right window

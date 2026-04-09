@@ -15,20 +15,20 @@ import { defineConfig, devices } from "@playwright/test";
  *   npx playwright test -g "langgraph-python"  # single integration
  */
 export default defineConfig({
-    testDir: "./e2e",
-    timeout: 120_000,
-    expect: {
-        timeout: 30_000,
-    },
-    fullyParallel: true,
-    forbidOnly: !!process.env.CI,
-    retries: 1,
-    workers: process.env.CI ? 2 : 4,
-    reporter: process.env.CI ? "github" : "list",
-    outputDir: "test-results",
-    use: {
-        ...devices["Desktop Chrome"],
-        trace: "retain-on-failure",
-        screenshot: "only-on-failure",
-    },
+  testDir: "./e2e",
+  timeout: 120_000,
+  expect: {
+    timeout: 30_000,
+  },
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: 1,
+  workers: process.env.CI ? 2 : 4,
+  reporter: process.env.CI ? "github" : "list",
+  outputDir: "test-results",
+  use: {
+    ...devices["Desktop Chrome"],
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+  },
 });

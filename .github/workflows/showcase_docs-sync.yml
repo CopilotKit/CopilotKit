@@ -8,6 +8,10 @@ on:
       - "docs/snippets/**"
   workflow_dispatch:
 
+concurrency:
+  group: showcase-docs-sync
+  cancel-in-progress: false
+
 jobs:
   sync-docs:
     runs-on: ubuntu-latest
@@ -16,7 +20,7 @@ jobs:
       contents: write
       pull-requests: write
     env:
-      SHOWCASE_BRANCH: feature/unified-showcase-platform
+      SHOWCASE_BRANCH: main
     steps:
       - uses: actions/checkout@v4
         with:

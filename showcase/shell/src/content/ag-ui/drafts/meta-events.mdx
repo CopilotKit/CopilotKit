@@ -41,19 +41,19 @@ This proposal introduces:
 
 ```typescript
 type MetaEvent = BaseEvent & {
-  type: EventType.META
+  type: EventType.META;
   /**
    * Application-defined type of the meta event.
    * Examples: "thumbs_up", "thumbs_down", "tag", "note"
    */
-  metaType: string
+  metaType: string;
 
   /**
    * Application-defined payload.
    * May reference other entities (e.g., messageId) or contain freeform data.
    */
-  payload: Record<string, unknown>
-}
+  payload: Record<string, unknown>;
+};
 ```
 
 ### Key Characteristics

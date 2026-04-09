@@ -1,4 +1,4 @@
-import { IframeSwitcher } from "@/components/content"
+import { IframeSwitcher } from "@/components/content";
 
 <IframeSwitcher
   id="frontend-actions-example"
@@ -18,6 +18,7 @@ This can be utilized to let your agent control the UI, for generative UI, or for
 ## When should I use this?
 
 Use frontend tools when you need your agent to interact with client-side primitives such as:
+
 - Reading or modifying React component state
 - Accessing browser APIs like localStorage, sessionStorage, or cookies
 - Triggering UI updates or animations
@@ -30,7 +31,7 @@ Use the `useFrontendTool` hook to create a tool that your agent can call from th
 
 ```tsx title="page.tsx"
 import { z } from "zod";
-import { useFrontendTool } from "@copilotkit/react-core/v2" // [!code highlight]
+import { useFrontendTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 
 export function Page() {
   // ...

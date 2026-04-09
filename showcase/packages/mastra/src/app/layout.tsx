@@ -4,17 +4,17 @@ import "./globals.css";
 import "./copilotkit-overrides.css";
 
 export const metadata: Metadata = {
-    title: "CopilotKit Showcase — Mastra",
+  title: "CopilotKit Showcase — Mastra",
 };
 
 export default function RootLayout({
-    children,
+  children,
 }: {
-    children: React.ReactNode;
+  children: React.ReactNode;
 }) {
-    return (
-        <html lang="en">
-            <body>{children}</body>
-        </html>
-    );
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
 }

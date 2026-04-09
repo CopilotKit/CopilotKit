@@ -2,16 +2,17 @@
 title: "Step 2: Start the Agent"
 ---
 
-Before we start integrating the LangGraph agent, let's understand how it works. 
+Before we start integrating the LangGraph agent, let's understand how it works.
 
-For the sake of this tutorial we won't be building the LangGraph together from scratch. 
-Instead, we'll be using the LangGraph constructed in the `agent/` directory. It will 
+For the sake of this tutorial we won't be building the LangGraph together from scratch.
+Instead, we'll be using the LangGraph constructed in the `agent/` directory. It will
 contain all of the logic we need to build our research ANA except for the CopilotKit
 features, which we'll add together.
 
 <Callout>
-If you're interested in a step-by-step guide for building a LangGraph agent, you can checkout the 
-[LangGraph quickstart guide](https://docs.langchain.com/oss/python/langgraph/quickstart).
+  If you're interested in a step-by-step guide for building a LangGraph agent,
+  you can checkout the [LangGraph quickstart
+  guide](https://docs.langchain.com/oss/python/langgraph/quickstart).
 </Callout>
 
 Let's walk through the LangGraph agent to understand how it works before we integrate it into the application.
@@ -34,6 +35,7 @@ touch .env
 ```
 
 Add your API keys:
+
 ```txt title=".env"
 OPENAI_API_KEY=<your-openai-api-key>
 TAVILY_API_KEY=<your-tavily-api-key>
@@ -53,10 +55,15 @@ langgraph dev --host localhost --port 8000 # Start the agent
 This opens LangGraph Studio in your brwoser where you can visualize and interact with your agent.
 
 <Callout>
-The agent will be available at https://localhost:8000 for later steps.
+  The agent will be available at https://localhost:8000 for later steps.
 </Callout>
 
-<ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/research-ana/lgs-overview.png" height={1000} width={1000} className="rounded-lg shadow-lg"/>
+<ImageZoom
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/research-ana/lgs-overview.png"
+  height={1000}
+  width={1000}
+  className="rounded-lg shadow-lg"
+/>
 
 </Step>
 <Step>
@@ -77,13 +84,16 @@ As we're building this agent into an agentic experience, we'll want to understan
 You can submit a message to the agent by adding a message to the `messages` state variable and then clicking "Submit". This agent is paired
 down for this tutorial and is meant to represent a simple research agent.
 
-We'll be making this fancy in later steps, but for now you can ask it to do some research and see what behavior we'll be 
+We'll be making this fancy in later steps, but for now you can ask it to do some research and see what behavior we'll be
 integrating into the application.
+
 </Step>
 </Steps>
 
 ## Recap
+
 Now we have a running agent! It will be available at `https://localhost:8000`. Here's what we did:
+
 - Installed LangGraph Studio
 - Setup the `.env` file
 - Started, visualized and tested the LangGraph agent

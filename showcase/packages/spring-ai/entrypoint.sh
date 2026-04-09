@@ -8,7 +8,7 @@ JAVA_PID=$!
 # Wait for Spring Boot to be ready (up to 30 seconds)
 echo "[entrypoint] Waiting for Spring Boot health check..."
 for i in $(seq 1 30); do
-    if curl -sf http://localhost:8000/ok > /dev/null 2>&1; then
+    if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
         echo "[entrypoint] Spring Boot ready after ${i}s"
         break
     fi
@@ -20,7 +20,7 @@ for i in $(seq 1 30); do
 done
 
 # Verify it's actually up
-if ! curl -sf http://localhost:8000/ok > /dev/null 2>&1; then
+if ! curl -sf http://localhost:8000/health > /dev/null 2>&1; then
     echo "[entrypoint] Spring Boot failed to start within 30s"
     exit 1
 fi

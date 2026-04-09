@@ -10,32 +10,48 @@ description: "Component for displaying user-authored messages with branch naviga
 ## Import
 
 ```tsx
+
 ```
 
 ## Props
 
 <PropertyReference name="message" type="UserMessage" required>
-  The user message object to render. Contains the message `content`, `id`, and `role`.
+  The user message object to render. Contains the message `content`, `id`, and
+  `role`.
 </PropertyReference>
 
-<PropertyReference name="onEditMessage" type="(props: { message: UserMessage }) => void">
-  Callback invoked when the user clicks the edit button. When not provided, the edit button is hidden from the toolbar.
+<PropertyReference
+  name="onEditMessage"
+  type="(props: { message: UserMessage }) => void"
+>
+  Callback invoked when the user clicks the edit button. When not provided, the
+  edit button is hidden from the toolbar.
 </PropertyReference>
 
-<PropertyReference name="onSwitchToBranch" type="(props: { message: UserMessage; branchIndex: number; numberOfBranches: number }) => void">
-  Callback invoked when the user navigates to a different branch. Receives the target `branchIndex` and total `numberOfBranches`. The branch navigation controls are only rendered when this callback is provided and `numberOfBranches` is greater than 1.
+<PropertyReference
+  name="onSwitchToBranch"
+  type="(props: { message: UserMessage; branchIndex: number; numberOfBranches: number }) => void"
+>
+  Callback invoked when the user navigates to a different branch. Receives the
+  target `branchIndex` and total `numberOfBranches`. The branch navigation
+  controls are only rendered when this callback is provided and
+  `numberOfBranches` is greater than 1.
 </PropertyReference>
 
 <PropertyReference name="branchIndex" type="number">
-  The zero-based index of the currently active branch. Used by the branch navigation controls to display the current position.
+  The zero-based index of the currently active branch. Used by the branch
+  navigation controls to display the current position.
 </PropertyReference>
 
 <PropertyReference name="numberOfBranches" type="number">
-  The total number of available branches for this message. Branch navigation is only rendered when this value is greater than 1 and `onSwitchToBranch` is provided.
+  The total number of available branches for this message. Branch navigation is
+  only rendered when this value is greater than 1 and `onSwitchToBranch` is
+  provided.
 </PropertyReference>
 
 <PropertyReference name="additionalToolbarItems" type="React.ReactNode">
-  Additional React elements appended to the toolbar alongside the default action buttons.
+  Additional React elements appended to the toolbar alongside the default action
+  buttons.
 </PropertyReference>
 
 ## Slots
@@ -45,74 +61,107 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 <PropertyReference name="messageRenderer" type="SlotProp<typeof CopilotChatUserMessage.MessageRenderer>">
   Slot for the message content renderer. Defaults to `CopilotChatUserMessage.MessageRenderer`, which formats message text with `white-space: pre-wrap` to preserve whitespace and line breaks.
 
-  **As a replacement component:**
-  ```tsx
-  <CopilotChatUserMessage
-    message={msg}
-    messageRenderer={({ message }) => (
-      <div className="font-mono text-sm">{message.content}</div>
-    )}
-  />
-  ```
+**As a replacement component:**
 
-  **As a className:**
-  ```tsx
-  <CopilotChatUserMessage
-    message={msg}
-    messageRenderer="text-lg font-medium"
-  />
-  ```
+```tsx
+<CopilotChatUserMessage
+  message={msg}
+  messageRenderer={({ message }) => (
+    <div className="font-mono text-sm">{message.content}</div>
+  )}
+/>
+```
+
+**As a className:**
+
+```tsx
+<CopilotChatUserMessage message={msg} messageRenderer="text-lg font-medium" />
+```
+
 </PropertyReference>
 
 <PropertyReference name="toolbar" type="SlotProp<typeof CopilotChatUserMessage.Toolbar>">
   Slot for the action toolbar container. Defaults to `CopilotChatUserMessage.Toolbar`, which renders a horizontal row of action buttons below the message content.
 
-  **As a className:**
-  ```tsx
-  <CopilotChatUserMessage
-    message={msg}
-    toolbar="opacity-0 group-hover:opacity-100 transition-opacity"
-  />
-  ```
+**As a className:**
+
+```tsx
+<CopilotChatUserMessage
+  message={msg}
+  toolbar="opacity-0 group-hover:opacity-100 transition-opacity"
+/>
+```
+
 </PropertyReference>
 
-<PropertyReference name="copyButton" type="SlotProp<typeof CopilotChatUserMessage.CopyButton>">
-  Slot for the copy-to-clipboard button. Defaults to `CopilotChatUserMessage.CopyButton`. The tooltip label is sourced from `CopilotChatLabels.userMessageToolbarCopyMessageLabel`.
+<PropertyReference
+  name="copyButton"
+  type="SlotProp<typeof CopilotChatUserMessage.CopyButton>"
+>
+  Slot for the copy-to-clipboard button. Defaults to
+  `CopilotChatUserMessage.CopyButton`. The tooltip label is sourced from
+  `CopilotChatLabels.userMessageToolbarCopyMessageLabel`.
 </PropertyReference>
 
-<PropertyReference name="editButton" type="SlotProp<typeof CopilotChatUserMessage.EditButton>">
-  Slot for the edit button. Defaults to `CopilotChatUserMessage.EditButton`. Only rendered when `onEditMessage` is provided. The tooltip label is sourced from `CopilotChatLabels.userMessageToolbarEditMessageLabel`.
+<PropertyReference
+  name="editButton"
+  type="SlotProp<typeof CopilotChatUserMessage.EditButton>"
+>
+  Slot for the edit button. Defaults to `CopilotChatUserMessage.EditButton`.
+  Only rendered when `onEditMessage` is provided. The tooltip label is sourced
+  from `CopilotChatLabels.userMessageToolbarEditMessageLabel`.
 </PropertyReference>
 
 <PropertyReference name="branchNavigation" type="SlotProp<typeof CopilotChatUserMessage.BranchNavigation>">
   Slot for the branch navigation controls. Defaults to `CopilotChatUserMessage.BranchNavigation`, which renders previous/next arrows and a branch counter (e.g., "2 / 3"). Only rendered when `numberOfBranches` is greater than 1 and `onSwitchToBranch` is provided.
 
-  **As a replacement component:**
-  ```tsx
-  <CopilotChatUserMessage
-    message={msg}
-    numberOfBranches={3}
-    branchIndex={1}
-    onSwitchToBranch={handleSwitch}
-    branchNavigation={({ branchIndex, numberOfBranches, onSwitchToBranch, message }) => (
-      <div className="flex items-center gap-1 text-xs">
-        <button
-          onClick={() => onSwitchToBranch({ message, branchIndex: branchIndex - 1, numberOfBranches })}
-          disabled={branchIndex === 0}
-        >
-          Prev
-        </button>
-        <span>{branchIndex + 1} of {numberOfBranches}</span>
-        <button
-          onClick={() => onSwitchToBranch({ message, branchIndex: branchIndex + 1, numberOfBranches })}
-          disabled={branchIndex === numberOfBranches - 1}
-        >
-          Next
-        </button>
-      </div>
-    )}
-  />
-  ```
+**As a replacement component:**
+
+```tsx
+<CopilotChatUserMessage
+  message={msg}
+  numberOfBranches={3}
+  branchIndex={1}
+  onSwitchToBranch={handleSwitch}
+  branchNavigation={({
+    branchIndex,
+    numberOfBranches,
+    onSwitchToBranch,
+    message,
+  }) => (
+    <div className="flex items-center gap-1 text-xs">
+      <button
+        onClick={() =>
+          onSwitchToBranch({
+            message,
+            branchIndex: branchIndex - 1,
+            numberOfBranches,
+          })
+        }
+        disabled={branchIndex === 0}
+      >
+        Prev
+      </button>
+      <span>
+        {branchIndex + 1} of {numberOfBranches}
+      </span>
+      <button
+        onClick={() =>
+          onSwitchToBranch({
+            message,
+            branchIndex: branchIndex + 1,
+            numberOfBranches,
+          })
+        }
+        disabled={branchIndex === numberOfBranches - 1}
+      >
+        Next
+      </button>
+    </div>
+  )}
+/>
+```
+
 </PropertyReference>
 
 ## Usage
@@ -120,7 +169,6 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 ### Basic User Message
 
 ```tsx
-
 function UserBubble({ message }) {
   return <CopilotChatUserMessage message={message} />;
 }
@@ -129,7 +177,6 @@ function UserBubble({ message }) {
 ### With Edit Support
 
 ```tsx
-
 function EditableUserMessage({ message, onEdit }) {
   return (
     <CopilotChatUserMessage
@@ -143,8 +190,12 @@ function EditableUserMessage({ message, onEdit }) {
 ### With Branch Navigation
 
 ```tsx
-
-function BranchedUserMessage({ message, branchIndex, totalBranches, onSwitch }) {
+function BranchedUserMessage({
+  message,
+  branchIndex,
+  totalBranches,
+  onSwitch,
+}) {
   return (
     <CopilotChatUserMessage
       message={message}
@@ -159,7 +210,6 @@ function BranchedUserMessage({ message, branchIndex, totalBranches, onSwitch }) 
 ### Customizing Appearance with Slots
 
 ```tsx
-
 function StyledUserMessage({ message }) {
   return (
     <CopilotChatUserMessage
@@ -178,7 +228,6 @@ function StyledUserMessage({ message }) {
 ### Full Edit and Branch Workflow
 
 ```tsx
-
 function FullFeaturedUserMessage({ message, branches }) {
   const [currentBranch, setCurrentBranch] = useState(0);
 

@@ -6,13 +6,12 @@ import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body> 
+      <body>
         {/* Make sure to use the URL you configured in the previous step  */}
         {/* [!code highlight:3] */}
-        <CopilotKit runtimeUrl="/api/copilotkit"> 
-          {children}
-        </CopilotKit>
+        <CopilotKit runtimeUrl="/api/copilotkit">{children}</CopilotKit>
       </body>
     </html>
   );
 }
+```

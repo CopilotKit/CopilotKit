@@ -218,7 +218,7 @@ Timeouts are handled automatically based on each tool's `getMaxExecutionTimeMs()
 ```kotlin
 class SlowToolExecutor : ToolExecutor {
     override fun getMaxExecutionTimeMs(): Long = 60_000 // 1 minute
-    
+
     override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
         // Long-running operation
         delay(30_000) // 30 seconds
@@ -270,15 +270,15 @@ class AgentService {
         addTool(CalculatorToolExecutor())
         addTool(WeatherToolExecutor())
     }
-    
+
     private val agent = agentWithTools(url, toolRegistry) {
         bearerToken = token
     }
-    
+
     fun getExecutionStats(): Map<String, ToolExecutionStats> {
         return toolRegistry.getAllStats()
     }
-    
+
     fun resetStats() {
         toolRegistry.clearStats()
     }
@@ -290,7 +290,7 @@ class AgentService {
 ```kotlin
 class DynamicToolManager {
     private val registry: ToolRegistry = DefaultToolRegistry()
-    
+
     fun enableFeature(feature: String) {
         when (feature) {
             "location" -> registry.registerTool(LocationToolExecutor())
@@ -298,11 +298,11 @@ class DynamicToolManager {
             "files" -> registry.registerTool(FileToolExecutor())
         }
     }
-    
+
     fun disableFeature(feature: String) {
         registry.unregisterTool(feature)
     }
-    
+
     fun getAvailableFeatures(): List<String> {
         return registry.getAllTools().map { it.name }
     }
@@ -314,7 +314,7 @@ class DynamicToolManager {
 ```kotlin
 class ToolMonitor {
     private val errorCounts = mutableMapOf<String, Int>()
-    
+
     suspend fun executeWithMonitoring(
         registry: ToolRegistry,
         context: ToolExecutionContext
@@ -330,10 +330,10 @@ class ToolMonitor {
             throw e
         }
     }
-    
+
     private fun recordError(toolName: String) {
         errorCounts[toolName] = errorCounts.getOrDefault(toolName, 0) + 1
-        
+
         // Disable problematic tools
         if (errorCounts[toolName]!! > 5) {
             println("Tool $toolName has too many errors, consider disabling")
@@ -364,7 +364,7 @@ launch { registry.executeTool(context2) }
 class OptimizedToolRegistry {
     private val registry = DefaultToolRegistry()
     private val frequentTools = setOf("calculator", "weather", "location")
-    
+
     init {
         // Pre-register frequently used tools
         frequentTools.forEach { toolName ->
@@ -375,7 +375,7 @@ class OptimizedToolRegistry {
             }
         }
     }
-    
+
     fun getOptimizedStats(): Map<String, Double> {
         return registry.getAllStats().mapValues { (_, stats) ->
             stats.averageExecutionTimeMs

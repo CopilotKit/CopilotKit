@@ -1,5 +1,14 @@
-import { CodeShowcase, CodePanel } from "@/components/react/code-showcase"
-import { MessageSquare, Layers, Code, Bot, Server, BookOpen, Play, Book } from "lucide-react"
+import { CodeShowcase, CodePanel } from "@/components/react/code-showcase";
+import {
+  MessageSquare,
+  Layers,
+  Code,
+  Bot,
+  Server,
+  BookOpen,
+  Play,
+  Book,
+} from "lucide-react";
 
 <CodeShowcase tabs={[
   { label: "Chat", icon: <MessageSquare />, filename: "app.tsx" },
@@ -22,6 +31,7 @@ import { MessageSquare, Layers, Code, Bot, Server, BookOpen, Play, Book } from "
       );
     }
     ```
+
   </CodePanel>
   <CodePanel>
     ```tsx title="chat.tsx"
@@ -42,6 +52,7 @@ import { MessageSquare, Layers, Code, Bot, Server, BookOpen, Play, Book } from "
       );
     }
     ```
+
   </CodePanel>
   <CodePanel>
     ```tsx title="weather-card.tsx"
@@ -63,6 +74,7 @@ import { MessageSquare, Layers, Code, Bot, Server, BookOpen, Play, Book } from "
       ),
     });
     ```
+
   </CodePanel>
   <CodePanel>
     ```ts title="api/copilotkit/route.ts" linenumbers
@@ -84,5 +96,6 @@ import { MessageSquare, Layers, Code, Bot, Server, BookOpen, Play, Book } from "
       return handleRequest(req);
     };
     ```
+
   </CodePanel>
 </CodeShowcase>

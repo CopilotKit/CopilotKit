@@ -75,16 +75,16 @@ function MyComponent() {
 
 The full list of subscribable events maps directly to the [AG-UI event types](https://docs.ag-ui.com/concepts/events):
 
-| Event | Callback | Description |
-| --- | --- | --- |
-| Run lifecycle | `onRunStartedEvent`, `onRunFinishedEvent`, `onRunErrorEvent` | Agent run start, completion, and errors |
-| Steps | `onStepStartedEvent`, `onStepFinishedEvent` | Individual step boundaries within a run |
-| Text messages | `onTextMessageStartEvent`, `onTextMessageContentEvent`, `onTextMessageEndEvent` | Streaming text content from the agent |
-| Tool calls | `onToolCallStartEvent`, `onToolCallArgsEvent`, `onToolCallEndEvent`, `onToolCallResultEvent` | Tool invocation lifecycle |
-| State | `onStateSnapshotEvent`, `onStateDeltaEvent` | Full state snapshots and incremental deltas |
-| Messages | `onMessagesSnapshotEvent` | Full message list snapshots |
-| Custom | `onCustomEvent`, `onRawEvent` | Custom and raw events for extensibility |
-| High-level | `onMessagesChanged`, `onStateChanged` | Aggregate notifications after any message or state mutation |
+| Event         | Callback                                                                                     | Description                                                 |
+| ------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Run lifecycle | `onRunStartedEvent`, `onRunFinishedEvent`, `onRunErrorEvent`                                 | Agent run start, completion, and errors                     |
+| Steps         | `onStepStartedEvent`, `onStepFinishedEvent`                                                  | Individual step boundaries within a run                     |
+| Text messages | `onTextMessageStartEvent`, `onTextMessageContentEvent`, `onTextMessageEndEvent`              | Streaming text content from the agent                       |
+| Tool calls    | `onToolCallStartEvent`, `onToolCallArgsEvent`, `onToolCallEndEvent`, `onToolCallResultEvent` | Tool invocation lifecycle                                   |
+| State         | `onStateSnapshotEvent`, `onStateDeltaEvent`                                                  | Full state snapshots and incremental deltas                 |
+| Messages      | `onMessagesSnapshotEvent`                                                                    | Full message list snapshots                                 |
+| Custom        | `onCustomEvent`, `onRawEvent`                                                                | Custom and raw events for extensibility                     |
+| High-level    | `onMessagesChanged`, `onStateChanged`                                                        | Aggregate notifications after any message or state mutation |
 
 ## The Proxy Pattern
 
@@ -111,7 +111,10 @@ This indirection is what enables the runtime to provide authentication, middlewa
 On the server side, the `CopilotRuntime` accepts a map of AG-UI `AbstractAgent` instances. Each agent framework provides its own implementation, but they all extend the same base type:
 
 ```ts title="app/api/copilotkit/route.ts"
-import { CopilotRuntime, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
+import {
+  CopilotRuntime,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 
 const runtime = new CopilotRuntime({

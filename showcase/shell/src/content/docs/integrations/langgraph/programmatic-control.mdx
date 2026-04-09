@@ -4,13 +4,13 @@ icon: "lucide/SendHorizontal"
 description: Chat with an agent using CopilotKit's UI components.
 ---
 
-  MessageCircle,
-  Database,
-  Zap,
-  AlertCircle,
-  BookOpen,
-  Play,
-  Settings,
+MessageCircle,
+Database,
+Zap,
+AlertCircle,
+BookOpen,
+Play,
+Settings,
 } from "lucide-react"
 
 ## Overview
@@ -79,7 +79,6 @@ This page covers everything you need to know about using `useAgent` with LangGra
 
 Let's start by building a simple component that displays agent information.
 
-
 <UseAgentSnippet />
 
 ### Node-Specific State
@@ -112,7 +111,6 @@ export function NodeStatus() {
 Use `copilotkit.runAgent()` to trigger your agent from any component — no chat UI required. This is the same method CopilotKit's built-in `<CopilotChat />` uses internally.
 
 ```tsx title="page.tsx"
-
 export function AgentTrigger() {
   const { agent } = useAgent();
   // [!code highlight:1]
@@ -159,7 +157,6 @@ LangGraph's `interrupt()` function emits custom events that you can capture and 
 ### Simple Interrupt Handler
 
 ```tsx title="page.tsx"
-
 export function InterruptHandler() {
   const { agent } = useAgent();
 
@@ -196,7 +193,6 @@ export function InterruptHandler() {
 For a more sophisticated UI, you can render a custom component:
 
 ```tsx title="page.tsx"
-
 export function CustomInterruptHandler() {
   const { agent } = useAgent();
   const [interrupt, setInterrupt] = useState<{ message: string } | null>(null);
@@ -231,11 +227,13 @@ export function CustomInterruptHandler() {
     <div className="interrupt-modal">
       <h3>Agent Needs Your Input</h3>
       <p>{interrupt.message}</p>
-      <form onSubmit={(e) => {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        handleResponse(formData.get("response") as string);
-      }}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const formData = new FormData(e.currentTarget);
+          handleResponse(formData.get("response") as string);
+        }}
+      >
         <input type="text" name="response" placeholder="Your response" />
         <button type="submit">Submit</button>
       </form>

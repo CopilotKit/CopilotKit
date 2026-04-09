@@ -34,7 +34,7 @@ const (
     EventTypeRunError           EventType = "RUN_ERROR"
     EventTypeStepStarted        EventType = "STEP_STARTED"
     EventTypeStepFinished       EventType = "STEP_FINISHED"
-    
+
     // Thinking events for reasoning phase support
     EventTypeThinkingStart              EventType = "THINKING_START"
     EventTypeThinkingEnd                EventType = "THINKING_END"
@@ -52,25 +52,25 @@ All events implement the `Event` interface, which provides a common contract for
 type Event interface {
     // Type returns the event type
     Type() EventType
-    
+
     // Timestamp returns the event timestamp (Unix milliseconds)
     Timestamp() *int64
-    
+
     // SetTimestamp sets the event timestamp
     SetTimestamp(timestamp int64)
-    
+
     // ThreadID returns the thread ID associated with this event
     ThreadID() string
-    
+
     // RunID returns the run ID associated with this event
     RunID() string
-    
+
     // Validate validates the event structure and content
     Validate() error
-    
+
     // ToJSON serializes the event to JSON for cross-SDK compatibility
     ToJSON() ([]byte, error)
-    
+
     // GetBaseEvent returns the underlying base event
     GetBaseEvent() *BaseEvent
 }
@@ -88,11 +88,11 @@ type BaseEvent struct {
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `EventType` | `EventType` | The type of event (discriminator field) |
-| `TimestampMs` | `*int64` | Timestamp when the event was created (Unix milliseconds) |
-| `RawEvent` | `any` | Original event data if this event was transformed |
+| Field         | Type        | Description                                              |
+| ------------- | ----------- | -------------------------------------------------------- |
+| `EventType`   | `EventType` | The type of event (discriminator field)                  |
+| `TimestampMs` | `*int64`    | Timestamp when the event was created (Unix milliseconds) |
+| `RawEvent`    | `any`       | Original event data if this event was transformed        |
 
 ### Creating a Base Event
 
@@ -118,10 +118,10 @@ type TextMessageStartEvent struct {
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `MessageID` | `string` | Unique identifier for the message |
-| `Role` | `*string` | Role of the message sender (e.g., "assistant", "user") |
+| Field       | Type      | Description                                            |
+| ----------- | --------- | ------------------------------------------------------ |
+| `MessageID` | `string`  | Unique identifier for the message                      |
+| `Role`      | `*string` | Role of the message sender (e.g., "assistant", "user") |
 
 **Usage Example:**
 
@@ -148,10 +148,10 @@ type TextMessageContentEvent struct {
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field       | Type     | Description                               |
+| ----------- | -------- | ----------------------------------------- |
 | `MessageID` | `string` | ID of the message this content belongs to |
-| `Delta` | `string` | The text content chunk |
+| `Delta`     | `string` | The text content chunk                    |
 
 **Usage Example:**
 
@@ -177,8 +177,8 @@ type TextMessageEndEvent struct {
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field       | Type     | Description                      |
+| ----------- | -------- | -------------------------------- |
 | `MessageID` | `string` | ID of the message that has ended |
 
 **Usage Example:**
@@ -211,10 +211,10 @@ type ToolCallStartEvent struct {
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `ToolCallID` | `string` | Unique identifier for the tool call |
-| `ToolCallName` | `string` | Name of the tool being called |
+| Field             | Type      | Description                              |
+| ----------------- | --------- | ---------------------------------------- |
+| `ToolCallID`      | `string`  | Unique identifier for the tool call      |
+| `ToolCallName`    | `string`  | Name of the tool being called            |
 | `ParentMessageID` | `*string` | ID of the parent message (if applicable) |
 
 **Usage Example:**
@@ -246,10 +246,10 @@ type ToolCallArgsEvent struct {
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `ToolCallID` | `string` | ID of the tool call |
-| `Delta` | `string` | JSON string chunk of the arguments |
+| Field        | Type     | Description                        |
+| ------------ | -------- | ---------------------------------- |
+| `ToolCallID` | `string` | ID of the tool call                |
+| `Delta`      | `string` | JSON string chunk of the arguments |
 
 **Usage Example:**
 
@@ -276,8 +276,8 @@ type ToolCallEndEvent struct {
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field        | Type     | Description                        |
+| ------------ | -------- | ---------------------------------- |
 | `ToolCallID` | `string` | ID of the tool call that has ended |
 
 ### ToolCallResultEvent
@@ -294,12 +294,12 @@ type ToolCallResultEvent struct {
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `MessageID` | `string` | ID of the result message |
-| `ToolCallID` | `string` | ID of the tool call |
-| `Content` | `string` | Result content from the tool |
-| `Role` | `*string` | Role (typically "tool") |
+| Field        | Type      | Description                  |
+| ------------ | --------- | ---------------------------- |
+| `MessageID`  | `string`  | ID of the result message     |
+| `ToolCallID` | `string`  | ID of the tool call          |
+| `Content`    | `string`  | Result content from the tool |
+| `Role`       | `*string` | Role (typically "tool")      |
 
 ## Run Lifecycle Events
 
@@ -317,10 +317,10 @@ type RunStartedEvent struct {
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field           | Type     | Description                   |
+| --------------- | -------- | ----------------------------- |
 | `ThreadIDValue` | `string` | ID of the conversation thread |
-| `RunIDValue` | `string` | ID of the agent run |
+| `RunIDValue`    | `string` | ID of the agent run           |
 
 **Usage Example:**
 
@@ -348,11 +348,11 @@ type RunFinishedEvent struct {
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `ThreadIDValue` | `string` | ID of the conversation thread |
-| `RunIDValue` | `string` | ID of the agent run |
-| `Result` | `interface{}` | Result data from the agent run |
+| Field           | Type          | Description                    |
+| --------------- | ------------- | ------------------------------ |
+| `ThreadIDValue` | `string`      | ID of the conversation thread  |
+| `RunIDValue`    | `string`      | ID of the agent run            |
+| `Result`        | `interface{}` | Result data from the agent run |
 
 ### RunErrorEvent
 
@@ -367,11 +367,11 @@ type RunErrorEvent struct {
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `Code` | `*string` | Error code |
-| `Message` | `string` | Error message |
-| `RunIDValue` | `string` | ID of the run that encountered the error |
+| Field        | Type      | Description                              |
+| ------------ | --------- | ---------------------------------------- |
+| `Code`       | `*string` | Error code                               |
+| `Message`    | `string`  | Error message                            |
+| `RunIDValue` | `string`  | ID of the run that encountered the error |
 
 **Usage Example:**
 
@@ -399,8 +399,8 @@ type StateSnapshotEvent struct {
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field      | Type  | Description             |
+| ---------- | ----- | ----------------------- |
 | `Snapshot` | `any` | Complete state snapshot |
 
 **Usage Example:**
@@ -432,8 +432,8 @@ type JSONPatchOperation struct {
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field   | Type                   | Description                    |
+| ------- | ---------------------- | ------------------------------ |
 | `Delta` | `[]JSONPatchOperation` | Array of JSON Patch operations |
 
 **Usage Example:**
@@ -470,8 +470,8 @@ type ThinkingStartEvent struct {
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field   | Type      | Description                           |
+| ------- | --------- | ------------------------------------- |
 | `Title` | `*string` | Optional title for the thinking phase |
 
 ### ThinkingTextMessageContentEvent
@@ -485,8 +485,8 @@ type ThinkingTextMessageContentEvent struct {
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field   | Type     | Description            |
+| ------- | -------- | ---------------------- |
 | `Delta` | `string` | Thinking content chunk |
 
 ## Event Decoding
@@ -557,6 +557,7 @@ if err := events.ValidateSequence(events); err != nil {
 ```
 
 Sequence validation ensures:
+
 - Runs are started before they can be finished or errored
 - Messages are started before content can be added or ended
 - Tool calls follow the proper start → args → end lifecycle

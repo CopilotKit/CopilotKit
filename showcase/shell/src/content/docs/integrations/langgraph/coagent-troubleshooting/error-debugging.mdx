@@ -16,7 +16,6 @@ CopilotKit provides comprehensive error handling capabilities to help you debug 
 For local development, enable the dev console to see errors directly in your UI:
 
 ```tsx
-
 export default function App() {
   return (
     <CopilotKit
@@ -42,7 +41,6 @@ export default function App() {
 For production applications, use error observability hooks to send errors to monitoring services (requires `publicApiKey`):
 
 ```tsx
-
 export default function App() {
   return (
     <CopilotKit
@@ -113,7 +111,6 @@ The dev console provides immediate visual feedback during development:
 The error observability hooks provide programmatic access to detailed error information for monitoring and analytics:
 
 ```tsx
-
 <CopilotKit
   publicApiKey="ck_pub_your_key"
   onError={(errorEvent: CopilotErrorEvent) => {
@@ -135,7 +132,7 @@ The error observability hooks provide programmatic access to detailed error info
   }}
 >
   {/* Your app */}
-</CopilotKit>;
+</CopilotKit>
 ```
 
 **Features:**
@@ -243,7 +240,7 @@ interface CopilotErrorEvent {
   }}
 >
   {/* Your app */}
-</CopilotKit>;
+</CopilotKit>
 ```
 
 ### Custom Error Analytics

@@ -9,24 +9,24 @@ import { useEffect, useRef } from "react";
  * their place in the navigation hierarchy.
  */
 export function SidebarNav({
-    children,
-    className,
+  children,
+  className,
 }: {
-    children: React.ReactNode;
-    className?: string;
+  children: React.ReactNode;
+  className?: string;
 }) {
-    const ref = useRef<HTMLElement>(null);
+  const ref = useRef<HTMLElement>(null);
 
-    useEffect(() => {
-        const active = ref.current?.querySelector('[data-active="true"]');
-        if (active) {
-            active.scrollIntoView({ block: "nearest", behavior: "instant" });
-        }
-    });
+  useEffect(() => {
+    const active = ref.current?.querySelector('[data-active="true"]');
+    if (active) {
+      active.scrollIntoView({ block: "nearest", behavior: "instant" });
+    }
+  });
 
-    return (
-        <aside ref={ref} className={className}>
-            {children}
-        </aside>
-    );
+  return (
+    <aside ref={ref} className={className}>
+      {children}
+    </aside>
+  );
 }

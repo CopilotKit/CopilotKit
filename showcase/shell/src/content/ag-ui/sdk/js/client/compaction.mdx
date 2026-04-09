@@ -10,14 +10,13 @@ preserving semantics. Use it to shrink logs before persistence or to simplify
 post‑processing of Server‑Sent Events (SSE) streams.
 
 ```ts
-
-const compacted: BaseEvent[] = compactEvents(events)
+const compacted: BaseEvent[] = compactEvents(events);
 ```
 
 ## API
 
 ```ts
-function compactEvents(events: BaseEvent[]): BaseEvent[]
+function compactEvents(events: BaseEvent[]): BaseEvent[];
 ```
 
 ## What it does
@@ -44,7 +43,7 @@ Before:
   { type: EventType.CUSTOM, name: "thinking" },
   { type: EventType.TEXT_MESSAGE_CONTENT, messageId: "m1", delta: "world" },
   { type: EventType.TEXT_MESSAGE_END, messageId: "m1" },
-]
+];
 ```
 
 After:
@@ -52,10 +51,14 @@ After:
 ```ts
 [
   { type: EventType.TEXT_MESSAGE_START, messageId: "m1", role: "assistant" },
-  { type: EventType.TEXT_MESSAGE_CONTENT, messageId: "m1", delta: "Hello world" },
+  {
+    type: EventType.TEXT_MESSAGE_CONTENT,
+    messageId: "m1",
+    delta: "Hello world",
+  },
   { type: EventType.TEXT_MESSAGE_END, messageId: "m1" },
   { type: EventType.CUSTOM, name: "thinking" },
-]
+];
 ```
 
 Tool call compaction works analogously for `TOOL_CALL_ARGS` chunks.
@@ -72,4 +75,3 @@ Tool call compaction works analogously for `TOOL_CALL_ARGS` chunks.
   state events (`STATE_SNAPSHOT`/`STATE_DELTA`) or generate message snapshots.
 - For background and broader patterns (branching, normalization), see
   [Serialization](/concepts/serialization).
-

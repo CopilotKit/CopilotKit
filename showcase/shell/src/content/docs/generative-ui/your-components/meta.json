@@ -1,7 +1,4 @@
 {
   "title": "Your Components",
-  "pages": [
-    "display-only",
-    "interactive"
-  ]
+  "pages": ["display-only", "interactive"]
 }

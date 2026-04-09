@@ -1,7 +1,6 @@
 ---
 title: "AgentSubscriber"
-description:
-  "Event-driven subscriber system for agent lifecycle and event handling"
+description: "Event-driven subscriber system for agent lifecycle and event handling"
 ---
 
 # AgentSubscriber
@@ -12,6 +11,7 @@ agent execution. It allows you to hook into various stages of the agent's
 operation and modify its behavior.
 
 ```typescript
+
 ```
 
 ## Overview
@@ -34,19 +34,19 @@ Use the `subscribe()` method to add a subscriber that will persist across
 multiple agent runs:
 
 ```typescript
-const agent = new HttpAgent({ url: "https://api.example.com/agent" })
+const agent = new HttpAgent({ url: "https://api.example.com/agent" });
 
 const subscriber: AgentSubscriber = {
   onTextMessageContentEvent: ({ textMessageBuffer }) => {
-    console.log("Streaming text:", textMessageBuffer)
+    console.log("Streaming text:", textMessageBuffer);
   },
-}
+};
 
 // Add permanent subscriber
-const subscription = agent.subscribe(subscriber)
+const subscription = agent.subscribe(subscriber);
 
 // Later, remove the subscriber if needed
-subscription.unsubscribe()
+subscription.unsubscribe();
 ```
 
 ### Temporary Subscription
@@ -56,12 +56,12 @@ Pass a subscriber directly to `runAgent()` for one-time use:
 ```typescript
 const temporarySubscriber: AgentSubscriber = {
   onRunFinishedEvent: ({ result }) => {
-    console.log("Run completed with result:", result)
+    console.log("Run completed with result:", result);
   },
-}
+};
 
 // Use subscriber for this run only
-await agent.runAgent({ tools: [myTool] }, temporarySubscriber)
+await agent.runAgent({ tools: [myTool] }, temporarySubscriber);
 ```
 
 ## Core Interfaces
@@ -79,9 +79,9 @@ state and control event processing:
 
 ```typescript
 interface AgentStateMutation {
-  messages?: Message[] // Update the message history
-  state?: State // Update the agent state
-  stopPropagation?: boolean // Prevent further subscribers from processing this event
+  messages?: Message[]; // Update the message history
+  state?: State; // Update the agent state
+  stopPropagation?: boolean; // Prevent further subscribers from processing this event
 }
 ```
 
@@ -98,10 +98,10 @@ Common parameters passed to most subscriber methods:
 
 ```typescript
 interface AgentSubscriberParams {
-  messages: Message[] // Current message history
-  state: State // Current agent state
-  agent: AbstractAgent // The agent instance
-  input: RunAgentInput // The original input parameters
+  messages: Message[]; // Current message history
+  state: State; // Current agent state
+  agent: AbstractAgent; // The agent instance
+  input: RunAgentInput; // The original input parameters
 }
 ```
 
@@ -354,22 +354,22 @@ All subscriber methods support both synchronous and asynchronous execution:
 const subscriber: AgentSubscriber = {
   // Synchronous handler
   onTextMessageContentEvent: ({ textMessageBuffer }) => {
-    updateUI(textMessageBuffer)
+    updateUI(textMessageBuffer);
   },
 
   // Asynchronous handler
   onStateChanged: async ({ state }) => {
-    await saveStateToDatabase(state)
+    await saveStateToDatabase(state);
   },
 
   // Async handler with mutation
   onRunInitialized: async ({ messages, state }) => {
-    const enrichedState = await loadUserPreferences()
+    const enrichedState = await loadUserPreferences();
     return {
       state: { ...state, ...enrichedState },
-    }
+    };
   },
-}
+};
 ```
 
 ## Multiple Subscribers
@@ -383,17 +383,17 @@ const stateEnricher: AgentSubscriber = {
   onRunInitialized: ({ state }) => ({
     state: { ...state, timestamp: new Date().toISOString() },
   }),
-}
+};
 
 // Second subscriber sees the modified state
 const logger: AgentSubscriber = {
   onRunInitialized: ({ state }) => {
-    console.log("State after enrichment:", state)
+    console.log("State after enrichment:", state);
   },
-}
+};
 
-agent.subscribe(stateEnricher)
-agent.subscribe(logger)
+agent.subscribe(stateEnricher);
+agent.subscribe(logger);
 ```
 
 ## Integration with Agents
@@ -401,20 +401,20 @@ agent.subscribe(logger)
 Basic usage pattern:
 
 ```typescript
-const agent = new HttpAgent({ url: "https://api.example.com/agent" })
+const agent = new HttpAgent({ url: "https://api.example.com/agent" });
 
 // Add persistent subscriber
 agent.subscribe({
   onTextMessageContentEvent: ({ textMessageBuffer }) => {
-    updateStreamingUI(textMessageBuffer)
+    updateStreamingUI(textMessageBuffer);
   },
   onRunFinishedEvent: ({ result }) => {
-    displayFinalResult(result)
+    displayFinalResult(result);
   },
-})
+});
 
 // Run agent (subscriber will be called automatically)
 const result = await agent.runAgent({
   tools: [myTool],
-})
+});
 ```

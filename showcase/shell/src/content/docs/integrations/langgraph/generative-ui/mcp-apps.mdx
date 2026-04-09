@@ -9,6 +9,7 @@ description: "Render interactive UI components from MCP servers directly in your
 MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, CopilotKit automatically fetches and renders the UI component in the chat — no additional frontend code required.
 
 Key benefits:
+
 - **Zero frontend code** — UI components are served by the MCP server
 - **Full interactivity** — Components can use HTML, CSS, and JavaScript
 - **Secure sandboxing** — Content runs in isolated iframes
@@ -73,11 +74,13 @@ Key benefits:
     <Callout type="info" title="Server ID">
       Always provide a `serverId` for production deployments. Without it, CopilotKit generates a hash from the server URL. If your URL changes (e.g., different environments), previously stored MCP Apps in conversation history won't load correctly.
     </Callout>
+
   </Step>
   <Step>
     ### Give it a try!
 
     That's it. MCP Apps will render automatically when the agent uses tools that have associated UI resources. No changes to your agent code or frontend are needed.
+
   </Step>
 </Steps>
 

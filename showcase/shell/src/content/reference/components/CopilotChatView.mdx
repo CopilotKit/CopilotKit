@@ -12,97 +12,151 @@ Every visual piece of `CopilotChatView` is exposed as a **slot**, so you can rep
 ## Import
 
 ```tsx
+
 ```
 
 <Callout type="info">
-  `CopilotChatView` is a named export: `import { CopilotChatView } from "@copilotkit/react-core/v2"` also works via the re-export from `CopilotChat.View`.
+  `CopilotChatView` is a named export: `import {CopilotChatView} from
+  "@copilotkit/react-core/v2"` also works via the re-export from
+  `CopilotChat.View`.
 </Callout>
 
 ## Slots
 
 `CopilotChatView` uses the `WithSlots` pattern. Each slot prop accepts one of three value types:
 
-| Value | Behavior |
-|-------|----------|
-| **Component** | Replaces the default component entirely. Receives the same props the default would. |
-| **`className` string** | Merged into the default component's class list via `twMerge`. |
-| **Partial props object** | Spread into the default component as additional or overriding props. |
+| Value                    | Behavior                                                                            |
+| ------------------------ | ----------------------------------------------------------------------------------- |
+| **Component**            | Replaces the default component entirely. Receives the same props the default would. |
+| **`className` string**   | Merged into the default component's class list via `twMerge`.                       |
+| **Partial props object** | Spread into the default component as additional or overriding props.                |
 
 Passing a `children` render-prop gives you access to all composed slot elements plus data props, letting you arrange them in a fully custom layout.
 
 ### Slot Props
 
-<PropertyReference name="messageView" type="SlotValue<typeof CopilotChatMessageView>">
-  The message list component that renders the conversation transcript. The default displays assistant messages, user messages, and a typing cursor. Replace it to add custom message types or modify the message layout.
+<PropertyReference
+  name="messageView"
+  type="SlotValue<typeof CopilotChatMessageView>"
+>
+  The message list component that renders the conversation transcript. The
+  default displays assistant messages, user messages, and a typing cursor.
+  Replace it to add custom message types or modify the message layout.
 </PropertyReference>
 
-<PropertyReference name="scrollView" type='SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>'>
-  The scrollable container wrapping the message list. The default handles auto-scroll behavior and scroll position tracking. Replace it to implement custom scroll mechanics.
+<PropertyReference
+  name="scrollView"
+  type="SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>"
+>
+  The scrollable container wrapping the message list. The default handles
+  auto-scroll behavior and scroll position tracking. Replace it to implement
+  custom scroll mechanics.
 </PropertyReference>
 
-<PropertyReference name="scrollToBottomButton" type='SlotValue<React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>>'>
-  A button that appears when the user has scrolled up from the bottom of the transcript. Clicking it scrolls the view back to the latest message.
+<PropertyReference
+  name="scrollToBottomButton"
+  type="SlotValue<React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>>"
+>
+  A button that appears when the user has scrolled up from the bottom of the
+  transcript. Clicking it scrolls the view back to the latest message.
 </PropertyReference>
 
 <PropertyReference name="input" type="SlotValue<typeof CopilotChatInput>">
-  The message input component. The default provides a text area with send button, transcription controls, file upload, and a tools menu. Replace it to build a fully custom input experience.
+  The message input component. The default provides a text area with send
+  button, transcription controls, file upload, and a tools menu. Replace it to
+  build a fully custom input experience.
 </PropertyReference>
 
-<PropertyReference name="inputContainer" type='SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement> & { children: React.ReactNode }>>'>
-  The container that wraps the input and disclaimer at the bottom of the chat. Positioned absolutely to remain fixed at the bottom as content scrolls.
+<PropertyReference
+  name="inputContainer"
+  type="SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement> & { children: React.ReactNode }>>"
+>
+  The container that wraps the input and disclaimer at the bottom of the chat.
+  Positioned absolutely to remain fixed at the bottom as content scrolls.
 </PropertyReference>
 
-<PropertyReference name="feather" type='SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>'>
-  A decorative gradient overlay that appears above the input container, creating a smooth visual transition between the message area and the input.
+<PropertyReference
+  name="feather"
+  type="SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>"
+>
+  A decorative gradient overlay that appears above the input container, creating
+  a smooth visual transition between the message area and the input.
 </PropertyReference>
 
-<PropertyReference name="disclaimer" type='SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>'>
-  A disclaimer text line displayed below the input (e.g. "AI can make mistakes. Please verify important information."). Override or hide it with a replacement component.
+<PropertyReference
+  name="disclaimer"
+  type="SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>"
+>
+  A disclaimer text line displayed below the input (e.g. "AI can make mistakes.
+  Please verify important information."). Override or hide it with a replacement
+  component.
 </PropertyReference>
 
-<PropertyReference name="suggestionView" type="SlotValue<typeof CopilotChatSuggestionView>">
-  The component that renders suggestion pills. Replace it to change how suggestions are displayed or animated.
+<PropertyReference
+  name="suggestionView"
+  type="SlotValue<typeof CopilotChatSuggestionView>"
+>
+  The component that renders suggestion pills. Replace it to change how
+  suggestions are displayed or animated.
 </PropertyReference>
 
 ## Data Props
 
 <PropertyReference name="messages" type="Message[]">
-  Array of conversation messages to display. When used via `CopilotChat`, this is managed automatically by the agent. When using `CopilotChatView` standalone, you must supply the messages yourself.
+  Array of conversation messages to display. When used via `CopilotChat`, this
+  is managed automatically by the agent. When using `CopilotChatView`
+  standalone, you must supply the messages yourself.
 </PropertyReference>
 
 <PropertyReference name="autoScroll" type="boolean" default="true">
-  Whether the view should automatically scroll to the bottom when new messages arrive. Set to `false` if you want manual scroll control.
+  Whether the view should automatically scroll to the bottom when new messages
+  arrive. Set to `false` if you want manual scroll control.
 </PropertyReference>
 
-<PropertyReference name="inputProps" type="Partial<Omit<CopilotChatInputProps, 'children'>>">
-  Additional props forwarded to the inner `CopilotChatInput` component. Use this to configure auto-focus, custom submission handlers, transcription callbacks, or tools menus without replacing the input slot entirely.
+<PropertyReference
+  name="inputProps"
+  type="Partial<Omit<CopilotChatInputProps, 'children'>>"
+>
+  Additional props forwarded to the inner `CopilotChatInput` component. Use this
+  to configure auto-focus, custom submission handlers, transcription callbacks,
+  or tools menus without replacing the input slot entirely.
 </PropertyReference>
 
 <PropertyReference name="isRunning" type="boolean">
-  Whether the agent is currently processing. When `true`, the input shows a stop button and the message view displays a typing cursor on the latest assistant message.
+  Whether the agent is currently processing. When `true`, the input shows a stop
+  button and the message view displays a typing cursor on the latest assistant
+  message.
 </PropertyReference>
 
 <PropertyReference name="suggestions" type="Suggestion[]">
-  Array of suggestion objects to display as clickable pills below (or above) the input area. Each suggestion has a `title`, `message`, and optional `isLoading` flag.
+  Array of suggestion objects to display as clickable pills below (or above) the
+  input area. Each suggestion has a `title`, `message`, and optional `isLoading`
+  flag.
 </PropertyReference>
 
 <PropertyReference name="suggestionLoadingIndexes" type="ReadonlyArray<number>">
-  Indexes of suggestions that are currently in a loading state (e.g. the user just clicked them and the agent is processing).
+  Indexes of suggestions that are currently in a loading state (e.g. the user
+  just clicked them and the agent is processing).
 </PropertyReference>
 
-<PropertyReference name="onSelectSuggestion" type="(suggestion: Suggestion, index: number) => void">
-  Callback invoked when the user clicks a suggestion pill. Receives the selected suggestion object and its index.
+<PropertyReference
+  name="onSelectSuggestion"
+  type="(suggestion: Suggestion, index: number) => void"
+>
+  Callback invoked when the user clicks a suggestion pill. Receives the selected
+  suggestion object and its index.
 </PropertyReference>
 
 <PropertyReference name="welcomeScreen" type='SlotValue<React.FC<WelcomeScreenProps>> | boolean'>
   Controls the welcome screen shown when the `messages` array is empty.
 
-  - `true` -- show the default welcome screen
-  - `false` -- disable the welcome screen
-  - **`className` string** -- style the default welcome screen
-  - **Component** -- replace the welcome screen entirely
+- `true` -- show the default welcome screen
+- `false` -- disable the welcome screen
+- **`className` string** -- style the default welcome screen
+- **Component** -- replace the welcome screen entirely
 
-  The welcome screen component receives `input` and `suggestionView` as React elements, plus a `welcomeMessage` slot, so you can compose them in any layout.
+The welcome screen component receives `input` and `suggestionView` as React elements, plus a `welcomeMessage` slot, so you can compose them in any layout.
+
 </PropertyReference>
 
 ## Static Sub-Components
@@ -122,7 +176,6 @@ Passing a `children` render-prop gives you access to all composed slot elements 
 ### Standalone Usage
 
 ```tsx
-
 function CustomChat({ messages, isRunning }) {
   return (
     <CopilotChatView
@@ -137,12 +190,9 @@ function CustomChat({ messages, isRunning }) {
 ### Replacing a Slot with a Custom Component
 
 ```tsx
-
 function CustomDisclaimer(props) {
   return (
-    <div {...props}>
-      Powered by CopilotKit. Responses may contain errors.
-    </div>
+    <div {...props}>Powered by CopilotKit. Responses may contain errors.</div>
   );
 }
 
@@ -160,7 +210,6 @@ function Chat({ messages, isRunning }) {
 ### Styling a Slot with a className
 
 ```tsx
-
 function Chat({ messages, isRunning }) {
   return (
     <CopilotChatView
@@ -176,15 +225,19 @@ function Chat({ messages, isRunning }) {
 ### Custom Layout with Children Render-Prop
 
 ```tsx
-
 function Chat({ messages, isRunning }) {
   return (
     <CopilotChatView messages={messages} isRunning={isRunning}>
-      {({ scrollView, input, inputContainer, feather, disclaimer, suggestionView }) => (
+      {({
+        scrollView,
+        input,
+        inputContainer,
+        feather,
+        disclaimer,
+        suggestionView,
+      }) => (
         <div className="flex flex-col h-full">
-          <div className="flex-1 overflow-hidden">
-            {scrollView}
-          </div>
+          <div className="flex-1 overflow-hidden">{scrollView}</div>
           {feather}
           {suggestionView}
           {inputContainer}

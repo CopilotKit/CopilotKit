@@ -43,7 +43,7 @@ pub enum Event<StateT> {
 - RunFinishedEvent – contains an optional result payload
 - RunErrorEvent – reports an error with message/context
 - TextMessageStart/Content/End – streaming assistant message text
-- ToolCall* – tool call lifecycle and argument streaming
+- ToolCall\* – tool call lifecycle and argument streaming
 - StateSnapshotEvent<StateT> – full state replacement
 - StateDeltaEvent – JSON-Patch style deltas (Vec<Value>)
 - MessagesSnapshotEvent – full replacement of the message history

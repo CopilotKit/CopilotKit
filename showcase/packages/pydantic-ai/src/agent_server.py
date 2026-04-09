@@ -24,14 +24,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount the PydanticAI AG-UI endpoint at the root
-ag_ui_app = agent.to_ag_ui(deps=StateDeps(ProverbsState()))
-app.mount("/", ag_ui_app)
-
-
+# Health endpoint MUST be registered BEFORE app.mount("/") — mount creates a catch-all
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+# Mount the PydanticAI AG-UI endpoint at the root
+ag_ui_app = agent.to_ag_ui(deps=StateDeps(ProverbsState()))
+app.mount("/", ag_ui_app)
 
 
 def main():

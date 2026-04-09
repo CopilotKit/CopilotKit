@@ -1,9 +1,4 @@
 {
   "title": "Generative UI Specs",
-  "pages": [
-    "a2ui",
-    "open-json-ui",
-    "mcp-apps"
-  ]
+  "pages": ["a2ui", "open-json-ui", "mcp-apps"]
 }
-

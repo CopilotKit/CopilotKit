@@ -23,11 +23,13 @@ When building demo pages for integration packages, follow these rules to avoid c
 ### When it's safe to use Tailwind
 
 Tailwind classes work fine on:
+
 - Static JSX in your component (not inside maps, conditionals, or dynamic renders)
 - The CopilotKit wrapper divs you write yourself
 - Next.js page-level layout elements
 
 Tailwind classes are UNSAFE on:
+
 - Content rendered by `useRenderTool`, `useHumanInTheLoop`, `useFrontendTool` handlers
 - Components rendered inside CopilotKit's chat message area
 - Any JSX returned from a callback or dynamic render function
@@ -42,12 +44,12 @@ CopilotKit v2 components use `cpk:` prefixed Tailwind classes internally. To ove
 /* copilotkit-overrides.css — import in layout.tsx AFTER globals.css */
 
 .copilotKitInput {
-    border-radius: 0.75rem;
-    border: 1px solid var(--copilot-kit-separator-color) !important;
+  border-radius: 0.75rem;
+  border: 1px solid var(--copilot-kit-separator-color) !important;
 }
 
 .copilotKitChat {
-    background-color: #fff !important;
+  background-color: #fff !important;
 }
 ```
 
@@ -68,11 +70,9 @@ To get proper spacing around the CopilotChat component, wrap it like the Dojo do
 ```tsx
 // GOOD — matches Dojo spacing
 <div className="flex justify-center items-center h-screen w-full">
-    <div className="h-full w-full md:w-4/5 md:h-4/5 rounded-lg">
-        <CopilotChat
-            className="h-full rounded-2xl max-w-6xl mx-auto"
-        />
-    </div>
+  <div className="h-full w-full md:w-4/5 md:h-4/5 rounded-lg">
+    <CopilotChat className="h-full rounded-2xl max-w-6xl mx-auto" />
+  </div>
 </div>
 ```
 
@@ -84,15 +84,16 @@ All integration packages should use the light theme to match the showcase shell:
 
 ```css
 :root {
-    --copilot-kit-background-color: #fafaf9;
-    --copilot-kit-primary-color: #0d6e3f;
-    --copilot-kit-response-button-background-color: #f5f5f3;
-    --copilot-kit-response-button-color: #1a1a18;
+  --copilot-kit-background-color: #fafaf9;
+  --copilot-kit-primary-color: #0d6e3f;
+  --copilot-kit-response-button-background-color: #f5f5f3;
+  --copilot-kit-response-button-color: #1a1a18;
 }
 
-html, body {
-    background: #fafaf9;
-    color: #1a1a18;
+html,
+body {
+  background: #fafaf9;
+  color: #1a1a18;
 }
 ```
 
@@ -101,13 +102,11 @@ html, body {
 Don't reference local image files from agent-generated content. The agent may generate `image_name` values that don't exist on disk. Always add an `onError` fallback:
 
 ```tsx
-{imageUrl && !imageError && (
-    <img
-        src={imageUrl}
-        onError={() => setImageError(true)}
-        alt="..."
-    />
-)}
+{
+  imageUrl && !imageError && (
+    <img src={imageUrl} onError={() => setImageError(true)} alt="..." />
+  );
+}
 ```
 
 ## SVG Icons

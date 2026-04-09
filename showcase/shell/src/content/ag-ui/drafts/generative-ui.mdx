@@ -189,7 +189,6 @@ Delegate UI generation to a secondary LLM or agent:
 ### Example Output: ReactFormHookGenerator
 
 ```tsx
-
 // ----- Schema (contract) -----
 const AddressSchema = z.object({
   firstName: z.string().min(1, "Required"),
@@ -198,14 +197,14 @@ const AddressSchema = z.object({
   city: z.string().min(1, "Required"),
   postalCode: z.string().regex(/^[A-Za-z0-9\\-\\s]{3,10}$/, "3–10 chars"),
   country: z.enum(["GB", "US", "DE", "AT", "FR", "IT", "ES"]),
-})
-export type Address = z.infer<typeof AddressSchema>
+});
+export type Address = z.infer<typeof AddressSchema>;
 
 type Props = {
-  initialData?: Partial<Address>
-  meta?: { title?: string; submitLabel?: string }
-  respond: (data: Address) => void // <-- called on successful submit
-}
+  initialData?: Partial<Address>;
+  meta?: { title?: string; submitLabel?: string };
+  respond: (data: Address) => void; // <-- called on successful submit
+};
 
 const COUNTRIES: Address["country"][] = [
   "GB",
@@ -215,7 +214,7 @@ const COUNTRIES: Address["country"][] = [
   "FR",
   "IT",
   "ES",
-]
+];
 
 export default function AddressForm({ initialData, meta, respond }: Props) {
   const {
@@ -233,12 +232,12 @@ export default function AddressForm({ initialData, meta, respond }: Props) {
       country: "GB",
       ...initialData,
     },
-  })
+  });
 
   const onSubmit = (data: Address) => {
     // Guaranteed to match AddressSchema
-    respond(data)
-  }
+    respond(data);
+  };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
@@ -300,7 +299,7 @@ export default function AddressForm({ initialData, meta, respond }: Props) {
         <button type="submit">{meta?.submitLabel ?? "Submit"}</button>
       </div>
     </form>
-  )
+  );
 }
 ```
 

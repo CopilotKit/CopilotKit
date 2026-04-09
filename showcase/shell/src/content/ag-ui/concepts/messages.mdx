@@ -21,11 +21,11 @@ The basic message structure includes:
 
 ```typescript
 interface BaseMessage {
-  id: string // Unique identifier for the message
-  role: string // The role of the sender (user, assistant, system, tool, reasoning)
-  content?: string // Optional text content of the message
-  name?: string // Optional name of the sender
-  encryptedContent?: string // Optional encrypted content for privacy-preserving state continuity
+  id: string; // Unique identifier for the message
+  role: string; // The role of the sender (user, assistant, system, tool, reasoning)
+  content?: string; // Optional text content of the message
+  name?: string; // Optional name of the sender
+  encryptedContent?: string; // Optional encrypted content for privacy-preserving state continuity
 }
 ```
 
@@ -49,10 +49,10 @@ Messages from the end user to the agent:
 
 ```typescript
 interface UserMessage {
-  id: string
-  role: "user"
-  content: string | InputContent[] // Text or multimodal input from the user
-  name?: string // Optional user identifier
+  id: string;
+  role: "user";
+  content: string | InputContent[]; // Text or multimodal input from the user
+  name?: string; // Optional user identifier
 }
 
 type InputContent =
@@ -60,49 +60,49 @@ type InputContent =
   | ImageInputContent
   | AudioInputContent
   | VideoInputContent
-  | DocumentInputContent
+  | DocumentInputContent;
 
 interface InputContentDataSource {
-  type: "data"
-  value: string
-  mimeType: string
+  type: "data";
+  value: string;
+  mimeType: string;
 }
 
 interface InputContentUrlSource {
-  type: "url"
-  value: string
-  mimeType?: string
+  type: "url";
+  value: string;
+  mimeType?: string;
 }
 
-type InputContentSource = InputContentDataSource | InputContentUrlSource
+type InputContentSource = InputContentDataSource | InputContentUrlSource;
 
 interface TextInputContent {
-  type: "text"
-  text: string
+  type: "text";
+  text: string;
 }
 
 interface ImageInputContent {
-  type: "image"
-  source: InputContentSource
-  metadata?: Record<string, unknown>
+  type: "image";
+  source: InputContentSource;
+  metadata?: Record<string, unknown>;
 }
 
 interface AudioInputContent {
-  type: "audio"
-  source: InputContentSource
-  metadata?: Record<string, unknown>
+  type: "audio";
+  source: InputContentSource;
+  metadata?: Record<string, unknown>;
 }
 
 interface VideoInputContent {
-  type: "video"
-  source: InputContentSource
-  metadata?: Record<string, unknown>
+  type: "video";
+  source: InputContentSource;
+  metadata?: Record<string, unknown>;
 }
 
 interface DocumentInputContent {
-  type: "document"
-  source: InputContentSource
-  metadata?: Record<string, unknown>
+  type: "document";
+  source: InputContentSource;
+  metadata?: Record<string, unknown>;
 }
 ```
 
@@ -118,12 +118,12 @@ Messages from the AI assistant to the user:
 
 ```typescript
 interface AssistantMessage {
-  id: string
-  role: "assistant"
-  content?: string // Text response from the assistant (optional if using tool calls)
-  name?: string // Optional assistant identifier
-  toolCalls?: ToolCall[] // Optional tool calls made by the assistant
-  encryptedContent?: string // Optional encrypted content for state continuity
+  id: string;
+  role: "assistant";
+  content?: string; // Text response from the assistant (optional if using tool calls)
+  name?: string; // Optional assistant identifier
+  toolCalls?: ToolCall[]; // Optional tool calls made by the assistant
+  encryptedContent?: string; // Optional encrypted content for state continuity
 }
 ```
 
@@ -133,10 +133,10 @@ Instructions or context provided to the agent:
 
 ```typescript
 interface SystemMessage {
-  id: string
-  role: "system"
-  content: string // Instructions or context for the agent
-  name?: string // Optional identifier
+  id: string;
+  role: "system";
+  content: string; // Instructions or context for the agent
+  name?: string; // Optional identifier
 }
 ```
 
@@ -146,12 +146,12 @@ Results from tool executions:
 
 ```typescript
 interface ToolMessage {
-  id: string
-  role: "tool"
-  content: string // Result from the tool execution
-  toolCallId: string // ID of the tool call this message responds to
-  error?: string // Optional error message if the tool execution failed
-  encryptedValue?: string // Optional encrypted reasoning for state continuity
+  id: string;
+  role: "tool";
+  content: string; // Result from the tool execution
+  toolCallId: string; // ID of the tool call this message responds to
+  error?: string; // Optional error message if the tool execution failed
+  encryptedValue?: string; // Optional encrypted reasoning for state continuity
 }
 ```
 
@@ -169,10 +169,10 @@ status, or any custom visual element that shouldn’t be sent to the model:
 
 ```typescript
 interface ActivityMessage {
-  id: string
-  role: "activity"
-  activityType: string // e.g. "PLAN", "SEARCH", "SCRAPE"
-  content: Record<string, any> // Structured payload rendered by the frontend
+  id: string;
+  role: "activity";
+  activityType: string; // e.g. "PLAN", "SEARCH", "SCRAPE"
+  content: Record<string, any>; // Structured payload rendered by the frontend
 }
 ```
 
@@ -194,10 +194,10 @@ Internal messages used for development or debugging:
 
 ```typescript
 interface DeveloperMessage {
-  id: string
-  role: "developer"
-  content: string
-  name?: string
+  id: string;
+  role: "developer";
+  content: string;
+  name?: string;
 }
 ```
 
@@ -208,10 +208,10 @@ process:
 
 ```typescript
 interface ReasoningMessage {
-  id: string
-  role: "reasoning"
-  content: string // Reasoning content (visible to client)
-  encryptedValue?: string // Optional encrypted reasoning for state continuity
+  id: string;
+  role: "reasoning";
+  content: string; // Reasoning content (visible to client)
+  encryptedValue?: string; // Optional encrypted reasoning for state continuity
 }
 ```
 
@@ -264,7 +264,7 @@ const openaiMessages = agUiMessages
           })),
         }
       : {}),
-  }))
+  }));
 ```
 
 This abstraction allows AG-UI to serve as a common interface regardless of the
@@ -282,8 +282,8 @@ conversation:
 
 ```typescript
 interface MessagesSnapshotEvent {
-  type: EventType.MESSAGES_SNAPSHOT
-  messages: Message[] // Complete array of all messages
+  type: EventType.MESSAGES_SNAPSHOT;
+  messages: Message[]; // Complete array of all messages
 }
 ```
 
@@ -302,9 +302,9 @@ For real-time interactions, new messages can be streamed as they're generated:
 
    ```typescript
    interface TextMessageStartEvent {
-     type: EventType.TEXT_MESSAGE_START
-     messageId: string
-     role: string
+     type: EventType.TEXT_MESSAGE_START;
+     messageId: string;
+     role: string;
    }
    ```
 
@@ -312,17 +312,17 @@ For real-time interactions, new messages can be streamed as they're generated:
 
    ```typescript
    interface TextMessageContentEvent {
-     type: EventType.TEXT_MESSAGE_CONTENT
-     messageId: string
-     delta: string // Text chunk to append
+     type: EventType.TEXT_MESSAGE_CONTENT;
+     messageId: string;
+     delta: string; // Text chunk to append
    }
    ```
 
 3. **End a message**: Signal the message is complete
    ```typescript
    interface TextMessageEndEvent {
-     type: EventType.TEXT_MESSAGE_END
-     messageId: string
+     type: EventType.TEXT_MESSAGE_END;
+     messageId: string;
    }
    ```
 
@@ -340,12 +340,12 @@ Tool calls are embedded within assistant messages:
 
 ```typescript
 interface ToolCall {
-  id: string // Unique ID for this tool call
-  type: "function" // Type of tool call
+  id: string; // Unique ID for this tool call
+  type: "function"; // Type of tool call
   function: {
-    name: string // Name of the function to call
-    arguments: string // JSON-encoded string of arguments
-  }
+    name: string; // Name of the function to call
+    arguments: string; // JSON-encoded string of arguments
+  };
 }
 ```
 
@@ -397,10 +397,10 @@ visibility into the agent's actions:
 
    ```typescript
    interface ToolCallStartEvent {
-     type: EventType.TOOL_CALL_START
-     toolCallId: string
-     toolCallName: string
-     parentMessageId?: string // Optional link to parent message
+     type: EventType.TOOL_CALL_START;
+     toolCallId: string;
+     toolCallName: string;
+     parentMessageId?: string; // Optional link to parent message
    }
    ```
 
@@ -408,17 +408,17 @@ visibility into the agent's actions:
 
    ```typescript
    interface ToolCallArgsEvent {
-     type: EventType.TOOL_CALL_ARGS
-     toolCallId: string
-     delta: string // JSON fragment to append to arguments
+     type: EventType.TOOL_CALL_ARGS;
+     toolCallId: string;
+     delta: string; // JSON fragment to append to arguments
    }
    ```
 
 3. **End a tool call**:
    ```typescript
    interface ToolCallEndEvent {
-     type: EventType.TOOL_CALL_END
-     toolCallId: string
+     type: EventType.TOOL_CALL_END;
+     toolCallId: string;
    }
    ```
 
@@ -431,7 +431,7 @@ Here's a complete example of a conversation with tool usage:
 
 ```typescript
 // Conversation history
-;[
+[
   // User query
   {
     id: "msg_1",
@@ -472,7 +472,7 @@ Here's a complete example of a conversation with tool usage:
     content:
       "The weather in New York is partly cloudy with a temperature of 22°C and 65% humidity.",
   },
-]
+];
 ```
 
 ## Conclusion

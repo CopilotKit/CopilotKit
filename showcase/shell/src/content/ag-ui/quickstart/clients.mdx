@@ -1,7 +1,6 @@
 ---
 title: "Build clients"
-description:
-  "Showcase: build a conversational CLI agent from scratch using AG-UI and Mastra"
+description: "Showcase: build a conversational CLI agent from scratch using AG-UI and Mastra"
 ---
 
 # Introduction
@@ -131,7 +130,6 @@ pnpm add zod
 Let's create a basic conversational agent. Create `src/agent.ts`:
 
 ```typescript
-
 export const agent = new MastraAgent({
   resourceId: "cliExample",
   agent: new Agent({
@@ -150,7 +148,7 @@ export const agent = new MastraAgent({
     }),
   }),
   threadId: "main-conversation",
-})
+});
 ```
 
 ### What's happening in the agent?
@@ -167,34 +165,33 @@ export const agent = new MastraAgent({
 Now let's create the interactive chat interface. Create `src/index.ts`:
 
 ```typescript
-
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
-})
+});
 
 async function chatLoop() {
-  console.log("🤖 AG-UI Assistant started!")
-  console.log("Type your messages and press Enter. Press Ctrl+D to quit.\n")
+  console.log("🤖 AG-UI Assistant started!");
+  console.log("Type your messages and press Enter. Press Ctrl+D to quit.\n");
 
   return new Promise<void>((resolve) => {
     const promptUser = () => {
       rl.question("> ", async (input) => {
         if (input.trim() === "") {
-          promptUser()
-          return
+          promptUser();
+          return;
         }
-        console.log("")
+        console.log("");
 
         // Pause input while processing
-        rl.pause()
+        rl.pause();
 
         // Add user message to conversation
         agent.messages.push({
           id: randomUUID(),
           role: "user",
           content: input.trim(),
-        })
+        });
 
         try {
           // Run the agent with event handlers
@@ -202,41 +199,41 @@ async function chatLoop() {
             {}, // No additional configuration needed
             {
               onTextMessageStartEvent() {
-                process.stdout.write("🤖 Assistant: ")
+                process.stdout.write("🤖 Assistant: ");
               },
               onTextMessageContentEvent({ event }) {
-                process.stdout.write(event.delta)
+                process.stdout.write(event.delta);
               },
               onTextMessageEndEvent() {
-                console.log("\n")
+                console.log("\n");
               },
-            }
-          )
+            },
+          );
         } catch (error) {
-          console.error("❌ Error:", error)
+          console.error("❌ Error:", error);
         }
 
         // Resume input
-        rl.resume()
-        promptUser()
-      })
-    }
+        rl.resume();
+        promptUser();
+      });
+    };
 
     // Handle Ctrl+D to quit
     rl.on("close", () => {
-      console.log("\n👋 Thanks for using AG-UI Assistant!")
-      resolve()
-    })
+      console.log("\n👋 Thanks for using AG-UI Assistant!");
+      resolve();
+    });
 
-    promptUser()
-  })
+    promptUser();
+  });
 }
 
 async function main() {
-  await chatLoop()
+  await chatLoop();
 }
 
-main().catch(console.error)
+main().catch(console.error);
 ```
 
 ### What's happening in the CLI interface?
@@ -307,25 +304,24 @@ mkdir -p src/tools
 Create `src/tools/weather.tool.ts`:
 
 ```typescript
-
 interface GeocodingResponse {
   results: {
-    latitude: number
-    longitude: number
-    name: string
-  }[]
+    latitude: number;
+    longitude: number;
+    name: string;
+  }[];
 }
 
 interface WeatherResponse {
   current: {
-    time: string
-    temperature_2m: number
-    apparent_temperature: number
-    relative_humidity_2m: number
-    wind_speed_10m: number
-    wind_gusts_10m: number
-    weather_code: number
-  }
+    time: string;
+    temperature_2m: number;
+    apparent_temperature: number;
+    relative_humidity_2m: number;
+    wind_speed_10m: number;
+    wind_gusts_10m: number;
+    weather_code: number;
+  };
 }
 
 export const weatherTool = createTool({
@@ -344,27 +340,27 @@ export const weatherTool = createTool({
     location: z.string(),
   }),
   execute: async (inputData) => {
-    return await getWeather(inputData.location)
+    return await getWeather(inputData.location);
   },
-})
+});
 
 const getWeather = async (location: string) => {
   const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
-    location
-  )}&count=1`
-  const geocodingResponse = await fetch(geocodingUrl)
-  const geocodingData = (await geocodingResponse.json()) as GeocodingResponse
+    location,
+  )}&count=1`;
+  const geocodingResponse = await fetch(geocodingUrl);
+  const geocodingData = (await geocodingResponse.json()) as GeocodingResponse;
 
   if (!geocodingData.results?.[0]) {
-    throw new Error(`Location '${location}' not found`)
+    throw new Error(`Location '${location}' not found`);
   }
 
-  const { latitude, longitude, name } = geocodingData.results[0]
+  const { latitude, longitude, name } = geocodingData.results[0];
 
-  const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,weather_code`
+  const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,weather_code`;
 
-  const response = await fetch(weatherUrl)
-  const data = (await response.json()) as WeatherResponse
+  const response = await fetch(weatherUrl);
+  const data = (await response.json()) as WeatherResponse;
 
   return {
     temperature: data.current.temperature_2m,
@@ -374,8 +370,8 @@ const getWeather = async (location: string) => {
     windGust: data.current.wind_gusts_10m,
     conditions: getWeatherCondition(data.current.weather_code),
     location: name,
-  }
-}
+  };
+};
 
 function getWeatherCondition(code: number): string {
   const conditions: Record<number, string> = {
@@ -407,8 +403,8 @@ function getWeatherCondition(code: number): string {
     95: "Thunderstorm",
     96: "Thunderstorm with slight hail",
     99: "Thunderstorm with heavy hail",
-  }
-  return conditions[code] || "Unknown"
+  };
+  return conditions[code] || "Unknown";
 }
 ```
 
@@ -426,7 +422,6 @@ function getWeatherCondition(code: number): string {
 Now let's update our agent to use the weather tool. Update `src/agent.ts`:
 
 ```typescript
-
 export const agent = new MastraAgent({
   agent: new Agent({
     // ...
@@ -436,7 +431,7 @@ export const agent = new MastraAgent({
     // ...
   }),
   threadId: "main-conversation",
-})
+});
 ```
 
 ### Update your CLI to handle tools
@@ -451,21 +446,21 @@ await agent.runAgent(
     // ... existing event handlers ...
 
     onToolCallStartEvent({ event }) {
-      console.log("🔧 Tool call:", event.toolCallName)
+      console.log("🔧 Tool call:", event.toolCallName);
     },
     onToolCallArgsEvent({ event }) {
-      process.stdout.write(event.delta)
+      process.stdout.write(event.delta);
     },
     onToolCallEndEvent() {
-      console.log("")
+      console.log("");
     },
     onToolCallResultEvent({ event }) {
       if (event.content) {
-        console.log("🔍 Tool call result:", event.content)
+        console.log("🔍 Tool call result:", event.content);
       }
     },
-  }
-)
+  },
+);
 ```
 
 ### Test your weather tool
@@ -498,7 +493,6 @@ pnpm add open
 Create `src/tools/browser.tool.ts`:
 
 ```typescript
-
 export const browserTool = createTool({
   id: "open-browser",
   description: "Open a URL in the default web browser",
@@ -511,19 +505,19 @@ export const browserTool = createTool({
   }),
   execute: async (inputData) => {
     try {
-      await open(inputData.url)
+      await open(inputData.url);
       return {
         success: true,
         message: `Opened ${inputData.url} in your default browser`,
-      }
+      };
     } catch (error) {
       return {
         success: false,
         message: `Failed to open browser: ${error}`,
-      }
+      };
     }
   },
-})
+});
 ```
 
 ### Update your agent with both tools
@@ -531,7 +525,6 @@ export const browserTool = createTool({
 Update `src/agent.ts` to include both tools:
 
 ```typescript
-
 export const agent = new MastraAgent({
   resourceId: "cliExample",
   agent: new Agent({
@@ -560,7 +553,7 @@ export const agent = new MastraAgent({
     }),
   }),
   threadId: "main-conversation",
-})
+});
 ```
 
 Now you can ask your assistant to open websites: "Open Google for me" or "Show

@@ -49,7 +49,10 @@ provider currently supported (more providers coming soon!).
 Set your OpenAI API key, click the green checkmark and you'll see your API key created right below the input.
 
 <Frame>
-<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/ai-travel-app/cpkCloudSetup.png" alt="CopilotCloud API Key" />
+  <img
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/ai-travel-app/cpkCloudSetup.png"
+    alt="CopilotCloud API Key"
+  />
 </Frame>
 
 </Step>
@@ -77,13 +80,10 @@ Now we're ready to configure the CopilotKit provider in our application.
 ```tsx title="ui/app/page.tsx" showLineNumbers
 "use client";
 
-
 export default function Home() {
   // [!code ++:5]
   return (
-    <CopilotKit
-      publicApiKey={process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY}
-    >
+    <CopilotKit publicApiKey={process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY}>
       <TooltipProvider>
         <TripsProvider>
           <main className="h-screen w-screen">
@@ -95,6 +95,7 @@ export default function Home() {
   );
 }
 ```
+
 <Step>
 
 ### CopilotKit Chat Popup
@@ -106,19 +107,17 @@ In this tutorial, we'll use the `<CopilotSidebar/>` component to display the cha
 ```tsx title="ui/app/page.tsx" showLineNumbers {6-7,15}
 "use client";
 
-
 export default function Home() {
   return (
-    <CopilotKit
-      publicApiKey={process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY}
-    >
+    <CopilotKit publicApiKey={process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY}>
       /* [!code ++:9] */
       <CopilotSidebar
         defaultOpen={true}
         clickOutsideToClose={false}
         labels={{
           modalHeaderTitle: "Travel Planner",
-          welcomeMessageText: "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
+          welcomeMessageText:
+            "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
         }}
       />
       <TooltipProvider>
@@ -138,7 +137,7 @@ And we're done! Here's what we did:
 - We setup our Copilot cloud account and got an API key.
 - We configured the CopilotKit provider in our application to use our API key.
 - We added the CopilotSidebar to our application.
-</Step>
+  </Step>
 
 </Step>
 </Steps>
@@ -157,13 +156,15 @@ And we're done! Here's what we did:
 <Step>
 
 ### Configure the CopilotKit Provider
+
 ```tsx title="app/page.tsx" showLineNumbers
 "use client";
 
-
 export default function Home() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit"> // [!code ++]
+    <CopilotKit runtimeUrl="/api/copilotkit">
+      {" "}
+      // [!code ++]
       <TasksProvider>
         <TasksList />
       </TasksProvider>
@@ -171,6 +172,7 @@ export default function Home() {
   );
 }
 ```
+
 </Step>
 </Steps>
 
@@ -183,19 +185,17 @@ In this tutorial, we'll use the `<CopilotSidebar/>` component to display the cha
 ```tsx title="ui/app/page.tsx" showLineNumbers {6-7,15}
 "use client";
 
-
 export default function Home() {
   return (
-    <CopilotKit
-      publicApiKey={process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY}
-    >
+    <CopilotKit publicApiKey={process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY}>
       /* [!code ++:9] */
       <CopilotSidebar
         defaultOpen={true}
         clickOutsideToClose={false}
         labels={{
           modalHeaderTitle: "Travel Planner",
-          welcomeMessageText: "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
+          welcomeMessageText:
+            "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
         }}
       />
       <TooltipProvider>
@@ -215,7 +215,7 @@ Here's what we did:
 - We imported the `<CopilotSidebar />` component from `@copilotkit/react-ui`.
 - We wrapped the page with the `<CopilotKit>` provider.
 - We imported the built-in styles from `@copilotkit/react-ui`.
-</TailoredContentOption>
+    </TailoredContentOption>
 </TailoredContent>
 
 Now, head back to the app and you'll find a chat sidebar on the left side of the page. At this point, you can start interacting with your copilot! 🎉

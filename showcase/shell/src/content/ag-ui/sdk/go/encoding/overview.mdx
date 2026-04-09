@@ -12,6 +12,7 @@ The encoding package provides a comprehensive system for encoding, decoding, and
 The encoding system is built around a set of well-defined interfaces that follow the Interface Segregation Principle, allowing components to implement only the functionality they need.
 
 ```go
+
 ```
 
 ## Core Interfaces
@@ -24,10 +25,10 @@ The `Encoder` interface defines methods for encoding events to bytes:
 type Encoder interface {
     // Encode encodes a single event
     Encode(ctx context.Context, event events.Event) ([]byte, error)
-    
+
     // EncodeMultiple encodes multiple events efficiently
     EncodeMultiple(ctx context.Context, events []events.Event) ([]byte, error)
-    
+
     // ContentType returns the MIME type for this encoder
     ContentType() string
 }
@@ -41,10 +42,10 @@ The `Decoder` interface defines methods for decoding events from bytes:
 type Decoder interface {
     // Decode decodes a single event from raw data
     Decode(ctx context.Context, data []byte) (events.Event, error)
-    
+
     // DecodeMultiple decodes multiple events from raw data
     DecodeMultiple(ctx context.Context, data []byte) ([]events.Event, error)
-    
+
     // ContentType returns the MIME type for this decoder
     ContentType() string
 }
@@ -120,19 +121,19 @@ func handleAgentStream(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Content-Type", "text/event-stream")
     w.Header().Set("Cache-Control", "no-cache")
     w.Header().Set("Connection", "keep-alive")
-    
+
     // Create SSE writer
     sseWriter := sse.NewSSEWriter()
-    
+
     // Send events
     events := generateEvents() // Your event generation logic
-    
+
     for _, event := range events {
         if err := sseWriter.WriteEvent(r.Context(), w, event); err != nil {
             log.Printf("Failed to write event: %v", err)
             return
         }
-        
+
         // Flush after each event for real-time streaming
         if f, ok := w.(http.Flusher); ok {
             f.Flush()
@@ -190,11 +191,11 @@ For handling large volumes of events, the encoding package supports streaming op
 type StreamEncoder interface {
     // EncodeStream encodes events from a channel to a writer
     EncodeStream(ctx context.Context, input <-chan events.Event, output io.Writer) error
-    
+
     // Session management
     StartStream(ctx context.Context, w io.Writer) error
     EndStream(ctx context.Context) error
-    
+
     // Event processing
     WriteEvent(ctx context.Context, event events.Event) error
 }
@@ -293,44 +294,44 @@ func handleAgent(w http.ResponseWriter, r *http.Request) {
     negotiator := negotiation.NewContentNegotiator("application/json")
     acceptHeader := r.Header.Get("Accept")
     contentType, _ := negotiator.Negotiate(acceptHeader)
-    
+
     // For SSE streaming
     if contentType == "text/event-stream" || r.Header.Get("Accept") == "text/event-stream" {
         w.Header().Set("Content-Type", "text/event-stream")
         w.Header().Set("Cache-Control", "no-cache")
-        
+
         sseWriter := sse.NewSSEWriter()
-        
+
         // Process request and generate events
         events := processAgentRequest(r)
-        
+
         for _, event := range events {
             if err := sseWriter.WriteEvent(r.Context(), w, event); err != nil {
                 sseWriter.WriteErrorEvent(r.Context(), w, err, "req-123")
                 return
             }
-            
+
             if f, ok := w.(http.Flusher); ok {
                 f.Flush()
             }
         }
         return
     }
-    
+
     // For JSON response
     w.Header().Set("Content-Type", "application/json")
-    
+
     encoder := json.NewJSONEncoder(&encoding.EncodingOptions{
         Pretty: r.URL.Query().Get("pretty") == "true",
     })
-    
+
     events := processAgentRequest(r)
     data, err := encoder.EncodeMultiple(r.Context(), events)
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
-    
+
     w.Write(data)
 }
 ```

@@ -19,6 +19,7 @@ var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new ProverbsAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/", agentFactory.CreateProverbsAgent());
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 await app.RunAsync();
 

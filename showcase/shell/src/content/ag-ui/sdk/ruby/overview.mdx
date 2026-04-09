@@ -49,6 +49,7 @@ end
 The Ruby SDK is organized into several focused packages, each handling a specific aspect of the AG-UI protocol:
 
 ### Core Package (`AgUiProtocol::Core`)
+
 The foundation of the SDK, providing event types, interfaces, and decoding capabilities. This package defines all the event structures used in AG-UI communication, including text messages, tool calls, state management, and lifecycle events.
 
 ```ruby
@@ -57,6 +58,7 @@ require "ag_ui_protocol/core/types"
 ```
 
 ### Encoding Package (`AgUiProtocol::Encoder::EventEncoder`)
+
 Provides flexible encoding for events to SSE. Includes JSON encoding, SSE writing for servers, and content negotiation for handling different MIME types.
 
 ```ruby
@@ -84,5 +86,6 @@ Explore the detailed documentation for each package to learn more about specific
   color="#3B82F6"
   iconType="solid"
 >
-  Work with different encodings, content negotiation, and SSE server implementation
+  Work with different encodings, content negotiation, and SSE server
+  implementation
 </Card>

@@ -20,7 +20,9 @@ dependencies {
 ## Core Components
 
 ### Events
+
 Complete set of AG-UI protocol events with automatic serialization.
+
 - All 24 protocol event types
 - Streaming event support (TEXT_MESSAGE_CHUNK, TOOL_CALL_CHUNK)
 - Thinking/reasoning events for agent internal processes
@@ -29,8 +31,10 @@ Complete set of AG-UI protocol events with automatic serialization.
 
 [Learn more about Events →](/docs/sdk/kotlin/core/events)
 
-### Types  
+### Types
+
 Protocol message types and data structures.
+
 - Message hierarchy with role-based discrimination
 - Tool definitions and execution types
 - State management types
@@ -41,14 +45,18 @@ Protocol message types and data structures.
 ## Features
 
 ### JSON Serialization
+
 Built on kotlinx.serialization with AG-UI protocol compliance:
+
 - Polymorphic serialization with `@JsonClassDiscriminator("role")`
 - Automatic event type discrimination
 - Proper null handling
 - Platform-agnostic JSON processing
 
 ### Protocol Compliance
+
 Full implementation of the AG-UI protocol specification:
+
 - All message types (System, User, Assistant, Tool)
 - Complete event lifecycle support
 - State synchronization primitives
@@ -56,7 +64,9 @@ Full implementation of the AG-UI protocol specification:
 - Agent thinking/reasoning workflows
 
 ### Type Safety
+
 Compile-time guarantees for protocol correctness:
+
 - Sealed class hierarchies prevent invalid states
 - Exhaustive when expressions for event handling
 - Null safety throughout the API
@@ -107,7 +117,7 @@ val systemMessage = SystemMessage(
 )
 
 val userMessage = UserMessage(
-    id = "user-1", 
+    id = "user-1",
     content = "What's the weather like?"
 )
 
@@ -167,7 +177,7 @@ val initialState = buildJsonObject {
 // State is included in requests
 val input = RunAgentInput(
     threadId = "thread-1",
-    runId = "run-1", 
+    runId = "run-1",
     messages = listOf(userMessage),
     state = initialState
 )
@@ -176,19 +186,22 @@ val input = RunAgentInput(
 ## Event Types
 
 ### Message Events
+
 - `TextMessageStartEvent` - Agent begins text response
 - `TextMessageContentEvent` - Streaming text content
 - `TextMessageEndEvent` - Agent completes text response
 - `TextMessageChunkEvent` - Chunk-based text streaming
 
 ### Thinking Events
+
 - `ThinkingStartEvent` - Agent begins internal reasoning
 - `ThinkingTextMessageStartEvent` - Agent starts thinking text
 - `ThinkingTextMessageContentEvent` - Streaming thinking content
 - `ThinkingTextMessageEndEvent` - Agent completes thinking text
 - `ThinkingEndEvent` - Agent finishes reasoning process
 
-### Tool Events  
+### Tool Events
+
 - `ToolCallStartEvent` - Tool execution begins
 - `ToolCallArgsEvent` - Streaming tool arguments
 - `ToolCallEndEvent` - Tool call complete
@@ -196,19 +209,23 @@ val input = RunAgentInput(
 - `ToolResultEvent` - Tool execution result
 
 ### State Events
+
 - `StateSnapshotEvent` - Complete state snapshot
 - `StateDeltaEvent` - Incremental state change
 
 ### Lifecycle Events
+
 - `RunStartedEvent` - Agent run begins
 - `RunFinishedEvent` - Agent run completes
 
 ### Error Events
+
 - `ErrorEvent` - Protocol or execution errors
 
 ## Message Types
 
 ### Core Message Hierarchy
+
 ```kotlin
 sealed class Message {
     abstract val id: String
@@ -226,7 +243,7 @@ data class SystemMessage(
 ) : Message()
 
 // User messages from the human
-@Serializable  
+@Serializable
 @SerialName("user")
 data class UserMessage(
     override val id: String,
@@ -236,7 +253,7 @@ data class UserMessage(
 
 // Assistant responses from the agent
 @Serializable
-@SerialName("assistant") 
+@SerialName("assistant")
 data class AssistantMessage(
     override val id: String,
     override val content: String?,
@@ -276,6 +293,7 @@ val message = AgUiJson.decodeFromString<Message>(json)
 ## Platform Support
 
 The core module is fully multiplatform:
+
 - **Android**: Full compatibility with Android API 26+
 - **iOS**: Native iOS support with Swift interop
 - **JVM**: Server-side and desktop application support
@@ -284,6 +302,7 @@ The core module is fully multiplatform:
 ## Best Practices
 
 ### Event Processing
+
 ```kotlin
 // Use exhaustive when expressions for event handling
 fun handleEvent(event: BaseEvent): EventResult {
@@ -309,6 +328,7 @@ fun handleEvent(event: BaseEvent): EventResult {
 ```
 
 ### Message Processing
+
 ```kotlin
 // Process messages - core module provides data access only
 fun processMessage(message: Message) {
@@ -324,7 +344,7 @@ fun processMessage(message: Message) {
             message.content?.let { content ->
                 println("Assistant response: $content")
             }
-            
+
             // Access tool call data (execution handled by framework)
             message.toolCalls?.forEach { toolCall ->
                 println("Tool requested: ${toolCall.name}")
@@ -340,6 +360,7 @@ fun processMessage(message: Message) {
 ```
 
 ### JSON Handling
+
 ```kotlin
 // Always use AgUiJson for protocol serialization
 

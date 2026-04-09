@@ -222,11 +222,13 @@ The underlying SSE client handles Server-Sent Events with:
 ## Best Practices
 
 1. **Resource Management**: Always dispose of clients when done:
+
    ```dart
    client.dispose();
    ```
 
 2. **Error Handling**: Implement comprehensive error handling:
+
    ```dart
    stream.handleError((error) {
      // Log and recover
@@ -234,6 +236,7 @@ The underlying SSE client handles Server-Sent Events with:
    ```
 
 3. **Cancellation**: Cancel long-running operations when appropriate:
+
    ```dart
    await client.cancelAgent(agentId);
    ```

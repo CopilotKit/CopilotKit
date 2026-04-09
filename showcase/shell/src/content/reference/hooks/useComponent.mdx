@@ -15,10 +15,7 @@ Use this when you want a visual component renderer without writing a full fronte
 ## Signature
 
 ```tsx
-
-function useComponent<
-  TSchema extends z.ZodTypeAny | undefined = undefined,
->(
+function useComponent<TSchema extends z.ZodTypeAny | undefined = undefined>(
   config: {
     name: string;
     description?: string;
@@ -51,7 +48,6 @@ function useComponent<
 ## Usage
 
 ```tsx
-
 const weatherCardSchema = z.object({
   city: z.string().describe("City name"),
   unit: z.enum(["c", "f"]).default("c"),
@@ -63,7 +59,9 @@ function WeatherCard({ city, unit }: WeatherCardProps) {
   return (
     <div className="rounded border p-3">
       <div className="text-sm text-zinc-500">Weather request</div>
-      <div className="font-medium">{city} ({unit.toUpperCase()})</div>
+      <div className="font-medium">
+        {city} ({unit.toUpperCase()})
+      </div>
     </div>
   );
 }

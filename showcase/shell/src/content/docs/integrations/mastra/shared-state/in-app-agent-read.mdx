@@ -14,7 +14,8 @@ description: Read the realtime agent state in your native application.
 />
 
 <Callout type="info">
-  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/mastra/feature/shared_state).
+  This example demonstrates reading from shared state in the [CopilotKit Feature
+  Viewer](https://feature-viewer.copilotkit.ai/mastra/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -24,13 +25,14 @@ You can easily use the realtime agent state not only in the chat UI, but also in
 <Callout type="info" title="Important">
   This guide assumes you are embedding your Mastra agent inside of Copilot Runtime, like so.
 
-  ```ts
-  const runtime = new CopilotRuntime({
-    agents: MastraAgent.getLocalAgents({ mastra }),
-  });
-  ```
+```ts
+const runtime = new CopilotRuntime({
+  agents: MastraAgent.getLocalAgents({ mastra }),
+});
+```
 
-  This feature will **not work** if you are using a **remote Mastra agent**.
+This feature will **not work** if you are using a **remote Mastra agent**.
+
 </Callout>
 
 ## When should I use this?
@@ -80,6 +82,7 @@ state updates, you can reflect these updates natively in your application.
       }),
     });
     ```
+
   </Step>
   <Step>
     ### Use the `useAgent` Hook
@@ -111,6 +114,7 @@ state updates, you can reflect these updates natively in your application.
     <Callout type="info">
       The `agent.state` in `useAgent` is reactive and will automatically update when the working memory changes.
     </Callout>
+
   </Step>
   <Step>
     ### Give it a try!
@@ -125,11 +129,10 @@ You can also render the working memory in the chat UI. This is useful for inform
 more in-context way. To do this, you can use the `useAgent` hook with a `render` function.
 
 ```tsx title="ui/app/page.tsx"
-
 // Define the agent state type, should match the actual state of your agent
 type AgentState = {
   language: "english" | "spanish";
-}
+};
 
 function YourMainContent() {
   // ...
@@ -146,5 +149,6 @@ function YourMainContent() {
 ```
 
 <Callout type="info">
-  The `agent.state` in `useAgent` is reactive and will automatically update when the working memory changes.
+  The `agent.state` in `useAgent` is reactive and will automatically update when
+  the working memory changes.
 </Callout>

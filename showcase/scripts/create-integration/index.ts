@@ -23,172 +23,200 @@ const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const PACKAGES_DIR = path.join(ROOT, "packages");
-const FEATURE_REGISTRY_PATH = path.join(ROOT, "shared", "feature-registry.json");
+const FEATURE_REGISTRY_PATH = path.join(
+  ROOT,
+  "shared",
+  "feature-registry.json",
+);
 
 interface Feature {
-    id: string;
-    name: string;
-    category: string;
-    description: string;
+  id: string;
+  name: string;
+  category: string;
+  description: string;
 }
 
 interface CLIArgs {
-    name: string;
-    slug: string;
-    category: string;
-    language: string;
-    features: string[];
-    extraDeps: string[];
+  name: string;
+  slug: string;
+  category: string;
+  language: string;
+  features: string[];
+  extraDeps: string[];
 }
 
 function parseArgs(): CLIArgs {
-    const args = process.argv.slice(2);
-    const parsed: Record<string, string> = {};
+  const args = process.argv.slice(2);
+  const parsed: Record<string, string> = {};
 
-    for (let i = 0; i < args.length; i++) {
-        if (args[i].startsWith("--")) {
-            const key = args[i].slice(2);
-            const val = args[i + 1];
-            if (val && !val.startsWith("--")) {
-                parsed[key] = val;
-                i++;
-            }
-        }
+  for (let i = 0; i < args.length; i++) {
+    if (args[i].startsWith("--")) {
+      const key = args[i].slice(2);
+      const val = args[i + 1];
+      if (val && !val.startsWith("--")) {
+        parsed[key] = val;
+        i++;
+      }
     }
+  }
 
-    if (!parsed.name || !parsed.slug || !parsed.category || !parsed.language || !parsed.features) {
-        console.error("Usage: create-integration --name <name> --slug <slug> --category <category> --language <language> --features <comma-separated> [--deps <comma-separated>]");
-        console.error("\nRequired flags:");
-        console.error("  --name       Display name (e.g. 'Anthropic (Claude Agent SDK)')");
-        console.error("  --slug       URL-safe ID (e.g. 'anthropic-claude-sdk')");
-        console.error("  --category   One of: popular, agent-framework, enterprise-platform, provider-sdk, protocol, emerging, starter");
-        console.error("  --language   One of: python, typescript, dotnet");
-        console.error("  --features   Comma-separated feature IDs (e.g. 'agentic-chat,hitl,tool-rendering')");
-        console.error("\nOptional flags:");
-        console.error("  --deps       Extra npm dependencies (e.g. '@ag-ui/mastra,@mastra/core')");
-        process.exit(1);
-    }
+  if (
+    !parsed.name ||
+    !parsed.slug ||
+    !parsed.category ||
+    !parsed.language ||
+    !parsed.features
+  ) {
+    console.error(
+      "Usage: create-integration --name <name> --slug <slug> --category <category> --language <language> --features <comma-separated> [--deps <comma-separated>]",
+    );
+    console.error("\nRequired flags:");
+    console.error(
+      "  --name       Display name (e.g. 'Anthropic (Claude Agent SDK)')",
+    );
+    console.error("  --slug       URL-safe ID (e.g. 'anthropic-claude-sdk')");
+    console.error(
+      "  --category   One of: popular, agent-framework, enterprise-platform, provider-sdk, protocol, emerging, starter",
+    );
+    console.error("  --language   One of: python, typescript, dotnet");
+    console.error(
+      "  --features   Comma-separated feature IDs (e.g. 'agentic-chat,hitl,tool-rendering')",
+    );
+    console.error("\nOptional flags:");
+    console.error(
+      "  --deps       Extra npm dependencies (e.g. '@ag-ui/mastra,@mastra/core')",
+    );
+    process.exit(1);
+  }
 
-    return {
-        name: parsed.name,
-        slug: parsed.slug,
-        category: parsed.category,
-        language: parsed.language,
-        features: parsed.features.split(",").map((f) => f.trim()),
-        extraDeps: parsed.deps ? parsed.deps.split(",").map((d) => d.trim()) : [],
-    };
+  return {
+    name: parsed.name,
+    slug: parsed.slug,
+    category: parsed.category,
+    language: parsed.language,
+    features: parsed.features.split(",").map((f) => f.trim()),
+    extraDeps: parsed.deps ? parsed.deps.split(",").map((d) => d.trim()) : [],
+  };
 }
 
 function loadFeatureRegistry(): Feature[] {
-    const raw = fs.readFileSync(FEATURE_REGISTRY_PATH, "utf-8");
-    return JSON.parse(raw).features;
+  const raw = fs.readFileSync(FEATURE_REGISTRY_PATH, "utf-8");
+  return JSON.parse(raw).features;
 }
 
 function writeFile(filePath: string, content: string) {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, content);
-    console.log(`  Created: ${path.relative(ROOT, filePath)}`);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, content);
+  console.log(`  Created: ${path.relative(ROOT, filePath)}`);
 }
 
 function generateManifest(args: CLIArgs, features: Feature[]): string {
-    const demos = args.features.map((featureId) => {
-        const feature = features.find((f) => f.id === featureId);
-        const name = feature?.name || featureId;
-        const description = feature?.description || "";
-        const tags = [feature?.category || "general"].filter(Boolean);
-        return {
-            id: featureId,
-            name,
-            description,
-            tags,
-            route: `/demos/${featureId}`,
-        };
-    });
-
-    const manifest = {
-        name: args.name,
-        slug: args.slug,
-        category: args.category,
-        language: args.language,
-        logo: `/logos/${args.slug}.svg`,
-        description: `CopilotKit integration with ${args.name}`,
-        partner_docs: null,
-        repo: `https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/${args.slug}`,
-        copilotkit_version: "2.0.0",
-        backend_url: `https://showcase-${args.slug}-production.up.railway.app`,
-        deployed: false,
-        generative_ui: ["constrained-explicit"],
-        interaction_modalities: ["chat"],
-        features: args.features,
-        demos,
-        managed_platform: undefined as { name: string; url: string } | undefined,
+  const demos = args.features.map((featureId) => {
+    const feature = features.find((f) => f.id === featureId);
+    const name = feature?.name || featureId;
+    const description = feature?.description || "";
+    const tags = [feature?.category || "general"].filter(Boolean);
+    return {
+      id: featureId,
+      name,
+      description,
+      tags,
+      route: `/demos/${featureId}`,
     };
+  });
 
-    const MANAGED_PLATFORMS: Record<string, { name: string; url: string }> = {
-        "LangGraph": { name: "LangGraph Platform", url: "https://langsmith.com" },
-        "Mastra": { name: "Mastra Cloud", url: "https://mastra.ai/cloud" },
-        "CrewAI": { name: "CrewAI Enterprise", url: "https://crewai.com/amp" },
-        "Agno": { name: "Agent OS", url: "https://os.agno.com" },
-        "AG2": { name: "Agent OS", url: "https://ag2.ai/product" },
-        "Strands": { name: "AWS Bedrock AgentCore", url: "https://aws.amazon.com/bedrock/agents/" },
-    };
+  const manifest = {
+    name: args.name,
+    slug: args.slug,
+    category: args.category,
+    language: args.language,
+    logo: `/logos/${args.slug}.svg`,
+    description: `CopilotKit integration with ${args.name}`,
+    partner_docs: null,
+    repo: `https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/${args.slug}`,
+    copilotkit_version: "2.0.0",
+    backend_url: `https://showcase-${args.slug}-production.up.railway.app`,
+    deployed: false,
+    generative_ui: ["constrained-explicit"],
+    interaction_modalities: ["chat"],
+    features: args.features,
+    demos,
+    managed_platform: undefined as { name: string; url: string } | undefined,
+  };
 
-    for (const [prefix, platform] of Object.entries(MANAGED_PLATFORMS)) {
-        if (args.name.startsWith(prefix)) {
-            manifest.managed_platform = platform;
-            break;
-        }
+  const MANAGED_PLATFORMS: Record<string, { name: string; url: string }> = {
+    LangGraph: { name: "LangGraph Platform", url: "https://langsmith.com" },
+    Mastra: { name: "Mastra Cloud", url: "https://mastra.ai/cloud" },
+    CrewAI: { name: "CrewAI Enterprise", url: "https://crewai.com/amp" },
+    Agno: { name: "Agent OS", url: "https://os.agno.com" },
+    AG2: { name: "Agent OS", url: "https://ag2.ai/product" },
+    Strands: {
+      name: "AWS Bedrock AgentCore",
+      url: "https://aws.amazon.com/bedrock/agents/",
+    },
+  };
+
+  for (const [prefix, platform] of Object.entries(MANAGED_PLATFORMS)) {
+    if (args.name.startsWith(prefix)) {
+      manifest.managed_platform = platform;
+      break;
     }
+  }
 
-    return yaml.stringify(manifest);
+  return yaml.stringify(manifest);
 }
 
 function generatePackageJson(args: CLIArgs): string {
-    const devCmd = args.language === "typescript"
-        ? '"dev": "next dev --turbopack"'
-        : '"dev": "concurrently \\"next dev --turbopack\\" \\"python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload\\""';
+  const devCmd =
+    args.language === "typescript"
+      ? '"dev": "next dev --turbopack"'
+      : '"dev": "concurrently \\"next dev --turbopack\\" \\"python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload\\""';
 
-    return JSON.stringify(
-        {
-            name: `@copilotkit/showcase-${args.slug}`,
-            version: "0.1.0",
-            private: true,
-            scripts: {
-                dev: args.language === "typescript"
-                    ? "next dev --turbopack"
-                    : 'concurrently "next dev --turbopack" "python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload"',
-                build: "next build",
-                start: "next start",
-                lint: "next lint",
-                "test:e2e": "playwright test",
-            },
-            dependencies: {
-                "@copilotkit/react-core": "next",
-                "@copilotkit/runtime": "next",
-                next: "^15.0.0",
-                react: "^19.0.0",
-                "react-dom": "^19.0.0",
-                zod: "^3.24.0",
-                ...Object.fromEntries(args.extraDeps.map((d) => [d, "latest"])),
-            },
-            devDependencies: {
-                "@playwright/test": "^1.50.0",
-                "@types/node": "^22.0.0",
-                "@types/react": "^19.0.0",
-                typescript: "^5.7.0",
-                tailwindcss: "^4.0.0",
-                "@tailwindcss/postcss": "^4.0.0",
-                postcss: "^8.5.0",
-                ...(args.language !== "typescript" ? { concurrently: "^9.1.0" } : {}),
-            },
+  return (
+    JSON.stringify(
+      {
+        name: `@copilotkit/showcase-${args.slug}`,
+        version: "0.1.0",
+        private: true,
+        scripts: {
+          dev:
+            args.language === "typescript"
+              ? "next dev --turbopack"
+              : 'concurrently "next dev --turbopack" "python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload"',
+          build: "next build",
+          start: "next start",
+          lint: "next lint",
+          "test:e2e": "playwright test",
         },
-        null,
-        2
-    ) + "\n";
+        dependencies: {
+          "@ag-ui/client": "^0.0.43",
+          "@copilotkit/react-core": "next",
+          "@copilotkit/runtime": "next",
+          next: "^15.0.0",
+          react: "^19.0.0",
+          "react-dom": "^19.0.0",
+          zod: "^3.24.0",
+          ...Object.fromEntries(args.extraDeps.map((d) => [d, "latest"])),
+        },
+        devDependencies: {
+          "@playwright/test": "^1.50.0",
+          "@types/node": "^22.0.0",
+          "@types/react": "^19.0.0",
+          typescript: "^5.7.0",
+          tailwindcss: "^4.0.0",
+          "@tailwindcss/postcss": "^4.0.0",
+          postcss: "^8.5.0",
+          ...(args.language !== "typescript" ? { concurrently: "^9.1.0" } : {}),
+        },
+      },
+      null,
+      2,
+    ) + "\n"
+  );
 }
 
 function generateLayout(): string {
-    return `import type { Metadata } from "next";
+  return `import type { Metadata } from "next";
 import "@copilotkit/react-core/v2/styles.css";
 import "./globals.css";
 
@@ -227,7 +255,7 @@ export default function RootLayout({
 }
 
 function generatePostcssConfig(): string {
-    return `/** @type {import('postcss-load-config').Config} */
+  return `/** @type {import('postcss-load-config').Config} */
 const config = {
     plugins: {
         "@tailwindcss/postcss": {},
@@ -239,7 +267,7 @@ export default config;
 }
 
 function generateGlobalsCss(): string {
-    return `@import "tailwindcss";
+  return `@import "tailwindcss";
 @import "@copilotkit/react-core/v2/styles.css";
 
 :root {
@@ -259,19 +287,19 @@ body {
 }
 
 function generateIndexPage(args: CLIArgs, features: Feature[]): string {
-    const demoLinks = args.features
-        .map((featureId) => {
-            const feature = features.find((f) => f.id === featureId);
-            const name = feature?.name || featureId;
-            const desc = feature?.description || "";
-            return `                    <a key="${featureId}" href="/demos/${featureId}" className="demo-card">
+  const demoLinks = args.features
+    .map((featureId) => {
+      const feature = features.find((f) => f.id === featureId);
+      const name = feature?.name || featureId;
+      const desc = feature?.description || "";
+      return `                    <a key="${featureId}" href="/demos/${featureId}" className="demo-card">
                         <h3>${name}</h3>
                         <p>${desc}</p>
                     </a>`;
-        })
-        .join("\n");
+    })
+    .join("\n");
 
-    return `export default function Home() {
+  return `export default function Home() {
     return (
         <main style={{ padding: "2rem", maxWidth: "800px", margin: "0 auto" }}>
             <h1>${args.name}</h1>
@@ -286,8 +314,12 @@ ${demoLinks}
 `;
 }
 
-function generateDemoPage(featureId: string, feature: Feature | undefined, args: CLIArgs): string {
-    return `"use client";
+function generateDemoPage(
+  featureId: string,
+  feature: Feature | undefined,
+  args: CLIArgs,
+): string {
+  return `"use client";
 
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
@@ -349,57 +381,60 @@ function DemoContent() {
 }
 
 function getDemoInteraction(featureId: string): string {
-    switch (featureId) {
-        case "tool-rendering":
-            return `- "What's the weather like in San Francisco?"
+  switch (featureId) {
+    case "tool-rendering":
+      return `- "What's the weather like in San Francisco?"
 - "Check the weather in Tokyo and New York"
 - "Can you look up the current conditions in London?"`;
-        case "hitl":
-            return `- "Change the background color to a warm sunset gradient"
+    case "hitl":
+      return `- "Change the background color to a warm sunset gradient"
 - "Set the theme to dark mode"
 - "Make the background a calming blue-green gradient"
 
 When the agent proposes an action, you'll see an approval prompt. Click **Approve** to let it proceed or **Reject** to cancel.`;
-        case "gen-ui-tool-based":
-            return `- "What's the weather forecast for this week in San Francisco?"
+    case "gen-ui-tool-based":
+      return `- "What's the weather forecast for this week in San Francisco?"
 - "Show me the weather in Paris"
 - "Compare the weather in Tokyo and London"
 
 The agent generates structured data via tools, and the frontend renders it as rich UI components.`;
-        default:
-            return `- "TODO: Add example prompts"
+    default:
+      return `- "TODO: Add example prompts"
 - "TODO: Add more examples"`;
-    }
+  }
 }
 
 function getDemoTechnicalDetails(featureId: string): string {
-    switch (featureId) {
-        case "tool-rendering":
-            return `- **Backend tools** are defined in the agent (e.g., \\\`get_weather\\\`) and called by the LLM when the user's query matches
+  switch (featureId) {
+    case "tool-rendering":
+      return `- **Backend tools** are defined in the agent (e.g., \\\`get_weather\\\`) and called by the LLM when the user's query matches
 - **\\\`useRenderTool\\\`** on the frontend registers a React component that renders whenever the agent calls that tool
 - The render function receives \\\`args\\\` (input parameters), \\\`result\\\` (tool output), and \\\`status\\\` ("executing" or "complete") so the UI can show loading states
 - The tool result is displayed as a rich UI card instead of plain text — demonstrating how agent actions can produce structured, visual output`;
-        case "hitl":
-            return `- **Human-in-the-Loop (HITL)** lets the agent propose actions that require user approval before execution
+    case "hitl":
+      return `- **Human-in-the-Loop (HITL)** lets the agent propose actions that require user approval before execution
 - The agent calls a tool (like \\\`change_background\\\`), and CopilotKit intercepts it to show a confirmation dialog
 - \\\`useHumanInTheLoop\\\` registers a frontend tool with \\\`requireConfirmation: true\\\`, adding the approval step
 - The user sees what the agent wants to do (with the proposed arguments) and can approve or reject
 - This pattern is essential for high-stakes actions — database writes, API calls, or any irreversible operation`;
-        case "gen-ui-tool-based":
-            return `- **Generative UI** means the agent's tool calls produce structured data that the frontend renders as custom React components
+    case "gen-ui-tool-based":
+      return `- **Generative UI** means the agent's tool calls produce structured data that the frontend renders as custom React components
 - Unlike plain text responses, the agent returns tool results with typed parameters (city, temperature, conditions)
 - \\\`useRenderTool\\\` maps each tool name to a React component, so \\\`get_weather\\\` renders a weather card with icons, temperature displays, and forecast details
 - The agent decides when to call the tool based on context — it can mix tool-based UI generation with regular text responses
 - This pattern enables agents to create dynamic, data-driven interfaces on demand`;
-        default:
-            return `- TODO: Describe the technical implementation
+    default:
+      return `- TODO: Describe the technical implementation
 - TODO: Explain the hooks and components used
 - TODO: Note any framework-specific patterns`;
-    }
+  }
 }
 
-function generateDemoReadme(featureId: string, feature: Feature | undefined): string {
-    return `# ${feature?.name || featureId}
+function generateDemoReadme(
+  featureId: string,
+  feature: Feature | undefined,
+): string {
+  return `# ${feature?.name || featureId}
 
 ## What This Demo Shows
 
@@ -471,8 +506,8 @@ See the full [Styling Guide](https://github.com/CopilotKit/CopilotKit/blob/main/
 }
 
 function generateRuntimeRoute(args: CLIArgs): string {
-    if (args.language === "typescript") {
-        return `import { NextRequest } from "next/server";
+  if (args.language === "typescript") {
+    return `import { NextRequest } from "next/server";
 import {
     CopilotRuntime,
     ExperimentalEmptyAdapter,
@@ -497,9 +532,9 @@ export const POST = async (req: NextRequest) => {
     return handleRequest(req);
 };
 `;
-    }
+  }
 
-    return `import { NextRequest } from "next/server";
+  return `import { NextRequest } from "next/server";
 import {
     CopilotRuntime,
     ExperimentalEmptyAdapter,
@@ -527,11 +562,19 @@ export const POST = async (req: NextRequest) => {
 }
 
 function generateHealthRoute(args: CLIArgs): string {
-    const agentUrl = args.language === "typescript"
-        ? "N/A (in-process)"
-        : "http://localhost:8123";
+  const isLangGraph = args.name.startsWith("LangGraph");
+  const isInProcess = args.language === "typescript" && !isLangGraph;
 
-    return `import { NextRequest, NextResponse } from "next/server";
+  const agentUrl = isInProcess
+    ? "N/A (in-process)"
+    : isLangGraph
+      ? "http://localhost:8123"
+      : "http://localhost:8000";
+
+  // LangGraph Platform exposes /ok; our backends expose /health
+  const probePath = isLangGraph ? "/ok" : "/health";
+
+  return `import { NextRequest, NextResponse } from "next/server";
 
 const AGENT_URL = process.env.AGENT_URL || process.env.LANGGRAPH_DEPLOYMENT_URL || "${agentUrl}";
 
@@ -539,7 +582,7 @@ export async function GET(req: NextRequest) {
     // Check agent backend reachability
     let agentStatus = "unknown";
     try {
-        const res = await fetch(\`\${AGENT_URL}/ok\`, { signal: AbortSignal.timeout(3000) });
+        const res = await fetch(\`\${AGENT_URL}${probePath}\`, { signal: AbortSignal.timeout(3000) });
         agentStatus = res.ok ? "ok" : "error";
     } catch {
         agentStatus = "down";
@@ -569,13 +612,18 @@ export async function GET(req: NextRequest) {
         };
     }
 
-    return NextResponse.json(publicResponse);
+    const httpStatus = agentStatus === "ok" || agentStatus === "in-process" ? 200 : 503;
+    return NextResponse.json(publicResponse, { status: httpStatus });
 }
 `;
 }
 
 function generateDebugRoute(args: CLIArgs): string {
-    return `import { NextRequest, NextResponse } from "next/server";
+  const isLangGraph = args.name.startsWith("LangGraph");
+  // LangGraph Platform exposes /ok; our backends expose /health
+  const probePath = isLangGraph ? "/ok" : "/health";
+
+  return `import { NextRequest, NextResponse } from "next/server";
 
 // Request log (in-memory ring buffer, last 50 requests)
 const requestLog: Array<{ time: string; method: string; path: string; status: number; durationMs: number }> = [];
@@ -601,7 +649,7 @@ export async function GET(req: NextRequest) {
     let agentStatus = "unknown";
     let agentDetail = "";
     try {
-        const res = await fetch(\`\${AGENT_URL}/ok\`, { signal: AbortSignal.timeout(3000) });
+        const res = await fetch(\`\${AGENT_URL}${probePath}\`, { signal: AbortSignal.timeout(3000) });
         agentStatus = res.ok ? "ok" : "error";
         agentDetail = \`HTTP \${res.status}\`;
     } catch (e: any) {
@@ -634,7 +682,7 @@ export async function GET(req: NextRequest) {
 }
 
 function generateErrorBoundary(): string {
-    return `"use client";
+  return `"use client";
 
 import React from "react";
 
@@ -700,37 +748,34 @@ export class DemoErrorBoundary extends React.Component<
 }
 
 function generateDockerfile(args: CLIArgs): string {
-    if (args.language === "typescript") {
-        return `FROM node:20-slim AS builder
+  if (args.language === "typescript") {
+    return `FROM node:20-slim AS builder
 WORKDIR /app
-RUN corepack enable
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile
+COPY package.json package-lock.json* ./
+RUN npm install
 COPY . .
-RUN pnpm build
+RUN npm run build
 
 FROM node:20-slim AS runner
 WORKDIR /app
-RUN corepack enable
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/public ./public
 
-EXPOSE 3000
+EXPOSE 10000
 ENV NODE_ENV=production
-CMD ["pnpm", "start"]
+CMD ["npm", "start"]
 `;
-    }
+  }
 
-    return `# Stage 1: Build Next.js frontend
+  return `# Stage 1: Build Next.js frontend
 FROM node:20-slim AS frontend
 WORKDIR /app
-RUN corepack enable
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile
+COPY package.json package-lock.json* ./
+RUN npm install
 COPY . .
-RUN pnpm build
+RUN npm run build
 
 # Stage 2: Production image with Node.js + Python
 FROM python:3.12-slim AS runner
@@ -762,27 +807,27 @@ COPY src/app/demos/*/agent.py ./agents/
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
-EXPOSE 3000
+EXPOSE 10000
 ENV NODE_ENV=production
 CMD ["./entrypoint.sh"]
 `;
 }
 
 function generateEntrypoint(args: CLIArgs): string {
-    if (args.language === "typescript") {
-        return `#!/bin/bash
-exec npx next start --port 3000
-`;
-    }
-
+  if (args.language === "typescript") {
     return `#!/bin/bash
+exec npx next start --port \${PORT:-10000}
+`;
+  }
+
+  return `#!/bin/bash
 set -e
 
 # Start agent backend
 python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 &
 
 # Start Next.js frontend
-npx next start --port 3000 &
+npx next start --port \${PORT:-10000} &
 
 # Wait for either process to exit
 wait -n
@@ -790,33 +835,127 @@ exit $?
 `;
 }
 
+function generateSmokeRoute(args: CLIArgs): string {
+  return `import { NextResponse } from "next/server";
+
+const INTEGRATION_SLUG = "${args.slug}";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 30;
+
+export async function GET() {
+    const start = Date.now();
+    // Hit our own /api/copilotkit endpoint — tests the full deployed stack
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
+        || \\\`http://localhost:\${process.env.PORT || 10000}\\\`;
+
+    try {
+        const res = await fetch(\\\`\${baseUrl}/api/copilotkit\\\`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                method: "agent/run",
+                params: { agentId: "agentic_chat" },
+                body: {
+                    threadId: \\\`smoke-\${Date.now()}\\\`,
+                    runId: \\\`smoke-run-\${Date.now()}\\\`,
+                    state: {},
+                    messages: [
+                        {
+                            id: \\\`smoke-msg-\${Date.now()}\\\`,
+                            role: "user",
+                            content: "Respond with exactly: OK",
+                        },
+                    ],
+                    tools: [],
+                    context: [],
+                    forwardedProps: {},
+                },
+            }),
+            signal: AbortSignal.timeout(25000),
+        });
+
+        const latency = Date.now() - start;
+
+        if (!res.ok) {
+            const errBody = await res.text().catch(() => "");
+            return NextResponse.json({
+                status: "error",
+                integration: INTEGRATION_SLUG,
+                stage: "runtime_response",
+                error: \\\`Runtime returned \${res.status}: \${errBody.slice(0, 200)}\\\`,
+                latency_ms: latency,
+                timestamp: new Date().toISOString(),
+            }, { status: 502 });
+        }
+
+        // Response is SSE stream — just verify we got content
+        const body = await res.text();
+        if (body.length === 0) {
+            return NextResponse.json({
+                status: "error",
+                integration: INTEGRATION_SLUG,
+                stage: "response_empty",
+                error: "Runtime returned empty response body",
+                latency_ms: latency,
+                timestamp: new Date().toISOString(),
+            }, { status: 502 });
+        }
+
+        return NextResponse.json({
+            status: "ok",
+            integration: INTEGRATION_SLUG,
+            latency_ms: latency,
+            timestamp: new Date().toISOString(),
+        });
+    } catch (e: unknown) {
+        const err = e instanceof Error ? e : new Error(String(e));
+        const latency = Date.now() - start;
+
+        let stage = "unknown";
+        if (err.name === "AbortError" || err.message.includes("timeout")) stage = "timeout";
+        else if (err.message.includes("fetch") || err.message.includes("ECONNREFUSED")) stage = "agent_unreachable";
+        else stage = "pipeline_error";
+
+        return NextResponse.json({
+            status: "error",
+            integration: INTEGRATION_SLUG,
+            stage,
+            error: err.message,
+            latency_ms: latency,
+            timestamp: new Date().toISOString(),
+        }, { status: 502 });
+    }
+}
+`;
+}
 
 function generateEnvExample(args: CLIArgs): string {
-    const lines = [
-        "# API Keys (shared across integrations)",
-        "OPENAI_API_KEY=sk-...",
-        "ANTHROPIC_API_KEY=sk-ant-...",
-        "",
-    ];
+  const lines = [
+    "# API Keys (shared across integrations)",
+    "OPENAI_API_KEY=sk-...",
+    "ANTHROPIC_API_KEY=sk-ant-...",
+    "",
+  ];
 
-    if (args.language !== "typescript") {
-        lines.push("# Agent backend URL (for the CopilotKit runtime proxy)");
-        lines.push("AGENT_URL=http://localhost:8000");
-        lines.push("");
-    }
+  if (args.language !== "typescript") {
+    lines.push("# Agent backend URL (for the CopilotKit runtime proxy)");
+    lines.push("AGENT_URL=http://localhost:8000");
+    lines.push("");
+  }
 
-    lines.push("# Showcase");
-    lines.push("NEXT_PUBLIC_BASE_URL=http://localhost:3000");
+  lines.push("# Showcase");
+  lines.push("NEXT_PUBLIC_BASE_URL=http://localhost:3000");
 
-    return lines.join("\n") + "\n";
+  return lines.join("\n") + "\n";
 }
 
 function generateAgentServer(args: CLIArgs): string {
-    if (args.language === "typescript") {
-        return "";
-    }
+  if (args.language === "typescript") {
+    return "";
+  }
 
-    return `"""
+  return `"""
 Agent Server for ${args.name}
 
 FastAPI server that hosts the agent backend.
@@ -850,19 +989,22 @@ async def health():
 }
 
 function generateRequirementsTxt(args: CLIArgs): string {
-    if (args.language === "typescript") {
-        return "";
-    }
+  if (args.language === "typescript") {
+    return "";
+  }
 
-    return `fastapi>=0.115.0
+  return `fastapi>=0.115.0
 uvicorn>=0.34.0
 copilotkit>=0.1.0
 # TODO: Add framework-specific dependencies
 `;
 }
 
-function generateE2ETest(featureId: string, feature: Feature | undefined): string {
-    return `import { test, expect } from "@playwright/test";
+function generateE2ETest(
+  featureId: string,
+  feature: Feature | undefined,
+): string {
+  return `import { test, expect } from "@playwright/test";
 
 test.describe("${feature?.name || featureId}", () => {
     test("page loads and chat renders", async ({ page }) => {
@@ -890,8 +1032,12 @@ test.describe("${feature?.name || featureId}", () => {
 `;
 }
 
-function generateQATemplate(featureId: string, feature: Feature | undefined, args: CLIArgs): string {
-    return `# QA: ${feature?.name || featureId} — ${args.name}
+function generateQATemplate(
+  featureId: string,
+  feature: Feature | undefined,
+  args: CLIArgs,
+): string {
+  return `# QA: ${feature?.name || featureId} — ${args.name}
 
 ## Prerequisites
 - Demo is deployed and accessible
@@ -920,7 +1066,7 @@ function generateQATemplate(featureId: string, feature: Feature | undefined, arg
 }
 
 function generatePlaywrightConfig(): string {
-    return `import { defineConfig, devices } from "@playwright/test";
+  return `import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
     testDir: "./tests/e2e",
@@ -951,7 +1097,7 @@ export default defineConfig({
 }
 
 function generateNextConfig(): string {
-    return `import type { NextConfig } from "next";
+  return `import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
     // Allow iframe embedding from the showcase shell
@@ -979,35 +1125,42 @@ export default nextConfig;
 }
 
 function generateTsConfig(): string {
-    return JSON.stringify(
-        {
-            compilerOptions: {
-                target: "ES2017",
-                lib: ["dom", "dom.iterable", "esnext"],
-                allowJs: true,
-                skipLibCheck: true,
-                strict: true,
-                noEmit: true,
-                esModuleInterop: true,
-                module: "esnext",
-                moduleResolution: "bundler",
-                resolveJsonModule: true,
-                isolatedModules: true,
-                jsx: "preserve",
-                incremental: true,
-                plugins: [{ name: "next" }],
-                paths: { "@/*": ["./src/*"] },
-            },
-            include: ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-            exclude: ["node_modules"],
+  return (
+    JSON.stringify(
+      {
+        compilerOptions: {
+          target: "ES2017",
+          lib: ["dom", "dom.iterable", "esnext"],
+          allowJs: true,
+          skipLibCheck: true,
+          strict: true,
+          noEmit: true,
+          esModuleInterop: true,
+          module: "esnext",
+          moduleResolution: "bundler",
+          resolveJsonModule: true,
+          isolatedModules: true,
+          jsx: "preserve",
+          incremental: true,
+          plugins: [{ name: "next" }],
+          paths: { "@/*": ["./src/*"] },
         },
-        null,
-        2
-    ) + "\n";
+        include: [
+          "next-env.d.ts",
+          "**/*.ts",
+          "**/*.tsx",
+          ".next/types/**/*.ts",
+        ],
+        exclude: ["node_modules"],
+      },
+      null,
+      2,
+    ) + "\n"
+  );
 }
 
 function generateGitignore(): string {
-    return `node_modules/
+  return `node_modules/
 .next/
 .env.local
 .env
@@ -1021,175 +1174,224 @@ test-results/
 }
 
 function toPascalCase(str: string): string {
-    return str
-        .split("-")
-        .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-        .join("");
+  return str
+    .split("-")
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join("");
 }
 
 async function main() {
-    const args = parseArgs();
-    const features = loadFeatureRegistry();
-    const packageDir = path.join(PACKAGES_DIR, args.slug);
+  const args = parseArgs();
+  const features = loadFeatureRegistry();
+  const packageDir = path.join(PACKAGES_DIR, args.slug);
 
-    if (fs.existsSync(packageDir)) {
-        console.error(`Error: Package directory already exists: ${packageDir}`);
-        process.exit(1);
-    }
+  if (fs.existsSync(packageDir)) {
+    console.error(`Error: Package directory already exists: ${packageDir}`);
+    process.exit(1);
+  }
 
-    console.log(`\nCreating integration package: ${args.name}\n`);
-    console.log(`  Slug:     ${args.slug}`);
-    console.log(`  Category: ${args.category}`);
-    console.log(`  Language: ${args.language}`);
-    console.log(`  Features: ${args.features.join(", ")}`);
-    console.log("");
+  console.log(`\nCreating integration package: ${args.name}\n`);
+  console.log(`  Slug:     ${args.slug}`);
+  console.log(`  Category: ${args.category}`);
+  console.log(`  Language: ${args.language}`);
+  console.log(`  Features: ${args.features.join(", ")}`);
+  console.log("");
 
-    // Root files
-    writeFile(path.join(packageDir, "manifest.yaml"), generateManifest(args, features));
-    writeFile(path.join(packageDir, "package.json"), generatePackageJson(args));
-    writeFile(path.join(packageDir, "Dockerfile"), generateDockerfile(args));
-    writeFile(path.join(packageDir, "entrypoint.sh"), generateEntrypoint(args));
-    writeFile(path.join(packageDir, ".env.example"), generateEnvExample(args));
-    writeFile(path.join(packageDir, ".gitignore"), generateGitignore());
-    writeFile(path.join(packageDir, "next.config.ts"), generateNextConfig());
-    writeFile(path.join(packageDir, "tsconfig.json"), generateTsConfig());
-    writeFile(path.join(packageDir, "postcss.config.mjs"), generatePostcssConfig());
-    writeFile(path.join(packageDir, "playwright.config.ts"), generatePlaywrightConfig());
+  // Root files
+  writeFile(
+    path.join(packageDir, "manifest.yaml"),
+    generateManifest(args, features),
+  );
+  writeFile(path.join(packageDir, "package.json"), generatePackageJson(args));
+  writeFile(path.join(packageDir, "Dockerfile"), generateDockerfile(args));
+  writeFile(path.join(packageDir, "entrypoint.sh"), generateEntrypoint(args));
+  writeFile(path.join(packageDir, ".env.example"), generateEnvExample(args));
+  writeFile(path.join(packageDir, ".gitignore"), generateGitignore());
+  writeFile(path.join(packageDir, "next.config.ts"), generateNextConfig());
+  writeFile(path.join(packageDir, "tsconfig.json"), generateTsConfig());
+  writeFile(
+    path.join(packageDir, "postcss.config.mjs"),
+    generatePostcssConfig(),
+  );
+  writeFile(
+    path.join(packageDir, "playwright.config.ts"),
+    generatePlaywrightConfig(),
+  );
+
+  if (args.language !== "typescript") {
+    writeFile(
+      path.join(packageDir, "requirements.txt"),
+      generateRequirementsTxt(args),
+    );
+    writeFile(
+      path.join(packageDir, "src", "agent_server.py"),
+      generateAgentServer(args),
+    );
+  }
+
+  // App source
+  writeFile(
+    path.join(packageDir, "src", "app", "layout.tsx"),
+    generateLayout(),
+  );
+  writeFile(
+    path.join(packageDir, "src", "app", "globals.css"),
+    generateGlobalsCss(),
+  );
+  writeFile(
+    path.join(packageDir, "src", "app", "page.tsx"),
+    generateIndexPage(args, features),
+  );
+  writeFile(
+    path.join(packageDir, "src", "app", "api", "copilotkit", "route.ts"),
+    generateRuntimeRoute(args),
+  );
+  writeFile(
+    path.join(packageDir, "src", "app", "api", "health", "route.ts"),
+    generateHealthRoute(args),
+  );
+  writeFile(
+    path.join(packageDir, "src", "app", "api", "debug", "route.ts"),
+    generateDebugRoute(args),
+  );
+  writeFile(
+    path.join(packageDir, "src", "app", "api", "smoke", "route.ts"),
+    generateSmokeRoute(args),
+  );
+  writeFile(
+    path.join(packageDir, "src", "app", "demos", "error-boundary.tsx"),
+    generateErrorBoundary(),
+  );
+
+  // Demo stubs
+  for (const featureId of args.features) {
+    const feature = features.find((f) => f.id === featureId);
+    writeFile(
+      path.join(packageDir, "src", "app", "demos", featureId, "page.tsx"),
+      generateDemoPage(featureId, feature, args),
+    );
+    writeFile(
+      path.join(packageDir, "src", "app", "demos", featureId, "README.md"),
+      generateDemoReadme(featureId, feature),
+    );
 
     if (args.language !== "typescript") {
-        writeFile(path.join(packageDir, "requirements.txt"), generateRequirementsTxt(args));
-        writeFile(path.join(packageDir, "src", "agent_server.py"), generateAgentServer(args));
-    }
-
-    // App source
-    writeFile(path.join(packageDir, "src", "app", "layout.tsx"), generateLayout());
-    writeFile(path.join(packageDir, "src", "app", "globals.css"), generateGlobalsCss());
-    writeFile(path.join(packageDir, "src", "app", "page.tsx"), generateIndexPage(args, features));
-    writeFile(path.join(packageDir, "src", "app", "api", "copilotkit", "route.ts"), generateRuntimeRoute(args));
-    writeFile(path.join(packageDir, "src", "app", "api", "health", "route.ts"), generateHealthRoute(args));
-    writeFile(path.join(packageDir, "src", "app", "api", "debug", "route.ts"), generateDebugRoute(args));
-    writeFile(path.join(packageDir, "src", "app", "demos", "error-boundary.tsx"), generateErrorBoundary());
-
-    // Demo stubs
-    for (const featureId of args.features) {
-        const feature = features.find((f) => f.id === featureId);
-        writeFile(
-            path.join(packageDir, "src", "app", "demos", featureId, "page.tsx"),
-            generateDemoPage(featureId, feature, args)
-        );
-        writeFile(
-            path.join(packageDir, "src", "app", "demos", featureId, "README.md"),
-            generateDemoReadme(featureId, feature)
-        );
-
-        if (args.language !== "typescript") {
-            writeFile(
-                path.join(packageDir, "src", "app", "demos", featureId, "agent.py"),
-                `"""
+      writeFile(
+        path.join(packageDir, "src", "app", "demos", featureId, "agent.py"),
+        `"""
 Agent implementation for ${feature?.name || featureId}
 
 TODO: Implement the agent logic for ${args.name}
 See the LangGraph Python reference implementation for patterns.
 """
-`
-            );
-        } else {
-            writeFile(
-                path.join(packageDir, "src", "app", "demos", featureId, "agent.ts"),
-                `/**
+`,
+      );
+    } else {
+      writeFile(
+        path.join(packageDir, "src", "app", "demos", featureId, "agent.ts"),
+        `/**
  * Agent implementation for ${feature?.name || featureId}
  *
  * TODO: Implement the agent logic for ${args.name}
  * See the LangGraph Python reference implementation for patterns.
  */
-`
-            );
-        }
-
-        // E2E test stub
-        writeFile(
-            path.join(packageDir, "tests", "e2e", `${featureId}.spec.ts`),
-            generateE2ETest(featureId, feature)
-        );
-
-        // QA template
-        writeFile(
-            path.join(packageDir, "qa", `${featureId}.md`),
-            generateQATemplate(featureId, feature, args)
-        );
+`,
+      );
     }
 
-    console.log(`\nPackage created at: showcase/packages/${args.slug}/`);
+    // E2E test stub
+    writeFile(
+      path.join(packageDir, "tests", "e2e", `${featureId}.spec.ts`),
+      generateE2ETest(featureId, feature),
+    );
 
-    // Auto-migrate agent code from examples/integrations/ if available
-    console.log("\n--- Migrating agent code from examples/integrations/ ---\n");
-    try {
-        const { migrateForSlug } = await import("../migrate-integration-examples.js");
-        const migResult = migrateForSlug(args.slug);
+    // QA template
+    writeFile(
+      path.join(packageDir, "qa", `${featureId}.md`),
+      generateQATemplate(featureId, feature, args),
+    );
+  }
 
-        if (migResult.errors.length > 0) {
-            console.error(`  Migration FAILED for ${args.slug}:`);
-            for (const err of migResult.errors) console.error(`    ${err}`);
-            process.exit(1);
-        } else if (migResult.files.length > 0) {
-            console.log(`  Migrated ${migResult.files.length} agent files from examples/integrations/`);
-            for (const f of migResult.files) console.log(`    ${f}`);
-        } else if (migResult.skipped.length > 0) {
-            console.log(`  No migration needed: ${migResult.skipped[0]}`);
-        }
-    } catch (e: any) {
-        console.log(`  Migration skipped: ${e.message}`);
-        console.log("  (Run migrate-integration-examples.ts manually if needed)");
+  console.log(`\nPackage created at: showcase/packages/${args.slug}/`);
+
+  // Auto-migrate agent code from examples/integrations/ if available
+  console.log("\n--- Migrating agent code from examples/integrations/ ---\n");
+  try {
+    const { migrateForSlug } =
+      await import("../migrate-integration-examples.js");
+    const migResult = migrateForSlug(args.slug);
+
+    if (migResult.errors.length > 0) {
+      console.error(`  Migration FAILED for ${args.slug}:`);
+      for (const err of migResult.errors) console.error(`    ${err}`);
+      process.exit(1);
+    } else if (migResult.files.length > 0) {
+      console.log(
+        `  Migrated ${migResult.files.length} agent files from examples/integrations/`,
+      );
+      for (const f of migResult.files) console.log(`    ${f}`);
+    } else if (migResult.skipped.length > 0) {
+      console.log(`  No migration needed: ${migResult.skipped[0]}`);
     }
+  } catch (e: any) {
+    console.log(`  Migration skipped: ${e.message}`);
+    console.log("  (Run migrate-integration-examples.ts manually if needed)");
+  }
 
-    // Auto-update CI workflows to include this integration
-    console.log("\n--- Updating CI workflows ---\n");
-    updateWorkflows(args);
+  // Auto-update CI workflows to include this integration
+  console.log("\n--- Updating CI workflows ---\n");
+  updateWorkflows(args);
 
-    console.log("\nNext steps:");
-    console.log("  1. Write/customize the agent code in src/agents/");
-    console.log("  2. Pin framework deps to exact versions from the Dojo example");
-    console.log("  3. Fill in E2E test assertions");
-    console.log(`  4. Deploy to Railway: npx tsx showcase/scripts/deploy-to-railway.ts ${args.slug}`);
-    console.log(`  5. Go live: npx tsx showcase/scripts/deploy-to-railway.ts --go-live ${args.slug}`);
-    console.log("  6. Open a PR to the monorepo\n");
+  console.log("\nNext steps:");
+  console.log("  1. Write/customize the agent code in src/agents/");
+  console.log(
+    "  2. Pin framework deps to exact versions from the Dojo example",
+  );
+  console.log("  3. Fill in E2E test assertions");
+  console.log(
+    `  4. Deploy to Railway: npx tsx showcase/scripts/deploy-to-railway.ts ${args.slug}`,
+  );
+  console.log(
+    `  5. Go live: npx tsx showcase/scripts/deploy-to-railway.ts --go-live ${args.slug}`,
+  );
+  console.log("  6. Open a PR to the monorepo\n");
 }
 
 function updateWorkflows(args: CLIArgs) {
-    const workflowsDir = path.resolve(ROOT, "..", ".github", "workflows");
+  const workflowsDir = path.resolve(ROOT, "..", ".github", "workflows");
 
-    // 1. Update showcase_deploy.yml — add change detection + build job
-    const deployPath = path.join(workflowsDir, "showcase_deploy.yml");
-    if (fs.existsSync(deployPath)) {
-        let deploy = fs.readFileSync(deployPath, "utf-8");
-        const slug = args.slug;
-        const slugVar = slug.replace(/-/g, "_");
+  // 1. Update showcase_deploy.yml — add change detection + build job
+  const deployPath = path.join(workflowsDir, "showcase_deploy.yml");
+  if (fs.existsSync(deployPath)) {
+    let deploy = fs.readFileSync(deployPath, "utf-8");
+    const slug = args.slug;
+    const slugVar = slug.replace(/-/g, "_");
 
-        // Add to workflow_dispatch options if not present
-        if (!deploy.includes(`- ${slug}`)) {
-            deploy = deploy.replace(
-                /(\s+options:\n(?:\s+- .+\n)+)/,
-                `$1          - ${slug}\n`
-            );
-        }
+    // Add to workflow_dispatch options if not present
+    if (!deploy.includes(`- ${slug}`)) {
+      deploy = deploy.replace(
+        /(\s+options:\n(?:\s+- .+\n)+)/,
+        `$1          - ${slug}\n`,
+      );
+    }
 
-        // Add change detection filter if not present
-        if (!deploy.includes(`${slug}:`)) {
-            // Add output (match only lines containing ${{ to avoid matching `steps:`)
-            deploy = deploy.replace(
-                /(outputs:\n(?:\s+\w+:.*\$\{\{.*\n)+)/,
-                `$1      ${slugVar}: \${{ steps.changes.outputs.${slugVar} }}\n`
-            );
-            // Add filter
-            deploy = deploy.replace(
-                /(filters: \|\n(?:\s+\w+:\n(?:\s+- .+\n)+)+)/,
-                `$1            ${slugVar}:\n              - 'showcase/packages/${slug}/**'\n`
-            );
-        }
+    // Add change detection filter if not present
+    if (!deploy.includes(`${slug}:`)) {
+      // Add output (match only lines containing ${{ to avoid matching `steps:`)
+      deploy = deploy.replace(
+        /(outputs:\n(?:\s+\w+:.*\$\{\{.*\n)+)/,
+        `$1      ${slugVar}: \${{ steps.changes.outputs.${slugVar} }}\n`,
+      );
+      // Add filter
+      deploy = deploy.replace(
+        /(filters: \|\n(?:\s+\w+:\n(?:\s+- .+\n)+)+)/,
+        `$1            ${slugVar}:\n              - 'showcase/packages/${slug}/**'\n`,
+      );
+    }
 
-        // Add build job if not present
-        if (!deploy.includes(`build-${slugVar}`)) {
-            const buildJob = `
+    // Add build job if not present
+    if (!deploy.includes(`build-${slugVar}`)) {
+      const buildJob = `
   build-${slugVar}:
     name: Build & Push ${args.name}
     needs: [detect-changes, check-lockfile]
@@ -1233,30 +1435,30 @@ function updateWorkflows(args: CLIArgs) {
             -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \\"RAILWAY_SERVICE_ID\\", environmentId: \\"b14919f4-6417-429f-848d-c6ae2201e04f\\") }"}' \\
             && echo "${slug} deploy triggered"
 `;
-            deploy += buildJob;
-        }
-
-        fs.writeFileSync(deployPath, deploy);
-        console.log("  Updated showcase_deploy.yml");
+      deploy += buildJob;
     }
 
-    // 2. Update showcase_drift-detection.yml — add to E2E matrix
-    const driftPath = path.join(workflowsDir, "showcase_drift-detection.yml");
-    if (fs.existsSync(driftPath)) {
-        let drift = fs.readFileSync(driftPath, "utf-8");
-        const slug = args.slug;
+    fs.writeFileSync(deployPath, deploy);
+    console.log("  Updated showcase_deploy.yml");
+  }
 
-        if (!drift.includes(`slug: ${slug}`)) {
-            // Add to matrix includes
-            const entry = `          - slug: ${slug}\n            name: "${args.name}"\n            url: https://showcase-${slug}-production.up.railway.app`;
-            drift = drift.replace(
-                /(matrix:\n\s+include:\n(?:\s+- slug:.*\n\s+name:.*\n\s+url:.*\n)+)/,
-                `$1${entry}\n`
-            );
-            fs.writeFileSync(driftPath, drift);
-            console.log("  Updated showcase_drift-detection.yml");
-        }
+  // 2. Update showcase_drift-detection.yml — add to E2E matrix
+  const driftPath = path.join(workflowsDir, "showcase_drift-detection.yml");
+  if (fs.existsSync(driftPath)) {
+    let drift = fs.readFileSync(driftPath, "utf-8");
+    const slug = args.slug;
+
+    if (!drift.includes(`slug: ${slug}`)) {
+      // Add to matrix includes
+      const entry = `          - slug: ${slug}\n            name: "${args.name}"\n            url: https://showcase-${slug}-production.up.railway.app`;
+      drift = drift.replace(
+        /(matrix:\n\s+include:\n(?:\s+- slug:.*\n\s+name:.*\n\s+url:.*\n)+)/,
+        `$1${entry}\n`,
+      );
+      fs.writeFileSync(driftPath, drift);
+      console.log("  Updated showcase_drift-detection.yml");
     }
+  }
 }
 
 main();

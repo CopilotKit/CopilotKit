@@ -3,7 +3,6 @@ title: "API Reference"
 description: "API Reference for the next-generation CopilotKit React API."
 ---
 
-
 The v2 React API (`@copilotkit/react-core/v2`) is the next-generation interface for building copilot-powered applications. It provides a streamlined set of hooks and components built on top of the [AG-UI](https://docs.ag-ui.com) agent protocol.
 
 ## Provider Setup
@@ -32,7 +31,6 @@ function App() {
 If you need direct control over the v2 provider (e.g. for custom integrations), you can import `CopilotKitProvider` from `@copilotkit/react-core/v2`:
 
 ```tsx
-
 <CopilotKitProvider runtimeUrl="/api/copilotkit">
   <App />
 </CopilotKitProvider>
@@ -41,7 +39,8 @@ If you need direct control over the v2 provider (e.g. for custom integrations), 
 ### Props
 
 <PropertyReference name="runtimeUrl" type="string">
-  URL of the CopilotKit runtime endpoint. Lazily forwarded to the core after mount.
+  URL of the CopilotKit runtime endpoint. Lazily forwarded to the core after
+  mount.
 </PropertyReference>
 
 <PropertyReference name="headers" type="Record<string, string>" default="{}">
@@ -49,7 +48,8 @@ If you need direct control over the v2 provider (e.g. for custom integrations), 
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials">
-  Credentials mode for fetch requests (e.g. `"include"` for HTTP-only cookies in cross-origin requests).
+  Credentials mode for fetch requests (e.g. `"include"` for HTTP-only cookies in
+  cross-origin requests).
 </PropertyReference>
 
 <PropertyReference name="publicApiKey" type="string">
@@ -60,7 +60,11 @@ If you need direct control over the v2 provider (e.g. for custom integrations), 
   Alias for `publicApiKey`.
 </PropertyReference>
 
-<PropertyReference name="properties" type="Record<string, unknown>" default="{}">
+<PropertyReference
+  name="properties"
+  type="Record<string, unknown>"
+  default="{}"
+>
   Runtime metadata payload.
 </PropertyReference>
 
@@ -68,28 +72,40 @@ If you need direct control over the v2 provider (e.g. for custom integrations), 
   When enabled, all runtime calls use a single endpoint.
 </PropertyReference>
 
-<PropertyReference name="agents__unsafe_dev_only" type="Record<string, AbstractAgent>">
-  Preinstantiated agents for development/testing. **Not intended for production use.**
+<PropertyReference
+  name="agents__unsafe_dev_only"
+  type="Record<string, AbstractAgent>"
+>
+  Preinstantiated agents for development/testing. **Not intended for production
+  use.**
 </PropertyReference>
 
 <PropertyReference name="renderToolCalls" type="ReactToolCallRenderer[]">
   Static set of tool call renderers. The array should be stable across renders.
 </PropertyReference>
 
-<PropertyReference name="renderActivityMessages" type="ReactActivityMessageRenderer[]">
+<PropertyReference
+  name="renderActivityMessages"
+  type="ReactActivityMessageRenderer[]"
+>
   Static set of activity message renderers.
 </PropertyReference>
 
-<PropertyReference name="renderCustomMessages" type="ReactCustomMessageRenderer[]">
+<PropertyReference
+  name="renderCustomMessages"
+  type="ReactCustomMessageRenderer[]"
+>
   Static set of custom message renderers.
 </PropertyReference>
 
 <PropertyReference name="frontendTools" type="ReactFrontendTool[]">
-  Static tool handlers defined at the provider level. The array should be stable across renders.
+  Static tool handlers defined at the provider level. The array should be stable
+  across renders.
 </PropertyReference>
 
 <PropertyReference name="humanInTheLoop" type="ReactHumanInTheLoop[]">
-  Declarative human-in-the-loop tool definitions. Each becomes both a tool handler and a tool call renderer.
+  Declarative human-in-the-loop tool definitions. Each becomes both a tool
+  handler and a tool call renderer.
 </PropertyReference>
 
 <PropertyReference name="showDevConsole" type='boolean | "auto"'>
@@ -99,18 +115,19 @@ If you need direct control over the v2 provider (e.g. for custom integrations), 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
   Error handler called when CopilotKit encounters an error. Fires for all error types: runtime connection failures, agent errors, and tool errors.
 
-  Unlike the v1 `onError`, this does **not** require a `publicApiKey` — error handling works with any configuration.
+Unlike the v1 `onError`, this does **not** require a `publicApiKey` — error handling works with any configuration.
 
-  ```tsx
-  <CopilotKitProvider
-    runtimeUrl="/api/copilotkit"
-    onError={(event) => {
-      console.error(`[${event.code}]`, event.error.message, event.context);
-    }}
-  >
-    <App />
-  </CopilotKitProvider>
-  ```
+```tsx
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  onError={(event) => {
+    console.error(`[${event.code}]`, event.error.message, event.context);
+  }}
+>
+  <App />
+</CopilotKitProvider>
+```
+
 </PropertyReference>
 
 </Accordion>
@@ -121,12 +138,16 @@ If you need direct control over the v2 provider (e.g. for custom integrations), 
 When using v2 UI components, import the stylesheet once at your app boundary:
 
 ```tsx
+
 ```
 
 ## API Reference
 
 <Callout type="info">
-  Looking for tool rendering hooks? Start with [`useComponent`](/reference/hooks/useComponent), [`useRenderTool`](/reference/hooks/useRenderTool), and [`useDefaultRenderTool`](/reference/hooks/useDefaultRenderTool).
+  Looking for tool rendering hooks? Start with
+  [`useComponent`](/reference/hooks/useComponent),
+  [`useRenderTool`](/reference/hooks/useRenderTool), and
+  [`useDefaultRenderTool`](/reference/hooks/useDefaultRenderTool).
 </Callout>
 
 <Cards>

@@ -1,7 +1,6 @@
 ---
 title: "Events"
-description:
-  "Documentation for the events used in the Agent User Interaction Protocol SDK"
+description: "Documentation for the events used in the Agent User Interaction Protocol SDK"
 ---
 
 # Events
@@ -52,10 +51,10 @@ shared across all event types.
 
 ```typescript
 type BaseEvent = {
-  type: EventType // Discriminator field
-  timestamp?: number
-  rawEvent?: any
-}
+  type: EventType; // Discriminator field
+  timestamp?: number;
+  rawEvent?: any;
+};
 ```
 
 | Property    | Type                | Description                                           |
@@ -74,12 +73,12 @@ Signals the start of an agent run.
 
 ```typescript
 type RunStartedEvent = BaseEvent & {
-  type: EventType.RUN_STARTED
-  threadId: string
-  runId: string
-  parentRunId?: string
-  input?: RunAgentInput
-}
+  type: EventType.RUN_STARTED;
+  threadId: string;
+  runId: string;
+  parentRunId?: string;
+  input?: RunAgentInput;
+};
 ```
 
 | Property      | Type                       | Description                                                                                                    |
@@ -95,11 +94,11 @@ Signals the successful completion of an agent run.
 
 ```typescript
 type RunFinishedEvent = BaseEvent & {
-  type: EventType.RUN_FINISHED
-  threadId: string
-  runId: string
-  result?: any
-}
+  type: EventType.RUN_FINISHED;
+  threadId: string;
+  runId: string;
+  result?: any;
+};
 ```
 
 | Property   | Type             | Description                    |
@@ -114,10 +113,10 @@ Signals an error during an agent run.
 
 ```typescript
 type RunErrorEvent = BaseEvent & {
-  type: EventType.RUN_ERROR
-  message: string
-  code?: string
-}
+  type: EventType.RUN_ERROR;
+  message: string;
+  code?: string;
+};
 ```
 
 | Property  | Type                | Description   |
@@ -131,9 +130,9 @@ Signals the start of a step within an agent run.
 
 ```typescript
 type StepStartedEvent = BaseEvent & {
-  type: EventType.STEP_STARTED
-  stepName: string
-}
+  type: EventType.STEP_STARTED;
+  stepName: string;
+};
 ```
 
 | Property   | Type     | Description      |
@@ -146,9 +145,9 @@ Signals the completion of a step within an agent run.
 
 ```typescript
 type StepFinishedEvent = BaseEvent & {
-  type: EventType.STEP_FINISHED
-  stepName: string
-}
+  type: EventType.STEP_FINISHED;
+  stepName: string;
+};
 ```
 
 | Property   | Type     | Description      |
@@ -165,10 +164,10 @@ Signals the start of a text message.
 
 ```typescript
 type TextMessageStartEvent = BaseEvent & {
-  type: EventType.TEXT_MESSAGE_START
-  messageId: string
-  role: "assistant"
-}
+  type: EventType.TEXT_MESSAGE_START;
+  messageId: string;
+  role: "assistant";
+};
 ```
 
 | Property    | Type          | Description                       |
@@ -182,10 +181,10 @@ Represents a chunk of content in a streaming text message.
 
 ```typescript
 type TextMessageContentEvent = BaseEvent & {
-  type: EventType.TEXT_MESSAGE_CONTENT
-  messageId: string
-  delta: string // Non-empty string
-}
+  type: EventType.TEXT_MESSAGE_CONTENT;
+  messageId: string;
+  delta: string; // Non-empty string
+};
 ```
 
 | Property    | Type     | Description                               |
@@ -199,9 +198,9 @@ Signals the end of a text message.
 
 ```typescript
 type TextMessageEndEvent = BaseEvent & {
-  type: EventType.TEXT_MESSAGE_END
-  messageId: string
-}
+  type: EventType.TEXT_MESSAGE_END;
+  messageId: string;
+};
 ```
 
 | Property    | Type     | Description                               |
@@ -215,11 +214,11 @@ Convenience event that expands to `TextMessageStart` → `TextMessageContent` �
 
 ```typescript
 type TextMessageChunkEvent = BaseEvent & {
-  type: EventType.TEXT_MESSAGE_CHUNK
-  messageId?: string // required on the first chunk for a message
-  role?: "developer" | "system" | "assistant" | "user"
-  delta?: string
-}
+  type: EventType.TEXT_MESSAGE_CHUNK;
+  messageId?: string; // required on the first chunk for a message
+  role?: "developer" | "system" | "assistant" | "user";
+  delta?: string;
+};
 ```
 
 Behavior
@@ -242,11 +241,11 @@ Signals the start of a tool call.
 
 ```typescript
 type ToolCallStartEvent = BaseEvent & {
-  type: EventType.TOOL_CALL_START
-  toolCallId: string
-  toolCallName: string
-  parentMessageId?: string
-}
+  type: EventType.TOOL_CALL_START;
+  toolCallId: string;
+  toolCallName: string;
+  parentMessageId?: string;
+};
 ```
 
 | Property          | Type                | Description                         |
@@ -261,10 +260,10 @@ Represents a chunk of argument data for a tool call.
 
 ```typescript
 type ToolCallArgsEvent = BaseEvent & {
-  type: EventType.TOOL_CALL_ARGS
-  toolCallId: string
-  delta: string
-}
+  type: EventType.TOOL_CALL_ARGS;
+  toolCallId: string;
+  delta: string;
+};
 ```
 
 | Property     | Type     | Description                            |
@@ -278,9 +277,9 @@ Signals the end of a tool call.
 
 ```typescript
 type ToolCallEndEvent = BaseEvent & {
-  type: EventType.TOOL_CALL_END
-  toolCallId: string
-}
+  type: EventType.TOOL_CALL_END;
+  toolCallId: string;
+};
 ```
 
 | Property     | Type     | Description                            |
@@ -293,12 +292,12 @@ Provides the result of a tool call execution.
 
 ```typescript
 type ToolCallResultEvent = BaseEvent & {
-  type: EventType.TOOL_CALL_RESULT
-  messageId: string
-  toolCallId: string
-  content: string
-  role?: "tool"
-}
+  type: EventType.TOOL_CALL_RESULT;
+  messageId: string;
+  toolCallId: string;
+  content: string;
+  role?: "tool";
+};
 ```
 
 | Property     | Type                | Description                                                 |
@@ -318,9 +317,9 @@ Provides a complete snapshot of an agent's state.
 
 ```typescript
 type StateSnapshotEvent = BaseEvent & {
-  type: EventType.STATE_SNAPSHOT
-  snapshot: any // StateSchema
-}
+  type: EventType.STATE_SNAPSHOT;
+  snapshot: any; // StateSchema
+};
 ```
 
 | Property   | Type  | Description             |
@@ -333,9 +332,9 @@ Provides a partial update to an agent's state using JSON Patch.
 
 ```typescript
 type StateDeltaEvent = BaseEvent & {
-  type: EventType.STATE_DELTA
-  delta: any[] // JSON Patch operations (RFC 6902)
-}
+  type: EventType.STATE_DELTA;
+  delta: any[]; // JSON Patch operations (RFC 6902)
+};
 ```
 
 | Property | Type    | Description                    |
@@ -348,9 +347,9 @@ Provides a snapshot of all messages in a conversation.
 
 ```typescript
 type MessagesSnapshotEvent = BaseEvent & {
-  type: EventType.MESSAGES_SNAPSHOT
-  messages: Message[]
-}
+  type: EventType.MESSAGES_SNAPSHOT;
+  messages: Message[];
+};
 ```
 
 | Property   | Type        | Description              |
@@ -363,12 +362,12 @@ Delivers a complete snapshot of an activity message.
 
 ```typescript
 type ActivitySnapshotEvent = BaseEvent & {
-  type: EventType.ACTIVITY_SNAPSHOT
-  messageId: string
-  activityType: string
-  content: Record<string, any>
-  replace?: boolean
-}
+  type: EventType.ACTIVITY_SNAPSHOT;
+  messageId: string;
+  activityType: string;
+  content: Record<string, any>;
+  replace?: boolean;
+};
 ```
 
 | Property       | Type                  | Description                                                                                           |
@@ -384,11 +383,11 @@ Provides incremental updates to an activity snapshot using JSON Patch.
 
 ```typescript
 type ActivityDeltaEvent = BaseEvent & {
-  type: EventType.ACTIVITY_DELTA
-  messageId: string
-  activityType: string
-  patch: any[] // RFC 6902 JSON Patch operations
-}
+  type: EventType.ACTIVITY_DELTA;
+  messageId: string;
+  activityType: string;
+  patch: any[]; // RFC 6902 JSON Patch operations
+};
 ```
 
 | Property       | Type     | Description                                                      |
@@ -411,9 +410,9 @@ notifies subscribers but does not create messages.
 
 ```typescript
 type ReasoningStartEvent = BaseEvent & {
-  type: EventType.REASONING_START
-  messageId: string
-}
+  type: EventType.REASONING_START;
+  messageId: string;
+};
 ```
 
 | Property    | Type     | Description                        |
@@ -427,10 +426,10 @@ the message history.
 
 ```typescript
 type ReasoningMessageStartEvent = BaseEvent & {
-  type: EventType.REASONING_MESSAGE_START
-  messageId: string
-  role: "assistant"
-}
+  type: EventType.REASONING_MESSAGE_START;
+  messageId: string;
+  role: "assistant";
+};
 ```
 
 | Property    | Type          | Description                       |
@@ -444,10 +443,10 @@ Represents a chunk of content in a streaming reasoning message.
 
 ```typescript
 type ReasoningMessageContentEvent = BaseEvent & {
-  type: EventType.REASONING_MESSAGE_CONTENT
-  messageId: string
-  delta: string
-}
+  type: EventType.REASONING_MESSAGE_CONTENT;
+  messageId: string;
+  delta: string;
+};
 ```
 
 | Property    | Type     | Description                                    |
@@ -461,9 +460,9 @@ Signals the end of a reasoning message.
 
 ```typescript
 type ReasoningMessageEndEvent = BaseEvent & {
-  type: EventType.REASONING_MESSAGE_END
-  messageId: string
-}
+  type: EventType.REASONING_MESSAGE_END;
+  messageId: string;
+};
 ```
 
 | Property    | Type     | Description                                    |
@@ -478,10 +477,10 @@ client.
 
 ```typescript
 type ReasoningMessageChunkEvent = BaseEvent & {
-  type: EventType.REASONING_MESSAGE_CHUNK
-  messageId?: string // required on the first chunk for a message
-  delta?: string
-}
+  type: EventType.REASONING_MESSAGE_CHUNK;
+  messageId?: string; // required on the first chunk for a message
+  delta?: string;
+};
 ```
 
 Behavior
@@ -501,9 +500,9 @@ subscribers but does not modify messages.
 
 ```typescript
 type ReasoningEndEvent = BaseEvent & {
-  type: EventType.REASONING_END
-  messageId: string
-}
+  type: EventType.REASONING_END;
+  messageId: string;
+};
 ```
 
 | Property    | Type     | Description                        |
@@ -518,11 +517,11 @@ emitted, it finds the referenced entity by `entityId` and sets its
 
 ```typescript
 type ReasoningEncryptedValueEvent = BaseEvent & {
-  type: EventType.REASONING_ENCRYPTED_VALUE
-  subtype: "tool-call" | "message"
-  entityId: string
-  encryptedValue: string
-}
+  type: EventType.REASONING_ENCRYPTED_VALUE;
+  subtype: "tool-call" | "message";
+  entityId: string;
+  encryptedValue: string;
+};
 ```
 
 | Property         | Type                       | Description                                        |
@@ -539,10 +538,10 @@ Used to pass through events from external systems.
 
 ```typescript
 type RawEvent = BaseEvent & {
-  type: EventType.RAW
-  event: any
-  source?: string
-}
+  type: EventType.RAW;
+  event: any;
+  source?: string;
+};
 ```
 
 | Property | Type                | Description         |
@@ -556,10 +555,10 @@ Used for application-specific custom events.
 
 ```typescript
 type CustomEvent = BaseEvent & {
-  type: EventType.CUSTOM
-  name: string
-  value: any
-}
+  type: EventType.CUSTOM;
+  name: string;
+  value: any;
+};
 ```
 
 | Property | Type     | Description                     |
@@ -621,7 +620,7 @@ const EventSchemas = z.discriminatedUnion("type", [
   ReasoningMessageChunkEventSchema,
   ReasoningEndEventSchema,
   ReasoningEncryptedValueEventSchema,
-])
+]);
 ```
 
 This allows for runtime validation of events and provides TypeScript type
@@ -634,12 +633,12 @@ Convenience event that expands to `ToolCallStart` → `ToolCallArgs` →
 
 ```typescript
 type ToolCallChunkEvent = BaseEvent & {
-  type: EventType.TOOL_CALL_CHUNK
-  toolCallId?: string // required on the first chunk for a tool call
-  toolCallName?: string // required on the first chunk for a tool call
-  parentMessageId?: string
-  delta?: string
-}
+  type: EventType.TOOL_CALL_CHUNK;
+  toolCallId?: string; // required on the first chunk for a tool call
+  toolCallName?: string; // required on the first chunk for a tool call
+  parentMessageId?: string;
+  delta?: string;
+};
 ```
 
 Behavior

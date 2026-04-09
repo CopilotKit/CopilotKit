@@ -37,7 +37,6 @@ foundation for:
 - Tool usage
 
 ```typescript
-
 class MyAgent extends AbstractAgent {
   run(input: RunAgentInput): RunAgent {
     // Implementation details
@@ -69,13 +68,12 @@ management, and message history.
 A concrete implementation that connects to remote AI services via HTTP:
 
 ```typescript
-
 const agent = new HttpAgent({
   url: "https://your-agent-endpoint.com/agent",
   headers: {
     Authorization: "Bearer your-api-key",
   },
-})
+});
 ```
 
 ### Custom Agents
@@ -203,13 +201,13 @@ const confirmAction = {
     },
     required: ["action"],
   },
-}
+};
 
 // Running an agent with tools from the frontend
 agent.runAgent({
   tools: [confirmAction], // Frontend-defined tools passed to the agent
   // other parameters
-})
+});
 ```
 
 Tools are invoked through a sequence of events:
@@ -250,15 +248,15 @@ can be:
 
 ```typescript
 // Accessing agent state
-console.log(agent.state.preferences)
+console.log(agent.state.preferences);
 
 // State is automatically updated during agent runs
 agent.runAgent().subscribe((event) => {
   if (event.type === EventType.STATE_DELTA) {
     // State has been updated
-    console.log("New state:", agent.state)
+    console.log("New state:", agent.state);
   }
-})
+});
 ```
 
 ### Multi-Agent Collaboration
@@ -297,14 +295,14 @@ Agents maintain a complete history of conversation messages:
 
 ```typescript
 // Accessing message history
-console.log(agent.messages)
+console.log(agent.messages);
 
 // Adding a new user message
 agent.messages.push({
   id: "msg_123",
   role: "user",
   content: "Can you explain that in more detail?",
-})
+});
 ```
 
 ### Metadata and Instrumentation
@@ -327,7 +325,7 @@ Once you've implemented or instantiated an agent, you can use it like this:
 // Create an agent instance
 const agent = new HttpAgent({
   url: "https://your-agent-endpoint.com/agent",
-})
+});
 
 // Add initial messages if needed
 agent.messages = [
@@ -336,7 +334,7 @@ agent.messages = [
     role: "user",
     content: "Hello, how can you help me today?",
   },
-]
+];
 
 // Run the agent
 agent
@@ -350,14 +348,14 @@ agent
       // Handle different event types
       switch (event.type) {
         case EventType.TEXT_MESSAGE_CONTENT:
-          console.log("Content:", event.delta)
-          break
+          console.log("Content:", event.delta);
+          break;
         // Handle other events
       }
     },
     error: (error) => console.error("Error:", error),
     complete: () => console.log("Run complete"),
-  })
+  });
 ```
 
 ## Agent Configuration
@@ -366,11 +364,11 @@ Agents accept configuration through the constructor:
 
 ```typescript
 interface AgentConfig {
-  agentId?: string // Unique identifier for the agent
-  description?: string // Human-readable description
-  threadId?: string // Conversation thread identifier
-  initialMessages?: Message[] // Initial messages
-  initialState?: State // Initial state object
+  agentId?: string; // Unique identifier for the agent
+  description?: string; // Human-readable description
+  threadId?: string; // Conversation thread identifier
+  initialMessages?: Message[]; // Initial messages
+  initialState?: State; // Initial state object
 }
 
 // Using the configuration
@@ -382,7 +380,7 @@ const agent = new HttpAgent({
     { id: "1", role: "system", content: "You are a helpful assistant." },
   ],
   initialState: { preferredLanguage: "English" },
-})
+});
 ```
 
 ## Agent State Management
@@ -391,13 +389,13 @@ AG-UI agents maintain state across interactions:
 
 ```typescript
 // Access current state
-console.log(agent.state)
+console.log(agent.state);
 
 // Access messages
-console.log(agent.messages)
+console.log(agent.messages);
 
 // Clone an agent with its state
-const clonedAgent = agent.clone()
+const clonedAgent = agent.clone();
 ```
 
 ## Conclusion

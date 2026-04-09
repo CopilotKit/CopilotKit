@@ -16,40 +16,40 @@ The `Event` interface is the core abstraction for all AG-UI events. All events i
 type Event interface {
     // Type returns the event type
     Type() EventType
-    
+
     // Timestamp returns the event timestamp (Unix milliseconds)
     Timestamp() *int64
-    
+
     // SetTimestamp sets the event timestamp
     SetTimestamp(timestamp int64)
-    
+
     // ThreadID returns the thread ID associated with this event
     ThreadID() string
-    
+
     // RunID returns the run ID associated with this event
     RunID() string
-    
+
     // Validate validates the event structure and content
     Validate() error
-    
+
     // ToJSON serializes the event to JSON for cross-SDK compatibility
     ToJSON() ([]byte, error)
-    
+
     // GetBaseEvent returns the underlying base event
     GetBaseEvent() *BaseEvent
 }
 ```
 
-| Method | Return Type | Description |
-| --- | --- | --- |
-| `Type()` | `EventType` | Returns the type of the event (e.g., TEXT_MESSAGE_START) |
-| `Timestamp()` | `*int64` | Returns the Unix timestamp in milliseconds when the event occurred |
-| `SetTimestamp()` | - | Sets the event timestamp |
-| `ThreadID()` | `string` | Returns the thread ID this event belongs to |
-| `RunID()` | `string` | Returns the run ID this event is part of |
-| `Validate()` | `error` | Validates the event structure and returns error if invalid |
-| `ToJSON()` | `[]byte, error` | Serializes the event to JSON bytes |
-| `GetBaseEvent()` | `*BaseEvent` | Returns the embedded base event struct |
+| Method           | Return Type     | Description                                                        |
+| ---------------- | --------------- | ------------------------------------------------------------------ |
+| `Type()`         | `EventType`     | Returns the type of the event (e.g., TEXT_MESSAGE_START)           |
+| `Timestamp()`    | `*int64`        | Returns the Unix timestamp in milliseconds when the event occurred |
+| `SetTimestamp()` | -               | Sets the event timestamp                                           |
+| `ThreadID()`     | `string`        | Returns the thread ID this event belongs to                        |
+| `RunID()`        | `string`        | Returns the run ID this event is part of                           |
+| `Validate()`     | `error`         | Validates the event structure and returns error if invalid         |
+| `ToJSON()`       | `[]byte, error` | Serializes the event to JSON bytes                                 |
+| `GetBaseEvent()` | `*BaseEvent`    | Returns the embedded base event struct                             |
 
 ### Usage Example
 
@@ -60,7 +60,7 @@ func handleEvent(event events.Event) error {
     if err := event.Validate(); err != nil {
         return fmt.Errorf("invalid event: %w", err)
     }
-    
+
     // Check event type
     switch event.Type() {
     case events.EventTypeTextMessageStart:
@@ -68,13 +68,13 @@ func handleEvent(event events.Event) error {
     case events.EventTypeToolCallStart:
         fmt.Printf("Tool call in thread %s\n", event.ThreadID())
     }
-    
+
     // Serialize to JSON
     jsonData, err := event.ToJSON()
     if err != nil {
         return err
     }
-    
+
     return nil
 }
 ```
@@ -91,11 +91,11 @@ type BaseEvent struct {
 }
 ```
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `EventType` | `EventType` | The type of event (required) |
-| `TimestampMs` | `*int64` | Unix timestamp in milliseconds (optional) |
-| `RawEvent` | `any` | Raw event data for custom/external events (optional) |
+| Field         | Type        | Description                                          |
+| ------------- | ----------- | ---------------------------------------------------- |
+| `EventType`   | `EventType` | The type of event (required)                         |
+| `TimestampMs` | `*int64`    | Unix timestamp in milliseconds (optional)            |
+| `RawEvent`    | `any`       | Raw event data for custom/external events (optional) |
 
 ### Usage Example
 
@@ -133,10 +133,10 @@ type TextMessageStartEvent struct {
 }
 ```
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `MessageID` | `string` | Unique identifier for the message (required) |
-| `Role` | `*string` | Role of the message sender (optional) |
+| Field       | Type      | Description                                  |
+| ----------- | --------- | -------------------------------------------- |
+| `MessageID` | `string`  | Unique identifier for the message (required) |
+| `Role`      | `*string` | Role of the message sender (optional)        |
 
 ### TextMessageContentEvent
 
@@ -150,10 +150,10 @@ type TextMessageContentEvent struct {
 }
 ```
 
-| Field | Type | Description |
-| --- | --- | --- |
+| Field       | Type     | Description                                          |
+| ----------- | -------- | ---------------------------------------------------- |
 | `MessageID` | `string` | ID of the message this content belongs to (required) |
-| `Delta` | `string` | The text content chunk (required) |
+| `Delta`     | `string` | The text content chunk (required)                    |
 
 ### TextMessageEndEvent
 
@@ -166,8 +166,8 @@ type TextMessageEndEvent struct {
 }
 ```
 
-| Field | Type | Description |
-| --- | --- | --- |
+| Field       | Type     | Description                             |
+| ----------- | -------- | --------------------------------------- |
 | `MessageID` | `string` | ID of the message that ended (required) |
 
 ### Usage Example
@@ -212,10 +212,10 @@ type ToolCallStartEvent struct {
 }
 ```
 
-| Field | Type | Description |
-| --- | --- | --- |
+| Field        | Type     | Description                                    |
+| ------------ | -------- | ---------------------------------------------- |
 | `ToolCallID` | `string` | Unique identifier for the tool call (required) |
-| `ToolName` | `string` | Name of the tool being called (required) |
+| `ToolName`   | `string` | Name of the tool being called (required)       |
 
 ### ToolCallArgsEvent
 
@@ -229,10 +229,10 @@ type ToolCallArgsEvent struct {
 }
 ```
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `ToolCallID` | `string` | ID of the tool call (required) |
-| `Args` | `string` | JSON string of arguments chunk (required) |
+| Field        | Type     | Description                               |
+| ------------ | -------- | ----------------------------------------- |
+| `ToolCallID` | `string` | ID of the tool call (required)            |
+| `Args`       | `string` | JSON string of arguments chunk (required) |
 
 ### ToolCallEndEvent
 
@@ -245,8 +245,8 @@ type ToolCallEndEvent struct {
 }
 ```
 
-| Field | Type | Description |
-| --- | --- | --- |
+| Field        | Type     | Description                               |
+| ------------ | -------- | ----------------------------------------- |
 | `ToolCallID` | `string` | ID of the tool call that ended (required) |
 
 ### ToolCallResultEvent
@@ -262,11 +262,11 @@ type ToolCallResultEvent struct {
 }
 ```
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `ToolCallID` | `string` | ID of the tool call (required) |
-| `Result` | `any` | Result data from the tool execution (required) |
-| `Error` | `*string` | Error message if the tool call failed (optional) |
+| Field        | Type      | Description                                      |
+| ------------ | --------- | ------------------------------------------------ |
+| `ToolCallID` | `string`  | ID of the tool call (required)                   |
+| `Result`     | `any`     | Result data from the tool execution (required)   |
+| `Error`      | `*string` | Error message if the tool call failed (optional) |
 
 ## State Types
 
@@ -283,8 +283,8 @@ type StateSnapshotEvent struct {
 }
 ```
 
-| Field | Type | Description |
-| --- | --- | --- |
+| Field   | Type  | Description                      |
+| ------- | ----- | -------------------------------- |
 | `State` | `any` | Complete state object (required) |
 
 ### StateDeltaEvent
@@ -299,9 +299,9 @@ type StateDeltaEvent struct {
 }
 ```
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `Delta` | `any` | State changes to apply (required) |
+| Field       | Type      | Description                                         |
+| ----------- | --------- | --------------------------------------------------- |
+| `Delta`     | `any`     | State changes to apply (required)                   |
 | `Operation` | `*string` | Type of operation (merge, replace, etc.) (optional) |
 
 ### Usage Example

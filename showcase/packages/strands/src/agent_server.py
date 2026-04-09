@@ -19,6 +19,11 @@ agent_path = os.getenv("AGENT_PATH", "/")
 app = create_strands_app(agui_agent, agent_path)
 
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 def main():
     """Run the uvicorn server."""
     port = int(os.getenv("PORT", "8000"))

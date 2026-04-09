@@ -10,6 +10,7 @@ The AG-UI Go SDK client package provides Server-Sent Events (SSE) connectivity f
 ## Package Import
 
 ```go
+
 ```
 
 ## SSE Client Introduction
@@ -17,6 +18,7 @@ The AG-UI Go SDK client package provides Server-Sent Events (SSE) connectivity f
 The SSE (Server-Sent Events) client provides a robust connection mechanism for streaming events from AG-UI agents. SSE is a standard protocol for server-to-client streaming over HTTP, making it ideal for real-time agent interactions where the agent needs to send continuous updates about its processing state, thoughts, and outputs.
 
 Key features:
+
 - Real-time event streaming from agents
 - Automatic connection management
 - Context-based cancellation support
@@ -61,7 +63,7 @@ package main
     "context"
     "fmt"
     "log"
-    
+
     "github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/client/sse"
     "github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/core/events"
 )
@@ -72,7 +74,7 @@ func main() {
         Endpoint: "https://api.example.com/agent",
         APIKey:   "your-api-key",
     })
-    
+
     // Start streaming
     ctx := context.Background()
     frames, errors, err := client.Stream(sse.StreamOptions{
@@ -87,11 +89,11 @@ func main() {
             },
         },
     })
-    
+
     if err != nil {
         log.Fatal("Failed to start stream:", err)
     }
-    
+
     // Process events
     decoder := events.NewEventDecoder()
     for {
@@ -102,7 +104,7 @@ func main() {
                 log.Printf("Decode error: %v", err)
                 continue
             }
-            
+
             // Handle different event types
             switch e := event.(type) {
             case *events.TextMessageContentEvent:
@@ -111,7 +113,7 @@ func main() {
                 fmt.Println("\nAgent finished processing")
                 return
             }
-            
+
         case err := <-errors:
             log.Printf("Stream error: %v", err)
             return
@@ -129,5 +131,6 @@ func main() {
   color="#3B82F6"
   iconType="solid"
 >
-  Detailed documentation for the Server-Sent Events client including configuration, streaming, and error handling
+  Detailed documentation for the Server-Sent Events client including
+  configuration, streaming, and error handling
 </Card>

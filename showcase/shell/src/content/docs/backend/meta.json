@@ -1,7 +1,4 @@
 {
   "title": "Backend",
-  "pages": [
-    "copilot-runtime",
-    "ag-ui"
-  ]
+  "pages": ["copilot-runtime", "ag-ui"]
 }

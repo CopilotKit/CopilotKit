@@ -12,18 +12,18 @@ Specify a model using the `"provider:model"` format (or `"provider/model"` — b
 
 ### OpenAI
 
-| Model | Specifier |
-|-------|-----------|
-| GPT-5 | `openai:gpt-5` |
-| GPT-5 Mini | `openai:gpt-5-mini` |
-| GPT-4.1 | `openai:gpt-4.1` |
+| Model        | Specifier             |
+| ------------ | --------------------- |
+| GPT-5        | `openai:gpt-5`        |
+| GPT-5 Mini   | `openai:gpt-5-mini`   |
+| GPT-4.1      | `openai:gpt-4.1`      |
 | GPT-4.1 Mini | `openai:gpt-4.1-mini` |
 | GPT-4.1 Nano | `openai:gpt-4.1-nano` |
-| GPT-4o | `openai:gpt-5.2` |
-| GPT-4o Mini | `openai:gpt-5.2-mini` |
-| o3 | `openai:o3` |
-| o3-mini | `openai:o3-mini` |
-| o4-mini | `openai:o4-mini` |
+| GPT-4o       | `openai:gpt-5.2`      |
+| GPT-4o Mini  | `openai:gpt-5.2-mini` |
+| o3           | `openai:o3`           |
+| o3-mini      | `openai:o3-mini`      |
+| o4-mini      | `openai:o4-mini`      |
 
 ```typescript
 const agent = new BuiltInAgent({
@@ -33,14 +33,14 @@ const agent = new BuiltInAgent({
 
 ### Anthropic
 
-| Model | Specifier |
-|-------|-----------|
+| Model             | Specifier                     |
+| ----------------- | ----------------------------- |
 | Claude Sonnet 4.5 | `anthropic:claude-sonnet-4.5` |
-| Claude Sonnet 4 | `anthropic:claude-sonnet-4` |
+| Claude Sonnet 4   | `anthropic:claude-sonnet-4`   |
 | Claude 3.7 Sonnet | `anthropic:claude-3.7-sonnet` |
-| Claude Opus 4.1 | `anthropic:claude-opus-4.1` |
-| Claude Opus 4 | `anthropic:claude-opus-4` |
-| Claude 3.5 Haiku | `anthropic:claude-3.5-haiku` |
+| Claude Opus 4.1   | `anthropic:claude-opus-4.1`   |
+| Claude Opus 4     | `anthropic:claude-opus-4`     |
+| Claude 3.5 Haiku  | `anthropic:claude-3.5-haiku`  |
 
 ```typescript
 const agent = new BuiltInAgent({
@@ -50,10 +50,10 @@ const agent = new BuiltInAgent({
 
 ### Google
 
-| Model | Specifier |
-|-------|-----------|
-| Gemini 2.5 Pro | `google:gemini-2.5-pro` |
-| Gemini 2.5 Flash | `google:gemini-2.5-flash` |
+| Model                 | Specifier                      |
+| --------------------- | ------------------------------ |
+| Gemini 2.5 Pro        | `google:gemini-2.5-pro`        |
+| Gemini 2.5 Flash      | `google:gemini-2.5-flash`      |
 | Gemini 2.5 Flash Lite | `google:gemini-2.5-flash-lite` |
 
 ```typescript
@@ -91,8 +91,8 @@ const agent = new BuiltInAgent({
 For models not in the built-in list, you can pass any Vercel AI SDK `LanguageModel` instance directly:
 
 ```typescript
-
-const customProvider = createOpenAI({ // [!code highlight]
+const customProvider = createOpenAI({
+  // [!code highlight]
   apiKey: process.env.MY_API_KEY, // [!code highlight]
   baseURL: "https://my-proxy.example.com/v1", // [!code highlight]
 }); // [!code highlight]
@@ -105,7 +105,6 @@ const agent = new BuiltInAgent({
 This works with any AI SDK provider — Azure OpenAI, AWS Bedrock, Ollama, or any OpenAI-compatible endpoint:
 
 ```typescript
-
 const azure = createAzure({
   resourceName: "my-resource",
   apiKey: process.env.AZURE_API_KEY,

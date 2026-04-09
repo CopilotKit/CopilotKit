@@ -2,8 +2,8 @@
 title: "Step 2: Setup CopilotKit"
 ---
 
-  TailoredContent,
-  TailoredContentOption,
+TailoredContent,
+TailoredContentOption,
 } from "@/components/react/tailored-content";
 
 Now that we have our todo list app running, we're ready to integrate CopilotKit. For this tutorial, we will install the following dependencies:
@@ -49,7 +49,6 @@ In order to use CopilotKit, we'll need to configure the CopilotKit provider.
 ```tsx title="app/page.tsx" showLineNumbers {5,10,14}
 "use client";
 
-
 export default function Home() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit">
@@ -58,7 +57,7 @@ export default function Home() {
       <EmailsProvider>
         <EmailThread />
       </EmailsProvider>
-    {/* [!code highlight:1] */}
+      {/* [!code highlight:1] */}
     </CopilotKit>
   );
 }

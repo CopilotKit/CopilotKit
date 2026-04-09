@@ -42,68 +42,68 @@ provider's API.
 /**
  * Supported input modality types for multimodal content.
  */
-type Modality = "text" | "image" | "audio" | "video" | "document"
+type Modality = "text" | "image" | "audio" | "video" | "document";
 
 // ── Source types ──────────────────────────────────────────────
 
 interface InputContentDataSource {
   /** Indicates this is inline data content. */
-  type: "data"
+  type: "data";
   /** The base64-encoded content value. */
-  value: string
+  value: string;
   /** MIME type of the content (e.g., "image/png", "audio/wav"). Required. */
-  mimeType: string
+  mimeType: string;
 }
 
 interface InputContentUrlSource {
   /** Indicates this is URL-referenced content. */
-  type: "url"
+  type: "url";
   /** HTTP(S) URL or data URI pointing to the content. */
-  value: string
+  value: string;
   /** Optional MIME type hint for when it can't be inferred from the URL. */
-  mimeType?: string
+  mimeType?: string;
 }
 
-type InputContentSource = InputContentDataSource | InputContentUrlSource
+type InputContentSource = InputContentDataSource | InputContentUrlSource;
 
 // ── Content part types ────────────────────────────────────────
 
 interface TextInputPart {
-  type: "text"
+  type: "text";
   /** The text content. */
-  text: string
+  text: string;
 }
 
 interface ImageInputPart<TMetadata = unknown> {
-  type: "image"
+  type: "image";
   /** Source of the image content. */
-  source: InputContentSource
+  source: InputContentSource;
   /** Provider-specific metadata (e.g., OpenAI detail: "auto" | "low" | "high"). */
-  metadata?: TMetadata
+  metadata?: TMetadata;
 }
 
 interface AudioInputPart<TMetadata = unknown> {
-  type: "audio"
+  type: "audio";
   /** Source of the audio content. */
-  source: InputContentSource
+  source: InputContentSource;
   /** Provider-specific metadata (e.g., format, sample rate). */
-  metadata?: TMetadata
+  metadata?: TMetadata;
 }
 
 interface VideoInputPart<TMetadata = unknown> {
-  type: "video"
+  type: "video";
   /** Source of the video content. */
-  source: InputContentSource
+  source: InputContentSource;
   /** Provider-specific metadata (e.g., duration, resolution). */
-  metadata?: TMetadata
+  metadata?: TMetadata;
 }
 
 interface DocumentInputPart<TMetadata = unknown> {
-  type: "document"
+  type: "document";
   /** Source of the document content. */
-  source: InputContentSource
+  source: InputContentSource;
   /** Provider-specific metadata (e.g., Anthropic media_type for PDFs). */
-  metadata?: TMetadata
+  metadata?: TMetadata;
 }
 
 type InputContent =
@@ -111,16 +111,16 @@ type InputContent =
   | ImageInputPart
   | AudioInputPart
   | VideoInputPart
-  | DocumentInputPart
+  | DocumentInputPart;
 
 // ── Updated UserMessage ───────────────────────────────────────
 
 type UserMessage = {
-  id: string
-  role: "user"
-  content: string | InputContent[]
-  name?: string
-}
+  id: string;
+  role: "user";
+  content: string | InputContent[];
+  name?: string;
+};
 ```
 
 ### Modality Type

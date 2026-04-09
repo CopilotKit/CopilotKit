@@ -5,6 +5,7 @@ description: Read the realtime agent state in your native application.
 ---
 
 {/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
+
 <IframeSwitcher
   id="shared-state-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state?sidebar=false&chatDefaultOpen=false"
@@ -15,7 +16,8 @@ description: Read the realtime agent state in your native application.
 />
 
 <Callout type="info">
-  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state).
+  This example demonstrates reading from shared state in the [CopilotKit Feature
+  Viewer](https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -65,6 +67,7 @@ state updates, you can reflect these updates natively in your application.
       language: "english" | "spanish";
     }
     ```
+
   </Step>
   <Step>
     ### Use the `useAgent` Hook
@@ -100,6 +103,7 @@ state updates, you can reflect these updates natively in your application.
     <Callout type="info">
       The `agent.state` in `useAgent` is reactive and will automatically update when the agent's state changes.
     </Callout>
+
   </Step>
   <Step>
     ### Give it a try!
@@ -114,6 +118,7 @@ state updates, you can reflect these updates natively in your application.
       Pictured above is the [agent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/agents-starter) with
       the implementation section applied!
     </Callout>
+
   </Step>
 </Steps>
 
@@ -123,11 +128,10 @@ You can also render the agent's state in the chat UI. This is useful for informi
 more in-context way. To do this, you can use the `useAgent` hook with a `render` function.
 
 ```tsx title="ui/app/page.tsx"
-
 // Define the agent state type, should match the actual state of your agent
 type AgentState = {
   language: "english" | "spanish";
-}
+};
 
 function YourMainContent() {
   // ...
@@ -144,7 +148,8 @@ function YourMainContent() {
 ```
 
 <Callout type="info">
-  The `agent.state` in `useAgent` is reactive and will automatically update when the agent's state changes.
+  The `agent.state` in `useAgent` is reactive and will automatically update when
+  the agent's state changes.
 </Callout>
 
 ## Advanced: Emitting Intermediate State

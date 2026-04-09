@@ -42,6 +42,7 @@ data class DeveloperMessage(
 ```
 
 **Example:**
+
 ```kotlin
 val developerMessage = DeveloperMessage(
     id = "dev-1",
@@ -62,6 +63,7 @@ data class SystemMessage(
 ```
 
 **Example:**
+
 ```kotlin
 val systemMessage = SystemMessage(
     id = "sys-1",
@@ -82,6 +84,7 @@ data class UserMessage(
 ```
 
 **Example:**
+
 ```kotlin
 val userMessage = UserMessage(
     id = "user-1",
@@ -103,6 +106,7 @@ data class AssistantMessage(
 ```
 
 **Examples:**
+
 ```kotlin
 // Text response
 val textResponse = AssistantMessage(
@@ -140,6 +144,7 @@ data class ToolMessage(
 ```
 
 **Example:**
+
 ```kotlin
 val toolResult = ToolMessage(
     id = "tool-1",
@@ -167,6 +172,7 @@ data class FunctionCall(
 ```
 
 **Example:**
+
 ```kotlin
 val toolCall = ToolCall(
     id = "call-123",
@@ -190,6 +196,7 @@ data class ToolDefinition(
 ```
 
 **Example:**
+
 ```kotlin
 val weatherTool = ToolDefinition(
     name = "get_weather",
@@ -224,6 +231,7 @@ data class RunAgentInput(
 ```
 
 **Example:**
+
 ```kotlin
 val input = RunAgentInput(
     threadId = "thread-123",
@@ -253,6 +261,7 @@ data class RunErrorEvent(
 ```
 
 **Example:**
+
 ```kotlin
 val error = RunErrorEvent(
     message = "Connection failed",
@@ -271,7 +280,7 @@ Use `AgUiJson` for all protocol serialization:
 val message = UserMessage(id = "1", content = "Hello")
 val json = AgUiJson.encodeToString<Message>(message)
 
-// Deserialize  
+// Deserialize
 val decoded = AgUiJson.decodeFromString<Message>(json)
 ```
 

@@ -46,6 +46,10 @@ jobs:
         working-directory: showcase/scripts
         run: npx tsx bundle-demo-content.ts
 
+      - name: Install showcase shell dependencies
+        working-directory: showcase/shell
+        run: npm install --ignore-scripts
+
       - name: Build showcase shell
         working-directory: showcase/shell
-        run: pnpm build
+        run: npm run build

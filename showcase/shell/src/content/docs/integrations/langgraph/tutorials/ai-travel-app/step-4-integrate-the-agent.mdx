@@ -1,6 +1,7 @@
 ---
 title: "Step 4: Integrate the Agent"
 ---
+
 At this point, we have a LangGraph agent running in LangGraph Studioand have our own non-agentic copilot that we can interact with. Now, let's
 combine the two together to make an agentic copilot!
 
@@ -32,7 +33,10 @@ need the port number of the LangGraph Studio endpoint we setup earlier.
 It'll be on the bottom left of the LangGraph Studio interface like this.
 
 <Frame>
-  <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/ai-travel-app/lgs-endpoint.png" alt="LangGraph Studio Endpoint" />
+  <img
+    src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tutorials/ai-travel-app/lgs-endpoint.png"
+    alt="LangGraph Studio Endpoint"
+  />
 </Frame>
 
 </Callout>
@@ -70,18 +74,17 @@ In our previously setup `/api/copilotkit` route, we're going to add the followin
 ```tsx title="ui/app/api/copilotkit/route.ts"
 // ...
 
-
 // ...
 
-const runtime = new CopilotRuntime();// [!code --]
+const runtime = new CopilotRuntime(); // [!code --]
 // [!code ++:10]
 const runtime = new CopilotRuntime({
   // [!code highlight:7]
   agents: {
-    'travel': new LangGraphAgent({
+    travel: new LangGraphAgent({
       deploymentUrl: "http://localhost:<port_number>",
-      graphId: 'travel',
-      langsmithApiKey: "your-langsmith-api-key" // Optional
+      graphId: "travel",
+      langsmithApiKey: "your-langsmith-api-key", // Optional
     }),
   },
 });
@@ -119,6 +122,7 @@ by updating the props of our `CopilotKit` provider.
 
 This will ensure that every request is sent to the `travel` agent. The `travel` name is defined in the [agents/langgraph.json](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-travel/agent/langgraph.json)
 file. When we deploy our agent to Copilot Cloud this is automatically handled for us. When self-hosting, we need to specify the name of the agent in the `langGraphPlatformEndpoint` constructor.
+
 </Step>
 <Step>
 
@@ -156,13 +160,15 @@ The `useCoAgent` hook is generic. What this means is that we can specify a type 
 If you are going to specify a type, you should be very careful that the type has the same shape as the state of your LangGraph agent.
 
 It is not recommended, but you can ditch the type parameter and instead get an `any` type.
+
 </Callout>
 
 In this example, we use the `useCoAgent` hook to wire up the application's state to the LangGraph agent's state.
+
 - For the generic type, we pass the `AgentState` type that was already defined for the application in `@/lib/types.ts`.
 - For the `name` parameter, we pass the name of the graph as defined in `agent/langgraph.json`.
 - For the `initialState` parameter, we pass the initial state of the LangGraph agent which is already defined in `@/lib/trips.ts`.
-</Step>
+    </Step>
 </Steps>
 
 ## Try it out!

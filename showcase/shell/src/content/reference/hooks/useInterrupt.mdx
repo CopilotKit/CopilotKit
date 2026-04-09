@@ -14,7 +14,6 @@ By default, interrupt UI is rendered inside `<CopilotChat>` automatically. If yo
 ## Signature
 
 ```tsx
-
 function useInterrupt<
   TResult = never,
   TRenderInChat extends boolean | undefined = undefined,
@@ -39,19 +38,24 @@ function useInterrupt<
     - `resolve(response)` -- resumes the agent with `command.resume = response`
   </PropertyReference>
 
-  <PropertyReference name="handler" type="(props: InterruptHandlerProps) => TResult | PromiseLike<TResult>">
-    Optional preprocessing callback. Runs before rendering and can return sync or async data that is exposed as `result` in `render`.
-    `TResult` is automatically inferred from the handler's return type.
-    If the handler throws/rejects, `result` is `null`.
-  </PropertyReference>
+<PropertyReference
+  name="handler"
+  type="(props: InterruptHandlerProps) => TResult | PromiseLike<TResult>"
+>
+  Optional preprocessing callback. Runs before rendering and can return sync or
+  async data that is exposed as `result` in `render`. `TResult` is automatically
+  inferred from the handler's return type. If the handler throws/rejects,
+  `result` is `null`.
+</PropertyReference>
 
-  <PropertyReference name="enabled" type="(event: InterruptEvent) => boolean">
-    Optional filter. Return `false` to ignore matching interrupts for this hook instance.
-  </PropertyReference>
+<PropertyReference name="enabled" type="(event: InterruptEvent) => boolean">
+  Optional filter. Return `false` to ignore matching interrupts for this hook
+  instance.
+</PropertyReference>
 
-  <PropertyReference name="agentId" type="string">
-    Optional agent id. Defaults to the currently configured chat agent.
-  </PropertyReference>
+<PropertyReference name="agentId" type="string">
+  Optional agent id. Defaults to the currently configured chat agent.
+</PropertyReference>
 
   <PropertyReference name="renderInChat" type="boolean" default="true">
     Controls where UI renders:
@@ -74,7 +78,6 @@ function useInterrupt<
 ### In-chat interrupt UI (default)
 
 ```tsx
-
 function ApprovalInterrupt() {
   useInterrupt({
     render: ({ event, resolve }) => (
@@ -95,7 +98,6 @@ function ApprovalInterrupt() {
 ### Manual placement with async preprocessing
 
 ```tsx
-
 function SidePanelInterrupt() {
   const element = useInterrupt({
     renderInChat: false,

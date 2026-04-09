@@ -17,7 +17,6 @@ The [`useFrontendTool`](/reference/v1/hooks/useFrontendTool) hook makes tools av
 ```tsx filename="lib/hooks/use-tasks.tsx" showLineNumbers {3-3,8-22,24-38,40-61}
 // ... the rest of the file
 
-
 export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>(defaultTasks);
 

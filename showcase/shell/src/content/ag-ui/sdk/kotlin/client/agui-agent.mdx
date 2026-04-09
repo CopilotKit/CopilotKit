@@ -10,7 +10,9 @@ description: Stateless client for AG-UI protocol interactions
 ## Usage Scenarios
 
 ### No Ongoing Context
+
 Perfect for single interactions or independent queries:
+
 ```kotlin
 val agent = AgUiAgent("https://api.example.com/agent") {
     bearerToken = "your-token"
@@ -23,7 +25,9 @@ agent.sendMessage("What's the weather?").collect { state ->
 ```
 
 ### Agent-Managed State
+
 Ideal when the agent handles conversation history server-side:
+
 ```kotlin
 val agent = AgUiAgent("https://api.example.com/agent") {
     bearerToken = "your-token"
@@ -40,6 +44,7 @@ agent.sendMessage("What's my name?").collect { state ->
 ## Configuration
 
 ### Convenience Builders
+
 The easiest way to create AgUiAgent instances:
 
 ```kotlin
@@ -70,6 +75,7 @@ val agent = debugAgent("https://api.example.com/agent") {
 ```
 
 ### Basic Setup
+
 ```kotlin
 val agent = AgUiAgent(
     url = "https://api.example.com/agent"
@@ -77,36 +83,37 @@ val agent = AgUiAgent(
     // Authentication (choose one)
     bearerToken = "your-bearer-token"
     // OR
-    apiKey = "your-api-key" 
+    apiKey = "your-api-key"
     // OR
     basicAuth("username", "password")
-    
+
     // Optional system prompt
     systemPrompt = "You are a helpful assistant"
-    
+
     // Optional user ID
     userId = "user-123"
 }
 ```
 
 ### Advanced Configuration
+
 ```kotlin
 val agent = AgUiAgent("https://api.example.com/agent") {
     bearerToken = "your-token"
-    
+
     // Custom headers
     customHeaders = mapOf(
         "X-App-Version" to "1.0.0",
         "X-Client-Type" to "mobile"
     )
-    
+
     // Timeout settings
     requestTimeout = 30.seconds
     connectTimeout = 10.seconds
-    
+
     // Debug logging
     enableLogging = true
-    
+
     // Custom user agent
     userAgent = "MyApp/1.0"
 }
@@ -115,6 +122,7 @@ val agent = AgUiAgent("https://api.example.com/agent") {
 ## Methods
 
 ### sendMessage
+
 Send a message and receive streaming responses:
 
 ```kotlin
@@ -127,6 +135,7 @@ fun sendMessage(
 ```
 
 **Parameters:**
+
 - `message`: The message content to send
 - `threadId`: Thread ID for conversation (defaults to generated ID)
 - `state`: Initial state for the agent (defaults to null)
@@ -135,6 +144,7 @@ fun sendMessage(
 **Returns:** `Flow<BaseEvent>` - Stream of protocol events
 
 **Example:**
+
 ```kotlin
 agent.sendMessage("Calculate 15% tip on $50").collect { event ->
     when (event) {
@@ -148,6 +158,7 @@ agent.sendMessage("Calculate 15% tip on $50").collect { event ->
 ```
 
 ### close
+
 Close the agent and release resources:
 
 ```kotlin
@@ -155,12 +166,13 @@ fun close()
 ```
 
 **Example:**
-```kotlin
+
+````kotlin
 class MyRepository {
-    private val agent = AgUiAgent("https://api.example.com/agent") { 
-        bearerToken = "your-token" 
+    private val agent = AgUiAgent("https://api.example.com/agent") {
+        bearerToken = "your-token"
     }
-    
+
     fun cleanup() {
         agent.close()
     }
@@ -188,9 +200,10 @@ agent.sendMessage("Hello").collect { state ->
         }
     }
 }
-```
+````
 
 ### Retry Logic
+
 ```kotlin
 // Built-in retry for transient failures
 val agent = AgUiAgent("https://api.example.com/agent") {
@@ -222,18 +235,20 @@ launch {
 ## Best Practices
 
 ### Resource Management
+
 ```kotlin
 // Agent automatically manages HTTP connections
 // No explicit cleanup required, but you can control lifecycle:
 
 class MyRepository {
     private val agent = AgUiAgent(url) { /* config */ }
-    
+
     // Agent will be garbage collected when repository is
 }
 ```
 
 ### Performance Optimization
+
 ```kotlin
 // Reuse agent instances when possible
 val agent = AgUiAgent(url) { bearerToken = token }
@@ -245,6 +260,7 @@ repeat(10) { i ->
 ```
 
 ### Message Threading
+
 ```kotlin
 // Group related messages with threadId
 val threadId = UUID.randomUUID().toString()
@@ -256,16 +272,19 @@ agent.sendMessage("Continue conversation", threadId = threadId).collect { }
 ## Platform Considerations
 
 ### Android
+
 - Uses Ktor Android engine (OkHttp under the hood)
 - Handles network state changes automatically
 - Compatible with background processing restrictions
 
 ### iOS
+
 - Uses Ktor Darwin engine (NSURLSession under the hood)
 - Respects iOS app lifecycle events
 - Compatible with background app refresh
 
 ### JVM
+
 - Uses Ktor CIO engine for server applications
 - Supports high-concurrency scenarios
 - Compatible with Spring Boot and other frameworks

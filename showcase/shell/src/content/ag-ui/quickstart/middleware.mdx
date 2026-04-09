@@ -120,7 +120,7 @@ export const menuIntegrations: MenuIntegrationConfig[] = [
     name: "OpenAI",
     features: ["agentic_chat"],
   },
-]
+];
 ```
 
 And `apps/dojo/src/agents.ts`:
@@ -136,10 +136,10 @@ export const agentsIntegrations: AgentIntegrationConfig[] = [
     agents: async () => {
       return {
         agentic_chat: new OpenAIAgent(),
-      }
+      };
     },
   },
-]
+];
 ```
 
 ## Step 2 – Add package to dojo dependencies

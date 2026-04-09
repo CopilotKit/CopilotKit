@@ -49,7 +49,7 @@ If you register an agent with the name `"default"`, CopilotKit's prebuilt UI com
 const runtime = new CopilotRuntime({
   agents: {
     // This agent will be used automatically by CopilotPopup, CopilotSidebar, etc.
-    "default": new HttpAgent({ url: "https://my-agent.example.com" }),
+    default: new HttpAgent({ url: "https://my-agent.example.com" }),
   },
 });
 ```
@@ -85,14 +85,16 @@ Pass `a2ui: {}` to automatically apply `A2UIMiddleware` to all registered agents
 ```ts title="app/api/copilotkit/route.ts"
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
-  a2ui: {},  // enables A2UI rendering for all agents
+  a2ui: {}, // enables A2UI rendering for all agents
 });
 ```
 
 To scope it to specific agents only, pass an `agents` list:
 
 ```ts
-a2ui: { agents: ["my-agent"] }
+a2ui: {
+  agents: ["my-agent"];
+}
 ```
 
 On the frontend, the A2UI renderer activates automatically — no extra configuration needed. If you want to override the default theme, pass an `a2ui` prop to `<CopilotKit>`:
@@ -133,11 +135,14 @@ const myAgent = new HttpAgent({
 
 <CopilotKit agents__unsafe_dev_only={{ "my-agent": myAgent }}>
   <YourApp />
-</CopilotKit>
+</CopilotKit>;
 ```
 
 <Callout type="warn">
-Direct agent connections are intended for development and prototyping. This approach is not recommended for production unless you are confident in your setup, and is not officially supported by CopilotKit. If you run into issues with a direct connection, you will need to troubleshoot on your own.
+  Direct agent connections are intended for development and prototyping. This
+  approach is not recommended for production unless you are confident in your
+  setup, and is not officially supported by CopilotKit. If you run into issues
+  with a direct connection, you will need to troubleshoot on your own.
 </Callout>
 
 There are important things to understand before going this route:
@@ -148,11 +153,11 @@ There are important things to understand before going this route:
 
 ### Comparison
 
-| | With Runtime | Direct Connection |
-|---|---|---|
-| **Authentication** | Safe defaults provided | You manage it |
-| **AG-UI Middleware** | Runs server-side | Not available |
-| **Agent Routing** | Automatic | Manual |
-| **Ecosystem Features** | Full support | Limited |
-| **CopilotKit Support** | Supported | Not supported |
-| **Setup** | Requires a backend endpoint | Frontend-only |
+|                        | With Runtime                | Direct Connection |
+| ---------------------- | --------------------------- | ----------------- |
+| **Authentication**     | Safe defaults provided      | You manage it     |
+| **AG-UI Middleware**   | Runs server-side            | Not available     |
+| **Agent Routing**      | Automatic                   | Manual            |
+| **Ecosystem Features** | Full support                | Limited           |
+| **CopilotKit Support** | Supported                   | Not supported     |
+| **Setup**              | Requires a backend endpoint | Frontend-only     |

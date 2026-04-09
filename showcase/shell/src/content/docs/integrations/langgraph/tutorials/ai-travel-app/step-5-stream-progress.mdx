@@ -14,7 +14,8 @@ CopilotKit comes ready with an SDK for building both Python and Typescript agent
 (manged with `poetry`), so we'll be installing the Python SDK.
 
 <Callout>
-Don't have poetry installed? [Install it here](https://python-poetry.org/docs/#installation).
+  Don't have poetry installed? [Install it
+  here](https://python-poetry.org/docs/#installation).
 </Callout>
 
 ```shell title="agent/"
@@ -60,6 +61,7 @@ async def search_node(state: AgentState, config: RunnableConfig):
 
     # ...
 ```
+
 </Step>
 <Step>
 ### Emit the intermediate state
@@ -67,9 +69,10 @@ Now we can call `copilotkit_emit_state` to emit the intermediate state wherever 
 progress at the beginning of our search and as we receive results.
 
 <Callout>
-One piece of this that has already been setup for you is the `search_progress` state key. In order to emit progress, we add
-an object to our state that we'll manually update with the results and progress of our search. Then we'll be calling `copilotkit_emit_state`
-to manually emit that state.
+  One piece of this that has already been setup for you is the `search_progress`
+  state key. In order to emit progress, we add an object to our state that we'll
+  manually update with the results and progress of our search. Then we'll be
+  calling `copilotkit_emit_state` to manually emit that state.
 </Callout>
 
 ```python title="agent/travel/search.py"
@@ -162,6 +165,7 @@ async def search_node(state: AgentState, config: RunnableConfig):
     # ...
 
 ```
+
 </Step>
 </Steps>
 
@@ -169,7 +173,6 @@ async def search_node(state: AgentState, config: RunnableConfig):
 
 Now that we are manually emitting the state of our search, we can recieve and render that state in the UI. To do this,
 we'll be using the [useCoAgentStateRender](/reference/v1/hooks/useCoAgentStateRender) function in our `use-trips.tsx` hook.
-
 
 All we need to do is tell CopilotKit to conditionally render the `search_progress` state key through the `useCoAgentStateRender` hook.
 
@@ -192,23 +195,23 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
     name: "travel",
     render: ({ state }) => {
       if (state.search_progress) {
-        return <SearchProgress progress={state.search_progress} />
+        return <SearchProgress progress={state.search_progress} />;
       }
       return null;
     },
   });
 
   // ...
-}
-
+};
 ```
 
 The `<SearchProgress />` component is a custom component that was created for you ahead of time. If you'd like to
 learn more about it feel free to check it out in `ui/components/SearchProgress.tsx`!
 
 <Callout>
-One other thing done for you ahead of time is that the `search_progress` key is already present in the `AgentState` type. You
-can look at that type in `ui/lib/types.ts`.
+  One other thing done for you ahead of time is that the `search_progress` key
+  is already present in the `AgentState` type. You can look at that type in
+  `ui/lib/types.ts`.
 </Callout>
 
 Give it a try! Ask the agent to search for places and we'll see the progress of each search as it comes in.

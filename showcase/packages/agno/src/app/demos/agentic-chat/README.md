@@ -18,18 +18,22 @@ You can also chat about other topics — the agent will respond conversationally
 ## Technical Details
 
 **Frontend tools** are registered using `useFrontendTool`:
+
 - `change_background` — accepts a CSS background value and applies it to the chat container
 - CopilotKit automatically exposes this function to the agent
 - The agent determines when to call the tool based on the user's request
 
 **Backend tool rendering** uses `useRenderTool`:
+
 - `get_weather` — a backend tool that the agent calls; the frontend renders the result as a weather card
 - The render function receives `args`, `result`, and `status` for loading/complete states
 
 **Agent context** is provided via `useAgentContext`:
+
 - Sends the user's name to the agent so it can personalize responses
 
 **Suggestions** are configured with `useConfigureSuggestions`:
+
 - Static suggestions shown as quick-action buttons below the chat
 
 ## Building With This
@@ -56,9 +60,9 @@ Wrap `CopilotChat` in a constraining div for proper spacing:
 
 ```tsx
 <div className="flex justify-center items-center h-screen w-full">
-    <div className="h-full w-full md:w-4/5 md:h-4/5 rounded-lg">
-        <CopilotChat className="h-full rounded-2xl max-w-6xl mx-auto" />
-    </div>
+  <div className="h-full w-full md:w-4/5 md:h-4/5 rounded-lg">
+    <CopilotChat className="h-full rounded-2xl max-w-6xl mx-auto" />
+  </div>
 </div>
 ```
 
@@ -69,8 +73,8 @@ CopilotKit uses `cpk:` prefixed classes internally. To override them, create a *
 ```css
 /* copilotkit-overrides.css */
 .copilotKitInput {
-    border-radius: 0.75rem;
-    border: 1px solid var(--copilot-kit-separator-color) !important;
+  border-radius: 0.75rem;
+  border: 1px solid var(--copilot-kit-separator-color) !important;
 }
 ```
 

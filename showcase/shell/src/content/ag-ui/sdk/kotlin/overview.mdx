@@ -6,7 +6,7 @@ description: Kotlin Multiplatform SDK for building AI agent user interfaces with
 # Kotlin SDK
 
 The AG-UI Kotlin SDK is a Kotlin Multiplatform library for building AI agent user interfaces that implement the Agent User Interaction Protocol (AG-UI). It provides real-time streaming communication between Kotlin applications and AI agents across Android, iOS, and JVM platforms.
-*Note:* This SDK is community contributed and maintained. Please reach out to mefinsf in the AG-UI Discord with any questions.
+_Note:_ This SDK is community contributed and maintained. Please reach out to mefinsf in the AG-UI Discord with any questions.
 
 ## Installation
 
@@ -27,8 +27,8 @@ For advanced use cases where you only need specific modules:
 dependencies {
     // Core protocol types only (advanced)
     implementation("com.agui:kotlin-core:0.2.1")
-    
-    // Tools framework only (advanced) 
+
+    // Tools framework only (advanced)
     implementation("com.agui:kotlin-tools:0.2.1")
 }
 ```
@@ -38,7 +38,9 @@ dependencies {
 The SDK follows a modular architecture with three main components:
 
 ### kotlin-client
+
 High-level agent implementations and client infrastructure.
+
 - **AgUiAgent**: Stateless client for cases where no ongoing context is needed or the agent manages all state server-side
 - **StatefulAgUiAgent**: Stateful client that maintains conversation history and sends it with each request
 - **HttpAgent**: Low-level HTTP transport implementation
@@ -47,7 +49,9 @@ High-level agent implementations and client infrastructure.
 [Learn more about the Client module →](/docs/sdk/kotlin/client/overview)
 
 ### kotlin-core
+
 Protocol types, events, and message definitions.
+
 - **Events**: All AG-UI protocol event types and serialization
 - **Types**: Protocol message types and state management
 - **Serialization**: JSON handling with kotlinx.serialization
@@ -55,7 +59,9 @@ Protocol types, events, and message definitions.
 [Learn more about the Core module →](/docs/sdk/kotlin/core/overview)
 
 ### kotlin-tools
+
 Tool execution framework for extending agent capabilities.
+
 - **ToolExecutor**: Interface for implementing custom tools
 - **ToolRegistry**: Tool registration and management
 - **ToolExecutionManager**: Tool execution with circuit breaker patterns
@@ -64,11 +70,11 @@ Tool execution framework for extending agent capabilities.
 
 ## Supported Platforms
 
-| Platform | Status | Minimum Version |
-|----------|--------|-----------------|
-| Android | ✅ Stable | API 26+ |
-| iOS | ✅ Stable | iOS 13+ |
-| JVM | ✅ Stable | Java 11+ |
+| Platform | Status    | Minimum Version |
+| -------- | --------- | --------------- |
+| Android  | ✅ Stable | API 26+         |
+| iOS      | ✅ Stable | iOS 13+         |
+| JVM      | ✅ Stable | Java 11+        |
 
 ## Quick Start
 

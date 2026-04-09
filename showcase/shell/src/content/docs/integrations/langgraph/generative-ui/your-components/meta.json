@@ -1,8 +1,4 @@
 {
   "title": "Your Components",
-  "pages": [
-    "display-only",
-    "interactive",
-    "interrupt-based"
-  ]
+  "pages": ["display-only", "interactive", "interrupt-based"]
 }

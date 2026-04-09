@@ -10,6 +10,7 @@ in the Agent User Interaction Protocol. It handles the core event stream
 processing, state management, and message history.
 
 ```typescript
+
 ```
 
 ## Configuration
@@ -19,11 +20,11 @@ object to the constructor.
 
 ```typescript
 interface AgentConfig {
-  agentId?: string // The identifier of the agent
-  description?: string // A description of the agent, used by the LLM
-  threadId?: string // The conversation thread identifier
-  initialMessages?: Message[] // An array of initial messages
-  initialState?: State // The initial state of the agent
+  agentId?: string; // The identifier of the agent
+  description?: string; // A description of the agent, used by the LLM
+  threadId?: string; // The conversation thread identifier
+  initialMessages?: Message[]; // An array of initial messages
+  initialState?: State; // The initial state of the agent
 }
 ```
 
@@ -35,15 +36,15 @@ from your subclass like this:
 
 ```typescript
 interface MyAgentConfig extends AgentConfig {
-  myConfigOption: string
+  myConfigOption: string;
 }
 
 class MyAgent extends AbstractAgent {
-  private myConfigOption: string
+  private myConfigOption: string;
 
   constructor(config: MyAgentConfig) {
-    super(config)
-    this.myConfigOption = config.myConfigOption
+    super(config);
+    this.myConfigOption = config.myConfigOption;
   }
 }
 ```
@@ -62,10 +63,10 @@ runAgent(parameters?: RunAgentParameters, subscriber?: AgentSubscriber): Promise
 
 ```typescript
 interface RunAgentParameters {
-  runId?: string // Unique ID for this execution run
-  tools?: Tool[] // Available tools for the agent
-  context?: Context[] // Contextual information
-  forwardedProps?: Record<string, any> // Additional properties to forward
+  runId?: string; // Unique ID for this execution run
+  tools?: Tool[]; // Available tools for the agent
+  context?: Context[]; // Contextual information
+  forwardedProps?: Record<string, any>; // Additional properties to forward
 }
 ```
 
@@ -77,8 +78,8 @@ specific run.
 
 ```typescript
 interface RunAgentResult {
-  result: any // The final result returned by the agent
-  newMessages: Message[] // New messages added during this run
+  result: any; // The final result returned by the agent
+  newMessages: Message[]; // New messages added during this run
 }
 ```
 
@@ -103,6 +104,7 @@ use(...middlewares: (Middleware | MiddlewareFunction)[]): this
 ```
 
 Middleware can be either:
+
 - **Function middleware**: Simple functions that transform the event stream
 - **Class middleware**: Instances of the `Middleware` class for stateful operations
 
@@ -114,9 +116,11 @@ agent.use((input, next) => {
 });
 
 // Class middleware
-agent.use(new FilterToolCallsMiddleware({
-  allowedToolCalls: ["search"]
-}));
+agent.use(
+  new FilterToolCallsMiddleware({
+    allowedToolCalls: ["search"],
+  }),
+);
 
 // Chain multiple middleware
 agent.use(loggingMiddleware, authMiddleware, filterMiddleware);
@@ -172,7 +176,7 @@ like [CopilotKit](https://copilotkit.ai).
 An observable stream of all events emitted during agent execution.
 
 ```typescript
-events$: Observable<BaseEvent>
+events$: Observable<BaseEvent>;
 ```
 
 This property provides direct access to the agent's event stream. Events are

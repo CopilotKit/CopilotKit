@@ -1,38 +1,45 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 const LANGGRAPH_URL =
-    process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
+  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
 
-export async function GET() {
-    let langGraphStatus = "unknown";
-    let langGraphDetail = "";
-
-    try {
-        const res = await fetch(`${LANGGRAPH_URL}/ok`, {
-            signal: AbortSignal.timeout(3000),
-        });
-        langGraphStatus = res.ok ? "ok" : `error`;
-        langGraphDetail = `HTTP ${res.status}`;
-    } catch (e: any) {
-        langGraphStatus = "down";
-        langGraphDetail = e.message;
-    }
-
-    return NextResponse.json({
-        status: "ok",
-        integration: "langgraph-python",
-        version: "2.0.0",
-        timestamp: new Date().toISOString(),
-        agent: {
-            url: LANGGRAPH_URL,
-            status: langGraphStatus,
-            detail: langGraphDetail,
-        },
-        env: {
-            OPENAI_API_KEY: process.env.OPENAI_API_KEY ? "set" : "NOT SET",
-            ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? "set" : "NOT SET",
-            NODE_ENV: process.env.NODE_ENV,
-            PORT: process.env.PORT,
-        },
+export async function GET(req: NextRequest) {
+  // Check agent backend reachability
+  let agentStatus = "unknown";
+  try {
+    const res = await fetch(`${LANGGRAPH_URL}/ok`, {
+      signal: AbortSignal.timeout(3000),
     });
+    agentStatus = res.ok ? "ok" : "error";
+  } catch {
+    agentStatus = "down";
+  }
+
+  // Public response: safe to expose
+  const publicResponse: Record<string, any> = {
+    status: agentStatus === "ok" ? "ok" : "degraded",
+    integration: "langgraph-python",
+    agent: agentStatus,
+    timestamp: new Date().toISOString(),
+  };
+
+  // Extended diagnostics: only with debug token
+  const token =
+    req.headers.get("x-debug-token") || req.nextUrl.searchParams.get("debug");
+  const expectedToken = process.env.SHOWCASE_DEBUG_TOKEN;
+
+  if (token && expectedToken && token === expectedToken) {
+    publicResponse.diagnostics = {
+      agent_url: LANGGRAPH_URL,
+      env: {
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY ? "set" : "NOT SET",
+        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? "set" : "NOT SET",
+        NODE_ENV: process.env.NODE_ENV,
+        PORT: process.env.PORT,
+      },
+    };
+  }
+
+  const httpStatus = publicResponse.status === "ok" ? 200 : 503;
+  return NextResponse.json(publicResponse, { status: httpStatus });
 }

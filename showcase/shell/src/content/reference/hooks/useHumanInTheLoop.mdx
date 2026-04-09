@@ -12,7 +12,6 @@ This hook is built on top of `useFrontendTool` with an internally managed handle
 ## Signature
 
 ```tsx
-
 function useHumanInTheLoop<T extends Record<string, unknown>>(
   tool: ReactHumanInTheLoop<T>,
   deps?: ReadonlyArray<unknown>,
@@ -24,17 +23,21 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
 <PropertyReference name="tool" type="ReactHumanInTheLoop<T>" required>
   The interactive tool definition.
 
-  <PropertyReference name="name" type="string" required>
-    A unique name for the tool. The agent references this name when it needs human input.
-  </PropertyReference>
+<PropertyReference name="name" type="string" required>
+  A unique name for the tool. The agent references this name when it needs human
+  input.
+</PropertyReference>
 
-  <PropertyReference name="description" type="string" required>
-    A natural-language description that tells the agent what the tool does and when to invoke it (e.g., "Ask the user to confirm before deleting records").
-  </PropertyReference>
+<PropertyReference name="description" type="string" required>
+  A natural-language description that tells the agent what the tool does and
+  when to invoke it (e.g., "Ask the user to confirm before deleting records").
+</PropertyReference>
 
-  <PropertyReference name="parameters" type="z.ZodSchema" required>
-    A Zod schema defining the arguments the agent passes to the tool. These arguments are forwarded to the render component so you can build context-aware UI.
-  </PropertyReference>
+<PropertyReference name="parameters" type="z.ZodSchema" required>
+  A Zod schema defining the arguments the agent passes to the tool. These
+  arguments are forwarded to the render component so you can build context-aware
+  UI.
+</PropertyReference>
 
   <PropertyReference name="render" type="React.ComponentType<RenderProps>" required>
     A React component that drives the human interaction. The component receives different props depending on the current status:
@@ -53,6 +56,7 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
     - `args: T` -- the original arguments
     - `respond: undefined` -- no longer available
     - `result: string` -- the serialized result
+
   </PropertyReference>
 
   <PropertyReference name="available" type='"enabled" | "disabled" | "remote"' default='"enabled"'>
@@ -61,7 +65,8 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
 </PropertyReference>
 
 <PropertyReference name="deps" type="ReadonlyArray<unknown>">
-  An optional dependency array. When provided, the tool registration is refreshed whenever any value in the array changes.
+  An optional dependency array. When provided, the tool registration is
+  refreshed whenever any value in the array changes.
 </PropertyReference>
 
 ## Usage
@@ -71,56 +76,61 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
 A common pattern where the agent asks the user to confirm a destructive action.
 
 ```tsx
-
 function DeleteConfirmation() {
-  useHumanInTheLoop({
-    name: "confirmDeletion",
-    description: "Ask the user to confirm before deleting items",
-    parameters: z.object({
-      itemName: z.string().describe("Name of the item to delete"),
-      itemCount: z.number().describe("Number of items to delete"),
-    }),
-    render: ({ args, status, respond, result }) => {
-      if (status === ToolCallStatus.InProgress) {
-        return <div className="p-4 text-gray-500">Preparing confirmation...</div>;
-      }
+  useHumanInTheLoop(
+    {
+      name: "confirmDeletion",
+      description: "Ask the user to confirm before deleting items",
+      parameters: z.object({
+        itemName: z.string().describe("Name of the item to delete"),
+        itemCount: z.number().describe("Number of items to delete"),
+      }),
+      render: ({ args, status, respond, result }) => {
+        if (status === ToolCallStatus.InProgress) {
+          return (
+            <div className="p-4 text-gray-500">Preparing confirmation...</div>
+          );
+        }
 
-      if (status === ToolCallStatus.Executing && respond) {
-        return (
-          <div className="p-4 border rounded">
-            <p>
-              Are you sure you want to delete {args.itemCount} {args.itemName}(s)?
-            </p>
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => respond({ confirmed: true })}
-                className="bg-red-500 text-white px-4 py-2 rounded"
-              >
-                Delete
-              </button>
-              <button
-                onClick={() => respond({ confirmed: false })}
-                className="bg-gray-300 px-4 py-2 rounded"
-              >
-                Cancel
-              </button>
+        if (status === ToolCallStatus.Executing && respond) {
+          return (
+            <div className="p-4 border rounded">
+              <p>
+                Are you sure you want to delete {args.itemCount} {args.itemName}
+                (s)?
+              </p>
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => respond({ confirmed: true })}
+                  className="bg-red-500 text-white px-4 py-2 rounded"
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={() => respond({ confirmed: false })}
+                  className="bg-gray-300 px-4 py-2 rounded"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
-          </div>
-        );
-      }
+          );
+        }
 
-      if (status === ToolCallStatus.Complete && result) {
-        const parsed = JSON.parse(result);
-        return (
-          <div className="p-2 text-sm text-gray-600">
-            {parsed.confirmed ? "Items deleted." : "Deletion cancelled."}
-          </div>
-        );
-      }
+        if (status === ToolCallStatus.Complete && result) {
+          const parsed = JSON.parse(result);
+          return (
+            <div className="p-2 text-sm text-gray-600">
+              {parsed.confirmed ? "Items deleted." : "Deletion cancelled."}
+            </div>
+          );
+        }
 
-      return null;
+        return null;
+      },
     },
-  }, []);
+    [],
+  );
 
   return null;
 }
@@ -131,61 +141,76 @@ function DeleteConfirmation() {
 Collect structured input from the user before the agent proceeds.
 
 ```tsx
-
 function ShippingAddressForm() {
-  useHumanInTheLoop({
-    name: "collectShippingAddress",
-    description: "Collect shipping address from the user before placing an order",
-    parameters: z.object({
-      orderSummary: z.string().describe("A summary of the order being placed"),
-    }),
-    render: ({ args, status, respond }) => {
-      const [address, setAddress] = useState({
-        street: "",
-        city: "",
-        zip: "",
-      });
+  useHumanInTheLoop(
+    {
+      name: "collectShippingAddress",
+      description:
+        "Collect shipping address from the user before placing an order",
+      parameters: z.object({
+        orderSummary: z
+          .string()
+          .describe("A summary of the order being placed"),
+      }),
+      render: ({ args, status, respond }) => {
+        const [address, setAddress] = useState({
+          street: "",
+          city: "",
+          zip: "",
+        });
 
-      if (status === ToolCallStatus.Executing && respond) {
-        return (
-          <div className="p-4 border rounded space-y-3">
-            <p className="font-medium">Order: {args.orderSummary}</p>
-            <p>Please enter your shipping address:</p>
-            <input
-              placeholder="Street address"
-              value={address.street}
-              onChange={(e) => setAddress({ ...address, street: e.target.value })}
-              className="w-full border p-2 rounded"
-            />
-            <input
-              placeholder="City"
-              value={address.city}
-              onChange={(e) => setAddress({ ...address, city: e.target.value })}
-              className="w-full border p-2 rounded"
-            />
-            <input
-              placeholder="ZIP code"
-              value={address.zip}
-              onChange={(e) => setAddress({ ...address, zip: e.target.value })}
-              className="w-full border p-2 rounded"
-            />
-            <button
-              onClick={() => respond(address)}
-              className="bg-blue-500 text-white px-4 py-2 rounded"
-            >
-              Submit Address
-            </button>
-          </div>
-        );
-      }
+        if (status === ToolCallStatus.Executing && respond) {
+          return (
+            <div className="p-4 border rounded space-y-3">
+              <p className="font-medium">Order: {args.orderSummary}</p>
+              <p>Please enter your shipping address:</p>
+              <input
+                placeholder="Street address"
+                value={address.street}
+                onChange={(e) =>
+                  setAddress({ ...address, street: e.target.value })
+                }
+                className="w-full border p-2 rounded"
+              />
+              <input
+                placeholder="City"
+                value={address.city}
+                onChange={(e) =>
+                  setAddress({ ...address, city: e.target.value })
+                }
+                className="w-full border p-2 rounded"
+              />
+              <input
+                placeholder="ZIP code"
+                value={address.zip}
+                onChange={(e) =>
+                  setAddress({ ...address, zip: e.target.value })
+                }
+                className="w-full border p-2 rounded"
+              />
+              <button
+                onClick={() => respond(address)}
+                className="bg-blue-500 text-white px-4 py-2 rounded"
+              >
+                Submit Address
+              </button>
+            </div>
+          );
+        }
 
-      if (status === ToolCallStatus.Complete) {
-        return <div className="p-2 text-green-600">Shipping address submitted.</div>;
-      }
+        if (status === ToolCallStatus.Complete) {
+          return (
+            <div className="p-2 text-green-600">
+              Shipping address submitted.
+            </div>
+          );
+        }
 
-      return null;
+        return null;
+      },
     },
-  }, []);
+    [],
+  );
 
   return null;
 }
@@ -194,58 +219,66 @@ function ShippingAddressForm() {
 ### Approval Workflow with Context
 
 ```tsx
-
 function ExpenseApproval() {
-  useHumanInTheLoop({
-    name: "approveExpense",
-    description: "Request manager approval for an expense report",
-    parameters: z.object({
-      employeeName: z.string().describe("Name of the employee"),
-      amount: z.number().describe("Expense amount in dollars"),
-      category: z.string().describe("Expense category"),
-      description: z.string().describe("Description of the expense"),
-    }),
-    render: ({ args, status, respond, result }) => {
-      if (status === ToolCallStatus.Executing && respond) {
-        return (
-          <div className="p-4 border rounded">
-            <h3 className="font-bold">Expense Approval Required</h3>
-            <div className="mt-2 space-y-1 text-sm">
-              <p>Employee: {args.employeeName}</p>
-              <p>Amount: ${args.amount.toFixed(2)}</p>
-              <p>Category: {args.category}</p>
-              <p>Description: {args.description}</p>
+  useHumanInTheLoop(
+    {
+      name: "approveExpense",
+      description: "Request manager approval for an expense report",
+      parameters: z.object({
+        employeeName: z.string().describe("Name of the employee"),
+        amount: z.number().describe("Expense amount in dollars"),
+        category: z.string().describe("Expense category"),
+        description: z.string().describe("Description of the expense"),
+      }),
+      render: ({ args, status, respond, result }) => {
+        if (status === ToolCallStatus.Executing && respond) {
+          return (
+            <div className="p-4 border rounded">
+              <h3 className="font-bold">Expense Approval Required</h3>
+              <div className="mt-2 space-y-1 text-sm">
+                <p>Employee: {args.employeeName}</p>
+                <p>Amount: ${args.amount.toFixed(2)}</p>
+                <p>Category: {args.category}</p>
+                <p>Description: {args.description}</p>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => respond({ approved: true })}
+                  className="bg-green-500 text-white px-4 py-2 rounded"
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={() =>
+                    respond({ approved: false, reason: "Needs more detail" })
+                  }
+                  className="bg-red-500 text-white px-4 py-2 rounded"
+                >
+                  Reject
+                </button>
+              </div>
             </div>
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => respond({ approved: true })}
-                className="bg-green-500 text-white px-4 py-2 rounded"
-              >
-                Approve
-              </button>
-              <button
-                onClick={() => respond({ approved: false, reason: "Needs more detail" })}
-                className="bg-red-500 text-white px-4 py-2 rounded"
-              >
-                Reject
-              </button>
+          );
+        }
+
+        if (status === ToolCallStatus.Complete && result) {
+          const parsed = JSON.parse(result);
+          return (
+            <div
+              className={`p-2 text-sm ${parsed.approved ? "text-green-600" : "text-red-600"}`}
+            >
+              {parsed.approved
+                ? "Expense approved."
+                : `Expense rejected: ${parsed.reason}`}
             </div>
-          </div>
-        );
-      }
+          );
+        }
 
-      if (status === ToolCallStatus.Complete && result) {
-        const parsed = JSON.parse(result);
-        return (
-          <div className={`p-2 text-sm ${parsed.approved ? "text-green-600" : "text-red-600"}`}>
-            {parsed.approved ? "Expense approved." : `Expense rejected: ${parsed.reason}`}
-          </div>
-        );
-      }
-
-      return null;
+        return null;
+      },
     },
-  }, []);
+    [],
+  );
 
   return null;
 }
@@ -270,8 +303,8 @@ function ExpenseApproval() {
 
 The `ToolCallStatus` enum is exported from `@copilotkit/react-core/v2` and defines the three phases of tool execution:
 
-| Value | Description |
-|-------|-------------|
-| `ToolCallStatus.InProgress` | Arguments are being streamed from the agent. The tool has not started executing yet. |
-| `ToolCallStatus.Executing` | Arguments are fully resolved. For `useHumanInTheLoop`, the `respond` callback is available. |
-| `ToolCallStatus.Complete` | Execution is finished. The `result` string is available. |
+| Value                       | Description                                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------------- |
+| `ToolCallStatus.InProgress` | Arguments are being streamed from the agent. The tool has not started executing yet.        |
+| `ToolCallStatus.Executing`  | Arguments are fully resolved. For `useHumanInTheLoop`, the `respond` callback is available. |
+| `ToolCallStatus.Complete`   | Execution is finished. The `result` string is available.                                    |

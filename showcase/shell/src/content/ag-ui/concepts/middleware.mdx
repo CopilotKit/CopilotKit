@@ -24,14 +24,13 @@ Middleware sits between the agent execution and the event consumer, allowing you
 Middleware forms a chain where each middleware wraps the next, creating layers of functionality. When an agent runs, the event stream flows through each middleware in sequence.
 
 ```typescript
-
-const agent = new MyAgent()
+const agent = new MyAgent();
 
 // Middleware chain: logging -> auth -> filter -> agent
-agent.use(loggingMiddleware, authMiddleware, filterMiddleware)
+agent.use(loggingMiddleware, authMiddleware, filterMiddleware);
 
 // When agent runs, events flow through all middleware
-await agent.runAgent()
+await agent.runAgent();
 ```
 
 Middleware added with `agent.use(...)` is applied in `runAgent()`. `connectAgent()` currently calls `connect()` directly and does not run middleware.
@@ -41,25 +40,24 @@ Middleware added with `agent.use(...)` is applied in `runAgent()`. `connectAgent
 For simple transformations, you can use function-based middleware. This is the most concise way to add middleware:
 
 ```typescript
-
 const prefixMiddleware: MiddlewareFunction = (input, next) => {
   return next.run(input).pipe(
-    map(event => {
+    map((event) => {
       if (
         event.type === EventType.TEXT_MESSAGE_CHUNK ||
         event.type === EventType.TEXT_MESSAGE_CONTENT
       ) {
         return {
           ...event,
-          delta: `[AI]: ${event.delta}`
-        }
+          delta: `[AI]: ${event.delta}`,
+        };
       }
-      return event
-    })
-  )
-}
+      return event;
+    }),
+  );
+};
 
-agent.use(prefixMiddleware)
+agent.use(prefixMiddleware);
 ```
 
 ## Class-Based Middleware
@@ -67,35 +65,35 @@ agent.use(prefixMiddleware)
 For more complex scenarios requiring state or configuration, use class-based middleware:
 
 ```typescript
-
 class MetricsMiddleware extends Middleware {
-  private eventCount = 0
+  private eventCount = 0;
 
   constructor(private metricsService: MetricsService) {
-    super()
+    super();
   }
 
   run(input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent> {
-    const startTime = Date.now()
+    const startTime = Date.now();
 
     return this.runNext(input, next).pipe(
-      tap(event => {
-        this.eventCount++
-        this.metricsService.recordEvent(event.type)
+      tap((event) => {
+        this.eventCount++;
+        this.metricsService.recordEvent(event.type);
       }),
       finalize(() => {
-        const duration = Date.now() - startTime
-        this.metricsService.recordDuration(duration)
-        this.metricsService.recordEventCount(this.eventCount)
-      })
-    )
+        const duration = Date.now() - startTime;
+        this.metricsService.recordDuration(duration);
+        this.metricsService.recordEventCount(this.eventCount);
+      }),
+    );
   }
 }
 
-agent.use(new MetricsMiddleware(metricsService))
+agent.use(new MetricsMiddleware(metricsService));
 ```
 
 If you are writing class middleware, prefer the helper methods:
+
 - `runNext(input, next)` normalizes chunk events into full `TEXT_MESSAGE_*`/`TOOL_CALL_*` sequences.
 - `runNextWithState(input, next)` also provides accumulated `messages` and `state` after each event.
 
@@ -108,18 +106,17 @@ AG-UI provides several built-in middleware components for common use cases:
 Filter tool calls based on allowed or disallowed lists:
 
 ```typescript
-
 // Only allow specific tools
 const allowedFilter = new FilterToolCallsMiddleware({
-  allowedToolCalls: ["search", "calculate"]
-})
+  allowedToolCalls: ["search", "calculate"],
+});
 
 // Or block specific tools
 const blockedFilter = new FilterToolCallsMiddleware({
-  disallowedToolCalls: ["delete", "modify"]
-})
+  disallowedToolCalls: ["delete", "modify"],
+});
 
-agent.use(allowedFilter)
+agent.use(allowedFilter);
 ```
 
 `FilterToolCallsMiddleware` filters emitted `TOOL_CALL_*` events. It does not block tool execution in the upstream model/runtime.
@@ -133,11 +130,13 @@ Common patterns include logging, auth via `forwardedProps`, and rate limiting. S
 You can combine multiple middleware to create sophisticated processing pipelines:
 
 ```typescript
-const logMiddleware: MiddlewareFunction = (input, next) => next.run(input)
-const metricsMiddleware = new MetricsMiddleware(metricsService)
-const filterMiddleware = new FilterToolCallsMiddleware({ allowedToolCalls: ["search"] })
+const logMiddleware: MiddlewareFunction = (input, next) => next.run(input);
+const metricsMiddleware = new MetricsMiddleware(metricsService);
+const filterMiddleware = new FilterToolCallsMiddleware({
+  allowedToolCalls: ["search"],
+});
 
-agent.use(logMiddleware, metricsMiddleware, filterMiddleware)
+agent.use(logMiddleware, metricsMiddleware, filterMiddleware);
 ```
 
 ## Execution Order
@@ -150,7 +149,7 @@ Middleware executes in the order it's added, with each middleware wrapping the n
 4. The final middleware calls the actual agent
 
 ```typescript
-agent.use(middleware1, middleware2, middleware3)
+agent.use(middleware1, middleware2, middleware3);
 
 // Execution flow:
 // → middleware1
@@ -181,12 +180,10 @@ Apply middleware based on runtime conditions:
 const conditionalMiddleware: MiddlewareFunction = (input, next) => {
   if (input.forwardedProps?.debug === true) {
     // Apply debug logging
-    return next.run(input).pipe(
-      tap(event => console.debug(event))
-    )
+    return next.run(input).pipe(tap((event) => console.debug(event)));
   }
-  return next.run(input)
-}
+  return next.run(input);
+};
 ```
 
 For event transformation and stream-control variants, see the [JS middleware reference](/sdk/js/client/middleware).

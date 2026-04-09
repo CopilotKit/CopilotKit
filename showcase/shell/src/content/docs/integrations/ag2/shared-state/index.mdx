@@ -4,7 +4,6 @@ description: Create a two-way connection between your UI and AG2 agent state.
 icon: "lucide/Repeat"
 ---
 
-
 <ImageZoom
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/SharedStateCoAgents.gif"
   alt="Shared State Demo"
@@ -12,7 +11,6 @@ icon: "lucide/Repeat"
   height={1000}
   className="rounded-lg shadow-lg border mt-0"
 />
-
 
 ## What is shared state?
 
@@ -25,7 +23,12 @@ CoAgents maintain a shared state that seamlessly connects your UI with the agent
 The foundation of this system is built on AG2 `ContextVariables` and AG-UI `StateSnapshotEvent`.
 
 <Callout type="info">
-  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over{" "}
+  <code>/chat</code>. See the{" "}
+  <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">
+    AG2 AG-UI integration docs
+  </a>
+  .
 </Callout>
 
 ## When should I use this?

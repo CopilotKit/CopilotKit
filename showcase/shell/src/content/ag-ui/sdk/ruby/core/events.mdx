@@ -52,13 +52,13 @@ All events inherit from the `BaseEvent` class, which provides common
 properties shared across all event types. ```ruby
 
 event = AgUiProtocol::Core::Events::BaseEvent.new(
-    type: AgUiProtocol::Core::Events::EventType::RAW,
-    timestamp: nil,
-    raw_event: nil
+type: AgUiProtocol::Core::Events::EventType::RAW,
+timestamp: nil,
+raw_event: nil
 
 )
 
-```
+````
 
 | Property    | Type                | Description                                                         |
 | ----------- | ------------------- | ------------------------------------------------------------------- |
@@ -81,7 +81,7 @@ Signals an error during an agent run.
 event = AgUiProtocol::Core::Events::RunErrorEvent.new(message: "An error
 occurred", code: "RUN_ERROR")
 
-```
+````
 
 **@category** [] Lifecycle Events
 
@@ -213,14 +213,15 @@ Convenience event for complete text messages without manually emitting
 ```
 
 Behavior:
-*   Convenience: Some consumers (e.g., the JS/TS client) expand chunk events
-    into the standard start/content/end sequence automatically, allowing
-    producers to omit explicit start/end events when using chunks.
-*   First chunk requirements: The first chunk for a given message must include
-    `message_id`.
-*   Streaming: Subsequent chunks with the same `message_id` correspond to
-    content pieces; completion triggers an implied end in clients that perform
-    expansion.
+
+- Convenience: Some consumers (e.g., the JS/TS client) expand chunk events
+  into the standard start/content/end sequence automatically, allowing
+  producers to omit explicit start/end events when using chunks.
+- First chunk requirements: The first chunk for a given message must include
+  `message_id`.
+- Streaming: Subsequent chunks with the same `message_id` correspond to
+  content pieces; completion triggers an implied end in clients that perform
+  expansion.
 
 **@category** [] Text Message Events
 
@@ -306,7 +307,7 @@ event = AgUiProtocol::Core::Events::TextMessageStartEvent.new(
 
 Event indicating the end of a thinking step event.
 
-```ruby event = AgUiProtocol::Core::Events::ThinkingEndEvent.new ```
+`ruby event = AgUiProtocol::Core::Events::ThinkingEndEvent.new `
 
 **@category** [] Thinking Events
 
@@ -321,7 +322,7 @@ Event indicating the end of a thinking step event.
 
 Event indicating the start of a thinking step event.
 
-```ruby event = AgUiProtocol::Core::Events::ThinkingStartEvent.new(title:
+````ruby event = AgUiProtocol::Core::Events::ThinkingStartEvent.new(title:
 "step") ```
 
 **@category** [] Thinking Events
@@ -384,7 +385,7 @@ event = AgUiProtocol::Core::Events::ToolCallArgsEvent.new(
 
 )
 
-```
+````
 
 **@category** [] Tool Call Events
 
@@ -414,13 +415,14 @@ event = AgUiProtocol::Core::Events::ToolCallChunkEvent.new(
 ```
 
 Behavior:
-*   Convenience: Consumers may expand chunk sequences into the standard
-    start/args/end triad (the JS/TS client does this automatically).
-*   First chunk requirements: Include both `tool_call_id` and `tool_call_name`
-    on the first chunk.
-*   Streaming: Subsequent chunks with the same `tool_call_id` correspond to
-    args pieces; completion triggers an implied end in clients that perform
-    expansion.
+
+- Convenience: Consumers may expand chunk sequences into the standard
+  start/args/end triad (the JS/TS client does this automatically).
+- First chunk requirements: Include both `tool_call_id` and `tool_call_name`
+  on the first chunk.
+- Streaming: Subsequent chunks with the same `tool_call_id` correspond to
+  args pieces; completion triggers an implied end in clients that perform
+  expansion.
 
 **@category** [] Tool Call Events
 
@@ -518,7 +520,7 @@ These events are used to manage agent state.
 
 Provides incremental updates to an activity snapshot using JSON Patch.
 
-```ruby event = AgUiProtocol::Core::Events::ActivityDeltaEvent.new(message_id:
+````ruby event = AgUiProtocol::Core::Events::ActivityDeltaEvent.new(message_id:
 "m1", activity_type: "PLAN", patch: [{ "op" => "replace", "path" => "/a",
 "value" => 2 }]) ```
 
@@ -643,3 +645,4 @@ Used to pass through events from external systems.
 | `timestamp` | `Time` (optional)   | Timestamp when the event was created , Default: `nil`.              |
 | `raw_event` | `Object` (optional) | Original event data if this event was transformed , Default: `nil`. |
 
+````

@@ -3,8 +3,9 @@ title: "State streaming"
 icon: "lucide/Podcast"
 description: Stream in-progress agent state updates to the frontend.
 ---
-  TailoredContent,
-  TailoredContentOption,
+
+TailoredContent,
+TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
 
 <IframeSwitcher
@@ -17,7 +18,8 @@ description: Stream in-progress agent state updates to the frontend.
 />
 
 <Callout type="info">
-  This example demonstrates predictive state updates in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/predictive_state_updates).
+  This example demonstrates predictive state updates in the [CopilotKit Feature
+  Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/predictive_state_updates).
 </Callout>
 
 ## What is this?
@@ -29,8 +31,8 @@ But even a _single node_ in the graph often takes many seconds to run and contai
 
 CopilotKit enables this through its concept of **_predictive state updates_**.
 
-
 ## When should I use this?
+
 You can use this when you want to provide the user with feedback about what your agent is doing, specifically to:
 
 - **Keep users engaged** by avoiding long loading indicators
@@ -40,7 +42,6 @@ You can use this when you want to provide the user with feedback about what your
 ## Important Note
 
 When a node in your LangGraph finishes executing, **its returned state becomes the single source of truth**. While intermediate state updates are great for real-time feedback, any changes you want to persist must be explicitly included in the node's final returned state. Otherwise, they will be overwritten when the node completes.
-
 
 ## Implementation
 
@@ -309,6 +310,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
         </Callout>
     </Step>
     </Steps>
+
   </TailoredContentOption>
 
   <TailoredContentOption
@@ -443,5 +445,6 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
         </Callout>
       </Step>
     </Steps>
+
   </TailoredContentOption>
 </TailoredContent>

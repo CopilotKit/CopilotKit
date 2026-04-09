@@ -7,6 +7,7 @@ This is the simplest form of Generative UI — your agent decides when to show a
 ## When should I use this?
 
 Use `useComponent` when you want to:
+
 - Display rich UI (cards, charts, tables) inline in the chat
 - Show structured data from agent responses
 - Render previews, status indicators, or visual feedback
@@ -28,7 +29,11 @@ const weatherSchema = z.object({
   condition: z.string().describe("Weather condition"),
 });
 
-function WeatherCard({ city, temperature, condition }: z.infer<typeof weatherSchema>) {
+function WeatherCard({
+  city,
+  temperature,
+  condition,
+}: z.infer<typeof weatherSchema>) {
   return (
     <div className="rounded-lg border p-4">
       <h3 className="font-semibold">{city}</h3>

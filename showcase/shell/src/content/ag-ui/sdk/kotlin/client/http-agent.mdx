@@ -10,11 +10,13 @@ description: Low-level HTTP transport implementation for AG-UI protocol
 ## Usage Scenarios
 
 ### Custom Agent Implementation
+
 Build custom agent behavior on top of the HTTP transport:
+
 ```kotlin
 class CustomAgent(url: String, config: AgUiAgentConfig) {
     private val httpAgent = HttpAgent(url, config)
-    
+
     fun customInteraction(input: RunAgentInput): Flow<BaseEvent> {
         return httpAgent.run(input)
             .onEach { event ->
@@ -29,7 +31,9 @@ class CustomAgent(url: String, config: AgUiAgentConfig) {
 ```
 
 ### Protocol-Level Access
+
 Direct access to AG-UI protocol events:
+
 ```kotlin
 val httpAgent = HttpAgent("https://api.example.com/agent") {
     bearerToken = "your-token"
@@ -37,7 +41,7 @@ val httpAgent = HttpAgent("https://api.example.com/agent") {
 
 val input = RunAgentInput(
     threadId = "thread-123",
-    runId = "run-456", 
+    runId = "run-456",
     messages = listOf(
         UserMessage(id = "user-1", content = "Hello")
     )
@@ -57,14 +61,14 @@ HttpAgent uses the same configuration as other agents:
 val httpAgent = HttpAgent("https://api.example.com/agent") {
     // Authentication
     bearerToken = "your-token"
-    
-    // Request configuration  
+
+    // Request configuration
     requestTimeout = 30.seconds
     connectTimeout = 10.seconds
-    
+
     // Debug logging
     debug = true
-    
+
     // Custom headers
     headers = mapOf("X-Custom" to "value")
 }
@@ -73,6 +77,7 @@ val httpAgent = HttpAgent("https://api.example.com/agent") {
 ## Methods
 
 ### run
+
 Execute an AG-UI protocol request:
 
 ```kotlin
@@ -80,11 +85,13 @@ fun run(input: RunAgentInput): Flow<BaseEvent>
 ```
 
 **Parameters:**
+
 - `input`: Complete AG-UI protocol input with messages, state, tools, etc.
 
 **Returns:** `Flow<BaseEvent>` - Stream of protocol events
 
 **Example:**
+
 ```kotlin
 val input = RunAgentInput(
     threadId = "conversation-1",
@@ -112,6 +119,7 @@ httpAgent.run(input).collect { event ->
 ## Event Processing
 
 ### Raw Protocol Events
+
 HttpAgent emits all AG-UI protocol events:
 
 ```kotlin
@@ -120,22 +128,22 @@ httpAgent.run(input).collect { event ->
         // Run lifecycle
         is RunStartedEvent -> { /* Run began */ }
         is RunFinishedEvent -> { /* Run completed */ }
-        
+
         // Text messages
         is TextMessageStartEvent -> { /* Agent started message */ }
         is TextMessageContentEvent -> { /* Message content chunk */ }
         is TextMessageEndEvent -> { /* Agent finished message */ }
-        
+
         // Tool calls
         is ToolCallStartEvent -> { /* Tool call initiated */ }
         is ToolCallArgsEvent -> { /* Tool arguments chunk */ }
         is ToolCallEndEvent -> { /* Tool call complete */ }
         is ToolResultEvent -> { /* Tool execution result */ }
-        
+
         // State management
         is StateSnapshotEvent -> { /* Complete state snapshot */ }
         is StateDeltaEvent -> { /* Incremental state change */ }
-        
+
         // Errors
         is ErrorEvent -> { /* Protocol or execution error */ }
     }
@@ -143,6 +151,7 @@ httpAgent.run(input).collect { event ->
 ```
 
 ### Event Verification
+
 HttpAgent includes automatic event verification:
 
 ```kotlin
@@ -156,14 +165,18 @@ httpAgent.run(input).collect { event ->
 ## HTTP Transport Details
 
 ### Server-Sent Events (SSE)
+
 HttpAgent uses SSE for real-time streaming:
+
 - Automatic connection management
 - Reconnection on connection loss
 - Proper SSE event parsing
 - Content-Type: `text/event-stream`
 
 ### Request Format
+
 POST requests to `/agent` endpoint with:
+
 ```json
 {
   "threadId": "thread-123",
@@ -176,13 +189,15 @@ POST requests to `/agent` endpoint with:
 ```
 
 ### Platform HTTP Engines
+
 - **Android**: Uses `ktor-client-android` (OkHttp under the hood)
-- **iOS**: Uses `ktor-client-darwin` (NSURLSession under the hood)  
+- **iOS**: Uses `ktor-client-darwin` (NSURLSession under the hood)
 - **JVM**: Uses `ktor-client-cio`
 
 ## Error Handling
 
 ### Network Errors
+
 ```kotlin
 httpAgent.run(input).collect { event ->
     if (event is ErrorEvent) {
@@ -205,10 +220,11 @@ httpAgent.run(input).collect { event ->
 ```
 
 ### Automatic Retries
+
 ```kotlin
 val httpAgent = HttpAgent(url) {
     bearerToken = token
-    
+
     // Ktor client handles connection-level retries
     // Application-level retries should be implemented by caller
 }
@@ -217,12 +233,13 @@ val httpAgent = HttpAgent(url) {
 ## Advanced Usage
 
 ### Custom Event Processing Pipeline
+
 ```kotlin
 class EventProcessor {
     fun process(input: RunAgentInput): Flow<ProcessedEvent> {
         return HttpAgent(url, config)
             .run(input)
-            .filter { event -> 
+            .filter { event ->
                 // Filter relevant events
                 event is TextMessageContentEvent || event is ToolCallStartEvent
             }
@@ -239,11 +256,12 @@ class EventProcessor {
 ```
 
 ### State Management Integration
+
 ```kotlin
 class StatefulHttpAgent(url: String, config: AgUiAgentConfig) {
     private val httpAgent = HttpAgent(url, config)
     private var currentState: JsonElement = JsonObject(emptyMap())
-    
+
     fun runWithState(
         messages: List<Message>,
         threadId: String = "default"
@@ -254,7 +272,7 @@ class StatefulHttpAgent(url: String, config: AgUiAgentConfig) {
             messages = messages,
             state = currentState
         )
-        
+
         return httpAgent.run(input).onEach { event ->
             // Update state from events
             when (event) {
@@ -281,7 +299,7 @@ launch {
     httpAgent.run(input1).collect { }
 }
 
-launch { 
+launch {
     httpAgent.run(input2).collect { }
 }
 ```
@@ -289,6 +307,7 @@ launch {
 ## Performance Considerations
 
 ### Connection Reuse
+
 ```kotlin
 // Reuse HttpAgent instance for multiple requests
 val httpAgent = HttpAgent(url, config)
@@ -301,6 +320,7 @@ repeat(10) { i ->
 ```
 
 ### Large Responses
+
 ```kotlin
 // Handle large streaming responses efficiently
 httpAgent.run(input)
@@ -313,22 +333,24 @@ httpAgent.run(input)
 ## Best Practices
 
 ### Input Validation
+
 ```kotlin
 fun runSafely(messages: List<Message>): Flow<BaseEvent> {
     require(messages.isNotEmpty()) { "Messages cannot be empty" }
     require(messages.any { it is UserMessage }) { "Must include user message" }
-    
+
     val input = RunAgentInput(
         threadId = "validated",
         runId = UUID.randomUUID().toString(),
         messages = messages
     )
-    
+
     return httpAgent.run(input)
 }
 ```
 
 ### Error Recovery
+
 ```kotlin
 fun runWithRetry(input: RunAgentInput, maxRetries: Int = 3): Flow<BaseEvent> {
     return flow {
@@ -351,13 +373,14 @@ fun runWithRetry(input: RunAgentInput, maxRetries: Int = 3): Flow<BaseEvent> {
 ```
 
 ### Resource Management
+
 ```kotlin
 // HttpAgent automatically manages HTTP resources
 // No explicit cleanup required, but lifecycle should be considered:
 
 class AgentService {
     private val httpAgent = HttpAgent(url, config)
-    
+
     // Agent instance lifecycle matches service lifecycle
     // Resources cleaned up when service is garbage collected
 }

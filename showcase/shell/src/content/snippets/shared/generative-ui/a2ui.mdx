@@ -1,4 +1,4 @@
-import Image from "next/image"
+import Image from "next/image";
 
 # A2UI - Google's Generative UI Spec
 
@@ -31,14 +31,16 @@ A2UI is a declarative generative UI specification launched by Google. It's desig
 ## Why A2UI?
 
 ### Declarative Approach
+
 A2UI allows agents to describe UI components declaratively, making it easier for LLMs to generate dynamic interfaces without needing to understand implementation details.
 
 ### Streaming Support
+
 Built with streaming in mind, A2UI enables progressive rendering as the agent generates responses, providing a better user experience.
 
 ### Platform Agnostic
-A2UI specifications can be rendered on web, mobile, or any other platform, making your agent's UI truly universal.
 
+A2UI specifications can be rendered on web, mobile, or any other platform, making your agent's UI truly universal.
 
 ## Setup with CopilotKit
 
@@ -47,7 +49,11 @@ A2UI specifications can be rendered on web, mobile, or any other platform, makin
 Enable A2UI in `CopilotRuntime` by passing `a2ui: {}`:
 
 ```ts title="app/api/copilotkit/route.ts"
-import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
+import {
+  CopilotRuntime,
+  ExperimentalEmptyAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
@@ -69,7 +75,7 @@ import { myCustomTheme } from "@copilotkit/a2ui-renderer";
 
 <CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
   {children}
-</CopilotKit>
+</CopilotKit>;
 ```
 
 The `a2ui` prop on `<CopilotKit>` is only needed if you want to override the default theme provided.

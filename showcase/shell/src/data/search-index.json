@@ -79,7 +79,7 @@
   {
     "type": "reference",
     "title": "CopilotKit",
-    "subtitle": "This provider is shared across v1 and v2 APIs. It must be imported from the root package (`@copilotkit/react-core`), not",
+    "subtitle": "This provider is shared across v1 and v2 APIs. It must be imported from the",
     "section": "Components",
     "href": "/reference/components/CopilotKit"
   },
@@ -449,20 +449,6 @@
   },
   {
     "type": "ag-ui",
-    "title": "@ag-ui/encoder",
-    "subtitle": "",
-    "section": "JS SDK",
-    "href": "/ag-ui/sdk/js/encoder"
-  },
-  {
-    "type": "ag-ui",
-    "title": "@ag-ui/proto",
-    "subtitle": "",
-    "section": "JS SDK",
-    "href": "/ag-ui/sdk/js/proto"
-  },
-  {
-    "type": "ag-ui",
     "title": "Events",
     "subtitle": "The Agent User Interaction Protocol Python SDK uses a streaming event-based",
     "section": "Python SDK › ag_ui.core",
@@ -565,6 +551,300 @@
     "subtitle": "",
     "section": "Backend",
     "href": "/docs/backend/copilot-runtime"
+  },
+  {
+    "type": "page",
+    "title": "Advanced Configuration",
+    "subtitle": "The `BuiltInAgent` accepts a full set of configuration options to control model behavior, tool calling, and more.",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/advanced-configuration"
+  },
+  {
+    "type": "page",
+    "title": "AG-UI",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/ag-ui"
+  },
+  {
+    "type": "page",
+    "title": "Agent Context",
+    "subtitle": "Share your application's state and context with the Built-in Agent using the `useAgentContext` hook. The agent automatic",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/agent-app-context"
+  },
+  {
+    "type": "page",
+    "title": "Coding Agents",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/coding-agents"
+  },
+  {
+    "type": "page",
+    "title": "Copilot Runtime",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/copilot-runtime"
+  },
+  {
+    "type": "page",
+    "title": "Fully Headless UI",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/custom-look-and-feel/headless-ui"
+  },
+  {
+    "type": "page",
+    "title": "Slots",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/custom-look-and-feel/slots"
+  },
+  {
+    "type": "page",
+    "title": "Frontend Tools",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/frontend-tools"
+  },
+  {
+    "type": "page",
+    "title": "A2UI",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/generative-ui/a2ui"
+  },
+  {
+    "type": "page",
+    "title": "MCP Apps",
+    "subtitle": "MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, Copilo",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/generative-ui/mcp-apps"
+  },
+  {
+    "type": "page",
+    "title": "Tool Rendering",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/generative-ui/tool-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Display-only",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/generative-ui/your-components/display-only"
+  },
+  {
+    "type": "page",
+    "title": "Interactive",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/generative-ui/your-components/interactive"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "The **Built-in Agent** is CopilotKit's simplest agent option, i.e what you get \"built-in\". It connects directly to an LL",
+    "section": "",
+    "href": "/docs/built-in-agent"
+  },
+  {
+    "type": "page",
+    "title": "Inspector",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/inspector"
+  },
+  {
+    "type": "page",
+    "title": "MCP Servers",
+    "subtitle": "MCP (Model Context Protocol) servers provide additional tools and capabilities to your agent. The Built-in Agent support",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/mcp-servers"
+  },
+  {
+    "type": "page",
+    "title": "Model Selection",
+    "subtitle": "The Built-in Agent uses the [Vercel AI SDK](https://sdk.vercel.ai) under the hood, giving you access to models from Open",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/model-selection"
+  },
+  {
+    "type": "page",
+    "title": "Prebuilt Components",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/prebuilt-components"
+  },
+  {
+    "type": "page",
+    "title": "Fully Headless UI",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/premium/headless-ui"
+  },
+  {
+    "type": "page",
+    "title": "Observability",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/premium/observability"
+  },
+  {
+    "type": "page",
+    "title": "CopilotKit Premium",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/premium/overview"
+  },
+  {
+    "type": "page",
+    "title": "Programmatic Control",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/programmatic-control"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "WrenchIcon,",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/quickstart"
+  },
+  {
+    "type": "page",
+    "title": "Server Tools",
+    "subtitle": "Server tools are functions that run on your backend that the Built-in Agent can invoke. They're defined using `defineToo",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/server-tools"
+  },
+  {
+    "type": "page",
+    "title": "Shared State",
+    "subtitle": "Share state bidirectionally between your React app and the Built-in Agent. Your app can read and write agent state, and ",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/shared-state"
+  },
+  {
+    "type": "page",
+    "title": "Common Copilot Issues",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/troubleshooting/common-issues"
+  },
+  {
+    "type": "page",
+    "title": "Error Debugging & Observability",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/troubleshooting/error-debugging"
+  },
+  {
+    "type": "page",
+    "title": "Migrate to 1.10.X",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/troubleshooting/migrate-to-1.10.X"
+  },
+  {
+    "type": "page",
+    "title": "Migrate to 1.8.2",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/troubleshooting/migrate-to-1.8.2"
+  },
+  {
+    "type": "page",
+    "title": "Migrate to V2",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/troubleshooting/migrate-to-v2"
+  },
+  {
+    "type": "page",
+    "title": "Next Steps",
+    "subtitle": "This is the end of the tutorial. You can now start building your own copilot-powered apps!",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/next-steps"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "<div>**Time to complete:** 5 minutes</div>",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/overview"
+  },
+  {
+    "type": "page",
+    "title": "Step 1: Checkout the repo",
+    "subtitle": "We'll begin by checking out the base code of the textarea app.",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-1-checkout-repo"
+  },
+  {
+    "type": "page",
+    "title": "Step 2: Setup CopilotKit",
+    "subtitle": "TailoredContent,",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-2-setup-copilotkit"
+  },
+  {
+    "type": "page",
+    "title": "Step 4: Copilot Textarea",
+    "subtitle": "Currently, our app has a simple textarea for replying to emails. Let's replace this with an AI-powered textarea so that ",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-3-copilot-textarea"
+  },
+  {
+    "type": "page",
+    "title": "Step 3: Copilot Readable State",
+    "subtitle": "At this point, we have set up our CopilotKit provider and `<CopilotTextarea />`, and we already benefit from a great AI ",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-4-copilot-readable-state"
+  },
+  {
+    "type": "page",
+    "title": "Next Steps",
+    "subtitle": "This is the end of the tutorial. You can now start building your own copilot-powered apps!",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/next-steps"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "<div>**Time to complete:** 5 minutes</div>",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/overview"
+  },
+  {
+    "type": "page",
+    "title": "Step 1: Checkout the repo",
+    "subtitle": "We'll begin by checking out the base code of the todo list app.",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-1-checkout-repo"
+  },
+  {
+    "type": "page",
+    "title": "Step 2: Setup CopilotKit",
+    "subtitle": "TailoredContent,",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-2-setup-copilotkit"
+  },
+  {
+    "type": "page",
+    "title": "Step 3: Copilot Readable State",
+    "subtitle": "At this point, we have a chat popup in our app and we're able to chat directly with our copilot. This is great, but our ",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-3-copilot-readable-state"
+  },
+  {
+    "type": "page",
+    "title": "Step 4: Frontend Tools",
+    "subtitle": "Now it's time to make our copilot even more useful by enabling it to execute tools.",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-4-frontend-tools"
   },
   {
     "type": "page",
@@ -729,41 +1009,6 @@
   },
   {
     "type": "page",
-    "title": "AG-UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/a2a/ag-ui"
-  },
-  {
-    "type": "page",
-    "title": "Coding Agents",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/a2a/coding-agents"
-  },
-  {
-    "type": "page",
-    "title": "Copilot Runtime",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/a2a/copilot-runtime"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/a2a/custom-look-and-feel/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Slots",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/a2a/custom-look-and-feel/slots"
-  },
-  {
-    "type": "page",
     "title": "Declarative (A2UI)",
     "subtitle": "Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate widgets, and render them in your Copilot",
     "section": "Integrations",
@@ -778,20 +1023,6 @@
   },
   {
     "type": "page",
-    "title": "Prebuilt Components",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/a2a/prebuilt-components"
-  },
-  {
-    "type": "page",
-    "title": "Programmatic Control",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/a2a/programmatic-control"
-  },
-  {
-    "type": "page",
     "title": "Quickstart",
     "subtitle": "TailoredContent,",
     "section": "Integrations",
@@ -799,59 +1030,10 @@
   },
   {
     "type": "page",
-    "title": "AG-UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/ag-ui"
-  },
-  {
-    "type": "page",
-    "title": "Coding Agents",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/coding-agents"
-  },
-  {
-    "type": "page",
-    "title": "Copilot Runtime",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/copilot-runtime"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/custom-look-and-feel/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Slots",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/custom-look-and-feel/slots"
-  },
-  {
-    "type": "page",
     "title": "Frontend Tools",
     "subtitle": "id=\"frontend-actions-example\"",
     "section": "Integrations",
     "href": "/docs/integrations/adk/frontend-tools"
-  },
-  {
-    "type": "page",
-    "title": "A2UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/generative-ui/a2ui"
-  },
-  {
-    "type": "page",
-    "title": "MCP Apps",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/generative-ui/mcp-apps"
   },
   {
     "type": "page",
@@ -869,20 +1051,6 @@
   },
   {
     "type": "page",
-    "title": "Display-only",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/generative-ui/your-components/display-only"
-  },
-  {
-    "type": "page",
-    "title": "Interactive",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/generative-ui/your-components/interactive"
-  },
-  {
-    "type": "page",
     "title": "Human-in-the-Loop",
     "subtitle": "id=\"frontend-tools-based-hitl-example\"",
     "section": "Integrations",
@@ -894,48 +1062,6 @@
     "subtitle": "frameworkName=\"ADK\"",
     "section": "Integrations",
     "href": "/docs/integrations/adk"
-  },
-  {
-    "type": "page",
-    "title": "Inspector",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/inspector"
-  },
-  {
-    "type": "page",
-    "title": "Prebuilt Components",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/prebuilt-components"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/premium/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/premium/observability"
-  },
-  {
-    "type": "page",
-    "title": "CopilotKit Premium",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/premium/overview"
-  },
-  {
-    "type": "page",
-    "title": "Programmatic Control",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/programmatic-control"
   },
   {
     "type": "page",
@@ -988,41 +1114,6 @@
   },
   {
     "type": "page",
-    "title": "Common Copilot Issues",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/troubleshooting/common-issues"
-  },
-  {
-    "type": "page",
-    "title": "Error Debugging & Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/troubleshooting/error-debugging"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.10.X",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/troubleshooting/migrate-to-1.10.X"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.8.2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/troubleshooting/migrate-to-1.8.2"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to V2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/adk/troubleshooting/migrate-to-v2"
-  },
-  {
-    "type": "page",
     "title": "Code Contributions",
     "subtitle": "We are grateful for your interest in contributing to CopilotKit. We welcome new contributors and appreciate your help in",
     "section": "Integrations",
@@ -1051,13 +1142,6 @@
   },
   {
     "type": "page",
-    "title": "AG-UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/ag-ui"
-  },
-  {
-    "type": "page",
     "title": "Authentication",
     "subtitle": "CopilotKit supports user authentication for AG2 backends in two deployment modes:",
     "section": "Integrations",
@@ -1065,52 +1149,10 @@
   },
   {
     "type": "page",
-    "title": "Coding Agents",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/coding-agents"
-  },
-  {
-    "type": "page",
-    "title": "Copilot Runtime",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/copilot-runtime"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/custom-look-and-feel/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Slots",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/custom-look-and-feel/slots"
-  },
-  {
-    "type": "page",
     "title": "Frontend Tools",
     "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4\"",
     "section": "Integrations",
     "href": "/docs/integrations/ag2/frontend-tools"
-  },
-  {
-    "type": "page",
-    "title": "A2UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/generative-ui/a2ui"
-  },
-  {
-    "type": "page",
-    "title": "MCP Apps",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/generative-ui/mcp-apps"
   },
   {
     "type": "page",
@@ -1128,20 +1170,6 @@
   },
   {
     "type": "page",
-    "title": "Display-only",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/generative-ui/your-components/display-only"
-  },
-  {
-    "type": "page",
-    "title": "Interactive",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/generative-ui/your-components/interactive"
-  },
-  {
-    "type": "page",
     "title": "Human-in-the-Loop",
     "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4\"",
     "section": "Integrations",
@@ -1153,48 +1181,6 @@
     "subtitle": "frameworkName=\"AG2\"",
     "section": "Integrations",
     "href": "/docs/integrations/ag2"
-  },
-  {
-    "type": "page",
-    "title": "Inspector",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/inspector"
-  },
-  {
-    "type": "page",
-    "title": "Prebuilt Components",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/prebuilt-components"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/premium/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/premium/observability"
-  },
-  {
-    "type": "page",
-    "title": "CopilotKit Premium",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/premium/overview"
-  },
-  {
-    "type": "page",
-    "title": "Programmatic Control",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/programmatic-control"
   },
   {
     "type": "page",
@@ -1233,115 +1219,10 @@
   },
   {
     "type": "page",
-    "title": "Common Copilot Issues",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/troubleshooting/common-issues"
-  },
-  {
-    "type": "page",
-    "title": "Error Debugging & Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/troubleshooting/error-debugging"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.10.X",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/troubleshooting/migrate-to-1.10.X"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.8.2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/troubleshooting/migrate-to-1.8.2"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to V2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/ag2/troubleshooting/migrate-to-v2"
-  },
-  {
-    "type": "page",
-    "title": "AG-UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/ag-ui"
-  },
-  {
-    "type": "page",
-    "title": "Coding Agents",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/coding-agents"
-  },
-  {
-    "type": "page",
-    "title": "Copilot Runtime",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/copilot-runtime"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/custom-look-and-feel/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Slots",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/custom-look-and-feel/slots"
-  },
-  {
-    "type": "page",
-    "title": "Frontend Tools",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/frontend-tools"
-  },
-  {
-    "type": "page",
-    "title": "A2UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/generative-ui/a2ui"
-  },
-  {
-    "type": "page",
-    "title": "MCP Apps",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/generative-ui/mcp-apps"
-  },
-  {
-    "type": "page",
     "title": "Tool Rendering",
     "subtitle": "id=\"backend-tools-example\"",
     "section": "Integrations",
     "href": "/docs/integrations/agent-spec/generative-ui/tool-rendering"
-  },
-  {
-    "type": "page",
-    "title": "Display-only",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/generative-ui/your-components/display-only"
-  },
-  {
-    "type": "page",
-    "title": "Interactive",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/generative-ui/your-components/interactive"
   },
   {
     "type": "page",
@@ -1359,52 +1240,10 @@
   },
   {
     "type": "page",
-    "title": "Inspector",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/inspector"
-  },
-  {
-    "type": "page",
     "title": "Agent Spec LangGraph Integration with AG-UI",
     "subtitle": "Wire an Agent Spec agent backed by LangGraph to CopilotKit’s UI via the AG‑UI event protocol. You’ll run a FastAPI endpo",
     "section": "Integrations",
     "href": "/docs/integrations/agent-spec/langgraph"
-  },
-  {
-    "type": "page",
-    "title": "Prebuilt Components",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/prebuilt-components"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/premium/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/premium/observability"
-  },
-  {
-    "type": "page",
-    "title": "CopilotKit Premium",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/premium/overview"
-  },
-  {
-    "type": "page",
-    "title": "Programmatic Control",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/programmatic-control"
   },
   {
     "type": "page",
@@ -1419,41 +1258,6 @@
     "subtitle": "Agent Spec agentic chat supports streaming text and tool events. For advanced shared state patterns, mirror what you sur",
     "section": "Integrations",
     "href": "/docs/integrations/agent-spec/shared-state"
-  },
-  {
-    "type": "page",
-    "title": "Common Copilot Issues",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/troubleshooting/common-issues"
-  },
-  {
-    "type": "page",
-    "title": "Error Debugging & Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/troubleshooting/error-debugging"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.10.X",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/troubleshooting/migrate-to-1.10.X"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.8.2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/troubleshooting/migrate-to-1.8.2"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to V2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agent-spec/troubleshooting/migrate-to-v2"
   },
   {
     "type": "page",
@@ -1492,41 +1296,6 @@
   },
   {
     "type": "page",
-    "title": "AG-UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/ag-ui"
-  },
-  {
-    "type": "page",
-    "title": "Coding Agents",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/coding-agents"
-  },
-  {
-    "type": "page",
-    "title": "Copilot Runtime",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/copilot-runtime"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/custom-look-and-feel/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Slots",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/custom-look-and-feel/slots"
-  },
-  {
-    "type": "page",
     "title": "Frontend Tools",
     "subtitle": "id=\"frontend-tools-example\"",
     "section": "Integrations",
@@ -1534,38 +1303,10 @@
   },
   {
     "type": "page",
-    "title": "A2UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/generative-ui/a2ui"
-  },
-  {
-    "type": "page",
-    "title": "MCP Apps",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/generative-ui/mcp-apps"
-  },
-  {
-    "type": "page",
     "title": "Tool Rendering",
     "subtitle": "id=\"backend-tools-example\"",
     "section": "Integrations",
     "href": "/docs/integrations/agno/generative-ui/tool-rendering"
-  },
-  {
-    "type": "page",
-    "title": "Display-only",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/generative-ui/your-components/display-only"
-  },
-  {
-    "type": "page",
-    "title": "Interactive",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/generative-ui/your-components/interactive"
   },
   {
     "type": "page",
@@ -1583,87 +1324,10 @@
   },
   {
     "type": "page",
-    "title": "Inspector",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/inspector"
-  },
-  {
-    "type": "page",
-    "title": "Prebuilt Components",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/prebuilt-components"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/premium/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/premium/observability"
-  },
-  {
-    "type": "page",
-    "title": "CopilotKit Premium",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/premium/overview"
-  },
-  {
-    "type": "page",
-    "title": "Programmatic Control",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/programmatic-control"
-  },
-  {
-    "type": "page",
     "title": "Quickstart",
     "subtitle": "TailoredContent,",
     "section": "Integrations",
     "href": "/docs/integrations/agno/quickstart"
-  },
-  {
-    "type": "page",
-    "title": "Common Copilot Issues",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/troubleshooting/common-issues"
-  },
-  {
-    "type": "page",
-    "title": "Error Debugging & Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/troubleshooting/error-debugging"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.10.X",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/troubleshooting/migrate-to-1.10.X"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.8.2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/troubleshooting/migrate-to-1.8.2"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to V2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/agno/troubleshooting/migrate-to-v2"
   },
   {
     "type": "page",
@@ -1695,59 +1359,10 @@
   },
   {
     "type": "page",
-    "title": "AG-UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/ag-ui"
-  },
-  {
-    "type": "page",
-    "title": "Coding Agents",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/coding-agents"
-  },
-  {
-    "type": "page",
-    "title": "Copilot Runtime",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/copilot-runtime"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/custom-look-and-feel/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Slots",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/custom-look-and-feel/slots"
-  },
-  {
-    "type": "page",
     "title": "Frontend Tools",
     "subtitle": "id=\"frontend-actions-example\"",
     "section": "Integrations",
     "href": "/docs/integrations/aws-strands/frontend-tools"
-  },
-  {
-    "type": "page",
-    "title": "A2UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/generative-ui/a2ui"
-  },
-  {
-    "type": "page",
-    "title": "MCP Apps",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/generative-ui/mcp-apps"
   },
   {
     "type": "page",
@@ -1765,66 +1380,10 @@
   },
   {
     "type": "page",
-    "title": "Display-only",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/generative-ui/your-components/display-only"
-  },
-  {
-    "type": "page",
-    "title": "Interactive",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/generative-ui/your-components/interactive"
-  },
-  {
-    "type": "page",
     "title": "Introduction",
     "subtitle": "frameworkName=\"AWS Strands\"",
     "section": "Integrations",
     "href": "/docs/integrations/aws-strands"
-  },
-  {
-    "type": "page",
-    "title": "Inspector",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/inspector"
-  },
-  {
-    "type": "page",
-    "title": "Prebuilt Components",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/prebuilt-components"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/premium/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/premium/observability"
-  },
-  {
-    "type": "page",
-    "title": "CopilotKit Premium",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/premium/overview"
-  },
-  {
-    "type": "page",
-    "title": "Programmatic Control",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/programmatic-control"
   },
   {
     "type": "page",
@@ -1846,335 +1405,6 @@
     "subtitle": "id=\"shared-state-write-example\"",
     "section": "Integrations",
     "href": "/docs/integrations/aws-strands/shared-state/in-app-agent-write"
-  },
-  {
-    "type": "page",
-    "title": "Common Copilot Issues",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/troubleshooting/common-issues"
-  },
-  {
-    "type": "page",
-    "title": "Error Debugging & Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/troubleshooting/error-debugging"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.10.X",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/troubleshooting/migrate-to-1.10.X"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.8.2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/troubleshooting/migrate-to-1.8.2"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to V2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/aws-strands/troubleshooting/migrate-to-v2"
-  },
-  {
-    "type": "page",
-    "title": "Advanced Configuration",
-    "subtitle": "The `BuiltInAgent` accepts a full set of configuration options to control model behavior, tool calling, and more.",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/advanced-configuration"
-  },
-  {
-    "type": "page",
-    "title": "AG-UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/ag-ui"
-  },
-  {
-    "type": "page",
-    "title": "Agent Context",
-    "subtitle": "Share your application's state and context with the Built-in Agent using the `useAgentContext` hook. The agent automatic",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/agent-app-context"
-  },
-  {
-    "type": "page",
-    "title": "Coding Agents",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/coding-agents"
-  },
-  {
-    "type": "page",
-    "title": "Copilot Runtime",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/copilot-runtime"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/custom-look-and-feel/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Slots",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/custom-look-and-feel/slots"
-  },
-  {
-    "type": "page",
-    "title": "Frontend Tools",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/frontend-tools"
-  },
-  {
-    "type": "page",
-    "title": "A2UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/generative-ui/a2ui"
-  },
-  {
-    "type": "page",
-    "title": "MCP Apps",
-    "subtitle": "MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, Copilo",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/generative-ui/mcp-apps"
-  },
-  {
-    "type": "page",
-    "title": "Tool Rendering",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/generative-ui/tool-rendering"
-  },
-  {
-    "type": "page",
-    "title": "Display-only",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/generative-ui/your-components/display-only"
-  },
-  {
-    "type": "page",
-    "title": "Interactive",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/generative-ui/your-components/interactive"
-  },
-  {
-    "type": "page",
-    "title": "Overview",
-    "subtitle": "The **Built-in Agent** is CopilotKit's simplest agent option, i.e what you get \"built-in\". It connects directly to an LL",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent"
-  },
-  {
-    "type": "page",
-    "title": "Inspector",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/inspector"
-  },
-  {
-    "type": "page",
-    "title": "MCP Servers",
-    "subtitle": "MCP (Model Context Protocol) servers provide additional tools and capabilities to your agent. The Built-in Agent support",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/mcp-servers"
-  },
-  {
-    "type": "page",
-    "title": "Model Selection",
-    "subtitle": "The Built-in Agent uses the [Vercel AI SDK](https://sdk.vercel.ai) under the hood, giving you access to models from Open",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/model-selection"
-  },
-  {
-    "type": "page",
-    "title": "Prebuilt Components",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/prebuilt-components"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/premium/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/premium/observability"
-  },
-  {
-    "type": "page",
-    "title": "CopilotKit Premium",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/premium/overview"
-  },
-  {
-    "type": "page",
-    "title": "Programmatic Control",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/programmatic-control"
-  },
-  {
-    "type": "page",
-    "title": "Quickstart",
-    "subtitle": "WrenchIcon,",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/quickstart"
-  },
-  {
-    "type": "page",
-    "title": "Server Tools",
-    "subtitle": "Server tools are functions that run on your backend that the Built-in Agent can invoke. They're defined using `defineToo",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/server-tools"
-  },
-  {
-    "type": "page",
-    "title": "Shared State",
-    "subtitle": "Share state bidirectionally between your React app and the Built-in Agent. Your app can read and write agent state, and ",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/shared-state"
-  },
-  {
-    "type": "page",
-    "title": "Common Copilot Issues",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/troubleshooting/common-issues"
-  },
-  {
-    "type": "page",
-    "title": "Error Debugging & Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/troubleshooting/error-debugging"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.10.X",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/troubleshooting/migrate-to-1.10.X"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.8.2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/troubleshooting/migrate-to-1.8.2"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to V2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/troubleshooting/migrate-to-v2"
-  },
-  {
-    "type": "page",
-    "title": "Next Steps",
-    "subtitle": "This is the end of the tutorial. You can now start building your own copilot-powered apps!",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/next-steps"
-  },
-  {
-    "type": "page",
-    "title": "Overview",
-    "subtitle": "<div>**Time to complete:** 5 minutes</div>",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/overview"
-  },
-  {
-    "type": "page",
-    "title": "Step 1: Checkout the repo",
-    "subtitle": "We'll begin by checking out the base code of the textarea app.",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-1-checkout-repo"
-  },
-  {
-    "type": "page",
-    "title": "Step 2: Setup CopilotKit",
-    "subtitle": "TailoredContent,",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-2-setup-copilotkit"
-  },
-  {
-    "type": "page",
-    "title": "Step 4: Copilot Textarea",
-    "subtitle": "Currently, our app has a simple textarea for replying to emails. Let's replace this with an AI-powered textarea so that ",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-3-copilot-textarea"
-  },
-  {
-    "type": "page",
-    "title": "Step 3: Copilot Readable State",
-    "subtitle": "At this point, we have set up our CopilotKit provider and `<CopilotTextarea />`, and we already benefit from a great AI ",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-4-copilot-readable-state"
-  },
-  {
-    "type": "page",
-    "title": "Next Steps",
-    "subtitle": "This is the end of the tutorial. You can now start building your own copilot-powered apps!",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/tutorials/ai-todo-app/next-steps"
-  },
-  {
-    "type": "page",
-    "title": "Overview",
-    "subtitle": "<div>**Time to complete:** 5 minutes</div>",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/tutorials/ai-todo-app/overview"
-  },
-  {
-    "type": "page",
-    "title": "Step 1: Checkout the repo",
-    "subtitle": "We'll begin by checking out the base code of the todo list app.",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-1-checkout-repo"
-  },
-  {
-    "type": "page",
-    "title": "Step 2: Setup CopilotKit",
-    "subtitle": "TailoredContent,",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-2-setup-copilotkit"
-  },
-  {
-    "type": "page",
-    "title": "Step 3: Copilot Readable State",
-    "subtitle": "At this point, we have a chat popup in our app and we're able to chat directly with our copilot. This is great, but our ",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-3-copilot-readable-state"
-  },
-  {
-    "type": "page",
-    "title": "Step 4: Frontend Tools",
-    "subtitle": "Now it's time to make our copilot even more useful by enabling it to execute tools.",
-    "section": "Integrations",
-    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-4-frontend-tools"
   },
   {
     "type": "page",
@@ -2227,87 +1457,10 @@
   },
   {
     "type": "page",
-    "title": "AG-UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/ag-ui"
-  },
-  {
-    "type": "page",
-    "title": "Coding Agents",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/coding-agents"
-  },
-  {
-    "type": "page",
-    "title": "Copilot Runtime",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/copilot-runtime"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/custom-look-and-feel/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Slots",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/custom-look-and-feel/slots"
-  },
-  {
-    "type": "page",
-    "title": "Frontend Tools",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/frontend-tools"
-  },
-  {
-    "type": "page",
-    "title": "A2UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/generative-ui/a2ui"
-  },
-  {
-    "type": "page",
-    "title": "MCP Apps",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/generative-ui/mcp-apps"
-  },
-  {
-    "type": "page",
     "title": "State Rendering",
     "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-generative-ui.mp4\"",
     "section": "Integrations",
     "href": "/docs/integrations/crewai-flows/generative-ui/state-rendering"
-  },
-  {
-    "type": "page",
-    "title": "Tool Rendering",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/generative-ui/tool-rendering"
-  },
-  {
-    "type": "page",
-    "title": "Display-only",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/generative-ui/your-components/display-only"
-  },
-  {
-    "type": "page",
-    "title": "Interactive",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/generative-ui/your-components/interactive"
   },
   {
     "type": "page",
@@ -2329,13 +1482,6 @@
     "subtitle": "frameworkName=\"CrewAI Flows\"",
     "section": "Integrations",
     "href": "/docs/integrations/crewai-flows"
-  },
-  {
-    "type": "page",
-    "title": "Inspector",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/inspector"
   },
   {
     "type": "page",
@@ -2364,41 +1510,6 @@
     "subtitle": "To learn about how to load previous messages and agent states, check out the",
     "section": "Integrations",
     "href": "/docs/integrations/crewai-flows/persistence/message-persistence"
-  },
-  {
-    "type": "page",
-    "title": "Prebuilt Components",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/prebuilt-components"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/premium/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/premium/observability"
-  },
-  {
-    "type": "page",
-    "title": "CopilotKit Premium",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/premium/overview"
-  },
-  {
-    "type": "page",
-    "title": "Programmatic Control",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/programmatic-control"
   },
   {
     "type": "page",
@@ -2434,41 +1545,6 @@
     "subtitle": "TailoredContent,",
     "section": "Integrations",
     "href": "/docs/integrations/crewai-flows/shared-state/predictive-state-updates"
-  },
-  {
-    "type": "page",
-    "title": "Common Copilot Issues",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/troubleshooting/common-issues"
-  },
-  {
-    "type": "page",
-    "title": "Error Debugging & Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/troubleshooting/error-debugging"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.10.X",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/troubleshooting/migrate-to-1.10.X"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.8.2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/troubleshooting/migrate-to-1.8.2"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to V2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/crewai-flows/troubleshooting/migrate-to-v2"
   },
   {
     "type": "page",
@@ -2543,16 +1619,9 @@
   {
     "type": "page",
     "title": "Message Persistence",
-    "subtitle": "To learn about how to load previous messages and agent states, check out the [Loading Message History](/langgraph/advanc",
+    "subtitle": "To learn about how to load previous messages and agent states, check out the",
     "section": "Integrations",
     "href": "/docs/integrations/langgraph/advanced/persistence/message-persistence"
-  },
-  {
-    "type": "page",
-    "title": "AG-UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/langgraph/ag-ui"
   },
   {
     "type": "page",
@@ -2591,24 +1660,10 @@
   },
   {
     "type": "page",
-    "title": "Coding Agents",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/langgraph/coding-agents"
-  },
-  {
-    "type": "page",
     "title": "Configurable",
     "subtitle": "LangGraph agents are able to take execution parameters, such as auth tokens and similar properties.",
     "section": "Integrations",
     "href": "/docs/integrations/langgraph/configurable"
-  },
-  {
-    "type": "page",
-    "title": "Copilot Runtime",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/langgraph/copilot-runtime"
   },
   {
     "type": "page",
@@ -2637,13 +1692,6 @@
     "subtitle": "id=\"frontend-actions-example\"",
     "section": "Integrations",
     "href": "/docs/integrations/langgraph/frontend-tools"
-  },
-  {
-    "type": "page",
-    "title": "A2UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/langgraph/generative-ui/a2ui"
   },
   {
     "type": "page",
@@ -2703,15 +1751,8 @@
   },
   {
     "type": "page",
-    "title": "Inspector",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/langgraph/inspector"
-  },
-  {
-    "type": "page",
     "title": "Multi-Agent Flows",
-    "subtitle": "<img src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/multi-agent-flows.png\" alt=\"Multi-Agent Flows\" />",
+    "subtitle": "<img",
     "section": "Integrations",
     "href": "/docs/integrations/langgraph/multi-agent-flows"
   },
@@ -2728,20 +1769,6 @@
     "subtitle": "A headless UI gives you full control over the chat experience — you bring your own components, layout, and styling while",
     "section": "Integrations",
     "href": "/docs/integrations/langgraph/premium/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/langgraph/premium/observability"
-  },
-  {
-    "type": "page",
-    "title": "CopilotKit Premium",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/langgraph/premium/overview"
   },
   {
     "type": "page",
@@ -2801,38 +1828,10 @@
   },
   {
     "type": "page",
-    "title": "Common Copilot Issues",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/langgraph/troubleshooting/common-issues"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.10.X",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/langgraph/troubleshooting/migrate-to-1.10.X"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.8.2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/langgraph/troubleshooting/migrate-to-1.8.2"
-  },
-  {
-    "type": "page",
     "title": "Migrate to AG-UI",
     "subtitle": "TailoredContent,",
     "section": "Integrations",
     "href": "/docs/integrations/langgraph/troubleshooting/migrate-to-agui"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to V2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/langgraph/troubleshooting/migrate-to-v2"
   },
   {
     "type": "page",
@@ -2997,62 +1996,6 @@
   },
   {
     "type": "page",
-    "title": "AG-UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/ag-ui"
-  },
-  {
-    "type": "page",
-    "title": "Coding Agents",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/coding-agents"
-  },
-  {
-    "type": "page",
-    "title": "Copilot Runtime",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/copilot-runtime"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/custom-look-and-feel/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Slots",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/custom-look-and-feel/slots"
-  },
-  {
-    "type": "page",
-    "title": "Frontend Tools",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/frontend-tools"
-  },
-  {
-    "type": "page",
-    "title": "A2UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/generative-ui/a2ui"
-  },
-  {
-    "type": "page",
-    "title": "MCP Apps",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/generative-ui/mcp-apps"
-  },
-  {
-    "type": "page",
     "title": "State Rendering",
     "subtitle": "id=\"agent-state-example\"",
     "section": "Integrations",
@@ -3064,20 +2007,6 @@
     "subtitle": "id=\"backend-tools-example\"",
     "section": "Integrations",
     "href": "/docs/integrations/llamaindex/generative-ui/tool-rendering"
-  },
-  {
-    "type": "page",
-    "title": "Display-only",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/generative-ui/your-components/display-only"
-  },
-  {
-    "type": "page",
-    "title": "Interactive",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/generative-ui/your-components/interactive"
   },
   {
     "type": "page",
@@ -3095,52 +2024,10 @@
   },
   {
     "type": "page",
-    "title": "Inspector",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/inspector"
-  },
-  {
-    "type": "page",
     "title": "Multi-Agent Flows",
     "subtitle": "When building agentic applications, you often want to orchestrate complex flows together that require the coordination o",
     "section": "Integrations",
     "href": "/docs/integrations/llamaindex/multi-agent-flows"
-  },
-  {
-    "type": "page",
-    "title": "Prebuilt Components",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/prebuilt-components"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/premium/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/premium/observability"
-  },
-  {
-    "type": "page",
-    "title": "CopilotKit Premium",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/premium/overview"
-  },
-  {
-    "type": "page",
-    "title": "Programmatic Control",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/programmatic-control"
   },
   {
     "type": "page",
@@ -3193,41 +2080,6 @@
   },
   {
     "type": "page",
-    "title": "Common Copilot Issues",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/troubleshooting/common-issues"
-  },
-  {
-    "type": "page",
-    "title": "Error Debugging & Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/troubleshooting/error-debugging"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.10.X",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/troubleshooting/migrate-to-1.10.X"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.8.2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/troubleshooting/migrate-to-1.8.2"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to V2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/llamaindex/troubleshooting/migrate-to-v2"
-  },
-  {
-    "type": "page",
     "title": "Code Contributions",
     "subtitle": "We are grateful for your interest in contributing to CopilotKit. We welcome new contributors and appreciate your help in",
     "section": "Integrations",
@@ -3256,13 +2108,6 @@
   },
   {
     "type": "page",
-    "title": "AG-UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/ag-ui"
-  },
-  {
-    "type": "page",
     "title": "Readables",
     "subtitle": "One of the most common use cases for CopilotKit is to register app state and context using `useCopilotReadble`.",
     "section": "Integrations",
@@ -3270,52 +2115,10 @@
   },
   {
     "type": "page",
-    "title": "Coding Agents",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/coding-agents"
-  },
-  {
-    "type": "page",
-    "title": "Copilot Runtime",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/copilot-runtime"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/custom-look-and-feel/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Slots",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/custom-look-and-feel/slots"
-  },
-  {
-    "type": "page",
     "title": "Frontend Tools",
     "subtitle": "id=\"frontend-actions-example\"",
     "section": "Integrations",
     "href": "/docs/integrations/mastra/frontend-tools"
-  },
-  {
-    "type": "page",
-    "title": "A2UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/generative-ui/a2ui"
-  },
-  {
-    "type": "page",
-    "title": "MCP Apps",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/generative-ui/mcp-apps"
   },
   {
     "type": "page",
@@ -3333,20 +2136,6 @@
   },
   {
     "type": "page",
-    "title": "Display-only",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/generative-ui/your-components/display-only"
-  },
-  {
-    "type": "page",
-    "title": "Interactive",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/generative-ui/your-components/interactive"
-  },
-  {
-    "type": "page",
     "title": "Human-in-the-Loop",
     "subtitle": "id=\"human-in-the-loop-example\"",
     "section": "Integrations",
@@ -3358,48 +2147,6 @@
     "subtitle": "frameworkName=\"Mastra\"",
     "section": "Integrations",
     "href": "/docs/integrations/mastra"
-  },
-  {
-    "type": "page",
-    "title": "Inspector",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/inspector"
-  },
-  {
-    "type": "page",
-    "title": "Prebuilt Components",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/prebuilt-components"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/premium/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/premium/observability"
-  },
-  {
-    "type": "page",
-    "title": "CopilotKit Premium",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/premium/overview"
-  },
-  {
-    "type": "page",
-    "title": "Programmatic Control",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/programmatic-control"
   },
   {
     "type": "page",
@@ -3425,44 +2172,9 @@
   {
     "type": "page",
     "title": "Shared State",
-    "subtitle": "<img src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/coagents-state-diagram.png\" alt=\"Agentic Copilot Sta",
+    "subtitle": "<img",
     "section": "Integrations",
     "href": "/docs/integrations/mastra/shared-state"
-  },
-  {
-    "type": "page",
-    "title": "Common Copilot Issues",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/troubleshooting/common-issues"
-  },
-  {
-    "type": "page",
-    "title": "Error Debugging & Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/troubleshooting/error-debugging"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.10.X",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/troubleshooting/migrate-to-1.10.X"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.8.2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/troubleshooting/migrate-to-1.8.2"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to V2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/mastra/troubleshooting/migrate-to-v2"
   },
   {
     "type": "page",
@@ -3494,13 +2206,6 @@
   },
   {
     "type": "page",
-    "title": "AG-UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/microsoft-agent-framework/ag-ui"
-  },
-  {
-    "type": "page",
     "title": "Readables",
     "subtitle": "One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.",
     "section": "Integrations",
@@ -3515,20 +2220,6 @@
   },
   {
     "type": "page",
-    "title": "Coding Agents",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/microsoft-agent-framework/coding-agents"
-  },
-  {
-    "type": "page",
-    "title": "Copilot Runtime",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/microsoft-agent-framework/copilot-runtime"
-  },
-  {
-    "type": "page",
     "title": "Fully Headless UI",
     "subtitle": "For human-in-the-loop interactions with custom UI, use `useHumanInTheLoop` to create approval workflows:",
     "section": "Integrations",
@@ -3536,31 +2227,10 @@
   },
   {
     "type": "page",
-    "title": "Slots",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/microsoft-agent-framework/custom-look-and-feel/slots"
-  },
-  {
-    "type": "page",
     "title": "Frontend Tools",
     "subtitle": "{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the",
     "section": "Integrations",
     "href": "/docs/integrations/microsoft-agent-framework/frontend-tools"
-  },
-  {
-    "type": "page",
-    "title": "A2UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/microsoft-agent-framework/generative-ui/a2ui"
-  },
-  {
-    "type": "page",
-    "title": "MCP Apps",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/microsoft-agent-framework/generative-ui/mcp-apps"
   },
   {
     "type": "page",
@@ -3578,20 +2248,6 @@
   },
   {
     "type": "page",
-    "title": "Display-only",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/microsoft-agent-framework/generative-ui/your-components/display-only"
-  },
-  {
-    "type": "page",
-    "title": "Interactive",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/microsoft-agent-framework/generative-ui/your-components/interactive"
-  },
-  {
-    "type": "page",
     "title": "Human-in-the-loop",
     "subtitle": "{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the",
     "section": "Integrations",
@@ -3603,48 +2259,6 @@
     "subtitle": "frameworkName=\"Microsoft Agent Framework\"",
     "section": "Integrations",
     "href": "/docs/integrations/microsoft-agent-framework"
-  },
-  {
-    "type": "page",
-    "title": "Inspector",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/microsoft-agent-framework/inspector"
-  },
-  {
-    "type": "page",
-    "title": "Prebuilt Components",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/microsoft-agent-framework/prebuilt-components"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/microsoft-agent-framework/premium/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/microsoft-agent-framework/premium/observability"
-  },
-  {
-    "type": "page",
-    "title": "CopilotKit Premium",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/microsoft-agent-framework/premium/overview"
-  },
-  {
-    "type": "page",
-    "title": "Programmatic Control",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/microsoft-agent-framework/programmatic-control"
   },
   {
     "type": "page",
@@ -3676,76 +2290,6 @@
   },
   {
     "type": "page",
-    "title": "Common Copilot Issues",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/microsoft-agent-framework/troubleshooting/common-issues"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to V2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/microsoft-agent-framework/troubleshooting/migrate-to-v2"
-  },
-  {
-    "type": "page",
-    "title": "AG-UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/ag-ui"
-  },
-  {
-    "type": "page",
-    "title": "Coding Agents",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/coding-agents"
-  },
-  {
-    "type": "page",
-    "title": "Copilot Runtime",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/copilot-runtime"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/custom-look-and-feel/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Slots",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/custom-look-and-feel/slots"
-  },
-  {
-    "type": "page",
-    "title": "Frontend Tools",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/frontend-tools"
-  },
-  {
-    "type": "page",
-    "title": "A2UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/generative-ui/a2ui"
-  },
-  {
-    "type": "page",
-    "title": "MCP Apps",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/generative-ui/mcp-apps"
-  },
-  {
-    "type": "page",
     "title": "State Rendering",
     "subtitle": "id=\"agent-state-example\"",
     "section": "Integrations",
@@ -3757,20 +2301,6 @@
     "subtitle": "id=\"backend-tools-example\"",
     "section": "Integrations",
     "href": "/docs/integrations/pydantic-ai/generative-ui/tool-rendering"
-  },
-  {
-    "type": "page",
-    "title": "Display-only",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/generative-ui/your-components/display-only"
-  },
-  {
-    "type": "page",
-    "title": "Interactive",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/generative-ui/your-components/interactive"
   },
   {
     "type": "page",
@@ -3802,52 +2332,10 @@
   },
   {
     "type": "page",
-    "title": "Inspector",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/inspector"
-  },
-  {
-    "type": "page",
     "title": "Multi-Agent Flows",
-    "subtitle": "<img src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/multi-agent-flows.png\" alt=\"Multi-Agent Flows\" />",
+    "subtitle": "<img",
     "section": "Integrations",
     "href": "/docs/integrations/pydantic-ai/multi-agent-flows"
-  },
-  {
-    "type": "page",
-    "title": "Prebuilt Components",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/prebuilt-components"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/premium/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/premium/observability"
-  },
-  {
-    "type": "page",
-    "title": "CopilotKit Premium",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/premium/overview"
-  },
-  {
-    "type": "page",
-    "title": "Programmatic Control",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/programmatic-control"
   },
   {
     "type": "page",
@@ -3890,41 +2378,6 @@
     "subtitle": "TailoredContent,",
     "section": "Integrations",
     "href": "/docs/integrations/pydantic-ai/shared-state/predictive-state-updates"
-  },
-  {
-    "type": "page",
-    "title": "Common Copilot Issues",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/troubleshooting/common-issues"
-  },
-  {
-    "type": "page",
-    "title": "Error Debugging & Observability",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/troubleshooting/error-debugging"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.10.X",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/troubleshooting/migrate-to-1.10.X"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.8.2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/troubleshooting/migrate-to-1.8.2"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to V2",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/pydantic-ai/troubleshooting/migrate-to-v2"
   },
   {
     "type": "page",
@@ -4027,7 +2480,7 @@
   {
     "type": "page",
     "title": "Recent Updates",
-    "subtitle": "CopilotKit and AG-UI make MCP Apps usable inside real, user-facing applications.  [More →](/learn/whats-new/mcp-apps-sup",
+    "subtitle": "CopilotKit and AG-UI make MCP Apps usable inside real, user-facing applications. [More →](/learn/whats-new/mcp-apps-supp",
     "section": "Learn",
     "href": "/docs/learn/whats-new"
   },
@@ -4048,7 +2501,7 @@
   {
     "type": "page",
     "title": "CopilotKit v1.50",
-    "subtitle": "CopilotKit v1.50 is now available.  This page gives an overview of what is new, what is coming, and what just stays the ",
+    "subtitle": "CopilotKit v1.50 is now available. This page gives an overview of what is new, what is coming, and what just stays the s",
     "section": "Learn",
     "href": "/docs/learn/whats-new/v1-50"
   },

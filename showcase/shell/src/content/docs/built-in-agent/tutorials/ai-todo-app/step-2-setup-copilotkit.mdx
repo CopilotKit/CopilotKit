@@ -2,8 +2,8 @@
 title: "Step 2: Setup CopilotKit"
 ---
 
-  TailoredContent,
-  TailoredContentOption,
+TailoredContent,
+TailoredContentOption,
 } from "@/components/react/tailored-content";
 
 Now that we have our todo list app running, we're ready to integrate CopilotKit. For this tutorial, we will install the following dependencies:
@@ -48,8 +48,7 @@ In order to use CopilotKit, we'll need to configure the `CopilotKit` provider.
 
 ### Configure the CopilotKit Provider
 
-<SelfHostingCopilotRuntimeConfigureCopilotKitProvider
-/>
+<SelfHostingCopilotRuntimeConfigureCopilotKitProvider />
 
 </Step>
 </Steps>
@@ -64,7 +63,6 @@ In this tutorial, we'll use the `<CopilotPopup/>` component to display the chat 
 
 ```tsx title="app/page.tsx" showLineNumbers {6-7,15}
 "use client";
-
 
 export default function Home() {
   return (

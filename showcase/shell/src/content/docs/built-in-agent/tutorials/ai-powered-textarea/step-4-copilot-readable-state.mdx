@@ -17,7 +17,6 @@ Our goal is to make our copilot aware of this state, so that it can provide more
 ```tsx title="libs/hooks/use-emails.tsx"
 // ... the rest of the file
 
-
 export const EmailsProvider = ({ children }: { children: ReactNode }) => {
   const [emails, setEmails] = useState<Email[]>(emailHistory);
 

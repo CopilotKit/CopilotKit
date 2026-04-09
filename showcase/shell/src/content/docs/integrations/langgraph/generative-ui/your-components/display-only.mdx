@@ -13,6 +13,7 @@ This is the simplest form of Generative UI — your agent decides when to show a
 ## When should I use this?
 
 Use `useComponent` when you want to:
+
 - Display rich UI (cards, charts, tables) inline in the chat
 - Show structured data from agent responses
 - Render previews, status indicators, or visual feedback
@@ -62,6 +63,7 @@ For components that need user interaction, see [Interactive](/langgraph/generati
       return <div>{/* ... */}</div>;
     }
     ```
+
   </Step>
   <Step>
     ### Install the CopilotKit SDK
@@ -69,6 +71,7 @@ For components that need user interaction, see [Interactive](/langgraph/generati
     Now, we'll need to make sure your agent can access frontend tools. In your terminal, navigate to your agent's folder and continue from there.
 
     <InstallSDKSnippet/>
+
   </Step>
   <Step>
     ### Inherit from CopilotKitState
@@ -94,6 +97,7 @@ For components that need user interaction, see [Interactive](/langgraph/generati
         ```
       </Tab>
     </Tabs>
+
   </Step>
   <Step>
     ### Agent calls the component
@@ -101,11 +105,13 @@ For components that need user interaction, see [Interactive](/langgraph/generati
     When your agent's LLM decides to use the tool, CopilotKit automatically renders your component in the chat. The tool is registered as a frontend tool that the agent can discover and call.
 
     <FrontEndToolsImpl />
+
   </Step>
   <Step>
     ### Give it a try!
 
     Ask your agent something that would trigger the component (e.g. "What's the weather in San Francisco?"). You should see your `WeatherCard` rendered directly in the chat.
+
   </Step>
 </Steps>
 

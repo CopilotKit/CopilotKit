@@ -1,4 +1,7 @@
-import { MultiProviderContent, If } from "@/components/react/multi-provider-content/multi-provider-content";
+import {
+  MultiProviderContent,
+  If,
+} from "@/components/react/multi-provider-content/multi-provider-content";
 import { quickStartProviders } from "@/components/react/multi-provider-content/utils";
 import { IoLogoVercel, IoLogoNodejs } from "react-icons/io5";
 import { SiNestjs } from "react-icons/si";
@@ -42,6 +45,7 @@ import { RiNextjsLine } from "react-icons/ri";
       return handleRequest(req);
     };
     ```
+
   </Tab>
 
     {/* Next.js Pages Router */}
@@ -171,9 +175,9 @@ import { RiNextjsLine } from "react-icons/ri";
 
         ```ts title="copilotkit.controller.ts"
         import { All, Controller, Req, Res } from '@nestjs/common';
-        import { 
-          CopilotRuntime, 
-          copilotRuntimeNestEndpoint, 
+        import {
+          CopilotRuntime,
+          copilotRuntimeNestEndpoint,
           ExperimentalEmptyAdapter,
         } from '@copilotkit/runtime';
         import { Request, Response } from 'express';
@@ -184,7 +188,7 @@ import { RiNextjsLine } from "react-icons/ri";
           @All('/copilotkit')
           copilotkit(@Req() req: Request, @Res() res: Response) {
             const serviceAdapter = new ExperimentalEmptyAdapter();
-            
+
             const runtime = new CopilotRuntime({
               agents: {
                 // added in next step...
@@ -207,4 +211,5 @@ import { RiNextjsLine } from "react-icons/ri";
             Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
         </Callout>
     </Tab>
+
 </Tabs>

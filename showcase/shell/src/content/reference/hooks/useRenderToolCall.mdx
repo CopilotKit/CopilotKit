@@ -12,8 +12,9 @@ This hook is primarily used by chat UI components to display visual feedback for
 ## Signature
 
 ```tsx
-
-function useRenderToolCall(): (props: UseRenderToolCallProps) => React.ReactElement | null;
+function useRenderToolCall(): (
+  props: UseRenderToolCallProps,
+) => React.ReactElement | null;
 ```
 
 ## Return Value
@@ -31,6 +32,7 @@ function useRenderToolCall(): (props: UseRenderToolCallProps) => React.ReactElem
     <PropertyReference name="toolMessage" type="ToolMessage">
       The tool result message, if available. When present, indicates the tool call has completed and contains the result string.
     </PropertyReference>
+
   </PropertyReference>
 </PropertyReference>
 
@@ -38,28 +40,27 @@ function useRenderToolCall(): (props: UseRenderToolCallProps) => React.ReactElem
 
 The renderer determines the `ToolCallStatus` based on the inputs:
 
-| Condition | Status | `result` |
-|-----------|--------|----------|
-| No `toolMessage` and tool call is still loading | `ToolCallStatus.InProgress` | `undefined` |
-| Tool call is executing (arguments resolved, no result yet) | `ToolCallStatus.Executing` | `undefined` |
-| A matching `toolMessage` exists | `ToolCallStatus.Complete` | The result string from the tool message |
+| Condition                                                  | Status                      | `result`                                |
+| ---------------------------------------------------------- | --------------------------- | --------------------------------------- |
+| No `toolMessage` and tool call is still loading            | `ToolCallStatus.InProgress` | `undefined`                             |
+| Tool call is executing (arguments resolved, no result yet) | `ToolCallStatus.Executing`  | `undefined`                             |
+| A matching `toolMessage` exists                            | `ToolCallStatus.Complete`   | The result string from the tool message |
 
 ## ToolCallStatus
 
 The `ToolCallStatus` enum is exported from `@copilotkit/react-core/v2`:
 
-| Value | Description |
-|-------|-------------|
-| `ToolCallStatus.InProgress` | The tool call's arguments are still being streamed. |
-| `ToolCallStatus.Executing` | Arguments are fully resolved; the tool is executing. |
-| `ToolCallStatus.Complete` | Execution is finished and a result is available. |
+| Value                       | Description                                          |
+| --------------------------- | ---------------------------------------------------- |
+| `ToolCallStatus.InProgress` | The tool call's arguments are still being streamed.  |
+| `ToolCallStatus.Executing`  | Arguments are fully resolved; the tool is executing. |
+| `ToolCallStatus.Complete`   | Execution is finished and a result is available.     |
 
 ## Usage
 
 ### Using the Renderer in a Custom Chat Component
 
 ```tsx
-
 function CustomChatMessage({ message }) {
   const renderToolCall = useRenderToolCall();
 
@@ -73,7 +74,9 @@ function CustomChatMessage({ message }) {
       return <div className="tool-call-container">{element}</div>;
     }
 
-    return <div className="text-gray-400">Tool call: {message.toolCall.name}</div>;
+    return (
+      <div className="text-gray-400">Tool call: {message.toolCall.name}</div>
+    );
   }
 
   return <div>{message.content}</div>;
@@ -85,39 +88,43 @@ function CustomChatMessage({ message }) {
 Tool call renderers are typically registered through `useFrontendTool` or directly via the `renderToolCalls` prop on the provider. The `useRenderToolCall` hook resolves these registrations at render time.
 
 ```tsx
-
 function App() {
   // Register a tool with a render component
-  useFrontendTool({
-    name: "searchDatabase",
-    description: "Search the product database",
-    parameters: z.object({
-      query: z.string().describe("Search query"),
-    }),
-    handler: async ({ query }) => {
-      const results = await fetch(`/api/search?q=${query}`);
-      return JSON.stringify(await results.json());
+  useFrontendTool(
+    {
+      name: "searchDatabase",
+      description: "Search the product database",
+      parameters: z.object({
+        query: z.string().describe("Search query"),
+      }),
+      handler: async ({ query }) => {
+        const results = await fetch(`/api/search?q=${query}`);
+        return JSON.stringify(await results.json());
+      },
+      render: ({ args, status, result }) => {
+        if (status === ToolCallStatus.InProgress) {
+          return <div>Searching for "{args.query}"...</div>;
+        }
+        if (status === ToolCallStatus.Complete && result) {
+          const data = JSON.parse(result);
+          return (
+            <div>
+              <p>
+                Found {data.length} results for "{args.query}"
+              </p>
+              <ul>
+                {data.map((item: any) => (
+                  <li key={item.id}>{item.name}</li>
+                ))}
+              </ul>
+            </div>
+          );
+        }
+        return null;
+      },
     },
-    render: ({ args, status, result }) => {
-      if (status === ToolCallStatus.InProgress) {
-        return <div>Searching for "{args.query}"...</div>;
-      }
-      if (status === ToolCallStatus.Complete && result) {
-        const data = JSON.parse(result);
-        return (
-          <div>
-            <p>Found {data.length} results for "{args.query}"</p>
-            <ul>
-              {data.map((item: any) => (
-                <li key={item.id}>{item.name}</li>
-              ))}
-            </ul>
-          </div>
-        );
-      }
-      return null;
-    },
-  }, []);
+    [],
+  );
 
   return <ChatInterface />;
 }
@@ -128,7 +135,6 @@ function App() {
 If no exact name match is found, the hook falls back to a wildcard `"*"` renderer. This is useful for providing a generic UI for all unhandled tool calls.
 
 ```tsx
-
 function App() {
   return (
     <CopilotKitProvider
@@ -139,16 +145,12 @@ function App() {
           render: ({ name, args, status, result }) => {
             if (status === ToolCallStatus.InProgress) {
               return (
-                <div className="text-gray-500 text-sm">
-                  Running {name}...
-                </div>
+                <div className="text-gray-500 text-sm">Running {name}...</div>
               );
             }
             if (status === ToolCallStatus.Complete) {
               return (
-                <div className="text-green-600 text-sm">
-                  {name} completed.
-                </div>
+                <div className="text-green-600 text-sm">{name} completed.</div>
               );
             }
             return null;

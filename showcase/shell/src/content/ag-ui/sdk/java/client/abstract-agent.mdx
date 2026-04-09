@@ -19,9 +19,9 @@ public class MyAgent extends AbstractAgent {
   protected void run(RunAgentInput input, IEventStream<BaseEvent> stream) {
     // Emit events using the stream
     stream.next(new RunStartedEvent(input.getThreadId(), input.getRunId()));
-    
+
     // Your agent logic here...
-    
+
     stream.next(new RunFinishedEvent(input.getThreadId(), input.getRunId()));
   }
 }
@@ -51,5 +51,3 @@ Constructors take: `agentId`, `description`, `threadId`, `initialMessages`, `sta
 ### Text Message Helpers
 
 `handleTextMessageStart`, `handleTextMessageContent`, `handleTextMessageChunk`, `handleTextMessageEnd` integrate with `MessageFactory` to assemble streamed messages and notify subscribers.
-
-

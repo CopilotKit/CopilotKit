@@ -3,36 +3,36 @@ import { BrandNav } from "@/components/brand-nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
-    title: "CopilotKit Docs",
-    description: "Docs, live demos, and integrations for CopilotKit",
+  title: "CopilotKit Docs",
+  description: "Docs, live demos, and integrations for CopilotKit",
 };
 
 export default function RootLayout({
-    children,
+  children,
 }: {
-    children: React.ReactNode;
+  children: React.ReactNode;
 }) {
-    return (
-        <html lang="en">
-            <body className="min-h-screen">
-                <BrandNav />
-                <main>{children}</main>
-                <div
-                    style={{
-                        position: "fixed",
-                        bottom: "8px",
-                        right: "12px",
-                        fontSize: "10px",
-                        fontFamily: "monospace",
-                        color: "rgba(0,0,0,0.15)",
-                        pointerEvents: "none",
-                        zIndex: 9999,
-                        userSelect: "none",
-                    }}
-                >
-                    {(process.env.NEXT_PUBLIC_COMMIT_SHA || "dev").slice(0, 9)}
-                </div>
-            </body>
-        </html>
-    );
+  return (
+    <html lang="en">
+      <body className="min-h-screen">
+        <BrandNav />
+        <main>{children}</main>
+        <div
+          style={{
+            position: "fixed",
+            bottom: "8px",
+            right: "12px",
+            fontSize: "10px",
+            fontFamily: "monospace",
+            color: "rgba(0,0,0,0.15)",
+            pointerEvents: "none",
+            zIndex: 9999,
+            userSelect: "none",
+          }}
+        >
+          {(process.env.NEXT_PUBLIC_COMMIT_SHA || "dev").slice(0, 9)}
+        </div>
+      </body>
+    </html>
+  );
 }

@@ -18,6 +18,7 @@ Try asking your Copilot to:
 - "Create a workout plan for the week"
 
 After the agent proposes steps, you can:
+
 1. Toggle individual steps on/off
 2. Click "Confirm" to proceed with selected steps
 3. Click "Reject" to cancel and ask for a different plan
@@ -31,6 +32,7 @@ After the agent proposes steps, you can:
 2. `useHumanInTheLoop` — CopilotKit's framework-agnostic HITL hook. Registers a tool (`generate_task_steps`) that the agent can call, which renders a review UI with accept/reject buttons.
 
 **Step data flow**:
+
 - Agent sends steps as `[{ description: string, status: "enabled"|"disabled" }]`
 - User toggles steps and confirms/rejects
 - Response is sent back to the agent with the filtered step list

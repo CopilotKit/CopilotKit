@@ -20,15 +20,19 @@ The client module automatically includes `kotlin-core` and `kotlin-tools` as dep
 ## Core Components
 
 ### AgUiAgent
+
 Stateless client for cases where no ongoing context is needed or the agent manages all state server-side.
+
 - Suitable for single interactions
 - Agent handles state management
 - Minimal client-side memory usage
 
 [Learn more about AgUiAgent →](/docs/sdk/kotlin/client/agui-agent)
 
-### StatefulAgUiAgent  
+### StatefulAgUiAgent
+
 Stateful client that maintains conversation history and sends it with each request.
+
 - Client manages conversation context
 - Full conversation history sent with each request
 - Suitable for complex conversational workflows
@@ -36,7 +40,9 @@ Stateful client that maintains conversation history and sends it with each reque
 [Learn more about StatefulAgUiAgent →](/docs/sdk/kotlin/client/stateful-agui-agent)
 
 ### HttpAgent
+
 Low-level HTTP transport implementation providing direct protocol access.
+
 - Direct control over HTTP communication
 - Custom request/response handling
 - Foundation for higher-level agents
@@ -44,7 +50,9 @@ Low-level HTTP transport implementation providing direct protocol access.
 [Learn more about HttpAgent →](/docs/sdk/kotlin/client/http-agent)
 
 ### AbstractAgent
+
 Base class for implementing custom agent connectivity patterns.
+
 - Template for custom agent implementations
 - Standardized lifecycle methods
 - Event handling framework
@@ -54,14 +62,18 @@ Base class for implementing custom agent connectivity patterns.
 ## Features
 
 ### Authentication
+
 Multiple authentication methods supported:
+
 - Bearer Token authentication
-- API Key authentication  
+- API Key authentication
 - Basic authentication
 - Custom authentication providers
 
 ### Streaming Responses
+
 Real-time event streaming using Kotlin Flows:
+
 - Server-sent events (SSE) parsing
 - Automatic reconnection handling
 - Backpressure management
@@ -69,7 +81,9 @@ Real-time event streaming using Kotlin Flows:
 - Thinking telemetry exposed through `AgentState.thinking`
 
 ### State Management
+
 Comprehensive state synchronization:
+
 - JSON Patch-based state updates
 - Automatic state validation
 - Error state handling
@@ -78,24 +92,28 @@ Comprehensive state synchronization:
 - Thinking streams exposed through `AgentState.thinking`
 
 ### Tool Integration
+
 Client-side tool execution framework:
+
 - Custom tool development
 - Tool registry management
 - Circuit breaker patterns for reliability
 
 ### Error Handling
+
 Robust error management:
+
 - Connection error recovery
 - Protocol error detection
 - User-friendly error reporting
 
 ## Platform Support
 
-| Platform | Ktor Client Engine | Status |
-|----------|-------------------|--------|
-| Android | ktor-client-android | ✅ Stable |
-| iOS | ktor-client-darwin | ✅ Stable |
-| JVM | ktor-client-cio | ✅ Stable |
+| Platform | Ktor Client Engine  | Status    |
+| -------- | ------------------- | --------- |
+| Android  | ktor-client-android | ✅ Stable |
+| iOS      | ktor-client-darwin  | ✅ Stable |
+| JVM      | ktor-client-cio     | ✅ Stable |
 
 ## Usage Examples
 
@@ -136,7 +154,7 @@ The SDK provides convenience builders for common configurations:
 // Quick bearer token setup
 val agent = agentWithBearer("https://api.example.com/agent", "your-token")
 
-// Quick API key setup  
+// Quick API key setup
 val agent = agentWithApiKey("https://api.example.com/agent", "your-api-key")
 
 // Agent with debug logging
@@ -179,18 +197,21 @@ val agent = AgUiAgent("https://api.example.com/agent") {
 ## Configuration Options
 
 ### Connection Settings
+
 - Base URL configuration
 - Timeout settings
 - Retry policies
 - Connection pooling
 
-### Request Configuration  
+### Request Configuration
+
 - Custom headers
 - User ID management
 - Request/response logging
 - Content negotiation
 
 ### State Configuration
+
 - Initial state setup
 - State validation rules
 - Update strategies

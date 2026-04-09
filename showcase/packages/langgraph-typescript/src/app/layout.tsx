@@ -4,33 +4,33 @@ import "./globals.css";
 import "./copilotkit-overrides.css";
 
 export const metadata: Metadata = {
-    title: "CopilotKit Showcase — LangGraph (TypeScript)",
+  title: "CopilotKit Showcase — LangGraph (TypeScript)",
 };
 
 export default function RootLayout({
-    children,
+  children,
 }: {
-    children: React.ReactNode;
+  children: React.ReactNode;
 }) {
-    return (
-        <html lang="en">
-            <body>
-                <script
-                    dangerouslySetInnerHTML={{
-                        __html: [
-                            "console.log('[showcase] Demo loaded:', window.location.href);",
-                            "console.log('[showcase] In iframe:', window.self !== window.top);",
-                            "window.addEventListener('error', function(e) {",
-                            "  console.error('[showcase] Uncaught error:', e.message, e.filename, e.lineno);",
-                            "});",
-                            "window.addEventListener('unhandledrejection', function(e) {",
-                            "  console.error('[showcase] Unhandled rejection:', e.reason);",
-                            "});",
-                        ].join("\n"),
-                    }}
-                />
-                {children}
-            </body>
-        </html>
-    );
+  return (
+    <html lang="en">
+      <body>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: [
+              "console.log('[showcase] Demo loaded:', window.location.href);",
+              "console.log('[showcase] In iframe:', window.self !== window.top);",
+              "window.addEventListener('error', function(e) {",
+              "  console.error('[showcase] Uncaught error:', e.message, e.filename, e.lineno);",
+              "});",
+              "window.addEventListener('unhandledrejection', function(e) {",
+              "  console.error('[showcase] Unhandled rejection:', e.reason);",
+              "});",
+            ].join("\n"),
+          }}
+        />
+        {children}
+      </body>
+    </html>
+  );
 }

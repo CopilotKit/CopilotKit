@@ -4,13 +4,14 @@ CopilotKit V2 consolidates the frontend into a single package. Both hooks and UI
 
 **What's changing:**
 
-| Before | After |
-|--------|-------|
-| `@copilotkit/react-core` | `@copilotkit/react-core/v2` |
-| `@copilotkit/react-ui` | `@copilotkit/react-core/v2` |
+| Before                            | After                                  |
+| --------------------------------- | -------------------------------------- |
+| `@copilotkit/react-core`          | `@copilotkit/react-core/v2`            |
+| `@copilotkit/react-ui`            | `@copilotkit/react-core/v2`            |
 | `@copilotkit/react-ui/styles.css` | `@copilotkit/react-core/v2/styles.css` |
 
 **What's NOT changing:**
+
 - Backend packages (`@copilotkit/runtime`, etc.) — no changes needed
 - Your `CopilotRuntime` configuration — stays the same
 - Agent definitions and backend setup — stays the same
@@ -24,12 +25,14 @@ CopilotKit V2 consolidates the frontend into a single package. Both hooks and UI
 Replace imports from `@copilotkit/react-core` with `@copilotkit/react-core/v2`.
 
 #### Before
+
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
 import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
 ```
 
 #### After
+
 ```tsx
 import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 import { useAgent } from "@copilotkit/react-core/v2";
@@ -42,6 +45,7 @@ import { useAgent } from "@copilotkit/react-core/v2";
 UI components like `CopilotChat`, `CopilotSidebar`, and `CopilotPopup` are now exported from `@copilotkit/react-core/v2`.
 
 #### Before
+
 ```tsx
 import { CopilotPopup } from "@copilotkit/react-ui";
 import { CopilotSidebar } from "@copilotkit/react-ui";
@@ -49,6 +53,7 @@ import { CopilotChat } from "@copilotkit/react-ui";
 ```
 
 #### After
+
 ```tsx
 import { CopilotPopup } from "@copilotkit/react-core/v2";
 import { CopilotSidebar } from "@copilotkit/react-core/v2";
@@ -60,11 +65,13 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
 ### Update your styles import
 
 #### Before
+
 ```tsx
 import "@copilotkit/react-ui/styles.css";
 ```
 
 #### After
+
 ```tsx
 import "@copilotkit/react-core/v2/styles.css";
 ```

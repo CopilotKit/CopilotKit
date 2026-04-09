@@ -31,14 +31,14 @@ The `RunStarted` event includes additional optional fields:
 
 ```ts
 type RunStartedEvent = BaseEvent & {
-  type: EventType.RUN_STARTED
-  threadId: string
-  runId: string
+  type: EventType.RUN_STARTED;
+  threadId: string;
+  runId: string;
   /** Parent for branching/time travel within the same thread */
-  parentRunId?: string
+  parentRunId?: string;
   /** Exact agent input for this run (may omit messages already in history) */
-  input?: AgentInput
-}
+  input?: AgentInput;
+};
 ```
 
 These fields enable lineage tracking and let implementations record precisely
@@ -50,7 +50,7 @@ Compaction reduces noise in an event stream while keeping the same observable
 outcome. A typical implementation provides a utility:
 
 ```ts
-declare function compactEvents(events: BaseEvent[]): BaseEvent[]
+declare function compactEvents(events: BaseEvent[]): BaseEvent[];
 ```
 
 Common compaction rules include:
@@ -116,7 +116,7 @@ Before:
   { type: "TEXT_MESSAGE_END", messageId: "msg1" },
   { type: "STATE_DELTA", patch: { op: "add", path: "/foo", value: 1 } },
   { type: "STATE_DELTA", patch: { op: "replace", path: "/foo", value: 2 } },
-]
+];
 ```
 
 After:
@@ -131,7 +131,7 @@ After:
     type: "STATE_SNAPSHOT",
     state: { foo: 2 },
   },
-]
+];
 ```
 
 ### Branching With `parentRunId`
@@ -185,4 +185,3 @@ After:
 
 - Concepts: [Events](/concepts/events), [State Management](/concepts/state)
 - SDKs: TypeScript encoder and core event types
-

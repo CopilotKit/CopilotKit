@@ -23,16 +23,20 @@ You can also chat about other topics — the agent will respond conversationally
 ## Technical Details
 
 **Frontend tools** are registered using `useFrontendTool`:
+
 - `change_background` — accepts a CSS background value and applies it to the chat container
 - CopilotKit automatically exposes this function to the agent
 - The agent determines when to call the tool based on the user's request
 
 **Backend tool rendering** uses `useRenderTool`:
+
 - `get_weather` — a backend tool that the agent calls; the frontend renders the result as a weather card
 - The render function receives `args`, `result`, and `status` for loading/complete states
 
 **Agent context** is provided via `useAgentContext`:
+
 - Sends the user's name to the agent so it can personalize responses
 
 **Suggestions** are configured with `useConfigureSuggestions`:
+
 - Static suggestions shown as quick-action buttons below the chat

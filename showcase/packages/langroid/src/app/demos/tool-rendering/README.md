@@ -45,9 +45,9 @@ Wrap `CopilotChat` in a constraining div for proper spacing:
 
 ```tsx
 <div className="flex justify-center items-center h-screen w-full">
-    <div className="h-full w-full md:w-4/5 md:h-4/5 rounded-lg">
-        <CopilotChat className="h-full rounded-2xl max-w-6xl mx-auto" />
-    </div>
+  <div className="h-full w-full md:w-4/5 md:h-4/5 rounded-lg">
+    <CopilotChat className="h-full rounded-2xl max-w-6xl mx-auto" />
+  </div>
 </div>
 ```
 
@@ -58,8 +58,8 @@ CopilotKit uses `cpk:` prefixed classes internally. To override them, create a *
 ```css
 /* copilotkit-overrides.css */
 .copilotKitInput {
-    border-radius: 0.75rem;
-    border: 1px solid var(--copilot-kit-separator-color) !important;
+  border-radius: 0.75rem;
+  border: 1px solid var(--copilot-kit-separator-color) !important;
 }
 ```
 

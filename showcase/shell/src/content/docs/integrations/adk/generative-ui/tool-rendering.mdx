@@ -4,7 +4,6 @@ icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 ---
 
-
 <IframeSwitcher
   id="backend-tools-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/adk-middleware/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
@@ -40,7 +39,6 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         from fastapi import FastAPI
         from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
         from google.adk.agents import LlmAgent
-
 
         def get_weather(location: str = "the entire world") -> str:
             """Retrieves the current weather report for a specified location.
@@ -96,17 +94,18 @@ const YourMainContent = () => {
   // [!code highlight:12]
   useRenderTool({
     name: "get_weather",
-    render: ({status, args}) => {
+    render: ({ status, args }) => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
-          {status === "complete" && `Called the weather API for ${args.location}.`}
+          {status === "complete" &&
+            `Called the weather API for ${args.location}.`}
         </p>
       );
     },
   });
   // ...
-}
+};
 ```
 
 </Step>

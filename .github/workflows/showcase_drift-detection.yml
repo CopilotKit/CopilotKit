@@ -2,9 +2,9 @@ name: "Showcase: Drift Detection"
 
 on:
   schedule:
-    - cron: "0 */6 * * *"   # L1-L3 every 6 hours (0/6/12/18 UTC)
-    - cron: "0 0 * * *"     # L4 daily at midnight UTC
-    - cron: "0 9 * * 1"     # Weekly version drift (Monday 9am UTC) — unchanged
+    - cron: "0 */6 * * *" # L1-L3 every 6 hours (0/6/12/18 UTC)
+    - cron: "0 0 * * *" # L4 daily at midnight UTC
+    - cron: "0 9 * * 1" # Weekly version drift (Monday 9am UTC) — unchanged
   workflow_dispatch:
     inputs:
       run_version_check:
@@ -139,7 +139,7 @@ jobs:
       - name: Check npm package drift
         id: npm_drift
         run: |
-          report=""
+          tmpfile=$(mktemp)
           for pkg_dir in showcase/packages/*/; do
             pkg_json="$pkg_dir/package.json"
             [ -f "$pkg_json" ] || continue
@@ -162,11 +162,13 @@ jobs:
                 latest=$(npm view "$name" version 2>/dev/null || echo "unknown")
                 if [ "$latest" != "unknown" ] && [ "$latest" != "$version" ]; then
                   echo "  $name: pinned=$version latest=$latest"
-                  report+="| $slug | $name | $version | $latest |\n"
+                  echo "| $slug | $name | $version | $latest |" >> "$tmpfile"
                 fi
               fi
             done
           done
+          report=$(cat "$tmpfile" 2>/dev/null || echo "")
+          rm -f "$tmpfile"
           echo "report<<EOF" >> $GITHUB_OUTPUT
           echo -e "$report" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT

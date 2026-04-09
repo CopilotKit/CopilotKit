@@ -44,25 +44,25 @@ sequenceDiagram
 ### Updates to RUN_FINISHED Event
 
 ```typescript
-type RunFinishedOutcome = "success" | "interrupt"
+type RunFinishedOutcome = "success" | "interrupt";
 
 type RunFinished = {
-  type: "RUN_FINISHED"
+  type: "RUN_FINISHED";
 
   // ... existing fields
 
-  outcome?: RunFinishedOutcome // optional for back-compat (see rules below)
+  outcome?: RunFinishedOutcome; // optional for back-compat (see rules below)
 
   // Present when outcome === "success" (or when outcome omitted and interrupt is absent)
-  result?: any
+  result?: any;
 
   // Present when outcome === "interrupt" (or when outcome omitted and interrupt is present)
   interrupt?: {
-    id?: string // id can be set when needed
-    reason?: string // e.g. "human_approval" | "upload_required" | "policy_hold"
-    payload?: any // arbitrary JSON for UI (forms, proposals, diffs, etc.)
-  }
-}
+    id?: string; // id can be set when needed
+    reason?: string; // e.g. "human_approval" | "upload_required" | "policy_hold"
+    payload?: any; // arbitrary JSON for UI (forms, proposals, diffs, etc.)
+  };
+};
 ```
 
 When a run finishes with `outcome == "interrupt"`, the agent indicates that on
@@ -76,10 +76,10 @@ type RunAgentInput = {
 
   // NEW: resume channel for continuing a suspension
   resume?: {
-    interruptId?: string // echo back if one was provided
-    payload?: any // arbitrary JSON: approvals, edits, files-as-refs, etc.
-  }
-}
+    interruptId?: string; // echo back if one was provided
+    payload?: any; // arbitrary JSON: approvals, edits, files-as-refs, etc.
+  };
+};
 ```
 
 ### Contract Rules
