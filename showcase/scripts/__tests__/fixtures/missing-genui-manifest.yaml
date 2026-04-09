@@ -1,0 +1,7 @@
+slug: test-missing-genui
+demos:
+  - id: agentic-chat
+    name: Agentic Chat
+    description: test
+    tags: [chat-ui]
+    route: /demos/agentic-chat

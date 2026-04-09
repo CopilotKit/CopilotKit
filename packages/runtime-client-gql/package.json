@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/runtime-client-gql",
-  "version": "1.55.0-next.8",
+  "version": "1.55.1",
   "private": false,
   "keywords": [
     "ai",
@@ -39,8 +39,8 @@
   "scripts": {
     "build": "pnpm run graphql-codegen && tsdown",
     "dev": "concurrently \"pnpm run graphql-codegen:watch\" \"tsdown --watch\"",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "pnpm run graphql-codegen && vitest run",
+    "test:watch": "pnpm run graphql-codegen && vitest",
     "check-types": "tsc --noEmit",
     "graphql-codegen": "graphql-codegen -c codegen.ts",
     "graphql-codegen:watch": "graphql-codegen -c codegen.ts --watch",

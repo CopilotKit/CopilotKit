@@ -1,0 +1,56 @@
+name: Google ADK
+slug: google-adk
+category: agent-framework
+language: python
+logo: /logos/google-adk.svg
+description: CopilotKit integration with Google ADK
+partner_docs: null
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/google-adk
+copilotkit_version: 2.0.0
+backend_url: https://showcase-google-adk-production.up.railway.app
+deployed: true
+sort_order: 15
+generative_ui:
+  - constrained-explicit
+interaction_modalities:
+  - chat
+starter:
+  path: examples/integrations/adk
+  name: Investment Analyst (ADK)
+  description: Investment analysis agent built with Google Agent Development Kit
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/adk
+  demo_url: https://showcase-starter-google-adk-production.up.railway.app
+features:
+  - agentic-chat
+  - tool-rendering
+  - hitl
+  - gen-ui-tool-based
+demos:
+  - id: agentic-chat
+    name: Agentic Chat
+    description: Natural conversation with frontend tool execution
+    tags:
+      - chat-ui
+    route: /demos/agentic-chat
+    animated_preview_url:
+  - id: tool-rendering
+    name: Tool Rendering
+    description: Backend agent tools rendered as UI components
+    tags:
+      - agent-capabilities
+    route: /demos/tool-rendering
+    animated_preview_url:
+  - id: hitl
+    name: Human in the Loop
+    description: User approves agent actions before execution
+    tags:
+      - interactivity
+    route: /demos/hitl
+    animated_preview_url:
+  - id: gen-ui-tool-based
+    name: Tool-Based Generative UI
+    description: Agent uses tools to trigger UI generation
+    tags:
+      - generative-ui
+    route: /demos/gen-ui-tool-based
+    animated_preview_url:

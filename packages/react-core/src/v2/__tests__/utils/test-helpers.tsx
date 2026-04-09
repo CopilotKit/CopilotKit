@@ -164,6 +164,7 @@ export function renderWithCopilotKit({
   humanInTheLoop,
   agentId,
   threadId,
+  defaultThrottleMs,
   children,
 }: {
   agent?: AbstractAgent;
@@ -175,6 +176,7 @@ export function renderWithCopilotKit({
   humanInTheLoop?: any[];
   agentId?: string;
   threadId?: string;
+  defaultThrottleMs?: number;
   children?: React.ReactNode;
 }): ReturnType<typeof render> {
   const resolvedAgents = agents || (agent ? { default: agent } : undefined);
@@ -189,6 +191,7 @@ export function renderWithCopilotKit({
       renderActivityMessages={renderActivityMessages}
       frontendTools={frontendTools}
       humanInTheLoop={humanInTheLoop}
+      defaultThrottleMs={defaultThrottleMs}
     >
       <CopilotChatConfigurationProvider
         agentId={resolvedAgentId}

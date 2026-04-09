@@ -1,5 +1,34 @@
 # @copilotkit/core
 
+## 1.55.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.55.1
+
+## 1.55.1-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.55.1-next.0
+
+## 1.55.0
+
+### Minor Changes
+
+- 1ceb963: refactor: consolidate V1/V2 packages into flat @copilotkit/\* structure
+
+### Patch Changes
+
+- b4a8b7a: Add auto-detection of runtime transport (REST vs single-endpoint)
+- 1ceb963: fix: race condition in RunHandler.runAgent() causes dropped runs
+- 1ceb963: fix: handle empty tool arguments without crashing — treat empty/null/undefined args as `{}` instead of throwing JSON parse error
+- Updated dependencies [1ceb963]
+- Updated dependencies [52a9322]
+- Updated dependencies [5289791]
+- Updated dependencies [434ccd8]
+  - @copilotkit/shared@1.55.0
+
 ## 1.55.0-next.8
 
 ### Patch Changes

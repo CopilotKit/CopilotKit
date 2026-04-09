@@ -28,6 +28,7 @@ superpowers/
 
 __pycache__/
 *.env
+.doctest-output/
 *.next
 .venv
 .vercel

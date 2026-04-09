@@ -35,7 +35,8 @@ is a situation where a user and an agent are working together to solve a problem
     from fastapi import FastAPI, Header
     from fastapi.responses import StreamingResponse
     from pydantic import BaseModel, Field
-    from autogen import ContextVariables, ConversableAgent, LLMConfig
+    from autogen import ConversableAgent, LLMConfig
+    from autogen.agentchat import ContextVariables
     from autogen.ag_ui import AGUIStream, RunAgentInput
 
 
@@ -65,7 +66,7 @@ is a situation where a user and an agent are working together to solve a problem
             "You are a helpful assistant for storing searches. "
             "Use `add_search` once per query, then call `run_searches`."
         ),
-        llm_config=LLMConfig({"model": "gpt-5.2-mini"}),
+        llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
     )
 
 

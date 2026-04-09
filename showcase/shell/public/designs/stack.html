@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CopilotKit Stack — Big Picture</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #08080c;
+        --surface: #0e0e14;
+        --elevated: #14141c;
+        --border: #1e1e2a;
+        --text: #e8e8f0;
+        --text-dim: #8888a0;
+        --text-faint: #444460;
+        --blue: #4d7cff;
+        --cyan: #22d3ee;
+        --violet: #8b5cf6;
+        --green: #22c55e;
+        --amber: #f59e0b;
+        --rose: #f472b6;
+        --orange: #f97316;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Outfit", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+
+      .header {
+        text-align: center;
+        padding: 48px 24px 32px;
+      }
+      .header h1 {
+        font-size: 32px;
+        font-weight: 300;
+        letter-spacing: -0.5px;
+        margin-bottom: 6px;
+      }
+      .header h1 strong {
+        font-weight: 700;
+      }
+      .header p {
+        font-size: 14px;
+        color: var(--text-dim);
+      }
+
+      .stack {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 0 24px 80px;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+
+      /* === LAYER === */
+      .layer {
+        position: relative;
+      }
+      .layer-label {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+        padding: 0 4px;
+      }
+      .layer-label .tag {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .layer-label .line {
+        flex: 1;
+        height: 1px;
+      }
+      .layer-label .desc {
+        font-size: 11px;
+        color: var(--text-faint);
+        white-space: nowrap;
+      }
+
+      .layer-content {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 0 0 24px;
+        justify-content: center;
+      }
+
+      /* === CHIPS === */
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 500;
+        border: 1px solid;
+        cursor: default;
+        transition: all 0.2s;
+      }
+      .chip:hover {
+        transform: translateY(-2px);
+      }
+      .chip .icon {
+        font-size: 14px;
+      }
+      .chip.sm {
+        padding: 6px 12px;
+        font-size: 11px;
+      }
+
+      .chip-frontend {
+        background: rgba(77, 124, 255, 0.06);
+        border-color: rgba(77, 124, 255, 0.2);
+        color: #8ab4ff;
+      }
+      .chip-frontend:hover {
+        border-color: rgba(77, 124, 255, 0.5);
+        background: rgba(77, 124, 255, 0.1);
+      }
+      .chip-genui {
+        background: rgba(139, 92, 246, 0.06);
+        border-color: rgba(139, 92, 246, 0.2);
+        color: #b8a0f8;
+      }
+      .chip-genui:hover {
+        border-color: rgba(139, 92, 246, 0.5);
+        background: rgba(139, 92, 246, 0.1);
+      }
+      .chip-interaction {
+        background: rgba(34, 211, 238, 0.06);
+        border-color: rgba(34, 211, 238, 0.2);
+        color: #66e0f0;
+      }
+      .chip-interaction:hover {
+        border-color: rgba(34, 211, 238, 0.5);
+        background: rgba(34, 211, 238, 0.1);
+      }
+      .chip-state {
+        background: rgba(249, 115, 22, 0.06);
+        border-color: rgba(249, 115, 22, 0.2);
+        color: #fbb070;
+      }
+      .chip-state:hover {
+        border-color: rgba(249, 115, 22, 0.5);
+        background: rgba(249, 115, 22, 0.1);
+      }
+      .chip-framework {
+        background: rgba(251, 191, 36, 0.06);
+        border-color: rgba(251, 191, 36, 0.15);
+        color: #f0d070;
+      }
+      .chip-framework:hover {
+        border-color: rgba(251, 191, 36, 0.4);
+        background: rgba(251, 191, 36, 0.1);
+      }
+      .chip-platform {
+        background: rgba(136, 136, 160, 0.06);
+        border-color: rgba(136, 136, 160, 0.15);
+        color: #a0a0b8;
+      }
+      .chip-platform:hover {
+        border-color: rgba(136, 136, 160, 0.35);
+        background: rgba(136, 136, 160, 0.1);
+      }
+      .chip-provider {
+        background: rgba(255, 255, 255, 0.03);
+        border-color: rgba(255, 255, 255, 0.08);
+        color: #888898;
+      }
+      .chip-provider:hover {
+        border-color: rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.05);
+      }
+      .chip-protocol {
+        background: rgba(244, 114, 182, 0.06);
+        border-color: rgba(244, 114, 182, 0.2);
+        color: #f8a0cc;
+      }
+      .chip-protocol:hover {
+        border-color: rgba(244, 114, 182, 0.5);
+        background: rgba(244, 114, 182, 0.1);
+      }
+
+      /* Subcategory grouping */
+      .subgroup {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.01);
+      }
+      .subgroup-label {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 8px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--text-faint);
+        margin-bottom: 2px;
+      }
+      .subgroup .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: center;
+      }
+
+      /* Central nodes */
+      .central {
+        display: flex;
+        justify-content: center;
+        padding: 8px 0;
+      }
+      .central-node {
+        padding: 16px 48px;
+        border-radius: 16px;
+        text-align: center;
+        border: 2px solid;
+        position: relative;
+      }
+      .central-node h3 {
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+      .central-node p {
+        font-size: 11px;
+        margin-top: 2px;
+      }
+      .copilotkit-node {
+        background: rgba(34, 197, 94, 0.06);
+        border-color: rgba(34, 197, 94, 0.3);
+        color: #5ee0a0;
+        box-shadow: 0 0 60px rgba(34, 197, 94, 0.08);
+      }
+      .copilotkit-node p {
+        color: rgba(34, 197, 94, 0.5);
+      }
+      .agui-node {
+        background: rgba(244, 114, 182, 0.06);
+        border-color: rgba(244, 114, 182, 0.25);
+        color: #f8a0cc;
+        box-shadow: 0 0 40px rgba(244, 114, 182, 0.06);
+      }
+      .agui-node p {
+        color: rgba(244, 114, 182, 0.5);
+      }
+
+      /* Vertical connectors */
+      .v-connector {
+        display: flex;
+        justify-content: center;
+        padding: 4px 0;
+      }
+      .v-line {
+        width: 1px;
+        height: 24px;
+        position: relative;
+      }
+      .v-line::after {
+        content: "";
+        position: absolute;
+        bottom: -3px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 4px solid transparent;
+        border-right: 4px solid transparent;
+      }
+      .v-line.green {
+        background: rgba(34, 197, 94, 0.3);
+      }
+      .v-line.green::after {
+        border-top: 5px solid rgba(34, 197, 94, 0.3);
+      }
+      .v-line.pink {
+        background: rgba(244, 114, 182, 0.3);
+      }
+      .v-line.pink::after {
+        border-top: 5px solid rgba(244, 114, 182, 0.3);
+      }
+      .v-line.blue {
+        background: rgba(77, 124, 255, 0.2);
+      }
+      .v-line.blue::after {
+        border-top: 5px solid rgba(77, 124, 255, 0.2);
+      }
+      .v-line.violet {
+        background: rgba(139, 92, 246, 0.2);
+      }
+      .v-line.violet::after {
+        border-top: 5px solid rgba(139, 92, 246, 0.2);
+      }
+      .v-line.cyan {
+        background: rgba(34, 211, 238, 0.2);
+      }
+      .v-line.cyan::after {
+        border-top: 5px solid rgba(34, 211, 238, 0.2);
+      }
+      .v-line.orange {
+        background: rgba(249, 115, 22, 0.2);
+      }
+      .v-line.orange::after {
+        border-top: 5px solid rgba(249, 115, 22, 0.2);
+      }
+      .v-line.amber {
+        background: rgba(251, 191, 36, 0.2);
+      }
+      .v-line.amber::after {
+        border-top: 5px solid rgba(251, 191, 36, 0.2);
+      }
+      .v-line.gray {
+        background: rgba(136, 136, 160, 0.2);
+      }
+      .v-line.gray::after {
+        border-top: 5px solid rgba(136, 136, 160, 0.2);
+      }
+
+      .annotation {
+        text-align: center;
+        padding: 4px 0;
+        font-size: 10px;
+        font-family: "IBM Plex Mono", monospace;
+        color: var(--text-faint);
+        letter-spacing: 0.5px;
+      }
+
+      /* === FRAMEWORK ROW WITH LATERAL PROTOCOLS === */
+      .framework-row {
+        display: flex;
+        align-items: stretch;
+        gap: 16px;
+        justify-content: center;
+        padding: 0 0 24px;
+      }
+      .protocol-wing {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: center;
+        justify-content: center;
+        padding: 16px 20px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.01);
+        min-width: 140px;
+      }
+      .protocol-wing .wing-label {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 8px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--text-faint);
+      }
+      .protocol-wing .wing-desc {
+        font-size: 9px;
+        color: var(--text-faint);
+        text-align: center;
+        line-height: 1.4;
+      }
+      .h-connector {
+        display: flex;
+        align-items: center;
+        padding: 0 4px;
+      }
+      .h-line {
+        width: 24px;
+        height: 1px;
+        position: relative;
+      }
+      .h-line.pink {
+        background: rgba(244, 114, 182, 0.3);
+      }
+      .h-line.amber {
+        background: rgba(251, 191, 36, 0.2);
+      }
+      .h-arrow {
+        width: 0;
+        height: 0;
+        border-top: 4px solid transparent;
+        border-bottom: 4px solid transparent;
+      }
+      .h-arrow.left.pink {
+        border-right: 5px solid rgba(244, 114, 182, 0.3);
+      }
+      .h-arrow.right.pink {
+        border-left: 5px solid rgba(244, 114, 182, 0.3);
+      }
+      .h-arrow.left.amber {
+        border-right: 5px solid rgba(251, 191, 36, 0.2);
+      }
+      .h-arrow.right.amber {
+        border-left: 5px solid rgba(251, 191, 36, 0.2);
+      }
+
+      .frameworks-center {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 6px;
+        justify-content: center;
+        align-items: center;
+      }
+      .frameworks-center .chip {
+        white-space: nowrap;
+        padding: 6px 12px;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>The <strong>CopilotKit</strong> Stack</h1>
+      <p>
+        From frontend platform to model provider — every layer, every choice
+      </p>
+    </div>
+
+    <div class="stack">
+      <!-- LAYER: Frontend Platforms -->
+      <div class="layer">
+        <div class="layer-label">
+          <span
+            class="tag"
+            style="background: rgba(77, 124, 255, 0.1); color: #8ab4ff"
+            >Frontend Platform</span
+          >
+          <div class="line" style="background: rgba(77, 124, 255, 0.15)"></div>
+          <span class="desc">Where your UI runs</span>
+        </div>
+        <div
+          style="
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            padding: 0 0 24px;
+          "
+        >
+          <div class="subgroup" style="border-color: rgba(77, 124, 255, 0.15)">
+            <div class="subgroup-label">Web</div>
+            <div class="chips">
+              <div class="chip chip-frontend sm">React</div>
+              <div class="chip chip-frontend sm">Angular</div>
+              <div class="chip chip-frontend sm">Svelte</div>
+              <div class="chip chip-frontend sm">Vue</div>
+              <div class="chip chip-frontend sm">TanStack</div>
+            </div>
+          </div>
+          <div class="subgroup" style="border-color: rgba(77, 124, 255, 0.15)">
+            <div class="subgroup-label">Native</div>
+            <div class="chips">
+              <div class="chip chip-frontend sm">React Native</div>
+              <div class="chip chip-frontend sm">SwiftUI</div>
+              <div class="chip chip-frontend sm">Android</div>
+            </div>
+          </div>
+          <div class="subgroup" style="border-color: rgba(77, 124, 255, 0.15)">
+            <div class="subgroup-label">Messaging</div>
+            <div class="chips">
+              <div class="chip chip-frontend sm">Slack</div>
+              <div class="chip chip-frontend sm">Teams</div>
+              <div class="chip chip-frontend sm">WhatsApp</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="v-connector"><div class="v-line blue"></div></div>
+
+      <!-- LAYER: Chat UI — spectrum from pre-built to fully headless -->
+      <div class="layer">
+        <div class="layer-label">
+          <span
+            class="tag"
+            style="background: rgba(139, 92, 246, 0.1); color: #b8a0f8"
+            >Chat UI</span
+          >
+          <div class="line" style="background: rgba(139, 92, 246, 0.15)"></div>
+          <span class="desc">Pre-built → customized → headless</span>
+        </div>
+        <div class="layer-content" style="position: relative">
+          <!-- Spectrum arrow underneath -->
+          <div
+            style="
+              position: absolute;
+              bottom: 2px;
+              left: 10%;
+              right: 10%;
+              display: flex;
+              align-items: center;
+            "
+          >
+            <div
+              style="
+                font-family: &quot;IBM Plex Mono&quot;, monospace;
+                font-size: 8px;
+                color: var(--text-faint);
+                letter-spacing: 1px;
+              "
+            >
+              OPINIONATED
+            </div>
+            <div
+              style="
+                flex: 1;
+                height: 1px;
+                background: linear-gradient(
+                  to right,
+                  rgba(139, 92, 246, 0.3),
+                  rgba(139, 92, 246, 0.08)
+                );
+                margin: 0 8px;
+              "
+            ></div>
+            <div
+              style="
+                font-family: &quot;IBM Plex Mono&quot;, monospace;
+                font-size: 8px;
+                color: var(--text-faint);
+                letter-spacing: 1px;
+              "
+            >
+              FULL CONTROL
+            </div>
+          </div>
+          <div class="chip chip-genui">CopilotChat</div>
+          <div class="chip chip-genui">CopilotSidebar</div>
+          <div class="chip chip-genui">CopilotPopup</div>
+          <div
+            style="
+              width: 1px;
+              height: 24px;
+              background: var(--border);
+              margin: 0 4px;
+            "
+          ></div>
+          <div class="chip chip-genui" style="border-style: dashed">
+            CSS Variables
+          </div>
+          <div class="chip chip-genui" style="border-style: dashed">Slots</div>
+          <div class="chip chip-genui" style="border-style: dashed">
+            Custom Sub-Components
+          </div>
+          <div
+            style="
+              width: 1px;
+              height: 24px;
+              background: var(--border);
+              margin: 0 4px;
+            "
+          ></div>
+          <div
+            class="chip chip-genui"
+            style="background: rgba(139, 92, 246, 0.12); font-weight: 600"
+          >
+            Headless (useAgent)
+          </div>
+        </div>
+      </div>
+
+      <div class="v-connector"><div class="v-line violet"></div></div>
+
+      <!-- LAYER: Generative UI — spectrum from controlled to open -->
+      <div class="layer">
+        <div class="layer-label">
+          <span
+            class="tag"
+            style="background: rgba(139, 92, 246, 0.1); color: #b8a0f8"
+            >Generative UI</span
+          >
+          <div class="line" style="background: rgba(139, 92, 246, 0.15)"></div>
+          <span class="desc">Controlled → declarative → open</span>
+        </div>
+        <div class="layer-content" style="position: relative">
+          <!-- Spectrum arrow underneath -->
+          <div
+            style="
+              position: absolute;
+              bottom: 2px;
+              left: 10%;
+              right: 10%;
+              display: flex;
+              align-items: center;
+            "
+          >
+            <div
+              style="
+                font-family: &quot;IBM Plex Mono&quot;, monospace;
+                font-size: 8px;
+                color: var(--text-faint);
+                letter-spacing: 1px;
+              "
+            >
+              MORE CONTROL
+            </div>
+            <div
+              style="
+                flex: 1;
+                height: 1px;
+                background: linear-gradient(
+                  to right,
+                  rgba(139, 92, 246, 0.3),
+                  rgba(139, 92, 246, 0.08)
+                );
+                margin: 0 8px;
+              "
+            ></div>
+            <div
+              style="
+                font-family: &quot;IBM Plex Mono&quot;, monospace;
+                font-size: 8px;
+                color: var(--text-faint);
+                letter-spacing: 1px;
+              "
+            >
+              MORE FREEDOM
+            </div>
+          </div>
+          <div class="subgroup" style="border-color: rgba(139, 92, 246, 0.15)">
+            <div class="subgroup-label">Controlled</div>
+            <div class="chips">
+              <div class="chip chip-genui sm">Tool-Based</div>
+              <div class="chip chip-genui sm">Agentic</div>
+              <div class="chip chip-genui sm">Interrupt-Based</div>
+            </div>
+          </div>
+          <div
+            class="subgroup"
+            style="border-style: dashed; border-color: rgba(139, 92, 246, 0.15)"
+          >
+            <div class="subgroup-label">Declarative (BYOC)</div>
+            <div class="chips">
+              <div class="chip chip-genui sm">A2UI</div>
+              <div class="chip chip-genui sm">Hashbrown</div>
+              <div class="chip chip-genui sm">JSON Render</div>
+              <div class="chip chip-genui sm">OpenGenUI</div>
+              <div class="chip chip-genui sm">Tambo</div>
+            </div>
+          </div>
+          <div
+            class="subgroup"
+            style="
+              border-color: rgba(139, 92, 246, 0.25);
+              background: rgba(139, 92, 246, 0.04);
+            "
+          >
+            <div class="subgroup-label">Open</div>
+            <div class="chips">
+              <div class="chip chip-genui sm" style="font-weight: 600">
+                Fully Agent-Generated
+              </div>
+              <div class="chip chip-genui sm" style="font-weight: 600">
+                MCP Apps
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="v-connector"><div class="v-line cyan"></div></div>
+
+      <!-- LAYER: Interaction Patterns -->
+      <div class="layer">
+        <div class="layer-label">
+          <span
+            class="tag"
+            style="background: rgba(34, 211, 238, 0.1); color: #66e0f0"
+            >Interaction Patterns</span
+          >
+          <div class="line" style="background: rgba(34, 211, 238, 0.15)"></div>
+          <span class="desc">How users and agents collaborate</span>
+        </div>
+        <div class="layer-content">
+          <div class="chip chip-interaction">Human in the Loop</div>
+          <div class="chip chip-interaction">Frontend Tools</div>
+          <div class="chip chip-interaction">Tool Rendering</div>
+          <div class="chip chip-interaction">Readables</div>
+          <div class="chip chip-interaction">Agent Context</div>
+          <div class="chip chip-interaction">Suggestions</div>
+          <div class="chip chip-interaction">Voice</div>
+          <div class="chip chip-interaction">Multi-modal</div>
+        </div>
+      </div>
+
+      <div class="v-connector"><div class="v-line orange"></div></div>
+
+      <!-- LAYER: State Sync -->
+      <div class="layer">
+        <div class="layer-label">
+          <span
+            class="tag"
+            style="background: rgba(249, 115, 22, 0.1); color: #fbb070"
+            >State Sync</span
+          >
+          <div class="line" style="background: rgba(249, 115, 22, 0.15)"></div>
+          <span class="desc">Shared state between UI and agent</span>
+        </div>
+        <div class="layer-content">
+          <div class="chip chip-state">State Reading</div>
+          <div class="chip chip-state">State Writing</div>
+          <div class="chip chip-state">State Streaming</div>
+          <div class="chip chip-state">I/O Schemas</div>
+          <div class="chip chip-state">State Rendering</div>
+        </div>
+      </div>
+
+      <div class="v-connector"><div class="v-line green"></div></div>
+
+      <!-- CORE: CopilotKit -->
+      <div class="central">
+        <div class="central-node copilotkit-node">
+          <h3>CopilotKit</h3>
+          <p>Runtime · SDK · React Bindings</p>
+        </div>
+      </div>
+
+      <div class="v-connector"><div class="v-line pink"></div></div>
+
+      <!-- CORE: AG-UI Protocol -->
+      <div class="central">
+        <div class="central-node agui-node">
+          <h3>AG-UI Protocol</h3>
+          <p>Agent ↔ UI interop standard</p>
+        </div>
+      </div>
+
+      <div class="v-connector"><div class="v-line amber"></div></div>
+
+      <!-- LAYER: Agent Frameworks + lateral protocols -->
+      <div class="layer">
+        <div class="layer-label">
+          <span
+            class="tag"
+            style="background: rgba(251, 191, 36, 0.1); color: #f0d070"
+            >Agent Frameworks</span
+          >
+          <div class="line" style="background: rgba(251, 191, 36, 0.15)"></div>
+          <span class="desc">Libraries you write agent code with</span>
+        </div>
+        <div class="framework-row">
+          <!-- Left wing: Agent-to-Agent -->
+          <div class="protocol-wing">
+            <div class="wing-label">Agent ↔ Agent</div>
+            <div class="chip chip-protocol sm">A2A</div>
+            <div class="chip chip-protocol sm">Open Agent Spec</div>
+            <div class="wing-desc">Agents communicate<br />with each other</div>
+          </div>
+
+          <div class="h-connector">
+            <div class="h-arrow left pink"></div>
+            <div class="h-line pink"></div>
+            <div class="h-arrow right pink"></div>
+          </div>
+
+          <!-- Center: frameworks -->
+          <div class="frameworks-center">
+            <div class="chip chip-framework">LangGraph</div>
+            <div class="chip chip-framework">Mastra</div>
+            <div class="chip chip-framework">CrewAI</div>
+            <div class="chip chip-framework">PydanticAI</div>
+            <div class="chip chip-framework">AG2</div>
+            <div class="chip chip-framework">Agno</div>
+            <div class="chip chip-framework">LlamaIndex</div>
+            <div class="chip chip-framework">Langroid</div>
+            <div class="chip chip-framework">AWS Strands</div>
+            <div class="chip chip-framework">Spring AI</div>
+            <div class="chip chip-framework">MAF</div>
+          </div>
+
+          <div class="h-connector">
+            <div class="h-arrow left amber"></div>
+            <div class="h-line amber"></div>
+            <div class="h-arrow right amber"></div>
+          </div>
+
+          <!-- Right wing: Agent-to-Tools -->
+          <div class="protocol-wing">
+            <div class="wing-label">Agent ↔ Tools</div>
+            <div class="chip chip-protocol sm">MCP</div>
+            <div class="wing-desc">
+              Agents discover &<br />call external tools
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="v-connector"><div class="v-line gray"></div></div>
+
+      <!-- LAYER: Agent Platforms -->
+      <div class="layer">
+        <div class="layer-label">
+          <span
+            class="tag"
+            style="background: rgba(136, 136, 160, 0.1); color: #a0a0b8"
+            >Agent Platforms</span
+          >
+          <div class="line" style="background: rgba(136, 136, 160, 0.15)"></div>
+          <span class="desc">Where you deploy and run your agents</span>
+        </div>
+        <div class="layer-content">
+          <div class="chip chip-platform">LangSmith / LangGraph Cloud</div>
+          <div class="chip chip-platform">AWS Agent Core</div>
+          <div class="chip chip-platform">Google Vertex AI</div>
+          <div class="chip chip-platform">Azure AI Foundry</div>
+          <div class="chip chip-platform">Cloudflare Workers</div>
+          <div class="chip chip-platform">Vercel</div>
+          <div class="chip chip-platform">Render / Railway / Fly</div>
+        </div>
+      </div>
+
+      <div class="v-connector"><div class="v-line gray"></div></div>
+
+      <!-- LAYER: LLM Providers -->
+      <div class="layer">
+        <div class="layer-label">
+          <span
+            class="tag"
+            style="background: rgba(255, 255, 255, 0.04); color: #888898"
+            >LLM Providers</span
+          >
+          <div class="line" style="background: rgba(255, 255, 255, 0.06)"></div>
+          <span class="desc">The models powering your agents</span>
+        </div>
+        <div class="layer-content">
+          <div class="chip chip-provider">OpenAI</div>
+          <div class="chip chip-provider">Anthropic</div>
+          <div class="chip chip-provider">Google</div>
+          <div class="chip chip-provider">AWS Bedrock</div>
+          <div class="chip chip-provider">Azure OpenAI</div>
+          <div class="chip chip-provider">Groq</div>
+          <div class="chip chip-provider">Ollama</div>
+          <div class="chip chip-provider">Any OpenAI-compatible</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

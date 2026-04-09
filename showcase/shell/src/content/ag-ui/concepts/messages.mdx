@@ -1,0 +1,488 @@
+---
+title: "Messages"
+description: "Understanding message structure and communication in AG-UI"
+---
+
+# Messages
+
+Messages form the backbone of communication in the AG-UI protocol. They
+represent the conversation history between users and AI agents, and provide a
+standardized way to exchange information regardless of the underlying AI service
+being used.
+
+## Message Structure
+
+AG-UI messages follow a vendor-neutral format, ensuring compatibility across
+different AI providers while maintaining a consistent structure. This allows
+applications to switch between AI services (like OpenAI, Anthropic, or custom
+models) without changing the client-side implementation.
+
+The basic message structure includes:
+
+```typescript
+interface BaseMessage {
+  id: string; // Unique identifier for the message
+  role: string; // The role of the sender (user, assistant, system, tool, reasoning)
+  content?: string; // Optional text content of the message
+  name?: string; // Optional name of the sender
+  encryptedContent?: string; // Optional encrypted content for privacy-preserving state continuity
+}
+```
+
+The `role` discriminator can be `"user"`, `"assistant"`, `"system"`, `"tool"`,
+`"developer"`, `"activity"`, or `"reasoning"`. Concrete message types extend
+this shape with the fields they need.
+
+> The `encryptedContent` field enables privacy-preserving workflows where
+> sensitive content (such as reasoning chains) can be passed across turns
+> without exposing the raw content. This is particularly useful for zero data
+> retention (ZDR) compliance and `store:false` scenarios.
+
+## Message Types
+
+AG-UI supports several message types to accommodate different participants in a
+conversation:
+
+### User Messages
+
+Messages from the end user to the agent:
+
+```typescript
+interface UserMessage {
+  id: string;
+  role: "user";
+  content: string | InputContent[]; // Text or multimodal input from the user
+  name?: string; // Optional user identifier
+}
+
+type InputContent =
+  | TextInputContent
+  | ImageInputContent
+  | AudioInputContent
+  | VideoInputContent
+  | DocumentInputContent;
+
+interface InputContentDataSource {
+  type: "data";
+  value: string;
+  mimeType: string;
+}
+
+interface InputContentUrlSource {
+  type: "url";
+  value: string;
+  mimeType?: string;
+}
+
+type InputContentSource = InputContentDataSource | InputContentUrlSource;
+
+interface TextInputContent {
+  type: "text";
+  text: string;
+}
+
+interface ImageInputContent {
+  type: "image";
+  source: InputContentSource;
+  metadata?: Record<string, unknown>;
+}
+
+interface AudioInputContent {
+  type: "audio";
+  source: InputContentSource;
+  metadata?: Record<string, unknown>;
+}
+
+interface VideoInputContent {
+  type: "video";
+  source: InputContentSource;
+  metadata?: Record<string, unknown>;
+}
+
+interface DocumentInputContent {
+  type: "document";
+  source: InputContentSource;
+  metadata?: Record<string, unknown>;
+}
+```
+
+> In Python, the previous `BinaryInputContent` model is deprecated and remains
+> temporarily available as a compatibility path.
+
+This structure keeps traditional plain-text inputs working while enabling richer
+payloads such as images, audio clips, or uploaded files in the same message.
+
+### Assistant Messages
+
+Messages from the AI assistant to the user:
+
+```typescript
+interface AssistantMessage {
+  id: string;
+  role: "assistant";
+  content?: string; // Text response from the assistant (optional if using tool calls)
+  name?: string; // Optional assistant identifier
+  toolCalls?: ToolCall[]; // Optional tool calls made by the assistant
+  encryptedContent?: string; // Optional encrypted content for state continuity
+}
+```
+
+### System Messages
+
+Instructions or context provided to the agent:
+
+```typescript
+interface SystemMessage {
+  id: string;
+  role: "system";
+  content: string; // Instructions or context for the agent
+  name?: string; // Optional identifier
+}
+```
+
+### Tool Messages
+
+Results from tool executions:
+
+```typescript
+interface ToolMessage {
+  id: string;
+  role: "tool";
+  content: string; // Result from the tool execution
+  toolCallId: string; // ID of the tool call this message responds to
+  error?: string; // Optional error message if the tool execution failed
+  encryptedValue?: string; // Optional encrypted reasoning for state continuity
+}
+```
+
+Key points:
+
+- The `toolCallId` links the result back to the original tool call
+- Use `error` to indicate tool execution failures
+- Use `encryptedValue` to attach encrypted chain-of-thought related to how the
+  agent interpreted or processed the tool result
+
+### Activity Messages
+
+Structured UI messages that exist only on the frontend.  Used for progress,
+status, or any custom visual element that shouldn’t be sent to the model:
+
+```typescript
+interface ActivityMessage {
+  id: string;
+  role: "activity";
+  activityType: string; // e.g. "PLAN", "SEARCH", "SCRAPE"
+  content: Record<string, any>; // Structured payload rendered by the frontend
+}
+```
+
+Key points
+
+- Emitted via `ACTIVITY_SNAPSHOT` and `ACTIVITY_DELTA` to support live,
+  updateable UI (checklists, steps, search-in-progress, etc.).
+- **Frontend-only:** never forwarded to the agent, so no filtering and no LLM
+  confusion.
+- **Customizable:** define your own `activityType` and `content` and render a
+  matching UI component.
+- **Streamable:** can be updated over time for long-running operations.
+- Helps persist/restore custom events by turning them into durable message
+  objects.
+
+### Developer Messages
+
+Internal messages used for development or debugging:
+
+```typescript
+interface DeveloperMessage {
+  id: string;
+  role: "developer";
+  content: string;
+  name?: string;
+}
+```
+
+### Reasoning Messages
+
+Messages representing the agent's internal reasoning or chain-of-thought
+process:
+
+```typescript
+interface ReasoningMessage {
+  id: string;
+  role: "reasoning";
+  content: string; // Reasoning content (visible to client)
+  encryptedValue?: string; // Optional encrypted reasoning for state continuity
+}
+```
+
+<Tip>
+  Unlike Activity messages, Reasoning messages are intended to represent the
+  agent's internal thought process and may be encrypted for privacy and are
+  meant to be sent back to the agent for further processing on subsequent turns.
+</Tip>
+
+Key points:
+
+- Emitted via `REASONING_MESSAGE_START`, `REASONING_MESSAGE_CONTENT`, and
+  `REASONING_MESSAGE_END` events.
+- **Visibility control:** Content may be visible to users (as a summary) or
+  fully encrypted.
+- **Encrypted values:** Use `REASONING_ENCRYPTED_VALUE` events to attach
+  encrypted chain-of-thought to messages or tool calls without exposing content.
+- **State continuity:** Encrypted reasoning items can be passed across
+  conversation turns without exposing raw chain-of-thought.
+- **Privacy-first:** Supports `store:false` and zero data retention (ZDR)
+  policies while preserving reasoning capabilities.
+- **Separate from assistant messages:** Reasoning is kept distinct from final
+  responses to avoid polluting the conversation history.
+
+See [Reasoning Events](/concepts/events#reasoning-events) for the streaming
+event lifecycle.
+
+## Vendor Neutrality
+
+AG-UI messages are designed to be vendor-neutral, meaning they can be easily
+mapped to and from proprietary formats used by various AI providers:
+
+```typescript
+// Example: Converting AG-UI messages to OpenAI format
+const openaiMessages = agUiMessages
+  .filter((msg) => ["user", "system", "assistant"].includes(msg.role))
+  .map((msg) => ({
+    role: msg.role as "user" | "system" | "assistant",
+    content: msg.content || "",
+    // Map tool calls if present
+    ...(msg.role === "assistant" && msg.toolCalls
+      ? {
+          tool_calls: msg.toolCalls.map((tc) => ({
+            id: tc.id,
+            type: tc.type,
+            function: {
+              name: tc.function.name,
+              arguments: tc.function.arguments,
+            },
+          })),
+        }
+      : {}),
+  }));
+```
+
+This abstraction allows AG-UI to serve as a common interface regardless of the
+underlying AI service.
+
+## Message Synchronization
+
+Messages can be synchronized between client and server through two primary
+mechanisms:
+
+### Complete Snapshots
+
+The `MESSAGES_SNAPSHOT` event provides a complete view of all messages in a
+conversation:
+
+```typescript
+interface MessagesSnapshotEvent {
+  type: EventType.MESSAGES_SNAPSHOT;
+  messages: Message[]; // Complete array of all messages
+}
+```
+
+This is typically used:
+
+- When initializing a conversation
+- After connection interruptions
+- When major state changes occur
+- To ensure client-server synchronization
+
+### Streaming Messages
+
+For real-time interactions, new messages can be streamed as they're generated:
+
+1. **Start a message**: Indicate a new message is being created
+
+   ```typescript
+   interface TextMessageStartEvent {
+     type: EventType.TEXT_MESSAGE_START;
+     messageId: string;
+     role: string;
+   }
+   ```
+
+2. **Stream content**: Send content chunks as they become available
+
+   ```typescript
+   interface TextMessageContentEvent {
+     type: EventType.TEXT_MESSAGE_CONTENT;
+     messageId: string;
+     delta: string; // Text chunk to append
+   }
+   ```
+
+3. **End a message**: Signal the message is complete
+   ```typescript
+   interface TextMessageEndEvent {
+     type: EventType.TEXT_MESSAGE_END;
+     messageId: string;
+   }
+   ```
+
+This streaming approach provides a responsive user experience with immediate
+feedback.
+
+## Tool Integration in Messages
+
+AG-UI messages elegantly integrate tool usage, allowing agents to perform
+actions and process their results:
+
+### Tool Calls
+
+Tool calls are embedded within assistant messages:
+
+```typescript
+interface ToolCall {
+  id: string; // Unique ID for this tool call
+  type: "function"; // Type of tool call
+  function: {
+    name: string; // Name of the function to call
+    arguments: string; // JSON-encoded string of arguments
+  };
+}
+```
+
+Example assistant message with tool calls:
+
+```typescript
+{
+  id: "msg_123",
+  role: "assistant",
+  content: "I'll help you with that calculation.",
+  toolCalls: [
+    {
+      id: "call_456",
+      type: "function",
+      function: {
+        name: "calculate",
+        arguments: '{"expression": "24 * 7"}'
+      }
+    }
+  ]
+}
+```
+
+### Tool Results
+
+Results from tool executions are represented as tool messages:
+
+```typescript
+{
+  id: "result_789",
+  role: "tool",
+  content: "168",
+  toolCallId: "call_456" // References the original tool call
+}
+```
+
+This creates a clear chain of tool usage:
+
+1. Assistant requests a tool call
+2. Tool executes and returns a result
+3. Assistant can reference and respond to the result
+
+## Streaming Tool Calls
+
+Similar to text messages, tool calls can be streamed to provide real-time
+visibility into the agent's actions:
+
+1. **Start a tool call**:
+
+   ```typescript
+   interface ToolCallStartEvent {
+     type: EventType.TOOL_CALL_START;
+     toolCallId: string;
+     toolCallName: string;
+     parentMessageId?: string; // Optional link to parent message
+   }
+   ```
+
+2. **Stream arguments**:
+
+   ```typescript
+   interface ToolCallArgsEvent {
+     type: EventType.TOOL_CALL_ARGS;
+     toolCallId: string;
+     delta: string; // JSON fragment to append to arguments
+   }
+   ```
+
+3. **End a tool call**:
+   ```typescript
+   interface ToolCallEndEvent {
+     type: EventType.TOOL_CALL_END;
+     toolCallId: string;
+   }
+   ```
+
+This allows frontends to show tools being invoked progressively as the agent
+constructs its reasoning.
+
+## Practical Example
+
+Here's a complete example of a conversation with tool usage:
+
+```typescript
+// Conversation history
+[
+  // User query
+  {
+    id: "msg_1",
+    role: "user",
+    content: "What's the weather in New York?",
+  },
+
+  // Assistant response with tool call
+  {
+    id: "msg_2",
+    role: "assistant",
+    content: "Let me check the weather for you.",
+    toolCalls: [
+      {
+        id: "call_1",
+        type: "function",
+        function: {
+          name: "get_weather",
+          arguments: '{"location": "New York", "unit": "celsius"}',
+        },
+      },
+    ],
+  },
+
+  // Tool result
+  {
+    id: "result_1",
+    role: "tool",
+    content:
+      '{"temperature": 22, "condition": "Partly Cloudy", "humidity": 65}',
+    toolCallId: "call_1",
+  },
+
+  // Assistant's final response using tool results
+  {
+    id: "msg_3",
+    role: "assistant",
+    content:
+      "The weather in New York is partly cloudy with a temperature of 22°C and 65% humidity.",
+  },
+];
+```
+
+## Conclusion
+
+The message structure in AG-UI enables sophisticated conversational AI
+experiences while maintaining vendor neutrality. By standardizing how messages
+are represented, synchronized, and streamed, AG-UI provides a consistent way to
+implement interactive human-agent communication regardless of the underlying AI
+service.
+
+This system supports everything from simple text exchanges to complex tool-based
+workflows, all while optimizing for both real-time responsiveness and efficient
+data transfer.

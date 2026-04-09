@@ -134,7 +134,7 @@ Before you begin, you'll need the following:
                 Add Pydantic AI with AG-UI support and uvicorn to your project:
 
                 ```bash
-                uv add 'pydantic-ai-slim[ag-ui]' 'pydantic-ai-slim[openai]' uvicorn
+                uv add 'pydantic-ai-slim[ag-ui]' 'pydantic-ai-slim[openai]' uvicorn starlette==0.45.3
                 ```
             </Step>
             <Step>
@@ -228,6 +228,7 @@ Before you begin, you'll need the following:
                 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
                 import "@copilotkit/react-ui/v2/styles.css";
+                import './globals.css';
 
                 // ...
 

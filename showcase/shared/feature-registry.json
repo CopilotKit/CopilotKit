@@ -1,0 +1,337 @@
+{
+  "version": "1.0.0",
+  "categories": [
+    {
+      "id": "chat-ui",
+      "name": "Chat & UI"
+    },
+    {
+      "id": "generative-ui",
+      "name": "Generative UI"
+    },
+    {
+      "id": "agent-capabilities",
+      "name": "Agent Capabilities"
+    },
+    {
+      "id": "agent-state",
+      "name": "Agent State"
+    },
+    {
+      "id": "interactivity",
+      "name": "Interactivity"
+    },
+    {
+      "id": "multi-agent",
+      "name": "Multi-Agent"
+    },
+    {
+      "id": "platform",
+      "name": "Platform"
+    },
+    {
+      "id": "a2ui",
+      "name": "A2UI"
+    },
+    {
+      "id": "mobile",
+      "name": "Mobile"
+    },
+    {
+      "id": "web-frameworks",
+      "name": "Web Frameworks"
+    },
+    {
+      "id": "byoc",
+      "name": "BYOC (Bring Your Own Components)"
+    },
+    {
+      "id": "deep-agents",
+      "name": "Deep Agents"
+    }
+  ],
+  "features": [
+    {
+      "id": "agentic-chat",
+      "name": "Agentic Chat",
+      "category": "chat-ui",
+      "description": "Natural conversation with frontend tool execution"
+    },
+    {
+      "id": "chat-prebuilt",
+      "name": "Pre-built Chat Components",
+      "category": "chat-ui",
+      "description": "Using CopilotKit's pre-built chat components"
+    },
+    {
+      "id": "chat-slots",
+      "name": "Chat Customization (Slots)",
+      "category": "chat-ui",
+      "description": "Customizing chat components via the slot system"
+    },
+    {
+      "id": "headless-simple",
+      "name": "Headless Chat (Simple)",
+      "category": "chat-ui",
+      "description": "Simple headless UI getting started"
+    },
+    {
+      "id": "headless-complete",
+      "name": "Headless Chat (Complete)",
+      "category": "chat-ui",
+      "description": "Full headless UI with messages, tools, gen UI"
+    },
+    {
+      "id": "gen-ui-display",
+      "name": "Controlled Gen-UI (Display)",
+      "category": "generative-ui",
+      "description": "Displaying components from the agent"
+    },
+    {
+      "id": "gen-ui-interactive",
+      "name": "Controlled Gen-UI (Interactive)",
+      "category": "generative-ui",
+      "description": "Interactive components from the agent"
+    },
+    {
+      "id": "gen-ui-interrupt",
+      "name": "Controlled Gen-UI (Interrupt)",
+      "category": "generative-ui",
+      "description": "Interrupt-based component rendering"
+    },
+    {
+      "id": "gen-ui-tool-based",
+      "name": "Tool-Based Generative UI",
+      "category": "generative-ui",
+      "description": "Agent uses tools to trigger UI generation"
+    },
+    {
+      "id": "gen-ui-agent",
+      "name": "Agentic Generative UI",
+      "category": "generative-ui",
+      "description": "Long-running agent tasks with generated UI"
+    },
+    {
+      "id": "open-gen-ui",
+      "name": "Open Generative UI",
+      "category": "generative-ui",
+      "description": "Fully agent-generated HTML/component rendering"
+    },
+    {
+      "id": "tool-rendering",
+      "name": "Tool Rendering",
+      "category": "agent-capabilities",
+      "description": "Backend agent tools rendered as UI components"
+    },
+    {
+      "id": "state-rendering",
+      "name": "State Rendering",
+      "category": "agent-state",
+      "description": "Rendering agent execution state"
+    },
+    {
+      "id": "shared-state-read",
+      "name": "Shared State (Reading)",
+      "category": "agent-state",
+      "description": "Reading agent state from UI"
+    },
+    {
+      "id": "shared-state-write",
+      "name": "Shared State (Writing)",
+      "category": "agent-state",
+      "description": "Writing to agent state from UI"
+    },
+    {
+      "id": "shared-state-streaming",
+      "name": "State Streaming",
+      "category": "agent-state",
+      "description": "Per-token state delta streaming from agent to UI"
+    },
+    {
+      "id": "shared-state-io",
+      "name": "Shared State (I/O Schemas)",
+      "category": "agent-state",
+      "description": "Structured output schemas"
+    },
+    {
+      "id": "readables",
+      "name": "Readables (Client Context)",
+      "category": "agent-state",
+      "description": "Passing client-side context to agent"
+    },
+    {
+      "id": "hitl",
+      "name": "Human in the Loop",
+      "category": "interactivity",
+      "description": "User approves agent actions before execution"
+    },
+    {
+      "id": "frontend-tools-sync",
+      "name": "Frontend Tools (Sync)",
+      "category": "interactivity",
+      "description": "Synchronous frontend tool execution"
+    },
+    {
+      "id": "frontend-tools-async",
+      "name": "Frontend Tools (Async)",
+      "category": "interactivity",
+      "description": "Asynchronous frontend tool execution"
+    },
+    {
+      "id": "subagents",
+      "name": "Sub-Agents",
+      "category": "multi-agent",
+      "description": "Multiple agents with visible task delegation"
+    },
+    {
+      "id": "mcp-apps",
+      "name": "MCP Apps",
+      "category": "platform",
+      "description": "MCP server integration with UI display"
+    },
+    {
+      "id": "auth",
+      "name": "Authentication",
+      "category": "platform",
+      "description": "Framework-native authentication"
+    },
+    {
+      "id": "agent-config",
+      "name": "Agent Config Object",
+      "category": "platform",
+      "description": "Forwarded props / config objects"
+    },
+    {
+      "id": "voice",
+      "name": "Voice",
+      "category": "platform",
+      "description": "Real-time voice interaction"
+    },
+    {
+      "id": "multimodal",
+      "name": "Multi-modal / File Uploads",
+      "category": "platform",
+      "description": "File upload and agent processing"
+    },
+    {
+      "id": "a2ui-fixed",
+      "name": "A2UI (Fixed Schema)",
+      "category": "a2ui",
+      "description": "Static A2UI schema rendering"
+    },
+    {
+      "id": "a2ui-fixed-streaming",
+      "name": "A2UI (Fixed Schema Streaming)",
+      "category": "a2ui",
+      "description": "Streaming static A2UI"
+    },
+    {
+      "id": "a2ui-dynamic",
+      "name": "A2UI (Dynamic Schema)",
+      "category": "a2ui",
+      "description": "Agent-generated A2UI schemas"
+    },
+    {
+      "id": "mobile-react-native",
+      "name": "Mobile (React Native)",
+      "category": "mobile",
+      "description": "React Native support"
+    },
+    {
+      "id": "mobile-swiftui",
+      "name": "Mobile (SwiftUI)",
+      "category": "mobile",
+      "description": "SwiftUI support"
+    },
+    {
+      "id": "mobile-android",
+      "name": "Mobile (Android)",
+      "category": "mobile",
+      "description": "Android support"
+    },
+    {
+      "id": "web-angular",
+      "name": "Web (Angular)",
+      "category": "web-frameworks",
+      "description": "Angular support"
+    },
+    {
+      "id": "web-svelte",
+      "name": "Web (Svelte)",
+      "category": "web-frameworks",
+      "description": "Svelte support"
+    },
+    {
+      "id": "web-vue",
+      "name": "Web (Vue)",
+      "category": "web-frameworks",
+      "description": "Vue support"
+    },
+    {
+      "id": "web-tanstack",
+      "name": "Web (TanStack)",
+      "category": "web-frameworks",
+      "description": "TanStack Start support"
+    },
+    {
+      "id": "byoc-hashbrown",
+      "name": "BYOC Hashbrown",
+      "category": "byoc",
+      "description": "Hashbrown-style generative UI"
+    },
+    {
+      "id": "byoc-a2ui",
+      "name": "BYOC A2UI v0.9",
+      "category": "byoc",
+      "description": "Hashbrown-style generative UI on top of A2UI 0.9"
+    },
+    {
+      "id": "byoc-json-render",
+      "name": "BYOC json-render",
+      "category": "byoc",
+      "description": "Hashbrown-style generative UI built on json-render"
+    },
+    {
+      "id": "byoc-opengenui",
+      "name": "BYOC OpenGenUI",
+      "category": "byoc",
+      "description": "Hashbrown-style generative UI built on Open GenUI framework"
+    },
+    {
+      "id": "byoc-tambo",
+      "name": "BYOC Tambo",
+      "category": "byoc",
+      "description": "Hashbrown-style generative UI built on Tambo"
+    },
+    {
+      "id": "deep-agents",
+      "name": "Deep Agents",
+      "category": "deep-agents",
+      "description": "Deep agent architecture with nested agent orchestration"
+    },
+    {
+      "id": "agentic-chat-reasoning",
+      "name": "Agentic Chat (Reasoning)",
+      "category": "chat-ui",
+      "description": "Chat with visible reasoning/thinking chain display"
+    },
+    {
+      "id": "a2a-chat",
+      "name": "A2A Chat",
+      "category": "multi-agent",
+      "description": "Agent-to-Agent protocol chat with multi-tab agent communication"
+    },
+    {
+      "id": "a2ui-chat",
+      "name": "A2UI Chat",
+      "category": "a2ui",
+      "description": "Chat with rich A2UI surface rendering using A2UI message renderer"
+    },
+    {
+      "id": "vnext-chat",
+      "name": "vNext Chat",
+      "category": "platform",
+      "description": "Experimental next-generation chat using CopilotKit vNext runtime"
+    }
+  ]
+}

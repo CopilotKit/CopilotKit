@@ -96,6 +96,26 @@ import { CopilotKitProvider } from "@copilotkit/react-core/v2";
   Declarative human-in-the-loop tool definitions. Each becomes both a tool handler and a tool call renderer.
 </PropertyReference>
 
+<PropertyReference name="openGenerativeUI" type="{ sandboxFunctions?: SandboxFunction[] }">
+  Enable [Open Generative UI](/generative-ui/open-generative-ui) — lets the agent generate sandboxed HTML/CSS/JS UIs that stream live into the chat.
+
+  Provide `sandboxFunctions` to expose host application functions to the sandboxed iframe. See the [sandbox functions guide](/generative-ui/open-generative-ui#advanced-sandbox-functions) for details. Only needed when using sandbox functions — Open Generative UI rendering works without this prop.
+
+  ```tsx
+  <CopilotKitProvider
+    runtimeUrl="/api/copilotkit"
+    openGenerativeUI={{
+      sandboxFunctions: [{
+        name: "setTheme",
+        description: "Switch between light and dark mode",
+        parameters: z.object({ mode: z.enum(["light", "dark"]) }),
+        handler: async ({ mode }) => { setTheme(mode); return `Theme set to ${mode}`; },
+      }],
+    }}
+  >
+  ```
+</PropertyReference>
+
 <PropertyReference name="showDevConsole" type='boolean | "auto"'>
   Show the CopilotKit developer console for debugging.
 </PropertyReference>
