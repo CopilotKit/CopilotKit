@@ -1,5 +1,12 @@
 # @copilotkit/voice
 
+## 1.55.1-next.0
+
+### Patch Changes
+
+- Updated dependencies [e6e8ef8]
+  - @copilotkit/runtime@1.55.1-next.0
+
 ## 1.55.0
 
 ### Minor Changes
