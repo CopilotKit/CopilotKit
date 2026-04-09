@@ -1,0 +1,24 @@
+# Dockerfile for the Python LangGraph-FastAPI agent.
+# Mirrors the user experience: uv sync + uv run main.py (same as pnpm dev:agent).
+FROM python:3.12-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/root/.local/bin:$PATH"
+
+WORKDIR /app
+
+# Copy agent source and install deps the same way users do (uv sync)
+COPY pyproject.toml uv.lock ./
+COPY src/ ./src/
+COPY main.py ./
+
+RUN uv sync
+
+EXPOSE 8123
+
+# Run main.py the same way the npm wrapper does (cd agent && uv run main.py)
+CMD ["uv", "run", "main.py"]

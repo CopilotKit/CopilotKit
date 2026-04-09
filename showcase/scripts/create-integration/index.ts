@@ -1159,6 +1159,65 @@ function generateTsConfig(): string {
   );
 }
 
+function generateDockerComposeTest(): string {
+  return `# Docker Compose stack for e2e smoke testing with aimock.
+# Usage: docker compose -f docker-compose.test.yml up -d
+services:
+  aimock:
+    image: ghcr.io/copilotkit/aimock:latest
+    ports:
+      - "4010:4010"
+    volumes:
+      - ./fixtures:/fixtures:ro
+    command: ["--fixtures", "/fixtures", "--host", "0.0.0.0"]
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        INSTALL_MODE: fresh
+    ports:
+      - "3000:3000"
+    environment:
+      - OPENAI_API_KEY=test-key-for-aimock
+      - OPENAI_BASE_URL=http://aimock:4010/v1
+    depends_on:
+      aimock:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+`;
+}
+
+function generateDefaultFixtures(slug: string): string {
+  return JSON.stringify(
+    {
+      fixtures: [
+        {
+          match: { userMessage: "Hello" },
+          response: {
+            content: `Hello! I'm the ${slug} AI assistant. How can I help you?`,
+          },
+        },
+        {
+          match: {},
+          response: {
+            content:
+              "You're currently running against aimock (a mock LLM server). This response is a catch-all for requests that don't match any test fixture. To use a real LLM: (1) Add your OPENAI_API_KEY to .env, (2) Remove or unset OPENAI_BASE_URL from your environment so requests go to OpenAI instead of aimock, (3) Restart with `pnpm dev`.",
+          },
+        },
+      ],
+    },
+    null,
+    2,
+  );
+}
+
 function generateGitignore(): string {
   return `node_modules/
 .next/
@@ -1216,6 +1275,16 @@ async function main() {
   writeFile(
     path.join(packageDir, "playwright.config.ts"),
     generatePlaywrightConfig(),
+  );
+
+  // E2E test infrastructure
+  writeFile(
+    path.join(packageDir, "docker-compose.test.yml"),
+    generateDockerComposeTest(),
+  );
+  writeFile(
+    path.join(packageDir, "fixtures", "default.json"),
+    generateDefaultFixtures(args.slug),
   );
 
   if (args.language !== "typescript") {
@@ -1457,6 +1526,53 @@ function updateWorkflows(args: CLIArgs) {
       );
       fs.writeFileSync(driftPath, drift);
       console.log("  Updated showcase_drift-detection.yml");
+    }
+  }
+
+  // 3. Update starter-smoke.yml — add to matrix (block sequence format)
+  const smokePath = path.join(workflowsDir, "starter-smoke.yml");
+  if (fs.existsSync(smokePath)) {
+    let smoke = fs.readFileSync(smokePath, "utf-8");
+    const slug = args.slug;
+
+    // The matrix uses YAML block sequence format:
+    //   starter:
+    //     - langgraph-python
+    //     - mastra
+    // Find the last `- <slug>` entry after `starter:` under `matrix:` and append.
+    const lines = smoke.split("\n");
+    let lastEntryIndex = -1;
+    let inStarterBlock = false;
+    let entryIndent = "";
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/^\s+starter:\s*$/.test(line)) {
+        inStarterBlock = true;
+        continue;
+      }
+      if (inStarterBlock) {
+        const entryMatch = line.match(/^(\s+- )\S/);
+        if (entryMatch) {
+          lastEntryIndex = i;
+          entryIndent = entryMatch[1];
+          if (line.trim() === `- ${slug}`) {
+            // Already present
+            lastEntryIndex = -1;
+            break;
+          }
+        } else {
+          // End of block sequence
+          break;
+        }
+      }
+    }
+
+    if (lastEntryIndex >= 0) {
+      lines.splice(lastEntryIndex + 1, 0, `${entryIndent}${slug}`);
+      smoke = lines.join("\n");
+      fs.writeFileSync(smokePath, smoke);
+      console.log("  Updated starter-smoke.yml");
     }
   }
 }
