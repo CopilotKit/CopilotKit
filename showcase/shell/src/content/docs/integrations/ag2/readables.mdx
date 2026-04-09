@@ -121,7 +121,7 @@ This context can then be shared with your AG2 backend.
                                 "You are a helpful assistant that can help emailing colleagues. "
                                 "Call `get_colleagues` before suggesting recipients."
                             ),
-                            llm_config=LLMConfig({"model": "gpt-5.2-mini"}),
+                            llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
                         )
 
                         @agent.register_for_llm(description="Return the current user's colleagues from CopilotKit readables.")
@@ -204,7 +204,7 @@ This context can then be shared with your AG2 backend.
                         agent = ConversableAgent(
                             name="assistant",
                             system_message="You are a helpful assistant.",
-                            llm_config=LLMConfig({"model": "gpt-5.2-mini"}),
+                            llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
                         )
 
                         @agent.register_for_llm(description="Read colleagues from CopilotKit readable context.")

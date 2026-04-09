@@ -107,7 +107,7 @@ is the complete implementation of the agent with explanations.
         ```python title="agent/sample_agent/agent.py"
         from pydantic_ai import Agent
 
-        agent = Agent('openai:gpt-5.2-mini')
+        agent = Agent('openai:gpt-5.4-mini')
 
         @agent.tool_plain
         async def write_essay(topic: str) -> str:
