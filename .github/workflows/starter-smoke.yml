@@ -115,15 +115,13 @@ jobs:
 
       - name: Alert Slack on failure
         if: failure() && github.event_name == 'schedule'
-        env:
-          FAILURE_SUMMARY: ${{ steps.failure-cause.outputs.summary }}
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload: |
             {
-              "text": "Starter smoke test failing: *${{ matrix.starter }}*\n```${{ steps.failure-cause.outputs.summary }}```\nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              "text": ${{ toJSON(format('Starter smoke test failing: *{0}*\n```{1}```\nRun: {2}/{3}/actions/runs/{4}', matrix.starter, steps.failure-cause.outputs.summary, github.server_url, github.repository, github.run_id)) }}
             }
 
       - name: Create GitHub issue on failure
