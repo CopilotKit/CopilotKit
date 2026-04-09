@@ -73,11 +73,7 @@ test.describe(`starter-smoke: ${STARTER_SLUG}`, () => {
   test(`@health ${STARTER_SLUG} — health endpoint responds`, async ({
     request,
   }) => {
-    const result = await checkHealth(
-      request,
-      STARTER_URL,
-      starter.healthPaths,
-    );
+    const result = await checkHealth(request, STARTER_URL, starter.healthPaths);
     expect(result.ok, `Health check failed: ${result.body}`).toBe(true);
   });
 
@@ -148,14 +144,15 @@ test.describe(`starter-smoke: ${STARTER_SLUG}`, () => {
       await textarea.waitFor({ state: "visible", timeout: 10_000 });
 
       // Verify the sidebar rendered with its title
-      await expect(
-        page.locator("text=Popup Assistant").first(),
-      ).toBeVisible({ timeout: 10_000 });
+      await expect(page.locator("text=Popup Assistant").first()).toBeVisible({
+        timeout: 10_000,
+      });
     }
 
     // Verify no JS errors throughout
     const errors = getErrors().filter(
-      (e) => !e.includes("favicon.ico") && !e.includes("net::ERR_BLOCKED_BY_CLIENT"),
+      (e) =>
+        !e.includes("favicon.ico") && !e.includes("net::ERR_BLOCKED_BY_CLIENT"),
     );
     expect(errors, `JS console errors:\n${errors.join("\n")}`).toHaveLength(0);
   });

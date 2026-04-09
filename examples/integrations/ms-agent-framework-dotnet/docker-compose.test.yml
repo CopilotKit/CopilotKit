@@ -21,7 +21,11 @@ services:
       aimock:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8000/ || test $(curl -so /dev/null -w '%{http_code}' http://localhost:8000/) -ge 200"]
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sf http://localhost:8000/ || test $(curl -so /dev/null -w '%{http_code}' http://localhost:8000/) -ge 200",
+        ]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -37,7 +41,13 @@ services:
       agent:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "const http = require('http'); const req = http.get('http://localhost:3000/', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on('error', () => process.exit(1)); req.setTimeout(2000, () => { req.destroy(); process.exit(1); });"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const http = require('http'); const req = http.get('http://localhost:3000/', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); req.on('error', () => process.exit(1)); req.setTimeout(2000, () => { req.destroy(); process.exit(1); });",
+        ]
       interval: 5s
       timeout: 10s
       retries: 30
@@ -55,7 +65,12 @@ services:
     depends_on:
       app:
         condition: service_healthy
-    command: ["bash", "-c", "cd /tests && npm install --no-audit --no-fund 2>/dev/null && npx playwright install chromium --with-deps 2>/dev/null && npx playwright test starter-smoke --reporter=list"]
+    command:
+      [
+        "bash",
+        "-c",
+        "cd /tests && npm install --no-audit --no-fund 2>/dev/null && npx playwright install chromium --with-deps 2>/dev/null && npx playwright test starter-smoke --reporter=list",
+      ]
 
 volumes:
   test-results:

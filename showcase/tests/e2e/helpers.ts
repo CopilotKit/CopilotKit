@@ -201,7 +201,9 @@ export async function sendChatMessage(
   const pageText = await page.locator("body").textContent();
   const userMsgIndex = pageText?.lastIndexOf(message) ?? -1;
   if (userMsgIndex >= 0) {
-    const afterUserMsg = (pageText ?? "").slice(userMsgIndex + message.length).trim();
+    const afterUserMsg = (pageText ?? "")
+      .slice(userMsgIndex + message.length)
+      .trim();
     // Filter out UI chrome text (buttons, labels) — look for substantial text
     const stripped = afterUserMsg
       .replace(/Regenerate response/g, "")
@@ -212,7 +214,10 @@ export async function sendChatMessage(
       .replace(/\bSend\b/g, "")
       .trim();
     if (stripped.length > 20) {
-      return { gotResponse: true, responseText: stripped.split("\n")[0].trim() };
+      return {
+        gotResponse: true,
+        responseText: stripped.split("\n")[0].trim(),
+      };
     }
   }
 
