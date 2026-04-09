@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/runtime",
-  "version": "1.55.1-next.0",
+  "version": "1.55.1",
   "private": false,
   "keywords": [
     "ai",
