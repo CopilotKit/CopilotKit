@@ -151,7 +151,8 @@ jobs:
 
       - name: Build Slack payload
         if: steps.smoke.outputs.has_alerts == 'true'
-        run: jq -n --rawfile text alerts.txt '{"text": $text}' > slack-payload.json
+        run: |
+          jq -n --rawfile text alerts.txt '{"text": $text}' > slack-payload.json
 
       - name: Post to Slack
         if: steps.smoke.outputs.has_alerts == 'true'
