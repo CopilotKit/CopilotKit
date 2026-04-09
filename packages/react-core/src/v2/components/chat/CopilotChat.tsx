@@ -55,6 +55,10 @@ export type CopilotChatProps = Omit<
   labels?: Partial<CopilotChatLabels>;
   chatView?: SlotValue<typeof CopilotChatView>;
   isModalDefaultOpen?: boolean;
+  /** Controlled mode: external source of truth for modal open/close state. */
+  isModalOpen?: boolean;
+  /** Callback fired when the modal wants to change its open state. */
+  onModalOpenChange?: (open: boolean) => void;
   /** Enable multimodal file attachments (images, audio, video, documents). */
   attachments?: AttachmentsConfig;
   /**
@@ -86,6 +90,8 @@ export function CopilotChat({
   labels,
   chatView,
   isModalDefaultOpen,
+  isModalOpen,
+  onModalOpenChange,
   attachments: attachmentsConfig,
   onError,
   throttleMs,
@@ -533,6 +539,8 @@ export function CopilotChat({
       threadId={resolvedThreadId}
       labels={labels}
       isModalDefaultOpen={isModalDefaultOpen}
+      isModalOpen={isModalOpen}
+      onModalOpenChange={onModalOpenChange}
     >
       <div ref={chatContainerRef} style={{ display: "contents" }}>
         {attachmentsEnabled && (
