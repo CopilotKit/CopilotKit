@@ -168,10 +168,3 @@ jobs:
             This PR was created automatically after publishing a stable release.
 
             It re-enters Changesets prerelease mode for `next` so future release PRs continue on the `next` channel.
-
-      - name: Enable auto-merge for prerelease mode PR
-        if: steps.prerelease-pr.outputs.pull-request-number
-        continue-on-error: true
-        run: gh pr merge --squash --auto "${{ steps.prerelease-pr.outputs.pull-request-number }}"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
