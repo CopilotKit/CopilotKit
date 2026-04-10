@@ -1,3 +1,6 @@
+// React Native global provided by Metro bundler
+declare const __DEV__: boolean;
+
 declare module "text-encoding" {
   export class TextEncoder {
     encode(input?: string): Uint8Array;

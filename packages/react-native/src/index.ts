@@ -39,4 +39,7 @@ export {
 } from "@copilotkit/react-core/v2/headless";
 
 // Re-export core types commonly needed
-export { type CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+export {
+  type CopilotKitCoreRuntimeConnectionStatus,
+  type CopilotKitCoreErrorCode,
+} from "@copilotkit/core";
