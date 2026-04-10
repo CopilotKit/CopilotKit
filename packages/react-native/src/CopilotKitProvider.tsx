@@ -1,16 +1,11 @@
-import React, {
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { type ReactNode, useEffect, useMemo, useRef } from "react";
 import {
   CopilotKitContext,
   type CopilotKitContextValue,
   EMPTY_SET,
 } from "@copilotkit/react-core/v2/context";
 import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
+import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 
 export interface CopilotKitNativeProviderProps {
   children: ReactNode;
@@ -22,8 +17,16 @@ export interface CopilotKitNativeProviderProps {
   useSingleEndpoint?: boolean;
   /** Custom properties forwarded to agents */
   properties?: Record<string, unknown>;
-  /** Error handler */
-  onError?: (error: Error) => void;
+  /**
+   * Error handler called when CopilotKit encounters an error.
+   * Fires for all error types (runtime connection failures, agent errors, tool errors).
+   * If not provided, errors are logged to console.error.
+   */
+  onError?: (event: {
+    error: Error;
+    code: CopilotKitCoreErrorCode;
+    context: Record<string, any>;
+  }) => void;
 }
 
 /**
@@ -55,7 +58,6 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   onError,
 }) => {
   const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
-  const [executingToolCallIds] = useState<ReadonlySet<string>>(EMPTY_SET);
 
   if (copilotkitRef.current === null) {
     copilotkitRef.current = new CopilotKitCoreReact({
@@ -76,26 +78,52 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     copilotkit.setProperties(properties);
   }, [runtimeUrl, useSingleEndpoint, headers, properties, copilotkit]);
 
-  // Error handling
+  // Issue 7: Use ref to avoid subscription churn when onError changes
+  const onErrorRef = useRef(onError);
   useEffect(() => {
-    if (!onError) return;
+    onErrorRef.current = onError;
+  }, [onError]);
+
+  // Issue 3: Always subscribe — fall back to console.error when no onError provided
+  // Issue 6: Forward full error event (error, code, context) matching web provider signature
+  useEffect(() => {
     const subscription = copilotkit.subscribe({
       onError: (event) => {
-        onError(event.error);
+        if (onErrorRef.current) {
+          onErrorRef.current({
+            error: event.error,
+            code: event.code,
+            context: event.context,
+          });
+        } else {
+          console.error(
+            `[CopilotKit] Error (${event.code}):`,
+            event.error,
+            event.context ?? {},
+          );
+        }
       },
     });
     return () => subscription.unsubscribe();
-  }, [copilotkit, onError]);
+  }, [copilotkit]);
 
-  // The headless bundle has its own type declaration for CopilotKitCoreReact
-  // (due to inlining @copilotkit/core), but it's the same class at runtime.
-  const contextValue = useMemo(
-    () => ({
+  // Issue 8: The headless bundle inlines @copilotkit/core, producing a distinct
+  // TS declaration for CopilotKitCoreReact. At runtime they are the same class.
+  // Verify the shape at dev time to catch drift between the two type declarations.
+  const contextValue = useMemo(() => {
+    if (__DEV__) {
+      if (typeof copilotkit.subscribe !== "function") {
+        throw new Error(
+          "[CopilotKit] CopilotKitCoreReact shape mismatch: headless bundle may have " +
+            "diverged from the context type. Ensure @copilotkit/core versions are aligned.",
+        );
+      }
+    }
+    return {
       copilotkit,
-      executingToolCallIds,
-    }),
-    [copilotkit, executingToolCallIds],
-  ) as unknown as CopilotKitContextValue;
+      executingToolCallIds: EMPTY_SET,
+    } as unknown as CopilotKitContextValue;
+  }, [copilotkit]);
 
   return (
     <CopilotKitContext.Provider value={contextValue}>

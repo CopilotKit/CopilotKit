@@ -25,11 +25,22 @@ export function installStreamingFetch(): void {
     const signal = init?.signal;
 
     return new Promise((resolve, reject) => {
+      // Issue 4: Reject immediately if signal is already aborted
+      if (signal?.aborted) {
+        reject(
+          new (global as any).DOMException(
+            "The operation was aborted.",
+            "AbortError",
+          ),
+        );
+        return;
+      }
+
       const xhr = new XMLHttpRequest();
       xhr.open(method, url);
 
       const headerEntries =
-        typeof Headers !== "undefined" && headers instanceof Headers
+        headers instanceof Headers
           ? Array.from(headers.entries())
           : Object.entries(headers);
       for (const [key, value] of headerEntries) {
@@ -41,7 +52,8 @@ export function installStreamingFetch(): void {
       let streamController: ReadableStreamDefaultController<Uint8Array> | null =
         null;
       let lastIndex = 0;
-      let done = false;
+      let streamClosed = false;
+      let settled = false;
       const encoder = new TextEncoder();
 
       const stream = new ReadableStream<Uint8Array>({
@@ -53,58 +65,84 @@ export function installStreamingFetch(): void {
         },
       });
 
-      // Promise that resolves when XHR completes with full text
+      // Promise that resolves/rejects when XHR completes or fails
       let resolveFullText: (text: string) => void;
-      const fullTextPromise = new Promise<string>((r) => {
-        resolveFullText = r;
+      let rejectFullText: (error: Error) => void;
+      const fullTextPromise = new Promise<string>((res, rej) => {
+        resolveFullText = res;
+        rejectFullText = rej;
       });
 
-      if (signal) {
-        signal.addEventListener("abort", () => {
-          xhr.abort();
-          reject(
-            new (global as any).DOMException(
-              "The operation was aborted.",
-              "AbortError",
-            ),
-          );
-        });
+      function closeStream() {
+        if (streamController && !streamClosed) {
+          streamClosed = true;
+          streamController.close();
+        }
       }
 
-      xhr.onprogress = function () {
-        if (streamController && xhr.responseText.length > lastIndex) {
+      function errorStream(err: Error) {
+        if (streamController && !streamClosed) {
+          streamClosed = true;
+          streamController.error(err);
+        }
+      }
+
+      function flushChunks() {
+        if (
+          streamController &&
+          !streamClosed &&
+          xhr.responseText.length > lastIndex
+        ) {
           const newData = xhr.responseText.slice(lastIndex);
           lastIndex = xhr.responseText.length;
           streamController.enqueue(encoder.encode(newData));
         }
+      }
+
+      if (signal) {
+        signal.addEventListener("abort", () => {
+          const err = new (global as any).DOMException(
+            "The operation was aborted.",
+            "AbortError",
+          );
+          xhr.abort();
+          errorStream(err);
+          rejectFullText(err);
+          if (!settled) {
+            settled = true;
+            reject(err);
+          }
+        });
+      }
+
+      xhr.onprogress = function () {
+        flushChunks();
       };
 
       xhr.onload = function () {
-        if (streamController && xhr.responseText.length > lastIndex) {
-          const newData = xhr.responseText.slice(lastIndex);
-          streamController.enqueue(encoder.encode(newData));
-        }
-        if (streamController && !done) {
-          done = true;
-          streamController.close();
-        }
+        flushChunks();
+        closeStream();
         resolveFullText(xhr.responseText);
       };
 
       xhr.onerror = function () {
-        if (streamController && !done) {
-          done = true;
-          streamController.error(new TypeError("Network request failed"));
+        const err = new TypeError("Network request failed");
+        errorStream(err);
+        rejectFullText(err);
+        if (!settled) {
+          settled = true;
+          reject(err);
         }
-        reject(new TypeError("Network request failed"));
       };
 
       xhr.ontimeout = function () {
-        if (streamController && !done) {
-          done = true;
-          streamController.error(new TypeError("Network request timed out"));
+        const err = new TypeError("Network request timed out");
+        errorStream(err);
+        rejectFullText(err);
+        if (!settled) {
+          settled = true;
+          reject(err);
         }
-        reject(new TypeError("Network request timed out"));
       };
 
       // Resolve with Response once headers arrive
@@ -122,15 +160,7 @@ export function installStreamingFetch(): void {
             }
           }
 
-          const responseHeaders =
-            typeof Headers !== "undefined"
-              ? new Headers(respHeaders)
-              : {
-                  get: (name: string) =>
-                    respHeaders[name.toLowerCase()] ?? null,
-                  entries: () => Object.entries(respHeaders),
-                  has: (name: string) => name.toLowerCase() in respHeaders,
-                };
+          const responseHeaders = new Headers(respHeaders);
 
           resp = {
             ok: xhr.status >= 200 && xhr.status < 300,
@@ -140,10 +170,16 @@ export function installStreamingFetch(): void {
             body: stream,
             json: async () => JSON.parse(await fullTextPromise),
             text: async () => fullTextPromise,
-            clone: () => resp,
+            // Issue 5: clone() is not supported — throw instead of silently returning same ref
+            clone: () => {
+              throw new Error(
+                "Response.clone() is not supported by the React Native streaming fetch polyfill.",
+              );
+            },
             arrayBuffer: async () =>
               encoder.encode(await fullTextPromise).buffer,
           };
+          settled = true;
           resolve(resp);
         }
       };
