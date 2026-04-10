@@ -153,7 +153,7 @@ const runtime = new CopilotRuntime({
           return { articles };
         } catch (error) {
           console.error("Error fetching knowledge base articles:", error);
-          throw new Error("Failed to fetch knowledge base articles.");
+          throw new Error("Failed to fetch knowledge base articles.", { cause: error });
         }
       },
     },

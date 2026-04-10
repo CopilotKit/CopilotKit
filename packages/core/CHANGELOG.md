@@ -1,5 +1,11 @@
 # @copilotkit/core
 
+## 1.55.2-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.55.2-next.1
+
 ## 1.55.2-next.0
 
 ### Patch Changes

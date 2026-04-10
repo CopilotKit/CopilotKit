@@ -55,11 +55,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 add_agent_framework_fastapi_endpoint(
     app=app,
     agent=my_agent,
     path="/",
 )
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 
 
 if __name__ == "__main__":

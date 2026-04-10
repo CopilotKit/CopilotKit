@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -25,12 +25,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20.x
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
           registry-url: https://registry.npmjs.org
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Install Dependencies
-        run: pnpm i
+        run: pnpm install --frozen-lockfile
 
       - name: Configure Nx Cloud environment
         run: |

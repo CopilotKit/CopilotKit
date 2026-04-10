@@ -78,7 +78,6 @@ export const TodoApp = () => {
       },
     ],
     handler: ({ id, subtask }) => {
-      debugger;
       addSubtask(id, subtask);
     },
   });
