@@ -6,6 +6,7 @@ import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 import {
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
+  type SubscribeToAgentSubscriber,
 } from "@copilotkit/core";
 
 export enum UseAgentUpdate {
@@ -264,7 +265,7 @@ export function useAgent({
   useEffect(() => {
     if (updateFlags.length === 0) return;
 
-    const handlers: Parameters<AbstractAgent["subscribe"]>[0] = {};
+    const handlers: SubscribeToAgentSubscriber = {};
 
     // Microtask-batched forceUpdate: coalesces multiple synchronous
     // notifications (e.g. OnStateChanged + OnRunStatusChanged firing in the

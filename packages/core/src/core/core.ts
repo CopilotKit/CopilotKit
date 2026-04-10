@@ -181,10 +181,12 @@ export interface CopilotKitCoreSubscription {
  * The subset of `AgentSubscriber` callbacks accepted by
  * {@link CopilotKitCore.subscribeToAgent}. Only high-level notification
  * and lifecycle callbacks are supported. AG-UI event handlers (e.g.
- * `onEvent`, `onToolCallStartEvent`) are excluded because their
- * `AgentStateMutation` return values would be silently discarded by the
- * error-protection wrapper. Use `agent.subscribe()` directly when
- * mutation semantics are needed.
+ * `onEvent`, `onToolCallStartEvent`) are excluded because
+ * `subscribeToAgent` is designed for observation, not event mutation.
+ * Event handlers participate in the agent's event processing pipeline
+ * and may return `AgentStateMutation` with `stopPropagation` — semantics
+ * that the throttle and error-protection wrappers cannot safely mediate.
+ * Use `agent.subscribe()` directly when event mutation semantics are needed.
  */
 export type SubscribeToAgentSubscriber = Pick<
   AgentSubscriber,
@@ -610,9 +612,12 @@ export class CopilotKitCore {
    *
    * Only high-level notification and lifecycle callbacks are accepted.
    * AG-UI event handlers (e.g. `onEvent`, `onToolCallStartEvent`) are
-   * excluded because their `AgentStateMutation` return values would be
-   * silently discarded by the error-protection wrapper. Use
-   * `agent.subscribe()` directly when mutation semantics are needed.
+   * excluded because `subscribeToAgent` is designed for observation, not
+   * event mutation. Event handlers participate in the agent's event
+   * processing pipeline and may return `AgentStateMutation` with
+   * `stopPropagation` — semantics that the throttle and error-protection
+   * wrappers cannot safely mediate. Use `agent.subscribe()` directly
+   * when event mutation semantics are needed.
    *
    * The returned `unsubscribe()` clears any pending trailing timer.
    */
@@ -635,6 +640,8 @@ export class CopilotKitCore {
       effectiveMs = resolved;
     }
 
+    const agentLabel = agent.agentId || "(unknown agent)";
+
     // Invoke a subscriber callback safely: catches synchronous throws and
     // attaches a .catch() for async (MaybePromise) rejections.
     const safeCall = (
@@ -644,10 +651,10 @@ export class CopilotKitCore {
     ): any => {
       try {
         const result = fn(...args);
-        if (result && typeof (result as any).catch === "function") {
+        if (result != null && typeof (result as any).then === "function") {
           return (result as Promise<any>).catch((err: unknown) => {
             console.error(
-              `CopilotKitCore.subscribeToAgent: ${label} callback rejected:`,
+              `CopilotKitCore.subscribeToAgent[${agentLabel}]: ${label} callback rejected:`,
               err,
             );
           });
@@ -655,7 +662,7 @@ export class CopilotKitCore {
         return result;
       } catch (err) {
         console.error(
-          `CopilotKitCore.subscribeToAgent: ${label} callback threw:`,
+          `CopilotKitCore.subscribeToAgent[${agentLabel}]: ${label} callback threw:`,
           err,
         );
       }
@@ -663,14 +670,17 @@ export class CopilotKitCore {
 
     // Keys accepted by subscribeToAgent — used by guardAll to filter out
     // any extra properties that slip through at runtime (e.g. from JS
-    // consumers or `as any` casts), preventing silent mutation loss.
-    const ALLOWED_KEYS: ReadonlySet<string> = new Set([
-      "onMessagesChanged",
-      "onStateChanged",
-      "onRunInitialized",
-      "onRunFinalized",
-      "onRunFailed",
-    ]);
+    // consumers or `as any` casts), ensuring unsupported event handlers
+    // are dropped rather than wrapped with a potentially-lossy layer.
+    const ALLOWED_KEYS: ReadonlySet<keyof SubscribeToAgentSubscriber> = new Set(
+      [
+        "onMessagesChanged",
+        "onStateChanged",
+        "onRunInitialized",
+        "onRunFinalized",
+        "onRunFailed",
+      ] as const satisfies readonly (keyof SubscribeToAgentSubscriber)[],
+    );
 
     // Wrap every allowed callback in the subscriber with safeCall so errors
     // in any callback cannot corrupt the agent's notification loop.
@@ -679,7 +689,10 @@ export class CopilotKitCore {
     ): SubscribeToAgentSubscriber => {
       const guarded: SubscribeToAgentSubscriber = {};
       for (const [key, value] of Object.entries(sub)) {
-        if (typeof value === "function" && ALLOWED_KEYS.has(key)) {
+        if (
+          typeof value === "function" &&
+          ALLOWED_KEYS.has(key as keyof SubscribeToAgentSubscriber)
+        ) {
           (guarded as any)[key] = (...args: any[]) =>
             safeCall(key, value as (...a: any[]) => any, ...args);
         }
@@ -740,13 +753,22 @@ export class CopilotKitCore {
           }
         }, effectiveMs);
       }
-      // else: within the window, pending flags are already set by the caller
+      // else: within the window, pending params are already set by the caller
     };
 
-    // Guard all callbacks with safeCall, then replace onMessagesChanged/
-    // onStateChanged with throttle wrappers. The throttle path calls safeCall
+    // Only wrap lifecycle callbacks with guardAll — onMessagesChanged and
+    // onStateChanged are handled by the throttle path which calls safeCall
     // directly on the original subscriber callbacks when flushing.
-    const wrappedSubscriber = guardAll(subscriber);
+    const lifecycleOnly: SubscribeToAgentSubscriber = {};
+    if (subscriber.onRunInitialized)
+      lifecycleOnly.onRunInitialized = subscriber.onRunInitialized;
+    if (subscriber.onRunFinalized)
+      lifecycleOnly.onRunFinalized = subscriber.onRunFinalized;
+    if (subscriber.onRunFailed)
+      lifecycleOnly.onRunFailed = subscriber.onRunFailed;
+
+    const wrappedSubscriber: SubscribeToAgentSubscriber =
+      guardAll(lifecycleOnly);
 
     if (subscriber.onMessagesChanged) {
       wrappedSubscriber.onMessagesChanged = (params) => {
