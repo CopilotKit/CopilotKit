@@ -31,16 +31,13 @@ jobs:
         with:
           node-version: 20
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
       - name: Install dependencies
         working-directory: showcase/tests
-        run: pnpm install
+        run: npm ci
 
       - name: Install Playwright
         working-directory: showcase/tests
-        run: npx playwright install chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Run L1-L3 tests
         working-directory: showcase/tests
