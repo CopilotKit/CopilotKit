@@ -50,6 +50,9 @@ lefthook-local.yml
 .husky/
 .langgraph_api
 
+# Private agent instructions (not shared with the team)
+private-agents.md
+
 # Binary artifacts
 *.dSYM/
 *.exe
