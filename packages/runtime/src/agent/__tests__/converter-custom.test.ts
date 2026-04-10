@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { EventType, type BaseEvent } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
+import type { BaseEvent } from "@ag-ui/client";
 import { BuiltInAgent } from "../index";
 import {
   createAgent,

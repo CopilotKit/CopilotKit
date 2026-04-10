@@ -98,7 +98,7 @@ export function XPost({ title, content, className }: XPostProps) {
                 <span>{defaultLocation}</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+                <div className="w-3 h-3 bg-gray-400 rounded-full" />
                 <span>{formatNumber(defaultViews)} views</span>
               </div>
             </div>
@@ -289,7 +289,7 @@ export function XPostCompact({ title, content, className }: XPostProps) {
                 <span>{defaultLocation}</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full" />
                 <span>{formatNumber(defaultViews)} views</span>
               </div>
             </div>

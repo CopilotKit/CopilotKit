@@ -1,22 +1,24 @@
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
-import {
-  logger,
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
+import type {
   RuntimeInfo,
   AgentDescription,
   RuntimeMode,
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
+} from "@copilotkit/shared";
+import {
+  logger,
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
 } from "@copilotkit/shared";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
-import type { CopilotKitCore } from "./core";
+import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import {
   CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
-  CopilotKitCoreFriendsAccess,
 } from "./core";
-import { CopilotRuntimeTransport } from "../types";
+import type { CopilotRuntimeTransport } from "../types";
 
 export interface CopilotKitCoreAddAgentParams {
   id: string;

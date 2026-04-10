@@ -1,5 +1,6 @@
-import { Element, Node, Path, Transforms } from "slate";
-import { CustomEditor } from "../../types/base/custom-editor";
+import type { Path } from "slate";
+import { Element, Node, Transforms } from "slate";
+import type { CustomEditor } from "../../types/base/custom-editor";
 
 export function clearAutocompletionsFromEditor(editor: CustomEditor) {
   // clear previous suggestion

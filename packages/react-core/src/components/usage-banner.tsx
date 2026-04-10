@@ -1,6 +1,6 @@
+import type { CopilotKitError } from "@copilotkit/shared";
 import {
   Severity,
-  CopilotKitError,
   ErrorVisibility,
   CopilotKitErrorCode,
 } from "@copilotkit/shared";

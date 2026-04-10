@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
-import { Severity, CopilotKitError } from "@copilotkit/shared";
+import type { Severity } from "@copilotkit/shared";
+import { CopilotKitError } from "@copilotkit/shared";
 import { StatusChecker } from "../../lib/status-checker";
 import { getErrorActions, UsageBanner } from "../usage-banner";
 import { useErrorToast } from "./error-utils";

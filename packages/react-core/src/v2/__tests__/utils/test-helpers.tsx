@@ -4,18 +4,15 @@ import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
 import { CopilotChat } from "../../components/chat/CopilotChat";
 import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
-import { Observable, Subject, from, delay } from "rxjs";
-import {
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { Subject, from, delay } from "rxjs";
+import type {
   ReactActivityMessageRenderer,
   ReactToolCallRenderer,
 } from "../../types";
-import { ReactCustomMessageRenderer } from "../../types/react-custom-message-renderer";
+import type { ReactCustomMessageRenderer } from "../../types/react-custom-message-renderer";
 
 /**
  * A controllable mock agent for deterministic E2E testing.

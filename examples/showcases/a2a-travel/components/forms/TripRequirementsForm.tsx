@@ -21,7 +21,7 @@ export const TripRequirementsForm: React.FC<TripRequirementsFormProps> = ({
   if (typeof args === "string") {
     try {
       parsedArgs = JSON.parse(args);
-    } catch (e) {
+    } catch {
       parsedArgs = {};
     }
   }

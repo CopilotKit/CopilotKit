@@ -1,9 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { EventType, type BaseEvent } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
+import type { BaseEvent } from "@ag-ui/client";
 import {
   BuiltInAgent,
-  type AgentFactoryContext,
-  type BuiltInAgentFactoryConfig,
   createDefaultInput,
   createAgent,
   createThrowingAgent,
@@ -15,8 +14,12 @@ import {
   textDelta,
   finish,
   tanstackTextChunk,
-  type AgentType,
-  type MockStreamEvent,
+} from "./agent-test-helpers";
+import type {
+  AgentFactoryContext,
+  BuiltInAgentFactoryConfig,
+  AgentType,
+  MockStreamEvent,
 } from "./agent-test-helpers";
 
 // ---------------------------------------------------------------------------

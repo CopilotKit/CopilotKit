@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { InMemoryAgentRunner } from "../in-memory";
-import {
-  AbstractAgent,
+import type {
   BaseEvent,
-  EventType,
   Message,
   RunAgentInput,
   RunErrorEvent,
@@ -13,6 +11,7 @@ import {
   TextMessageStartEvent,
   ToolCallResultEvent,
 } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import { EMPTY, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
 

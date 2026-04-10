@@ -1,11 +1,6 @@
 import { AppsSDKUIProvider } from "@openai/apps-sdk-ui/components/AppsSDKUIProvider";
-import {
-  Image,
-  McpUseProvider,
-  useCallTool,
-  useWidget,
-  type WidgetMetadata,
-} from "mcp-use/react";
+import { Image, McpUseProvider, useCallTool, useWidget } from "mcp-use/react";
+import type { WidgetMetadata } from "mcp-use/react";
 import React, { useCallback } from "react";
 import { Link } from "react-router";
 import "../styles.css";

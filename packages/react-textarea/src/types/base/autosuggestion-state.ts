@@ -1,4 +1,4 @@
-import { BasePoint } from "slate";
+import type { BasePoint } from "slate";
 
 export interface AutosuggestionState {
   text: string;

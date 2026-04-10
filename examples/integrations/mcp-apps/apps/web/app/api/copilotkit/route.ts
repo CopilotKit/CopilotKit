@@ -4,7 +4,7 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 
 // 1. Define the agent middleware

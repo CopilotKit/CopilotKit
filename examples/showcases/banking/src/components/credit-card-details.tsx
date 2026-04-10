@@ -13,7 +13,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Card as ICard, CardBrand, ExpensePolicy } from "../app/api/v1/data";
+import type { Card as ICard, ExpensePolicy } from "../app/api/v1/data";
+import { CardBrand } from "../app/api/v1/data";
 
 function VisaLogo({ className }: { className?: string }) {
   return (

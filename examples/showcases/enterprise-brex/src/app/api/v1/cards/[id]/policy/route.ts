@@ -1,5 +1,5 @@
 import { data } from "../../../data";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 const getCardById = (id: string) => {
   const card = data.cards.find((card) => card.id === id);

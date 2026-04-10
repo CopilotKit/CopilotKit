@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useEffect, useState } from "react";
-import { Member } from "@/app/api/v1/data";
+import type { Member } from "@/app/api/v1/data";
 import useTeam from "@/app/team/actions";
 
 interface AuthContextType {

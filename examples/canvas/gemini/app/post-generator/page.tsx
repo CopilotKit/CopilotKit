@@ -406,7 +406,7 @@ export default function PostGenerator() {
             <div className="flex items-center gap-3">
               {isAgentActive && (
                 <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 shadow-sm">
-                  <div className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></div>
+                  <div className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse" />
                   Live Research
                 </Badge>
               )}

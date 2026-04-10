@@ -7,8 +7,8 @@ import {
   convertToolsToVercelAITools,
   convertToolDefinitionsToVercelAITools,
   defineTool,
-  type ToolDefinition,
 } from "../index";
+import type { ToolDefinition } from "../index";
 import type { Message } from "@ag-ui/client";
 
 describe("resolveModel", () => {

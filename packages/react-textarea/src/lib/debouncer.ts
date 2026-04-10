@@ -20,7 +20,7 @@ export class Debouncer<T extends any[]> {
         await func(...args, this.activeAbortController.signal);
 
         this.activeAbortController = undefined;
-      } catch (error) {}
+      } catch {}
     }, this.wait);
   };
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Parameter } from "../types";
+import type { Parameter } from "../types";
 
 export type JSONSchemaString = {
   type: "string";

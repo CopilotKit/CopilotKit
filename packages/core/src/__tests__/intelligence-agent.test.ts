@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { EventType, BaseEvent } from "@ag-ui/client";
-import { MockSocket, MockChannel } from "./test-utils";
+import type { BaseEvent } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
+import type { MockChannel } from "./test-utils";
+import { MockSocket } from "./test-utils";
 
 vi.mock("phoenix", () => ({
   Socket: MockSocket,

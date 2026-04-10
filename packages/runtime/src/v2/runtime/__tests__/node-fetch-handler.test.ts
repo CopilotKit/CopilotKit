@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { createServer, type Server } from "node:http";
+import { createServer } from "node:http";
+import type { Server } from "node:http";
 import { createNodeFetchHandler } from "../endpoints/node-fetch-handler";
 import type { CopilotRuntimeFetchHandler } from "../core/fetch-handler";
 

@@ -1,4 +1,4 @@
-import { Parameter, Action } from "@copilotkit/shared";
+import type { Parameter, Action } from "@copilotkit/shared";
 
 export interface RemoteChainParameters {
   name: string;

@@ -1,5 +1,5 @@
 import { CheckCircleIcon } from "@heroicons/react/20/solid";
-import { SpreadsheetRow } from "../types";
+import type { SpreadsheetRow } from "../types";
 import { useState } from "react";
 import Spreadsheet from "react-spreadsheet";
 

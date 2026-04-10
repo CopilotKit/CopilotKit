@@ -2,11 +2,8 @@ import React from "react";
 import { render } from "@testing-library/react";
 import { renderHook } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import {
-  AbstractAgent,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
+import { AbstractAgent } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useAgent } from "../use-agent";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";

@@ -9,7 +9,7 @@ import {
   YAxis,
 } from "recharts";
 import { useSharedContext } from "@/lib/shared-context";
-import { PRData, WeeklyCount } from "@/app/Interfaces/interface";
+import type { PRData, WeeklyCount } from "@/app/Interfaces/interface";
 
 export function PRLineChartData({ args }: any) {
   const { prData } = useSharedContext();

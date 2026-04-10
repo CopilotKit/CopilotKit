@@ -8,7 +8,7 @@ import {
 } from "@/lib/consts";
 // TODO: fix
 // @ts-expect-error -- ignore
-import { CopilotChatProps } from "@copilotkit/react-ui/dist/components/chat/Chat";
+import type { CopilotChatProps } from "@copilotkit/react-ui/dist/components/chat/Chat";
 
 export default function Chat(props: CopilotChatProps) {
   return (

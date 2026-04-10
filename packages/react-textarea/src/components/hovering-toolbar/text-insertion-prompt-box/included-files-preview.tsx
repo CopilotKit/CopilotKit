@@ -1,4 +1,4 @@
-import { DocumentPointer } from "@copilotkit/react-core";
+import type { DocumentPointer } from "@copilotkit/react-core";
 import { Label } from "../../ui/label";
 import React from "react";
 import Chip from "@mui/material/Chip/Chip.js";
@@ -53,7 +53,7 @@ export const FileChipPreview = ({
           src={filePointer.iconImageUri}
           alt={filePointer.sourceApplication}
           sx={{ backgroundColor: "transparent" }}
-        ></Avatar>
+        />
       }
     />
   );

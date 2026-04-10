@@ -1,24 +1,16 @@
-import {
-  ActionRenderProps,
-  ActionRenderPropsWait,
-  FrontendAction,
-} from "../types";
+import type { ActionRenderPropsWait, FrontendAction } from "../types";
+import { ActionRenderProps } from "../types";
+import type { MappedParameterTypes, Parameter } from "@copilotkit/shared";
 import {
   CopilotKitError,
   CopilotKitErrorCode,
-  MappedParameterTypes,
-  Parameter,
   getZodParameters,
   parseJson,
 } from "@copilotkit/shared";
 import { useHumanInTheLoop as useHumanInTheLoopVNext } from "../v2";
 import { ToolCallStatus } from "@copilotkit/core";
-import React, {
-  ComponentType,
-  FunctionComponent,
-  useEffect,
-  useRef,
-} from "react";
+import type { FunctionComponent } from "react";
+import React, { ComponentType, useEffect, useRef } from "react";
 
 type HumanInTheLoopOptions = Parameters<typeof useHumanInTheLoopVNext>[0];
 type HumanInTheLoopRender = HumanInTheLoopOptions["render"];

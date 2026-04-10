@@ -2,7 +2,8 @@ import React from "react";
 import { render } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { z } from "zod";
-import { useRenderTool, type RenderToolProps } from "../use-render-tool";
+import { useRenderTool } from "../use-render-tool";
+import type { RenderToolProps } from "../use-render-tool";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import type { ReactToolCallRenderer } from "../../types/react-tool-call-renderer";
 

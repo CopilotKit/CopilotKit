@@ -4,7 +4,8 @@ import * as path from "path";
 import * as os from "os";
 import { Config } from "../types/index.js";
 import chalk from "chalk";
-import ora, { Ora } from "ora";
+import type { Ora } from "ora";
+import ora from "ora";
 
 /**
  * Clones a specific subdirectory from a GitHub repository

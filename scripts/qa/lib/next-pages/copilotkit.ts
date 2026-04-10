@@ -1,7 +1,7 @@
 /**
  * @filePath pages/api/copilotkit.ts
  */
-import { NextApiRequest, NextApiResponse } from "next";
+import type { NextApiRequest, NextApiResponse } from "next";
 import {
   CopilotRuntime,
   OpenAIAdapter,

@@ -5,7 +5,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
-import { DocumentOptionsState } from "@/types/document-options-state";
+import type { DocumentOptionsState } from "@/types/document-options-state";
 import ViewEditToggle from "@/components/ui/view-edit-toggle";
 import { cn } from "@/lib/utils";
 

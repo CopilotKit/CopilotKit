@@ -2,18 +2,17 @@ import React, { useEffect, useState, useReducer } from "react";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { z } from "zod";
 import { useFrontendTool } from "../use-frontend-tool";
-import { ReactFrontendTool } from "../../types";
+import type { ReactFrontendTool } from "../../types";
 import { CopilotChat } from "../../components/chat/CopilotChat";
 import CopilotChatToolCallsView from "../../components/chat/CopilotChatToolCallsView";
-import { AssistantMessage, Message } from "@ag-ui/core";
+import type { AssistantMessage, Message } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
-import {
-  AbstractAgent,
-  EventType,
-  type AgentSubscriber,
-  type BaseEvent,
-  type RunAgentInput,
-  type RunAgentParameters,
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type {
+  AgentSubscriber,
+  BaseEvent,
+  RunAgentInput,
+  RunAgentParameters,
 } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import {

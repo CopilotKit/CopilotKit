@@ -1,4 +1,4 @@
-import { ChartData, ProjectData } from "@/lib/canvas/types";
+import type { ChartData, ProjectData } from "@/lib/canvas/types";
 
 export function projectAddField4Item(
   data: ProjectData,

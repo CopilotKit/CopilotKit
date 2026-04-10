@@ -1,7 +1,7 @@
 import React from "react";
 import { render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { MockStepwiseAgent } from "../../__tests__/utils/test-helpers";
 import { useAgent } from "../use-agent";

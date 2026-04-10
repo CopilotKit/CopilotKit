@@ -1,10 +1,6 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import {
-  AbstractAgent,
-  RunAgentInput,
-  BaseEvent,
-  EventType,
-} from "@ag-ui/client";
+import type { RunAgentInput, BaseEvent } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { LLMock, MCPMock } from "@copilotkit/aimock";
 import { MCPAppsMiddleware, getServerHash } from "@ag-ui/mcp-apps-middleware";

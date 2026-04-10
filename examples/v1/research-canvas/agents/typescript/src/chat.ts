@@ -2,15 +2,12 @@
  * Chat Node
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
-import { AgentState, Resource } from "./state";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { AgentState, Resource } from "./state";
 import { getModel } from "./model";
 import { getResource } from "./download";
-import {
-  SystemMessage,
-  AIMessage,
-  ToolMessage,
-} from "@langchain/core/messages";
+import type { AIMessage } from "@langchain/core/messages";
+import { SystemMessage, ToolMessage } from "@langchain/core/messages";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { copilotkitCustomizeConfig } from "@copilotkit/sdk-js/langgraph";

@@ -2,8 +2,8 @@
  * An internal context to separate the messages state (which is constantly changing) from the rest of CopilotKit context
  */
 
+import type { ReactNode } from "react";
 import {
-  ReactNode,
   useEffect,
   useState,
   useRef,
@@ -13,11 +13,8 @@ import {
   useContext,
 } from "react";
 import { CopilotMessagesContext } from "../../context/copilot-messages-context";
-import {
-  loadMessagesFromJsonRepresentation,
-  Message,
-  GraphQLError,
-} from "@copilotkit/runtime-client-gql";
+import type { Message, GraphQLError } from "@copilotkit/runtime-client-gql";
+import { loadMessagesFromJsonRepresentation } from "@copilotkit/runtime-client-gql";
 import { useCopilotContext } from "../../context/copilot-context";
 import { useToast } from "../toast/toast-provider";
 import { shouldShowDevConsole } from "../../utils/dev-console";
@@ -29,7 +26,7 @@ import {
   CopilotKitError,
   CopilotKitErrorCode,
 } from "@copilotkit/shared";
-import { Suggestion } from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
 
 // Helper to determine if error should show as banner based on visibility and legacy patterns
 function shouldShowAsBanner(gqlError: GraphQLError): boolean {

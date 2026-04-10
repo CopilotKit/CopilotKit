@@ -1,4 +1,4 @@
-import { ErrorMessageProps } from "../props";
+import type { ErrorMessageProps } from "../props";
 import { useChatContext } from "../ChatContext";
 import { Markdown } from "../Markdown";
 import { useState } from "react";

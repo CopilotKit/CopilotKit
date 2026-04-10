@@ -4,7 +4,7 @@
  * when only these constants are needed.
  */
 
-import {
+import type {
   TextMessageStartEvent,
   TextMessageContentEvent,
   TextMessageEndEvent,

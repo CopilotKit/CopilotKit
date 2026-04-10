@@ -1,6 +1,7 @@
-import { GraphQLError } from "@copilotkit/runtime-client-gql";
+import type { GraphQLError } from "@copilotkit/runtime-client-gql";
 import React, { createContext, useContext, useState, useCallback } from "react";
-import { PartialBy, CopilotKitError, Severity } from "@copilotkit/shared";
+import type { PartialBy, CopilotKitError } from "@copilotkit/shared";
+import { Severity } from "@copilotkit/shared";
 
 interface Toast {
   id: string;
@@ -383,7 +384,7 @@ export function ToastProvider({
         return;
       }
 
-      const id = toast.id ?? Math.random().toString(36).substring(2, 9);
+      const id = toast.id ?? Math.random().toString(36).slice(2, 9);
 
       setToasts((currentToasts) => {
         if (currentToasts.find((toast) => toast.id === id))

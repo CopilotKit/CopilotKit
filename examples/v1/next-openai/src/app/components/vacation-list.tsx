@@ -1,6 +1,6 @@
 "use client";
+import type { DocumentPointer } from "@copilotkit/react-core";
 import {
-  DocumentPointer,
   useCopilotAction,
   useCopilotChat,
   useMakeCopilotDocumentReadable,

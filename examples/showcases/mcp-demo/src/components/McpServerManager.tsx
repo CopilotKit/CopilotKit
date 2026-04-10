@@ -2,7 +2,7 @@
 
 import { useCopilotChat } from "@copilotkit/react-core";
 import { useEffect } from "react";
-import { Config } from "@/providers/Providers";
+import type { Config } from "@/providers/Providers";
 
 function McpServerManager({ configs }: { configs: Config[] }) {
   const { setMcpServers } = useCopilotChat();

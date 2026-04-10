@@ -106,7 +106,7 @@ function parseEmailList(raw: string): Email[] {
     id: String(i),
     from: e.from,
     subject: e.subject,
-    preview: e.body?.substring(0, 80) || "",
+    preview: e.body?.slice(0, 80) || "",
     body: e.body || "",
     date: e.date || "Today",
     isRead: e.isRead ?? false,

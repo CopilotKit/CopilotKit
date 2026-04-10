@@ -1,9 +1,7 @@
 "use client";
 
-import {
-  useCopilotAction,
-  CatchAllActionRenderProps,
-} from "@copilotkit/react-core";
+import type { CatchAllActionRenderProps } from "@copilotkit/react-core";
+import { useCopilotAction } from "@copilotkit/react-core";
 import MCPToolCall from "./MCPToolCall";
 
 export function ToolRenderer() {

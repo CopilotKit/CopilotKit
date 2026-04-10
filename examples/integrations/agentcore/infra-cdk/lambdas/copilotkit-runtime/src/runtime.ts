@@ -2,7 +2,8 @@
  * Shared CopilotKit runtime — the single source of truth.
  * Imported by index.ts (Lambda) and server.ts (local dev).
  */
-import { EventType, HttpAgent, type BaseEvent } from "@ag-ui/client";
+import { EventType, HttpAgent } from "@ag-ui/client";
+import type { BaseEvent } from "@ag-ui/client";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import {
   CopilotRuntime,

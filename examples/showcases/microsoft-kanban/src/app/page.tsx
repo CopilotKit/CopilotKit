@@ -6,11 +6,8 @@ import {
   useRenderToolCall,
 } from "@copilotkit/react-core";
 import { ToolCallCard } from "@/components/ToolCallCard";
-import {
-  CopilotKitCSSProperties,
-  CopilotChat,
-  CopilotPopup,
-} from "@copilotkit/react-ui";
+import type { CopilotKitCSSProperties } from "@copilotkit/react-ui";
+import { CopilotChat, CopilotPopup } from "@copilotkit/react-ui";
 import { useEffect, useRef } from "react";
 import { PopupHeader } from "@/components/kanban/AppChatHeader";
 import type { AgentState } from "@/lib/kanban/types";

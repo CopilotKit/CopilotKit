@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useEffect, useRef } from "react";
 import { ChatContextProvider, useChatContext } from "./ChatContext";
-import {
+import type {
   ButtonProps,
   HeaderProps,
   WindowProps,
@@ -11,7 +11,8 @@ import { Button as DefaultButton } from "./Button";
 import { Header as DefaultHeader } from "./Header";
 import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
-import { CopilotChat, CopilotChatProps } from "./Chat";
+import type { CopilotChatProps } from "./Chat";
+import { CopilotChat } from "./Chat";
 import { AssistantMessage as DefaultAssistantMessage } from "./messages/AssistantMessage";
 import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
 import { useCopilotContext } from "@copilotkit/react-core";
@@ -142,7 +143,7 @@ const CopilotModalInner = ({
     <>
       <div className="copilotKitModalChildrenWrapper">{memoizedChildren}</div>
       <div className={className}>
-        <Button></Button>
+        <Button />
         <Window
           clickOutsideToClose={clickOutsideToClose}
           shortcut={shortcut}

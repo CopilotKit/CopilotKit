@@ -2,9 +2,11 @@ import {
   ClaimAction,
   resolveClaim,
   selectSnapshot,
-  type ClaimsByMessageId,
-  type SnapshotCaches,
-  type StateRenderContext,
+} from "../use-coagent-state-render-bridge.helpers";
+import type {
+  ClaimsByMessageId,
+  SnapshotCaches,
+  StateRenderContext,
 } from "../use-coagent-state-render-bridge.helpers";
 
 describe("useCoAgentStateRenderBridge helpers", () => {

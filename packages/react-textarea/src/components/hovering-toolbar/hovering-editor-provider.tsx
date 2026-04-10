@@ -1,4 +1,5 @@
-import { createContext, useState, useContext, ReactNode } from "react";
+import type { ReactNode } from "react";
+import { createContext, useState, useContext } from "react";
 
 interface HoveringEditorContextProps {
   isDisplayed: boolean;

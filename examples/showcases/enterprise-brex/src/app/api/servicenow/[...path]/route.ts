@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 // This route serves as a proxy route to reach the service-now endpoints
 

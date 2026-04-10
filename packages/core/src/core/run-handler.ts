@@ -1,12 +1,12 @@
-import {
+import type {
   AbstractAgent,
   AgentSubscriber,
-  HttpAgent,
   Message,
   RunAgentResult,
   Tool,
   ToolCall,
 } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 import { randomUUID, logger, schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
@@ -609,7 +609,7 @@ export class RunHandler {
 
     let toolCallResult = "";
     let errorMessage: string | undefined;
-    let isArgumentError = false;
+    let _isArgumentError = false;
 
     if (wildcardTool?.handler) {
       let parsedArgs: unknown;
@@ -622,7 +622,7 @@ export class RunHandler {
         const parseError =
           error instanceof Error ? error : new Error(String(error));
         errorMessage = parseError.message;
-        isArgumentError = true;
+        _isArgumentError = true;
         await this._internal.emitError({
           error: parseError,
           code: CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED,

@@ -1,21 +1,23 @@
-import {
-  AbstractAgent,
+import type {
   RunAgentInput,
   RunAgentParameters,
   RunAgentResult,
   AgentSubscriber,
-  EventType,
   BaseEvent,
+} from "@ag-ui/client";
+import {
+  AbstractAgent,
+  EventType,
   randomUUID,
   transformChunks,
   structuredClone_,
 } from "@ag-ui/client";
 
+import type { Observable } from "rxjs";
 import {
   EMPTY,
   Subject,
   Notification,
-  Observable,
   concat,
   defer,
   dematerialize,
@@ -42,12 +44,14 @@ import { phoenixExponentialBackoff } from "@copilotkit/shared";
 import {
   ɵphoenixChannel$,
   ɵphoenixSocket$,
-  type ɵPhoenixChannelSession,
-  type ɵPhoenixSocketSession,
   ɵjoinPhoenixChannel$,
   ɵobservePhoenixSocketSignals$,
   ɵobservePhoenixSocketHealth$,
   ɵobservePhoenixEvent$,
+} from "./utils/phoenix-observable";
+import type {
+  ɵPhoenixChannelSession,
+  ɵPhoenixSocketSession,
 } from "./utils/phoenix-observable";
 
 const CLIENT_AG_UI_EVENT = "ag_ui_event";

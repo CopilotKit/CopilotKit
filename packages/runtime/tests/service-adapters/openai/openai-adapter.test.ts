@@ -53,7 +53,7 @@ vi.mock("../../../src/graphql/types/converted", () => {
     constructor(role: string, content: string) {
       this.role = role;
       this.content = content;
-      this.id = "mock-text-" + Math.random().toString(36).substring(7);
+      this.id = "mock-text-" + Math.random().toString(36).slice(7);
     }
 
     isTextMessage() {
@@ -103,7 +103,7 @@ vi.mock("../../../src/graphql/types/converted", () => {
     constructor(params: { actionExecutionId: string; result: string }) {
       this.actionExecutionId = params.actionExecutionId;
       this.result = params.result;
-      this.id = "mock-result-" + Math.random().toString(36).substring(7);
+      this.id = "mock-result-" + Math.random().toString(36).slice(7);
     }
 
     isTextMessage() {

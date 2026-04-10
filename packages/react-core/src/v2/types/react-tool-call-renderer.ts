@@ -1,5 +1,5 @@
 import type { StandardSchemaV1 } from "@copilotkit/shared";
-import { ToolCallStatus } from "@copilotkit/core";
+import type { ToolCallStatus } from "@copilotkit/core";
 
 export interface ReactToolCallRenderer<T = unknown> {
   name: string;

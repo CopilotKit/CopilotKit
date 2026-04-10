@@ -1,10 +1,10 @@
 import React from "react";
-import { Suggestion } from "@copilotkit/core";
-import { renderSlot, WithSlots } from "../../lib/slots";
+import type { Suggestion } from "@copilotkit/core";
+import type { WithSlots } from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
 import { cn } from "../../lib/utils";
-import CopilotChatSuggestionPill, {
-  CopilotChatSuggestionPillProps,
-} from "./CopilotChatSuggestionPill";
+import type { CopilotChatSuggestionPillProps } from "./CopilotChatSuggestionPill";
+import CopilotChatSuggestionPill from "./CopilotChatSuggestionPill";
 
 const DefaultContainer = React.forwardRef<
   HTMLDivElement,

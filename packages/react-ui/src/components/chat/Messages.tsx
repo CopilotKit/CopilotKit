@@ -1,12 +1,10 @@
 import React, { useEffect, useMemo, useRef } from "react";
-import { MessagesProps } from "./props";
+import type { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
-import { Message } from "@copilotkit/shared";
+import type { Message } from "@copilotkit/shared";
 import { useCopilotChatInternal } from "@copilotkit/react-core";
-import {
-  LegacyRenderMessage,
-  LegacyRenderProps,
-} from "./messages/LegacyRenderMessage";
+import type { LegacyRenderProps } from "./messages/LegacyRenderMessage";
+import { LegacyRenderMessage } from "./messages/LegacyRenderMessage";
 
 export const Messages = ({
   inProgress,

@@ -1,16 +1,14 @@
 import React, { useEffect, useMemo, useRef } from "react";
-import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
-import {
-  Parameter,
-  getZodParameters,
-  MappedParameterTypes,
-} from "@copilotkit/shared";
+import type {
+  ActionRenderProps,
+  FrontendAction,
+} from "../types/frontend-action";
+import type { Parameter, MappedParameterTypes } from "@copilotkit/shared";
+import { getZodParameters } from "@copilotkit/shared";
 import { parseJson } from "@copilotkit/shared";
-import { ToolCallStatus } from "@copilotkit/core";
-import {
-  type ReactFrontendTool,
-  useFrontendTool as useFrontendToolVNext,
-} from "../v2";
+import type { ToolCallStatus } from "@copilotkit/core";
+import { useFrontendTool as useFrontendToolVNext } from "../v2";
+import type { ReactFrontendTool } from "../v2";
 
 type FrontendToolOptions<T extends Parameter[] | []> = ReactFrontendTool<
   MappedParameterTypes<T>

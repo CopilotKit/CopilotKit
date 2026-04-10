@@ -1,4 +1,4 @@
-import { AssistantMessage, Message } from "@ag-ui/core";
+import type { AssistantMessage, Message } from "@ag-ui/core";
 import { useEffect, useRef, useState } from "react";
 import {
   Copy,
@@ -20,7 +20,8 @@ import {
   TooltipTrigger,
 } from "../../components/ui/tooltip";
 import { useKatexStyles } from "../../hooks/useKatexStyles";
-import { WithSlots, renderSlot } from "../../lib/slots";
+import type { WithSlots } from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
 import { Streamdown } from "streamdown";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
 

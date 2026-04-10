@@ -8,10 +8,12 @@ import {
   readCachedMessageEntry,
   resolveClaim,
   selectSnapshot,
-  type Claim,
-  type ClaimsByMessageId,
-  type SnapshotCaches,
-  type StateRenderContext,
+} from "./use-coagent-state-render-bridge.helpers";
+import type {
+  Claim,
+  ClaimsByMessageId,
+  SnapshotCaches,
+  StateRenderContext,
 } from "./use-coagent-state-render-bridge.helpers";
 
 export interface StateRenderRegistryInput {

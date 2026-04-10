@@ -1,7 +1,7 @@
-import { GraphQLContext } from "../integrations";
-import { ActionInput } from "../../graphql/inputs/action.input";
-import { Message } from "../../graphql/types/converted";
-import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
+import type { GraphQLContext } from "../integrations";
+import type { ActionInput } from "../../graphql/inputs/action.input";
+import type { Message } from "../../graphql/types/converted";
+import type { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 
 export interface BaseEndpointDefinition<TActionType extends EndpointType> {
   type?: TActionType;

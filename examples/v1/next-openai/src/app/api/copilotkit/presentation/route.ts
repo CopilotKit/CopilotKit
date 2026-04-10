@@ -3,7 +3,7 @@ import {
   OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { getServiceAdapter } from "../../../../lib/dynamic-service-adapter";
 
 export const POST = async (req: NextRequest) => {

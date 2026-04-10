@@ -6,7 +6,7 @@
  */
 
 import React from "react";
-import { MessageActionRenderProps } from "../types";
+import type { MessageActionRenderProps } from "../types";
 import { getAgentStyle, truncateTask } from "./agent-styles";
 
 export const MessageToA2A: React.FC<MessageActionRenderProps> = ({

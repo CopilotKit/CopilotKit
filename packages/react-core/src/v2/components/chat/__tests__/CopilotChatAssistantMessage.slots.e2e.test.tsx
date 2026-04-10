@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from "vitest";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { AssistantMessage } from "@ag-ui/core";
+import type { AssistantMessage } from "@ag-ui/core";
 
 // Wrapper to provide required context
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (

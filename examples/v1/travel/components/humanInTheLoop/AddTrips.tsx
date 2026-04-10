@@ -1,8 +1,8 @@
-import { Place, Trip } from "@/lib/types";
+import type { Place, Trip } from "@/lib/types";
 import { PlaceCard } from "@/components/PlaceCard";
 import { X, Plus } from "lucide-react";
 import { ActionButtons } from "./ActionButtons";
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import type { RenderFunctionStatus } from "@copilotkit/react-core";
 import { useEffect, useState } from "react";
 import { useTrips } from "@/lib/hooks/use-trips";
 

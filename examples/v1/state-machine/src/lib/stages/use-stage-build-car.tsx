@@ -1,5 +1,6 @@
 import { ShowCar, ShowCars } from "@/components/generative-ui/show-car";
-import { Car, cars } from "@/lib/types";
+import type { Car } from "@/lib/types";
+import { cars } from "@/lib/types";
 import { useGlobalState } from "@/lib/stages";
 import {
   useCopilotAction,

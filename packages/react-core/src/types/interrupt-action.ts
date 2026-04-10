@@ -1,5 +1,5 @@
-import { LangGraphInterruptEvent } from "@copilotkit/runtime-client-gql";
-import { AgentSession } from "../context/copilot-context";
+import type { LangGraphInterruptEvent } from "@copilotkit/runtime-client-gql";
+import type { AgentSession } from "../context/copilot-context";
 
 export interface LangGraphInterruptRenderHandlerProps<TEventValue = any> {
   event: LangGraphInterruptEvent<TEventValue>;

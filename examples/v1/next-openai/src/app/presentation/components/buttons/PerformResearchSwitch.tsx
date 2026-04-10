@@ -20,13 +20,13 @@ export const PerformResearchSwitch = ({
           className={`w-10 h-4 ${
             isEnabled ? "bg-blue-500" : "bg-gray-400"
           } rounded-full shadow-inner transition-colors`}
-        ></div>
+        />
 
         <div
           className={`absolute w-6 h-6 bg-white rounded-full shadow -left-1 -top-1 transition-transform ${
             isEnabled ? "transform translate-x-full" : ""
           }`}
-        ></div>
+        />
       </div>
       <span className="text-sm font-normal ml-2">Perform Research?</span>
     </label>

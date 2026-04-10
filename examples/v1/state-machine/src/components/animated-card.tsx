@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils/cn";
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import type { RenderFunctionStatus } from "@copilotkit/react-core";
 import { AnimatePresence } from "motion/react";
 import * as motion from "motion/react-client";
 

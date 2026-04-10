@@ -1,6 +1,6 @@
 import { researchWithLangGraph } from "./research";
-import { Action } from "@copilotkit/shared";
-import { NextRequest } from "next/server";
+import type { Action } from "@copilotkit/shared";
+import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   copilotRuntimeNextJSAppRouterEndpoint,

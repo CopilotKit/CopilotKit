@@ -3,10 +3,8 @@ import Footer from "@/components/document-footer";
 import React, { useMemo } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import {
-  DocumentEditor,
-  DocumentEditorProps,
-} from "@/components/documents-editor";
+import type { DocumentEditorProps } from "@/components/documents-editor";
+import { DocumentEditor } from "@/components/documents-editor";
 
 interface DocumentViewerProps {
   section?: TSection;

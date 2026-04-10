@@ -12,7 +12,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CardBrand, MemberRole } from "@/app/api/v1/data";
+import type { MemberRole } from "@/app/api/v1/data";
+import { CardBrand } from "@/app/api/v1/data";
 import { PERMISSIONS } from "@/app/api/v1/permissions";
 
 interface AddCardDropdownProps {

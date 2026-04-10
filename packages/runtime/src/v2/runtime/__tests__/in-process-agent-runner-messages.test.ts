@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { InMemoryAgentRunner } from "../runner/in-memory";
-import {
-  AbstractAgent,
+import type {
   BaseEvent,
-  EventType,
   Message,
   RunAgentInput,
   RunStartedEvent,
 } from "@ag-ui/client";
-import { EMPTY, Observable, firstValueFrom } from "rxjs";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { EMPTY, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
 
 type RunAgentCallbacks = {

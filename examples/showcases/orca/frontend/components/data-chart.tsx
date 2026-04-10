@@ -4,7 +4,7 @@
 import { Pie, PieChart, Cell, Tooltip } from "recharts";
 import { useSharedContext } from "@/lib/shared-context";
 import { useEffect, useState } from "react";
-import { PRData, chartData } from "@/app/Interfaces/interface";
+import type { PRData, chartData } from "@/app/Interfaces/interface";
 import { CustomPieTooltip } from "./pr-pie-all-data";
 
 interface DataChartProps {

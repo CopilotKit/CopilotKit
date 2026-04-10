@@ -6,21 +6,14 @@ import {
   useCopilotKit,
 } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
-import {
-  defineToolCallRenderer,
-  ReactToolCallRenderer,
-  ReactFrontendTool,
-} from "../../../types";
+import type { ReactToolCallRenderer, ReactFrontendTool } from "../../../types";
+import { defineToolCallRenderer } from "../../../types";
 import CopilotChatToolCallsView from "../CopilotChatToolCallsView";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
+import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useFrontendTool } from "../../../hooks/use-frontend-tool";
 

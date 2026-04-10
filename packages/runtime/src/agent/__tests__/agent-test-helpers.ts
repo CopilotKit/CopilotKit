@@ -5,7 +5,8 @@
  * BuiltInAgent-specific factories, mock stream builders, and assertion helpers.
  */
 
-import { EventType, type BaseEvent, type RunAgentInput } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import type { Observable } from "rxjs";
 import { BuiltInAgent } from "../index";
 import type { AgentFactoryContext, BuiltInAgentFactoryConfig } from "../index";

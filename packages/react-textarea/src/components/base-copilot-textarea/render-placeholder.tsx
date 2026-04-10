@@ -1,4 +1,4 @@
-import { RenderPlaceholderProps } from "slate-react";
+import type { RenderPlaceholderProps } from "slate-react";
 import React from "react";
 
 export type RenderPlaceholderFunction = (

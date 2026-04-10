@@ -1,10 +1,10 @@
-import { Section } from "@/lib/types";
+import type { Section } from "@/lib/types";
 import React, { useMemo, useState, useCallback } from "react";
 import DocumentOptions from "@/components/document-options";
 import { DocumentsScrollbar } from "@/components/documents-scrollbar";
 import { DocumentViewer } from "@/components/document-viewer";
 import { useResearch } from "@/components/research-context";
-import { DocumentOptionsState } from "@/types/document-options-state";
+import type { DocumentOptionsState } from "@/types/document-options-state";
 import { useCopilotChat } from "@copilotkit/react-core";
 import { cn } from "@/lib/utils";
 

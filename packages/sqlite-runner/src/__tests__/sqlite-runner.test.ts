@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { SqliteAgentRunner } from "..";
-import {
-  AbstractAgent,
+import type {
   BaseEvent,
-  EventType,
   Message,
   RunAgentInput,
   RunFinishedEvent,
@@ -12,6 +10,7 @@ import {
   TextMessageEndEvent,
   TextMessageStartEvent,
 } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import { EMPTY, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
 import Database from "better-sqlite3";

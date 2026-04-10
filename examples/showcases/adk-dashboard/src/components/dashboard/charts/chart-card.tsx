@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import type { RenderFunctionStatus } from "@copilotkit/react-core";
 import type { ChartSpec, ChartDataMap } from "@/lib/types";
 import { ChartRenderer } from "./chart-renderer";
 import { ChartTypeIcon } from "./chart-type-icon";
@@ -35,7 +35,7 @@ export const ChartCard = ({
             <button
               className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground transition-opacity"
               title="Remove chart"
-            ></button>
+            />
           )}
         </CardHeader>
         <CardContent>

@@ -1,4 +1,4 @@
-import { Config } from "@oclif/core";
+import type { Config } from "@oclif/core";
 import chalk from "chalk";
 import ora from "ora";
 

@@ -1,8 +1,7 @@
+import type { KeyboardEvent, ChangeEvent } from "react";
 import React, {
   useState,
   useRef,
-  KeyboardEvent,
-  ChangeEvent,
   useEffect,
   useLayoutEffect,
   forwardRef,
@@ -13,8 +12,8 @@ import React, {
 import { twMerge } from "tailwind-merge";
 import { Plus, Mic, ArrowUp, X, Check, Square, Loader2 } from "lucide-react";
 
+import type { CopilotChatLabels } from "../../providers/CopilotChatConfigurationProvider";
 import {
-  CopilotChatLabels,
   useCopilotChatConfiguration,
   CopilotChatDefaultLabels,
 } from "../../providers/CopilotChatConfigurationProvider";
@@ -36,7 +35,8 @@ import {
 } from "../../components/ui/dropdown-menu";
 
 import { CopilotChatAudioRecorder } from "./CopilotChatAudioRecorder";
-import { renderSlot, WithSlots } from "../../lib/slots";
+import type { WithSlots } from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
 import { cn } from "../../lib/utils";
 
 export type CopilotChatInputMode = "input" | "transcribe" | "processing";

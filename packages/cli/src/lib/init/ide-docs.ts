@@ -1,7 +1,7 @@
 import path from "path";
 import { existsSync } from "fs";
 import * as fs from "fs/promises";
-import { Ora } from "ora";
+import type { Ora } from "ora";
 import chalk from "chalk";
 
 export type SupportedIDE = "cursor" | "windsurf";

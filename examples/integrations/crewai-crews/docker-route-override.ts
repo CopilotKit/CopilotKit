@@ -9,7 +9,7 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { CrewAIAgent } from "@ag-ui/crewai";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 const agentUrl = process.env.AGENT_URL || "http://localhost:8000";
 

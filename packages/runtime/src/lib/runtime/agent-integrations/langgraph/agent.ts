@@ -1,17 +1,19 @@
-import { map, Observable } from "rxjs";
+import type { Observable } from "rxjs";
+import { map } from "rxjs";
 import { LangGraphEventTypes } from "../../../../agents/langgraph/events";
-import { BaseEvent, RawEvent } from "@ag-ui/core";
+import type { BaseEvent, RawEvent } from "@ag-ui/core";
+import type {
+  ProcessedEvents,
+  SchemaKeys,
+  StateEnrichment,
+} from "@ag-ui/langgraph";
 import {
   LangGraphAgent as AGUILangGraphAgent,
   LangGraphHttpAgent,
-  type LangGraphAgentConfig,
-  ProcessedEvents,
-  SchemaKeys,
-  type State,
-  StateEnrichment,
 } from "@ag-ui/langgraph";
-import { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
-import { ThreadState } from "@langchain/langgraph-sdk";
+import type { LangGraphAgentConfig, State } from "@ag-ui/langgraph";
+import type { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
+import type { ThreadState } from "@langchain/langgraph-sdk";
 
 interface CopilotKitStateEnrichment {
   copilotkit: {
@@ -20,15 +22,16 @@ interface CopilotKitStateEnrichment {
   };
 }
 
-import { RunAgentInput, EventType, CustomEvent } from "@ag-ui/client";
+import type { RunAgentInput, CustomEvent } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
 
 // Import and re-export from separate file to maintain API compatibility
-import {
-  CustomEventNames,
+import type {
   TextMessageEvents,
   ToolCallEvents,
   PredictStateTool,
 } from "./consts";
+import { CustomEventNames } from "./consts";
 export { CustomEventNames };
 
 export class LangGraphAgent extends AGUILangGraphAgent {

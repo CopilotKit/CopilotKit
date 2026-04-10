@@ -1,4 +1,4 @@
-import { AgentState } from "@/lib/state";
+import type { AgentState } from "@/lib/state";
 import { ProjectHeader } from "./ProjectHeader";
 import { KanbanBoard } from "./KanbanBoard";
 import { TeamSection } from "./TeamSection";

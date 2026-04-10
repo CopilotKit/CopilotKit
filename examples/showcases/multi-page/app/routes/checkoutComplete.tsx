@@ -1,4 +1,4 @@
-import { ActionFunction } from "@remix-run/node";
+import type { ActionFunction } from "@remix-run/node";
 import { checkout } from "~/data/cartData";
 
 export const action: ActionFunction = async () => {

@@ -2,8 +2,8 @@ import type { CopilotRuntimeLike } from "../core/runtime";
 import {
   TranscriptionErrorCode,
   TranscriptionErrors,
-  type TranscriptionErrorResponse,
 } from "@copilotkit/shared";
+import type { TranscriptionErrorResponse } from "@copilotkit/shared";
 
 /**
  * HTTP status codes for transcription error codes

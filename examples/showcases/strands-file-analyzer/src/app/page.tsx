@@ -12,11 +12,8 @@ import {
   SummaryPanel,
 } from "@/components/dashboard-panels";
 import { DefaultToolCard } from "@/components/tool-cards";
-import {
-  FileInvestigatorState,
-  INITIAL_STATE,
-  UploadedFile,
-} from "@/types/investigator";
+import type { FileInvestigatorState, UploadedFile } from "@/types/investigator";
+import { INITIAL_STATE } from "@/types/investigator";
 
 export default function FileInvestigatorPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);

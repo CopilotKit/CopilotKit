@@ -17,7 +17,7 @@ import * as PartialJSON from "partial-json";
 export function parseJson(json: string, fallback: any = "unset") {
   try {
     return JSON.parse(json);
-  } catch (e) {
+  } catch {
     return fallback === "unset" ? null : fallback;
   }
 }
@@ -33,7 +33,7 @@ export function partialJSONParse(json: string) {
       return parsed;
     }
     return {};
-  } catch (error) {
+  } catch {
     return {};
   }
 }

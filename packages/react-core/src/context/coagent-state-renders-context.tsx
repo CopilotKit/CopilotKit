@@ -1,13 +1,12 @@
+import type { ReactNode, RefObject } from "react";
 import React, {
   createContext,
   useContext,
   useCallback,
   useState,
   useRef,
-  ReactNode,
-  RefObject,
 } from "react";
-import { CoAgentStateRender } from "../types/coagent-action";
+import type { CoAgentStateRender } from "../types/coagent-action";
 
 interface StateRenderClaim {
   stateRenderId: string;

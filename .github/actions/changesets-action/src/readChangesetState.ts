@@ -1,4 +1,4 @@
-import { PreState, NewChangeset } from "@changesets/types";
+import type { PreState, NewChangeset } from "@changesets/types";
 import { readPreState } from "@changesets/pre";
 import readChangesets from "@changesets/read";
 

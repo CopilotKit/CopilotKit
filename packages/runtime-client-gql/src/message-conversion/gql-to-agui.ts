@@ -1,5 +1,5 @@
 import * as gql from "../client";
-import * as agui from "@copilotkit/shared";
+import type * as agui from "@copilotkit/shared";
 import { MessageStatusCode } from "../graphql/@generated/graphql";
 
 // Define valid image formats based on the supported formats in the codebase
@@ -102,7 +102,7 @@ export function gqlActionExecutionMessageToAGUIMessage(
       if (typeof props?.result === "string") {
         try {
           props.result = JSON.parse(props.result);
-        } catch (e) {
+        } catch {
           /* do nothing */
         }
       }
@@ -111,7 +111,7 @@ export function gqlActionExecutionMessageToAGUIMessage(
       if (typeof actionResult === "string") {
         try {
           actionResult = JSON.parse(actionResult);
-        } catch (e) {
+        } catch {
           /* do nothing */
         }
       }

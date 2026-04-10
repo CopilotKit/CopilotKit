@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { SlideModel } from "@/app/types";
+import type { SlideModel } from "@/app/types";
 import { useMemo } from "react";
 import { useCopilotContext } from "@copilotkit/react-core";
 import { SlideNumberIndicator } from "../misc/SlideNumberIndicator";

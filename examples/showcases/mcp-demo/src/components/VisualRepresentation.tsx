@@ -2,6 +2,7 @@ import { useTodo } from "@/contexts/TodoContext";
 import React, { useEffect, useMemo } from "react";
 import "../app/globals.css";
 
+import type { Edge, Node } from "reactflow";
 import {
   Background,
   ReactFlow,
@@ -9,8 +10,6 @@ import {
   useEdgesState,
   useReactFlow,
   ReactFlowProvider,
-  Edge,
-  Node,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { ChildNode, ParentNode } from "./Nodes";
@@ -35,10 +34,10 @@ const VisualRepresentation = () => {
           position: {
             x:
               nodes.find((node) => node.id.toString() === item.id.toString())
-                ?.position.x || 0 * 100,
+                ?.position.x || 0,
             y:
               nodes.find((node) => node.id.toString() === item.id.toString())
-                ?.position.y || 0 * 100,
+                ?.position.y || 0,
           },
           type: "ParentNode",
         },
@@ -141,7 +140,7 @@ const VisualRepresentation = () => {
             <div
               className="h-full bg-blue-500"
               style={{ width: `${progressValue}%` }}
-            ></div>
+            />
           </div>
         </div>
       </div>

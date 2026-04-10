@@ -1,6 +1,6 @@
-import { GraphQLContext } from "../integrations";
-import { Logger } from "pino";
-import { CopilotKitEndpoint, RemoteActionInfoResponse } from "./types";
+import type { GraphQLContext } from "../integrations";
+import type { Logger } from "pino";
+import type { CopilotKitEndpoint, RemoteActionInfoResponse } from "./types";
 import {
   Action,
   CopilotKitError,

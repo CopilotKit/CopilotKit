@@ -1,6 +1,6 @@
-import { AutosuggestionsConfig } from ".";
-import { InsertionsApiConfig } from "./insertions-api-config";
-import { SuggestionsApiConfig } from "./suggestions-api-config";
+import type { AutosuggestionsConfig } from ".";
+import type { InsertionsApiConfig } from "./insertions-api-config";
+import type { SuggestionsApiConfig } from "./suggestions-api-config";
 
 // Mostly mirrors a partial SuggestionsApiConfig, but with some fields MANDATORY.
 export interface SuggestionsApiConfigUserSpecified extends Partial<SuggestionsApiConfig> {}

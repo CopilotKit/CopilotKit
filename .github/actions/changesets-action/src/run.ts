@@ -3,10 +3,11 @@ import { GitHub, getOctokitOptions } from "@actions/github/lib/utils";
 import * as github from "@actions/github";
 import * as core from "@actions/core";
 import fs from "fs-extra";
-import { getPackages, Package } from "@manypkg/get-packages";
+import type { Package } from "@manypkg/get-packages";
+import { getPackages } from "@manypkg/get-packages";
 import path from "path";
 import * as semver from "semver";
-import { PreState } from "@changesets/types";
+import type { PreState } from "@changesets/types";
 import {
   getChangelogEntry,
   getChangedPackages,

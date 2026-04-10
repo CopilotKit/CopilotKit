@@ -4,7 +4,7 @@ import {
   CopilotChatView,
   CopilotKitProvider,
 } from "@copilotkit/react-core/v2";
-import { Suggestion } from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
 
 const meta = {
   title: "UI/CopilotChatView",

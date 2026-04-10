@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { z } from "zod";
-import { BasicAgent, defineTool, type ToolDefinition } from "../index";
-import {
-  EventType,
-  type BaseEvent,
-  type ReasoningStartEvent,
-  type RunAgentInput,
+import { BasicAgent, defineTool } from "../index";
+import type { ToolDefinition } from "../index";
+import { EventType } from "@ag-ui/client";
+import type {
+  BaseEvent,
+  ReasoningStartEvent,
+  RunAgentInput,
 } from "@ag-ui/client";
 import { streamText } from "ai";
 import {

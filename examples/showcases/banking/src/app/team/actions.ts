@@ -1,4 +1,4 @@
-import { ExpenseRole, Member, MemberRole } from "@/app/api/v1/data";
+import type { ExpenseRole, Member, MemberRole } from "@/app/api/v1/data";
 import { useEffect, useState } from "react";
 
 export default function useTeam() {

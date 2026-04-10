@@ -33,7 +33,7 @@ const fakeInventory = {
   },
 
   async create(values: InventoryMutation): Promise<InventoryRecord> {
-    const id = values.id || Math.random().toString(36).substring(2, 9);
+    const id = values.id || Math.random().toString(36).slice(2, 9);
     const createdAt = new Date().toISOString();
     const newItem = { id, createdAt, ...values };
     fakeInventory.records[id] = newItem;

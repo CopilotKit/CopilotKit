@@ -12,8 +12,8 @@ import {
   BarChart3,
   ShieldCheck,
   Loader2,
-  type LucideIcon,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 /**
  * ToolCard — Generative UI for tool call rendering in the finance-erp chat.

@@ -1,4 +1,4 @@
-import { SpreadsheetRow } from "../types";
+import type { SpreadsheetRow } from "../types";
 
 export interface RowLike {
   cells: CellLike[] | undefined;

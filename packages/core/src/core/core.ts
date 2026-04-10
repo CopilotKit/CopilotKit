@@ -1,5 +1,5 @@
-import { AbstractAgent, Context, State } from "@ag-ui/client";
-import {
+import type { AbstractAgent, Context, State } from "@ag-ui/client";
+import type {
   FrontendTool,
   SuggestionsConfig,
   Suggestion,
@@ -8,17 +8,18 @@ import {
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
 } from "../types";
-import { AgentRegistry, CopilotKitCoreAddAgentParams } from "./agent-registry";
+import type { CopilotKitCoreAddAgentParams } from "./agent-registry";
+import { AgentRegistry } from "./agent-registry";
 import { ContextStore } from "./context-store";
 import { SuggestionEngine } from "./suggestion-engine";
-import {
-  RunHandler,
+import type {
   CopilotKitCoreRunAgentParams,
   CopilotKitCoreConnectAgentParams,
   CopilotKitCoreGetToolParams,
   CopilotKitCoreRunToolParams,
   CopilotKitCoreRunToolResult,
 } from "./run-handler";
+import { RunHandler } from "./run-handler";
 import { StateManager } from "./state-manager";
 
 /** Configuration options for `CopilotKitCore`. */

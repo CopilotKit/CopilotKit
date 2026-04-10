@@ -1,4 +1,5 @@
-import { Suspense, memo, type ReactNode } from "react";
+import { Suspense, memo } from "react";
+import type { ReactNode } from "react";
 import { useA2UI } from "../hooks/useA2UI";
 import { A2uiSurface } from "../a2ui-react";
 import { cn } from "../lib/utils";

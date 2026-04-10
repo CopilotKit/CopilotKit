@@ -194,14 +194,14 @@ export function getAirportByCode(code: string): Airport | undefined {
  * Generate a unique search ID.
  */
 function generateSearchId(): string {
-  return `search-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  return `search-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 /**
  * Generate a unique flight ID.
  */
 function generateFlightId(): string {
-  return `flight-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+  return `flight-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
 /**

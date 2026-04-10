@@ -2,9 +2,9 @@
  * Delete Resources
  */
 
-import { AgentState } from "./state";
-import { RunnableConfig } from "@langchain/core/runnables";
-import { ToolMessage, AIMessage } from "@langchain/core/messages";
+import type { AgentState } from "./state";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { ToolMessage, AIMessage } from "@langchain/core/messages";
 
 export async function delete_node(
   state: AgentState,

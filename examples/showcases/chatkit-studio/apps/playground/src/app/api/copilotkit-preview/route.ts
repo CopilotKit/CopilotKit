@@ -5,7 +5,7 @@ import {
 } from "@copilotkit/runtime";
 
 import { LangGraphAgent } from "@ag-ui/langgraph";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 /**
  * Preview API Route

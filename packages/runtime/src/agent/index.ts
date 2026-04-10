@@ -1,8 +1,6 @@
-import {
-  AbstractAgent,
+import type {
   BaseEvent,
   RunAgentInput,
-  EventType,
   Message,
   ReasoningEndEvent,
   ReasoningMessageContentEvent,
@@ -20,8 +18,8 @@ import {
   StateSnapshotEvent,
   StateDeltaEvent,
 } from "@ag-ui/client";
-import {
-  streamText,
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type {
   LanguageModel,
   ModelMessage,
   AssistantModelMessage,
@@ -33,11 +31,10 @@ import {
   TextPart,
   ImagePart,
   FilePart,
-  tool as createVercelAISDKTool,
   ToolChoice,
   ToolSet,
-  stepCountIs,
 } from "ai";
+import { streamText, tool as createVercelAISDKTool, stepCountIs } from "ai";
 import { experimental_createMCPClient as createMCPClient } from "@ai-sdk/mcp";
 import { Observable } from "rxjs";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -51,10 +48,8 @@ import { schemaToJsonSchema } from "@copilotkit/shared";
 import { jsonSchema as aiJsonSchema } from "ai";
 import { convertAISDKStream } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
-import {
-  StreamableHTTPClientTransport,
-  StreamableHTTPClientTransportOptions,
-} from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { randomUUID } from "@copilotkit/shared";
 

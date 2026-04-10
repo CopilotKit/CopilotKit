@@ -6,7 +6,7 @@
  * of customized CopilotKit chat components.
  */
 
-import { PlaygroundConfig } from "@/types/playground";
+import type { PlaygroundConfig } from "@/types/playground";
 
 export interface ExportedFiles {
   component: string;

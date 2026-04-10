@@ -4,7 +4,8 @@ import { useState, useRef } from "react";
 import { CopilotChat } from "@copilotkit/react-ui";
 import { useDefaultTool } from "@copilotkit/react-core";
 import { Workspace } from "@/components/Workspace";
-import { ResearchState, INITIAL_STATE, Todo } from "@/types/research";
+import type { ResearchState, Todo } from "@/types/research";
+import { INITIAL_STATE } from "@/types/research";
 import { ToolCard } from "@/components/ToolCard";
 
 export default function Page() {
