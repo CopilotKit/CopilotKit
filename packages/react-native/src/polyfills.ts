@@ -127,6 +127,7 @@ if (typeof window !== "undefined" && !(window as any).location) {
 }
 
 // Streaming fetch — RN's built-in fetch doesn't support response.body (ReadableStream).
-// Install an XHR-based replacement that streams chunks, enabling SSE agent communication.
+// Installs an XHR-based replacement that streams chunks, enabling SSE agent communication.
+// Skipped automatically if native fetch already supports ReadableStream bodies.
 import { installStreamingFetch } from "./streaming-fetch";
 installStreamingFetch();
