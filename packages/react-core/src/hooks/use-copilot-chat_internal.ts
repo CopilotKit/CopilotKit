@@ -481,7 +481,7 @@ export function useCopilotChatInternal({
         // Work backwards to find the first the closest user message
         const lastUserMessageBeforeRegenerate = messages
           .slice(0, reloadMessageIndex)
-          .reverse()
+          .toReversed()
           .find((msg) => msg.role === "user");
 
         if (!lastUserMessageBeforeRegenerate) {

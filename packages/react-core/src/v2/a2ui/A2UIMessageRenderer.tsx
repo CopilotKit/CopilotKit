@@ -151,7 +151,7 @@ function ReactSurfaceHost({
 
       try {
         copilotkit.setProperties({
-          ...(copilotkit.properties ?? {}),
+          ...copilotkit.properties,
           a2uiAction: message,
         });
 
