@@ -172,6 +172,21 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Skip if the latest main commit is <20 min old (deploy is probably still building)
+          COMMIT_DATE=$(gh api "/repos/${{ github.repository }}/commits/main" --jq '.commit.committer.date' 2>/dev/null) || true
+          if [ -n "$COMMIT_DATE" ]; then
+            COMMIT_TS=$(date -d "$COMMIT_DATE" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$COMMIT_DATE" +%s 2>/dev/null) || true
+            NOW_TS=$(date +%s)
+            if [ -z "$COMMIT_TS" ]; then COMMIT_TS=$NOW_TS; fi
+            AGE_MIN=$(( (NOW_TS - COMMIT_TS) / 60 ))
+            echo "Latest main commit is ${AGE_MIN}m old"
+            if [ "$AGE_MIN" -lt 20 ]; then
+              echo "Skipping drift check — deploy likely still in progress"
+              echo "has_stale=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
           STALE=""
           STALE_LIST=""
           SERVICES=(
@@ -227,7 +242,8 @@ jobs:
         run: |
           HEADER=":package: *Image drift detected — rebuilds triggered:*"
           BODY=$(cat image-drift.txt)
-          jq -n --arg text "${HEADER}\n${BODY}" '{"text": $text}' > drift-payload.json
+          printf "%s\n%s" "$HEADER" "$BODY" > drift-message.txt
+          jq -n --rawfile text drift-message.txt '{"text": $text}' > drift-payload.json
 
       - name: Post image drift to Slack
         if: steps.image_drift.outputs.has_stale == 'true'
