@@ -69,7 +69,7 @@ function convertUserContent(
     switch ((part as { type: string }).type) {
       case "text": {
         const text = (part as { text?: string }).text;
-        if (text) parts.push({ type: "text", content: text });
+        if (text != null) parts.push({ type: "text", content: text });
         break;
       }
 

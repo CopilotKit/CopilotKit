@@ -153,12 +153,40 @@ describe("convertInputToTanStackAI — multimodal", () => {
     expect(result.content).toBe("");
   });
 
+  it("preserves empty string text parts", () => {
+    const result = convertUserContent([{ type: "text", text: "" }]);
+    expect(result.content).toEqual([{ type: "text", content: "" }]);
+  });
+
   it("skips parts with missing source without crashing", () => {
     const result = convertUserContent([
       { type: "text", text: "check this" },
       { type: "image" } as any,
     ]);
     expect(result.content).toEqual([{ type: "text", content: "check this" }]);
+  });
+
+  it("silently skips unknown part types", () => {
+    const result = convertUserContent([
+      { type: "text", text: "hello" },
+      { type: "spreadsheet", source: dataSource("data", "text/csv") } as any,
+    ]);
+    expect(result.content).toEqual([{ type: "text", content: "hello" }]);
+  });
+
+  it("returns null for null or undefined content", () => {
+    const nullInput = createDefaultInput({
+      messages: [{ role: "user", content: null } as unknown as Message],
+    });
+    const { messages: nullMessages } = convertInputToTanStackAI(nullInput);
+    expect(nullMessages[0].content).toBeNull();
+
+    const undefinedInput = createDefaultInput({
+      messages: [{ role: "user", content: undefined } as unknown as Message],
+    });
+    const { messages: undefinedMessages } =
+      convertInputToTanStackAI(undefinedInput);
+    expect(undefinedMessages[0].content).toBeNull();
   });
 
   describe("legacy BinaryInputContent backward compat", () => {
@@ -187,6 +215,23 @@ describe("convertInputToTanStackAI — multimodal", () => {
           },
         },
       ]);
+    });
+
+    it("skips binary with neither data nor url", () => {
+      const legacyPart = {
+        type: "binary",
+        mimeType: "image/png",
+      };
+      const input = createDefaultInput({
+        messages: [
+          {
+            role: "user",
+            content: [legacyPart] as unknown as InputContent[],
+          } as Message,
+        ],
+      });
+      const { messages } = convertInputToTanStackAI(input);
+      expect(messages[0].content).toBe("");
     });
 
     it("converts binary with non-image mimeType and url", () => {
