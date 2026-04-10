@@ -120,7 +120,7 @@ const agent = new BuiltInAgent({
 Under the hood, the Built-in Agent resolves model strings to AI SDK provider instances:
 
 - `"openai:gpt-4.1"` → `@ai-sdk/openai` → `openai("gpt-4.1")`
-- `"anthropic:claude-sonnet-4-5"` → `@ai-sdk/anthropic` → `anthropic("claude-sonnet-4.5")`
+- `"anthropic:claude-sonnet-4-5"` → `@ai-sdk/anthropic` → `anthropic("claude-sonnet-4-5")`
 - `"google:gemini-2.5-pro"` → `@ai-sdk/google` → `google("gemini-2.5-pro")`
 
 Both `"provider:model"` and `"provider/model"` separators are supported and work identically.
