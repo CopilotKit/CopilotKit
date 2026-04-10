@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/a2ui-renderer",
-  "version": "1.55.0-next.8",
+  "version": "1.55.2-next.0",
   "private": false,
   "description": "A2UI Renderer for CopilotKit - render A2UI surfaces in React applications",
   "keywords": [
@@ -48,10 +48,10 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@a2ui/lit": "^0.8.1",
+    "@a2ui/web_core": "0.9.0",
     "clsx": "^2.1.1",
-    "markdown-it": "^14.1.0",
-    "zod": "^3.25.75"
+    "zod": "^3.25.75",
+    "zod-to-json-schema": "^3.24.1"
   },
   "devDependencies": {
     "@testing-library/react": "^16.0.0",

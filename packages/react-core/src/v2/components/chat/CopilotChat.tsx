@@ -67,6 +67,18 @@ export type CopilotChatProps = Omit<
     code: CopilotKitCoreErrorCode;
     context: Record<string, any>;
   }) => void | Promise<void>;
+  /**
+   * Throttle interval (in milliseconds) for re-renders triggered by message
+   * change notifications. Overrides the provider-level `defaultThrottleMs`
+   * for this chat instance. Forwarded to the internal `useAgent()` hook,
+   * which resolves the effective throttle value.
+   *
+   * @default undefined — inherits from provider `defaultThrottleMs`;
+   * if that is also unset, re-renders are unthrottled. Note: passing
+   * `throttleMs={0}` explicitly disables throttling for this instance
+   * even when the provider specifies a non-zero `defaultThrottleMs`.
+   */
+  throttleMs?: number;
 };
 export function CopilotChat({
   agentId,
@@ -76,6 +88,7 @@ export function CopilotChat({
   isModalDefaultOpen,
   attachments: attachmentsConfig,
   onError,
+  throttleMs,
   ...props
 }: CopilotChatProps) {
   // Check for existing configuration provider
@@ -92,6 +105,7 @@ export function CopilotChat({
   const { agent } = useAgent({
     agentId: resolvedAgentId,
     threadId: resolvedThreadId,
+    throttleMs,
   });
   const { copilotkit } = useCopilotKit();
   const { suggestions: autoSuggestions } = useSuggestions({

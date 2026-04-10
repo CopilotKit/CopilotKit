@@ -1,0 +1,47 @@
+@import "tailwindcss";
+@import "highlight.js/styles/github.css";
+
+:root {
+  /* CopilotCloud palette — exact from dojo */
+  --surface-main: #dedee9;
+  --surface-container: #ffffff;
+  --border-default: #ffffff;
+  --border-container: #dbdbe5;
+  --text-primary: #010507;
+  --text-secondary: #57575b;
+  --text-disabled: #838389;
+  --text-invert: #ffffff;
+
+  --sidebar-width: 296px;
+  --font-mono: "Spline Sans Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--surface-main);
+  color: var(--text-primary);
+  font-family:
+    "Plus Jakarta Sans",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar styling for sidebar */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-container);
+  border-radius: 4px;
+}

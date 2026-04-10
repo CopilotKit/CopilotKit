@@ -1,0 +1,136 @@
+---
+title: "Overview"
+description: "Client package overview for Go SDK"
+---
+
+# Client Package
+
+The AG-UI Go SDK client package provides Server-Sent Events (SSE) connectivity for real-time event streaming from AG-UI agents. This package enables Go applications to connect to agent endpoints and receive streaming responses.
+
+## Package Import
+
+```go
+
+```
+
+## SSE Client Introduction
+
+The SSE (Server-Sent Events) client provides a robust connection mechanism for streaming events from AG-UI agents. SSE is a standard protocol for server-to-client streaming over HTTP, making it ideal for real-time agent interactions where the agent needs to send continuous updates about its processing state, thoughts, and outputs.
+
+Key features:
+
+- Real-time event streaming from agents
+- Automatic connection management
+- Context-based cancellation support
+- Configurable timeouts and buffer sizes
+- Built-in authentication support
+
+## Configuration
+
+The client is highly configurable to adapt to different deployment scenarios:
+
+```go
+client := sse.NewClient(sse.Config{
+    Endpoint:       "https://api.example.com/agent",
+    APIKey:         "your-api-key",
+    ConnectTimeout: 30 * time.Second,
+    ReadTimeout:    5 * time.Minute,
+    BufferSize:     100,
+})
+
+// Start streaming with context and payload
+frames, errors, err := client.Stream(sse.StreamOptions{
+    Context: context.Background(),
+    Payload: map[string]interface{}{
+        "threadId": "thread_123",
+        "messages": []interface{}{
+            map[string]string{
+                "role":    "user",
+                "content": "Hello, agent!",
+            },
+        },
+    },
+})
+```
+
+## Quick Example
+
+Here's a complete example showing how to connect to an agent and process events:
+
+```go
+package main
+
+    "context"
+    "fmt"
+    "log"
+
+    "github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/client/sse"
+    "github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/core/events"
+)
+
+func main() {
+    // Create SSE client
+    client := sse.NewClient(sse.Config{
+        Endpoint: "https://api.example.com/agent",
+        APIKey:   "your-api-key",
+    })
+
+    // Start streaming
+    ctx := context.Background()
+    frames, errors, err := client.Stream(sse.StreamOptions{
+        Context: ctx,
+        Payload: map[string]interface{}{
+            "threadId": "thread_123",
+            "messages": []interface{}{
+                map[string]string{
+                    "role":    "user",
+                    "content": "What is the weather today?",
+                },
+            },
+        },
+    })
+
+    if err != nil {
+        log.Fatal("Failed to start stream:", err)
+    }
+
+    // Process events
+    decoder := events.NewEventDecoder()
+    for {
+        select {
+        case frame := <-frames:
+            event, err := decoder.Decode(frame.Data)
+            if err != nil {
+                log.Printf("Decode error: %v", err)
+                continue
+            }
+
+            // Handle different event types
+            switch e := event.(type) {
+            case *events.TextMessageContentEvent:
+                fmt.Print(e.Delta)
+            case *events.RunFinishedEvent:
+                fmt.Println("\nAgent finished processing")
+                return
+            }
+
+        case err := <-errors:
+            log.Printf("Stream error: %v", err)
+            return
+        }
+    }
+}
+```
+
+## Navigation
+
+<Card
+  title="SSE Client Reference"
+  icon="cube"
+  href="/sdk/go/client/sse-client"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Detailed documentation for the Server-Sent Events client including
+  configuration, streaming, and error handling
+</Card>

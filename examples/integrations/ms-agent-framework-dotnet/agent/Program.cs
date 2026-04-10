@@ -59,7 +59,7 @@ public class ProverbsAgentFactory
             new System.ClientModel.ApiKeyCredential(githubToken),
             new OpenAIClientOptions
             {
-                Endpoint = new Uri("https://models.inference.ai.azure.com")
+                Endpoint = new Uri(Environment.GetEnvironmentVariable("OPENAI_BASE_URL") ?? "https://models.inference.ai.azure.com")
             });
     }
 

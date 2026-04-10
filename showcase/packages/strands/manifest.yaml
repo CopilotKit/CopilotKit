@@ -1,0 +1,59 @@
+name: AWS Strands
+slug: strands
+category: emerging
+language: python
+logo: /logos/strands.svg
+description: CopilotKit integration with AWS Strands
+managed_platform:
+  name: AWS Bedrock AgentCore
+  url: https://aws.amazon.com/bedrock/agents/
+partner_docs: null
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/strands
+copilotkit_version: 2.0.0
+backend_url: https://showcase-strands-production.up.railway.app
+deployed: true
+sort_order: 130
+generative_ui:
+  - constrained-explicit
+interaction_modalities:
+  - chat
+starter:
+  path: examples/integrations/strands-python
+  name: Investment Analyst (Strands)
+  description: Investment analysis agent built with AWS Strands framework
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/strands-python
+  demo_url: https://showcase-starter-strands-production.up.railway.app
+features:
+  - agentic-chat
+  - tool-rendering
+  - hitl
+  - gen-ui-tool-based
+demos:
+  - id: agentic-chat
+    name: Agentic Chat
+    description: Natural conversation with frontend tool execution
+    tags:
+      - chat-ui
+    route: /demos/agentic-chat
+    animated_preview_url:
+  - id: tool-rendering
+    name: Tool Rendering
+    description: Backend agent tools rendered as UI components
+    tags:
+      - agent-capabilities
+    route: /demos/tool-rendering
+    animated_preview_url:
+  - id: hitl
+    name: Human in the Loop
+    description: User approves agent actions before execution
+    tags:
+      - interactivity
+    route: /demos/hitl
+    animated_preview_url:
+  - id: gen-ui-tool-based
+    name: Tool-Based Generative UI
+    description: Agent uses tools to trigger UI generation
+    tags:
+      - generative-ui
+    route: /demos/gen-ui-tool-based
+    animated_preview_url:

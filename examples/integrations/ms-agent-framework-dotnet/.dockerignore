@@ -1,0 +1,7 @@
+node_modules
+.next
+.git
+.env
+.env.local
+agent/bin
+agent/obj

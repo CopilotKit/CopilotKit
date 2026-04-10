@@ -165,7 +165,7 @@ Before you begin, you'll need the following:
                 api_key = os.getenv("OPENAI_API_KEY", "")
                 model = OpenAIModel(
                     client_args={"api_key": api_key},
-                    model_id="gpt-5.2",
+                    model_id="gpt-5.4",
                 )
 
                 agent = Agent(
@@ -251,6 +251,7 @@ Before you begin, you'll need the following:
                 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
                 import "@copilotkit/react-ui/v2/styles.css";
+                import './globals.css';
 
                 // ...
 

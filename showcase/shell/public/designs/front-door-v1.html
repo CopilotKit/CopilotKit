@@ -1,0 +1,1501 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Showcase UX Concepts</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Instrument+Serif:ital@0;1&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg-deep: #0a0a0f;
+        --bg-surface: #12121a;
+        --bg-elevated: #1a1a26;
+        --bg-hover: #222233;
+        --border: #2a2a3d;
+        --border-subtle: #1e1e2e;
+        --text-primary: #e8e8f0;
+        --text-secondary: #8888a0;
+        --text-muted: #555568;
+        --accent-blue: #4d7cff;
+        --accent-cyan: #22d3ee;
+        --accent-violet: #8b5cf6;
+        --accent-emerald: #34d399;
+        --accent-amber: #fbbf24;
+        --accent-rose: #f472b6;
+        --gradient-primary: linear-gradient(135deg, #4d7cff 0%, #8b5cf6 100%);
+        --gradient-warm: linear-gradient(135deg, #f472b6 0%, #fbbf24 100%);
+        --gradient-cool: linear-gradient(135deg, #22d3ee 0%, #34d399 100%);
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "DM Sans", sans-serif;
+        background: var(--bg-deep);
+        color: var(--text-primary);
+        overflow-x: hidden;
+      }
+
+      /* ===== TOP NAV ===== */
+      .concept-nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        background: rgba(10, 10, 15, 0.85);
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid var(--border);
+        padding: 0 32px;
+        display: flex;
+        align-items: center;
+        height: 56px;
+        gap: 8px;
+      }
+
+      .concept-nav .label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--text-muted);
+        margin-right: 16px;
+      }
+
+      .concept-tab {
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+        background: transparent;
+        font-family: "DM Sans", sans-serif;
+      }
+
+      .concept-tab:hover {
+        color: var(--text-primary);
+        background: var(--bg-elevated);
+      }
+
+      .concept-tab.active {
+        color: var(--text-primary);
+        background: var(--bg-elevated);
+        border-color: var(--border);
+      }
+
+      .concept-tab .tab-letter {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        line-height: 20px;
+        text-align: center;
+        border-radius: 4px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        font-weight: 600;
+        margin-right: 8px;
+      }
+
+      .concept-tab:nth-child(2) .tab-letter {
+        background: rgba(77, 124, 255, 0.2);
+        color: var(--accent-blue);
+      }
+      .concept-tab:nth-child(3) .tab-letter {
+        background: rgba(34, 211, 238, 0.2);
+        color: var(--accent-cyan);
+      }
+      .concept-tab:nth-child(4) .tab-letter {
+        background: rgba(139, 92, 246, 0.2);
+        color: var(--accent-violet);
+      }
+
+      /* ===== CONCEPT SECTIONS ===== */
+      .concept {
+        display: none;
+        padding-top: 56px;
+        min-height: 100vh;
+      }
+      .concept.active {
+        display: block;
+      }
+
+      /* ===== CONCEPT A: WIZARD ===== */
+      .wizard-container {
+        min-height: calc(100vh - 56px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .wizard-container::before {
+        content: "";
+        position: absolute;
+        top: -200px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 800px;
+        height: 800px;
+        background: radial-gradient(
+          circle,
+          rgba(77, 124, 255, 0.08) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+
+      .wizard-card {
+        width: 640px;
+        position: relative;
+      }
+
+      .wizard-header {
+        text-align: center;
+        margin-bottom: 48px;
+      }
+
+      .wizard-header h1 {
+        font-family: "Instrument Serif", serif;
+        font-size: 48px;
+        font-weight: 400;
+        line-height: 1.1;
+        margin-bottom: 16px;
+        font-style: italic;
+      }
+
+      .wizard-header h1 .highlight {
+        background: var(--gradient-primary);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-style: normal;
+      }
+
+      .wizard-header p {
+        color: var(--text-secondary);
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      .wizard-step {
+        display: none;
+      }
+      .wizard-step.active {
+        display: block;
+        animation: fadeUp 0.4s ease;
+      }
+
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(16px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .wizard-question {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--accent-blue);
+        margin-bottom: 20px;
+      }
+
+      .wizard-prompt {
+        font-size: 22px;
+        font-weight: 500;
+        margin-bottom: 32px;
+        line-height: 1.4;
+      }
+
+      .wizard-options {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .wizard-option {
+        padding: 18px 24px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--bg-surface);
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .wizard-option:hover {
+        border-color: var(--accent-blue);
+        background: var(--bg-elevated);
+        transform: translateX(4px);
+      }
+
+      .wizard-option .opt-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        flex-shrink: 0;
+      }
+
+      .wizard-option:nth-child(1) .opt-icon {
+        background: rgba(77, 124, 255, 0.15);
+      }
+      .wizard-option:nth-child(2) .opt-icon {
+        background: rgba(34, 211, 238, 0.15);
+      }
+      .wizard-option:nth-child(3) .opt-icon {
+        background: rgba(139, 92, 246, 0.15);
+      }
+      .wizard-option:nth-child(4) .opt-icon {
+        background: rgba(52, 211, 153, 0.15);
+      }
+      .wizard-option:nth-child(5) .opt-icon {
+        background: rgba(244, 114, 182, 0.15);
+      }
+
+      .wizard-option .opt-text h3 {
+        font-size: 15px;
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+
+      .wizard-option .opt-text p {
+        font-size: 13px;
+        color: var(--text-secondary);
+      }
+
+      .wizard-progress {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        margin-top: 48px;
+      }
+
+      .wizard-dot {
+        width: 32px;
+        height: 3px;
+        border-radius: 2px;
+        background: var(--border);
+        transition: all 0.3s;
+      }
+
+      .wizard-dot.active {
+        background: var(--accent-blue);
+        width: 48px;
+      }
+      .wizard-dot.done {
+        background: var(--text-muted);
+      }
+
+      /* Result card */
+      .wizard-result {
+        text-align: center;
+        animation: fadeUp 0.5s ease;
+      }
+
+      .wizard-result .result-badge {
+        display: inline-block;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        background: rgba(52, 211, 153, 0.15);
+        color: var(--accent-emerald);
+        margin-bottom: 24px;
+      }
+
+      .wizard-result h2 {
+        font-family: "Instrument Serif", serif;
+        font-size: 36px;
+        font-weight: 400;
+        margin-bottom: 12px;
+      }
+
+      .wizard-result .result-desc {
+        color: var(--text-secondary);
+        margin-bottom: 32px;
+        font-size: 15px;
+      }
+
+      .wizard-result .result-cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        text-align: left;
+      }
+
+      .result-card {
+        padding: 20px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--bg-surface);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .result-card:hover {
+        border-color: var(--accent-blue);
+        transform: translateY(-2px);
+      }
+
+      .result-card h4 {
+        font-size: 14px;
+        margin-bottom: 4px;
+      }
+      .result-card p {
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
+      .wizard-restart {
+        margin-top: 24px;
+        padding: 8px 16px;
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text-secondary);
+        font-family: "DM Sans", sans-serif;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .wizard-restart:hover {
+        color: var(--text-primary);
+        border-color: var(--text-muted);
+      }
+
+      /* ===== CONCEPT B: FEATURE-FIRST ===== */
+      .feature-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 64px 32px;
+      }
+
+      .feature-hero {
+        text-align: center;
+        margin-bottom: 64px;
+      }
+
+      .feature-hero .eyebrow {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: var(--accent-cyan);
+        margin-bottom: 16px;
+      }
+
+      .feature-hero h1 {
+        font-family: "Instrument Serif", serif;
+        font-size: 52px;
+        font-weight: 400;
+        line-height: 1.1;
+        margin-bottom: 20px;
+      }
+
+      .feature-hero p {
+        color: var(--text-secondary);
+        font-size: 17px;
+        max-width: 560px;
+        margin: 0 auto;
+        line-height: 1.6;
+      }
+
+      .feature-search {
+        max-width: 480px;
+        margin: 32px auto 0;
+        position: relative;
+      }
+
+      .feature-search input {
+        width: 100%;
+        padding: 14px 20px 14px 44px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--bg-surface);
+        color: var(--text-primary);
+        font-family: "DM Sans", sans-serif;
+        font-size: 15px;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+
+      .feature-search input:focus {
+        border-color: var(--accent-cyan);
+      }
+      .feature-search input::placeholder {
+        color: var(--text-muted);
+      }
+
+      .feature-search .search-icon {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        font-size: 16px;
+      }
+
+      .feature-categories {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-bottom: 48px;
+      }
+
+      .feature-cat-pill {
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 500;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: "DM Sans", sans-serif;
+      }
+
+      .feature-cat-pill:hover {
+        border-color: var(--text-muted);
+        color: var(--text-primary);
+      }
+      .feature-cat-pill.active {
+        background: var(--accent-cyan);
+        color: var(--bg-deep);
+        border-color: var(--accent-cyan);
+      }
+
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+
+      .feature-card {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: var(--bg-surface);
+        padding: 28px;
+        cursor: pointer;
+        transition: all 0.3s;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .feature-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .feature-card:hover {
+        border-color: transparent;
+        transform: translateY(-4px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+      }
+
+      .feature-card:hover::before {
+        opacity: 1;
+      }
+
+      .feature-card:nth-child(6n + 1)::before {
+        background: var(--gradient-primary);
+      }
+      .feature-card:nth-child(6n + 2)::before {
+        background: var(--gradient-cool);
+      }
+      .feature-card:nth-child(6n + 3)::before {
+        background: var(--gradient-warm);
+      }
+      .feature-card:nth-child(6n + 4)::before {
+        background: linear-gradient(
+          135deg,
+          var(--accent-amber),
+          var(--accent-emerald)
+        );
+      }
+      .feature-card:nth-child(6n + 5)::before {
+        background: linear-gradient(
+          135deg,
+          var(--accent-violet),
+          var(--accent-rose)
+        );
+      }
+      .feature-card:nth-child(6n + 6)::before {
+        background: linear-gradient(
+          135deg,
+          var(--accent-cyan),
+          var(--accent-blue)
+        );
+      }
+
+      .feature-card .fc-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        margin-bottom: 20px;
+      }
+
+      .feature-card:nth-child(6n + 1) .fc-icon {
+        background: rgba(77, 124, 255, 0.12);
+      }
+      .feature-card:nth-child(6n + 2) .fc-icon {
+        background: rgba(34, 211, 238, 0.12);
+      }
+      .feature-card:nth-child(6n + 3) .fc-icon {
+        background: rgba(244, 114, 182, 0.12);
+      }
+      .feature-card:nth-child(6n + 4) .fc-icon {
+        background: rgba(251, 191, 36, 0.12);
+      }
+      .feature-card:nth-child(6n + 5) .fc-icon {
+        background: rgba(139, 92, 246, 0.12);
+      }
+      .feature-card:nth-child(6n + 6) .fc-icon {
+        background: rgba(52, 211, 153, 0.12);
+      }
+
+      .feature-card h3 {
+        font-size: 17px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .feature-card .fc-desc {
+        font-size: 13px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        margin-bottom: 20px;
+      }
+
+      .feature-card .fc-integrations {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .fc-int-badge {
+        padding: 3px 10px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-family: "JetBrains Mono", monospace;
+        background: var(--bg-elevated);
+        color: var(--text-secondary);
+        border: 1px solid var(--border-subtle);
+      }
+
+      .fc-int-more {
+        font-size: 11px;
+        color: var(--text-muted);
+        font-family: "JetBrains Mono", monospace;
+      }
+
+      /* ===== CONCEPT C: CONFIGURATOR ===== */
+      .config-container {
+        display: grid;
+        grid-template-columns: 380px 1fr;
+        min-height: calc(100vh - 56px);
+      }
+
+      .config-panel {
+        border-right: 1px solid var(--border);
+        padding: 32px;
+        overflow-y: auto;
+        background: var(--bg-surface);
+      }
+
+      .config-panel h2 {
+        font-family: "Instrument Serif", serif;
+        font-size: 28px;
+        font-weight: 400;
+        margin-bottom: 8px;
+      }
+
+      .config-panel .subtitle {
+        color: var(--text-secondary);
+        font-size: 14px;
+        margin-bottom: 32px;
+        line-height: 1.5;
+      }
+
+      .config-section {
+        margin-bottom: 28px;
+      }
+
+      .config-section-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--text-muted);
+        margin-bottom: 12px;
+      }
+
+      .config-toggles {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .config-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        border: 1px solid var(--border-subtle);
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s;
+        user-select: none;
+      }
+
+      .config-toggle:hover {
+        background: var(--bg-elevated);
+      }
+      .config-toggle.on {
+        border-color: var(--accent-violet);
+        background: rgba(139, 92, 246, 0.06);
+      }
+
+      .config-toggle .ct-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .config-toggle .ct-icon {
+        font-size: 16px;
+      }
+
+      .config-toggle .ct-name {
+        font-size: 13px;
+        font-weight: 500;
+      }
+
+      .config-toggle .ct-switch {
+        width: 36px;
+        height: 20px;
+        border-radius: 10px;
+        background: var(--border);
+        position: relative;
+        transition: background 0.2s;
+      }
+
+      .config-toggle.on .ct-switch {
+        background: var(--accent-violet);
+      }
+
+      .config-toggle .ct-switch::after {
+        content: "";
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        background: white;
+        top: 2px;
+        left: 2px;
+        transition: transform 0.2s;
+      }
+
+      .config-toggle.on .ct-switch::after {
+        transform: translateX(16px);
+      }
+
+      .config-preview {
+        padding: 48px;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+
+      .config-preview::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: radial-gradient(
+          ellipse at 30% 20%,
+          rgba(139, 92, 246, 0.04) 0%,
+          transparent 60%
+        );
+        pointer-events: none;
+      }
+
+      .config-results-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 32px;
+      }
+
+      .config-results-header h3 {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-secondary);
+      }
+
+      .config-results-header .count {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        padding: 4px 12px;
+        border-radius: 6px;
+        background: rgba(139, 92, 246, 0.12);
+        color: var(--accent-violet);
+      }
+
+      .config-matches {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        flex: 1;
+      }
+
+      .config-match-card {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 24px;
+        background: var(--bg-surface);
+        transition: all 0.3s;
+        cursor: pointer;
+        position: relative;
+      }
+
+      .config-match-card:hover {
+        border-color: var(--accent-violet);
+        transform: translateY(-2px);
+      }
+
+      .config-match-card .match-score {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 6px;
+      }
+
+      .match-score.high {
+        background: rgba(52, 211, 153, 0.12);
+        color: var(--accent-emerald);
+      }
+      .match-score.medium {
+        background: rgba(251, 191, 36, 0.12);
+        color: var(--accent-amber);
+      }
+      .match-score.low {
+        background: rgba(136, 136, 160, 0.12);
+        color: var(--text-secondary);
+      }
+
+      .config-match-card .match-logo {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: var(--bg-elevated);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        margin-bottom: 14px;
+      }
+
+      .config-match-card h4 {
+        font-size: 15px;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+
+      .config-match-card .match-category {
+        font-size: 11px;
+        color: var(--text-muted);
+        font-family: "JetBrains Mono", monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 14px;
+      }
+
+      .config-match-card .match-features {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      .match-feat {
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-family: "JetBrains Mono", monospace;
+      }
+
+      .match-feat.has {
+        background: rgba(52, 211, 153, 0.1);
+        color: var(--accent-emerald);
+      }
+      .match-feat.missing {
+        background: rgba(85, 85, 104, 0.15);
+        color: var(--text-muted);
+        text-decoration: line-through;
+      }
+
+      .config-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        flex: 1;
+        color: var(--text-muted);
+        text-align: center;
+        gap: 12px;
+      }
+
+      .config-empty .empty-icon {
+        font-size: 48px;
+        opacity: 0.3;
+      }
+      .config-empty p {
+        font-size: 15px;
+        max-width: 300px;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Top nav -->
+    <nav class="concept-nav">
+      <span class="label">Concept</span>
+      <button class="concept-tab active" onclick="showConcept('a')">
+        <span class="tab-letter">A</span>Guided Wizard
+      </button>
+      <button class="concept-tab" onclick="showConcept('b')">
+        <span class="tab-letter">B</span>Feature-First Explorer
+      </button>
+      <button class="concept-tab" onclick="showConcept('c')">
+        <span class="tab-letter">C</span>Interactive Configurator
+      </button>
+    </nav>
+
+    <!-- ===== CONCEPT A: WIZARD ===== -->
+    <section id="concept-a" class="concept active">
+      <div class="wizard-container">
+        <div class="wizard-card">
+          <div class="wizard-header">
+            <h1>
+              Find your <span class="highlight">perfect</span> integration
+            </h1>
+            <p>
+              Answer a few quick questions and we'll recommend the right
+              starting point for your project.
+            </p>
+          </div>
+
+          <!-- Step 1 -->
+          <div class="wizard-step active" data-step="1">
+            <div class="wizard-question">Step 1 of 3</div>
+            <div class="wizard-prompt">What are you building?</div>
+            <div class="wizard-options">
+              <div class="wizard-option" onclick="wizardNext(2)">
+                <div class="opt-icon">💬</div>
+                <div class="opt-text">
+                  <h3>Chat interface</h3>
+                  <p>Add an AI chat to my existing app</p>
+                </div>
+              </div>
+              <div class="wizard-option" onclick="wizardNext(2)">
+                <div class="opt-icon">🤖</div>
+                <div class="opt-text">
+                  <h3>Agent-powered app</h3>
+                  <p>Build something where an agent drives the UX</p>
+                </div>
+              </div>
+              <div class="wizard-option" onclick="wizardNext(2)">
+                <div class="opt-icon">🔌</div>
+                <div class="opt-text">
+                  <h3>Connect my existing agent</h3>
+                  <p>I already have an agent framework, need a frontend</p>
+                </div>
+              </div>
+              <div class="wizard-option" onclick="wizardNext(2)">
+                <div class="opt-icon">🧪</div>
+                <div class="opt-text">
+                  <h3>Just exploring</h3>
+                  <p>Show me what's possible</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="wizard-step" data-step="2">
+            <div class="wizard-question">Step 2 of 3</div>
+            <div class="wizard-prompt">What's your agent stack?</div>
+            <div class="wizard-options">
+              <div class="wizard-option" onclick="wizardNext(3)">
+                <div class="opt-icon">🐍</div>
+                <div class="opt-text">
+                  <h3>Python</h3>
+                  <p>LangGraph, Mastra, CrewAI, PydanticAI, etc.</p>
+                </div>
+              </div>
+              <div class="wizard-option" onclick="wizardNext(3)">
+                <div class="opt-icon">📘</div>
+                <div class="opt-text">
+                  <h3>TypeScript / JavaScript</h3>
+                  <p>LangGraph.js, Mastra, Vercel AI SDK, etc.</p>
+                </div>
+              </div>
+              <div class="wizard-option" onclick="wizardNext(3)">
+                <div class="opt-icon">☁️</div>
+                <div class="opt-text">
+                  <h3>Cloud platform</h3>
+                  <p>Google ADK, AWS Strands, Azure, etc.</p>
+                </div>
+              </div>
+              <div class="wizard-option" onclick="wizardNext(3)">
+                <div class="opt-icon">🤷</div>
+                <div class="opt-text">
+                  <h3>Haven't decided yet</h3>
+                  <p>Help me choose</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="wizard-step" data-step="3">
+            <div class="wizard-question">Step 3 of 3</div>
+            <div class="wizard-prompt">What features matter most?</div>
+            <div class="wizard-options">
+              <div class="wizard-option" onclick="wizardFinish()">
+                <div class="opt-icon">🎨</div>
+                <div class="opt-text">
+                  <h3>Generative UI</h3>
+                  <p>Agent generates interactive components</p>
+                </div>
+              </div>
+              <div class="wizard-option" onclick="wizardFinish()">
+                <div class="opt-icon">🔄</div>
+                <div class="opt-text">
+                  <h3>Shared state</h3>
+                  <p>Agent and UI read/write the same state</p>
+                </div>
+              </div>
+              <div class="wizard-option" onclick="wizardFinish()">
+                <div class="opt-icon">✋</div>
+                <div class="opt-text">
+                  <h3>Human in the loop</h3>
+                  <p>User approves agent actions before execution</p>
+                </div>
+              </div>
+              <div class="wizard-option" onclick="wizardFinish()">
+                <div class="opt-icon">🏃</div>
+                <div class="opt-text">
+                  <h3>Streaming & real-time</h3>
+                  <p>Live token streaming, state updates, sub-agents</p>
+                </div>
+              </div>
+              <div class="wizard-option" onclick="wizardFinish()">
+                <div class="opt-icon">⚡</div>
+                <div class="opt-text">
+                  <h3>All of the above</h3>
+                  <p>Show me the full-featured setup</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Result -->
+          <div class="wizard-step" data-step="result">
+            <div class="wizard-result">
+              <div class="result-badge">Best match</div>
+              <h2>LangGraph + CopilotKit</h2>
+              <p class="result-desc">
+                Full-featured integration with generative UI, shared state,
+                HITL, streaming, and sub-agents. The most complete package we
+                offer.
+              </p>
+              <div class="result-cards">
+                <div class="result-card">
+                  <h4>▶ Try it live</h4>
+                  <p>Launch the Beautiful Chat demo</p>
+                </div>
+                <div class="result-card">
+                  <h4>📖 Quickstart guide</h4>
+                  <p>Get running in 5 minutes</p>
+                </div>
+                <div class="result-card">
+                  <h4>💻 Clone starter</h4>
+                  <p>npx create-copilotkit@latest</p>
+                </div>
+                <div class="result-card">
+                  <h4>🎯 All 9 demos</h4>
+                  <p>Explore every feature</p>
+                </div>
+              </div>
+              <button class="wizard-restart" onclick="wizardRestart()">
+                ← Start over
+              </button>
+            </div>
+          </div>
+
+          <div class="wizard-progress">
+            <div class="wizard-dot active" id="dot-1"></div>
+            <div class="wizard-dot" id="dot-2"></div>
+            <div class="wizard-dot" id="dot-3"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== CONCEPT B: FEATURE-FIRST ===== -->
+    <section id="concept-b" class="concept">
+      <div class="feature-container">
+        <div class="feature-hero">
+          <div class="eyebrow">CopilotKit Showcase</div>
+          <h1>What do you want<br />your agent to do?</h1>
+          <p>
+            Browse capabilities, see which frameworks support them, and try live
+            demos instantly.
+          </p>
+          <div class="feature-search">
+            <span class="search-icon">⌕</span>
+            <input
+              type="text"
+              placeholder="Search features, frameworks, or capabilities..."
+            />
+          </div>
+        </div>
+
+        <div class="feature-categories">
+          <button class="feature-cat-pill active">All</button>
+          <button class="feature-cat-pill">Chat & UI</button>
+          <button class="feature-cat-pill">Generative UI</button>
+          <button class="feature-cat-pill">Agent State</button>
+          <button class="feature-cat-pill">Interactivity</button>
+          <button class="feature-cat-pill">Multi-Agent</button>
+          <button class="feature-cat-pill">Platform</button>
+        </div>
+
+        <div class="feature-grid">
+          <div class="feature-card">
+            <div class="fc-icon">💬</div>
+            <h3>Agentic Chat</h3>
+            <p class="fc-desc">
+              Natural conversation with frontend tool execution. The agent calls
+              your UI functions directly.
+            </p>
+            <div class="fc-integrations">
+              <span class="fc-int-badge">LangGraph</span>
+              <span class="fc-int-badge">Mastra</span>
+              <span class="fc-int-badge">CrewAI</span>
+              <span class="fc-int-more">+10 more</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="fc-icon">🎨</div>
+            <h3>Generative UI</h3>
+            <p class="fc-desc">
+              Agent generates interactive React components on the fly.
+              Tool-based, controlled, or fully agent-driven.
+            </p>
+            <div class="fc-integrations">
+              <span class="fc-int-badge">LangGraph</span>
+              <span class="fc-int-badge">Mastra</span>
+              <span class="fc-int-badge">PydanticAI</span>
+              <span class="fc-int-more">+8 more</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="fc-icon">✋</div>
+            <h3>Human in the Loop</h3>
+            <p class="fc-desc">
+              Agent proposes actions, user approves or rejects before execution.
+              Plan-and-confirm workflows.
+            </p>
+            <div class="fc-integrations">
+              <span class="fc-int-badge">LangGraph</span>
+              <span class="fc-int-badge">Mastra</span>
+              <span class="fc-int-badge">Google ADK</span>
+              <span class="fc-int-more">+9 more</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="fc-icon">🔄</div>
+            <h3>Shared State</h3>
+            <p class="fc-desc">
+              Agent and UI read and write the same state. Real-time
+              collaboration between human and agent.
+            </p>
+            <div class="fc-integrations">
+              <span class="fc-int-badge">LangGraph</span>
+              <span class="fc-int-badge">Mastra</span>
+              <span class="fc-int-more">+6 more</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="fc-icon">⚡</div>
+            <h3>State Streaming</h3>
+            <p class="fc-desc">
+              Per-token state delta streaming from agent to UI. Live-updating
+              previews and predictive rendering.
+            </p>
+            <div class="fc-integrations">
+              <span class="fc-int-badge">LangGraph</span>
+              <span class="fc-int-badge">Mastra</span>
+              <span class="fc-int-more">+5 more</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="fc-icon">🧩</div>
+            <h3>Sub-Agents</h3>
+            <p class="fc-desc">
+              Multiple agents working together with visible task delegation.
+              Each sub-agent streams independently.
+            </p>
+            <div class="fc-integrations">
+              <span class="fc-int-badge">LangGraph</span>
+              <span class="fc-int-badge">LangGraph TS</span>
+              <span class="fc-int-more">+2 more</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="fc-icon">🔧</div>
+            <h3>Tool Rendering</h3>
+            <p class="fc-desc">
+              Backend agent tools rendered as UI components. Visualize what the
+              agent is doing as it works.
+            </p>
+            <div class="fc-integrations">
+              <span class="fc-int-badge">LangGraph</span>
+              <span class="fc-int-badge">Mastra</span>
+              <span class="fc-int-badge">CrewAI</span>
+              <span class="fc-int-more">+9 more</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="fc-icon">🔌</div>
+            <h3>MCP Apps</h3>
+            <p class="fc-desc">
+              Connect MCP servers to your agent. Tools discovered and executed
+              with full UI display.
+            </p>
+            <div class="fc-integrations">
+              <span class="fc-int-badge">LangGraph</span>
+              <span class="fc-int-badge">Mastra</span>
+              <span class="fc-int-badge">CrewAI</span>
+              <span class="fc-int-more">+8 more</span>
+            </div>
+          </div>
+
+          <div class="feature-card">
+            <div class="fc-icon">🗣️</div>
+            <h3>Voice</h3>
+            <p class="fc-desc">
+              Real-time voice interaction with your agent. Talk instead of type,
+              hear instead of read.
+            </p>
+            <div class="fc-integrations">
+              <span class="fc-int-badge" style="opacity: 0.4">Coming soon</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== CONCEPT C: CONFIGURATOR ===== -->
+    <section id="concept-c" class="concept">
+      <div class="config-container">
+        <div class="config-panel">
+          <h2>Build your stack</h2>
+          <p class="subtitle">
+            Toggle the features you need. We'll show you which integrations
+            match and how well.
+          </p>
+
+          <div class="config-section">
+            <div class="config-section-label">Language</div>
+            <div class="config-toggles">
+              <div class="config-toggle on" onclick="toggleConfig(this)">
+                <div class="ct-info">
+                  <span class="ct-icon">🐍</span
+                  ><span class="ct-name">Python</span>
+                </div>
+                <div class="ct-switch"></div>
+              </div>
+              <div class="config-toggle" onclick="toggleConfig(this)">
+                <div class="ct-info">
+                  <span class="ct-icon">📘</span
+                  ><span class="ct-name">TypeScript</span>
+                </div>
+                <div class="ct-switch"></div>
+              </div>
+              <div class="config-toggle" onclick="toggleConfig(this)">
+                <div class="ct-info">
+                  <span class="ct-icon">🔷</span
+                  ><span class="ct-name">.NET</span>
+                </div>
+                <div class="ct-switch"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <div class="config-section-label">Core Features</div>
+            <div class="config-toggles">
+              <div class="config-toggle on" onclick="toggleConfig(this)">
+                <div class="ct-info">
+                  <span class="ct-icon">💬</span
+                  ><span class="ct-name">Chat</span>
+                </div>
+                <div class="ct-switch"></div>
+              </div>
+              <div class="config-toggle on" onclick="toggleConfig(this)">
+                <div class="ct-info">
+                  <span class="ct-icon">🎨</span
+                  ><span class="ct-name">Generative UI</span>
+                </div>
+                <div class="ct-switch"></div>
+              </div>
+              <div class="config-toggle" onclick="toggleConfig(this)">
+                <div class="ct-info">
+                  <span class="ct-icon">✋</span
+                  ><span class="ct-name">Human in the Loop</span>
+                </div>
+                <div class="ct-switch"></div>
+              </div>
+              <div class="config-toggle" onclick="toggleConfig(this)">
+                <div class="ct-info">
+                  <span class="ct-icon">🔄</span
+                  ><span class="ct-name">Shared State</span>
+                </div>
+                <div class="ct-switch"></div>
+              </div>
+              <div class="config-toggle" onclick="toggleConfig(this)">
+                <div class="ct-info">
+                  <span class="ct-icon">⚡</span
+                  ><span class="ct-name">State Streaming</span>
+                </div>
+                <div class="ct-switch"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <div class="config-section-label">Advanced</div>
+            <div class="config-toggles">
+              <div class="config-toggle" onclick="toggleConfig(this)">
+                <div class="ct-info">
+                  <span class="ct-icon">🧩</span
+                  ><span class="ct-name">Sub-Agents</span>
+                </div>
+                <div class="ct-switch"></div>
+              </div>
+              <div class="config-toggle" onclick="toggleConfig(this)">
+                <div class="ct-info">
+                  <span class="ct-icon">🔌</span
+                  ><span class="ct-name">MCP Apps</span>
+                </div>
+                <div class="ct-switch"></div>
+              </div>
+              <div class="config-toggle" onclick="toggleConfig(this)">
+                <div class="ct-info">
+                  <span class="ct-icon">🗣️</span
+                  ><span class="ct-name">Voice</span>
+                </div>
+                <div class="ct-switch"></div>
+              </div>
+              <div class="config-toggle" onclick="toggleConfig(this)">
+                <div class="ct-info">
+                  <span class="ct-icon">📱</span
+                  ><span class="ct-name">Mobile</span>
+                </div>
+                <div class="ct-switch"></div>
+              </div>
+              <div class="config-toggle" onclick="toggleConfig(this)">
+                <div class="ct-info">
+                  <span class="ct-icon">🔐</span
+                  ><span class="ct-name">Authentication</span>
+                </div>
+                <div class="ct-switch"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-preview">
+          <div class="config-results-header">
+            <h3>Matching integrations</h3>
+            <span class="count">4 of 26 match</span>
+          </div>
+          <div class="config-matches">
+            <div class="config-match-card">
+              <span class="match-score high">100%</span>
+              <div class="match-logo">🔗</div>
+              <h4>LangGraph (Python)</h4>
+              <div class="match-category">Agent Framework</div>
+              <div class="match-features">
+                <span class="match-feat has">Chat</span>
+                <span class="match-feat has">Gen UI</span>
+                <span class="match-feat has">Python</span>
+              </div>
+            </div>
+            <div class="config-match-card">
+              <span class="match-score high">100%</span>
+              <div class="match-logo">✨</div>
+              <h4>Mastra</h4>
+              <div class="match-category">Agent Framework</div>
+              <div class="match-features">
+                <span class="match-feat has">Chat</span>
+                <span class="match-feat has">Gen UI</span>
+                <span class="match-feat has">Python</span>
+              </div>
+            </div>
+            <div class="config-match-card">
+              <span class="match-score medium">67%</span>
+              <div class="match-logo">🧠</div>
+              <h4>PydanticAI</h4>
+              <div class="match-category">Agent Framework</div>
+              <div class="match-features">
+                <span class="match-feat has">Chat</span>
+                <span class="match-feat has">Gen UI</span>
+                <span class="match-feat has">Python</span>
+              </div>
+            </div>
+            <div class="config-match-card">
+              <span class="match-score medium">67%</span>
+              <div class="match-logo">☁️</div>
+              <h4>Google ADK</h4>
+              <div class="match-category">Enterprise Platform</div>
+              <div class="match-features">
+                <span class="match-feat has">Chat</span>
+                <span class="match-feat has">Gen UI</span>
+                <span class="match-feat has">Python</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      function showConcept(id) {
+        document
+          .querySelectorAll(".concept")
+          .forEach((c) => c.classList.remove("active"));
+        document
+          .querySelectorAll(".concept-tab")
+          .forEach((t) => t.classList.remove("active"));
+        document.getElementById("concept-" + id).classList.add("active");
+        event.currentTarget.classList.add("active");
+      }
+
+      // Wizard logic
+      let currentStep = 1;
+
+      function wizardNext(step) {
+        document
+          .querySelectorAll(".wizard-step")
+          .forEach((s) => s.classList.remove("active"));
+        document
+          .querySelector(`.wizard-step[data-step="${step}"]`)
+          .classList.add("active");
+
+        for (let i = 1; i <= 3; i++) {
+          const dot = document.getElementById("dot-" + i);
+          dot.classList.remove("active", "done");
+          if (i < step) dot.classList.add("done");
+          if (i === step) dot.classList.add("active");
+        }
+        currentStep = step;
+      }
+
+      function wizardFinish() {
+        document
+          .querySelectorAll(".wizard-step")
+          .forEach((s) => s.classList.remove("active"));
+        document
+          .querySelector('.wizard-step[data-step="result"]')
+          .classList.add("active");
+        document
+          .querySelectorAll(".wizard-dot")
+          .forEach((d) => d.classList.add("done"));
+        document
+          .querySelectorAll(".wizard-dot")
+          .forEach((d) => d.classList.remove("active"));
+      }
+
+      function wizardRestart() {
+        currentStep = 1;
+        document
+          .querySelectorAll(".wizard-step")
+          .forEach((s) => s.classList.remove("active"));
+        document
+          .querySelector('.wizard-step[data-step="1"]')
+          .classList.add("active");
+        document.querySelectorAll(".wizard-dot").forEach((d) => {
+          d.classList.remove("done", "active");
+        });
+        document.getElementById("dot-1").classList.add("active");
+      }
+
+      // Configurator toggle
+      function toggleConfig(el) {
+        el.classList.toggle("on");
+      }
+
+      // Category pills
+      document.querySelectorAll(".feature-cat-pill").forEach((pill) => {
+        pill.addEventListener("click", () => {
+          document
+            .querySelectorAll(".feature-cat-pill")
+            .forEach((p) => p.classList.remove("active"));
+          pill.classList.add("active");
+        });
+      });
+    </script>
+  </body>
+</html>
