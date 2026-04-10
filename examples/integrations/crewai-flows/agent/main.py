@@ -9,6 +9,13 @@ from src.agent import SampleAgentFlow
 load_dotenv()
 
 app = FastAPI()
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 add_crewai_flow_fastapi_endpoint(app, SampleAgentFlow(), "/")
 
 

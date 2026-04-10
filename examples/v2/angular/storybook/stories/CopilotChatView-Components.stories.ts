@@ -308,7 +308,7 @@ export class CustomInputExampleComponent {
     },
     {
       id: 'assistant-1',
-      content: 'That\'s a beautiful custom input component! The gradient and styling look great.',
+      content: 'That's a beautiful custom input component! The gradient and styling look great.',
       role: 'assistant'
     }
   ];

@@ -26,7 +26,7 @@ const createFetchFn =
     // @ts-expect-error -- since this is our own header, TS will not recognize
     const publicApiKey = args[1]?.headers?.["x-copilotcloud-public-api-key"];
     try {
-      const result = await fetch(args[0], { ...(args[1] ?? {}), signal });
+      const result = await fetch(args[0], { ...args[1], signal });
 
       // No mismatch checking if cloud is being used
       const mismatch = publicApiKey

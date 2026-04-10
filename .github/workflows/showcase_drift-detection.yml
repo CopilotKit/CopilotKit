@@ -17,30 +17,27 @@ jobs:
     name: E2E Smoke Suite
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Don't run on the weekly version-drift-only schedule
-    if: github.event.schedule != '0 9 * * 1' || github.event_name == 'workflow_dispatch'
+    # Only run on schedule (excluding weekly version-drift slot) or manual dispatch
+    if: (github.event_name == 'schedule' && github.event.schedule != '0 9 * * 1') || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          lfs: true
+          lfs: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
       - name: Install dependencies
         working-directory: showcase/tests
-        run: pnpm install --ignore-scripts || true
+        run: npm ci
 
       - name: Install Playwright
         working-directory: showcase/tests
-        run: npx playwright install chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Run L1-L3 tests
         working-directory: showcase/tests

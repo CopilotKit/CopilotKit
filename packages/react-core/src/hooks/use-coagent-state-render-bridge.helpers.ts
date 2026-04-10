@@ -246,7 +246,8 @@ export function selectSnapshot({
   caches,
 }: SnapshotSelectionInput): SnapshotSelectionResult {
   const lastAssistantId = agentMessages
-    ? [...agentMessages].reverse().find((msg) => msg.role === "assistant")?.id
+    ? [...agentMessages].toReversed().find((msg) => msg.role === "assistant")
+        ?.id
     : undefined;
   const latestSnapshot =
     stateRenderId !== undefined
