@@ -5,6 +5,7 @@ import type { AbstractAgent } from "@ag-ui/client";
 import { AgentStore, injectAgentStore } from "./agent";
 import { CopilotKit } from "./copilotkit";
 import {
+  CopilotKitCore,
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
@@ -78,15 +79,15 @@ class CopilotKitStub {
   runtimeUrl = this.#runtimeUrl.asReadonly();
   runtimeTransport = this.#runtimeTransport.asReadonly();
   headers = this.#headers.asReadonly();
+  #coreInstance = new CopilotKitCore({});
   core: Record<string, any> = {
     runtimeUrl: undefined as string | undefined,
     runtimeTransport: "auto" as const,
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Disconnected,
     headers: {} as Record<string, string>,
-    // Passthrough stub — does not implement throttle logic.
-    // Throttle behavior is covered by core-level unit tests.
-    subscribeToAgent: (agent: any, subscriber: any, _options?: any) =>
-      agent.subscribe(subscriber),
+    subscribeToAgent: this.#coreInstance.subscribeToAgent.bind(
+      this.#coreInstance,
+    ),
   };
 
   setAgents(map: Record<string, AbstractAgent>) {

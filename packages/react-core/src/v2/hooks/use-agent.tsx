@@ -29,8 +29,12 @@ export interface UseAgentProps {
    * `OnMessagesChanged` and `OnStateChanged` notifications. Useful to reduce
    * re-render frequency during high-frequency streaming updates.
    *
-   * Resolved by `CopilotKitCore.subscribeToAgent()` as:
-   * `throttleMs ?? provider defaultThrottleMs ?? 0`.
+   * Uses a leading+trailing pattern with a shared window — first update
+   * fires immediately, subsequent updates within the window are coalesced,
+   * and a trailing timer ensures the most recent update fires after the
+   * window expires. See {@link CopilotKitCore.subscribeToAgent} for details.
+   *
+   * Resolved as: `throttleMs ?? provider defaultThrottleMs ?? 0`.
    * Passing `throttleMs={0}` explicitly disables throttling even when the
    * provider specifies a non-zero `defaultThrottleMs`.
    *

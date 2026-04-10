@@ -692,6 +692,156 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     errorSpy.mockRestore();
   });
 
+  // -------------------------------------------------------------------------
+  // Re-entrant notifications during flush
+  // -------------------------------------------------------------------------
+
+  it("re-entrant notification during flush is captured and deferred", () => {
+    const onMessages = vi.fn().mockImplementation((params: any) => {
+      // On the first trailing-edge flush, synchronously trigger another
+      // notification on the same agent — this tests re-entrancy safety.
+      if (params.messages.length === 2) {
+        agent.messages = [
+          userMsg("1", "a"),
+          userMsg("2", "b"),
+          userMsg("3", "c"),
+        ];
+        notifyMessagesChanged(agent);
+      }
+    });
+
+    core.subscribeToAgent(
+      agent,
+      { onMessagesChanged: onMessages },
+      { throttleMs: 100 },
+    );
+
+    // Leading edge
+    agent.messages = [userMsg("1", "a")];
+    notifyMessagesChanged(agent);
+    expect(onMessages).toHaveBeenCalledTimes(1);
+
+    // Deferred within window
+    agent.messages = [userMsg("1", "a"), userMsg("2", "b")];
+    notifyMessagesChanged(agent);
+
+    // Trailing edge fires — callback triggers re-entrant notification
+    vi.advanceTimersByTime(100);
+    expect(onMessages).toHaveBeenCalledTimes(2);
+    expect(onMessages.mock.calls[1][0].messages).toHaveLength(2);
+
+    // The re-entrant notification should flush on the next trailing edge
+    vi.advanceTimersByTime(100);
+    expect(onMessages).toHaveBeenCalledTimes(3);
+    expect(onMessages.mock.calls[2][0].messages).toHaveLength(3);
+  });
+
+  // -------------------------------------------------------------------------
+  // Multiple simultaneous subscriptions
+  // -------------------------------------------------------------------------
+
+  it("two subscriptions to the same agent maintain independent throttle windows", () => {
+    const onMessagesA = vi.fn();
+    const onMessagesB = vi.fn();
+
+    core.subscribeToAgent(
+      agent,
+      { onMessagesChanged: onMessagesA },
+      { throttleMs: 50 },
+    );
+
+    core.subscribeToAgent(
+      agent,
+      { onMessagesChanged: onMessagesB },
+      { throttleMs: 200 },
+    );
+
+    // Both fire on leading edge
+    agent.messages = [userMsg("1", "a")];
+    notifyMessagesChanged(agent);
+    expect(onMessagesA).toHaveBeenCalledTimes(1);
+    expect(onMessagesB).toHaveBeenCalledTimes(1);
+
+    // Deferred within both windows
+    agent.messages = [userMsg("1", "a"), userMsg("2", "b")];
+    notifyMessagesChanged(agent);
+    expect(onMessagesA).toHaveBeenCalledTimes(1);
+    expect(onMessagesB).toHaveBeenCalledTimes(1);
+
+    // Sub A trailing edge fires at 50ms, sub B still waiting
+    vi.advanceTimersByTime(50);
+    expect(onMessagesA).toHaveBeenCalledTimes(2);
+    expect(onMessagesB).toHaveBeenCalledTimes(1);
+
+    // Sub B trailing edge fires at 200ms
+    vi.advanceTimersByTime(150);
+    expect(onMessagesB).toHaveBeenCalledTimes(2);
+  });
+
+  it("unsubscribing one subscription does not affect the other", () => {
+    const onMessagesA = vi.fn();
+    const onMessagesB = vi.fn();
+
+    const subA = core.subscribeToAgent(
+      agent,
+      { onMessagesChanged: onMessagesA },
+      { throttleMs: 100 },
+    );
+
+    core.subscribeToAgent(
+      agent,
+      { onMessagesChanged: onMessagesB },
+      { throttleMs: 100 },
+    );
+
+    // Leading edge for both
+    agent.messages = [userMsg("1", "a")];
+    notifyMessagesChanged(agent);
+    expect(onMessagesA).toHaveBeenCalledTimes(1);
+    expect(onMessagesB).toHaveBeenCalledTimes(1);
+
+    // Unsubscribe A
+    subA.unsubscribe();
+
+    // New notification — only B should receive
+    agent.messages = [userMsg("1", "a"), userMsg("2", "b")];
+    notifyMessagesChanged(agent);
+
+    vi.advanceTimersByTime(100);
+    expect(onMessagesA).toHaveBeenCalledTimes(1); // no more calls
+    expect(onMessagesB).toHaveBeenCalledTimes(2);
+  });
+
+  // -------------------------------------------------------------------------
+  // Unsubscribe during flush prevents sibling callback
+  // -------------------------------------------------------------------------
+
+  it("unsubscribe called inside onMessagesChanged prevents onStateChanged from firing", () => {
+    let subHandle: { unsubscribe: () => void };
+    const onMessages = vi.fn().mockImplementation(() => {
+      subHandle.unsubscribe();
+    });
+    const onState = vi.fn();
+
+    subHandle = core.subscribeToAgent(
+      agent,
+      { onMessagesChanged: onMessages, onStateChanged: onState },
+      { throttleMs: 100 },
+    );
+
+    // Leading edge — onMessagesChanged fires and unsubscribes
+    agent.messages = [userMsg("1", "a")];
+    agent.state = { x: 1 };
+    notifyMessagesChanged(agent);
+    notifyStateChanged(agent);
+
+    expect(onMessages).toHaveBeenCalledTimes(1);
+
+    // Trailing edge — onStateChanged should NOT fire (unsubscribed)
+    vi.advanceTimersByTime(100);
+    expect(onState).toHaveBeenCalledTimes(0);
+  });
+
   it("unthrottled: exception in run lifecycle callback is caught", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const onRunInit = vi.fn().mockImplementation(() => {
