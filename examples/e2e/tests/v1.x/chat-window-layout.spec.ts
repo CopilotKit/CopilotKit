@@ -32,7 +32,7 @@ test.describe("chat window layout", () => {
     const window = page.locator(".copilotKitWindow");
 
     // Direct class invariant — catches "wrapper exists but doesn't grow"
-    await expect(chatBody).toHaveCSS("flex-grow", "1");
+    await expect(chatBody).toHaveCSS("flex", "1 1 0%");
 
     const bodyBox = await chatBody.boundingBox();
     const windowBox = await window.boundingBox();
@@ -53,7 +53,7 @@ test.describe("chat window layout", () => {
     expect(messagesBox).not.toBeNull();
     expect(windowBox).not.toBeNull();
     // Collapsed height in the broken version was ~184px regardless of window size
-    expect(messagesBox!.height).toBeGreaterThan(200);
+    expect(messagesBox!.height).toBeGreaterThan(windowBox!.height * 0.5);
     expect(messagesBox!.height).toBeLessThanOrEqual(windowBox!.height);
   });
 
@@ -75,10 +75,10 @@ test.describe("chat window layout", () => {
     const chatBody = page.locator(".copilotKitChatBody");
     const messages = page.locator(".copilotKitMessages");
 
-    // Simulate dragenter to force copilotKitDragOver class onto the wrapper
+    // Simulate dragenter on the wrapper itself — more robust than targeting the window
     await page.evaluate(() => {
-      const win = document.querySelector(".copilotKitWindow");
-      win?.dispatchEvent(new DragEvent("dragenter", { bubbles: true }));
+      const body = document.querySelector(".copilotKitChatBody");
+      body?.dispatchEvent(new DragEvent("dragenter", { bubbles: true }));
     });
 
     // Flex-grow must hold in drag state too
