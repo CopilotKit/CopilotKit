@@ -18,6 +18,9 @@ export function useAgentNodeName(agentName?: string) {
       onRunFinishedEvent: () => {
         nodeNameRef.current = "end";
       },
+      onRunErrorEvent: () => {
+        nodeNameRef.current = "end";
+      },
     };
 
     const subscription = agent.subscribe(subscriber);

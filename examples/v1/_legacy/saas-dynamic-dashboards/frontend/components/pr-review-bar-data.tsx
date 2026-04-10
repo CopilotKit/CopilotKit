@@ -22,7 +22,6 @@ export function PRReviewBarData({ args }: any) {
   ];
 
   useEffect(() => {
-    debugger;
     console.log(args);
     if (args?.items) {
       setData(args?.items);

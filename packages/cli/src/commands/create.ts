@@ -654,7 +654,9 @@ cd infra-cdk && npx cdk@latest destroy --all --output ../cdk.out-${stackSuffix}
 
       await fs.remove(tempFile);
     } catch (error: any) {
-      throw new Error(`Failed to download template: ${error.message}`);
+      throw new Error(`Failed to download template: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 

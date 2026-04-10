@@ -145,7 +145,7 @@ export function convertMCPToolsToActions(
         throw new Error(
           `Execution failed for MCP tool '${toolName}': ${
             error instanceof Error ? error.message : String(error)
-          }`,
+          }`, { cause: error },
         );
       }
     };
