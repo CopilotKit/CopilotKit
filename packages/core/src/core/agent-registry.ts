@@ -7,11 +7,7 @@ import type {
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
 } from "@copilotkit/shared";
-import {
-  logger,
-  RUNTIME_MODE_SSE,
-  RUNTIME_MODE_INTELLIGENCE,
-} from "@copilotkit/shared";
+import { logger, RUNTIME_MODE_SSE } from "@copilotkit/shared";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import {

@@ -1,4 +1,4 @@
-import { Field, InputType, Int, createUnionType } from "type-graphql";
+import { Field, InputType, createUnionType } from "type-graphql";
 
 const PrimitiveUnion = createUnionType({
   name: "Primitive",

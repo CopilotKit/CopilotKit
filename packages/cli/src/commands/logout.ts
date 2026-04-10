@@ -1,6 +1,5 @@
 import type { Config } from "@oclif/core";
 import chalk from "chalk";
-import ora from "ora";
 
 import { AuthService } from "../services/auth.service.js";
 import { BaseCommand } from "./base-command.js";

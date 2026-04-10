@@ -10,9 +10,6 @@ import {
   Role,
   TextMessage,
   convertGqlOutputToMessages,
-  convertMessagesToGqlInput,
-  filterAgentStateMessages,
-  CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
 
 /**

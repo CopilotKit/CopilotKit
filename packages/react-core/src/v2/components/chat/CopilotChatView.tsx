@@ -14,9 +14,7 @@ import type {
   CopilotChatInputMode,
 } from "./CopilotChatInput";
 import CopilotChatInput from "./CopilotChatInput";
-import CopilotChatSuggestionView, {
-  CopilotChatSuggestionViewProps,
-} from "./CopilotChatSuggestionView";
+import CopilotChatSuggestionView from "./CopilotChatSuggestionView";
 import type { Suggestion } from "@copilotkit/core";
 import type { Message } from "@ag-ui/core";
 import type { Attachment } from "@copilotkit/shared";

@@ -1,6 +1,6 @@
 import express from "express";
 import request from "supertest";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { createExpressNodeHandler } from "../endpoints/express-fetch-bridge";
 import type { CopilotRuntimeFetchHandler } from "../core/fetch-handler";
 

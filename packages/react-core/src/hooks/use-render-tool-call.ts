@@ -4,7 +4,6 @@ import { parseJson } from "@copilotkit/shared";
 import { defineToolCallRenderer, useCopilotKit } from "../v2";
 import type React from "react";
 import { useEffect, useRef } from "react";
-import { ActionRenderPropsWait } from "../types";
 import type {
   ActionRenderProps,
   ActionRenderPropsNoArgs,

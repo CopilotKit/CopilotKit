@@ -6,7 +6,6 @@ import {
   createMessage,
   createAssistantMessage,
   createToolCallMessage,
-  createToolResultMessage,
   createTool,
   createMultipleToolCallsMessage,
 } from "./test-utils";

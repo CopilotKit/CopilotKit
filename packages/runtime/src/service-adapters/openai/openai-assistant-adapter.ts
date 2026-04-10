@@ -35,7 +35,6 @@ import type {
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
 import type { Message, ResultMessage } from "../../graphql/types/converted";
-import { TextMessage } from "../../graphql/types/converted";
 import {
   convertActionInputToOpenAITool,
   convertMessageToOpenAIMessage,

@@ -3,7 +3,6 @@ import { useCopilotContext } from "@copilotkit/react-core";
 import { useCallback } from "react";
 import type { Message } from "@copilotkit/runtime-client-gql";
 import {
-  CopilotRuntimeClient,
   Role,
   TextMessage,
   convertGqlOutputToMessages,

@@ -18,7 +18,7 @@ import {
   CopilotKitLangGraphInterruptEvent,
   LangGraphInterruptEvent,
 } from "../types/meta-events.type";
-import { ActionInputAvailability, MessageRole } from "../types/enums";
+import { MessageRole } from "../types/enums";
 import { Repeater } from "graphql-yoga";
 import type {
   CopilotRequestContextProperties,
@@ -31,7 +31,6 @@ import {
 } from "../../service-adapters/events";
 import {
   FailedMessageStatus,
-  MessageStatusCode,
   MessageStatusUnion,
   SuccessMessageStatus,
 } from "../types/message-status.type";
@@ -52,7 +51,6 @@ import {
   ActionExecutionMessage,
   AgentStateMessage,
   Message,
-  MessageType,
   ResultMessage,
   TextMessage,
 } from "../types/converted";
@@ -60,11 +58,7 @@ import telemetry from "../../lib/telemetry-client";
 import { randomId } from "@copilotkit/shared";
 import { AgentsResponse } from "../types/agents-response.type";
 import { LangGraphEventTypes } from "../../agents/langgraph/events";
-import {
-  CopilotKitError,
-  CopilotKitLowLevelError,
-  isStructuredCopilotKitError,
-} from "@copilotkit/shared";
+import { CopilotKitError, CopilotKitLowLevelError } from "@copilotkit/shared";
 import { CopilotRuntime } from "../../lib";
 
 const invokeGuardrails = async ({

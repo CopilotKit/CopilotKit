@@ -13,7 +13,6 @@ import {
   toolCallChunkEvent,
   toolCallResultEvent,
   testId,
-  emitSuggestionToolCall,
   emitReasoningSequence,
   reasoningStartEvent,
   reasoningMessageStartEvent,

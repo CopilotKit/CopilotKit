@@ -15,7 +15,6 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   CheckIcon,
   ChevronDownIcon,
-  CopilotKitIcon,
   ExclamationMarkIcon,
   ExclamationMarkTriangleIcon,
 } from "./icons";

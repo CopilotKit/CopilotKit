@@ -1,11 +1,5 @@
-import React, { useRef, useState } from "react";
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-  act,
-} from "@testing-library/react";
+import React, { useState } from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { z } from "zod";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
@@ -15,9 +9,8 @@ import type { Observable } from "rxjs";
 import { Subject } from "rxjs";
 import type { ReactToolCallRenderer } from "../../../types";
 import { defineToolCallRenderer } from "../../../types";
-import { ToolCallStatus } from "@copilotkit/core";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
-import { CopilotChatView, CopilotChatViewProps } from "../CopilotChatView";
+import { CopilotChatView } from "../CopilotChatView";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import type { ActivityMessage, AssistantMessage, Message } from "@ag-ui/core";
 import type {

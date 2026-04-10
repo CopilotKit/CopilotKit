@@ -88,7 +88,7 @@
  * </PropertyReference>
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { Message } from "@copilotkit/shared";
 import { useAgent, useCopilotKit } from "../v2";
 import type { AgentSubscriber } from "@ag-ui/client";

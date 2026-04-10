@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 import React from "react";
-import { render, waitFor } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { useFrontendTool } from "../use-frontend-tool";
 
 // Track what gets passed to the v2 hook

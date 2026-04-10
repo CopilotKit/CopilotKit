@@ -24,7 +24,6 @@ import React, {
 } from "react";
 import {
   CopilotChatConfigurationProvider,
-  CopilotKitInspector,
   CopilotKitProvider as CopilotKitV2Provider,
   useCopilotKit,
 } from "../../v2";

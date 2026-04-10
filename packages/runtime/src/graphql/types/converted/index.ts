@@ -6,7 +6,6 @@ import {
   AgentStateMessageInput,
   ImageMessageInput,
 } from "../../inputs/message.input";
-import { BaseMessageInput } from "../base";
 import { BaseMessageOutput } from "../copilot-response.type";
 import { MessageRole } from "../enums";
 import { MessageStatus, MessageStatusCode } from "../message-status.type";

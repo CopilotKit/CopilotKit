@@ -1,4 +1,4 @@
-import { Editor, Operation, Path, Range, Transforms } from "slate";
+import { Editor, Operation, Path, Transforms } from "slate";
 import { HistoryEditor } from "slate-history";
 
 // Copy-pasted from `https://github.com/ianstormtaylor/slate/blob/main/packages/slate-history/src/with-history.ts`

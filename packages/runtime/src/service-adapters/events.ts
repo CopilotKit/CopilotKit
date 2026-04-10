@@ -3,33 +3,15 @@ import {
   CopilotKitError,
   CopilotKitErrorCode,
   CopilotKitLowLevelError,
-  ensureStructuredError,
-  randomId,
   Severity,
 } from "@copilotkit/shared";
-import { plainToInstance } from "class-transformer";
-import {
-  catchError,
-  concat,
-  concatMap,
-  EMPTY,
-  firstValueFrom,
-  from,
-  of,
-  ReplaySubject,
-  scan,
-  Subject,
-} from "rxjs";
-import { ActionInput } from "../graphql/inputs/action.input";
+import { ReplaySubject } from "rxjs";
 import type {
   ActionExecutionMessage,
   TextMessage,
 } from "../graphql/types/converted";
 import { ResultMessage } from "../graphql/types/converted";
-import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
 import { generateHelpfulErrorMessage } from "../lib/streaming";
-import telemetry from "../lib/telemetry-client";
-import { streamLangChainResponse } from "./langchain/utils";
 
 export enum RuntimeEventTypes {
   TextMessageStart = "TextMessageStart",

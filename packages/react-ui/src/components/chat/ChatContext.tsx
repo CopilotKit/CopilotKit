@@ -1,6 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import * as DefaultIcons from "./Icons";
-import { ThumbsDownIcon, ThumbsUpIcon } from "./Icons";
 
 /**
  * Icons for CopilotChat component.

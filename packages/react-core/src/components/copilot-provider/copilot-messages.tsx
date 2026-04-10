@@ -14,7 +14,6 @@ import {
 } from "react";
 import { CopilotMessagesContext } from "../../context/copilot-messages-context";
 import type { Message, GraphQLError } from "@copilotkit/runtime-client-gql";
-import { loadMessagesFromJsonRepresentation } from "@copilotkit/runtime-client-gql";
 import { useCopilotContext } from "../../context/copilot-context";
 import { useToast } from "../toast/toast-provider";
 import { shouldShowDevConsole } from "../../utils/dev-console";

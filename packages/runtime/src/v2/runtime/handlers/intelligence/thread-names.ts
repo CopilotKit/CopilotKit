@@ -1,5 +1,4 @@
 import type { Message, RunAgentInput } from "@ag-ui/client";
-import { AbstractAgent } from "@ag-ui/client";
 import { logger } from "@copilotkit/shared";
 import { randomUUID } from "node:crypto";
 import type { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
