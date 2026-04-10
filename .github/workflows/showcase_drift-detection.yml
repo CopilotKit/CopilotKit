@@ -17,8 +17,8 @@ jobs:
     name: E2E Smoke Suite
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Don't run on the weekly version-drift-only schedule
-    if: github.event.schedule != '0 9 * * 1' || github.event_name == 'workflow_dispatch'
+    # Only run on schedule (excluding weekly version-drift slot) or manual dispatch
+    if: (github.event_name == 'schedule' && github.event.schedule != '0 9 * * 1') || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout
