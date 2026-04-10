@@ -4,6 +4,13 @@
   "pages": [
     "---Getting Started---",
     "index",
-    "quickstart"
+    "quickstart",
+    "---Generative UI---",
+    "...generative-ui",
+    "---App Control---",
+    "frontend-tools",
+    "...shared-state",
+    "---Human in the Loop---",
+    "...human-in-the-loop"
   ]
 }

@@ -48,7 +48,7 @@ const FEATURES = [
 
 // Valid integration IDs — must match INTEGRATION_ORDER in lib/integrations.ts
 const VALID_INTEGRATIONS = new Set([
-  'direct-to-llm', 'langgraph', 'adk', 'microsoft-agent-framework',
+  'direct-to-llm', 'langgraph', 'deepagents', 'adk', 'microsoft-agent-framework',
   'aws-strands', 'mastra', 'pydantic-ai', 'crewai-flows', 'agno',
   'ag2', 'agent-spec', 'llamaindex', 'a2a',
 ]);
