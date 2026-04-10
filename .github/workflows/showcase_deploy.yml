@@ -2,7 +2,7 @@ name: "Showcase: Build & Deploy"
 
 on:
   push:
-    branches: [main]
+    branches: [main, showcase/dojo]
     paths:
       - "showcase/**"
       - "examples/integrations/**"
@@ -1152,9 +1152,8 @@ jobs:
     name: Build & Push Shell (Dojolike)
     needs: [detect-changes, check-lockfile]
     if: |
-      needs.detect-changes.outputs.shell_dojolike == 'true' ||
-      github.event.inputs.service == 'shell-dojolike' ||
-      github.event.inputs.service == 'all'
+      (needs.detect-changes.outputs.shell_dojolike == 'true' && github.ref == 'refs/heads/showcase/dojo') ||
+      github.event.inputs.service == 'shell-dojolike'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
