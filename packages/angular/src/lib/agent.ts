@@ -47,6 +47,11 @@ export class AgentStore {
       onRunFailed: () => {
         this.#isRunning.set(false);
       },
+      // Protocol-level RUN_ERROR event (distinct from onRunFailed which
+      // handles local exceptions like network errors).
+      onRunErrorEvent: () => {
+        this.#isRunning.set(false);
+      },
     });
 
     destroyRef.onDestroy(() => {

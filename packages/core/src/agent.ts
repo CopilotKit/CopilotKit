@@ -241,7 +241,12 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       onRunFinalized: () => {
         this.isRunning = false;
       },
+      // Local exception (network error, deserialization failure, etc.)
       onRunFailed: () => {
+        this.isRunning = false;
+      },
+      // Protocol-level RUN_ERROR event from the backend
+      onRunErrorEvent: () => {
         this.isRunning = false;
       },
     });

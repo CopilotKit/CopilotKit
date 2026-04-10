@@ -12,6 +12,9 @@ COPY apps/app/ ./apps/app/
 
 # Docker override: use AG-UI HttpAgent instead of LangGraphAgent
 # (LangGraphAgent needs Docker-in-Docker which Railway doesn't provide)
+# Docker override: replace catch-all with HttpAgent route (LangGraphAgent needs Docker-in-Docker)
+# Next.js 16+ rejects both /api/copilotkit/route.ts AND /api/copilotkit/[[...slug]]/route.ts
+RUN rm -f ./apps/app/src/app/api/copilotkit/\[\[...slug\]\]/route.ts
 COPY docker-route-override.ts ./apps/app/src/app/api/copilotkit/route.ts
 RUN pnpm --filter @repo/app add @ag-ui/client
 

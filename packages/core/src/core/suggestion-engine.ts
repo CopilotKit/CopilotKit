@@ -174,7 +174,7 @@ export class SuggestionEngine {
 
       // Initialize suggestion storage for this agent/suggestion combo
       this._suggestions[consumerAgentId] = {
-        ...(this._suggestions[consumerAgentId] ?? {}),
+        ...this._suggestions[consumerAgentId],
         [suggestionId]: [],
       };
       this._runningSuggestions[consumerAgentId] = [
@@ -476,7 +476,7 @@ export class SuggestionEngine {
 
     // Store suggestions
     this._suggestions[consumerAgentId] = {
-      ...(this._suggestions[consumerAgentId] ?? {}),
+      ...this._suggestions[consumerAgentId],
       [suggestionId]: suggestions,
     };
 
