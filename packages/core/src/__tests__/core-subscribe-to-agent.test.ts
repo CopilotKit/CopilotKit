@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   AbstractAgent,
+  type AgentSubscriberParams,
   type RunAgentInput,
   type BaseEvent,
 } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
-import { CopilotKitCore } from "../core";
+import { CopilotKitCore, type SubscribeToAgentSubscriber } from "../core";
 
 // ---------------------------------------------------------------------------
 // Minimal mock agent that extends AbstractAgent for subscribe() support
@@ -57,17 +58,18 @@ function notifyLifecycle(
   agent: TestAgent,
   event: "onRunInitialized" | "onRunFinalized" | "onRunFailed",
 ) {
-  const base = {
+  const base: AgentSubscriberParams = {
     messages: agent.messages,
     state: agent.state,
     agent,
     input: RUN_INPUT,
   };
-  const params =
-    event === "onRunFailed"
-      ? { ...base, error: new Error("run failed") }
-      : base;
-  agent.subscribers.forEach((s) => (s[event] as any)?.(params));
+  if (event === "onRunFailed") {
+    const params = { ...base, error: new Error("run failed") };
+    agent.subscribers.forEach((s) => s.onRunFailed?.(params));
+  } else {
+    agent.subscribers.forEach((s) => s[event]?.(base));
+  }
 }
 
 function userMsg(id: string, content: string) {
@@ -697,18 +699,23 @@ describe("CopilotKitCore.subscribeToAgent", () => {
   // -------------------------------------------------------------------------
 
   it("re-entrant notification during flush is captured and deferred", () => {
-    const onMessages = vi.fn().mockImplementation((params: any) => {
-      // On the first trailing-edge flush, synchronously trigger another
-      // notification on the same agent — this tests re-entrancy safety.
-      if (params.messages.length === 2) {
-        agent.messages = [
-          userMsg("1", "a"),
-          userMsg("2", "b"),
-          userMsg("3", "c"),
-        ];
-        notifyMessagesChanged(agent);
-      }
-    });
+    type MessagesChangedParams = Parameters<
+      NonNullable<SubscribeToAgentSubscriber["onMessagesChanged"]>
+    >[0];
+    const onMessages = vi
+      .fn()
+      .mockImplementation((params: MessagesChangedParams) => {
+        // On the first trailing-edge flush, synchronously trigger another
+        // notification on the same agent — this tests re-entrancy safety.
+        if (params.messages.length === 2) {
+          agent.messages = [
+            userMsg("1", "a"),
+            userMsg("2", "b"),
+            userMsg("3", "c"),
+          ];
+          notifyMessagesChanged(agent);
+        }
+      });
 
     core.subscribeToAgent(
       agent,

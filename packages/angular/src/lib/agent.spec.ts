@@ -8,7 +8,25 @@ import {
   CopilotKitCore,
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
+  type CopilotKitCoreSubscription,
+  type SubscribeToAgentSubscriber,
+  type SubscribeToAgentOptions,
 } from "@copilotkit/core";
+
+/** Shape of the `core` property on the stub — just the fields that
+ *  `AgentStore` and `CopilotkitAgentFactory` actually read at runtime. */
+interface StubCore {
+  runtimeUrl: string | undefined;
+  runtimeTransport: "rest" | "single" | "auto";
+  runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
+  headers: Record<string, string>;
+  agents?: Record<string, AbstractAgent>;
+  subscribeToAgent: (
+    agent: AbstractAgent,
+    subscriber: SubscribeToAgentSubscriber,
+    options?: SubscribeToAgentOptions,
+  ) => CopilotKitCoreSubscription;
+}
 
 class MockAgent {
   readonly id: string;
@@ -80,11 +98,11 @@ class CopilotKitStub {
   runtimeTransport = this.#runtimeTransport.asReadonly();
   headers = this.#headers.asReadonly();
   #coreInstance = new CopilotKitCore({});
-  core: Record<string, any> = {
-    runtimeUrl: undefined as string | undefined,
-    runtimeTransport: "auto" as const,
+  core: StubCore = {
+    runtimeUrl: undefined,
+    runtimeTransport: "auto",
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Disconnected,
-    headers: {} as Record<string, string>,
+    headers: {},
     subscribeToAgent: this.#coreInstance.subscribeToAgent.bind(
       this.#coreInstance,
     ),
