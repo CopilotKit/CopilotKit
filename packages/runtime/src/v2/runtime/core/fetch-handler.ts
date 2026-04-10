@@ -320,13 +320,25 @@ function dispatchRoute(
       return handleSubscribeToThreads({ runtime, request });
     case "threads/update":
       if (request.method.toUpperCase() === "DELETE") {
-        return handleDeleteThread({ runtime, request, threadId: route.threadId });
+        return handleDeleteThread({
+          runtime,
+          request,
+          threadId: route.threadId,
+        });
       }
       return handleUpdateThread({ runtime, request, threadId: route.threadId });
     case "threads/archive":
-      return handleArchiveThread({ runtime, request, threadId: route.threadId });
+      return handleArchiveThread({
+        runtime,
+        request,
+        threadId: route.threadId,
+      });
     case "threads/messages":
-      return handleGetThreadMessages({ runtime, request, threadId: route.threadId });
+      return handleGetThreadMessages({
+        runtime,
+        request,
+        threadId: route.threadId,
+      });
   }
 }
 
@@ -403,15 +415,21 @@ function validateHttpMethod(
     case "threads/list":
     case "threads/messages":
       if (method === "GET") return null;
-      return jsonResponse({ error: "Method not allowed" }, 405, { Allow: "GET" });
+      return jsonResponse({ error: "Method not allowed" }, 405, {
+        Allow: "GET",
+      });
 
     case "threads/update":
       if (method === "PATCH" || method === "DELETE") return null;
-      return jsonResponse({ error: "Method not allowed" }, 405, { Allow: "PATCH, DELETE" });
+      return jsonResponse({ error: "Method not allowed" }, 405, {
+        Allow: "PATCH, DELETE",
+      });
 
     default:
       if (method === "POST") return null;
-      return jsonResponse({ error: "Method not allowed" }, 405, { Allow: "POST" });
+      return jsonResponse({ error: "Method not allowed" }, 405, {
+        Allow: "POST",
+      });
   }
 }
 

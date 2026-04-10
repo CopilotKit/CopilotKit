@@ -61,10 +61,7 @@ describe("fetch-router", () => {
     });
 
     it("matches PATCH /threads/:threadId", () => {
-      const result = matchRoute(
-        "/api/copilotkit/threads/thread-abc",
-        basePath,
-      );
+      const result = matchRoute("/api/copilotkit/threads/thread-abc", basePath);
       expect(result).toEqual({
         method: "threads/update",
         threadId: "thread-abc",
