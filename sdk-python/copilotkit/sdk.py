@@ -130,12 +130,12 @@ class CopilotKitRemoteEndpoint:
     Serving agents works in a similar way to serving actions:
 
     ```python
-    from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
+    from copilotkit import CopilotKitRemoteEndpoint, LangGraphAGUIAgent
     from my_agent.agent import graph
 
     sdk = CopilotKitRemoteEndpoint(
         agents=[
-            LangGraphAgent(
+            LangGraphAGUIAgent(
                 name="email_agent",
                 description="This agent sends emails",
                 graph=graph,
@@ -147,12 +147,12 @@ class CopilotKitRemoteEndpoint:
     To dynamically build agents, provide a callable that returns a list of agents:
 
     ```python
-    from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
+    from copilotkit import CopilotKitRemoteEndpoint, LangGraphAGUIAgent
     from my_agent.agent import graph
 
     sdk = CopilotKitRemoteEndpoint(
         agents=lambda context: [
-            LangGraphAgent(
+            LangGraphAGUIAgent(
                 name="email_agent",
                 description="This agent sends emails",
                 graph=graph,
@@ -226,13 +226,6 @@ class CopilotKitRemoteEndpoint:
         self.agents = agents or []
         self.actions = actions or []
 
-        if isinstance(agents, list):
-            from .langgraph_agent import LangGraphAgent
-            for agent in agents:
-                if isinstance(agent, LangGraphAgent):
-                    raise ValueError(
-                        "LangGraphAgent should be instantiated using LangGraphAGUIAgent. Refer to https://docs.copilotkit.ai/langgraph for more information.")
-        
 
     def info(
         self,

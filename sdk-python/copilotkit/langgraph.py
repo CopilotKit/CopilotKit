@@ -3,7 +3,6 @@ LangChain specific utilities for CopilotKit
 """
 
 import uuid
-import json
 import warnings
 import asyncio
 from typing import List, Optional, Any, Union, Dict, Callable, cast
@@ -46,11 +45,7 @@ class CopilotKitState(MessagesState):
     copilotkit: CopilotKitProperties
 
 
-def copilotkit_messages_to_langchain(
-        # TODO(ran-review): suspected dead code — the use_function_call=True branch
-        # has no callers (the only call site passes False). Please verify before removing.
-        use_function_call: bool = False
-    ) -> Callable[[List[Message]], List[BaseMessage]]:
+def copilotkit_messages_to_langchain() -> Callable[[List[Message]], List[BaseMessage]]:
     """
     Convert CopilotKit messages to LangChain messages
     """
@@ -66,50 +61,38 @@ def copilotkit_messages_to_langchain(
                 elif message["role"] == "assistant":
                     result.append(AIMessage(content=message["content"], id=message["id"]))
             elif message["type"] == "ActionExecutionMessage":
-                if use_function_call:
-                    result.append(AIMessage(
-                        id=message["id"],
-                        content="",
-                        additional_kwargs={
-                            'function_call':{
-                                'name': message["name"],
-                                'arguments': json.dumps(message["arguments"]),
-                            }
-                        } 
-                    ))
-                else:
-                    # convert multiple tool calls to a single message
-                    message_id = message.get("parentMessageId")
-                    if message_id is None:
-                        message_id = message["id"]
+                # convert multiple tool calls to a single message
+                message_id = message.get("parentMessageId")
+                if message_id is None:
+                    message_id = message["id"]
 
-                    if message_id in processed_action_executions:
+                if message_id in processed_action_executions:
+                    continue
+
+                processed_action_executions.add(message_id)
+
+                all_tool_calls = []
+
+                # Find all tool calls for this message (only ActionExecutionMessage type)
+                for msg in messages:
+                    if msg.get("type") != "ActionExecutionMessage":
                         continue
+                    if msg.get("parentMessageId", None) == message_id or msg["id"] == message_id:
+                        all_tool_calls.append(msg)
 
-                    processed_action_executions.add(message_id)
+                tool_calls = [{
+                    "name": t["name"],
+                    "args": t["arguments"],
+                    "id": t["id"],
+                } for t in all_tool_calls]
 
-                    all_tool_calls = []
-
-                    # Find all tool calls for this message (only ActionExecutionMessage type)
-                    for msg in messages:
-                        if msg.get("type") != "ActionExecutionMessage":
-                            continue
-                        if msg.get("parentMessageId", None) == message_id or msg["id"] == message_id:
-                            all_tool_calls.append(msg)
-
-                    tool_calls = [{
-                        "name": t["name"],
-                        "args": t["arguments"],
-                        "id": t["id"],
-                    } for t in all_tool_calls]
-
-                    result.append(
-                        AIMessage(
-                            id=message_id,
-                            content="",
-                            tool_calls=tool_calls
-                        )
+                result.append(
+                    AIMessage(
+                        id=message_id,
+                        content="",
+                        tool_calls=tool_calls
                     )
+                )
 
             elif message["type"] == "ResultMessage":
                 result.append(ToolMessage(
