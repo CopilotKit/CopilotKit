@@ -11,7 +11,6 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-COPY docker-route-override.ts ./src/app/api/copilotkit/route.ts
 RUN node -e "const fs=require('fs'); const f='next.config.ts'; let c=fs.readFileSync(f,'utf8'); if(!c.includes('output')){c=c.replace('};','  output: \"standalone\",\n};'); fs.writeFileSync(f,c);}"
 RUN node -e "const fs=require('fs'); const f='next.config.ts'; let c=fs.readFileSync(f,'utf8'); if(!c.includes('ignoreBuildErrors')){c=c.replace('};','  typescript: { ignoreBuildErrors: true },\n};'); fs.writeFileSync(f,c);}"
 RUN npm run build
