@@ -1,8 +1,13 @@
-import React, { type ReactNode, useEffect, useMemo, useRef } from "react";
+import React, {
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   CopilotKitContext,
   type CopilotKitContextValue,
-  EMPTY_SET,
 } from "@copilotkit/react-core/v2/context";
 import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
@@ -78,14 +83,42 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     copilotkit.setProperties(properties);
   }, [runtimeUrl, useSingleEndpoint, headers, properties, copilotkit]);
 
-  // Issue 7: Use ref to avoid subscription churn when onError changes
+  // Track executing tool call IDs at the provider level.
+  // Critical for HITL reconnection: onToolExecutionStart fires before child
+  // components mount, so we must capture the state here.
+  const [executingToolCallIds, setExecutingToolCallIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
+
+  useEffect(() => {
+    const subscription = copilotkit.subscribe({
+      onToolExecutionStart: ({ toolCallId }) => {
+        setExecutingToolCallIds((prev) => {
+          if (prev.has(toolCallId)) return prev;
+          const next = new Set(prev);
+          next.add(toolCallId);
+          return next;
+        });
+      },
+      onToolExecutionEnd: ({ toolCallId }) => {
+        setExecutingToolCallIds((prev) => {
+          if (!prev.has(toolCallId)) return prev;
+          const next = new Set(prev);
+          next.delete(toolCallId);
+          return next;
+        });
+      },
+    });
+    return () => subscription.unsubscribe();
+  }, [copilotkit]);
+
+  // Use ref to avoid subscription churn when onError changes
   const onErrorRef = useRef(onError);
   useEffect(() => {
     onErrorRef.current = onError;
   }, [onError]);
 
-  // Issue 3: Always subscribe — fall back to console.error when no onError provided
-  // Issue 6: Forward full error event (error, code, context) matching web provider signature
+  // Always subscribe — fall back to console.error when no onError provided
   useEffect(() => {
     const subscription = copilotkit.subscribe({
       onError: (event) => {
@@ -107,7 +140,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     return () => subscription.unsubscribe();
   }, [copilotkit]);
 
-  // Issue 8: The headless bundle inlines @copilotkit/core, producing a distinct
+  // The headless bundle inlines @copilotkit/core, producing a distinct
   // TS declaration for CopilotKitCoreReact. At runtime they are the same class.
   // Verify the shape at dev time to catch drift between the two type declarations.
   const contextValue = useMemo(() => {
@@ -121,9 +154,9 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     }
     return {
       copilotkit,
-      executingToolCallIds: EMPTY_SET,
+      executingToolCallIds,
     } as unknown as CopilotKitContextValue;
-  }, [copilotkit]);
+  }, [copilotkit, executingToolCallIds]);
 
   return (
     <CopilotKitContext.Provider value={contextValue}>
