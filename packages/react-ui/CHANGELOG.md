@@ -1,5 +1,15 @@
 # ui
 
+## 1.55.2
+
+### Patch Changes
+
+- a04f86e: Fix chat window layout regressions introduced in 1.55: input is now pinned to the bottom of the window again, and mounting CopilotSidebar no longer adds empty space below the page content.
+- Updated dependencies [22a7f98]
+  - @copilotkit/react-core@1.55.2
+  - @copilotkit/runtime-client-gql@1.55.2
+  - @copilotkit/shared@1.55.2
+
 ## 1.55.2-next.1
 
 ### Patch Changes

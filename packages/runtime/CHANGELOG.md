@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.55.2
+
+### Patch Changes
+
+- 5f4ca65: feat(runtime): add factory mode to BuiltInAgent for backend-agnostic LLM integration
+  - @copilotkit/shared@1.55.2
+
 ## 1.55.2-next.1
 
 ### Patch Changes
