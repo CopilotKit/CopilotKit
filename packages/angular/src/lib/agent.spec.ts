@@ -83,7 +83,9 @@ class CopilotKitStub {
     runtimeTransport: "auto" as const,
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Disconnected,
     headers: {} as Record<string, string>,
-    subscribeToAgent: (agent: any, subscriber: any) =>
+    // Passthrough stub — does not implement throttle logic.
+    // Throttle behavior is covered by core-level unit tests.
+    subscribeToAgent: (agent: any, subscriber: any, _options?: any) =>
       agent.subscribe(subscriber),
   };
 

@@ -576,7 +576,7 @@ export class CopilotKitCore {
     agent: AbstractAgent,
     subscriber: AgentSubscriber,
     options?: { throttleMs?: number },
-  ): { unsubscribe: () => void } {
+  ): CopilotKitCoreSubscription {
     const resolved = options?.throttleMs ?? this._defaultThrottleMs ?? 0;
 
     let effectiveMs = 0;
@@ -620,13 +620,29 @@ export class CopilotKitCore {
         latestMessagesParams
       ) {
         pendingMessages = false;
-        subscriber.onMessagesChanged(latestMessagesParams);
+        const params = latestMessagesParams;
         latestMessagesParams = null;
+        try {
+          subscriber.onMessagesChanged(params);
+        } catch (err) {
+          console.error(
+            "CopilotKitCore.subscribeToAgent: onMessagesChanged callback threw:",
+            err,
+          );
+        }
       }
       if (pendingState && subscriber.onStateChanged && latestStateParams) {
         pendingState = false;
-        subscriber.onStateChanged(latestStateParams);
+        const params = latestStateParams;
         latestStateParams = null;
+        try {
+          subscriber.onStateChanged(params);
+        } catch (err) {
+          console.error(
+            "CopilotKitCore.subscribeToAgent: onStateChanged callback threw:",
+            err,
+          );
+        }
       }
     };
 
