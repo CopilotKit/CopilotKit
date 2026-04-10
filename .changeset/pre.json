@@ -50,5 +50,9 @@
     "@copilotkit/voice": "1.55.1",
     "@copilotkit/web-inspector": "1.55.1"
   },
-  "changesets": ["cozy-phones-reply"]
+  "changesets": [
+    "cozy-phones-reply",
+    "fix-assistant-text-wiped-multiple-tool-calls",
+    "tender-tables-compete"
+  ]
 }

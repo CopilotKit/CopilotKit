@@ -12,9 +12,6 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN node -e "const fs=require('fs'); const f='next.config.ts'; let c=fs.readFileSync(f,'utf8'); if(!c.includes('ignoreBuildErrors')){c=c.replace('};','  typescript: { ignoreBuildErrors: true },\n  output: \"standalone\",\n};'); fs.writeFileSync(f,c);} else if(!c.includes('standalone')){c=c.replace('};','  output: \"standalone\",\n};'); fs.writeFileSync(f,c);}"
-# Patch hardcoded agent URL to read from AGENT_URL env var at runtime
-RUN sed -i 's|url: "http://localhost:8000/"|url: process.env.AGENT_URL \|\| "http://localhost:8000/"|' src/app/api/copilotkit/route.ts
-RUN grep -q 'process.env.AGENT_URL' src/app/api/copilotkit/route.ts || (echo "ERROR: agent URL patch failed" && exit 1)
 RUN npm run build
 
 FROM base AS runner
