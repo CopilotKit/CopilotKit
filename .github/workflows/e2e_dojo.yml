@@ -27,6 +27,10 @@ env:
   NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
   NX_CI_EXECUTION_ENV: "E2E Dojo"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest

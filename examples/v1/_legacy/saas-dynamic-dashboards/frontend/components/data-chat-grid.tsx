@@ -53,7 +53,6 @@ export function ChatGrid({
 
   const handleSelectedAction = () => {
     // Handle the action for selected rows
-    debugger;
 
     // if (respond) {
     console.log("Selected rows:", selectedRows);

@@ -49,6 +49,8 @@ import { z } from "zod";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { jsonSchema as aiJsonSchema } from "ai";
+import { convertAISDKStream } from "./converters/aisdk";
+import { convertTanStackStream } from "./converters/tanstack";
 import {
   StreamableHTTPClientTransport,
   StreamableHTTPClientTransportOptions,
@@ -656,9 +658,66 @@ export function convertToolDefinitionsToVercelAITools(
 }
 
 /**
- * Configuration for BuiltInAgent
+ * Context passed to the user-supplied factory function in factory mode.
  */
-export interface BuiltInAgentConfiguration {
+export interface AgentFactoryContext {
+  input: RunAgentInput;
+  /**
+   * Prefer `abortSignal` for most use cases (AI SDK, fetch, custom backends).
+   * Provided for backends like TanStack AI that require the full AbortController.
+   * Do NOT call `.abort()` on this controller — use `abortRun()` on the agent instead.
+   */
+  abortController: AbortController;
+  abortSignal: AbortSignal;
+}
+
+/**
+ * Factory config for AI SDK backend.
+ * The factory must return an object with a `fullStream` async iterable
+ * (compatible with the result of `streamText()` — only `fullStream` is consumed).
+ */
+export interface BuiltInAgentAISDKFactoryConfig {
+  type: "aisdk";
+  factory: (
+    ctx: AgentFactoryContext,
+  ) =>
+    | { fullStream: AsyncIterable<unknown> }
+    | Promise<{ fullStream: AsyncIterable<unknown> }>;
+}
+
+/**
+ * Factory config for TanStack AI backend.
+ * The factory must return an async iterable of TanStack AI stream chunks.
+ */
+export interface BuiltInAgentTanStackFactoryConfig {
+  type: "tanstack";
+  factory: (
+    ctx: AgentFactoryContext,
+  ) => AsyncIterable<unknown> | Promise<AsyncIterable<unknown>>;
+}
+
+/**
+ * Factory config for a custom backend that directly yields AG-UI events.
+ */
+export interface BuiltInAgentCustomFactoryConfig {
+  type: "custom";
+  factory: (
+    ctx: AgentFactoryContext,
+  ) => AsyncIterable<BaseEvent> | Promise<AsyncIterable<BaseEvent>>;
+}
+
+/**
+ * Union of all factory-mode configurations.
+ */
+export type BuiltInAgentFactoryConfig =
+  | BuiltInAgentAISDKFactoryConfig
+  | BuiltInAgentTanStackFactoryConfig
+  | BuiltInAgentCustomFactoryConfig;
+
+/**
+ * Classic config — BuiltInAgent handles streamText, tools, MCP, state tools, prompt building.
+ */
+export interface BuiltInAgentClassicConfig {
   /**
    * The model to use
    */
@@ -760,6 +819,26 @@ export interface BuiltInAgentConfiguration {
   providerOptions?: Record<string, any>;
 }
 
+/**
+ * Configuration for BuiltInAgent.
+ *
+ * Two modes:
+ * - **Classic** (model + params): BuiltInAgent handles everything — streamText, tools, MCP, state tools.
+ * - **Factory** (type + factory): You own the LLM call. BuiltInAgent handles lifecycle only.
+ */
+export type BuiltInAgentConfiguration =
+  | BuiltInAgentClassicConfig
+  | BuiltInAgentFactoryConfig;
+
+/**
+ * Type guard: returns true if this is a factory-mode config.
+ */
+function isFactoryConfig(
+  config: BuiltInAgentConfiguration,
+): config is BuiltInAgentFactoryConfig {
+  return "factory" in config;
+}
+
 export class BuiltInAgent extends AbstractAgent {
   private abortController?: AbortController;
 
@@ -771,10 +850,25 @@ export class BuiltInAgent extends AbstractAgent {
    * Check if a property can be overridden by forwardedProps
    */
   canOverride(property: OverridableProperty): boolean {
+    if (isFactoryConfig(this.config)) return false;
     return this.config?.overridableProperties?.includes(property) ?? false;
   }
 
   run(input: RunAgentInput): Observable<BaseEvent> {
+    if (isFactoryConfig(this.config)) {
+      return this.runFactory(input, this.config);
+    }
+
+    if (this.abortController) {
+      throw new Error(
+        "Agent is already running. Call abortRun() first or create a new instance.",
+      );
+    }
+
+    // Set synchronously before Observable creation to close TOCTOU window
+    this.abortController = new AbortController();
+    const abortController = this.abortController;
+
     return new Observable<BaseEvent>((subscriber) => {
       // Emit RUN_STARTED event
       const startEvent: RunStartedEvent = {
@@ -980,8 +1074,6 @@ export class BuiltInAgent extends AbstractAgent {
       const mcpClients: Array<{ close: () => Promise<void> }> = [];
 
       (async () => {
-        const abortController = new AbortController();
-        this.abortController = abortController;
         let terminalEventEmitted = false;
         let messageId = randomUUID();
         let reasoningMessageId = randomUUID();
@@ -1294,7 +1386,12 @@ export class BuiltInAgent extends AbstractAgent {
               }
 
               case "tool-result": {
-                const toolResult = "output" in part ? part.output : null;
+                const toolResult =
+                  "output" in part
+                    ? part.output
+                    : "result" in part
+                      ? part.result
+                      : null;
                 const toolName = "toolName" in part ? part.toolName : "";
                 toolCallStates.delete(part.toolCallId);
 
@@ -1304,32 +1401,42 @@ export class BuiltInAgent extends AbstractAgent {
                   toolResult &&
                   typeof toolResult === "object"
                 ) {
-                  // Emit StateSnapshotEvent
-                  const stateSnapshotEvent: StateSnapshotEvent = {
-                    type: EventType.STATE_SNAPSHOT,
-                    snapshot: toolResult.snapshot,
-                  };
-                  subscriber.next(stateSnapshotEvent);
+                  const snapshot = toolResult.snapshot;
+                  if (snapshot !== undefined) {
+                    const stateSnapshotEvent: StateSnapshotEvent = {
+                      type: EventType.STATE_SNAPSHOT,
+                      snapshot,
+                    };
+                    subscriber.next(stateSnapshotEvent);
+                  }
                 } else if (
                   toolName === "AGUISendStateDelta" &&
                   toolResult &&
                   typeof toolResult === "object"
                 ) {
-                  // Emit StateDeltaEvent
-                  const stateDeltaEvent: StateDeltaEvent = {
-                    type: EventType.STATE_DELTA,
-                    delta: toolResult.delta,
-                  };
-                  subscriber.next(stateDeltaEvent);
+                  const delta = toolResult.delta;
+                  if (delta !== undefined) {
+                    const stateDeltaEvent: StateDeltaEvent = {
+                      type: EventType.STATE_DELTA,
+                      delta,
+                    };
+                    subscriber.next(stateDeltaEvent);
+                  }
                 }
 
                 // Always emit the tool result event for the LLM
+                let serializedResult: string;
+                try {
+                  serializedResult = JSON.stringify(toolResult);
+                } catch {
+                  serializedResult = `[Unserializable tool result from ${toolName || part.toolCallId}]`;
+                }
                 const resultEvent: ToolCallResultEvent = {
                   type: EventType.TOOL_CALL_RESULT,
                   role: "tool",
                   messageId: randomUUID(),
                   toolCallId: part.toolCallId,
-                  content: JSON.stringify(toolResult),
+                  content: serializedResult,
                 };
                 subscriber.next(resultEvent);
                 break;
@@ -1354,15 +1461,29 @@ export class BuiltInAgent extends AbstractAgent {
                 if (abortController.signal.aborted) {
                   break;
                 }
+                const err = part.error ?? part.message ?? part.cause;
                 const runErrorEvent: RunErrorEvent = {
                   type: EventType.RUN_ERROR,
-                  message: part.error + "",
-                };
+                  message:
+                    err instanceof Error
+                      ? err.message
+                      : typeof err === "string"
+                        ? err
+                        : `AI SDK stream error: ${JSON.stringify(part)}`,
+                  threadId: input.threadId,
+                  runId: input.runId,
+                } as RunErrorEvent;
                 subscriber.next(runErrorEvent);
                 terminalEventEmitted = true;
 
                 // Handle error
-                subscriber.error(part.error);
+                if (err instanceof Error) subscriber.error(err);
+                else
+                  subscriber.error(
+                    new Error(
+                      typeof err === "string" ? err : `AI SDK stream error`,
+                    ),
+                  );
                 break;
               }
             }
@@ -1392,8 +1513,10 @@ export class BuiltInAgent extends AbstractAgent {
           } else {
             const runErrorEvent: RunErrorEvent = {
               type: EventType.RUN_ERROR,
-              message: error + "",
-            };
+              message: error instanceof Error ? error.message : String(error),
+              threadId: input.threadId,
+              runId: input.runId,
+            } as RunErrorEvent;
             subscriber.next(runErrorEvent);
             terminalEventEmitted = true;
             subscriber.error(error);
@@ -1414,10 +1537,103 @@ export class BuiltInAgent extends AbstractAgent {
     });
   }
 
+  private runFactory(
+    input: RunAgentInput,
+    config: BuiltInAgentFactoryConfig,
+  ): Observable<BaseEvent> {
+    if (this.abortController) {
+      throw new Error(
+        "Agent is already running. Call abortRun() first or create a new instance.",
+      );
+    }
+
+    // Set synchronously before Observable creation to close TOCTOU window
+    this.abortController = new AbortController();
+    const controller = this.abortController;
+
+    return new Observable<BaseEvent>((subscriber) => {
+      const startEvent: RunStartedEvent = {
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      };
+      subscriber.next(startEvent);
+
+      const ctx: AgentFactoryContext = {
+        input,
+        abortController: controller,
+        abortSignal: controller.signal,
+      };
+
+      (async () => {
+        try {
+          let events: AsyncIterable<BaseEvent>;
+
+          switch (config.type) {
+            case "aisdk": {
+              const result = await config.factory(ctx);
+              events = convertAISDKStream(result.fullStream, controller.signal);
+              break;
+            }
+            case "tanstack": {
+              const stream = await config.factory(ctx);
+              events = convertTanStackStream(stream, controller.signal);
+              break;
+            }
+            case "custom": {
+              events = await config.factory(ctx);
+              break;
+            }
+            default: {
+              const _exhaustive: never = config;
+              throw new Error(
+                `Unknown agent config type: ${(_exhaustive as BuiltInAgentFactoryConfig).type}`,
+              );
+            }
+          }
+
+          for await (const event of events) {
+            subscriber.next(event);
+          }
+
+          if (!controller.signal.aborted) {
+            const finishedEvent: RunFinishedEvent = {
+              type: EventType.RUN_FINISHED,
+              threadId: input.threadId,
+              runId: input.runId,
+            };
+            subscriber.next(finishedEvent);
+          }
+          subscriber.complete();
+        } catch (error) {
+          if (controller.signal.aborted) {
+            subscriber.complete();
+          } else {
+            const runErrorEvent: RunErrorEvent = {
+              type: EventType.RUN_ERROR,
+              message: error instanceof Error ? error.message : String(error),
+              threadId: input.threadId,
+              runId: input.runId,
+            } as RunErrorEvent;
+            subscriber.next(runErrorEvent);
+            subscriber.error(error);
+          }
+        } finally {
+          this.abortController = undefined;
+        }
+      })();
+
+      return () => {
+        controller.abort();
+      };
+    });
+  }
+
   clone() {
     const cloned = new BuiltInAgent(this.config);
-    // Copy middlewares from parent class
-    // @ts-expect-error - accessing protected property from parent
+    // AbstractAgent.middlewares is private in @ag-ui/client — no public accessor exists.
+    // This coupling is intentional: clone() must preserve middleware chains.
+    // @ts-expect-error accessing private AbstractAgent.middlewares
     cloned.middlewares = [...this.middlewares];
     return cloned;
   }
@@ -1437,4 +1653,7 @@ export class BasicAgent extends BuiltInAgent {
   }
 }
 
-export type BasicAgentConfiguration = BuiltInAgentConfiguration;
+/** @deprecated Use BuiltInAgentClassicConfig instead */
+export type BasicAgentConfiguration = BuiltInAgentClassicConfig;
+
+export * from "./converters";

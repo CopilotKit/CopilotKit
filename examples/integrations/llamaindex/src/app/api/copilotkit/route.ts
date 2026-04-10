@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   const runtime = new CopilotRuntime({
     agents: {
       sample_agent: new LlamaIndexAgent({
-        url: "http://127.0.0.1:9000/run",
+        url: (process.env.AGENT_URL || "http://127.0.0.1:9000") + "/run",
       }),
     },
   });
