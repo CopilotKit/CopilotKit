@@ -25,8 +25,20 @@ export function installStreamingFetch(): void {
     ) {
       return;
     }
-  } catch {
-    // Response constructor unavailable — proceed with polyfill
+  } catch (e) {
+    // Response constructor unavailable — expected in older RN environments.
+    if (
+      __DEV__ &&
+      e instanceof Error &&
+      !(e instanceof ReferenceError) &&
+      !(e instanceof TypeError)
+    ) {
+      console.warn(
+        "[CopilotKit] Unexpected error during streaming fetch feature detection, " +
+          "installing XHR-based polyfill:",
+        e,
+      );
+    }
   }
 
   const originalFetch = global.fetch;
@@ -203,6 +215,21 @@ export function installStreamingFetch(): void {
       // DNS errors, and mixed-content blocks — let onerror handle those.
       let resp: any = null;
       xhr.onreadystatechange = function () {
+        // Safety net: if XHR completed but we never resolved/rejected, fail explicitly.
+        // This can happen when status === 0 and onerror doesn't fire (some RN networking impls).
+        if (xhr.readyState === 4 && !settled && !resp) {
+          cleanupAbortListener();
+          const err = new TypeError(
+            `Network request to ${url} completed with status ${xhr.status} but no response was produced. ` +
+              `This may indicate a CORS failure, DNS error, or React Native networking issue.`,
+          );
+          errorStream(err);
+          rejectFullText(err);
+          settled = true;
+          reject(err);
+          return;
+        }
+
         if (xhr.readyState >= 2 && !resp && xhr.status !== 0) {
           const respHeaders: Record<string, string> = {};
           const rawHeaders = xhr.getAllResponseHeaders() || "";

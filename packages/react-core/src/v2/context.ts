@@ -3,7 +3,6 @@
 import { createContext, useContext, useEffect, useReducer } from "react";
 import type { CopilotKitCoreReact } from "./lib/react-core";
 
-// Define the context value interface - idiomatic React naming
 export interface CopilotKitContextValue {
   copilotkit: CopilotKitCoreReact;
   /**
@@ -14,16 +13,12 @@ export interface CopilotKitContextValue {
   executingToolCallIds: ReadonlySet<string>;
 }
 
-// Empty set for default context value
 export const EMPTY_SET: ReadonlySet<string> = new Set();
 
-// Create the CopilotKit context
-export const CopilotKitContext = createContext<CopilotKitContextValue>({
-  copilotkit: null!,
-  executingToolCallIds: EMPTY_SET,
-});
+export const CopilotKitContext = createContext<CopilotKitContextValue | null>(
+  null,
+);
 
-// Hook to use the CopilotKit instance - returns the full context value
 export const useCopilotKit = (): CopilotKitContextValue => {
   const context = useContext(CopilotKitContext);
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
