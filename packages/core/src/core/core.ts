@@ -1,4 +1,9 @@
-import { AbstractAgent, AgentSubscriber, Context, State } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  type AgentSubscriber,
+  Context,
+  State,
+} from "@ag-ui/client";
 import {
   FrontendTool,
   SuggestionsConfig,
@@ -171,6 +176,21 @@ export interface CopilotKitCoreSubscriber {
 export interface CopilotKitCoreSubscription {
   unsubscribe: () => void;
 }
+
+/**
+ * The subset of `AgentSubscriber` callbacks accepted by
+ * {@link CopilotKitCore.subscribeToAgent}. Only notification and lifecycle
+ * callbacks are supported — event handlers that return `AgentStateMutation`
+ * should use `agent.subscribe()` directly.
+ */
+export type SubscribeToAgentSubscriber = Pick<
+  AgentSubscriber,
+  | "onMessagesChanged"
+  | "onStateChanged"
+  | "onRunInitialized"
+  | "onRunFinalized"
+  | "onRunFailed"
+>;
 
 /** Options for {@link CopilotKitCore.subscribeToAgent}. */
 export interface SubscribeToAgentOptions {
@@ -569,8 +589,8 @@ export class CopilotKitCore {
   }
 
   /**
-   * Subscribe to an agent's events with optional throttling on
-   * `onMessagesChanged` and `onStateChanged` notifications.
+   * Subscribe to an agent's notification and lifecycle events with optional
+   * throttling on `onMessagesChanged` and `onStateChanged`.
    *
    * Resolves effective throttle: `options.throttleMs ?? defaultThrottleMs ?? 0`.
    * When > 0, uses a leading+trailing pattern: first notification fires
@@ -579,19 +599,21 @@ export class CopilotKitCore {
    * Both `onMessagesChanged` and `onStateChanged` share a single throttle
    * window; a notification from either channel opens the window.
    *
-   * All other callbacks (run lifecycle, granular events) always fire
-   * immediately — they are never throttled.
+   * Run lifecycle callbacks (`onRunInitialized`, `onRunFinalized`,
+   * `onRunFailed`) always fire immediately — they are never throttled.
    *
-   * Every subscriber callback is wrapped with error protection so a
-   * throwing or rejecting callback cannot corrupt the agent's notification
-   * loop. Return values (e.g. `AgentStateMutation`) are propagated on the
-   * success path.
+   * Every callback is wrapped with error protection so a throwing or
+   * rejecting callback cannot corrupt the agent's notification loop.
+   *
+   * Only notification and lifecycle callbacks are accepted. Event handlers
+   * that return `AgentStateMutation` (e.g. `onEvent`, `onToolCallStartEvent`)
+   * should use `agent.subscribe()` directly to preserve mutation semantics.
    *
    * The returned `unsubscribe()` clears any pending trailing timer.
    */
   subscribeToAgent(
     agent: AbstractAgent,
-    subscriber: AgentSubscriber,
+    subscriber: SubscribeToAgentSubscriber,
     options?: SubscribeToAgentOptions,
   ): CopilotKitCoreSubscription {
     const resolved = options?.throttleMs ?? this._defaultThrottleMs ?? 0;
@@ -609,8 +631,7 @@ export class CopilotKitCore {
     }
 
     // Invoke a subscriber callback safely: catches synchronous throws and
-    // attaches a .catch() for async (MaybePromise) rejections. Returns
-    // the result on the success path so AgentStateMutation values propagate.
+    // attaches a .catch() for async (MaybePromise) rejections.
     const safeCall = (
       label: string,
       fn: (...args: any[]) => any,
@@ -636,10 +657,11 @@ export class CopilotKitCore {
     };
 
     // Wrap every callback in the subscriber with safeCall so errors in
-    // any callback (not just the throttled pair) cannot corrupt the
-    // agent's notification loop.
-    const guardAll = (sub: AgentSubscriber): AgentSubscriber => {
-      const guarded: AgentSubscriber = {};
+    // any callback cannot corrupt the agent's notification loop.
+    const guardAll = (
+      sub: SubscribeToAgentSubscriber,
+    ): SubscribeToAgentSubscriber => {
+      const guarded: SubscribeToAgentSubscriber = {};
       for (const [key, value] of Object.entries(sub)) {
         if (typeof value === "function") {
           (guarded as any)[key] = (...args: any[]) =>
@@ -662,10 +684,12 @@ export class CopilotKitCore {
     let timerId: ReturnType<typeof setTimeout> | null = null;
     let throttleActive = false;
     let latestMessagesParams:
-      | Parameters<NonNullable<AgentSubscriber["onMessagesChanged"]>>[0]
+      | Parameters<
+          NonNullable<SubscribeToAgentSubscriber["onMessagesChanged"]>
+        >[0]
       | null = null;
     let latestStateParams:
-      | Parameters<NonNullable<AgentSubscriber["onStateChanged"]>>[0]
+      | Parameters<NonNullable<SubscribeToAgentSubscriber["onStateChanged"]>>[0]
       | null = null;
 
     const flushPending = () => {
@@ -703,8 +727,9 @@ export class CopilotKitCore {
       // else: within the window, pending flags are already set by the caller
     };
 
-    // Guard all callbacks, then override onMessagesChanged/onStateChanged
-    // with throttle wrappers (which use safeCall internally via flushPending).
+    // Guard all callbacks with safeCall, then replace onMessagesChanged/
+    // onStateChanged with throttle wrappers. The throttle path calls safeCall
+    // directly on the original subscriber callbacks when flushing.
     const wrappedSubscriber = guardAll(subscriber);
 
     if (subscriber.onMessagesChanged) {
