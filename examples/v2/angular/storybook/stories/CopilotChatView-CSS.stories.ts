@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/angular";
 import { moduleMetadata } from "@storybook/angular";
 import { CommonModule } from "@angular/common";
-import { Component, Input } from "@angular/core";
 import {
   CopilotChatView,
   CopilotChatMessageView,

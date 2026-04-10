@@ -3,12 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { GripVertical } from "lucide-react";
 
-import { Proposal } from "@/lib/types";
 import SourcesModal from "@/components/resource-modal";
 import { useResearch } from "@/components/research-context";
 import { DocumentsView } from "@/components/documents-view";
 import { useStreamingContent } from "@/lib/hooks/useStreamingContent";
-import { ProposalViewer } from "@/components/structure-proposal-viewer";
 import Chat from "@/components/chat";
 const CHAT_MIN_WIDTH = 30;
 const CHAT_MAX_WIDTH = 50;

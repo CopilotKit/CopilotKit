@@ -5,9 +5,7 @@ import { WeatherCard } from "@/components/weather";
 import type { AgentState } from "@/lib/types";
 import {
   useCoAgent,
-  useDefaultTool,
   useFrontendTool,
-  useHumanInTheLoop,
   useRenderToolCall,
 } from "@copilotkit/react-core";
 import type { CopilotKitCSSProperties } from "@copilotkit/react-ui";

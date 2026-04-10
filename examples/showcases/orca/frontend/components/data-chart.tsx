@@ -2,7 +2,6 @@
 
 // import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "@/components/ui/chart"
 import { Pie, PieChart, Cell, Tooltip } from "recharts";
-import { useSharedContext } from "@/lib/shared-context";
 import { useEffect, useState } from "react";
 import type { PRData, chartData } from "@/app/Interfaces/interface";
 import { CustomPieTooltip } from "./pr-pie-all-data";

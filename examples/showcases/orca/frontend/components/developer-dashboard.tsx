@@ -16,7 +16,6 @@ import { getPRDataService } from "@/app/Services/service";
 import type { PRData } from "@/app/Interfaces/interface";
 import { useSharedContext } from "@/lib/shared-context";
 import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
-import { PieChart, Pie, Cell, Tooltip } from "recharts";
 import { PRPieData } from "./pr-pie-all-data";
 import { PRReviewBarData } from "./pr-review-bar-data";
 import {

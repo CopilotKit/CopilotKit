@@ -1,6 +1,4 @@
 import fixturez from "fixturez";
-import * as github from "@actions/github";
-import * as githubUtils from "@actions/github/lib/utils";
 import fs from "fs-extra";
 import path from "path";
 import writeChangeset from "@changesets/write";

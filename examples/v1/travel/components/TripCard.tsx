@@ -9,9 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { ScrollArea } from "./ui/scroll-area";
 import { useState } from "react";
 import { Button } from "./ui/button";
-import { ChevronDown, ChevronUp, Plane } from "lucide-react";
-import { useMediaQuery } from "@/lib/hooks/use-media-query";
-import { Drawer, DrawerContent, DrawerTrigger } from "./ui/drawer";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 export type TripCardProps = {
   className?: string;

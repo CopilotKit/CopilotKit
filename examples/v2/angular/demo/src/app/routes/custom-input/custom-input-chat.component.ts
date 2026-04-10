@@ -1,10 +1,6 @@
 import { ChangeDetectionStrategy, Component } from "@angular/core";
 import { CommonModule } from "@angular/common";
-import {
-  CopilotChatView,
-  CopilotChat,
-  provideCopilotChatLabels,
-} from "@copilotkit/angular";
+import { CopilotChat, provideCopilotChatLabels } from "@copilotkit/angular";
 import { CustomChatInputComponent } from "./custom-chat-input.component";
 
 @Component({

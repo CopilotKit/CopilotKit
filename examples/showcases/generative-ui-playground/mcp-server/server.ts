@@ -49,7 +49,6 @@ import {
   executeTrade,
   refreshPrices,
   getStocks,
-  getPortfolio,
 } from "./src/stocks.js";
 import type { Portfolio, Sector, TradeType } from "./src/stocks.js";
 

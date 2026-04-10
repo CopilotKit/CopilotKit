@@ -14,7 +14,6 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Proposal, ProposalSection } from "@/lib/types";
 import { ProposalSectionName } from "@/lib/types";
-import { useResearch } from "@/components/research-context";
 import { Textarea } from "@/components/ui/textarea";
 
 function ProposalItem({

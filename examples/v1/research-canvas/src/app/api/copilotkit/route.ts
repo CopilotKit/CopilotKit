@@ -1,8 +1,6 @@
 import {
   CopilotRuntime,
-  OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
-  copilotKitEndpoint,
   EmptyAdapter,
 } from "@copilotkit/runtime";
 import {

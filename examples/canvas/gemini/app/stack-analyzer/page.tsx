@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { TextMessage, Role } from "@copilotkit/runtime-client-gql";
@@ -10,14 +9,8 @@ import {
   Search,
   Sparkles,
   FileText,
-  Twitter,
-  TrendingUp,
   Send,
-  User,
-  ExternalLink,
-  Globe,
   Brain,
-  Zap,
   Star,
   ChevronDown,
   Check,
@@ -25,26 +18,14 @@ import {
 import {
   useCoAgent,
   useCoAgentStateRender,
-  useCopilotAction,
   useCopilotChat,
 } from "@copilotkit/react-core";
 import { ToolLogs } from "@/components/ui/tool-logs";
-import { XPost, XPostPreview, XPostCompact } from "@/components/ui/x-post";
-import {
-  LinkedInPost,
-  LinkedInPostPreview,
-  LinkedInPostCompact,
-} from "@/components/ui/linkedin-post";
 import { Button } from "@/components/ui/button";
 import { initialPrompt1, suggestionPrompt1 } from "../prompts/prompts";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import {
-  useParams,
-  useRouter,
-  usePathname,
-  useSearchParams,
-} from "next/navigation";
+import { useRouter } from "next/navigation";
 import { StackAnalysisCards } from "@/components/ui/stack-analysis-cards";
 import { useLayout } from "../contexts/LayoutContext";
 

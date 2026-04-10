@@ -1,11 +1,5 @@
 "use client";
 
-import {
-  INITIAL_MESSAGE,
-  MAIN_CHAT_INSTRUCTIONS,
-  MAIN_CHAT_TITLE,
-} from "@/lib/consts";
-
 export default function Chat({
   onSubmitMessage,
 }: {

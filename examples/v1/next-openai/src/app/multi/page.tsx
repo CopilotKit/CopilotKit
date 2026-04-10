@@ -8,11 +8,7 @@ import {
   useCopilotChat,
 } from "@copilotkit/react-core";
 import { useSearchParams } from "next/navigation";
-import {
-  MessageRole,
-  TextMessage,
-  Message,
-} from "@copilotkit/runtime-client-gql";
+import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
 import { randomId } from "@copilotkit/shared";
 
 const testMessages = [

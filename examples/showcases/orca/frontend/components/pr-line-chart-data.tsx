@@ -1,13 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { CartesianGrid, Legend, Line, LineChart, XAxis, YAxis } from "recharts";
 import { useSharedContext } from "@/lib/shared-context";
 import type { PRData, WeeklyCount } from "@/app/Interfaces/interface";
 

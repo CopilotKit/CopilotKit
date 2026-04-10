@@ -6,7 +6,6 @@ import { MoonCard } from "@/components/moon";
 import type { AgentState } from "@/lib/types";
 import {
   useCoAgent,
-  useDefaultTool,
   useFrontendTool,
   useHumanInTheLoop,
   useRenderToolCall,
