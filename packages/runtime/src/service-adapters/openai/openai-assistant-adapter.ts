@@ -370,7 +370,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 }
 
 function getRunIdFromStream(stream: AssistantStream): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
+  return new Promise<string>((resolve, _reject) => {
     let runIdGetter = (event: AssistantStreamEvent) => {
       if (event.event === "thread.run.created") {
         const runId = event.data.id;

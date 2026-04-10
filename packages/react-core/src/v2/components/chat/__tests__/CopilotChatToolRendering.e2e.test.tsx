@@ -124,7 +124,7 @@ describe("CopilotChat tool rendering with mock agent", () => {
 
 describe("Tool render status narrowing", () => {
   function renderStatusWithProvider({
-    isRunning,
+    isRunning: _isRunning,
     withResult,
   }: {
     isRunning: boolean;

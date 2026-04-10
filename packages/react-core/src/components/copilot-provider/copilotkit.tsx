@@ -449,7 +449,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       const newValue =
         typeof value === "function" ? value(coagentStatesRef.current) : value;
       coagentStatesRef.current = newValue;
-      setCoagentStates((prev) => {
+      setCoagentStates((_prev) => {
         return newValue;
       });
     },

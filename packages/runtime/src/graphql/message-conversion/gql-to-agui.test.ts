@@ -373,7 +373,7 @@ describe("message-conversion", () => {
       });
 
       const mockRender = vi.fn();
-      const mockRenderAndWaitForResponse = (props: any) =>
+      const mockRenderAndWaitForResponse = (_props: any) =>
         "Test Render With Response";
 
       const actions = {
@@ -1018,11 +1018,11 @@ describe("message-conversion", () => {
       const actions = {
         specificAction: {
           name: "specificAction",
-          render: vi.fn((props) => "Specific action rendered"),
+          render: vi.fn((_props) => "Specific action rendered"),
         },
         "*": {
           name: "*",
-          render: vi.fn((props) => "Wildcard action rendered"),
+          render: vi.fn((_props) => "Wildcard action rendered"),
         },
       };
 
@@ -1458,11 +1458,11 @@ describe("message-conversion", () => {
       const actions = {
         wildcard1: {
           name: "*",
-          render: vi.fn((props) => "First wildcard"),
+          render: vi.fn((_props) => "First wildcard"),
         },
         wildcard2: {
           name: "*",
-          render: vi.fn((props) => "Second wildcard"),
+          render: vi.fn((_props) => "Second wildcard"),
         },
       };
 

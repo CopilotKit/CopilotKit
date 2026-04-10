@@ -628,7 +628,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     },
     streamedChunks: any[],
     requestStartTime: number,
-    publicApiKey?: string,
+    _publicApiKey?: string,
   ): void {
     try {
       outputMessagesPromise

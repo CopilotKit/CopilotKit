@@ -234,7 +234,7 @@ export function resolveClaim({
  */
 export function selectSnapshot({
   messageId,
-  messageName,
+  messageName: _messageName,
   allowLiveState,
   skipLatestCache,
   stateRenderId,

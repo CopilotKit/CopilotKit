@@ -30,7 +30,7 @@ export function useMakeStandardAutosuggestionFunction(
   contextCategories: string[],
   apiConfig: SuggestionsApiConfig,
 ): AutosuggestionsBareFunction {
-  const runtimeClient = { generateCopilotResponse: (...args: any[]) => {} };
+  const runtimeClient = { generateCopilotResponse: (..._args: any[]) => {} };
   const { getContextString, copilotApiConfig } = useCopilotContext();
   const {
     chatApiEndpoint: url,

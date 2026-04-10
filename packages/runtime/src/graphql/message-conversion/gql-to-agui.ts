@@ -172,7 +172,7 @@ function gqlAgentStateMessageToAGUIMessage(
     const createRenderWrapper = (originalRender: any) => {
       if (!originalRender) return undefined;
 
-      return (props?: any) => {
+      return (_props?: any) => {
         // Determine the correct status based on the same logic as RenderActionExecutionMessage
         const state = message.state;
 

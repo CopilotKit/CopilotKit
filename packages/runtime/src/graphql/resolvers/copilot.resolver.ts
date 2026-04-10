@@ -139,7 +139,8 @@ export class CopilotResolver {
 
     return {
       agents: agentsWithEndpoints.map(
-        ({ endpoint, ...agentWithoutEndpoint }) => agentWithoutEndpoint,
+        ({ endpoint: _endpoint, ...agentWithoutEndpoint }) =>
+          agentWithoutEndpoint,
       ),
     };
   }

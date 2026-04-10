@@ -38,7 +38,7 @@ export class AuthService {
     return cliToken;
   }
 
-  async logout(cmd: BaseCommand): Promise<void> {
+  async logout(_cmd: BaseCommand): Promise<void> {
     this.config.delete("cliToken");
   }
 

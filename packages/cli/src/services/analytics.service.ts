@@ -108,7 +108,7 @@ export class AnalyticsService {
       },
     };
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       this.segment!.track(payload, (err) => {
         if (err) {
           // Resolve anyway

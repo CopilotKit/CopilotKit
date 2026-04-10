@@ -39,7 +39,7 @@ export function useMakeStandardInsertionOrEditingFunction(
   editingApiConfig: EditingApiConfig,
 ): Generator_InsertionOrEditingSuggestion {
   const runtimeClient: any = {
-    generateCopilotResponse: (...args: any[]) => {},
+    generateCopilotResponse: (..._args: any[]) => {},
   };
   const { getContextString, copilotApiConfig } = useCopilotContext();
   const headers = copilotApiConfig.publicApiKey

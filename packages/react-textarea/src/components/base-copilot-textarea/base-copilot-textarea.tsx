@@ -260,7 +260,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       <Slate
         editor={editor}
         initialValue={initialValue}
-        onChange={(value) => {
+        onChange={(_value) => {
           const newEditorState = getTextAroundCollapsedCursor(editor);
 
           const fullEditorText = newEditorState

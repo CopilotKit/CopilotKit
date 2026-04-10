@@ -260,7 +260,7 @@ describe("express-fetch-bridge — HTTP methods", () => {
   });
 
   it("OPTIONS requests bypass pre-parsed body logic", async () => {
-    const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
+    const fetchHandler: CopilotRuntimeFetchHandler = async (_req) => {
       return new Response(null, { status: 204 });
     };
 

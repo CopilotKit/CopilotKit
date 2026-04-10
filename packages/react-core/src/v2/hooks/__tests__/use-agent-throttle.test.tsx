@@ -969,35 +969,38 @@ describe("CopilotKitCore.setDefaultThrottleMs validation", () => {
     { label: "Infinity", value: Infinity },
     { label: "-1", value: -1 },
     { label: "-Infinity", value: -Infinity },
-  ])("rejects invalid value ($label) and stores undefined", ({ value }) => {
-    // Simulate the core setter behavior: invalid values are rejected
-    // and the stored value becomes undefined (no default configured).
-    // This is tested via the mock context to verify that the hook
-    // correctly handles a sanitized undefined from the core.
-    const mockAgent = new MockStepwiseAgent();
-    mockAgent.agentId = "test-agent";
+  ])(
+    "rejects invalid value ($label) and stores undefined",
+    ({ value: _value }) => {
+      // Simulate the core setter behavior: invalid values are rejected
+      // and the stored value becomes undefined (no default configured).
+      // This is tested via the mock context to verify that the hook
+      // correctly handles a sanitized undefined from the core.
+      const mockAgent = new MockStepwiseAgent();
+      mockAgent.agentId = "test-agent";
 
-    // After the core setter rejects an invalid value, hooks see undefined
-    mockUseCopilotKit.mockReturnValue(
-      createMockContext(mockAgent, { defaultThrottleMs: undefined }),
-    );
+      // After the core setter rejects an invalid value, hooks see undefined
+      mockUseCopilotKit.mockReturnValue(
+        createMockContext(mockAgent, { defaultThrottleMs: undefined }),
+      );
 
-    vi.useFakeTimers();
-    const TestComponent = createTestComponent({ throttleMs: undefined });
-    render(<TestComponent />);
+      vi.useFakeTimers();
+      const TestComponent = createTestComponent({ throttleMs: undefined });
+      render(<TestComponent />);
 
-    // Should behave as unthrottled (no provider default in effect)
-    act(() => {
-      mockAgent.messages = [userMsg("1", "a")];
-      notifyMessagesChanged(mockAgent);
-    });
-    expect(screen.getByTestId("count").textContent).toBe("1");
+      // Should behave as unthrottled (no provider default in effect)
+      act(() => {
+        mockAgent.messages = [userMsg("1", "a")];
+        notifyMessagesChanged(mockAgent);
+      });
+      expect(screen.getByTestId("count").textContent).toBe("1");
 
-    act(() => {
-      mockAgent.messages = [userMsg("1", "a"), assistantMsg("2", "b")];
-      notifyMessagesChanged(mockAgent);
-    });
-    expect(screen.getByTestId("count").textContent).toBe("2");
-    vi.useRealTimers();
-  });
+      act(() => {
+        mockAgent.messages = [userMsg("1", "a"), assistantMsg("2", "b")];
+        notifyMessagesChanged(mockAgent);
+      });
+      expect(screen.getByTestId("count").textContent).toBe("2");
+      vi.useRealTimers();
+    },
+  );
 });

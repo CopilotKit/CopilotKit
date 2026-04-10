@@ -265,7 +265,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   credentials,
   publicApiKey,
   publicLicenseKey,
-  licenseToken,
+  licenseToken: _licenseToken,
   properties = {},
   agents__unsafe_dev_only: agents = {},
   selfManagedAgents = {},

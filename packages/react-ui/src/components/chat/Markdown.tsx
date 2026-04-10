@@ -21,7 +21,7 @@ const defaultComponents: Components = {
     );
   },
   // @ts-expect-error -- inline
-  code({ children, className, inline, ...props }) {
+  code({ children, className, inline: _inline, ...props }) {
     if (Array.isArray(children) && children.length) {
       if (children[0] == "▍") {
         return (

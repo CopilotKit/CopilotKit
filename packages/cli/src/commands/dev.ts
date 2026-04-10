@@ -220,7 +220,7 @@ export default class Dev extends BaseCommand {
 
   private async setupTunnel({
     port,
-    subdomain,
+    subdomain: _subdomain,
     onSuccess,
     onTunnelClose,
     spinner,

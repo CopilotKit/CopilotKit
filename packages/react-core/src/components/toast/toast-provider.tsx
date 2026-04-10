@@ -412,7 +412,7 @@ export function ToastProvider({
     [enabled],
   );
 
-  const addGraphQLErrorsToast = useCallback((errors: GraphQLError[]) => {
+  const addGraphQLErrorsToast = useCallback((_errors: GraphQLError[]) => {
     // DEPRECATED: All errors now route to banners for consistency
     console.warn(
       "addGraphQLErrorsToast is deprecated. All errors now show as banners.",

@@ -41,7 +41,7 @@ export type {
  * avoid importing the full license-verifier bundle (which depends on
  * Node's `crypto`) into browser bundles.
  */
-export function createLicenseContextValue(status: null): {
+export function createLicenseContextValue(_status: null): {
   status: null;
   license: null;
   checkFeature: (feature: string) => boolean;

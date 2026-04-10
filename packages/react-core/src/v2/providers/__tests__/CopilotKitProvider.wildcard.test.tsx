@@ -181,7 +181,7 @@ describe("CopilotKitProvider - Wildcard Tool", () => {
 
   describe("Wildcard Render Tool Calls", () => {
     it("should register wildcard in renderToolCalls", () => {
-      const WildcardRender: React.FC<any> = ({ args }) => (
+      const WildcardRender: React.FC<any> = ({ args: _args }) => (
         <div>Fallback render</div>
       );
 

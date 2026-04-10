@@ -271,7 +271,7 @@ const emptyCopilotContext: CopilotContextParams = {
   removeRegisteredAction: () => {},
 
   chatComponentsCache: { current: { actions: {}, coAgentStateRenders: {} } },
-  getContextString: (documents: DocumentPointer[], categories: string[]) =>
+  getContextString: (_documents: DocumentPointer[], _categories: string[]) =>
     returnAndThrowInDebug(""),
   addContext: () => "",
   removeContext: () => {},
@@ -288,7 +288,7 @@ const emptyCopilotContext: CopilotContextParams = {
   additionalInstructions: [],
   setAdditionalInstructions: () => returnAndThrowInDebug([]),
 
-  getDocumentsContext: (categories: string[]) => returnAndThrowInDebug([]),
+  getDocumentsContext: (_categories: string[]) => returnAndThrowInDebug([]),
   addDocumentContext: () => returnAndThrowInDebug(""),
   removeDocumentContext: () => {},
 
