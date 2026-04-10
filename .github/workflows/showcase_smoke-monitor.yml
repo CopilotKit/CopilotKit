@@ -148,12 +148,6 @@ jobs:
             echo "has_alerts=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Save state to cache
-        uses: actions/cache/save@v4
-        with:
-          path: smoke-state.json
-          key: smoke-monitor-state-${{ github.run_id }}
-
       - name: Build Slack payload
         if: steps.smoke.outputs.has_alerts == 'true'
         run: |
@@ -217,14 +211,32 @@ jobs:
             STALE_LIST="${STALE_LIST} ${SVC}"
           done
 
+          # Compare against previous drift state to avoid alerting repeatedly
+          PREV_STALE=$(jq -r '.image_drift_services // ""' smoke-state.json 2>/dev/null) || true
+          SORTED_STALE=$(echo "$STALE_LIST" | tr ' ' '\n' | sort | tr '\n' ' ' | xargs)
+
           if [ -n "$STALE_LIST" ]; then
             echo "Image drift detected:${STALE_LIST}"
-            echo "has_stale=true" >> "$GITHUB_OUTPUT"
             echo "stale_services=${STALE_LIST}" >> "$GITHUB_OUTPUT"
             printf "%b" "$STALE" > image-drift.txt
+
+            if [ "$SORTED_STALE" != "$PREV_STALE" ]; then
+              echo "Stale set changed (was: '${PREV_STALE}', now: '${SORTED_STALE}') — alerting"
+              echo "has_stale=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "Same stale set as last run — suppressing alert"
+              echo "has_stale=false" >> "$GITHUB_OUTPUT"
+            fi
+
+            # Persist current stale set
+            STATE=$(cat smoke-state.json)
+            echo "$STATE" | jq --arg ds "$SORTED_STALE" '. + {"image_drift_services": $ds}' > smoke-state.json
           else
             echo "All images up to date"
             echo "has_stale=false" >> "$GITHUB_OUTPUT"
+            # Clear drift state
+            STATE=$(cat smoke-state.json)
+            echo "$STATE" | jq 'del(.image_drift_services)' > smoke-state.json
           fi
 
       - name: Trigger rebuild for stale services
@@ -252,3 +264,10 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload-file-path: drift-payload.json
+
+      - name: Save state to cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: smoke-state.json
+          key: smoke-monitor-state-${{ github.run_id }}
