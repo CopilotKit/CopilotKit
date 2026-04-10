@@ -3,7 +3,7 @@ import { useChatContext } from "./ChatContext";
 import { CopilotDevConsole } from "../dev-console";
 import React from "react";
 
-export const Header = ({}: HeaderProps) => {
+export const Header = (_: HeaderProps) => {
   const { setOpen, icons, labels } = useChatContext();
 
   return (

@@ -34,6 +34,7 @@ export function DestinationRow({
       <td className="whitespace-nowrap py-5 pl-4 px-3 text-sm">
         <div className="flex items-center">
           <div className="h-20 w-20 flex-shrink-0">
+            {/* oxlint-disable-next-line nextjs/no-img-element */}
             <img
               className="h-full w-full rounded-full"
               src={destination.image}

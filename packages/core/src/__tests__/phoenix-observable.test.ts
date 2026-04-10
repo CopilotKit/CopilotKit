@@ -23,8 +23,10 @@ const {
   ɵphoenixSocket$,
 } = await import("../utils/phoenix-observable");
 
+// oxlint-disable typescript/consistent-type-imports
 type PhoenixSocketSession =
   import("../utils/phoenix-observable").ɵPhoenixSocketSession;
+// oxlint-enable typescript/consistent-type-imports
 
 describe("phoenix observable utilities", () => {
   it("connects on subscribe and disconnects on teardown", () => {

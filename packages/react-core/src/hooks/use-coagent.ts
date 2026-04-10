@@ -89,6 +89,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
+
+const noop = () => {};
+const noopAsync = async () => {};
 import type { Message } from "@copilotkit/shared";
 import { useAgent, useCopilotKit } from "../v2";
 import type { AgentSubscriber } from "@ag-ui/client";
@@ -222,7 +225,7 @@ export function useCoAgent<T = any>(
         agent.setState({ ...agent.state, ...newState });
       }
     },
-    [agent?.state, agent?.setState],
+    [agent],
   );
 
   useEffect(() => {
@@ -239,8 +242,9 @@ export function useCoAgent<T = any>(
       };
     }
     copilotkit.setProperties(config);
-  }, [options.config, options.configurable]);
+  }, [options.config, options.configurable, copilotkit]);
 
+  // oxlint-disable react/exhaustive-deps -- intentional: complex expression dep (JSON.stringify) used to compare state by value; options.state tracked here
   const externalStateStr = useMemo(
     () =>
       isExternalStateManagement(options)
@@ -252,8 +256,10 @@ export function useCoAgent<T = any>(
         : undefined,
     ],
   );
+  // oxlint-enable react/exhaustive-deps
 
   // Sync internal state with external state if state management is external
+  // oxlint-disable react/exhaustive-deps -- intentional: options.state tracked via externalStateStr to avoid full options object as dep
   useEffect(() => {
     if (
       agent?.state &&
@@ -263,6 +269,7 @@ export function useCoAgent<T = any>(
       handleStateUpdate(options.state);
     }
   }, [agent, externalStateStr, handleStateUpdate]);
+  // oxlint-enable react/exhaustive-deps
 
   const hasStateValues = useCallback((value?: Record<string, any>) => {
     return Boolean(value && Object.keys(value).length);
@@ -276,6 +283,7 @@ export function useCoAgent<T = any>(
         : undefined,
   );
 
+  // oxlint-disable react/exhaustive-deps -- intentional: complex expression dep used to track state/initialState by value; options.initialState/state excluded from direct dep
   useEffect(() => {
     if (isExternalStateManagement(options)) {
       initialStateRef.current = options.state;
@@ -289,6 +297,7 @@ export function useCoAgent<T = any>(
         ? JSON.stringify(options.initialState)
         : undefined,
   ]);
+  // oxlint-enable react/exhaustive-deps
 
   useEffect(() => {
     if (!agent) return;
@@ -319,13 +328,13 @@ export function useCoAgent<T = any>(
     return () => {
       subscription.unsubscribe();
     };
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: options is an object that changes every render; tracked via specific fields
   }, [agent, handleStateUpdate, hasStateValues]);
 
   // Return a consistent shape whether or not the agent is available
+  // oxlint-disable react/exhaustive-deps -- intentional: nodeName/options.state/options.initialState/agent excluded from direct dep; only key agent fields tracked to avoid over-rendering
   return useMemo<UseCoagentReturnType<T>>(() => {
     if (!agent) {
-      const noop = () => {};
-      const noopAsync = async () => {};
       const initialState =
         // prefer externally provided state if available
         ("state" in options && (options as any).state) ??
@@ -361,13 +370,13 @@ export function useCoAgent<T = any>(
     agent?.state,
     agent?.runAgent,
     agent?.abortRun,
-    agent?.runAgent,
     agent?.threadId,
     agent?.isRunning,
     agent?.agentId,
     handleStateUpdate,
     options.name,
   ]);
+  // oxlint-enable react/exhaustive-deps
 }
 
 const isExternalStateManagement = <T>(

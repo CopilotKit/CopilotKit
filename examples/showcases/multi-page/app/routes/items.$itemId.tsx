@@ -39,6 +39,7 @@ export default function Item() {
   return (
     <div id="item">
       <div>
+        {/* oxlint-disable-next-line nextjs/no-img-element */}
         <img
           alt={`${item.displayName} avatar`}
           key={item.avatar}

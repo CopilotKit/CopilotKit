@@ -178,12 +178,12 @@ export function langGraphInterruptEvent(
   };
 }
 
-export type LangGraphInterruptEvent<TValue extends any = any> =
+export type LangGraphInterruptEvent<TValue = any> =
   GqlLangGraphInterruptEvent & {
     value: TValue;
   };
 
-type CopilotKitLangGraphInterruptEvent<TValue extends any = any> =
+type CopilotKitLangGraphInterruptEvent<TValue = any> =
   GqlCopilotKitLangGraphInterruptEvent & {
     data: GqlCopilotKitLangGraphInterruptEvent["data"] & { value: TValue };
   };

@@ -105,7 +105,7 @@ Now decide:`;
         if (parsed.required) {
           parsed.ticketId = `TKT-${Date.now()}-${Math.random()
             .toString(36)
-            .substr(2, 5)
+            .slice(2, 7)
             .toUpperCase()}`;
         }
 
@@ -218,7 +218,7 @@ function fallbackRuleBasedEscalation(
   const ticketId = shouldEscalate
     ? `TKT-${Date.now()}-${Math.random()
         .toString(36)
-        .substr(2, 5)
+        .slice(2, 7)
         .toUpperCase()}`
     : undefined;
 

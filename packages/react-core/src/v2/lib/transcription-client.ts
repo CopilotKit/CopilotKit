@@ -26,13 +26,15 @@ export { TranscriptionErrorCode };
 async function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onloadend = () => {
+    reader.addEventListener("loadend", () => {
       const result = reader.result as string;
       // Remove the data URL prefix to get pure base64
       const base64 = result.split(",")[1];
       resolve(base64 ?? "");
-    };
-    reader.onerror = () => reject(new Error("Failed to read audio data"));
+    });
+    reader.addEventListener("error", () =>
+      reject(new Error("Failed to read audio data")),
+    );
     reader.readAsDataURL(blob);
   });
 }

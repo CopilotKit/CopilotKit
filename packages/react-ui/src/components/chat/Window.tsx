@@ -131,19 +131,19 @@ export const Window = ({
   );
 };
 
-const preventScroll = (event: TouchEvent): void => {
-  let targetElement = event.target as Element;
-
-  // Function to check if the target has the parent with a given class
-  const hasParentWithClass = (element: Element, className: string): boolean => {
-    while (element && element !== document.body) {
-      if (element.classList.contains(className)) {
-        return true;
-      }
-      element = element.parentElement!;
+// Check if the target has a parent with a given class
+function hasParentWithClass(element: Element, className: string): boolean {
+  while (element && element !== document.body) {
+    if (element.classList.contains(className)) {
+      return true;
     }
-    return false;
-  };
+    element = element.parentElement!;
+  }
+  return false;
+}
+
+const preventScroll = (event: TouchEvent): void => {
+  const targetElement = event.target as Element;
 
   // Check if the target of the touch event is inside an element with the 'copilotKitMessages' class
   if (!hasParentWithClass(targetElement, "copilotKitMessages")) {

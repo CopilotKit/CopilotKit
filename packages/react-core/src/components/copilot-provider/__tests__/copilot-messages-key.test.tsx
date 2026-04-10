@@ -48,6 +48,7 @@ describe("CopilotMessages children keys", () => {
     // Passing an explicit array as children – this is what JSX compiles to
     // when you write: <CopilotMessages>{memoizedChildren}<RegisteredActionsRenderer /></CopilotMessages>
     // React sees: { children: [memoizedChildren, <RegisteredActionsRenderer />] }
+    // oxlint-disable-next-line react/jsx-key -- Intentional: test verifies that React emits key warnings for keyless array elements
     render(<CopilotMessages>{[<ChildA />, <ChildB />]}</CopilotMessages>);
 
     expect(keyWarnings.length).toBeGreaterThan(0);

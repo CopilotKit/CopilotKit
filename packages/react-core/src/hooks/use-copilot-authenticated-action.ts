@@ -63,6 +63,7 @@ export function useCopilotAuthenticatedAction_c<T extends Parameter[]>(
 
       return executeAction(props);
     },
+    // oxlint-disable-next-line react/exhaustive-deps -- authConfig_c.SignInComponent is stable context value; executeAction is a stable ref-backed function
     [action, authStates_c, setAuthStates_c],
   );
 

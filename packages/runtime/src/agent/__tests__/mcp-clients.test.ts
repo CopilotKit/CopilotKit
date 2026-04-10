@@ -249,9 +249,11 @@ describe("mcpClients — user-managed MCP clients", () => {
     // We use a dynamic import + type assertion rather than a static import because
     // @ai-sdk/mcp is mocked in this test file. The type check happens at compile time
     // regardless.
+    // oxlint-disable typescript/consistent-type-imports
     type MCPClient = Awaited<
       ReturnType<typeof import("@ai-sdk/mcp").experimental_createMCPClient>
     >;
+    // oxlint-enable typescript/consistent-type-imports
 
     // If this line causes a type error, MCPClientProvider needs to be widened
     const _assignable: MCPClientProvider = {} as MCPClient;

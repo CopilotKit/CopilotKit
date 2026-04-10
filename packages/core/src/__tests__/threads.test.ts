@@ -23,6 +23,7 @@ const {
   ɵselectIsFetchingNextPage,
 } = await import("../threads");
 
+// oxlint-disable-next-line typescript/consistent-type-imports
 type ThreadRecord = import("../threads").ɵThread;
 
 const flushEffects = async (): Promise<void> => {

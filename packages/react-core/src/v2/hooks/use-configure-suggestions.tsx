@@ -85,6 +85,7 @@ export function useConfigureSuggestions(
 
     normalizationCacheRef.current = { serialized, config: built };
     return { normalizedConfig: built, serializedConfig: serialized };
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: spreading extraDeps; resolvedConsumerAgentId used for normalization but not reactive
   }, [config, resolvedConsumerAgentId, ...extraDeps]);
   const latestConfigRef = useRef<SuggestionsConfig | null>(null);
   latestConfigRef.current = normalizedConfig;
@@ -168,6 +169,7 @@ export function useConfigureSuggestions(
       return;
     }
     requestReload();
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: spreading extraDeps is a known pattern
   }, [extraDeps.length, normalizedConfig, requestReload, ...extraDeps]);
 }
 

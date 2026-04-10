@@ -1553,6 +1553,7 @@ const mcpPostHandler = async (req: Request, res: Response) => {
         },
       });
 
+      // oxlint-disable-next-line unicorn/prefer-add-event-listener
       transport.onclose = () => {
         const sid = transport.sessionId;
         if (sid && transports[sid]) {

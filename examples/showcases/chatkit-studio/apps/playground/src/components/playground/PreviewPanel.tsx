@@ -49,6 +49,7 @@ export function PreviewPanel({ config, onExport }: PreviewPanelProps) {
       </div>
 
       <div className="p-6 flex-1 flex flex-col bg-palette-surface-main">
+        {/* oxlint-disable-next-line react/iframe-missing-sandbox */}
         <iframe
           key={iframeSrc}
           ref={iframeRef}

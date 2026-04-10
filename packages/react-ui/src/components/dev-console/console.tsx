@@ -82,6 +82,7 @@ export function CopilotDevConsole() {
       });
   };
 
+  // oxlint-disable react/exhaustive-deps -- intentional: run-once on mount; checkForUpdates is stable
   useEffect(() => {
     if (dontRunTwiceInDevMode.current === true) {
       return;
@@ -90,6 +91,7 @@ export function CopilotDevConsole() {
 
     checkForUpdates();
   }, []);
+  // oxlint-enable react/exhaustive-deps
 
   if (!showDevConsole) {
     return null;

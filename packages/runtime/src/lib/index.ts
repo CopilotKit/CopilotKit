@@ -15,6 +15,7 @@ export * from "./runtime/telemetry-agent-runner";
 /**
  * @deprecated LangGraphAgent import from `@copilotkit/runtime` is deprecated. Please import it from `@copilotkit/runtime/langgraph` instead
  */
+// oxlint-disable-next-line typescript/no-extraneous-class
 export class LangGraphAgent {
   constructor() {
     throw new Error(
@@ -26,6 +27,7 @@ export class LangGraphAgent {
 /**
  * @deprecated LangGraphHttpAgent import from `@copilotkit/runtime` is deprecated. Please import it from `@copilotkit/runtime/langgraph` instead
  */
+// oxlint-disable-next-line typescript/no-extraneous-class
 export class LangGraphHttpAgent {
   constructor() {
     throw new Error(

@@ -56,6 +56,7 @@ const AutoResizingTextarea = forwardRef<
       };
 
       calculateMaxHeight();
+      // oxlint-disable-next-line react/exhaustive-deps -- intentional: autoFocus is a one-time setup; only recalculate when maxRows changes
     }, [maxRows]);
 
     useEffect(() => {

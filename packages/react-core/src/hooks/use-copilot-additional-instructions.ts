@@ -89,10 +89,13 @@ export function useCopilotAdditionalInstructions(
           ) || [],
       );
     };
+
+    // oxlint-disable react/exhaustive-deps -- intentional: spreading dynamic deps array
   }, [
     available,
     instructions,
     setAdditionalInstructions,
     ...(dependencies || []),
   ]);
+  // oxlint-enable react/exhaustive-deps
 }

@@ -115,6 +115,7 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
 
       return rendered ?? null;
     };
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: spreading dynamic deps array
   }, [render, ...(dependencies ?? [])]);
 
   useHumanInTheLoopVNext({

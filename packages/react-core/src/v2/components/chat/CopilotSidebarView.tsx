@@ -18,6 +18,20 @@ import { renderSlot } from "../../lib/slots";
 const DEFAULT_SIDEBAR_WIDTH = 480;
 const SIDEBAR_TRANSITION_MS = 260;
 
+// Helper to convert width to CSS value
+function widthToCss(w: number | string): string {
+  return typeof w === "number" ? `${w}px` : w;
+}
+
+// Helper to extract numeric value for body margin (only works with px values)
+function widthToMargin(w: number | string): string {
+  if (typeof w === "number") {
+    return `${w}px`;
+  }
+  // For string values, use as-is (assumes valid CSS unit)
+  return w;
+}
+
 export type CopilotSidebarViewProps = CopilotChatViewProps & {
   header?: SlotValue<typeof CopilotModalHeader>;
   toggleButton?: SlotValue<typeof CopilotChatToggleButton>;
@@ -58,20 +72,6 @@ function CopilotSidebarViewInternal({
   const [sidebarWidth, setSidebarWidth] = useState<number | string>(
     width ?? DEFAULT_SIDEBAR_WIDTH,
   );
-
-  // Helper to convert width to CSS value
-  const widthToCss = (w: number | string): string => {
-    return typeof w === "number" ? `${w}px` : w;
-  };
-
-  // Helper to extract numeric value for body margin (only works with px values)
-  const widthToMargin = (w: number | string): string => {
-    if (typeof w === "number") {
-      return `${w}px`;
-    }
-    // For string values, use as-is (assumes valid CSS unit)
-    return w;
-  };
 
   useEffect(() => {
     // If width is explicitly provided, don't measure

@@ -414,7 +414,7 @@ export function emitReasoningSequence(
  * Helper to generate unique IDs for tests
  */
 export function testId(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
 // Varied content lengths for realistic message sizes in perf tests.
@@ -512,7 +512,7 @@ export function emitSuggestionToolCall(
   // Stream the JSON in chunks to simulate streaming
   const chunkSize = 10; // Characters per chunk
   for (let i = 0; i < suggestionsJson.length; i += chunkSize) {
-    const chunk = suggestionsJson.substring(i, i + chunkSize);
+    const chunk = suggestionsJson.slice(i, i + chunkSize);
     agent.emit(
       toolCallChunkEvent({
         toolCallId,

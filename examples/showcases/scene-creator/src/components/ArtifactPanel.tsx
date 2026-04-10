@@ -39,6 +39,7 @@ export function ArtifactPanel({
                     onEdit={() => handleEdit("scene", scene.id)}
                   >
                     {scene.imageUrl ? (
+                      // oxlint-disable-next-line nextjs/no-img-element
                       <img
                         src={scene.imageUrl}
                         alt={scene.name}
@@ -46,7 +47,7 @@ export function ArtifactPanel({
                       />
                     ) : (
                       <div className="w-full h-64 bg-neutral-100 border-b-2 border-black flex items-center justify-center text-neutral-400 text-sm uppercase tracking-widest">
-                        // Generating_Scene_Data...
+                        {/* Generating_Scene_Data... */}
                       </div>
                     )}
                   </ArtifactCard>
@@ -66,6 +67,7 @@ export function ArtifactPanel({
                     onEdit={() => handleEdit("character", character.id)}
                   >
                     {character.imageUrl ? (
+                      // oxlint-disable-next-line nextjs/no-img-element
                       <img
                         src={character.imageUrl}
                         alt={character.name}
@@ -93,6 +95,7 @@ export function ArtifactPanel({
                     onEdit={() => handleEdit("background", background.id)}
                   >
                     {background.imageUrl ? (
+                      // oxlint-disable-next-line nextjs/no-img-element
                       <img
                         src={background.imageUrl}
                         alt={background.name}

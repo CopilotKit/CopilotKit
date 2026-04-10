@@ -473,6 +473,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              {/* oxlint-disable-next-line nextjs/no-img-element */}
               <img
                 src={props.airlineLogo}
                 alt={props.airline}

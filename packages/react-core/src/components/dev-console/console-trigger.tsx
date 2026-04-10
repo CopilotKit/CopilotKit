@@ -60,6 +60,7 @@ export function ConsoleTrigger({
 
       setButtonPosition(initialPosition);
     }
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: buttonPosition check guards the initial-position path; tracking position changes is sufficient
   }, [position]);
 
   const handleMouseDown = (e: React.MouseEvent) => {

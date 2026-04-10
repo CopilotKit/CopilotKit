@@ -177,5 +177,6 @@ export function useRenderTool<S extends StandardSchemaV1>(
     copilotkit.addHookRenderToolCall(renderer);
 
     // No cleanup removal — keeps renderer for chat history, same as useFrontendTool
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: spreading extraDeps; config.parameters/agentId intentionally excluded to avoid re-registration on every render
   }, [config.name, copilotkit, extraDeps.length, ...extraDeps]);
 }

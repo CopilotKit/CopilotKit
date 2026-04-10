@@ -49,6 +49,7 @@ vi.mock("@copilotkit/core", () => {
 
     constructor(config: any) {
       lastCoreConfig = config;
+      // oxlint-disable-next-line typescript/no-this-alias
       lastCoreInstance = this;
       mockSubscribe.mockImplementationOnce((listener: any) => {
         this.listener = listener;

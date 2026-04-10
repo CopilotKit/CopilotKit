@@ -164,6 +164,7 @@ export const usePushToTalk = ({
     return () => {
       stopRecording(mediaRecorderRef);
     };
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: sendFunction and context.copilotApiConfig.transcribeAudioUrl accessed inside but only re-run when talk state changes
   }, [pushToTalkState]);
 
   useEffect(() => {
@@ -189,6 +190,7 @@ export const usePushToTalk = ({
 
       setStartReadingFromMessageId(null);
     }
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: context.copilotApiConfig.textToSpeechUrl and context.messages accessed but only re-run when progress/readId change
   }, [startReadingFromMessageId, inProgress]);
 
   return { pushToTalkState, setPushToTalkState };

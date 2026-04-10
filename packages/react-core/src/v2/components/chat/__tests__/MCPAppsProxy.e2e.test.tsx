@@ -76,6 +76,7 @@ class MockMCPProxyAgent extends AbstractAgent {
       this as unknown as Internal
     ).runAgentResponses;
 
+    // oxlint-disable-next-line typescript/no-this-alias
     const registry = this;
     Object.defineProperty(cloned, "isRunning", {
       get() {

@@ -322,12 +322,12 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     };
   }, [
     publicApiKey,
+    chatApiEndpoint,
     props.headers,
     props.properties,
     props.transcribeAudioUrl,
     props.textToSpeechUrl,
     props.credentials,
-    props.cloudRestrictToTopic,
     props.guardrails_c,
   ]);
 
@@ -489,7 +489,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       }
       setInternalThreadId(value);
     },
-    [props.threadId],
+    [props.threadId, setInternalThreadId],
   );
 
   const [runId, setRunId] = useState<string | null>(null);

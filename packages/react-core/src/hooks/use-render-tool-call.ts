@@ -85,5 +85,6 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
         hasAddedRef.current = false;
       }
     };
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: spreading dynamic deps array; copilotkit.renderToolCalls is a mutable array ref, not a reactive value
   }, [tool, ...(dependencies ?? [])]);
 }

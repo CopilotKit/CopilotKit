@@ -97,6 +97,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       ...props.baseAutosuggestionsConfig,
     };
 
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: capture value only on initial render
     const valueOnInitialRender = useMemo(() => props.value ?? "", []);
     const [lastKnownFullEditorText, setLastKnownFullEditorText] =
       useState(valueOnInitialRender);
@@ -161,6 +162,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       shouldDisableAutosuggestions,
     );
 
+    // oxlint-disable react/exhaustive-deps -- intentional: autosuggestionsConfig is reconstructed each render but its stable method is used; suppressed to avoid infinite dep loop
     const onKeyDownHandlerForHoveringEditor = useCallback(
       (event: React.KeyboardEvent<HTMLDivElement>) => {
         if (
@@ -176,11 +178,14 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       [
         hoveringEditorIsDisplayed,
         setHoveringEditorIsDisplayed,
-        autosuggestionsConfig.shouldToggleHoveringEditorOnKeyPress,
+        autosuggestionsConfig,
+        props.shortcut,
       ],
     );
+    // oxlint-enable react/exhaustive-deps
 
     // sync autosuggestions state with the editor
+    // oxlint-disable react/exhaustive-deps -- intentional: editor is a stable Slate instance; only re-run when suggestion changes
     useEffect(() => {
       clearAutocompletionsFromEditor(editor);
       if (currentAutocompleteSuggestion) {
@@ -191,6 +196,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
         );
       }
     }, [currentAutocompleteSuggestion]);
+    // oxlint-enable react/exhaustive-deps
 
     const suggestionStyleAugmented: React.CSSProperties = useMemo(() => {
       return {
@@ -219,6 +225,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
     }, [props.placeholderStyle]);
 
     // update the editor text, but only when the value changes from outside the component
+    // oxlint-disable react/exhaustive-deps -- intentional: editor is stable Slate instance; lastKnownFullEditorText is checked only, not tracked
     useEffect(() => {
       if (props.value === lastKnownFullEditorText) {
         return;
@@ -227,6 +234,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       setLastKnownFullEditorText(props.value ?? "");
       replaceEditorText(editor, props.value ?? "");
     }, [props.value]);
+    // oxlint-enable react/exhaustive-deps
 
     // separate into TextareaHTMLAttributes<HTMLDivElement> and CopilotTextareaProps
     const {

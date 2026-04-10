@@ -114,6 +114,7 @@ export function CopilotListeners() {
     return () => {
       subscription.unsubscribe();
     };
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: setBannerError and copilotkit are stable; tracking subscribe method signals re-subscription when runtime changes
   }, [copilotkit?.subscribe]);
 
   return null;

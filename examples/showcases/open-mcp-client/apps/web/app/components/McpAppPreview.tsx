@@ -192,6 +192,7 @@ export function McpAppPreview({
           </p>
         </div>
       )}
+      {/* oxlint-disable react/iframe-missing-sandbox */}
       <iframe
         ref={iframeRef}
         srcDoc={htmlSource}
@@ -199,6 +200,7 @@ export function McpAppPreview({
         sandbox="allow-scripts allow-same-origin"
         title={`Preview: ${toolName}`}
       />
+      {/* oxlint-enable react/iframe-missing-sandbox */}
     </div>
   );
 }

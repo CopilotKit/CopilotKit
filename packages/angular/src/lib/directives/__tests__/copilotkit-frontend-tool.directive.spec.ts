@@ -1,3 +1,4 @@
+// oxlint-disable typescript/no-extraneous-class -- Angular decorated test classes need this pattern
 import { Component, signal, Type } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,6 +18,7 @@ class CopilotKitStub {
 }
 
 @Component({ standalone: true, template: "", selector: "dummy-tool" })
+// oxlint-disable-next-line typescript/no-extraneous-class
 class DummyToolComponent {}
 
 describe("tool registration helpers", () => {
@@ -32,6 +34,7 @@ describe("tool registration helpers", () => {
 
   it("registers and cleans up renderers", () => {
     @Component({ standalone: true, template: "" })
+    // oxlint-disable-next-line typescript/no-extraneous-class
     class HostComponent {
       constructor() {
         registerRenderToolCall({
@@ -55,6 +58,7 @@ describe("tool registration helpers", () => {
     const handler = vi.fn(async () => "handled");
 
     @Component({ standalone: true, template: "" })
+    // oxlint-disable-next-line typescript/no-extraneous-class
     class HostComponent {
       constructor() {
         registerFrontendTool({
@@ -85,6 +89,7 @@ describe("tool registration helpers", () => {
 
   it("registers human-in-the-loop tools and removes them on destroy", () => {
     @Component({ standalone: true, template: "" })
+    // oxlint-disable-next-line typescript/no-extraneous-class
     class HostComponent {
       constructor() {
         registerHumanInTheLoop({

@@ -96,7 +96,7 @@ export class E2BWorkspaceProvider implements WorkspaceProvider {
     const sandbox = await Sandbox.connect(workspaceId);
     const full = this._fullPath(path);
     // Ensure parent directory exists
-    const dir = full.substring(0, full.lastIndexOf("/"));
+    const dir = full.slice(0, full.lastIndexOf("/"));
     await sandbox.commands.run(`mkdir -p "${dir}"`);
     await sandbox.files.write(full, content);
   }

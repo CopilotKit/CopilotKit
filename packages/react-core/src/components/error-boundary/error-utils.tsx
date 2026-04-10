@@ -92,6 +92,7 @@ export function useAsyncCallback<T extends (...args: any[]) => Promise<any>>(
   deps: Parameters<typeof useCallback>[1],
 ) {
   const addErrorToast = useErrorToast();
+  // oxlint-disable react/exhaustive-deps -- intentional: deps forwarded from caller; can't be a literal array in wrapper function pattern
   return useCallback(async (...args: Parameters<T>) => {
     try {
       return await callback(...args);
@@ -102,4 +103,5 @@ export function useAsyncCallback<T extends (...args: any[]) => Promise<any>>(
       throw error;
     }
   }, deps);
+  // oxlint-enable react/exhaustive-deps
 }

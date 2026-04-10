@@ -1,4 +1,3 @@
-import type { Config } from "@oclif/core";
 import { Flags, Args } from "@oclif/core";
 import inquirer from "inquirer";
 import chalk from "chalk";
@@ -192,10 +191,6 @@ export default class Create extends BaseCommand {
       required: false,
     }),
   };
-
-  constructor(argv: string[], config: Config) {
-    super(argv, config);
-  }
 
   async run() {
     const { args, flags } = await this.parse(Create);

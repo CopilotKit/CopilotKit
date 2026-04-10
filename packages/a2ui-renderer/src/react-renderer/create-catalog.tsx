@@ -121,9 +121,11 @@ export function createCatalog<D extends CatalogDefinitions>(
       ({ props, buildChild, context }) => {
         const Render = renderer;
         const dispatch = (action: any) => context.dispatchAction(action);
+        // oxlint-disable react/no-children-prop
         return (
           <Render props={props} children={buildChild} dispatch={dispatch} />
         );
+        // oxlint-enable react/no-children-prop
       },
     );
 

@@ -32,6 +32,7 @@ const { mockProviderFn, mockCreateOpenAI } = vi.hoisted(() => {
 });
 
 vi.mock("@ai-sdk/openai", async (importOriginal) => {
+  // oxlint-disable-next-line typescript/consistent-type-imports
   const actual = await importOriginal<typeof import("@ai-sdk/openai")>();
   return { ...actual, createOpenAI: mockCreateOpenAI };
 });

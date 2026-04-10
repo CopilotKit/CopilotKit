@@ -247,7 +247,8 @@ export class CopilotResolver {
     }
 
     logger.debug("Processing");
-    let runtimeResponse;
+    // oxlint-disable-next-line no-unassigned-vars
+    let runtimeResponse: any;
 
     const {
       eventSource,

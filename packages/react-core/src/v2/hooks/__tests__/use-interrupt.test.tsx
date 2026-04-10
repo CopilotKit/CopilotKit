@@ -320,12 +320,14 @@ describe("useInterrupt", () => {
   });
 
   it("accepts thenable handler results (non-native Promise)", async () => {
+    // oxlint-disable unicorn/no-thenable
     const thenable = {
       then: (resolve: (value: string) => void) => {
         resolve("thenable-ok");
         return { catch: () => undefined };
       },
     };
+    // oxlint-enable unicorn/no-thenable
 
     render(<Harness renderInChat={false} handler={() => thenable} />);
 

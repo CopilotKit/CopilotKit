@@ -157,7 +157,7 @@ export async function streamLangChainResponse({
       eventStream$.sendTextMessage(randomId(), result.content as string);
     }
     if (result.lc_kwargs?.tool_calls) {
-      for (const toolCall of result.lc_kwargs?.tool_calls) {
+      for (const toolCall of result.lc_kwargs.tool_calls) {
         eventStream$.sendActionExecution({
           actionExecutionId: toolCall.id || randomId(),
           actionName: toolCall.name,

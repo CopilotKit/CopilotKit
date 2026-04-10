@@ -211,10 +211,12 @@ export function useScrollToBottom(messages: Message[]) {
     };
   }, []);
 
+  const userMessageCount = messages.filter((m) => m.role === "user").length;
+  // oxlint-disable-next-line react/exhaustive-deps -- intentional: only scroll when user message count changes
   useEffect(() => {
     isUserScrollUpRef.current = false;
     scrollToBottom();
-  }, [messages.filter((m) => m.role === "user").length]);
+  }, [userMessageCount]);
 
   return { messagesEndRef, messagesContainerRef };
 }

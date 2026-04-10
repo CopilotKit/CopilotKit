@@ -11,6 +11,7 @@ import {
   Repeat2,
   MoreHorizontal,
   MapPin,
+  Share,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 

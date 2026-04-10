@@ -28,6 +28,7 @@ const ItemCard: FunctionComponent<{ item: InventoryRecord }> = ({ item }) => {
   return (
     <Link to={`${item.id}`} className="itemCard">
       <div>
+        {/* oxlint-disable-next-line nextjs/no-img-element */}
         <img
           alt={`${item.displayName} avatar`}
           key={item.avatar}

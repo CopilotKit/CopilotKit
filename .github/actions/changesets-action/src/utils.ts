@@ -1,7 +1,9 @@
+// oxlint-disable-next-line import/default
 import unified from "unified";
 import remarkParse from "remark-parse";
 import remarkStringify from "remark-stringify";
 // @ts-ignore
+// oxlint-disable-next-line import/default
 import mdastToString from "mdast-util-to-string";
 import type { Package } from "@manypkg/get-packages";
 import { getPackages } from "@manypkg/get-packages";

@@ -78,6 +78,7 @@ export function useStateRenderRegistry({
     runId,
   });
 
+  // oxlint-disable react/exhaustive-deps -- ref.current in cleanup is intentional; we read the claim at cleanup time to persist the final snapshot; store excluded to avoid re-subscribing
   useEffect(() => {
     return () => {
       const existingClaim = claimsRef.current[message.id];
@@ -106,6 +107,7 @@ export function useStateRenderRegistry({
       delete claimsRef.current[message.id];
     };
   }, [claimsRef, effectiveRunId, message.id]);
+  // oxlint-enable react/exhaustive-deps
 
   if (!stateRenderId) {
     return { canRender: false };

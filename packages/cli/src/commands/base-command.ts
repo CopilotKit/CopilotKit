@@ -1,4 +1,5 @@
 import { Command } from "@oclif/core";
+// oxlint-disable-next-line import/default
 import Sentry, { consoleIntegration } from "@sentry/node";
 import { LIB_VERSION } from "../utils/version.js";
 import { COPILOT_CLOUD_BASE_URL } from "../utils/trpc.js";

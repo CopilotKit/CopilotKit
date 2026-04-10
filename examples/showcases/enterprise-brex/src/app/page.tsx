@@ -115,6 +115,7 @@ export default function HomePage() {
                         </p>
                       </div>
                       <Button variant="outline" asChild>
+                        {/* oxlint-disable-next-line nextjs/no-html-link-for-pages */}
                         <a href="/cards">Manage</a>
                       </Button>
                     </div>

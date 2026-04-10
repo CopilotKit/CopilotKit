@@ -129,6 +129,7 @@ export function useCopilotReadable(
       if (!ctxIdRef.current) return;
       copilotkit.removeContext(ctxIdRef.current);
     };
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: copilotkit is stable context; copilotkit.context and available excluded to avoid infinite re-registration
   }, [description, value, convert]);
 
   return ctxIdRef.current;

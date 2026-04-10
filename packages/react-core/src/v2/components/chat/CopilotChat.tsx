@@ -435,12 +435,14 @@ export function CopilotChat({
   // Stabilize the `onAddFile` handler. Without useCallback, a new arrow
   // function is created inline on every render, causing CopilotChatView to
   // re-render on every keystroke even when nothing else changed.
+  // oxlint-disable react/exhaustive-deps -- fileInputRef.current is a DOM ref; including .current in deps is an anti-pattern
   const handleAddFile = useCallback(() => {
     // Delay to let Radix dropdown menu close before triggering file input
     setTimeout(() => {
       fileInputRef.current?.click();
     }, 100);
   }, []);
+  // oxlint-enable react/exhaustive-deps
 
   // Use shallow spread instead of ts-deepmerge. ts-deepmerge deep-clones plain
   // objects even from a single source, which would defeat the reference

@@ -134,6 +134,7 @@ export class AuthService {
     const port = await getPort();
     const state = crypto.randomBytes(16).toString("hex");
 
+    // oxlint-disable-next-line no-async-promise-executor
     return new Promise(async (resolve, reject) => {
       const server = app.listen(port, () => {});
 

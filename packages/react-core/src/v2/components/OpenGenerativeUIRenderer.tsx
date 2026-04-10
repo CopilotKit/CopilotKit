@@ -406,6 +406,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     }, [content.jsFunctions]);
 
     // Effect 3 — jsExpressions execution (depends on content.jsExpressions?.length)
+    // oxlint-disable react/exhaustive-deps -- intentional: only re-run when the array grows (tracks length not content)
     useEffect(() => {
       const expressions = content.jsExpressions;
       if (!expressions || expressions.length === 0) return;
@@ -427,6 +428,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
         pendingQueueRef.current.push(...newExprs);
       }
     }, [content.jsExpressions?.length]);
+    // oxlint-enable react/exhaustive-deps
 
     // Effect 4 — One-shot height measurement (fires once when generation completes)
     // Uses body.scrollHeight (not documentElement.scrollHeight) because the latter
@@ -562,6 +564,7 @@ export const OpenGenerativeUIToolRenderer: React.FC<
   const messages = props.args.placeholderMessages;
 
   // Cycle through placeholder messages
+  // oxlint-disable react/exhaustive-deps -- intentional: tracking messages?.length to avoid re-running when array contents change
   useEffect(() => {
     if (!messages || messages.length === 0) return;
 
@@ -578,6 +581,7 @@ export const OpenGenerativeUIToolRenderer: React.FC<
     }, 5000);
     return () => clearInterval(timer);
   }, [messages?.length, props.status]);
+  // oxlint-enable react/exhaustive-deps
 
   // Don't render anything once complete — the activity renderer handles the UI
   if (props.status === ToolCallStatus.Complete) return null;

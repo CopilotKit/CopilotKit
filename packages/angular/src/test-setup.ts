@@ -34,6 +34,7 @@ if (!(globalThis as any).ResizeObserver) {
 // IntersectionObserver
 if (!(globalThis as any).IntersectionObserver) {
   class IO {
+    // oxlint-disable-next-line no-useless-constructor
     constructor(_: IntersectionObserverCallback) {}
     observe() {}
     unobserve() {}

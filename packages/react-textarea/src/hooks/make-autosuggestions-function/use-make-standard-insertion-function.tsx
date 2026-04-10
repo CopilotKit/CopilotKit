@@ -137,6 +137,7 @@ export function useMakeStandardInsertionOrEditingFunction(
 
       return res;
     },
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: runtimeClient, copilotApiConfig.properties, runtimeClientResponseToStringStream are stable service references
     [insertionApiConfig, getContextString, contextCategories, textareaPurpose],
   );
 
@@ -197,6 +198,7 @@ export function useMakeStandardInsertionOrEditingFunction(
 
       return res;
     },
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: runtimeClient, copilotApiConfig.properties, runtimeClientResponseToStringStream are stable service references
     [editingApiConfig, getContextString, contextCategories, textareaPurpose],
   );
 

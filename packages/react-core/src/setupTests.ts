@@ -13,6 +13,7 @@ vi.mock("@segment/analytics-node", () => ({
 }));
 
 vi.mock("@copilotkit/shared", async (importOriginal) => {
+  // oxlint-disable-next-line typescript/consistent-type-imports
   const actual = await importOriginal<typeof import("@copilotkit/shared")>();
   return {
     ...actual,

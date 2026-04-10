@@ -98,6 +98,7 @@ class MockMCPProxyAgent extends AbstractAgent {
     // after renderWithCopilotKit (which creates the clone) still take effect.
     // The clone is created and cached before tests can override runAgent, so a
     // static copy would always see the pre-patch prototype method.
+    // oxlint-disable-next-line typescript/no-this-alias
     const registry = this;
     Object.defineProperty(cloned, "isRunning", {
       get() {
