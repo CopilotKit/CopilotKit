@@ -411,3 +411,92 @@ class TestLanggraphDefaultMergeState:
 
         assert result["custom_key"] == "custom_value"
         assert result["messages"] == [{"role": "user", "content": "hi"}]
+
+    def test_duplicate_tools_not_in_copilotkit_actions(self, agent):
+        """Tools should not be duplicated in copilotkit.actions when same name appears in input and state."""
+        tools = [{"name": "tool_a"}, {"name": "tool_b"}]
+        with patch.object(
+            AGUIBase,
+            "langgraph_default_merge_state",
+            return_value={
+                "ag-ui": {"tools": tools, "context": []},
+                "messages": [],
+            },
+        ):
+            result = agent.langgraph_default_merge_state({}, [], MagicMock())
+
+        action_names = [a.get("name") for a in result["copilotkit"]["actions"]]
+        assert action_names.count("tool_a") == 1, "Duplicate tool names should not appear in copilotkit.actions"
+        assert action_names.count("tool_b") == 1
+
+    def test_copilotkit_actions_ordering_matches_tools(self, agent):
+        """copilotkit.actions should have the same ordering as the merged tools list."""
+        tools = [{"name": "first"}, {"name": "second"}, {"name": "third"}]
+        with patch.object(
+            AGUIBase,
+            "langgraph_default_merge_state",
+            return_value={
+                "ag-ui": {"tools": tools, "context": []},
+                "messages": [],
+            },
+        ):
+            result = agent.langgraph_default_merge_state({}, [], MagicMock())
+
+        action_names = [a.get("name") for a in result["copilotkit"]["actions"]]
+        assert action_names == ["first", "second", "third"]
+
+
+# ---------- Reasoning content preservation ----------
+
+class TestReasoningContentPreservation:
+    """Verify that LangGraphAGUIAgent does not drop or mutate reasoning events."""
+
+    def test_unknown_custom_event_does_not_suppress_reasoning(self, agent):
+        """An unrecognized custom event should pass through (not suppress subsequent reasoning events)."""
+        # Dispatch a non-CopilotKit custom event — should pass through without crash
+        unknown_event = CustomEvent(
+            type=EventType.CUSTOM,
+            name="some_unknown_custom_event",
+            value={"reasoning": "chain-of-thought text"},
+        )
+        result = agent._dispatch_event(unknown_event)
+        # Should pass through to super() and return something (not None)
+        assert result is not None
+
+    def test_manually_emit_message_with_empty_string_message(self, agent):
+        """ManuallyEmitMessage with an empty string should still emit the text sequence."""
+        with track_parent_dispatches(agent) as dispatched:
+            event = CustomEvent(
+                type=EventType.CUSTOM,
+                name=CustomEventNames.ManuallyEmitMessage.value,
+                value={
+                    "message_id": "msg-empty",
+                    "message": "",
+                    "role": "assistant",
+                },
+            )
+            agent._dispatch_event(event)
+
+        types = [getattr(e, 'type', None) for e in dispatched]
+        assert EventType.TEXT_MESSAGE_START in types
+        assert EventType.TEXT_MESSAGE_CONTENT in types
+        assert EventType.TEXT_MESSAGE_END in types
+
+    def test_manually_emit_tool_call_with_empty_args(self, agent):
+        """ManuallyEmitToolCall with empty args dict should still emit the tool call sequence."""
+        with track_parent_dispatches(agent) as dispatched:
+            event = CustomEvent(
+                type=EventType.CUSTOM,
+                name=CustomEventNames.ManuallyEmitToolCall.value,
+                value={
+                    "id": "tc-empty",
+                    "name": "MyTool",
+                    "args": {},
+                },
+            )
+            agent._dispatch_event(event)
+
+        types = [getattr(e, 'type', None) for e in dispatched]
+        assert EventType.TOOL_CALL_START in types
+        assert EventType.TOOL_CALL_ARGS in types
+        assert EventType.TOOL_CALL_END in types
