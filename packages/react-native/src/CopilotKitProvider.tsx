@@ -67,7 +67,10 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const stableHeaders = useMemo(() => headers ?? {}, [JSON.stringify(headers)]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const stableProperties = useMemo(() => properties ?? {}, [JSON.stringify(properties)]);
+  const stableProperties = useMemo(
+    () => properties ?? {},
+    [JSON.stringify(properties)],
+  );
 
   const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
 
@@ -88,7 +91,13 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     copilotkit.setRuntimeTransport(useSingleEndpoint ? "single" : "rest");
     copilotkit.setHeaders(stableHeaders);
     copilotkit.setProperties(stableProperties);
-  }, [runtimeUrl, useSingleEndpoint, stableHeaders, stableProperties, copilotkit]);
+  }, [
+    runtimeUrl,
+    useSingleEndpoint,
+    stableHeaders,
+    stableProperties,
+    copilotkit,
+  ]);
 
   // Track executing tool call IDs at the provider level.
   // Critical for HITL reconnection: onToolExecutionStart fires before child
@@ -147,17 +156,27 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     return () => subscription.unsubscribe();
   }, [copilotkit]);
 
-  // The headless bundle inlines @copilotkit/core, producing a distinct
-  // TS declaration for CopilotKitCoreReact. At runtime they are the same class.
-  // Verify the shape at dev time to catch drift between the two type declarations.
+  // The headless bundle inlines @copilotkit/core, so TypeScript emits a separate
+  // declaration for CopilotKitCoreReact that is structurally identical but nominally
+  // distinct from the one in @copilotkit/react-core/v2/context. The cast bridges
+  // this TS-only mismatch. We verify critical methods at runtime to catch version drift.
   const contextValue = useMemo(() => {
-    if (__DEV__) {
-      if (typeof copilotkit.subscribe !== "function") {
-        throw new Error(
-          "[CopilotKit] CopilotKitCoreReact shape mismatch: headless bundle may have " +
-            "diverged from the context type. Ensure @copilotkit/core versions are aligned.",
-        );
-      }
+    const requiredMethods = [
+      "subscribe",
+      "setRuntimeUrl",
+      "setHeaders",
+      "setProperties",
+      "setRuntimeTransport",
+    ] as const;
+    const missing = requiredMethods.filter(
+      (m) => typeof (copilotkit as any)[m] !== "function",
+    );
+    if (missing.length > 0) {
+      throw new Error(
+        "[CopilotKit] CopilotKitCoreReact shape mismatch: headless bundle may have " +
+          "diverged from the context type. Ensure @copilotkit/core versions are aligned. " +
+          `Missing methods: ${missing.join(", ")}`,
+      );
     }
     return {
       copilotkit,

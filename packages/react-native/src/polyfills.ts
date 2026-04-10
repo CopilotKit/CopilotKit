@@ -92,6 +92,14 @@ if (typeof (global as any).Headers === "undefined") {
     delete(name: string): void {
       delete this._map[name.toLowerCase()];
     }
+    append(name: string, value: string): void {
+      const key = name.toLowerCase();
+      if (key in this._map) {
+        this._map[key] += ", " + value;
+      } else {
+        this._map[key] = value;
+      }
+    }
     entries(): IterableIterator<[string, string]> {
       return Object.entries(this._map)[Symbol.iterator]();
     }
@@ -108,18 +116,23 @@ if (typeof (global as any).Headers === "undefined") {
         callback(value, key, this);
       }
     }
+    [Symbol.iterator](): IterableIterator<[string, string]> {
+      return this.entries();
+    }
   }
   (global as any).Headers = HeadersPolyfill;
 }
 
-// window.location — CopilotKit's shouldShowDevConsole checks window.location.hostname
+// window.location — needed by shouldShowDevConsole (hostname check) and
+// agent runtime URL resolution (window.location.origin).
+// Uses an obviously invalid hostname to avoid tricking localhost-detection code.
 if (typeof window !== "undefined" && !(window as any).location) {
   (window as any).location = {
-    hostname: "localhost",
-    href: "http://localhost",
-    origin: "http://localhost",
+    hostname: "react-native.invalid",
+    href: "http://react-native.invalid",
+    origin: "http://react-native.invalid",
     protocol: "http:",
-    host: "localhost",
+    host: "react-native.invalid",
     pathname: "/",
     search: "",
     hash: "",
