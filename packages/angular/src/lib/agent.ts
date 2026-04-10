@@ -11,10 +11,20 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { Message } from "@ag-ui/client";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import {
-  CopilotKitCore,
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
+  type SubscribeToAgentSubscriber,
+  type SubscribeToAgentOptions,
+  type CopilotKitCoreSubscription,
 } from "@copilotkit/core";
+
+/** Function signature for subscribing to an agent — injected by the factory
+ *  so that AgentStore stays decoupled from CopilotKitCore. */
+type SubscribeToAgentFn = (
+  agent: AbstractAgent,
+  subscriber: SubscribeToAgentSubscriber,
+  options?: SubscribeToAgentOptions,
+) => CopilotKitCoreSubscription;
 
 export class AgentStore {
   readonly #subscription?: {
@@ -32,11 +42,11 @@ export class AgentStore {
   constructor(
     abstractAgent: AbstractAgent,
     destroyRef: DestroyRef,
-    core: CopilotKitCore,
+    subscribeToAgent: SubscribeToAgentFn,
   ) {
     this.agent = abstractAgent;
 
-    this.#subscription = core.subscribeToAgent(abstractAgent, {
+    this.#subscription = subscribeToAgent(abstractAgent, {
       onMessagesChanged: () => {
         this.#messages.set(abstractAgent.messages);
       },
@@ -80,6 +90,8 @@ export class CopilotkitAgentFactory {
     destroyRef: DestroyRef,
   ): Signal<AgentStore> {
     let lastAgentStore: AgentStore | undefined;
+    const subscribeToAgent: SubscribeToAgentFn =
+      this.#copilotkit.core.subscribeToAgent.bind(this.#copilotkit.core);
 
     return computed(() => {
       this.#copilotkit.agents();
@@ -117,7 +129,7 @@ export class CopilotkitAgentFactory {
           lastAgentStore = new AgentStore(
             provisional,
             destroyRef,
-            this.#copilotkit.core,
+            subscribeToAgent,
           );
           return lastAgentStore;
         }
@@ -138,7 +150,7 @@ export class CopilotkitAgentFactory {
       lastAgentStore = new AgentStore(
         abstractAgent,
         destroyRef,
-        this.#copilotkit.core,
+        subscribeToAgent,
       );
       return lastAgentStore;
     });
