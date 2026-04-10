@@ -741,9 +741,8 @@ export class CopilotKitCore {
 
     // Wrap every allowed callback in the subscriber with safeCall so errors
     // in any callback cannot corrupt the agent's notification loop.
-    // Callbacks not in ALLOWED_KEYS are dropped with a console.warn so
-    // JS consumers or `as any` casts get a visible hint to use
-    // agent.subscribe() directly.
+    // Unsupported keys are silently skipped here — the pre-scan below
+    // already warned about them.
     const guardAll = (
       sub: SubscribeToAgentSubscriber,
     ): SubscribeToAgentSubscriber => {
@@ -753,26 +752,35 @@ export class CopilotKitCore {
         if (ALLOWED_KEYS.has(key as keyof SubscribeToAgentSubscriber)) {
           (guarded as any)[key] = (...args: any[]) =>
             safeCall(key, value as (...a: any[]) => any, ...args);
-        } else {
-          const message =
-            `CopilotKitCore.subscribeToAgent[${agentLabel}]: callback "${key}" is not supported ` +
-            `and was dropped. Supported callbacks: ${Array.from(ALLOWED_KEYS).join(", ")}. ` +
-            `Use agent.subscribe() directly for event handlers and per-item notifications.`;
-          console.warn(message);
-          this.emitError({
-            error: new Error(message),
-            code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
-            context: { agentId: agent.agentId, droppedCallback: key },
-          }).catch((emitErr: unknown) => {
-            console.error(
-              `CopilotKitCore.subscribeToAgent[${agentLabel}]: emitError itself failed:`,
-              emitErr,
-            );
-          });
         }
       }
       return guarded;
     };
+
+    // Warn about unsupported keys before branching so both throttled and
+    // unthrottled paths get the same diagnostic for JS / `as any` consumers.
+    for (const key of Object.keys(subscriber)) {
+      if (
+        typeof (subscriber as any)[key] === "function" &&
+        !ALLOWED_KEYS.has(key as keyof SubscribeToAgentSubscriber)
+      ) {
+        const message =
+          `CopilotKitCore.subscribeToAgent[${agentLabel}]: callback "${key}" is not supported ` +
+          `and was dropped. Supported callbacks: ${Array.from(ALLOWED_KEYS).join(", ")}. ` +
+          `Use agent.subscribe() directly for event handlers and per-item notifications.`;
+        console.warn(message);
+        this.emitError({
+          error: new Error(message),
+          code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+          context: { agentId: agent.agentId, droppedCallback: key },
+        }).catch((emitErr: unknown) => {
+          console.error(
+            `CopilotKitCore.subscribeToAgent[${agentLabel}]: emitError itself failed:`,
+            emitErr,
+          );
+        });
+      }
+    }
 
     if (effectiveMs <= 0) {
       const subscription = agent.subscribe(guardAll(subscriber));
