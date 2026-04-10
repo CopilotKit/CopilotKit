@@ -4,7 +4,7 @@ import {
   useCopilotKit,
   useSuggestions,
 } from "../v2";
-import { StaticSuggestionsConfig, Suggestion } from "@copilotkit/core";
+import type { StaticSuggestionsConfig, Suggestion } from "@copilotkit/core";
 import { useCopilotContext } from "../context";
 import { useEffect, useMemo } from "react";
 

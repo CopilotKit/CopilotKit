@@ -1,6 +1,6 @@
 import { ChevronDown, File } from "lucide-react";
 import { useResearch } from "./research-context";
-import { Source } from "@/lib/types";
+import type { Source } from "@/lib/types";
 import { useState } from "react";
 
 interface SourceItemProps {

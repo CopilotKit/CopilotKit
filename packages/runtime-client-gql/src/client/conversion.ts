@@ -1,12 +1,12 @@
-import {
+import type {
   GenerateCopilotResponseMutation,
   MessageInput,
-  MessageStatusCode,
 } from "../graphql/@generated/graphql";
+import { MessageStatusCode } from "../graphql/@generated/graphql";
+import type { Message } from "./types";
 import {
   ActionExecutionMessage,
   AgentStateMessage,
-  Message,
   ResultMessage,
   TextMessage,
   ImageMessage,
@@ -255,7 +255,7 @@ function getPartialArguments(args: string[]) {
       return {};
     }
     return parsed;
-  } catch (e) {
+  } catch {
     // Incomplete JSON is expected during streaming — no warning needed
     return {};
   }

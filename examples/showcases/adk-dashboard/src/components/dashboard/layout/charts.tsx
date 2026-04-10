@@ -1,8 +1,8 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { ChartSpec, Chart, ChartDataMap } from "@/lib/types";
-import { AgentState, AgentSetState } from "@/lib/types";
+import type { ChartSpec, Chart, ChartDataMap } from "@/lib/types";
+import type { AgentState, AgentSetState } from "@/lib/types";
 import { ChartGrid } from "@/components/dashboard/charts";
 
 interface ChartsProps {

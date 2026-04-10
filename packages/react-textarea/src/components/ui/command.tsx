@@ -1,5 +1,5 @@
 import * as React from "react";
-import { DialogProps } from "@radix-ui/react-dialog";
+import type { DialogProps } from "@radix-ui/react-dialog";
 import { Command as CommandPrimitive } from "cmdk";
 import { cn } from "../../lib/utils";
 import { Dialog, DialogContent } from "./dialog";

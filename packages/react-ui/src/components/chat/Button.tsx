@@ -1,4 +1,4 @@
-import { ButtonProps } from "./props";
+import type { ButtonProps } from "./props";
 import { useChatContext } from "./ChatContext";
 
 export const Button = ({}: ButtonProps) => {

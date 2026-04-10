@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Editor, Location, Transforms } from "slate";
+import type { Editor, Location } from "slate";
+import { Transforms } from "slate";
 import { ReactEditor, useSlate, useSlateSelection } from "slate-react";
 import {
   getFullEditorTextWithNewlines,
   getTextAroundSelection,
 } from "../../lib/get-text-around-cursor";
-import {
+import type {
   EditingEditorState,
   InsertionEditorApiConfig,
 } from "../../types/base/autosuggestions-bare-function";

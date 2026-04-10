@@ -9,7 +9,8 @@ import {
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { useAuth as useOidcAuth } from "react-oidc-context";
-import { loadAwsConfig, type AwsExportsConfig } from "@/lib/runtime-config";
+import { loadAwsConfig } from "@/lib/runtime-config";
+import type { AwsExportsConfig } from "@/lib/runtime-config";
 import { useExampleSuggestions } from "@/hooks/useExampleSuggestions";
 import { useCopilotExamples } from "@/hooks/useCopilotExamples";
 import { ThemeProvider } from "@/hooks/useTheme";

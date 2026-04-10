@@ -2,9 +2,9 @@ import { handleIntelligenceConnect } from "./intelligence/connect";
 import { handleSseConnect } from "./sse/connect";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
+import type { RunAgentParameters as ConnectAgentParameters } from "./shared/agent-utils";
 import {
   parseConnectRequest,
-  RunAgentParameters as ConnectAgentParameters,
   cloneAgentForRequest,
 } from "./shared/agent-utils";
 

@@ -62,12 +62,8 @@
  * For more information about how to customize the styles, check out the [Customize Look & Feel](/guides/custom-look-and-feel/customize-built-in-ui-components) guide.
  */
 
-import {
-  ChatContext,
-  ChatContextProvider,
-  CopilotChatIcons,
-  CopilotChatLabels,
-} from "./ChatContext";
+import type { CopilotChatIcons, CopilotChatLabels } from "./ChatContext";
+import { ChatContext, ChatContextProvider } from "./ChatContext";
 import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
 import { RenderMessage as DefaultRenderMessage } from "./messages/RenderMessage";
@@ -75,26 +71,25 @@ import { AssistantMessage as DefaultAssistantMessage } from "./messages/Assistan
 import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
 import { ImageRenderer as DefaultImageRenderer } from "./messages/ImageRenderer";
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import type { SystemMessageFunction } from "@copilotkit/react-core";
 import {
-  SystemMessageFunction,
   useCopilotContext,
   useCopilotChatInternal,
-  type OnStopGeneration,
-  type OnReloadMessages,
-  type ChatSuggestions,
+} from "@copilotkit/react-core";
+import type {
+  OnStopGeneration,
+  OnReloadMessages,
+  ChatSuggestions,
 } from "@copilotkit/react-core";
 import {
   CopilotKitError,
   CopilotKitErrorCode,
-  CopilotErrorEvent,
-  Message,
   Severity,
   ErrorVisibility,
   styledConsole,
-  CopilotErrorHandler,
   randomUUID,
 } from "@copilotkit/shared";
-import {
+import type {
   AssistantMessageProps,
   ChatError,
   ComponentsMap,
@@ -119,7 +114,12 @@ import {
   formatFileSize,
   deprecationWarning,
 } from "./attachment-utils";
-import type { InputContent } from "@copilotkit/shared";
+import type {
+  InputContent,
+  CopilotErrorEvent,
+  Message,
+  CopilotErrorHandler,
+} from "@copilotkit/shared";
 import { Suggestions as DefaultRenderSuggestionsList } from "./Suggestions";
 
 /**

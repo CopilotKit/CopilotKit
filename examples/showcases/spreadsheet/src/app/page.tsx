@@ -14,7 +14,7 @@ import {
 } from "@copilotkit/react-ui";
 import { INSTRUCTIONS } from "./instructions";
 import { canonicalSpreadsheetData } from "./utils/canonicalSpreadsheetData";
-import { SpreadsheetData } from "./types";
+import type { SpreadsheetData } from "./types";
 import { PreviewSpreadsheetChanges } from "./components/PreviewSpreadsheetChanges";
 import { sampleData, sampleData2 } from "./utils/sampleData";
 // import { Bottombar } from "./components/Bottombar";

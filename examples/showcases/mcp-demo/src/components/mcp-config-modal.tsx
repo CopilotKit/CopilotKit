@@ -3,12 +3,8 @@
 import { useState, useEffect, useRef, useContext } from "react";
 import { useCoAgent, useCopilotChat } from "@copilotkit/react-core";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import {
-  ConnectionType,
-  ServerConfig,
-  MCP_STORAGE_KEY,
-  MCPConfig,
-} from "@/lib/mcp-config-types";
+import type { ConnectionType, ServerConfig } from "@/lib/mcp-config-types";
+import { MCP_STORAGE_KEY, MCPConfig } from "@/lib/mcp-config-types";
 import { X, Plus, Server, Globe, Trash2 } from "lucide-react";
 import { ServerConfigsContext } from "@/providers/Providers";
 // External link icon component

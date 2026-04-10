@@ -1,12 +1,7 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useState,
-  ReactNode,
-  useEffect,
-} from "react";
+import type { ReactNode } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 import type { ResearchState } from "@/lib/types";
 import useLocalStorage from "@/lib/hooks/useLocalStorage";
 

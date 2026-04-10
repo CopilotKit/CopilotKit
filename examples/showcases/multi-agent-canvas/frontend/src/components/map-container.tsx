@@ -3,7 +3,8 @@ import * as Skeletons from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
 import { AvailableAgents } from "@/lib/available-agents";
 import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
-import { Icon, LatLngTuple } from "leaflet";
+import type { LatLngTuple } from "leaflet";
+import { Icon } from "leaflet";
 import "leaflet-defaulticon-compatibility";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
 import "leaflet/dist/leaflet.css";
@@ -287,7 +288,7 @@ export default function MapComponent() {
       if (!args.queries) {
         return (
           <div className="flex items-center justify-center p-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
             <span className="ml-3">Searching for Places...</span>
           </div>
         );

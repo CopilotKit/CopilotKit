@@ -1,9 +1,15 @@
 import React from "react";
 import { AnimatedCard } from "@/components/animated-card";
 import { useGlobalState } from "@/lib/stages";
-import { Car, CardInfo, ContactInfo, FinancingInfo, Order } from "@/lib/types";
+import type {
+  Car,
+  CardInfo,
+  ContactInfo,
+  FinancingInfo,
+  Order,
+} from "@/lib/types";
 
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import type { RenderFunctionStatus } from "@copilotkit/react-core";
 
 interface ConfirmOrderProps {
   onConfirm: (order: Order) => void;

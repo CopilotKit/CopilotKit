@@ -1,12 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import {
-  BehaviorSubject,
-  Observable,
-  OperatorFunction,
-  Subject,
-  Subscription,
-  asapScheduler,
-} from "rxjs";
+import type { Observable, OperatorFunction } from "rxjs";
+import { BehaviorSubject, Subject, Subscription, asapScheduler } from "rxjs";
 import { distinctUntilChanged, filter, map, observeOn } from "rxjs/operators";
 
 /**

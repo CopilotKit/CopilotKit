@@ -25,7 +25,9 @@
     "unicorn/prefer-optional-catch-binding": "warn",
     "eslint/no-useless-computed-key": "warn",
     "unicorn/prefer-string-slice": "warn",
-    "unicorn/prefer-array-flat-map": "warn"
+    "unicorn/prefer-array-flat-map": "warn",
+
+    "no-shadow": "off"
   },
   "overrides": [
     {
@@ -54,7 +56,8 @@
     {
       "files": ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"],
       "rules": {
-        "copilotkit/require-cpk-prefix": "off"
+        "copilotkit/require-cpk-prefix": "off",
+        "unicorn/consistent-function-scoping": "off"
       }
     },
     {
@@ -77,6 +80,8 @@
     "coverage/**",
     "storybook-static/**",
     "**/@generated/**",
-    "docs/**"
+    "docs/**",
+    "examples/v1/_legacy/**",
+    "showcase/**"
   ]
 }

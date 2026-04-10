@@ -9,14 +9,14 @@ import {
 import { useConfigureSuggestions } from "../use-configure-suggestions";
 import { useSuggestions } from "../use-suggestions";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
-import { Suggestion } from "@copilotkit/core";
-import {
-  AbstractAgent,
+import type { Suggestion } from "@copilotkit/core";
+import type {
   AgentSubscriber,
   Message,
   RunAgentParameters,
   RunAgentResult,
 } from "@ag-ui/client";
+import { AbstractAgent } from "@ag-ui/client";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 
 class ImmediateSuggestionsProviderAgent extends AbstractAgent {

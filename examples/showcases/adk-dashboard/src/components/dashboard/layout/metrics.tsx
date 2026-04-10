@@ -1,5 +1,5 @@
 import { PinnedMetricCard } from "@/components/dashboard/metrics";
-import { AgentState, AgentSetState, Metric } from "@/lib/types";
+import type { AgentState, AgentSetState, Metric } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 

@@ -8,7 +8,7 @@ import { CardTitle } from "./ui/card";
 import { TripSelect } from "./TripSelect";
 import { TripContent } from "./TripContent";
 import { ScrollArea } from "./ui/scroll-area";
-import { Map } from "leaflet";
+import type { Map } from "leaflet";
 
 export type MobileTripCardProps = {
   className?: string;

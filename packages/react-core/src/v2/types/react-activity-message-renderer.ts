@@ -1,4 +1,4 @@
-import { ActivityMessage } from "@ag-ui/core";
+import type { ActivityMessage } from "@ag-ui/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
 

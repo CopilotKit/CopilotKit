@@ -32,7 +32,7 @@ export function ApiKeyInput({ currentKey, onSave, onClear }: ApiKeyInputProps) {
         <div className="flex items-center gap-2 mb-2">
           <span className="text-lg">🔑</span>
           <div className="text-xs font-mono opacity-70">
-            {currentKey.substring(0, 8)}...
+            {currentKey.slice(0, 8)}...
           </div>
         </div>
         <div className="flex gap-1">

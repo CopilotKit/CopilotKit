@@ -1,5 +1,6 @@
-import { Card, Transaction } from "@/app/api/v1/data";
-import { clsx, type ClassValue } from "clsx";
+import type { Card, Transaction } from "@/app/api/v1/data";
+import { clsx } from "clsx";
+import type { ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {

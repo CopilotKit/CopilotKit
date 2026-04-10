@@ -4,7 +4,7 @@ import * as githubUtils from "@actions/github/lib/utils";
 import fs from "fs-extra";
 import path from "path";
 import writeChangeset from "@changesets/write";
-import { Changeset } from "@changesets/types";
+import type { Changeset } from "@changesets/types";
 import { runVersion } from "./run";
 
 jest.mock("@actions/github", () => ({

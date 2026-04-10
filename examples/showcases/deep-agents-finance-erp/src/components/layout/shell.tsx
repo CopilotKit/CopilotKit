@@ -1,8 +1,8 @@
 "use client";
 
+import type { CopilotSidebarView } from "@copilotkit/react-core/v2";
 import {
   CopilotSidebar,
-  CopilotSidebarView,
   useAgentContext,
   useAgent,
   useCopilotKit,

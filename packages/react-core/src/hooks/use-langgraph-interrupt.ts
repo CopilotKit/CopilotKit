@@ -1,5 +1,5 @@
 import React, { useCallback, useRef } from "react";
-import { LangGraphInterruptRender } from "../types/interrupt-action";
+import type { LangGraphInterruptRender } from "../types/interrupt-action";
 import { useInterrupt, useCopilotChatConfiguration } from "../v2";
 import type {
   InterruptEvent,

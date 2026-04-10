@@ -17,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Card } from "@/app/api/v1/data";
+import type { Card } from "@/app/api/v1/data";
 
 export function ChangePinDialog({
   onDialogOpenChange,

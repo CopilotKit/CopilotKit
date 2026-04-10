@@ -1,11 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { InMemoryAgentRunner } from "../runner/in-memory";
-import {
-  AbstractAgent,
-  BaseEvent,
-  EventType,
-  RunAgentInput,
-} from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import { firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
 

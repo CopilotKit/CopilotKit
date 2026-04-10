@@ -1,4 +1,4 @@
-import { RemoteEndpointType } from "../utils/detect-endpoint-type.utils.js";
+import type { RemoteEndpointType } from "../utils/detect-endpoint-type.utils.js";
 
 export type AnalyticsEvents = {
   "cli.login.initiated": {};

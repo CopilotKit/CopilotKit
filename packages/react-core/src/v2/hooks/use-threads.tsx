@@ -6,9 +6,8 @@ import {
   ɵselectThreadsIsLoading,
   ɵselectHasNextPage,
   ɵselectIsFetchingNextPage,
-  type ɵThreadRuntimeContext,
-  type ɵThreadStore,
 } from "@copilotkit/core";
+import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
 import {
   useCallback,
   useEffect,

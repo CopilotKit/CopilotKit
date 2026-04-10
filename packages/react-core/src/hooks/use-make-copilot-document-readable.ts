@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useCopilotContext } from "../context/copilot-context";
-import { DocumentPointer } from "../types";
+import type { DocumentPointer } from "../types";
 
 /**
  * Makes a document readable by Copilot.

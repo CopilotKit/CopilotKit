@@ -44,7 +44,7 @@
 import { useRef, useContext, useEffect } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import { randomId, CopilotKitAgentDiscoveryError } from "@copilotkit/shared";
-import { CoAgentStateRender } from "../types/coagent-action";
+import type { CoAgentStateRender } from "../types/coagent-action";
 import { useToast } from "../components/toast/toast-provider";
 import { useCoAgentStateRenders } from "../context/coagent-state-renders-context";
 

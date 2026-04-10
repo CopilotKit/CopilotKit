@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
 import { CopilotKitCore } from "../core";
 import { MockAgent, createToolCallMessage, createTool } from "./test-utils";
 

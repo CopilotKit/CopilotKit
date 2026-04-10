@@ -4,7 +4,8 @@
  */
 
 import { useCopilotAction } from "@copilotkit/react-core";
-import { CopilotChat, CopilotKitCSSProperties } from "@copilotkit/react-ui";
+import type { CopilotKitCSSProperties } from "@copilotkit/react-ui";
+import { CopilotChat } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import ChatCard from "./CountryCard";
 

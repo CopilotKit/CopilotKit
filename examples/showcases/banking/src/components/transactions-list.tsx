@@ -1,5 +1,5 @@
 import { Check, MessageSquare, PlusCircle, Send, X } from "lucide-react";
-import { Transaction } from "@/app/api/v1/data";
+import type { Transaction } from "@/app/api/v1/data";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";

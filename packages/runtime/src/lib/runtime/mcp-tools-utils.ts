@@ -1,4 +1,4 @@
-import { Action, Parameter } from "@copilotkit/shared";
+import type { Action, Parameter } from "@copilotkit/shared";
 
 /**
  * Represents a tool provided by an MCP server.

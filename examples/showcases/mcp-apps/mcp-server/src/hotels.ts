@@ -614,7 +614,7 @@ export function getCityByName(name: string): City | undefined {
  * Generate a unique search ID.
  */
 function generateSearchId(): string {
-  return `hotel-search-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  return `hotel-search-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 /**
@@ -622,14 +622,14 @@ function generateSearchId(): string {
  */
 function generateHotelId(hotelName: string): string {
   const slug = hotelName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  return `hotel-${slug}-${Math.random().toString(36).substring(2, 6)}`;
+  return `hotel-${slug}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
 /**
  * Generate a unique room ID.
  */
 function generateRoomId(): string {
-  return `room-${Math.random().toString(36).substring(2, 8)}`;
+  return `room-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 /**

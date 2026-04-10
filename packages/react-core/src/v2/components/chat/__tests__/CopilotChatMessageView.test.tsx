@@ -5,13 +5,13 @@ import { vi } from "vitest";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import CopilotChatMessageView from "../CopilotChatMessageView";
-import {
+import type {
   ActivityMessage,
   AssistantMessage,
   Message,
   UserMessage,
 } from "@ag-ui/core";
-import { ReactActivityMessageRenderer } from "../../../types";
+import type { ReactActivityMessageRenderer } from "../../../types";
 
 describe("CopilotChatMessageView activity rendering", () => {
   const agentId = "default";

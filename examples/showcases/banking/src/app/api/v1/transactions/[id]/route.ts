@@ -1,5 +1,5 @@
 import { data } from "../../data";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 // Add note to transaction
 export const PUT = async (

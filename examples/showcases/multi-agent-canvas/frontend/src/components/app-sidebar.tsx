@@ -28,7 +28,7 @@ export function AppSidebar() {
           <h2 className="text-lg font-semibold">OMAC</h2>
         </div>
       </SidebarHeader>
-      <SidebarContent></SidebarContent>
+      <SidebarContent />
       <SidebarFooter>
         <SidebarGroup>
           <div className="space-y-1 px-2">
@@ -91,7 +91,7 @@ export function AppSidebar() {
             <button className="flex w-full items-center gap-2 rounded p-2 hover:bg-accent">
               <Mail className="h-4 w-4" />
               <span>Connect Gmail</span>
-              <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse"></div>
+              <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
             </button>
           </div>
           <div className="px-4 py-2 text-sm text-muted-foreground">

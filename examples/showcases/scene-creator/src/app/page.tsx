@@ -11,7 +11,7 @@ import { ArtifactPanel } from "@/components/ArtifactPanel";
 import { CustomChatInput } from "@/components/CustomChatInput";
 import { ApiKeyInput } from "@/components/ApiKeyInput";
 import { ChatInputProvider } from "@/lib/chat-input-context";
-import { AgentState } from "@/lib/types";
+import type { AgentState } from "@/lib/types";
 import { useRef, useMemo, useState, useEffect } from "react";
 
 const API_KEY_STORAGE_KEY = "google_api_key";

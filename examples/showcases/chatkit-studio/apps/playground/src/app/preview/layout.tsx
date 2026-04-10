@@ -2,7 +2,7 @@
 
 import { CopilotKit } from "@copilotkit/react-core";
 import "@copilotkit/react-ui/styles.css";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 
 /**
  * Preview Layout

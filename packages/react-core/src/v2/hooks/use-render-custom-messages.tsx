@@ -1,7 +1,7 @@
 import { useCopilotChatConfiguration, useCopilotKit } from "../providers";
 import { getThreadClone } from "./use-agent";
-import { ReactCustomMessageRendererPosition } from "../types/react-custom-message-renderer";
-import { Message } from "@ag-ui/core";
+import type { ReactCustomMessageRendererPosition } from "../types/react-custom-message-renderer";
+import type { Message } from "@ag-ui/core";
 
 interface UseRenderCustomMessagesParams {
   message: Message;

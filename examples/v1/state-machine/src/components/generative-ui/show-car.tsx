@@ -1,11 +1,11 @@
 import { cn } from "@/lib/utils/cn";
-import { Car } from "@/lib/types";
+import type { Car } from "@/lib/types";
 import { AnimatedCard } from "@/components/animated-card";
 import { motion } from "motion/react";
 import { useState } from "react";
 import Image from "next/image";
 
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import type { RenderFunctionStatus } from "@copilotkit/react-core";
 
 interface ShowCarProps {
   car: Car;

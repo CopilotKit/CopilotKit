@@ -1,5 +1,5 @@
-import { FrontendTool } from "@copilotkit/core";
-import { ReactToolCallRenderer } from "./react-tool-call-renderer";
+import type { FrontendTool } from "@copilotkit/core";
+import type { ReactToolCallRenderer } from "./react-tool-call-renderer";
 
 export type ReactFrontendTool<
   T extends Record<string, unknown> = Record<string, unknown>,

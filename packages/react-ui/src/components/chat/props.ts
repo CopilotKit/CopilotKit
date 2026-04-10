@@ -1,12 +1,12 @@
-import {
+import type {
   AIMessage,
   Message,
   UserMessage,
   CopilotErrorEvent,
 } from "@copilotkit/shared";
-import { CopilotChatSuggestion } from "../../types/suggestions";
-import { ReactNode } from "react";
-import { ImageData } from "@copilotkit/shared";
+import type { CopilotChatSuggestion } from "../../types/suggestions";
+import type { ReactNode } from "react";
+import type { ImageData } from "@copilotkit/shared";
 import type { InputContentSource } from "@copilotkit/shared";
 import type {
   AttachmentsConfig,

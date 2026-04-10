@@ -1,8 +1,8 @@
 import React from "react";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import { type BaseEvent, type RunAgentInput } from "@ag-ui/client";
-import { Observable } from "rxjs";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { Observable } from "rxjs";
 import {
   MockStepwiseAgent,
   renderWithCopilotKit,

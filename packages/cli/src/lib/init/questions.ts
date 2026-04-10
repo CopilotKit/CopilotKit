@@ -1,5 +1,5 @@
+import type { Question } from "./types/index.js";
 import {
-  Question,
   MODES,
   CREW_TYPES,
   LANGGRAPH_AGENTS,
@@ -25,7 +25,7 @@ const validateUrl = (input: string): true | string => {
     const result = UrlSchema.safeParse(sanitized);
     if (result.success) return true;
     return result.error.errors[0]?.message || "Invalid URL format";
-  } catch (error) {
+  } catch {
     return "Invalid URL format";
   }
 };
@@ -72,7 +72,7 @@ function getBaseQuestions(): Question[] {
         try {
           ModeSchema.parse(input);
           return true;
-        } catch (error) {
+        } catch {
           return "Please select a valid mode";
         }
       },
@@ -89,7 +89,7 @@ function getBaseQuestions(): Question[] {
         try {
           CrewTypeSchema.parse(input);
           return true;
-        } catch (error) {
+        } catch {
           return "Please select a valid crew type";
         }
       },
@@ -132,7 +132,7 @@ function getBaseQuestions(): Question[] {
         try {
           YesNoSchema.parse(input);
           return true;
-        } catch (error) {
+        } catch {
           return "Please select Yes or No";
         }
       },
@@ -148,7 +148,7 @@ function getBaseQuestions(): Question[] {
         try {
           YesNoSchema.parse(input);
           return true;
-        } catch (error) {
+        } catch {
           return "Please select Yes or No";
         }
       },
@@ -221,7 +221,7 @@ function getBaseQuestions(): Question[] {
         try {
           YesNoSchema.parse(input);
           return true;
-        } catch (error) {
+        } catch {
           return "Please select Yes or No";
         }
       },
@@ -259,7 +259,7 @@ function getDeploymentChoiceQuestions(): Question[] {
         try {
           DeploymentChoiceSchema.parse(input);
           return true;
-        } catch (error) {
+        } catch {
           return "Please select a valid deployment option";
         }
       },
@@ -287,7 +287,7 @@ function getCloudDeploymentQuestions(): Question[] {
         try {
           YesNoSchema.parse(input);
           return true;
-        } catch (error) {
+        } catch {
           return "Please select Yes or No";
         }
       },

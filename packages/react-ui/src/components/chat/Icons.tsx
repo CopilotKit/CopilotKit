@@ -150,30 +150,27 @@ export const SmallSpinnerIcon = (
   <span
     className="copilotKitSpinner"
     style={{ width: "13px", height: "13px" }}
-  ></span>
+  />
 );
 
 export const SpinnerIcon = (
   <span
     className="copilotKitSpinner"
     style={{ width: "24px", height: "24px" }}
-  ></span>
+  />
 );
 
 export const ActivityIcon = (
   <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-    <span
-      className="copilotKitActivityDot"
-      style={{ animationDelay: "0s" }}
-    ></span>
+    <span className="copilotKitActivityDot" style={{ animationDelay: "0s" }} />
     <span
       className="copilotKitActivityDot"
       style={{ animationDelay: "0.2s" }}
-    ></span>
+    />
     <span
       className="copilotKitActivityDot"
       style={{ animationDelay: "0.4s" }}
-    ></span>
+    />
   </div>
 );
 

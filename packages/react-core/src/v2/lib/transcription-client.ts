@@ -1,8 +1,6 @@
 import type { CopilotKitCoreReact } from "./react-core";
-import {
-  TranscriptionErrorCode,
-  type TranscriptionErrorResponse,
-} from "@copilotkit/shared";
+import { TranscriptionErrorCode } from "@copilotkit/shared";
+import type { TranscriptionErrorResponse } from "@copilotkit/shared";
 
 export interface TranscriptionResult {
   text: string;

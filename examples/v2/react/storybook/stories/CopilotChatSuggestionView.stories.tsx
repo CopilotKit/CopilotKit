@@ -3,7 +3,7 @@ import {
   CopilotChatSuggestionView,
   CopilotChatSuggestionPill,
 } from "@copilotkit/react-core/v2";
-import { Suggestion } from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
 import { Sparkles } from "lucide-react";
 
 const suggestions: Suggestion[] = [

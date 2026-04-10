@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { PlaygroundConfig } from "@/types/playground";
+import type { PlaygroundConfig } from "@/types/playground";
 import { Button } from "@/components/ui/button";
 
 interface PreviewPanelProps {

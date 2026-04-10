@@ -1,13 +1,14 @@
-import { type Parameter, getZodParameters } from "@copilotkit/shared";
+import { getZodParameters } from "@copilotkit/shared";
+import type { Parameter } from "@copilotkit/shared";
 import { parseJson } from "@copilotkit/shared";
 import { defineToolCallRenderer, useCopilotKit } from "../v2";
 import type React from "react";
 import { useEffect, useRef } from "react";
-import {
-  type ActionRenderProps,
-  type ActionRenderPropsNoArgs,
-  ActionRenderPropsWait,
-  type FrontendAction,
+import { ActionRenderPropsWait } from "../types";
+import type {
+  ActionRenderProps,
+  ActionRenderPropsNoArgs,
+  FrontendAction,
 } from "../types";
 
 type ToolCallRendererDefinition = Parameters<typeof defineToolCallRenderer>[0];

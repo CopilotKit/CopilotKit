@@ -1,10 +1,10 @@
-import {
+import type {
   AbstractAgent,
   BaseEvent,
   Message,
   RunAgentInput,
 } from "@ag-ui/client";
-import { Observable } from "rxjs";
+import type { Observable } from "rxjs";
 
 export interface AgentRunnerRunRequest {
   threadId: string;

@@ -8,10 +8,10 @@ import getPort from "get-port";
 import ora from "ora";
 import chalk from "chalk";
 import inquirer from "inquirer";
-import { Command } from "@oclif/core";
+import type { Command } from "@oclif/core";
 import { createTRPCClient } from "../utils/trpc.js";
 import { AnalyticsService } from "../services/analytics.service.js";
-import { BaseCommand } from "../commands/base-command.js";
+import type { BaseCommand } from "../commands/base-command.js";
 
 interface LoginResponse {
   cliToken: string;
@@ -94,7 +94,7 @@ export class AuthService {
     const trpcClient = createTRPCClient(cliToken);
     try {
       me = await trpcClient.me.query();
-    } catch (error) {
+    } catch {
       // Token is invalid/expired, trigger new login
       cmd.log(
         chalk.yellow("Your authentication has expired. Re-authenticating..."),
@@ -102,7 +102,7 @@ export class AuthService {
       try {
         const loginResult = await this.login({ exitAfterLogin: false });
         return loginResult;
-      } catch (loginError) {
+      } catch {
         cmd.log(
           chalk.red(
             "Could not authenticate with Copilot Cloud. Please run: npx copilotkit@latest login",

@@ -1,7 +1,5 @@
-import {
-  RuntimeEventSource,
-  RuntimeEventTypes,
-} from "../service-adapters/events";
+import type { RuntimeEventSource } from "../service-adapters/events";
+import { RuntimeEventTypes } from "../service-adapters/events";
 
 export interface LLMRequestData {
   threadId?: string;

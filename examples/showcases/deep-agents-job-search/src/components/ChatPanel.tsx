@@ -5,7 +5,7 @@ import { CopilotChat } from "@copilotkit/react-ui";
 import { useCopilotReadable } from "@copilotkit/react-core";
 import { ResumeUpload } from "./ResumeUpload";
 import { JobsResults } from "./JobsResults";
-import { JobPosting } from "@/lib/types";
+import type { JobPosting } from "@/lib/types";
 
 interface ResumeData {
   success: boolean;

@@ -6,17 +6,19 @@ import React, {
   useLayoutEffect,
 } from "react";
 import { ScrollElementContext } from "./scroll-element-context";
-import { WithSlots, SlotValue, renderSlot } from "../../lib/slots";
+import type { WithSlots, SlotValue } from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
 import CopilotChatMessageView from "./CopilotChatMessageView";
-import CopilotChatInput, {
+import type {
   CopilotChatInputProps,
   CopilotChatInputMode,
 } from "./CopilotChatInput";
+import CopilotChatInput from "./CopilotChatInput";
 import CopilotChatSuggestionView, {
   CopilotChatSuggestionViewProps,
 } from "./CopilotChatSuggestionView";
-import { Suggestion } from "@copilotkit/core";
-import { Message } from "@ag-ui/core";
+import type { Suggestion } from "@copilotkit/core";
+import type { Message } from "@ag-ui/core";
 import type { Attachment } from "@copilotkit/shared";
 import { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
 import { twMerge } from "tailwind-merge";

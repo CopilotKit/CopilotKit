@@ -2,8 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react";
 import {
   CopilotChatUserMessage,
   CopilotChatConfigurationProvider,
-  type CopilotChatUserMessageProps,
 } from "@copilotkit/react-core/v2";
+import type { CopilotChatUserMessageProps } from "@copilotkit/react-core/v2";
 
 // Simple default message
 const simpleMessage = {

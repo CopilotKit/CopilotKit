@@ -50,7 +50,7 @@ function generateInterface(variables) {
     "export interface CopilotKitCSSProperties extends CSSProperties {",
   ];
 
-  for (const [prop, value] of Object.entries(variables)) {
+  for (const [prop, _value] of Object.entries(variables)) {
     interfaceLines.push(`  "${prop}"?: string;`);
   }
 

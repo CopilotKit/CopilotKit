@@ -11,10 +11,10 @@ useCopilotAction({
     },
   ],
   handler: async ({ arg }) => {
-    let x: string = "y";
+    let _x: string = "y";
 
     if (arg !== undefined) {
-      x = arg;
+      _x = arg;
     }
   },
 });

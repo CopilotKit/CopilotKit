@@ -1,4 +1,4 @@
-import { FrontendTool, ToolCallStatus } from "@copilotkit/core";
+import type { FrontendTool, ToolCallStatus } from "@copilotkit/core";
 import React from "react";
 
 export type ReactHumanInTheLoop<

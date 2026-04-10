@@ -23,7 +23,8 @@ import cpkStylesHref from "./cpk.css?url";
 
 import { getInventory } from "./data/inventoryData";
 import { useEffect } from "react";
-import { CartRecord, getCart } from "./data/cartData";
+import type { CartRecord } from "./data/cartData";
+import { getCart } from "./data/cartData";
 import { CopilotPopup } from "@copilotkit/react-ui";
 import { getAddress } from "./data/settingsData";
 import Wrapper from "./wrapper";

@@ -1,4 +1,4 @@
-import { UserMessageProps } from "../props";
+import type { UserMessageProps } from "../props";
 import { AttachmentRenderer } from "../AttachmentRenderer";
 
 type UserMessageContent = NonNullable<UserMessageProps["message"]>["content"];

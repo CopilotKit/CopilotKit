@@ -7,12 +7,8 @@ import {
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import { handle } from "hono/vercel";
 import OpenAI from "openai";
-import {
-  AbstractAgent,
-  EventType,
-  type RunAgentInput,
-  type BaseEvent,
-} from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { RunAgentInput, BaseEvent } from "@ag-ui/client";
 import { Observable } from "rxjs";
 
 const determineModel = () => {

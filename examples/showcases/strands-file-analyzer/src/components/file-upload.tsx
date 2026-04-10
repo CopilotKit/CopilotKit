@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { UploadedFile } from "@/types/investigator";
+import type { UploadedFile } from "@/types/investigator";
 
 interface FileUploadProps {
   onFilesChange: (files: UploadedFile[]) => void;

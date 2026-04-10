@@ -1,4 +1,4 @@
-import { ReplaySubject } from "rxjs";
+import type { ReplaySubject } from "rxjs";
 import {
   CopilotKitLowLevelError,
   CopilotKitError,

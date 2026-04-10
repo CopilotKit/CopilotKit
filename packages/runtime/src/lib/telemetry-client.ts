@@ -1,9 +1,10 @@
 import { TelemetryClient } from "@copilotkit/shared";
 import { createHash } from "node:crypto";
 import { CopilotRuntime, resolveEndpointType } from "./runtime/copilot-runtime";
-import { RuntimeInstanceCreatedInfo } from "@copilotkit/shared/src/telemetry/events";
-import { CreateCopilotRuntimeServerOptions } from "./integrations/shared";
-import { EndpointType, LangGraphPlatformEndpoint } from "./runtime/types";
+import type { RuntimeInstanceCreatedInfo } from "@copilotkit/shared/src/telemetry/events";
+import type { CreateCopilotRuntimeServerOptions } from "./integrations/shared";
+import type { LangGraphPlatformEndpoint } from "./runtime/types";
+import { EndpointType } from "./runtime/types";
 const packageJson = require("../../package.json");
 
 const telemetryClient = new TelemetryClient({

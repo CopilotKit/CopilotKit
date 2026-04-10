@@ -1,5 +1,5 @@
-import { RunnableConfig } from "@langchain/core/runnables";
-import { CustomerSupportState, IntentResult } from "../types/state";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { CustomerSupportState, IntentResult } from "../types/state";
 import { intentClassifierTool } from "../tools";
 import { AIMessage } from "@langchain/core/messages";
 

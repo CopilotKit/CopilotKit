@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect } from "react";
+import type { ReactNode } from "react";
 import { defineToolCallRenderer } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import { triggerBlobDownload } from "@/lib/open-download";

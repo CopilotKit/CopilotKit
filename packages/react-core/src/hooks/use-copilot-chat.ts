@@ -73,11 +73,11 @@
  * </PropertyReference>
  */
 
-import {
+import type {
   UseCopilotChatOptions,
-  useCopilotChatInternal,
   UseCopilotChatReturn as UseCopilotChatReturnInternal,
 } from "./use-copilot-chat_internal";
+import { useCopilotChatInternal } from "./use-copilot-chat_internal";
 
 // Create a type that excludes message-related properties from the internal type
 export type UseCopilotChatReturn = Omit<

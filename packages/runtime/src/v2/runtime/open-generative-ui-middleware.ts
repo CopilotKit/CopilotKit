@@ -1,14 +1,13 @@
-import {
-  Middleware,
+import type {
   RunAgentInput,
   AbstractAgent,
   BaseEvent,
-  EventType,
   ToolCallStartEvent,
   ToolCallArgsEvent,
   ActivitySnapshotEvent,
   ActivityDeltaEvent,
 } from "@ag-ui/client";
+import { Middleware, EventType } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import clarinet from "clarinet";
 

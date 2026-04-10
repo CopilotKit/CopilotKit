@@ -1,4 +1,4 @@
-import { CreateCopilotRuntimeServerOptions } from "../shared";
+import type { CreateCopilotRuntimeServerOptions } from "../shared";
 import { copilotRuntimeNodeHttpEndpoint } from "../node-http";
 import telemetry, {
   getRuntimeInstanceTelemetryInfo,

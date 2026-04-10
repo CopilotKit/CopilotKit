@@ -20,7 +20,7 @@ import {
   User,
 } from "lucide-react";
 
-import { DocumentPointer } from "@copilotkit/react-core";
+import type { DocumentPointer } from "@copilotkit/react-core";
 
 export interface SourceSearchBoxProps {
   searchTerm: string;

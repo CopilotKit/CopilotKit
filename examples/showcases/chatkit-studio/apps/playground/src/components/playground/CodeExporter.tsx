@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PlaygroundConfig } from "@/types/playground";
+import type { PlaygroundConfig } from "@/types/playground";
 import { generateExportFiles } from "@/utils/codeGenerator";
 import {
   Dialog,

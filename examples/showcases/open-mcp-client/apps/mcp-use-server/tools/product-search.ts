@@ -1,4 +1,5 @@
-import { MCPServer, object, text, widget } from "mcp-use/server";
+import type { MCPServer } from "mcp-use/server";
+import { object, text, widget } from "mcp-use/server";
 import { z } from "zod";
 
 // Fruit catalogue — shared between search-tools and get-fruit-details

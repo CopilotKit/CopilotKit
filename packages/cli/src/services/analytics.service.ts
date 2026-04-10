@@ -1,6 +1,6 @@
 import { Analytics } from "@segment/analytics-node";
 import { PostHog } from "posthog-node";
-import { AnalyticsEvents } from "./events.js";
+import type { AnalyticsEvents } from "./events.js";
 import Conf from "conf";
 
 export class AnalyticsService {

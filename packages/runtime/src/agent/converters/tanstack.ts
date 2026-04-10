@@ -1,6 +1,5 @@
-import {
+import type {
   BaseEvent,
-  EventType,
   RunAgentInput,
   Message,
   TextMessageChunkEvent,
@@ -9,6 +8,7 @@ import {
   ToolCallStartEvent,
   ToolCallResultEvent,
 } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 
 /**

@@ -5,7 +5,7 @@ import { LoaderOverlay } from "@/components/ui/loader";
 import { ServiceNowList } from "@/components/service-now-list";
 import { useEffect, useState } from "react";
 import { ServiceNowConfirmationBox } from "@/components/service-now-confirmation-box";
-import { Parameter } from "@copilotkit/shared";
+import type { Parameter } from "@copilotkit/shared";
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
 
 const BASE_URL = "/api/servicenow";

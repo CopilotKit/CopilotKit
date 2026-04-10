@@ -14,7 +14,7 @@ import chai from "chai";
 import { Config } from "@oclif/core";
 import TunnelCreate from "../../src/commands/tunnel";
 import { TunnelService } from "../../src/services/tunnel.service";
-import { Tunnel } from "localtunnel";
+import type { Tunnel } from "localtunnel";
 
 chai.use(sinonChai);
 

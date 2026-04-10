@@ -32,7 +32,7 @@ vi.mock("@ai-sdk/openai", () => ({
 describe("mcpServers — real MCP server integration", () => {
   const originalEnv = process.env;
   let llm: LLMock;
-  let mcpMock: MCPMock;
+  let _mcpMock: MCPMock;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -92,7 +92,7 @@ describe("mcpServers — real MCP server integration", () => {
       { name: "get_weather", description: "Get the weather" },
     ]);
     llm = result.llm;
-    mcpMock = result.mcpMock;
+    _mcpMock = result.mcpMock;
 
     const agent = new BasicAgent({
       model: "openai/gpt-4o",
@@ -116,7 +116,7 @@ describe("mcpServers — real MCP server integration", () => {
       { name: "get_weather", description: "Get the weather" },
     ]);
     llm = result.llm;
-    mcpMock = result.mcpMock;
+    _mcpMock = result.mcpMock;
 
     const agent = new BasicAgent({
       model: "openai/gpt-4o",
@@ -152,7 +152,7 @@ describe("mcpServers — real MCP server integration", () => {
       { name: "get_weather", description: "Get the weather" },
     ]);
     llm = result.llm;
-    mcpMock = result.mcpMock;
+    _mcpMock = result.mcpMock;
 
     const agent = new BasicAgent({
       model: "openai/gpt-4o",
@@ -188,7 +188,7 @@ describe("mcpServers — real MCP server integration", () => {
       { name: "get_weather", description: "Get the weather" },
     ]);
     llm = result.llm;
-    mcpMock = result.mcpMock;
+    _mcpMock = result.mcpMock;
 
     const agent = new BasicAgent({
       model: "openai/gpt-4o",
@@ -256,7 +256,7 @@ describe("mcpServers — real MCP server integration", () => {
       { name: "get_weather", description: "Get the weather" },
     ]);
     llm = result.llm;
-    mcpMock = result.mcpMock;
+    _mcpMock = result.mcpMock;
 
     const agent = new BasicAgent({
       model: "openai/gpt-4o",
@@ -303,7 +303,7 @@ describe("mcpServers — real MCP server integration", () => {
       { name: "get_weather", description: "Get the weather" },
     ]);
     llm = result.llm;
-    mcpMock = result.mcpMock;
+    _mcpMock = result.mcpMock;
 
     const agent = new BasicAgent({
       model: "openai/gpt-4o",

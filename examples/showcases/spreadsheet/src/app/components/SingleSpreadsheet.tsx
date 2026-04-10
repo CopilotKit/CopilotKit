@@ -2,7 +2,7 @@ import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
 import React, { useContext, useState } from "react";
 import Spreadsheet from "react-spreadsheet";
 import { canonicalSpreadsheetData } from "../utils/canonicalSpreadsheetData";
-import { SpreadsheetData, SpreadsheetRow } from "../types";
+import type { SpreadsheetData, SpreadsheetRow } from "../types";
 import { PreviewSpreadsheetChanges } from "./PreviewSpreadsheetChanges";
 import { ThemeContext } from "./ThemeProvider";
 

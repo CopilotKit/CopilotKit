@@ -1,12 +1,13 @@
-import { createContext, useContext, ReactNode, useState } from "react";
-import {
+import type { ReactNode } from "react";
+import { createContext, useContext, useState } from "react";
+import type {
   Car,
   ContactInfo,
   CardInfo,
   Order,
-  defaultOrders,
   FinancingInfo,
 } from "@/lib/types";
+import { defaultOrders } from "@/lib/types";
 
 import { useCopilotReadable } from "@copilotkit/react-core";
 

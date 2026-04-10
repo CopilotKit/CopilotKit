@@ -1,10 +1,11 @@
-import { Log } from "@/components/coagents-provider";
+import type { Log } from "@/components/coagents-provider";
 import { ResearchLogs } from "@/components/research-logs";
 import { ResearchPaperSkeleton } from "@/components/skeletons";
 import { AvailableAgents } from "@/lib/available-agents";
 import { useCoAgent, useCoAgentStateRender } from "@copilotkit/react-core";
 import { CheckCircleIcon } from "lucide-react";
-import { FC, useEffect, useRef, useState } from "react";
+import type { FC } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 export type Resource = {

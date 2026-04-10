@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Slide } from "./Slide";
 import { Header } from "./Header";
 import useAppendSlide from "../../actions/useAppendSlide";
-import { SlideModel } from "../../types";
+import type { SlideModel } from "../../types";
 
 interface PresentationProps {
   performResearch: boolean;

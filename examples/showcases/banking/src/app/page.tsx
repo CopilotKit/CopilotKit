@@ -6,14 +6,10 @@ import {
   useHumanInTheLoop,
   useFrontendTool,
 } from "@copilotkit/react-core";
-import {
-  CARD_COLORS,
-  CardBrand,
-  NewCardRequest,
-  Transaction,
-} from "@/app/api/v1/data";
+import type { NewCardRequest, Transaction } from "@/app/api/v1/data";
+import { CARD_COLORS, CardBrand } from "@/app/api/v1/data";
 import { CreditCardDetails } from "@/components/credit-card-details";
-import { PartialBy } from "@/lib/type-helpers";
+import type { PartialBy } from "@/lib/type-helpers";
 import {
   filterTransactionByTitle,
   filterTransactionsByCardLast4,

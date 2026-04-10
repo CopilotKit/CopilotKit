@@ -1,10 +1,5 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  ReactNode,
-  SetStateAction,
-} from "react";
+import type { ReactNode, SetStateAction } from "react";
+import React, { createContext, useContext, useState } from "react";
 import { randomUUID } from "@copilotkit/shared";
 
 export interface ThreadsContextValue {

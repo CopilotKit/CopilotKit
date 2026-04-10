@@ -19,16 +19,13 @@ import {
   waitFor,
   act,
 } from "@testing-library/react";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
-import { Observable, Subject } from "rxjs";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { Subject } from "rxjs";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
-import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
+import type { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 import { useCopilotChatConfiguration } from "../../../providers/CopilotChatConfigurationProvider";
 
 // ---------------------------------------------------------------------------

@@ -2,11 +2,11 @@ import React, { useEffect, useState } from "react";
 import { screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { z } from "zod";
 import { useHumanInTheLoop } from "../use-human-in-the-loop";
-import { ReactHumanInTheLoop } from "../../types";
+import type { ReactHumanInTheLoop } from "../../types";
 import { ToolCallStatus } from "@copilotkit/core";
 import { CopilotChat } from "../../components/chat/CopilotChat";
 import CopilotChatToolCallsView from "../../components/chat/CopilotChatToolCallsView";
-import { AssistantMessage, Message } from "@ag-ui/core";
+import type { AssistantMessage, Message } from "@ag-ui/core";
 import {
   MockStepwiseAgent,
   MockReconnectableAgent,
@@ -1067,12 +1067,12 @@ describe("HITL Thread Reconnection Bug", () => {
     // This is similar to the reconnection bug but without actual reconnection.
 
     const agent = new MockStepwiseAgent();
-    let showTool = false;
+    let _showTool = false;
     let setShowTool: (show: boolean) => void;
 
     const ToggleableHITL: React.FC = () => {
       const [show, setShow] = useState(false);
-      showTool = show;
+      _showTool = show;
       setShowTool = setShow;
 
       const hitlTool: ReactHumanInTheLoop<{ data: string }> = {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CopilotKitCore } from "../core";
-import { Suggestion } from "../types";
+import type { Suggestion } from "../types";
 import {
   MockAgent,
   createSuggestionsConfig,

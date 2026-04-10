@@ -2,9 +2,10 @@
 
 import { useEffect, useReducer } from "react";
 import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
-import { CARD_COLORS, NewCardRequest, Transaction } from "@/app/api/v1/data";
+import type { NewCardRequest, Transaction } from "@/app/api/v1/data";
+import { CARD_COLORS } from "@/app/api/v1/data";
 import { CreditCardDetails } from "@/components/credit-card-details";
-import { PartialBy } from "@/lib/type-helpers";
+import type { PartialBy } from "@/lib/type-helpers";
 import {
   filterTransactionByTitle,
   filterTransactionsByCardLast4,

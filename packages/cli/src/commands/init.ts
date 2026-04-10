@@ -1,4 +1,4 @@
-import { Config } from "@oclif/core";
+import type { Config } from "@oclif/core";
 
 import { BaseCommand } from "./base-command.js";
 import Create from "./create.js";

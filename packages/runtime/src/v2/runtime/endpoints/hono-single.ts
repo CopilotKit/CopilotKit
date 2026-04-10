@@ -2,7 +2,8 @@ import { Hono } from "hono";
 import type { CopilotRuntimeLike } from "../core/runtime";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import type { CopilotRuntimeHooks } from "../core/hooks";
-import { CopilotEndpointCorsConfig, toFetchCorsConfig } from "./hono";
+import type { CopilotEndpointCorsConfig } from "./hono";
+import { toFetchCorsConfig } from "./hono";
 
 interface CopilotSingleEndpointParams {
   runtime: CopilotRuntimeLike;

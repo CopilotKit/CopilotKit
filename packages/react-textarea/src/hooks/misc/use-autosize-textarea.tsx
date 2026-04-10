@@ -1,4 +1,5 @@
-import { Ref, RefObject, useEffect } from "react";
+import type { RefObject } from "react";
+import { Ref, useEffect } from "react";
 
 // Updates the height of a <textarea> when the value changes.
 const useAutosizeTextArea = (

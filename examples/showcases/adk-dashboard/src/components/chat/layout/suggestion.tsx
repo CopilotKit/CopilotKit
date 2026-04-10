@@ -1,4 +1,4 @@
-import {
+import type {
   CopilotChatSuggestion,
   RenderSuggestionsListProps,
 } from "@copilotkit/react-ui";

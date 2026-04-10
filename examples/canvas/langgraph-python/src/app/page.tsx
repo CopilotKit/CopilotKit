@@ -7,11 +7,8 @@ import {
   useCopilotAdditionalInstructions,
   useLangGraphInterrupt,
 } from "@copilotkit/react-core";
-import {
-  CopilotKitCSSProperties,
-  CopilotChat,
-  CopilotPopup,
-} from "@copilotkit/react-ui";
+import type { CopilotKitCSSProperties } from "@copilotkit/react-ui";
+import { CopilotChat, CopilotPopup } from "@copilotkit/react-ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import { Button } from "@/components/ui/button";

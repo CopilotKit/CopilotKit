@@ -1,4 +1,4 @@
-import { AgentState } from "@/lib/types";
+import type { AgentState } from "@/lib/types";
 
 interface FullSendCardProps {
   themeColor: string;

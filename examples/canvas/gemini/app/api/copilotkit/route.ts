@@ -4,7 +4,7 @@ import {
   GoogleGenerativeAIAdapter,
   LangGraphAgent,
 } from "@copilotkit/runtime";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 // You can use any service adapter here for multi-agent support.
 const serviceAdapter = new GoogleGenerativeAIAdapter();

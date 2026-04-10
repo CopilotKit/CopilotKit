@@ -11,12 +11,12 @@ import {
   textMessageContentEvent,
   textMessageEndEvent,
 } from "../../__tests__/utils/test-helpers";
-import { ReactCustomMessageRenderer } from "../../types/react-custom-message-renderer";
+import type { ReactCustomMessageRenderer } from "../../types/react-custom-message-renderer";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import { useAgent } from "../../hooks/use-agent";
 import { CopilotKitCoreReact } from "../../lib/react-core";
-import { Message } from "@ag-ui/core";
+import type { Message } from "@ag-ui/core";
 
 // Test shim: some environments lack setCredentials on CopilotKitCoreReact.
 if (!(CopilotKitCoreReact.prototype as any).setCredentials) {

@@ -1,5 +1,6 @@
-import { NextRequest } from "next/server";
-import { Card, data, generateUniqueId } from "../data";
+import type { NextRequest } from "next/server";
+import type { Card } from "../data";
+import { data, generateUniqueId } from "../data";
 
 export const GET = async () => {
   return new Response(JSON.stringify(data.cards), { status: 200 });

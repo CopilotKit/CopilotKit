@@ -50,8 +50,8 @@ import {
   parseMethodCall,
   createJsonRequest,
   expectString,
-  type MethodCall,
 } from "../endpoints/single-route-helpers";
+import type { MethodCall } from "../endpoints/single-route-helpers";
 import { logger } from "@copilotkit/shared";
 
 /* ------------------------------------------------------------------------------------------------

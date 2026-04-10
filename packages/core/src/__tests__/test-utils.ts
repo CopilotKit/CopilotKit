@@ -1,6 +1,6 @@
-import { Message } from "@ag-ui/client";
+import type { Message } from "@ag-ui/client";
 import { vi } from "vitest";
-import { DynamicSuggestionsConfig, FrontendTool } from "../types";
+import type { DynamicSuggestionsConfig, FrontendTool } from "../types";
 
 export interface MockAgentOptions {
   messages?: Message[];

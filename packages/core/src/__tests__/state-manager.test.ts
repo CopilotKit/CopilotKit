@@ -1,12 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CopilotKitCore } from "../core";
-import {
-  AbstractAgent,
-  Message,
-  State,
-  RunAgentInput,
-  EventType,
-} from "@ag-ui/client";
+import type { Message, State, RunAgentInput } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 
 /**

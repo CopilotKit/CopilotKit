@@ -1,5 +1,5 @@
+import type { Action } from "@copilotkit/shared";
 import {
-  Action,
   CopilotKitError,
   CopilotKitErrorCode,
   CopilotKitLowLevelError,
@@ -21,11 +21,11 @@ import {
   Subject,
 } from "rxjs";
 import { ActionInput } from "../graphql/inputs/action.input";
-import {
+import type {
   ActionExecutionMessage,
-  ResultMessage,
   TextMessage,
 } from "../graphql/types/converted";
+import { ResultMessage } from "../graphql/types/converted";
 import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
 import { generateHelpfulErrorMessage } from "../lib/streaming";
 import telemetry from "../lib/telemetry-client";

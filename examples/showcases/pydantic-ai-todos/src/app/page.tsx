@@ -2,13 +2,11 @@
 
 import { TodoBoard } from "@/components/todo-board";
 import { FullSendCard } from "@/components/full-send";
-import { AgentState } from "@/lib/types";
-import {
-  CatchAllActionRenderProps,
-  useCoAgent,
-  useCopilotAction,
-} from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import type { AgentState } from "@/lib/types";
+import type { CatchAllActionRenderProps } from "@copilotkit/react-core";
+import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
+import type { CopilotKitCSSProperties } from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
 import { BackendToolsCard } from "@/components/backend-tools";
 import { initialState } from "@/lib/defaults";

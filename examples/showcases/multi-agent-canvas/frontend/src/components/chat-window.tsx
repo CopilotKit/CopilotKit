@@ -8,7 +8,7 @@ import {
   SendIcon,
   Square,
 } from "lucide-react";
-import { FC } from "react";
+import type { FC } from "react";
 
 export const ChatWindow: FC = () => {
   return (

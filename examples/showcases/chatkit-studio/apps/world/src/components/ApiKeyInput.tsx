@@ -45,7 +45,7 @@ export default function ApiKeyInput() {
       <div className="fixed top-4 left-4 z-50 bg-slate-800 rounded-lg p-3 shadow-lg border border-slate-700">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+            <div className="w-2 h-2 rounded-full bg-green-500" />
             <span className="text-sm text-slate-300">API Key Configured</span>
           </div>
           <button

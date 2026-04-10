@@ -1,7 +1,7 @@
 "use client";
 
 import { useTrips } from "@/lib/hooks/use-trips";
-import { Map } from "leaflet";
+import type { Map } from "leaflet";
 import { TripSelect } from "@/components/TripSelect";
 import { TripContent } from "@/components/TripContent";
 import { cn } from "@/lib/utils";

@@ -1,6 +1,6 @@
 "use client";
 
-import { Finding, RedactedItem, Tweet } from "@/types/investigator";
+import type { Finding, RedactedItem, Tweet } from "@/types/investigator";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 

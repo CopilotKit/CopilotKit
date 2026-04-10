@@ -88,16 +88,14 @@
  * */
 import React from "react";
 import { useMakeStandardAutosuggestionFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-autosuggestions-function";
-import { HTMLCopilotTextAreaElement } from "../../types";
-import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
-import {
-  AutosuggestionsConfig,
-  defaultAutosuggestionsConfig,
-} from "../../types/autosuggestions-config";
+import type { HTMLCopilotTextAreaElement } from "../../types";
+import type { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
+import type { AutosuggestionsConfig } from "../../types/autosuggestions-config";
+import { defaultAutosuggestionsConfig } from "../../types/autosuggestions-config";
 import { BaseCopilotTextarea } from "../base-copilot-textarea/base-copilot-textarea";
 import { useMakeStandardInsertionOrEditingFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-insertion-function";
 import merge from "lodash.merge";
-import { AutosuggestionsConfigUserSpecified } from "../../types/autosuggestions-config/autosuggestions-config-user-specified";
+import type { AutosuggestionsConfigUserSpecified } from "../../types/autosuggestions-config/autosuggestions-config-user-specified";
 
 // Like the base copilot textarea props,
 // but with baseAutosuggestionsConfig replaced with autosuggestionsConfig.

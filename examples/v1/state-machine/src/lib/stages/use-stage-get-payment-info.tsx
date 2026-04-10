@@ -1,5 +1,5 @@
 import { PaymentCards } from "@/components/generative-ui/payment-cards";
-import { CardInfo } from "@/lib/types";
+import type { CardInfo } from "@/lib/types";
 import { useGlobalState } from "@/lib/stages";
 import {
   useCopilotAction,

@@ -1,8 +1,8 @@
 /**
  * This module provides a function to get a model based on the configuration.
  */
-import { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import { AgentState } from "./state";
+import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import type { AgentState } from "./state";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
