@@ -29,11 +29,19 @@ if (typeof global.TextDecoder === "undefined") {
   (global as any).TextDecoder = TextDecoder;
 }
 
-// crypto.getRandomValues — needed by uuid
+// crypto.getRandomValues — needed by uuid (Math.random fallback; NOT cryptographically secure).
+// For apps requiring secure randomness, install react-native-get-random-values before this polyfill.
 if (typeof global.crypto === "undefined") {
   (global as any).crypto = {};
 }
 if (!(global.crypto as any).getRandomValues) {
+  if (__DEV__) {
+    console.warn(
+      "[CopilotKit] Installing non-cryptographic crypto.getRandomValues polyfill (Math.random). " +
+        "This is NOT secure for cryptographic operations. Install 'react-native-get-random-values' " +
+        "for a secure implementation.",
+    );
+  }
   (global.crypto as any).getRandomValues = function (
     array: Uint8Array,
   ): Uint8Array {

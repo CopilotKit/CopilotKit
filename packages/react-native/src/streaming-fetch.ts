@@ -18,11 +18,19 @@ export function installStreamingFetch(): void {
     input: RequestInfo | URL,
     init?: RequestInit,
   ): Promise<Response> {
-    const url = typeof input === "string" ? input : (input as Request).url;
-    const method = init?.method || "GET";
-    const headers = init?.headers || {};
-    const body = init?.body as string | null | undefined;
-    const signal = init?.signal;
+    // Extract defaults from Request object when input is a Request
+    const request =
+      typeof input !== "string" && !(input instanceof URL) ? input : null;
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.href
+          : (input as Request).url;
+    const method = init?.method || request?.method || "GET";
+    const headers = init?.headers || (request ? request.headers : {});
+    const body = (init?.body ?? request?.body) as string | null | undefined;
+    const signal = init?.signal || request?.signal;
 
     return new Promise((resolve, reject) => {
       // Issue 4: Reject immediately if signal is already aborted
@@ -39,10 +47,12 @@ export function installStreamingFetch(): void {
       const xhr = new XMLHttpRequest();
       xhr.open(method, url);
 
-      const headerEntries =
+      const headerEntries: [string, string][] =
         headers instanceof Headers
           ? Array.from(headers.entries())
-          : Object.entries(headers);
+          : Array.isArray(headers)
+            ? (headers as [string, string][])
+            : Object.entries(headers as Record<string, string>);
       for (const [key, value] of headerEntries) {
         xhr.setRequestHeader(key, value as string);
       }
@@ -168,7 +178,18 @@ export function installStreamingFetch(): void {
             statusText: xhr.statusText,
             headers: responseHeaders,
             body: stream,
-            json: async () => JSON.parse(await fullTextPromise),
+            json: async () => {
+              const text = await fullTextPromise;
+              try {
+                return JSON.parse(text);
+              } catch (e) {
+                throw new TypeError(
+                  `Failed to parse JSON from ${method} ${url} (status ${xhr.status}): ${
+                    text.length > 200 ? text.slice(0, 200) + "..." : text
+                  }`,
+                );
+              }
+            },
             text: async () => fullTextPromise,
             // Issue 5: clone() is not supported — throw instead of silently returning same ref
             clone: () => {
