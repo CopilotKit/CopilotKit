@@ -6,15 +6,33 @@
  * implementation that streams chunks via ReadableStream, enabling
  * CopilotKit's SSE-based agent communication.
  *
+ * If native fetch already supports ReadableStream bodies (newer RN / Hermes),
+ * the replacement is skipped entirely.
+ *
  * Call `installStreamingFetch()` once at app startup after polyfills.
  */
 
 declare const global: typeof globalThis;
 
 export function installStreamingFetch(): void {
+  // Skip if native fetch already supports ReadableStream body.
+  // Newer React Native versions (Hermes) may support this natively.
+  try {
+    const testResponse = new Response("");
+    if (
+      testResponse.body != null &&
+      typeof testResponse.body.getReader === "function"
+    ) {
+      return;
+    }
+  } catch {
+    // Response constructor unavailable — proceed with polyfill
+  }
+
+  const originalFetch = global.fetch;
   const TextEncoder = global.TextEncoder;
 
-  global.fetch = function streamingFetch(
+  const streamingFetch = function streamingFetch(
     input: RequestInfo | URL,
     init?: RequestInit,
   ): Promise<Response> {
@@ -172,13 +190,26 @@ export function installStreamingFetch(): void {
 
           const responseHeaders = new Headers(respHeaders);
 
+          let bodyUsed = false;
+          const markBodyUsed = () => {
+            bodyUsed = true;
+          };
+
           resp = {
+            // Standard Response properties
             ok: xhr.status >= 200 && xhr.status < 300,
             status: xhr.status,
             statusText: xhr.statusText,
+            url: url,
+            type: "basic",
+            redirected: false,
+            get bodyUsed() {
+              return bodyUsed;
+            },
             headers: responseHeaders,
             body: stream,
             json: async () => {
+              markBodyUsed();
               const text = await fullTextPromise;
               try {
                 return JSON.parse(text);
@@ -190,15 +221,36 @@ export function installStreamingFetch(): void {
                 );
               }
             },
-            text: async () => fullTextPromise,
-            // Issue 5: clone() is not supported — throw instead of silently returning same ref
+            text: async () => {
+              markBodyUsed();
+              return fullTextPromise;
+            },
+            arrayBuffer: async () => {
+              markBodyUsed();
+              return encoder.encode(await fullTextPromise).buffer;
+            },
+            blob: async () => {
+              markBodyUsed();
+              const buf = encoder.encode(await fullTextPromise);
+              if (typeof Blob !== "undefined") {
+                return new Blob([buf], {
+                  type: responseHeaders.get("content-type") || "",
+                });
+              }
+              throw new Error(
+                "Blob is not available in this React Native environment.",
+              );
+            },
             clone: () => {
               throw new Error(
                 "Response.clone() is not supported by the React Native streaming fetch polyfill.",
               );
             },
-            arrayBuffer: async () =>
-              encoder.encode(await fullTextPromise).buffer,
+            formData: async () => {
+              throw new Error(
+                "Response.formData() is not supported by the React Native streaming fetch polyfill.",
+              );
+            },
           };
           settled = true;
           resolve(resp);
@@ -208,4 +260,8 @@ export function installStreamingFetch(): void {
       xhr.send((body as any) || null);
     });
   };
+
+  // Expose original fetch for opt-out (e.g., third-party libs that need native behavior)
+  (streamingFetch as any).__originalFetch = originalFetch;
+  global.fetch = streamingFetch;
 }
