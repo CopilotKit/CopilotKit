@@ -591,9 +591,49 @@ export class CopilotKitCore {
       effectiveMs = resolved;
     }
 
+    // Invoke a subscriber callback safely: catches synchronous throws and
+    // attaches a .catch() for async (MaybePromise<void>) rejections so
+    // errors never corrupt the agent's notification loop.
+    const safeCall = (
+      label: string,
+      fn: (...args: any[]) => any,
+      ...args: any[]
+    ) => {
+      try {
+        const result = fn(...args);
+        if (result && typeof (result as any).catch === "function") {
+          (result as Promise<void>).catch((err: unknown) => {
+            console.error(
+              `CopilotKitCore.subscribeToAgent: ${label} callback rejected:`,
+              err,
+            );
+          });
+        }
+      } catch (err) {
+        console.error(
+          `CopilotKitCore.subscribeToAgent: ${label} callback threw:`,
+          err,
+        );
+      }
+    };
+
     if (effectiveMs <= 0) {
-      // No throttle — pass subscriber through directly.
-      const subscription = agent.subscribe(subscriber);
+      // No throttle — wrap callbacks with the same error protection so
+      // a throwing/rejecting subscriber cannot corrupt the agent's
+      // notification loop. This keeps error behavior consistent
+      // regardless of whether throttling is active.
+      const guarded: AgentSubscriber = { ...subscriber };
+      if (subscriber.onMessagesChanged) {
+        const original = subscriber.onMessagesChanged;
+        guarded.onMessagesChanged = (params) =>
+          safeCall("onMessagesChanged", original, params);
+      }
+      if (subscriber.onStateChanged) {
+        const original = subscriber.onStateChanged;
+        guarded.onStateChanged = (params) =>
+          safeCall("onStateChanged", original, params);
+      }
+      const subscription = agent.subscribe(guarded);
       return { unsubscribe: () => subscription.unsubscribe() };
     }
 
@@ -622,27 +662,13 @@ export class CopilotKitCore {
         pendingMessages = false;
         const params = latestMessagesParams;
         latestMessagesParams = null;
-        try {
-          subscriber.onMessagesChanged(params);
-        } catch (err) {
-          console.error(
-            "CopilotKitCore.subscribeToAgent: onMessagesChanged callback threw:",
-            err,
-          );
-        }
+        safeCall("onMessagesChanged", subscriber.onMessagesChanged, params);
       }
       if (pendingState && subscriber.onStateChanged && latestStateParams) {
         pendingState = false;
         const params = latestStateParams;
         latestStateParams = null;
-        try {
-          subscriber.onStateChanged(params);
-        } catch (err) {
-          console.error(
-            "CopilotKitCore.subscribeToAgent: onStateChanged callback threw:",
-            err,
-          );
-        }
+        safeCall("onStateChanged", subscriber.onStateChanged, params);
       }
     };
 
