@@ -39,6 +39,7 @@ on:
           - starter-crewai-crews
           - starter-google-adk
           - aimock
+          - shell-dojolike
 
 concurrency:
   group: showcase-deploy-${{ github.ref }}
@@ -73,6 +74,7 @@ jobs:
       starter_crewai_crews: ${{ steps.changes.outputs.starter_crewai_crews }}
       starter_google_adk: ${{ steps.changes.outputs.starter_google_adk }}
       aimock: ${{ steps.changes.outputs.aimock }}
+      shell_dojolike: ${{ steps.changes.outputs.shell_dojolike }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -130,6 +132,8 @@ jobs:
               - 'examples/integrations/adk/**'
             aimock:
               - 'showcase/aimock/**'
+            shell_dojolike:
+              - 'showcase/shell-dojolike/**'
 
   check-lockfile:
     name: Verify Lockfile
@@ -1143,3 +1147,46 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"0fa0435d-8a66-46f0-84fd-e4250b580013\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
             && echo "aimock deploy triggered"
+
+  build-shell_dojolike:
+    name: Build & Push Shell (Dojolike)
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.shell_dojolike == 'true' ||
+      github.event.inputs.service == 'shell-dojolike' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/shell-dojolike
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-shell-dojolike:latest
+            ghcr.io/copilotkit/showcase-shell-dojolike:${{ github.sha }}
+          cache-from: type=gha,scope=shell_dojolike
+          cache-to: type=gha,scope=shell_dojolike,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"7ad1ece7-2228-49cd-8a78-bddf30322907\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "shell-dojolike deploy triggered"
