@@ -8,8 +8,12 @@ on:
 jobs:
   smoke-check:
     name: Smoke Check
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      packages: read
+      actions: write
     steps:
       - name: Restore state from cache
         id: cache-restore
@@ -110,7 +114,8 @@ jobs:
                 ERROR_DESC="connection failed"
               fi
 
-              ALERTS="${ALERTS}:red_circle: *${SLUG}* — attempt: ${NEW_FAIL_COUNT}, error: ${ERROR_DESC}\n"
+              SVC_URL="${URLS[$SLUG]}"
+              ALERTS="${ALERTS}:red_circle: *${SLUG}* — attempt: ${NEW_FAIL_COUNT}, error: ${ERROR_DESC} (<${SVC_URL}/api/smoke|smoke> · <${SVC_URL}/api/health|health>)\n"
 
               # Escalation at 4 consecutive failures (1 hour at 15-min intervals)
               if [ "$NEW_FAIL_COUNT" -eq 4 ]; then
@@ -138,7 +143,7 @@ jobs:
             # Write alerts to a file to avoid escaping issues
             printf "%b" "$ALERTS" > alerts.txt
             echo "" >> alerts.txt
-            echo "<${RUN_URL}|View workflow run>" >> alerts.txt
+            echo "<https://showcase.copilotkit.ai|Showcase> · <${RUN_URL}|Workflow run>" >> alerts.txt
           else
             echo "has_alerts=false" >> "$GITHUB_OUTPUT"
           fi
@@ -149,12 +154,85 @@ jobs:
           path: smoke-state.json
           key: smoke-monitor-state-${{ github.run_id }}
 
+      - name: Build Slack payload
+        if: steps.smoke.outputs.has_alerts == 'true'
+        run: |
+          jq -n --rawfile text alerts.txt '{"text": $text}' > slack-payload.json
+
       - name: Post to Slack
         if: steps.smoke.outputs.has_alerts == 'true'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload-file-path: slack-payload.json
+
+      - name: Check image drift
+        id: image_drift
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PAYLOAD=$(jq -n --rawfile text alerts.txt '{"text": $text}')
-          curl -s -X POST -H 'Content-Type: application/json' \
-            -d "$PAYLOAD" \
-            "$SLACK_WEBHOOK_URL"
+          STALE=""
+          STALE_LIST=""
+          SERVICES=(
+            shell langgraph-python langgraph-typescript langgraph-fastapi
+            mastra crewai-crews pydantic-ai google-adk ag2 agno llamaindex
+            strands ms-agent-python ms-agent-dotnet claude-sdk-python
+            claude-sdk-typescript langroid spring-ai aimock
+          )
+          MAIN_SHA=$(git ls-remote https://github.com/${{ github.repository }}.git main | cut -f1)
+          echo "Main SHA: ${MAIN_SHA:0:8}"
+
+          for SVC in "${SERVICES[@]}"; do
+            PKG="showcase-${SVC}"
+            # Get tags for the latest version via GitHub Packages API
+            TAGS=$(gh api "/orgs/copilotkit/packages/container/${PKG}/versions?per_page=1" \
+              --jq '.[0].metadata.container.tags | join(" ")' 2>/dev/null) || true
+
+            if [ -z "$TAGS" ]; then
+              continue  # No package versions — new service, not yet built
+            fi
+
+            if echo "$TAGS" | grep -q "$MAIN_SHA"; then
+              continue  # Latest version includes main SHA — up to date
+            fi
+
+            echo "  ${SVC}: stale (tags: ${TAGS:0:60})"
+            STALE="${STALE}:warning: *${SVC}* — image stale\n"
+            STALE_LIST="${STALE_LIST} ${SVC}"
+          done
+
+          if [ -n "$STALE_LIST" ]; then
+            echo "Image drift detected:${STALE_LIST}"
+            echo "has_stale=true" >> "$GITHUB_OUTPUT"
+            echo "stale_services=${STALE_LIST}" >> "$GITHUB_OUTPUT"
+            printf "%b" "$STALE" > image-drift.txt
+          else
+            echo "All images up to date"
+            echo "has_stale=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger rebuild for stale services
+        if: steps.image_drift.outputs.has_stale == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for SVC in ${{ steps.image_drift.outputs.stale_services }}; do
+            echo "Triggering rebuild for ${SVC}..."
+            gh workflow run showcase_deploy.yml -f service="${SVC}" || echo "  Failed to trigger ${SVC}"
+          done
+
+      - name: Alert image drift to Slack
+        if: steps.image_drift.outputs.has_stale == 'true'
+        run: |
+          HEADER=":package: *Image drift detected — rebuilds triggered:*"
+          BODY=$(cat image-drift.txt)
+          jq -n --arg text "${HEADER}\n${BODY}" '{"text": $text}' > drift-payload.json
+
+      - name: Post image drift to Slack
+        if: steps.image_drift.outputs.has_stale == 'true'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload-file-path: drift-payload.json
