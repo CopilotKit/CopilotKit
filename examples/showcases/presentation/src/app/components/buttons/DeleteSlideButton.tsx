@@ -24,7 +24,7 @@ export function DeleteSlideButton({
           ...slides.slice(0, currentSlideIndex),
           ...slides.slice(currentSlideIndex + 1),
         ]);
-        setCurrentSlideIndex((i) => 0);
+        setCurrentSlideIndex((_i) => 0);
       }}
     >
       <TrashIcon className="h-5 w-5" />

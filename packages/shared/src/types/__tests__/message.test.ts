@@ -1,16 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type {
-  UserMessage,
-  InputContent,
-  TextInputPart,
-  ImageInputPart,
-  AudioInputPart,
-  VideoInputPart,
-  DocumentInputPart,
-  InputContentSource,
-  InputContentDataSource,
-  InputContentUrlSource,
-} from "../message";
+import type { UserMessage, InputContent } from "../message";
 
 describe("shared message types", () => {
   it("UserMessage content accepts string", () => {

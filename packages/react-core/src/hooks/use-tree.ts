@@ -25,19 +25,6 @@ export interface UseTreeReturn {
   getAllElements: () => Tree;
 }
 
-const findNode = (nodes: Tree, id: TreeNodeId): TreeNode | undefined => {
-  for (const node of nodes) {
-    if (node.id === id) {
-      return node;
-    }
-    const result = findNode(node.children, id);
-    if (result) {
-      return result;
-    }
-  }
-  return undefined;
-};
-
 const removeNode = (nodes: Tree, id: TreeNodeId): Tree => {
   return nodes.reduce((result: Tree, node) => {
     if (node.id !== id) {

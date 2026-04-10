@@ -319,7 +319,7 @@ export async function runVersion({
 }: VersionOptions): Promise<RunVersionResult> {
   const octokit = setupOctokit(githubToken);
 
-  let repo = `${github.context.repo.owner}/${github.context.repo.repo}`;
+  let _repo = `${github.context.repo.owner}/${github.context.repo.repo}`;
   branch = branch ?? github.context.ref.replace("refs/heads/", "");
   let versionBranch = `changeset-release/${branch}`;
 

@@ -168,7 +168,7 @@ describe("Tool Call Re-render Prevention", () => {
       expect(screen.getByText(/The weather in Paris is/)).toBeDefined();
     });
 
-    const renderCountAfterFirstTextChunk = toolRenderCount;
+    const _renderCountAfterFirstTextChunk = toolRenderCount;
 
     // Stream more text chunks
     agent.emit({
@@ -557,7 +557,7 @@ describe("Text Message Re-render Prevention", () => {
       expect(screen.getByTestId("assistant-message-msg-2")).toBeDefined();
     });
 
-    const firstMessageRenderCountAfterSecondMessage = renderCounts["msg-1"];
+    const _firstMessageRenderCountAfterSecondMessage = renderCounts["msg-1"];
 
     // Continue streaming the second message
     const messagesWithMoreContent: Message[] = [
@@ -2305,7 +2305,7 @@ describe("Copy Button Re-render Prevention", () => {
       expect(screen.getByTestId("copy-button")).toBeDefined();
     });
 
-    const initialRenderCount = copyButtonRenderCount;
+    const _initialRenderCount = copyButtonRenderCount;
 
     // Add a second message - the first message's copy button should NOT re-render
     const messagesWithSecond: Message[] = [

@@ -74,18 +74,6 @@ interface StreamLangChainResponseParams {
   };
 }
 
-function getConstructorName(object: any): string {
-  if (
-    object &&
-    typeof object === "object" &&
-    object.constructor &&
-    object.constructor.name
-  ) {
-    return object.constructor.name;
-  }
-  return "";
-}
-
 function isAIMessage(message: any): message is AIMessage {
   return Object.prototype.toString.call(message) === "[object AIMessage]";
 }

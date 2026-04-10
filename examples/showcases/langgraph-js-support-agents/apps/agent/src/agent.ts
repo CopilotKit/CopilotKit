@@ -89,7 +89,7 @@ const tool_node = new ToolNode(tools);
 // 4. Process tool results and update state
 async function process_tool_results(
   state: CustomerSupportState,
-  config: RunnableConfig,
+  _config: RunnableConfig,
 ) {
   const messages = state.messages || [];
   const lastMessage = messages[messages.length - 1];

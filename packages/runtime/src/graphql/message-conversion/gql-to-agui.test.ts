@@ -1526,7 +1526,7 @@ describe("message-conversion", () => {
 
       expect((result as AIMessage).generativeUI).toBeDefined();
       // Call the render function to test the result parsing
-      const renderResult = (result as AIMessage).generativeUI!({
+      const _renderResult = (result as AIMessage).generativeUI!({
         result: '{"from": "props", "data": "test"}',
       });
 
@@ -1567,7 +1567,7 @@ describe("message-conversion", () => {
 
       expect((result as AIMessage).generativeUI).toBeDefined();
       // Call the render function to test malformed JSON handling
-      const renderResult = (result as AIMessage).generativeUI!({
+      const _renderResult = (result as AIMessage).generativeUI!({
         result: "invalid json {",
       });
 
@@ -1608,7 +1608,7 @@ describe("message-conversion", () => {
 
       expect((result as AIMessage).generativeUI).toBeDefined();
       // Call the render function with an object result
-      const renderResult = (result as AIMessage).generativeUI!({
+      const _renderResult = (result as AIMessage).generativeUI!({
         result: { from: "props", data: "object" },
       });
 

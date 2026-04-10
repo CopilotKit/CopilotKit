@@ -47,15 +47,6 @@ export function DataChart({ data }: DataChartProps) {
     setChartData(buffer);
   }, [data]);
 
-  // Generate colors for each data key
-  const colors = [
-    "hsl(var(--chart-1))",
-    "hsl(var(--chart-2))",
-    "hsl(var(--chart-3))",
-    "hsl(var(--chart-4))",
-    "hsl(var(--chart-5))",
-  ];
-
   return (
     <>
       {/* <div className="flex-1 p-4 rounded-2xl shadow-lg flex flex-col items-center min-w-[250px] max-w-[350px]"> */}
@@ -88,7 +79,7 @@ export function DataChart({ data }: DataChartProps) {
         </PieChart>
         {/* Custom Legend */}
         <div className="flex flex-row justify-center gap-6 mt-2">
-          {chartData.map((entry, idx) => (
+          {chartData.map((entry, _idx) => (
             <div key={entry.name} className="flex items-center gap-1">
               <span
                 className={`inline-block w-4 h-4 rounded-full ${status.find((status) => status.name === entry.name)?.color}`}

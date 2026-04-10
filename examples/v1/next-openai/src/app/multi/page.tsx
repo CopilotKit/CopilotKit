@@ -97,7 +97,7 @@ function TravelPlanner() {
   // hitl action 2
   useCopilotAction({
     name: "getHotel",
-    renderAndWaitForResponse({ status, args, respond }) {
+    renderAndWaitForResponse({ status, args: _args, respond }) {
       return (
         <div className="flex flex-col gap-2 bg-blue-500/50 p-4 border border-blue-500 rounded-md w-1/2">
           <p>Hotel</p>

@@ -184,8 +184,9 @@ export class CopilotResolver {
       ctx.properties = { ...ctx.properties, ...properties };
     }
 
-    const copilotRuntime = ctx._copilotkit.runtime as unknown as CopilotRuntime;
-    const serviceAdapter = ctx._copilotkit.serviceAdapter;
+    const _copilotRuntime = ctx._copilotkit
+      .runtime as unknown as CopilotRuntime;
+    const _serviceAdapter = ctx._copilotkit.serviceAdapter;
 
     let copilotCloudPublicApiKey: string | null = null;
     let copilotCloudBaseUrl: string;
@@ -236,7 +237,7 @@ export class CopilotResolver {
     let resolveOutputMessagesPromise: (messages: Message[]) => void;
     let rejectOutputMessagesPromise: (err: Error) => void;
 
-    const outputMessagesPromise = new Promise<Message[]>((resolve, reject) => {
+    const _outputMessagesPromise = new Promise<Message[]>((resolve, reject) => {
       resolveOutputMessagesPromise = resolve;
       rejectOutputMessagesPromise = reject;
     });

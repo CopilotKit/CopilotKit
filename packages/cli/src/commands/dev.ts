@@ -239,7 +239,7 @@ export default class Dev extends BaseCommand {
     // First, test if the local port is accessible
     spinner.text = `Testing connection to localhost:${port}...`;
     try {
-      const testResponse = await Promise.race([
+      const _testResponse = await Promise.race([
         fetch(`http://localhost:${port}`, { method: "HEAD" }),
         new Promise((_, reject) =>
           setTimeout(

@@ -49,7 +49,7 @@ export function CopilotDevConsole() {
   const [versionStatus, setVersionStatus] = useState<VersionStatus>("unknown");
   const [latestVersion, setLatestVersion] = useState<string>("");
   const consoleRef = useRef<HTMLDivElement>(null);
-  const [debugButtonMode, setDebugButtonMode] = useState<"full" | "compact">(
+  const [debugButtonMode, _setDebugButtonMode] = useState<"full" | "compact">(
     "full",
   );
 

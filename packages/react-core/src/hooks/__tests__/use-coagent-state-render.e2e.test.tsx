@@ -405,7 +405,7 @@ describe("useCoAgentStateRender", () => {
 
     expect(screen.getByTestId(placeholderTestId)).toBeTruthy();
 
-    const placeholderStep = screen.getByTestId("state").textContent;
+    const _placeholderStep = screen.getByTestId("state").textContent;
 
     mockAgent.isRunning = false;
     mockAgent.state = {};

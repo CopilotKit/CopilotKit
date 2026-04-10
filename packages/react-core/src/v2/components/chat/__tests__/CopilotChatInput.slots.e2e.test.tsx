@@ -66,7 +66,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const transcribeBtn = container.querySelector(".bg-red-500");
+        const _transcribeBtn = container.querySelector(".bg-red-500");
         // Button may only appear when transcription is enabled
       });
     });
@@ -83,7 +83,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const cancelBtn = container.querySelector(".bg-gray-500");
+        const _cancelBtn = container.querySelector(".bg-gray-500");
         // Button appears in transcribe mode
       });
     });
@@ -100,7 +100,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const finishBtn = container.querySelector(".bg-purple-500");
+        const _finishBtn = container.querySelector(".bg-purple-500");
         // Button appears in transcribe mode
       });
     });
@@ -116,7 +116,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const addBtn = container.querySelector(".bg-yellow-500");
+        const _addBtn = container.querySelector(".bg-yellow-500");
         // Button appears when toolsMenu is provided
       });
     });
@@ -132,7 +132,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const recorder = container.querySelector(".border-dashed");
+        const _recorder = container.querySelector(".border-dashed");
         // Recorder appears in transcribe mode
       });
     });
@@ -196,7 +196,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const textarea = document.querySelector("textarea");
+        const _textarea = document.querySelector("textarea");
         // autoFocus behavior may vary
       });
     });
@@ -290,7 +290,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const sendBtn = screen.queryByTestId("override-send");
+        const _sendBtn = screen.queryByTestId("override-send");
         // User's disabled=false should take effect
       });
     });

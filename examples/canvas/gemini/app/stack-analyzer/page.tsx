@@ -79,24 +79,17 @@ const quickActions = [
   },
 ];
 
-interface PostInterface {
-  tweet: {
-    title: string;
-    content: string;
-  };
-  linkedIn: {
-    title: string;
-    content: string;
-  };
-}
-
 export default function StackAnalyzer() {
   const router = useRouter();
-  const [selectedAgent, setSelectedAgent] = useState(agents[1]);
+  const [selectedAgent, _setSelectedAgent] = useState(agents[1]);
   const [isAgentActive, setIsAgentActive] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const { updateLayout } = useLayout();
-  const { setState, running, state } = useCoAgent({
+  const {
+    setState,
+    running: _running,
+    state,
+  } = useCoAgent({
     name: "stack_analysis_agent",
     initialState: {
       tool_logs: [],

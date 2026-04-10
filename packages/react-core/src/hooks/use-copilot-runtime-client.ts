@@ -27,7 +27,11 @@ export const useCopilotRuntimeClient = (
   options: CopilotRuntimeClientHookOptions,
 ) => {
   const { setBannerError } = useToast();
-  const { showDevConsole, onError, ...runtimeOptions } = options;
+  const {
+    showDevConsole: _showDevConsole,
+    onError,
+    ...runtimeOptions
+  } = options;
 
   // Deduplication state for structured errors
   const lastStructuredErrorRef = useRef<{

@@ -39,7 +39,7 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
   const configsRef = useRef<Record<string, ServerConfig>>({});
 
   // Use localStorage hook for persistent storage
-  const [savedConfigs, setSavedConfigs] = useLocalStorage<
+  const [savedConfigs, _setSavedConfigs] = useLocalStorage<
     Record<string, ServerConfig>
   >(MCP_STORAGE_KEY, {});
   // console.log(savedConfigs, "savedConfigs");
@@ -54,7 +54,7 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
   const [configs, setConfigs] = useState<Config[]>(con?.config || []);
   const [mcpConfig, setMcpConfig] = useLocalStorage<any>("mcpConfig", []);
   const [serverName, setServerName] = useState("");
-  const [connectionType, setConnectionType] = useState<ConnectionType>("sse");
+  const [connectionType, _setConnectionType] = useState<ConnectionType>("sse");
   const [command, setCommand] = useState("");
   const [args, setArgs] = useState("");
   const [url, setUrl] = useState("");

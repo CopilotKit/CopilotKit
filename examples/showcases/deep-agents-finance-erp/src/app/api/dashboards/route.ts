@@ -27,7 +27,7 @@ function getTemplatesAsSaved(): SavedDashboard[] {
 
 // localStorage-based custom dashboards are stored client-side;
 // when no DB, the API only serves templates and the client handles custom storage.
-const FALLBACK_STORAGE_KEY = "finance-erp-dashboards";
+const _FALLBACK_STORAGE_KEY = "finance-erp-dashboards";
 
 // GET /api/dashboards — list all, templates first
 export async function GET() {

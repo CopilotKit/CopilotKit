@@ -51,7 +51,7 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
       done: false,
     });
   }
-  const { messages, ...restOfState } = state;
+  const { messages: _messages, ...restOfState } = state;
   await copilotkitEmitState(config, {
     ...restOfState,
     logs,

@@ -949,7 +949,7 @@ function createToolSchema(tool: FrontendTool<any>): Record<string, unknown> {
     return { ...EMPTY_TOOL_SCHEMA };
   }
 
-  const { $schema, ...schema } = rawSchema as Record<string, unknown>;
+  const { $schema: _$schema, ...schema } = rawSchema as Record<string, unknown>;
 
   if (typeof schema.type !== "string") {
     schema.type = "object";

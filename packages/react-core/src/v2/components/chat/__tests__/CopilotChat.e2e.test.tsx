@@ -1007,7 +1007,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
       // Chat-level cursor (pulsing dot) should NOT be visible when last message is reasoning
       // The cursor has animate-pulse-cursor class
-      const cursors = document.querySelectorAll(".cpk\\:animate-pulse-cursor");
+      const _cursors = document.querySelectorAll(".cpk\\:animate-pulse-cursor");
       // Only the reasoning indicator should be present, not the chat-level cursor
       // The chat-level cursor is a direct child of the message view container
       const chatLevelCursor = document.querySelector(

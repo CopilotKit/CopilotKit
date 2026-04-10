@@ -1,7 +1,7 @@
 "use client";
 
 export default function Chat({
-  onSubmitMessage,
+  onSubmitMessage: _onSubmitMessage,
 }: {
   onSubmitMessage: () => void;
 }) {

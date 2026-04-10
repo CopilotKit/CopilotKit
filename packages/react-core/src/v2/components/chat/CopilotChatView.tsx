@@ -151,8 +151,11 @@ export function CopilotChatView({
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Track keyboard state for mobile
-  const { isKeyboardOpen, keyboardHeight, availableHeight } =
-    useKeyboardHeight();
+  const {
+    isKeyboardOpen,
+    keyboardHeight,
+    availableHeight: _availableHeight,
+  } = useKeyboardHeight();
 
   // Track input container height changes
   useEffect(() => {

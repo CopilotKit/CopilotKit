@@ -78,7 +78,7 @@ const SingleSpreadsheet = ({
         />
       );
     },
-    handler: ({ rows, title }) => {
+    handler: ({ rows: _rows, title: _title }) => {
       // Do nothing.
       // The preview component will optionally handle committing the changes.
     },

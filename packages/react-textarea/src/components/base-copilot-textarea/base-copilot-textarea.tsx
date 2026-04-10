@@ -230,14 +230,14 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
 
     // separate into TextareaHTMLAttributes<HTMLDivElement> and CopilotTextareaProps
     const {
-      placeholderStyle,
-      value,
+      placeholderStyle: _placeholderStyle,
+      value: _value,
       hoverMenuClassname,
-      onValueChange,
-      baseAutosuggestionsConfig: autosuggestionsConfigFromProps,
+      onValueChange: _onValueChange,
+      baseAutosuggestionsConfig: _autosuggestionsConfigFromProps,
       className,
-      onChange,
-      onKeyDown,
+      onChange: _onChange,
+      onKeyDown: _onKeyDown,
       disableBranding,
       ...propsToForward
     } = props;

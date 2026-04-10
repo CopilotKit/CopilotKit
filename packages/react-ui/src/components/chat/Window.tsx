@@ -11,7 +11,7 @@ export const Window = ({
   hitEscapeToClose,
 }: WindowProps) => {
   const windowRef = React.useRef<HTMLDivElement>(null);
-  const context = useCopilotContext();
+  const _context = useCopilotContext();
 
   const { open, setOpen } = useChatContext();
 

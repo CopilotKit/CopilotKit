@@ -97,7 +97,7 @@ interface PostInterface {
 export default function PostGenerator() {
   const router = useRouter();
   const { updateLayout } = useLayout();
-  const [selectedAgent, setSelectedAgent] = useState(agents[0]);
+  const [selectedAgent, _setSelectedAgent] = useState(agents[0]);
   const [showColumns, setShowColumns] = useState(false);
   const [posts, setPosts] = useState<PostInterface>({
     tweet: { title: "", content: "" },

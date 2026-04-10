@@ -3,7 +3,6 @@ import {
   CopilotChatUserMessage,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import type { CopilotChatUserMessageProps } from "@copilotkit/react-core/v2";
 
 // Simple default message
 const simpleMessage = {
@@ -229,7 +228,7 @@ export const CustomAppearance: Story = {
     ),
     toolbar: ({
       children,
-      className,
+      className: _className,
       ...props
     }: React.HTMLAttributes<HTMLDivElement>) => (
       <div
@@ -241,7 +240,7 @@ export const CustomAppearance: Story = {
     ),
     copyButton: ({
       children,
-      className,
+      className: _className,
       ...props
     }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
       <button
@@ -253,7 +252,7 @@ export const CustomAppearance: Story = {
     ),
     editButton: ({
       children,
-      className,
+      className: _className,
       ...props
     }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
       <button
@@ -286,7 +285,7 @@ export const UsingChildrenRenderProp: Story = {
     onEditMessage: () => console.log("Edit clicked!"),
     children: ({
       messageRenderer,
-      toolbar,
+      toolbar: _toolbar,
       copyButton,
       editButton,
     }: {

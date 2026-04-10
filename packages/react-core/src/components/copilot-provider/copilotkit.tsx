@@ -331,7 +331,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     props.guardrails_c,
   ]);
 
-  const headers = useMemo(() => {
+  const _headers = useMemo(() => {
     const authHeaders = Object.values(authStates || {}).reduce((acc, state) => {
       if (state.status === "authenticated" && state.authHeaders) {
         return {
@@ -433,7 +433,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     [setChatSuggestionConfiguration],
   );
 
-  const [availableAgents, setAvailableAgents] = useState<Agent[]>([]);
+  const [availableAgents, _setAvailableAgents] = useState<Agent[]>([]);
   const [coagentStates, setCoagentStates] = useState<
     Record<string, CoagentState>
   >({});

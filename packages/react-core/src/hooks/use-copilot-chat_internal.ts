@@ -132,14 +132,6 @@ export interface MCPServerConfig {
   apiKey?: string;
 }
 
-// Old suggestion item interface, for returning from useCopilotChatInternal
-interface SuggestionItem {
-  title: string;
-  message: string;
-  partial?: boolean;
-  className?: string;
-}
-
 export interface UseCopilotChatReturn {
   /**
    * @deprecated use `messages` instead, this is an old non ag-ui version of the messages
@@ -324,7 +316,7 @@ export function useCopilotChatInternal({
   onReloadMessages,
 }: UseCopilotChatOptions = {}): UseCopilotChatReturn {
   const { copilotkit } = useCopilotKit();
-  const { threadId, agentSession } = useCopilotContext();
+  const { threadId, agentSession: _agentSession } = useCopilotContext();
   const existingConfig = useCopilotChatConfiguration();
   const [agentAvailable, setAgentAvailable] = useState(false);
 

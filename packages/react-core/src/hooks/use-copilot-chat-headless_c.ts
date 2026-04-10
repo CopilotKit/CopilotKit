@@ -261,6 +261,6 @@ export type {
   MCPServerConfig,
 };
 
-const noKeyWarning = () => {
+const _noKeyWarning = () => {
   styledConsole.logCopilotKitPlatformMessage();
 };

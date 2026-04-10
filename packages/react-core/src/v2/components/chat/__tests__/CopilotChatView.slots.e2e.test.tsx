@@ -271,7 +271,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
         );
 
         // Check if textbox is focused
-        const textarea = document.querySelector("textarea");
+        const _textarea = document.querySelector("textarea");
         // autoFocus behavior may vary
       });
     });

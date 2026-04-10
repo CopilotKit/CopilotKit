@@ -78,15 +78,3 @@ export function PRLineChartData({ args }: any) {
     </div>
   );
 }
-
-const CustomPieTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length) {
-    const { week, count } = payload[0].payload;
-    return (
-      <div className="bg-white p-2 rounded shadow text-black">
-        {`${week} - ${count}`}
-      </div>
-    );
-  }
-  return null;
-};

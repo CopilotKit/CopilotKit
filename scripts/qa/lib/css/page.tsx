@@ -13,7 +13,7 @@ import "@copilotkit/react-textarea/styles.css";
 import "@copilotkit/react-ui/styles.css";
 function InsideHome() {
   const [message, setMessage] = useState("Hello World!");
-  const [text, setText] = useState("");
+  const [_text, _setText] = useState("");
   useCopilotReadable({
     description: "This is the current message",
     value: message,

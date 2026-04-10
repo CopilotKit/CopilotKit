@@ -105,9 +105,9 @@ function TopHeader({ customers, selectedCustomerId, onCustomerChange }: any) {
 
 function CustomerCard({
   customer,
-  addAddon,
-  removeAddon,
-  updateCustomer,
+  addAddon: _addAddon,
+  removeAddon: _removeAddon,
+  updateCustomer: _updateCustomer,
 }: {
   customer: any;
   addAddon: any;
@@ -265,8 +265,6 @@ function CustomerCard({
 
                   <div className="space-y-3">
                     {inactiveServices.map((service: any, index: number) => {
-                      const serviceName = service.name.replace(" ", "");
-
                       return (
                         <div
                           key={index}

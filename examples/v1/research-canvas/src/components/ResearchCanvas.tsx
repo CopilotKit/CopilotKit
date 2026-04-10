@@ -27,7 +27,7 @@ export function ResearchCanvas() {
 
   useCoAgentStateRender({
     name: agent,
-    render: ({ state, nodeName, status }) => {
+    render: ({ state, nodeName: _nodeName, status: _status }) => {
       if (!state.logs || state.logs.length === 0) {
         return null;
       }

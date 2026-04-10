@@ -69,7 +69,7 @@ describe("defineToolCallRenderer", () => {
 
         // In real usage, this would be passed to CopilotKitProvider
         // We're just checking that the type is compatible
-        const providerProps: {
+        const _providerProps: {
           renderToolCalls?: ReactToolCallRenderer<any>[];
         } = {
           renderToolCalls: renderToolCalls,

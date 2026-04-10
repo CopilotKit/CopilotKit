@@ -51,66 +51,6 @@ const tableColumns = [
     header: "STATUS",
   },
 ];
-const chartData = [
-  {
-    name: "Mon",
-    "Build Time": 45,
-    "Test Coverage": 78,
-  },
-  {
-    name: "Tue",
-    "Build Time": 52,
-    "Test Coverage": 82,
-  },
-  {
-    name: "Wed",
-    "Build Time": 48,
-    "Test Coverage": 85,
-  },
-  {
-    name: "Thu",
-    "Build Time": 61,
-    "Test Coverage": 79,
-  },
-  {
-    name: "Fri",
-    "Build Time": 55,
-    "Test Coverage": 83,
-  },
-  {
-    name: "Sat",
-    "Build Time": 42,
-    "Test Coverage": 86,
-  },
-  {
-    name: "Sun",
-    "Build Time": 38,
-    "Test Coverage": 90,
-  },
-];
-
-const status = [
-  {
-    name: "approved",
-    color: "bg-green-300",
-    value: "rgb(134 239 172)",
-  },
-  {
-    name: "needs_revision",
-    color: "bg-yellow-300",
-    value: "rgb(253 224 71)",
-  },
-  {
-    name: "merged",
-    color: "bg-purple-300",
-    value: "rgb(216 180 254)",
-  },
-  {
-    name: "in_review",
-    color: "bg-blue-300",
-    value: "rgb(147 197 253)",
-  },
-];
 
 export function DeveloperDashboard() {
   const { prData, setPrData } = useSharedContext();

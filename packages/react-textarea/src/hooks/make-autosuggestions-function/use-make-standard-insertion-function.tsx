@@ -42,7 +42,7 @@ export function useMakeStandardInsertionOrEditingFunction(
     generateCopilotResponse: (..._args: any[]) => {},
   };
   const { getContextString, copilotApiConfig } = useCopilotContext();
-  const headers = copilotApiConfig.publicApiKey
+  const _headers = copilotApiConfig.publicApiKey
     ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
     : {};
 

@@ -77,8 +77,6 @@ export function useCoAgentStateRender<T = any>(
       availableAgents?.length &&
       !availableAgents.some((a) => a.name === action.name)
     ) {
-      const message = `(useCoAgentStateRender): Agent "${action.name}" not found. Make sure the agent exists and is properly configured.`;
-
       // Route to banner instead of toast for consistency
       const agentError = new CopilotKitAgentDiscoveryError({
         agentName: action.name,

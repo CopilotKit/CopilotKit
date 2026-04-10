@@ -10,7 +10,7 @@ var HEADERS = {
 
 const app = express();
 
-app.use("/", (req, res, next) => {
+app.use("/", (req, res, _next) => {
   if (req.method === "OPTIONS") {
     res.writeHead(200, HEADERS);
     res.end();

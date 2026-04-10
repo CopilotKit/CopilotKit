@@ -156,7 +156,7 @@ describe("useAttachments", () => {
         useAttachments({ config: undefined }),
       );
 
-      const before = result.current.attachments;
+      const _before = result.current.attachments;
 
       act(() => {
         result.current.removeAttachment("nonexistent");

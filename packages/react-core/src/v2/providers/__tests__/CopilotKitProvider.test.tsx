@@ -7,8 +7,8 @@ import type { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
 
 // Mock console methods
-const originalConsoleError = console.error;
-const originalConsoleWarn = console.warn;
+const _originalConsoleError = console.error;
+const _originalConsoleWarn = console.warn;
 
 describe("CopilotKitProvider", () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;

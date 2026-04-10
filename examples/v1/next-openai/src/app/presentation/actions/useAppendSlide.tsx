@@ -57,7 +57,7 @@ export default function useAppendSlide({
       };
 
       setSlides((slides) => [...slides, newSlide]);
-      setCurrentSlideIndex((i) => slides.length);
+      setCurrentSlideIndex((_i) => slides.length);
     },
     render: (props) => {
       return (

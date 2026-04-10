@@ -266,7 +266,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const cursor = screen.queryByTestId("custom-cursor-testid");
+        const _cursor = screen.queryByTestId("custom-cursor-testid");
         // Cursor may only appear when running and there's streaming content
       });
     });
@@ -937,7 +937,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const cursor = container.querySelector(".cursor-custom-class");
+        const _cursor2 = container.querySelector(".cursor-custom-class");
         // May only appear when streaming
       });
     });

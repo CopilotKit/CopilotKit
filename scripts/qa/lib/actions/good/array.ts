@@ -22,7 +22,7 @@ useCopilotAction({
     },
   ],
   handler: async ({ arg }) => {
-    const x: string = arg[0].x;
-    const y: number = arg[0].y;
+    const _x: string = arg[0].x;
+    const _y: number = arg[0].y;
   },
 });

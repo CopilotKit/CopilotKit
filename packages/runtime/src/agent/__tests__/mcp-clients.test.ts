@@ -4,7 +4,6 @@ import type { MCPClientProvider } from "../index";
 import { EventType } from "@ag-ui/client";
 import type { RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
-import type { ToolSet } from "ai";
 import {
   mockStreamTextResponse,
   textDelta,
