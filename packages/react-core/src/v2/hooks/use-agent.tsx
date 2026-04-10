@@ -34,7 +34,8 @@ export interface UseAgentProps {
    * Passing `throttleMs={0}` explicitly disables throttling even when the
    * provider specifies a non-zero `defaultThrottleMs`.
    *
-   * Run lifecycle events (`OnRunStatusChanged`) always fire immediately.
+   * Run lifecycle callbacks (`onRunInitialized`, `onRunFinalized`,
+   * `onRunFailed`) always fire immediately.
    *
    * @default undefined — inherits from provider `defaultThrottleMs`;
    * if that is also unset, the effective value is `0` (no throttle).

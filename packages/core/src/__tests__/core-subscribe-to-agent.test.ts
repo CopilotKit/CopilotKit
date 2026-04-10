@@ -23,6 +23,16 @@ class TestAgent extends AbstractAgent {
 // Helpers
 // ---------------------------------------------------------------------------
 
+const RUN_INPUT: RunAgentInput = {
+  threadId: "t-1",
+  runId: "r-1",
+  state: {},
+  messages: [],
+  tools: [],
+  context: [],
+  forwardedProps: {},
+};
+
 function notifyMessagesChanged(agent: TestAgent) {
   agent.subscribers.forEach((s) =>
     s.onMessagesChanged?.({
@@ -43,42 +53,21 @@ function notifyStateChanged(agent: TestAgent) {
   );
 }
 
-function notifyRunInitialized(agent: TestAgent) {
-  agent.subscribers.forEach((s) =>
-    s.onRunInitialized?.({
-      messages: agent.messages,
-      state: agent.state,
-      agent,
-      input: {
-        threadId: "t-1",
-        runId: "r-1",
-        state: {},
-        messages: [],
-        tools: [],
-        context: [],
-        forwardedProps: {},
-      },
-    }),
-  );
-}
-
-function notifyRunFinalized(agent: TestAgent) {
-  agent.subscribers.forEach((s) =>
-    s.onRunFinalized?.({
-      messages: agent.messages,
-      state: agent.state,
-      agent,
-      input: {
-        threadId: "t-1",
-        runId: "r-1",
-        state: {},
-        messages: [],
-        tools: [],
-        context: [],
-        forwardedProps: {},
-      },
-    }),
-  );
+function notifyLifecycle(
+  agent: TestAgent,
+  event: "onRunInitialized" | "onRunFinalized" | "onRunFailed",
+) {
+  const base = {
+    messages: agent.messages,
+    state: agent.state,
+    agent,
+    input: RUN_INPUT,
+  };
+  const params =
+    event === "onRunFailed"
+      ? { ...base, error: new Error("run failed") }
+      : base;
+  agent.subscribers.forEach((s) => (s[event] as any)?.(params));
 }
 
 function userMsg(id: string, content: string) {
@@ -173,6 +162,51 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     expect(onMessages).toHaveBeenCalledTimes(2);
     // Should receive the latest params
     expect(onMessages.mock.calls[1][0].messages).toHaveLength(2);
+  });
+
+  // -------------------------------------------------------------------------
+  // Trailing-edge re-arm
+  // -------------------------------------------------------------------------
+
+  it("trailing edge re-arms the throttle window when new events arrive during flush", () => {
+    const onMessages = vi.fn();
+
+    core.subscribeToAgent(
+      agent,
+      { onMessagesChanged: onMessages },
+      { throttleMs: 100 },
+    );
+
+    // Leading edge
+    agent.messages = [userMsg("1", "a")];
+    notifyMessagesChanged(agent);
+    expect(onMessages).toHaveBeenCalledTimes(1);
+
+    // Deferred
+    agent.messages = [userMsg("1", "a"), userMsg("2", "b")];
+    notifyMessagesChanged(agent);
+
+    // Trailing edge fires at t=100
+    vi.advanceTimersByTime(100);
+    expect(onMessages).toHaveBeenCalledTimes(2);
+
+    // Notification during re-armed window should be deferred, not leading
+    agent.messages = [userMsg("1", "a"), userMsg("2", "b"), userMsg("3", "c")];
+    notifyMessagesChanged(agent);
+    expect(onMessages).toHaveBeenCalledTimes(2); // Still deferred
+
+    // Fires at t=200
+    vi.advanceTimersByTime(100);
+    expect(onMessages).toHaveBeenCalledTimes(3);
+    expect(onMessages.mock.calls[2][0].messages).toHaveLength(3);
+
+    // Window closes when no further events arrive
+    vi.advanceTimersByTime(100);
+
+    // New leading edge after window closed
+    agent.messages = [userMsg("4", "d")];
+    notifyMessagesChanged(agent);
+    expect(onMessages).toHaveBeenCalledTimes(4); // Fires immediately
   });
 
   // -------------------------------------------------------------------------
@@ -316,8 +350,8 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     agent.messages = [userMsg("1", "a")];
     notifyMessagesChanged(agent);
 
-    // Run lifecycle — should fire immediately (not wrapped)
-    notifyRunInitialized(agent);
+    // Run lifecycle — should fire immediately (not throttled)
+    notifyLifecycle(agent, "onRunInitialized");
     expect(onRunInit).toHaveBeenCalledTimes(1);
   });
 
@@ -335,8 +369,26 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     agent.messages = [userMsg("1", "a")];
     notifyMessagesChanged(agent);
 
-    notifyRunFinalized(agent);
+    notifyLifecycle(agent, "onRunFinalized");
     expect(onRunFinalized).toHaveBeenCalledTimes(1);
+  });
+
+  it("onRunFailed fires immediately during throttle window", () => {
+    const onMessages = vi.fn();
+    const onRunFailed = vi.fn();
+
+    core.subscribeToAgent(
+      agent,
+      { onMessagesChanged: onMessages, onRunFailed },
+      { throttleMs: 100 },
+    );
+
+    // Start throttle window
+    agent.messages = [userMsg("1", "a")];
+    notifyMessagesChanged(agent);
+
+    notifyLifecycle(agent, "onRunFailed");
+    expect(onRunFailed).toHaveBeenCalledTimes(1);
   });
 
   // -------------------------------------------------------------------------
@@ -514,7 +566,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
   );
 
   // -------------------------------------------------------------------------
-  // Exception safety (Issue 1 & 2 from review)
+  // Exception safety
   // -------------------------------------------------------------------------
 
   it("exception in onMessagesChanged does not prevent onStateChanged from flushing", () => {
@@ -579,6 +631,83 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     agent.messages = [userMsg("1", "a"), userMsg("2", "b"), userMsg("3", "c")];
     notifyMessagesChanged(agent);
     expect(onMessages).toHaveBeenCalledTimes(3);
+
+    errorSpy.mockRestore();
+  });
+
+  it("async rejection in callback is caught and logged", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onMessages = vi.fn().mockImplementation(() => {
+      return Promise.reject(new Error("async boom"));
+    });
+
+    core.subscribeToAgent(agent, {
+      onMessagesChanged: onMessages,
+    });
+
+    agent.messages = [userMsg("1", "a")];
+    notifyMessagesChanged(agent);
+
+    // Flush microtasks so the .catch() handler runs
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(onMessages).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("onMessagesChanged callback rejected"),
+      expect.any(Error),
+    );
+
+    errorSpy.mockRestore();
+  });
+
+  // -------------------------------------------------------------------------
+  // Unthrottled path exception safety
+  // -------------------------------------------------------------------------
+
+  it("unthrottled: exception in onMessagesChanged does not prevent onStateChanged", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onState = vi.fn();
+    const onMessages = vi.fn().mockImplementation(() => {
+      throw new Error("unthrottled boom");
+    });
+
+    core.subscribeToAgent(agent, {
+      onMessagesChanged: onMessages,
+      onStateChanged: onState,
+    });
+
+    agent.messages = [userMsg("1", "a")];
+    notifyMessagesChanged(agent);
+
+    // onMessagesChanged threw, but notification loop should survive
+    agent.state = { x: 1 };
+    notifyStateChanged(agent);
+    expect(onState).toHaveBeenCalledTimes(1);
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("onMessagesChanged callback threw"),
+      expect.any(Error),
+    );
+
+    errorSpy.mockRestore();
+  });
+
+  it("unthrottled: exception in run lifecycle callback is caught", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onRunInit = vi.fn().mockImplementation(() => {
+      throw new Error("lifecycle boom");
+    });
+
+    core.subscribeToAgent(agent, {
+      onRunInitialized: onRunInit,
+    });
+
+    notifyLifecycle(agent, "onRunInitialized");
+    expect(onRunInit).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("onRunInitialized callback threw"),
+      expect.any(Error),
+    );
 
     errorSpy.mockRestore();
   });
