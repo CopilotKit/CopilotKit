@@ -18,15 +18,15 @@
   },
   "type": "module",
   "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.cts",
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
+      "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
     "./polyfills": {
-      "import": "./dist/polyfills.mjs",
+      "import": "./dist/polyfills.js",
       "require": "./dist/polyfills.cjs"
     },
     "./package.json": "./package.json"
