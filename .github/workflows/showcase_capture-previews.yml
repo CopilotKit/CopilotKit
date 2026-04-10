@@ -25,12 +25,14 @@ concurrency:
   group: showcase-capture-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   capture:
-    name: Capture Preview GIFs
+    name: Capture Preview MP4s
     runs-on: ubuntu-latest
-    # Disabled — preview GIFs removed from repo, awaiting external storage setup
-    if: false
+    # Captures demo previews as MP4 and uploads to GitHub release
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -39,6 +41,16 @@ jobs:
           lfs: true
           ref: ${{ github.event.workflow_run.head_branch || github.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Ensure preview release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view showcase-previews --repo ${{ github.repository }} >/dev/null 2>&1 || \
+          gh release create showcase-previews --repo ${{ github.repository }} \
+            --title "Showcase Preview Videos" \
+            --notes "Auto-generated demo preview videos for the showcase platform. Updated by CI." \
+            --latest=false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -89,22 +101,15 @@ jobs:
             npx tsx showcase/scripts/capture-previews.ts $ARGS || true
           fi
 
-      - name: Update manifests and registry
-        run: |
-          # Check if any new GIFs were created that need manifest updates
-          if git diff --name-only | grep -q "previews/"; then
-            # Regenerate registry from updated manifests
-            npx tsx showcase/scripts/generate-registry.ts || true
-          fi
-
-      - name: Commit and push
+      - name: Commit registry updates
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add showcase/shell/public/previews/ showcase/shell/src/data/registry.json showcase/packages/*/manifest.yaml
-          if git diff --staged --quiet; then
-            echo "No preview changes to commit"
+          cd showcase/shell/src/data
+          if git diff --quiet registry.json; then
+            echo "No registry changes"
           else
-            git commit -m "Auto-capture preview GIFs for updated demos"
+            git add registry.json
+            git commit -m "Update preview URLs in registry"
             git push
           fi
