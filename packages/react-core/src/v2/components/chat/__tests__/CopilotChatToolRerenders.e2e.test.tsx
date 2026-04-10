@@ -72,7 +72,7 @@ describe("Tool Call Re-render Prevention", () => {
     // Track render counts for the tool renderer
     let toolRenderCount = 0;
     let _lastRenderStatus: string | null = null;
-    let lastRenderArgs: Record<string, unknown> | null = null;
+    let _lastRenderArgs: Record<string, unknown> | null = null;
 
     const renderToolCalls = [
       defineToolCallRenderer({
@@ -83,7 +83,7 @@ describe("Tool Call Re-render Prevention", () => {
         render: ({ status, args, result }) => {
           toolRenderCount++;
           _lastRenderStatus = status;
-          lastRenderArgs = args as Record<string, unknown>;
+          _lastRenderArgs = args as Record<string, unknown>;
 
           return (
             <div data-testid="weather-tool">

@@ -135,7 +135,7 @@ export class ResultMessage extends Message implements ResultMessageInput {
         return { result: JSON.stringify(parsed) };
       }
       return { result };
-    } catch (e) {
+    } catch {
       return { result };
     }
   }
