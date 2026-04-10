@@ -160,7 +160,7 @@ export const Presentation = ({
               ...slides.slice(0, currentSlideIndex),
               ...slides.slice(currentSlideIndex + 1),
             ]);
-            setCurrentSlideIndex((i) => 0);
+            setCurrentSlideIndex((_i) => 0);
           }}
           className="ml-5 rounded-r-none"
         >

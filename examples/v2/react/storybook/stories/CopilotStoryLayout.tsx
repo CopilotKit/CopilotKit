@@ -41,11 +41,9 @@ const defaultContent = (
   </>
 );
 
-class MockAgent {}
-
 export const CopilotStoryLayout: React.FC<CopilotStoryLayoutProps> = ({
   children,
-  threadId = "story-copilot-layout",
+  threadId: _threadId = "story-copilot-layout",
   isModalDefaultOpen = true,
   content,
 }) => (

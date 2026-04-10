@@ -1,6 +1,6 @@
 import { TelemetryClient } from "@copilotkit/shared";
 import { createHash } from "node:crypto";
-import { CopilotRuntime, resolveEndpointType } from "./runtime/copilot-runtime";
+import { resolveEndpointType } from "./runtime/copilot-runtime";
 import type { RuntimeInstanceCreatedInfo } from "@copilotkit/shared/src/telemetry/events";
 import type { CreateCopilotRuntimeServerOptions } from "./integrations/shared";
 import type { LangGraphPlatformEndpoint } from "./runtime/types";

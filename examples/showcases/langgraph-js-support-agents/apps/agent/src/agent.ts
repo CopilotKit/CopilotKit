@@ -1,5 +1,5 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
-import { StateGraph, START, END, MemorySaver } from "@langchain/langgraph";
+import { StateGraph, START, MemorySaver } from "@langchain/langgraph";
 import type { AIMessage } from "@langchain/core/messages";
 import { SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
@@ -89,7 +89,7 @@ const tool_node = new ToolNode(tools);
 // 4. Process tool results and update state
 async function process_tool_results(
   state: CustomerSupportState,
-  config: RunnableConfig,
+  _config: RunnableConfig,
 ) {
   const messages = state.messages || [];
   const lastMessage = messages[messages.length - 1];

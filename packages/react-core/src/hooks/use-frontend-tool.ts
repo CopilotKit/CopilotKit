@@ -49,11 +49,14 @@ export function useFrontendTool<const T extends Parameter[] = []>(
 
   const renderRef = useRef<typeof render>(render);
 
+  // oxlint-disable react/exhaustive-deps -- intentional: spreading dynamic deps array; renderRef used to avoid stale closures
   useEffect(() => {
     renderRef.current = render;
   }, [render, ...(dependencies ?? [])]);
+  // oxlint-enable react/exhaustive-deps
 
   const normalizedRender: FrontendToolOptions<T>["render"] | undefined =
+    // oxlint-disable react/exhaustive-deps -- intentional: render accessed via renderRef to always use latest value without re-creating the wrapper
     useMemo(() => {
       if (typeof render === "undefined") {
         return undefined;
@@ -87,13 +90,16 @@ export function useFrontendTool<const T extends Parameter[] = []>(
         return rendered ?? null;
       }) as FrontendToolOptions<T>["render"];
     }, []);
+  // oxlint-enable react/exhaustive-deps
 
   // Handler ref to avoid stale closures
   const handlerRef = useRef<typeof tool.handler>(tool.handler);
 
+  // oxlint-disable react/exhaustive-deps -- intentional: spreading dynamic deps array
   useEffect(() => {
     handlerRef.current = tool.handler;
   }, [tool.handler, ...(dependencies ?? [])]);
+  // oxlint-enable react/exhaustive-deps
 
   const normalizedHandler = tool.handler
     ? (args: MappedParameterTypes<T>) => handlerRef.current?.(args)

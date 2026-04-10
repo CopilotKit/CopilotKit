@@ -67,18 +67,28 @@ export interface SnapshotSelectionResult {
 
 function getStateWithoutConstantKeys(state: any) {
   if (!state) return {};
-  const { messages, tools, copilotkit, ...stateWithoutConstantKeys } = state;
+  const {
+    messages: _messages,
+    tools: _tools,
+    copilotkit: _copilotkit,
+    ...stateWithoutConstantKeys
+  } = state;
   return stateWithoutConstantKeys;
 }
 
 // Function that compares states, without the constant keys
 export function areStatesEquals(a: any, b: any) {
   if ((a && !b) || (!a && b)) return false;
-  const { messages, tools, copilotkit, ...aWithoutConstantKeys } = a;
   const {
-    messages: bMessages,
-    tools: bTools,
-    copilotkit: bCopilotkit,
+    messages: _messages2,
+    tools: _tools2,
+    copilotkit: _copilotkit2,
+    ...aWithoutConstantKeys
+  } = a;
+  const {
+    messages: _bMessages,
+    tools: _bTools,
+    copilotkit: _bCopilotkit,
     ...bWithoutConstantKeys
   } = b;
 
@@ -234,7 +244,7 @@ export function resolveClaim({
  */
 export function selectSnapshot({
   messageId,
-  messageName,
+  messageName: _messageName,
   allowLiveState,
   skipLatestCache,
   stateRenderId,

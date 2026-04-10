@@ -392,8 +392,8 @@ export function CopilotChat({
   instructions,
   suggestions = "auto",
   onSubmitMessage,
-  makeSystemMessage,
-  disableSystemMessage,
+  makeSystemMessage: _makeSystemMessage,
+  disableSystemMessage: _disableSystemMessage,
   onInProgress,
   onStopGeneration,
   onReloadMessages,
@@ -557,7 +557,13 @@ export function CopilotChat({
         styledConsole.publicApiKeyRequired("observabilityHooks.onError");
       }
     },
-    [publicApiKey, chatApiEndpoint, observabilityHooks, setBannerError],
+    [
+      publicApiKey,
+      chatApiEndpoint,
+      observabilityHooks,
+      setBannerError,
+      onError,
+    ],
   );
 
   useEffect(() => {
@@ -634,7 +640,7 @@ export function CopilotChat({
     ];
 
     setChatInstructions(combinedAdditionalInstructions.join("\n") || "");
-  }, [instructions, additionalInstructions]);
+  }, [instructions, additionalInstructions, setChatInstructions]);
 
   const {
     messages,

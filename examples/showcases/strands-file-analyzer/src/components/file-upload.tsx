@@ -23,11 +23,11 @@ const LOADING_MESSAGES = [
 const readFileAsBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.addEventListener("load", () => {
       const result = reader.result as string;
       resolve(result.split(",")[1]); // Remove data URL prefix
-    };
-    reader.onerror = reject;
+    });
+    reader.addEventListener("error", reject);
     reader.readAsDataURL(file);
   });
 };

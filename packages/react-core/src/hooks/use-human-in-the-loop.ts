@@ -1,5 +1,4 @@
 import type { ActionRenderPropsWait, FrontendAction } from "../types";
-import { ActionRenderProps } from "../types";
 import type { MappedParameterTypes, Parameter } from "@copilotkit/shared";
 import {
   CopilotKitError,
@@ -10,7 +9,7 @@ import {
 import { useHumanInTheLoop as useHumanInTheLoopVNext } from "../v2";
 import { ToolCallStatus } from "@copilotkit/core";
 import type { FunctionComponent } from "react";
-import React, { ComponentType, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 
 type HumanInTheLoopOptions = Parameters<typeof useHumanInTheLoopVNext>[0];
 type HumanInTheLoopRender = HumanInTheLoopOptions["render"];
@@ -116,6 +115,7 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
 
       return rendered ?? null;
     };
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: spreading dynamic deps array
   }, [render, ...(dependencies ?? [])]);
 
   useHumanInTheLoopVNext({

@@ -572,6 +572,7 @@ describe("Concurrent run guard", () => {
 
     const agent = new BuiltInAgent({
       type: "custom",
+      // oxlint-disable-next-line require-yield
       factory: async function* ({ abortSignal }) {
         // Block until resolved externally
         await new Promise<void>((r) => {

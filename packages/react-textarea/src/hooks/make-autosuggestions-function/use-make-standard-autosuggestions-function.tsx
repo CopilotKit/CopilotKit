@@ -10,9 +10,6 @@ import {
   Role,
   TextMessage,
   convertGqlOutputToMessages,
-  convertMessagesToGqlInput,
-  filterAgentStateMessages,
-  CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
 
 /**
@@ -33,27 +30,31 @@ export function useMakeStandardAutosuggestionFunction(
   contextCategories: string[],
   apiConfig: SuggestionsApiConfig,
 ): AutosuggestionsBareFunction {
-  const runtimeClient = { generateCopilotResponse: (...args: any[]) => {} };
+  const _runtimeClient = { generateCopilotResponse: (..._args: any[]) => {} };
   const { getContextString, copilotApiConfig } = useCopilotContext();
   const {
-    chatApiEndpoint: url,
+    chatApiEndpoint: _url,
     publicApiKey,
-    credentials,
-    properties,
+    credentials: _credentials,
+    properties: _properties,
   } = copilotApiConfig;
-  const headers = {
+  const _headers = {
     ...copilotApiConfig.headers,
     ...(publicApiKey
       ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey }
       : {}),
   };
-  const { maxTokens, stop, temperature = 0 } = apiConfig;
+  const {
+    maxTokens: _maxTokens,
+    stop: _stop,
+    temperature: _temperature = 0,
+  } = apiConfig;
 
   return useCallback(
     async (editorState: InsertionEditorState, abortSignal: AbortSignal) => {
       const res = await retry(async () => {
         // @ts-expect-error -- Passing null is forbidden, but we're filtering it later
-        const messages: Message[] = [
+        const _messages: Message[] = [
           new TextMessage({
             role: Role.System,
             content: apiConfig.makeSystemPrompt(

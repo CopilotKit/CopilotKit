@@ -15,7 +15,6 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   CheckIcon,
   ChevronDownIcon,
-  CopilotKitIcon,
   ExclamationMarkIcon,
   ExclamationMarkTriangleIcon,
 } from "./icons";
@@ -50,7 +49,7 @@ export function CopilotDevConsole() {
   const [versionStatus, setVersionStatus] = useState<VersionStatus>("unknown");
   const [latestVersion, setLatestVersion] = useState<string>("");
   const consoleRef = useRef<HTMLDivElement>(null);
-  const [debugButtonMode, setDebugButtonMode] = useState<"full" | "compact">(
+  const [debugButtonMode, _setDebugButtonMode] = useState<"full" | "compact">(
     "full",
   );
 
@@ -83,6 +82,7 @@ export function CopilotDevConsole() {
       });
   };
 
+  // oxlint-disable react/exhaustive-deps -- intentional: run-once on mount; checkForUpdates is stable
   useEffect(() => {
     if (dontRunTwiceInDevMode.current === true) {
       return;
@@ -91,6 +91,7 @@ export function CopilotDevConsole() {
 
     checkForUpdates();
   }, []);
+  // oxlint-enable react/exhaustive-deps
 
   if (!showDevConsole) {
     return null;

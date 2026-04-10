@@ -1,7 +1,6 @@
 import type { z } from "zod";
 import type { ZodObject, ZodRawShape } from "zod";
 import { Catalog } from "@a2ui/web_core/v0_9";
-import { BASIC_FUNCTIONS } from "@a2ui/web_core/v0_9/basic_catalog";
 import { basicCatalog, createReactComponent } from "./a2ui-react";
 import type { ReactComponentImplementation } from "./a2ui-react";
 import type { ComponentApi } from "@a2ui/web_core/v0_9";
@@ -122,9 +121,11 @@ export function createCatalog<D extends CatalogDefinitions>(
       ({ props, buildChild, context }) => {
         const Render = renderer;
         const dispatch = (action: any) => context.dispatchAction(action);
+        // oxlint-disable react/no-children-prop
         return (
           <Render props={props} children={buildChild} dispatch={dispatch} />
         );
+        // oxlint-enable react/no-children-prop
       },
     );
 

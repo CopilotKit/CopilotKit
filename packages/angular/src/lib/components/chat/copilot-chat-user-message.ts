@@ -273,5 +273,4 @@ export class CopilotChatUserMessage {
   ): void {
     this.switchToBranch.emit(props);
   }
-  constructor() {}
 }

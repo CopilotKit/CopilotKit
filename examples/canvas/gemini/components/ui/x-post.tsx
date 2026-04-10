@@ -9,11 +9,9 @@ import {
   Heart,
   MessageCircle,
   Repeat2,
-  Share,
   MoreHorizontal,
-  ExternalLink,
-  Calendar,
   MapPin,
+  Share,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 

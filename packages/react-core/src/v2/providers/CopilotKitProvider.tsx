@@ -244,6 +244,8 @@ function useStableArrayProp<T>(
   const value = prop ?? empty;
   const initial = useRef(value);
 
+  // oxlint-disable-next-line react/exhaustive-deps -- isMeaningfulChange is always a stable module-level function; adding it would cause spurious re-runs if the caller uses an inline arrow
+  // oxlint-disable react/exhaustive-deps -- intentional: isMeaningfulChange is always a stable module-level function; adding it to deps would cause false positives
   useEffect(() => {
     if (
       warningMessage &&
@@ -253,6 +255,7 @@ function useStableArrayProp<T>(
       console.error(warningMessage);
     }
   }, [value, warningMessage]);
+  // oxlint-enable react/exhaustive-deps
 
   return value;
 }
@@ -265,7 +268,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   credentials,
   publicApiKey,
   publicLicenseKey,
-  licenseToken,
+  licenseToken: _licenseToken,
   properties = {},
   agents__unsafe_dev_only: agents = {},
   selfManagedAgents = {},

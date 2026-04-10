@@ -26,12 +26,6 @@ interface ManifestEntry {
   source: string;
 }
 
-interface DoctestConfig {
-  python?: { deps: string[] };
-  typescript?: { deps: string[] };
-  node?: { deps: string[] };
-}
-
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------

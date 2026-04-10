@@ -17,6 +17,7 @@ export function TrackerTextEditedSinceLastCursorMovement(
 
   const previousState = usePrevious(cursorState);
 
+  // oxlint-disable react/exhaustive-deps -- intentional: previousState is a ref-tracked value updated after each render; props object excluded in favor of the stable callback
   useEffect(() => {
     if (!previousState) {
       return;
@@ -26,6 +27,7 @@ export function TrackerTextEditedSinceLastCursorMovement(
       props.setCursorMovedSinceLastTextChange(true);
     }
   }, [props.setCursorMovedSinceLastTextChange, cursorState]);
+  // oxlint-enable react/exhaustive-deps
 
   return <></>;
 }

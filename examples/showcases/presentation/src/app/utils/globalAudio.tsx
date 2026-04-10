@@ -17,9 +17,13 @@ export async function speak(text: string) {
   globalAudio.src = url;
   globalAudio.play();
   await new Promise<void>((resolve) => {
-    globalAudio.onended = function () {
-      resolve();
-    };
+    globalAudio.addEventListener(
+      "ended",
+      function () {
+        resolve();
+      },
+      { once: true },
+    );
   });
   await new Promise((resolve) => setTimeout(resolve, 500));
 }

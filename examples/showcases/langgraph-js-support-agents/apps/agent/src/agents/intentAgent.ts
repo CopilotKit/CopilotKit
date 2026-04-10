@@ -9,7 +9,7 @@ import { AIMessage } from "@langchain/core/messages";
  */
 export async function intentAgentNode(
   state: CustomerSupportState,
-  config: RunnableConfig,
+  _config: RunnableConfig,
 ): Promise<Partial<CustomerSupportState>> {
   // Get the last user message
   const messages = state.messages || [];

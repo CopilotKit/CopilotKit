@@ -9,9 +9,7 @@ import {
   Heart,
   MessageCircle,
   Repeat2,
-  Share,
   MoreHorizontal,
-  ExternalLink,
   Calendar,
   MapPin,
   ThumbsUp,
@@ -49,7 +47,7 @@ export function LinkedInPost({ title, content, className }: LinkedInPostProps) {
   const defaultLikes = 1247;
   const defaultComments = 89;
   const defaultShares = 23;
-  const defaultViews = 45600;
+  const _defaultViews = 45600;
 
   return (
     <Card
@@ -260,7 +258,7 @@ export function LinkedInPostCompact({
   const defaultLikes = 1247;
   const defaultComments = 89;
   const defaultShares = 23;
-  const defaultViews = 45600;
+  const _defaultViews = 45600;
 
   return (
     <Card

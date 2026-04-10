@@ -1,10 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useAgent, useCopilotChatConfiguration, useCopilotKit } from "../v2";
-import { CopilotKitError, parseJson } from "@copilotkit/shared";
-import { useCopilotContext } from "../context";
+import { parseJson } from "@copilotkit/shared";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
-import { AGUIConnectNotImplementedError } from "@ag-ui/client";
-import { useErrorToast } from "./error-boundary/error-utils";
 import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import { useToast } from "./toast/toast-provider";
 import { CopilotKitLowLevelError } from "@copilotkit/shared";
@@ -117,6 +114,7 @@ export function CopilotListeners() {
     return () => {
       subscription.unsubscribe();
     };
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: setBannerError and copilotkit are stable; tracking subscribe method signals re-subscription when runtime changes
   }, [copilotkit?.subscribe]);
 
   return null;

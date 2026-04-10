@@ -13,13 +13,13 @@ interface ToolCallProps {
 export default function MCPToolCall({
   status,
   name = "",
-  args,
+  args: _args,
   result,
 }: ToolCallProps) {
   const [isOpen, setIsOpen] = React.useState(false);
 
   // Format content for display
-  const format = (content: any): string => {
+  const _format = (content: any): string => {
     if (!content) return "";
     const text =
       typeof content === "object"

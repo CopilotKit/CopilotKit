@@ -43,6 +43,7 @@ export function ExampleLayout({ chatContent, appContent }: ExampleLayoutProps) {
         }`}
       >
         <div className="shrink-0 pt-6 pl-6 pb-2 max-lg:pl-4 max-lg:pt-4">
+          {/* oxlint-disable-next-line nextjs/no-img-element */}
           <img
             src="/copilotkit-logo.svg"
             alt="CopilotKit"

@@ -3,8 +3,8 @@
   "plugins": ["typescript", "unicorn", "oxc", "react", "nextjs", "import"],
   "jsPlugins": ["./packages/react-ui/oxlint-rules/copilotkit-plugin.mjs"],
   "categories": {
-    "correctness": "warn",
-    "suspicious": "warn"
+    "correctness": "error",
+    "suspicious": "error"
   },
   "rules": {
     "react/react-in-jsx-scope": "off",
@@ -14,20 +14,24 @@
     "no-restricted-imports": "off",
 
     "typescript/consistent-type-imports": [
-      "warn",
+      "error",
       { "prefer": "type-imports", "fixStyle": "separate-type-imports" }
     ],
-    "typescript/no-import-type-side-effects": "warn",
-    "import/consistent-type-specifier-style": ["warn", "prefer-top-level"],
+    "typescript/no-import-type-side-effects": "error",
+    "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
     "typescript/no-unnecessary-type-assertion": "error",
 
-    "react/self-closing-comp": "warn",
-    "unicorn/prefer-optional-catch-binding": "warn",
-    "eslint/no-useless-computed-key": "warn",
-    "unicorn/prefer-string-slice": "warn",
-    "unicorn/prefer-array-flat-map": "warn",
+    "react/self-closing-comp": "error",
+    "unicorn/prefer-optional-catch-binding": "error",
+    "eslint/no-useless-computed-key": "error",
+    "unicorn/prefer-string-slice": "error",
+    "unicorn/prefer-array-flat-map": "error",
 
-    "no-shadow": "off"
+    "no-shadow": "off",
+    "import/no-named-as-default": "off",
+    "import/no-named-as-default-member": "off",
+    "no-new": "off",
+    "oxc/no-async-endpoint-handlers": "off"
   },
   "overrides": [
     {
@@ -50,7 +54,7 @@
     {
       "files": ["packages/react-ui/src/**/*.{ts,tsx}"],
       "rules": {
-        "copilotkit/require-cpk-prefix": "warn"
+        "copilotkit/require-cpk-prefix": "error"
       }
     },
     {
@@ -69,6 +73,25 @@
         "typescript/consistent-type-imports": "off",
         "typescript/no-import-type-side-effects": "off",
         "import/consistent-type-specifier-style": "off"
+      }
+    },
+    {
+      "files": ["packages/**/*.{ts,tsx}"],
+      "rules": {
+        "nextjs/no-img-element": "off",
+        "nextjs/no-html-link-for-pages": "off"
+      }
+    },
+    {
+      "files": [
+        "examples/**/*.{ts,tsx,js,jsx}",
+        "scripts/**/*.{ts,tsx}",
+        "codemods/**/*.{ts,tsx}",
+        ".github/**/*.{ts,tsx}"
+      ],
+      "rules": {
+        "react/exhaustive-deps": "off",
+        "unicorn/consistent-function-scoping": "off"
       }
     }
   ],

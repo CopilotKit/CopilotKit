@@ -70,6 +70,7 @@ export function Resources({
                 >
                   {resource.description && (
                     <>
+                      {/* oxlint-disable-next-line nextjs/no-img-element */}
                       <img
                         src={`https://www.google.com/s2/favicons?domain=${resource.url}`}
                         alt="favicon"

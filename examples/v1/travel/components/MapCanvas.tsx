@@ -1,6 +1,6 @@
 import { MapContainer, TileLayer, Marker, Tooltip } from "react-leaflet";
 import { useTrips } from "@/lib/hooks/use-trips";
-import { useEffect, useState, useRef } from "react";
+import { useState } from "react";
 import type { Map } from "leaflet";
 import { divIcon } from "leaflet";
 import { cn } from "@/lib/utils";

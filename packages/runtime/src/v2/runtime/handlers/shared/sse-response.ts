@@ -3,6 +3,19 @@ import { EventEncoder } from "@ag-ui/encoder";
 import type { Observable, Subscription } from "rxjs";
 import { telemetry } from "../../telemetry";
 
+function logError(error: unknown) {
+  console.error("Error running agent:", error);
+  console.error(
+    "Error stack:",
+    error instanceof Error ? error.stack : "No stack trace",
+  );
+  console.error("Error details:", {
+    name: error instanceof Error ? error.name : "Unknown",
+    message: error instanceof Error ? error.message : String(error),
+    cause: error instanceof Error ? error.cause : undefined,
+  });
+}
+
 interface CreateSseEventResponseParams {
   request: Request;
   observableFactory: () =>
@@ -28,19 +41,6 @@ export function createSseEventResponse({
         // Stream already closed.
       }
     }
-  };
-
-  const logError = (error: unknown) => {
-    console.error("Error running agent:", error);
-    console.error(
-      "Error stack:",
-      error instanceof Error ? error.stack : "No stack trace",
-    );
-    console.error("Error details:", {
-      name: error instanceof Error ? error.name : "Unknown",
-      message: error instanceof Error ? error.message : String(error),
-      cause: error instanceof Error ? error.cause : undefined,
-    });
   };
 
   let subscription: Subscription | undefined;

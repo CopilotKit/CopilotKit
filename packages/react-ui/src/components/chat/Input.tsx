@@ -84,6 +84,7 @@ export const Input = ({
     isInProgress,
     chatReady,
     hideStopButton,
+    context.icons.spinnerIcon,
     context.icons.stopIcon,
     context.icons.sendIcon,
   ]);

@@ -5,8 +5,7 @@ import {
   useSuggestions,
 } from "../v2";
 import type { StaticSuggestionsConfig, Suggestion } from "@copilotkit/core";
-import { useCopilotContext } from "../context";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 
 type StaticSuggestionInput = Omit<Suggestion, "isLoading"> &
   Partial<Pick<Suggestion, "isLoading">>;
@@ -75,6 +74,7 @@ export function useConfigureChatSuggestions(
 
   const result = useSuggestions({ agentId: resolvedAgentId });
 
+  // oxlint-disable react/exhaustive-deps -- intentional: only re-subscribe when agent changes; copilotkit, result.suggestions.length and finalSuggestionConfig.available accessed from stable refs
   useEffect(() => {
     if (finalSuggestionConfig.available === "disabled") return;
     const subscription = copilotkit.subscribe({
@@ -91,6 +91,7 @@ export function useConfigureChatSuggestions(
       subscription.unsubscribe();
     };
   }, [resolvedAgentId]);
+  // oxlint-enable react/exhaustive-deps
 
   return result;
 }

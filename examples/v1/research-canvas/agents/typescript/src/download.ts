@@ -64,7 +64,7 @@ export async function download_node(state: AgentState, config: RunnableConfig) {
   }
 
   // Emit the state to let the UI update
-  const { messages, ...restOfState } = state;
+  const { messages: _messages, ...restOfState } = state;
   await copilotkitEmitState(config, {
     ...restOfState,
     resources,

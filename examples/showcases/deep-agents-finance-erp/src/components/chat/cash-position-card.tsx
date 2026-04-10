@@ -1,7 +1,6 @@
 "use client";
 
 import { DollarSign, TrendingUp, TrendingDown } from "lucide-react";
-import { ToolCallStatus } from "@copilotkit/react-core/v2";
 
 type AccountRow = {
   name: string;

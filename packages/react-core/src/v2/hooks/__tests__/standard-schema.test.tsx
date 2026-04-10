@@ -5,7 +5,6 @@ import { z } from "zod";
 import * as v from "valibot";
 import { type } from "arktype";
 import { useRenderTool } from "../use-render-tool";
-import type { RenderToolProps } from "../use-render-tool";
 import { useComponent } from "../use-component";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useFrontendTool } from "../use-frontend-tool";

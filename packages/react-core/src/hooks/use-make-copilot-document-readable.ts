@@ -17,6 +17,7 @@ export function useMakeCopilotDocumentReadable(
   const { addDocumentContext, removeDocumentContext } = useCopilotContext();
   const idRef = useRef<string>(undefined!);
 
+  // oxlint-disable react/exhaustive-deps -- intentional: document and categories excluded from direct deps; spreading dynamic deps array
   useEffect(() => {
     const id = addDocumentContext(document, categories);
     idRef.current = id;
@@ -25,6 +26,7 @@ export function useMakeCopilotDocumentReadable(
       removeDocumentContext(id);
     };
   }, [addDocumentContext, removeDocumentContext, ...dependencies]);
+  // oxlint-enable react/exhaustive-deps
 
   return idRef.current;
 }

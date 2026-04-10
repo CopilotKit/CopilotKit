@@ -3,8 +3,6 @@ import {
   CopilotRuntime,
   OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
-  langGraphPlatformEndpoint,
-  copilotKitEndpoint,
 } from "@copilotkit/runtime";
 import {
   LangGraphAgent,

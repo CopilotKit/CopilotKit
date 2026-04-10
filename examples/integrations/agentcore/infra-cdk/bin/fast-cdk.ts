@@ -12,7 +12,7 @@ const props = configManager.getProps();
 const app = new cdk.App();
 
 // Deploy the new Amplify-based stack that solves the circular dependency
-const amplifyStack = new FastMainStack(app, props.stack_name_base, {
+const _amplifyStack = new FastMainStack(app, props.stack_name_base, {
   config: props,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,

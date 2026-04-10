@@ -33,6 +33,7 @@ const { mockProviderFn, mockCreateAnthropic } = vi.hoisted(() => {
 });
 
 vi.mock("@ai-sdk/anthropic", async (importOriginal) => {
+  // oxlint-disable-next-line typescript/consistent-type-imports
   const actual = await importOriginal<typeof import("@ai-sdk/anthropic")>();
   return { ...actual, createAnthropic: mockCreateAnthropic };
 });

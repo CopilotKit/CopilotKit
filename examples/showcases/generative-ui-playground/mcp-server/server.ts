@@ -49,7 +49,6 @@ import {
   executeTrade,
   refreshPrices,
   getStocks,
-  getPortfolio,
 } from "./src/stocks.js";
 import type { Portfolio, Sector, TradeType } from "./src/stocks.js";
 
@@ -1554,6 +1553,7 @@ const mcpPostHandler = async (req: Request, res: Response) => {
         },
       });
 
+      // oxlint-disable-next-line unicorn/prefer-add-event-listener
       transport.onclose = () => {
         const sid = transport.sessionId;
         if (sid && transports[sid]) {

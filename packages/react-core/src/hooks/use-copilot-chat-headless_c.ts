@@ -227,6 +227,7 @@ function useCopilotChatHeadless_c(
   const internalResult = useCopilotChatInternal(options);
 
   // Set banner error when no public API key is provided
+  // oxlint-disable react/exhaustive-deps -- setBannerError is a stable dispatch; only react when hasPublicApiKey changes
   useEffect(() => {
     if (!hasPublicApiKey) {
       setBannerError(
@@ -244,6 +245,7 @@ function useCopilotChatHeadless_c(
       setBannerError(null); // Clear banner when API key is provided
     }
   }, [hasPublicApiKey]); // Removed setBannerError dependency
+  // oxlint-enable react/exhaustive-deps
 
   // Return internal result if publicApiKey is available, otherwise return fallback
   if (hasPublicApiKey) {
@@ -261,6 +263,6 @@ export type {
   MCPServerConfig,
 };
 
-const noKeyWarning = () => {
+const _noKeyWarning = () => {
   styledConsole.logCopilotKitPlatformMessage();
 };

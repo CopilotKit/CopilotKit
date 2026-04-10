@@ -1,5 +1,5 @@
 import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
-import React, { useContext, useState } from "react";
+import React, { useContext } from "react";
 import Spreadsheet from "react-spreadsheet";
 import { canonicalSpreadsheetData } from "../utils/canonicalSpreadsheetData";
 import type { SpreadsheetData, SpreadsheetRow } from "../types";
@@ -78,7 +78,7 @@ const SingleSpreadsheet = ({
         />
       );
     },
-    handler: ({ rows, title }) => {
+    handler: ({ rows: _rows, title: _title }) => {
       // Do nothing.
       // The preview component will optionally handle committing the changes.
     },

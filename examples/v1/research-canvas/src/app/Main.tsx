@@ -50,7 +50,7 @@ export default function Main() {
         >
           <CopilotChat
             className="h-full"
-            onSubmitMessage={async (message) => {
+            onSubmitMessage={async (_message) => {
               // clear the logs before starting the new research
               setState({ ...state, logs: [] });
               await new Promise((resolve) => setTimeout(resolve, 30));

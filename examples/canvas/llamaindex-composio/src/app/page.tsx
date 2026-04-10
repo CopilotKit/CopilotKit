@@ -1391,10 +1391,7 @@ export default function CopilotKitPage() {
         const start =
           cleanSheetId.indexOf("/spreadsheets/d/") + "/spreadsheets/d/".length;
         const end = cleanSheetId.indexOf("/", start);
-        cleanSheetId = cleanSheetId.substring(
-          start,
-          end === -1 ? undefined : end,
-        );
+        cleanSheetId = cleanSheetId.slice(start, end === -1 ? undefined : end);
       }
 
       setImportError("");
@@ -1445,10 +1442,7 @@ export default function CopilotKitPage() {
         const start =
           cleanSheetId.indexOf("/spreadsheets/d/") + "/spreadsheets/d/".length;
         const end = cleanSheetId.indexOf("/", start);
-        cleanSheetId = cleanSheetId.substring(
-          start,
-          end === -1 ? undefined : end,
-        );
+        cleanSheetId = cleanSheetId.slice(start, end === -1 ? undefined : end);
       }
 
       // Check for format compatibility if we have existing canvas data and not forcing import

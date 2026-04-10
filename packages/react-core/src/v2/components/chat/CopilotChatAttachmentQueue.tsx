@@ -161,7 +161,7 @@ function useLightbox() {
     } else {
       setOpen(true);
     }
-  }, []);
+  }, [vtName]);
 
   const closeLightbox = useCallback(() => {
     const thumb = thumbnailRef.current;
@@ -184,7 +184,7 @@ function useLightbox() {
     } else {
       setOpen(false);
     }
-  }, []);
+  }, [vtName]);
 
   return {
     thumbnailRef,
@@ -373,6 +373,7 @@ function DocumentLightboxContent({
         src={blobUrl}
         title={attachment.filename || "PDF preview"}
         className="cpk:w-[90vw] cpk:h-[90vh] cpk:max-w-[1000px] cpk:rounded-lg cpk:bg-white"
+        sandbox="allow-scripts"
       />
     );
   }
@@ -409,6 +410,7 @@ function DocumentLightboxContent({
             src={blobUrl}
             title={attachment.filename || "Text preview"}
             className="cpk:w-full cpk:h-[80vh] cpk:border-none"
+            sandbox="allow-scripts"
           />
         ) : null}
       </div>

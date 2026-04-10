@@ -36,7 +36,7 @@ export class TelemetryClient {
     packageName,
     packageVersion,
     telemetryDisabled,
-    telemetryBaseUrl,
+    telemetryBaseUrl: _telemetryBaseUrl,
     sampleRate,
   }: {
     packageName: string;

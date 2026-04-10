@@ -15,7 +15,6 @@ import type { Construct } from "constructs";
 import type { AppConfig } from "./utils/config-manager";
 import { AgentCoreRole } from "./utils/agentcore-role";
 import * as path from "path";
-import * as fs from "fs";
 import { execSync } from "child_process";
 
 export interface BackendStackProps extends cdk.NestedStackProps {

@@ -7,7 +7,7 @@ import { AIMessage } from "@langchain/core/messages"; /**
  */
 export async function escalationAgentNode(
   state: CustomerSupportState,
-  config: RunnableConfig,
+  _config: RunnableConfig,
 ): Promise<Partial<CustomerSupportState>> {
   console.log("Escalation Agent: Checking escalation criteria...");
 

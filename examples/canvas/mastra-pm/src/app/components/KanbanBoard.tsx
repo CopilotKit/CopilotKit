@@ -74,6 +74,7 @@ function TaskCard({ task, assignedUser }: TaskCardProps) {
       {assignedUser && (
         <div className="flex items-center gap-3 pt-3 border-t border-white/10">
           <div className="relative">
+            {/* oxlint-disable-next-line nextjs/no-img-element */}
             <img
               src={assignedUser.image}
               alt={assignedUser.name}

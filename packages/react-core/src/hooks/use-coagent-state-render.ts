@@ -72,13 +72,12 @@ export function useCoAgentStateRender<T = any>(
   const idRef = useRef<string>(randomId());
   const { setBannerError, addToast } = useToast();
 
+  // oxlint-disable react/exhaustive-deps -- intentional: only re-check when available agents list changes; setBannerError and action.name are stable
   useEffect(() => {
     if (
       availableAgents?.length &&
       !availableAgents.some((a) => a.name === action.name)
     ) {
-      const message = `(useCoAgentStateRender): Agent "${action.name}" not found. Make sure the agent exists and is properly configured.`;
-
       // Route to banner instead of toast for consistency
       const agentError = new CopilotKitAgentDiscoveryError({
         agentName: action.name,
@@ -90,6 +89,7 @@ export function useCoAgentStateRender<T = any>(
       setBannerError(agentError);
     }
   }, [availableAgents]);
+  // oxlint-enable react/exhaustive-deps
 
   const key = `${action.name}-${action.nodeName || "global"}`;
 
@@ -104,6 +104,7 @@ export function useCoAgentStateRender<T = any>(
     }
   }
 
+  // oxlint-disable react/exhaustive-deps -- intentional: only check duplicates when registry changes; addToast and action.name/nodeName are stable per render
   useEffect(() => {
     // Check for duplicates by comparing against all other actions
     const currentId = idRef.current;
@@ -142,7 +143,9 @@ export function useCoAgentStateRender<T = any>(
       });
     }
   }, [coAgentStateRenders]);
+  // oxlint-enable react/exhaustive-deps
 
+  // oxlint-disable react/exhaustive-deps -- intentional: complex expressions in deps array; idRef.current captured in cleanup is a known React ref pattern
   useEffect(() => {
     setCoAgentStateRender(idRef.current, action as any);
     if (chatComponentsCache.current !== null && action.render !== undefined) {
@@ -160,4 +163,5 @@ export function useCoAgentStateRender<T = any>(
     // dependencies set by the developer
     ...(dependencies || []),
   ]);
+  // oxlint-enable react/exhaustive-deps
 }

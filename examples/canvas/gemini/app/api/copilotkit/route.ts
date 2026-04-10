@@ -2,7 +2,6 @@ import {
   CopilotRuntime,
   copilotRuntimeNextJSAppRouterEndpoint,
   GoogleGenerativeAIAdapter,
-  LangGraphAgent,
 } from "@copilotkit/runtime";
 import type { NextRequest } from "next/server";
 

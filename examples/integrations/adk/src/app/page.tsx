@@ -5,9 +5,7 @@ import { WeatherCard } from "@/components/weather";
 import type { AgentState } from "@/lib/types";
 import {
   useCoAgent,
-  useDefaultTool,
   useFrontendTool,
-  useHumanInTheLoop,
   useRenderToolCall,
 } from "@copilotkit/react-core";
 import type { CopilotKitCSSProperties } from "@copilotkit/react-ui";
@@ -93,7 +91,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
       name: "get_weather",
       description: "Get the weather for a given location.",
       parameters: [{ name: "location", type: "string", required: true }],
-      render: ({ args, result }) => {
+      render: ({ args, result: _result }) => {
         return <WeatherCard location={args.location} themeColor={themeColor} />;
       },
     },

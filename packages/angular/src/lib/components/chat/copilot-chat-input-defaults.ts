@@ -32,6 +32,7 @@ import { CopilotChatToolsMenu } from "./copilot-chat-tools-menu";
  * }
  * ```
  */
+// oxlint-disable-next-line typescript/no-extraneous-class
 export class CopilotChatInputDefaults {
   static readonly TextArea = CopilotChatTextarea;
   static readonly AudioRecorder = CopilotChatAudioRecorder;

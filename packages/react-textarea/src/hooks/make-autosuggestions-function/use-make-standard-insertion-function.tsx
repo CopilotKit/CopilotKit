@@ -3,7 +3,6 @@ import { useCopilotContext } from "@copilotkit/react-core";
 import { useCallback } from "react";
 import type { Message } from "@copilotkit/runtime-client-gql";
 import {
-  CopilotRuntimeClient,
   Role,
   TextMessage,
   convertGqlOutputToMessages,
@@ -40,10 +39,10 @@ export function useMakeStandardInsertionOrEditingFunction(
   editingApiConfig: EditingApiConfig,
 ): Generator_InsertionOrEditingSuggestion {
   const runtimeClient: any = {
-    generateCopilotResponse: (...args: any[]) => {},
+    generateCopilotResponse: (..._args: any[]) => {},
   };
   const { getContextString, copilotApiConfig } = useCopilotContext();
-  const headers = copilotApiConfig.publicApiKey
+  const _headers = copilotApiConfig.publicApiKey
     ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
     : {};
 
@@ -138,6 +137,7 @@ export function useMakeStandardInsertionOrEditingFunction(
 
       return res;
     },
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: runtimeClient, copilotApiConfig.properties, runtimeClientResponseToStringStream are stable service references
     [insertionApiConfig, getContextString, contextCategories, textareaPurpose],
   );
 
@@ -198,6 +198,7 @@ export function useMakeStandardInsertionOrEditingFunction(
 
       return res;
     },
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: runtimeClient, copilotApiConfig.properties, runtimeClientResponseToStringStream are stable service references
     [editingApiConfig, getContextString, contextCategories, textareaPurpose],
   );
 

@@ -24,7 +24,6 @@ import React, {
 } from "react";
 import {
   CopilotChatConfigurationProvider,
-  CopilotKitInspector,
   CopilotKitProvider as CopilotKitV2Provider,
   useCopilotKit,
 } from "../../v2";
@@ -323,16 +322,16 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     };
   }, [
     publicApiKey,
+    chatApiEndpoint,
     props.headers,
     props.properties,
     props.transcribeAudioUrl,
     props.textToSpeechUrl,
     props.credentials,
-    props.cloudRestrictToTopic,
     props.guardrails_c,
   ]);
 
-  const headers = useMemo(() => {
+  const _headers = useMemo(() => {
     const authHeaders = Object.values(authStates || {}).reduce((acc, state) => {
       if (state.status === "authenticated" && state.authHeaders) {
         return {
@@ -434,7 +433,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     [setChatSuggestionConfiguration],
   );
 
-  const [availableAgents, setAvailableAgents] = useState<Agent[]>([]);
+  const [availableAgents, _setAvailableAgents] = useState<Agent[]>([]);
   const [coagentStates, setCoagentStates] = useState<
     Record<string, CoagentState>
   >({});
@@ -450,7 +449,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       const newValue =
         typeof value === "function" ? value(coagentStatesRef.current) : value;
       coagentStatesRef.current = newValue;
-      setCoagentStates((prev) => {
+      setCoagentStates((_prev) => {
         return newValue;
       });
     },
@@ -490,7 +489,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       }
       setInternalThreadId(value);
     },
-    [props.threadId],
+    [props.threadId, setInternalThreadId],
   );
 
   const [runId, setRunId] = useState<string | null>(null);

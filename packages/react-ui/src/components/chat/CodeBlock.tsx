@@ -4,11 +4,6 @@ import { Prism, Light } from "react-syntax-highlighter";
 import { useCopyToClipboard } from "../../hooks/use-copy-to-clipboard";
 import { CheckIcon, CopyIcon, DownloadIcon } from "./Icons";
 
-interface CodeActionButtonProps {
-  onClick: () => void;
-  children: React.ReactNode;
-}
-
 interface Props {
   language: string;
   value: string;

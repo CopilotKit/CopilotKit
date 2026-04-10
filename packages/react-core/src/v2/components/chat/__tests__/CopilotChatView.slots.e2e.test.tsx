@@ -2,9 +2,6 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { CopilotChatView } from "../CopilotChatView";
-import { CopilotChatMessageView } from "../CopilotChatMessageView";
-import { CopilotChatInput } from "../CopilotChatInput";
-import { CopilotChatSuggestionView } from "../CopilotChatSuggestionView";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 
@@ -274,7 +271,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
         );
 
         // Check if textbox is focused
-        const textarea = document.querySelector("textarea");
+        const _textarea = document.querySelector("textarea");
         // autoFocus behavior may vary
       });
     });

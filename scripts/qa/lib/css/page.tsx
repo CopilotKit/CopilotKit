@@ -4,7 +4,7 @@ import {
   useCopilotAction,
   useCopilotReadable,
 } from "@copilotkit/react-core";
-import { CopilotTextarea } from "@copilotkit/react-textarea";
+
 import type { CopilotKitCSSProperties } from "@copilotkit/react-ui";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
@@ -13,7 +13,7 @@ import "@copilotkit/react-textarea/styles.css";
 import "@copilotkit/react-ui/styles.css";
 function InsideHome() {
   const [message, setMessage] = useState("Hello World!");
-  const [text, setText] = useState("");
+  const [_text, _setText] = useState("");
   useCopilotReadable({
     description: "This is the current message",
     value: message,

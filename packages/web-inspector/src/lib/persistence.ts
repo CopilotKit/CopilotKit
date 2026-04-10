@@ -40,7 +40,7 @@ export function loadInspectorState(storageKey: string): PersistedState | null {
       .split("; ")
       .find((cookie) => cookie.startsWith(prefix));
     if (entry) {
-      const legacyRaw = entry.substring(prefix.length);
+      const legacyRaw = entry.slice(prefix.length);
       try {
         const parsed = JSON.parse(decodeURIComponent(legacyRaw));
         if (parsed && typeof parsed === "object") {

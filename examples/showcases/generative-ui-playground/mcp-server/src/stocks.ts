@@ -236,8 +236,8 @@ export function createPortfolio(params: {
   const {
     name = "My Portfolio",
     initialBalance,
-    riskTolerance = "moderate",
-    focus,
+    riskTolerance: _riskTolerance = "moderate",
+    focus: _focus,
   } = params;
 
   const id = generateId("portfolio");

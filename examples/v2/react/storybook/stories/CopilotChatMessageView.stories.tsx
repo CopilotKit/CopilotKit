@@ -8,8 +8,6 @@ import {
 import { z } from "zod";
 import { ToolCallStatus } from "@copilotkit/core";
 
-const STORYBOOK_THREAD_ID = "storybook-thread";
-
 const meta = {
   title: "UI/CopilotChatMessageView",
   parameters: {

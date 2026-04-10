@@ -11,7 +11,7 @@ import {
   LangGraphAgent as AGUILangGraphAgent,
   LangGraphHttpAgent,
 } from "@ag-ui/langgraph";
-import type { LangGraphAgentConfig, State } from "@ag-ui/langgraph";
+import type { State } from "@ag-ui/langgraph";
 import type { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
 import type { ThreadState } from "@langchain/langgraph-sdk";
 
@@ -35,10 +35,6 @@ import { CustomEventNames } from "./consts";
 export { CustomEventNames };
 
 export class LangGraphAgent extends AGUILangGraphAgent {
-  constructor(config: LangGraphAgentConfig) {
-    super(config);
-  }
-
   dispatchEvent(event: ProcessedEvents) {
     if (event.type === EventType.CUSTOM) {
       // const event = processedEvent as unknown as CustomEvent;

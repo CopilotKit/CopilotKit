@@ -124,6 +124,7 @@ export class ArgsParser {
       this.depth--;
     };
 
+    // oxlint-disable-next-line unicorn/prefer-add-event-listener
     this.parser.onerror = (err: Error) => {
       console.warn(
         "[OpenGenerativeUI] JSON parse error in streaming args, resuming:",

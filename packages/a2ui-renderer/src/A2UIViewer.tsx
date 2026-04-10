@@ -9,7 +9,6 @@ import {
 } from "./react-renderer/core/A2UIProvider";
 import { A2UIRenderer } from "./react-renderer/core/A2UIRenderer";
 import { initializeDefaultCatalog } from "./react-renderer/registry/defaultCatalog";
-import { litTheme } from "./react-renderer/theme/litTheme";
 import { injectStyles } from "./react-renderer/styles";
 import { theme as viewerTheme } from "./theme/viewer-theme.js";
 

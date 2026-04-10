@@ -1,4 +1,10 @@
-import type { AbstractAgent, Context, State } from "@ag-ui/client";
+import type {
+  AbstractAgent,
+  Context,
+  State,
+  Tool,
+  RunAgentResult,
+} from "@ag-ui/client";
 import type {
   FrontendTool,
   SuggestionsConfig,
@@ -192,7 +198,7 @@ export interface CopilotKitCoreFriendsAccess {
   readonly context: Readonly<Record<string, Context>>;
 
   // Internal methods
-  buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[];
+  buildFrontendTools(agentId?: string): Tool[];
   getAgent(id: string): AbstractAgent | undefined;
 
   // References to delegate subsystems
@@ -537,7 +543,7 @@ export class CopilotKitCore {
    */
   async connectAgent(
     params: CopilotKitCoreConnectAgentParams,
-  ): Promise<import("@ag-ui/client").RunAgentResult> {
+  ): Promise<RunAgentResult> {
     return this.runHandler.connectAgent(params);
   }
 
@@ -548,7 +554,7 @@ export class CopilotKitCore {
 
   async runAgent(
     params: CopilotKitCoreRunAgentParams,
-  ): Promise<import("@ag-ui/client").RunAgentResult> {
+  ): Promise<RunAgentResult> {
     return this.runHandler.runAgent(params);
   }
 
@@ -595,7 +601,7 @@ export class CopilotKitCore {
   /**
    * Internal method used by RunHandler to build frontend tools
    */
-  private buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[] {
+  private buildFrontendTools(agentId?: string): Tool[] {
     return this.runHandler.buildFrontendTools(agentId);
   }
 

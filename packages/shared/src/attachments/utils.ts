@@ -38,7 +38,7 @@ export function exceedsMaxSize(
 export function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.addEventListener("load", (e) => {
       const result = e.target?.result as string;
       const base64 = result?.split(",")[1];
       if (base64) {
@@ -46,8 +46,8 @@ export function readFileAsBase64(file: File): Promise<string> {
       } else {
         reject(new Error("Failed to read file as base64"));
       }
-    };
-    reader.onerror = reject;
+    });
+    reader.addEventListener("error", reject);
     reader.readAsDataURL(file);
   });
 }
@@ -86,11 +86,11 @@ export function generateVideoThumbnail(
     video.muted = true;
     video.playsInline = true;
 
-    video.onloadeddata = () => {
+    video.addEventListener("loadeddata", () => {
       video.currentTime = 0.1;
-    };
+    });
 
-    video.onseeked = () => {
+    video.addEventListener("seeked", () => {
       clearTimeout(timeout);
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -105,15 +105,15 @@ export function generateVideoThumbnail(
         );
         cleanup(undefined);
       }
-    };
+    });
 
-    video.onerror = () => {
+    video.addEventListener("error", () => {
       clearTimeout(timeout);
       console.warn(
         `[CopilotKit] generateVideoThumbnail: video element error for file "${file.name}"`,
       );
       cleanup(undefined);
-    };
+    });
 
     video.src = url;
   });

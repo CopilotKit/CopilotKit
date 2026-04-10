@@ -8,7 +8,7 @@ import type { CustomerSupportState } from "../types/state";
  */
 export async function customerLookupAgentNode(
   state: CustomerSupportState,
-  config: RunnableConfig,
+  _config: RunnableConfig,
 ): Promise<Partial<CustomerSupportState>> {
   console.log("Customer Lookup Agent: Searching for customer...");
 

@@ -127,6 +127,7 @@ describe("tunnel", () => {
 
     process.once("mockExit", () => {
       try {
+        // oxlint-disable-next-line no-unused-expressions
         expect(mockTunnel.close).to.have.been.called;
         done();
       } catch (error) {

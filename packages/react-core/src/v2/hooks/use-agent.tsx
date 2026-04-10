@@ -151,10 +151,12 @@ export function useAgent({
 
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
+  // oxlint-disable react/exhaustive-deps -- intentional: JSON.stringify(updates) used to compare array contents; adding updates directly would trigger on every render with new array references
   const updateFlags = useMemo(
     () => updates ?? ALL_UPDATES,
     [JSON.stringify(updates)],
   );
+  // oxlint-enable react/exhaustive-deps
 
   // Cache provisional agents to avoid creating new references on every render
   // while the runtime is still connecting. A new reference would cascade into
@@ -264,6 +266,7 @@ export function useAgent({
           : "No agents registered.") +
         " Verify your runtime /info and/or agents__unsafe_dev_only.",
     );
+    // oxlint-disable react/exhaustive-deps -- intentional: JSON.stringify(copilotkit.headers) used to compare headers by value; eslint-disable kept for eslint compatibility
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     agentId,
@@ -274,6 +277,7 @@ export function useAgent({
     copilotkit.runtimeTransport,
     JSON.stringify(copilotkit.headers),
   ]);
+  // oxlint-enable react/exhaustive-deps
 
   useEffect(() => {
     if (updateFlags.length === 0) return;

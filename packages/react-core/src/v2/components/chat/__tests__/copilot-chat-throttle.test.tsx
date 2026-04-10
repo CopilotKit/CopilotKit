@@ -4,9 +4,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { CopilotChat } from "../CopilotChat";
 import { useAgent } from "../../../hooks/use-agent";
 import { useCopilotKit } from "../../../providers/CopilotKitProvider";
-import { useCopilotChatConfiguration } from "../../../providers/CopilotChatConfigurationProvider";
 import { MockStepwiseAgent } from "../../../__tests__/utils/test-helpers";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import type { CopilotSidebarProps } from "../CopilotSidebar";
+import type { CopilotPopupProps } from "../CopilotPopup";
 
 // Mock useAgent to inspect the props it receives
 vi.mock("../../../hooks/use-agent", () => ({
@@ -26,9 +27,11 @@ vi.mock(
   "../../../providers/CopilotChatConfigurationProvider",
   async (importOriginal) => {
     const actual =
+      // oxlint-disable typescript/consistent-type-imports
       await importOriginal<
         typeof import("../../../providers/CopilotChatConfigurationProvider")
       >();
+    // oxlint-enable typescript/consistent-type-imports
     return {
       ...actual,
       useCopilotChatConfiguration: vi.fn(() => undefined),
@@ -123,14 +126,14 @@ describe("CopilotChat throttleMs prop", () => {
 describe("throttleMs type inheritance", () => {
   it("CopilotSidebarProps includes throttleMs via CopilotChatProps", () => {
     // Type-level assertion — if this compiles, the type includes throttleMs.
-    const sidebarProps: import("../CopilotSidebar").CopilotSidebarProps = {
+    const sidebarProps: CopilotSidebarProps = {
       throttleMs: 1000,
     };
     expect(sidebarProps.throttleMs).toBe(1000);
   });
 
   it("CopilotPopupProps includes throttleMs via CopilotChatProps", () => {
-    const popupProps: import("../CopilotPopup").CopilotPopupProps = {
+    const popupProps: CopilotPopupProps = {
       throttleMs: 2000,
     };
     expect(popupProps.throttleMs).toBe(2000);

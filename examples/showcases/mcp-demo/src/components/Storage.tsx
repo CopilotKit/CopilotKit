@@ -87,7 +87,7 @@ const nodeTypes = {
   custom: CustomNode,
 };
 
-function VisualRepresentation() {
+function _VisualRepresentation() {
   const { todos } = useTodo();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);

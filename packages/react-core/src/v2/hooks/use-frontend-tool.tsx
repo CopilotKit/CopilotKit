@@ -42,5 +42,6 @@ export function useFrontendTool<
     // Depend on stable keys by default and allow callers to opt into
     // additional dependencies for dynamic tool configuration.
     // tool.available is included so toggling availability re-registers the tool.
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: spreading extraDeps is a known pattern; tool.parameters/agentId/render intentionally excluded
   }, [tool.name, tool.available, copilotkit, extraDeps.length, ...extraDeps]);
 }

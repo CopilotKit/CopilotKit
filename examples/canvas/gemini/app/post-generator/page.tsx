@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { TextMessage, Role } from "@copilotkit/runtime-client-gql";
@@ -13,11 +12,7 @@ import {
   Twitter,
   TrendingUp,
   Send,
-  User,
-  ExternalLink,
-  Globe,
   Brain,
-  Zap,
   Star,
   ChevronDown,
   Check,
@@ -29,9 +24,8 @@ import {
   useCopilotChat,
 } from "@copilotkit/react-core";
 import { ToolLogs } from "@/components/ui/tool-logs";
-import { XPost, XPostPreview, XPostCompact } from "@/components/ui/x-post";
+import { XPostPreview, XPostCompact } from "@/components/ui/x-post";
 import {
-  LinkedInPost,
   LinkedInPostPreview,
   LinkedInPostCompact,
 } from "@/components/ui/linkedin-post";
@@ -103,7 +97,7 @@ interface PostInterface {
 export default function PostGenerator() {
   const router = useRouter();
   const { updateLayout } = useLayout();
-  const [selectedAgent, setSelectedAgent] = useState(agents[0]);
+  const [selectedAgent, _setSelectedAgent] = useState(agents[0]);
   const [showColumns, setShowColumns] = useState(false);
   const [posts, setPosts] = useState<PostInterface>({
     tweet: { title: "", content: "" },

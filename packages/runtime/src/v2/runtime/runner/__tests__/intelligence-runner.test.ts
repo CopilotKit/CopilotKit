@@ -38,6 +38,7 @@ vi.mock("phoenix", () => ({
   Channel: MockChannel,
 }));
 
+// oxlint-disable-next-line typescript/no-extraneous-class
 vi.mock("ws", () => ({ default: class MockWebSocket {} }));
 
 class MockAgent extends AbstractAgent {
@@ -151,11 +152,13 @@ function createRunInput(
   };
 }
 
+// oxlint-disable typescript/consistent-type-imports
 async function collectEvents(
   observable: ReturnType<
     import("../intelligence").IntelligenceAgentRunner["run"]
   >,
 ) {
+  // oxlint-enable typescript/consistent-type-imports
   return firstValueFrom(observable.pipe(toArray()));
 }
 

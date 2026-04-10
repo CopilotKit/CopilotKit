@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { z } from "zod";
 import { BasicAgent, defineTool } from "../index";
-import type { ToolDefinition } from "../index";
 import { EventType } from "@ag-ui/client";
 import type {
   BaseEvent,

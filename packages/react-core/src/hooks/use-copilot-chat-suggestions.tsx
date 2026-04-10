@@ -58,13 +58,7 @@
  * The hook registers the configuration with the chat context upon component mount and
  * removes it on unmount, ensuring a clean and efficient lifecycle management.
  */
-import {
-  useConfigureSuggestions,
-  useCopilotChatConfiguration,
-  useCopilotKit,
-  useSuggestions,
-} from "../v2";
-import { useEffect } from "react";
+import { useConfigureSuggestions, useCopilotChatConfiguration } from "../v2";
 import type { StaticSuggestionsConfig, Suggestion } from "@copilotkit/core";
 
 type StaticSuggestionInput = Omit<Suggestion, "isLoading"> &

@@ -6,7 +6,6 @@ import { MoonCard } from "@/components/moon";
 import type { AgentState } from "@/lib/types";
 import {
   useCoAgent,
-  useDefaultTool,
   useFrontendTool,
   useHumanInTheLoop,
   useRenderToolCall,
@@ -97,7 +96,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
       name: "get_weather",
       description: "Get the weather for a given location.",
       parameters: [{ name: "location", type: "string", required: true }],
-      render: ({ args, result }) => {
+      render: ({ args, result: _result }) => {
         return <WeatherCard location={args.location} themeColor={themeColor} />;
       },
     },

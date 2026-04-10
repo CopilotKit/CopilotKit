@@ -744,6 +744,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       sendNotification,
       sendResponse,
       sendErrorResponse,
+      copilotkit,
     ]);
 
     // Effect 2: Update iframe size when it changes

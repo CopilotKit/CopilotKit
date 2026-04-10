@@ -1,7 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { CopilotKitCore } from "../core";
 import type { FrontendTool } from "../types";
-import { MockAgent, createAssistantMessage } from "./test-utils";
 
 describe("CopilotKitCore - Agent Constraints", () => {
   it("should add tool with agentId", () => {

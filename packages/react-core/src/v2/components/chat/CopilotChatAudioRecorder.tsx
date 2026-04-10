@@ -11,6 +11,17 @@ import { twMerge } from "tailwind-merge";
 /** Finite-state machine for every recorder implementation */
 export type AudioRecorderState = "idle" | "recording" | "processing";
 
+// Calculate RMS amplitude from time-domain data
+function calculateAmplitude(dataArray: Uint8Array): number {
+  let sum = 0;
+  for (let i = 0; i < dataArray.length; i++) {
+    // Normalize to -1 to 1 range (128 is center/silence)
+    const sample = (dataArray[i] ?? 128) / 128 - 1;
+    sum += sample * sample;
+  }
+  return Math.sqrt(sum / dataArray.length);
+}
+
 /** Error subclass so callers can `instanceof`-guard recorder failures */
 export class AudioRecorderError extends Error {
   constructor(message: string) {
@@ -164,26 +175,15 @@ export const CopilotChatAudioRecorder = forwardRef<
         resolve(audioBlob);
       };
 
-      mediaRecorder.onerror = () => {
+      mediaRecorder.addEventListener("error", () => {
         cleanup();
         setRecorderState("idle");
         reject(new AudioRecorderError("Recording failed"));
-      };
+      });
 
       mediaRecorder.stop();
     });
   }, [recorderState, cleanup]);
-
-  // Calculate RMS amplitude from time-domain data
-  const calculateAmplitude = (dataArray: Uint8Array): number => {
-    let sum = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-      // Normalize to -1 to 1 range (128 is center/silence)
-      const sample = (dataArray[i] ?? 128) / 128 - 1;
-      sum += sample * sample;
-    }
-    return Math.sqrt(sum / dataArray.length);
-  };
 
   // Canvas rendering with animation
   useEffect(() => {
@@ -220,7 +220,10 @@ export const CopilotChatAudioRecorder = forwardRef<
       if (analyserRef.current && recorderState === "recording") {
         // Pre-fill history with zeros on first frame so line is visible immediately
         if (amplitudeHistoryRef.current.length === 0) {
-          amplitudeHistoryRef.current = new Array(maxBars).fill(0);
+          amplitudeHistoryRef.current = Array.from(
+            { length: maxBars },
+            () => 0,
+          );
         }
 
         // Fade in the waveform smoothly

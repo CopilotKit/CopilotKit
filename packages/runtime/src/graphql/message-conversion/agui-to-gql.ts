@@ -232,7 +232,7 @@ export function aguiToolCallToGQLActionExecution(
     // Expected case: arguments is a JSON string
     try {
       argumentsObj = JSON.parse(toolCall.function.arguments);
-    } catch (error) {
+    } catch {
       console.warn(
         `[CopilotKit] Failed to parse tool arguments, falling back to empty object`,
       );

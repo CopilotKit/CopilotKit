@@ -28,7 +28,11 @@ export default function CopilotKitPage() {
   // 🪁 Interrupts: Handle human-in-the-loop confirmations from the agent
   useInterrupt({
     render: ({ event, resolve }) => {
-      const { message, proverb, action } = event.value as {
+      const {
+        message,
+        proverb: _proverb,
+        action: _action,
+      } = event.value as {
         message: string;
         proverb: string;
         action: string;

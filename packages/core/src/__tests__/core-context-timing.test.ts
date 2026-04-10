@@ -15,7 +15,7 @@
  * For an integration-level test that exercises real React rendering, see
  * packages/v2/react/src/hooks/__tests__/use-agent-context-timing.e2e.test.tsx
  */
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { CopilotKitCore } from "../core";
 import {
   MockAgent,

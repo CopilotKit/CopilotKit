@@ -358,7 +358,7 @@ describe("CopilotChatSuggestionView Slot System E2E Tests", () => {
       const suggestions = createSuggestions();
       const onSelectSuggestion = vi.fn();
 
-      const { container } = render(
+      const { container: _container } = render(
         <TestWrapper>
           <CopilotChatSuggestionView
             suggestions={suggestions}

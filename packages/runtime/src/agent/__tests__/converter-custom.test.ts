@@ -9,7 +9,6 @@ import {
   expectLifecycleWrapped,
   expectEventSequence,
   eventField,
-  mockCustomStream,
 } from "./agent-test-helpers";
 
 describe("Custom Converter (passthrough)", () => {

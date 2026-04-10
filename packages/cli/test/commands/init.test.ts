@@ -1,20 +1,8 @@
-import { describe, test, expect, beforeEach, jest } from "@jest/globals";
+import { describe, test, expect, jest } from "@jest/globals";
 import {
   questions,
   getQuestionsForBranch,
-  Config as OptionsConfig,
   ConfigSchema,
-  ConfigFlags,
-  YES_NO,
-  MODES,
-  CREW_TYPES,
-  LANGGRAPH_AGENTS,
-  DEPLOYMENT_CHOICES,
-  scaffoldEnv,
-  scaffoldAgent,
-  scaffoldShadCN,
-  addCrewInputs,
-  sanitizers,
 } from "../../src/lib/init/index.js";
 
 describe("Init Command - Comprehensive Tests", () => {

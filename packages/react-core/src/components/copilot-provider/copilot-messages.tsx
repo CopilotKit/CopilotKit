@@ -14,7 +14,6 @@ import {
 } from "react";
 import { CopilotMessagesContext } from "../../context/copilot-messages-context";
 import type { Message, GraphQLError } from "@copilotkit/runtime-client-gql";
-import { loadMessagesFromJsonRepresentation } from "@copilotkit/runtime-client-gql";
 import { useCopilotContext } from "../../context/copilot-context";
 import { useToast } from "../toast/toast-provider";
 import { shouldShowDevConsole } from "../../utils/dev-console";
@@ -27,54 +26,6 @@ import {
   CopilotKitErrorCode,
 } from "@copilotkit/shared";
 import type { Suggestion } from "@copilotkit/core";
-
-// Helper to determine if error should show as banner based on visibility and legacy patterns
-function shouldShowAsBanner(gqlError: GraphQLError): boolean {
-  const extensions = gqlError.extensions;
-  if (!extensions) return false;
-
-  // Priority 1: Check error code for discovery errors (these should always be banners)
-  const code = extensions.code as CopilotKitErrorCode;
-  if (
-    code === CopilotKitErrorCode.AGENT_NOT_FOUND ||
-    code === CopilotKitErrorCode.API_NOT_FOUND ||
-    code === CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND ||
-    code === CopilotKitErrorCode.CONFIGURATION_ERROR ||
-    code === CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR ||
-    code === CopilotKitErrorCode.UPGRADE_REQUIRED_ERROR
-  ) {
-    return true;
-  }
-
-  // Priority 2: Check banner visibility
-  if (extensions.visibility === ErrorVisibility.BANNER) {
-    return true;
-  }
-
-  // Priority 3: Check for critical errors that should be banners regardless of formal classification
-  const errorMessage = gqlError.message.toLowerCase();
-  if (
-    errorMessage.includes("api key") ||
-    errorMessage.includes("401") ||
-    errorMessage.includes("unauthorized") ||
-    errorMessage.includes("authentication") ||
-    errorMessage.includes("incorrect api key")
-  ) {
-    return true;
-  }
-
-  // Priority 4: Legacy stack trace detection for discovery errors
-  const originalError = extensions.originalError as any;
-  if (originalError?.stack) {
-    return (
-      originalError.stack.includes("CopilotApiDiscoveryError") ||
-      originalError.stack.includes("CopilotKitRemoteEndpointDiscoveryError") ||
-      originalError.stack.includes("CopilotKitAgentDiscoveryError")
-    );
-  }
-
-  return false;
-}
 
 /**
  * MessagesTap is used to mitigate performance issues when we only need
@@ -122,14 +73,19 @@ export function MessagesTapProvider({
 
 export function CopilotMessages({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const lastLoadedThreadId = useRef<string>(undefined!);
-  const lastLoadedAgentName = useRef<string>(undefined!);
-  const lastLoadedMessages = useRef<string>(undefined!);
+  const _lastLoadedThreadId = useRef<string>(undefined!);
+  const _lastLoadedAgentName = useRef<string>(undefined!);
+  const _lastLoadedMessages = useRef<string>(undefined!);
 
   const { updateTapMessages } = useMessagesTap();
 
-  const { threadId, agentSession, showDevConsole, onError, copilotApiConfig } =
-    useCopilotContext();
+  const {
+    threadId: _threadId,
+    agentSession: _agentSession,
+    showDevConsole,
+    onError,
+    copilotApiConfig,
+  } = useCopilotContext();
   const { setBannerError } = useToast();
 
   // Helper function to trace UI errors (similar to useCopilotRuntimeClient)
@@ -210,7 +166,7 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
     return null;
   };
 
-  const handleGraphQLErrors = useCallback(
+  const _handleGraphQLErrors = useCallback(
     (error: any) => {
       if (error.graphQLErrors?.length) {
         const graphQLErrors = error.graphQLErrors as GraphQLError[];

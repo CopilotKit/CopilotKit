@@ -108,6 +108,7 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
 
     el.style.top = `${top}px`;
     el.style.left = `${left}px`;
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional: editor.selection is accessed via DOM window.getSelection(); isShown already captures the relevant state
   }, [isShown]);
 
   useEffect(() => {
@@ -187,7 +188,7 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
   );
 };
 
-function editorState(editor: Editor, selection: Location): EditingEditorState {
+function editorState(editor: Editor, _selection: Location): EditingEditorState {
   const textAroundCursor = getTextAroundSelection(editor);
   if (textAroundCursor) {
     return textAroundCursor;

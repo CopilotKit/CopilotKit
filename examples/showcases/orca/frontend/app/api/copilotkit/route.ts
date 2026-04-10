@@ -1,4 +1,3 @@
-import { prData } from "@/lib/data";
 import {
   CopilotRuntime,
   OpenAIAdapter,

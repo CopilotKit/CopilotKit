@@ -4,7 +4,7 @@ import type {
 } from "@copilotkit/runtime-client-gql";
 import { CopilotRuntimeClient } from "@copilotkit/runtime-client-gql";
 import { useToast } from "../components/toast/toast-provider";
-import { useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import type {
   CopilotErrorHandler,
   CopilotErrorEvent,
@@ -17,7 +17,6 @@ import {
   CopilotKitError,
   CopilotKitErrorCode,
 } from "@copilotkit/shared";
-import { shouldShowDevConsole } from "../utils/dev-console";
 
 export interface CopilotRuntimeClientHookOptions extends CopilotRuntimeClientOptions {
   showDevConsole?: boolean;
@@ -28,7 +27,11 @@ export const useCopilotRuntimeClient = (
   options: CopilotRuntimeClientHookOptions,
 ) => {
   const { setBannerError } = useToast();
-  const { showDevConsole, onError, ...runtimeOptions } = options;
+  const {
+    showDevConsole: _showDevConsole,
+    onError,
+    ...runtimeOptions
+  } = options;
 
   // Deduplication state for structured errors
   const lastStructuredErrorRef = useRef<{
@@ -37,35 +40,40 @@ export const useCopilotRuntimeClient = (
   } | null>(null);
 
   // Helper function to trace UI errors
-  const traceUIError = async (error: CopilotKitError, originalError?: any) => {
-    try {
-      const errorEvent: CopilotErrorEvent = {
-        type: "error",
-        timestamp: Date.now(),
-        context: {
-          source: "ui",
-          request: {
-            operation: "runtimeClient",
-            url: runtimeOptions.url,
-            startTime: Date.now(),
+  const traceUIError = useCallback(
+    async (error: CopilotKitError, originalError?: any) => {
+      try {
+        const errorEvent: CopilotErrorEvent = {
+          type: "error",
+          timestamp: Date.now(),
+          context: {
+            source: "ui",
+            request: {
+              operation: "runtimeClient",
+              url: runtimeOptions.url,
+              startTime: Date.now(),
+            },
+            technical: {
+              environment: "browser",
+              userAgent:
+                typeof navigator !== "undefined"
+                  ? navigator.userAgent
+                  : undefined,
+              stackTrace:
+                originalError instanceof Error
+                  ? originalError.stack
+                  : undefined,
+            },
           },
-          technical: {
-            environment: "browser",
-            userAgent:
-              typeof navigator !== "undefined"
-                ? navigator.userAgent
-                : undefined,
-            stackTrace:
-              originalError instanceof Error ? originalError.stack : undefined,
-          },
-        },
-        error,
-      };
-      await onError(errorEvent);
-    } catch (error) {
-      console.error("Error in onError handler:", error);
-    }
-  };
+          error,
+        };
+        await onError(errorEvent);
+      } catch (error) {
+        console.error("Error in onError handler:", error);
+      }
+    },
+    [onError, runtimeOptions.url],
+  );
 
   const runtimeClient = useMemo(() => {
     return new CopilotRuntimeClient({
@@ -144,7 +152,7 @@ export const useCopilotRuntimeClient = (
         setBannerError(warningError);
       },
     });
-  }, [runtimeOptions, setBannerError, onError]);
+  }, [runtimeOptions, setBannerError, traceUIError]);
 
   return runtimeClient;
 };
