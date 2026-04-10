@@ -466,6 +466,18 @@ export class CopilotKitCore {
         `CopilotKitCore.setDefaultThrottleMs: value must be a non-negative finite number or undefined, ` +
           `got ${value}. Keeping current value (${this._defaultThrottleMs}).`,
       );
+      this.emitError({
+        error: new Error(
+          `setDefaultThrottleMs: invalid value (${value}), keeping current value (${this._defaultThrottleMs})`,
+        ),
+        code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+        context: { value, currentValue: this._defaultThrottleMs },
+      }).catch((emitErr: unknown) => {
+        console.error(
+          `CopilotKitCore.setDefaultThrottleMs: emitError itself failed:`,
+          emitErr,
+        );
+      });
       return;
     }
     this._defaultThrottleMs = value;
@@ -672,8 +684,11 @@ export class CopilotKitCore {
         ),
         code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
         context: { agentId: agent.agentId, source, value: resolved },
-      }).catch(() => {
-        // Best-effort — emitError failure is already logged by emitError itself.
+      }).catch((emitErr: unknown) => {
+        console.error(
+          `CopilotKitCore.subscribeToAgent[${agent.agentId || "(unknown agent)"}]: emitError itself failed:`,
+          emitErr,
+        );
       });
     } else {
       effectiveMs = resolved;
@@ -691,10 +706,11 @@ export class CopilotKitCore {
     // safe way to produce a partial mutation from a failed callback. Errors
     // are logged AND emitted through the structured `emitError` channel so
     // monitoring systems can observe subscriber failures.
-    const safeCall = (
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const safeCall = <F extends (...args: any[]) => any>(
       label: string,
-      fn: (...args: any[]) => any,
-      ...args: any[]
+      fn: F,
+      ...args: Parameters<F>
     ): any => {
       const reportError = (err: unknown, verb: string) => {
         const message = `CopilotKitCore.subscribeToAgent[${agentLabel}]: ${label} callback ${verb}:`;
@@ -738,11 +754,21 @@ export class CopilotKitCore {
           (guarded as any)[key] = (...args: any[]) =>
             safeCall(key, value as (...a: any[]) => any, ...args);
         } else {
-          console.warn(
+          const message =
             `CopilotKitCore.subscribeToAgent[${agentLabel}]: callback "${key}" is not supported ` +
-              `and was dropped. Supported callbacks: ${Array.from(ALLOWED_KEYS).join(", ")}. ` +
-              `Use agent.subscribe() directly for event handlers and per-item notifications.`,
-          );
+            `and was dropped. Supported callbacks: ${Array.from(ALLOWED_KEYS).join(", ")}. ` +
+            `Use agent.subscribe() directly for event handlers and per-item notifications.`;
+          console.warn(message);
+          this.emitError({
+            error: new Error(message),
+            code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+            context: { agentId: agent.agentId, droppedCallback: key },
+          }).catch((emitErr: unknown) => {
+            console.error(
+              `CopilotKitCore.subscribeToAgent[${agentLabel}]: emitError itself failed:`,
+              emitErr,
+            );
+          });
         }
       }
       return guarded;
@@ -776,8 +802,10 @@ export class CopilotKitCore {
         safeCall("onMessagesChanged", subscriber.onMessagesChanged, params);
       }
       // Re-check `active` — the onMessagesChanged callback above might have
-      // called unsubscribe(), which sets active=false to prevent the sibling
-      // onStateChanged from firing after teardown.
+      // called unsubscribe() synchronously, which sets active=false to prevent
+      // the sibling onStateChanged from firing after teardown. Note: if
+      // onMessagesChanged is async and calls unsubscribe() after an await,
+      // this check will not prevent onStateChanged from firing on this flush.
       if (active && subscriber.onStateChanged && latestStateParams) {
         const params = latestStateParams;
         latestStateParams = null;

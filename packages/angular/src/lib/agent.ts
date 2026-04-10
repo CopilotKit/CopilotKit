@@ -111,7 +111,9 @@ export class CopilotkitAgentFactory {
           (runtimeConnectionStatus ===
             CopilotKitCoreRuntimeConnectionStatus.Disconnected ||
             runtimeConnectionStatus ===
-              CopilotKitCoreRuntimeConnectionStatus.Connecting)
+              CopilotKitCoreRuntimeConnectionStatus.Connecting ||
+            runtimeConnectionStatus ===
+              CopilotKitCoreRuntimeConnectionStatus.Error)
         ) {
           const provisional = new ProxiedCopilotRuntimeAgent({
             runtimeUrl,
