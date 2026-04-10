@@ -215,7 +215,7 @@ const requireChangesetsCliPkgJson = (cwd: string) => {
       err.code === "MODULE_NOT_FOUND"
     ) {
       throw new Error(
-        `Have you forgotten to install \`@changesets/cli\` in "${cwd}"?`,
+        `Have you forgotten to install \`@changesets/cli\` in "${cwd}"?`, { cause: err },
       );
     }
     throw err;
