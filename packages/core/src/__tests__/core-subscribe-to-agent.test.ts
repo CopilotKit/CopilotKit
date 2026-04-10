@@ -6,7 +6,11 @@ import {
   type BaseEvent,
 } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
-import { CopilotKitCore, type SubscribeToAgentSubscriber } from "../core";
+import {
+  CopilotKitCore,
+  CopilotKitCoreErrorCode,
+  type SubscribeToAgentSubscriber,
+} from "../core";
 
 // ---------------------------------------------------------------------------
 // Minimal mock agent that extends AbstractAgent for subscribe() support
@@ -867,5 +871,104 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     );
 
     errorSpy.mockRestore();
+  });
+
+  // -------------------------------------------------------------------------
+  // emitError / onError integration
+  // -------------------------------------------------------------------------
+
+  it("subscriber callback failure emits SUBSCRIBER_CALLBACK_FAILED through onError", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onError = vi.fn();
+    core.subscribe({ onError });
+
+    const onMessages = vi.fn().mockImplementation(() => {
+      throw new Error("boom");
+    });
+
+    core.subscribeToAgent(agent, { onMessagesChanged: onMessages });
+
+    agent.messages = [userMsg("1", "a")];
+    notifyMessagesChanged(agent);
+
+    // emitError is async — flush microtasks
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.any(Error),
+        code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+        context: expect.objectContaining({
+          agentId: "test-agent",
+          callback: "onMessagesChanged",
+        }),
+      }),
+    );
+
+    errorSpy.mockRestore();
+  });
+
+  // -------------------------------------------------------------------------
+  // Unsubscribe + throw combination
+  // -------------------------------------------------------------------------
+
+  it("unsubscribe + throw in onMessagesChanged still prevents onStateChanged from firing", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    let subHandle: { unsubscribe: () => void };
+    const onMessages = vi.fn().mockImplementation(() => {
+      subHandle.unsubscribe();
+      throw new Error("throw after unsubscribe");
+    });
+    const onState = vi.fn();
+
+    subHandle = core.subscribeToAgent(
+      agent,
+      { onMessagesChanged: onMessages, onStateChanged: onState },
+      { throttleMs: 100 },
+    );
+
+    // Leading edge — onMessagesChanged unsubscribes then throws
+    agent.messages = [userMsg("1", "a")];
+    agent.state = { x: 1 };
+    notifyMessagesChanged(agent);
+    notifyStateChanged(agent);
+
+    expect(onMessages).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("onMessagesChanged callback threw"),
+      expect.any(Error),
+    );
+
+    // Trailing edge — onStateChanged should NOT fire (unsubscribed)
+    vi.advanceTimersByTime(100);
+    expect(onState).toHaveBeenCalledTimes(0);
+
+    errorSpy.mockRestore();
+  });
+
+  // -------------------------------------------------------------------------
+  // guardAll drops unsupported keys with warning
+  // -------------------------------------------------------------------------
+
+  it("unsupported callback keys are dropped with console.warn", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const onEvent = vi.fn();
+
+    // Pass an unsupported key via cast (simulating JS consumer)
+    core.subscribeToAgent(agent, {
+      onMessagesChanged: vi.fn(),
+      onEvent,
+    } as any);
+
+    // Trigger the event through the agent's subscriber
+    agent.subscribers.forEach((s: any) => s.onEvent?.({ type: "test" }));
+
+    // onEvent should never have been called — it was stripped
+    expect(onEvent).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('callback "onEvent" is not supported'),
+    );
+
+    warnSpy.mockRestore();
   });
 });

@@ -27,13 +27,14 @@ export interface UseAgentProps {
   updates?: UseAgentUpdate[];
   /**
    * Throttle interval (in milliseconds) for re-renders triggered by
-   * `OnMessagesChanged` and `OnStateChanged` notifications. Useful to reduce
+   * `onMessagesChanged` and `onStateChanged` notifications. Useful to reduce
    * re-render frequency during high-frequency streaming updates.
    *
    * Uses a leading+trailing pattern with a shared window — first update
    * fires immediately, subsequent updates within the window are coalesced,
    * and a trailing timer ensures the most recent update fires after the
-   * window expires. See {@link CopilotKitCore.subscribeToAgent} for details.
+   * window expires. See `CopilotKitCore.subscribeToAgent` in `@copilotkit/core`
+   * for details.
    *
    * Resolved as: `throttleMs ?? provider defaultThrottleMs ?? 0`.
    * Passing `throttleMs={0}` explicitly disables throttling even when the
@@ -42,7 +43,8 @@ export interface UseAgentProps {
    * Run lifecycle callbacks (`onRunInitialized`, `onRunFinalized`,
    * `onRunFailed`) always fire immediately.
    *
-   * @default undefined — inherits from provider `defaultThrottleMs`;
+   * @default undefined
+   * When unset, inherits from the provider's `defaultThrottleMs`;
    * if that is also unset, the effective value is `0` (no throttle).
    */
   throttleMs?: number;
