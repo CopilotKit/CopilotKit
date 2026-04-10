@@ -100,6 +100,7 @@ export enum CopilotKitCoreErrorCode {
   TRANSCRIPTION_RATE_LIMITED = "transcription_rate_limited",
   TRANSCRIPTION_AUTH_FAILED = "transcription_auth_failed",
   TRANSCRIPTION_NETWORK_ERROR = "transcription_network_error",
+  SUBSCRIBER_CALLBACK_FAILED = "subscriber_callback_failed",
 }
 
 export interface CopilotKitCoreSubscriber {
@@ -178,6 +179,20 @@ export interface CopilotKitCoreSubscription {
 }
 
 /**
+ * The callback keys accepted by {@link CopilotKitCore.subscribeToAgent}.
+ * This tuple is the single source of truth — both the
+ * `SubscribeToAgentSubscriber` type and the runtime `ALLOWED_KEYS` set
+ * are derived from it, so they cannot desynchronise.
+ */
+const SUBSCRIBE_TO_AGENT_KEYS = [
+  "onMessagesChanged",
+  "onStateChanged",
+  "onRunInitialized",
+  "onRunFinalized",
+  "onRunFailed",
+] as const;
+
+/**
  * The subset of `AgentSubscriber` callbacks accepted by
  * {@link CopilotKitCore.subscribeToAgent}. Only high-level notification
  * and lifecycle callbacks are supported. AG-UI event handlers (e.g.
@@ -190,11 +205,7 @@ export interface CopilotKitCoreSubscription {
  */
 export type SubscribeToAgentSubscriber = Pick<
   AgentSubscriber,
-  | "onMessagesChanged"
-  | "onStateChanged"
-  | "onRunInitialized"
-  | "onRunFinalized"
-  | "onRunFailed"
+  (typeof SUBSCRIBE_TO_AGENT_KEYS)[number]
 >;
 
 /** Options for {@link CopilotKitCore.subscribeToAgent}. */
@@ -643,43 +654,48 @@ export class CopilotKitCore {
     const agentLabel = agent.agentId || "(unknown agent)";
 
     // Invoke a subscriber callback safely: catches synchronous throws and
-    // attaches a .catch() for async (MaybePromise) rejections.
+    // attaches a .catch() for async (MaybePromise) rejections. Returns the
+    // callback's return value on the success path. On the error path,
+    // returns `undefined` — any return value the callback intended to
+    // produce (including lifecycle `AgentStateMutation`) is intentionally
+    // discarded, since there is no safe way to produce a partial mutation
+    // from a failed callback. Errors are logged AND emitted through
+    // the structured `emitError` channel so monitoring systems can observe
+    // subscriber failures.
     const safeCall = (
       label: string,
       fn: (...args: any[]) => any,
       ...args: any[]
     ): any => {
+      const reportError = (err: unknown, verb: string) => {
+        const message = `CopilotKitCore.subscribeToAgent[${agentLabel}]: ${label} callback ${verb}:`;
+        console.error(message, err);
+        this.emitError({
+          error: err instanceof Error ? err : new Error(String(err)),
+          code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+          context: { agentId: agent.agentId, callback: label },
+        });
+      };
       try {
         const result = fn(...args);
         if (result != null && typeof (result as any).then === "function") {
           return (result as Promise<any>).catch((err: unknown) => {
-            console.error(
-              `CopilotKitCore.subscribeToAgent[${agentLabel}]: ${label} callback rejected:`,
-              err,
-            );
+            reportError(err, "rejected");
           });
         }
         return result;
       } catch (err) {
-        console.error(
-          `CopilotKitCore.subscribeToAgent[${agentLabel}]: ${label} callback threw:`,
-          err,
-        );
+        reportError(err, "threw");
       }
     };
 
-    // Keys accepted by subscribeToAgent — used by guardAll to filter out
-    // any extra properties that slip through at runtime (e.g. from JS
-    // consumers or `as any` casts), ensuring unsupported event handlers
-    // are dropped rather than wrapped with a potentially-lossy layer.
+    // Runtime allowlist derived from the same SUBSCRIBE_TO_AGENT_KEYS tuple
+    // that defines SubscribeToAgentSubscriber — cannot desync. Used by
+    // guardAll to filter out extra properties from JS consumers or `as any`
+    // casts, ensuring unsupported event handlers are dropped rather than
+    // wrapped with a potentially-lossy safeCall layer.
     const ALLOWED_KEYS: ReadonlySet<keyof SubscribeToAgentSubscriber> = new Set(
-      [
-        "onMessagesChanged",
-        "onStateChanged",
-        "onRunInitialized",
-        "onRunFinalized",
-        "onRunFailed",
-      ] as const satisfies readonly (keyof SubscribeToAgentSubscriber)[],
+      SUBSCRIBE_TO_AGENT_KEYS,
     );
 
     // Wrap every allowed callback in the subscriber with safeCall so errors
