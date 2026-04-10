@@ -12,11 +12,23 @@ import {
 import { randomUUID } from "@copilotkit/shared";
 
 /**
+ * A TanStack AI content part (text, image, audio, video, or document).
+ */
+export type TanStackContentPart =
+  | { type: "text"; content: string }
+  | {
+      type: "image" | "audio" | "video" | "document";
+      source:
+        | { type: "data"; value: string; mimeType: string }
+        | { type: "url"; value: string; mimeType?: string };
+    };
+
+/**
  * Message format expected by TanStack AI's `chat()`.
  */
 export interface TanStackChatMessage {
   role: "user" | "assistant" | "tool";
-  content: string | null;
+  content: string | null | TanStackContentPart[];
   name?: string;
   toolCalls?: Array<{
     id: string;
@@ -34,6 +46,95 @@ export interface TanStackInputResult {
   messages: TanStackChatMessage[];
   /** System prompts extracted from system/developer messages, context, and state */
   systemPrompts: string[];
+}
+
+/**
+ * Converts AG-UI user message content to TanStack AI format.
+ * Handles plain strings, multimodal parts (image/audio/video/document),
+ * and legacy BinaryInputContent for backward compatibility.
+ */
+function convertUserContent(
+  content: unknown,
+): string | null | TanStackContentPart[] {
+  if (!content) return null;
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return null;
+  if (content.length === 0) return "";
+
+  const parts: TanStackContentPart[] = [];
+
+  for (const part of content) {
+    if (!part || typeof part !== "object" || !("type" in part)) continue;
+
+    switch ((part as { type: string }).type) {
+      case "text": {
+        const text = (part as { text?: string }).text;
+        if (text != null) parts.push({ type: "text", content: text });
+        break;
+      }
+
+      case "image":
+      case "audio":
+      case "video":
+      case "document": {
+        const source = (part as { source?: any }).source;
+        if (!source) break;
+        const partType = (part as { type: string }).type as
+          | "image"
+          | "audio"
+          | "video"
+          | "document";
+        if (source.type === "data") {
+          parts.push({
+            type: partType,
+            source: {
+              type: "data",
+              value: source.value,
+              mimeType: source.mimeType,
+            },
+          });
+        } else if (source.type === "url") {
+          parts.push({
+            type: partType,
+            source: {
+              type: "url",
+              value: source.value,
+              ...(source.mimeType ? { mimeType: source.mimeType } : {}),
+            },
+          });
+        }
+        break;
+      }
+
+      // Legacy BinaryInputContent backward compatibility
+      case "binary": {
+        const legacy = part as {
+          mimeType?: string;
+          data?: string;
+          url?: string;
+        };
+        const mimeType = legacy.mimeType ?? "application/octet-stream";
+        const isImage = mimeType.startsWith("image/");
+
+        if (legacy.data) {
+          const partType = isImage ? "image" : "document";
+          parts.push({
+            type: partType,
+            source: { type: "data", value: legacy.data, mimeType },
+          });
+        } else if (legacy.url) {
+          const partType = isImage ? "image" : "document";
+          parts.push({
+            type: partType,
+            source: { type: "url", value: legacy.url, mimeType },
+          });
+        }
+        break;
+      }
+    }
+  }
+
+  return parts.length > 0 ? parts : "";
 }
 
 /**
@@ -56,7 +157,12 @@ export function convertInputToTanStackAI(
     .map((m: Message): TanStackChatMessage => {
       const msg: TanStackChatMessage = {
         role: m.role as "user" | "assistant" | "tool",
-        content: typeof m.content === "string" ? m.content : null,
+        content:
+          m.role === "user"
+            ? convertUserContent(m.content)
+            : typeof m.content === "string"
+              ? m.content
+              : null,
       };
       if (m.role === "assistant" && "toolCalls" in m && m.toolCalls) {
         msg.toolCalls = m.toolCalls.map((tc) => ({
