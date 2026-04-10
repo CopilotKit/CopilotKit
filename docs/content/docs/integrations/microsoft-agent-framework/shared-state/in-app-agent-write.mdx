@@ -63,7 +63,7 @@ You can use this when you need to update agent state from your application — f
             }
         }
 
-        PREDICT_STATE_CONFIG: Dict[str, Dict[str, str]] = {
+        PREDICT_STATE_CONFIG: dict[str, dict[str, str]] = {
             "language": {"tool": "update_language", "tool_argument": "language"}
         }
 
