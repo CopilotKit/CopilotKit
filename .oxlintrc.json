@@ -27,7 +27,11 @@
     "unicorn/prefer-string-slice": "warn",
     "unicorn/prefer-array-flat-map": "warn",
 
-    "no-shadow": "off"
+    "no-shadow": "off",
+    "import/no-named-as-default": "off",
+    "import/no-named-as-default-member": "off",
+    "no-new": "off",
+    "oxc/no-async-endpoint-handlers": "off"
   },
   "overrides": [
     {
@@ -69,6 +73,25 @@
         "typescript/consistent-type-imports": "off",
         "typescript/no-import-type-side-effects": "off",
         "import/consistent-type-specifier-style": "off"
+      }
+    },
+    {
+      "files": ["packages/**/*.{ts,tsx}"],
+      "rules": {
+        "nextjs/no-img-element": "off",
+        "nextjs/no-html-link-for-pages": "off"
+      }
+    },
+    {
+      "files": [
+        "examples/**/*.{ts,tsx,js,jsx}",
+        "scripts/**/*.{ts,tsx}",
+        "codemods/**/*.{ts,tsx}",
+        ".github/**/*.{ts,tsx}"
+      ],
+      "rules": {
+        "react/exhaustive-deps": "off",
+        "unicorn/consistent-function-scoping": "off"
       }
     }
   ],
