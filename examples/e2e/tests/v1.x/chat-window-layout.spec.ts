@@ -19,10 +19,12 @@ test.describe("chat window layout", () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
-    // Toggle button opens both Popup and Sidebar variants
-    const button = page.locator(".copilotKitButton");
-    if (await button.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await button.click();
+    // Wait for the page to hydrate before checking state
+    await page.locator(".copilotKitButton").waitFor({ timeout: 10_000 });
+    // Both form-filling and chat-with-your-data use defaultOpen — only click if not already open
+    const alreadyOpen = await page.locator(".copilotKitWindow.open").isVisible();
+    if (!alreadyOpen) {
+      await page.locator(".copilotKitButton").click();
     }
     await page.locator(".copilotKitWindow.open").waitFor({ timeout: 10_000 });
   });
