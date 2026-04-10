@@ -3,23 +3,27 @@ import {
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
+  BuiltInAgent,
+  convertInputToTanStackAI,
 } from "@copilotkit/runtime/v2";
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
-import { TanStackAIAgent } from "./agent";
 
 export default await createHonoServer({
   configure(app) {
-    const tanstackAgent = new TanStackAIAgent(
-      ({ messages, systemPrompts, abortController }) =>
-        chat({
+    const agent = new BuiltInAgent({
+      type: "tanstack",
+      factory: ({ input, abortController }) => {
+        const { messages, systemPrompts } = convertInputToTanStackAI(input);
+
+        return chat({
           adapter: openaiText("gpt-4o"),
           messages,
           systemPrompts,
           abortController,
-        }),
-    );
+        });
+      },
+    });
 
     const builtinAgent = new BuiltInAgent({
       model: "openai/gpt-4o",
@@ -29,7 +33,7 @@ export default await createHonoServer({
 
     const runtime = new CopilotRuntime({
       agents: {
-        tanstack: tanstackAgent,
+        tanstack: agent,
         builtin: builtinAgent,
       },
       runner: new InMemoryAgentRunner(),

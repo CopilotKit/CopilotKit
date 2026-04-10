@@ -178,16 +178,20 @@ export async function collectEvents(
 ): Promise<BaseEvent[]> {
   return new Promise((resolve, reject) => {
     const events: BaseEvent[] = [];
-    const subscription = observable.subscribe({
-      next: (event) => events.push(event),
-      error: (err: unknown) => reject(err),
-      complete: () => resolve(events),
-    });
-
-    // Set a timeout to prevent hanging tests
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       subscription.unsubscribe();
       reject(new Error("Observable did not complete within timeout"));
     }, 5000);
+    const subscription = observable.subscribe({
+      next: (event) => events.push(event),
+      error: (err: unknown) => {
+        clearTimeout(timeoutId);
+        reject(err);
+      },
+      complete: () => {
+        clearTimeout(timeoutId);
+        resolve(events);
+      },
+    });
   });
 }

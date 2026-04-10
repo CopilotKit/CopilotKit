@@ -41,6 +41,13 @@ Then point your frontend at the endpoint:
 
 For setup with other backend frameworks (Express, NestJS, Node.js HTTP), see the [quickstart](/quickstart).
 
+## Agents
+
+The runtime supports multiple agent types. `BuiltInAgent` is the primary agent class:
+
+- **Simple mode** — pass a model string, CopilotKit handles everything. Best for quick setup. See [Quickstart](/built-in-agent/quickstart).
+- **Factory mode** — bring your own AI SDK, TanStack AI, or custom LLM backend. Best when you need full control. See [Factory Mode](/built-in-agent/custom-agent).
+
 ## The Default Agent
 
 If you register an agent with the name `"default"`, CopilotKit's prebuilt UI components will use it automatically without any additional configuration on the frontend. This is useful when you have one primary agent and don't want to specify an `agentId` everywhere.

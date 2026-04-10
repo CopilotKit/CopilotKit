@@ -167,16 +167,26 @@ jobs:
           webhook-type: incoming-webhook
           payload-file-path: slack-payload.json
 
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Check image drift
         id: image_drift
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Skip if the latest main commit is <20 min old (deploy is probably still building)
+          COMMIT_DATE=$(gh api "/repos/${{ github.repository }}/commits/main" --jq '.commit.committer.date' 2>/dev/null) || true
+          if [ -n "$COMMIT_DATE" ]; then
+            COMMIT_TS=$(date -d "$COMMIT_DATE" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$COMMIT_DATE" +%s 2>/dev/null) || true
+            NOW_TS=$(date +%s)
+            if [ -z "$COMMIT_TS" ]; then COMMIT_TS=$NOW_TS; fi
+            AGE_MIN=$(( (NOW_TS - COMMIT_TS) / 60 ))
+            echo "Latest main commit is ${AGE_MIN}m old"
+            if [ "$AGE_MIN" -lt 20 ]; then
+              echo "Skipping drift check — deploy likely still in progress"
+              echo "has_stale=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
           STALE=""
           STALE_LIST=""
           SERVICES=(
@@ -185,27 +195,35 @@ jobs:
             strands ms-agent-python ms-agent-dotnet claude-sdk-python
             claude-sdk-typescript langroid spring-ai aimock
           )
-          # Get the latest main SHA
-          MAIN_SHA=$(git ls-remote origin main | cut -f1)
+          MAIN_SHA=$(git ls-remote https://github.com/${{ github.repository }}.git main | cut -f1)
+          echo "Main SHA: ${MAIN_SHA:0:8}"
 
           for SVC in "${SERVICES[@]}"; do
-            IMAGE="ghcr.io/copilotkit/showcase-${SVC}"
-            LATEST_DIGEST=$(docker manifest inspect "${IMAGE}:latest" 2>/dev/null | jq -r '.digest // empty') || true
-            HEAD_DIGEST=$(docker manifest inspect "${IMAGE}:${MAIN_SHA}" 2>/dev/null | jq -r '.digest // empty') || true
+            PKG="showcase-${SVC}"
+            # Get tags for the latest version via GitHub Packages API
+            TAGS=$(gh api "/orgs/copilotkit/packages/container/${PKG}/versions?per_page=1" \
+              --jq '.[0].metadata.container.tags | join(" ")' 2>/dev/null) || true
 
-            [ -z "$LATEST_DIGEST" ] && continue
-
-            if [ -z "$HEAD_DIGEST" ] || [ "$LATEST_DIGEST" != "$HEAD_DIGEST" ]; then
-              STALE="${STALE}:warning: *${SVC}* — image stale\n"
-              STALE_LIST="${STALE_LIST} ${SVC}"
+            if [ -z "$TAGS" ]; then
+              continue  # No package versions — new service, not yet built
             fi
+
+            if echo "$TAGS" | grep -q "$MAIN_SHA"; then
+              continue  # Latest version includes main SHA — up to date
+            fi
+
+            echo "  ${SVC}: stale (tags: ${TAGS:0:60})"
+            STALE="${STALE}:warning: *${SVC}* — image stale\n"
+            STALE_LIST="${STALE_LIST} ${SVC}"
           done
 
           if [ -n "$STALE_LIST" ]; then
+            echo "Image drift detected:${STALE_LIST}"
             echo "has_stale=true" >> "$GITHUB_OUTPUT"
             echo "stale_services=${STALE_LIST}" >> "$GITHUB_OUTPUT"
             printf "%b" "$STALE" > image-drift.txt
           else
+            echo "All images up to date"
             echo "has_stale=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -224,7 +242,8 @@ jobs:
         run: |
           HEADER=":package: *Image drift detected — rebuilds triggered:*"
           BODY=$(cat image-drift.txt)
-          jq -n --arg text "${HEADER}\n${BODY}" '{"text": $text}' > drift-payload.json
+          printf "%s\n%s" "$HEADER" "$BODY" > drift-message.txt
+          jq -n --rawfile text drift-message.txt '{"text": $text}' > drift-payload.json
 
       - name: Post image drift to Slack
         if: steps.image_drift.outputs.has_stale == 'true'
