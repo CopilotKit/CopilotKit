@@ -15,7 +15,6 @@ import type {
   UserMessage,
 } from "@ag-ui/core";
 import type { ReactActivityMessageRenderer } from "../../../types";
-<<<<<<< HEAD
 
 // ---------------------------------------------------------------------------
 // Shared constants & helpers
