@@ -22,7 +22,10 @@ test.describe("chat window layout", () => {
     // Wait for the page to hydrate before checking state
     await page.locator(".copilotKitButton").waitFor({ timeout: 10_000 });
     // Both form-filling and chat-with-your-data use defaultOpen — only click if not already open
-    const alreadyOpen = await page.locator(".copilotKitWindow.open").isVisible();
+    const alreadyOpen = await page
+      .locator(".copilotKitWindow.open")
+      .isVisible()
+      .catch(() => false);
     if (!alreadyOpen) {
       await page.locator(".copilotKitButton").click();
     }
