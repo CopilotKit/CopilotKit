@@ -4,7 +4,6 @@ copilotkit.langchain is deprecated. Use copilotkit.langgraph instead.
 import warnings
 from copilotkit.langgraph import (
   langchain_messages_to_copilotkit,
-  copilotkit_messages_to_langchain,
   copilotkit_customize_config,
   copilotkit_exit,
   copilotkit_emit_state,
@@ -21,7 +20,6 @@ warnings.warn(
 
 __all__ = [
   "langchain_messages_to_copilotkit",
-  "copilotkit_messages_to_langchain",
   "copilotkit_customize_config",
   "copilotkit_exit",
   "copilotkit_emit_state",
