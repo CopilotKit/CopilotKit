@@ -127,33 +127,57 @@ export function installStreamingFetch(): void {
         }
       }
 
+      const onAbort = () => {
+        const err = new (global as any).DOMException(
+          "The operation was aborted.",
+          "AbortError",
+        );
+        xhr.abort();
+        errorStream(err);
+        rejectFullText(err);
+        if (!settled) {
+          settled = true;
+          reject(err);
+        }
+      };
+
       if (signal) {
-        signal.addEventListener("abort", () => {
-          const err = new (global as any).DOMException(
-            "The operation was aborted.",
-            "AbortError",
-          );
-          xhr.abort();
-          errorStream(err);
-          rejectFullText(err);
-          if (!settled) {
-            settled = true;
-            reject(err);
-          }
-        });
+        signal.addEventListener("abort", onAbort);
+      }
+
+      function cleanupAbortListener() {
+        if (signal) {
+          signal.removeEventListener("abort", onAbort);
+        }
       }
 
       xhr.onprogress = function () {
-        flushChunks();
+        try {
+          flushChunks();
+        } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          errorStream(error);
+          rejectFullText(error);
+          xhr.abort();
+        }
       };
 
       xhr.onload = function () {
-        flushChunks();
+        cleanupAbortListener();
+        try {
+          flushChunks();
+        } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          errorStream(error);
+          rejectFullText(error);
+          return;
+        }
         closeStream();
         resolveFullText(xhr.responseText);
       };
 
       xhr.onerror = function () {
+        cleanupAbortListener();
         const err = new TypeError("Network request failed");
         errorStream(err);
         rejectFullText(err);
@@ -164,6 +188,7 @@ export function installStreamingFetch(): void {
       };
 
       xhr.ontimeout = function () {
+        cleanupAbortListener();
         const err = new TypeError("Network request timed out");
         errorStream(err);
         rejectFullText(err);
@@ -173,10 +198,12 @@ export function installStreamingFetch(): void {
         }
       };
 
-      // Resolve with Response once headers arrive
+      // Resolve with Response once headers arrive.
+      // Guard against status === 0 which XHR produces for CORS failures,
+      // DNS errors, and mixed-content blocks — let onerror handle those.
       let resp: any = null;
       xhr.onreadystatechange = function () {
-        if (xhr.readyState >= 2 && !resp) {
+        if (xhr.readyState >= 2 && !resp && xhr.status !== 0) {
           const respHeaders: Record<string, string> = {};
           const rawHeaders = xhr.getAllResponseHeaders() || "";
           for (const line of rawHeaders.trim().split("\r\n")) {

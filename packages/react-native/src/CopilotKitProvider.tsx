@@ -57,19 +57,26 @@ export interface CopilotKitNativeProviderProps {
 export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   children,
   runtimeUrl,
-  headers = {},
+  headers,
   useSingleEndpoint = true,
-  properties = {},
+  properties,
   onError,
 }) => {
+  // Stabilize headers/properties references to avoid effect churn when callers
+  // pass inline object literals (e.g. headers={{}} or the undefined default).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableHeaders = useMemo(() => headers ?? {}, [JSON.stringify(headers)]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableProperties = useMemo(() => properties ?? {}, [JSON.stringify(properties)]);
+
   const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
 
   if (copilotkitRef.current === null) {
     copilotkitRef.current = new CopilotKitCoreReact({
       runtimeUrl,
       runtimeTransport: useSingleEndpoint ? "single" : "rest",
-      headers,
-      properties,
+      headers: stableHeaders,
+      properties: stableProperties,
     });
   }
 
@@ -79,9 +86,9 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   useEffect(() => {
     copilotkit.setRuntimeUrl(runtimeUrl);
     copilotkit.setRuntimeTransport(useSingleEndpoint ? "single" : "rest");
-    copilotkit.setHeaders(headers);
-    copilotkit.setProperties(properties);
-  }, [runtimeUrl, useSingleEndpoint, headers, properties, copilotkit]);
+    copilotkit.setHeaders(stableHeaders);
+    copilotkit.setProperties(stableProperties);
+  }, [runtimeUrl, useSingleEndpoint, stableHeaders, stableProperties, copilotkit]);
 
   // Track executing tool call IDs at the provider level.
   // Critical for HITL reconnection: onToolExecutionStart fires before child
