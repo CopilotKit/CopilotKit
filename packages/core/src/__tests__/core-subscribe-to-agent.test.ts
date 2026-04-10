@@ -971,4 +971,97 @@ describe("CopilotKitCore.subscribeToAgent", () => {
 
     warnSpy.mockRestore();
   });
+
+  // -------------------------------------------------------------------------
+  // Async rejection during throttled trailing-edge flush
+  // -------------------------------------------------------------------------
+
+  it("async rejection during trailing-edge flush is caught and logged", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    let callCount = 0;
+    const onMessages = vi.fn().mockImplementation(() => {
+      callCount++;
+      // Second call (trailing edge) returns a rejected promise
+      if (callCount === 2) {
+        return Promise.reject(new Error("trailing async boom"));
+      }
+    });
+
+    core.subscribeToAgent(
+      agent,
+      { onMessagesChanged: onMessages },
+      { throttleMs: 100 },
+    );
+
+    // Leading edge — succeeds
+    agent.messages = [userMsg("1", "a")];
+    notifyMessagesChanged(agent);
+    expect(onMessages).toHaveBeenCalledTimes(1);
+
+    // Deferred within window
+    agent.messages = [userMsg("1", "a"), userMsg("2", "b")];
+    notifyMessagesChanged(agent);
+
+    // Trailing edge — triggers async rejection
+    vi.advanceTimersByTime(100);
+    expect(onMessages).toHaveBeenCalledTimes(2);
+
+    // Flush microtasks so the .catch() handler runs
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("onMessagesChanged callback rejected"),
+      expect.any(Error),
+    );
+
+    // Throttle should not be deadlocked — window closes, next fires on leading edge
+    vi.advanceTimersByTime(100);
+    agent.messages = [userMsg("3", "c")];
+    notifyMessagesChanged(agent);
+    expect(onMessages).toHaveBeenCalledTimes(3);
+
+    errorSpy.mockRestore();
+  });
+
+  // -------------------------------------------------------------------------
+  // setDefaultThrottleMs(undefined) clears throttle for new subscriptions
+  // -------------------------------------------------------------------------
+
+  it("clearing defaultThrottleMs with undefined makes new subscriptions unthrottled", () => {
+    core.setDefaultThrottleMs(100);
+    const onMessagesThrottled = vi.fn();
+
+    // First subscription — throttled via defaultThrottleMs
+    const sub1 = core.subscribeToAgent(agent, {
+      onMessagesChanged: onMessagesThrottled,
+    });
+
+    agent.messages = [userMsg("1", "a")];
+    notifyMessagesChanged(agent);
+    agent.messages = [userMsg("1", "a"), userMsg("2", "b")];
+    notifyMessagesChanged(agent);
+
+    // Second update is deferred (throttled)
+    expect(onMessagesThrottled).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(100);
+    expect(onMessagesThrottled).toHaveBeenCalledTimes(2);
+    sub1.unsubscribe();
+
+    // Clear the default
+    core.setDefaultThrottleMs(undefined);
+
+    // Second subscription — should be unthrottled
+    const onMessagesUnthrottled = vi.fn();
+    core.subscribeToAgent(agent, {
+      onMessagesChanged: onMessagesUnthrottled,
+    });
+
+    agent.messages = [userMsg("3", "c")];
+    notifyMessagesChanged(agent);
+    agent.messages = [userMsg("3", "c"), userMsg("4", "d")];
+    notifyMessagesChanged(agent);
+
+    // Both fire immediately — no throttling
+    expect(onMessagesUnthrottled).toHaveBeenCalledTimes(2);
+  });
 });

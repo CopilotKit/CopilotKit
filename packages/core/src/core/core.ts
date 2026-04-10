@@ -190,7 +190,7 @@ const SUBSCRIBE_TO_AGENT_KEYS = [
   "onRunInitialized",
   "onRunFinalized",
   "onRunFailed",
-] as const;
+] as const satisfies readonly (keyof AgentSubscriber)[];
 
 /**
  * Runtime allowlist derived from {@link SUBSCRIBE_TO_AGENT_KEYS}. Hoisted
@@ -206,14 +206,24 @@ const ALLOWED_KEYS: ReadonlySet<(typeof SUBSCRIBE_TO_AGENT_KEYS)[number]> =
  * `onStateChanged`, and the three run lifecycle callbacks
  * (`onRunInitialized`, `onRunFinalized`, `onRunFailed`).
  *
- * Other `AgentSubscriber` members — both AG-UI event handlers (e.g.
- * `onEvent`, `onToolCallStartEvent`) and per-item notification callbacks
- * (e.g. `onNewMessage`, `onNewToolCall`) — are excluded because
- * `subscribeToAgent` is designed for observation, not event mutation.
- * Event handlers may return `AgentStateMutation` with `stopPropagation`
- * — semantics that the throttle and error-protection wrappers cannot
- * safely mediate. Use `agent.subscribe()` directly when event mutation
- * or per-item notification semantics are needed.
+ * Two categories of `AgentSubscriber` members are excluded:
+ *
+ * - **AG-UI event handlers** (`onEvent`, `onToolCallStartEvent`, etc.)
+ *   return `AgentStateMutation` with `stopPropagation` — semantics that
+ *   the throttle and error-protection wrappers cannot safely mediate.
+ *
+ * - **Per-item notification callbacks** (`onNewMessage`, `onNewToolCall`)
+ *   return `void` and have no mutation concerns, but are excluded to keep
+ *   the surface area minimal — `onMessagesChanged` already covers the
+ *   same data at a coarser granularity, and throttling per-item callbacks
+ *   would have different semantic expectations.
+ *
+ * Note: the included lifecycle callbacks also return
+ * `Omit<AgentStateMutation, "stopPropagation">`. On the error path,
+ * `safeCall` discards those return values (see its inline documentation).
+ *
+ * Use `agent.subscribe()` directly when event mutation or per-item
+ * notification semantics are needed.
  */
 export type SubscribeToAgentSubscriber = Pick<
   AgentSubscriber,
@@ -656,6 +666,15 @@ export class CopilotKitCore {
         `CopilotKitCore.subscribeToAgent: ${source} must be a non-negative finite number, ` +
           `got ${resolved}. Falling back to unthrottled.`,
       );
+      this.emitError({
+        error: new Error(
+          `subscribeToAgent: invalid ${source} (${resolved}), falling back to unthrottled`,
+        ),
+        code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+        context: { agentId: agent.agentId, source, value: resolved },
+      }).catch(() => {
+        // Best-effort — emitError failure is already logged by emitError itself.
+      });
     } else {
       effectiveMs = resolved;
     }
@@ -756,6 +775,9 @@ export class CopilotKitCore {
         latestMessagesParams = null;
         safeCall("onMessagesChanged", subscriber.onMessagesChanged, params);
       }
+      // Re-check `active` — the onMessagesChanged callback above might have
+      // called unsubscribe(), which sets active=false to prevent the sibling
+      // onStateChanged from firing after teardown.
       if (active && subscriber.onStateChanged && latestStateParams) {
         const params = latestStateParams;
         latestStateParams = null;

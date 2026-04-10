@@ -11,20 +11,15 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { Message } from "@ag-ui/client";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import {
+  CopilotKitCore,
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
-  type SubscribeToAgentSubscriber,
-  type SubscribeToAgentOptions,
-  type CopilotKitCoreSubscription,
 } from "@copilotkit/core";
 
-/** Function signature for subscribing to an agent — injected by the factory
- *  so that AgentStore stays decoupled from CopilotKitCore. */
-type SubscribeToAgentFn = (
-  agent: AbstractAgent,
-  subscriber: SubscribeToAgentSubscriber,
-  options?: SubscribeToAgentOptions,
-) => CopilotKitCoreSubscription;
+/** Function signature for subscribing to an agent — derived from
+ *  CopilotKitCore so the types stay in sync automatically. Injected
+ *  by the factory so that AgentStore stays decoupled from the concrete class. */
+type SubscribeToAgentFn = CopilotKitCore["subscribeToAgent"];
 
 export class AgentStore {
   readonly #subscription?: {
