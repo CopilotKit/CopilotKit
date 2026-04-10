@@ -10,7 +10,7 @@ import {
   type CopilotKitContextValue,
   EMPTY_SET,
 } from "@copilotkit/react-core/v2/context";
-import { CopilotKitCoreReact } from "@copilotkit/react-core/v2";
+import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
 
 export interface CopilotKitNativeProviderProps {
   children: ReactNode;
@@ -87,13 +87,15 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     return () => subscription.unsubscribe();
   }, [copilotkit, onError]);
 
-  const contextValue = useMemo<CopilotKitContextValue>(
+  // The headless bundle has its own type declaration for CopilotKitCoreReact
+  // (due to inlining @copilotkit/core), but it's the same class at runtime.
+  const contextValue = useMemo(
     () => ({
       copilotkit,
       executingToolCallIds,
     }),
     [copilotkit, executingToolCallIds],
-  );
+  ) as unknown as CopilotKitContextValue;
 
   return (
     <CopilotKitContext.Provider value={contextValue}>

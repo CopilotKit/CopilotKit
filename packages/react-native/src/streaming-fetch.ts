@@ -29,7 +29,7 @@ export function installStreamingFetch(): void {
       xhr.open(method, url);
 
       const headerEntries =
-        headers instanceof Headers
+        typeof Headers !== "undefined" && headers instanceof Headers
           ? Array.from(headers.entries())
           : Object.entries(headers);
       for (const [key, value] of headerEntries) {
@@ -122,11 +122,21 @@ export function installStreamingFetch(): void {
             }
           }
 
+          const responseHeaders =
+            typeof Headers !== "undefined"
+              ? new Headers(respHeaders)
+              : {
+                  get: (name: string) =>
+                    respHeaders[name.toLowerCase()] ?? null,
+                  entries: () => Object.entries(respHeaders),
+                  has: (name: string) => name.toLowerCase() in respHeaders,
+                };
+
           resp = {
             ok: xhr.status >= 200 && xhr.status < 300,
             status: xhr.status,
             statusText: xhr.statusText,
-            headers: new Headers(respHeaders),
+            headers: responseHeaders,
             body: stream,
             json: async () => JSON.parse(await fullTextPromise),
             text: async () => fullTextPromise,

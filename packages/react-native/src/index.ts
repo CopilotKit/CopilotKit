@@ -6,20 +6,16 @@
  *
  * Quick start:
  * ```tsx
- * // In your app entry (index.js), BEFORE other imports:
- * import "@copilotkit/react-native/polyfills";
- *
- * // In your app:
  * import { CopilotKitProvider, useAgent, useCopilotKit } from "@copilotkit/react-native";
  * ```
  */
 
+// Auto-install polyfills and streaming fetch on import
+import "./polyfills";
+
 // React Native provider (no web dependencies)
 export { CopilotKitProvider } from "./CopilotKitProvider";
 export type { CopilotKitNativeProviderProps } from "./CopilotKitProvider";
-
-// Streaming fetch installer
-export { installStreamingFetch } from "./streaming-fetch";
 
 // Re-export context and hooks from react-core (platform-agnostic)
 export {
@@ -40,7 +36,7 @@ export {
   useAgentContext,
   useThreads,
   type UseAgentUpdate,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core/v2/headless";
 
 // Re-export core types commonly needed
 export { type CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
