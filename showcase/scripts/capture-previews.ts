@@ -476,22 +476,25 @@ function uploadToRelease(mp4Files: string[]): boolean {
     return true;
   }
 
-  console.log(`\nUploading ${mp4Files.length} MP4 file(s) to GitHub release "${RELEASE_TAG}" ...`);
+  console.log(
+    `\nUploading ${mp4Files.length} MP4 file(s) to GitHub release "${RELEASE_TAG}" ...`,
+  );
 
   // Verify gh CLI is available
   try {
     execSync("which gh", { stdio: "pipe" });
   } catch {
-    console.log("  [ERROR] gh (GitHub CLI) not found in PATH — skipping upload");
+    console.log(
+      "  [ERROR] gh (GitHub CLI) not found in PATH — skipping upload",
+    );
     return false;
   }
 
   // Ensure the release exists (create if needed)
   try {
-    execSync(
-      `gh release view ${RELEASE_TAG} --repo ${GITHUB_REPO}`,
-      { stdio: "pipe" },
-    );
+    execSync(`gh release view ${RELEASE_TAG} --repo ${GITHUB_REPO}`, {
+      stdio: "pipe",
+    });
   } catch {
     console.log(`  Release "${RELEASE_TAG}" does not exist, creating ...`);
     try {
@@ -513,7 +516,9 @@ function uploadToRelease(mp4Files: string[]): boolean {
       `gh release upload ${RELEASE_TAG} ${fileArgs} --clobber --repo ${GITHUB_REPO}`,
       { stdio: "pipe", timeout: 300_000 },
     );
-    console.log(`  [OK] Uploaded ${mp4Files.length} file(s) to release "${RELEASE_TAG}"`);
+    console.log(
+      `  [OK] Uploaded ${mp4Files.length} file(s) to release "${RELEASE_TAG}"`,
+    );
     return true;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -526,9 +531,7 @@ function uploadToRelease(mp4Files: string[]): boolean {
 // Update registry.json with preview URLs
 // ---------------------------------------------------------------------------
 
-function updateRegistry(
-  results: CaptureResult[],
-): boolean {
+function updateRegistry(results: CaptureResult[]): boolean {
   console.log(`\nUpdating registry at ${REGISTRY_PATH} ...`);
 
   if (!fs.existsSync(REGISTRY_PATH)) {
@@ -565,10 +568,7 @@ function updateRegistry(
       }
     }
 
-    fs.writeFileSync(
-      REGISTRY_PATH,
-      JSON.stringify(registry, null, 2) + "\n",
-    );
+    fs.writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2) + "\n");
     console.log(`  [OK] Updated ${updated} demo(s) in registry.json`);
     return true;
   } catch (err) {
@@ -608,14 +608,16 @@ async function runWithConcurrency<T>(
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const { slug, demo, concurrency, skipUpload, skipRegistryUpdate } = parseArgs();
+  const { slug, demo, concurrency, skipUpload, skipRegistryUpdate } =
+    parseArgs();
 
   console.log("=== Showcase Demo Preview Capture ===");
   console.log(`Concurrency: ${concurrency}`);
   if (slug) console.log(`Filter by slug: ${slug}`);
   if (demo) console.log(`Filter by demo: ${demo}`);
   if (skipUpload) console.log("Upload: SKIPPED (--skip-upload)");
-  if (skipRegistryUpdate) console.log("Registry update: SKIPPED (--skip-registry-update)");
+  if (skipRegistryUpdate)
+    console.log("Registry update: SKIPPED (--skip-registry-update)");
 
   // Read all manifests
   console.log(`\nReading manifests from ${PACKAGES_DIR} ...`);
