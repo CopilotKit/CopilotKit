@@ -1,6 +1,11 @@
 import fs from "fs";
 import path from "path";
-import { loadConfig, ROOT } from "./config.js";
+import {
+  loadConfig,
+  getScopeConfig,
+  ROOT,
+  type ReleaseScope,
+} from "./config.js";
 
 export type BumpLevel = "patch" | "minor" | "major";
 
@@ -16,13 +21,27 @@ export interface PublishablePackage {
   dir: string;
   pkgJsonPath: string;
   pkg: Record<string, any>;
-  isVersionedTogether: boolean;
-  isVersionedIndependently: boolean;
 }
 
-export function getCurrentVersion(): string {
-  const pkgPath = path.join(ROOT, "packages/react-core/package.json");
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+/** Find a package directory by its npm name. */
+function findPackageDir(packageName: string): string {
+  const packagesDir = path.join(ROOT, "packages");
+  for (const dir of fs.readdirSync(packagesDir)) {
+    const pkgJsonPath = path.join(packagesDir, dir, "package.json");
+    if (!fs.existsSync(pkgJsonPath)) continue;
+    const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
+    if (pkg.name === packageName) return path.join(packagesDir, dir);
+  }
+  throw new Error(`Package not found: ${packageName}`);
+}
+
+/** Get the current version for a scope (reads from the scope's versionSource package). */
+export function getCurrentVersion(scope: ReleaseScope): string {
+  const scopeConfig = getScopeConfig(scope);
+  const dir = findPackageDir(scopeConfig.versionSource);
+  const pkg = JSON.parse(
+    fs.readFileSync(path.join(dir, "package.json"), "utf8"),
+  );
   return pkg.version;
 }
 
@@ -72,12 +91,10 @@ export function computePrereleaseVersion(
   return `${v.major}.${v.minor}.${v.patch}-${tag}.${id}`;
 }
 
-export function getPublishablePackages(): PublishablePackage[] {
-  const config = loadConfig();
-  const allPackageNames = new Set([
-    ...config.versionedTogether,
-    ...config.versionedIndependently,
-  ]);
+/** Get all publishable packages for a given scope. */
+export function getPackagesForScope(scope: ReleaseScope): PublishablePackage[] {
+  const scopeConfig = getScopeConfig(scope);
+  const packageNames = new Set(scopeConfig.packages);
   const packagesDir = path.join(ROOT, "packages");
 
   const results: PublishablePackage[] = [];
@@ -86,16 +103,12 @@ export function getPublishablePackages(): PublishablePackage[] {
     if (!fs.existsSync(pkgJsonPath)) continue;
 
     const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
-    if (allPackageNames.has(pkg.name)) {
+    if (packageNames.has(pkg.name)) {
       results.push({
         name: pkg.name,
         dir: path.join(packagesDir, dir),
         pkgJsonPath,
         pkg,
-        isVersionedTogether: config.versionedTogether.includes(pkg.name),
-        isVersionedIndependently: config.versionedIndependently.includes(
-          pkg.name,
-        ),
       });
     }
   }
@@ -103,14 +116,14 @@ export function getPublishablePackages(): PublishablePackage[] {
   return results;
 }
 
-export function bumpVersionedTogetherPackages(
+/** Bump all packages in a scope to a new version. For sharedVersion scopes, also updates internal deps. */
+export function bumpPackages(
+  scope: ReleaseScope,
   newVersion: string,
 ): { name: string; oldVersion: string; newVersion: string }[] {
-  const packages = getPublishablePackages().filter(
-    (p) => p.isVersionedTogether,
-  );
-  const config = loadConfig();
-  const togetherNames = new Set(config.versionedTogether);
+  const scopeConfig = getScopeConfig(scope);
+  const packages = getPackagesForScope(scope);
+  const scopeNames = new Set(scopeConfig.packages);
   const updated: { name: string; oldVersion: string; newVersion: string }[] =
     [];
 
@@ -119,15 +132,20 @@ export function bumpVersionedTogetherPackages(
     const oldVersion = pkg.version;
     pkg.version = newVersion;
 
-    for (const depField of [
-      "dependencies",
-      "peerDependencies",
-      "devDependencies",
-    ] as const) {
-      if (!pkg[depField]) continue;
-      for (const depName of Object.keys(pkg[depField])) {
-        if (togetherNames.has(depName)) {
-          pkg[depField][depName] = newVersion;
+    // For shared-version scopes, update internal dependency references —
+    // but only if they use exact versions, not workspace:* protocol
+    if (scopeConfig.sharedVersion) {
+      for (const depField of [
+        "dependencies",
+        "peerDependencies",
+        "devDependencies",
+      ] as const) {
+        if (!pkg[depField]) continue;
+        for (const depName of Object.keys(pkg[depField])) {
+          const depValue = pkg[depField][depName];
+          if (scopeNames.has(depName) && !depValue.startsWith("workspace:")) {
+            pkg[depField][depName] = newVersion;
+          }
         }
       }
     }

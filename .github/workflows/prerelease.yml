@@ -3,6 +3,14 @@ name: release / pre
 on:
   workflow_dispatch:
     inputs:
+      scope:
+        description: "What to release"
+        required: true
+        type: choice
+        options:
+          - monorepo
+          - cli
+          - angular
       suffix:
         description: "Version suffix (e.g. 'fix-user-issue'). Leave blank for timestamp."
         required: false
@@ -55,9 +63,9 @@ jobs:
 
       - name: Publish prerelease
         run: |
-          ARGS=""
+          ARGS="--scope ${{ inputs.scope }}"
           if [ -n "${{ inputs.suffix }}" ]; then
-            ARGS="--suffix ${{ inputs.suffix }}"
+            ARGS="$ARGS --suffix ${{ inputs.suffix }}"
           fi
           if [ "${{ inputs.dry_run }}" == "true" ]; then
             ARGS="$ARGS --dry-run"
