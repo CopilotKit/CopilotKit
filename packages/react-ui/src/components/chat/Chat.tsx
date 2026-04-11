@@ -108,7 +108,18 @@ import {
   UserMessageProps,
 } from "./props";
 
-import { ImageUploadQueue } from "./ImageUploadQueue";
+import { AttachmentQueue } from "./AttachmentQueue";
+import type { Attachment, AttachmentsConfig } from "./props";
+import {
+  getModalityFromMimeType,
+  exceedsMaxSize,
+  readFileAsBase64,
+  generateVideoThumbnail,
+  matchesAcceptFilter,
+  formatFileSize,
+  deprecationWarning,
+} from "./attachment-utils";
+import type { InputContent } from "@copilotkit/shared";
 import { Suggestions as DefaultRenderSuggestionsList } from "./Suggestions";
 
 /**
@@ -201,15 +212,47 @@ export interface CopilotChatProps {
   labels?: CopilotChatLabels;
 
   /**
+   * @deprecated Use `attachments={{ enabled: true }}` instead.
+   * `imageUploadsEnabled` only supports images. The new `attachments` prop supports
+   * images, audio, video, and documents.
+   * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
+   * @since 1.56.0
+   *
    * Enable image upload button (image inputs only supported on some models)
    */
   imageUploadsEnabled?: boolean;
 
   /**
+   * @deprecated Use `attachments={{ enabled: true, accept: "..." }}` instead.
+   * The `accept` field on the `attachments` prop replaces `inputFileAccept`.
+   * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
+   * @since 1.56.0
+   *
    * The 'accept' attribute for the file input used for image uploads.
    * Defaults to "image/*".
    */
   inputFileAccept?: string;
+
+  /**
+   * Configuration for file attachments in the chat input.
+   * Enables users to attach images, audio, video, and documents.
+   *
+   * @example
+   * ```tsx
+   * <CopilotChat
+   *   attachments={{
+   *     enabled: true,
+   *     accept: "image/*,application/pdf",
+   *     maxSize: 10 * 1024 * 1024, // 10MB
+   *     onUpload: async (file) => {
+   *       const url = await uploadToS3(file);
+   *       return { url, mimeType: file.type };
+   *     },
+   *   }}
+   * />
+   * ```
+   */
+  attachments?: AttachmentsConfig;
 
   /**
    * A function that takes in context string and instructions and returns
@@ -290,6 +333,9 @@ export interface CopilotChatProps {
   Input?: React.ComponentType<InputProps>;
 
   /**
+   * @deprecated Use the v2 `CopilotChat` attachment system instead.
+   * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
+   *
    * A custom image rendering component to use instead of the default.
    */
   ImageRenderer?: React.ComponentType<ImageRendererProps>;
@@ -330,6 +376,13 @@ export interface CopilotChatProps {
   onError?: CopilotErrorHandler;
 }
 
+/**
+ * @deprecated Use the `Attachment` type from `@copilotkit/react-ui` instead.
+ * `ImageUpload` only described image payloads. `Attachment` supports images,
+ * audio, video, and documents.
+ * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
+ * @since 1.56.0
+ */
 export type ImageUpload = {
   contentType: string;
   bytes: string;
@@ -362,6 +415,7 @@ export function CopilotChat({
   ErrorMessage,
   imageUploadsEnabled,
   inputFileAccept = "image/*",
+  attachments,
   hideStopButton,
   observabilityHooks,
   renderError,
@@ -384,7 +438,33 @@ export function CopilotChat({
 
   // Destructure stable values to avoid object reference changes
   const { publicApiKey, chatApiEndpoint } = copilotApiConfig;
-  const [selectedImages, setSelectedImages] = useState<Array<ImageUpload>>([]);
+
+  // Resolve attachments config with deprecation bridge
+  const resolvedAttachments: AttachmentsConfig | undefined = (() => {
+    if (attachments) return attachments;
+    if (imageUploadsEnabled) {
+      deprecationWarning(
+        "imageUploadsEnabled",
+        "imageUploadsEnabled is deprecated. Use attachments={{ enabled: true }} instead. " +
+          "See https://docs.copilotkit.ai/migration-guides/migrate-attachments",
+      );
+      return { enabled: true, accept: inputFileAccept || "image/*" };
+    }
+    return undefined;
+  })();
+
+  const attachmentsEnabled = resolvedAttachments?.enabled ?? false;
+  const attachmentsAccept = resolvedAttachments?.accept ?? "*/*";
+  const attachmentsMaxSize = resolvedAttachments?.maxSize ?? 20 * 1024 * 1024;
+
+  const [selectedAttachments, setSelectedAttachments] = useState<Attachment[]>(
+    [],
+  );
+  const [dragOver, setDragOver] = useState(false);
+  const processFilesRef = useRef<(files: File[]) => Promise<void>>(
+    async () => {},
+  );
+
   const [chatError, setChatError] = useState<ChatError | null>(null);
   const [messageFeedback, setMessageFeedback] = useState<
     Record<string, "thumbsUp" | "thumbsDown">
@@ -417,6 +497,12 @@ export function CopilotChat({
     (error: any, operation: string, originalError?: any) => {
       const errorMessage =
         error?.message || error?.toString() || "An error occurred";
+
+      console.error(
+        `[CopilotKit] ${operation} error:`,
+        errorMessage,
+        originalError ?? error,
+      );
 
       // Set chat error state for rendering
       setChatError({
@@ -490,58 +576,42 @@ export function CopilotChat({
 
   // Clipboard paste handler
   useEffect(() => {
-    if (!imageUploadsEnabled) return;
+    if (!attachmentsEnabled) return;
 
     const handlePaste = async (e: ClipboardEvent) => {
       const target = e.target as HTMLElement;
       if (!target.parentElement?.classList.contains("copilotKitInput")) return;
 
       const items = Array.from(e.clipboardData?.items || []);
-      const imageItems = items.filter((item) => item.type.startsWith("image/"));
-
-      if (imageItems.length === 0) return;
-
-      e.preventDefault(); // Prevent default paste behavior for images
-
-      const imagePromises: Promise<ImageUpload | null>[] = imageItems.map(
-        (item) => {
-          const file = item.getAsFile();
-          if (!file) return Promise.resolve(null);
-
-          return new Promise<ImageUpload | null>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              const base64String = (e.target?.result as string)?.split(",")[1];
-              if (base64String) {
-                resolve({
-                  contentType: file.type,
-                  bytes: base64String,
-                });
-              } else {
-                resolve(null);
-              }
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          });
-        },
+      const fileItems = items.filter(
+        (item) =>
+          item.kind === "file" &&
+          item.getAsFile() !== null &&
+          matchesAcceptFilter(item.getAsFile()!, attachmentsAccept),
       );
 
+      if (fileItems.length === 0) return;
+      e.preventDefault();
+
+      const files = fileItems
+        .map((item) => item.getAsFile())
+        .filter((f): f is File => f !== null);
+
       try {
-        const loadedImages = (await Promise.all(imagePromises)).filter(
-          (img) => img !== null,
-        );
-        setSelectedImages((prev) => [...prev, ...loadedImages]);
+        await processFilesRef.current(files);
       } catch (error) {
-        // Trigger chat-level error handler
-        triggerChatError(error, "processClipboardImages", error);
-        console.error("Error processing pasted images:", error);
+        triggerChatError(error, "pasteUpload", error);
       }
     };
 
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-  }, [imageUploadsEnabled, triggerChatError]);
+  }, [
+    attachmentsEnabled,
+    attachmentsAccept,
+    attachmentsMaxSize,
+    triggerChatError,
+  ]);
 
   useEffect(() => {
     if (!additionalInstructions?.length) {
@@ -598,10 +668,28 @@ export function CopilotChat({
     }
   }, [isLoading, triggerObservabilityHook]);
 
-  // Wrapper for sendMessage to clear selected images
+  // Wrapper for sendMessage to clear selected attachments and build multimodal content
   const handleSendMessage = (text: string) => {
-    const images = selectedImages;
-    setSelectedImages([]);
+    const hasUploading = selectedAttachments.some(
+      (a) => a.status === "uploading",
+    );
+    if (hasUploading) {
+      triggerChatError(
+        new Error("Attachment(s) still uploading. Please wait."),
+        "sendMessage",
+      );
+      // Return a promise that resolves to a dummy message to satisfy the return type
+      return Promise.resolve({
+        id: randomUUID(),
+        content: text,
+        role: "user" as const,
+      } as Message);
+    }
+
+    const currentAttachments = selectedAttachments.filter(
+      (a) => a.status === "ready",
+    );
+    setSelectedAttachments([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -609,7 +697,33 @@ export function CopilotChat({
     // Trigger message sent event
     triggerObservabilityHook("onMessageSent", text);
 
-    // TODO: send images?
+    // Build content: if we have attachments, use InputContent[]
+    if (currentAttachments.length > 0) {
+      const contentParts: InputContent[] = [];
+
+      if (text.trim()) {
+        contentParts.push({ type: "text", text });
+      }
+
+      for (const attachment of currentAttachments) {
+        contentParts.push({
+          type: attachment.type,
+          source: attachment.source,
+          metadata: {
+            ...(attachment.filename ? { filename: attachment.filename } : {}),
+            ...attachment.metadata,
+          },
+        } as InputContent);
+      }
+
+      return sendMessage({
+        id: randomUUID(),
+        content: contentParts,
+        role: "user",
+      });
+    }
+
+    // Plain text message
     return sendMessage({
       id: randomUUID(),
       content: text,
@@ -640,50 +754,143 @@ export function CopilotChat({
     triggerObservabilityHook("onMessageCopied", message);
   };
 
-  const handleImageUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    if (!event.target.files || event.target.files.length === 0) {
-      return;
+  const processFiles = async (files: File[]) => {
+    const validFiles = files.filter((file) =>
+      matchesAcceptFilter(file, attachmentsAccept),
+    );
+    const rejectedFiles = files.filter(
+      (file) => !matchesAcceptFilter(file, attachmentsAccept),
+    );
+    for (const file of rejectedFiles) {
+      const message = `File "${file.name}" is not accepted. Supported types: ${attachmentsAccept}`;
+      triggerChatError(new Error(message), "fileUpload");
+      resolvedAttachments?.onUploadFailed?.({
+        reason: "invalid-type",
+        file,
+        message,
+      });
     }
 
-    const files = Array.from(event.target.files).filter((file) =>
-      file.type.startsWith("image/"),
-    );
-    if (files.length === 0) return;
+    for (const file of validFiles) {
+      if (exceedsMaxSize(file, attachmentsMaxSize)) {
+        const message = `File "${file.name}" exceeds the maximum size of ${formatFileSize(attachmentsMaxSize)}`;
+        triggerChatError(new Error(message), "fileUpload");
+        resolvedAttachments?.onUploadFailed?.({
+          reason: "file-too-large",
+          file,
+          message,
+        });
+        continue;
+      }
 
-    const fileReadPromises = files.map((file) => {
-      return new Promise<{ contentType: string; bytes: string }>(
-        (resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const base64String =
-              (e.target?.result as string)?.split(",")[1] || "";
-            if (base64String) {
-              resolve({
-                contentType: file.type,
-                bytes: base64String,
-              });
-            }
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        },
-      );
-    });
+      const modality = getModalityFromMimeType(file.type);
 
+      // Use a unique ID to track this placeholder across concurrent uploads
+      const placeholderId = randomUUID();
+      const placeholder: Attachment = {
+        id: placeholderId,
+        type: modality,
+        source: { type: "data", value: "", mimeType: file.type },
+        filename: file.name,
+        size: file.size,
+        status: "uploading",
+      };
+
+      setSelectedAttachments((prev) => [...prev, placeholder]);
+
+      try {
+        let source: Attachment["source"];
+        let uploadMetadata: Record<string, unknown> | undefined;
+
+        if (resolvedAttachments?.onUpload) {
+          const { metadata: meta, ...uploadSource } =
+            await resolvedAttachments.onUpload(file);
+          source = uploadSource;
+          uploadMetadata = meta;
+        } else {
+          const base64 = await readFileAsBase64(file);
+          source = { type: "data", value: base64, mimeType: file.type };
+        }
+
+        // Generate video thumbnail if applicable
+        let thumbnail: string | undefined;
+        if (modality === "video") {
+          thumbnail = await generateVideoThumbnail(file);
+        }
+
+        setSelectedAttachments((prev) =>
+          prev.map((att) =>
+            att.id === placeholderId
+              ? {
+                  ...att,
+                  source,
+                  status: "ready" as const,
+                  thumbnail,
+                  metadata: uploadMetadata,
+                }
+              : att,
+          ),
+        );
+      } catch (error) {
+        // Remove the failed placeholder
+        setSelectedAttachments((prev) =>
+          prev.filter((att) => att.id !== placeholderId),
+        );
+        const message = error instanceof Error ? error.message : String(error);
+        triggerChatError(
+          new Error(`Failed to upload "${file.name}": ${message}`),
+          "fileUpload",
+          error,
+        );
+        resolvedAttachments?.onUploadFailed?.({
+          reason: "upload-failed",
+          file,
+          message: `Failed to upload "${file.name}": ${message}`,
+        });
+      }
+    }
+  };
+  processFilesRef.current = processFiles;
+
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    if (!event.target.files || event.target.files.length === 0) return;
     try {
-      const loadedImages = await Promise.all(fileReadPromises);
-      setSelectedImages((prev) => [...prev, ...loadedImages]);
+      await processFiles(Array.from(event.target.files));
     } catch (error) {
-      // Trigger chat-level error handler
-      triggerChatError(error, "processUploadedImages", error);
-      console.error("Error reading files:", error);
+      triggerChatError(error, "fileUpload", error);
     }
   };
 
-  const removeSelectedImage = (index: number) => {
-    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+  // Drag-and-drop handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!attachmentsEnabled) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    if (!attachmentsEnabled) return;
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      try {
+        await processFiles(files);
+      } catch (error) {
+        triggerChatError(error, "dropUpload", error);
+      }
+    }
   };
 
   const handleThumbsUp = (message: Message) => {
@@ -718,78 +925,89 @@ export function CopilotChat({
 
   return (
     <WrappedCopilotChat icons={icons} labels={labels} className={className}>
-      {/* Render error above messages if present */}
-      {chatError &&
-        renderError &&
-        renderError({
-          ...chatError,
-          onDismiss: () => setChatError(null),
-          onRetry: () => {
-            // Clear error and potentially retry based on operation
-            setChatError(null);
-            // TODO: Implement specific retry logic based on operation type
-          },
-        })}
-
-      <Messages
-        AssistantMessage={AssistantMessage}
-        UserMessage={UserMessage}
-        RenderMessage={RenderMessage}
-        messages={messages}
-        inProgress={isLoading}
-        onRegenerate={handleRegenerate}
-        onCopy={handleCopy}
-        onThumbsUp={handleThumbsUp}
-        onThumbsDown={handleThumbsDown}
-        messageFeedback={messageFeedback}
-        markdownTagRenderers={markdownTagRenderers}
-        ImageRenderer={ImageRenderer}
-        ErrorMessage={ErrorMessage}
-        chatError={chatError}
-        // Legacy props - passed through to Messages component
-        RenderTextMessage={RenderTextMessage}
-        RenderActionExecutionMessage={RenderActionExecutionMessage}
-        RenderAgentStateMessage={RenderAgentStateMessage}
-        RenderResultMessage={RenderResultMessage}
-        RenderImageMessage={RenderImageMessage}
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={`copilotKitChatBody${dragOver ? " copilotKitDragOver" : ""}`}
       >
-        {currentSuggestions.length > 0 && (
-          <RenderSuggestionsList
-            onSuggestionClick={handleSendMessage}
-            suggestions={currentSuggestions}
-            isLoading={isLoadingSuggestions}
-          />
-        )}
-      </Messages>
+        {/* Render error above messages if present */}
+        {chatError &&
+          renderError &&
+          renderError({
+            ...chatError,
+            onDismiss: () => setChatError(null),
+            onRetry: () => {
+              // Clear error and potentially retry based on operation
+              setChatError(null);
+              // TODO: Implement specific retry logic based on operation type
+            },
+          })}
 
-      {imageUploadsEnabled && (
-        <>
-          <ImageUploadQueue
-            images={selectedImages}
-            onRemoveImage={removeSelectedImage}
-          />
-          <input
-            type="file"
-            multiple
-            ref={fileInputRef}
-            onChange={handleImageUpload}
-            accept={inputFileAccept}
-            style={{ display: "none" }}
-          />
-        </>
-      )}
-      <Input
-        inProgress={isLoading}
-        chatReady={Boolean(agent)}
-        // @ts-ignore
-        onSend={handleSendMessage}
-        isVisible={isVisible}
-        onStop={stopGeneration}
-        onUpload={
-          imageUploadsEnabled ? () => fileInputRef.current?.click() : undefined
-        }
-        hideStopButton={hideStopButton}
-      />
+        <Messages
+          AssistantMessage={AssistantMessage}
+          UserMessage={UserMessage}
+          RenderMessage={RenderMessage}
+          messages={messages}
+          inProgress={isLoading}
+          onRegenerate={handleRegenerate}
+          onCopy={handleCopy}
+          onThumbsUp={handleThumbsUp}
+          onThumbsDown={handleThumbsDown}
+          messageFeedback={messageFeedback}
+          markdownTagRenderers={markdownTagRenderers}
+          ImageRenderer={ImageRenderer}
+          ErrorMessage={ErrorMessage}
+          chatError={chatError}
+          // Legacy props - passed through to Messages component
+          RenderTextMessage={RenderTextMessage}
+          RenderActionExecutionMessage={RenderActionExecutionMessage}
+          RenderAgentStateMessage={RenderAgentStateMessage}
+          RenderResultMessage={RenderResultMessage}
+          RenderImageMessage={RenderImageMessage}
+        >
+          {currentSuggestions.length > 0 && (
+            <RenderSuggestionsList
+              onSuggestionClick={handleSendMessage}
+              suggestions={currentSuggestions}
+              isLoading={isLoadingSuggestions}
+            />
+          )}
+        </Messages>
+
+        {attachmentsEnabled && (
+          <>
+            <AttachmentQueue
+              attachments={selectedAttachments}
+              onRemoveAttachment={(id) =>
+                setSelectedAttachments((prev) =>
+                  prev.filter((att) => att.id !== id),
+                )
+              }
+            />
+            <input
+              type="file"
+              multiple
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept={attachmentsAccept}
+              style={{ display: "none" }}
+            />
+          </>
+        )}
+        <Input
+          inProgress={isLoading}
+          chatReady={Boolean(agent)}
+          // @ts-ignore
+          onSend={handleSendMessage}
+          isVisible={isVisible}
+          onStop={stopGeneration}
+          onUpload={
+            attachmentsEnabled ? () => fileInputRef.current?.click() : undefined
+          }
+          hideStopButton={hideStopButton}
+        />
+      </div>
     </WrappedCopilotChat>
   );
 }

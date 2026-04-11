@@ -9,7 +9,7 @@ export function QuickstartDropdown() {
 
   const options = [
     { label: "Direct to LLM", url: "/direct-to-llm/guides/quickstart" },
-    { label: "LangGraph", url: "/langgraph/quickstart" },
+    { label: "LangChain", url: "/langgraph/quickstart" },
     {
       label: "Microsoft Agent Framework",
       url: "/microsoft-agent-framework/quickstart",
@@ -36,14 +36,19 @@ export function QuickstartDropdown() {
       <select
         onChange={handleSelectChange}
         className="
-        text-[#010507] font-medium dark:text-white text-sm p-3 pl-4 pr-10 transition-all duration-100 rounded-lg cursor-pointer w-full bg-[#0105070D] dark:bg-[#FFFFFF1A] font-spline appearance-none"
+        text-[#010507] font-medium dark:text-white dark:color-scheme-dark text-sm p-3 pl-4 pr-10 transition-all duration-100 rounded-lg cursor-pointer w-full bg-[#0105070D] dark:bg-[#FFFFFF1A] font-spline appearance-none"
+        style={{ colorScheme: "auto" }}
         defaultValue=""
       >
         <option value="" disabled>
           CHOOSE INTEGRATION
         </option>
         {options.map((option) => (
-          <option key={option.url} value={option.url}>
+          <option
+            key={option.url}
+            value={option.url}
+            className="text-black dark:text-white bg-white dark:bg-neutral-800"
+          >
             {option.label}
           </option>
         ))}

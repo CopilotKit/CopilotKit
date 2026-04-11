@@ -1,6 +1,6 @@
 ---
 title: Common LangGraph issues
-description: Common issues you may encounter when using LangGraph.
+description: Common issues you may encounter when using LangChain.
 icon: "lucide/LifeBuoy"
 ---
 
@@ -21,7 +21,7 @@ Welcome to the CoAgents Troubleshooting Guide! If you're having trouble getting 
 This could be due to a few different reasons.
 
 First, we strongly recommend checking out our [Human In the Loop](/langgraph/human-in-the-loop) guide to follow a more in depth example of how to stream tool calls
-in your LangGraph agents. You can also check out our [travel tutorial](/langgraph/tutorials/ai-travel-app/step-6-human-in-the-loop) which talks about how to stream
+in your LangChain agents. You can also check out our [travel tutorial](/langgraph/tutorials/ai-travel-app/step-6-human-in-the-loop) which talks about how to stream
 tool calls in a more complex example.
 
 If you have already done that, you can check the following:
@@ -29,7 +29,7 @@ If you have already done that, you can check the following:
 <Accordions>
     <Accordion title="You're using llm.invoke() instead of llm.ainvoke()">
         <p>
-            When you invoke your LangGraph agent, you can invoke it synchronously or asynchronously. If you invoke it synchronously,
+            When you invoke your LangChain agent, you can invoke it synchronously or asynchronously. If you invoke it synchronously,
             the tool calls will not be streamed progressively, only the final result will be streamed. If you invoke it asynchronously,
             the tool calls will be streamed progressively.
 
@@ -57,7 +57,7 @@ from langchain_openai import AzureChatOpenAI # [!code ++]
 
 ## I am getting "agent not found" error
 
-If you're seeing this error, it means CopilotKit couldn't find the LangGraph agent you're trying to use. Here's how to fix it:
+If you're seeing this error, it means CopilotKit couldn't find the LangChain agent you're trying to use. Here's how to fix it:
 
 <Accordions>
     <Accordion title="Verify your agent lock mode configuration">
@@ -245,7 +245,7 @@ You can visit the [LangGraph Persistence guide](https://docs.langchain.com/oss/p
 
 ## I see messages being streamed and disappear
 
-LangGraph agents are stateful. As a graph is traversed, the state is saved at the end of each node. CopilotKit uses the agent's state as
+LangChain agents are stateful. As a graph is traversed, the state is saved at the end of each node. CopilotKit uses the agent's state as
 the source of truth for what to display in the frontend chat. However, since state is only emitted at the end of a node,  CopilotKit allows
 you to stream predictive state updates *in the middle of a node*. By default, CopilotKit will stream messages and tool calls being actively
 generated to the frontend chat that initiated the interaction. **If this predictive state is not persisted at the end of the node, it will
@@ -267,7 +267,7 @@ persisted at the end of a node.
 
                 async def chat_node(state: AgentState, config: RunnableConfig):
                     # 1) Call the model with CopilotKit's modified config
-                    model = ChatOpenAI(model="gpt-5.2")
+                    model = ChatOpenAI(model="gpt-5.4")
                     response = await model.ainvoke(state["messages"], modifiedConfig)
 
                     # 2) Make sure to return the new messages
@@ -282,7 +282,7 @@ persisted at the end of a node.
 
                 async function chatNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
                     // 1) Call the model with CopilotKit's modified config
-                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.2" });
+                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.4" });
                     const response = await model.invoke(state.messages, modifiedConfig);
 
                     // 2) Make sure to return the new messages
@@ -311,7 +311,7 @@ persisted at the end of a node.
                     )
 
                     # 2) Call the model with CopilotKit's modified config
-                    model = ChatOpenAI(model="gpt-5.2")
+                    model = ChatOpenAI(model="gpt-5.4")
                     response = await model.ainvoke(state["messages"], modifiedConfig)
 
                     # 3) Don't return the new response to hide it from the user
@@ -329,7 +329,7 @@ persisted at the end of a node.
                     });
 
                     // 2) Call the model with CopilotKit's modified config
-                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.2" });
+                    const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.4" });
                     const response = await model.invoke(state.messages, modifiedConfig);
 
                     // 3) Don't return the new response to hide it from the user

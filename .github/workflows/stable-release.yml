@@ -1,0 +1,169 @@
+name: release / create-pr
+
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "What to release"
+        required: true
+        type: choice
+        options:
+          - monorepo
+          - cli
+          - angular
+      bump:
+        description: "Version bump level"
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      dry_run:
+        description: "Dry run (preview without creating PR)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: release-pr
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  NX_VERBOSE_LOGGING: true
+
+jobs:
+  create-release-pr:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check for existing release PR
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const { data: prs } = await github.rest.pulls.list({
+              owner,
+              repo,
+              state: "open",
+              head_prefix: `${owner}:release/publish/`,
+            });
+
+            const releasePRs = prs.filter(pr => pr.head.ref.startsWith("release/publish/"));
+            if (releasePRs.length > 0) {
+              const existing = releasePRs.map(pr => `  - #${pr.number}: ${pr.title} (${pr.html_url})`).join("\n");
+              core.setFailed(
+                `An open release PR already exists. Close or merge it before creating a new one:\n${existing}`
+              );
+            }
+
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.13.1"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare release
+        id: prepare
+        run: |
+          if [ "${{ inputs.dry_run }}" == "true" ]; then
+            pnpm tsx scripts/release/prepare-release.ts --bump ${{ inputs.bump }} --scope ${{ inputs.scope }} --dry-run
+          else
+            pnpm tsx scripts/release/prepare-release.ts --bump ${{ inputs.bump }} --scope ${{ inputs.scope }}
+          fi
+
+      - name: Generate AI release notes
+        if: inputs.dry_run != true
+        id: ai_notes
+        run: pnpm tsx scripts/release/generate-ai-release-notes.ts "${{ steps.prepare.outputs.version }}"
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_RELEASE_NOTES_PAGE: ${{ secrets.NOTION_RELEASE_NOTES_PAGE }}
+
+      - name: Create release PR
+        if: inputs.dry_run != true
+        id: create_pr
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: release/publish/${{ inputs.scope }}/v${{ steps.prepare.outputs.version }}
+          delete-branch: true
+          commit-message: "chore: release ${{ inputs.scope }} v${{ steps.prepare.outputs.version }}"
+          title: "chore: release ${{ inputs.scope }} v${{ steps.prepare.outputs.version }}"
+          body: |
+            ## Release ${{ inputs.scope }} v${{ steps.prepare.outputs.version }}
+
+            **Scope:** `${{ inputs.scope }}` | **Bump:** `${{ inputs.bump }}`
+
+            ---
+
+            ### How this release process works
+
+            1. **This PR was created automatically** by the "release / create-pr" workflow.
+               It bumped the `${{ inputs.scope }}` packages to `${{ steps.prepare.outputs.version }}`
+               and generated AI-enhanced release notes.
+
+            2. **CI runs on this PR** — the full test suite (unit tests, lint, type checks, build)
+               must pass before merging. This is the review gate.
+
+            3. **Review the release notes** in `release-notes.md` in this PR.
+               If a Notion draft was created, you can edit the release notes there before merging.
+
+            4. **When this PR is merged**, the `release / publish` workflow automatically:
+               - Builds all packages
+               - Publishes the `${{ inputs.scope }}` packages to npm at version `${{ steps.prepare.outputs.version }}`
+               - Creates git tag `${{ inputs.scope }}/v${{ steps.prepare.outputs.version }}`
+               - Creates a GitHub Release with the final release notes
+
+            ### Before merging
+
+            - [ ] CI is green (tests, lint, types, build)
+            - [ ] Version bumps look correct
+            - [ ] Release notes are accurate (edit in Notion if a draft was created)
+
+            ---
+
+            > **Do not merge until CI is fully green.** The full test suite runs automatically on this PR.
+          labels: release
+
+      - name: Comment Notion link on PR
+        if: inputs.dry_run != true && steps.ai_notes.outputs.notion_url
+        uses: actions/github-script@v7
+        env:
+          NOTION_URL: ${{ steps.ai_notes.outputs.notion_url }}
+          PR_NUMBER: ${{ steps.create_pr.outputs.pull-request-number }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            const notionUrl = process.env.NOTION_URL;
+
+            if (prNumber && notionUrl) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body: `📝 **Release notes draft:** ${notionUrl}\n\nYou can edit the release notes in Notion before merging. The final content will be used for the GitHub Release.`,
+              });
+            }

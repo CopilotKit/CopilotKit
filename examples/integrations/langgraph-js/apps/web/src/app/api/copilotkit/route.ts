@@ -16,7 +16,9 @@ const runtime = new CopilotRuntime({
   agents: {
     starterAgent: new LangGraphAgent({
       deploymentUrl:
-        process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
+        process.env.AGENT_URL ||
+        process.env.LANGGRAPH_DEPLOYMENT_URL ||
+        "http://localhost:8123",
       graphId: "starterAgent",
       langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
     }),

@@ -1,0 +1,656 @@
+---
+title: "Build clients"
+description: "Showcase: build a conversational CLI agent from scratch using AG-UI and Mastra"
+---
+
+# Introduction
+
+A client implementation allows you to **build conversational applications that
+leverage AG-UI's event-driven protocol**. This approach creates a direct
+interface between your users and AI agents, demonstrating direct access to the
+AG-UI protocol.
+
+## When to use a client implementation
+
+Building your own client is useful if you want to explore/hack on the AG-UI
+protocol. For production use, use a full-featured client like
+[CopilotKit](https://copilotkit.ai).
+
+## What you'll build
+
+In this guide, we'll create a CLI client that:
+
+1. Uses the `MastraAgent` from `@ag-ui/mastra`
+2. Connects to OpenAI's GPT-4o model
+3. Implements a weather tool for real-world functionality
+4. Provides an interactive chat interface in the terminal
+
+Let's get started!
+
+## Prerequisites
+
+Before we begin, make sure you have:
+
+- [Node.js](https://nodejs.org/) **22.13.0 or later**
+- An **OpenAI API key**
+- [pnpm](https://pnpm.io/) package manager
+
+### 1. Provide your OpenAI API key
+
+First, let's set up your API key:
+
+```bash
+# Set your OpenAI API key
+export OPENAI_API_KEY=your-api-key-here
+```
+
+### 2. Install pnpm
+
+If you don't have pnpm installed:
+
+```bash
+# Install pnpm
+npm install -g pnpm
+```
+
+## Step 1 – Initialize your project
+
+Create a new directory for your AG-UI client:
+
+```bash
+mkdir my-ag-ui-client
+cd my-ag-ui-client
+```
+
+Initialize a new Node.js project:
+
+```bash
+pnpm init
+```
+
+### Set up TypeScript and basic configuration
+
+Install TypeScript and essential development dependencies:
+
+```bash
+pnpm add -D typescript @types/node tsx
+```
+
+Create a `tsconfig.json` file:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
+```
+
+Update your `package.json` scripts:
+
+```json
+{
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx --watch src/index.ts",
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  }
+}
+```
+
+## Step 2 – Install AG-UI and dependencies
+
+Install the core AG-UI packages and dependencies:
+
+```bash
+# Core AG-UI packages
+pnpm add @ag-ui/client @ag-ui/core @ag-ui/mastra
+
+# Mastra ecosystem packages
+pnpm add @mastra/core @mastra/client-js @mastra/memory @mastra/libsql
+
+# Mastra peer dependencies
+pnpm add zod
+```
+
+## Step 3 – Create your agent
+
+Let's create a basic conversational agent. Create `src/agent.ts`:
+
+```typescript
+export const agent = new MastraAgent({
+  resourceId: "cliExample",
+  agent: new Agent({
+    id: "ag-ui-assistant",
+    name: "AG-UI Assistant",
+    instructions: `
+      You are a helpful AI assistant. Be friendly, conversational, and helpful.
+      Answer questions to the best of your ability and engage in natural conversation.
+    `,
+    model: "openai/gpt-4o",
+    memory: new Memory({
+      storage: new LibSQLStore({
+        id: "storage-memory",
+        url: "file:./assistant.db",
+      }),
+    }),
+  }),
+  threadId: "main-conversation",
+});
+```
+
+### What's happening in the agent?
+
+1. **MastraAgent** – We wrap a Mastra Agent with the AG-UI protocol adapter
+2. **Model Configuration** – We use OpenAI's GPT-4o for high-quality responses
+3. **Memory Setup** – We configure persistent memory using LibSQL for
+   conversation context
+4. **Instructions** – We give the agent basic guidelines for helpful
+   conversation
+
+## Step 4 – Create the CLI interface
+
+Now let's create the interactive chat interface. Create `src/index.ts`:
+
+```typescript
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+
+async function chatLoop() {
+  console.log("🤖 AG-UI Assistant started!");
+  console.log("Type your messages and press Enter. Press Ctrl+D to quit.\n");
+
+  return new Promise<void>((resolve) => {
+    const promptUser = () => {
+      rl.question("> ", async (input) => {
+        if (input.trim() === "") {
+          promptUser();
+          return;
+        }
+        console.log("");
+
+        // Pause input while processing
+        rl.pause();
+
+        // Add user message to conversation
+        agent.messages.push({
+          id: randomUUID(),
+          role: "user",
+          content: input.trim(),
+        });
+
+        try {
+          // Run the agent with event handlers
+          await agent.runAgent(
+            {}, // No additional configuration needed
+            {
+              onTextMessageStartEvent() {
+                process.stdout.write("🤖 Assistant: ");
+              },
+              onTextMessageContentEvent({ event }) {
+                process.stdout.write(event.delta);
+              },
+              onTextMessageEndEvent() {
+                console.log("\n");
+              },
+            },
+          );
+        } catch (error) {
+          console.error("❌ Error:", error);
+        }
+
+        // Resume input
+        rl.resume();
+        promptUser();
+      });
+    };
+
+    // Handle Ctrl+D to quit
+    rl.on("close", () => {
+      console.log("\n👋 Thanks for using AG-UI Assistant!");
+      resolve();
+    });
+
+    promptUser();
+  });
+}
+
+async function main() {
+  await chatLoop();
+}
+
+main().catch(console.error);
+```
+
+### What's happening in the CLI interface?
+
+1. **Readline Interface** – We create an interactive prompt for user input
+2. **Message Management** – We add each user input to the agent's conversation
+   history
+3. **Event Handling** – We listen to AG-UI events to provide real-time feedback
+4. **Streaming Display** – We show the agent's response as it's being generated
+
+## Step 5 – Test your assistant
+
+Let's run your new AG-UI client:
+
+```bash
+pnpm dev
+```
+
+You should see:
+
+```
+🤖 AG-UI Assistant started!
+Type your messages and press Enter. Press Ctrl+D to quit.
+
+>
+```
+
+Try asking questions like:
+
+- "Hello! How are you?"
+- "What can you help me with?"
+- "Tell me a joke"
+- "Explain quantum computing in simple terms"
+
+You'll see the agent respond with streaming text in real-time!
+
+## Step 6 – Understanding the AG-UI event flow
+
+Let's break down what happens when you send a message:
+
+1. **User Input** – You type a question and press Enter
+2. **Message Added** – Your input is added to the conversation history
+3. **Agent Processing** – The agent analyzes your request and formulates a
+   response
+4. **Response Generation** – The agent streams its response back
+5. **Streaming Output** – You see the response appear word by word
+
+### Event types you're handling:
+
+- `onTextMessageStartEvent` – Agent starts responding
+- `onTextMessageContentEvent` – Each chunk of the response
+- `onTextMessageEndEvent` – Response is complete
+
+## Step 7 – Add tool functionality
+
+Now that you have a working chat interface, let's add some real-world
+capabilities by creating tools. We'll start with a weather tool.
+
+### Create your first tool
+
+Let's create a weather tool that your agent can use. Create the directory
+structure:
+
+```bash
+mkdir -p src/tools
+```
+
+Create `src/tools/weather.tool.ts`:
+
+```typescript
+interface GeocodingResponse {
+  results: {
+    latitude: number;
+    longitude: number;
+    name: string;
+  }[];
+}
+
+interface WeatherResponse {
+  current: {
+    time: string;
+    temperature_2m: number;
+    apparent_temperature: number;
+    relative_humidity_2m: number;
+    wind_speed_10m: number;
+    wind_gusts_10m: number;
+    weather_code: number;
+  };
+}
+
+export const weatherTool = createTool({
+  id: "get-weather",
+  description: "Get current weather for a location",
+  inputSchema: z.object({
+    location: z.string().describe("City name"),
+  }),
+  outputSchema: z.object({
+    temperature: z.number(),
+    feelsLike: z.number(),
+    humidity: z.number(),
+    windSpeed: z.number(),
+    windGust: z.number(),
+    conditions: z.string(),
+    location: z.string(),
+  }),
+  execute: async (inputData) => {
+    return await getWeather(inputData.location);
+  },
+});
+
+const getWeather = async (location: string) => {
+  const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+    location,
+  )}&count=1`;
+  const geocodingResponse = await fetch(geocodingUrl);
+  const geocodingData = (await geocodingResponse.json()) as GeocodingResponse;
+
+  if (!geocodingData.results?.[0]) {
+    throw new Error(`Location '${location}' not found`);
+  }
+
+  const { latitude, longitude, name } = geocodingData.results[0];
+
+  const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,weather_code`;
+
+  const response = await fetch(weatherUrl);
+  const data = (await response.json()) as WeatherResponse;
+
+  return {
+    temperature: data.current.temperature_2m,
+    feelsLike: data.current.apparent_temperature,
+    humidity: data.current.relative_humidity_2m,
+    windSpeed: data.current.wind_speed_10m,
+    windGust: data.current.wind_gusts_10m,
+    conditions: getWeatherCondition(data.current.weather_code),
+    location: name,
+  };
+};
+
+function getWeatherCondition(code: number): string {
+  const conditions: Record<number, string> = {
+    0: "Clear sky",
+    1: "Mainly clear",
+    2: "Partly cloudy",
+    3: "Overcast",
+    45: "Foggy",
+    48: "Depositing rime fog",
+    51: "Light drizzle",
+    53: "Moderate drizzle",
+    55: "Dense drizzle",
+    56: "Light freezing drizzle",
+    57: "Dense freezing drizzle",
+    61: "Slight rain",
+    63: "Moderate rain",
+    65: "Heavy rain",
+    66: "Light freezing rain",
+    67: "Heavy freezing rain",
+    71: "Slight snow fall",
+    73: "Moderate snow fall",
+    75: "Heavy snow fall",
+    77: "Snow grains",
+    80: "Slight rain showers",
+    81: "Moderate rain showers",
+    82: "Violent rain showers",
+    85: "Slight snow showers",
+    86: "Heavy snow showers",
+    95: "Thunderstorm",
+    96: "Thunderstorm with slight hail",
+    99: "Thunderstorm with heavy hail",
+  };
+  return conditions[code] || "Unknown";
+}
+```
+
+### What's happening in the weather tool?
+
+1. **Tool Definition** – We use `createTool` from Mastra to define the tool's
+   interface
+2. **Input Schema** – We specify that the tool accepts a location string
+3. **Output Schema** – We define the structure of the weather data returned
+4. **API Integration** – We fetch data from Open-Meteo's free weather API
+5. **Data Processing** – We convert weather codes to human-readable conditions
+
+### Update your agent
+
+Now let's update our agent to use the weather tool. Update `src/agent.ts`:
+
+```typescript
+export const agent = new MastraAgent({
+  agent: new Agent({
+    // ...
+
+    tools: { weatherTool }, // <--- Add the tool to the agent
+
+    // ...
+  }),
+  threadId: "main-conversation",
+});
+```
+
+### Update your CLI to handle tools
+
+Update your CLI interface in `src/index.ts` to handle tool events:
+
+```typescript
+// Add these new event handlers to your agent.runAgent call:
+await agent.runAgent(
+  {}, // No additional configuration needed
+  {
+    // ... existing event handlers ...
+
+    onToolCallStartEvent({ event }) {
+      console.log("🔧 Tool call:", event.toolCallName);
+    },
+    onToolCallArgsEvent({ event }) {
+      process.stdout.write(event.delta);
+    },
+    onToolCallEndEvent() {
+      console.log("");
+    },
+    onToolCallResultEvent({ event }) {
+      if (event.content) {
+        console.log("🔍 Tool call result:", event.content);
+      }
+    },
+  },
+);
+```
+
+### Test your weather tool
+
+Now restart your application and try asking about weather:
+
+```bash
+pnpm dev
+```
+
+Try questions like:
+
+- "What's the weather like in London?"
+- "How's the weather in Tokyo today?"
+- "Is it raining in Seattle?"
+
+You'll see the agent use the weather tool to fetch real data and provide
+detailed responses!
+
+## Step 8 – Add more functionality
+
+### Create a browser tool
+
+Let's add a web browsing capability. First install the `open` package:
+
+```bash
+pnpm add open
+```
+
+Create `src/tools/browser.tool.ts`:
+
+```typescript
+export const browserTool = createTool({
+  id: "open-browser",
+  description: "Open a URL in the default web browser",
+  inputSchema: z.object({
+    url: z.url().describe("The URL to open"),
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+    message: z.string(),
+  }),
+  execute: async (inputData) => {
+    try {
+      await open(inputData.url);
+      return {
+        success: true,
+        message: `Opened ${inputData.url} in your default browser`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to open browser: ${error}`,
+      };
+    }
+  },
+});
+```
+
+### Update your agent with both tools
+
+Update `src/agent.ts` to include both tools:
+
+```typescript
+export const agent = new MastraAgent({
+  resourceId: "cliExample",
+  agent: new Agent({
+    id: "ag-ui-assistant",
+    name: "AG-UI Assistant",
+    instructions: `
+      You are a helpful assistant with weather and web browsing capabilities.
+
+      For weather queries:
+      - Always ask for a location if none is provided
+      - Use the weatherTool to fetch current weather data
+
+      For web browsing:
+      - Always use full URLs (e.g., "https://www.google.com")
+      - Use the browserTool to open web pages
+
+      Be friendly and helpful in all interactions!
+    `,
+    model: "openai/gpt-4o",
+    tools: { weatherTool, browserTool }, // Add both tools
+    memory: new Memory({
+      storage: new LibSQLStore({
+        id: "storage-memory",
+        url: "file:./assistant.db",
+      }),
+    }),
+  }),
+  threadId: "main-conversation",
+});
+```
+
+Now you can ask your assistant to open websites: "Open Google for me" or "Show
+me the weather website".
+
+## Step 9 – Deploy your client
+
+### Building your client
+
+Create a production build:
+
+```bash
+pnpm build
+```
+
+### Create a startup script
+
+Add to your `package.json`:
+
+```json
+{
+  "bin": {
+    "weather-assistant": "./dist/index.js"
+  }
+}
+```
+
+Add a shebang to your built `dist/index.js`:
+
+```javascript
+#!/usr/bin/env node
+// ... rest of your compiled code
+```
+
+Make it executable:
+
+```bash
+chmod +x dist/index.js
+```
+
+### Link globally
+
+Install your CLI globally:
+
+```bash
+pnpm link --global
+```
+
+Now you can run `weather-assistant` from anywhere!
+
+## Extending your client
+
+Your AG-UI client is now a solid foundation. Here are some ideas for
+enhancement:
+
+### Add more tools
+
+- **Calculator tool** – For mathematical operations
+- **File system tool** – For reading/writing files
+- **API tools** – For connecting to other services
+- **Database tools** – For querying data
+
+### Improve the interface
+
+- **Rich formatting** – Use libraries like `chalk` for colored output
+- **Progress indicators** – Show loading states for long operations
+- **Configuration files** – Allow users to customize settings
+- **Command-line arguments** – Support different modes and options
+
+### Add persistence
+
+- **Conversation history** – Save and restore chat sessions
+- **User preferences** – Remember user settings
+- **Tool results caching** – Cache expensive API calls
+
+## Share your client
+
+Built something useful? Consider sharing it with the community:
+
+1. **Open source it** – Publish your code on GitHub
+2. **Publish to npm** – Make it installable via `npm install`
+3. **Create documentation** – Help others understand and extend your work
+4. **Join discussions** – Share your experience in the
+   [AG-UI GitHub Discussions](https://github.com/orgs/ag-ui-protocol/discussions)
+
+## Conclusion
+
+You've built a complete AG-UI client from scratch! Your weather assistant
+demonstrates the core concepts:
+
+- **Event-driven architecture** with real-time streaming
+- **Tool integration** for real-world functionality
+- **Conversation memory** for context retention
+- **Interactive CLI interface** for user engagement
+
+From here, you can extend your client to support any use case – from simple CLI
+tools to complex conversational applications. The AG-UI protocol provides the
+foundation, and your creativity provides the possibilities.
+
+Happy building! 🚀

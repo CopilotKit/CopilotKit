@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
 import { createCopilotEndpointExpress } from "../express";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 
 const handleRunAgentMock = vi.fn();
 

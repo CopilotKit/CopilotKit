@@ -1,0 +1,93 @@
+---
+title: "Multimodal Inputs"
+description:
+  "Use modality-specific user input parts with typed data/url sources in
+  ag_ui.core"
+---
+
+# Multimodal Inputs
+
+`UserMessage.content` accepts either plain text or an ordered list of multimodal
+parts.
+
+```python
+from ag_ui.core import (
+    UserMessage,
+    TextInputContent,
+    ImageInputContent,
+    DocumentInputContent,
+    InputContentUrlSource,
+)
+
+message = UserMessage(
+    id="user-1",
+    content=[
+        TextInputContent(text="Summarize this PDF and screenshot"),
+        ImageInputContent(
+            source=InputContentUrlSource(
+                value="https://example.com/screen.png",
+                mime_type="image/png",
+            )
+        ),
+        DocumentInputContent(
+            source=InputContentUrlSource(
+                value="https://example.com/report.pdf",
+                mime_type="application/pdf",
+            )
+        ),
+    ],
+)
+```
+
+## Source Types
+
+Use `source.type` to describe payload delivery:
+
+- `data`: Inline base64 payload with required `mime_type`
+- `url`: HTTP(S) or data URL, optional `mime_type`
+
+## Common Use Cases
+
+### Visual QA
+
+```python
+from ag_ui.core import UserMessage, TextInputContent, ImageInputContent, InputContentUrlSource
+
+message = UserMessage(
+    id="q1",
+    content=[
+        TextInputContent(text="What issue do you see in this UI?"),
+        ImageInputContent(
+            source=InputContentUrlSource(
+                value="https://example.com/ui.png",
+                mime_type="image/png",
+            ),
+            metadata={"detail": "high"},
+        ),
+    ],
+)
+```
+
+### Audio transcription
+
+```python
+from ag_ui.core import UserMessage, TextInputContent, AudioInputContent, InputContentUrlSource
+
+message = UserMessage(
+    id="q2",
+    content=[
+        TextInputContent(text="Transcribe this recording."),
+        AudioInputContent(
+            source=InputContentUrlSource(
+                value="https://example.com/meeting.wav",
+                mime_type="audio/wav",
+            )
+        ),
+    ],
+)
+```
+
+### Deprecated binary model
+
+`BinaryInputContent` is deprecated and emits a `DeprecationWarning`. It is kept
+as a temporary compatibility path while migrating to modality-specific parts.

@@ -1,0 +1,2 @@
+# This integration uses a .NET agent backend — no Python dependencies required.
+# See agent/ProverbsAgent.csproj for .NET package references.

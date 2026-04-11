@@ -64,7 +64,7 @@ import {
   type MCPTool,
   extractParametersFromSchema,
 } from "./mcp-tools-utils";
-import { BuiltInAgent, type BuiltInAgentConfiguration } from "../../agent";
+import { BuiltInAgent, type BuiltInAgentClassicConfig } from "../../agent";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (
   config: MCPEndpointConfig,
@@ -328,7 +328,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   params?: CopilotRuntimeConstructorParams<T>;
   private observability?: CopilotObservabilityConfig;
   // Cache MCP tools per endpoint to avoid re-fetching repeatedly
-  private mcpToolsCache: Map<string, BuiltInAgentConfiguration["tools"]> =
+  private mcpToolsCache: Map<string, BuiltInAgentClassicConfig["tools"]> =
     new Map();
   private runtimeArgs: CopilotRuntimeOptions;
   private _instance: CopilotRuntimeVNext;
@@ -369,6 +369,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         : {}),
       a2ui: params?.a2ui,
       mcpApps: params?.mcpApps,
+      openGenerativeUI: params?.openGenerativeUI,
     };
     this.params = params;
     this.observability = params?.observability_c;
@@ -448,7 +449,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   // Receive this.params.action and turn it into the AbstractAgent tools
   private getToolsFromActions(
     actions: ActionsConfiguration<any>,
-  ): BuiltInAgentConfiguration["tools"] {
+  ): BuiltInAgentClassicConfig["tools"] {
     // Resolve actions to an array (handle function case)
     const actionsArray =
       typeof actions === "function"
@@ -471,7 +472,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
   private assignToolsToAgents(
     agents: Record<string, AbstractAgent>,
-    tools: BuiltInAgentConfiguration["tools"],
+    tools: BuiltInAgentClassicConfig["tools"],
   ): Record<string, AbstractAgent> {
     if (!tools?.length) {
       return agents;
@@ -480,12 +481,21 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     const enrichedAgents: Record<string, AbstractAgent> = { ...agents };
 
     for (const [agentId, agent] of Object.entries(enrichedAgents)) {
-      const existingConfig = (Reflect.get(agent, "config") ??
-        {}) as BuiltInAgentConfiguration;
-      const existingTools = existingConfig.tools ?? [];
+      const existingConfig = (Reflect.get(agent, "config") ?? {}) as Record<
+        string,
+        unknown
+      >;
 
-      const updatedConfig: BuiltInAgentConfiguration = {
-        ...existingConfig,
+      // Skip factory-mode agents — they don't have a tools property
+      if ("factory" in existingConfig) {
+        continue;
+      }
+
+      const classicConfig = existingConfig as BuiltInAgentClassicConfig;
+      const existingTools = classicConfig.tools ?? [];
+
+      const updatedConfig: BuiltInAgentClassicConfig = {
+        ...classicConfig,
         tools: [...existingTools, ...tools],
       };
 
@@ -656,7 +666,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   // Optionally accepts request-scoped properties to merge request-provided mcpServers
   private async getToolsFromMCP(options?: {
     properties?: Record<string, unknown>;
-  }): Promise<BuiltInAgentConfiguration["tools"]> {
+  }): Promise<BuiltInAgentClassicConfig["tools"]> {
     const runtimeMcpServers = (this.params?.mcpServers ??
       []) as MCPEndpointConfig[];
     const createMCPClient = this.params?.createMCPClient as
@@ -701,7 +711,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       return Array.from(byUrl.values());
     })();
 
-    const allTools: BuiltInAgentConfiguration["tools"] = [];
+    const allTools: BuiltInAgentClassicConfig["tools"] = [];
 
     for (const config of effectiveEndpoints) {
       const endpointUrl = config.endpoint;
@@ -716,7 +726,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         const client = await createMCPClient(config);
         const toolsMap = await client.tools();
 
-        const toolDefs: BuiltInAgentConfiguration["tools"] = Object.entries(
+        const toolDefs: BuiltInAgentClassicConfig["tools"] = Object.entries(
           toolsMap,
         ).map(([toolName, tool]: [string, MCPTool]) => {
           const params: Parameter[] = extractParametersFromSchema(tool);

@@ -1,55 +1,38 @@
-import type { ComponentType } from "react";
-import type { Types, Primitives } from "@a2ui/lit/0.8";
+import type { A2UIClientEventMessage, Theme } from "../a2ui-types";
 
-// Re-export the Types and Primitives namespaces for convenience
-export type { Types, Primitives };
+// Re-export for backward compatibility
+export type { A2UIClientEventMessage, Theme };
 
-// Re-export commonly used types from Types namespace
-export type AnyComponentNode = Types.AnyComponentNode;
-export type Surface = Types.Surface;
-export type SurfaceID = Types.SurfaceID;
-export type Theme = Types.Theme;
-export type ServerToClientMessage = Types.ServerToClientMessage;
-export type A2UIClientEventMessage = Types.A2UIClientEventMessage;
-export type Action = Types.Action;
-export type DataValue = Types.DataValue;
-export type MessageProcessor = Types.MessageProcessor;
-
-// Re-export commonly used types from Primitives namespace
-export type StringValue = Primitives.StringValue;
-export type NumberValue = Primitives.NumberValue;
-export type BooleanValue = Primitives.BooleanValue;
+// Legacy type aliases - these are simplified in v0.9
+export type Types = Record<string, any>;
+export type Primitives = Record<string, any>;
+export type AnyComponentNode = any;
+export type Surface = any;
+export type SurfaceID = string;
+export type ServerToClientMessage = Record<string, unknown>;
+export type Action = any;
+export type DataValue = any;
+export type MessageProcessor = any;
+export type StringValue = any;
+export type NumberValue = any;
+export type BooleanValue = any;
 
 /**
- * Props passed to all A2UI React components.
+ * @deprecated - v0.9 components are handled by the catalog system.
  */
-export interface A2UIComponentProps<
-  T extends Types.AnyComponentNode = Types.AnyComponentNode,
-> {
-  /** The resolved component node from the A2UI message processor */
+export interface A2UIComponentProps<T = any> {
   node: T;
-  /** The surface ID this component belongs to */
   surfaceId: string;
 }
 
-/**
- * A function that loads a React component asynchronously.
- */
-export type ComponentLoader<
-  T extends Types.AnyComponentNode = Types.AnyComponentNode,
-> = () => Promise<{
-  default: ComponentType<A2UIComponentProps<T>>;
+/** @deprecated - v0.9 components are loaded by the catalog. */
+export type ComponentLoader<T = any> = () => Promise<{
+  default: any;
 }>;
 
-/**
- * Registration entry for a component in the registry.
- */
-export interface ComponentRegistration<
-  T extends Types.AnyComponentNode = Types.AnyComponentNode,
-> {
-  /** The React component or a loader function for lazy loading */
-  component: ComponentType<A2UIComponentProps<T>> | ComponentLoader<T>;
-  /** If true, the component will be lazy loaded */
+/** @deprecated - v0.9 uses Catalog instead of ComponentRegistration. */
+export interface ComponentRegistration<T = any> {
+  component: any;
   lazy?: boolean;
 }
 
@@ -57,15 +40,13 @@ export interface ComponentRegistration<
  * Callback for when a user action is dispatched.
  */
 export type OnActionCallback = (
-  message: Types.A2UIClientEventMessage,
+  message: A2UIClientEventMessage,
 ) => void | Promise<void>;
 
 /**
  * Configuration options for the A2UI provider.
  */
 export interface A2UIProviderConfig {
-  /** Callback invoked when a user action is dispatched (button click, etc.) */
   onAction?: OnActionCallback;
-  /** Initial theme configuration */
-  theme?: Types.Theme;
+  theme?: Theme;
 }

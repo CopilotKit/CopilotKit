@@ -14,7 +14,7 @@
  * ```
  */
 
-import {
+import React, {
   useCallback,
   useEffect,
   useMemo,
@@ -346,7 +346,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     }, {});
 
     return {
-      ...(copilotApiConfig.headers || {}),
+      ...copilotApiConfig.headers,
       ...(copilotApiConfig.publicApiKey
         ? {
             [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]:
@@ -508,7 +508,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         return {
           ...prev,
           [action.id]: {
-            ...(prev[action.id] ?? {}),
+            ...prev[action.id],
             ...action,
           } as LangGraphInterruptRender,
         };
@@ -761,8 +761,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         <CoAgentStateRendersProvider>
           <MessagesTapProvider>
             <CopilotMessages>
-              {memoizedChildren}
-              <RegisteredActionsRenderer />
+              <React.Fragment key="children">{memoizedChildren}</React.Fragment>
+              <RegisteredActionsRenderer key="actions" />
             </CopilotMessages>
           </MessagesTapProvider>
           {bannerError && showDevConsole && (

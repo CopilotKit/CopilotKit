@@ -15,17 +15,8 @@
  */
 
 export * from "./react-renderer/index.js";
-export { A2UIViewer } from "./A2UIViewer.js";
 export { DEFAULT_SURFACE_ID } from "./a2ui-types.js";
 export type { Theme, A2UIClientEventMessage } from "./a2ui-types.js";
-export type { A2UIViewerProps } from "./A2UIViewer.js";
-export { theme as viewerTheme } from "./theme/viewer-theme.js";
 
-// Re-export v0_8 types namespace for consumers
-import { v0_8 } from "@a2ui/lit";
-export type ComponentInstance = v0_8.Types.ComponentInstance;
-export type UserAction = v0_8.Types.UserAction;
-export type Action = v0_8.Types.Action;
-export type ServerToClientMessage = v0_8.Types.ServerToClientMessage;
-export type Surface = v0_8.Types.Surface;
-export type AnyComponentNode = v0_8.Types.AnyComponentNode;
+// Backward compat: viewerTheme (v0.9 themes handled internally)
+export const viewerTheme: Record<string, unknown> = {};

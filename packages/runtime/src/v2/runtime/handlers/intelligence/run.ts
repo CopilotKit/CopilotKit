@@ -1,5 +1,5 @@
 import { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
-import { CopilotIntelligenceRuntimeLike } from "../../runtime";
+import { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
 import { generateThreadNameForNewThread } from "./thread-names";
 import { logger } from "@copilotkit/shared";
 import { telemetry } from "../../telemetry";
@@ -73,6 +73,10 @@ export async function handleIntelligenceRun({
       threadId: input.threadId,
       runId: input.runId,
       userId,
+      ...(runtime.lockKeyPrefix !== undefined
+        ? { lockKeyPrefix: runtime.lockKeyPrefix }
+        : {}),
+      ttlSeconds: runtime.lockTtlSeconds,
     });
     joinToken = lockResult.joinToken;
     joinCode = lockResult.joinCode;
@@ -121,6 +125,30 @@ export async function handleIntelligenceRun({
 
   telemetry.capture("oss.runtime.agent_execution_stream_started", {});
 
+  // Start heartbeat timer to renew the thread lock.
+  let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+  heartbeatTimer = setInterval(() => {
+    runtime.intelligence
+      .ɵrenewThreadLock({
+        threadId: input.threadId,
+        runId: input.runId,
+        ttlSeconds: runtime.lockTtlSeconds,
+        ...(runtime.lockKeyPrefix !== undefined
+          ? { lockKeyPrefix: runtime.lockKeyPrefix }
+          : {}),
+      })
+      .catch((err) => {
+        logger.error("Failed to renew thread lock:", err);
+      });
+  }, runtime.lockHeartbeatIntervalSeconds * 1_000);
+
+  const clearHeartbeat = () => {
+    if (heartbeatTimer !== undefined) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = undefined;
+    }
+  };
+
   runtime.runner
     .run({
       threadId: input.threadId,
@@ -133,12 +161,14 @@ export async function handleIntelligenceRun({
     })
     .subscribe({
       error: (error) => {
+        clearHeartbeat();
         telemetry.capture("oss.runtime.agent_execution_stream_errored", {
           error: error instanceof Error ? error.message : String(error),
         });
         logger.error("Error running agent:", error);
       },
       complete: () => {
+        clearHeartbeat();
         telemetry.capture("oss.runtime.agent_execution_stream_ended", {});
       },
     });

@@ -1,14 +1,10 @@
 ## Overview
-The CopilotKit MCP server equips AI coding agents with deep knowledge about CopilotKit's APIs, patterns, and best practices. When connected to your 
+The CopilotKit MCP server equips AI coding agents with deep knowledge about CopilotKit's APIs, patterns, and best practices. When connected to your
 development environment, it enables AI assistants to:
 - Provide expert guidance
 - Generate accurate code
 - Give your AI agents a user interface
 - Help you implement CopilotKit features correctly
-
-<Callout type="info">
-Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly building and hosting MCP servers.
-</Callout>
 
 ## Cursor
 [Cursor](https://cursor.sh/) is an AI-powered code editor built for productivity. It features built-in AI assistance and supports MCP for extending AI capabilities with external tools.
@@ -25,34 +21,15 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
     ### Add MCP Server to Cursor
     Copy CopilotKit MCP's configuration and paste it under the mcpServers key in the mcp.json file.
 
-    <Tabs groupId="transport" items={['HTTP', 'SSE']} default="HTTP">
-      <Tab value="HTTP">
-        ```json
-        {
-          "mcpServers": {
-            "CopilotKit MCP": {
-              "command": "npx",
-              "args": [
-                "mcp-remote",
-                "https://mcp.copilotkit.ai"
-              ]
-            }
-          }
+    ```json
+    {
+      "mcpServers": {
+        "CopilotKit MCP": {
+          "url": "https://mcp.copilotkit.ai/mcp"
         }
-        ```
-      </Tab>
-      <Tab value="SSE">
-        ```json
-        {
-          "mcpServers": {
-            "CopilotKit MCP": {
-              "url": "https://mcp.copilotkit.ai/sse"
-            }
-          }
-        }
-        ```
-      </Tab>
-    </Tabs>
+      }
+    }
+    ```
   </Step>
 </Steps>
 
@@ -73,7 +50,7 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
     1. In the Name field, enter a memorable name for the CopilotKit connector, like `CopilotKit`
     2. In the URL field, enter the following:
     ```
-    https://mcp.copilotkit.ai/sse
+    https://mcp.copilotkit.ai/mcp
     ```
   </Step>
   <Step>
@@ -102,7 +79,7 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
     1. In the Name field, enter a memorable name for the CopilotKit connector, like `CopilotKit`
     2. In the URL field, enter the following:
     ```
-    https://mcp.copilotkit.ai/sse
+    https://mcp.copilotkit.ai/mcp
     ```
   </Step>
   <Step>
@@ -120,12 +97,12 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
     Use the Claude Code CLI to add the CopilotKit MCP server:
 
     ```bash
-    claude mcp add --transport sse copilotkit-mcp https://mcp.copilotkit.ai/sse
+    claude mcp add --transport http copilotkit-mcp https://mcp.copilotkit.ai/mcp
     ```
 
     **Expected Output:**
     ```
-    Added SSE MCP server copilotkit-mcp with URL: https://mcp.copilotkit.ai/sse to local config
+    Added HTTP MCP server copilotkit-mcp with URL: https://mcp.copilotkit.ai/mcp to local config
     File modified: /home/[username]/.claude.json [project: /path/to/your/project]
     ```
   </Step>
@@ -141,7 +118,7 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
     ```
     Checking MCP server health...
 
-    copilotkit-mcp: https://mcp.copilotkit.ai/sse (SSE) - ✓ Connected
+    copilotkit-mcp: https://mcp.copilotkit.ai/mcp (HTTP) - ✓ Connected
     ```
 
     <div className="mt-4 p-4 rounded-lg bg-muted">
@@ -193,32 +170,19 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
         1. In the Cascade section, click "Add Server"
         2. Select "Add custom server"
         3. Choose the transport type:
-           - **SSE/HTTP** for remote servers
+           - **HTTP** for remote servers
            - **stdio** for local command-based servers
       </Tab>
       <Tab value="Manual Configuration">
         Add the server configuration to your mcp_config.json file:
 
-        <Tabs groupId="windsurf-transport" items={['HTTP Transport', 'SSE Transport', 'stdio Transport (Local)']} default="HTTP Transport">
+        <Tabs groupId="windsurf-transport" items={['HTTP Transport', 'stdio Transport (Local)']} default="HTTP Transport">
           <Tab value="HTTP Transport">
             ```json
             {
               "mcpServers": {
                 "CopilotKit MCP": {
-                  "url": "https://mcp.copilotkit.ai",
-                  "disabled": false,
-                  "timeout": 30
-                }
-              }
-            }
-            ```
-          </Tab>
-          <Tab value="SSE Transport">
-            ```json
-            {
-              "mcpServers": {
-                "CopilotKit MCP": {
-                  "url": "https://mcp.copilotkit.ai/sse",
+                  "url": "https://mcp.copilotkit.ai/mcp",
                   "disabled": false,
                   "timeout": 30
                 }
@@ -232,7 +196,7 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
               "mcpServers": {
                 "CopilotKit MCP": {
                   "command": "npx",
-                  "args": ["mcp-remote", "https://mcp.copilotkit.ai"]
+                  "args": ["mcp-remote", "https://mcp.copilotkit.ai/mcp"]
                 }
               }
             }
@@ -295,12 +259,12 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
     1. Open the Cline extension panel in VS Code
     2. Click the menu (⋮) in the top right corner of the Cline panel
     3. Select "MCP Servers" from the dropdown menu
-    
+
     This will open the MCP Servers interface where you can manage your server connections.
   </Step>
   <Step>
     ### Add MCP Server to Cline
-    In the MCP Servers interface, you have three main options:
+    In the MCP Servers interface, you have two main options:
 
     <Tabs groupId="cline-setup" items={['Remote Server Setup', 'Configuration File Setup']} default="Remote Server Setup">
       <Tab value="Remote Server Setup">
@@ -308,7 +272,7 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
         2. Enter a Server Name (e.g., "CopilotKit MCP")
         3. Enter the Server URL:
         ```
-        https://mcp.copilotkit.ai/sse
+        https://mcp.copilotkit.ai/mcp
         ```
         4. Click "Add Server" to connect
       </Tab>
@@ -320,7 +284,7 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
         {
           "mcpServers": {
             "CopilotKit MCP": {
-              "url": "https://mcp.copilotkit.ai/sse",
+              "url": "https://mcp.copilotkit.ai/mcp",
               "disabled": false,
               "timeout": 30
             }
@@ -365,7 +329,7 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
         {
           "servers": {
             "CopilotKit MCP": {
-              "url": "https://mcp.copilotkit.ai/sse"
+              "url": "https://mcp.copilotkit.ai/mcp"
             }
           }
         }
@@ -378,7 +342,7 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
           "mcp": {
             "servers": {
               "CopilotKit MCP": {
-                "url": "https://mcp.copilotkit.ai/sse"
+                "url": "https://mcp.copilotkit.ai/mcp"
               }
             }
           }
@@ -388,8 +352,8 @@ Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly buildi
       <Tab value="Command Palette">
         1. Open the Command Palette (`Cmd+Shift+P` or `Ctrl+Shift+P`)
         2. Type "MCP: Add Server" and select the command
-        3. Choose "HTTP (sse)" as the server type
-        4. Enter the server URL: `https://mcp.copilotkit.ai/sse`
+        3. Choose "HTTP" as the server type
+        4. Enter the server URL: `https://mcp.copilotkit.ai/mcp`
         5. Provide a name for the server: `CopilotKit MCP`
       </Tab>
     </Tabs>
@@ -421,11 +385,11 @@ For MCP-compatible applications not listed above, use these universal integratio
 
 Most MCP-compatible applications support one or both of these connection methods:
 
-<Tabs groupId="universal-transport" items={['SSE', 'stdio']} default="SSE">
-  <Tab value="SSE">
+<Tabs groupId="universal-transport" items={['HTTP', 'stdio']} default="HTTP">
+  <Tab value="HTTP">
     For web-based or remote integrations:
     ```
-    https://mcp.copilotkit.ai/sse
+    https://mcp.copilotkit.ai/mcp
     ```
   </Tab>
   <Tab value="stdio">
@@ -433,7 +397,7 @@ Most MCP-compatible applications support one or both of these connection methods
     ```json
     {
       "command": "npx",
-      "args": ["mcp-remote", "https://mcp.copilotkit.ai"]
+      "args": ["mcp-remote", "https://mcp.copilotkit.ai/mcp"]
     }
     ```
   </Tab>
@@ -442,7 +406,7 @@ Most MCP-compatible applications support one or both of these connection methods
 ### Integration Steps
 
 1. **Find MCP Settings** - Look for "MCP," "Model Context Protocol," or "Tools" in your application settings
-2. **Add Server** - Use the SSE URL: `https://mcp.copilotkit.ai/sse`
+2. **Add Server** - Use the HTTP URL: `https://mcp.copilotkit.ai/mcp`
 3. **Test Connection** - Restart your application and verify the server appears in available tools
 
 ### Common Configuration Patterns
@@ -454,7 +418,7 @@ Most MCP-compatible applications support one or both of these connection methods
     {
       "servers": {
         "CopilotKit MCP": {
-          "url": "https://mcp.copilotkit.ai/sse"
+          "url": "https://mcp.copilotkit.ai/mcp"
         }
       }
     }
@@ -468,7 +432,7 @@ Most MCP-compatible applications support one or both of these connection methods
         "enabled": true,
         "servers": {
           "CopilotKit MCP": {
-            "url": "https://mcp.copilotkit.ai/sse"
+            "url": "https://mcp.copilotkit.ai/mcp"
           }
         }
       }

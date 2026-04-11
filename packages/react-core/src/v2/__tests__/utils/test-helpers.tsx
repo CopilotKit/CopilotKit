@@ -164,6 +164,7 @@ export function renderWithCopilotKit({
   humanInTheLoop,
   agentId,
   threadId,
+  defaultThrottleMs,
   children,
 }: {
   agent?: AbstractAgent;
@@ -175,6 +176,7 @@ export function renderWithCopilotKit({
   humanInTheLoop?: any[];
   agentId?: string;
   threadId?: string;
+  defaultThrottleMs?: number;
   children?: React.ReactNode;
 }): ReturnType<typeof render> {
   const resolvedAgents = agents || (agent ? { default: agent } : undefined);
@@ -189,6 +191,7 @@ export function renderWithCopilotKit({
       renderActivityMessages={renderActivityMessages}
       frontendTools={frontendTools}
       humanInTheLoop={humanInTheLoop}
+      defaultThrottleMs={defaultThrottleMs}
     >
       <CopilotChatConfigurationProvider
         agentId={resolvedAgentId}
@@ -415,6 +418,70 @@ export function emitReasoningSequence(
  */
 export function testId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// Varied content lengths for realistic message sizes in perf tests.
+const SAMPLE_ASSISTANT_TEXTS = [
+  "Sure! I'd be happy to help you with that.",
+  "The weather in San Francisco today is 65°F with partly cloudy skies.",
+  "Here are the main points from the meeting: 1) Roadmap review, 2) Bug triage, 3) Release planning.",
+  "To configure a custom agent, extend AbstractAgent and implement the run() method. Register it with CopilotKitProvider via the agents__unsafe_dev_only prop.",
+  "Here is a React component that fetches data from an API endpoint using useEffect and useState.",
+];
+
+/**
+ * Generate a realistic sequence of BaseEvents for N assistant messages.
+ * Uses TEXT_MESSAGE_CHUNK (the only event type proven to create rendered messages
+ * in jsdom tests). Every 5th message includes a tool call.
+ *
+ * Wrap in RUN_STARTED / RUN_FINISHED yourself if you need a full run sequence:
+ * @example
+ * agent.emit(runStartedEvent());
+ * for (const event of generateMessages(100)) agent.emit(event);
+ * agent.emit(runFinishedEvent());
+ */
+export function generateMessages(n: number): BaseEvent[] {
+  const events: BaseEvent[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const msgId = `gen-msg-${i}`;
+    const text = SAMPLE_ASSISTANT_TEXTS[i % SAMPLE_ASSISTANT_TEXTS.length];
+
+    // Stream content in ~20-char chunks to simulate real streaming
+    for (let offset = 0; offset < text.length; offset += 20) {
+      events.push(textChunkEvent(msgId, text.slice(offset, offset + 20)));
+    }
+
+    // Every 5th message has a tool call for realistic variety
+    if (i % 5 === 4) {
+      const tcId = `gen-tc-${i}`;
+      const tcResult = `{"result":"tool output for message ${i}"}`;
+      events.push(
+        toolCallChunkEvent({
+          toolCallId: tcId,
+          toolCallName: "exampleTool",
+          parentMessageId: msgId,
+          delta: "",
+        }),
+      );
+      events.push(
+        toolCallChunkEvent({
+          toolCallId: tcId,
+          parentMessageId: msgId,
+          delta: tcResult,
+        }),
+      );
+      events.push(
+        toolCallResultEvent({
+          toolCallId: tcId,
+          messageId: `${msgId}-result`,
+          content: tcResult,
+        }),
+      );
+    }
+  }
+
+  return events;
 }
 
 /**

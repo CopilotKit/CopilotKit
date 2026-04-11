@@ -129,9 +129,11 @@ export interface CopilotKitProps extends Omit<
   credentials?: RequestCredentials;
 
   /**
-   * Whether to show the dev console.
+   * Whether to show the dev console (error banners and toasts).
    *
-   * Set to `true` to show error banners and toasts, `false` to hide all error UI.
+   * @deprecated Use `enableInspector` to control the AG-UI inspector,
+   * which is what most users want. `showDevConsole` only controls
+   * error toasts/banners, not the inspector button.
    * Defaults to `false` for production safety.
    */
   showDevConsole?: boolean;

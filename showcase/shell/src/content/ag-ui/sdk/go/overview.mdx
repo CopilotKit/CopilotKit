@@ -1,0 +1,181 @@
+---
+title: "Go SDK Overview"
+description: "Connect to AG-UI agents using the official Go SDK"
+---
+
+The AG-UI Go SDK provides a robust and idiomatic way to connect Go applications to AG-UI agents. It enables real-time streaming communication through Server-Sent Events (SSE), allowing you to build intelligent agent-powered applications with Go.
+
+## Installation
+
+Install the SDK using Go's standard package management:
+
+```bash
+go get github.com/ag-ui-protocol/ag-ui/sdks/community/go
+```
+
+## Quick Start
+
+Here's a simple example showing how to connect to an AG-UI agent and receive events:
+
+```go
+package main
+
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+    "github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/client/sse"
+    "github.com/ag-ui-protocol/ag-ui/sdks/community/go/pkg/core/events"
+)
+
+func main() {
+    // Create SSE client with configuration
+    client := sse.NewClient(sse.Config{
+        Endpoint:       "https://api.example.com/agent",
+        APIKey:         "your-api-key",
+        ConnectTimeout: 30 * time.Second,
+        ReadTimeout:    5 * time.Minute,
+    })
+    defer client.Close()
+
+    // Prepare the request payload
+    payload := map[string]interface{}{
+        "threadId": "thread_123",
+        "messages": []map[string]interface{}{
+            {
+                "id":      "msg_1",
+                "role":    "user",
+                "content": "Hello, agent!",
+            },
+        },
+    }
+
+    // Start streaming
+    frames, errors, err := client.Stream(sse.StreamOptions{
+        Context: context.Background(),
+        Payload: payload,
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Create event decoder
+    decoder := events.NewEventDecoder()
+
+    // Handle incoming events
+    for {
+        select {
+        case frame := <-frames:
+            if frame == nil {
+                return // Stream ended
+            }
+
+            // Decode the event
+            event, err := decoder.Decode(frame.Data)
+            if err != nil {
+                log.Printf("decode error: %v", err)
+                continue
+            }
+
+            // Handle different event types
+            switch e := event.(type) {
+            case *events.TextMessageStartEvent:
+                fmt.Printf("Message started: %s\n", e.MessageID)
+            case *events.TextMessageContentEvent:
+                fmt.Printf("Content: %s", e.Delta)
+            case *events.TextMessageEndEvent:
+                fmt.Printf("\nMessage completed\n")
+            case *events.ToolCallStartEvent:
+                fmt.Printf("Tool call: %s\n", e.ToolName)
+            }
+
+        case err := <-errors:
+            log.Printf("stream error: %v", err)
+            return
+        }
+    }
+}
+```
+
+## Package Structure
+
+The Go SDK is organized into several focused packages, each handling a specific aspect of the AG-UI protocol:
+
+### Core Package (`core/events`)
+
+The foundation of the SDK, providing event types, interfaces, and decoding capabilities. This package defines all the event structures used in AG-UI communication, including text messages, tool calls, state management, and lifecycle events.
+
+```go
+
+```
+
+### Client Package (`client/sse`)
+
+Handles Server-Sent Events (SSE) connectivity to AG-UI agents. This package provides a robust SSE client with automatic reconnection, timeout handling, and authentication support.
+
+```go
+
+```
+
+### Encoding Package (`encoding`)
+
+Provides flexible encoding and decoding for different content types. Includes JSON encoding/decoding, SSE writing for servers, and content negotiation for handling different MIME types.
+
+```go
+
+```
+
+### Errors Package (`errors`)
+
+Comprehensive error handling with typed errors, severity levels, and retry logic. This package helps you handle different error scenarios gracefully with built-in retry capabilities.
+
+```go
+
+```
+
+## Next Steps
+
+Explore the detailed documentation for each package to learn more about specific features and advanced usage:
+
+<Card
+  title="Core Concepts"
+  icon="cube"
+  href="/sdk/go/core/overview"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Learn about events, types, and the foundational concepts of the AG-UI protocol
+</Card>
+
+<Card
+  title="Client Connectivity"
+  icon="cube"
+  href="/sdk/go/client/overview"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Detailed guide on SSE client configuration, streaming, and connection
+  management
+</Card>
+
+<Card
+  title="Encoding & Serialization"
+  icon="cube"
+  href="/sdk/go/encoding/overview"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Work with different encodings, content negotiation, and SSE server
+  implementation
+</Card>
+
+<Card
+  title="Error Handling"
+  icon="cube"
+  href="/sdk/go/errors/overview"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Comprehensive error handling patterns, retry logic, and recovery strategies
+</Card>

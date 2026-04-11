@@ -37,12 +37,12 @@ Before you begin, you'll need the following:
         ```
     </Step>
     <Step>
-        If you already have a LangGraph agent written, just reference the following code. In this step
-        we create a simple LangGraph agent for the sake of demonstration.
+        If you already have a LangChain agent written, just reference the following code. In this step
+        we create a simple LangChain agent for the sake of demonstration.
 
         <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
             <Tab value="LangSmith">
-                First, we'll create a simple LangGraph agent:
+                First, we'll create a simple LangChain agent:
 
                 ```python title="main.py"
                 from deepagents import create_deep_agent
@@ -54,7 +54,7 @@ Before you begin, you'll need the following:
                     return f"The weather in {location} is sunny."
 
                 agent = create_deep_agent(
-                    model="openai:gpt-5.2",
+                    model="openai:gpt-5.4",
                     tools=[get_weather],
                     middleware=[CopilotKitMiddleware()], # for frontend tools and context
                     system_prompt="You are a helpful research assistant.",
@@ -88,7 +88,7 @@ Before you begin, you'll need the following:
                 uv add ag-ui-langgraph fastapi uvicorn
                 ```
 
-                Then create a simple LangGraph agent, add a FastAPI app, and build attach our agent as an AG-UI endpoint.
+                Then create a simple LangChain agent, add a FastAPI app, and build attach our agent as an AG-UI endpoint.
 
                 ```python title="main.py"
                 import os
@@ -104,7 +104,7 @@ Before you begin, you'll need the following:
                     return f"The weather in {location} is sunny."
 
                 agent = create_deep_agent(
-                    model="openai:gpt-5.2",
+                    model="openai:gpt-5.4",
                     tools=[get_weather],
                     middleware=[CopilotKitMiddleware()], # for frontend tools and context
                     system_prompt="You are a helpful research assistant.",
@@ -151,7 +151,7 @@ Before you begin, you'll need the following:
         ```
 
         <Callout type="info" title="What about other models?">
-        The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LangGraph.
+        The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LangChain.
         </Callout>
     </Step>
     <Step>
@@ -174,7 +174,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Setup Copilot Runtime
 
-        Create an API route to connect CopilotKit to your LangGraph agent:
+        Create an API route to connect CopilotKit to your LangChain agent:
 
         ```sh
         mkdir -p app/api/copilotkit && touch app/api/copilotkit/route.ts

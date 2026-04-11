@@ -4,11 +4,8 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
-    include: [
-      "src/**/*.{test,spec}.ts",
-      "tests/**/*.{test,spec}.ts",
-    ],
-    exclude: ["**/dist/**"],
+    include: ["src/**/*.{test,spec}.ts", "tests/**/*.{test,spec}.ts"],
+    exclude: ["**/dist/**", "**/integration/bun/**"],
     setupFiles: ["./tests/setup.vitest.ts"],
     reporters: [["default", { summary: false }]],
     silent: true,

@@ -1,0 +1,110 @@
+name: "Showcase: Capture Previews"
+
+on:
+  workflow_run:
+    workflows: ["Showcase: Build & Deploy"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: "Integration slug to capture (leave empty for all)"
+        type: string
+        default: ""
+      demo:
+        description: "Demo ID to capture (leave empty for all)"
+        type: string
+        default: ""
+  push:
+    branches: [main]
+    paths:
+      - "showcase/packages/*/src/app/demos/**"
+      - "showcase/packages/*/manifest.yaml"
+
+concurrency:
+  group: showcase-capture-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    name: Capture Preview GIFs
+    runs-on: ubuntu-latest
+    # Disabled — preview GIFs removed from repo, awaiting external storage setup
+    if: false
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install Playwright
+        run: npx playwright install chromium --with-deps
+
+      - name: Install script dependencies
+        working-directory: showcase/scripts
+        run: pnpm install --ignore-scripts || true
+
+      - name: Detect changed packages
+        id: detect
+        if: github.event_name == 'push'
+        run: |
+          # Find which package slugs had demo changes
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'showcase/packages/*/src/app/demos/' 'showcase/packages/*/manifest.yaml' | \
+            sed -n 's|showcase/packages/\([^/]*\)/.*|\1|p' | sort -u | tr '\n' ',' | sed 's/,$//')
+          echo "slugs=$CHANGED" >> $GITHUB_OUTPUT
+          echo "Changed packages: $CHANGED"
+
+      - name: Capture previews
+        run: |
+          ARGS=""
+          # Use input slug/demo if provided (manual dispatch)
+          if [ -n "${{ inputs.slug }}" ]; then
+            ARGS="$ARGS --slug ${{ inputs.slug }}"
+          fi
+          if [ -n "${{ inputs.demo }}" ]; then
+            ARGS="$ARGS --demo ${{ inputs.demo }}"
+          fi
+          # Use detected slugs for push events (capture only changed)
+          if [ "${{ github.event_name }}" = "push" ] && [ -n "${{ steps.detect.outputs.slugs }}" ]; then
+            # Capture each changed slug
+            IFS=',' read -ra SLUGS <<< "${{ steps.detect.outputs.slugs }}"
+            for slug in "${SLUGS[@]}"; do
+              npx tsx showcase/scripts/capture-previews.ts --slug "$slug" || true
+            done
+          else
+            npx tsx showcase/scripts/capture-previews.ts $ARGS || true
+          fi
+
+      - name: Update manifests and registry
+        run: |
+          # Check if any new GIFs were created that need manifest updates
+          if git diff --name-only | grep -q "previews/"; then
+            # Regenerate registry from updated manifests
+            npx tsx showcase/scripts/generate-registry.ts || true
+          fi
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add showcase/shell/public/previews/ showcase/shell/src/data/registry.json showcase/packages/*/manifest.yaml
+          if git diff --staged --quiet; then
+            echo "No preview changes to commit"
+          else
+            git commit -m "Auto-capture preview GIFs for updated demos"
+            git push
+          fi

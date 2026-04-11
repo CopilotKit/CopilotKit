@@ -19,7 +19,7 @@ This context can then be shared with your AG2 backend.
 
 ## Implementation
 <Callout>
-    Check out the [Frontend Data documentation](https://docs.copilotkit.ai/direct-to-llm/guides/connect-your-data/frontend) to understand what this is and how to use it.
+    Check out the [Frontend Data documentation](/built-in-agent/agent-app-context) to understand what this is and how to use it.
 </Callout>
 
 <Callout type="info">
@@ -99,7 +99,8 @@ This context can then be shared with your AG2 backend.
                         ```python title="agent.py"
                         from fastapi import FastAPI, Header
                         from fastapi.responses import StreamingResponse
-                        from autogen import ContextVariables, ConversableAgent, LLMConfig
+                        from autogen import ConversableAgent, LLMConfig
+                        from autogen.agentchat import ContextVariables
                         from autogen.ag_ui import AGUIStream, RunAgentInput
 
                         def get_readable(context: ContextVariables, description: str):
@@ -116,7 +117,7 @@ This context can then be shared with your AG2 backend.
                                 "You are a helpful assistant that can help emailing colleagues. "
                                 "Call `get_colleagues` before suggesting recipients."
                             ),
-                            llm_config=LLMConfig({"model": "gpt-5.2-mini"}),
+                            llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
                         )
 
                         @agent.register_for_llm(description="Return the current user's colleagues from CopilotKit readables.")
@@ -195,13 +196,14 @@ This context can then be shared with your AG2 backend.
                         ```python title="agent.py"
                         from fastapi import FastAPI, Header
                         from fastapi.responses import StreamingResponse
-                        from autogen import ContextVariables, ConversableAgent, LLMConfig
+                        from autogen import ConversableAgent, LLMConfig
+                        from autogen.agentchat import ContextVariables
                         from autogen.ag_ui import AGUIStream, RunAgentInput
 
                         agent = ConversableAgent(
                             name="assistant",
                             system_message="You are a helpful assistant.",
-                            llm_config=LLMConfig({"model": "gpt-5.2-mini"}),
+                            llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
                         )
 
                         @agent.register_for_llm(description="Read colleagues from CopilotKit readable context.")

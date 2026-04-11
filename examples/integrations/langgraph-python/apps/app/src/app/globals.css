@@ -1,5 +1,5 @@
-/* Shadify-inspired fonts */
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+/* CopilotKit brand fonts */
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300..800&family=Spline+Sans+Mono:wght@400;500;600&display=swap");
 
 @import "tailwindcss";
 
@@ -7,29 +7,29 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #0a0a0a;
+  --foreground: #010507;
 
-  /* Shadcn-style semantic tokens */
+  /* Semantic tokens — CopilotKit brand */
   --card: #ffffff;
-  --card-foreground: #0a0a0a;
-  --primary: #171717;
-  --primary-foreground: #fafafa;
-  --secondary: #f5f5f5;
-  --secondary-foreground: #171717;
-  --muted: #f5f5f5;
-  --muted-foreground: #737373;
-  --accent: #f5f5f5;
-  --accent-foreground: #171717;
-  --destructive: #dc2626;
-  --destructive-foreground: #fafafa;
-  --border: #e5e5e5;
-  --input: #e5e5e5;
-  --ring: #171717;
+  --card-foreground: #010507;
+  --primary: #010507;
+  --primary-foreground: #ffffff;
+  --secondary: #ededf5;
+  --secondary-foreground: #010507;
+  --muted: #ededf5;
+  --muted-foreground: #57575b;
+  --accent: #eee6fe;
+  --accent-foreground: #010507;
+  --destructive: #fa5f67;
+  --destructive-foreground: #ffffff;
+  --border: #dbdbe5;
+  --input: #dbdbe5;
+  --ring: #bec2ff;
 
   /* Chart tokens */
   --chart-tooltip-bg: #ffffff;
-  --chart-tooltip-border: #e5e5e5;
-  --chart-axis: #737373;
+  --chart-tooltip-border: #dbdbe5;
+  --chart-axis: #57575b;
 
   --radius: 0.75rem;
 
@@ -37,33 +37,48 @@
   --cpk-default-font-family: var(--font-body);
 
   /* Fonts */
-  --font-body: "Fredoka", "DM Sans", "Segoe UI", sans-serif;
-  --font-code: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  --font-body: "Plus Jakarta Sans", "DM Sans", "Segoe UI", sans-serif;
+  --font-code:
+    "Spline Sans Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+
+  /* Brand accent colors */
+  --cpk-mint-400: #85ecce;
+  --cpk-mint-800: #189370;
+  --cpk-lilac-400: #bec2ff;
+  --cpk-orange-400: #ffac4d;
+  --cpk-yellow-400: #fff388;
+  --cpk-ambient-gradient: linear-gradient(
+    90deg,
+    #bec2ff 0%,
+    #85ecce 45.673%,
+    #ffac4d 100%
+  );
 }
 
-:root.dark {
-  --background: #0a0a0a;
-  --foreground: #fafafa;
+:root.dark,
+.dark {
+  --background: #010507;
+  --foreground: #ffffff;
 
-  --card: #0a0a0a;
-  --card-foreground: #fafafa;
-  --primary: #fafafa;
-  --primary-foreground: #171717;
-  --secondary: #262626;
-  --secondary-foreground: #fafafa;
-  --muted: #262626;
-  --muted-foreground: #a3a3a3;
-  --accent: #262626;
-  --accent-foreground: #fafafa;
-  --destructive: #dc2626;
-  --destructive-foreground: #fafafa;
-  --border: #262626;
-  --input: #262626;
-  --ring: #d4d4d4;
+  --card: #191a1e;
+  --card-foreground: #ffffff;
+  --primary: #ffffff;
+  --primary-foreground: #010507;
+  --secondary: #242529;
+  --secondary-foreground: #ffffff;
+  --muted: #242529;
+  --muted-foreground: #adadb2;
+  --accent: #303136;
+  --accent-foreground: #ffffff;
+  --destructive: #fa5f67;
+  --destructive-foreground: #ffffff;
+  --border: #303136;
+  --input: #303136;
+  --ring: #bec2ff;
 
-  --chart-tooltip-bg: #171717;
-  --chart-tooltip-border: #262626;
-  --chart-axis: #a3a3a3;
+  --chart-tooltip-bg: #191a1e;
+  --chart-tooltip-border: #303136;
+  --chart-axis: #adadb2;
 }
 
 body {
@@ -72,6 +87,24 @@ body {
   font-family: var(--font-body);
 }
 
-body, html {
+body,
+html {
   height: 100%;
+}
+
+/*
+ * Showcase highlight for suggestion pills.
+ * Applied via className in use-example-suggestions.tsx when showcase.json
+ * is set to a non-default mode (e.g. "a2ui", "opengenui"). Uses CopilotKit
+ * brand colors with a subtle tinted background.
+ * Add new showcase variants here following the same pattern.
+ */
+[data-copilotkit] button[data-slot="suggestion-pill"].a2ui-highlight {
+  border-color: var(--cpk-lilac-400);
+  background: color-mix(in srgb, var(--cpk-lilac-400) 15%, var(--background));
+}
+
+[data-copilotkit] button[data-slot="suggestion-pill"].opengenui-highlight {
+  border-color: var(--cpk-mint-400);
+  background: color-mix(in srgb, var(--cpk-mint-400) 15%, var(--background));
 }

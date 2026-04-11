@@ -1,0 +1,200 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Integration Package Manifest",
+  "description": "Schema for CopilotKit Showcase integration package manifests",
+  "type": "object",
+  "required": [
+    "name",
+    "slug",
+    "category",
+    "language",
+    "description",
+    "backend_url",
+    "features",
+    "demos"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Display name (e.g. 'LangGraph (Python)')"
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
+      "description": "URL-safe identifier (e.g. 'langgraph-python')"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "popular",
+        "agent-framework",
+        "enterprise-platform",
+        "provider-sdk",
+        "protocol",
+        "emerging",
+        "starter"
+      ],
+      "description": "Integration category"
+    },
+    "language": {
+      "type": "string",
+      "enum": ["python", "typescript", "dotnet"],
+      "description": "Primary agent backend language"
+    },
+    "logo": {
+      "type": "string",
+      "description": "Path to logo SVG relative to package root"
+    },
+    "description": {
+      "type": "string",
+      "description": "One-paragraph description of the integration"
+    },
+    "partner_docs": {
+      "type": ["string", "null"],
+      "format": "uri",
+      "description": "Link to partner's own CopilotKit documentation"
+    },
+    "repo": {
+      "type": "string",
+      "format": "uri",
+      "description": "Link to source code in the monorepo"
+    },
+    "copilotkit_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+",
+      "description": "CopilotKit SDK version this package is built against"
+    },
+    "backend_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Deployed Render service URL"
+    },
+    "deployed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the backend is deployed and live. Stack nav and demo links only activate when true."
+    },
+    "sort_order": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 999,
+      "description": "Sort order for display ranking (lower = higher priority)"
+    },
+    "animated_preview_url": {
+      "type": ["string", "null"],
+      "description": "Path to an animated preview (gif/video) shown on the landing page when no live mini-demo is available"
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "description": "List of supported feature IDs from the feature registry"
+    },
+    "demos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "description", "tags", "route"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "References a feature ID from the registry"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name for this demo"
+          },
+          "description": {
+            "type": "string",
+            "description": "One-line description of what this demo shows"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Freeform tags for search and filtering"
+          },
+          "route": {
+            "type": "string",
+            "pattern": "^/",
+            "description": "Route within the package (e.g. /demos/agentic-chat)"
+          },
+          "animated_preview_url": {
+            "type": ["string", "null"],
+            "description": "URL to animated preview for this specific demo"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Runnable demos (subset of features with working implementations)"
+    },
+    "generative_ui": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["constrained-declarative", "constrained-explicit", "open"]
+      },
+      "minItems": 1,
+      "description": "Generative UI patterns supported by this integration"
+    },
+    "interaction_modalities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["sidebar", "embedded", "popup", "chat", "headless"]
+      },
+      "minItems": 1,
+      "description": "UI interaction modalities supported by this integration"
+    },
+    "managed_platform": {
+      "type": "object",
+      "required": ["name", "url"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Display name of the managed platform"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the managed platform"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Managed platform details if this integration is hosted on a managed service"
+    },
+    "starter": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path from repo root to the starter example directory"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name for the starter"
+        },
+        "description": {
+          "type": "string",
+          "description": "One-line description of what the starter demonstrates"
+        },
+        "github_url": {
+          "type": "string",
+          "description": "GitHub URL to the starter directory for Clone/Fork"
+        },
+        "demo_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the deployed starter app for live demo iframe"
+        }
+      },
+      "required": ["path", "name"],
+      "additionalProperties": false,
+      "description": "Starter project details"
+    }
+  },
+  "additionalProperties": false
+}

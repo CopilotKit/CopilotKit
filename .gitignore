@@ -1,5 +1,6 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 .vscode
+.chalk
 .claude/*.local.json
 .claude/worktrees
 
@@ -27,6 +28,7 @@ superpowers/
 
 __pycache__/
 *.env
+.doctest-output/
 *.next
 .venv
 .vercel
@@ -48,6 +50,13 @@ lefthook-local.yml
 .husky/
 .langgraph_api
 
+# Private agent instructions (not shared with the team)
+private-agents.md
+
+# Release artifacts
+release-notes.md
+release-notes-notion.json
+
 # Binary artifacts
 *.dSYM/
 *.exe
@@ -59,3 +68,4 @@ lefthook-local.yml
 *.a
 *.lib
 *.wasm
+tasks/

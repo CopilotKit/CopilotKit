@@ -1,4 +1,4 @@
-import { CopilotRuntimeLike } from "../runtime";
+import type { CopilotRuntimeLike } from "../core/runtime";
 import {
   TranscriptionErrorCode,
   TranscriptionErrors,

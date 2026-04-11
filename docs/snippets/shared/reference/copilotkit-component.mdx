@@ -83,7 +83,7 @@ Custom properties to be sent with the request.
   }
   ```
 
-  Note: The `authorization` property is automatically forwarded to LangGraph agents. See the LangGraph Agent Authentication Guide (see code examples above) for details.
+  Note: The `authorization` property is automatically forwarded to LangChain agents. See the LangGraph Agent Authentication Guide (see code examples above) for details.
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials"  >
@@ -118,12 +118,19 @@ Whether to show the dev console.
   Defaults to `false` for production safety.
 </PropertyReference>
 
-<PropertyReference name="a2ui" type="{ theme?: Theme }">
+<PropertyReference name="a2ui" type="{ theme?: Theme; catalog?: any; loadingComponent?: React.ComponentType; includeSchema?: boolean }">
 Configuration for the A2UI (Agent-to-UI) renderer.
 
   The built-in A2UI renderer is activated automatically when the runtime reports
   that `a2ui` is configured in `CopilotRuntime`. This prop is optional and only
-  needed if you want to override the default theme.
+  needed if you want to override defaults.
+
+  | Option | Type | Description |
+  | --- | --- | --- |
+  | `theme` | `Theme` | Override the default A2UI viewer theme. |
+  | `catalog` | `any` | Custom component catalog. Defaults to `basicCatalog`. |
+  | `loadingComponent` | `React.ComponentType` | Custom loading component shown while a surface is generating. |
+  | `includeSchema` | `boolean` | When `true` (default), full component schemas are sent as agent context. |
 
   ```tsx
   <CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>

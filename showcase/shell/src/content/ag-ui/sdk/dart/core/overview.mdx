@@ -1,0 +1,309 @@
+---
+title: "Overview"
+description: "Core concepts in the Agent User Interaction Protocol Dart SDK"
+---
+
+```bash
+dart pub add ag_ui
+```
+
+# ag_ui.core
+
+The Agent User Interaction Protocol Dart SDK uses a streaming event-based architecture with strongly typed data structures. This package provides the foundation for connecting to agent systems with full null safety and compile-time type checking.
+
+```dart
+
+```
+
+## Types
+
+Core data structures that represent the building blocks of the system:
+
+- [RunAgentInput](/sdk/dart/core/types#runagentinput) - Input parameters for running agents
+- [Message](/sdk/dart/core/types#message-types) - User-assistant communication and tool usage
+- [Context](/sdk/dart/core/types#context) - Contextual information provided to agents
+- [Tool](/sdk/dart/core/types#tool) - Defines functions that agents can call
+- [State](/sdk/dart/core/types#state) - Agent state management
+
+<Card
+  title="Types Reference"
+  icon="cube"
+  href="/sdk/dart/core/types"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Complete documentation of all types in the ag_ui package
+</Card>
+
+## Events
+
+Events that power communication between agents and frontends:
+
+- [Lifecycle Events](/sdk/dart/core/events#lifecycle-events) - Run and step tracking
+- [Text Message Events](/sdk/dart/core/events#text-message-events) - Assistant message streaming
+- [Tool Call Events](/sdk/dart/core/events#tool-call-events) - Function call lifecycle
+- [State Management Events](/sdk/dart/core/events#state-management-events) - Agent state updates
+- [Special Events](/sdk/dart/core/events#special-events) - Raw and custom events
+
+<Card
+  title="Events Reference"
+  icon="bolt"
+  href="/sdk/dart/core/events"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Complete documentation of all events in the ag_ui package
+</Card>
+
+## Type System
+
+The Dart SDK leverages Dart's strong type system for compile-time safety:
+
+### Pattern Matching
+
+Use Dart's pattern matching for elegant event handling:
+
+```dart
+await for (final event in client.runAgent('agent', input)) {
+  switch (event) {
+    case RunStartedEvent(:final runId):
+      print('Run started: $runId');
+
+    case TextMessageDeltaEvent(:final delta, :final messageId):
+      print('Message $messageId: $delta');
+
+    case ToolCallStartedEvent(:final name, :final arguments):
+      print('Calling $name with $arguments');
+
+    case StateSnapshotEvent(:final state):
+      print('State updated: $state');
+
+    case RunFinishedEvent(:final error):
+      if (error != null) {
+        print('Run failed: $error');
+      }
+  }
+}
+```
+
+### Sealed Classes
+
+Events use sealed classes for exhaustive pattern matching:
+
+```dart
+sealed class BaseEvent {
+  final String type;
+  final DateTime timestamp;
+
+  const BaseEvent({
+    required this.type,
+    required this.timestamp,
+  });
+}
+
+// Compiler ensures all cases are handled
+String describeEvent(BaseEvent event) {
+  return switch (event) {
+    RunStartedEvent() => 'Starting run',
+    RunFinishedEvent() => 'Finishing run',
+    TextMessageEvent() => 'Processing message',
+    ToolCallEvent() => 'Calling tool',
+    StateEvent() => 'Updating state',
+    // No default needed - compiler knows all cases
+  };
+}
+```
+
+### Null Safety
+
+Full null safety support with clear nullable types:
+
+```dart
+class RunAgentInput {
+  final List<Message> messages;
+  final Map<String, dynamic>? context;  // Optional
+  final List<Tool>? tools;              // Optional
+  final String? threadId;               // Optional
+
+  const RunAgentInput({
+    required this.messages,
+    this.context,
+    this.tools,
+    this.threadId,
+  });
+}
+```
+
+## Reactive Programming
+
+Built on Dart's Stream API for reactive programming:
+
+### Stream Transformations
+
+```dart
+// Filter and transform events
+final textStream = client
+    .runAgent('agent', input)
+    .whereType<TextMessageDeltaEvent>()
+    .map((event) => event.delta);
+
+// Aggregate messages
+final fullMessage = await textStream.join();
+```
+
+### Error Handling
+
+```dart
+final stream = client.runAgent('agent', input);
+
+await for (final event in stream) {
+  try {
+    await processEvent(event);
+  } catch (e) {
+    // Handle individual event errors
+    print('Error processing ${event.type}: $e');
+  }
+}
+```
+
+### Cancellation
+
+```dart
+// Create cancellable subscription
+final subscription = stream.listen(
+  (event) => processEvent(event),
+  onError: (error) => handleError(error),
+  onDone: () => cleanup(),
+  cancelOnError: false,
+);
+
+// Cancel when needed
+await subscription.cancel();
+```
+
+## Serialization
+
+All types support JSON serialization:
+
+```dart
+// To JSON
+final json = message.toJson();
+
+// From JSON
+final message = Message.fromJson(json);
+
+// Custom serialization
+class CustomContext {
+  final String id;
+  final Map<String, dynamic> data;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'data': data,
+  };
+
+  factory CustomContext.fromJson(Map<String, dynamic> json) {
+    return CustomContext(
+      id: json['id'] as String,
+      data: Map<String, dynamic>.from(json['data']),
+    );
+  }
+}
+```
+
+## Validation
+
+Built-in validation for all inputs:
+
+```dart
+// Validates automatically
+final input = RunAgentInput(
+  messages: messages,
+  tools: tools,
+);
+
+// Manual validation
+try {
+  InputValidator.validate(input);
+} on ValidationError catch (e) {
+  print('Invalid input: ${e.message}');
+  print('Failed fields: ${e.fields}');
+}
+```
+
+## Best Practices
+
+### 1. Use Pattern Matching
+
+Prefer pattern matching over if-else chains:
+
+```dart
+// Good
+switch (event) {
+  case TextMessageDeltaEvent(:final delta):
+    updateUI(delta);
+}
+
+// Less preferred
+if (event is TextMessageDeltaEvent) {
+  updateUI(event.delta);
+}
+```
+
+### 2. Handle All Event Types
+
+Always handle unexpected events:
+
+```dart
+await for (final event in stream) {
+  switch (event) {
+    // Handle known events...
+    case _:
+      // Log unexpected events
+      logger.debug('Unhandled event: ${event.type}');
+  }
+}
+```
+
+### 3. Use Type Guards
+
+Create type-safe helper functions:
+
+```dart
+extension EventExtensions on Stream<BaseEvent> {
+  Stream<String> get textMessages =>
+      whereType<TextMessageDeltaEvent>()
+      .map((e) => e.delta);
+
+  Stream<ToolCall> get toolCalls =>
+      whereType<ToolCallStartedEvent>()
+      .map((e) => ToolCall(name: e.name, args: e.arguments));
+}
+```
+
+### 4. Immutable Data
+
+Keep data structures immutable:
+
+```dart
+@immutable
+class AppState {
+  final List<Message> messages;
+  final Map<String, dynamic> context;
+
+  const AppState({
+    required this.messages,
+    required this.context,
+  });
+
+  AppState copyWith({
+    List<Message>? messages,
+    Map<String, dynamic>? context,
+  }) {
+    return AppState(
+      messages: messages ?? this.messages,
+      context: context ?? this.context,
+    );
+  }
+}
+```

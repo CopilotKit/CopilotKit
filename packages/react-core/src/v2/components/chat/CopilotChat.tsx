@@ -1,4 +1,5 @@
 import { useAgent } from "../../hooks/use-agent";
+import { useAttachments } from "../../hooks/use-attachments";
 import { useSuggestions } from "../../hooks/use-suggestions";
 import { CopilotChatView, CopilotChatViewProps } from "./CopilotChatView";
 import { CopilotChatInputMode } from "./CopilotChatInput";
@@ -12,16 +13,22 @@ import {
   randomUUID,
   TranscriptionErrorCode,
 } from "@copilotkit/shared";
+import type { AttachmentsConfig, InputContent } from "@copilotkit/shared";
 import { Suggestion, CopilotKitCoreErrorCode } from "@copilotkit/core";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { merge } from "ts-deepmerge";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   useCopilotKit,
   useLicenseContext,
 } from "../../providers/CopilotKitProvider";
 import { InlineFeatureWarning } from "../../components/license-warning-banner";
 import { AbstractAgent, HttpAgent } from "@ag-ui/client";
-import { renderSlot, SlotValue } from "../../lib/slots";
+import { renderSlot, useShallowStableRef, SlotValue } from "../../lib/slots";
 import {
   transcribeAudio,
   TranscriptionError,
@@ -34,12 +41,22 @@ export type CopilotChatProps = Omit<
   | "suggestions"
   | "suggestionLoadingIndexes"
   | "onSelectSuggestion"
+  // Attachment state props — managed internally based on `attachments` config
+  | "attachments"
+  | "onRemoveAttachment"
+  | "onAddFile"
+  | "dragOver"
+  | "onDragOver"
+  | "onDragLeave"
+  | "onDrop"
 > & {
   agentId?: string;
   threadId?: string;
   labels?: Partial<CopilotChatLabels>;
   chatView?: SlotValue<typeof CopilotChatView>;
   isModalDefaultOpen?: boolean;
+  /** Enable multimodal file attachments (images, audio, video, documents). */
+  attachments?: AttachmentsConfig;
   /**
    * Error handler scoped to this chat's agent. Fires in addition to the
    * provider-level onError (does not suppress it). Receives only errors
@@ -50,6 +67,18 @@ export type CopilotChatProps = Omit<
     code: CopilotKitCoreErrorCode;
     context: Record<string, any>;
   }) => void | Promise<void>;
+  /**
+   * Throttle interval (in milliseconds) for re-renders triggered by message
+   * change notifications. Overrides the provider-level `defaultThrottleMs`
+   * for this chat instance. Forwarded to the internal `useAgent()` hook,
+   * which resolves the effective throttle value.
+   *
+   * @default undefined — inherits from provider `defaultThrottleMs`;
+   * if that is also unset, re-renders are unthrottled. Note: passing
+   * `throttleMs={0}` explicitly disables throttling for this instance
+   * even when the provider specifies a non-zero `defaultThrottleMs`.
+   */
+  throttleMs?: number;
 };
 export function CopilotChat({
   agentId,
@@ -57,7 +86,9 @@ export function CopilotChat({
   labels,
   chatView,
   isModalDefaultOpen,
+  attachments: attachmentsConfig,
   onError,
+  throttleMs,
   ...props
 }: CopilotChatProps) {
   // Check for existing configuration provider
@@ -74,6 +105,7 @@ export function CopilotChat({
   const { agent } = useAgent({
     agentId: resolvedAgentId,
     threadId: resolvedThreadId,
+    throttleMs,
   });
   const { copilotkit } = useCopilotKit();
   const { suggestions: autoSuggestions } = useSuggestions({
@@ -129,6 +161,21 @@ export function CopilotChat({
     null,
   );
   const [isTranscribing, setIsTranscribing] = useState(false);
+
+  // Attachments
+  const {
+    attachments: selectedAttachments,
+    enabled: attachmentsEnabled,
+    dragOver,
+    fileInputRef,
+    containerRef: chatContainerRef,
+    handleFileUpload,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+    removeAttachment,
+    consumeAttachments,
+  } = useAttachments({ config: attachmentsConfig });
 
   // Check if transcription is enabled
   const isTranscriptionEnabled = copilotkit.audioFileTranscriptionEnabled;
@@ -186,11 +233,47 @@ export function CopilotChat({
 
   const onSubmitInput = useCallback(
     async (value: string) => {
-      agent.addMessage({
-        id: randomUUID(),
-        role: "user",
-        content: value,
-      });
+      // Block if uploads in progress
+      const hasUploading = selectedAttachments.some(
+        (a) => a.status === "uploading",
+      );
+      if (hasUploading) {
+        console.error(
+          "[CopilotKit] Cannot send while attachments are uploading",
+        );
+        return;
+      }
+
+      const readyAttachments = consumeAttachments();
+
+      if (readyAttachments.length > 0) {
+        const contentParts: InputContent[] = [];
+        if (value.trim()) {
+          contentParts.push({ type: "text", text: value });
+        }
+        for (const att of readyAttachments) {
+          contentParts.push({
+            type: att.type,
+            source: att.source,
+            metadata: {
+              ...(att.filename ? { filename: att.filename } : {}),
+              ...att.metadata,
+            },
+          } as InputContent);
+        }
+        agent.addMessage({
+          id: randomUUID(),
+          role: "user",
+          content: contentParts,
+        });
+      } else {
+        agent.addMessage({
+          id: randomUUID(),
+          role: "user",
+          content: value,
+        });
+      }
+
       // Clear input after submitting
       setInputValue("");
       try {
@@ -201,7 +284,7 @@ export function CopilotChat({
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent],
+    [agent, selectedAttachments, consumeAttachments],
   );
 
   const handleSelectSuggestion = useCallback(
@@ -336,22 +419,38 @@ export function CopilotChat({
     }
   }, [transcriptionError]);
 
-  const mergedProps = merge(
-    {
-      isRunning: agent.isRunning,
-      suggestions: autoSuggestions,
-      onSelectSuggestion: handleSelectSuggestion,
-      suggestionView: providedSuggestionView,
-    },
-    {
-      ...restProps,
-      ...(typeof providedMessageView === "string"
-        ? { messageView: { className: providedMessageView } }
-        : providedMessageView !== undefined
-          ? { messageView: providedMessageView }
-          : {}),
-    },
+  // Stabilize slot object references so inline props (new object reference on
+  // every parent render) don't defeat MemoizedSlotWrapper's shallow equality
+  // check and cause unnecessary re-renders of the message list on each keystroke.
+  const stableMessageView = useShallowStableRef(
+    typeof providedMessageView === "string"
+      ? { className: providedMessageView }
+      : providedMessageView,
   );
+  const stableSuggestionView = useShallowStableRef(providedSuggestionView);
+
+  // Stabilize the `onAddFile` handler. Without useCallback, a new arrow
+  // function is created inline on every render, causing CopilotChatView to
+  // re-render on every keystroke even when nothing else changed.
+  const handleAddFile = useCallback(() => {
+    // Delay to let Radix dropdown menu close before triggering file input
+    setTimeout(() => {
+      fileInputRef.current?.click();
+    }, 100);
+  }, []);
+
+  // Use shallow spread instead of ts-deepmerge. ts-deepmerge deep-clones plain
+  // objects even from a single source, which would defeat the reference
+  // stability we just established for stableMessageView and other slot values.
+  const mergedProps: Partial<CopilotChatViewProps> = {
+    isRunning: agent.isRunning,
+    suggestions: autoSuggestions,
+    onSelectSuggestion: handleSelectSuggestion,
+    suggestionView: stableSuggestionView,
+    ...restProps,
+  };
+  if (stableMessageView !== undefined)
+    mergedProps.messageView = stableMessageView;
 
   const hasMessages = agent.messages.length > 0;
   const shouldAllowStop = agent.isRunning && hasMessages;
@@ -367,15 +466,39 @@ export function CopilotChat({
     ? "processing"
     : transcribeMode;
 
-  // Memoize messages array - only create new reference when content actually changes
-  // (agent.messages is mutated in place, so we need a new reference for React to detect changes)
-
+  // Memoize messages array — only create a new reference when content changes.
+  // We build a lightweight fingerprint instead of JSON.stringify to avoid
+  // serializing large base64 attachment data on every render. The key captures:
+  //   - message id, role, content length (text streaming)
+  //   - content part count (multimodal additions)
+  //   - tool call ids + argument lengths (tool call streaming)
+  const messagesMemoKey = agent.messages
+    .map((m) => {
+      const contentKey =
+        typeof m.content === "string"
+          ? m.content.length
+          : Array.isArray(m.content)
+            ? m.content.length
+            : 0;
+      const toolCallsKey =
+        "toolCalls" in m && Array.isArray(m.toolCalls)
+          ? m.toolCalls
+              .map(
+                (tc: any) => `${tc.id}:${tc.function?.arguments?.length ?? 0}`,
+              )
+              .join(";")
+          : "";
+      return `${m.id}:${m.role}:${contentKey}:${toolCallsKey}`;
+    })
+    .join(",");
   const messages = useMemo(
     () => [...agent.messages],
-    [JSON.stringify(agent.messages)],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [messagesMemoKey],
   );
 
-  const finalProps = merge(mergedProps, {
+  const finalProps: CopilotChatViewProps = {
+    ...mergedProps,
     messages,
     // Input behavior props
     onSubmitMessage: onSubmitInput,
@@ -390,7 +513,15 @@ export function CopilotChat({
     onFinishTranscribeWithAudio: showTranscription
       ? handleFinishTranscribeWithAudio
       : undefined,
-  }) as CopilotChatViewProps;
+    // Attachment props
+    attachments: selectedAttachments,
+    onRemoveAttachment: removeAttachment,
+    onAddFile: attachmentsEnabled ? handleAddFile : undefined,
+    dragOver,
+    onDragOver: handleDragOver,
+    onDragLeave: handleDragLeave,
+    onDrop: handleDrop,
+  };
 
   // Always create a provider with merged values
   // This ensures priority: props > existing config > defaults
@@ -403,26 +534,38 @@ export function CopilotChat({
       labels={labels}
       isModalDefaultOpen={isModalDefaultOpen}
     >
-      {!isChatLicensed && <InlineFeatureWarning featureName="Chat" />}
-      {transcriptionError && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "100px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            backgroundColor: "#ef4444",
-            color: "white",
-            padding: "8px 16px",
-            borderRadius: "8px",
-            fontSize: "14px",
-            zIndex: 50,
-          }}
-        >
-          {transcriptionError}
-        </div>
-      )}
-      {RenderedChatView}
+      <div ref={chatContainerRef} style={{ display: "contents" }}>
+        {attachmentsEnabled && (
+          <input
+            type="file"
+            multiple
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            accept={attachmentsConfig?.accept ?? "*/*"}
+            style={{ display: "none" }}
+          />
+        )}
+        {!isChatLicensed && <InlineFeatureWarning featureName="Chat" />}
+        {transcriptionError && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: "100px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              backgroundColor: "#ef4444",
+              color: "white",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              fontSize: "14px",
+              zIndex: 50,
+            }}
+          >
+            {transcriptionError}
+          </div>
+        )}
+        {RenderedChatView}
+      </div>
     </CopilotChatConfigurationProvider>
   );
 }

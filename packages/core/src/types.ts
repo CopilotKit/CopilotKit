@@ -15,7 +15,7 @@ export enum ToolCallStatus {
   Complete = "complete",
 }
 
-export type CopilotRuntimeTransport = "rest" | "single";
+export type CopilotRuntimeTransport = "rest" | "single" | "auto";
 export type { RuntimeMode, IntelligenceRuntimeInfo, RuntimeLicenseStatus };
 
 /**
@@ -55,6 +55,8 @@ export type Suggestion = {
   message: string;
   /** Indicates whether this suggestion is still being generated. */
   isLoading: boolean;
+  /** Optional CSS class name applied to the suggestion pill. */
+  className?: string;
 };
 
 export type SuggestionAvailability =

@@ -1,0 +1,222 @@
+name: "Showcase: Build & Deploy"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "showcase/**"
+      - "examples/integrations/**"
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Service to deploy"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - shell
+          - langgraph-python
+          - mastra
+          - crewai-crews
+          - pydantic-ai
+          - google-adk
+          - ag2
+          - agno
+          - llamaindex
+          - langgraph-fastapi
+          - langgraph-typescript
+          - langroid
+          - spring-ai
+          - strands
+          - ms-agent-python
+          - claude-sdk-typescript
+          - ms-agent-dotnet
+          - claude-sdk-python
+          - test-integration-tmp
+          - starter-langgraph-python
+          - starter-mastra
+          - starter-crewai-crews
+          - starter-google-adk
+          - aimock
+          - shell-dojolike
+
+concurrency:
+  group: showcase-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RAILWAY_ENV_ID: "b14919f4-6417-429f-848d-c6ae2201e04f"
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
+      has_changes: ${{ steps.build-matrix.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            shell:
+              - 'showcase/shell/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/packages/*/manifest.yaml'
+            langgraph: 'showcase/packages/langgraph-python/**'
+            mastra: 'showcase/packages/mastra/**'
+            crewai_crews: 'showcase/packages/crewai-crews/**'
+            pydantic_ai: 'showcase/packages/pydantic-ai/**'
+            google_adk: 'showcase/packages/google-adk/**'
+            ag2: 'showcase/packages/ag2/**'
+            agno: 'showcase/packages/agno/**'
+            llamaindex: 'showcase/packages/llamaindex/**'
+            langgraph_fastapi: 'showcase/packages/langgraph-fastapi/**'
+            langgraph_typescript: 'showcase/packages/langgraph-typescript/**'
+            langroid: 'showcase/packages/langroid/**'
+            spring_ai: 'showcase/packages/spring-ai/**'
+            strands: 'showcase/packages/strands/**'
+            ms_agent_python: 'showcase/packages/ms-agent-python/**'
+            claude_sdk_typescript: 'showcase/packages/claude-sdk-typescript/**'
+            ms_agent_dotnet: 'showcase/packages/ms-agent-dotnet/**'
+            claude_sdk_python: 'showcase/packages/claude-sdk-python/**'
+            test_integration_tmp: 'showcase/packages/test-integration-tmp/**'
+            starter_langgraph_python: 'examples/integrations/langgraph-python/**'
+            starter_mastra: 'examples/integrations/mastra/**'
+            starter_crewai_crews: 'examples/integrations/crewai-crews/**'
+            starter_google_adk: 'examples/integrations/adk/**'
+            aimock: 'showcase/aimock/**'
+            shell_dojolike: 'showcase/shell-dojolike/**'
+
+      - name: Build service matrix
+        id: build-matrix
+        run: |
+          # Full service config as JSON
+          # Fields: dispatch_name, filter_key, context, image, cache_scope, railway_id, timeout, lfs, build_args, dockerfile
+          ALL_SERVICES='[
+            {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","cache_scope":"shell","railway_id":"40eea0da-6071-4ea8-bdb9-39afb19225ec","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","dockerfile":"showcase/shell/Dockerfile"},
+            {"dispatch_name":"langgraph-python","filter_key":"langgraph","context":"showcase/packages/langgraph-python","image":"showcase-langgraph-python","cache_scope":"langgraph","railway_id":"90d03214-4569-41b0-b4c1-6438a8a7b203","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/packages/mastra","image":"showcase-mastra","cache_scope":"mastra","railway_id":"d7979eb7-2405-4aab-ad21-438f4a1b08af","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/packages/crewai-crews","image":"showcase-crewai-crews","cache_scope":"crewai_crews","railway_id":"0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/packages/pydantic-ai","image":"showcase-pydantic-ai","cache_scope":"pydantic_ai","railway_id":"0a106173-2282-4887-a994-0ca276a99d69","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/packages/google-adk","image":"showcase-google-adk","cache_scope":"google_adk","railway_id":"87f60507-5a3d-4b8a-9e23-2b1de85d939c","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/packages/ag2","image":"showcase-ag2","cache_scope":"ag2","railway_id":"4a37481b-f264-4eb7-a9cd-0a9ebb9ac05c","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"agno","filter_key":"agno","context":"showcase/packages/agno","image":"showcase-agno","cache_scope":"agno","railway_id":"32cab80b-e329-45bd-9c73-c4e1ddc94305","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"llamaindex","filter_key":"llamaindex","context":"showcase/packages/llamaindex","image":"showcase-llamaindex","cache_scope":"llamaindex","railway_id":"285386e8-492d-4cb8-b632-0a7d4607378f","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"langgraph-fastapi","filter_key":"langgraph_fastapi","context":"showcase/packages/langgraph-fastapi","image":"showcase-langgraph-fastapi","cache_scope":"langgraph_fastapi","railway_id":"06cccb5c-59f4-46b5-8adc-7113e77011a4","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"langgraph-typescript","filter_key":"langgraph_typescript","context":"showcase/packages/langgraph-typescript","image":"showcase-langgraph-typescript","cache_scope":"langgraph_typescript","railway_id":"66246d3b-a18e-46f0-be51-5f3ff7a36e5a","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"langroid","filter_key":"langroid","context":"showcase/packages/langroid","image":"showcase-langroid","cache_scope":"langroid","railway_id":"6dd9cb0a-66cc-46f1-972e-7cd74756157d","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"spring-ai","filter_key":"spring_ai","context":"showcase/packages/spring-ai","image":"showcase-spring-ai","cache_scope":"spring_ai","railway_id":"eed5d041-91be-4282-b414-beea00843401","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"strands","filter_key":"strands","context":"showcase/packages/strands","image":"showcase-strands","cache_scope":"strands","railway_id":"92e1cfad-ad53-403f-ab2b-5ab380832232","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"ms-agent-python","filter_key":"ms_agent_python","context":"showcase/packages/ms-agent-python","image":"showcase-ms-agent-python","cache_scope":"ms_agent_python","railway_id":"655db75a-af8d-427d-a4f9-441570ae5003","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"claude-sdk-typescript","filter_key":"claude_sdk_typescript","context":"showcase/packages/claude-sdk-typescript","image":"showcase-claude-sdk-typescript","cache_scope":"claude_sdk_typescript","railway_id":"18a98727-5700-44aa-b497-b60795dbbd6a","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"ms-agent-dotnet","filter_key":"ms_agent_dotnet","context":"showcase/packages/ms-agent-dotnet","image":"showcase-ms-agent-dotnet","cache_scope":"ms_agent_dotnet","railway_id":"beeb2dd6-87a4-4599-aa07-0578f7bd6519","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/packages/claude-sdk-python","image":"showcase-claude-sdk-python","cache_scope":"claude_sdk_python","railway_id":"b122ab65-9854-4cb2-a68e-b50ff13f7481","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"test-integration-tmp","filter_key":"test_integration_tmp","context":"showcase/packages/test-integration-tmp","image":"showcase-test-integration-tmp","cache_scope":"test_integration_tmp","railway_id":"","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-langgraph-python","filter_key":"starter_langgraph_python","context":"examples/integrations/langgraph-python","image":"showcase-starter-langgraph-python","cache_scope":"starter_langgraph_python","railway_id":"","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-mastra","filter_key":"starter_mastra","context":"examples/integrations/mastra","image":"showcase-starter-mastra","cache_scope":"starter_mastra","railway_id":"","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-crewai-crews","filter_key":"starter_crewai_crews","context":"examples/integrations/crewai-crews","image":"showcase-starter-crewai-crews","cache_scope":"starter_crewai_crews","railway_id":"","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-google-adk","filter_key":"starter_google_adk","context":"examples/integrations/adk","image":"showcase-starter-google-adk","cache_scope":"starter_google_adk","railway_id":"","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"aimock","filter_key":"aimock","context":"showcase/aimock","image":"showcase-aimock","cache_scope":"aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":5,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"shell-dojolike","filter_key":"shell_dojolike","context":"showcase/shell-dojolike","image":"showcase-shell-dojolike","cache_scope":"shell_dojolike","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","timeout":10,"lfs":false,"build_args":"","dockerfile":""}
+          ]'
+
+          DISPATCH="${{ github.event.inputs.service }}"
+          CHANGES='${{ steps.filter.outputs.changes }}'
+          CHANGES="${CHANGES:-[]}"
+
+          # Filter services: on workflow_dispatch, include all (default) or specific service; on push, include only services whose paths changed
+          MATRIX=$(echo "$ALL_SERVICES" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" '
+            [.[] | select(
+              $dispatch == "all" or
+              $dispatch == .dispatch_name or
+              (.filter_key as $fk | $changes | index($fk) != null)
+            )]
+          ')
+
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          if [ "$MATRIX" = "[]" ]; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+  check-lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10.13.1"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+
+  build:
+    needs: [detect-changes, check-lockfile]
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJSON(matrix.service.timeout) }}
+    permissions:
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: ${{ matrix.service.lfs }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare build args
+        id: build-args
+        run: |
+          ARGS=""
+          if [ -n "${{ matrix.service.build_args_sha }}" ]; then
+            ARGS="COMMIT_SHA=${{ matrix.service.build_args_sha }}"
+            ARGS="${ARGS}"$'\n'"BRANCH=${{ matrix.service.build_args_branch }}"
+          fi
+          # Use delimiter to safely pass multiline value
+          echo "args<<BUILDARGS_EOF" >> $GITHUB_OUTPUT
+          echo "$ARGS" >> $GITHUB_OUTPUT
+          echo "BUILDARGS_EOF" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.service.context }}
+          file: ${{ matrix.service.dockerfile != '' && matrix.service.dockerfile || format('{0}/Dockerfile', matrix.service.context) }}
+          push: true
+          tags: |
+            ghcr.io/copilotkit/${{ matrix.service.image }}:latest
+            ghcr.io/copilotkit/${{ matrix.service.image }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.service.cache_scope }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service.cache_scope }}
+          build-args: ${{ steps.build-args.outputs.args }}
+
+      - name: Deploy to Railway
+        if: matrix.service.railway_id != ''
+        run: |
+          curl -sf -X POST "https://backboard.railway.com/graphql/v2" \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"${{ matrix.service.railway_id }}\", environmentId: \"${{ env.RAILWAY_ENV_ID }}\") }"}' \
+            && echo "Deploy triggered for ${{ matrix.service.dispatch_name }}"
