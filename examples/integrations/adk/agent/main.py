@@ -186,6 +186,11 @@ app = FastAPI(title="ADK Middleware Proverbs Agent")
 # Add the ADK endpoint
 add_adk_fastapi_endpoint(app, adk_proverbs_agent, path="/")
 
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
 if __name__ == "__main__":
     import os
 

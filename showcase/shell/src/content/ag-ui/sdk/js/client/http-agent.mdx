@@ -1,0 +1,122 @@
+---
+title: "HttpAgent"
+description: "HTTP-based agent for connecting to remote AI agents"
+---
+
+# HttpAgent
+
+The `HttpAgent` extends `AbstractAgent` to provide HTTP-based connectivity to
+remote AI agents. It handles the request/response cycle and transforms the HTTP
+event stream into standard Agent User Interaction Protocol events.
+
+```typescript
+
+```
+
+## Configuration
+
+When creating an HTTP agent, you need to provide an `HttpAgentConfig` object:
+
+```typescript
+interface HttpAgentConfig extends AgentConfig {
+  url: string; // Endpoint URL for the agent service
+  headers?: Record<string, string>; // Optional HTTP headers
+}
+```
+
+## Creating an HttpAgent
+
+```typescript
+const agent = new HttpAgent({
+  url: "https://api.example.com/v1/agent",
+  headers: {
+    Authorization: "Bearer your-api-key",
+  },
+});
+```
+
+## Methods
+
+### runAgent()
+
+Executes the agent by making an HTTP request to the configured endpoint.
+
+```typescript
+runAgent(parameters?: RunAgentParameters, subscriber?: AgentSubscriber): Promise<RunAgentResult>
+```
+
+#### Parameters
+
+The `parameters` argument follows the standard `RunAgentParameters` interface.
+The optional `subscriber` parameter allows you to provide an
+[AgentSubscriber](/sdk/js/client/subscriber) for handling events during this
+specific run.
+
+#### Return Value
+
+```typescript
+interface RunAgentResult {
+  result: any; // The final result returned by the agent
+  newMessages: Message[]; // New messages added during this run
+}
+```
+
+### subscribe()
+
+Adds an [AgentSubscriber](/sdk/js/client/subscriber) to handle events across
+multiple agent runs.
+
+```typescript
+subscribe(subscriber: AgentSubscriber): { unsubscribe: () => void }
+```
+
+Returns an object with an `unsubscribe()` method to remove the subscriber when
+no longer needed.
+
+### abortRun()
+
+Cancels the current HTTP request using the AbortController.
+
+```typescript
+abortRun(): void
+```
+
+## Protected Methods
+
+### requestInit()
+
+Configures the HTTP request. Override this method to customize how requests are
+made.
+
+```typescript
+protected requestInit(input: RunAgentInput): RequestInit
+```
+
+Default implementation:
+
+```typescript
+{
+  method: "POST",
+  headers: {
+    ...this.headers,
+    "Content-Type": "application/json",
+    Accept: "text/event-stream",
+  },
+  body: JSON.stringify(input),
+  signal: this.abortController.signal,
+}
+```
+
+### run()
+
+Implements the abstract `run()` method from `AbstractAgent` using HTTP requests.
+
+```typescript
+run(input: RunAgentInput): RunAgent
+```
+
+## Properties
+
+- `url`: The endpoint URL for the agent service
+- `headers`: HTTP headers to include with requests
+- `abortController`: AbortController instance for request cancellation

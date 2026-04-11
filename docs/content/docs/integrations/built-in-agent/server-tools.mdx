@@ -33,7 +33,7 @@ const getWeather = defineTool({
 });
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.2",
+  model: "openai:gpt-5.4",
   tools: [getWeather],
 });
 ```
@@ -74,7 +74,7 @@ const createTicket = defineTool({
 });
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.2",
+  model: "openai:gpt-5.4",
   tools: [searchDocs, createTicket], // [!code highlight]
 });
 ```
@@ -135,7 +135,7 @@ By default, the agent performs a single step. If your agent needs to chain tool 
 
 ```typescript
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.2",
+  model: "openai:gpt-5.4",
   maxSteps: 5, // [!code highlight]
   tools: [searchDocs, createTicket, getUser],
 });
@@ -149,4 +149,8 @@ With `maxSteps: 5`, the agent can:
 
 <Callout type="info">
 See [Advanced Configuration](/built-in-agent/advanced-configuration) for more options like `toolChoice`, `temperature`, and `providerOptions`.
+</Callout>
+
+<Callout type="info" title="Using a custom backend?">
+  If you're using the [Custom Agent](/built-in-agent/custom-agent) instead of `BuiltInAgent`, see the "With Tools" examples for how to wire tools with AI SDK, TanStack AI, or custom backends.
 </Callout>

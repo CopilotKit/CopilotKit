@@ -24,6 +24,21 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 - **Simplicity** — prefer the simplest correct solution. For non-trivial changes, consider if there's a cleaner approach before committing.
 - **Worktrees** — always work in a git worktree for isolation. See [Git & PRs](.claude/docs/git.md) for the full workflow.
 
+## Private Agent Instructions
+
+Individual developers may optionally create a `private-agents.md` file at the repo root. This file is gitignored and not shared with the team -- it contains personal agent instructions, workflow overrides, or context that applies only to that developer's work. If `private-agents.md` exists, read it and follow its instructions (they take precedence over the defaults in this file where they conflict).
+
+## Internal Skills
+
+The team maintains shared AI agent skills at [CopilotKit/internal-skills](https://github.com/CopilotKit/internal-skills). If installed as a Claude Code plugin, these skills are available automatically. Key skills relevant to this repo:
+
+- **copilotkit-ui-theme** — CopilotCloud visual design system (colors, typography, glass effects, blur circles). Use when building any UI that should look like an official CopilotKit product.
+- **copilotkit-branding** — Brand rules, logos, and visual identity guidelines.
+- **copilotkit-dev-workflow** — Internal dev workflow conventions for this monorepo.
+- **cr-loop** — Automated code review and fix loop.
+
+If you need a skill and don't have the plugin installed, clone the repo and read the relevant `skills/<name>/SKILL.md` directly.
+
 ## Reference (read when relevant to your task)
 
 - [Architecture & Packages](.claude/docs/architecture.md) — V2/V1 package roles, request lifecycle, core concepts (AG-UI, ProxiedAgent, AgentRunner, tools, context, multi-agent)

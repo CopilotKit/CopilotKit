@@ -7,11 +7,6 @@ on:
       - "docs/**"
       - "README.md"
       - "examples/**"
-      - ".github/workflows/demos_preview.yml"
-      - ".github/workflows/release.yml"
-      - "packages/**/package.json"
-      - "packages/**/CHANGELOG.md"
-      - ".changeset/**"
   pull_request:
     branches: [main]
     paths-ignore:
@@ -30,6 +25,10 @@ env:
   NX_VERBOSE_LOGGING: true
   NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
   NX_CI_EXECUTION_ENV: "Unit Tests"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   unit:
@@ -55,6 +54,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -74,3 +75,6 @@ jobs:
 
       - name: Run tests
         run: pnpm run test
+
+      - name: Run release script tests
+        run: npx vitest run --config scripts/release/vitest.config.mts

@@ -1,0 +1,1235 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Showcase Landing — 5 Variations</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Code+Pro:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,400&family=Syne:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Manrope:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      /* === TAB NAV === */
+      .tab-nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        background: rgba(0, 0, 0, 0.9);
+        backdrop-filter: blur(12px);
+        display: flex;
+        align-items: center;
+        height: 48px;
+        padding: 0 20px;
+        gap: 6px;
+        border-bottom: 1px solid #333;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+      }
+      .tab-nav .label {
+        color: #666;
+        margin-right: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+      }
+      .tab-btn {
+        padding: 6px 14px;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        background: none;
+        color: #777;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 11px;
+        transition: all 0.15s;
+      }
+      .tab-btn:hover {
+        color: #ccc;
+        background: #1a1a1a;
+      }
+      .tab-btn.active {
+        color: #fff;
+        background: #222;
+        border-color: #444;
+      }
+      .tab-btn .num {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        line-height: 16px;
+        text-align: center;
+        border-radius: 3px;
+        font-size: 9px;
+        font-weight: 600;
+        margin-right: 6px;
+      }
+
+      .variation {
+        display: none;
+        padding-top: 48px;
+        min-height: 100vh;
+      }
+      .variation.active {
+        display: block;
+      }
+
+      /* ==============================
+   V1: TERMINAL — Developer-native
+   ============================== */
+      .v1 {
+        background: #0c0c0c;
+        color: #b0b0b0;
+        font-family: "Source Code Pro", monospace;
+      }
+      .v1 .hero {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 80px 24px 40px;
+      }
+      .v1 .prompt {
+        color: #4ade80;
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
+      .v1 h1 {
+        font-size: 28px;
+        font-weight: 400;
+        color: #e0e0e0;
+        line-height: 1.4;
+        margin-bottom: 24px;
+      }
+      .v1 h1 .cursor {
+        display: inline-block;
+        width: 10px;
+        height: 22px;
+        background: #4ade80;
+        margin-left: 4px;
+        animation: blink 1s step-end infinite;
+        vertical-align: text-bottom;
+      }
+      @keyframes blink {
+        50% {
+          opacity: 0;
+        }
+      }
+      .v1 .search-box {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #111;
+        border: 1px solid #2a2a2a;
+        border-radius: 4px;
+        padding: 12px 16px;
+        margin-bottom: 40px;
+        font-size: 14px;
+      }
+      .v1 .search-box .chevron {
+        color: #4ade80;
+      }
+      .v1 .search-box input {
+        flex: 1;
+        background: none;
+        border: none;
+        color: #e0e0e0;
+        font-family: inherit;
+        font-size: 14px;
+        outline: none;
+      }
+      .v1 .search-box input::placeholder {
+        color: #555;
+      }
+      .v1 .search-box .kbd {
+        color: #555;
+        font-size: 11px;
+        border: 1px solid #333;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+      .v1 .paths {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1px;
+        background: #1a1a1a;
+        border: 1px solid #1a1a1a;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 40px;
+      }
+      .v1 .path-card {
+        background: #0c0c0c;
+        padding: 20px;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .v1 .path-card:hover {
+        background: #111;
+      }
+      .v1 .path-card .flag {
+        color: #4ade80;
+        font-size: 11px;
+        margin-bottom: 6px;
+      }
+      .v1 .path-card h3 {
+        color: #ccc;
+        font-size: 13px;
+        font-weight: 500;
+        margin-bottom: 4px;
+      }
+      .v1 .path-card p {
+        font-size: 11px;
+        color: #666;
+        line-height: 1.5;
+      }
+      .v1 .frameworks {
+        margin-bottom: 40px;
+      }
+      .v1 .frameworks .label {
+        font-size: 11px;
+        color: #555;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 12px;
+      }
+      .v1 .fw-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .v1 .fw-pill {
+        padding: 6px 12px;
+        border: 1px solid #222;
+        border-radius: 3px;
+        font-size: 11px;
+        color: #888;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .v1 .fw-pill:hover {
+        border-color: #4ade80;
+        color: #4ade80;
+      }
+      .v1 .stats {
+        display: flex;
+        gap: 32px;
+        font-size: 11px;
+        color: #444;
+        border-top: 1px solid #1a1a1a;
+        padding-top: 20px;
+      }
+      .v1 .stats span em {
+        color: #666;
+        font-style: normal;
+      }
+
+      /* ==============================
+   V2: EDITORIAL — Magazine luxury
+   ============================== */
+      .v2 {
+        background: #f5f0eb;
+        color: #2a2420;
+        font-family: "Crimson Pro", serif;
+      }
+      .v2 .hero {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 100px 40px 60px;
+      }
+      .v2 .eyebrow {
+        font-family: "Manrope", sans-serif;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        color: #9a8a7a;
+        margin-bottom: 24px;
+      }
+      .v2 h1 {
+        font-family: "Playfair Display", serif;
+        font-size: 56px;
+        font-weight: 400;
+        line-height: 1.15;
+        color: #1a1410;
+        margin-bottom: 20px;
+      }
+      .v2 h1 em {
+        font-style: italic;
+        color: #8b6914;
+      }
+      .v2 .subtitle {
+        font-size: 20px;
+        color: #6a5a4a;
+        line-height: 1.6;
+        max-width: 600px;
+        margin-bottom: 48px;
+      }
+      .v2 .search-row {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 64px;
+      }
+      .v2 .search-row input {
+        flex: 1;
+        padding: 16px 24px;
+        border: 1px solid #d4c8b8;
+        border-radius: 40px;
+        font-family: "Crimson Pro", serif;
+        font-size: 17px;
+        color: #2a2420;
+        background: #fff;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      .v2 .search-row input:focus {
+        border-color: #8b6914;
+      }
+      .v2 .search-row input::placeholder {
+        color: #b0a090;
+      }
+      .v2 .search-row .guide-btn {
+        padding: 16px 32px;
+        border-radius: 40px;
+        background: #1a1410;
+        color: #f5f0eb;
+        font-family: "Manrope", sans-serif;
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+        border: none;
+        cursor: pointer;
+        transition: background 0.2s;
+        white-space: nowrap;
+      }
+      .v2 .search-row .guide-btn:hover {
+        background: #2a2420;
+      }
+      .v2 .paths {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 24px;
+        margin-bottom: 64px;
+      }
+      .v2 .path-card {
+        padding: 32px 24px;
+        border: 1px solid #e0d4c4;
+        background: #faf6f0;
+        cursor: pointer;
+        transition: all 0.3s;
+        position: relative;
+        overflow: hidden;
+      }
+      .v2 .path-card:hover {
+        border-color: #8b6914;
+        transform: translateY(-3px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06);
+      }
+      .v2 .path-card .num {
+        font-family: "Manrope", sans-serif;
+        font-size: 48px;
+        font-weight: 700;
+        color: #e8dcc8;
+        position: absolute;
+        top: 12px;
+        right: 16px;
+      }
+      .v2 .path-card h3 {
+        font-family: "Playfair Display", serif;
+        font-size: 20px;
+        margin-bottom: 8px;
+        color: #1a1410;
+      }
+      .v2 .path-card p {
+        font-size: 15px;
+        color: #7a6a5a;
+        line-height: 1.5;
+      }
+      .v2 .stats-bar {
+        display: flex;
+        justify-content: center;
+        gap: 48px;
+        padding: 24px;
+        border-top: 1px solid #e0d4c4;
+        font-family: "Manrope", sans-serif;
+        font-size: 12px;
+        color: #9a8a7a;
+      }
+      .v2 .stats-bar strong {
+        display: block;
+        font-size: 28px;
+        color: #1a1410;
+        font-family: "Playfair Display", serif;
+        font-weight: 400;
+      }
+
+      /* ==============================
+   V3: CONSTELLATION — Node graph
+   ============================== */
+      .v3 {
+        background: #06060f;
+        color: #a0a8c0;
+        font-family: "Outfit", sans-serif;
+        overflow: hidden;
+      }
+      .v3 .hero {
+        position: relative;
+        z-index: 1;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 100px 32px 60px;
+        text-align: center;
+      }
+      .v3 .glow {
+        position: fixed;
+        width: 600px;
+        height: 600px;
+        border-radius: 50%;
+        filter: blur(120px);
+        opacity: 0.15;
+        pointer-events: none;
+      }
+      .v3 .glow-1 {
+        top: -200px;
+        left: 30%;
+        background: radial-gradient(circle, #4d7cff, transparent);
+      }
+      .v3 .glow-2 {
+        bottom: -200px;
+        right: 20%;
+        background: radial-gradient(circle, #8b5cf6, transparent);
+      }
+      .v3 h1 {
+        font-size: 44px;
+        font-weight: 300;
+        color: #e8eaf0;
+        line-height: 1.25;
+        margin-bottom: 16px;
+        letter-spacing: -0.5px;
+      }
+      .v3 h1 .gradient {
+        background: linear-gradient(135deg, #4d7cff, #8b5cf6, #22d3ee);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 600;
+      }
+      .v3 .subtitle {
+        font-size: 16px;
+        color: #6a7090;
+        max-width: 500px;
+        margin: 0 auto 40px;
+        line-height: 1.6;
+      }
+      .v3 .search-bar {
+        max-width: 480px;
+        margin: 0 auto 48px;
+        position: relative;
+      }
+      .v3 .search-bar input {
+        width: 100%;
+        padding: 14px 20px 14px 44px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: #e0e4f0;
+        font-family: inherit;
+        font-size: 15px;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      .v3 .search-bar input:focus {
+        border-color: rgba(77, 124, 255, 0.4);
+      }
+      .v3 .search-bar input::placeholder {
+        color: #3a4060;
+      }
+      .v3 .search-bar .icon {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #3a4060;
+      }
+      .v3 .node-grid {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 48px;
+      }
+      .v3 .node {
+        width: 110px;
+        height: 110px;
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        transition: all 0.3s;
+        position: relative;
+      }
+      .v3 .node:hover {
+        border-color: rgba(77, 124, 255, 0.3);
+        background: rgba(77, 124, 255, 0.04);
+        transform: translateY(-4px);
+      }
+      .v3 .node .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+      .v3 .node span {
+        font-size: 11px;
+        color: #6a7090;
+        font-weight: 500;
+      }
+      .v3 .node .count {
+        font-size: 9px;
+        color: #3a4060;
+      }
+      .v3 .actions {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 48px;
+      }
+      .v3 .action-btn {
+        padding: 10px 24px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        color: #8890b0;
+        transition: all 0.2s;
+        font-family: inherit;
+      }
+      .v3 .action-btn:hover {
+        color: #e0e4f0;
+        border-color: rgba(255, 255, 255, 0.15);
+      }
+      .v3 .action-btn.primary {
+        background: linear-gradient(135deg, #4d7cff, #6366f1);
+        color: #fff;
+        border: none;
+      }
+      .v3 .action-btn.primary:hover {
+        opacity: 0.9;
+      }
+      .v3 .stats {
+        display: flex;
+        justify-content: center;
+        gap: 40px;
+        font-size: 12px;
+        color: #3a4060;
+      }
+      .v3 .stats strong {
+        color: #6a7090;
+      }
+
+      /* ==============================
+   V4: DASHBOARD — Dense, data-forward
+   ============================== */
+      .v4 {
+        background: #0f1117;
+        color: #c0c4d0;
+        font-family: "Manrope", sans-serif;
+      }
+      .v4 .top-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 24px;
+        border-bottom: 1px solid #1a1d28;
+      }
+      .v4 .top-bar .brand {
+        font-size: 13px;
+        font-weight: 600;
+        color: #e0e4f0;
+      }
+      .v4 .top-bar .search-inline {
+        padding: 8px 14px 8px 36px;
+        border-radius: 8px;
+        background: #1a1d28;
+        border: 1px solid #252830;
+        color: #c0c4d0;
+        font-family: inherit;
+        font-size: 12px;
+        width: 300px;
+        outline: none;
+      }
+      .v4 .top-bar .search-inline::placeholder {
+        color: #4a4e60;
+      }
+      .v4 .top-bar .nav-links {
+        display: flex;
+        gap: 20px;
+        font-size: 12px;
+      }
+      .v4 .top-bar .nav-links a {
+        color: #6a6e80;
+        text-decoration: none;
+      }
+      .v4 .top-bar .nav-links a:hover {
+        color: #e0e4f0;
+      }
+      .v4 .layout {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        min-height: calc(100vh - 48px - 49px);
+      }
+      .v4 .sidebar {
+        border-right: 1px solid #1a1d28;
+        padding: 20px 0;
+      }
+      .v4 .sidebar .section-label {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: #4a4e60;
+        padding: 0 16px;
+        margin: 16px 0 8px;
+      }
+      .v4 .sidebar .fw-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 16px;
+        font-size: 12px;
+        color: #8a8e a0;
+        cursor: pointer;
+        transition: all 0.1s;
+      }
+      .v4 .sidebar .fw-item:hover {
+        background: #1a1d28;
+        color: #e0e4f0;
+      }
+      .v4 .sidebar .fw-item .badge {
+        font-size: 9px;
+        color: #4a4e60;
+        background: #1a1d28;
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+      .v4 .sidebar .fw-item .status {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #22c55e;
+      }
+      .v4 .main {
+        padding: 24px;
+      }
+      .v4 .main h2 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #e0e4f0;
+        margin-bottom: 4px;
+      }
+      .v4 .main .sub {
+        font-size: 12px;
+        color: #6a6e80;
+        margin-bottom: 24px;
+      }
+      .v4 .metric-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+      .v4 .metric {
+        padding: 16px;
+        background: #14161e;
+        border: 1px solid #1a1d28;
+        border-radius: 8px;
+      }
+      .v4 .metric .value {
+        font-size: 28px;
+        font-weight: 700;
+        color: #e0e4f0;
+      }
+      .v4 .metric .label {
+        font-size: 10px;
+        color: #6a6e80;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 4px;
+      }
+      .v4 .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+      .v4 .feature-tile {
+        padding: 14px;
+        background: #14161e;
+        border: 1px solid #1a1d28;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .v4 .feature-tile:hover {
+        border-color: #4d7cff;
+        background: #181b24;
+      }
+      .v4 .feature-tile h4 {
+        font-size: 12px;
+        font-weight: 600;
+        color: #c0c4d0;
+        margin-bottom: 2px;
+      }
+      .v4 .feature-tile .meta {
+        font-size: 10px;
+        color: #4a4e60;
+      }
+
+      /* ==============================
+   V5: CONVERSATIONAL — Chat-first
+   ============================== */
+      .v5 {
+        background: #fafafa;
+        color: #333;
+        font-family: "Outfit", sans-serif;
+      }
+      .v5 .container {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 80px 24px 40px;
+      }
+      .v5 .header {
+        text-align: center;
+        margin-bottom: 48px;
+      }
+      .v5 .header .logo {
+        font-size: 14px;
+        font-weight: 600;
+        color: #111;
+        margin-bottom: 8px;
+      }
+      .v5 .header .tagline {
+        font-size: 13px;
+        color: #999;
+      }
+      .v5 .chat-area {
+        margin-bottom: 32px;
+      }
+      .v5 .message {
+        max-width: 85%;
+        padding: 14px 18px;
+        border-radius: 18px;
+        margin-bottom: 12px;
+        font-size: 15px;
+        line-height: 1.5;
+        animation: slideUp 0.3s ease;
+      }
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .v5 .message.bot {
+        background: #f0f0f0;
+        color: #333;
+        border-bottom-left-radius: 4px;
+        margin-right: auto;
+      }
+      .v5 .message.bot .name {
+        font-size: 11px;
+        font-weight: 600;
+        color: #999;
+        margin-bottom: 4px;
+      }
+      .v5 .quick-replies {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 8px 0 20px 0;
+      }
+      .v5 .quick-reply {
+        padding: 10px 18px;
+        border-radius: 20px;
+        border: 1.5px solid #e0e0e0;
+        background: #fff;
+        color: #333;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: inherit;
+      }
+      .v5 .quick-reply:hover {
+        border-color: #111;
+        background: #111;
+        color: #fff;
+      }
+      .v5 .quick-reply .icon {
+        margin-right: 6px;
+      }
+      .v5 .input-area {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        background: #fff;
+        border: 1.5px solid #e8e8e8;
+        border-radius: 24px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+      }
+      .v5 .input-area input {
+        flex: 1;
+        border: none;
+        outline: none;
+        font-family: inherit;
+        font-size: 15px;
+        color: #333;
+      }
+      .v5 .input-area input::placeholder {
+        color: #bbb;
+      }
+      .v5 .input-area .send {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #111;
+        border: none;
+        color: #fff;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        transition: background 0.2s;
+      }
+      .v5 .input-area .send:hover {
+        background: #333;
+      }
+      .v5 .bottom-links {
+        display: flex;
+        justify-content: center;
+        gap: 24px;
+        padding-top: 24px;
+        border-top: 1px solid #eee;
+        font-size: 12px;
+      }
+      .v5 .bottom-links a {
+        color: #999;
+        text-decoration: none;
+      }
+      .v5 .bottom-links a:hover {
+        color: #333;
+      }
+      .v5 .fw-strip {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 32px;
+        flex-wrap: wrap;
+      }
+      .v5 .fw-chip {
+        padding: 6px 14px;
+        border-radius: 16px;
+        background: #f0f0f0;
+        font-size: 11px;
+        font-weight: 500;
+        color: #666;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .v5 .fw-chip:hover {
+        background: #111;
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="tab-nav">
+      <span class="label">Variation</span>
+      <button class="tab-btn active" onclick="show('v1')">
+        <span class="num" style="background: #1a3a1a; color: #4ade80">1</span
+        >Terminal
+      </button>
+      <button class="tab-btn" onclick="show('v2')">
+        <span class="num" style="background: #3a2a10; color: #c8a040">2</span
+        >Editorial
+      </button>
+      <button class="tab-btn" onclick="show('v3')">
+        <span class="num" style="background: #1a1a3a; color: #6366f1">3</span
+        >Constellation
+      </button>
+      <button class="tab-btn" onclick="show('v4')">
+        <span class="num" style="background: #1a1d28; color: #4d7cff">4</span
+        >Dashboard
+      </button>
+      <button class="tab-btn" onclick="show('v5')">
+        <span class="num" style="background: #eee; color: #333">5</span
+        >Conversational
+      </button>
+    </nav>
+
+    <!-- V1: TERMINAL -->
+    <section id="v1" class="variation v1 active">
+      <div class="hero">
+        <div class="prompt">~/copilotkit/showcase $</div>
+        <h1>
+          Find the right integration for your agent stack<span
+            class="cursor"
+          ></span>
+        </h1>
+        <div class="search-box">
+          <span class="chevron">❯</span>
+          <input
+            type="text"
+            placeholder="search frameworks, features, demos..."
+          />
+          <span class="kbd">⌘K</span>
+        </div>
+        <div class="paths">
+          <div class="path-card">
+            <div class="flag">--framework</div>
+            <h3>I have a framework</h3>
+            <p>LangGraph, Mastra, CrewAI, PydanticAI...</p>
+          </div>
+          <div class="path-card">
+            <div class="flag">--feature</div>
+            <h3>I need a capability</h3>
+            <p>Gen UI, HITL, streaming, shared state...</p>
+          </div>
+          <div class="path-card">
+            <div class="flag">--explore</div>
+            <h3>Help me choose</h3>
+            <p>Guided recommendations based on your stack</p>
+          </div>
+          <div class="path-card">
+            <div class="flag">--all</div>
+            <h3>Feature matrix</h3>
+            <p>Full comparison across 46 features × 26 integrations</p>
+          </div>
+        </div>
+        <div class="frameworks">
+          <div class="label">Frameworks</div>
+          <div class="fw-pills">
+            <span class="fw-pill">LangGraph</span>
+            <span class="fw-pill">Mastra</span>
+            <span class="fw-pill">CrewAI</span>
+            <span class="fw-pill">PydanticAI</span>
+            <span class="fw-pill">Google ADK</span>
+            <span class="fw-pill">AWS Strands</span>
+            <span class="fw-pill">Agno</span>
+            <span class="fw-pill">AG2</span>
+            <span class="fw-pill">Claude SDK</span>
+            <span class="fw-pill">+7 more</span>
+          </div>
+        </div>
+        <div class="stats">
+          <span><em>46</em> features</span>
+          <span><em>26</em> integrations</span>
+          <span><em>12</em> categories</span>
+          <span><em>9</em> live demos</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- V2: EDITORIAL -->
+    <section id="v2" class="variation v2">
+      <div class="hero">
+        <div class="eyebrow">CopilotKit Showcase</div>
+        <h1>Every agent framework.<br />One <em>beautiful</em> frontend.</h1>
+        <p class="subtitle">
+          Explore live demos, browse source code, and find the right starting
+          point — whether you know exactly what you're looking for, or you're
+          just getting started.
+        </p>
+        <div class="search-row">
+          <input
+            type="text"
+            placeholder="Search frameworks, features, or demos..."
+          />
+          <button class="guide-btn">Guide Me →</button>
+        </div>
+        <div class="paths">
+          <div class="path-card">
+            <span class="num">01</span>
+            <h3>By Framework</h3>
+            <p>Find your agent platform and see what's possible</p>
+          </div>
+          <div class="path-card">
+            <span class="num">02</span>
+            <h3>By Capability</h3>
+            <p>Human-in-the-loop, gen UI, shared state, and more</p>
+          </div>
+          <div class="path-card">
+            <span class="num">03</span>
+            <h3>Compare All</h3>
+            <p>Feature matrix across every integration</p>
+          </div>
+          <div class="path-card">
+            <span class="num">04</span>
+            <h3>Quick Start</h3>
+            <p>Get running in 5 minutes with any framework</p>
+          </div>
+        </div>
+      </div>
+      <div class="stats-bar">
+        <div><strong>46</strong> features</div>
+        <div><strong>26</strong> integrations</div>
+        <div><strong>12</strong> categories</div>
+        <div><strong>9</strong> live demos</div>
+      </div>
+    </section>
+
+    <!-- V3: CONSTELLATION -->
+    <section id="v3" class="variation v3">
+      <div class="glow glow-1"></div>
+      <div class="glow glow-2"></div>
+      <div class="hero">
+        <h1>
+          Connect your agents to<br /><span class="gradient"
+            >extraordinary interfaces</span
+          >
+        </h1>
+        <p class="subtitle">
+          46 features. 26 integrations. Every major agent framework. Explore
+          live demos and find your starting point.
+        </p>
+        <div class="search-bar">
+          <span class="icon">⌕</span>
+          <input type="text" placeholder="Search anything..." />
+        </div>
+        <div class="node-grid">
+          <div class="node">
+            <div class="dot" style="background: #4ade80"></div>
+            <span>LangGraph</span><span class="count">9 demos</span>
+          </div>
+          <div class="node">
+            <div class="dot" style="background: #f472b6"></div>
+            <span>Mastra</span><span class="count">4 demos</span>
+          </div>
+          <div class="node">
+            <div class="dot" style="background: #fbbf24"></div>
+            <span>CrewAI</span><span class="count">—</span>
+          </div>
+          <div class="node">
+            <div class="dot" style="background: #22d3ee"></div>
+            <span>PydanticAI</span><span class="count">—</span>
+          </div>
+          <div class="node">
+            <div class="dot" style="background: #8b5cf6"></div>
+            <span>Google ADK</span><span class="count">—</span>
+          </div>
+          <div class="node">
+            <div class="dot" style="background: #f97316"></div>
+            <span>AWS Strands</span><span class="count">—</span>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="action-btn primary">Guide Me</button>
+          <button class="action-btn">Browse Features</button>
+          <button class="action-btn">Feature Matrix</button>
+        </div>
+        <div class="stats">
+          <span><strong>46</strong> features</span>
+          <span><strong>26</strong> integrations</span>
+          <span><strong>12</strong> categories</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- V4: DASHBOARD -->
+    <section id="v4" class="variation v4">
+      <div class="top-bar">
+        <div class="brand">CopilotKit Showcase</div>
+        <input
+          class="search-inline"
+          type="text"
+          placeholder="⌕ Search frameworks, features, demos..."
+        />
+        <div class="nav-links">
+          <a href="#">Integrations</a>
+          <a href="#">Matrix</a>
+          <a href="#">Docs</a>
+        </div>
+      </div>
+      <div class="layout">
+        <aside class="sidebar">
+          <div class="section-label">Agent Frameworks</div>
+          <div class="fw-item">
+            <span>LangGraph (Python)</span><span class="status"></span>
+          </div>
+          <div class="fw-item">
+            <span>Mastra</span><span class="badge">4</span>
+          </div>
+          <div class="fw-item">
+            <span>CrewAI</span><span class="badge">—</span>
+          </div>
+          <div class="fw-item">
+            <span>PydanticAI</span><span class="badge">—</span>
+          </div>
+          <div class="fw-item">
+            <span>AG2</span><span class="badge">—</span>
+          </div>
+          <div class="fw-item">
+            <span>Agno</span><span class="badge">—</span>
+          </div>
+          <div class="section-label">Enterprise</div>
+          <div class="fw-item">
+            <span>Google ADK</span><span class="badge">—</span>
+          </div>
+          <div class="fw-item">
+            <span>AWS Strands</span><span class="badge">—</span>
+          </div>
+          <div class="fw-item">
+            <span>MAF (.NET)</span><span class="badge">—</span>
+          </div>
+          <div class="fw-item">
+            <span>Spring AI</span><span class="badge">—</span>
+          </div>
+          <div class="section-label">Provider SDKs</div>
+          <div class="fw-item">
+            <span>Claude Agent SDK</span><span class="badge">—</span>
+          </div>
+          <div class="fw-item">
+            <span>OpenAI</span><span class="badge">—</span>
+          </div>
+        </aside>
+        <main class="main">
+          <h2>Showcase Overview</h2>
+          <div class="sub">
+            Platform health and feature coverage at a glance
+          </div>
+          <div class="metric-row">
+            <div class="metric">
+              <div class="value">46</div>
+              <div class="label">Features</div>
+            </div>
+            <div class="metric">
+              <div class="value">26</div>
+              <div class="label">Integrations</div>
+            </div>
+            <div class="metric">
+              <div class="value">9</div>
+              <div class="label">Live Demos</div>
+            </div>
+            <div class="metric">
+              <div class="value">1</div>
+              <div class="label">Fully Built</div>
+            </div>
+          </div>
+          <div class="feature-grid">
+            <div class="feature-tile">
+              <h4>Agentic Chat</h4>
+              <div class="meta">1 of 26 integrations</div>
+            </div>
+            <div class="feature-tile">
+              <h4>Human in the Loop</h4>
+              <div class="meta">1 of 26 integrations</div>
+            </div>
+            <div class="feature-tile">
+              <h4>Generative UI</h4>
+              <div class="meta">1 of 26 integrations</div>
+            </div>
+            <div class="feature-tile">
+              <h4>Tool Rendering</h4>
+              <div class="meta">1 of 26 integrations</div>
+            </div>
+            <div class="feature-tile">
+              <h4>Shared State</h4>
+              <div class="meta">1 of 26 integrations</div>
+            </div>
+            <div class="feature-tile">
+              <h4>State Streaming</h4>
+              <div class="meta">1 of 26 integrations</div>
+            </div>
+            <div class="feature-tile">
+              <h4>Sub-Agents</h4>
+              <div class="meta">1 of 26 integrations</div>
+            </div>
+            <div class="feature-tile">
+              <h4>MCP Apps</h4>
+              <div class="meta">0 of 26 integrations</div>
+            </div>
+            <div class="feature-tile">
+              <h4>Voice</h4>
+              <div class="meta">0 of 26 integrations</div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <!-- V5: CONVERSATIONAL -->
+    <section id="v5" class="variation v5">
+      <div class="container">
+        <div class="header">
+          <div class="logo">CopilotKit Showcase</div>
+          <div class="tagline">Find the right integration for your project</div>
+        </div>
+        <div class="fw-strip">
+          <span class="fw-chip">LangGraph</span>
+          <span class="fw-chip">Mastra</span>
+          <span class="fw-chip">CrewAI</span>
+          <span class="fw-chip">PydanticAI</span>
+          <span class="fw-chip">Google ADK</span>
+          <span class="fw-chip">AWS Strands</span>
+          <span class="fw-chip">All 26 →</span>
+        </div>
+        <div class="chat-area">
+          <div class="message bot">
+            <div class="name">Showcase</div>
+            Welcome! I can help you find the right CopilotKit integration. What
+            are you looking for?
+          </div>
+          <div class="quick-replies">
+            <button class="quick-reply">
+              <span class="icon">🔌</span>I have a framework already
+            </button>
+            <button class="quick-reply">
+              <span class="icon">🎯</span>I need a specific feature
+            </button>
+            <button class="quick-reply">
+              <span class="icon">🧭</span>Help me choose
+            </button>
+            <button class="quick-reply">
+              <span class="icon">📊</span>Show me everything
+            </button>
+          </div>
+        </div>
+        <div class="input-area">
+          <input type="text" placeholder="Or just ask anything..." />
+          <button class="send">↑</button>
+        </div>
+        <div class="bottom-links">
+          <a href="#">Integrations</a>
+          <a href="#">Feature Matrix</a>
+          <a href="#">Docs</a>
+          <a href="#">46 features · 26 integrations</a>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      function show(id) {
+        document
+          .querySelectorAll(".variation")
+          .forEach((v) => v.classList.remove("active"));
+        document
+          .querySelectorAll(".tab-btn")
+          .forEach((b) => b.classList.remove("active"));
+        document.getElementById(id).classList.add("active");
+        event.currentTarget.classList.add("active");
+      }
+    </script>
+  </body>
+</html>

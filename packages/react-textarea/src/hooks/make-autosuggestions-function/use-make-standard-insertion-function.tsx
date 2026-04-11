@@ -45,7 +45,7 @@ export function useMakeStandardInsertionOrEditingFunction(
     [],
   );
   const { getContextString, copilotApiConfig } = useCopilotContext();
-  const _headers = copilotApiConfig.publicApiKey
+  const headers = copilotApiConfig.publicApiKey
     ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
     : {};
 

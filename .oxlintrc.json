@@ -15,7 +15,21 @@
     "unicorn/prefer-add-event-listener": "off",
     "typescript/no-extraneous-class": "off",
     "copilotkit/require-cpk-prefix": "off",
-    "no-restricted-imports": "off"
+    "no-restricted-imports": "off",
+
+    "typescript/consistent-type-imports": [
+      "warn",
+      { "prefer": "type-imports", "fixStyle": "separate-type-imports" }
+    ],
+    "typescript/no-import-type-side-effects": "warn",
+    "import/consistent-type-specifier-style": ["warn", "prefer-top-level"],
+    "typescript/no-unnecessary-type-assertion": "error",
+
+    "react/self-closing-comp": "warn",
+    "unicorn/prefer-optional-catch-binding": "warn",
+    "eslint/no-useless-computed-key": "warn",
+    "unicorn/prefer-string-slice": "warn",
+    "unicorn/prefer-array-flat-map": "warn"
   },
   "overrides": [
     {
@@ -76,6 +90,17 @@
       "files": ["**/error-boundary/error-utils.tsx"],
       "rules": {
         "react-hooks/exhaustive-deps": "off"
+      }
+    },
+    {
+      "files": [
+        "packages/angular/**/*.ts",
+        "packages/runtime/src/graphql/**/*.ts"
+      ],
+      "rules": {
+        "typescript/consistent-type-imports": "off",
+        "typescript/no-import-type-side-effects": "off",
+        "import/consistent-type-specifier-style": "off"
       }
     }
   ],

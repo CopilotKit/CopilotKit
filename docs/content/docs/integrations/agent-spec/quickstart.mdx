@@ -60,7 +60,7 @@ hideTOC: true
 
         ```bash
         export OPENAI_API_KEY=...
-        export OPENAI_MODEL=gpt-5.2
+        export OPENAI_MODEL=gpt-5.4
         ```
 
         Note that these environment variables can point to any OpenAI-compatible LLM provider (e.g., local vLLM server, Together AI), but the variable names need to be `OPENAI_API_KEY` and `OPENAI_MODEL`.
@@ -85,7 +85,7 @@ hideTOC: true
             system_prompt="You are a helpful assistant, named Specky, that speaks a lot.",
             llm_config=OpenAiCompatibleConfig(
                 name="my-llm",
-                model_id="gpt-5.2",
+                model_id="gpt-5.4",
                 url="https://api.openai.com/v1",
             ),
         )

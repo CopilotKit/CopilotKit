@@ -21,17 +21,17 @@
     "docs": "pnpm -C examples/v2/docs dev",
     "demo:angular": "nx run-many -t dev --projects=examples/v2/angular/demo,examples/v2/angular/demo-server",
     "demo:react": "pnpm -C examples/v2/react/demo dev",
-    "changeset": "changeset",
-    "ci:publish-release": "pnpm run build && pnpm changeset publish --no-git-tag",
+    "release:prepare:dry": "tsx scripts/release/prepare-release.ts --scope monorepo --bump patch --dry-run",
+    "release:prerelease:dry": "tsx scripts/release/prerelease.ts --scope monorepo --dry-run",
     "prepare": "lefthook install",
     "graph": "nx graph",
     "publint": "nx run-many -t publint --projects=packages/**",
     "attw": "nx run-many -t attw --projects=packages/**",
-    "check:packages": "nx run-many -t publint,attw --projects=packages/**"
+    "check:packages": "nx run-many -t publint,attw --projects=packages/**",
+    "validate:model-names": "tsx scripts/validate-doc-model-names.ts"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
-    "@changesets/cli": "^2.29.8",
     "@commitlint/cli": "^20.3.0",
     "@commitlint/config-conventional": "^20.3.0",
     "@storybook/addon-docs": "^10.1.10",
@@ -50,10 +50,17 @@
     "oxfmt": "^0.36.0",
     "oxlint": "^1.51.0",
     "publint": "^0.3.17",
+    "remark": "^15.0.1",
+    "remark-mdx": "^3.1.1",
+    "remark-parse": "^11.0.0",
     "storybook": "^10.1.10",
     "ts-node": "^10.9.2",
     "tsdown": "^0.20.3",
-    "typescript": "^5.2.3"
+    "tsx": "^4.21.0",
+    "typescript": "^5.2.3",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.1.0",
+    "vitest": "^4.1.3"
   },
   "engines": {
     "node": ">=18"
@@ -83,9 +90,6 @@
       "prismjs@<=1.30.0": "1.30.0",
       "pino@<=10.1.1": "10.1.1",
       "@copilotkit/license-verifier": "0.0.1-a1"
-    },
-    "patchedDependencies": {
-      "@changesets/assemble-release-plan@6.0.9": "patches/@changesets__assemble-release-plan@6.0.9.patch"
     }
   }
 }
