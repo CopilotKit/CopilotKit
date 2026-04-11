@@ -1,7 +1,11 @@
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
-export const ROOT = path.resolve(import.meta.dirname, "../../..");
+export const ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../..",
+);
 
 export interface ReleaseConfig {
   prereleaseTag: string;

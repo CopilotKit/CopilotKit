@@ -28,7 +28,7 @@ export function getCurrentVersion(): string {
 
 export function parseSemver(version: string): SemVer {
   const match = version.match(
-    /^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.]+))?(?:\+(.+))?$/,
+    /^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.\-]+))?(?:\+(.+))?$/,
   );
   if (!match) {
     throw new Error(`Invalid semver: ${version}`);
