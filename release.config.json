@@ -1,0 +1,18 @@
+{
+  "prereleaseTag": "canary",
+  "versionedTogether": [
+    "@copilotkit/a2ui-renderer",
+    "@copilotkit/core",
+    "@copilotkit/react-core",
+    "@copilotkit/react-textarea",
+    "@copilotkit/react-ui",
+    "@copilotkit/runtime",
+    "@copilotkit/runtime-client-gql",
+    "@copilotkit/sdk-js",
+    "@copilotkit/shared",
+    "@copilotkit/sqlite-runner",
+    "@copilotkit/voice",
+    "@copilotkit/web-inspector"
+  ],
+  "versionedIndependently": ["@copilotkitnext/angular", "copilotkit"]
+}
