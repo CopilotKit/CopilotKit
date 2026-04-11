@@ -30,6 +30,7 @@ env:
 
 jobs:
   create-release-pr:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
