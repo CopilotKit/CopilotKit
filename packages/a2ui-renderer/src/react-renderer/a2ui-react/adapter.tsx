@@ -21,7 +21,8 @@ import React, {
   memo,
   useEffect,
 } from "react";
-import { type ComponentContext, GenericBinder } from "@a2ui/web_core/v0_9";
+import { GenericBinder } from '@a2ui/web_core/v0_9';
+import type { ComponentContext } from '@a2ui/web_core/v0_9';
 import type {
   ComponentApi,
   InferredComponentApiSchemaType,

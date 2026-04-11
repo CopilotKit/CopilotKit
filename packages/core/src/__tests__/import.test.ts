@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { Message } from "@ag-ui/client";
+import type { Message } from "@ag-ui/client";
 
 describe("Import Test", () => {
   it("should import Message type", () => {

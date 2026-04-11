@@ -160,12 +160,13 @@
  */
 import { useEffect } from "react";
 import { useCopilotContext } from "../context/copilot-context";
-import {
-  useCopilotChatInternal,
-  defaultSystemMessage,
+import type {
   UseCopilotChatOptions as UseCopilotChatOptions_c,
   UseCopilotChatReturn as UseCopilotChatReturn_c,
-  MCPServerConfig,
+  MCPServerConfig} from "./use-copilot-chat_internal";
+import {
+  useCopilotChatInternal,
+  defaultSystemMessage
 } from "./use-copilot-chat_internal";
 
 import {

@@ -1,5 +1,6 @@
-import { vi, type Mock } from "vitest";
-import { CopilotErrorEvent, CopilotErrorHandler } from "@copilotkit/shared";
+import { vi } from 'vitest';
+import type { Mock } from 'vitest';
+import type { CopilotErrorEvent, CopilotErrorHandler } from "@copilotkit/shared";
 
 describe("CopilotKit onError types", () => {
   let mockError: Mock;

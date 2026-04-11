@@ -1,7 +1,9 @@
-import { Config, Flags } from "@oclif/core";
+import type { Config} from "@oclif/core";
+import { Flags } from "@oclif/core";
 import inquirer from "inquirer";
 import { createId } from "@paralleldrive/cuid2";
-import ora, { Ora } from "ora";
+import type { Ora } from "ora";
+import ora from "ora";
 import chalk from "chalk";
 
 import { AuthService } from "../services/auth.service.js";
@@ -213,7 +215,7 @@ export default class Dev extends BaseCommand {
       spinner,
     });
 
-    [await setupTunnel];
+    await setupTunnel;
   }
 
   private async setupTunnel({

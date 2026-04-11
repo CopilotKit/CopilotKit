@@ -1,9 +1,10 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import CopilotChatView, {
+import type {
   CopilotChatViewProps,
   WelcomeScreenProps,
 } from "./CopilotChatView";
+import CopilotChatView from "./CopilotChatView";
 import {
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
@@ -11,7 +12,8 @@ import {
 import CopilotChatToggleButton from "./CopilotChatToggleButton";
 import { cn } from "../../lib/utils";
 import { CopilotModalHeader } from "./CopilotModalHeader";
-import { renderSlot, SlotValue } from "../../lib/slots";
+import type { SlotValue } from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
 
 const DEFAULT_SIDEBAR_WIDTH = 480;
 const SIDEBAR_TRANSITION_MS = 260;
@@ -167,7 +169,7 @@ function CopilotSidebarViewInternal({
         style={
           {
             // Use CSS custom property for responsive width
-            ["--sidebar-width" as string]: widthToCss(sidebarWidth),
+            "--sidebar-width": widthToCss(sidebarWidth),
             // Safe area insets for iOS
             paddingTop: "env(safe-area-inset-top)",
             paddingBottom: "env(safe-area-inset-bottom)",

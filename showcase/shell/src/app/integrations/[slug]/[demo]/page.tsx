@@ -108,6 +108,7 @@ export default function DemoViewerPage() {
             className="h-full w-full border-0 rounded-xl"
             title={`${demo.name} demo`}
             allow="clipboard-read; clipboard-write"
+            // oxlint-disable-next-line eslint-plugin-react(iframe-missing-sandbox)
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           />
         )}

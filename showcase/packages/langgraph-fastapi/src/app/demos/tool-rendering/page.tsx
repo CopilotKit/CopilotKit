@@ -23,7 +23,7 @@ function Chat() {
     parameters: z.object({
       location: z.string(),
     }),
-    render: ({ args, result, status }: any) => {
+    render: ({ args, result: _result, status }: any) => {
       if (status !== "complete") {
         return (
           <div

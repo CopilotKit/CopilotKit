@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils/cn";
-import { availableCardInfo, CardInfo } from "@/lib/types";
+import type { CardInfo } from "@/lib/types";
+import { availableCardInfo } from "@/lib/types";
 
 interface PaymentCardsProps {
   onSubmit: (cardInfo: CardInfo) => void;

@@ -2,13 +2,8 @@ import { useState, useEffect } from "react";
 import type { FeatureCollection, Geometry } from "geojson";
 import { feature } from "topojson-client";
 import type { GeometryCollection, Topology } from "topojson-specification";
-import {
-  type CountryFeature,
-  MANUAL_FLAG_MAP,
-  normalizeName,
-  codeToFlagEmoji,
-  fetchJson,
-} from "@/utils/countryData";
+import { MANUAL_FLAG_MAP, normalizeName, codeToFlagEmoji, fetchJson } from '@/utils/countryData';
+import type { CountryFeature } from '@/utils/countryData';
 
 /**
  * Hook to load and enrich country data from TopoJSON files.

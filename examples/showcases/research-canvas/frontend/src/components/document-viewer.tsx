@@ -3,9 +3,10 @@ import Footer from "@/components/document-footer";
 import React, { useMemo } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type {
+  DocumentEditorProps} from "@/components/documents-editor";
 import {
-  DocumentEditor,
-  DocumentEditorProps,
+  DocumentEditor
 } from "@/components/documents-editor";
 
 interface DocumentViewerProps {

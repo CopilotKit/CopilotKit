@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { type Integration, getCategoryLabel } from "@/lib/registry";
+import { getCategoryLabel } from '@/lib/registry';
+import type { Integration } from '@/lib/registry';
 import constraintsData from "@/data/constraints.json";
 
 // Module-scope: stable reference, no useMemo needed

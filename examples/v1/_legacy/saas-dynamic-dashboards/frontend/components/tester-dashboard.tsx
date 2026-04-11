@@ -20,7 +20,7 @@ import { ChatGrid } from "./data-chat-grid";
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { testerPersonaSuggestions } from "@/lib/prompts";
 import { useSharedTestsContext } from "@/lib/shared-tests-context";
-import { TestsData } from "@/app/Interfaces/interface";
+import type { TestsData } from "@/app/Interfaces/interface";
 // Sample data for the tester dashboard
 const tableColumns = [
   {

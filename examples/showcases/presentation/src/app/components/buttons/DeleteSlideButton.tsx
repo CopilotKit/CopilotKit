@@ -1,4 +1,4 @@
-import { SlideModel } from "@/app/types";
+import type { SlideModel } from "@/app/types";
 import { ActionButton } from "./ActionButton";
 import { TrashIcon } from "@heroicons/react/24/outline";
 

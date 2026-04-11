@@ -225,6 +225,7 @@ const components = {
           src={demoUrl}
           className="w-full"
           style={{ height: "500px" }}
+          // oxlint-disable-next-line eslint-plugin-react(iframe-missing-sandbox)
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           loading="lazy"
         />

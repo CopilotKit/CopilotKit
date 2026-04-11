@@ -12,43 +12,24 @@
  * ```
  */
 
-import {
-  type Action,
-  type CopilotErrorHandler,
-  CopilotKitMisuseError,
-  type MaybePromise,
-  type NonEmptyRecord,
-  type Parameter,
-  readBody,
-  getZodParameters,
-  type PartialBy,
-  isTelemetryDisabled,
-} from "@copilotkit/shared";
+import { CopilotKitMisuseError, readBody, getZodParameters, isTelemetryDisabled } from '@copilotkit/shared';
+import type { Action, CopilotErrorHandler, MaybePromise, NonEmptyRecord, Parameter, PartialBy } from '@copilotkit/shared';
 import type { RunAgentInput } from "@ag-ui/core";
 import { aguiToGQL } from "../../graphql/message-conversion/agui-to-gql";
 import type {
   CopilotServiceAdapter,
   RemoteChainParameters,
 } from "../../service-adapters";
-import {
-  CopilotRuntime as CopilotRuntimeVNext,
-  type CopilotRuntimeOptions,
-  type CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
-  type AgentRunner,
-  InMemoryAgentRunner,
-} from "../../v2/runtime";
+import { CopilotRuntime as CopilotRuntimeVNext, InMemoryAgentRunner } from '../../v2/runtime';
+import type { CopilotRuntimeOptions, CopilotRuntimeOptions as CopilotRuntimeOptionsVNext, AgentRunner } from '../../v2/runtime';
 import { TelemetryAgentRunner } from "./telemetry-agent-runner";
 import telemetry from "../telemetry-client";
 
 import type { MessageInput } from "../../graphql/inputs/message.input";
 import type { Message } from "../../graphql/types/converted";
 
-import {
-  EndpointType,
-  type EndpointDefinition,
-  type CopilotKitEndpoint,
-  type LangGraphPlatformEndpoint,
-} from "./types";
+import { EndpointType } from './types';
+import type { EndpointDefinition, CopilotKitEndpoint, LangGraphPlatformEndpoint } from './types';
 
 import type {
   CopilotObservabilityConfig,
@@ -58,13 +39,10 @@ import type {
 import type { AbstractAgent } from "@ag-ui/client";
 
 // +++ MCP Imports +++
-import {
-  type MCPClient,
-  type MCPEndpointConfig,
-  type MCPTool,
-  extractParametersFromSchema,
-} from "./mcp-tools-utils";
-import { BuiltInAgent, type BuiltInAgentClassicConfig } from "../../agent";
+import { extractParametersFromSchema } from './mcp-tools-utils';
+import type { MCPClient, MCPEndpointConfig, MCPTool } from './mcp-tools-utils';
+import { BuiltInAgent } from '../../agent';
+import type { BuiltInAgentClassicConfig } from '../../agent';
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (
   config: MCPEndpointConfig,

@@ -4,7 +4,7 @@
 */
 
 import spawn from "cross-spawn";
-import { Config } from "../types/index.js";
+import type { Config } from "../types/index.js";
 import chalk from "chalk";
 import fs from "fs";
 import ora from "ora";

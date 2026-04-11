@@ -9,9 +9,9 @@ import {
   runStartedEvent,
   testId,
 } from "../../../__tests__/utils/test-helpers";
-import { ReactActivityMessageRenderer } from "../../../types";
+import type { ReactActivityMessageRenderer } from "../../../types";
 import { useCopilotKit } from "../../../providers";
-import { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
 import { getThreadClone } from "../../../hooks/use-agent";
 
 describe("CopilotChat activity message rendering", () => {

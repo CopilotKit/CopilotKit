@@ -1,10 +1,7 @@
 import React, { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react";
-import {
-  CopilotChatInput,
-  CopilotChatConfigurationProvider,
-  type ToolsMenuItem,
-} from "@copilotkit/react-core/v2";
+import { CopilotChatInput, CopilotChatConfigurationProvider } from '@copilotkit/react-core/v2';
+import type { ToolsMenuItem } from '@copilotkit/react-core/v2';
 
 const meta = {
   title: "UI/CopilotChatInput",

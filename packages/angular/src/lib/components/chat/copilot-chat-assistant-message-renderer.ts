@@ -1,3 +1,5 @@
+import type {
+  AfterViewInit} from "@angular/core";
 import {
   Component,
   input,
@@ -7,7 +9,6 @@ import {
   effect,
   inject,
   ElementRef,
-  AfterViewInit,
   ViewChild,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";

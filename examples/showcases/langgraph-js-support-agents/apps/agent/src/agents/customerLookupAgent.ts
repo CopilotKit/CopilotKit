@@ -1,5 +1,5 @@
-import { RunnableConfig } from "@langchain/core/runnables";
-import { CustomerSupportState } from "../types/state";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { CustomerSupportState } from "../types/state";
 
 /**
  * Customer Lookup Agent Node

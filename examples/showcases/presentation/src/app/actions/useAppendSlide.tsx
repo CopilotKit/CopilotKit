@@ -1,5 +1,5 @@
 import { useCopilotAction } from "@copilotkit/react-core";
-import { SlideModel } from "../types";
+import type { SlideModel } from "../types";
 import { SlidePreview } from "../components/misc/SlidePreview";
 
 interface AppendSlideParams {

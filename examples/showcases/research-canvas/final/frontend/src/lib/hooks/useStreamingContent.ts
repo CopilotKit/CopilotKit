@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ResearchState, Section } from "../types";
+import type { ResearchState, Section } from "../types";
 
 export function useStreamingContent(state: ResearchState) {
   const [currentSection, setCurrentSection] = useState<Section | null>(null);

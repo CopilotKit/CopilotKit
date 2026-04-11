@@ -3,23 +3,22 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { z } from "zod";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
-import { Observable, Subject } from "rxjs";
-import { defineToolCallRenderer, ReactToolCallRenderer } from "../../../types";
+import { AbstractAgent, EventType } from '@ag-ui/client';
+import type { BaseEvent, RunAgentInput } from '@ag-ui/client';
+import type { Observable} from "rxjs";
+import { Subject } from "rxjs";
+import type { ReactToolCallRenderer } from "../../../types";
+import { defineToolCallRenderer } from "../../../types";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
 import { CopilotChatView } from "../CopilotChatView";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { ActivityMessage, AssistantMessage, Message } from "@ag-ui/core";
-import {
+import type { ActivityMessage, AssistantMessage, Message } from "@ag-ui/core";
+import type {
   ReactActivityMessageRenderer,
   ReactCustomMessageRenderer,
 } from "../../../types";
-import CopilotChatInput, { CopilotChatInputProps } from "../CopilotChatInput";
+import type { CopilotChatInputProps } from "../CopilotChatInput";
+import CopilotChatInput from "../CopilotChatInput";
 import { CopilotChatSuggestionView } from "../CopilotChatSuggestionView";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 

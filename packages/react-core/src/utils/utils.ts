@@ -1,6 +1,2 @@
-import { z } from "zod";
-import {
-  actionParametersToJsonSchema,
-  convertJsonSchemaToZodSchema,
-  Parameter,
-} from "@copilotkit/shared";
+/** @internal Placeholder to prevent no-empty-file. */
+export type _Placeholder = never;

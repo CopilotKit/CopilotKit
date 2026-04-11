@@ -4,8 +4,8 @@
  * This module contains the implementation of the download_node function.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
-import { AgentState } from "./state";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { AgentState } from "./state";
 import { htmlToText } from "html-to-text";
 import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph";
 

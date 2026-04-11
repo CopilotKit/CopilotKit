@@ -167,7 +167,7 @@ function generateManifest(args: CLIArgs, features: Feature[]): string {
 }
 
 function generatePackageJson(args: CLIArgs): string {
-  const devCmd =
+  const _devCmd =
     args.language === "typescript"
       ? '"dev": "next dev --turbopack"'
       : '"dev": "concurrently \\"next dev --turbopack\\" \\"python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload\\""';
@@ -317,7 +317,7 @@ ${demoLinks}
 function generateDemoPage(
   featureId: string,
   feature: Feature | undefined,
-  args: CLIArgs,
+  _args: CLIArgs,
 ): string {
   return `"use client";
 

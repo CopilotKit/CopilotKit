@@ -1,4 +1,4 @@
-import { RenderMessageProps } from "../props";
+import type { RenderMessageProps } from "../props";
 import { UserMessage as DefaultUserMessage } from "./UserMessage";
 import { AssistantMessage as DefaultAssistantMessage } from "./AssistantMessage";
 import { ImageRenderer as DefaultImageRenderer } from "./ImageRenderer";

@@ -3,9 +3,10 @@
  * It defines the workflow graph and the entry point for the agent.
  */
 
-import { AIMessage } from "@langchain/core/messages";
+import type { AIMessage } from "@langchain/core/messages";
 import { StateGraph, END } from "@langchain/langgraph";
-import { AgentState, AgentStateAnnotation } from "./state";
+import type { AgentState} from "./state";
+import { AgentStateAnnotation } from "./state";
 import { download_node } from "./download";
 import { chat_node } from "./chat";
 import { search_node } from "./search";

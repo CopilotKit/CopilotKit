@@ -7,7 +7,7 @@
  */
 
 import React from "react";
-import { MessageActionRenderProps } from "../types";
+import type { MessageActionRenderProps } from "../types";
 import { getAgentStyle } from "./agent-styles";
 
 export const MessageFromA2A: React.FC<MessageActionRenderProps> = ({

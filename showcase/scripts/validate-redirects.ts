@@ -12,10 +12,8 @@
  *   npx tsx showcase/scripts/validate-redirects.ts --id P1  # filter by spec ID prefix
  */
 
-import {
-  seoRedirects,
-  type RedirectEntry,
-} from "../shell/src/lib/seo-redirects";
+import { seoRedirects } from '../shell/src/lib/seo-redirects';
+import type { RedirectEntry } from '../shell/src/lib/seo-redirects';
 
 const DEFAULT_BASE = "http://localhost:3000";
 
@@ -182,7 +180,7 @@ async function main() {
 
   if (failed > 0) {
     console.log(`\nFailed entries:`);
-    for (const r of results.filter((r) => r.status === "fail")) {
+    for (const r of results.filter((entry) => entry.status === "fail")) {
       console.log(`  ${r.id}: ${r.source} — ${r.error}`);
     }
     process.exit(1);

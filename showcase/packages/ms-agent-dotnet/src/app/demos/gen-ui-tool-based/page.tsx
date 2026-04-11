@@ -52,9 +52,9 @@ function WeatherDisplay() {
         .string()
         .describe("The theme color to set. Make sure to pick nice colors."),
     }),
-    handler: async ({ themeColor }: { themeColor: string }) => {
-      setThemeColor(themeColor);
-      return { status: "success", message: `Theme color set to ${themeColor}` };
+    handler: async ({ themeColor: newThemeColor }: { themeColor: string }) => {
+      setThemeColor(newThemeColor);
+      return { status: "success", message: `Theme color set to ${newThemeColor}` };
     },
   });
 
@@ -137,7 +137,7 @@ function WeatherDisplay() {
 
 function WeatherCard({
   data,
-  themeColor,
+  themeColor: _themeColor,
 }: {
   data: WeatherResult;
   themeColor: string;

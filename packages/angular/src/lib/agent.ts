@@ -1,10 +1,11 @@
+import type {
+  Signal} from "@angular/core";
 import {
   DestroyRef,
   Injectable,
   inject,
   signal,
-  computed,
-  Signal,
+  computed
 } from "@angular/core";
 import { CopilotKit } from "./copilotkit";
 import type { AbstractAgent } from "@ag-ui/client";

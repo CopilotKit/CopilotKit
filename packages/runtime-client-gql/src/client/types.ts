@@ -1,17 +1,18 @@
 import { randomId } from "@copilotkit/shared";
-import {
+import type {
   ActionExecutionMessageInput,
-  MessageRole,
   MessageStatus,
   ResultMessageInput,
   TextMessageInput,
   BaseMessageOutput,
   AgentStateMessageInput,
-  MessageStatusCode,
   LangGraphInterruptEvent as GqlLangGraphInterruptEvent,
-  MetaEventName,
   CopilotKitLangGraphInterruptEvent as GqlCopilotKitLangGraphInterruptEvent,
-  ImageMessageInput,
+  ImageMessageInput} from "../graphql/@generated/graphql";
+import {
+  MessageRole,
+  MessageStatusCode,
+  MetaEventName
 } from "../graphql/@generated/graphql";
 import { parseJson } from "@copilotkit/shared";
 

@@ -1,4 +1,4 @@
-import { UserMessageProps, AssistantMessageProps } from "@copilotkit/react-ui";
+import type { UserMessageProps, AssistantMessageProps } from "@copilotkit/react-ui";
 import { Markdown } from "@copilotkit/react-ui";
 
 function normalizeMarkdownContent(content: unknown): string {
@@ -107,9 +107,9 @@ export function AssistantMessage({
           <div className="font-medium text-pink-600 mb-1">Fio</div>
           {isLoading ? (
             <div className="flex items-center gap-2 p-1">
-              <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-              <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-              <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce [animation-delay:-0.3s]" />
+              <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce [animation-delay:-0.15s]" />
+              <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce" />
             </div>
           ) : (
             <>{content && <Markdown content={content} />}</>

@@ -1,5 +1,5 @@
-import { GraphQLContext } from "../integrations";
-import { CopilotKitEndpoint } from "./types";
+import type { GraphQLContext } from "../integrations";
+import type { CopilotKitEndpoint } from "./types";
 import { CopilotKitError, CopilotKitLowLevelError } from "@copilotkit/shared";
 
 // Utility to determine if an error is a user configuration issue vs system error

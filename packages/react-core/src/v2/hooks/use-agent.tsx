@@ -2,7 +2,8 @@ import { useCopilotKit } from "../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { useMemo, useEffect, useReducer, useRef } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent} from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 import {
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,

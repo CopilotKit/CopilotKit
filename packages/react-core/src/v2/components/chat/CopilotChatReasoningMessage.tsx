@@ -1,9 +1,10 @@
-import { ReasoningMessage, Message } from "@ag-ui/core";
+import type { ReasoningMessage, Message } from "@ag-ui/core";
 import { useState, useEffect, useRef } from "react";
 import { ChevronRight } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 import { Streamdown } from "streamdown";
-import { WithSlots, renderSlot } from "../../lib/slots";
+import type { WithSlots} from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
 
 export type CopilotChatReasoningMessageProps = WithSlots<
   {

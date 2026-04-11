@@ -1,6 +1,6 @@
 import { FileText, RefreshCcw } from "lucide-react";
 import { useResearch } from "@/components/research-context";
-import { LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,

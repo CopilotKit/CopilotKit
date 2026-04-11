@@ -1,5 +1,5 @@
 import * as gql from "../client";
-import * as agui from "@copilotkit/shared";
+import type * as agui from "@copilotkit/shared";
 import { MessageStatusCode } from "../graphql/@generated/graphql";
 
 // Define valid image formats based on the supported formats in the codebase

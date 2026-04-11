@@ -1,4 +1,4 @@
-import { AssistantMessageProps } from "../props";
+import type { AssistantMessageProps } from "../props";
 import { useChatContext } from "../ChatContext";
 import { Markdown } from "../Markdown";
 import { useState } from "react";

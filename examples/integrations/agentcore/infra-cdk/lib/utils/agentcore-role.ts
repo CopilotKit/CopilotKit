@@ -1,6 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import * as iam from "aws-cdk-lib/aws-iam";
-import { Construct } from "constructs";
+import type { Construct } from "constructs";
 
 export interface AgentCoreRoleProps extends iam.RoleProps {
   // Additional props can be added here if needed

@@ -17,7 +17,8 @@ import {
   bumpPackages,
   getPackagesForScope,
 } from "./lib/versions.js";
-import { ROOT, loadConfig, type ReleaseScope } from "./lib/config.js";
+import { ROOT, loadConfig } from './lib/config.js';
+import type { ReleaseScope } from './lib/config.js';
 
 function run(cmd: string, args: string[], opts?: { cwd?: string }) {
   const result = spawnSync(cmd, args, {

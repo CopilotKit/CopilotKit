@@ -4,3 +4,5 @@
  * TODO: Implement the agent logic for Claude Agent SDK (TypeScript)
  * See the LangGraph Python reference implementation for patterns.
  */
+
+export type AgentConfig = Record<string, unknown>;

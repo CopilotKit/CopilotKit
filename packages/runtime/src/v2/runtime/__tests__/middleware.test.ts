@@ -1,4 +1,5 @@
-import { vi, type MockedFunction } from "vitest";
+import { vi } from 'vitest';
+import type { MockedFunction } from 'vitest';
 import { createCopilotEndpoint } from "../endpoints";
 import { CopilotRuntime } from "../core/runtime";
 import { logger } from "@copilotkit/shared";

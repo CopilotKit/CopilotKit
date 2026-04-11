@@ -1,24 +1,25 @@
-import {
-  AgentRunner,
+import type {
   AgentRunnerConnectRequest,
   AgentRunnerIsRunningRequest,
-  AgentRunnerRunRequest,
-  type AgentRunnerStopRequest,
-} from "./agent-runner";
+  AgentRunnerRunRequest} from "./agent-runner";
+import { AgentRunner } from './agent-runner';
+import type { AgentRunnerStopRequest } from './agent-runner';
 import { EMPTY, Observable, from } from "rxjs";
 import { catchError, finalize } from "rxjs/operators";
-import {
+import type {
   AbstractAgent,
   BaseEvent,
-  EventType,
-  RunStartedEvent,
+  RunStartedEvent} from "@ag-ui/client";
+import {
+  EventType
 } from "@ag-ui/client";
 import {
   finalizeRunEvents,
   AG_UI_CHANNEL_EVENT,
   phoenixExponentialBackoff,
 } from "@copilotkit/shared";
-import { Socket, Channel } from "phoenix";
+import type { Channel } from "phoenix";
+import { Socket } from "phoenix";
 import { randomUUID } from "node:crypto";
 
 export interface IntelligenceAgentRunnerOptions {

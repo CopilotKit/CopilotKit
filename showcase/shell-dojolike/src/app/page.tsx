@@ -1,14 +1,8 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import {
-  getIntegrations,
-  getFeatureCategories,
-  getFeature,
-  type Integration,
-  type Demo,
-  type FeatureCategory,
-} from "@/lib/registry";
+import { getIntegrations, getFeatureCategories, getFeature } from '@/lib/registry';
+import type { Integration, Demo, FeatureCategory } from '@/lib/registry';
 import { CodeBlock } from "@/components/code-block";
 import demoContentData from "@/data/demo-content.json";
 
@@ -604,6 +598,7 @@ export default function DojoPage() {
               borderRadius: 8,
               background: "#ffffff",
             }}
+            // oxlint-disable-next-line eslint-plugin-react(iframe-missing-sandbox)
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           />
         ) : viewMode === "code" && allFiles.length > 0 ? (

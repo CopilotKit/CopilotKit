@@ -1,5 +1,5 @@
-import { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
-import { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
+import type { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
+import type { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
 import { generateThreadNameForNewThread } from "./thread-names";
 import { logger } from "@copilotkit/shared";
 import { telemetry } from "../../telemetry";

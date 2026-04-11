@@ -1,6 +1,6 @@
 import * as gql from "../client";
-import { MessageRole } from "../graphql/@generated/graphql";
-import * as agui from "@copilotkit/shared"; // named agui for clarity, but this only includes agui message types
+import type { MessageRole } from "../graphql/@generated/graphql";
+import type * as agui from "@copilotkit/shared"; // named agui for clarity, but this only includes agui message types
 
 // Helper function to extract agent name from message
 function extractAgentName(message: agui.Message): string {

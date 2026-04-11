@@ -1,8 +1,8 @@
 import React from "react";
 import { z } from "zod";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
-import { ReactToolCallRenderer } from "./react-tool-call-renderer";
-import { ToolCallStatus } from "@copilotkit/core";
+import type { ReactToolCallRenderer } from "./react-tool-call-renderer";
+import type { ToolCallStatus } from "@copilotkit/core";
 
 /**
  * Helper to define a type-safe tool call renderer entry.

@@ -210,7 +210,7 @@ describe("Template Generator", () => {
     const featureRegistry = JSON.parse(
       fs.readFileSync(FEATURE_REGISTRY_PATH, "utf-8"),
     );
-    const validIds = new Set(featureRegistry.features.map((f: any) => f.id));
+    const _validIds = new Set(featureRegistry.features.map((f: any) => f.id));
 
     // All features in the registry should have valid IDs
     for (const feature of featureRegistry.features) {

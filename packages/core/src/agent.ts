@@ -1,26 +1,23 @@
-import {
+import type {
   AbstractAgent,
   AgentSubscriber,
   BaseEvent,
-  HttpAgent,
   HttpAgentConfig,
   RunAgentInput,
   RunAgentParameters,
-  RunAgentResult,
+  RunAgentResult} from "@ag-ui/client";
+import {
+  HttpAgent,
   runHttpRequest,
   transformHttpEventStream,
 } from "@ag-ui/client";
-import { Observable, EMPTY, defer, from } from "rxjs";
+import type { Observable} from "rxjs";
+import { EMPTY, defer, from } from "rxjs";
 import { catchError, switchMap } from "rxjs/operators";
-import {
-  RUNTIME_MODE_SSE,
-  RUNTIME_MODE_INTELLIGENCE,
-  type IntelligenceRuntimeInfo,
-  type RuntimeInfo,
-  type RuntimeMode,
-} from "@copilotkit/shared";
+import { RUNTIME_MODE_SSE, RUNTIME_MODE_INTELLIGENCE } from '@copilotkit/shared';
+import type { IntelligenceRuntimeInfo, RuntimeInfo, RuntimeMode } from '@copilotkit/shared';
 import { IntelligenceAgent } from "./intelligence-agent";
-import { CopilotRuntimeTransport } from "./types";
+import type { CopilotRuntimeTransport } from "./types";
 
 type ResolvedRuntimeMode = RuntimeMode | "pending";
 

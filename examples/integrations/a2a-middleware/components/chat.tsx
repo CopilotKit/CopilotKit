@@ -55,7 +55,7 @@ const ChatInner = ({ onResearchUpdate, onAnalysisUpdate }: ChatProps) => {
             if (typeof result === "string") {
               let cleanResult = result;
               if (result.startsWith("A2A Agent Response: ")) {
-                cleanResult = result.substring("A2A Agent Response: ".length);
+                cleanResult = result.slice("A2A Agent Response: ".length);
               }
               try {
                 parsed = JSON.parse(cleanResult);

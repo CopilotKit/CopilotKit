@@ -15,7 +15,7 @@ import {
   List,
 } from "@mantine/core";
 import { BookOpen } from "lucide-react";
-import { Post } from "@/app/lib/types/post";
+import type { Post } from "@/app/lib/types/post";
 import { fetchPosts } from "@/app/ui/service";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useCopilotAction } from "@copilotkit/react-core";

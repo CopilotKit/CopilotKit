@@ -5,7 +5,7 @@ import {
   CopilotChatUserMessage,
   provideCopilotChatLabels,
 } from "@copilotkit/angular";
-import { UserMessage } from "@ag-ui/client";
+import type { UserMessage } from "@ag-ui/client";
 
 // Simple default message
 const simpleMessage: UserMessage = {

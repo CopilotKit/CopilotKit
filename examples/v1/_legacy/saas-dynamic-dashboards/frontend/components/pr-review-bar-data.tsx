@@ -1,4 +1,4 @@
-import { PRData } from "@/app/Interfaces/interface";
+import type { PRData } from "@/app/Interfaces/interface";
 import { useEffect, useState } from "react";
 import { Legend } from "recharts";
 import { CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
@@ -35,7 +35,7 @@ export function PRReviewBarData({ args }: any) {
     if (args?.items) {
       setData(args?.items);
     }
-  }, [args?.items]);
+  }, [args]);
 
   return (
     <>

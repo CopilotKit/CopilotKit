@@ -1,4 +1,4 @@
-import { HeaderProps } from "./props";
+import type { HeaderProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { CopilotDevConsole } from "../dev-console";
 import React from "react";

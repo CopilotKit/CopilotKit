@@ -1,8 +1,9 @@
 import { handleTranscribe } from "../handlers/handle-transcribe";
-import { CopilotRuntime } from "../core/runtime";
+import type { CopilotRuntime } from "../core/runtime";
+import type {
+  TranscribeFileOptions} from "../transcription-service/transcription-service";
 import {
-  TranscriptionService,
-  TranscribeFileOptions,
+  TranscriptionService
 } from "../transcription-service/transcription-service";
 import { describe, it, expect } from "vitest";
 

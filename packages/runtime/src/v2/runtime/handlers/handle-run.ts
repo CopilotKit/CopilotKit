@@ -1,10 +1,11 @@
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
+import type {
+  RunAgentParameters} from "./shared/agent-utils";
 import {
   cloneAgentForRequest,
   configureAgentForRequest,
-  parseRunRequest,
-  RunAgentParameters,
+  parseRunRequest
 } from "./shared/agent-utils";
 import { handleIntelligenceRun } from "./intelligence/run";
 import { handleSseRun } from "./sse/run";

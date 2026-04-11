@@ -13,7 +13,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Card as ICard, ExpensePolicy } from "../app/api/v1/data";
+import type { Card as ICard, ExpensePolicy } from "../app/api/v1/data";
 
 export function CreditCardDetails({
   card,

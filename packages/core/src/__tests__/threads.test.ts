@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ɵThread } from "../threads";
 import { MockSocket } from "./test-utils";
 
 const phoenix = vi.hoisted(() => ({
@@ -23,7 +24,7 @@ const {
   ɵselectIsFetchingNextPage,
 } = await import("../threads");
 
-type ThreadRecord = import("../threads").ɵThread;
+type ThreadRecord = ɵThread;
 
 const flushEffects = async (): Promise<void> => {
   await Promise.resolve();

@@ -1,8 +1,9 @@
-import {
+import type {
   Car,
   ContactInfo,
   CardInfo,
-  FinancingInfo,
+  FinancingInfo} from "@/lib/types";
+import {
   cars,
   availableCardInfo,
 } from "@/lib/types";

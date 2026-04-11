@@ -5,7 +5,7 @@ import {
 } from "@copilotkit/runtime";
 
 import { LangGraphAgent } from "@ag-ui/langgraph";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 // 1. Use EmptyAdapter since we're in agent lock mode (LangGraph handles all LLM calls)
 //    Suggestions will be set programmatically via useCopilotChatSuggestions with static values

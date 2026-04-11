@@ -1,7 +1,7 @@
 import * as cdk from "aws-cdk-lib";
 import * as cognito from "aws-cdk-lib/aws-cognito";
-import { Construct } from "constructs";
-import { AppConfig } from "./utils/config-manager";
+import type { Construct } from "constructs";
+import type { AppConfig } from "./utils/config-manager";
 
 export interface CognitoStackProps extends cdk.NestedStackProps {
   config: AppConfig;

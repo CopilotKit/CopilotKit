@@ -5,7 +5,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useTrips } from "@/lib/hooks/use-trips";
-import { Place } from "@/lib/types";
+import type { Place } from "@/lib/types";
 import { Pencil } from "lucide-react";
 import { useState } from "react";
 import { PlaceForm } from "./PlaceForm";

@@ -7,7 +7,8 @@ import { promisify } from "util";
 import { pipeline } from "stream";
 import { createWriteStream } from "fs";
 import { extract } from "tar";
-import ora, { Ora } from "ora";
+import type { Ora } from "ora";
+import ora from "ora";
 
 import { BaseCommand } from "./base-command.js";
 import {

@@ -1,8 +1,9 @@
 import { ActionInputAvailability } from "@copilotkit/runtime-client-gql";
-import {
+import type {
   Action,
   Parameter,
-  MappedParameterTypes,
+  MappedParameterTypes} from "@copilotkit/shared";
+import {
   actionParametersToJsonSchema,
 } from "@copilotkit/shared";
 import React from "react";

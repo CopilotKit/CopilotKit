@@ -13,7 +13,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { resetGlobalAudio, speak } from "../utils";
 import { ActionButton } from "./ActionButton";
-import { SlideModel, Slide } from "./Slide";
+import type { SlideModel} from "./Slide";
+import { Slide } from "./Slide";
 
 export const Presentation = ({
   chatInProgress,

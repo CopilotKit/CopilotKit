@@ -9,10 +9,11 @@
 import { z } from "zod";
 import { tool } from "@langchain/core/tools";
 import { tavily } from "@tavily/core";
-import { AgentState } from "./state";
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { AgentState } from "./state";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type {
+  AIMessage} from "@langchain/core/messages";
 import {
-  AIMessage,
   SystemMessage,
   ToolMessage,
 } from "@langchain/core/messages";

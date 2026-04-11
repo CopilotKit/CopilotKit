@@ -1,11 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-import {
-  CopilotModalHeader,
-  CopilotSidebarView,
-  type CopilotSidebarViewProps,
-} from "@copilotkit/react-core/v2";
+import { CopilotModalHeader, CopilotSidebarView } from '@copilotkit/react-core/v2';
+import type { CopilotSidebarViewProps } from '@copilotkit/react-core/v2';
 import { CopilotStoryLayout } from "./CopilotStoryLayout";
 
 const meta = {

@@ -3,25 +3,14 @@
 import type { AbstractAgent } from "@ag-ui/client";
 import type { FrontendTool } from "@copilotkit/core";
 import type React from "react";
-import {
-  createContext,
-  useContext,
-  type ReactNode,
-  useMemo,
-  useEffect,
-  useLayoutEffect,
-  useReducer,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useContext, useMemo, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import type { Anchor } from "@copilotkit/web-inspector";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
-import {
-  createLicenseContextValue,
-  type LicenseContextValue,
-} from "@copilotkit/shared";
+import { createLicenseContextValue } from '@copilotkit/shared';
+import type { LicenseContextValue } from '@copilotkit/shared';
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,

@@ -2,13 +2,14 @@
 
 import { ProverbsCard } from "@/components/proverbs";
 import { WeatherCard } from "@/components/weather";
-import { AgentState } from "@/lib/types";
+import type { AgentState } from "@/lib/types";
 import {
   useCoAgent,
   useFrontendTool,
   useRenderToolCall,
 } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import type { CopilotKitCSSProperties} from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
 
 export default function CopilotKitPage() {

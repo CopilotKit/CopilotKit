@@ -1,7 +1,9 @@
 import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
-import { CartRecord, getCart } from "./data/cartData";
-import { getInventory, InventoryRecord } from "./data/inventoryData";
-import { FC, ReactNode } from "react";
+import type { CartRecord} from "./data/cartData";
+import { getCart } from "./data/cartData";
+import type { InventoryRecord } from "./data/inventoryData";
+import { getInventory } from "./data/inventoryData";
+import type { FC, ReactNode } from "react";
 import { useFetcher, useLoaderData, useNavigate } from "@remix-run/react";
 import { getAddress } from "./data/settingsData";
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
-import { PRData } from "@/app/Interfaces/interface";
+import type { ReactNode } from "react";
+import { createContext, useContext, useState } from "react";
+import type { PRData } from "@/app/Interfaces/interface";
 type SharedContextType = {
   prData: PRData[];
   setPrData: (data: PRData[]) => void;

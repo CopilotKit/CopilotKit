@@ -1,7 +1,8 @@
+import type {
+  TemplateRef} from "@angular/core";
 import {
   Component,
   Input,
-  TemplateRef,
   ViewChild,
   ViewContainerRef,
   createEnvironmentInjector,

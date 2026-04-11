@@ -7,7 +7,7 @@ import {
   OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const MONGODB_URI = process.env.MONGODB_CONNECTION_URI;

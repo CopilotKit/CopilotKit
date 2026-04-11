@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { CopilotKitCore } from "../core";
-import { FrontendTool } from "../types";
+import type { FrontendTool } from "../types";
 
 describe("CopilotKitCore - Agent Constraints", () => {
   it("should add tool with agentId", () => {

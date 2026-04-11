@@ -1,8 +1,9 @@
+import type {
+  RunAgentInput,
+  BaseEvent} from "@ag-ui/client";
 import {
   AbstractAgent,
-  RunAgentInput,
-  EventType,
-  BaseEvent,
+  EventType
 } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { OpenAI } from "openai";

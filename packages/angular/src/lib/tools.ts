@@ -1,5 +1,6 @@
-import { DestroyRef, Injector, Signal, Type, inject } from "@angular/core";
-import { FrontendTool, FrontendToolHandlerContext } from "@copilotkit/core";
+import type { Signal, Type} from "@angular/core";
+import { DestroyRef, Injector, inject } from "@angular/core";
+import type { FrontendTool, FrontendToolHandlerContext } from "@copilotkit/core";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
 import { CopilotKit } from "./copilotkit";
 

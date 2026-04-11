@@ -1,10 +1,11 @@
+import type {
+  TemplateRef,
+  Type} from "@angular/core";
 import {
   Component,
   input,
   output,
   ContentChild,
-  TemplateRef,
-  Type,
   ChangeDetectionStrategy,
   ViewEncapsulation,
   computed,

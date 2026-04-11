@@ -2,7 +2,8 @@ import React, { forwardRef, useImperativeHandle, useRef } from "react";
 import { render, fireEvent, screen } from "@testing-library/react";
 import { vi } from "vitest";
 import "@testing-library/jest-dom";
-import { renderSlot, SlotValue } from "../slots";
+import type { SlotValue } from "../slots";
+import { renderSlot } from "../slots";
 
 // Extend HTMLAttributes to include data attributes
 interface ExtendedDivAttributes extends React.HTMLAttributes<HTMLDivElement> {

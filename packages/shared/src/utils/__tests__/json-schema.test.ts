@@ -1,13 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
+import type {
+  JSONSchema} from "../json-schema";
 import {
   convertJsonSchemaToZodSchema,
   actionParametersToJsonSchema,
-  jsonSchemaToActionParameters,
-  JSONSchema,
+  jsonSchemaToActionParameters
 } from "../json-schema";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { Parameter } from "../../types";
+import type { Parameter } from "../../types";
 
 describe("convertJsonSchemaToZodSchema", () => {
   it("should convert a simple JSON schema to a Zod schema", () => {

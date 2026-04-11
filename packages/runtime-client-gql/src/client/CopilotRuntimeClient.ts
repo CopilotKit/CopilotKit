@@ -1,6 +1,6 @@
 import { Client, cacheExchange, fetchExchange } from "@urql/core";
 import * as packageJson from "../../package.json";
-import {
+import type {
   AvailableAgentsQuery,
   GenerateCopilotResponseMutation,
   GenerateCopilotResponseMutationVariables,
@@ -11,7 +11,7 @@ import {
   getAvailableAgentsQuery,
   loadAgentStateQuery,
 } from "../graphql/definitions/queries";
-import { OperationResultSource, OperationResult } from "urql";
+import type { OperationResultSource, OperationResult } from "urql";
 import {
   ResolvedCopilotKitError,
   CopilotKitLowLevelError,

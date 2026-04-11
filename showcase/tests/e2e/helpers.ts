@@ -5,7 +5,7 @@
  * and starter-smoke.spec.ts (Docker-built starters with aimock).
  */
 
-import { type APIRequestContext, type Page } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
 
 // ---------------------------------------------------------------------------
 // Result types

@@ -14,7 +14,8 @@
  * Requires: playwright (installed in showcase/tests/), ffmpeg, yaml
  */
 
-import { chromium, type Browser, type BrowserContext } from "playwright";
+import { chromium } from 'playwright';
+import type { Browser, BrowserContext, Page } from 'playwright';
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
@@ -51,7 +52,7 @@ const VIDEO_DIR = path.resolve(PREVIEWS_DIR, "_videos");
 interface DemoConfig {
   prompt: string;
   /** Extra interaction after assistant responds (e.g., click Approve) */
-  postResponse?: (page: import("playwright").Page) => Promise<void>;
+  postResponse?: (page: Page) => Promise<void>;
   /** Extra wait time in ms after all interactions (default: POST_RESPONSE_WAIT) */
   extraWait?: number;
 }

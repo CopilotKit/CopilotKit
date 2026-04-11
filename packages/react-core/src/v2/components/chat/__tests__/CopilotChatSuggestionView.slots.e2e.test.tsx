@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from "vitest";
 import { CopilotChatSuggestionView } from "../CopilotChatSuggestionView";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { Suggestion } from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
 
 // Wrapper to provide required context
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (

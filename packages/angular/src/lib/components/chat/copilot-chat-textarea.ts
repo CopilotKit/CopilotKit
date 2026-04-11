@@ -1,9 +1,10 @@
+import type {
+  AfterViewInit} from "@angular/core";
 import {
   Component,
   input,
   output,
   ElementRef,
-  AfterViewInit,
   signal,
   computed,
   inject,

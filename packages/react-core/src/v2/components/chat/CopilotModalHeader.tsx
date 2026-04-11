@@ -5,7 +5,8 @@ import {
   useCopilotChatConfiguration,
   CopilotChatDefaultLabels,
 } from "../../providers/CopilotChatConfigurationProvider";
-import { renderSlot, WithSlots } from "../../lib/slots";
+import type { WithSlots } from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
 import { X } from "lucide-react";
 
 type HeaderSlots = {

@@ -1,12 +1,14 @@
-import {
+import type {
   GenerateCopilotResponseMutation,
-  MessageInput,
+  MessageInput} from "../graphql/@generated/graphql";
+import {
   MessageStatusCode,
 } from "../graphql/@generated/graphql";
+import type {
+  Message} from "./types";
 import {
   ActionExecutionMessage,
   AgentStateMessage,
-  Message,
   ResultMessage,
   TextMessage,
   ImageMessage,

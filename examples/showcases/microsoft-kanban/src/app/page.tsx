@@ -6,8 +6,9 @@ import {
   useRenderToolCall,
 } from "@copilotkit/react-core";
 import { ToolCallCard } from "@/components/ToolCallCard";
+import type {
+  CopilotKitCSSProperties} from "@copilotkit/react-ui";
 import {
-  CopilotKitCSSProperties,
   CopilotChat,
   CopilotPopup,
 } from "@copilotkit/react-ui";

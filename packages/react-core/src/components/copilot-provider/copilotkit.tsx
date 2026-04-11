@@ -14,56 +14,59 @@
  * ```
  */
 
+import type {
+  SetStateAction} from "react";
 import React, {
   useCallback,
   useEffect,
   useMemo,
   useRef,
-  useState,
-  SetStateAction,
+  useState
 } from "react";
 import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider as CopilotKitV2Provider,
   useCopilotKit,
 } from "../../v2";
-import {
-  CopilotContext,
+import type {
   CopilotApiConfig,
   ChatComponentsCache,
   AgentSession,
-  AuthState,
+  AuthState} from "../../context/copilot-context";
+import {
+  CopilotContext,
   useCopilotContext,
 } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
-import {
+import type {
   CopilotChatSuggestionConfiguration,
   DocumentPointer,
 } from "../../types";
 import { flushSync } from "react-dom";
-import {
-  COPILOT_CLOUD_CHAT_URL,
+import type {
   CopilotCloudConfig,
   FunctionCallHandler,
+  CopilotKitError,
+  CopilotErrorEvent,
+  CopilotErrorHandler} from "@copilotkit/shared";
+import {
+  COPILOT_CLOUD_CHAT_URL,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   randomUUID,
   ConfigurationError,
-  MissingPublicApiKeyError,
-  CopilotKitError,
-  CopilotErrorEvent,
-  CopilotErrorHandler,
+  MissingPublicApiKeyError
 } from "@copilotkit/shared";
-import { FrontendAction } from "../../types/frontend-action";
+import type { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
-import { CopilotKitProps } from "./copilotkit-props";
-import { CoagentState } from "../../types/coagent-state";
+import type { CopilotKitProps } from "./copilotkit-props";
+import type { CoagentState } from "../../types/coagent-state";
 import { CopilotMessages, MessagesTapProvider } from "./copilot-messages";
 import { ToastProvider } from "../toast/toast-provider";
 import { getErrorActions, UsageBanner } from "../usage-banner";
 import { shouldShowDevConsole } from "../../utils";
 import { CopilotErrorBoundary } from "../error-boundary/error-boundary";
-import { Agent, ExtensionsInput } from "@copilotkit/runtime-client-gql";
-import {
+import type { Agent, ExtensionsInput } from "@copilotkit/runtime-client-gql";
+import type {
   LangGraphInterruptRender,
   LangGraphInterruptActionSetterArgs,
   QueuedInterruptEvent,

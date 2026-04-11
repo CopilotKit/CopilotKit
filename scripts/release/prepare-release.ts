@@ -7,19 +7,12 @@
 
 import fs from "fs";
 import path from "path";
-import {
-  getCurrentVersion,
-  computeNextStableVersion,
-  bumpPackages,
-  getPackagesForScope,
-  type BumpLevel,
-} from "./lib/versions.js";
-import {
-  getChangesSummary,
-  type ChangesSummary,
-  type Commit,
-} from "./lib/changes.js";
-import { ROOT, type ReleaseScope } from "./lib/config.js";
+import { getCurrentVersion, computeNextStableVersion, bumpPackages, getPackagesForScope } from './lib/versions.js';
+import type { BumpLevel } from './lib/versions.js';
+import { getChangesSummary } from './lib/changes.js';
+import type { ChangesSummary, Commit } from './lib/changes.js';
+import { ROOT } from './lib/config.js';
+import type { ReleaseScope } from './lib/config.js';
 
 function generateRawReleaseNotes(
   version: string,

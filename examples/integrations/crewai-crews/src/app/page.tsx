@@ -1,7 +1,8 @@
 "use client";
 
 import { useCoAgent } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import type { CopilotKitCSSProperties} from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useEffect, useState } from "react";
 
 export default function CopilotKitPage() {

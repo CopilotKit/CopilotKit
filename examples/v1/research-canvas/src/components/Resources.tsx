@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
-import { Resource } from "@/lib/types";
+import type { Resource } from "@/lib/types";
 import { truncateUrl } from "@/lib/utils";
 
 type ResourcesProps = {

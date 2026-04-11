@@ -5,10 +5,12 @@
  * The Next.js CopilotKit runtime proxies requests here via AG-UI protocol.
  */
 
-import express, { Request, Response } from "express";
+import type { Request, Response } from "express";
+import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { EventEncoder } from "@ag-ui/encoder";
-import { EventType, RunAgentInput, Message } from "@ag-ui/core";
+import type { RunAgentInput, Message } from "@ag-ui/core";
+import { EventType } from "@ag-ui/core";
 import * as dotenv from "dotenv";
 import { randomUUID } from "crypto";
 
@@ -133,7 +135,8 @@ function buildTools(tools: RunAgentInput["tools"]): Anthropic.Tool[] {
 // AG-UI streaming endpoint
 // ---------------------------------------------------------------------------
 
-app.post("/", async (req: Request, res: Response): Promise<void> => {
+app.post("/", (req: Request, res: Response, next) => {
+  (async () => {
   const input = req.body as RunAgentInput;
   const accept = req.headers["accept"] ?? "";
 
@@ -178,14 +181,14 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
 
     const stream = await anthropic.messages.stream(claudeRequest);
 
-    let assistantMsgId: string | null = null;
+    let _assistantMsgId: string | null = null;
     let toolCallId: string | null = null;
     let toolCallName: string | null = null;
     let toolCallArgs = "";
 
     for await (const event of stream) {
       if (event.type === "message_start") {
-        assistantMsgId = event.message.id;
+        _assistantMsgId = event.message.id;
         emit({
           type: EventType.TEXT_MESSAGE_START,
           messageId: msgId,
@@ -250,6 +253,7 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
   }
 
   res.end();
+  })().catch(next);
 });
 
 // ---------------------------------------------------------------------------

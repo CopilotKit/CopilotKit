@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { BaseSelection } from "slate";
+import type { BaseSelection } from "slate";
 import { useSlateSelector } from "slate-react";
 import { Range } from "slate";
 import { editorToText } from "../../lib/editor-to-text";

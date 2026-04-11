@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useAgent, useCopilotChatConfiguration, useCopilotKit } from "../v2";
 import { parseJson } from "@copilotkit/shared";
-import { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
-import { CopilotKitCoreSubscriber } from "@copilotkit/core";
+import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
+import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import { useToast } from "./toast/toast-provider";
 import { CopilotKitLowLevelError } from "@copilotkit/shared";
 

@@ -1,20 +1,22 @@
-import { AbstractAgent } from "@ag-ui/client";
-import {
+import type { AbstractAgent } from "@ag-ui/client";
+import type {
   FrontendTool,
+  CopilotRuntimeTransport} from "@copilotkit/core";
+import {
   CopilotKitCore,
-  CopilotKitCoreRuntimeConnectionStatus,
-  CopilotRuntimeTransport,
+  CopilotKitCoreRuntimeConnectionStatus
 } from "@copilotkit/core";
+import type {
+  Signal,
+  WritableSignal} from "@angular/core";
 import {
   Injectable,
   Injector,
-  Signal,
-  WritableSignal,
   runInInjectionContext,
   signal,
   inject,
 } from "@angular/core";
-import {
+import type {
   FrontendToolConfig,
   HumanInTheLoopConfig,
   RenderToolCallConfig,

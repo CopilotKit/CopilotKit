@@ -6,7 +6,7 @@ import { Plane } from "lucide-react";
 import { CardTitle } from "./ui/card";
 import { TripSelect } from "./TripSelect";
 import { TripContent } from "./TripContent";
-import { Map } from "leaflet";
+import type { Map } from "leaflet";
 
 export type MobileTripCardProps = {
   className?: string;

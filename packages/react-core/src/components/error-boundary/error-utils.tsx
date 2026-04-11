@@ -1,5 +1,5 @@
 import React, { useCallback, useRef } from "react";
-import { GraphQLError } from "@copilotkit/runtime-client-gql";
+import type { GraphQLError } from "@copilotkit/runtime-client-gql";
 import { useToast } from "../toast/toast-provider";
 import { ExclamationMarkIcon } from "../toast/exclamation-mark-icon";
 import ReactMarkdown from "react-markdown";

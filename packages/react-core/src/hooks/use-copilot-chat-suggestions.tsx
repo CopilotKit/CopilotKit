@@ -59,7 +59,7 @@
  * removes it on unmount, ensuring a clean and efficient lifecycle management.
  */
 import { useConfigureSuggestions, useCopilotChatConfiguration } from "../v2";
-import { StaticSuggestionsConfig, Suggestion } from "@copilotkit/core";
+import type { StaticSuggestionsConfig, Suggestion } from "@copilotkit/core";
 
 type StaticSuggestionInput = Omit<Suggestion, "isLoading"> &
   Partial<Pick<Suggestion, "isLoading">>;

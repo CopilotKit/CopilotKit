@@ -1,5 +1,5 @@
 import { HoveringInsertionPromptBoxCore } from "./hovering-insertion-prompt-box-core";
-import {
+import type {
   EditingEditorState,
   InsertionEditorApiConfig,
 } from "../../../types/base/autosuggestions-bare-function";

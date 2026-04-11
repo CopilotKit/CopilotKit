@@ -6,7 +6,7 @@
  * easier to maintain and reuse.
  */
 
-import { ActionRenderProps } from "@copilotkit/react-core";
+import type { ActionRenderProps } from "@copilotkit/react-core";
 
 // ============================================================================
 // A2A Action Types

@@ -3,7 +3,7 @@ import { useTodo } from "@/contexts/TodoContext";
 import { CopilotChat } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { Loader2, RotateCw, SendIcon, Square } from "lucide-react";
-import { FC } from "react";
+import type { FC } from "react";
 import { Loader } from "./Loader";
 
 export const ChatWindow: FC = () => {

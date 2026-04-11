@@ -6,15 +6,17 @@
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import express, { Request, Response } from "express";
+import type { Request, Response } from "express";
+import express from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import {
+import type {
   CallToolResult,
-  isInitializeRequest,
   ReadResourceResult,
-  Resource,
+  Resource} from "@modelcontextprotocol/sdk/types.js";
+import {
+  isInitializeRequest
 } from "@modelcontextprotocol/sdk/types.js";
 import { InMemoryEventStore } from "@modelcontextprotocol/sdk/examples/shared/inMemoryEventStore.js";
 import cors from "cors";
@@ -39,22 +41,24 @@ import {
 } from "./src/hotels.js";
 
 // Import trading logic
+import type {
+  Portfolio} from "./src/stocks.js";
 import {
   createPortfolio,
   executeTrade,
   refreshPrices,
-  getStocks,
-  Portfolio,
+  getStocks
 } from "./src/stocks.js";
 
 // Import kanban logic
+import type {
+  Board} from "./src/kanban.js";
 import {
   createBoard,
   addCard,
   updateCard,
   deleteCard,
-  moveCard,
-  Board,
+  moveCard
 } from "./src/kanban.js";
 
 // MCP Apps Extension protocol constant

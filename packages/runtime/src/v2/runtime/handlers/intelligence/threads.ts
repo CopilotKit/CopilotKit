@@ -1,6 +1,7 @@
-import {
+import type {
   CopilotIntelligenceRuntimeLike,
-  CopilotRuntimeLike,
+  CopilotRuntimeLike} from "../../core/runtime";
+import {
   isIntelligenceRuntime,
 } from "../../core/runtime";
 import { logger } from "@copilotkit/shared";

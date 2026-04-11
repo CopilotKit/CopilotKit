@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect } from "react";
-import { WindowProps } from "./props";
+import type { WindowProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { useCopilotContext } from "@copilotkit/react-core";
 import { isMacOS } from "@copilotkit/shared";

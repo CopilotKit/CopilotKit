@@ -425,7 +425,7 @@ async function main() {
 
   if (failed > 0) {
     console.log("\nFailed snippets:");
-    for (const r of results.filter((r) => r.status === "fail")) {
+    for (const r of results.filter((entry) => entry.status === "fail")) {
       console.log(`  ${r.id}: ${r.error}`);
     }
     process.exit(1);

@@ -6,7 +6,7 @@
  */
 
 import React from "react";
-import { BudgetData } from "../types";
+import type { BudgetData } from "../types";
 
 interface BudgetApprovalCardProps {
   budgetData: BudgetData;

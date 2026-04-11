@@ -1,18 +1,20 @@
+import type {
+  ElementRef,
+  AfterViewInit,
+  OnDestroy} from "@angular/core";
 import {
   Component,
   input,
   output,
   ViewChild,
-  ElementRef,
-  AfterViewInit,
-  OnDestroy,
   signal,
   computed,
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
+import type {
+  AudioRecorderState} from "./copilot-chat-input.types";
 import {
-  AudioRecorderState,
   AudioRecorderError,
 } from "./copilot-chat-input.types";
 

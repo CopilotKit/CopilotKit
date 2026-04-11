@@ -9,7 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { TestsData } from "@/app/Interfaces/interface";
+import type { TestsData } from "@/app/Interfaces/interface";
 import React, { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import { codeSnippets } from "@/public/snippets";

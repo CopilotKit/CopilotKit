@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import TravelChat from "@/components/travel-chat";
-import { ItineraryCard, type ItineraryData } from "@/components/ItineraryCard";
-import { BudgetBreakdown, type BudgetData } from "@/components/BudgetBreakdown";
-import { WeatherCard, type WeatherData } from "@/components/WeatherCard";
-import { type RestaurantData } from "@/components/ItineraryCard";
+import { ItineraryCard } from '@/components/ItineraryCard';
+import type { ItineraryData } from '@/components/ItineraryCard';
+import { BudgetBreakdown } from '@/components/BudgetBreakdown';
+import type { BudgetData } from '@/components/BudgetBreakdown';
+import { WeatherCard } from '@/components/WeatherCard';
+import type { WeatherData } from '@/components/WeatherCard';
+import type { RestaurantData } from "@/components/ItineraryCard";
 
 export default function Home() {
   const [itineraryData, setItineraryData] = useState<ItineraryData | null>(

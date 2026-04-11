@@ -1,12 +1,14 @@
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { StateGraph, START, MemorySaver } from "@langchain/langgraph";
-import { AIMessage, SystemMessage } from "@langchain/core/messages";
+import type { AIMessage} from "@langchain/core/messages";
+import { SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { convertActionsToDynamicStructuredTools } from "@copilotkit/sdk-js/langgraph";
+import type {
+  CustomerSupportState} from "./types/state";
 import {
-  CustomerSupportStateAnnotation,
-  CustomerSupportState,
+  CustomerSupportStateAnnotation
 } from "./types/state";
 import {
   customerLookupTool,

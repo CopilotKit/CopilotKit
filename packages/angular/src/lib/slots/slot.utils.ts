@@ -1,16 +1,18 @@
-import {
+import type {
   Type,
-  TemplateRef,
   ViewContainerRef,
   ComponentRef,
   EmbeddedViewRef,
-  Injector,
+  Injector} from "@angular/core";
+import {
+  TemplateRef,
   inject,
 } from "@angular/core";
-import {
+import type {
   SlotValue,
   RenderSlotOptions,
-  SlotRegistryEntry,
+  SlotRegistryEntry} from "./slot.types";
+import {
   SLOT_CONFIG,
 } from "./slot.types";
 

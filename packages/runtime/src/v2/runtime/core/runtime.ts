@@ -1,27 +1,26 @@
-import {
+import type {
   MaybePromise,
   NonEmptyRecord,
-  RuntimeMode,
+  RuntimeMode} from "@copilotkit/shared";
+import {
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
 } from "@copilotkit/shared";
-import {
-  createLicenseChecker,
-  type LicenseChecker,
-} from "@copilotkit/license-verifier";
-import { AbstractAgent } from "@ag-ui/client";
+import { createLicenseChecker } from '@copilotkit/license-verifier';
+import type { LicenseChecker } from '@copilotkit/license-verifier';
+import type { AbstractAgent } from "@ag-ui/client";
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
-import { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
+import type { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
 import pkg from "../../../../package.json";
 import type {
   BeforeRequestMiddleware,
   AfterRequestMiddleware,
 } from "./middleware";
-import { TranscriptionService } from "../transcription-service/transcription-service";
-import { AgentRunner } from "../runner/agent-runner";
+import type { TranscriptionService } from "../transcription-service/transcription-service";
+import type { AgentRunner } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
-import { CopilotKitIntelligence } from "../intelligence-platform";
+import type { CopilotKitIntelligence } from "../intelligence-platform";
 
 export const VERSION = pkg.version;
 

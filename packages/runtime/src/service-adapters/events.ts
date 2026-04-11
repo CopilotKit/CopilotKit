@@ -1,8 +1,9 @@
 import { ReplaySubject } from "rxjs";
-import {
+import type {
   ActionExecutionMessage,
-  ResultMessage,
-  TextMessage,
+  TextMessage} from "../graphql/types/converted";
+import {
+  ResultMessage
 } from "../graphql/types/converted";
 
 export enum RuntimeEventTypes {

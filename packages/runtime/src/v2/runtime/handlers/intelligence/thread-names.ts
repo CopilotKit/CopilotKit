@@ -1,12 +1,12 @@
-import { Message, RunAgentInput } from "@ag-ui/client";
+import type { Message, RunAgentInput } from "@ag-ui/client";
 import { logger } from "@copilotkit/shared";
 import { randomUUID } from "node:crypto";
-import { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
+import type { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
 import {
   cloneAgentForRequest,
   configureAgentForRequest,
 } from "../shared/agent-utils";
-import { ThreadSummary } from "../../intelligence-platform";
+import type { ThreadSummary } from "../../intelligence-platform";
 import { isHandlerResponse } from "../shared/json-response";
 
 const THREAD_NAME_SYSTEM_PROMPT = [

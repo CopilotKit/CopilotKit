@@ -12,10 +12,11 @@ import {
   SummaryPanel,
 } from "@/components/dashboard-panels";
 import { DefaultToolCard } from "@/components/tool-cards";
-import {
+import type {
   FileInvestigatorState,
-  INITIAL_STATE,
-  UploadedFile,
+  UploadedFile} from "@/types/investigator";
+import {
+  INITIAL_STATE
 } from "@/types/investigator";
 
 export default function FileInvestigatorPage() {

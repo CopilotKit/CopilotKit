@@ -2,9 +2,10 @@
 import { useCoAgent } from "@copilotkit/react-core";
 import { createContext, useContext, useRef } from "react";
 import { AvailableAgents } from "@/lib/available-agents";
-import { ResearchAgentState } from "./agents/researcher";
-import { MCPAgentState } from "./agents/mcp-agent";
-import { MCP_STORAGE_KEY, ServerConfig } from "@/lib/mcp-config-types";
+import type { ResearchAgentState } from "./agents/researcher";
+import type { MCPAgentState } from "./agents/mcp-agent";
+import type { ServerConfig } from "@/lib/mcp-config-types";
+import { MCP_STORAGE_KEY } from "@/lib/mcp-config-types";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 
 /**

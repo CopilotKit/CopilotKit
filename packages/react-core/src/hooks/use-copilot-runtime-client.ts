@@ -1,19 +1,21 @@
-import {
-  CopilotRuntimeClient,
+import type {
   CopilotRuntimeClientOptions,
-  GraphQLError,
+  GraphQLError} from "@copilotkit/runtime-client-gql";
+import {
+  CopilotRuntimeClient
 } from "@copilotkit/runtime-client-gql";
 import { useToast } from "../components/toast/toast-provider";
 import { useMemo, useRef } from "react";
+import type {
+  CopilotErrorHandler,
+  CopilotErrorEvent} from "@copilotkit/shared";
 import {
   ErrorVisibility,
   CopilotKitApiDiscoveryError,
   CopilotKitRemoteEndpointDiscoveryError,
   CopilotKitAgentDiscoveryError,
   CopilotKitError,
-  CopilotKitErrorCode,
-  CopilotErrorHandler,
-  CopilotErrorEvent,
+  CopilotKitErrorCode
 } from "@copilotkit/shared";
 
 export interface CopilotRuntimeClientHookOptions extends CopilotRuntimeClientOptions {

@@ -1,8 +1,9 @@
+import type {
+  MCPTool} from "../mcp-tools-utils";
 import {
   extractParametersFromSchema,
   convertMCPToolsToActions,
-  generateMcpToolInstructions,
-  MCPTool,
+  generateMcpToolInstructions
 } from "../mcp-tools-utils";
 
 describe("MCP Tools Utils", () => {

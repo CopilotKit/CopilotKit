@@ -1,4 +1,4 @@
-import { AbstractAgent, ToolCall } from "@ag-ui/client";
+import type { AbstractAgent, ToolCall } from "@ag-ui/client";
 import type {
   IntelligenceRuntimeInfo,
   RuntimeMode,

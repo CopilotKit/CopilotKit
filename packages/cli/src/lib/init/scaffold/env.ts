@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs";
-import { Config } from "../types/index.js";
+import type { Config } from "../types/index.js";
 import { getLangGraphAgents } from "./langgraph-assistants.js";
 import inquirer from "inquirer";
 import { isLocalhost } from "../utils.js";

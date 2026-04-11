@@ -1,11 +1,12 @@
-import {
+import type {
   AbstractAgent,
   Message,
   State,
   RunAgentInput,
   StateSnapshotEvent,
   StateDeltaEvent,
-  MessagesSnapshotEvent,
+  MessagesSnapshotEvent} from "@ag-ui/client";
+import {
   randomUUID,
 } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";

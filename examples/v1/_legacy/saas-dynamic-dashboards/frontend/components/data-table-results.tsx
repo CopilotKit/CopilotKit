@@ -9,7 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { TestsData } from "@/app/Interfaces/interface";
+import type { TestsData } from "@/app/Interfaces/interface";
 import React, { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 

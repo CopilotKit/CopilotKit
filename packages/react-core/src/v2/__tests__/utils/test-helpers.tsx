@@ -4,18 +4,15 @@ import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
 import { CopilotChat } from "../../components/chat/CopilotChat";
 import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
-import { Observable, Subject, from, delay } from "rxjs";
-import {
+import { AbstractAgent, EventType } from '@ag-ui/client';
+import type { BaseEvent, RunAgentInput } from '@ag-ui/client';
+import type { Observable} from "rxjs";
+import { Subject, from, delay } from "rxjs";
+import type {
   ReactActivityMessageRenderer,
   ReactToolCallRenderer,
 } from "../../types";
-import { ReactCustomMessageRenderer } from "../../types/react-custom-message-renderer";
+import type { ReactCustomMessageRenderer } from "../../types/react-custom-message-renderer";
 
 /**
  * A controllable mock agent for deterministic E2E testing.
@@ -417,7 +414,7 @@ export function emitReasoningSequence(
  * Helper to generate unique IDs for tests
  */
 export function testId(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
 // Varied content lengths for realistic message sizes in perf tests.
@@ -515,7 +512,7 @@ export function emitSuggestionToolCall(
   // Stream the JSON in chunks to simulate streaming
   const chunkSize = 10; // Characters per chunk
   for (let i = 0; i < suggestionsJson.length; i += chunkSize) {
-    const chunk = suggestionsJson.substring(i, i + chunkSize);
+    const chunk = suggestionsJson.slice(i, i + chunkSize);
     agent.emit(
       toolCallChunkEvent({
         toolCallId,

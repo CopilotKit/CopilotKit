@@ -1,9 +1,10 @@
 import { Observable, Subject } from "rxjs";
 import { filter, map, tap } from "rxjs/operators";
 import { describe, expect, it } from "vitest";
-import {
+import type {
   AnyAction,
-  StoreLifecycleAction,
+  StoreLifecycleAction} from "../utils/micro-redux";
+import {
   createActionGroup,
   createEffect,
   createReducer,

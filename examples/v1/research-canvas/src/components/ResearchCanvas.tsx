@@ -12,7 +12,7 @@ import { Progress } from "./Progress";
 import { EditResourceDialog } from "./EditResourceDialog";
 import { AddResourceDialog } from "./AddResourceDialog";
 import { Resources } from "./Resources";
-import { AgentState, Resource } from "@/lib/types";
+import type { AgentState, Resource } from "@/lib/types";
 import { useModelSelectorContext } from "@/lib/model-selector-provider";
 
 export function ResearchCanvas() {

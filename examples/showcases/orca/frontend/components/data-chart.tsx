@@ -3,7 +3,7 @@
 // import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "@/components/ui/chart"
 import { Pie, PieChart, Cell, Tooltip } from "recharts";
 import { useEffect, useState } from "react";
-import { PRData, chartData } from "@/app/Interfaces/interface";
+import type { PRData, chartData } from "@/app/Interfaces/interface";
 import { CustomPieTooltip } from "./pr-pie-all-data";
 
 interface DataChartProps {

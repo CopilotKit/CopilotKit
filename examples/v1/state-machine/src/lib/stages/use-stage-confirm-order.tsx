@@ -1,5 +1,5 @@
 import { useGlobalState } from "@/lib/stages";
-import { Order } from "@/lib/types";
+import type { Order } from "@/lib/types";
 import { ConfirmOrder } from "@/components/generative-ui/confirm-order";
 
 import {

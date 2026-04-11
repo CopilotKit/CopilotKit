@@ -1,9 +1,9 @@
-import { AbstractAgent, Message, Tool } from "@ag-ui/client";
+import type { AbstractAgent, Message, Tool } from "@ag-ui/client";
 import { randomUUID, partialJSONParse } from "@copilotkit/shared";
 import type { CopilotKitCore } from "./core";
 import type { CopilotKitCoreGetSuggestionsResult } from "./core";
-import { CopilotKitCoreFriendsAccess } from "./core";
-import {
+import type { CopilotKitCoreFriendsAccess } from "./core";
+import type {
   DynamicSuggestionsConfig,
   StaticSuggestionsConfig,
   Suggestion,

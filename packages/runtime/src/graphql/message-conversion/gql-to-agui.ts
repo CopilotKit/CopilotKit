@@ -1,5 +1,5 @@
 import * as gql from "../types/converted/index";
-import * as agui from "@copilotkit/shared";
+import type * as agui from "@copilotkit/shared";
 import { MessageStatusCode } from "../types/message-status.type";
 
 // Define valid image formats based on the supported formats in the codebase

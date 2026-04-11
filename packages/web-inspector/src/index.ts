@@ -6,12 +6,10 @@ import inspectorLogoIconUrl from "./assets/inspector-logo-icon.svg";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import { marked } from "marked";
 import { icons } from "lucide";
-import {
-  CopilotKitCore,
-  CopilotKitCoreRuntimeConnectionStatus,
-  type CopilotKitCoreSubscriber,
-  type CopilotKitCoreErrorCode,
-} from "@copilotkit/core";
+import type {
+  CopilotKitCore} from "@copilotkit/core";
+import { CopilotKitCoreRuntimeConnectionStatus } from '@copilotkit/core';
+import type { CopilotKitCoreSubscriber, CopilotKitCoreErrorCode } from '@copilotkit/core';
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type {
   Anchor,
@@ -30,15 +28,8 @@ import {
   updateSizeFromElement,
   clampSize as clampSizeToViewport,
 } from "./lib/context-helpers";
-import {
-  loadInspectorState,
-  saveInspectorState,
-  type PersistedState,
-  isValidAnchor,
-  isValidPosition,
-  isValidSize,
-  isValidDockMode,
-} from "./lib/persistence";
+import { loadInspectorState, saveInspectorState, isValidAnchor, isValidPosition, isValidSize, isValidDockMode } from './lib/persistence';
+import type { PersistedState } from './lib/persistence';
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 
@@ -3979,7 +3970,7 @@ ${prettyEvent}</pre
     }
 
     if (typeof value === "string") {
-      return value.length > 50 ? `${value.substring(0, 50)}...` : value;
+      return value.length > 50 ? `${value.slice(0, 50)}...` : value;
     }
 
     if (typeof value === "number" || typeof value === "boolean") {

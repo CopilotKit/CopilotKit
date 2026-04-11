@@ -4,7 +4,8 @@ import {
   useCopilotAction,
   useCopilotReadable,
 } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import type { CopilotKitCSSProperties} from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { useState } from "react";
 import "@copilotkit/react-textarea/styles.css";

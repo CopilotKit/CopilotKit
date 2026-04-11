@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Destination } from "./vacation-list";
+import type { Destination } from "./vacation-list";
 import { useCopilotReadable } from "@copilotkit/react-core";
 
 export type DestinationRowProps = {

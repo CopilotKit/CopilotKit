@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { BasicAgent } from "../index";
-import { type RunAgentInput } from "@ag-ui/client";
+import type { RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
 import { mockStreamTextResponse, finish, collectEvents } from "./test-helpers";
 

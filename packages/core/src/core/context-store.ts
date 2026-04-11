@@ -1,7 +1,7 @@
-import { Context } from "@ag-ui/client";
+import type { Context } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 import type { CopilotKitCore } from "./core";
-import { CopilotKitCoreFriendsAccess } from "./core";
+import type { CopilotKitCoreFriendsAccess } from "./core";
 
 /**
  * Manages context storage and lifecycle for CopilotKitCore.

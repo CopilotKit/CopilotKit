@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { AnthropicProviderSettings } from "@ai-sdk/anthropic";
+import type * as AnthropicModule from "@ai-sdk/anthropic";
 import { AnthropicAdapter } from "../../../src/service-adapters/anthropic/anthropic-adapter";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -33,7 +34,7 @@ const { mockProviderFn, mockCreateAnthropic } = vi.hoisted(() => {
 });
 
 vi.mock("@ai-sdk/anthropic", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@ai-sdk/anthropic")>();
+  const actual = await importOriginal<typeof AnthropicModule>();
   return { ...actual, createAnthropic: mockCreateAnthropic };
 });
 

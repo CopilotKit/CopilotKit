@@ -8,7 +8,7 @@ import {
   provideCopilotChatLabels,
   provideCopilotKit,
 } from "@copilotkit/angular";
-import { Message } from "@ag-ui/client";
+import type { Message } from "@ag-ui/client";
 
 function onThumbsUp(event: any) {
   alert("Thumbs up! You liked this message.");

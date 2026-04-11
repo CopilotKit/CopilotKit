@@ -17,7 +17,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Member, MemberRole } from "@/app/api/v1/data";
+import type { Member} from "@/app/api/v1/data";
+import { MemberRole } from "@/app/api/v1/data";
 import { useAuthContext } from "@/components/auth-context";
 
 interface LayoutProps {

@@ -34,7 +34,7 @@ export function completePartialMarkdown(input: string): string {
 
   for (let i = 0; i < chars.length; i++) {
     if (i === 0 || chars[i - 1] === "\n") {
-      const lineMatch = s.substring(i).match(/^(\s*)(`{3,}|~{3,})/);
+      const lineMatch = s.slice(i).match(/^(\s*)(`{3,}|~{3,})/);
       if (lineMatch) {
         tempCodeFenceCount++;
         if (tempCodeFenceCount % 2 === 1) {
@@ -251,7 +251,7 @@ export function completePartialMarkdown(input: string): string {
     const lastOpenParen = result.lastIndexOf("(");
     if (lastOpenParen !== -1) {
       // Check if this paren is inside a backtick pair
-      const beforeParen = result.substring(0, lastOpenParen);
+      const beforeParen = result.slice(0, lastOpenParen);
       const backticksBeforeParen = (beforeParen.match(/`/g) || []).length;
       if (backticksBeforeParen % 2 === 1) {
         shouldCloseParens = false;

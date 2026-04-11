@@ -1,4 +1,4 @@
-import { Customer } from "../hooks/CustomerContext";
+import type { Customer } from "../hooks/CustomerContext";
 
 export const initialCustomers: Customer[] = [
   {

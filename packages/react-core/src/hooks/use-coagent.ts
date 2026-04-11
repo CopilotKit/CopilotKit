@@ -89,9 +89,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { Message } from "@copilotkit/shared";
+import type { Message } from "@copilotkit/shared";
 import { useAgent, useCopilotKit } from "../v2";
-import { type AgentSubscriber } from "@ag-ui/client";
+import type { AgentSubscriber } from "@ag-ui/client";
 import { useAgentNodeName } from "./use-agent-nodename";
 
 const noop = () => {};

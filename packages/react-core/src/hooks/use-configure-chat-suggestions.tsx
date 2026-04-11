@@ -4,7 +4,7 @@ import {
   useCopilotKit,
   useSuggestions,
 } from "../v2";
-import { StaticSuggestionsConfig, Suggestion } from "@copilotkit/core";
+import type { StaticSuggestionsConfig, Suggestion } from "@copilotkit/core";
 import { useEffect, useRef } from "react";
 
 type StaticSuggestionInput = Omit<Suggestion, "isLoading"> &

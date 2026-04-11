@@ -1,5 +1,6 @@
 import spawn from "cross-spawn";
-import { templateMapping, Config } from "../types/index.js";
+import type { Config } from "../types/index.js";
+import { templateMapping } from "../types/index.js";
 
 export async function scaffoldShadCN(flags: any, userAnswers: Config) {
   // Determine which components to install based on user choices

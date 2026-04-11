@@ -1,8 +1,9 @@
-import { describe, it, expect, afterEach, vi } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
+import type {
+  RunAgentInput,
+  BaseEvent} from "@ag-ui/client";
 import {
   AbstractAgent,
-  RunAgentInput,
-  BaseEvent,
   EventType,
 } from "@ag-ui/client";
 import { Observable } from "rxjs";

@@ -60,7 +60,7 @@ interface FeatureInfo {
 
 export function ProfileClient({
   integration,
-  featureInfos,
+  featureInfos: _featureInfos,
   categoryLabel,
   languageLabel,
   demoAlternatives = {},
@@ -240,6 +240,7 @@ export function ProfileClient({
                         src={integration.starter.demo_url}
                         className="w-full rounded-lg border border-[var(--border)]"
                         style={{ height: "600px" }}
+                        // oxlint-disable-next-line eslint-plugin-react(iframe-missing-sandbox)
                         sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                         loading="lazy"
                       />

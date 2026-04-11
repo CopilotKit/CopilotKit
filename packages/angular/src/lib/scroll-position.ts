@@ -1,7 +1,9 @@
-import { Injectable, ElementRef, NgZone, OnDestroy } from "@angular/core";
-import { ScrollDispatcher, ViewportRuler } from "@angular/cdk/scrolling";
+import type { NgZone, OnDestroy } from "@angular/core";
+import { Injectable, ElementRef } from "@angular/core";
+import type { ScrollDispatcher, ViewportRuler } from "@angular/cdk/scrolling";
+import type {
+  Observable} from "rxjs";
 import {
-  Observable,
   Subject,
   BehaviorSubject,
   fromEvent,

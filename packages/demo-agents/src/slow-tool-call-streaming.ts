@@ -1,9 +1,10 @@
+import type {
+  RunAgentInput,
+  BaseEvent,
+  ToolCallResultEvent} from "@ag-ui/client";
 import {
   AbstractAgent,
-  RunAgentInput,
-  EventType,
-  BaseEvent,
-  ToolCallResultEvent,
+  EventType
 } from "@ag-ui/client";
 import { Observable } from "rxjs";
 

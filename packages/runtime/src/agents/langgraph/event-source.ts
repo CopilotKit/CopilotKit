@@ -4,14 +4,16 @@ import {
 } from "@copilotkit/shared";
 import { catchError, mergeMap, ReplaySubject, scan } from "rxjs";
 import { generateHelpfulErrorMessage } from "../../lib/streaming";
+import type {
+  RuntimeEvent} from "../../service-adapters/events";
 import {
-  RuntimeEvent,
   RuntimeEventTypes,
   RuntimeMetaEventName,
 } from "../../service-adapters/events";
+import type {
+  LangGraphEvent} from "./events";
 import {
   CustomEventNames,
-  LangGraphEvent,
   LangGraphEventTypes,
 } from "./events";
 

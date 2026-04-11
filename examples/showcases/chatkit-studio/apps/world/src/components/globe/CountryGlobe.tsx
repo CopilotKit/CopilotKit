@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Globe, { type GlobeMethods } from "react-globe.gl";
+import Globe from 'react-globe.gl';
+import type { GlobeMethods } from 'react-globe.gl';
 import CountryTooltip from "./CountryTooltip";
 import type { VisitedCountry } from "@/hooks/useJourneyProgress";
 import { useCountryData } from "@/hooks/useCountryData";
-import {
-  useGlobeInteraction,
-  type ClickedCountry,
-} from "@/hooks/useGlobeInteraction";
-import { type CountryFeature, getPolygonColor } from "@/utils/countryData";
+import { useGlobeInteraction } from '@/hooks/useGlobeInteraction';
+import type { ClickedCountry } from '@/hooks/useGlobeInteraction';
+import { getPolygonColor } from '@/utils/countryData';
+import type { CountryFeature } from '@/utils/countryData';
 
 /**
  * Interactive 3D globe with country selection.

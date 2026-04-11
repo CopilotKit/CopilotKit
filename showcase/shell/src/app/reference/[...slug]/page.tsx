@@ -24,7 +24,7 @@ function getAllItems(): NavItem[] {
   for (const subdir of ["components", "hooks"]) {
     const dir = path.join(CONTENT_DIR, subdir);
     if (!fs.existsSync(dir)) continue;
-    for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".mdx"))) {
+    for (const f of fs.readdirSync(dir).filter((name) => name.endsWith(".mdx"))) {
       const raw = fs.readFileSync(path.join(dir, f), "utf-8");
       const { data } = matter(raw);
       items.push({
@@ -55,7 +55,7 @@ export function generateStaticParams() {
   for (const subdir of ["components", "hooks"]) {
     const dir = path.join(CONTENT_DIR, subdir);
     if (!fs.existsSync(dir)) continue;
-    for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".mdx"))) {
+    for (const f of fs.readdirSync(dir).filter((name) => name.endsWith(".mdx"))) {
       params.push({ slug: [subdir, f.replace(/\.mdx$/, "")] });
     }
   }

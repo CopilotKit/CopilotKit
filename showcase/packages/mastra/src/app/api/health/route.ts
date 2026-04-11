@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   // Mastra runs in-process — no external agent to ping

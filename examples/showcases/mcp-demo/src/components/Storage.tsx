@@ -1,8 +1,9 @@
 import { useTodo } from "@/contexts/TodoContext";
 import { useEffect, useState, useCallback } from "react";
-import ReactFlow, {
+import type {
   Node,
-  Edge,
+  Edge} from "reactflow";
+import ReactFlow, {
   Controls,
   Background,
   useNodesState,

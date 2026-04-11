@@ -4,7 +4,7 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 const serviceAdapter = new ExperimentalEmptyAdapter();
 

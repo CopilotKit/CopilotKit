@@ -2,15 +2,16 @@ import { useTodo } from "@/contexts/TodoContext";
 import React, { useEffect, useMemo } from "react";
 import "../app/globals.css";
 
+import type {
+  Edge,
+  Node} from "reactflow";
 import {
   Background,
   ReactFlow,
   useNodesState,
   useEdgesState,
   useReactFlow,
-  ReactFlowProvider,
-  Edge,
-  Node,
+  ReactFlowProvider
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { ChildNode, ParentNode } from "./Nodes";
@@ -143,7 +144,7 @@ const VisualRepresentation = () => {
             <div
               className="h-full bg-blue-500"
               style={{ width: `${progressValue}%` }}
-            ></div>
+             />
           </div>
         </div>
       </div>

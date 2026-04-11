@@ -1,6 +1,6 @@
-import { BaseEvent } from "@ag-ui/client";
+import type { BaseEvent } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
-import { Observable, Subscription } from "rxjs";
+import type { Observable, Subscription } from "rxjs";
 import { telemetry } from "../../telemetry";
 
 interface CreateSseEventResponseParams {

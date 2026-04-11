@@ -22,14 +22,16 @@ import {
   testId,
 } from "../../../__tests__/utils/test-helpers";
 import { MCPAppsActivityType } from "../../../components/MCPAppsActivityRenderer";
-import {
-  AbstractAgent,
+import type {
   RunAgentInput,
   RunAgentResult,
-  BaseEvent,
+  BaseEvent} from "@ag-ui/client";
+import {
+  AbstractAgent,
   EventType,
 } from "@ag-ui/client";
-import { Observable, Subject } from "rxjs";
+import type { Observable} from "rxjs";
+import { Subject } from "rxjs";
 
 /**
  * MockMCPProxyAgent with spying support for ui/message tests.

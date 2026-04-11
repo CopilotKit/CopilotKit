@@ -1,4 +1,4 @@
-import * as agui from "@ag-ui/core";
+import type * as agui from "@ag-ui/core";
 
 // Re-export AG-UI multimodal input types.
 // Note: AG-UI names the text variant TextInputContent; we export it as TextInputPart for consistency.

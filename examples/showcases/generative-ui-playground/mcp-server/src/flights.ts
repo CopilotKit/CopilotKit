@@ -133,11 +133,11 @@ export function getAirportByCode(code: string): Airport | undefined {
 }
 
 function generateSearchId(): string {
-  return `search-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  return `search-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function generateFlightId(): string {
-  return `flight-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+  return `flight-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
 function generateConfirmationNumber(): string {

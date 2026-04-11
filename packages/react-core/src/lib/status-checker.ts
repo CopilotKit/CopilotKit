@@ -1,7 +1,8 @@
+import type {
+  Severity} from "@copilotkit/shared";
 import {
   COPILOT_CLOUD_API_URL,
-  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
-  Severity,
+  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER
 } from "@copilotkit/shared";
 
 const STATUS_CHECK_INTERVAL = 1000 * 60 * 5; // 5 minutes

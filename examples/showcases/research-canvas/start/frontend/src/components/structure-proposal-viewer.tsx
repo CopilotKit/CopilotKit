@@ -12,7 +12,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Proposal, ProposalSection, ProposalSectionName } from "@/lib/types";
+import type { Proposal, ProposalSection} from "@/lib/types";
+import { ProposalSectionName } from "@/lib/types";
 import { Textarea } from "@/components/ui/textarea";
 
 function ProposalItem({

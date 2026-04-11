@@ -1,4 +1,5 @@
-import { ReactCustomMessageRendererPosition, useAgent } from "../v2";
+import type { ReactCustomMessageRendererPosition} from "../v2";
+import { useAgent } from "../v2";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentSubscriber } from "@ag-ui/client";
 import { useCoAgentStateRenders } from "../context";

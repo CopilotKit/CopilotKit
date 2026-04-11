@@ -1,5 +1,5 @@
 import { generateRandomId } from "@/lib/utils";
-import { AgentState } from "@/lib/types";
+import type { AgentState } from "@/lib/types";
 
 export const initialState: AgentState = {
   todos: [

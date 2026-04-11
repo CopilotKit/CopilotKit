@@ -5,7 +5,8 @@ import Button from "@leafygreen-ui/button";
 import Icon from "@leafygreen-ui/icon";
 
 import "@copilotkit/react-ui/styles.css";
-import { AssistantMessageProps, Markdown } from "@copilotkit/react-ui";
+import type { AssistantMessageProps} from "@copilotkit/react-ui";
+import { Markdown } from "@copilotkit/react-ui";
 import { useCopilotChat } from "@copilotkit/react-core";
 
 export const CustomAssistantMessage = (props: AssistantMessageProps) => {

@@ -1,4 +1,5 @@
-import { BaseEvent, EventType, RunErrorEvent } from "@ag-ui/client";
+import type { BaseEvent, RunErrorEvent } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
 import { randomUUID } from "./utils";
 
 interface FinalizeRunOptions {

@@ -1,5 +1,5 @@
 import { Suggestion } from "./Suggestion";
-import { RenderSuggestionsListProps } from "./props";
+import type { RenderSuggestionsListProps } from "./props";
 
 export function Suggestions({
   suggestions,

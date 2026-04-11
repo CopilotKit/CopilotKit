@@ -1,12 +1,8 @@
 import React from "react";
-import { ReactActivityMessageRenderer, ReactToolCallRenderer } from "../types";
-import { ReactCustomMessageRenderer } from "../types/react-custom-message-renderer";
-import {
-  CopilotKitCore,
-  type CopilotKitCoreConfig,
-  type CopilotKitCoreSubscriber,
-  type CopilotKitCoreSubscription,
-} from "@copilotkit/core";
+import type { ReactActivityMessageRenderer, ReactToolCallRenderer } from "../types";
+import type { ReactCustomMessageRenderer } from "../types/react-custom-message-renderer";
+import { CopilotKitCore } from '@copilotkit/core';
+import type { CopilotKitCoreConfig, CopilotKitCoreSubscriber, CopilotKitCoreSubscription } from '@copilotkit/core';
 
 export interface CopilotKitCoreReactConfig extends CopilotKitCoreConfig {
   // Add any additional configuration properties specific to the React implementation

@@ -4,7 +4,7 @@ import { vi } from "vitest";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
-import { AssistantMessage } from "@ag-ui/core";
+import type { AssistantMessage } from "@ag-ui/core";
 
 // No mocks needed - Vitest handles ES modules natively!
 

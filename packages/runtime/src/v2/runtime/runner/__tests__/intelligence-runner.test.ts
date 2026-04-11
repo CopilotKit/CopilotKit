@@ -1,16 +1,18 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import {
-  AbstractAgent,
+import type {
   BaseEvent,
-  EventType,
   RunAgentInput,
   RunStartedEvent,
   RunFinishedEvent,
   RunErrorEvent,
   TextMessageStartEvent,
   TextMessageContentEvent,
-  TextMessageEndEvent,
+  TextMessageEndEvent} from "@ag-ui/client";
+import {
+  AbstractAgent,
+  EventType
 } from "@ag-ui/client";
+import type { IntelligenceAgentRunner } from "../intelligence";
 import { EMPTY, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
 import {
@@ -153,9 +155,7 @@ function createRunInput(
 }
 
 async function collectEvents(
-  observable: ReturnType<
-    import("../intelligence").IntelligenceAgentRunner["run"]
-  >,
+  observable: ReturnType<IntelligenceAgentRunner["run"]>,
 ) {
   return firstValueFrom(observable.pipe(toArray()));
 }

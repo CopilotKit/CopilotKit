@@ -13,7 +13,7 @@ import {
   CircleDot,
   X,
 } from "lucide-react";
-import { ResearchState, Todo, ResearchFile, Source } from "@/types/research";
+import type { ResearchState, Todo, ResearchFile, Source } from "@/types/research";
 import { FileViewerModal } from "@/components/FileViewerModal";
 
 // Helper function to download file content

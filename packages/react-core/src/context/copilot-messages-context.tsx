@@ -2,9 +2,9 @@
  * An internal context to separate the messages state (which is constantly changing) from the rest of CopilotKit context
  */
 
-import { Message } from "@copilotkit/runtime-client-gql";
+import type { Message } from "@copilotkit/runtime-client-gql";
 import React from "react";
-import { Suggestion } from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
 
 export interface CopilotMessagesContextParams {
   messages: Message[];

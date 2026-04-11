@@ -1,18 +1,19 @@
-import { Message } from "../../graphql/types/converted";
-import {
-  AIMessage,
+import type { Message } from "../../graphql/types/converted";
+import type {
   AIMessageChunk,
   BaseMessage,
-  BaseMessageChunk,
+  BaseMessageChunk} from "@langchain/core/messages";
+import {
+  AIMessage,
   HumanMessage,
   SystemMessage,
   ToolMessage,
 } from "@langchain/core/messages";
 import { DynamicStructuredTool } from "@langchain/core/tools";
-import { z } from "zod";
-import { ActionInput } from "../../graphql/inputs/action.input";
-import { LangChainReturnType } from "./types";
-import { RuntimeEventSubject } from "../events";
+import type { z } from "zod";
+import type { ActionInput } from "../../graphql/inputs/action.input";
+import type { LangChainReturnType } from "./types";
+import type { RuntimeEventSubject } from "../events";
 import { randomId, convertJsonSchemaToZodSchema } from "@copilotkit/shared";
 
 export function convertMessageToLangChainMessage(

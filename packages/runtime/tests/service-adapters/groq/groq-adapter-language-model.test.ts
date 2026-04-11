@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { OpenAIProviderSettings } from "@ai-sdk/openai";
+import type * as OpenAIModule from "@ai-sdk/openai";
 import { GroqAdapter } from "../../../src/service-adapters/groq/groq-adapter";
 import { Groq } from "groq-sdk";
 
@@ -32,7 +33,7 @@ const { mockProviderFn, mockCreateOpenAI } = vi.hoisted(() => {
 });
 
 vi.mock("@ai-sdk/openai", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@ai-sdk/openai")>();
+  const actual = await importOriginal<typeof OpenAIModule>();
   return { ...actual, createOpenAI: mockCreateOpenAI };
 });
 

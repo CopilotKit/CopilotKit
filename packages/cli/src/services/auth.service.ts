@@ -8,10 +8,10 @@ import getPort from "get-port";
 import ora from "ora";
 import chalk from "chalk";
 import inquirer from "inquirer";
-import { Command } from "@oclif/core";
+import type { Command } from "@oclif/core";
 import { createTRPCClient } from "../utils/trpc.js";
 import { AnalyticsService } from "../services/analytics.service.js";
-import { BaseCommand } from "../commands/base-command.js";
+import type { BaseCommand } from "../commands/base-command.js";
 
 interface LoginResponse {
   cliToken: string;

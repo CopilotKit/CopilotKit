@@ -1,11 +1,12 @@
-import {
+import type {
   AbstractAgent,
   AgentSubscriber,
-  HttpAgent,
   Message,
   RunAgentResult,
   Tool,
-  ToolCall,
+  ToolCall} from "@ag-ui/client";
+import {
+  HttpAgent
 } from "@ag-ui/client";
 import { randomUUID, logger, schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";

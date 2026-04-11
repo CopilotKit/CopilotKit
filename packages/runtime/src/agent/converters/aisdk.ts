@@ -1,6 +1,5 @@
-import {
+import type {
   BaseEvent,
-  EventType,
   ReasoningEndEvent,
   ReasoningMessageContentEvent,
   ReasoningMessageEndEvent,
@@ -12,7 +11,9 @@ import {
   ToolCallStartEvent,
   ToolCallResultEvent,
   StateSnapshotEvent,
-  StateDeltaEvent,
+  StateDeltaEvent} from "@ag-ui/client";
+import {
+  EventType
 } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 

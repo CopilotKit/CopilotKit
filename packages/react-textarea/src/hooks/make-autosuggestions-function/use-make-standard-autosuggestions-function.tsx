@@ -1,12 +1,13 @@
 import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit/shared";
 import { useCopilotContext } from "@copilotkit/react-core";
 import { useCallback } from "react";
-import { AutosuggestionsBareFunction } from "../../types";
+import type { AutosuggestionsBareFunction } from "../../types";
 import { retry } from "../../lib/retry";
-import { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
-import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggestions-api-config";
+import type { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
+import type { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggestions-api-config";
+import type {
+  Message} from "@copilotkit/runtime-client-gql";
 import {
-  Message,
   Role,
   TextMessage,
   convertGqlOutputToMessages,

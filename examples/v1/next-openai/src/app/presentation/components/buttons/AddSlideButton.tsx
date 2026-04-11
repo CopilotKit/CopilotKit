@@ -1,4 +1,4 @@
-import { SlideModel } from "../../types";
+import type { SlideModel } from "../../types";
 import { ActionButton } from "./ActionButton";
 import { PlusCircleIcon } from "@heroicons/react/24/outline";
 

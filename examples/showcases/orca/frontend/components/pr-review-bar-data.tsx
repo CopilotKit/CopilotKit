@@ -1,4 +1,4 @@
-import { PRData } from "@/app/Interfaces/interface";
+import type { PRData } from "@/app/Interfaces/interface";
 import { useSharedContext } from "@/lib/shared-context";
 import { useEffect, useState } from "react";
 import { Legend } from "recharts";

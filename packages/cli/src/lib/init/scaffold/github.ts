@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import chalk from "chalk";
-import { Ora } from "ora";
+import type { Ora } from "ora";
 
 /**
  * Clones a specific subdirectory from a GitHub repository

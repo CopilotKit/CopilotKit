@@ -1,11 +1,13 @@
 import { useAgent } from "../../hooks/use-agent";
 import { useAttachments } from "../../hooks/use-attachments";
 import { useSuggestions } from "../../hooks/use-suggestions";
-import { CopilotChatView, CopilotChatViewProps } from "./CopilotChatView";
-import { CopilotChatInputMode } from "./CopilotChatInput";
+import type { CopilotChatViewProps } from "./CopilotChatView";
+import { CopilotChatView } from "./CopilotChatView";
+import type { CopilotChatInputMode } from "./CopilotChatInput";
+import type {
+  CopilotChatLabels} from "../../providers/CopilotChatConfigurationProvider";
 import {
   CopilotChatConfigurationProvider,
-  CopilotChatLabels,
   useCopilotChatConfiguration,
 } from "../../providers/CopilotChatConfigurationProvider";
 import {
@@ -14,7 +16,7 @@ import {
   TranscriptionErrorCode,
 } from "@copilotkit/shared";
 import type { AttachmentsConfig, InputContent } from "@copilotkit/shared";
-import { Suggestion, CopilotKitCoreErrorCode } from "@copilotkit/core";
+import type { Suggestion, CopilotKitCoreErrorCode } from "@copilotkit/core";
 import React, {
   useCallback,
   useEffect,
@@ -27,8 +29,10 @@ import {
   useLicenseContext,
 } from "../../providers/CopilotKitProvider";
 import { InlineFeatureWarning } from "../../components/license-warning-banner";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
-import { renderSlot, useShallowStableRef, SlotValue } from "../../lib/slots";
+import type { AbstractAgent} from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
+import type { SlotValue } from "../../lib/slots";
+import { renderSlot, useShallowStableRef } from "../../lib/slots";
 import {
   transcribeAudio,
   TranscriptionError,

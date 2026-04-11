@@ -89,7 +89,7 @@ export const BudgetBreakdown: React.FC<BudgetBreakdownProps> = ({ data }) => {
                   <div
                     className="w-2 h-2 rounded-full"
                     style={{ backgroundColor: colors.bg }}
-                  ></div>
+                   />
                   <span className="text-sm font-semibold text-[#010507]">
                     {category.category}
                   </span>
@@ -112,7 +112,7 @@ export const BudgetBreakdown: React.FC<BudgetBreakdownProps> = ({ data }) => {
                     width: `${category.percentage}%`,
                     backgroundColor: colors.bg,
                   }}
-                ></div>
+                 />
               </div>
             </div>
           );

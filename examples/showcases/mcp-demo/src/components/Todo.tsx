@@ -1,5 +1,6 @@
 import { useTodo } from "@/contexts/TodoContext";
-import { useState, ChangeEvent } from "react";
+import type { ChangeEvent } from "react";
+import { useState } from "react";
 import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
 import { Check, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
 

@@ -45,7 +45,7 @@ export function Progress({
               {index < logs.length - 1 && (
                 <div
                   className={cn("h-full w-[1px] bg-slate-200 ml-[20px]")}
-                ></div>
+                 />
               )}
             </div>
             <div className="flex-1 flex justify-center py-2 pl-2 pr-4">

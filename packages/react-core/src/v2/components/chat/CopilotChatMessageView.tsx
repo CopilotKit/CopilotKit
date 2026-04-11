@@ -8,11 +8,12 @@ import React, {
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ScrollElementContext } from "./scroll-element-context";
-import { WithSlots, renderSlot, isReactComponentType } from "../../lib/slots";
+import type { WithSlots} from "../../lib/slots";
+import { renderSlot, isReactComponentType } from "../../lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage";
-import {
+import type {
   ActivityMessage,
   AssistantMessage,
   Message,

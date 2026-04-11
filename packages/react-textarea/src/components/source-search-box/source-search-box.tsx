@@ -9,7 +9,7 @@ import {
   CommandSeparator,
 } from "../ui/command";
 
-import { DocumentPointer } from "@copilotkit/react-core";
+import type { DocumentPointer } from "@copilotkit/react-core";
 
 export interface SourceSearchBoxProps {
   searchTerm: string;

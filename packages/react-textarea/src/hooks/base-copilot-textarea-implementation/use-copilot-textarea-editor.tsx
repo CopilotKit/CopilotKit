@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import { createEditor, Element } from "slate";
 import { withReact } from "slate-react";
+import type {
+  ShouldSaveToHistory} from "../../lib/slatejs-edits/with-partial-history";
 import {
   defaultShouldSave,
-  ShouldSaveToHistory,
   withPartialHistory,
 } from "../../lib/slatejs-edits/with-partial-history";
-import { CustomEditor } from "../../types/base/custom-editor";
+import type { CustomEditor } from "../../types/base/custom-editor";
 
 const shouldSave: ShouldSaveToHistory = (op, prev) => {
   const excludedNodeType = "suggestion";

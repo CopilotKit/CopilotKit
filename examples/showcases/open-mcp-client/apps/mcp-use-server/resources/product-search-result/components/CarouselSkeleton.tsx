@@ -11,7 +11,7 @@ export const CarouselSkeleton: React.FC = () => {
             <div
               key={i}
               className="carousel-item shrink-0 size-52 rounded-xl border border-subtle animate-pulse bg-gray-100"
-            ></div>
+             />
           ))}
         </div>
       </div>

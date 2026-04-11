@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef, useContext } from "react";
 import { useCopilotChat } from "@copilotkit/react-core";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import {
+import type {
   ConnectionType,
-  ServerConfig,
+  ServerConfig} from "@/lib/mcp-config-types";
+import {
   MCP_STORAGE_KEY,
 } from "@/lib/mcp-config-types";
 import { X, Plus, Server, Globe, Trash2 } from "lucide-react";

@@ -1,3 +1,7 @@
+import type {
+  OnInit,
+  AfterViewInit,
+  OnDestroy} from "@angular/core";
 import {
   Component,
   input,
@@ -8,9 +12,6 @@ import {
   ViewEncapsulation,
   signal,
   computed,
-  OnInit,
-  AfterViewInit,
-  OnDestroy,
   inject,
   PLATFORM_ID,
   ChangeDetectorRef,
@@ -22,7 +23,7 @@ import { CopilotChatMessageView } from "./copilot-chat-message-view";
 import { CopilotChatViewScrollToBottomButton } from "./copilot-chat-view-scroll-to-bottom-button";
 import { StickToBottom } from "../../directives/stick-to-bottom";
 import { ScrollPosition } from "../../scroll-position";
-import { Message } from "@ag-ui/client";
+import type { Message } from "@ag-ui/client";
 import { cn } from "../../utils";
 import { Subject } from "rxjs";
 import { takeUntil } from "rxjs/operators";

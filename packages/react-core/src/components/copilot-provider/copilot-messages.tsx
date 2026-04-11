@@ -2,8 +2,9 @@
  * An internal context to separate the messages state (which is constantly changing) from the rest of CopilotKit context
  */
 
+import type {
+  ReactNode} from "react";
 import {
-  ReactNode,
   useEffect,
   useState,
   useRef,
@@ -13,7 +14,7 @@ import {
   useContext,
 } from "react";
 import { CopilotMessagesContext } from "../../context/copilot-messages-context";
-import { Message, GraphQLError } from "@copilotkit/runtime-client-gql";
+import type { Message, GraphQLError } from "@copilotkit/runtime-client-gql";
 import { useCopilotContext } from "../../context/copilot-context";
 import { useToast } from "../toast/toast-provider";
 import { shouldShowDevConsole } from "../../utils/dev-console";
@@ -25,7 +26,7 @@ import {
   CopilotKitError,
   CopilotKitErrorCode,
 } from "@copilotkit/shared";
-import { Suggestion } from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
 
 /**
  * MessagesTap is used to mitigate performance issues when we only need

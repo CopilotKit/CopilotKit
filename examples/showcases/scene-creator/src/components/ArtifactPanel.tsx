@@ -1,6 +1,6 @@
 "use client";
 
-import { Character, Background, Scene } from "@/lib/types";
+import type { Character, Background, Scene } from "@/lib/types";
 import { useChatInput } from "@/lib/chat-input-context";
 
 interface ArtifactPanelProps {

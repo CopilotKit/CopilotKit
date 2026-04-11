@@ -5,7 +5,8 @@
  * Used by createA2UIMessageRenderer for rendering A2UI components.
  */
 
-import { Styles, type Types } from "@a2ui/lit/0.8";
+import { Styles } from '@a2ui/lit/0.8';
+import type { Types } from '@a2ui/lit/0.8';
 
 // Base element styles
 const a = {

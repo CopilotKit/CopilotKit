@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, FormEvent, ChangeEvent, useRef } from "react";
+import type { FormEvent, ChangeEvent} from "react";
+import { useState, useRef } from "react";
 import { Upload, CheckCircle, AlertCircle } from "lucide-react";
 
 interface ResumeUploadResponse {

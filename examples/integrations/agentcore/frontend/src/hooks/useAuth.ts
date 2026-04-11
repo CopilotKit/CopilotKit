@@ -1,7 +1,7 @@
 "use client";
 import { useAuth as useOidcAuth } from "react-oidc-context";
 import { useEffect, useState } from "react";
-import { WebStorageStateStore } from "oidc-client-ts";
+import type { WebStorageStateStore } from "oidc-client-ts";
 import { createCognitoAuthConfig } from "@/lib/auth";
 
 interface CognitoAuthConfig {

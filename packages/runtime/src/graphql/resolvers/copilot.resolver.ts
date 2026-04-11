@@ -1,8 +1,9 @@
 import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
+import type {
+  Subscription} from "rxjs";
 import {
   ReplaySubject,
   Subject,
-  Subscription,
   filter,
   finalize,
   firstValueFrom,
@@ -12,7 +13,7 @@ import {
   takeWhile,
   tap,
 } from "rxjs";
-import { GenerateCopilotResponseInput } from "../inputs/generate-copilot-response.input";
+import type { GenerateCopilotResponseInput } from "../inputs/generate-copilot-response.input";
 import { CopilotResponse } from "../types/copilot-response.type";
 import {
   CopilotKitLangGraphInterruptEvent,
@@ -24,33 +25,37 @@ import type {
   CopilotRequestContextProperties,
   GraphQLContext,
 } from "../../lib/integrations";
+import type {
+  RuntimeEvent} from "../../service-adapters/events";
 import {
-  RuntimeEvent,
   RuntimeEventTypes,
   RuntimeMetaEventName,
 } from "../../service-adapters/events";
+import type {
+  MessageStatusUnion} from "../types/message-status.type";
 import {
   FailedMessageStatus,
-  MessageStatusUnion,
   SuccessMessageStatus,
 } from "../types/message-status.type";
+import type {
+  ResponseStatusUnion} from "../types/response-status.type";
 import {
-  ResponseStatusUnion,
   SuccessResponseStatus,
 } from "../types/response-status.type";
 import { GraphQLJSONObject } from "graphql-scalars";
 import { plainToInstance } from "class-transformer";
-import { GuardrailsResult } from "../types/guardrails-result.type";
+import type { GuardrailsResult } from "../types/guardrails-result.type";
 import { GraphQLError } from "graphql";
 import {
   GuardrailsValidationFailureResponse,
   MessageStreamInterruptedResponse,
   UnknownErrorResponse,
 } from "../../utils";
+import type {
+  Message} from "../types/converted";
 import {
   ActionExecutionMessage,
   AgentStateMessage,
-  Message,
   ResultMessage,
   TextMessage,
 } from "../types/converted";
@@ -59,7 +64,7 @@ import { randomId } from "@copilotkit/shared";
 import { AgentsResponse } from "../types/agents-response.type";
 import { LangGraphEventTypes } from "../../agents/langgraph/events";
 import { CopilotKitError, CopilotKitLowLevelError } from "@copilotkit/shared";
-import { CopilotRuntime } from "../../lib";
+import type { CopilotRuntime } from "../../lib";
 
 const invokeGuardrails = async ({
   baseUrl,

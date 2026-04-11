@@ -1,7 +1,8 @@
 import React, { useEffect } from "react";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { z } from "zod";
-import { defineToolCallRenderer, ReactToolCallRenderer } from "../../../types";
+import type { ReactToolCallRenderer } from "../../../types";
+import { defineToolCallRenderer } from "../../../types";
 import {
   MockStepwiseAgent,
   SuggestionsProviderAgent,

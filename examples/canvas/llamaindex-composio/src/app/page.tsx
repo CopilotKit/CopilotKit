@@ -5,8 +5,9 @@ import {
   useCopilotAction,
   useCopilotAdditionalInstructions,
 } from "@copilotkit/react-core";
+import type {
+  CopilotKitCSSProperties} from "@copilotkit/react-ui";
 import {
-  CopilotKitCSSProperties,
   CopilotChat,
   CopilotPopup,
 } from "@copilotkit/react-ui";
@@ -1395,7 +1396,7 @@ export default function CopilotKitPage() {
         const start =
           cleanSheetId.indexOf("/spreadsheets/d/") + "/spreadsheets/d/".length;
         const end = cleanSheetId.indexOf("/", start);
-        cleanSheetId = cleanSheetId.substring(
+        cleanSheetId = cleanSheetId.slice(
           start,
           end === -1 ? undefined : end,
         );
@@ -1449,7 +1450,7 @@ export default function CopilotKitPage() {
         const start =
           cleanSheetId.indexOf("/spreadsheets/d/") + "/spreadsheets/d/".length;
         const end = cleanSheetId.indexOf("/", start);
-        cleanSheetId = cleanSheetId.substring(
+        cleanSheetId = cleanSheetId.slice(
           start,
           end === -1 ? undefined : end,
         );

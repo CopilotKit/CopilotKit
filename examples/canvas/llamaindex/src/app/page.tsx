@@ -5,8 +5,9 @@ import {
   useCopilotAction,
   useCopilotAdditionalInstructions,
 } from "@copilotkit/react-core";
+import type {
+  CopilotKitCSSProperties} from "@copilotkit/react-ui";
 import {
-  CopilotKitCSSProperties,
   CopilotChat,
   CopilotPopup,
 } from "@copilotkit/react-ui";

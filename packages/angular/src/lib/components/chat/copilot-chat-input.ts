@@ -1,3 +1,7 @@
+import type {
+  AfterViewInit,
+  OnDestroy,
+  Type} from "@angular/core";
 import {
   Component,
   TemplateRef,
@@ -5,9 +9,6 @@ import {
   computed,
   effect,
   ChangeDetectionStrategy,
-  AfterViewInit,
-  OnDestroy,
-  Type,
   ViewEncapsulation,
   ContentChild,
   input,

@@ -1,9 +1,10 @@
 "use client";
 
 import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import type { CopilotKitCSSProperties} from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
-import { AgentState } from "@/lib/state";
+import type { AgentState } from "@/lib/state";
 import { ProjectContainer } from "./components/ProjectContainer";
 import { tasks, users } from "@/lib/types";
 

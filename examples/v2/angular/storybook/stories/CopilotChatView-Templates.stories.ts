@@ -11,7 +11,7 @@ import {
   provideCopilotChatLabels,
   provideCopilotKit,
 } from "@copilotkit/angular";
-import { Message } from "@ag-ui/client";
+import type { Message } from "@ag-ui/client";
 
 function handleScroll(onClick: () => void) {
   onClick();
