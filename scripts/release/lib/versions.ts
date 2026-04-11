@@ -132,7 +132,8 @@ export function bumpPackages(
     const oldVersion = pkg.version;
     pkg.version = newVersion;
 
-    // For shared-version scopes, update internal dependency references too
+    // For shared-version scopes, update internal dependency references —
+    // but only if they use exact versions, not workspace:* protocol
     if (scopeConfig.sharedVersion) {
       for (const depField of [
         "dependencies",
@@ -141,7 +142,8 @@ export function bumpPackages(
       ] as const) {
         if (!pkg[depField]) continue;
         for (const depName of Object.keys(pkg[depField])) {
-          if (scopeNames.has(depName)) {
+          const depValue = pkg[depField][depName];
+          if (scopeNames.has(depName) && !depValue.startsWith("workspace:")) {
             pkg[depField][depName] = newVersion;
           }
         }
