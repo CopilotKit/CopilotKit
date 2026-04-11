@@ -11,7 +11,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.42",
+    "@ag-ui/client": "0.0.52",
     "@ag-ui/mastra": "beta",
     "@ai-sdk/openai": "^2.0.42",
     "@copilotkit/react-core": "1.51.1",

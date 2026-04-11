@@ -17,7 +17,7 @@
   "dependencies": {
     "@a2ui/lit": "^0.8.1",
     "@ag-ui/a2ui-middleware": "^0.0.2",
-    "@ag-ui/client": "^0.0.46",
+    "@ag-ui/client": "0.0.52",
     "@ag-ui/core": "^0.0.46",
     "@ag-ui/encoder": "^0.0.46",
     "@ag-ui/proto": "^0.0.46",
