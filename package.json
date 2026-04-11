@@ -21,9 +21,8 @@
     "docs": "pnpm -C examples/v2/docs dev",
     "demo:angular": "nx run-many -t dev --projects=examples/v2/angular/demo,examples/v2/angular/demo-server",
     "demo:react": "pnpm -C examples/v2/react/demo dev",
-    "changeset": "changeset",
-    "ci:check-release-plan": "node ./scripts/release/check-allowed-release-packages.js",
-    "ci:publish-release": "pnpm run build && pnpm changeset publish --no-git-tag",
+    "release:prepare:dry": "tsx scripts/release/prepare-release.ts --scope monorepo --bump patch --dry-run",
+    "release:prerelease:dry": "tsx scripts/release/prerelease.ts --scope monorepo --dry-run",
     "prepare": "lefthook install",
     "graph": "nx graph",
     "publint": "nx run-many -t publint --projects=packages/**",
@@ -33,7 +32,6 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
-    "@changesets/cli": "^2.29.8",
     "@commitlint/cli": "^20.3.0",
     "@commitlint/config-conventional": "^20.3.0",
     "@storybook/addon-docs": "^10.1.10",
@@ -92,9 +90,6 @@
       "prismjs@<=1.30.0": "1.30.0",
       "pino@<=10.1.1": "10.1.1",
       "@copilotkit/license-verifier": "0.0.1-a1"
-    },
-    "patchedDependencies": {
-      "@changesets/assemble-release-plan@6.0.9": "patches/@changesets__assemble-release-plan@6.0.9.patch"
     }
   }
 }

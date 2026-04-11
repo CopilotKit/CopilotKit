@@ -929,7 +929,7 @@ export function CopilotChat({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={dragOver ? "copilotKitDragOver" : ""}
+        className={`copilotKitChatBody${dragOver ? " copilotKitDragOver" : ""}`}
       >
         {/* Render error above messages if present */}
         {chatError &&

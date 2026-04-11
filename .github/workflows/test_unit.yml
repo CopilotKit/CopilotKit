@@ -7,11 +7,6 @@ on:
       - "docs/**"
       - "README.md"
       - "examples/**"
-      - ".github/workflows/demos_preview.yml"
-      - ".github/workflows/release.yml"
-      - "packages/**/package.json"
-      - "packages/**/CHANGELOG.md"
-      - ".changeset/**"
   pull_request:
     branches: [main]
     paths-ignore:
@@ -80,3 +75,6 @@ jobs:
 
       - name: Run tests
         run: pnpm run test
+
+      - name: Run release script tests
+        run: npx vitest run --config scripts/release/vitest.config.mts

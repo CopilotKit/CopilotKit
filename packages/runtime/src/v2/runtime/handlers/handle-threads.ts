@@ -1,6 +1,7 @@
 export {
   handleArchiveThread,
   handleDeleteThread,
+  handleGetThreadMessages,
   handleListThreads,
   handleSubscribeToThreads,
   handleUpdateThread,

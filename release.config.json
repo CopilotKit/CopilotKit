@@ -1,0 +1,33 @@
+{
+  "prereleaseTag": "canary",
+  "scopes": {
+    "monorepo": {
+      "packages": [
+        "@copilotkit/a2ui-renderer",
+        "@copilotkit/core",
+        "@copilotkit/react-core",
+        "@copilotkit/react-textarea",
+        "@copilotkit/react-ui",
+        "@copilotkit/runtime",
+        "@copilotkit/runtime-client-gql",
+        "@copilotkit/sdk-js",
+        "@copilotkit/shared",
+        "@copilotkit/sqlite-runner",
+        "@copilotkit/voice",
+        "@copilotkit/web-inspector"
+      ],
+      "versionSource": "@copilotkit/react-core",
+      "sharedVersion": true
+    },
+    "cli": {
+      "packages": ["copilotkit"],
+      "versionSource": "copilotkit",
+      "sharedVersion": false
+    },
+    "angular": {
+      "packages": ["@copilotkitnext/angular"],
+      "versionSource": "@copilotkitnext/angular",
+      "sharedVersion": false
+    }
+  }
+}
