@@ -3,6 +3,14 @@ name: release / create-pr
 on:
   workflow_dispatch:
     inputs:
+      scope:
+        description: "What to release"
+        required: true
+        type: choice
+        options:
+          - monorepo
+          - cli
+          - angular
       bump:
         description: "Version bump level"
         required: true
@@ -44,10 +52,10 @@ jobs:
               owner,
               repo,
               state: "open",
-              head_prefix: `${owner}:release/publish/v`,
+              head_prefix: `${owner}:release/publish/`,
             });
 
-            const releasePRs = prs.filter(pr => pr.head.ref.startsWith("release/publish/v"));
+            const releasePRs = prs.filter(pr => pr.head.ref.startsWith("release/publish/"));
             if (releasePRs.length > 0) {
               const existing = releasePRs.map(pr => `  - #${pr.number}: ${pr.title} (${pr.html_url})`).join("\n");
               core.setFailed(
@@ -78,9 +86,9 @@ jobs:
         id: prepare
         run: |
           if [ "${{ inputs.dry_run }}" == "true" ]; then
-            pnpm tsx scripts/release/prepare-release.ts --bump ${{ inputs.bump }} --dry-run
+            pnpm tsx scripts/release/prepare-release.ts --bump ${{ inputs.bump }} --scope ${{ inputs.scope }} --dry-run
           else
-            pnpm tsx scripts/release/prepare-release.ts --bump ${{ inputs.bump }}
+            pnpm tsx scripts/release/prepare-release.ts --bump ${{ inputs.bump }} --scope ${{ inputs.scope }}
           fi
 
       - name: Generate AI release notes
@@ -98,21 +106,21 @@ jobs:
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: release/publish/v${{ steps.prepare.outputs.version }}
+          branch: release/publish/${{ inputs.scope }}/v${{ steps.prepare.outputs.version }}
           delete-branch: true
-          commit-message: "chore: release v${{ steps.prepare.outputs.version }}"
-          title: "chore: release v${{ steps.prepare.outputs.version }}"
+          commit-message: "chore: release ${{ inputs.scope }} v${{ steps.prepare.outputs.version }}"
+          title: "chore: release ${{ inputs.scope }} v${{ steps.prepare.outputs.version }}"
           body: |
-            ## Release v${{ steps.prepare.outputs.version }}
+            ## Release ${{ inputs.scope }} v${{ steps.prepare.outputs.version }}
 
-            **Bump:** `${{ inputs.bump }}`
+            **Scope:** `${{ inputs.scope }}` | **Bump:** `${{ inputs.bump }}`
 
             ---
 
             ### How this release process works
 
-            1. **This PR was created automatically** by the "Create Release PR" workflow.
-               It bumped all `@copilotkit/*` package versions to `${{ steps.prepare.outputs.version }}`
+            1. **This PR was created automatically** by the "release / create-pr" workflow.
+               It bumped the `${{ inputs.scope }}` packages to `${{ steps.prepare.outputs.version }}`
                and generated AI-enhanced release notes.
 
             2. **CI runs on this PR** — the full test suite (unit tests, lint, type checks, build)
@@ -121,10 +129,10 @@ jobs:
             3. **Review the release notes** in `release-notes.md` in this PR.
                If a Notion draft was created, you can edit the release notes there before merging.
 
-            4. **When this PR is merged**, the `publish-release` workflow automatically:
+            4. **When this PR is merged**, the `release / publish` workflow automatically:
                - Builds all packages
-               - Publishes all `@copilotkit/*` packages to npm at version `${{ steps.prepare.outputs.version }}`
-               - Creates git tag `v${{ steps.prepare.outputs.version }}`
+               - Publishes the `${{ inputs.scope }}` packages to npm at version `${{ steps.prepare.outputs.version }}`
+               - Creates git tag `${{ inputs.scope }}/v${{ steps.prepare.outputs.version }}`
                - Creates a GitHub Release with the final release notes
 
             ### Before merging

@@ -20,10 +20,19 @@ jobs:
     # Only run when a release PR is merged (not just closed)
     if: >
       github.event.pull_request.merged == true &&
-      startsWith(github.event.pull_request.head.ref, 'release/publish/v')
+      startsWith(github.event.pull_request.head.ref, 'release/publish/')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - name: Extract scope from branch
+        id: meta
+        run: |
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          # Branch format: release/publish/<scope>/v<version>
+          SCOPE=$(echo "$BRANCH" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
+          echo "scope=$SCOPE" >> $GITHUB_OUTPUT
+          echo "Detected scope: $SCOPE"
+
       - name: Checkout Repo
         uses: actions/checkout@v4
         with:
@@ -54,7 +63,7 @@ jobs:
 
       - name: Publish to npm
         id: publish
-        run: pnpm tsx scripts/release/publish-release.ts
+        run: pnpm tsx scripts/release/publish-release.ts --scope ${{ steps.meta.outputs.scope }}
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -67,22 +76,33 @@ jobs:
 
       - name: Create and push git tag
         run: |
-          TAG="v${{ steps.publish.outputs.version }}"
-          git tag -a "$TAG" -m "Release ${{ steps.publish.outputs.version }}"
+          SCOPE="${{ steps.meta.outputs.scope }}"
+          VERSION="${{ steps.publish.outputs.version }}"
+          if [ "$SCOPE" == "monorepo" ]; then
+            TAG="v${VERSION}"
+          else
+            TAG="${SCOPE}/v${VERSION}"
+          fi
+          git tag -a "$TAG" -m "Release ${SCOPE} ${VERSION}"
           git push origin "$TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+        id: tag
 
       - name: Create GitHub Release
         uses: actions/github-script@v7
         env:
-          RELEASE_TAG: v${{ steps.publish.outputs.version }}
-          RELEASE_NAME: v${{ steps.publish.outputs.version }}
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+          RELEASE_SCOPE: ${{ steps.meta.outputs.scope }}
+          RELEASE_VERSION: ${{ steps.publish.outputs.version }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require("fs");
             const { owner, repo } = context.repo;
             const tag = process.env.RELEASE_TAG;
-            const name = process.env.RELEASE_NAME;
+            const scope = process.env.RELEASE_SCOPE;
+            const version = process.env.RELEASE_VERSION;
+            const name = scope === "monorepo" ? `v${version}` : `${scope}/v${version}`;
 
             let body = "";
             try {
@@ -112,6 +132,6 @@ jobs:
         run: |
           echo "## Release Published" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Scope:** ${{ steps.meta.outputs.scope }}" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ steps.publish.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Tag:** v${{ steps.publish.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**npm:** https://www.npmjs.com/package/@copilotkit/react-core/v/${{ steps.publish.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** ${{ steps.tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY

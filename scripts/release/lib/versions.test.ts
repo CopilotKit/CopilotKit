@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   parseSemver,
   computeNextStableVersion,
@@ -10,9 +10,36 @@ vi.mock("./config.js", () => ({
   ROOT: "/mock",
   loadConfig: () => ({
     prereleaseTag: "canary",
-    versionedTogether: [],
-    versionedIndependently: [],
+    scopes: {
+      monorepo: {
+        packages: [],
+        versionSource: "@copilotkit/react-core",
+        sharedVersion: true,
+      },
+      cli: { packages: [], versionSource: "copilotkit", sharedVersion: false },
+      angular: {
+        packages: [],
+        versionSource: "@copilotkitnext/angular",
+        sharedVersion: false,
+      },
+    },
   }),
+  getScopeConfig: (scope: string) => {
+    const scopes: Record<string, any> = {
+      monorepo: {
+        packages: [],
+        versionSource: "@copilotkit/react-core",
+        sharedVersion: true,
+      },
+      cli: { packages: [], versionSource: "copilotkit", sharedVersion: false },
+      angular: {
+        packages: [],
+        versionSource: "@copilotkitnext/angular",
+        sharedVersion: false,
+      },
+    };
+    return scopes[scope];
+  },
 }));
 
 describe("parseSemver", () => {
