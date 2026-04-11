@@ -1,46 +1,64 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import fs from "fs";
+import path from "path";
+import os from "os";
 import {
   parseSemver,
   computeNextStableVersion,
   computePrereleaseVersion,
+  bumpPackages,
 } from "./versions.js";
 
-// Mock loadConfig for computePrereleaseVersion
-vi.mock("./config.js", () => ({
-  ROOT: "/mock",
-  loadConfig: () => ({
-    prereleaseTag: "canary",
-    scopes: {
-      monorepo: {
-        packages: [],
-        versionSource: "@copilotkit/react-core",
-        sharedVersion: true,
-      },
-      cli: { packages: [], versionSource: "copilotkit", sharedVersion: false },
-      angular: {
-        packages: [],
-        versionSource: "@copilotkitnext/angular",
-        sharedVersion: false,
-      },
+let tmpDir: string;
+
+// Mock config — ROOT points to a temp dir for bumpPackages tests
+vi.mock("./config.js", async () => {
+  return {
+    get ROOT() {
+      return tmpDir || "/mock";
     },
-  }),
-  getScopeConfig: (scope: string) => {
-    const scopes: Record<string, any> = {
-      monorepo: {
-        packages: [],
-        versionSource: "@copilotkit/react-core",
-        sharedVersion: true,
+    loadConfig: () => ({
+      prereleaseTag: "canary",
+      scopes: {
+        monorepo: {
+          packages: ["@copilotkit/shared", "@copilotkit/react-core"],
+          versionSource: "@copilotkit/react-core",
+          sharedVersion: true,
+        },
+        cli: {
+          packages: ["copilotkit"],
+          versionSource: "copilotkit",
+          sharedVersion: false,
+        },
+        angular: {
+          packages: ["@copilotkitnext/angular"],
+          versionSource: "@copilotkitnext/angular",
+          sharedVersion: false,
+        },
       },
-      cli: { packages: [], versionSource: "copilotkit", sharedVersion: false },
-      angular: {
-        packages: [],
-        versionSource: "@copilotkitnext/angular",
-        sharedVersion: false,
-      },
-    };
-    return scopes[scope];
-  },
-}));
+    }),
+    getScopeConfig: (scope: string) => {
+      const scopes: Record<string, any> = {
+        monorepo: {
+          packages: ["@copilotkit/shared", "@copilotkit/react-core"],
+          versionSource: "@copilotkit/react-core",
+          sharedVersion: true,
+        },
+        cli: {
+          packages: ["copilotkit"],
+          versionSource: "copilotkit",
+          sharedVersion: false,
+        },
+        angular: {
+          packages: ["@copilotkitnext/angular"],
+          versionSource: "@copilotkitnext/angular",
+          sharedVersion: false,
+        },
+      };
+      return scopes[scope];
+    },
+  };
+});
 
 describe("parseSemver", () => {
   it("parses a stable version", () => {
@@ -132,5 +150,91 @@ describe("computePrereleaseVersion", () => {
     expect(computePrereleaseVersion("1.55.2-canary.old", "new")).toBe(
       "1.55.2-canary.new",
     );
+  });
+});
+
+describe("bumpPackages", () => {
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "release-test-"));
+    const packagesDir = path.join(tmpDir, "packages");
+
+    // Create shared package
+    const sharedDir = path.join(packagesDir, "shared");
+    fs.mkdirSync(sharedDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(sharedDir, "package.json"),
+      JSON.stringify({
+        name: "@copilotkit/shared",
+        version: "1.55.2",
+      }),
+    );
+
+    // Create react-core with workspace:* dep on shared
+    const reactCoreDir = path.join(packagesDir, "react-core");
+    fs.mkdirSync(reactCoreDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(reactCoreDir, "package.json"),
+      JSON.stringify({
+        name: "@copilotkit/react-core",
+        version: "1.55.2",
+        dependencies: {
+          "@copilotkit/shared": "workspace:*",
+        },
+      }),
+    );
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("bumps version fields", () => {
+    const result = bumpPackages("monorepo", "1.55.3");
+    expect(result).toHaveLength(2);
+    expect(result[0].newVersion).toBe("1.55.3");
+
+    const pkg = JSON.parse(
+      fs.readFileSync(
+        path.join(tmpDir, "packages/shared/package.json"),
+        "utf8",
+      ),
+    );
+    expect(pkg.version).toBe("1.55.3");
+  });
+
+  it("preserves workspace:* protocol in dependencies", () => {
+    bumpPackages("monorepo", "1.55.3");
+
+    const pkg = JSON.parse(
+      fs.readFileSync(
+        path.join(tmpDir, "packages/react-core/package.json"),
+        "utf8",
+      ),
+    );
+    expect(pkg.dependencies["@copilotkit/shared"]).toBe("workspace:*");
+  });
+
+  it("updates exact version deps (not workspace protocol)", () => {
+    // Write react-core with an exact version dep instead of workspace:*
+    fs.writeFileSync(
+      path.join(tmpDir, "packages/react-core/package.json"),
+      JSON.stringify({
+        name: "@copilotkit/react-core",
+        version: "1.55.2",
+        dependencies: {
+          "@copilotkit/shared": "1.55.2",
+        },
+      }),
+    );
+
+    bumpPackages("monorepo", "1.55.3");
+
+    const pkg = JSON.parse(
+      fs.readFileSync(
+        path.join(tmpDir, "packages/react-core/package.json"),
+        "utf8",
+      ),
+    );
+    expect(pkg.dependencies["@copilotkit/shared"]).toBe("1.55.3");
   });
 });
