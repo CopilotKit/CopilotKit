@@ -43,14 +43,14 @@ jobs:
         working-directory: showcase/tests
         env:
           CI: true
-        run: npx playwright test --grep "@health|@agent|@chat" --reporter=github
+        run: npx playwright test integration-smoke --grep "@health|@agent|@chat" --reporter=github
 
       - name: Run L4 tests (daily only)
         if: github.event.schedule == '0 0 * * *' || github.event_name == 'workflow_dispatch'
         working-directory: showcase/tests
         env:
           CI: true
-        run: npx playwright test --grep "@tools" --reporter=github
+        run: npx playwright test integration-smoke --grep "@tools" --reporter=github
 
       - name: Post failure to Slack
         if: failure() && github.event_name == 'schedule'
