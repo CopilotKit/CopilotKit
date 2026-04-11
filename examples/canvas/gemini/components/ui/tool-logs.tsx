@@ -16,7 +16,7 @@ interface ToolLogsProps {
 export function ToolLogs({ logs }: ToolLogsProps) {
   useEffect(() => {
     console.log(logs, "logs");
-  }, []);
+  }, [logs]);
   return (
     <div className="flex flex-col gap-2 p-2">
       {logs.map((log) => (

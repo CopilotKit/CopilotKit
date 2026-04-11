@@ -1,4 +1,4 @@
-import { Config, Flags, Args } from "@oclif/core";
+import { Flags, Args } from "@oclif/core";
 import inquirer from "inquirer";
 import chalk from "chalk";
 import fs from "fs-extra";
@@ -190,10 +190,6 @@ export default class Create extends BaseCommand {
       required: false,
     }),
   };
-
-  constructor(argv: string[], config: Config) {
-    super(argv, config);
-  }
 
   async run() {
     const { args, flags } = await this.parse(Create);
@@ -654,7 +650,9 @@ cd infra-cdk && npx cdk@latest destroy --all --output ../cdk.out-${stackSuffix}
 
       await fs.remove(tempFile);
     } catch (error: any) {
-      throw new Error(`Failed to download template: ${error.message}`);
+      throw new Error(`Failed to download template: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 

@@ -1,6 +1,5 @@
 import {
   CopilotRuntime,
-  OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { research } from "./tavily";

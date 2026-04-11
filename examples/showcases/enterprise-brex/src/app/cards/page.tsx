@@ -35,8 +35,8 @@ export default function Page() {
   const [state, dispatch] = useReducer<
     React.Reducer<ChangePinState, Partial<ChangePinState>>
   >(
-    (state: ChangePinState, payload: Partial<ChangePinState>) => ({
-      ...state,
+    (currentState: ChangePinState, payload: Partial<ChangePinState>) => ({
+      ...currentState,
       ...payload,
     }),
     { newPin: "", dialogOpen: false, cardId: null, loading: false },
@@ -284,13 +284,13 @@ export default function Page() {
 
       async function handleChangeTransactionStatus({
         id,
-        status,
+        status: newStatus,
       }: {
         id: string;
         status: Transaction["status"];
       }) {
-        await changeTransactionStatus({ id, status });
-        handler?.(`transaction ${id} ${status}`);
+        await changeTransactionStatus({ id, status: newStatus });
+        handler?.(`transaction ${id} ${newStatus}`);
       }
 
       return (
@@ -300,14 +300,14 @@ export default function Page() {
           )}
           showApprovalInterface
           approvalInterfaceProps={{
-            onApprove: (transactionId) =>
+            onApprove: (txnId) =>
               handleChangeTransactionStatus({
-                id: transactionId,
+                id: txnId,
                 status: "approved",
               }),
-            onDeny: (transactionId) =>
+            onDeny: (txnId) =>
               handleChangeTransactionStatus({
-                id: transactionId,
+                id: txnId,
                 status: "denied",
               }),
           }}

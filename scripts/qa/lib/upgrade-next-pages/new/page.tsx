@@ -29,8 +29,8 @@ function InsideHome() {
           required: true,
         },
       ],
-      handler: async ({ message }) => {
-        setMessage(message);
+      handler: async ({ message: msg }) => {
+        setMessage(msg);
       },
     },
     [],

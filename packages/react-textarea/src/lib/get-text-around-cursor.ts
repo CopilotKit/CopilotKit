@@ -5,7 +5,6 @@ import {
   Range,
   Text,
   Element,
-  BasePoint,
   BaseRange,
   Point,
 } from "slate";

@@ -5,8 +5,7 @@ import {
   useSuggestions,
 } from "../v2";
 import { StaticSuggestionsConfig, Suggestion } from "@copilotkit/core";
-import { useCopilotContext } from "../context";
-import { useEffect, useMemo } from "react";
+import { useEffect, useRef } from "react";
 
 type StaticSuggestionInput = Omit<Suggestion, "isLoading"> &
   Partial<Pick<Suggestion, "isLoading">>;
@@ -75,13 +74,23 @@ export function useConfigureChatSuggestions(
 
   const result = useSuggestions({ agentId: resolvedAgentId });
 
+  // Store in refs to avoid recreating the subscription on every change
+  const resultRef = useRef(result);
+  resultRef.current = result;
+  const finalSuggestionConfigRef = useRef(finalSuggestionConfig);
+  finalSuggestionConfigRef.current = finalSuggestionConfig;
+
   useEffect(() => {
-    if (finalSuggestionConfig.available === "disabled") return;
+    if (finalSuggestionConfigRef.current.available === "disabled") return;
     const subscription = copilotkit.subscribe({
       onAgentsChanged: () => {
         // When agents change, check if our target agent now exists and reload
         const agent = copilotkit.getAgent(resolvedAgentId);
-        if (agent && !agent.isRunning && !result.suggestions.length) {
+        if (
+          agent &&
+          !agent.isRunning &&
+          !resultRef.current.suggestions.length
+        ) {
           copilotkit.reloadSuggestions(resolvedAgentId);
         }
       },
@@ -90,7 +99,7 @@ export function useConfigureChatSuggestions(
     return () => {
       subscription.unsubscribe();
     };
-  }, [resolvedAgentId]);
+  }, [resolvedAgentId, copilotkit]);
 
   return result;
 }

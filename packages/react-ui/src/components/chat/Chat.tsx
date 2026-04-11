@@ -392,8 +392,8 @@ export function CopilotChat({
   instructions,
   suggestions = "auto",
   onSubmitMessage,
-  makeSystemMessage,
-  disableSystemMessage,
+  makeSystemMessage: _makeSystemMessage,
+  disableSystemMessage: _disableSystemMessage,
   onInProgress,
   onStopGeneration,
   onReloadMessages,
@@ -465,6 +465,10 @@ export function CopilotChat({
     async () => {},
   );
 
+  // Store onError in a ref to avoid re-creating triggerChatError when onError changes
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+
   const [chatError, setChatError] = useState<ChatError | null>(null);
   const [messageFeedback, setMessageFeedback] = useState<
     Record<string, "thumbsUp" | "thumbsDown">
@@ -534,8 +538,8 @@ export function CopilotChat({
         error,
       };
 
-      if (onError) {
-        onError(errorEvent);
+      if (onErrorRef.current) {
+        onErrorRef.current(errorEvent);
       }
 
       // Also trigger observability hook if available
@@ -634,7 +638,7 @@ export function CopilotChat({
     ];
 
     setChatInstructions(combinedAdditionalInstructions.join("\n") || "");
-  }, [instructions, additionalInstructions]);
+  }, [instructions, additionalInstructions, setChatInstructions]);
 
   const {
     messages,

@@ -10,7 +10,6 @@ import {
   AbstractAgent,
   BaseEvent,
   EventType,
-  MessagesSnapshotEvent,
   RunStartedEvent,
   compactEvents,
 } from "@ag-ui/client";

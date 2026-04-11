@@ -51,7 +51,7 @@ export default function KnowledgeBase() {
       },
     ],
 
-    handler: async ({ query }: { query: string }) => {},
+    handler: async ({ query: _query }: { query: string }) => {},
     render: "Getting relevant answers to your query...",
   });
 

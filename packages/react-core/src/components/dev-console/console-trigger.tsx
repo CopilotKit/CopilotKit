@@ -60,7 +60,7 @@ export function ConsoleTrigger({
 
       setButtonPosition(initialPosition);
     }
-  }, [position]);
+  }, [position, buttonPosition]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();

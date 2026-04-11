@@ -1,7 +1,6 @@
 "use client";
 
 import { DollarSign, TrendingUp, TrendingDown } from "lucide-react";
-import { ToolCallStatus } from "@copilotkit/react-core/v2";
 
 type AccountRow = {
   name: string;
@@ -20,6 +19,12 @@ type Props = {
   status: string;
 };
 
+const formatCurrency = (n: number) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(n);
+
 export function CashPositionCard({ args, status }: Props) {
   if (status === "inProgress" || !args.accounts) {
     return (
@@ -33,12 +38,6 @@ export function CashPositionCard({ args, status }: Props) {
   }
 
   const { accounts, totalCash, totalLiabilities, netPosition } = args as Args;
-
-  const formatCurrency = (n: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(n);
 
   const isPositive = netPosition >= 0;
 

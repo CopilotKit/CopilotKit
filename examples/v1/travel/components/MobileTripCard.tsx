@@ -1,4 +1,3 @@
-import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { useTrips } from "@/lib/hooks/use-trips";
 import { cn } from "@/lib/utils";
 import { Drawer, DrawerContent, DrawerTrigger } from "./ui/drawer";
@@ -7,7 +6,6 @@ import { Plane } from "lucide-react";
 import { CardTitle } from "./ui/card";
 import { TripSelect } from "./TripSelect";
 import { TripContent } from "./TripContent";
-import { ScrollArea } from "./ui/scroll-area";
 import { Map } from "leaflet";
 
 export type MobileTripCardProps = {

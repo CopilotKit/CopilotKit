@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { CloseIcon } from "./icons";
 
 export function CopilotKitHelpModal() {
@@ -32,7 +32,7 @@ export function CopilotKitHelpModal() {
     <button
       ref={buttonRef}
       onClick={() => setShowHelpModal(!showHelpModal)}
-      className="copilotKitDebugMenuTriggerButton relative"
+      className="copilotKitDebugMenuTriggerButton cpk:relative"
       aria-label="Open Help"
     >
       Help
@@ -45,26 +45,26 @@ export function CopilotKitHelpModal() {
       {showHelpModal && (
         <div
           ref={popoverRef}
-          className="absolute mt-2 z-50"
+          className="cpk:absolute cpk:mt-2 cpk:z-50"
           style={{
             top: "100%",
             right: "-120px",
             width: "380px",
           }}
         >
-          <div className="copilotKitHelpModal rounded-lg shadow-xl w-full p-4 flex-col relative">
+          <div className="copilotKitHelpModal cpk:rounded-lg cpk:shadow-xl cpk:w-full cpk:p-4 cpk:flex-col cpk:relative">
             <button
-              className="copilotKitHelpModalCloseButton absolute text-gray-400 hover:text-gray-600 focus:outline-none"
+              className="copilotKitHelpModalCloseButton cpk:absolute cpk:text-gray-400 cpk:hover:text-gray-600 cpk:focus:outline-none"
               style={{ top: "10px", right: "10px" }}
               onClick={() => setShowHelpModal(false)}
               aria-label="Close"
             >
               <CloseIcon />
             </button>
-            <div className="w-full flex mb-6 justify-center">
-              <h2 className="text-2xl font-bold">Help Options</h2>
+            <div className="cpk:w-full cpk:flex cpk:mb-6 cpk:justify-center">
+              <h2 className="cpk:text-2xl cpk:font-bold">Help Options</h2>
             </div>
-            <div className="space-y-4 mb-4">
+            <div className="cpk:space-y-4 cpk:mb-4">
               <div className="copilotKitHelpItemButton">
                 <a
                   href="https://docs.copilotkit.ai/coagents/troubleshooting/common-issues"

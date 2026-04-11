@@ -1,18 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useAgent, useCopilotChatConfiguration, useCopilotKit } from "../v2";
-import { CopilotKitError, parseJson } from "@copilotkit/shared";
-import { useCopilotContext } from "../context";
-import {
-  AbstractAgent,
-  AgentSubscriber,
-  AGUIConnectNotImplementedError,
-} from "@ag-ui/client";
-import { useErrorToast } from "./error-boundary/error-utils";
+import { parseJson } from "@copilotkit/shared";
+import { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import { useToast } from "./toast/toast-provider";
 import { CopilotKitLowLevelError } from "@copilotkit/shared";
 
-const usePredictStateSubscription = (agent?: AbstractAgent) => {
+const usePredictStateSubscription = (subscribedAgent?: AbstractAgent) => {
   const predictStateToolsRef = useRef<
     {
       tool: string;
@@ -50,14 +44,14 @@ const usePredictStateSubscription = (agent?: AbstractAgent) => {
   );
 
   useEffect(() => {
-    if (!agent) return;
+    if (!subscribedAgent) return;
 
-    const subscriber = getSubscriber(agent);
-    const { unsubscribe } = agent.subscribe(subscriber);
+    const subscriber = getSubscriber(subscribedAgent);
+    const { unsubscribe } = subscribedAgent.subscribe(subscriber);
     return () => {
       unsubscribe();
     };
-  }, [agent, getSubscriber]);
+  }, [subscribedAgent, getSubscriber]);
 };
 
 export function CopilotListeners() {
@@ -120,7 +114,7 @@ export function CopilotListeners() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [copilotkit?.subscribe]);
+  }, [copilotkit, setBannerError]);
 
   return null;
 }

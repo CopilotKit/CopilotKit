@@ -1067,12 +1067,12 @@ describe("HITL Thread Reconnection Bug", () => {
     // This is similar to the reconnection bug but without actual reconnection.
 
     const agent = new MockStepwiseAgent();
-    let showTool = false;
+    let _showTool = false;
     let setShowTool: (show: boolean) => void;
 
     const ToggleableHITL: React.FC = () => {
       const [show, setShow] = useState(false);
-      showTool = show;
+      _showTool = show;
       setShowTool = setShow;
 
       const hitlTool: ReactHumanInTheLoop<{ data: string }> = {

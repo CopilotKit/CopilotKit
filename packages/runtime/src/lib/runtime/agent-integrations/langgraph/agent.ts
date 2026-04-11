@@ -4,7 +4,7 @@ import { BaseEvent, RawEvent } from "@ag-ui/core";
 import {
   LangGraphAgent as AGUILangGraphAgent,
   LangGraphHttpAgent,
-  type LangGraphAgentConfig,
+  type LangGraphAgentConfig as _LangGraphAgentConfig,
   ProcessedEvents,
   SchemaKeys,
   type State,
@@ -32,10 +32,6 @@ import {
 export { CustomEventNames };
 
 export class LangGraphAgent extends AGUILangGraphAgent {
-  constructor(config: LangGraphAgentConfig) {
-    super(config);
-  }
-
   dispatchEvent(event: ProcessedEvents) {
     if (event.type === EventType.CUSTOM) {
       // const event = processedEvent as unknown as CustomEvent;

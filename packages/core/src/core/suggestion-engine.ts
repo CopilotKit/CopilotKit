@@ -1,4 +1,4 @@
-import { AbstractAgent, Message, Tool, Context } from "@ag-ui/client";
+import { AbstractAgent, Message, Tool } from "@ag-ui/client";
 import { randomUUID, partialJSONParse } from "@copilotkit/shared";
 import type { CopilotKitCore } from "./core";
 import type { CopilotKitCoreGetSuggestionsResult } from "./core";
@@ -174,7 +174,7 @@ export class SuggestionEngine {
 
       // Initialize suggestion storage for this agent/suggestion combo
       this._suggestions[consumerAgentId] = {
-        ...(this._suggestions[consumerAgentId] ?? {}),
+        ...this._suggestions[consumerAgentId],
         [suggestionId]: [],
       };
       this._runningSuggestions[consumerAgentId] = [
@@ -476,7 +476,7 @@ export class SuggestionEngine {
 
     // Store suggestions
     this._suggestions[consumerAgentId] = {
-      ...(this._suggestions[consumerAgentId] ?? {}),
+      ...this._suggestions[consumerAgentId],
       [suggestionId]: suggestions,
     };
 

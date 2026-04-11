@@ -18,8 +18,8 @@ export default function CopilotKitPage() {
         required: true,
       },
     ],
-    handler({ themeColor }) {
-      setThemeColor(themeColor);
+    handler({ themeColor: newThemeColor }) {
+      setThemeColor(newThemeColor);
     },
   });
 

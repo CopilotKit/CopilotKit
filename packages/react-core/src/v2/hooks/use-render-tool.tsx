@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import { defineToolCallRenderer } from "../types/defineToolCallRenderer";
@@ -156,26 +156,39 @@ export function useRenderTool<S extends StandardSchemaV1>(
   const { copilotkit } = useCopilotKit();
   const extraDeps = deps ?? EMPTY_DEPS;
 
+  // Store config in a ref so the effect always reads the latest value
+  // without needing `config` (an inline object) in the dependency array.
+  const configRef = useRef(config);
+  configRef.current = config;
+
+  // Serialize extraDeps so the dependency array is statically analyzable.
+  const extraDepsKey = JSON.stringify(extraDeps);
+
   useEffect(() => {
+    const currentConfig = configRef.current;
     // Build the ReactToolCallRenderer via defineToolCallRenderer
     const renderer =
-      config.name === "*" && !config.parameters
+      currentConfig.name === "*" && !currentConfig.parameters
         ? defineToolCallRenderer({
             name: "*",
             render: (props) =>
-              config.render({ ...props, parameters: props.args }),
-            ...(config.agentId ? { agentId: config.agentId } : {}),
+              currentConfig.render({ ...props, parameters: props.args }),
+            ...(currentConfig.agentId
+              ? { agentId: currentConfig.agentId }
+              : {}),
           })
         : defineToolCallRenderer({
-            name: config.name,
-            args: config.parameters!,
+            name: currentConfig.name,
+            args: currentConfig.parameters!,
             render: (props) =>
-              config.render({ ...props, parameters: props.args }),
-            ...(config.agentId ? { agentId: config.agentId } : {}),
+              currentConfig.render({ ...props, parameters: props.args }),
+            ...(currentConfig.agentId
+              ? { agentId: currentConfig.agentId }
+              : {}),
           });
 
     copilotkit.addHookRenderToolCall(renderer);
 
     // No cleanup removal — keeps renderer for chat history, same as useFrontendTool
-  }, [config.name, copilotkit, extraDeps.length, ...extraDeps]);
+  }, [config.name, copilotkit, extraDepsKey]);
 }

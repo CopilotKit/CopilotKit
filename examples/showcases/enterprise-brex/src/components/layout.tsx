@@ -24,6 +24,14 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
+function getInitials(name: string) {
+  return (name || "X Y")
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
+}
+
 function UserNavigation({
   availableUsers,
   currentUser,
@@ -33,14 +41,6 @@ function UserNavigation({
   currentUser: Member;
   onChangeUser: (user: Member) => void;
 }) {
-  const getInitials = (name: string) => {
-    return (name || "X Y")
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase();
-  };
-
   return (
     <div className="flex flex-col items-center space-y-4">
       <Popover>

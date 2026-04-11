@@ -1,5 +1,3 @@
-import React, { useState } from "react";
-
 interface PerformResearchSwitchProps {
   isEnabled: boolean;
   setIsEnabled: (fn: (b: boolean) => boolean) => void;

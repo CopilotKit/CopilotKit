@@ -70,21 +70,21 @@ export function usePopulateCopilotTextareaRef(
     };
 
     class CustomMethods {
-      constructor(private editor: CustomEditor) {}
+      constructor(private innerEditor: CustomEditor) {}
 
       focus() {
-        ReactEditor.focus(this.editor);
+        ReactEditor.focus(this.innerEditor);
       }
 
       blur() {
-        ReactEditor.blur(this.editor);
+        ReactEditor.blur(this.innerEditor);
       }
 
       get value() {
-        return getFullEditorTextWithNewlines(this.editor);
+        return getFullEditorTextWithNewlines(this.innerEditor);
       }
       set value(value: string) {
-        replaceEditorText(this.editor, value);
+        replaceEditorText(this.innerEditor, value);
       }
     }
 

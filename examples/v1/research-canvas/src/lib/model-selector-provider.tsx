@@ -16,6 +16,12 @@ const ModelSelectorContext = createContext<
   ModelSelectorContextType | undefined
 >(undefined);
 
+function _setModel(newModel: string) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("coAgentsModel", newModel);
+  window.location.href = url.toString();
+}
+
 export const ModelSelectorProvider = ({
   children,
 }: {
@@ -27,12 +33,6 @@ export const ModelSelectorProvider = ({
       : (new URL(window.location.href).searchParams.get("coAgentsModel") ??
         "openai");
   const [hidden, setHidden] = useState<boolean>(false);
-
-  const setModel = (model: string) => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("coAgentsModel", model);
-    window.location.href = url.toString();
-  };
 
   const lgcDeploymentUrl =
     globalThis.window === undefined

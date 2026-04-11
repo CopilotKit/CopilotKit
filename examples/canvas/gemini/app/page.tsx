@@ -10,7 +10,7 @@ export default function GoogleDeepMindChatUI() {
   useEffect(() => {
     updateLayout({ agent: "post_generation_agent" });
     router.push("/post-generator");
-  }, [router]);
+  }, [router, updateLayout]);
 
   return <></>;
 }

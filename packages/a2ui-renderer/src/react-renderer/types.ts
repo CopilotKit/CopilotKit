@@ -26,11 +26,13 @@ export interface A2UIComponentProps<T = any> {
 }
 
 /** @deprecated - v0.9 components are loaded by the catalog. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export type ComponentLoader<T = any> = () => Promise<{
   default: any;
 }>;
 
 /** @deprecated - v0.9 uses Catalog instead of ComponentRegistration. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export interface ComponentRegistration<T = any> {
   component: any;
   lazy?: boolean;

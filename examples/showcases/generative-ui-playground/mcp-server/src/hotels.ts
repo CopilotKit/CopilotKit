@@ -168,7 +168,7 @@ function generateHotelsForCity(city: City): Hotel[] {
 
     const rooms: Room[] = (
       ["standard", "deluxe", "suite", "penthouse", "family"] as RoomType[]
-    ).map((type, roomIndex) => {
+    ).map((type, _roomIndex) => {
       const template = ROOM_TYPES[type];
       const multiplier =
         type === "penthouse"

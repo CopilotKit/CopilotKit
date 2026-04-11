@@ -372,8 +372,10 @@ export function CopilotChatMessageView({
   useEffect(() => {
     setInterruptElement(copilotkit.interruptElement);
     const subscription = copilotkit.subscribe({
-      onInterruptElementChanged: ({ interruptElement }) => {
-        setInterruptElement(interruptElement);
+      onInterruptElementChanged: ({
+        interruptElement: changedInterruptElement,
+      }) => {
+        setInterruptElement(changedInterruptElement);
       },
     });
     return () => subscription.unsubscribe();

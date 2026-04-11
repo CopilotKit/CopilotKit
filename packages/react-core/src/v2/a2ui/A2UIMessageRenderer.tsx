@@ -147,18 +147,18 @@ function ReactSurfaceHost({
     async (message: A2UIClientEventMessage) => {
       if (!agent) return;
 
-      const action = message.userAction as A2UIUserAction | undefined;
+      const _action = message.userAction as A2UIUserAction | undefined;
 
       try {
         copilotkit.setProperties({
-          ...(copilotkit.properties ?? {}),
+          ...copilotkit.properties,
           a2uiAction: message,
         });
 
         await copilotkit.runAgent({ agent });
       } finally {
         if (copilotkit.properties) {
-          const { a2uiAction, ...rest } = copilotkit.properties;
+          const { a2uiAction: _a2uiAction, ...rest } = copilotkit.properties;
           copilotkit.setProperties(rest);
         }
       }

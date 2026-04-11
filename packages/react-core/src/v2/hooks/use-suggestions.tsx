@@ -26,8 +26,8 @@ export function useSuggestions({
   );
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>(() => {
-    const result = copilotkit.getSuggestions(resolvedAgentId);
-    return result.suggestions;
+    const initialResult = copilotkit.getSuggestions(resolvedAgentId);
+    return initialResult.suggestions;
   });
   const [isLoading, setIsLoading] = useState(() => {
     const result = copilotkit.getSuggestions(resolvedAgentId);
@@ -42,11 +42,14 @@ export function useSuggestions({
 
   useEffect(() => {
     const subscription = copilotkit.subscribe({
-      onSuggestionsChanged: ({ agentId: changedAgentId, suggestions }) => {
+      onSuggestionsChanged: ({
+        agentId: changedAgentId,
+        suggestions: changedSuggestions,
+      }) => {
         if (changedAgentId !== resolvedAgentId) {
           return;
         }
-        setSuggestions(suggestions);
+        setSuggestions(changedSuggestions);
       },
       onSuggestionsStartedLoading: ({ agentId: changedAgentId }) => {
         if (changedAgentId !== resolvedAgentId) {

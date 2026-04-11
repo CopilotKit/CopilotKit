@@ -10,6 +10,19 @@ interface CreateSseEventResponseParams {
     | Observable<BaseEvent>;
 }
 
+const logError = (error: unknown) => {
+  console.error("Error running agent:", error);
+  console.error(
+    "Error stack:",
+    error instanceof Error ? error.stack : "No stack trace",
+  );
+  console.error("Error details:", {
+    name: error instanceof Error ? error.name : "Unknown",
+    message: error instanceof Error ? error.message : String(error),
+    cause: error instanceof Error ? error.cause : undefined,
+  });
+};
+
 export function createSseEventResponse({
   request,
   observableFactory,
@@ -28,19 +41,6 @@ export function createSseEventResponse({
         // Stream already closed.
       }
     }
-  };
-
-  const logError = (error: unknown) => {
-    console.error("Error running agent:", error);
-    console.error(
-      "Error stack:",
-      error instanceof Error ? error.stack : "No stack trace",
-    );
-    console.error("Error details:", {
-      name: error instanceof Error ? error.name : "Unknown",
-      message: error instanceof Error ? error.message : String(error),
-      cause: error instanceof Error ? error.cause : undefined,
-    });
   };
 
   let subscription: Subscription | undefined;

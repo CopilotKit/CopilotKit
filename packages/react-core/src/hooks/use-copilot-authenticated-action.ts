@@ -60,7 +60,13 @@ export function useCopilotAuthenticatedAction_c<T extends Parameter[]>(
 
       return executeAction(props);
     },
-    [action, authStates_c, setAuthStates_c],
+    [
+      action,
+      authStates_c,
+      setAuthStates_c,
+      authConfig_c?.SignInComponent,
+      executeAction,
+    ],
   );
 
   useCopilotAction(

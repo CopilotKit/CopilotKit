@@ -609,7 +609,7 @@ export class RunHandler {
 
     let toolCallResult = "";
     let errorMessage: string | undefined;
-    let isArgumentError = false;
+    let _isArgumentError = false;
 
     if (wildcardTool?.handler) {
       let parsedArgs: unknown;
@@ -622,7 +622,7 @@ export class RunHandler {
         const parseError =
           error instanceof Error ? error : new Error(String(error));
         errorMessage = parseError.message;
-        isArgumentError = true;
+        _isArgumentError = true;
         await this._internal.emitError({
           error: parseError,
           code: CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED,
@@ -949,7 +949,7 @@ function createToolSchema(tool: FrontendTool<any>): Record<string, unknown> {
     return { ...EMPTY_TOOL_SCHEMA };
   }
 
-  const { $schema, ...schema } = rawSchema as Record<string, unknown>;
+  const { $schema: _$schema, ...schema } = rawSchema as Record<string, unknown>;
 
   if (typeof schema.type !== "string") {
     schema.type = "object";

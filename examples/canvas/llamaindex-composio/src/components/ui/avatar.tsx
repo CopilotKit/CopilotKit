@@ -24,6 +24,7 @@ const AvatarImage = React.forwardRef<
   React.ElementRef<"img">,
   React.ImgHTMLAttributes<HTMLImageElement>
 >(({ className, alt = "", ...props }, ref) => (
+  // eslint-disable-next-line @next/next/no-img-element
   <img
     ref={ref}
     alt={alt}

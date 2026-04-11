@@ -24,6 +24,7 @@ const VisualRepresentation = () => {
   const { fitView } = useReactFlow();
 
   // This effect calculates nodes/edges based on todos
+  /* eslint-disable react-hooks/exhaustive-deps -- nodes is read for position preservation but adding it would cause infinite loop since setNodes updates nodes */
   useEffect(() => {
     console.log("Calculating nodes/edges based on todos:", todos);
     const units: Node[] = todos.flatMap((item) => {
@@ -35,10 +36,10 @@ const VisualRepresentation = () => {
           position: {
             x:
               nodes.find((node) => node.id.toString() === item.id.toString())
-                ?.position.x || 0 * 100,
+                ?.position.x || 0,
             y:
               nodes.find((node) => node.id.toString() === item.id.toString())
-                ?.position.y || 0 * 100,
+                ?.position.y || 0,
           },
           type: "ParentNode",
         },
@@ -68,7 +69,7 @@ const VisualRepresentation = () => {
       return [...arr];
     });
     setNodes(units);
-    const edges: Edge[] = todos.flatMap((item) => {
+    const computedEdges: Edge[] = todos.flatMap((item) => {
       if (!item.expanded && todos.length != 1) return [];
       if (item.subtasks.length > 0) {
         let arr = [];
@@ -85,8 +86,9 @@ const VisualRepresentation = () => {
       }
       return [];
     });
-    setEdges(edges);
-  }, [todos]);
+    setEdges(computedEdges);
+  }, [todos, setNodes, setEdges]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   // This separate effect calls fitView when nodes change
   useEffect(() => {

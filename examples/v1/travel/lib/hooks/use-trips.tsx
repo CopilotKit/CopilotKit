@@ -35,9 +35,12 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
 
   useCoAgentStateRender<AgentState>({
     name: "travel",
-    render: ({ state }) => {
-      if (state.search_progress && state.search_progress.length > 0) {
-        return <SearchProgress progress={state.search_progress} />;
+    render: ({ state: renderState }) => {
+      if (
+        renderState.search_progress &&
+        renderState.search_progress.length > 0
+      ) {
+        return <SearchProgress progress={renderState.search_progress} />;
       }
       return null;
     },

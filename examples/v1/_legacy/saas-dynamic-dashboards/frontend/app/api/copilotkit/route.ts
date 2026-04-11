@@ -13,7 +13,7 @@ const serviceAdapter = new OpenAIAdapter();
 export const POST = async (req: NextRequest) => {
   // console.log("req", req);
   const runtime = new CopilotRuntime({
-    actions: ({ properties, url }) => {
+    actions: ({ properties: _properties, url: _url }) => {
       return [
         {
           name: "fetchData_allPRData",

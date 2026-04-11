@@ -111,14 +111,14 @@ export default function Cart() {
     value: JSON.stringify(cartItems),
   });
 
-  const total = Object.values(cartItems).reduce((total, cartItem) => {
+  const total = Object.values(cartItems).reduce((acc, cartItem) => {
     const inventoryItem = allInventory[cartItem.itemId];
     invariant(inventoryItem, "item not found in inventory");
     const quantity = cartItem.quantity;
     const priceInCents = inventoryItem.priceInCents;
     const multipliedPrice = quantity * priceInCents;
 
-    return total + multipliedPrice;
+    return acc + multipliedPrice;
   }, 0);
 
   if (!Object.keys(cartItems).length) {

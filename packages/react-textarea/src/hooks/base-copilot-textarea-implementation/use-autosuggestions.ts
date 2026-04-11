@@ -156,6 +156,7 @@ export function useAutosuggestions(
       setCurrentAutocompleteSuggestion,
       insertAutocompleteSuggestion,
       shouldAcceptAutosuggestionOnKeyPress,
+      shouldAcceptAutosuggestionOnTouch,
     ],
   );
 

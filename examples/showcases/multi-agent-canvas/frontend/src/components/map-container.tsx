@@ -164,7 +164,7 @@ export default function MapComponent() {
             const isExecuting = status === "executing";
             const pending = isLoading || isExecuting;
             const colorClass = pending ? "text-blue-600" : "text-emerald-600";
-            const Icon = pending ? Loader2 : CheckCircle;
+            const StatusIcon = pending ? Loader2 : CheckCircle;
             const message = isLoading
               ? "Adding Trips..."
               : isExecuting
@@ -174,7 +174,7 @@ export default function MapComponent() {
             return (
               <div className="flex items-start py-2 px-3">
                 <span className={colorClass}>
-                  <Icon
+                  <StatusIcon
                     className={`h-4 w-4 ${pending ? "animate-spin" : ""}`}
                   />
                 </span>

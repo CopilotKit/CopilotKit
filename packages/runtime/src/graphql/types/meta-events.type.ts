@@ -1,17 +1,10 @@
 import {
-  createUnionType,
   Field,
   InterfaceType,
   ObjectType,
   registerEnumType,
 } from "type-graphql";
-import {
-  ActionExecutionMessageOutput,
-  AgentStateMessageOutput,
-  BaseMessageOutput,
-  ResultMessageOutput,
-  TextMessageOutput,
-} from "./copilot-response.type";
+import { BaseMessageOutput } from "./copilot-response.type";
 
 export enum MetaEventName {
   LangGraphInterruptEvent = "LangGraphInterruptEvent",
@@ -36,7 +29,7 @@ registerEnumType(MetaEventName, {
 @InterfaceType()
 export abstract class BaseMetaEvent {
   @Field(() => String)
-  type: "MetaEvent" = "MetaEvent";
+  type = "MetaEvent" as const;
 
   @Field(() => MetaEventName)
   name: MetaEventName;

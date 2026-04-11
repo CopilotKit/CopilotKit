@@ -215,7 +215,7 @@ const requireChangesetsCliPkgJson = (cwd: string) => {
       err.code === "MODULE_NOT_FOUND"
     ) {
       throw new Error(
-        `Have you forgotten to install \`@changesets/cli\` in "${cwd}"?`,
+        `Have you forgotten to install \`@changesets/cli\` in "${cwd}"?`, { cause: err },
       );
     }
     throw err;
@@ -248,7 +248,7 @@ export async function getVersionPrBody({
       : `publish to npm yourself or [setup this action to publish automatically](https://github.com/changesets/action#with-publishing)`
   }. If you're not ready to do a release yet, that's fine, whenever you add more changesets to ${branch}, this PR will be updated.
 `;
-  let messagePrestate = !!preState
+  let messagePrestate = preState
     ? `⚠️⚠️⚠️⚠️⚠️⚠️
 
 \`${branch}\` is currently in **pre mode** so this branch has prereleases rather than normal releases. If you want to exit prereleases, run \`changeset pre exit\` on \`${branch}\`.
@@ -318,7 +318,7 @@ export async function runVersion({
 }: VersionOptions): Promise<RunVersionResult> {
   const octokit = setupOctokit(githubToken);
 
-  let repo = `${github.context.repo.owner}/${github.context.repo.repo}`;
+  let _repo = `${github.context.repo.owner}/${github.context.repo.repo}`;
   branch = branch ?? github.context.ref.replace("refs/heads/", "");
   let versionBranch = `changeset-release/${branch}`;
 
@@ -366,13 +366,13 @@ export async function runVersion({
     }),
   );
 
-  const finalPrTitle = `${prTitle}${!!preState ? ` (${preState.tag})` : ""}`;
+  const finalPrTitle = `${prTitle}${preState ? ` (${preState.tag})` : ""}`;
   const isNext = preState?.tag === "next";
 
   // project with `commit: true` setting could have already committed files
   if (!(await gitUtils.checkIfClean())) {
     const finalCommitMessage = `${commitMessage}${
-      !!preState ? ` (${preState.tag})` : ""
+      preState ? ` (${preState.tag})` : ""
     }`;
     await gitUtils.commitAll(finalCommitMessage);
   }

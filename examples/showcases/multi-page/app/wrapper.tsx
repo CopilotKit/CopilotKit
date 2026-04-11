@@ -98,9 +98,9 @@ const Wrapper: FC<WrapperProps> = ({ children }: WrapperProps) => {
         required: true,
       },
     ],
-    handler: async ({ address }) => {
+    handler: async ({ address: newAddress }) => {
       return fetcher.submit(
-        { address },
+        { address: newAddress },
         { method: "post", action: "/settings" },
       );
     },

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/angular";
 import { moduleMetadata } from "@storybook/angular";
 import { CommonModule } from "@angular/common";
-import { Component, Injectable, Input, signal } from "@angular/core";
+import { Component, Injectable, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import {
   CopilotChatView,
@@ -12,6 +12,10 @@ import {
   provideCopilotKit,
 } from "@copilotkit/angular";
 import { Message } from "@ag-ui/client";
+
+function handleScroll(onClick: () => void) {
+  onClick();
+}
 
 @Injectable()
 class StoryChatState extends ChatState {
@@ -248,11 +252,6 @@ export const CustomScrollButtonTemplate: Story = {
         role: i % 2 === 0 ? "user" : "assistant",
       } as Message);
     }
-
-    // Simple click handler without DOM manipulation
-    const handleScroll = (onClick: () => void) => {
-      onClick();
-    };
 
     return {
       template: `

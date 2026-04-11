@@ -246,11 +246,17 @@ function useStableArrayProp<T>(
   const value = prop ?? empty;
   const initial = useRef(value);
 
+  // Store in a ref to avoid re-triggering the effect when the function reference changes.
+  const isMeaningfulChangeRef = useRef(isMeaningfulChange);
+  isMeaningfulChangeRef.current = isMeaningfulChange;
+
   useEffect(() => {
     if (
       warningMessage &&
       value !== initial.current &&
-      (isMeaningfulChange ? isMeaningfulChange(initial.current, value) : true)
+      (isMeaningfulChangeRef.current
+        ? isMeaningfulChangeRef.current(initial.current, value)
+        : true)
     ) {
       console.error(warningMessage);
     }
@@ -267,7 +273,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   credentials,
   publicApiKey,
   publicLicenseKey,
-  licenseToken,
+  licenseToken: _licenseToken,
   properties = {},
   agents__unsafe_dev_only: agents = {},
   selfManagedAgents = {},

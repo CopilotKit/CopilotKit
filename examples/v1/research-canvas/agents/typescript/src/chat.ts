@@ -110,9 +110,9 @@ export async function chat_node(state: AgentState, config: RunnableConfig) {
 
   if (aiMessage.tool_calls && aiMessage.tool_calls.length > 0) {
     if (aiMessage.tool_calls[0].name === "WriteReport") {
-      const report = aiMessage.tool_calls[0].args.report;
+      const newReport = aiMessage.tool_calls[0].args.report;
       return {
-        report,
+        report: newReport,
         messages: [
           aiMessage,
           new ToolMessage({
@@ -123,9 +123,10 @@ export async function chat_node(state: AgentState, config: RunnableConfig) {
         ],
       };
     } else if (aiMessage.tool_calls[0].name === "WriteResearchQuestion") {
-      const researchQuestion = aiMessage.tool_calls[0].args.research_question;
+      const newResearchQuestion =
+        aiMessage.tool_calls[0].args.research_question;
       return {
-        research_question: researchQuestion,
+        research_question: newResearchQuestion,
         messages: [
           aiMessage,
           new ToolMessage({

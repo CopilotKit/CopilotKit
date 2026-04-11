@@ -108,7 +108,7 @@ async function isLangGraphPlatformEndpoint(
         offset: 0,
       }),
     });
-  } catch (error) {
+  } catch {
     return false;
   }
 
@@ -143,7 +143,7 @@ async function isLangGraphFastAPIEndpoint(url: string): Promise<boolean> {
     response = await fetch(`${url}/health`, {
       method: "GET",
     });
-  } catch (error) {
+  } catch {
     return false;
   }
 
@@ -161,7 +161,7 @@ async function isCopilotKitEndpoint(
       method: "POST",
       body: JSON.stringify({}),
     });
-  } catch (error) {
+  } catch {
     return false;
   }
 

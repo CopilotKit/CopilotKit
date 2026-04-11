@@ -77,8 +77,8 @@ export function DestinationTable({
       handler: async ({ destinationName }) => {
         setCheckedRows((prevState) => {
           const newState = { ...prevState };
-          [destinationName].forEach((destinationName) => {
-            newState[destinationName] = true;
+          [destinationName].forEach((name) => {
+            newState[name] = true;
           });
           return newState;
         });

@@ -7,7 +7,6 @@ import {
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
   RUNTIME_MODE_SSE,
-  RUNTIME_MODE_INTELLIGENCE,
 } from "@copilotkit/shared";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
 import type { CopilotKitCore } from "./core";

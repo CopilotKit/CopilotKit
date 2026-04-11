@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { BasicAgent, type MCPClientProvider } from "../index";
 import { EventType, type RunAgentInput } from "@ag-ui/client";
-import { streamText, type ToolSet } from "ai";
+import { streamText } from "ai";
 import {
   mockStreamTextResponse,
   textDelta,

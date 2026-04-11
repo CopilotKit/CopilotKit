@@ -1,7 +1,7 @@
 import { ButtonProps } from "./props";
 import { useChatContext } from "./ChatContext";
 
-export const Button = ({}: ButtonProps) => {
+export const Button = (_props: ButtonProps) => {
   const { open, setOpen, icons } = useChatContext();
 
   return (

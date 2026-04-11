@@ -17,6 +17,9 @@ export function useMakeCopilotDocumentReadable(
   const { addDocumentContext, removeDocumentContext } = useCopilotContext();
   const idRef = useRef<string>(undefined!);
 
+  // Serialize caller-provided dependencies so the dependency array is statically analyzable.
+  const depsKey = JSON.stringify(dependencies);
+
   useEffect(() => {
     const id = addDocumentContext(document, categories);
     idRef.current = id;
@@ -24,7 +27,13 @@ export function useMakeCopilotDocumentReadable(
     return () => {
       removeDocumentContext(id);
     };
-  }, [addDocumentContext, removeDocumentContext, ...dependencies]);
+  }, [
+    addDocumentContext,
+    removeDocumentContext,
+    document,
+    categories,
+    depsKey,
+  ]);
 
   return idRef.current;
 }

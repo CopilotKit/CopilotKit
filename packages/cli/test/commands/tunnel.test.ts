@@ -127,7 +127,7 @@ describe("tunnel", () => {
 
     process.once("mockExit", () => {
       try {
-        expect(mockTunnel.close).to.have.been.called;
+        expect(mockTunnel.close.called).to.equal(true);
         done();
       } catch (error) {
         done(error);

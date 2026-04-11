@@ -67,7 +67,7 @@ export function CopilotPopupView({
 
 function CopilotPopupViewInternal({
   header,
-  toggleButton,
+  toggleButton: toggleButtonSlot,
   width,
   height,
   clickOutsideToClose,
@@ -178,8 +178,8 @@ function CopilotPopupViewInternal({
     [header],
   );
   const toggleButtonElement = useMemo(
-    () => renderSlot(toggleButton, CopilotChatToggleButton, {}),
-    [toggleButton],
+    () => renderSlot(toggleButtonSlot, CopilotChatToggleButton, {}),
+    [toggleButtonSlot],
   );
 
   const resolvedWidth = dimensionToCss(width, DEFAULT_POPUP_WIDTH);

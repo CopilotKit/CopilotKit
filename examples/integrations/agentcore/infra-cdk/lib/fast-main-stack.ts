@@ -44,59 +44,59 @@ export class FastMainStack extends cdk.Stack {
     });
 
     // Outputs
-    new cdk.CfnOutput(this, "AmplifyAppId", {
+    void new cdk.CfnOutput(this, "AmplifyAppId", {
       value: this.amplifyHostingStack.amplifyApp.appId,
       description: "Amplify App ID - use this for manual deployment",
       exportName: `${props.config.stack_name_base}-AmplifyAppId`,
     });
 
-    new cdk.CfnOutput(this, "CognitoUserPoolId", {
+    void new cdk.CfnOutput(this, "CognitoUserPoolId", {
       value: this.cognitoStack.userPoolId,
       description: "Cognito User Pool ID",
       exportName: `${props.config.stack_name_base}-CognitoUserPoolId`,
     });
 
-    new cdk.CfnOutput(this, "CognitoClientId", {
+    void new cdk.CfnOutput(this, "CognitoClientId", {
       value: this.cognitoStack.userPoolClientId,
       description: "Cognito User Pool Client ID",
       exportName: `${props.config.stack_name_base}-CognitoClientId`,
     });
 
-    new cdk.CfnOutput(this, "CognitoDomain", {
+    void new cdk.CfnOutput(this, "CognitoDomain", {
       value: `${this.cognitoStack.userPoolDomain.domainName}.auth.${cdk.Aws.REGION}.amazoncognito.com`,
       description: "Cognito Domain for OAuth",
       exportName: `${props.config.stack_name_base}-CognitoDomain`,
     });
 
-    new cdk.CfnOutput(this, "RuntimeArn", {
+    void new cdk.CfnOutput(this, "RuntimeArn", {
       value: this.backendStack.runtimeArn,
       description: "AgentCore Runtime ARN",
       exportName: `${props.config.stack_name_base}-RuntimeArn`,
     });
 
-    new cdk.CfnOutput(this, "MemoryArn", {
+    void new cdk.CfnOutput(this, "MemoryArn", {
       value: this.backendStack.memoryArn,
       description: "AgentCore Memory ARN",
       exportName: `${props.config.stack_name_base}-MemoryArn`,
     });
 
-    new cdk.CfnOutput(this, "CopilotKitRuntimeUrl", {
+    void new cdk.CfnOutput(this, "CopilotKitRuntimeUrl", {
       value: this.backendStack.copilotKitRuntimeUrl,
       description: "CopilotKit runtime API URL",
       exportName: `${props.config.stack_name_base}-CopilotKitRuntimeUrl`,
     });
 
-    new cdk.CfnOutput(this, "AmplifyConsoleUrl", {
+    void new cdk.CfnOutput(this, "AmplifyConsoleUrl", {
       value: `https://console.aws.amazon.com/amplify/apps/${this.amplifyHostingStack.amplifyApp.appId}`,
       description: "Amplify Console URL for monitoring deployments",
     });
 
-    new cdk.CfnOutput(this, "AmplifyUrl", {
+    void new cdk.CfnOutput(this, "AmplifyUrl", {
       value: this.amplifyHostingStack.amplifyUrl,
       description: "Amplify Frontend URL (available after deployment)",
     });
 
-    new cdk.CfnOutput(this, "StagingBucketName", {
+    void new cdk.CfnOutput(this, "StagingBucketName", {
       value: this.amplifyHostingStack.stagingBucket.bucketName,
       description: "S3 bucket for Amplify deployment staging",
       exportName: `${props.config.stack_name_base}-StagingBucket`,

@@ -1,9 +1,4 @@
-import {
-  ActionExecutionMessage,
-  Message,
-  ResultMessage,
-  TextMessage,
-} from "../../graphql/types/converted";
+import { Message } from "../../graphql/types/converted";
 import {
   AIMessage,
   AIMessageChunk,
@@ -75,18 +70,6 @@ interface StreamLangChainResponseParams {
     name: string;
     returnDirect?: boolean;
   };
-}
-
-function getConstructorName(object: any): string {
-  if (
-    object &&
-    typeof object === "object" &&
-    object.constructor &&
-    object.constructor.name
-  ) {
-    return object.constructor.name;
-  }
-  return "";
 }
 
 function isAIMessage(message: any): message is AIMessage {
@@ -172,7 +155,7 @@ export async function streamLangChainResponse({
       eventStream$.sendTextMessage(randomId(), result.content as string);
     }
     if (result.lc_kwargs?.tool_calls) {
-      for (const toolCall of result.lc_kwargs?.tool_calls) {
+      for (const toolCall of result.lc_kwargs?.tool_calls ?? []) {
         eventStream$.sendActionExecution({
           actionExecutionId: toolCall.id || randomId(),
           actionName: toolCall.name,

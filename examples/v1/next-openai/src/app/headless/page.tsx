@@ -126,7 +126,7 @@ function ChatApp() {
     sendMessage,
     interrupt,
     isLoading,
-    generateSuggestions,
+    generateSuggestions: _generateSuggestions,
   } = useCopilotChatHeadless_c();
   const [newMessage, setNewMessage] = useState("");
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
@@ -363,7 +363,7 @@ function ChatApp() {
         },
       );
     },
-    [sendMessage, setSuggestions, generateSuggestions],
+    [sendMessage],
   );
 
   useEffect(() => {
@@ -382,7 +382,7 @@ function ChatApp() {
         message: "Please call the Human-in-the-loop tool",
       },
     ]);
-  }, []);
+  }, [setSuggestions]);
 
   const handleSendMessage = useCallback(() => {
     if (newMessage.trim()) {

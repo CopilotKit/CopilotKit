@@ -15,7 +15,6 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   CheckIcon,
   ChevronDownIcon,
-  CopilotKitIcon,
   ExclamationMarkIcon,
   ExclamationMarkTriangleIcon,
 } from "./icons";
@@ -50,10 +49,11 @@ export function CopilotDevConsole() {
   const [versionStatus, setVersionStatus] = useState<VersionStatus>("unknown");
   const [latestVersion, setLatestVersion] = useState<string>("");
   const consoleRef = useRef<HTMLDivElement>(null);
-  const [debugButtonMode, setDebugButtonMode] = useState<"full" | "compact">(
+  const [debugButtonMode, _setDebugButtonMode] = useState<"full" | "compact">(
     "full",
   );
 
+  const checkForUpdatesRef = useRef<(force?: boolean) => void>(() => {});
   const checkForUpdates = (force: boolean = false) => {
     setVersionStatus("checking");
 
@@ -82,6 +82,7 @@ export function CopilotDevConsole() {
         setVersionStatus("unknown");
       });
   };
+  checkForUpdatesRef.current = checkForUpdates;
 
   useEffect(() => {
     if (dontRunTwiceInDevMode.current === true) {
@@ -89,7 +90,7 @@ export function CopilotDevConsole() {
     }
     dontRunTwiceInDevMode.current = true;
 
-    checkForUpdates();
+    checkForUpdatesRef.current();
   }, []);
 
   if (!showDevConsole) {
@@ -137,29 +138,29 @@ function VersionInfo({
 }) {
   const [copyStatus, setCopyStatus] = useState<string>("");
 
-  let versionLabel = "";
+  let _versionLabel = "";
   let versionIcon: any = "";
   let currentVersionLabel = currentVersion;
 
   if (versionStatus === "latest") {
-    versionLabel = "latest";
+    _versionLabel = "latest";
     versionIcon = CheckIcon;
   } else if (versionStatus === "checking") {
-    versionLabel = "checking";
+    _versionLabel = "checking";
     versionIcon = SmallSpinnerIcon;
   } else if (versionStatus === "update-available") {
-    versionLabel = "update available";
+    _versionLabel = "update available";
     versionIcon = ExclamationMarkIcon;
     currentVersionLabel = `${currentVersion} → ${latestVersion}`;
   } else if (versionStatus === "outdated") {
-    versionLabel = "outdated";
+    _versionLabel = "outdated";
     versionIcon = ExclamationMarkTriangleIcon;
     currentVersionLabel = `${currentVersion} → ${latestVersion}`;
   }
 
-  let asideLabel = "";
+  let _asideLabel = "";
   if (showDevConsole === true) {
-    asideLabel = "(enabled)";
+    _asideLabel = "(enabled)";
   }
 
   const installCommand = [

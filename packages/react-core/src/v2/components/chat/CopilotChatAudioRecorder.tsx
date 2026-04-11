@@ -26,6 +26,17 @@ export interface AudioRecorderRef {
   dispose: () => void;
 }
 
+// Calculate RMS amplitude from time-domain data
+const calculateAmplitude = (dataArray: Uint8Array): number => {
+  let sum = 0;
+  for (let i = 0; i < dataArray.length; i++) {
+    // Normalize to -1 to 1 range (128 is center/silence)
+    const sample = (dataArray[i] ?? 128) / 128 - 1;
+    sum += sample * sample;
+  }
+  return Math.sqrt(sum / dataArray.length);
+};
+
 export const CopilotChatAudioRecorder = forwardRef<
   AudioRecorderRef,
   React.HTMLAttributes<HTMLDivElement>
@@ -174,17 +185,6 @@ export const CopilotChatAudioRecorder = forwardRef<
     });
   }, [recorderState, cleanup]);
 
-  // Calculate RMS amplitude from time-domain data
-  const calculateAmplitude = (dataArray: Uint8Array): number => {
-    let sum = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-      // Normalize to -1 to 1 range (128 is center/silence)
-      const sample = (dataArray[i] ?? 128) / 128 - 1;
-      sum += sample * sample;
-    }
-    return Math.sqrt(sum / dataArray.length);
-  };
-
   // Canvas rendering with animation
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -220,7 +220,10 @@ export const CopilotChatAudioRecorder = forwardRef<
       if (analyserRef.current && recorderState === "recording") {
         // Pre-fill history with zeros on first frame so line is visible immediately
         if (amplitudeHistoryRef.current.length === 0) {
-          amplitudeHistoryRef.current = new Array(maxBars).fill(0);
+          amplitudeHistoryRef.current = Array.from(
+            { length: maxBars },
+            () => 0,
+          );
         }
 
         // Fade in the waveform smoothly

@@ -9,18 +9,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { PRData, TestsData } from "@/app/Interfaces/interface";
+import { TestsData } from "@/app/Interfaces/interface";
 import React, { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import { codeSnippets } from "@/public/snippets";
-import { Checkbox } from "./ui/checkbox";
-import {
-  useCopilotAction,
-  ActionRenderPropsWait,
-} from "@copilotkit/react-core";
 import { PlayCircle, Loader2, CheckCircle2, XCircle } from "lucide-react";
-import { ChatGrid } from "./data-chat-grid";
 
 interface DataTableProps {
   columns: {
@@ -41,7 +34,7 @@ export function DataTable({
   testsData,
 }: DataTableProps) {
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
-  const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const [_selectedIndex, _setSelectedIndex] = useState<number>(0);
   const [testSuite, setTestSuite] = useState<TestsData[]>(data || []);
   const [testSuiteToMove, setTestSuiteToMove] = useState<TestsData[]>([]);
   const [testStatus, setTestStatus] = useState<{
@@ -50,11 +43,11 @@ export function DataTable({
   const [testCaseStatus, setTestCaseStatus] = useState<{
     [rowIndex: number]: string[];
   }>({});
-  const [snippetsHandler, setSnippetsHandler] = useState<TestsData[]>([]);
+  const [_snippetsHandler, _setSnippetsHandler] = useState<TestsData[]>([]);
   // Get all possible keys from data (assuming all rows have same keys)
   const allKeys = data.length > 0 ? Object.keys(data[0]) : [];
   const mainKeys = columns.map((col) => col.accessorKey);
-  const extraKeys = allKeys.filter((key) => !mainKeys.includes(key));
+  const _extraKeys = allKeys.filter((key) => !mainKeys.includes(key));
 
   useEffect(() => {
     setTestSuite(data);
@@ -69,7 +62,7 @@ export function DataTable({
   };
 
   // Handler for play icon
-  const runTest = (rowIndex: number, row: TestsData) => {
+  const runTest = (rowIndex: number, _row: TestsData) => {
     if (testStatus[rowIndex] === "running") return;
     setTestStatus((prev) => ({ ...prev, [rowIndex]: "running" }));
     setTestCaseStatus((prev) => ({

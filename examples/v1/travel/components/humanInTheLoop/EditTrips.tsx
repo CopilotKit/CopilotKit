@@ -13,6 +13,14 @@ export type EditTripsProps = {
   selectedTripId: string;
 };
 
+function getDelta(arr1: Place[], arr2: Place[]) {
+  const arr2Ids = new Set(arr2.map((item) => item.id));
+  const arr1Ids = new Set(arr1.map((item) => item.id));
+  const onlyInArr1 = arr1.filter((item) => !arr2Ids.has(item.id));
+  const onlyInArr2 = arr2.filter((item) => !arr1Ids.has(item.id));
+  return [...onlyInArr1, ...onlyInArr2];
+}
+
 export const EditTrips = ({
   args,
   status,
@@ -36,13 +44,6 @@ export const EditTrips = ({
     });
   };
 
-  function getDelta(arr1: Place[], arr2: Place[]) {
-    const arr2Ids = new Set(arr2.map((item) => item.id));
-    const arr1Ids = new Set(arr1.map((item) => item.id));
-    const onlyInArr1 = arr1.filter((item) => !arr2Ids.has(item.id));
-    const onlyInArr2 = arr2.filter((item) => !arr1Ids.has(item.id));
-    return [...onlyInArr1, ...onlyInArr2];
-  }
   return (
     <div className="space-y-4 w-full bg-secondary p-6 rounded-lg">
       {Array.isArray(args.trips) &&

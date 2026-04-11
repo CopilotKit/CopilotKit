@@ -21,7 +21,7 @@ export function ChatGrid({
   testSuite,
   setTestSuite,
   testCaseStatus,
-  setTestCaseStatus,
+  setTestCaseStatus: _setTestCaseStatus,
 }: {
   status: string;
   state: any;
@@ -53,7 +53,6 @@ export function ChatGrid({
 
   const handleSelectedAction = () => {
     // Handle the action for selected rows
-    debugger;
 
     // if (respond) {
     console.log("Selected rows:", selectedRows);

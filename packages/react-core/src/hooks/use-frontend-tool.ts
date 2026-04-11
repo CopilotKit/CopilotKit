@@ -51,9 +51,12 @@ export function useFrontendTool<const T extends Parameter[] = []>(
 
   const renderRef = useRef<typeof render>(render);
 
+  const effectDeps = dependencies ?? [];
+
   useEffect(() => {
     renderRef.current = render;
-  }, [render, ...(dependencies ?? [])]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [render, ...effectDeps]);
 
   const normalizedRender: FrontendToolOptions<T>["render"] | undefined =
     useMemo(() => {
@@ -88,6 +91,7 @@ export function useFrontendTool<const T extends Parameter[] = []>(
 
         return rendered ?? null;
       }) as FrontendToolOptions<T>["render"];
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally stable wrapper; delegates to renderRef
     }, []);
 
   // Handler ref to avoid stale closures
@@ -95,7 +99,8 @@ export function useFrontendTool<const T extends Parameter[] = []>(
 
   useEffect(() => {
     handlerRef.current = tool.handler;
-  }, [tool.handler, ...(dependencies ?? [])]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool.handler, ...effectDeps]);
 
   const normalizedHandler = tool.handler
     ? (args: MappedParameterTypes<T>) => handlerRef.current?.(args)

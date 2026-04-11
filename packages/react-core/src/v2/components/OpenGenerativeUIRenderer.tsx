@@ -426,7 +426,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       } else {
         pendingQueueRef.current.push(...newExprs);
       }
-    }, [content.jsExpressions?.length]);
+    }, [content.jsExpressions]);
 
     // Effect 4 — One-shot height measurement (fires once when generation completes)
     // Uses body.scrollHeight (not documentElement.scrollHeight) because the latter
@@ -577,7 +577,7 @@ export const OpenGenerativeUIToolRenderer: React.FC<
       setVisibleMessageIndex((i) => (i + 1) % messages.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, [messages?.length, props.status]);
+  }, [messages, props.status]);
 
   // Don't render anything once complete — the activity renderer handles the UI
   if (props.status === ToolCallStatus.Complete) return null;

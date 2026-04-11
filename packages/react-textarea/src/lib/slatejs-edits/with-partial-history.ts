@@ -1,4 +1,4 @@
-import { Editor, Operation, Path, Range, Transforms } from "slate";
+import { Editor, Operation, Path, Transforms } from "slate";
 import { HistoryEditor } from "slate-history";
 
 // Copy-pasted from `https://github.com/ianstormtaylor/slate/blob/main/packages/slate-history/src/with-history.ts`
@@ -49,7 +49,9 @@ export const withPartialHistory = <T extends Editor>(
 
       HistoryEditor.withoutSaving(e, () => {
         Editor.withoutNormalizing(e, () => {
-          const inverseOps = batch.operations.map(Operation.inverse).reverse();
+          const inverseOps = batch.operations
+            .map(Operation.inverse)
+            .toReversed();
 
           for (const op of inverseOps) {
             e.apply(op);
@@ -146,7 +148,7 @@ const shouldMerge = (op: Operation, prev: Operation | undefined): boolean => {
 
 export const defaultShouldSave = (
   op: Operation,
-  prev: Operation | undefined,
+  _prev: Operation | undefined,
 ): boolean => {
   if (op.type === "set_selection") {
     return false;

@@ -80,7 +80,7 @@ export function getCommonConfig(
     (process.env.LOG_LEVEL as LogLevel) ||
     (options.logLevel as LogLevel) ||
     "error";
-  const logger = createLogger({
+  const _logger = createLogger({
     level: logLevel,
     component: "getCommonConfig",
   });

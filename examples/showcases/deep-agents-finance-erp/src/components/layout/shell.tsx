@@ -58,8 +58,8 @@ const demoSuggestions = [
 
 function FinanceSidebarWelcomeScreen({
   input,
-  suggestionView,
-  welcomeMessage,
+  suggestionView: _suggestionView,
+  welcomeMessage: _welcomeMessage,
   className,
   ...props
 }: React.ComponentProps<typeof CopilotSidebarView.WelcomeScreen>) {

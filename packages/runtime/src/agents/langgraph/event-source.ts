@@ -92,7 +92,7 @@ export class RemoteLangGraphEventSource {
   }
 
   processLangGraphEvents() {
-    let lastEventWithState: LangGraphEventWithState | null = null;
+    let _lastEventWithState: LangGraphEventWithState | null = null;
 
     return this.eventStream$.pipe(
       scan(
@@ -130,7 +130,7 @@ export class RemoteLangGraphEventSource {
               });
           }
           acc.event = event;
-          lastEventWithState = acc; // Capture the state
+          _lastEventWithState = acc; // Capture the state
           return acc;
         },
         {

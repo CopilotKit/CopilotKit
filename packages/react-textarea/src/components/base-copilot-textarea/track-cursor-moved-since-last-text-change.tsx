@@ -10,6 +10,7 @@ interface TrackerTextEditedSinceLastCursorMovementProps {
 export function TrackerTextEditedSinceLastCursorMovement(
   props: TrackerTextEditedSinceLastCursorMovementProps,
 ) {
+  const { setCursorMovedSinceLastTextChange } = props;
   const cursorState: RelevantEditorState = useSlateSelector((state) => ({
     selection: state.selection,
     text: editorToText(state),
@@ -23,9 +24,9 @@ export function TrackerTextEditedSinceLastCursorMovement(
     }
 
     if (cursorChangedWithoutTextChanged(previousState, cursorState)) {
-      props.setCursorMovedSinceLastTextChange(true);
+      setCursorMovedSinceLastTextChange(true);
     }
-  }, [props.setCursorMovedSinceLastTextChange, cursorState]);
+  }, [setCursorMovedSinceLastTextChange, cursorState, previousState]);
 
   return <></>;
 }

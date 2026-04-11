@@ -36,8 +36,8 @@ export default function Home() {
         required: true,
       },
     ],
-    handler({ themeColor }) {
-      setThemeColor(themeColor);
+    handler({ themeColor: newThemeColor }) {
+      setThemeColor(newThemeColor);
     },
   });
 

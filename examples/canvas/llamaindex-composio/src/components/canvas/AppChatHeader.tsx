@@ -43,7 +43,7 @@ export function AppChatHeader({ onClose }: { onClose?: () => void }) {
   );
 }
 
-export function PopupHeader({}: HeaderProps) {
+export function PopupHeader(_props: HeaderProps) {
   const { setOpen } = useChatContext();
   return <AppChatHeader onClose={() => setOpen(false)} />;
 }

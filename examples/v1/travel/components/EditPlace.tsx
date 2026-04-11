@@ -22,8 +22,8 @@ export function EditPlace({ place, onOpenChange }: EditPlaceProps) {
 
   if (!selectedTrip) return null;
 
-  const handleEditPlace = (place: Place) => {
-    updatePlace(selectedTrip.id, place.id, place);
+  const handleEditPlace = (updatedPlace: Place) => {
+    updatePlace(selectedTrip.id, updatedPlace.id, updatedPlace);
 
     setDialogOpen(false);
     onOpenChange?.(false);

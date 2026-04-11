@@ -1,35 +1,9 @@
-import {
-  Action,
-  CopilotKitError,
-  CopilotKitErrorCode,
-  CopilotKitLowLevelError,
-  ensureStructuredError,
-  randomId,
-  Severity,
-} from "@copilotkit/shared";
-import { plainToInstance } from "class-transformer";
-import {
-  catchError,
-  concat,
-  concatMap,
-  EMPTY,
-  firstValueFrom,
-  from,
-  of,
-  ReplaySubject,
-  scan,
-  Subject,
-} from "rxjs";
-import { ActionInput } from "../graphql/inputs/action.input";
+import { ReplaySubject } from "rxjs";
 import {
   ActionExecutionMessage,
   ResultMessage,
   TextMessage,
 } from "../graphql/types/converted";
-import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
-import { generateHelpfulErrorMessage } from "../lib/streaming";
-import telemetry from "../lib/telemetry-client";
-import { streamLangChainResponse } from "./langchain/utils";
 
 export enum RuntimeEventTypes {
   TextMessageStart = "TextMessageStart",
@@ -120,22 +94,9 @@ export type RuntimeEvent =
   | RunTimeMetaEvent
   | RuntimeErrorEvent;
 
-interface RuntimeEventWithState {
-  event: RuntimeEvent | null;
-  callActionServerSide: boolean;
-  action: Action<any> | null;
-  actionExecutionId: string | null;
-  args: string;
-  actionExecutionParentMessageId: string | null;
-}
-
 type EventSourceCallback = (eventStream$: RuntimeEventSubject) => Promise<void>;
 
 export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
-  constructor() {
-    super();
-  }
-
   sendTextMessageStart({
     messageId,
     parentMessageId,
@@ -301,37 +262,4 @@ export class RuntimeEventSource {
   async stream(callback: EventSourceCallback): Promise<void> {
     this.callback = callback;
   }
-}
-
-function convertStreamingErrorToStructured(error: any): CopilotKitError {
-  // Determine a more helpful error message based on context
-  let helpfulMessage = generateHelpfulErrorMessage(
-    error,
-    "event streaming connection",
-  );
-
-  // For network-related errors, use CopilotKitLowLevelError to preserve the original error
-  if (
-    error?.message?.includes("fetch failed") ||
-    error?.message?.includes("ECONNREFUSED") ||
-    error?.message?.includes("ENOTFOUND") ||
-    error?.message?.includes("ETIMEDOUT") ||
-    error?.message?.includes("terminated") ||
-    error?.cause?.code === "UND_ERR_SOCKET" ||
-    error?.message?.includes("other side closed") ||
-    error?.code === "UND_ERR_SOCKET"
-  ) {
-    return new CopilotKitLowLevelError({
-      error: error instanceof Error ? error : new Error(String(error)),
-      url: "event streaming connection",
-      message: helpfulMessage,
-    });
-  }
-
-  // For all other errors, preserve the raw error in a basic CopilotKitError
-  return new CopilotKitError({
-    message: helpfulMessage,
-    code: CopilotKitErrorCode.UNKNOWN,
-    severity: Severity.CRITICAL,
-  });
 }

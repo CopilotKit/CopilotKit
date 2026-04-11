@@ -52,9 +52,9 @@ const createVectorIndex = async () => {
     let isQueryable = false;
     while (!isQueryable) {
       const cursor = collection.listSearchIndexes();
-      for await (const index of cursor as unknown as SearchIndex[]) {
-        if (index.name === result) {
-          if (index.queryable) {
+      for await (const searchIndex of cursor as unknown as SearchIndex[]) {
+        if (searchIndex.name === result) {
+          if (searchIndex.queryable) {
             console.log(`${result} is ready for querying`);
             isQueryable = true;
           } else {
@@ -126,10 +126,10 @@ const runtime = new CopilotRuntime({
             input: query,
           });
 
-          const database = client.db("knowledge_base");
-          const collection = database.collection("articles");
+          const db = client.db("knowledge_base");
+          const col = db.collection("articles");
 
-          const articles = await collection
+          const articles = await col
             .aggregate([
               {
                 $vectorSearch: {
@@ -153,7 +153,7 @@ const runtime = new CopilotRuntime({
           return { articles };
         } catch (error) {
           console.error("Error fetching knowledge base articles:", error);
-          throw new Error("Failed to fetch knowledge base articles.");
+          throw new Error("Failed to fetch knowledge base articles.", { cause: error });
         }
       },
     },

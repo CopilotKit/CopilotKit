@@ -1,5 +1,5 @@
 import { css, cx } from "@emotion/css";
-import React, { PropsWithChildren, Ref } from "react";
+import React, { PropsWithChildren } from "react";
 import ReactDOM from "react-dom";
 
 interface BaseProps {

@@ -1,5 +1,4 @@
 import { PRData } from "@/app/Interfaces/interface";
-import { useSharedContext } from "@/lib/shared-context";
 import { useEffect, useState } from "react";
 import { Legend } from "recharts";
 import { CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
@@ -9,6 +8,16 @@ import { BarChart } from "recharts";
 interface BarChartData {
   name: string;
   value: number;
+}
+
+function _getUniqueReviewers(prArray: PRData[]): string[] {
+  const reviewerSet = new Set<string>();
+  for (const pr of prArray) {
+    if (pr.assignedReviewer) {
+      reviewerSet.add(pr.assignedReviewer.toLowerCase());
+    }
+  }
+  return Array.from(reviewerSet);
 }
 
 export function PRReviewBarData({ args }: any) {
@@ -22,22 +31,11 @@ export function PRReviewBarData({ args }: any) {
   ];
 
   useEffect(() => {
-    debugger;
-    console.log(args);
+    console.log(args?.items);
     if (args?.items) {
       setData(args?.items);
     }
   }, [args?.items]);
-
-  function getUniqueReviewers(prArray: PRData[]): string[] {
-    const reviewerSet = new Set<string>();
-    for (const pr of prArray) {
-      if (pr.assignedReviewer) {
-        reviewerSet.add(pr.assignedReviewer.toLowerCase()); // normalize casing if needed
-      }
-    }
-    return Array.from(reviewerSet);
-  }
 
   return (
     <>

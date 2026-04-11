@@ -33,7 +33,7 @@ export async function parseMethodCall(request: Request): Promise<MethodCall> {
   let jsonEnvelope: JsonEnvelope;
   try {
     jsonEnvelope = (await request.clone().json()) as JsonEnvelope;
-  } catch (error) {
+  } catch {
     throw createResponseError("Invalid JSON payload", 400);
   }
 

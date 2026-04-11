@@ -20,6 +20,17 @@ function reconstructString(obj: Record<string, unknown>): string {
   return Object.values(obj).join("");
 }
 
+// Format result for display (truncate if too long)
+function formatResult(res: unknown): string {
+  if (res == null) return "";
+  const str = typeof res === "string" ? res : JSON.stringify(res, null, 2);
+  // Truncate very long results
+  if (str.length > 500) {
+    return str.slice(0, 500) + "\n... (truncated)";
+  }
+  return str;
+}
+
 export function ToolCallCard({
   name,
   args,
@@ -45,17 +56,6 @@ export function ToolCallCard({
       Object.entries(args).filter(([, v]) => v != null && v !== ""),
     );
   }
-
-  // Format result for display (truncate if too long)
-  const formatResult = (res: unknown): string => {
-    if (res == null) return "";
-    const str = typeof res === "string" ? res : JSON.stringify(res, null, 2);
-    // Truncate very long results
-    if (str.length > 500) {
-      return str.slice(0, 500) + "\n... (truncated)";
-    }
-    return str;
-  };
 
   const formattedResult = result != null ? formatResult(result) : null;
 

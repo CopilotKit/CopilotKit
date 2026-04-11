@@ -19,6 +19,7 @@ export function TeamSection({ state }: TeamSectionProps) {
           >
             <div className="flex items-center gap-3">
               <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={user.image}
                   alt={user.name}

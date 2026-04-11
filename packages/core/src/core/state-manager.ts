@@ -281,7 +281,7 @@ export class StateManager {
     agent: AbstractAgent,
     event: MessagesSnapshotEvent,
     input: RunAgentInput,
-    messages: Message[],
+    _messages: Message[],
   ): void {
     if (!agent.agentId) return;
 

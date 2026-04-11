@@ -192,7 +192,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
     describe("markdownRenderer slot", () => {
       it("should pass custom props to markdownRenderer", () => {
         const message = createAssistantMessage("Hello world");
-        const { container } = render(
+        const { container: _container } = render(
           <TestWrapper>
             <CopilotChatAssistantMessage
               message={message}
@@ -210,7 +210,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
       it("should pass custom onClick to toolbar", () => {
         const onClick = vi.fn();
         const message = createAssistantMessage("Hello world");
-        const { container } = render(
+        const { container: _container } = render(
           <TestWrapper>
             <CopilotChatAssistantMessage
               message={message}

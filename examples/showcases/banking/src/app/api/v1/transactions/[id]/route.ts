@@ -7,9 +7,7 @@ export const PUT = async (
   { params }: { params: { id: string } },
 ) => {
   try {
-    const transaction = data.transactions.find(
-      (transaction) => transaction.id === params.id,
-    );
+    const transaction = data.transactions.find((t) => t.id === params.id);
     if (!transaction) {
       return new Response(JSON.stringify({ error: "Transaction not found" }), {
         status: 404,
@@ -25,11 +23,11 @@ export const PUT = async (
         date: new Date().toISOString().split("T")[0],
       };
     }
-    data.transactions = data.transactions.map((transaction) => {
-      if (transaction.id === params.id) {
+    data.transactions = data.transactions.map((t) => {
+      if (t.id === params.id) {
         return newTransaction;
       }
-      return transaction;
+      return t;
     });
     return new Response(JSON.stringify(newTransaction), { status: 201 });
   } catch (error) {

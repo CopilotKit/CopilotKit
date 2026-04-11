@@ -179,9 +179,16 @@ export function useThreads({
   const threads: Thread[] = useMemo(
     () =>
       coreThreads.map(
-        ({ id, agentId, name, archived, createdAt, updatedAt }) => ({
+        ({
           id,
-          agentId,
+          agentId: threadAgentId,
+          name,
+          archived,
+          createdAt,
+          updatedAt,
+        }) => ({
+          id,
+          agentId: threadAgentId,
           name,
           archived,
           createdAt,

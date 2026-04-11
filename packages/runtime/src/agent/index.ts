@@ -1185,13 +1185,13 @@ export class BuiltInAgent extends AbstractAgent {
                 state.toolName = part.toolName;
                 if (!state.started) {
                   state.started = true;
-                  const startEvent: ToolCallStartEvent = {
+                  const toolCallStartEvent: ToolCallStartEvent = {
                     type: EventType.TOOL_CALL_START,
                     parentMessageId: messageId,
                     toolCallId,
                     toolCallName: part.toolName,
                   };
-                  subscriber.next(startEvent);
+                  subscriber.next(toolCallStartEvent);
                 }
                 break;
               }
@@ -1246,13 +1246,13 @@ export class BuiltInAgent extends AbstractAgent {
 
                 if (!state.started) {
                   state.started = true;
-                  const startEvent: ToolCallStartEvent = {
+                  const toolStartEvent: ToolCallStartEvent = {
                     type: EventType.TOOL_CALL_START,
                     parentMessageId: messageId,
                     toolCallId,
                     toolCallName: part.toolName,
                   };
-                  subscriber.next(startEvent);
+                  subscriber.next(toolStartEvent);
                 }
 
                 if (

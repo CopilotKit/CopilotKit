@@ -92,7 +92,8 @@ export default function Team() {
         required: true,
       },
     ],
-    handler: ({ id, team }) => changeMemberTeam(id, team as ExpenseRole),
+    handler: ({ id, team: teamRole }) =>
+      changeMemberTeam(id, teamRole as ExpenseRole),
   });
 
   const [dialogState, dispatchDialogState] = useReducer<

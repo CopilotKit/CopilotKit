@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { TextMessage, Role } from "@copilotkit/runtime-client-gql";
@@ -10,14 +9,8 @@ import {
   Search,
   Sparkles,
   FileText,
-  Twitter,
-  TrendingUp,
   Send,
-  User,
-  ExternalLink,
-  Globe,
   Brain,
-  Zap,
   Star,
   ChevronDown,
   Check,
@@ -25,26 +18,14 @@ import {
 import {
   useCoAgent,
   useCoAgentStateRender,
-  useCopilotAction,
   useCopilotChat,
 } from "@copilotkit/react-core";
 import { ToolLogs } from "@/components/ui/tool-logs";
-import { XPost, XPostPreview, XPostCompact } from "@/components/ui/x-post";
-import {
-  LinkedInPost,
-  LinkedInPostPreview,
-  LinkedInPostCompact,
-} from "@/components/ui/linkedin-post";
 import { Button } from "@/components/ui/button";
 import { initialPrompt1, suggestionPrompt1 } from "../prompts/prompts";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import {
-  useParams,
-  useRouter,
-  usePathname,
-  useSearchParams,
-} from "next/navigation";
+import { useRouter } from "next/navigation";
 import { StackAnalysisCards } from "@/components/ui/stack-analysis-cards";
 import { useLayout } from "../contexts/LayoutContext";
 
@@ -98,7 +79,7 @@ const quickActions = [
   },
 ];
 
-interface PostInterface {
+interface _PostInterface {
   tweet: {
     title: string;
     content: string;
@@ -111,11 +92,15 @@ interface PostInterface {
 
 export default function StackAnalyzer() {
   const router = useRouter();
-  const [selectedAgent, setSelectedAgent] = useState(agents[1]);
+  const [selectedAgent, _setSelectedAgent] = useState(agents[1]);
   const [isAgentActive, setIsAgentActive] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const { updateLayout } = useLayout();
-  const { setState, running, state } = useCoAgent({
+  const {
+    setState,
+    running: _running,
+    state,
+  } = useCoAgent({
     name: "stack_analysis_agent",
     initialState: {
       tool_logs: [],
@@ -149,8 +134,8 @@ export default function StackAnalyzer() {
 
   useCoAgentStateRender({
     name: "stack_analysis_agent",
-    render: (state) => {
-      return <ToolLogs logs={state?.state?.tool_logs || []} />;
+    render: (renderState) => {
+      return <ToolLogs logs={renderState?.state?.tool_logs || []} />;
     },
   });
 

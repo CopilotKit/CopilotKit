@@ -18,7 +18,7 @@ import {
   CopilotKitLangGraphInterruptEvent,
   LangGraphInterruptEvent,
 } from "../types/meta-events.type";
-import { ActionInputAvailability, MessageRole } from "../types/enums";
+import { MessageRole } from "../types/enums";
 import { Repeater } from "graphql-yoga";
 import type {
   CopilotRequestContextProperties,
@@ -31,7 +31,6 @@ import {
 } from "../../service-adapters/events";
 import {
   FailedMessageStatus,
-  MessageStatusCode,
   MessageStatusUnion,
   SuccessMessageStatus,
 } from "../types/message-status.type";
@@ -52,7 +51,6 @@ import {
   ActionExecutionMessage,
   AgentStateMessage,
   Message,
-  MessageType,
   ResultMessage,
   TextMessage,
 } from "../types/converted";
@@ -60,11 +58,7 @@ import telemetry from "../../lib/telemetry-client";
 import { randomId } from "@copilotkit/shared";
 import { AgentsResponse } from "../types/agents-response.type";
 import { LangGraphEventTypes } from "../../agents/langgraph/events";
-import {
-  CopilotKitError,
-  CopilotKitLowLevelError,
-  isStructuredCopilotKitError,
-} from "@copilotkit/shared";
+import { CopilotKitError, CopilotKitLowLevelError } from "@copilotkit/shared";
 import { CopilotRuntime } from "../../lib";
 
 const invokeGuardrails = async ({
@@ -145,7 +139,8 @@ export class CopilotResolver {
 
     return {
       agents: agentsWithEndpoints.map(
-        ({ endpoint, ...agentWithoutEndpoint }) => agentWithoutEndpoint,
+        ({ endpoint: _endpoint, ...agentWithoutEndpoint }) =>
+          agentWithoutEndpoint,
       ),
     };
   }
@@ -189,8 +184,9 @@ export class CopilotResolver {
       ctx.properties = { ...ctx.properties, ...properties };
     }
 
-    const copilotRuntime = ctx._copilotkit.runtime as unknown as CopilotRuntime;
-    const serviceAdapter = ctx._copilotkit.serviceAdapter;
+    const _copilotRuntime = ctx._copilotkit
+      .runtime as unknown as CopilotRuntime;
+    const _serviceAdapter = ctx._copilotkit.serviceAdapter;
 
     let copilotCloudPublicApiKey: string | null = null;
     let copilotCloudBaseUrl: string;
@@ -241,7 +237,7 @@ export class CopilotResolver {
     let resolveOutputMessagesPromise: (messages: Message[]) => void;
     let rejectOutputMessagesPromise: (err: Error) => void;
 
-    const outputMessagesPromise = new Promise<Message[]>((resolve, reject) => {
+    const _outputMessagesPromise = new Promise<Message[]>((resolve, reject) => {
       resolveOutputMessagesPromise = resolve;
       rejectOutputMessagesPromise = reject;
     });
@@ -251,7 +247,8 @@ export class CopilotResolver {
     }
 
     logger.debug("Processing");
-    let runtimeResponse;
+    let runtimeResponse: any;
+    runtimeResponse = runtimeResponse ?? {};
 
     const {
       eventSource,
@@ -507,9 +504,9 @@ export class CopilotResolver {
                         .pipe(
                           shareReplay(),
                           take(1),
-                          tap(({ reason, messageId }) => {
+                          tap(({ reason, messageId: interruptedMessageId }) => {
                             logger.debug(
-                              { reason, messageId },
+                              { reason, messageId: interruptedMessageId },
                               "Text streaming interrupted",
                             );
 
@@ -519,7 +516,7 @@ export class CopilotResolver {
 
                             responseStatus$.next(
                               new MessageStreamInterruptedResponse({
-                                messageId,
+                                messageId: interruptedMessageId,
                               }),
                             );
                             stopStreamingText();

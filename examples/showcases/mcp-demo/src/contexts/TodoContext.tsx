@@ -147,9 +147,9 @@ export const TodoProvider: React.FC<{ children: ReactNode }> = ({
         id: Date.now(),
         text: title,
         completed: false,
-        subtasks: subtask.map((subtask) => ({
+        subtasks: subtask.map((st) => ({
           id: Date.now() + Math.random(),
-          text: subtask,
+          text: st,
           completed: false,
         })),
         expanded: false,
@@ -158,7 +158,6 @@ export const TodoProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const toggleSubtask = (parentId: number, subtaskId: number) => {
-    debugger;
     setTodos(
       todos.map((todo) => {
         if (todo.id === parentId) {

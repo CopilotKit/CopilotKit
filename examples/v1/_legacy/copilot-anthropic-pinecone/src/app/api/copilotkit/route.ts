@@ -132,7 +132,7 @@ const runtime = new CopilotRuntime({
 
           // Format the results in a more structured way for the AI
           const formattedResults =
-            queryResponse?.matches?.map((match, index) => {
+            queryResponse?.matches?.map((match, _index) => {
               return {
                 id: match.id,
                 relevance_score: match.score,
@@ -168,7 +168,7 @@ const runtime = new CopilotRuntime({
           };
         } catch (error) {
           console.error("Error fetching knowledge base articles:", error);
-          throw new Error("Failed to fetch knowledge base articles.");
+          throw new Error("Failed to fetch knowledge base articles.", { cause: error });
         }
       },
     },

@@ -12,9 +12,7 @@ import CopilotChatInput, {
   CopilotChatInputProps,
   CopilotChatInputMode,
 } from "./CopilotChatInput";
-import CopilotChatSuggestionView, {
-  CopilotChatSuggestionViewProps,
-} from "./CopilotChatSuggestionView";
+import CopilotChatSuggestionView from "./CopilotChatSuggestionView";
 import { Suggestion } from "@copilotkit/core";
 import { Message } from "@ag-ui/core";
 import type { Attachment } from "@copilotkit/shared";
@@ -151,8 +149,11 @@ export function CopilotChatView({
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Track keyboard state for mobile
-  const { isKeyboardOpen, keyboardHeight, availableHeight } =
-    useKeyboardHeight();
+  const {
+    isKeyboardOpen,
+    keyboardHeight,
+    availableHeight: _availableHeight,
+  } = useKeyboardHeight();
 
   // Track input container height changes
   useEffect(() => {

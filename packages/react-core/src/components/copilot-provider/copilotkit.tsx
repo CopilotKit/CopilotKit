@@ -24,7 +24,6 @@ import React, {
 } from "react";
 import {
   CopilotChatConfigurationProvider,
-  CopilotKitInspector,
   CopilotKitProvider as CopilotKitV2Provider,
   useCopilotKit,
 } from "../../v2";
@@ -319,16 +318,16 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     };
   }, [
     publicApiKey,
+    chatApiEndpoint,
     props.headers,
     props.properties,
     props.transcribeAudioUrl,
     props.textToSpeechUrl,
     props.credentials,
-    props.cloudRestrictToTopic,
     props.guardrails_c,
   ]);
 
-  const headers = useMemo(() => {
+  const _headers = useMemo(() => {
     const authHeaders = Object.values(authStates || {}).reduce((acc, state) => {
       if (state.status === "authenticated" && state.authHeaders) {
         return {
@@ -346,7 +345,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     }, {});
 
     return {
-      ...(copilotApiConfig.headers || {}),
+      ...copilotApiConfig.headers,
       ...(copilotApiConfig.publicApiKey
         ? {
             [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]:
@@ -430,7 +429,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     [setChatSuggestionConfiguration],
   );
 
-  const [availableAgents, setAvailableAgents] = useState<Agent[]>([]);
+  const [availableAgents, _setAvailableAgents] = useState<Agent[]>([]);
   const [coagentStates, setCoagentStates] = useState<
     Record<string, CoagentState>
   >({});
@@ -446,7 +445,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       const newValue =
         typeof value === "function" ? value(coagentStatesRef.current) : value;
       coagentStatesRef.current = newValue;
-      setCoagentStates((prev) => {
+      setCoagentStates((_prev) => {
         return newValue;
       });
     },
@@ -475,7 +474,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     }
   }, [props.agent]);
 
-  const { threadId, setThreadId: setInternalThreadId } = useThreads();
+  const { threadId: currentThreadId, setThreadId: setInternalThreadId } =
+    useThreads();
 
   const setThreadId = useCallback(
     (value: SetStateAction<string>) => {
@@ -486,7 +486,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       }
       setInternalThreadId(value);
     },
-    [props.threadId],
+    [props.threadId, setInternalThreadId],
   );
 
   const [runId, setRunId] = useState<string | null>(null);
@@ -508,7 +508,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         return {
           ...prev,
           [action.id]: {
-            ...(prev[action.id] ?? {}),
+            ...prev[action.id],
             ...action,
           } as LangGraphInterruptRender,
         };
@@ -672,7 +672,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       setAgentSession,
       forwardedParameters,
       agentLock,
-      threadId,
+      threadId: currentThreadId,
       setThreadId,
       runId,
       setRunId,
@@ -725,7 +725,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       setAgentSession,
       forwardedParameters,
       agentLock,
-      threadId,
+      currentThreadId,
       setThreadId,
       runId,
       availableAgents,
@@ -753,7 +753,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       // labels={labels}
       // isModalDefaultOpen={isModalDefaultOpen}
       agentId={props.agent ?? "default"}
-      threadId={threadId}
+      threadId={currentThreadId}
     >
       <CopilotContext.Provider value={copilotContextValue}>
         <CopilotListeners />

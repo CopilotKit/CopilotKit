@@ -386,8 +386,7 @@ export function ToastProvider({
       const id = toast.id ?? Math.random().toString(36).substring(2, 9);
 
       setToasts((currentToasts) => {
-        if (currentToasts.find((toast) => toast.id === id))
-          return currentToasts;
+        if (currentToasts.find((t) => t.id === id)) return currentToasts;
         return [...currentToasts, { ...toast, id }];
       });
 
@@ -411,7 +410,7 @@ export function ToastProvider({
     [enabled],
   );
 
-  const addGraphQLErrorsToast = useCallback((errors: GraphQLError[]) => {
+  const addGraphQLErrorsToast = useCallback((_errors: GraphQLError[]) => {
     // DEPRECATED: All errors now route to banners for consistency
     console.warn(
       "addGraphQLErrorsToast is deprecated. All errors now show as banners.",

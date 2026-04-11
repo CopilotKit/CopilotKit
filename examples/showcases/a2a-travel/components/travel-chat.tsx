@@ -97,7 +97,7 @@ const ChatInner = ({
                 onRestaurantUpdate?.(parsed as RestaurantData);
               }
             }
-          } catch (e) {}
+          } catch {}
         }
       }
     };

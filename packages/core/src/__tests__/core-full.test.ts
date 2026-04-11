@@ -6,7 +6,6 @@ import {
   createMessage,
   createAssistantMessage,
   createToolCallMessage,
-  createToolResultMessage,
   createTool,
   createMultipleToolCallsMessage,
 } from "./test-utils";
@@ -118,13 +117,9 @@ describe("CopilotKitCore.runAgent - Full Test Suite", () => {
         }
       };
 
-      try {
-        const result = await copilotKitCore.runAgent({ agent: agent as any });
-        expect(agent.runAgentCalls).toHaveLength(2);
-        expect(result.newMessages).toContain(followUpMessage);
-      } catch (error) {
-        throw error;
-      }
+      const result = await copilotKitCore.runAgent({ agent: agent as any });
+      expect(agent.runAgentCalls).toHaveLength(2);
+      expect(result.newMessages).toContain(followUpMessage);
     });
 
     it("TEST 5: should handle multiple tools with at least one follow-up", async () => {
@@ -159,12 +154,8 @@ describe("CopilotKitCore.runAgent - Full Test Suite", () => {
         }
       };
 
-      try {
-        await copilotKitCore.runAgent({ agent: agent as any });
-        expect(agent.runAgentCalls).toHaveLength(2);
-      } catch (error) {
-        throw error;
-      }
+      await copilotKitCore.runAgent({ agent: agent as any });
+      expect(agent.runAgentCalls).toHaveLength(2);
     });
 
     it("TEST 6: should handle tool with undefined follow-up (defaults to true)", async () => {
@@ -191,12 +182,8 @@ describe("CopilotKitCore.runAgent - Full Test Suite", () => {
         }
       };
 
-      try {
-        await copilotKitCore.runAgent({ agent: agent as any });
-        expect(agent.runAgentCalls).toHaveLength(2);
-      } catch (error) {
-        throw error;
-      }
+      await copilotKitCore.runAgent({ agent: agent as any });
+      expect(agent.runAgentCalls).toHaveLength(2);
     });
 
     it("TEST 9: should handle chain of follow-ups", async () => {
@@ -232,13 +219,9 @@ describe("CopilotKitCore.runAgent - Full Test Suite", () => {
         }
       };
 
-      try {
-        const result = await copilotKitCore.runAgent({ agent: agent as any });
-        expect(agent.runAgentCalls).toHaveLength(3);
-        expect(result.newMessages).toEqual([finalMsg]);
-      } catch (error) {
-        throw error;
-      }
+      const result = await copilotKitCore.runAgent({ agent: agent as any });
+      expect(agent.runAgentCalls).toHaveLength(3);
+      expect(result.newMessages).toEqual([finalMsg]);
     });
 
     it("TEST 10: should handle concurrent tool calls", async () => {
@@ -266,20 +249,16 @@ describe("CopilotKitCore.runAgent - Full Test Suite", () => {
       });
 
       const startTime = Date.now();
-      try {
-        await copilotKitCore.runAgent({ agent: agent as any });
-        const duration = Date.now() - startTime;
+      await copilotKitCore.runAgent({ agent: agent as any });
+      const duration = Date.now() - startTime;
 
-        // Should execute sequentially
-        const expectedMinDuration = delays.reduce((a, b) => a + b, 0);
-        expect(duration).toBeGreaterThanOrEqual(expectedMinDuration - 10);
+      // Should execute sequentially
+      const expectedMinDuration = delays.reduce((a, b) => a + b, 0);
+      expect(duration).toBeGreaterThanOrEqual(expectedMinDuration - 10);
 
-        tools.forEach((tool) => {
-          expect(tool.handler).toHaveBeenCalled();
-        });
-      } catch (error) {
-        throw error;
-      }
+      tools.forEach((tool) => {
+        expect(tool.handler).toHaveBeenCalled();
+      });
     });
   });
 });

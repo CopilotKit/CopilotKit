@@ -9,7 +9,7 @@ function McpServerManager({ configs }: { configs: Config[] }) {
 
   useEffect(() => {
     setMcpServers(configs);
-  }, [setMcpServers]);
+  }, [setMcpServers, configs]);
 
   return null;
 }

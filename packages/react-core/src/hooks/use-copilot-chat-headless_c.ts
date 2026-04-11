@@ -241,7 +241,7 @@ function useCopilotChatHeadless_c(
     } else {
       setBannerError(null); // Clear banner when API key is provided
     }
-  }, [hasPublicApiKey]); // Removed setBannerError dependency
+  }, [hasPublicApiKey, setBannerError]);
 
   // Return internal result if publicApiKey is available, otherwise return fallback
   if (hasPublicApiKey) {
@@ -259,6 +259,6 @@ export type {
   MCPServerConfig,
 };
 
-const noKeyWarning = () => {
+const _noKeyWarning = () => {
   styledConsole.logCopilotKitPlatformMessage();
 };

@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Proposal, ProposalSection, ProposalSectionName } from "@/lib/types";
-import { useResearch } from "@/components/research-context";
 import { Textarea } from "@/components/ui/textarea";
 
 function ProposalItem({

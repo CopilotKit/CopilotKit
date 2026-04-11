@@ -105,7 +105,7 @@ export class GroqAdapter implements CopilotServiceAdapter {
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     const {
-      threadId,
+      threadId: _threadId,
       model = this.model,
       messages,
       actions,

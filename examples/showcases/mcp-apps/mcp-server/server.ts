@@ -1018,6 +1018,7 @@ app.use(
 const transports: { [sessionId: string]: StreamableHTTPServerTransport } = {};
 
 // MCP POST handler - main entry point for MCP requests
+// oxlint-disable-next-line no-async-endpoint-handlers -- MCP handler requires async for transport
 const mcpPostHandler = async (req: Request, res: Response) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
@@ -1075,8 +1076,10 @@ const mcpPostHandler = async (req: Request, res: Response) => {
 };
 
 // Routes
+// oxlint-disable-next-line no-async-endpoint-handlers -- MCP handler requires async for transport
 app.post("/mcp", mcpPostHandler);
 
+// oxlint-disable-next-line no-async-endpoint-handlers -- MCP handler requires async for transport
 app.get("/mcp", async (req: Request, res: Response) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
   if (!sessionId || !transports[sessionId]) {
@@ -1087,6 +1090,7 @@ app.get("/mcp", async (req: Request, res: Response) => {
   await transport.handleRequest(req, res);
 });
 
+// oxlint-disable-next-line no-async-endpoint-handlers -- MCP handler requires async for transport
 app.delete("/mcp", async (req: Request, res: Response) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
   if (!sessionId || !transports[sessionId]) {

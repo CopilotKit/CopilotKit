@@ -11,8 +11,6 @@ import {
   Repeat2,
   Share,
   MoreHorizontal,
-  ExternalLink,
-  Calendar,
   MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,16 +21,16 @@ export interface XPostProps {
   className?: string;
 }
 
-export function XPost({ title, content, className }: XPostProps) {
-  const formatNumber = (num: number): string => {
-    if (num >= 1000000) {
-      return (num / 1000000).toFixed(1) + "M";
-    } else if (num >= 1000) {
-      return (num / 1000).toFixed(1) + "K";
-    }
-    return num.toString();
-  };
+function formatNumber(num: number): string {
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1) + "M";
+  } else if (num >= 1000) {
+    return (num / 1000).toFixed(1) + "K";
+  }
+  return num.toString();
+}
 
+export function XPost({ title, content, className }: XPostProps) {
   // Default values for demo purposes
   const defaultAuthor = {
     name: "DeepMind Research",
@@ -212,15 +210,6 @@ export function XPostPreview({
 
 // Compact X Post Component (for chat UI)
 export function XPostCompact({ title, content, className }: XPostProps) {
-  const formatNumber = (num: number): string => {
-    if (num >= 1000000) {
-      return (num / 1000000).toFixed(1) + "M";
-    } else if (num >= 1000) {
-      return (num / 1000).toFixed(1) + "K";
-    }
-    return num.toString();
-  };
-
   // Default values for demo purposes
   const defaultAuthor = {
     name: "DeepMind Research",

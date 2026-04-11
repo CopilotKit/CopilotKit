@@ -302,7 +302,6 @@ type AfterRequestMiddleware =
 type BeforeRequestMiddlewareFn = Exclude<BeforeRequestMiddleware, string>;
 type BeforeRequestMiddlewareFnParameters =
   Parameters<BeforeRequestMiddlewareFn>;
-type BeforeRequestMiddlewareFnResult = ReturnType<BeforeRequestMiddlewareFn>;
 type AfterRequestMiddlewareFn = Exclude<AfterRequestMiddleware, string>;
 type AfterRequestMiddlewareFnParameters = Parameters<AfterRequestMiddlewareFn>;
 
@@ -541,7 +540,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         await params?.beforeRequestMiddleware?.(hookParams);
 
       if (params?.middleware?.onBeforeRequest) {
-        const { request, runtime, path } = hookParams;
         const gqlMessages = (aguiToGQL(body.messages) as Message[]).reduce(
           (acc, msg) => {
             if ("role" in msg && msg.role === "user") {
@@ -553,7 +551,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
           },
           { inputMessages: [] as Message[], outputMessages: [] as Message[] },
         );
-        const { inputMessages, outputMessages } = gqlMessages;
+        const { inputMessages, outputMessages: _outputMessages } = gqlMessages;
         params.middleware.onBeforeRequest({
           threadId: body.threadId,
           runId: body.runId,
@@ -618,7 +616,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     },
     streamedChunks: any[],
     requestStartTime: number,
-    publicApiKey?: string,
+    _publicApiKey?: string,
   ): void {
     try {
       outputMessagesPromise

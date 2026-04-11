@@ -6,11 +6,11 @@ export const HeadlessChat = () => {
   const [message, setMessage] = useState("");
 
   const sendMessage = useCallback(
-    (message: string) => {
+    (msg: string) => {
       agent.addMessage({
         role: "user",
         id: crypto.randomUUID(),
-        content: message,
+        content: msg,
       });
       agent.runAgent();
       setMessage("");
@@ -21,9 +21,9 @@ export const HeadlessChat = () => {
   return (
     <div>
       <h1>Chat</h1>
-      {agent.messages.map((message) => (
-        <div key={message.id}>
-          <p>{JSON.stringify(message.content)}</p>
+      {agent.messages.map((msg) => (
+        <div key={msg.id}>
+          <p>{JSON.stringify(msg.content)}</p>
         </div>
       ))}
       <input

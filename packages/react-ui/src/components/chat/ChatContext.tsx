@@ -1,6 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import * as DefaultIcons from "./Icons";
-import { ThumbsDownIcon, ThumbsUpIcon } from "./Icons";
 
 /**
  * Icons for CopilotChat component.
@@ -197,18 +196,16 @@ export const ChatContextProvider = ({
 }: ChatContextProps) => {
   const memoizedLabels = useMemo(
     () => ({
-      ...{
-        initial: "",
-        title: "CopilotKit",
-        placeholder: "Type a message...",
-        error: "❌ An error occurred. Please try again.",
-        stopGenerating: "Stop generating",
-        regenerateResponse: "Regenerate response",
-        copyToClipboard: "Copy to clipboard",
-        thumbsUp: "Thumbs up",
-        thumbsDown: "Thumbs down",
-        copied: "Copied!",
-      },
+      initial: "",
+      title: "CopilotKit",
+      placeholder: "Type a message...",
+      error: "❌ An error occurred. Please try again.",
+      stopGenerating: "Stop generating",
+      regenerateResponse: "Regenerate response",
+      copyToClipboard: "Copy to clipboard",
+      thumbsUp: "Thumbs up",
+      thumbsDown: "Thumbs down",
+      copied: "Copied!",
       ...labels,
     }),
     [labels],
@@ -216,21 +213,19 @@ export const ChatContextProvider = ({
 
   const memoizedIcons = useMemo(
     () => ({
-      ...{
-        openIcon: DefaultIcons.OpenIcon,
-        closeIcon: DefaultIcons.CloseIcon,
-        headerCloseIcon: DefaultIcons.HeaderCloseIcon,
-        sendIcon: DefaultIcons.SendIcon,
-        activityIcon: DefaultIcons.ActivityIcon,
-        spinnerIcon: DefaultIcons.SpinnerIcon,
-        stopIcon: DefaultIcons.StopIcon,
-        regenerateIcon: DefaultIcons.RegenerateIcon,
-        pushToTalkIcon: DefaultIcons.MicrophoneIcon,
-        copyIcon: DefaultIcons.CopyIcon,
-        thumbsUpIcon: DefaultIcons.ThumbsUpIcon,
-        thumbsDownIcon: DefaultIcons.ThumbsDownIcon,
-        uploadIcon: DefaultIcons.UploadIcon,
-      },
+      openIcon: DefaultIcons.OpenIcon,
+      closeIcon: DefaultIcons.CloseIcon,
+      headerCloseIcon: DefaultIcons.HeaderCloseIcon,
+      sendIcon: DefaultIcons.SendIcon,
+      activityIcon: DefaultIcons.ActivityIcon,
+      spinnerIcon: DefaultIcons.SpinnerIcon,
+      stopIcon: DefaultIcons.StopIcon,
+      regenerateIcon: DefaultIcons.RegenerateIcon,
+      pushToTalkIcon: DefaultIcons.MicrophoneIcon,
+      copyIcon: DefaultIcons.CopyIcon,
+      thumbsUpIcon: DefaultIcons.ThumbsUpIcon,
+      thumbsDownIcon: DefaultIcons.ThumbsDownIcon,
+      uploadIcon: DefaultIcons.UploadIcon,
       ...icons,
     }),
     [icons],

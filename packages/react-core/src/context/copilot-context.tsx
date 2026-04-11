@@ -13,13 +13,9 @@ import React from "react";
 import { TreeNodeId, Tree } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
 import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
-import {
-  CoAgentStateRender,
-  CoAgentStateRenderProps,
-} from "../types/coagent-action";
+import { CoAgentStateRenderProps } from "../types/coagent-action";
 import { CoagentState } from "../types/coagent-state";
 import {
-  CopilotRuntimeClient,
   ExtensionsInput,
   ForwardedParametersInput,
 } from "@copilotkit/runtime-client-gql";
@@ -275,7 +271,7 @@ const emptyCopilotContext: CopilotContextParams = {
   removeRegisteredAction: () => {},
 
   chatComponentsCache: { current: { actions: {}, coAgentStateRenders: {} } },
-  getContextString: (documents: DocumentPointer[], categories: string[]) =>
+  getContextString: (_documents: DocumentPointer[], _categories: string[]) =>
     returnAndThrowInDebug(""),
   addContext: () => "",
   removeContext: () => {},
@@ -292,7 +288,7 @@ const emptyCopilotContext: CopilotContextParams = {
   additionalInstructions: [],
   setAdditionalInstructions: () => returnAndThrowInDebug([]),
 
-  getDocumentsContext: (categories: string[]) => returnAndThrowInDebug([]),
+  getDocumentsContext: (_categories: string[]) => returnAndThrowInDebug([]),
   addDocumentContext: () => returnAndThrowInDebug(""),
   removeDocumentContext: () => {},
 

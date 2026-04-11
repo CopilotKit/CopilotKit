@@ -82,8 +82,6 @@ export class CopilotChatTextarea implements AfterViewInit {
     return cn(baseClasses, this.inputClass());
   });
 
-  constructor() {}
-
   ngAfterViewInit(): void {
     this.calculateMaxHeight();
     this.adjustHeight();

@@ -150,7 +150,7 @@ export function useCoagentStateRenderBridge(
         },
       );
     },
-    [coAgentStateRenders, nodeName, agentId],
+    [coAgentStateRenders, nodeName, agentId, claimsRef],
   );
   const stateRenderEntry = useMemo(
     () => getStateRender(message.id),
@@ -214,6 +214,7 @@ export function useCoagentStateRenderBridge(
     message.id,
     stateSnapshot,
     canRender,
+    claimsRef,
   ]);
 }
 

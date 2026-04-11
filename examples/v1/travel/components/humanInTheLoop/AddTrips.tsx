@@ -4,7 +4,6 @@ import { X, Plus } from "lucide-react";
 import { ActionButtons } from "./ActionButtons";
 import { RenderFunctionStatus } from "@copilotkit/react-core";
 import { useEffect, useState } from "react";
-import { useTrips } from "@/lib/hooks/use-trips";
 
 export type AddTripsProps = {
   args: any;

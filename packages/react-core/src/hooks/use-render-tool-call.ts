@@ -6,7 +6,6 @@ import { useEffect, useRef } from "react";
 import {
   type ActionRenderProps,
   type ActionRenderPropsNoArgs,
-  ActionRenderPropsWait,
   type FrontendAction,
 } from "../types";
 
@@ -30,6 +29,9 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
 
   // Track whether we've already added this renderer to avoid duplicates
   const hasAddedRef = useRef(false);
+
+  // Serialize caller-provided dependencies so the dependency array is statically analyzable.
+  const depsKey = JSON.stringify(dependencies ?? []);
 
   useEffect(() => {
     const { name, parameters, render } = tool;
@@ -85,5 +87,5 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
         hasAddedRef.current = false;
       }
     };
-  }, [tool, ...(dependencies ?? [])]);
+  }, [tool, copilotkit.renderToolCalls, depsKey]);
 }

@@ -116,10 +116,10 @@ const Main = () => {
           preCommitTitle="Create spreadsheet"
           postCommitTitle="Spreadsheet created"
           newRows={newRows}
-          commit={(rows) => {
+          commit={(committedRows) => {
             const newSpreadsheet: SpreadsheetData = {
               title: title || "Untitled Spreadsheet",
-              rows: rows,
+              rows: committedRows,
             };
             setSpreadsheets((prev) => [...prev, newSpreadsheet]);
             setSelectedSpreadsheetIndex(spreadsheets.length);
@@ -127,7 +127,7 @@ const Main = () => {
         />
       );
     },
-    handler: ({ rows, title }) => {
+    handler: ({ rows: _rows, title: _title }) => {
       // Do nothing.
       // The preview component will optionally handle committing the changes.
     },

@@ -6,6 +6,16 @@ import { CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { Bar } from "recharts";
 import { BarChart } from "recharts";
 
+function getUniqueReviewers(prArray: PRData[]): string[] {
+  const reviewerSet = new Set<string>();
+  for (const pr of prArray) {
+    if (pr.assignedReviewer) {
+      reviewerSet.add(pr.assignedReviewer.toLowerCase());
+    }
+  }
+  return Array.from(reviewerSet);
+}
+
 export function PRReviewBarData({ args }: any) {
   const { prData } = useSharedContext();
   const [data, setData] = useState<any>([]);
@@ -18,7 +28,6 @@ export function PRReviewBarData({ args }: any) {
   ];
 
   useEffect(() => {
-    debugger;
     console.log(args);
 
     let buffer = prData.filter(
@@ -36,17 +45,7 @@ export function PRReviewBarData({ args }: any) {
       };
     });
     setData(buffer2);
-  }, [args]);
-
-  function getUniqueReviewers(prArray: PRData[]): string[] {
-    const reviewerSet = new Set<string>();
-    for (const pr of prArray) {
-      if (pr.assignedReviewer) {
-        reviewerSet.add(pr.assignedReviewer.toLowerCase()); // normalize casing if needed
-      }
-    }
-    return Array.from(reviewerSet);
-  }
+  }, [args, prData]);
 
   return (
     <>

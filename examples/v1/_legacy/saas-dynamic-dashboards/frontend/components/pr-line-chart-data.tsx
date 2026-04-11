@@ -1,22 +1,35 @@
 import { useEffect, useState } from "react";
-import {
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { CartesianGrid, Legend, Line, LineChart, XAxis, YAxis } from "recharts";
 import { useSharedContext } from "@/lib/shared-context";
 import { PRData, WeeklyCount } from "@/app/Interfaces/interface";
 
+function _groupPRsByWeek(prs: PRData[]): WeeklyCount[] {
+  const weekMap: Record<string, number> = {};
+
+  prs.forEach((pr) => {
+    const date = new Date(pr.createdAt);
+    const day = date.getUTCDay();
+    const diffToMonday = (day + 6) % 7;
+    const monday = new Date(date);
+    monday.setUTCDate(date.getUTCDate() - diffToMonday);
+    monday.setUTCHours(0, 0, 0, 0);
+
+    const mondayStr = monday.toISOString().split("T")[0];
+
+    weekMap[mondayStr] = (weekMap[mondayStr] || 0) + 1;
+  });
+
+  return Object.entries(weekMap)
+    .map(([week, count]) => ({ week, count }))
+    .sort((a, b) => a.week.localeCompare(b.week));
+}
+
 export function PRLineChartData({ args }: any) {
-  const { prData } = useSharedContext();
+  const { prData: _prData } = useSharedContext();
   const [lineData, setLineData] = useState<WeeklyCount[] | any>([]);
   const [xarr, setXarr] = useState<string[]>([]);
   useEffect(() => {
-    console.log(args);
+    console.log(args?.items);
 
     if (args?.items) {
       const allKeys = new Set();
@@ -43,27 +56,6 @@ export function PRLineChartData({ args }: any) {
       setXarr(args?.items?.map((item: any) => item[0]?.accessorKey));
     }
   }, [args?.items]);
-
-  function groupPRsByWeek(prs: PRData[]): WeeklyCount[] {
-    const weekMap: Record<string, number> = {};
-
-    prs.forEach((pr) => {
-      const date = new Date(pr.createdAt);
-      const day = date.getUTCDay(); // 0 (Sun) to 6 (Sat)
-      const diffToMonday = (day + 6) % 7; // get difference to previous Monday
-      const monday = new Date(date);
-      monday.setUTCDate(date.getUTCDate() - diffToMonday);
-      monday.setUTCHours(0, 0, 0, 0); // normalize to midnight
-
-      const mondayStr = monday.toISOString().split("T")[0];
-
-      weekMap[mondayStr] = (weekMap[mondayStr] || 0) + 1;
-    });
-
-    return Object.entries(weekMap)
-      .map(([week, count]) => ({ week, count }))
-      .sort((a, b) => a.week.localeCompare(b.week));
-  }
 
   const chartColors = [
     "hsl(12, 76%, 61%)",
@@ -105,6 +97,7 @@ export function PRLineChartData({ args }: any) {
           {xarr.map((item: any, index: number) => {
             return (
               <Line
+                key={item}
                 type="monotone"
                 dataKey={item}
                 stroke={chartColors[index]}
@@ -121,9 +114,8 @@ export function PRLineChartData({ args }: any) {
   );
 }
 
-const CustomPieTooltip = ({ active, payload }: any) => {
+const _CustomPieTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
-    debugger;
     const { week, count } = payload[0].payload;
     return (
       <div className="bg-white p-2 rounded shadow text-black">

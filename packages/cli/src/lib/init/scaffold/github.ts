@@ -2,9 +2,8 @@ import { execSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { Config } from "../types/index.js";
 import chalk from "chalk";
-import ora, { Ora } from "ora";
+import { Ora } from "ora";
 
 /**
  * Clones a specific subdirectory from a GitHub repository

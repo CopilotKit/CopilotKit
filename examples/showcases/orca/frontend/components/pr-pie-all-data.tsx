@@ -39,12 +39,12 @@ export function PRPieData({ args }: any) {
       getStatusCounts(
         prData.filter((pr: PRData) => pr.userId === args?.userId),
       ),
-    ).map(([status, count]) => ({
-      name: status,
+    ).map(([statusName, count]) => ({
+      name: statusName,
       value: count,
     }));
     setUserPRData(pieData);
-  }, [args]);
+  }, [args, prData]);
   const getStatusCounts = (data: PRData[]) => {
     return data.reduce((acc: any, pr: PRData) => {
       acc[pr.status] = (acc[pr.status] || 0) + 1;

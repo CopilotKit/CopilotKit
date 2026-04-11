@@ -5,7 +5,6 @@ import { toStandardJsonSchema } from "@valibot/to-json-schema";
 import { type } from "arktype";
 import { RunHandler } from "../run-handler";
 import type { CopilotKitCore } from "../core";
-import type { StandardSchemaV1 } from "@copilotkit/shared";
 
 function createRunHandler(): RunHandler {
   return new RunHandler({} as CopilotKitCore);

@@ -1,8 +1,7 @@
 import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit/shared";
 import { useCopilotContext } from "@copilotkit/react-core";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import {
-  CopilotRuntimeClient,
   Message,
   Role,
   TextMessage,
@@ -39,53 +38,57 @@ export function useMakeStandardInsertionOrEditingFunction(
   insertionApiConfig: InsertionsApiConfig,
   editingApiConfig: EditingApiConfig,
 ): Generator_InsertionOrEditingSuggestion {
-  const runtimeClient: any = {
-    generateCopilotResponse: (...args: any[]) => {},
-  };
+  const runtimeClient: any = useMemo(
+    () => ({
+      generateCopilotResponse: (..._args: any[]) => {},
+    }),
+    [],
+  );
   const { getContextString, copilotApiConfig } = useCopilotContext();
-  const headers = {
-    ...(copilotApiConfig.publicApiKey
-      ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
-      : {}),
-  };
+  const _headers = copilotApiConfig.publicApiKey
+    ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
+    : {};
 
-  async function runtimeClientResponseToStringStream(
-    responsePromise: ReturnType<typeof runtimeClient.generateCopilotResponse>,
-  ) {
-    const messagesStream = runtimeClient.asStream(responsePromise);
+  const runtimeClientResponseToStringStream = useCallback(
+    async function runtimeClientResponseToStringStream(
+      responsePromise: ReturnType<typeof runtimeClient.generateCopilotResponse>,
+    ) {
+      const messagesStream = runtimeClient.asStream(responsePromise);
 
-    return new ReadableStream({
-      async start(controller) {
-        const reader = messagesStream.getReader();
-        let sentContent = "";
+      return new ReadableStream({
+        async start(controller) {
+          const reader = messagesStream.getReader();
+          let sentContent = "";
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            break;
-          }
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              break;
+            }
 
-          const messages = convertGqlOutputToMessages(
-            value.generateCopilotResponse.messages,
-          );
+            const messages = convertGqlOutputToMessages(
+              value.generateCopilotResponse.messages,
+            );
 
-          let newContent = "";
+            let newContent = "";
 
-          for (const message of messages) {
-            if (message.isTextMessage()) {
-              newContent += message.content;
+            for (const message of messages) {
+              if (message.isTextMessage()) {
+                newContent += message.content;
+              }
+            }
+            if (newContent) {
+              const contentToSend = newContent.slice(sentContent.length);
+              controller.enqueue(contentToSend);
+              sentContent += contentToSend;
             }
           }
-          if (newContent) {
-            const contentToSend = newContent.slice(sentContent.length);
-            controller.enqueue(contentToSend);
-            sentContent += contentToSend;
-          }
-        }
-        controller.close();
-      },
-    });
-  }
+          controller.close();
+        },
+      });
+    },
+    [runtimeClient],
+  );
 
   const insertionFunction = useCallback(
     async (
@@ -140,7 +143,15 @@ export function useMakeStandardInsertionOrEditingFunction(
 
       return res;
     },
-    [insertionApiConfig, getContextString, contextCategories, textareaPurpose],
+    [
+      insertionApiConfig,
+      getContextString,
+      contextCategories,
+      textareaPurpose,
+      runtimeClient,
+      copilotApiConfig.properties,
+      runtimeClientResponseToStringStream,
+    ],
   );
 
   const editingFunction = useCallback(
@@ -200,7 +211,15 @@ export function useMakeStandardInsertionOrEditingFunction(
 
       return res;
     },
-    [editingApiConfig, getContextString, contextCategories, textareaPurpose],
+    [
+      editingApiConfig,
+      getContextString,
+      contextCategories,
+      textareaPurpose,
+      runtimeClient,
+      copilotApiConfig.properties,
+      runtimeClientResponseToStringStream,
+    ],
   );
 
   const insertionOrEditingFunction = useCallback(

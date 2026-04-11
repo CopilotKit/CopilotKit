@@ -11,35 +11,29 @@ import { useEffect, useState } from "react";
 import { useAuthContext } from "@/components/auth-context";
 import { useCopilotReadable } from "@copilotkit/react-core";
 
+async function changePin({ cardId, pin }: { cardId: string; pin: string }) {
+  try {
+    const response = await fetch(`/api/v1/cards/${cardId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ pin }),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to change PIN");
+    }
+    return response.json();
+  } catch (error) {
+    console.error("Error changing PIN:", error);
+  }
+}
+
 export default function useCreditCards() {
   const [cards, setCards] = useState<ICard[]>([]);
   const [policies, setPolicies] = useState<ExpensePolicy[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const { currentUser } = useAuthContext();
-
-  const changePin = async ({
-    cardId,
-    pin,
-  }: {
-    cardId: string;
-    pin: string;
-  }) => {
-    try {
-      const response = await fetch(`/api/v1/cards/${cardId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ pin }),
-      });
-      if (!response.ok) {
-        throw new Error("Failed to change PIN");
-      }
-      return response.json();
-    } catch (error) {
-      console.error("Error changing PIN:", error);
-    }
-  };
 
   const fetchCards = async () => {
     try {
@@ -212,9 +206,7 @@ export default function useCreditCards() {
       currentUser.role === MemberRole.Admin
         ? cards
         : cards.filter((card) => {
-            const policy = policies.find(
-              (policy) => policy.id === card.expensePolicyId,
-            );
+            const policy = policies.find((p) => p.id === card.expensePolicyId);
             return policy?.type === currentUser.team;
           }),
     policies,

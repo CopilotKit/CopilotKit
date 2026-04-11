@@ -128,10 +128,10 @@ export const Presentation = ({
 
   const updateCurrentSlide = useCallback(
     (partialSlide: Partial<SlideModel>) => {
-      setSlides((slides) => [
-        ...slides.slice(0, currentSlideIndex),
-        { ...slides[currentSlideIndex], ...partialSlide },
-        ...slides.slice(currentSlideIndex + 1),
+      setSlides((prevSlides) => [
+        ...prevSlides.slice(0, currentSlideIndex),
+        { ...prevSlides[currentSlideIndex], ...partialSlide },
+        ...prevSlides.slice(currentSlideIndex + 1),
       ]);
     },
     [currentSlideIndex, setSlides],

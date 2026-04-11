@@ -64,7 +64,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
   describe("2. Property Passing - Header Slot", () => {
     describe("header slot", () => {
       it("should pass custom props to header", () => {
-        const { container } = render(
+        const { container: _container } = render(
           <TestWrapper>
             <CopilotSidebarView
               messages={sampleMessages}
@@ -435,7 +435,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
 
     describe("toggleButton slot - Props object", () => {
       it("should pass custom props to toggle button", () => {
-        const { container } = render(
+        const { container: _container } = render(
           <TestWrapper>
             <CopilotSidebarView
               messages={sampleMessages}

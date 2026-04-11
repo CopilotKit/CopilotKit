@@ -46,13 +46,13 @@ export function PRPieFilterData({ args }: any) {
           return diffDays <= args.dayCount;
         }),
       ),
-    ).map(([status, count]) => ({
-      name: status,
+    ).map(([statusName, count]) => ({
+      name: statusName,
       value: count,
     }));
     console.log(pieData);
     setUserPRData(pieData);
-  }, [args]);
+  }, [args, prData]);
   const getStatusCounts = (data: PRData[]) => {
     return data.reduce((acc: any, pr: PRData) => {
       acc[pr.status] = (acc[pr.status] || 0) + 1;

@@ -9,7 +9,11 @@
   "rules": {
     "react/react-in-jsx-scope": "off",
     "import/no-unassigned-import": "off",
+    "import/no-named-as-default": "off",
+    "import/no-named-as-default-member": "off",
     "unicorn/no-array-sort": "off",
+    "unicorn/prefer-add-event-listener": "off",
+    "typescript/no-extraneous-class": "off",
     "copilotkit/require-cpk-prefix": "off",
     "no-restricted-imports": "off"
   },
@@ -38,9 +42,40 @@
       }
     },
     {
+      "files": ["packages/**/*.{ts,tsx,js,jsx}"],
+      "rules": {
+        "nextjs/no-img-element": "off"
+      }
+    },
+    {
       "files": ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"],
       "rules": {
-        "copilotkit/require-cpk-prefix": "off"
+        "copilotkit/require-cpk-prefix": "off",
+        "unicorn/consistent-function-scoping": "off",
+        "no-shadow": "off",
+        "typescript/no-this-alias": "off",
+        "unicorn/no-thenable": "off",
+        "no-new": "off",
+        "react/jsx-key": "off"
+      }
+    },
+    {
+      "files": ["**/app/layout.tsx", "**/app/layout.js"],
+      "rules": {
+        "nextjs/no-page-custom-font": "off",
+        "nextjs/google-font-display": "off"
+      }
+    },
+    {
+      "files": [".github/**/*.ts"],
+      "rules": {
+        "import/default": "off"
+      }
+    },
+    {
+      "files": ["**/error-boundary/error-utils.tsx"],
+      "rules": {
+        "react-hooks/exhaustive-deps": "off"
       }
     }
   ],

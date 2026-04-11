@@ -1,6 +1,7 @@
 "use client";
 import useCreditCards from "@/app/actions";
 import { useMemo } from "react";
+import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Card,
@@ -18,7 +19,7 @@ export default function HomePage() {
   const { cards, policies, transactions } = useCreditCards();
 
   const { balance, limit } = useMemo(() => {
-    const { balance, limit } = policies.reduce(
+    const { balance: totalBalance, limit: totalLimit } = policies.reduce(
       (stats, policy) => {
         return {
           balance: stats.balance + policy.spent,
@@ -30,12 +31,12 @@ export default function HomePage() {
       },
       { balance: 0, limit: { used: 0, total: 0 } },
     );
-    const limitUsagePercentage = (limit.used / limit.total) * 100;
+    const limitUsagePercentage = (totalLimit.used / totalLimit.total) * 100;
 
     return {
-      balance,
+      balance: totalBalance,
       limit: {
-        total: limit.total,
+        total: totalLimit.total,
         usagePercentage: limitUsagePercentage,
       },
     };
@@ -115,7 +116,7 @@ export default function HomePage() {
                         </p>
                       </div>
                       <Button variant="outline" asChild>
-                        <a href="/cards">Manage</a>
+                        <Link href="/cards">Manage</Link>
                       </Button>
                     </div>
                   ))}

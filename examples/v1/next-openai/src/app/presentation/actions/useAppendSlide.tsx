@@ -56,8 +56,8 @@ export default function useAppendSlide({
         backgroundImageDescription,
       };
 
-      setSlides((slides) => [...slides, newSlide]);
-      setCurrentSlideIndex((i) => slides.length);
+      setSlides((prevSlides) => [...prevSlides, newSlide]);
+      setCurrentSlideIndex((_i) => slides.length);
     },
     render: (props) => {
       return (

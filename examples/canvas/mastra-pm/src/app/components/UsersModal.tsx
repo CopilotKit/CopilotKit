@@ -44,6 +44,7 @@ function UserCard({ user }: UserCardProps) {
   return (
     <div className="flex items-center gap-4 bg-white/10 rounded-xl p-6 border border-white/10 hover:bg-white/20 transition-all duration-200">
       <div className="relative">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={user.image}
           alt={user.name}

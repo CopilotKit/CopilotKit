@@ -134,6 +134,12 @@ export const usePushToTalk = ({
     string | null
   >(null);
 
+  // Store in refs to avoid triggering the effect on every render
+  const sendFunctionRef = useRef(sendFunction);
+  sendFunctionRef.current = sendFunction;
+  const contextRef = useRef(context);
+  contextRef.current = context;
+
   useEffect(() => {
     if (pushToTalkState === "recording") {
       startRecording(
@@ -150,11 +156,11 @@ export const usePushToTalk = ({
       if (pushToTalkState === "transcribing") {
         transcribeAudio(
           recordedChunks.current,
-          context.copilotApiConfig.transcribeAudioUrl!,
+          contextRef.current.copilotApiConfig.transcribeAudioUrl!,
         ).then(async (transcription) => {
           recordedChunks.current = [];
           setPushToTalkState("idle");
-          const message = await sendFunction(transcription);
+          const message = await sendFunctionRef.current(transcription);
           setStartReadingFromMessageId(message.id);
         });
       }
@@ -167,11 +173,12 @@ export const usePushToTalk = ({
 
   useEffect(() => {
     if (inProgress === false && startReadingFromMessageId) {
-      const lastMessageIndex = context.messages.findIndex(
+      const currentContext = contextRef.current;
+      const lastMessageIndex = currentContext.messages.findIndex(
         (message) => message.id === startReadingFromMessageId,
       );
 
-      const aguiMessages = gqlToAGUI(context.messages);
+      const aguiMessages = gqlToAGUI(currentContext.messages);
 
       const messagesAfterLast = aguiMessages
         .slice(lastMessageIndex + 1)
@@ -182,7 +189,7 @@ export const usePushToTalk = ({
         .join("\n");
       playAudioResponse(
         text,
-        context.copilotApiConfig.textToSpeechUrl!,
+        currentContext.copilotApiConfig.textToSpeechUrl!,
         audioContextRef.current!,
       );
 

@@ -35,13 +35,13 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
 
   useLayoutEffect(() => {
     const el = ref.current;
-    const { selection } = editor;
+    const currentSelection = editor.selection;
 
     if (!el || !isShown) {
       return;
     }
 
-    if (!selection) {
+    if (!currentSelection) {
       el.removeAttribute("style");
       return;
     }
@@ -107,7 +107,7 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
 
     el.style.top = `${top}px`;
     el.style.left = `${left}px`;
-  }, [isShown]);
+  }, [isShown, editor.selection]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -186,7 +186,7 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
   );
 };
 
-function editorState(editor: Editor, selection: Location): EditingEditorState {
+function editorState(editor: Editor, _selection: Location): EditingEditorState {
   const textAroundCursor = getTextAroundSelection(editor);
   if (textAroundCursor) {
     return textAroundCursor;

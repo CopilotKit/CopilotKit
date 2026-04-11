@@ -28,8 +28,8 @@ export default function CopilotKitPage() {
         required: true,
       },
     ],
-    handler: async ({ themeColor }) => {
-      setThemeColor(themeColor);
+    handler: async ({ themeColor: newThemeColor }) => {
+      setThemeColor(newThemeColor);
     },
   });
 

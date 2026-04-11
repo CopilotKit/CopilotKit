@@ -1,5 +1,6 @@
 import { Command } from "@oclif/core";
-import Sentry, { consoleIntegration } from "@sentry/node";
+import * as Sentry from "@sentry/node";
+import { consoleIntegration } from "@sentry/node";
 import { LIB_VERSION } from "../utils/version.js";
 import { COPILOT_CLOUD_BASE_URL } from "../utils/trpc.js";
 import chalk from "chalk";

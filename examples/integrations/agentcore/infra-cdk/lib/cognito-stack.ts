@@ -121,7 +121,7 @@ export class CognitoStack extends cdk.NestedStack {
 
     // Create admin user if email is provided in config
     if (config.admin_user_email) {
-      new cognito.CfnUserPoolUser(this, "AdminUser", {
+      void new cognito.CfnUserPoolUser(this, "AdminUser", {
         userPoolId: userPool.userPoolId,
         username: config.admin_user_email,
         userAttributes: [
@@ -134,7 +134,7 @@ export class CognitoStack extends cdk.NestedStack {
       });
 
       // Output admin user creation status
-      new cdk.CfnOutput(this, "AdminUserCreated", {
+      void new cdk.CfnOutput(this, "AdminUserCreated", {
         description: "Admin user created and credentials emailed",
         value: `Admin user created: ${config.admin_user_email}`,
       });

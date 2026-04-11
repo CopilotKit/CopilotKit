@@ -69,9 +69,8 @@ export function useCarouselAnimation(
     return () => {
       document.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("scroll", handleScroll, true);
-      const container = scrollContainerRef.current;
-      if (container) {
-        container.removeEventListener("scroll", handleScroll);
+      if (scrollContainer) {
+        scrollContainer.removeEventListener("scroll", handleScroll);
       }
     };
   }, [carouselContainerRef, scrollContainerRef]);

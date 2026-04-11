@@ -42,6 +42,20 @@ export function CopilotSidebarView({
   );
 }
 
+// Helper to convert width to CSS value
+const widthToCss = (w: number | string): string => {
+  return typeof w === "number" ? `${w}px` : w;
+};
+
+// Helper to extract numeric value for body margin (only works with px values)
+const widthToMargin = (w: number | string): string => {
+  if (typeof w === "number") {
+    return `${w}px`;
+  }
+  // For string values, use as-is (assumes valid CSS unit)
+  return w;
+};
+
 function CopilotSidebarViewInternal({
   header,
   toggleButton,
@@ -56,20 +70,6 @@ function CopilotSidebarViewInternal({
   const [sidebarWidth, setSidebarWidth] = useState<number | string>(
     width ?? DEFAULT_SIDEBAR_WIDTH,
   );
-
-  // Helper to convert width to CSS value
-  const widthToCss = (w: number | string): string => {
-    return typeof w === "number" ? `${w}px` : w;
-  };
-
-  // Helper to extract numeric value for body margin (only works with px values)
-  const widthToMargin = (w: number | string): string => {
-    if (typeof w === "number") {
-      return `${w}px`;
-    }
-    // For string values, use as-is (assumes valid CSS unit)
-    return w;
-  };
 
   useEffect(() => {
     // If width is explicitly provided, don't measure

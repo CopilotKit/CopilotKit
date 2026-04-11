@@ -76,7 +76,7 @@ const CountryGlobe = ({
       controls.minDistance = 120;
       controls.maxDistance = 500;
     }
-  }, [polygons.length]);
+  }, [polygons.length, globeRef]);
 
   // Update cursor on hover
   useEffect(() => {

@@ -1,10 +1,7 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { z } from "zod";
-import {
-  CopilotKitProvider,
-  useCopilotKit,
-} from "../../../providers/CopilotKitProvider";
+import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
 import {
   AbstractAgent,
@@ -134,7 +131,7 @@ describe("CopilotChat tool rendering with mock agent", () => {
 
 describe("Tool render status narrowing", () => {
   function renderStatusWithProvider({
-    isRunning,
+    isRunning: _isRunning,
     withResult,
   }: {
     isRunning: boolean;

@@ -192,6 +192,7 @@ export function McpAppPreview({
           </p>
         </div>
       )}
+      {/* eslint-disable react/iframe-missing-sandbox -- MCP app preview requires both allow-scripts and allow-same-origin */}
       <iframe
         ref={iframeRef}
         srcDoc={htmlSource}

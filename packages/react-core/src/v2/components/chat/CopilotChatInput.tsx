@@ -123,7 +123,7 @@ export function CopilotChatInput({
   onFinishTranscribeWithAudio,
   onAddFile,
   onChange,
-  value,
+  value: valueProp,
   toolsMenu,
   autoFocus = false,
   positioning = "static",
@@ -142,16 +142,18 @@ export function CopilotChatInput({
   className,
   ...props
 }: CopilotChatInputProps) {
-  const isControlled = value !== undefined;
-  const [internalValue, setInternalValue] = useState<string>(() => value ?? "");
+  const isControlled = valueProp !== undefined;
+  const [internalValue, setInternalValue] = useState<string>(
+    () => valueProp ?? "",
+  );
 
   useEffect(() => {
-    if (!isControlled && value !== undefined) {
-      setInternalValue(value);
+    if (!isControlled && valueProp !== undefined) {
+      setInternalValue(valueProp);
     }
-  }, [isControlled, value]);
+  }, [isControlled, valueProp]);
 
-  const resolvedValue = isControlled ? (value ?? "") : internalValue;
+  const resolvedValue = isControlled ? (valueProp ?? "") : internalValue;
 
   const [layout, setLayout] = useState<"compact" | "expanded">("compact");
   const ignoreResizeRef = useRef(false);

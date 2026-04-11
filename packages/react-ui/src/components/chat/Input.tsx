@@ -86,6 +86,7 @@ export const Input = ({
     hideStopButton,
     context.icons.stopIcon,
     context.icons.sendIcon,
+    context.icons.spinnerIcon,
   ]);
   const showPushToTalk =
     pushToTalkConfigured &&

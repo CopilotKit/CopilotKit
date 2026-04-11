@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { z } from "zod";
-import { BasicAgent, defineTool, type ToolDefinition } from "../index";
+import { BasicAgent, defineTool } from "../index";
 import {
   EventType,
   type BaseEvent,

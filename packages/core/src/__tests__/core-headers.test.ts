@@ -90,14 +90,14 @@ describe("CopilotKitCore headers", () => {
         super({ url: "https://runtime.example" });
       }
 
-      async connectAgent(...args: Parameters<HttpAgent["connectAgent"]>) {
+      async connectAgent(..._args: Parameters<HttpAgent["connectAgent"]>) {
         recorded.push({ ...this.headers });
         return Promise.resolve({ newMessages: [] }) as ReturnType<
           HttpAgent["connectAgent"]
         >;
       }
 
-      async runAgent(...args: Parameters<HttpAgent["runAgent"]>) {
+      async runAgent(..._args: Parameters<HttpAgent["runAgent"]>) {
         recorded.push({ ...this.headers });
         return Promise.resolve({ newMessages: [] }) as ReturnType<
           HttpAgent["runAgent"]
@@ -198,7 +198,7 @@ describe("CopilotKitCore headers", () => {
         super({ url: "https://runtime.example" });
       }
 
-      async runAgent(...args: Parameters<HttpAgent["runAgent"]>) {
+      async runAgent(..._args: Parameters<HttpAgent["runAgent"]>) {
         recorded.push({ ...this.headers });
         return Promise.resolve({ newMessages: [] }) as ReturnType<
           HttpAgent["runAgent"]

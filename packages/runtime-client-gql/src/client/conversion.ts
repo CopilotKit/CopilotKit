@@ -89,7 +89,7 @@ export function filterAdjacentAgentStateMessages(
   const filteredMessages: GenerateCopilotResponseMutation["generateCopilotResponse"]["messages"] =
     [];
 
-  messages.forEach((message, i) => {
+  messages.forEach((message, _i) => {
     // keep all other message types
     if (message.__typename !== "AgentStateMessageOutput") {
       filteredMessages.push(message);
@@ -255,7 +255,7 @@ function getPartialArguments(args: string[]) {
       return {};
     }
     return parsed;
-  } catch (e) {
+  } catch {
     // Incomplete JSON is expected during streaming — no warning needed
     return {};
   }

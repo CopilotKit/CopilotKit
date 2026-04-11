@@ -1,11 +1,5 @@
-import React, { useRef, useState } from "react";
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-  act,
-} from "@testing-library/react";
+import React, { useState } from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { z } from "zod";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
@@ -17,9 +11,8 @@ import {
 } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
 import { defineToolCallRenderer, ReactToolCallRenderer } from "../../../types";
-import { ToolCallStatus } from "@copilotkit/core";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
-import { CopilotChatView, CopilotChatViewProps } from "../CopilotChatView";
+import { CopilotChatView } from "../CopilotChatView";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { ActivityMessage, AssistantMessage, Message } from "@ag-ui/core";
 import {
@@ -72,8 +65,8 @@ describe("Tool Call Re-render Prevention", () => {
 
     // Track render counts for the tool renderer
     let toolRenderCount = 0;
-    let lastRenderStatus: string | null = null;
-    let lastRenderArgs: Record<string, unknown> | null = null;
+    let _lastRenderStatus: string | null = null;
+    let _lastRenderArgs: Record<string, unknown> | null = null;
 
     const renderToolCalls = [
       defineToolCallRenderer({
@@ -83,8 +76,8 @@ describe("Tool Call Re-render Prevention", () => {
         }),
         render: ({ status, args, result }) => {
           toolRenderCount++;
-          lastRenderStatus = status;
-          lastRenderArgs = args as Record<string, unknown>;
+          _lastRenderStatus = status;
+          _lastRenderArgs = args as Record<string, unknown>;
 
           return (
             <div data-testid="weather-tool">
@@ -176,7 +169,7 @@ describe("Tool Call Re-render Prevention", () => {
       expect(screen.getByText(/The weather in Paris is/)).toBeDefined();
     });
 
-    const renderCountAfterFirstTextChunk = toolRenderCount;
+    const _renderCountAfterFirstTextChunk = toolRenderCount;
 
     // Stream more text chunks
     agent.emit({
@@ -565,7 +558,7 @@ describe("Text Message Re-render Prevention", () => {
       expect(screen.getByTestId("assistant-message-msg-2")).toBeDefined();
     });
 
-    const firstMessageRenderCountAfterSecondMessage = renderCounts["msg-1"];
+    const _firstMessageRenderCountAfterSecondMessage = renderCounts["msg-1"];
 
     // Continue streaming the second message
     const messagesWithMoreContent: Message[] = [
@@ -2313,7 +2306,7 @@ describe("Copy Button Re-render Prevention", () => {
       expect(screen.getByTestId("copy-button")).toBeDefined();
     });
 
-    const initialRenderCount = copyButtonRenderCount;
+    const _initialRenderCount = copyButtonRenderCount;
 
     // Add a second message - the first message's copy button should NOT re-render
     const messagesWithSecond: Message[] = [
