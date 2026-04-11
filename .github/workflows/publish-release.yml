@@ -1,4 +1,4 @@
-name: publish release
+name: release / publish
 
 on:
   pull_request:
