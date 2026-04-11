@@ -500,3 +500,125 @@ class TestReasoningContentPreservation:
         assert EventType.TOOL_CALL_START in types
         assert EventType.TOOL_CALL_ARGS in types
         assert EventType.TOOL_CALL_END in types
+
+
+# ---------- AG-UI-style (unprefixed) event integration ----------
+
+class TestAGUIStyleEventIntegration:
+    """Verify that AG-UI-native (unprefixed) events flow correctly through CopilotKit.
+
+    CopilotKit's _dispatch_event only intercepts copilotkit_-prefixed CUSTOM events;
+    unprefixed AG-UI events (manually_emit_message, manually_emit_tool_call, exit) are
+    delegated to the AG-UI base class — never suppressed or double-converted by CopilotKit.
+    """
+
+    def _make_agent(self):
+        mock_graph = MagicMock()
+        mock_graph.get_state = MagicMock()
+        agent = LangGraphAGUIAgent(name="test", graph=mock_graph)
+        agent.active_run = {
+            "id": "run-1", "thread_id": "t1",
+            "reasoning_process": None, "node_name": "agent",
+            "has_function_streaming": False, "model_made_tool_call": False,
+            "state_reliable": True, "streamed_messages": [],
+            "manually_emitted_state": None,
+            "schema_keys": {
+                "input": ["messages", "tools"],
+                "output": ["messages", "tools"],
+                "config": [],
+                "context": [],
+            },
+        }
+        return agent
+
+    def test_agui_manually_emit_message_produces_text_events(self):
+        """on_custom_event/"manually_emit_message" through CopilotKit should produce
+        TEXT_MESSAGE_START/CONTENT/END via the AG-UI base handler — not suppressed."""
+        import asyncio
+        agent = self._make_agent()
+        lg_event = {
+            "event": "on_custom_event",
+            "name": "manually_emit_message",
+            "data": {"message_id": "msg-1", "message": "Hello", "role": "assistant"},
+            "metadata": {},
+        }
+
+        async def _run():
+            async for _ in agent._handle_single_event(lg_event, {}):
+                pass
+
+        with track_parent_dispatches(agent) as dispatched:
+            asyncio.run(_run())
+
+        types = [e.type for e in dispatched]
+        assert EventType.TEXT_MESSAGE_START in types
+        assert EventType.TEXT_MESSAGE_CONTENT in types
+        assert EventType.TEXT_MESSAGE_END in types
+
+    def test_agui_manually_emit_tool_call_produces_tool_events(self):
+        """on_custom_event/"manually_emit_tool_call" through CopilotKit should produce
+        TOOL_CALL_START/ARGS/END via the AG-UI base handler."""
+        import asyncio
+        agent = self._make_agent()
+        lg_event = {
+            "event": "on_custom_event",
+            "name": "manually_emit_tool_call",
+            "data": {"id": "tc-1", "name": "search", "args": {"q": "weather"}},
+            "metadata": {},
+        }
+
+        async def _run():
+            async for _ in agent._handle_single_event(lg_event, {}):
+                pass
+
+        with track_parent_dispatches(agent) as dispatched:
+            asyncio.run(_run())
+
+        types = [e.type for e in dispatched]
+        assert EventType.TOOL_CALL_START in types
+        assert EventType.TOOL_CALL_ARGS in types
+        assert EventType.TOOL_CALL_END in types
+
+    def test_agui_exit_produces_custom_event(self):
+        """on_custom_event/"exit" through CopilotKit should emit a CUSTOM event —
+        the exit signal is not suppressed by the CopilotKit layer."""
+        import asyncio
+        agent = self._make_agent()
+        lg_event = {
+            "event": "on_custom_event",
+            "name": "exit",
+            "data": {},
+            "metadata": {},
+        }
+
+        async def _run():
+            async for _ in agent._handle_single_event(lg_event, {}):
+                pass
+
+        with track_parent_dispatches(agent) as dispatched:
+            asyncio.run(_run())
+
+        types = [e.type for e in dispatched]
+        assert EventType.CUSTOM in types
+
+    def test_agui_style_event_not_suppressed_by_dispatch(self):
+        """A CUSTOM event with an AG-UI-style unprefixed name passed to CopilotKit's
+        _dispatch_event should be forwarded to the base class unchanged.
+
+        CopilotKit only converts copilotkit_-prefixed events (e.g. copilotkit_manually_emit_message
+        → TEXT_MESSAGE_*). An unprefixed "manually_emit_message" CustomEvent must not trigger
+        that conversion path — no TEXT_MESSAGE_START should be injected, and the original
+        event object must be forwarded as-is."""
+        agent = self._make_agent()
+        original = CustomEvent(
+            type=EventType.CUSTOM,
+            name="manually_emit_message",
+            value={"message_id": "msg-2", "message": "test", "role": "assistant"},
+        )
+        with track_parent_dispatches(agent) as dispatched:
+            agent._dispatch_event(original)
+
+        types = [e.type for e in dispatched]
+        assert EventType.CUSTOM in types
+        assert EventType.TEXT_MESSAGE_START not in types
+        assert dispatched[0] is original

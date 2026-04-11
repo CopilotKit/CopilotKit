@@ -4,7 +4,7 @@ A LangGraph implementation for the testing agent.
 from fastapi import FastAPI
 import uvicorn
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
-from copilotkit import CopilotKitSDK, LangGraphAgent
+from copilotkit import CopilotKitSDK, LangGraphAGUIAgent
 import os
 import uuid
 import json
@@ -406,7 +406,7 @@ app = FastAPI()
 
 sdk = CopilotKitSDK(
     agents=[
-        LangGraphAgent(
+        LangGraphAGUIAgent(
             name="testing_agent",
             description="An example for a testing agent.",
             graph=testing_graph,
