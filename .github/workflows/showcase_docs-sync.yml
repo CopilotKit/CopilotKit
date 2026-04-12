@@ -75,6 +75,7 @@ jobs:
           git add showcase/shell/src/content/ showcase/shell/.docs-sync-sha
           CHANGED=$(git diff --cached --name-only | wc -l | tr -d ' ')
           git commit -m "Auto-sync docs from main ($(date +%Y-%m-%d))" || echo "Nothing to commit"
+          git pull --rebase origin "$SHOWCASE_BRANCH"
           git push origin "$SHOWCASE_BRANCH"
           echo "files_changed=${CHANGED}" >> "$GITHUB_OUTPUT"
 
