@@ -15,7 +15,7 @@ concurrency:
 jobs:
   sync-docs:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: write
       pull-requests: write
@@ -54,90 +54,67 @@ jobs:
             echo "No changes to sync"
             echo "action=none" >> "$GITHUB_OUTPUT"
           elif [ $EXIT_CODE -eq 0 ]; then
-            echo "Clean transforms only — will auto-push"
+            echo "Clean transforms only"
             echo "action=auto_push" >> "$GITHUB_OUTPUT"
           elif [ $EXIT_CODE -eq 3 ]; then
-            echo "Has review items — will auto-push clean transforms + open PR for review items"
+            echo "Has review items + clean transforms"
             echo "action=push_and_pr" >> "$GITHUB_OUTPUT"
           else
             echo "Sync failed with exit code $EXIT_CODE"
             exit 1
           fi
 
-      # Auto-push clean transforms directly to the showcase branch
-      - name: Auto-push clean transforms
+      # Create PR for clean transforms (branch protection blocks direct push to main)
+      - name: Create PR for clean transforms
         id: push
         if: steps.sync.outputs.action == 'auto_push' || steps.sync.outputs.action == 'push_and_pr'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          SHORT_SHA=$(git rev-parse --short origin/main)
+          BRANCH="docs-sync/auto/${SHORT_SHA}-$(date +%s)"
+
+          git checkout -b "$BRANCH"
           git add showcase/shell/src/content/ showcase/shell/.docs-sync-sha
           CHANGED=$(git diff --cached --name-only | wc -l | tr -d ' ')
-          git commit --no-verify -m "chore: auto-sync docs from main ($(date +%Y-%m-%d))" || echo "Nothing to commit"
-          git pull --rebase origin "$SHOWCASE_BRANCH"
-          git push origin "$SHOWCASE_BRANCH"
-          echo "files_changed=${CHANGED}" >> "$GITHUB_OUTPUT"
 
-      - name: Notify Slack (auto-push)
-        if: always() && steps.push.outcome == 'success'
+          if [ "$CHANGED" = "0" ]; then
+            echo "Nothing to commit"
+            echo "files_changed=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git commit --no-verify -m "chore: auto-sync docs from main ($(date +%Y-%m-%d))"
+          git push origin "$BRANCH"
+
+          PR_URL=$(gh pr create \
+            --title "chore: auto-sync docs from main (${SHORT_SHA})" \
+            --body "Automated docs sync. Clean transforms only — safe to merge." \
+            --base "$SHOWCASE_BRANCH" \
+            --head "$BRANCH")
+
+          echo "Created PR: $PR_URL"
+
+          echo "files_changed=${CHANGED}" >> "$GITHUB_OUTPUT"
+          echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
+
+      # Branch protection requires 1 approval — GITHUB_TOKEN can't self-approve,
+      # so the PR needs manual merge. Notify Slack with the PR link.
+      - name: Notify Slack (auto-sync)
+        if: always() && steps.push.outcome == 'success' && steps.push.outputs.files_changed != '0'
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload: |
-            { "text": ":arrows_counterclockwise: *Docs sync*: auto-pushed ${{ steps.push.outputs.files_changed || '?' }} file(s) to showcase\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+            { "text": ":arrows_counterclockwise: *Docs sync*: PR ready for ${{ steps.push.outputs.files_changed || '?' }} file(s) — needs approval + merge\n${{ steps.push.outputs.pr_url || '' }}\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
 
-      # Open PR only for files needing human review
-      - name: Create PR for review items
-        if: steps.sync.outputs.action == 'push_and_pr'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          SHORT_SHA=$(git rev-parse --short origin/main)
-          BRANCH="docs-sync-review/${SHORT_SHA}"
-
-          git checkout -b "$BRANCH"
-
-          # Stage any remaining unstaged changes (review items the sync script flagged)
-          git add showcase/shell/src/content/
-          if git diff --cached --quiet; then
-            echo "No review items to commit — skipping PR"
-            exit 0
-          fi
-          git commit --no-verify -m "chore: docs sync — files needing review (${SHORT_SHA})"
-          git push origin "$BRANCH"
-
-          # The review-items.txt was written by the sync script
-          REVIEW_ITEMS=$(cat review-items.txt 2>/dev/null || echo "See sync output for details")
-
-          gh pr create \
-            --title "Docs sync: review needed (${SHORT_SHA})" \
-            --body "$(cat <<EOF
-          ## Docs Sync — Manual Review Needed
-
-          Clean transforms were auto-pushed to \`$SHOWCASE_BRANCH\`. These files need manual attention:
-
-          \`\`\`
-          ${REVIEW_ITEMS}
-          \`\`\`
-
-          <details>
-          <summary>Full sync output</summary>
-
-          \`\`\`
-          $(cat sync-output.txt)
-          \`\`\`
-
-          </details>
-
-          ---
-          Generated by Showcase Docs Sync
-          EOF
-          )" \
-            --base "$SHOWCASE_BRANCH" \
-            --head "$BRANCH"
-
+      # Review items = files the sync script flagged but did NOT write to disk
+      # (local modifications, files deleted on main). No file changes to propose —
+      # just alert Slack so a human can manually reconcile.
       - name: Notify Slack (review needed)
         if: always() && steps.sync.outputs.action == 'push_and_pr'
         uses: slackapi/slack-github-action@v2.1.0
@@ -145,4 +122,4 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload: |
-            { "text": ":warning: *Docs sync*: auto-pushed ${{ steps.push.outputs.files_changed || '?' }} file(s) + opened PR for files needing manual review\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+            { "text": ":warning: *Docs sync*: files needing manual review — see workflow run for details\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
