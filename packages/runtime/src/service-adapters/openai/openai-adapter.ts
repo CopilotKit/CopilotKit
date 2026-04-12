@@ -199,7 +199,12 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     let openaiMessages = filteredMessages.map((m) =>
       convertMessageToOpenAIMessage(m, { keepSystemRole: this.keepSystemRole }),
     );
-    openaiMessages = limitMessagesToTokenCount(openaiMessages, tools, model, this.maxInputTokens);
+    openaiMessages = limitMessagesToTokenCount(
+      openaiMessages,
+      tools,
+      model,
+      this.maxInputTokens,
+    );
 
     let toolChoice: any = forwardedParameters?.toolChoice;
     if (forwardedParameters?.toolChoice === "function") {

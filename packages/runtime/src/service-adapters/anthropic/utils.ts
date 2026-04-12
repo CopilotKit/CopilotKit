@@ -66,12 +66,14 @@ export function limitMessagesToTokenCount(
   const filtered = result.filter((msg: any) => {
     if (msg.role === "user" && Array.isArray(msg.content)) {
       const hasOrphanedToolResult = msg.content.some(
-        (block: any) => block.type === "tool_result" && !toolUseIds.has(block.tool_use_id),
+        (block: any) =>
+          block.type === "tool_result" && !toolUseIds.has(block.tool_use_id),
       );
       if (hasOrphanedToolResult) {
         // Remove orphaned tool_result blocks; keep the message if other content remains
         const remaining = msg.content.filter(
-          (block: any) => block.type !== "tool_result" || toolUseIds.has(block.tool_use_id),
+          (block: any) =>
+            block.type !== "tool_result" || toolUseIds.has(block.tool_use_id),
         );
         if (remaining.length === 0) return false;
         msg.content = remaining;

@@ -137,7 +137,12 @@ type MarkdownProps = {
   rehypePlugins?: Options["rehypePlugins"];
 };
 
-export const Markdown = ({ content, components, remarkPlugins, rehypePlugins }: MarkdownProps) => {
+export const Markdown = ({
+  content,
+  components,
+  remarkPlugins,
+  rehypePlugins,
+}: MarkdownProps) => {
   const mergedComponents = useMemo(
     () => ({ ...defaultComponents, ...components }),
     [components],
