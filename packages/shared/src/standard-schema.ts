@@ -61,10 +61,24 @@ export function schemaToJsonSchema(
     return schema["~standard"].jsonSchema.input({ target: "draft-07" });
   }
 
-  // 2. Zod v3 fallback
+  // 2. Zod fallback (v3 and v4)
   const vendor = schema["~standard"].vendor;
-  if (vendor === "zod" && options?.zodToJsonSchema) {
+  if ((vendor === "zod" || vendor === "zod4") && options?.zodToJsonSchema) {
     return options.zodToJsonSchema(schema, { $refStrategy: "none" });
+  }
+
+  // 3. Zod-like schema detected by _def property (handles Zod v4 mini)
+  if (
+    options?.zodToJsonSchema &&
+    typeof schema === "object" &&
+    schema !== null &&
+    "_def" in (schema as any)
+  ) {
+    try {
+      return options.zodToJsonSchema(schema, { $refStrategy: "none" });
+    } catch {
+      // fall through to error below
+    }
   }
 
   throw new Error(
