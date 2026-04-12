@@ -64,15 +64,24 @@ jobs:
             exit 1
           fi
 
-      # Create PR for clean transforms (branch protection blocks direct push to main)
-      - name: Create PR for clean transforms
+      # Generate a token from copilotkit-devops-bot (bypass actor on branch protection)
+      - name: Generate bot token
+        id: bot-token
+        if: steps.sync.outputs.action == 'auto_push' || steps.sync.outputs.action == 'push_and_pr'
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: 1108748
+          private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+
+      # Create PR and auto-merge via devops bot (bypasses branch protection)
+      - name: Create and merge PR for clean transforms
         id: push
         if: steps.sync.outputs.action == 'auto_push' || steps.sync.outputs.action == 'push_and_pr'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "copilotkit-devops-bot[bot]"
+          git config user.email "copilotkit-devops-bot[bot]@users.noreply.github.com"
 
           SHORT_SHA=$(git rev-parse --short origin/main)
           BRANCH="docs-sync/auto/${SHORT_SHA}-$(date +%s)"
@@ -88,21 +97,23 @@ jobs:
           fi
 
           git commit --no-verify -m "chore: auto-sync docs from main ($(date +%Y-%m-%d))"
+
+          # Override git credential to use bot token (checkout configured GITHUB_TOKEN)
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
           git push origin "$BRANCH"
 
           PR_URL=$(gh pr create \
             --title "chore: auto-sync docs from main (${SHORT_SHA})" \
-            --body "Automated docs sync. Clean transforms only — safe to merge." \
+            --body "Automated docs sync. Clean transforms only." \
             --base "$SHOWCASE_BRANCH" \
             --head "$BRANCH")
 
           echo "Created PR: $PR_URL"
+          gh pr merge "$PR_URL" --merge
 
           echo "files_changed=${CHANGED}" >> "$GITHUB_OUTPUT"
           echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
 
-      # Branch protection requires 1 approval — GITHUB_TOKEN can't self-approve,
-      # so the PR needs manual merge. Notify Slack with the PR link.
       - name: Notify Slack (auto-sync)
         if: always() && steps.push.outcome == 'success' && steps.push.outputs.files_changed != '0'
         uses: slackapi/slack-github-action@v2.1.0
@@ -110,7 +121,7 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload: |
-            { "text": ":arrows_counterclockwise: *Docs sync*: PR ready for ${{ steps.push.outputs.files_changed || '?' }} file(s) — needs approval + merge\n${{ steps.push.outputs.pr_url || '' }}\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+            { "text": ":arrows_counterclockwise: *Docs sync*: auto-merged ${{ steps.push.outputs.files_changed || '?' }} file(s)\n${{ steps.push.outputs.pr_url || '' }}\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
 
       # Review items = files the sync script flagged but did NOT write to disk
       # (local modifications, files deleted on main). No file changes to propose —
