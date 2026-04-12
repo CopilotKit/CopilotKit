@@ -74,7 +74,7 @@ jobs:
 
           git add showcase/shell/src/content/ showcase/shell/.docs-sync-sha
           CHANGED=$(git diff --cached --name-only | wc -l | tr -d ' ')
-          git commit -m "Auto-sync docs from main ($(date +%Y-%m-%d))" || echo "Nothing to commit"
+          git commit --no-verify -m "chore: auto-sync docs from main ($(date +%Y-%m-%d))" || echo "Nothing to commit"
           git pull --rebase origin "$SHOWCASE_BRANCH"
           git push origin "$SHOWCASE_BRANCH"
           echo "files_changed=${CHANGED}" >> "$GITHUB_OUTPUT"
@@ -105,7 +105,7 @@ jobs:
             echo "No review items to commit — skipping PR"
             exit 0
           fi
-          git commit -m "Docs sync: files needing review (${SHORT_SHA})"
+          git commit --no-verify -m "chore: docs sync — files needing review (${SHORT_SHA})"
           git push origin "$BRANCH"
 
           # The review-items.txt was written by the sync script
