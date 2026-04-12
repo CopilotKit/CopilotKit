@@ -62,3 +62,17 @@ describe("getPartialArguments non-object guard", () => {
     expect((messages[0] as any).arguments).toEqual({});
   });
 });
+
+import { filterAdjacentAgentStateMessages } from "../conversion";
+
+describe("filterAdjacentAgentStateMessages", () => {
+  it("returns empty array when called with undefined messages", () => {
+    const result = filterAdjacentAgentStateMessages(undefined as any);
+    expect(result).toEqual([]);
+  });
+
+  it("returns empty array when called with null messages", () => {
+    const result = filterAdjacentAgentStateMessages(null as any);
+    expect(result).toEqual([]);
+  });
+});
