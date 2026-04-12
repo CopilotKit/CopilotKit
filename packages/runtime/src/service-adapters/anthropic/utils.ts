@@ -49,7 +49,38 @@ export function limitMessagesToTokenCount(
     maxTokens -= numTokens;
   }
 
-  return result;
+  // Post-process: ensure every tool_result has a matching tool_use
+  // Token trimming may have removed the assistant message containing tool_use
+  // while keeping the user message with tool_result, which Anthropic rejects.
+  const toolUseIds = new Set<string>();
+  for (const msg of result) {
+    if (msg.role === "assistant" && Array.isArray(msg.content)) {
+      for (const block of msg.content) {
+        if (block.type === "tool_use") {
+          toolUseIds.add(block.id);
+        }
+      }
+    }
+  }
+
+  const filtered = result.filter((msg: any) => {
+    if (msg.role === "user" && Array.isArray(msg.content)) {
+      const hasOrphanedToolResult = msg.content.some(
+        (block: any) => block.type === "tool_result" && !toolUseIds.has(block.tool_use_id),
+      );
+      if (hasOrphanedToolResult) {
+        // Remove orphaned tool_result blocks; keep the message if other content remains
+        const remaining = msg.content.filter(
+          (block: any) => block.type !== "tool_result" || toolUseIds.has(block.tool_use_id),
+        );
+        if (remaining.length === 0) return false;
+        msg.content = remaining;
+      }
+    }
+    return true;
+  });
+
+  return filtered;
 }
 
 const MAX_TOKENS = 128000;
