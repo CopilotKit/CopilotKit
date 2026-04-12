@@ -21,7 +21,8 @@
   margin: 8px auto 0 auto;
   justify-content: flex-start;
   flex-direction: column;
-  width: 97%;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .copilotKitMessages::-webkit-scrollbar {
