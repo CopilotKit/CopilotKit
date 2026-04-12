@@ -99,6 +99,19 @@ function convertJsonSchemaToParameter(
     baseParameter.required = false;
   }
 
+  // Handle null-union types like ["string", "null"] by picking the non-null type
+  if (Array.isArray(schema.type)) {
+    const nonNullTypes = (schema.type as string[]).filter(
+      (t: string) => t !== "null",
+    );
+    const resolvedType = nonNullTypes.length > 0 ? nonNullTypes[0] : "string";
+    return convertJsonSchemaToParameter(
+      name,
+      { ...schema, type: resolvedType } as JSONSchema,
+      isRequired,
+    );
+  }
+
   switch (schema.type) {
     case "string":
       return {
