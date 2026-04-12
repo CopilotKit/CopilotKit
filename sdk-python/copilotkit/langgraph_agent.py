@@ -267,7 +267,12 @@ class LangGraphAgent(Agent):
             actions=actions,
             agent_name=self.name
         )
-        current_graph_state.update(state)
+        # Only update graph state with keys that merge_state explicitly produced,
+        # not keys that were simply passed through from state_input unchanged.
+        # This preserves graph-owned state keys that the frontend may have sent stale values for.
+        for key, value in state.items():
+            if key not in state_input or value is not state_input.get(key):
+                current_graph_state[key] = value
         lg_interrupt_meta_event = next((ev for ev in (meta_events or []) if ev.get("name") == "LangGraphInterruptEvent"), None)
         has_active_interrupts = active_interrupts is not None and len(active_interrupts) > 0
 
