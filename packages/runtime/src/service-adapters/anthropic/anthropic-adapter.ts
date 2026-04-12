@@ -350,7 +350,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         system: cachedSystemPrompt,
         model: this.model,
         messages: cachedMessages,
-        max_tokens: forwardedParameters?.maxTokens || 1024,
+        max_tokens: forwardedParameters?.maxTokens || 4096,
         ...(forwardedParameters?.temperature
           ? { temperature: forwardedParameters.temperature }
           : {}),
