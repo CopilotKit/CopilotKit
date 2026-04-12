@@ -53,8 +53,8 @@ const createFetchFn =
     } catch (error) {
       // Let abort error pass through. It will be suppressed later
       if (
-        (error as Error).message.includes("BodyStreamBuffer was aborted") ||
-        (error as Error).message.includes("signal is aborted without reason")
+        (error as Error)?.message?.includes("BodyStreamBuffer was aborted") ||
+        (error as Error)?.message?.includes("signal is aborted without reason")
       ) {
         throw error;
       }
