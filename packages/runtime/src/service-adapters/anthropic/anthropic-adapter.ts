@@ -244,6 +244,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
       forwardedParameters,
     } = request;
     const tools = actions.map(convertActionInputToAnthropicTool);
+    const knownActionNames = new Set(actions.map((a) => a.name));
 
     const messages = [...rawMessages];
 
@@ -381,6 +382,11 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
                 filterThinkingTextBuffer.reset();
                 mode = "message";
               } else if (chunk.content_block.type === "tool_use") {
+                if (!knownActionNames.has(chunk.content_block.name)) {
+                  // Unknown tool - skip execution to prevent crashes
+                  mode = null;
+                  continue;
+                }
                 currentToolCallId = chunk.content_block.id;
                 eventStream$.sendActionExecutionStart({
                   actionExecutionId: currentToolCallId,
