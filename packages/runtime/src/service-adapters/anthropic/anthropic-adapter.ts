@@ -70,12 +70,19 @@ export interface AnthropicAdapterParams {
    * See: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
    */
   promptCaching?: AnthropicPromptCachingConfig;
+
+  /**
+   * Optional maximum input token limit. Overrides the default limit
+   * used when trimming messages to fit the context window.
+   */
+  maxInputTokens?: number;
 }
 
 export class AnthropicAdapter implements CopilotServiceAdapter {
   public model: string = DEFAULT_MODEL;
   public provider = "anthropic";
   private promptCaching: AnthropicPromptCachingConfig;
+  private maxInputTokens?: number;
 
   private _anthropic: Anthropic;
   public get anthropic(): Anthropic {
@@ -94,6 +101,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
       this.model = params.model;
     }
     this.promptCaching = params?.promptCaching || { enabled: false };
+    this.maxInputTokens = params?.maxInputTokens;
   }
 
   getLanguageModel(): LanguageModel {
@@ -322,6 +330,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
       anthropicMessages,
       tools,
       model,
+      this.maxInputTokens,
     );
 
     // Apply prompt caching if enabled
