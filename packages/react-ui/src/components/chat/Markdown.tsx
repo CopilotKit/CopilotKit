@@ -126,15 +126,24 @@ const MemoizedReactMarkdown: FC<Options> = memo(
   ReactMarkdown,
   (prevProps, nextProps) =>
     prevProps.children === nextProps.children &&
-    prevProps.components === nextProps.components,
+    prevProps.components === nextProps.components &&
+    prevProps.remarkPlugins === nextProps.remarkPlugins &&
+    prevProps.rehypePlugins === nextProps.rehypePlugins,
 );
 
 type MarkdownProps = {
   content: string;
   components?: Components;
+  remarkPlugins?: Options["remarkPlugins"];
+  rehypePlugins?: Options["rehypePlugins"];
 };
 
-export const Markdown = ({ content, components }: MarkdownProps) => {
+export const Markdown = ({
+  content,
+  components,
+  remarkPlugins,
+  rehypePlugins,
+}: MarkdownProps) => {
   const mergedComponents = useMemo(
     () => ({ ...defaultComponents, ...components }),
     [components],
@@ -146,8 +155,9 @@ export const Markdown = ({ content, components }: MarkdownProps) => {
         remarkPlugins={[
           remarkGfm,
           [remarkMath, { singleDollarTextMath: false }],
+          ...(remarkPlugins || []),
         ]}
-        rehypePlugins={[rehypeRaw]}
+        rehypePlugins={[rehypeRaw, ...(rehypePlugins || [])]}
       >
         {content}
       </MemoizedReactMarkdown>
