@@ -60,8 +60,11 @@ export function limitMessagesToTokenCount(
   return result;
 }
 
-export function maxTokensForOpenAIModel(model: string): number {
-  return maxTokensByModel[model] || DEFAULT_MAX_TOKENS;
+export function maxTokensForOpenAIModel(
+  model: string,
+  overrideMaxTokens?: number,
+): number {
+  return maxTokensByModel[model] || overrideMaxTokens || DEFAULT_MAX_TOKENS;
 }
 
 const DEFAULT_MAX_TOKENS = 128000;
