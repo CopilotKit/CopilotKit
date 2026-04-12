@@ -83,25 +83,21 @@
   color: var(--copilot-kit-dev-console-text);
 }
 
-.dark,
-html.dark,
-body.dark,
-[data-theme="dark"],
-html[style*="color-scheme: dark"],
-body[style*="color-scheme: dark"]
-  .copilotKitDevConsole
-  .copilotKitDebugMenuTriggerButton {
+.dark .copilotKitDevConsole .copilotKitDebugMenuTriggerButton,
+html.dark .copilotKitDevConsole .copilotKitDebugMenuTriggerButton,
+body.dark .copilotKitDevConsole .copilotKitDebugMenuTriggerButton,
+[data-theme="dark"] .copilotKitDevConsole .copilotKitDebugMenuTriggerButton,
+html[style*="color-scheme: dark"] .copilotKitDevConsole .copilotKitDebugMenuTriggerButton,
+body[style*="color-scheme: dark"] .copilotKitDevConsole .copilotKitDebugMenuTriggerButton {
   color: white;
 }
 
-.dark,
-html.dark,
-body.dark,
-[data-theme="dark"],
-html[style*="color-scheme: dark"],
-body[style*="color-scheme: dark"]
-  .copilotKitDevConsole
-  .copilotKitDebugMenuTriggerButton:hover {
+.dark .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover,
+html.dark .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover,
+body.dark .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover,
+[data-theme="dark"] .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover,
+html[style*="color-scheme: dark"] .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover,
+body[style*="color-scheme: dark"] .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover {
   background-color: color-mix(
     in srgb,
     var(--copilot-kit-dev-console-bg) 20%,
