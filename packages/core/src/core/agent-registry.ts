@@ -99,6 +99,7 @@ export class AgentRegistry {
   initialize(agents: Record<string, AbstractAgent>): void {
     this.localAgents = this.assignAgentIds(agents);
     this.applyHeadersToAgents(this.localAgents);
+    this.applyCredentialsToAgents(this.localAgents);
     this._agents = this.localAgents;
   }
 
@@ -140,6 +141,7 @@ export class AgentRegistry {
     this.localAgents = agents;
     this._agents = { ...this.localAgents, ...this.remoteAgents };
     this.applyHeadersToAgents(this._agents);
+    this.applyCredentialsToAgents(this._agents);
     void this.notifyAgentsChanged();
   }
 
@@ -150,6 +152,7 @@ export class AgentRegistry {
     this.validateAndAssignAgentId(id, agent);
     this.localAgents[id] = agent;
     this.applyHeadersToAgent(agent);
+    this.applyCredentialsToAgent(agent);
     this._agents = { ...this.localAgents, ...this.remoteAgents };
     void this.notifyAgentsChanged();
   }
