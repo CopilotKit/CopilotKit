@@ -488,7 +488,7 @@ export class CopilotResolver {
                   typeof MessageStatusUnion
                 >();
 
-                const messageId = event.messageId;
+                const messageId = event.messageId || randomId();
                 // push the new message
                 pushMessage({
                   id: messageId,
