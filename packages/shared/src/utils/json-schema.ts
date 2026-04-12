@@ -245,7 +245,10 @@ export function convertJsonSchemaToZodSchema(
 ): z.ZodSchema {
   // Resolve $ref references
   if (jsonSchema.$ref && definitions) {
-    const refPath = jsonSchema.$ref.replace(/^#\/\$defs\/|^#\/definitions\//, "");
+    const refPath = jsonSchema.$ref.replace(
+      /^#\/\$defs\/|^#\/definitions\//,
+      "",
+    );
     const resolved = definitions[refPath];
     if (resolved) {
       return convertJsonSchemaToZodSchema(resolved, required, definitions);
@@ -264,7 +267,9 @@ export function convertJsonSchemaToZodSchema(
     const schemas = unionVariants.map((v: any) =>
       convertJsonSchemaToZodSchema(v, true, defs),
     );
-    let schema = z.union(schemas as [z.ZodSchema, z.ZodSchema, ...z.ZodSchema[]]);
+    let schema = z.union(
+      schemas as [z.ZodSchema, z.ZodSchema, ...z.ZodSchema[]],
+    );
     if (jsonSchema.description) {
       schema = schema.describe(jsonSchema.description);
     }
