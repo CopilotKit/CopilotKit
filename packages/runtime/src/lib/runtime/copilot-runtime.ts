@@ -35,8 +35,13 @@ import {
   type CopilotRuntimeOptions,
   type CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
   type AgentRunner,
+  type AgentsConfig,
+  type AgentsFactory,
+  type AgentFactoryContext,
   InMemoryAgentRunner,
 } from "../../v2/runtime";
+
+export type { AgentsConfig, AgentsFactory, AgentFactoryContext };
 import { TelemetryAgentRunner } from "./telemetry-agent-runner";
 import telemetry from "../telemetry-client";
 
@@ -318,7 +323,7 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
    *  – the `MaybePromise<NonEmptyRecord<T>>` constraint in `CopilotRuntimeOptionsVNext`
    *  – the `Record<string, AbstractAgent>` constraint in `both
    */
-  agents?: MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>>;
+  agents?: AgentsConfig;
 }
 
 /**
