@@ -2,6 +2,7 @@
 
 import uuid
 import json
+import math
 from typing import Optional, List, Callable, Any, cast, Union, TypedDict, Literal
 
 from langgraph.graph.state import CompiledStateGraph
@@ -30,6 +31,20 @@ from .agent import Agent
 from .logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _sanitize_for_json(obj):
+    """Replace NaN and Infinity float values with None for valid JSON serialization."""
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_for_json(item) for item in obj]
+    return obj
+
 
 class CopilotKitConfig(TypedDict):
     """
@@ -598,7 +613,7 @@ class LangGraphAgent(Agent):
             "agent_name": self.name,
             "node_name": node_name,
             "active": active,
-            "state": state,
+            "state": _sanitize_for_json(state),
             "running": running,
             "role": "assistant"
         })
@@ -639,7 +654,7 @@ class LangGraphAgent(Agent):
         return {
             "threadId": thread_id,
             "threadExists": True,
-            "state": state_copy,
+            "state": _sanitize_for_json(state_copy),
             "messages": messages
         }
 
