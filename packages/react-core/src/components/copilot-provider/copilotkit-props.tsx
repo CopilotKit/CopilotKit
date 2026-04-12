@@ -76,7 +76,7 @@ export interface CopilotKitProps extends Omit<
    * }
    * ```
    */
-  headers?: Record<string, string>;
+  headers?: Record<string, string> | (() => Record<string, string>);
 
   /**
    * The children to be rendered within the CopilotKit.
