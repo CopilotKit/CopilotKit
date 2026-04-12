@@ -18,6 +18,22 @@ except ImportError:
     from langchain_core.messages import BaseMessage, SystemMessage
     
 from langchain_core.runnables import RunnableConfig, ensure_config
+
+def _serialize_state(state):
+    """Recursively convert Pydantic BaseModel instances to dicts for serialization."""
+    try:
+        from pydantic import BaseModel as PydanticBaseModel
+    except ImportError:
+        return state
+
+    if isinstance(state, PydanticBaseModel):
+        return state.model_dump()
+    elif isinstance(state, dict):
+        return {k: _serialize_state(v) for k, v in state.items()}
+    elif isinstance(state, (list, tuple)):
+        return type(state)(_serialize_state(item) for item in state)
+    return state
+
 from langchain_core.messages import HumanMessage
 
 from partialjson.json_parser import JSONParser
@@ -592,6 +608,9 @@ class LangGraphAgent(Agent):
 
         # Filter by schema keys if available
         state = self.filter_state_on_schema_keys(state, 'output')
+
+        # Convert Pydantic BaseModel instances to dicts for serialization
+        state = _serialize_state(state)
 
         return langchain_dumps({
             "event": "on_copilotkit_state_sync",
