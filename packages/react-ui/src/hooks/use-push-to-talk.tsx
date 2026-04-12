@@ -58,6 +58,7 @@ const startRecording = async (
 
 const stopRecording = (
   mediaRecorderRef: MutableRefObject<MediaRecorder | null>,
+  mediaStreamRef?: MutableRefObject<MediaStream | null>,
 ) => {
   if (
     mediaRecorderRef.current &&
@@ -65,15 +66,22 @@ const stopRecording = (
   ) {
     mediaRecorderRef.current.stop();
   }
+  // Release microphone tracks to free the device
+  if (mediaStreamRef?.current) {
+    mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+  }
 };
 
 const transcribeAudio = async (
   recordedChunks: Blob[],
   transcribeAudioUrl: string,
+  mediaType: string = "audio/mp4",
 ) => {
-  const completeBlob = new Blob(recordedChunks, { type: "audio/mp4" });
+  const extension = mediaType.split("/")[1] || "mp4";
+  const completeBlob = new Blob(recordedChunks, { type: mediaType });
   const formData = new FormData();
-  formData.append("file", completeBlob, "recording.mp4");
+  formData.append("file", completeBlob, `recording.${extension}`);
 
   const response = await fetch(transcribeAudioUrl, {
     method: "POST",
@@ -117,9 +125,11 @@ export type SendFunction = (text: string) => Promise<Message>;
 export const usePushToTalk = ({
   sendFunction,
   inProgress,
+  mediaType = "audio/mp4",
 }: {
   sendFunction: SendFunction;
   inProgress: boolean;
+  mediaType?: string;
 }) => {
   const [pushToTalkState, setPushToTalkState] =
     useState<PushToTalkState>("idle");
@@ -146,11 +156,12 @@ export const usePushToTalk = ({
         },
       );
     } else {
-      stopRecording(mediaRecorderRef);
+      stopRecording(mediaRecorderRef, mediaStreamRef);
       if (pushToTalkState === "transcribing") {
         transcribeAudio(
           recordedChunks.current,
           context.copilotApiConfig.transcribeAudioUrl!,
+          mediaType,
         ).then(async (transcription) => {
           recordedChunks.current = [];
           setPushToTalkState("idle");
@@ -161,7 +172,7 @@ export const usePushToTalk = ({
     }
 
     return () => {
-      stopRecording(mediaRecorderRef);
+      stopRecording(mediaRecorderRef, mediaStreamRef);
     };
   }, [pushToTalkState]);
 
