@@ -113,6 +113,11 @@ export function useMakeStandardAutosuggestionFunction(
           }
         }
 
+        // Strip any leaked TextAfterCursor/TextBeforeCursor tags from the suggestion
+        result = result
+          .replace(/<\/?TextAfterCursor>/g, "")
+          .replace(/<\/?TextBeforeCursor>/g, "");
+
         return result;
       });
 
