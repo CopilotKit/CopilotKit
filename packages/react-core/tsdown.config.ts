@@ -20,7 +20,17 @@ export default defineConfig([
     ],
     exports: {
       customExports: (exports) => ({
-        ...exports,
+        ".": {
+          types: "./dist/index.d.cts",
+          ...exports["."],
+        },
+        "./v2": {
+          types: "./dist/v2/index.d.cts",
+          ...exports["./v2"],
+        },
+        ...Object.fromEntries(
+          Object.entries(exports).filter(([k]) => k !== "." && k !== "./v2"),
+        ),
         "./v2/styles.css": "./dist/v2/index.css",
       }),
     },
