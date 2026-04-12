@@ -396,6 +396,10 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
                 mode = "function";
               }
             } else if (chunk.type === "content_block_delta") {
+              if (mode === null) {
+                // Skip deltas for unknown/skipped content blocks
+                continue;
+              }
               if (chunk.delta.type === "text_delta") {
                 const text = filterThinkingTextBuffer.onTextChunk(
                   chunk.delta.text,
