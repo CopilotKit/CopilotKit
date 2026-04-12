@@ -17,7 +17,7 @@ keywords = [
   "langserve",
 ]
 packages = [{ include = "copilotkit" }]
-include = ["copilotkit/*.json"]
+include = ["copilotkit/*.json", "copilotkit/py.typed"]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
