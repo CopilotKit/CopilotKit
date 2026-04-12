@@ -101,6 +101,7 @@ agent = ConversableAgent(
         "and friendly in your responses."
     ),
     llm_config=LLMConfig({"model": "gpt-4o-mini", "stream": True}),
+    human_input_mode="NEVER",
     functions=[get_weather],
 )
 
