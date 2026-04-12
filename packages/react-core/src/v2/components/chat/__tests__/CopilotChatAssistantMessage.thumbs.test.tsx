@@ -29,10 +29,7 @@ describe("CopilotChatAssistantMessage thumbs callbacks (#3457)", () => {
     const onThumbsUp = vi.fn();
 
     renderWithProvider(
-      <CopilotChatAssistantMessage
-        message={message}
-        onThumbsUp={onThumbsUp}
-      />,
+      <CopilotChatAssistantMessage message={message} onThumbsUp={onThumbsUp} />,
     );
 
     const thumbsUpButton = screen.getByRole("button", {
