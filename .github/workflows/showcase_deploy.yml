@@ -222,7 +222,7 @@ jobs:
             && echo "Deploy triggered for ${{ matrix.service.dispatch_name }}"
 
   notify:
-    needs: [build]
+    needs: [detect-changes, check-lockfile, build]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -234,5 +234,5 @@ jobs:
           webhook-type: incoming-webhook
           payload: |
             {
-              "text": "${{ needs.build.result == 'success' && ':white_check_mark: *Showcase deploy*: all services deployed to Railway' || needs.build.result == 'skipped' && ':white_check_mark: *Showcase deploy*: no changes detected, nothing to deploy' || format(':x: *Showcase deploy*: FAILED (result: {0})', needs.build.result) }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+              "text": "${{ (needs.detect-changes.result == 'failure' || needs.check-lockfile.result == 'failure') && format(':x: *Showcase deploy*: FAILED (pre-build check)') || needs.build.result == 'success' && ':white_check_mark: *Showcase deploy*: all services deployed to Railway' || (needs.build.result == 'skipped' && needs.detect-changes.result == 'success') && ':white_check_mark: *Showcase deploy*: no changes detected, nothing to deploy' || format(':x: *Showcase deploy*: FAILED (result: {0})', needs.build.result) }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
             }
