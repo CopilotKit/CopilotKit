@@ -134,3 +134,12 @@ jobs:
           webhook-type: incoming-webhook
           payload: |
             { "text": ":warning: *Docs sync*: files needing manual review — see workflow run for details\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+
+      - name: Notify Slack (failure)
+        if: failure()
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":x: *Docs sync*: workflow failed | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }

@@ -220,3 +220,19 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"${{ matrix.service.railway_id }}\", environmentId: \"${{ env.RAILWAY_ENV_ID }}\") }"}' \
             && echo "Deploy triggered for ${{ matrix.service.dispatch_name }}"
+
+  notify:
+    needs: [build]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Collect results and notify Slack
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "${{ needs.build.result == 'success' && ':white_check_mark: *Showcase deploy*: all services deployed to Railway' || needs.build.result == 'skipped' && ':white_check_mark: *Showcase deploy*: no changes detected, nothing to deploy' || format(':x: *Showcase deploy*: FAILED (result: {0})', needs.build.result) }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+            }

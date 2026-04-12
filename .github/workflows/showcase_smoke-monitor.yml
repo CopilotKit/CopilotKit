@@ -272,7 +272,7 @@ jobs:
         run: |
           for SVC in ${{ steps.image_drift.outputs.stale_services }}; do
             echo "Triggering rebuild for ${SVC}..."
-            gh workflow run showcase_deploy.yml -f service="${SVC}" || echo "  Failed to trigger ${SVC}"
+            gh workflow run showcase_deploy.yml -f service="${SVC}"
           done
 
       - name: Alert image drift to Slack
@@ -290,6 +290,15 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload-file-path: drift-payload.json
+
+      - name: Notify Slack (workflow failure)
+        if: failure()
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":x: *Smoke monitor*: workflow failed | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
 
       - name: Save state to cache
         if: always()
