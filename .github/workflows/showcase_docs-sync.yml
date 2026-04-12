@@ -109,10 +109,10 @@ jobs:
             --head "$BRANCH")
 
           echo "Created PR: $PR_URL"
-          gh pr merge "$PR_URL" --merge
-
           echo "files_changed=${CHANGED}" >> "$GITHUB_OUTPUT"
           echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
+
+          gh pr merge "$PR_URL" --merge
 
       - name: Notify Slack (auto-sync)
         if: always() && steps.push.outcome == 'success' && steps.push.outputs.files_changed != '0'
@@ -122,6 +122,15 @@ jobs:
           webhook-type: incoming-webhook
           payload: |
             { "text": ":arrows_counterclockwise: *Docs sync*: auto-merged ${{ steps.push.outputs.files_changed || '?' }} file(s)\n${{ steps.push.outputs.pr_url || '' }}\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+
+      - name: Notify Slack (merge failed)
+        if: failure() && steps.push.outputs.pr_url != ''
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":warning: *Docs sync*: PR created but auto-merge FAILED — needs manual merge\n${{ steps.push.outputs.pr_url }}\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
 
       # Review items = files the sync script flagged but did NOT write to disk
       # (local modifications, files deleted on main). No file changes to propose —
@@ -134,3 +143,12 @@ jobs:
           webhook-type: incoming-webhook
           payload: |
             { "text": ":warning: *Docs sync*: files needing manual review — see workflow run for details\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+
+      - name: Notify Slack (failure)
+        if: failure() && steps.push.outputs.pr_url == ''
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":x: *Docs sync*: workflow failed | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
