@@ -98,6 +98,15 @@ jobs:
 
           git checkout -b "$BRANCH"
 
+          # Stage any remaining unstaged changes (review items the sync script flagged)
+          git add showcase/shell/src/content/
+          if git diff --cached --quiet; then
+            echo "No review items to commit — skipping PR"
+            exit 0
+          fi
+          git commit -m "Docs sync: files needing review (${SHORT_SHA})"
+          git push origin "$BRANCH"
+
           # The review-items.txt was written by the sync script
           REVIEW_ITEMS=$(cat review-items.txt 2>/dev/null || echo "See sync output for details")
 
