@@ -137,7 +137,11 @@ type MarkdownProps = {
   urlTransform?: Options["urlTransform"];
 };
 
-export const Markdown = ({ content, components, urlTransform }: MarkdownProps) => {
+export const Markdown = ({
+  content,
+  components,
+  urlTransform,
+}: MarkdownProps) => {
   const mergedComponents = useMemo(
     () => ({ ...defaultComponents, ...components }),
     [components],

@@ -206,8 +206,18 @@ describe("MCP Tools Utils", () => {
             description: "Object with properties: theme, notifications",
             required: false,
             attributes: [
-              { name: "theme", type: "string", description: "", required: false },
-              { name: "notifications", type: "boolean", description: "", required: false },
+              {
+                name: "theme",
+                type: "string",
+                description: "",
+                required: false,
+              },
+              {
+                name: "notifications",
+                type: "boolean",
+                description: "",
+                required: false,
+              },
             ],
           },
         ],
