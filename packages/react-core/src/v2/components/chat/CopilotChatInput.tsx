@@ -434,7 +434,7 @@ export function CopilotChatInput({
       }
     }
 
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       if (isProcessing) {
         onStop?.();
