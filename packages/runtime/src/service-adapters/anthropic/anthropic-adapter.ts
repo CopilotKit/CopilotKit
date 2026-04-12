@@ -70,12 +70,19 @@ export interface AnthropicAdapterParams {
    * See: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
    */
   promptCaching?: AnthropicPromptCachingConfig;
+
+  /**
+   * Optional maximum input token limit. Overrides the default limit
+   * used when trimming messages to fit the context window.
+   */
+  maxInputTokens?: number;
 }
 
 export class AnthropicAdapter implements CopilotServiceAdapter {
   public model: string = DEFAULT_MODEL;
   public provider = "anthropic";
   private promptCaching: AnthropicPromptCachingConfig;
+  private maxInputTokens?: number;
 
   private _anthropic: Anthropic;
   public get anthropic(): Anthropic {
@@ -94,6 +101,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
       this.model = params.model;
     }
     this.promptCaching = params?.promptCaching || { enabled: false };
+    this.maxInputTokens = params?.maxInputTokens;
   }
 
   getLanguageModel(): LanguageModel {
@@ -244,6 +252,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
       forwardedParameters,
     } = request;
     const tools = actions.map(convertActionInputToAnthropicTool);
+    const knownActionNames = new Set(actions.map((a) => a.name));
 
     const messages = [...rawMessages];
 
@@ -322,6 +331,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
       anthropicMessages,
       tools,
       model,
+      this.maxInputTokens,
     );
 
     // Apply prompt caching if enabled
@@ -381,6 +391,11 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
                 filterThinkingTextBuffer.reset();
                 mode = "message";
               } else if (chunk.content_block.type === "tool_use") {
+                if (!knownActionNames.has(chunk.content_block.name)) {
+                  // Unknown tool - skip execution to prevent crashes
+                  mode = null;
+                  continue;
+                }
                 currentToolCallId = chunk.content_block.id;
                 eventStream$.sendActionExecutionStart({
                   actionExecutionId: currentToolCallId,
