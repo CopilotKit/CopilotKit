@@ -390,7 +390,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const hasLocalAgents = mergedAgents && Object.keys(mergedAgents).length > 0;
 
   // Resolve headers from function or static object
-  const headers = typeof headersProp === "function" ? headersProp() : headersProp;
+  const headers =
+    typeof headersProp === "function" ? headersProp() : headersProp;
 
   // Merge a provided publicApiKey into headers (without overwriting an explicit header).
   const mergedHeaders = useMemo(() => {
