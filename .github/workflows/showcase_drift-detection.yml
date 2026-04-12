@@ -40,17 +40,37 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run L1-L3 tests
+        id: l1_l3
         working-directory: showcase/tests
         env:
           CI: true
-        run: npx playwright test integration-smoke --grep "@health|@agent|@chat" --reporter=github
+        run: |
+          npx playwright test integration-smoke --grep "@health|@agent|@chat" --reporter=github 2>&1 | tee /tmp/e2e-output.log
+          exit ${PIPESTATUS[0]}
 
       - name: Run L4 tests (daily only)
+        id: l4
         if: github.event.schedule == '0 0 * * *' || github.event_name == 'workflow_dispatch'
         working-directory: showcase/tests
         env:
           CI: true
-        run: npx playwright test integration-smoke --grep "@tools" --reporter=github
+        run: |
+          npx playwright test integration-smoke --grep "@tools" --reporter=github 2>&1 | tee -a /tmp/e2e-output.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Extract failure summary
+        id: failures
+        if: failure()
+        run: |
+          # Extract failed test names and error messages from playwright output
+          DETAILS=$(grep -E "^\s+\d+\)|Error:" /tmp/e2e-output.log 2>/dev/null | head -15 | sed 's/"/\\"/g' || echo "See CI logs for details")
+          DETAILS="${DETAILS:0:1200}"
+
+          {
+            echo "details<<EOFEOF"
+            echo "$DETAILS"
+            echo "EOFEOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Post failure to Slack
         if: failure() && github.event_name == 'schedule'
@@ -59,7 +79,7 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload: |
-            { "text": ":x: *Showcase E2E suite failed*\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+            { "text": ":x: *Showcase E2E suite failed*\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>\n\n```\n${{ steps.failures.outputs.details }}\n```" }
 
       - name: Create issue on failure
         if: failure()

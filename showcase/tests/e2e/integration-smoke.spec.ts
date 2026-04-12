@@ -211,7 +211,7 @@ const activeIntegrations = DEPLOYED_ONLY
 
 test.describe("Level 1: Backend Health @health", () => {
   for (const integration of activeIntegrations) {
-    test(`[health] ${integration.slug} backend is healthy @health`, async ({
+    test(`[L1: health] ${integration.slug} backend is healthy @health`, async ({
       request,
     }) => {
       const result = await checkHealth(request, integration.backendUrl);
@@ -229,7 +229,7 @@ test.describe("Level 1: Backend Health @health", () => {
 
 test.describe("Level 2: Agent Endpoint @agent", () => {
   for (const integration of activeIntegrations) {
-    test(`[agent] ${integration.slug} agent endpoint responds (not 404) @agent`, async ({
+    test(`[L2: agent] ${integration.slug} agent endpoint responds (not 404) @agent`, async ({
       request,
     }) => {
       const result = await checkAgentEndpoint(request, integration.backendUrl);
@@ -251,7 +251,7 @@ test.describe("Level 2: Agent Endpoint @agent", () => {
 
 test.describe("Level 3: Round-trip Chat @chat", () => {
   for (const integration of activeIntegrations) {
-    test(`[chat] ${integration.slug} responds to a message @chat`, async ({
+    test(`[L3: chat] ${integration.slug} responds to a message @chat`, async ({
       page,
     }) => {
       test.slow(); // Allow extra time for cold starts
@@ -285,7 +285,7 @@ test.describe("Level 4: Tool Rendering @tools", () => {
   );
 
   for (const integration of toolIntegrations) {
-    test(`[tools] ${integration.slug} renders tool results @tools`, async ({
+    test(`[L4: tools] ${integration.slug} renders tool results @tools`, async ({
       page,
     }) => {
       test.slow();
