@@ -75,11 +75,12 @@ jobs:
           git add showcase/shell/src/content/ showcase/shell/.docs-sync-sha
           CHANGED=$(git diff --cached --name-only | wc -l | tr -d ' ')
           git commit -m "Auto-sync docs from main ($(date +%Y-%m-%d))" || echo "Nothing to commit"
+          git pull --rebase origin "$SHOWCASE_BRANCH"
           git push origin "$SHOWCASE_BRANCH"
           echo "files_changed=${CHANGED}" >> "$GITHUB_OUTPUT"
 
       - name: Notify Slack (auto-push)
-        if: steps.sync.outputs.action == 'auto_push'
+        if: always() && steps.push.outcome == 'success'
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
@@ -138,7 +139,7 @@ jobs:
             --head "$BRANCH"
 
       - name: Notify Slack (review needed)
-        if: steps.sync.outputs.action == 'push_and_pr'
+        if: always() && steps.sync.outputs.action == 'push_and_pr'
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
