@@ -435,7 +435,7 @@ class LangGraphAgent(Agent):
                     manually_emitted_state = None
 
                 if manually_emit_intermediate_state:
-                    manually_emitted_state = cast(Any, event["data"])
+                    manually_emitted_state = _merge_emit_state(current_graph_state, cast(Any, event["data"]))
                     yield self._emit_state_sync_event(
                         thread_id=thread_id,
                         run_id=run_id,
@@ -723,6 +723,13 @@ class LangGraphAgent(Agent):
                 return history_list[idx - 1]  # return one snapshot *before* the one that includes the message
 
         raise ValueError("Message ID not found in history")
+
+
+def _merge_emit_state(current_state: dict, emitted_state: Any) -> dict:
+    """Merge emitted state on top of current graph state instead of replacing it."""
+    if isinstance(emitted_state, dict):
+        return {**current_state, **emitted_state}
+    return cast(Any, emitted_state)
 
 class _StreamingStateExtractor:
     def __init__(self, emit_intermediate_state: List[dict]):
