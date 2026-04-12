@@ -121,12 +121,12 @@ export interface MessagesProps {
   /**
    * Callback function for thumbs up feedback
    */
-  onThumbsUp?: (message: Message) => void;
+  onThumbsUp?: (message: Message, isActive?: boolean) => void;
 
   /**
    * Callback function for thumbs down feedback
    */
-  onThumbsDown?: (message: Message) => void;
+  onThumbsDown?: (message: Message, isActive?: boolean) => void;
 
   /**
    * Map of message IDs to their feedback state
@@ -217,12 +217,12 @@ export interface AssistantMessageProps {
   /**
    * Callback function for thumbs up feedback
    */
-  onThumbsUp?: (message: Message) => void;
+  onThumbsUp?: (message: Message, isActive?: boolean) => void;
 
   /**
    * Callback function for thumbs down feedback
    */
-  onThumbsDown?: (message: Message) => void;
+  onThumbsDown?: (message: Message, isActive?: boolean) => void;
 
   /**
    * The feedback state for this message ("thumbsUp" or "thumbsDown")
@@ -313,12 +313,12 @@ export interface RenderMessageProps {
   /**
    * Callback function for thumbs up feedback
    */
-  onThumbsUp?: (message: Message) => void;
+  onThumbsUp?: (message: Message, isActive?: boolean) => void;
 
   /**
    * Callback function for thumbs down feedback
    */
-  onThumbsDown?: (message: Message) => void;
+  onThumbsDown?: (message: Message, isActive?: boolean) => void;
 
   /**
    * Map of message IDs to their feedback state
