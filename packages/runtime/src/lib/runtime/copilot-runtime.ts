@@ -590,9 +590,18 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       params?.afterRequestMiddleware?.(hookParams);
 
       if (params?.middleware?.onAfterRequest) {
-        // TODO: provide old expected params here when available
-        // @ts-expect-error -- missing arguments.
-        params.middleware.onAfterRequest({});
+        params.middleware.onAfterRequest({
+          threadId: hookParams.threadId ?? "",
+          runId: hookParams.runId,
+          inputMessages: (hookParams.messages ?? []).filter(
+            (m: any) => "role" in m && m.role === "user",
+          ),
+          outputMessages: (hookParams.messages ?? []).filter(
+            (m: any) => "role" in m && m.role !== "user",
+          ),
+          properties: {},
+          url: hookParams.path,
+        });
       }
     };
   }
