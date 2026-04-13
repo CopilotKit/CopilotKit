@@ -313,7 +313,7 @@ describe("useAgent throttleMs", () => {
     expect(screen.getByTestId("count").textContent).toBe("3");
   });
 
-  it("with throttleMs, onStateChanged still fires immediately", () => {
+  it("with throttleMs, onStateChanged still fires immediately", async () => {
     const TestComponent = createTestComponent({
       updates: [
         UseAgentUpdate.OnMessagesChanged,
@@ -330,8 +330,8 @@ describe("useAgent throttleMs", () => {
       notifyMessagesChanged(mockAgent);
     });
 
-    // Fire onStateChanged 10ms later — should render immediately, not throttled
-    act(() => {
+    // Fire onStateChanged 10ms later — fires via microtask batch (not synchronously)
+    await act(async () => {
       vi.advanceTimersByTime(10);
       mockAgent.state = { count: 42 };
       notifyStateChanged(mockAgent);
@@ -372,7 +372,7 @@ describe("useAgent throttleMs", () => {
     expect(renderCount.current).toBe(countBeforeUnmount);
   });
 
-  it("with throttleMs and updates excluding OnMessagesChanged, throttle is a no-op", () => {
+  it("with throttleMs and updates excluding OnMessagesChanged, throttle is a no-op", async () => {
     const TestComponent = createTestComponent({
       updates: [UseAgentUpdate.OnStateChanged],
       throttleMs: 100,
@@ -380,8 +380,8 @@ describe("useAgent throttleMs", () => {
 
     render(<TestComponent />);
 
-    // Only onStateChanged is subscribed — should fire immediately
-    act(() => {
+    // Only onStateChanged is subscribed — fires via microtask batch
+    await act(async () => {
       mockAgent.state = { value: "test" };
       notifyStateChanged(mockAgent);
     });
@@ -649,7 +649,7 @@ describe("useAgent throttleMs", () => {
     expect(renderCount.current).toBe(rendersAfterMount + 1);
   });
 
-  it("with throttleMs, onRunInitialized still fires immediately during throttle window", () => {
+  it("with throttleMs, onRunInitialized still fires immediately during throttle window", async () => {
     const renderCount = { current: 0 };
     const TestComponent = createTestComponent({
       updates: [
@@ -670,13 +670,13 @@ describe("useAgent throttleMs", () => {
     });
     expect(renderCount.current).toBe(rendersAfterMount + 1);
 
-    // Fire onRunInitialized 10ms later — should render immediately
-    act(() => {
+    // Fire onRunInitialized 10ms later — fires via microtask batch
+    await act(async () => {
       vi.advanceTimersByTime(10);
       notifyRunInitialized(mockAgent);
     });
 
-    // Run status notification is NOT throttled — renders immediately
+    // Run status notification fires via microtask batch
     expect(renderCount.current).toBe(rendersAfterMount + 2);
   });
 
