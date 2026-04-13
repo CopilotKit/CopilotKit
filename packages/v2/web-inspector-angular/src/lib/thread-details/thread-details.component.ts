@@ -32,6 +32,8 @@ interface ApiThreadMessage {
   content?: string;
   toolCalls?: Array<{ id: string; name: string; args: string }>;
   toolCallId?: string;
+  /** Present when role === "activity" (Generative UI output). */
+  activityType?: string;
 }
 
 export interface ConversationUser {
@@ -86,13 +88,34 @@ export interface ConversationAgentResponded {
   createdAt: string;
 }
 
+/**
+ * Represents a Generative UI output from an agent ActivityMessage.
+ *
+ * Rendering tiers (crawl → walk → run):
+ *   Crawl (current): labeled card showing activityType — no actual rendering.
+ *   Walk  (future):  render completed HTML/CSS/JS in a sandboxed iframe once
+ *                    the Angular inspector stabilises. Target open-ended mode
+ *                    only; static (React) components cannot be rendered here.
+ *   Run   (future):  streaming iframe with full fidelity, JSON-patch updates.
+ */
+export interface ConversationGenerativeUI {
+  id: string;
+  type: "generative-ui";
+  /** AG-UI activityType (e.g. "open-generative-ui"). Used as label in crawl phase. */
+  activityType: string;
+  /** Pre-rendered HTML for demo/scripted mode. Not present for live runtime data. */
+  html?: string;
+  createdAt: string;
+}
+
 export type ConversationItem =
   | ConversationUser
   | ConversationAssistant
   | ConversationToolCall
   | ConversationReasoning
   | ConversationStateUpdate
-  | ConversationAgentResponded;
+  | ConversationAgentResponded
+  | ConversationGenerativeUI;
 
 export interface AgentEvent {
   type: string;
@@ -270,6 +293,34 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
               <ng-container *ngIf="item.type === 'state_update'">
                 <div class="cpk-td__inline-chip">
                   <span>Updated agent state</span>
+                </div>
+              </ng-container>
+
+              <!-- Generative UI output -->
+              <ng-container *ngIf="item.type === 'generative-ui'">
+                <div class="cpk-td__genui">
+                  <div class="cpk-td__genui-badge">
+                    <svg
+                      width="9"
+                      height="9"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                    </svg>
+                    Generative UI
+                  </div>
+                  <ng-container *ngIf="asGenerativeUI(item).html; else genuiLabel">
+                    <div
+                      class="cpk-td__genui-card"
+                      [innerHTML]="safeGenerativeUiHtml(asGenerativeUI(item))"
+                    ></div>
+                  </ng-container>
+                  <ng-template #genuiLabel>
+                    <div class="cpk-td__genui-placeholder">
+                      {{ asGenerativeUI(item).activityType }} — rendered in chat
+                    </div>
+                  </ng-template>
                 </div>
               </ng-container>
             </ng-container>
@@ -770,6 +821,44 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
         background: #e9e9ef;
       }
 
+      /* ── Generative UI ──────────────────────────────────────────────── */
+      .cpk-td__genui {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 4px 16px 8px;
+      }
+
+      .cpk-td__genui-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        background: #eee6fe;
+        color: #57575b;
+        font-size: 10px;
+        font-weight: 600;
+        align-self: flex-start;
+      }
+
+      .cpk-td__genui-card {
+        overflow: hidden;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08);
+      }
+
+      .cpk-td__genui-placeholder {
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid #ede9fe;
+        background: #f5f3ff;
+        color: #7c3aed;
+        font-size: 11px;
+      }
+
       /* ── AG-UI Events ────────────────────────────────────────────────── */
       .cpk-td__event {
         flex-shrink: 0;
@@ -954,11 +1043,13 @@ export class ThreadDetailsComponent {
     const items = this.conversation();
     let messages = 0;
     let toolCalls = 0;
+    let generativeUi = 0;
     for (const item of items) {
       if (item.type === "user" || item.type === "assistant") messages++;
       if (item.type === "tool_call") toolCalls++;
+      if (item.type === "generative-ui") generativeUi++;
     }
-    return { messages, toolCalls };
+    return { messages, toolCalls, generativeUi };
   });
 
   duration = computed(() => {
@@ -1077,6 +1168,13 @@ export class ThreadDetailsComponent {
             createdAt: "",
           });
         }
+      } else if (msg.role === "activity") {
+        items.push({
+          id: msg.id,
+          type: "generative-ui",
+          activityType: msg.activityType ?? "unknown",
+          createdAt: "",
+        });
       } else if (msg.role === "tool" && msg.toolCallId) {
         const tc = toolCallMap.get(msg.toolCallId);
         if (tc) {
@@ -1254,6 +1352,15 @@ export class ThreadDetailsComponent {
 
   asReasoning(item: RenderItem): ConversationReasoning {
     return item as ConversationReasoning;
+  }
+
+  asGenerativeUI(item: RenderItem): ConversationGenerativeUI {
+    return item as ConversationGenerativeUI;
+  }
+
+  // Safe for demo/scripted HTML only — never called with raw user-controlled content.
+  safeGenerativeUiHtml(item: ConversationGenerativeUI): SafeHtml {
+    return this.sanitizer.bypassSecurityTrustHtml(item.html ?? "");
   }
 
   // JSON syntax highlighter. Uses inline styles so Angular's ViewEncapsulation

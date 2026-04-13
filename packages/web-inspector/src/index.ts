@@ -70,7 +70,7 @@ const INSPECTOR_STORAGE_KEY = "cpk:inspector:state";
 const ANNOUNCEMENT_STORAGE_KEY = "cpk:inspector:announcements";
 const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
 const DEFAULT_BUTTON_SIZE: Size = { width: 48, height: 48 };
-const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 560 };
+const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 700 };
 const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed sidebar
 const MAX_AGENT_EVENTS = 200;
 const MAX_TOTAL_EVENTS = 500;
@@ -96,7 +96,9 @@ type InspectorAgentEventType =
   | "REASONING_MESSAGE_CONTENT"
   | "REASONING_MESSAGE_END"
   | "REASONING_END"
-  | "REASONING_ENCRYPTED_VALUE";
+  | "REASONING_ENCRYPTED_VALUE"
+  | "ACTIVITY_SNAPSHOT"
+  | "ACTIVITY_DELTA";
 
 const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
   "RUN_STARTED",
@@ -120,6 +122,8 @@ const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
   "REASONING_MESSAGE_END",
   "REASONING_END",
   "REASONING_ENCRYPTED_VALUE",
+  "ACTIVITY_SNAPSHOT",
+  "ACTIVITY_DELTA",
 ] as const;
 
 type SanitizedValue =
@@ -146,6 +150,8 @@ type InspectorMessage = {
   contentText: string;
   contentRaw?: SanitizedValue;
   toolCalls: InspectorToolCall[];
+  /** Populated for role="activity" messages (Generative UI). */
+  activityType?: string;
 };
 
 type InspectorToolDefinition = {
@@ -249,13 +255,14 @@ export class WebInspectorElement extends LitElement {
    * Screen Studio, crop to 960×720 (4:3) or 720×720 (1:1), and record. Flip
    * back to `false` and rebuild before merging.
    */
-  private _demoMode = false;
+  private _demoMode = true;
   private _demoThreads: ɵThread[] = [];
   private _demoSelectedThreadId: string | null = null;
   private _demoConversation: {
     id: string;
     type: string;
     content: string;
+    html?: string;
     createdAt: string;
   }[] = [];
   private _demoAgentState: SanitizedValue | null = null;
@@ -723,6 +730,14 @@ export class WebInspectorElement extends LitElement {
       onReasoningEncryptedValueEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "REASONING_ENCRYPTED_VALUE", event);
       },
+      onActivitySnapshotEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "ACTIVITY_SNAPSHOT", event);
+        this.syncAgentMessages(agent);
+      },
+      onActivityDeltaEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "ACTIVITY_DELTA", event);
+        this.syncAgentMessages(agent);
+      },
     };
 
     const { unsubscribe } = agent.subscribe(subscriber);
@@ -748,11 +763,23 @@ export class WebInspectorElement extends LitElement {
   ): { id: string; type: string; content: string; createdAt: string }[] | null {
     if (!messages) return null;
     return messages
-      .filter((m) => m.role === "user" || m.role === "assistant")
+      .filter(
+        (m) =>
+          m.role === "user" || m.role === "assistant" || m.role === "activity",
+      )
       .map((m, i) => ({
         id: m.id ?? `msg-${i}`,
-        type: m.role === "user" ? "user" : "assistant",
-        content: m.contentText,
+        type:
+          m.role === "user"
+            ? "user"
+            : m.role === "activity"
+              ? "generative-ui"
+              : "assistant",
+        // For activity messages, store the activityType as content so the
+        // renderer can display a meaningful label (crawl phase). Walk phase
+        // will render the actual output once the Angular inspector ships.
+        content:
+          m.role === "activity" ? (m.activityType ?? "unknown") : m.contentText,
         createdAt: "",
       }));
   }
@@ -1453,9 +1480,9 @@ ${argsString}</pre
 
       .announcement-content {
         color: #010507;
-        font-size: 14px;
+        font-size: 12px;
         font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-        line-height: 1.6;
+        line-height: 1.5;
       }
 
       .announcement-content h1,
@@ -1466,13 +1493,13 @@ ${argsString}</pre
       }
 
       .announcement-content h1 {
-        font-size: 1rem;
+        font-size: 0.75rem;
       }
       .announcement-content h2 {
-        font-size: 0.9rem;
+        font-size: 0.8rem;
       }
       .announcement-content h3 {
-        font-size: 0.85rem;
+        font-size: 0.75rem;
       }
 
       .announcement-content p {
@@ -1502,7 +1529,7 @@ ${argsString}</pre
         transition: max-height 0.25s ease;
       }
       .announcement-body--collapsed {
-        max-height: 110px;
+        max-height: 72px;
       }
       .announcement-body--expanded {
         max-height: 2000px;
@@ -3133,6 +3160,8 @@ ${argsString}</pre
           ? this.sanitizeForLogging(raw.content)
           : undefined,
       toolCalls,
+      activityType:
+        typeof raw.activityType === "string" ? raw.activityType : undefined,
     };
   }
 
@@ -3390,6 +3419,46 @@ ${argsString}</pre
         createdAt: "",
       },
     ];
+    this._demoConversation.push({
+      id: "soc-ui1",
+      type: "generative-ui",
+      content: "open-generative-ui",
+      html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px 20px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <span style="font-size:13px;font-weight:700;color:#0f172a;">SOC 2 Readiness Scorecard</span>
+    <span style="font-size:10px;font-weight:500;background:#eee6fe;color:#57575b;padding:2px 8px;border-radius:4px;">Audit: April 2026</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;">
+    <span style="font-size:32px;font-weight:800;color:#0f172a;">67%</span>
+    <div style="flex:1;">
+      <div style="height:8px;border-radius:9999px;background:#e2e8f0;overflow:hidden;">
+        <div style="width:67%;height:100%;background:#8b5cf6;border-radius:9999px;"></div>
+      </div>
+      <div style="font-size:10px;color:#64748b;margin-top:4px;">Overall readiness</div>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:6px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#f8fafc;border-radius:8px;">
+      <span style="font-size:11px;color:#334155;">Access Control</span>
+      <span style="font-size:10px;background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:4px;font-weight:500;border:1px solid #e2e8f0;">Needs sign-off</span>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#f8fafc;border-radius:8px;">
+      <span style="font-size:11px;color:#334155;">Vendor Risk</span>
+      <span style="font-size:10px;background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:4px;font-weight:500;border:1px solid #e2e8f0;">3 missing assessments</span>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#f8fafc;border-radius:8px;">
+      <span style="font-size:11px;color:#334155;">Incident Response</span>
+      <span style="font-size:10px;background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:4px;font-weight:500;border:1px solid #e2e8f0;">Untested runbooks</span>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#f8fafc;border-radius:8px;">
+      <span style="font-size:11px;color:#334155;">Security Training</span>
+      <span style="font-size:10px;background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:4px;font-weight:500;border:1px solid #e2e8f0;">71% completion</span>
+    </div>
+  </div>
+  <div style="margin-top:12px;font-size:9px;color:#94a3b8;display:flex;align-items:center;gap:4px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> Generative UI · compliance-agent</div>
+</div>`,
+      createdAt: "",
+    });
     this._threadsUnlocked = true;
     this.selectedMenu = "threads";
     this.requestUpdate();
@@ -3510,6 +3579,41 @@ ${argsString}</pre
         payload: { message_id: "msg-a1" },
       },
       {
+        id: "demo-evt-8b",
+        agentId: "langgraph-agent",
+        type: "TOOL_CALL_START",
+        timestamp: t - 180,
+        payload: {
+          tool_call_id: "tc_03",
+          tool_name: "render_churn_dashboard",
+          arguments: {
+            accounts: [
+              "Meridian Financial",
+              "Crestwood Logistics",
+              "Atlas Healthcare",
+            ],
+          },
+        },
+      },
+      {
+        id: "demo-evt-8c",
+        agentId: "langgraph-agent",
+        type: "ACTIVITY_DELTA",
+        timestamp: t - 120,
+        payload: {
+          tool_call_id: "tc_03",
+          activityType: "open-generative-ui",
+          status: "streaming",
+        },
+      },
+      {
+        id: "demo-evt-8d",
+        agentId: "langgraph-agent",
+        type: "TOOL_CALL_END",
+        timestamp: t - 80,
+        payload: { tool_call_id: "tc_03", status: "rendered" },
+      },
+      {
         id: "demo-evt-9",
         agentId: "langgraph-agent",
         type: "RUN_FINISHED",
@@ -3538,6 +3642,49 @@ ${argsString}</pre
           clearInterval(this._demoStreamInterval);
           this._demoStreamInterval = null;
         }
+        this._demoConversation = [
+          ...this._demoConversation,
+          {
+            id: "churn-ui1",
+            type: "generative-ui",
+            content: "open-generative-ui",
+            html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px 20px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <span style="font-size:13px;font-weight:700;color:#0f172a;">Customer Churn Risk Dashboard</span>
+    <span style="font-size:10px;font-weight:500;background:#eee6fe;color:#57575b;padding:2px 8px;border-radius:4px;">3 High Risk</span>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    <div style="padding:10px 12px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:12px;font-weight:700;color:#0f172a;">Meridian Financial</span>
+        <span style="font-size:11px;font-weight:600;color:#57575b;">91% risk</span>
+      </div>
+      <div style="height:4px;border-radius:9999px;background:#e2e8f0;margin-bottom:6px;"><div style="width:91%;height:100%;background:#7c3aed;border-radius:9999px;"></div></div>
+      <span style="font-size:10px;color:#64748b;">−64% active users · 4 open P1 tickets</span>
+    </div>
+    <div style="padding:10px 12px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:12px;font-weight:700;color:#0f172a;">Crestwood Logistics</span>
+        <span style="font-size:11px;font-weight:600;color:#57575b;">84% risk</span>
+      </div>
+      <div style="height:4px;border-radius:9999px;background:#e2e8f0;margin-bottom:6px;"><div style="width:84%;height:100%;background:#8b5cf6;border-radius:9999px;"></div></div>
+      <span style="font-size:10px;color:#64748b;">Renewal in 47d · exec sponsor departed</span>
+    </div>
+    <div style="padding:10px 12px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:12px;font-weight:700;color:#0f172a;">Atlas Healthcare</span>
+        <span style="font-size:11px;font-weight:600;color:#57575b;">79% risk</span>
+      </div>
+      <div style="height:4px;border-radius:9999px;background:#e2e8f0;margin-bottom:6px;"><div style="width:79%;height:100%;background:#a78bfa;border-radius:9999px;"></div></div>
+      <span style="font-size:10px;color:#64748b;">12% seat utilization · no admin login in 42d</span>
+    </div>
+  </div>
+  <div style="margin-top:12px;font-size:9px;color:#94a3b8;display:flex;align-items:center;gap:4px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> Generative UI · langgraph-agent</div>
+</div>`,
+            createdAt: "",
+          },
+        ];
+        this.requestUpdate();
         return;
       }
       const last = this._demoConversation[this._demoConversation.length - 1];
@@ -3720,7 +3867,7 @@ ${argsString}</pre
   }
 
   private renderThreadsView() {
-    if (!this._threadsUnlocked) {
+    if (!this._threadsUnlocked && !this._demoMode) {
       return this.renderThreadsGate();
     }
 
@@ -5330,12 +5477,12 @@ ${prettyEvent}</pre
       return nothing;
     }
 
-    return html`<div class="mx-4 mb-3 rounded-xl border border-slate-200 bg-white px-4 py-4">
+    return html`<div class="mx-4 mb-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
       <div
-        class="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900"
+        class="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-900"
       >
         <span
-          class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
+          class="inline-flex h-5 w-5 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
         >
           ${this.renderIcon("Megaphone")}
         </span>
@@ -5350,7 +5497,7 @@ ${prettyEvent}</pre
         </button>
       </div>
       <div class="announcement-body ${this.announcementExpanded ? "announcement-body--expanded" : "announcement-body--collapsed"}">
-        <div class="announcement-content text-sm leading-relaxed text-gray-900">
+        <div class="announcement-content">
           ${unsafeHTML(this.announcementHtml)}
         </div>
         ${
