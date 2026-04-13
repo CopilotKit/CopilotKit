@@ -13,34 +13,58 @@ Before you begin, you'll need the following:
 - An OpenAI API key
 - Node.js 20+
 - Your favorite package manager
-- A LangSmith API key - only required if deploying to LangSmith Platform
+- A LangGraph Platform API key - only required if deploying to the Deep Agent platform
 
 ## Getting started
 <Steps>
     <Step>
         ### Initialize your agent project
 
-        If you don't already have a Python project set up, create one using `uv`:
+        <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
+            <Tab value="Python">
+                If you don't already have a Python project set up, create one using `uv`:
 
-        ```bash
-        uv init my-agent
-        cd my-agent
-        ```
+                ```bash
+                uv init my-agent
+                cd my-agent
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                If you don't already have a Node.js project set up, create one using `npm`:
+
+                ```bash
+                mkdir my-agent
+                cd my-agent
+                npm init -y
+                ```
+            </Tab>
+        </Tabs>
     </Step>
     <Step>
         ### Add necessary dependencies
 
-        Add the `deepagents`, `langchain-openai`, and `copilotkit` packages:
+        <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
+            <Tab value="Python">
+                Add the `deepagents`, `langchain-openai`, and `copilotkit` packages:
 
-        ```bash
-        uv add deepagents copilotkit langchain-openai
-        ```
+                ```bash
+                uv add deepagents copilotkit langchain-openai
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                Add the `langchain`, `@langchain/langgraph`, `@copilotkit/sdk-js`, and `@langchain/openai` packages:
+
+                ```bash
+                npm install langchain @langchain/langgraph @copilotkit/sdk-js @langchain/openai
+                ```
+            </Tab>
+        </Tabs>
     </Step>
     <Step>
         ### Create your Deep Agent
 
-        <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
-            <Tab value="LangSmith">
+        <Tabs groupId="agent_setup" items={['Python', 'TypeScript', 'FastAPI']}>
+            <Tab value="Python">
                 Create a simple Deep Agent:
 
                 ```python title="main.py"
@@ -61,7 +85,7 @@ Before you begin, you'll need the following:
                 )
                 ```
 
-                Then to test and deploy with LangSmith, create a `langgraph.json`:
+                Then to test and deploy with Deep Agent, create a `langgraph.json`:
 
                 ```sh
                 touch langgraph.json
@@ -79,6 +103,47 @@ Before you begin, you'll need the following:
                     "env": ".env"
                 }
                 ```
+            </Tab>
+            <Tab value="TypeScript">
+                Create a simple Deep Agent:
+
+                ```ts title="agent.ts"
+                import { createAgent } from "langchain";
+                import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph";
+
+                function getWeather(location: string): string {
+                    return `The weather in ${location} is sunny.`;
+                }
+
+                export const agent = createAgent({
+                    model: "openai:gpt-4o",
+                    tools: [getWeather],
+                    middleware: [copilotkitMiddleware],
+                    systemPrompt: "You are a helpful research assistant.",
+                });
+                ```
+
+                Then to test and deploy with Deep Agent, create a `langgraph.json`:
+
+                ```sh
+                touch langgraph.json
+                ```
+
+                ```json title="langgraph.json"
+                {
+                    "node_version": "20",
+                    "dependencies": ["."],
+                    "package_manager": "npm",
+                    "graphs": {
+                        "sample_agent": "./agent.ts:agent"
+                    },
+                    "env": ".env"
+                }
+                ```
+
+                <Callout type="info">
+                    When setting up the Copilot Runtime in the next steps, select the **Deep Agent** tab.
+                </Callout>
             </Tab>
             <Tab value="FastAPI">
                 Add the `ag-ui-langgraph`, `fastapi`, and `uvicorn` packages:
@@ -181,8 +246,8 @@ Before you begin, you'll need the following:
         mkdir -p app/api/copilotkit && touch app/api/copilotkit/route.ts
         ```
 
-        <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
-            <Tab value="LangSmith">
+        <Tabs groupId="deployment_method" items={['Deep Agent', 'FastAPI']}>
+            <Tab value="Deep Agent">
                 ```tsx title="app/api/copilotkit/route.ts"
                 import {
                     CopilotRuntime,
@@ -309,8 +374,8 @@ Before you begin, you'll need the following:
     <Step>
         ### Start your agent
 
-        <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
-            <Tab value="LangSmith">
+        <Tabs groupId="deployment_method" items={['Deep Agent', 'FastAPI']}>
+            <Tab value="Deep Agent">
                 ```bash
                 npx @langchain/langgraph-cli dev --port 8123 --no-browser
                 ```
@@ -351,5 +416,137 @@ Before you begin, you'll need the following:
                 ```
             </Tab>
         </Tabs>
+    </Step>
+</Steps>
+
+---
+
+## Alternative: Vite + Direct Connection
+
+This approach eliminates the Next.js API proxy entirely. Instead, you extend your LangGraph deployment with a built-in CopilotKit-compatible endpoint and point your frontend straight at it — no intermediate runtime layer needed.
+
+<Steps>
+    <Step>
+        ### Add the CopilotKit HTTP endpoint to your agent
+
+        Add `ag-ui-langgraph` to your agent's dependencies:
+
+        ```bash
+        uv add ag-ui-langgraph
+        ```
+
+        Then extend `main.py` to expose a CopilotKit-compatible HTTP endpoint alongside the agent:
+
+        ```python title="main.py"
+        from fastapi import FastAPI
+        from deepagents import create_deep_agent
+        from copilotkit import CopilotKitMiddleware, LangGraphAGUIAgent
+        from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+        from langgraph.checkpoint.memory import MemorySaver
+
+        def get_weather(location: str):
+            """Get weather for a location"""
+            return f"The weather in {location} is sunny."
+
+        agent = create_deep_agent(
+            model="openai:gpt-4o",
+            tools=[get_weather],
+            middleware=[CopilotKitMiddleware()],
+            system_prompt="You are a helpful research assistant.",
+            checkpointer=MemorySaver()
+        )
+
+        app = FastAPI()
+
+        add_langgraph_fastapi_endpoint(
+            app=app,
+            agent=LangGraphAGUIAgent(
+                name="sample_agent",
+                description="A helpful research assistant.",
+                graph=agent,
+            ),
+            path="/",
+        )
+        ```
+
+        Update `langgraph.json` to expose the custom HTTP app when running `langgraph dev`:
+
+        ```json title="langgraph.json"
+        {
+            "python_version": "3.12",
+            "dockerfile_lines": [],
+            "dependencies": ["."],
+            "package_manager": "uv",
+            "graphs": {
+                "sample_agent": "./main.py:agent"
+            },
+            "http": {
+                "app": "./main.py:app"
+            },
+            "env": ".env"
+        }
+        ```
+    </Step>
+    <Step>
+        ### Create a Vite frontend
+
+        ```bash
+        npm create vite@latest frontend -- --template react-ts
+        cd frontend
+        npm install @copilotkit/react-ui @copilotkit/react-core
+        ```
+    </Step>
+    <Step>
+        ### Point CopilotKit at your agent
+
+        Create a `.env` file in the frontend directory:
+
+        ```plaintext title=".env"
+        VITE_RUNTIME_URL=http://localhost:8123
+        ```
+
+        Then update `src/App.tsx` to use CopilotKit with the agent URL directly — no API route needed:
+
+        ```tsx title="src/App.tsx"
+        import { CopilotKit } from "@copilotkit/react-core";
+        import { CopilotSidebar } from "@copilotkit/react-core/v2";
+        import "@copilotkit/react-ui/v2/styles.css";
+
+        function App() {
+          return (
+            <CopilotKit
+              runtimeUrl={import.meta.env.VITE_RUNTIME_URL}
+              agent="sample_agent"
+            >
+              <div style={{ height: "100vh" }}>
+                <CopilotSidebar />
+              </div>
+            </CopilotKit>
+          );
+        }
+
+        export default App;
+        ```
+
+        <Callout type="info">
+            For production, set `VITE_RUNTIME_URL` to your deployed LangGraph Platform URL.
+        </Callout>
+    </Step>
+    <Step>
+        ### Start your agent and frontend
+
+        In one terminal, start the agent:
+
+        ```bash
+        npx @langchain/langgraph-cli dev --port 8123 --no-browser
+        ```
+
+        In a second terminal, start the frontend:
+
+        ```bash
+        cd frontend && npm run dev
+        ```
+
+        Your app will be available at `http://localhost:5173` and connects directly to the agent at `http://localhost:8123`.
     </Step>
 </Steps>
