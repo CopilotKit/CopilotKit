@@ -28,10 +28,13 @@ By default, LangGraph agents are invoked with a `config` argument. This config h
 <Steps>
 <Step>
 ### Pass configuration from the frontend
-First, pass the configuration properties as you would like to receive them in the agent
+First, pass the configuration properties as you would like to receive them in the agent.
+
+Do not call `runAgent` directly in the component body: it would run on every render and can trigger errors such as **thread is already processing**. Use a `useEffect` with an empty dependency array (or call `runAgent` from an event handler) when you want to start the run once with a given config.
 
 ```tsx title="app/page.tsx"
-
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useEffect } from "react";
 function YourMainContent() {
   // ...
 
@@ -42,16 +45,18 @@ function YourMainContent() {
 
   // Pass configuration when running the agent
   // [!code highlight:8]
-  agent.runAgent({
-    forwardedProps: {
-      config: {
-        configurable: {
-          authToken: 'example-token'
-        },
-        recursion_limit: 50,
+  useEffect(() => {
+    agent.runAgent({
+      forwardedProps: {
+        config: {
+          configurable: {
+            authToken: 'example-token'
+          },
+          recursion_limit: 50,
+        }
       }
-    }
-  });
+    });
+  }, []);
 
   // ...
 
