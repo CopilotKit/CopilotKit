@@ -2,12 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   handleArchiveThread,
+  handleClearThreads,
   handleDeleteThread,
+  handleGetThreadMessages,
   handleListThreads,
   handleSubscribeToThreads,
   handleUpdateThread,
 } from "../handlers/handle-threads";
 import { CopilotRuntime } from "../core/runtime";
+import { InMemoryAgentRunner } from "../runner/in-memory";
 
 describe("thread handlers", () => {
   const createIdentifyUser = () => vi.fn().mockResolvedValue({ id: "user-1" });
@@ -324,6 +327,118 @@ describe("thread handlers", () => {
       threadId: "thread-1",
     });
     expect(deleteResponse.status).toBe(422);
+  });
+
+  describe("handleClearThreads", () => {
+    it("clears in-memory threads and returns 204 for InMemoryAgentRunner", () => {
+      const runner = new InMemoryAgentRunner();
+      const clearThreadsSpy = vi.spyOn(runner, "clearThreads");
+      const runtime = new CopilotRuntime({ agents: {}, runner });
+
+      const response = handleClearThreads({
+        runtime,
+        request: new Request("https://example.com/threads"),
+      });
+
+      expect(response.status).toBe(204);
+      expect(clearThreadsSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns 204 without touching state when intelligence runtime is configured", () => {
+      const intelligence = { listThreads: vi.fn() };
+      const runtime = createIntelligenceRuntime({ intelligence });
+
+      const response = handleClearThreads({
+        runtime,
+        request: new Request("https://example.com/threads"),
+      });
+
+      expect(response.status).toBe(204);
+      expect(intelligence.listThreads).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("handleGetThreadMessages", () => {
+    it("returns messages from the in-memory runner for a known thread", async () => {
+      const runner = new InMemoryAgentRunner();
+      vi.spyOn(runner, "getThreadMessages").mockReturnValue([
+        { id: "m1", role: "user", content: "hello" } as never,
+        { id: "m2", role: "assistant", content: "hi there" } as never,
+      ]);
+      const runtime = new CopilotRuntime({ agents: {}, runner });
+
+      const response = await handleGetThreadMessages({
+        runtime,
+        request: new Request("https://example.com/threads/thread-1/messages"),
+        threadId: "thread-1",
+      });
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.messages).toHaveLength(2);
+      expect(body.messages[0]).toMatchObject({
+        id: "m1",
+        role: "user",
+        content: "hello",
+      });
+      expect(body.messages[1]).toMatchObject({
+        id: "m2",
+        role: "assistant",
+        content: "hi there",
+      });
+    });
+
+    it("returns empty messages for an unknown threadId", async () => {
+      const runtime = new CopilotRuntime({ agents: {} });
+
+      const response = await handleGetThreadMessages({
+        runtime,
+        request: new Request(
+          "https://example.com/threads/nonexistent/messages",
+        ),
+        threadId: "nonexistent",
+      });
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.messages).toEqual([]);
+    });
+
+    it("delegates to intelligence.getThreadMessages when intelligence is configured", async () => {
+      const intelligence = {
+        getThreadMessages: vi
+          .fn()
+          .mockResolvedValue({ messages: [{ id: "m1" }] }),
+      };
+      const identifyUser = createIdentifyUser();
+      const runtime = createIntelligenceRuntime({ intelligence, identifyUser });
+
+      const response = await handleGetThreadMessages({
+        runtime,
+        request: new Request("https://example.com/threads/thread-1/messages"),
+        threadId: "thread-1",
+      });
+
+      expect(response.status).toBe(200);
+      expect(intelligence.getThreadMessages).toHaveBeenCalledWith({
+        threadId: "thread-1",
+      });
+    });
+
+    it("returns 422 when neither in-memory nor intelligence is configured", async () => {
+      // A CopilotRuntime with no runner defaults to InMemoryAgentRunner,
+      // so simulate a non-InMemory, non-intelligence setup via a custom runner stub.
+      // Use the intelligence path but omit intelligence config.
+      const runtime = createIntelligenceRuntime({ intelligence: undefined });
+
+      const response = await handleGetThreadMessages({
+        runtime,
+        request: new Request("https://example.com/threads/thread-1/messages"),
+        threadId: "thread-1",
+      });
+
+      expect(response.status).toBe(422);
+    });
   });
 
   it("returns 422 when intelligence is not configured for thread subscription", async () => {

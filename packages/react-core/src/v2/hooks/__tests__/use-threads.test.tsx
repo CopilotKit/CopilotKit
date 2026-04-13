@@ -486,4 +486,37 @@ describe("useThreads", () => {
     expect(channel.left).toBe(true);
     expect(socket.disconnected).toBe(true);
   });
+
+  it("registers thread store on mount and unregisters on unmount", async () => {
+    fetchMock
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
+      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+    const registerThreadStore = vi.fn();
+    const unregisterThreadStore = vi.fn();
+    mockUseCopilotKit.mockReturnValueOnce({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        headers: { Authorization: "Bearer test-token" },
+        intelligence: { wsUrl: "ws://localhost:4000/client" },
+        registerThreadStore,
+        unregisterThreadStore,
+      },
+    });
+
+    const { unmount } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(registerThreadStore).toHaveBeenCalledWith(
+        "agent-1",
+        expect.objectContaining({ select: expect.any(Function) }),
+      );
+    });
+
+    unmount();
+
+    expect(unregisterThreadStore).toHaveBeenCalledWith("agent-1");
+  });
 });

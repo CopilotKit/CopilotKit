@@ -442,6 +442,8 @@ describe("InMemoryAgentRunner — listThreads / getThreadMessages", () => {
 
   beforeEach(async () => {
     runner = new InMemoryAgentRunner();
+    // Reset the module-level GLOBAL_STORE singleton so tests don't leak into each other
+    runner.clearThreads();
 
     // Run a single turn on a unique thread so each test starts fresh
     const agent = new MessagePopulatingTestAgent(
@@ -518,10 +520,8 @@ describe("InMemoryAgentRunner — listThreads / getThreadMessages", () => {
 
     it("returns an empty array when no threads have been run", () => {
       const freshRunner = new InMemoryAgentRunner();
-      // Use a runner that has never been used (GLOBAL_STORE key won't exist for new threadIds)
-      // We can't easily clear GLOBAL_STORE, but a fresh runner shares the same singleton.
-      // Just verify the method returns an array (even if it has entries from other tests).
-      expect(Array.isArray(freshRunner.listThreads())).toBe(true);
+      freshRunner.clearThreads();
+      expect(freshRunner.listThreads()).toEqual([]);
     });
   });
 
