@@ -133,8 +133,6 @@
       "express": ">=4.20.0",
       "@tootallnate/once": ">=3.0.1",
       "file-type": ">=21.3.1",
-      "@angular/compiler": ">=19.2.20",
-      "@angular/core": ">=19.2.19",
       "@langchain/community": ">=1.1.14",
       "langsmith": ">=0.5.18",
       "next@>=16.0.0 <16.2.3": "16.2.3",
