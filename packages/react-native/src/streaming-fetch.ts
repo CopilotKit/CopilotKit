@@ -133,6 +133,8 @@ export function installStreamingFetch(): void {
         resolveFullText = res;
         rejectFullText = rej;
       });
+      // Prevent unhandled rejection when error occurs but .text()/.json() is never called
+      fullTextPromise.catch(() => {});
 
       function closeStream() {
         if (streamController && !streamClosed) {
