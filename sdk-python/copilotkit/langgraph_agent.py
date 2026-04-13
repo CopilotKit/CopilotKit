@@ -657,6 +657,9 @@ class LangGraphAgent(Agent):
         state_copy = state.copy()
         state_copy.pop("messages", None)
 
+        # Convert Pydantic BaseModel instances to dicts for serialization
+        state_copy = _serialize_state(state_copy)
+
         return {
             "threadId": thread_id,
             "threadExists": True,
@@ -708,7 +711,8 @@ class LangGraphAgent(Agent):
             if hasattr(self, schema_keys_name) and getattr(self, schema_keys_name):
                 return filter_by_schema_keys(state, getattr(self, schema_keys_name))
         except Exception:
-            return state
+            pass
+        return state
 
     def get_interrupt_event(self, value):
         if not isinstance(value, str) and "__copilotkit_interrupt_value__" in value:
