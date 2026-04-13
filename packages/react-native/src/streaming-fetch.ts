@@ -77,6 +77,11 @@ export function installStreamingFetch(): void {
       const xhr = new XMLHttpRequest();
       xhr.open(method, url);
 
+      // Default 60s timeout to prevent hanging on stalled mobile connections
+      // (WiFi→cellular transitions, tunnels, serverless cold starts).
+      // Callers can still use AbortSignal.timeout() for finer control.
+      xhr.timeout = 60_000;
+
       const headerEntries: [string, string][] =
         headers instanceof Headers
           ? Array.from(headers.entries())
@@ -168,8 +173,13 @@ export function installStreamingFetch(): void {
           flushChunks();
         } catch (err) {
           const error = err instanceof Error ? err : new Error(String(err));
+          cleanupAbortListener();
           errorStream(error);
           rejectFullText(error);
+          if (!settled) {
+            settled = true;
+            reject(error);
+          }
           xhr.abort();
         }
       };
@@ -182,6 +192,10 @@ export function installStreamingFetch(): void {
           const error = err instanceof Error ? err : new Error(String(err));
           errorStream(error);
           rejectFullText(error);
+          if (!settled) {
+            settled = true;
+            reject(error);
+          }
           return;
         }
         closeStream();
@@ -307,6 +321,7 @@ export function installStreamingFetch(): void {
             },
           };
           settled = true;
+          cleanupAbortListener();
           resolve(resp);
         }
       };
