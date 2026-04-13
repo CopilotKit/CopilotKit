@@ -2,9 +2,8 @@ import { OpenAI } from "openai";
 
 export const runtime = "edge";
 
-const openai = new OpenAI();
-
 export async function GET(req: Request): Promise<Response> {
+  const openai = new OpenAI();
   const url = new URL(req.url);
   const text = url.searchParams.get("text"); // 'text' is the query parameter name
 
