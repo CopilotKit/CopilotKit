@@ -65,6 +65,9 @@ export default defineConfig([
     target: "es2022",
     outDir: "dist/v2",
     noExternal: [/@copilotkit\//],
+    // Transitive deps (partial-json, phoenix, @standard-schema/spec) are
+    // intentionally bundled via noExternal — suppress the CI-only error.
+    inlineOnly: false,
     platform: "browser",
     plugins: [
       {
