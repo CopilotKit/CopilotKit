@@ -522,7 +522,7 @@ class LangGraphAgent(Agent):
                         active=not exiting_node
                     ) + "\n"
 
-                yield langchain_dumps(event) + "\n"
+                yield langchain_dumps(_sanitize_for_json(event)) + "\n"
         except Exception as error:
             # Emit error information through streaming protocol before terminating
             # This preserves the semantic error details that would otherwise be lost
