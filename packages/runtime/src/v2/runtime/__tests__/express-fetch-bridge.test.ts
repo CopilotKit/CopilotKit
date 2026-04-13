@@ -23,7 +23,7 @@ function createApp(
     app.use(express.json());
   }
 
-  app.all("*", (req, res) => nodeHandler(req, res));
+  app.all("/*", (req, res) => nodeHandler(req, res));
   return app;
 }
 
