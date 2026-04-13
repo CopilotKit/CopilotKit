@@ -255,7 +255,7 @@ export class WebInspectorElement extends LitElement {
    * Screen Studio, crop to 960×720 (4:3) or 720×720 (1:1), and record. Flip
    * back to `false` and rebuild before merging.
    */
-  private _demoMode = true;
+  private _demoMode = false;
   private _demoThreads: ɵThread[] = [];
   private _demoSelectedThreadId: string | null = null;
   private _demoConversation: {
@@ -398,6 +398,8 @@ export class WebInspectorElement extends LitElement {
 
   private ensureOwnedThreadStore(agentId: string): void {
     if (this._ownedThreadStores.has(agentId)) return;
+    // Don't overwrite a store already registered by useThreads() or another external caller
+    if (this.core?.getThreadStore(agentId)) return;
     const core = this.core;
     if (!core?.runtimeUrl) return;
 
