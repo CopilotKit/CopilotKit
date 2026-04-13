@@ -73,7 +73,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Post failure to Slack
-        if: failure() && github.event_name == 'schedule'
+        if: failure()
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
@@ -235,3 +235,21 @@ jobs:
                 body,
               });
             }
+
+      - name: Notify Slack (version drift)
+        if: steps.python_drift.outputs.report != '' || steps.npm_drift.outputs.report != ''
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":warning: *Version drift*: dependency updates available — see GitHub issue | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+
+      - name: Notify Slack (version drift failure)
+        if: failure()
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":x: *Version drift check*: failed | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }

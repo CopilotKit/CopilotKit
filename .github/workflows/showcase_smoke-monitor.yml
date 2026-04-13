@@ -270,13 +270,21 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          FAILED=""
           for SVC in ${{ steps.image_drift.outputs.stale_services }}; do
             echo "Triggering rebuild for ${SVC}..."
-            gh workflow run showcase_deploy.yml -f service="${SVC}" || echo "  Failed to trigger ${SVC}"
+            if ! gh workflow run showcase_deploy.yml -f service="${SVC}"; then
+              echo "::warning::Failed to trigger rebuild for ${SVC}"
+              FAILED="${FAILED} ${SVC}"
+            fi
           done
+          if [ -n "$FAILED" ]; then
+            echo "::error::Failed to trigger rebuilds for:${FAILED}"
+            exit 1
+          fi
 
       - name: Alert image drift to Slack
-        if: steps.image_drift.outputs.has_stale == 'true'
+        if: always() && steps.image_drift.outputs.has_stale == 'true'
         run: |
           HEADER=":package: *Image drift detected — rebuilds triggered:*"
           BODY=$(cat image-drift.txt)
@@ -284,12 +292,21 @@ jobs:
           jq -n --rawfile text drift-message.txt '{"text": $text}' > drift-payload.json
 
       - name: Post image drift to Slack
-        if: steps.image_drift.outputs.has_stale == 'true'
+        if: always() && steps.image_drift.outputs.has_stale == 'true'
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload-file-path: drift-payload.json
+
+      - name: Notify Slack (workflow failure)
+        if: failure()
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":x: *Smoke monitor*: workflow failed | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
 
       - name: Save state to cache
         if: always()

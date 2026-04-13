@@ -1,13 +1,13 @@
 # Stage 1: Build Next.js frontend
-FROM node:20-slim AS frontend
+FROM node:20.20-slim AS frontend
 WORKDIR /app
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
 RUN npm run build
 
 # Stage 2: Production image with Node.js + Python
-FROM python:3.12-slim AS runner
+FROM python:3.12.13-slim AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl && \
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
