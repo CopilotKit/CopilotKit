@@ -7,6 +7,7 @@ import { logger } from "@copilotkit/shared";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { isValidIdentifier } from "../shared/intelligence-utils";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
+import { InMemoryAgentRunner } from "../../runner/in-memory";
 
 interface ThreadsHandlerParams {
   runtime: CopilotRuntimeLike;
@@ -73,40 +74,70 @@ export async function handleListThreads({
   runtime,
   request,
 }: ThreadsHandlerParams): Promise<Response> {
-  const intelligenceRuntime = requireIntelligenceRuntime(runtime);
-  if (isHandlerResponse(intelligenceRuntime)) {
-    return intelligenceRuntime;
+  // Intelligence platform path
+  if (isIntelligenceRuntime(runtime)) {
+    try {
+      const url = new URL(request.url);
+      const agentId = url.searchParams.get("agentId");
+      const includeArchived =
+        url.searchParams.get("includeArchived") === "true";
+      const limitParam = url.searchParams.get("limit");
+      const cursor = url.searchParams.get("cursor");
+      const user = await resolveIntelligenceUser({ runtime, request });
+      if (isHandlerResponse(user)) return user;
+
+      if (!isValidIdentifier(agentId)) {
+        return errorResponse("Valid agentId query param is required", 400);
+      }
+
+      const data = await runtime.intelligence.listThreads({
+        userId: user.id,
+        agentId,
+        ...(includeArchived ? { includeArchived: true } : {}),
+        ...(limitParam ? { limit: Number(limitParam) } : {}),
+        ...(cursor ? { cursor } : {}),
+      });
+
+      return Response.json(data);
+    } catch (error) {
+      logger.error({ err: error }, "Error listing threads");
+      return errorResponse("Failed to list threads", 500);
+    }
   }
 
-  try {
+  // Local in-memory fallback — useful for local development without Intelligence
+  if (runtime.runner instanceof InMemoryAgentRunner) {
     const url = new URL(request.url);
     const agentId = url.searchParams.get("agentId");
-    const includeArchived = url.searchParams.get("includeArchived") === "true";
-    const limitParam = url.searchParams.get("limit");
-    const cursor = url.searchParams.get("cursor");
-    const user = await resolveIntelligenceUser({
-      runtime: intelligenceRuntime,
-      request,
-    });
-    if (isHandlerResponse(user)) return user;
-
-    if (!isValidIdentifier(agentId)) {
-      return errorResponse("Valid agentId query param is required", 400);
+    let threads = runtime.runner.listThreads();
+    if (agentId) {
+      threads = threads.filter((t) => t.agentId === agentId);
     }
-
-    const data = await intelligenceRuntime.intelligence.listThreads({
-      userId: user.id,
-      agentId,
-      ...(includeArchived ? { includeArchived: true } : {}),
-      ...(limitParam ? { limit: Number(limitParam) } : {}),
-      ...(cursor ? { cursor } : {}),
-    });
-
-    return Response.json(data);
-  } catch (error) {
-    logger.error({ err: error }, "Error listing threads");
-    return errorResponse("Failed to list threads", 500);
+    return Response.json({ threads, nextCursor: null });
   }
+
+  return errorResponse(
+    "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
+    422,
+  );
+}
+
+/**
+ * Clears all in-memory thread history for the local-dev InMemory fallback.
+ *
+ * The inspector calls this once when a new browser session starts so that
+ * a page refresh gives a clean slate without requiring a server restart.
+ * This endpoint is intentionally a no-op when the Intelligence platform is
+ * configured — real thread history lives in the database and must not be
+ * wiped by a client-side page load.
+ */
+export function handleClearThreads({
+  runtime,
+}: ThreadsHandlerParams): Response {
+  if (runtime.runner instanceof InMemoryAgentRunner) {
+    runtime.runner.clearThreads();
+  }
+  return new Response(null, { status: 204 });
 }
 
 export async function handleUpdateThread({
@@ -237,25 +268,59 @@ export async function handleGetThreadMessages({
   request,
   threadId,
 }: ThreadMutationParams): Promise<Response> {
-  const intelligenceRuntime = requireIntelligenceRuntime(runtime);
-  if (isHandlerResponse(intelligenceRuntime)) {
-    return intelligenceRuntime;
+  // Intelligence platform path
+  if (isIntelligenceRuntime(runtime)) {
+    try {
+      const user = await resolveIntelligenceUser({ runtime, request });
+      if (isHandlerResponse(user)) return user;
+
+      const data = await runtime.intelligence.getThreadMessages({ threadId });
+      return Response.json(data);
+    } catch (error) {
+      logger.error({ err: error, threadId }, "Error fetching thread messages");
+      return errorResponse("Failed to fetch thread messages", 500);
+    }
   }
 
-  try {
-    const user = await resolveIntelligenceUser({
-      runtime: intelligenceRuntime,
-      request,
+  // Local in-memory fallback — useful for local development without Intelligence
+  if (runtime.runner instanceof InMemoryAgentRunner) {
+    const messages = runtime.runner.getThreadMessages(threadId);
+    // Map ag-ui Message objects to the same shape the Intelligence platform returns
+    const mapped = messages.map((msg) => {
+      const m = msg as Record<string, unknown>;
+      return {
+        id: m["id"],
+        role: m["role"],
+        ...(m["content"] !== undefined ? { content: m["content"] } : {}),
+        ...(Array.isArray(m["toolCalls"]) && m["toolCalls"].length > 0
+          ? {
+              toolCalls: (m["toolCalls"] as Array<Record<string, unknown>>).map(
+                (tc) => {
+                  const fn = tc["function"] as
+                    | Record<string, unknown>
+                    | undefined;
+                  return {
+                    id: tc["id"],
+                    name: fn?.["name"] ?? tc["name"],
+                    args:
+                      typeof fn?.["arguments"] === "string"
+                        ? fn["arguments"]
+                        : JSON.stringify(fn?.["arguments"] ?? tc["args"] ?? {}),
+                  };
+                },
+              ),
+            }
+          : {}),
+        ...(m["toolCallId"] !== undefined
+          ? { toolCallId: m["toolCallId"] }
+          : {}),
+      };
     });
-    if (isHandlerResponse(user)) return user;
-
-    const data = await intelligenceRuntime.intelligence.getThreadMessages({
-      threadId,
-    });
-
-    return Response.json(data);
-  } catch (error) {
-    logger.error({ err: error, threadId }, "Error getting thread messages");
-    return errorResponse("Failed to get thread messages", 500);
+    return Response.json({ messages: mapped });
   }
+
+  return errorResponse(
+    "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
+    422,
+  );
 }

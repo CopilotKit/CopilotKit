@@ -46,7 +46,7 @@ describe("thread handlers", () => {
       body: JSON.stringify(body),
     });
 
-  it("returns 422 when intelligence is not configured for listThreads", async () => {
+  it("returns empty thread list when intelligence is not configured for listThreads", async () => {
     const runtime = new CopilotRuntime({ agents: {} });
 
     const response = await handleListThreads({
@@ -54,10 +54,10 @@ describe("thread handlers", () => {
       request: new Request("https://example.com/threads?agentId=agent-1"),
     });
 
-    expect(response.status).toBe(422);
+    expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      error:
-        "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
+      threads: [],
+      nextCursor: null,
     });
   });
 
