@@ -108,16 +108,19 @@ export class CopilotChatUserMessageCopyButton {
   handleCopy(): void {
     if (!this.content()) return;
 
-    // Set copied immediately for instant feedback
-    this.copied.set(true);
-    setTimeout(() => this.copied.set(false), 2000);
+    if (!navigator.clipboard?.writeText) {
+      console.error("Clipboard API is not available");
+      return;
+    }
 
-    // Copy to clipboard (fire and forget)
     navigator.clipboard.writeText(this.content()!).then(
-      () => this.clicked.emit(),
+      () => {
+        this.copied.set(true);
+        this.clicked.emit();
+        setTimeout(() => this.copied.set(false), 2000);
+      },
       (err) => {
         console.error("Failed to copy message:", err);
-        this.copied.set(false);
       },
     );
   }

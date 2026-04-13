@@ -19,17 +19,21 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
   } = props;
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     const content = message?.content || "";
-    if (content && onCopy) {
-      navigator.clipboard.writeText(content);
+    if (!content) return;
+
+    try {
+      if (!navigator.clipboard?.writeText) {
+        console.error("Clipboard API is not available");
+        return;
+      }
+      await navigator.clipboard.writeText(content);
       setCopied(true);
-      onCopy(content);
+      if (onCopy) onCopy(content);
       setTimeout(() => setCopied(false), 2000);
-    } else if (content) {
-      navigator.clipboard.writeText(content);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy message:", err);
     }
   };
 
