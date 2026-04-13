@@ -212,14 +212,14 @@ describe("ProxiedCopilotRuntimeAgent capabilities", () => {
     expect(agent.capabilities).toBeUndefined();
   });
 
-  it("returns undefined from getCapabilities() when constructed without capabilities", async () => {
+  it("returns {} from getCapabilities() when constructed without capabilities", async () => {
     const agent = new ProxiedCopilotRuntimeAgent({
       runtimeUrl: "http://localhost:3000",
       agentId: "test-agent",
       description: "Test agent",
     });
 
-    await expect(agent.getCapabilities()).resolves.toBeUndefined();
+    await expect(agent.getCapabilities()).resolves.toEqual({});
   });
 
   it("clone() preserves capabilities", () => {
