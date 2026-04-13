@@ -70,7 +70,7 @@ blockquote.copilotKitMarkdownElement {
   padding-left: 10px;
 }
 
-blockquote.copilotKitMarkdownElement p {
+blockquote.copilotKitMarkdownElement .copilotKitParagraph {
   padding: 0.7em 0;
 }
 

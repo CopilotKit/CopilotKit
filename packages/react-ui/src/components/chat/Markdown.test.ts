@@ -1,6 +1,5 @@
 import { readFileSync } from "fs";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
+import { resolve } from "path";
 
 /**
  * These tests verify that CSS selectors in markdown.css correctly target
@@ -49,6 +48,16 @@ describe("Markdown CSS/component selector consistency", () => {
     const pSection = tsxContent.match(/p:\s*\([^)]*\)\s*=>\s*\([^)]+\)/s);
     expect(pSection).not.toBeNull();
     expect(pSection![0]).toContain("copilotKitMarkdownElement");
+  });
+
+  it("should use .copilotKitParagraph (not p) inside blockquote selector", () => {
+    // After p->div, blockquote nested paragraph selector must target the class
+    expect(cssContent).toMatch(
+      /blockquote\.copilotKitMarkdownElement\s+\.copilotKitParagraph\s*\{/,
+    );
+    expect(cssContent).not.toMatch(
+      /blockquote\.copilotKitMarkdownElement\s+p\s*\{/,
+    );
   });
 
   describe("other element selectors remain valid", () => {
