@@ -436,6 +436,8 @@ class LangGraphAgent(Agent):
 
                 if manually_emit_intermediate_state:
                     manually_emitted_state = _merge_emit_state(current_graph_state, cast(Any, event["data"]))
+                    if isinstance(manually_emitted_state, dict):
+                        current_graph_state.update(manually_emitted_state)
                     yield self._emit_state_sync_event(
                         thread_id=thread_id,
                         run_id=run_id,
