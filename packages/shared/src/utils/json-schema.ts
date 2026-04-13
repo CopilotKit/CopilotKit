@@ -266,12 +266,14 @@ export function convertJsonSchemaToZodSchema(
 
     const resolved = definitions[refPath];
     if (resolved) {
-      refs.add(refPath);
+      // Clone the set so sibling branches don't see each other's visited refs
+      const nextRefs = new Set(refs);
+      nextRefs.add(refPath);
       return convertJsonSchemaToZodSchema(
         resolved,
         required,
         definitions,
-        refs,
+        nextRefs,
       );
     }
   }
