@@ -347,6 +347,22 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       params?.remoteEndpoints ?? [],
     );
 
+    // Merge endpoint agents with user-provided agents.
+    // When agents is a factory function, wrap it so endpoint agents are merged
+    // at resolution time (spreading a function produces {} — silent data loss).
+    let mergedAgents: AgentsConfig;
+    if (typeof agents === "function") {
+      mergedAgents = async (ctx) => {
+        const resolved = await agents(ctx);
+        return { ...endpointAgents, ...resolved };
+      };
+    } else {
+      mergedAgents = Promise.resolve(agents).then((resolved) => ({
+        ...endpointAgents,
+        ...resolved,
+      }));
+    }
+
     // Determine the base runner (user-provided or default)
     const baseRunner = params?.runner ?? new InMemoryAgentRunner();
 
@@ -358,7 +374,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       : new TelemetryAgentRunner({ runner: baseRunner });
 
     this.runtimeArgs = {
-      agents: { ...endpointAgents, ...agents },
+      agents: mergedAgents,
       runner,
       licenseToken: params?.licenseToken,
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
