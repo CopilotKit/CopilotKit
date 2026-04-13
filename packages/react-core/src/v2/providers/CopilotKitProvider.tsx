@@ -112,7 +112,7 @@ export const useLicenseContext = (): LicenseContextValue =>
 export interface CopilotKitProviderProps {
   children: ReactNode;
   runtimeUrl?: string;
-  headers?: Record<string, string>;
+  headers?: Record<string, string> | (() => Record<string, string>);
   /**
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
@@ -263,7 +263,7 @@ function useStableArrayProp<T>(
 export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   children,
   runtimeUrl,
-  headers = {},
+  headers: headersProp = {},
   credentials,
   publicApiKey,
   publicLicenseKey,
@@ -388,6 +388,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     [agents, selfManagedAgents],
   );
   const hasLocalAgents = mergedAgents && Object.keys(mergedAgents).length > 0;
+
+  // Resolve headers from function or static object
+  const headers =
+    typeof headersProp === "function" ? headersProp() : headersProp;
 
   // Merge a provided publicApiKey into headers (without overwriting an explicit header).
   const mergedHeaders = useMemo(() => {

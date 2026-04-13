@@ -68,15 +68,19 @@ export interface CopilotKitProps extends Omit<
 
   /**
    * Additional headers to be sent with the request.
+   * Can be a static object or a function that returns headers dynamically
+   * (useful for refreshing auth tokens).
    *
    * For example:
-   * ```json
-   * {
-   *   "Authorization": "Bearer X"
-   * }
+   * ```tsx
+   * // Static headers
+   * headers={{ "Authorization": "Bearer X" }}
+   *
+   * // Dynamic headers (re-evaluated on each render)
+   * headers={() => ({ "Authorization": `Bearer ${getToken()}` })}
    * ```
    */
-  headers?: Record<string, string>;
+  headers?: Record<string, string> | (() => Record<string, string>);
 
   /**
    * The children to be rendered within the CopilotKit.
