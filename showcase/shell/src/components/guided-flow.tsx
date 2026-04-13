@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { type Integration } from "@/lib/registry";
+import type { Integration } from "@/lib/registry";
 
 // ---------------------------------------------------------------------------
 // Types

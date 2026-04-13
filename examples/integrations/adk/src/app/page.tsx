@@ -2,15 +2,14 @@
 
 import { ProverbsCard } from "@/components/proverbs";
 import { WeatherCard } from "@/components/weather";
-import { AgentState } from "@/lib/types";
+import type { AgentState } from "@/lib/types";
 import {
   useCoAgent,
-  useDefaultTool,
   useFrontendTool,
-  useHumanInTheLoop,
   useRenderToolCall,
 } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import type { CopilotKitCSSProperties} from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
 
 export default function CopilotKitPage() {
@@ -26,8 +25,8 @@ export default function CopilotKitPage() {
         required: true,
       },
     ],
-    handler({ themeColor }) {
-      setThemeColor(themeColor);
+    handler({ themeColor: newThemeColor }) {
+      setThemeColor(newThemeColor);
     },
   });
 
@@ -92,7 +91,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
       name: "get_weather",
       description: "Get the weather for a given location.",
       parameters: [{ name: "location", type: "string", required: true }],
-      render: ({ args, result }) => {
+      render: ({ args, result: _result }) => {
         return <WeatherCard location={args.location} themeColor={themeColor} />;
       },
     },

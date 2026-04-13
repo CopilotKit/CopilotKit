@@ -13,9 +13,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useState } from "react";
-import { Map, Marker } from "leaflet";
+import type { Map} from "leaflet";
+import { Marker } from "leaflet";
 import { PlaceForm } from "./PlaceForm";
-import { Place } from "@/lib/types";
+import type { Place } from "@/lib/types";
 
 export function AddPlace({ map }: { map: Map }) {
   const { selectedTrip, addPlace } = useTrips();

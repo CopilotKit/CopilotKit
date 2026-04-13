@@ -1,5 +1,5 @@
 import React from "react";
-import { RenderMessageProps } from "../props";
+import type { RenderMessageProps } from "../props";
 import { RenderMessage as DefaultRenderMessage } from "./RenderMessage";
 import { aguiToGQL } from "@copilotkit/runtime-client-gql";
 

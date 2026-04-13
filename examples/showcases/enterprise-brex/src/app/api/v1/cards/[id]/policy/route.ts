@@ -1,8 +1,8 @@
 import { data } from "../../../data";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 const getCardById = (id: string) => {
-  const card = data.cards.find((card) => card.id === id);
+  const card = data.cards.find((c) => c.id === id);
   if (!card) {
     return null;
   }
@@ -20,9 +20,7 @@ export const GET = async (
       status: 404,
     });
   }
-  const policy = data.policies.find(
-    (policy) => policy.id === card.expensePolicyId,
-  );
+  const policy = data.policies.find((p) => p.id === card.expensePolicyId);
   return new Response(JSON.stringify(policy), { status: 200 });
 };
 
@@ -42,11 +40,11 @@ export const POST = async (
     const body = await req.json();
     const { policyId } = body;
     const newCard = { ...card, expensePolicyId: policyId };
-    data.cards = data.cards.map((card) => {
-      if (card.id === params.id) {
+    data.cards = data.cards.map((c) => {
+      if (c.id === params.id) {
         return newCard;
       }
-      return card;
+      return c;
     });
     return new Response(JSON.stringify(newCard), { status: 201 });
   } catch (error) {

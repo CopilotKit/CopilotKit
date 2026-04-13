@@ -1,4 +1,4 @@
-import { AgentState } from "@/lib/state";
+import type { AgentState } from "@/lib/state";
 
 interface UsersModalProps {
   isOpen: boolean;
@@ -44,12 +44,13 @@ function UserCard({ user }: UserCardProps) {
   return (
     <div className="flex items-center gap-4 bg-white/10 rounded-xl p-6 border border-white/10 hover:bg-white/20 transition-all duration-200">
       <div className="relative">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={user.image}
           alt={user.name}
           className="w-16 h-16 rounded-xl object-cover border-2 border-white/20"
         />
-        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white"></div>
+        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white" />
       </div>
       <div className="flex-1">
         <div className="font-semibold text-xl text-white mb-1">{user.name}</div>

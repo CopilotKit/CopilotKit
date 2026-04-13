@@ -39,6 +39,7 @@ export default function Item() {
   return (
     <div id="item">
       <div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           alt={`${item.displayName} avatar`}
           key={item.avatar}

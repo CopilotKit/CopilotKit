@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Stars } from "@/components/Stars";
 import { useState, useEffect } from "react";
-import { Place } from "@/lib/types";
+import type { Place } from "@/lib/types";
 
 export interface PlaceFormData {
   name: string;

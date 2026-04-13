@@ -1,5 +1,5 @@
-import { RunnableConfig } from "@langchain/core/runnables";
-import { CustomerSupportState } from "../types/state";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { CustomerSupportState } from "../types/state";
 import { escalationDecisionTool } from "../tools";
 import { AIMessage } from "@langchain/core/messages"; /**
  * Escalation Agent Node
@@ -7,7 +7,7 @@ import { AIMessage } from "@langchain/core/messages"; /**
  */
 export async function escalationAgentNode(
   state: CustomerSupportState,
-  config: RunnableConfig,
+  _config: RunnableConfig,
 ): Promise<Partial<CustomerSupportState>> {
   console.log("Escalation Agent: Checking escalation criteria...");
 

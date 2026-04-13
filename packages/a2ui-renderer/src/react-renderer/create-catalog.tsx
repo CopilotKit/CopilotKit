@@ -1,6 +1,6 @@
-import { z, type ZodObject, type ZodRawShape } from "zod";
+import type { z} from "zod";
+import type { ZodObject, ZodRawShape } from "zod";
 import { Catalog } from "@a2ui/web_core/v0_9";
-import { BASIC_FUNCTIONS } from "@a2ui/web_core/v0_9/basic_catalog";
 import { basicCatalog, createReactComponent } from "./a2ui-react";
 import type { ReactComponentImplementation } from "./a2ui-react";
 import type { ComponentApi } from "@a2ui/web_core/v0_9";
@@ -122,7 +122,9 @@ export function createCatalog<D extends CatalogDefinitions>(
         const Render = renderer;
         const dispatch = (action: any) => context.dispatchAction(action);
         return (
-          <Render props={props} children={buildChild} dispatch={dispatch} />
+          <Render props={props} dispatch={dispatch}>
+            {buildChild}
+          </Render>
         );
       },
     );

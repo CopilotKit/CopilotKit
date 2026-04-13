@@ -1,10 +1,11 @@
+import type {
+  TemplateRef,
+  Type} from "@angular/core";
 import {
   Component,
   input,
   output,
   ContentChild,
-  TemplateRef,
-  Type,
   ChangeDetectionStrategy,
   ViewEncapsulation,
   computed,
@@ -196,8 +197,6 @@ export class CopilotChatMessageView {
   trackByMessageId(index: number, message: Message): string {
     return message?.id || `index-${index}`;
   }
-
-  constructor() {}
 
   // Event handlers - just pass them through
   handleAssistantThumbsUp(event: { message: Message }): void {

@@ -1,7 +1,6 @@
 import {
   CopilotRuntime,
   createCopilotEndpoint,
-  VERSION,
   BasicAgent,
 } from "@copilotkit/runtime/v2";
 import { serve } from "@hono/node-server";

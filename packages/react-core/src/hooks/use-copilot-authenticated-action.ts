@@ -1,7 +1,7 @@
-import { Parameter } from "@copilotkit/shared";
+import type { Parameter } from "@copilotkit/shared";
 import { Fragment, useCallback, useRef } from "react";
 import { useCopilotContext } from "../context/copilot-context";
-import { FrontendAction, ActionRenderProps } from "../types/frontend-action";
+import type { FrontendAction, ActionRenderProps } from "../types/frontend-action";
 import { useCopilotAction } from "./use-copilot-action";
 import React from "react";
 
@@ -60,7 +60,13 @@ export function useCopilotAuthenticatedAction_c<T extends Parameter[]>(
 
       return executeAction(props);
     },
-    [action, authStates_c, setAuthStates_c],
+    [
+      action,
+      authStates_c,
+      setAuthStates_c,
+      authConfig_c?.SignInComponent,
+      executeAction,
+    ],
   );
 
   useCopilotAction(

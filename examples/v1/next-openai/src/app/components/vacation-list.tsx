@@ -1,6 +1,7 @@
 "use client";
+import type {
+  DocumentPointer} from "@copilotkit/react-core";
 import {
-  DocumentPointer,
   useCopilotAction,
   useCopilotChat,
   useMakeCopilotDocumentReadable,
@@ -143,6 +144,7 @@ export function VacationList() {
    * 2. No LLM call is made (followUp: false)
    * 3. User sends first message -> This will trigger the first actual LLM request
    */
+  /* eslint-disable react-hooks/exhaustive-deps -- intentionally run only on mount to show welcome message once */
   useEffect(() => {
     appendMessage(
       new TextMessage({
@@ -152,6 +154,7 @@ export function VacationList() {
       { followUp: false },
     );
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 bg-slate-50 py-4">

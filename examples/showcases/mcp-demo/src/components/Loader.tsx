@@ -1,4 +1,4 @@
-import React, { useEffect, useState, memo, useMemo } from "react";
+import React, { memo } from "react";
 import { Loader2 } from "lucide-react";
 
 interface LoaderProps {

@@ -1,6 +1,6 @@
-import { Message } from "@ag-ui/client";
+import type { Message } from "@ag-ui/client";
 import { vi } from "vitest";
-import { DynamicSuggestionsConfig, FrontendTool } from "../types";
+import type { DynamicSuggestionsConfig, FrontendTool } from "../types";
 
 export interface MockAgentOptions {
   messages?: Message[];
@@ -117,7 +117,7 @@ export class MockAgent {
 
 export function createMessage(overrides: Partial<Message> = {}): Message {
   return {
-    id: `msg-${Math.random().toString(36).substr(2, 9)}`,
+    id: `msg-${Math.random().toString(36).slice(2, 11)}`,
     role: "user",
     content: "Test message",
     ...overrides,
@@ -139,7 +139,7 @@ export function createToolCallMessage(
   args: any = {},
   overrides: Partial<Message> = {},
 ): Message {
-  const toolCallId = `tool-call-${Math.random().toString(36).substr(2, 9)}`;
+  const toolCallId = `tool-call-${Math.random().toString(36).slice(2, 11)}`;
   return createAssistantMessage({
     content: "",
     toolCalls: [
@@ -173,7 +173,7 @@ export function createTool<T extends Record<string, unknown>>(
   overrides: Partial<FrontendTool<T>> = {},
 ): FrontendTool<T> {
   return {
-    name: `tool-${Math.random().toString(36).substr(2, 9)}`,
+    name: `tool-${Math.random().toString(36).slice(2, 11)}`,
     description: "Test tool",
     handler: vi.fn(async () => "Tool result"),
     followUp: false, // Default to false to avoid unexpected recursion in tests
@@ -188,7 +188,7 @@ export function createMultipleToolCallsMessage(
   return createAssistantMessage({
     content: "",
     toolCalls: toolCalls.map((tc) => ({
-      id: `tool-call-${Math.random().toString(36).substr(2, 9)}`,
+      id: `tool-call-${Math.random().toString(36).slice(2, 11)}`,
       type: "function",
       function: {
         name: tc.name,
@@ -237,7 +237,7 @@ export function createSuggestionToolCall(
   suggestions: Array<{ title: string; message: string }>,
   overrides: Partial<Message> = {},
 ): Message {
-  const toolCallId = `suggest-call-${Math.random().toString(36).substr(2, 9)}`;
+  const toolCallId = `suggest-call-${Math.random().toString(36).slice(2, 11)}`;
   return createAssistantMessage({
     content: "",
     toolCalls: [

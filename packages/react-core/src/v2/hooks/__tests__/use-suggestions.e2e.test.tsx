@@ -4,14 +4,15 @@ import { renderWithCopilotKit } from "../../__tests__/utils/test-helpers";
 import { useSuggestions } from "../use-suggestions";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
-import {
-  AbstractAgent,
+import type {
   AgentSubscriber,
   Message,
   RunAgentParameters,
-  RunAgentResult,
+  RunAgentResult} from "@ag-ui/client";
+import {
+  AbstractAgent
 } from "@ag-ui/client";
-import { Suggestion } from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
 
 class SuggestionsProviderAgent extends AbstractAgent {
   constructor(private readonly responses: Suggestion[]) {

@@ -1,10 +1,10 @@
 import React from "react";
-import { Editor } from "slate";
+import type { Editor } from "slate";
 import { ReactEditor } from "slate-react";
 import { getFullEditorTextWithNewlines } from "../../lib/get-text-around-cursor";
 import { replaceEditorText } from "../../lib/slatejs-edits/replace-text";
-import { HTMLCopilotTextAreaElement } from "../../types";
-import { CustomEditor } from "../../types/base/custom-editor";
+import type { HTMLCopilotTextAreaElement } from "../../types";
+import type { CustomEditor } from "../../types/base/custom-editor";
 
 export function usePopulateCopilotTextareaRef(
   editor: Editor,
@@ -70,21 +70,21 @@ export function usePopulateCopilotTextareaRef(
     };
 
     class CustomMethods {
-      constructor(private editor: CustomEditor) {}
+      constructor(private innerEditor: CustomEditor) {}
 
       focus() {
-        ReactEditor.focus(this.editor);
+        ReactEditor.focus(this.innerEditor);
       }
 
       blur() {
-        ReactEditor.blur(this.editor);
+        ReactEditor.blur(this.innerEditor);
       }
 
       get value() {
-        return getFullEditorTextWithNewlines(this.editor);
+        return getFullEditorTextWithNewlines(this.innerEditor);
       }
       set value(value: string) {
-        replaceEditorText(this.editor, value);
+        replaceEditorText(this.innerEditor, value);
       }
     }
 

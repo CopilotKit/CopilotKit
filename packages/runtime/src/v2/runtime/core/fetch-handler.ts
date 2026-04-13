@@ -54,12 +54,8 @@ import {
   handleDeleteThread,
   handleGetThreadMessages,
 } from "../handlers/handle-threads";
-import {
-  parseMethodCall,
-  createJsonRequest,
-  expectString,
-  type MethodCall,
-} from "../endpoints/single-route-helpers";
+import { parseMethodCall, createJsonRequest, expectString } from '../endpoints/single-route-helpers';
+import type { MethodCall } from '../endpoints/single-route-helpers';
 import { logger } from "@copilotkit/shared";
 
 /* ------------------------------------------------------------------------------------------------

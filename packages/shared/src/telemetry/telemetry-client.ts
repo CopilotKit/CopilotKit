@@ -1,5 +1,5 @@
 import { Analytics } from "@segment/analytics-node";
-import { AnalyticsEvents } from "./events";
+import type { AnalyticsEvents } from "./events";
 import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
 import scarfClient from "./scarf-client";
@@ -36,7 +36,7 @@ export class TelemetryClient {
     packageName,
     packageVersion,
     telemetryDisabled,
-    telemetryBaseUrl,
+    telemetryBaseUrl: _telemetryBaseUrl,
     sampleRate,
   }: {
     packageName: string;

@@ -1,6 +1,7 @@
 "use client";
 
-import { ReactNode, useEffect, useState, PropsWithChildren } from "react";
+import type { ReactNode, PropsWithChildren } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "react-oidc-context";
 import { Button } from "@/components/ui/button";
 

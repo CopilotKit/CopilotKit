@@ -2,11 +2,14 @@ import React, { useEffect, useMemo } from "react";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
 import { InlineFeatureWarning } from "../license-warning-banner";
 
-import { CopilotChat, CopilotChatProps } from "./CopilotChat";
-import CopilotChatView, { CopilotChatViewProps } from "./CopilotChatView";
+import type { CopilotChatProps } from "./CopilotChat";
+import { CopilotChat } from "./CopilotChat";
+import type { CopilotChatViewProps } from "./CopilotChatView";
+import CopilotChatView from "./CopilotChatView";
+import type {
+  CopilotSidebarViewProps} from "./CopilotSidebarView";
 import {
-  CopilotSidebarView,
-  CopilotSidebarViewProps,
+  CopilotSidebarView
 } from "./CopilotSidebarView";
 
 export type CopilotSidebarProps = Omit<CopilotChatProps, "chatView"> & {

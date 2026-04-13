@@ -8,7 +8,8 @@
  * - oss.runtime.agent_execution_stream_errored - when an agent execution fails
  */
 
-import { type AgentRunner, InMemoryAgentRunner } from "../../v2/runtime";
+import { InMemoryAgentRunner } from '../../v2/runtime';
+import type { AgentRunner } from '../../v2/runtime';
 import { createHash } from "node:crypto";
 import { tap, catchError, finalize } from "rxjs";
 import telemetry from "../telemetry-client";

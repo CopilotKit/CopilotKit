@@ -1,4 +1,4 @@
-import { BasePoint } from "slate";
+import type { BasePoint } from "slate";
 import { arraysAreEqual } from "../../lib/utils";
 
 export interface EditorAutocompleteState {

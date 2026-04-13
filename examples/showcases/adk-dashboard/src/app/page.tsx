@@ -1,6 +1,6 @@
 "use client";
 
-import { CopilotKitCSSProperties } from "@copilotkit/react-ui";
+import type { CopilotKitCSSProperties } from "@copilotkit/react-ui";
 import { Chat } from "@/components/chat/chat";
 import { MobileChat } from "@/components/chat/mobile-chat";
 import { MainLayout } from "@/components/dashboard/dashboard";

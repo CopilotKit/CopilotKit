@@ -70,7 +70,7 @@ export interface NewCardRequest {
 }
 
 export function generateUniqueId() {
-  return Math.random().toString(36).substring(2, 15);
+  return Math.random().toString(36).slice(2, 15);
 }
 
 export const data: {

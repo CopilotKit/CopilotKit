@@ -28,6 +28,7 @@ export async function startServer(
   const app = createMcpExpressApp({ host: "0.0.0.0" });
   app.use(cors());
 
+  // oxlint-disable-next-line no-async-endpoint-handlers -- MCP handler requires async for transport setup
   app.all("/mcp", async (req: Request, res: Response) => {
     const server = createServer();
     const transport = new StreamableHTTPServerTransport({

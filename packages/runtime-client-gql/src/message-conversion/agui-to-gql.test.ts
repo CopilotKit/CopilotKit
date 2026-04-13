@@ -1,6 +1,6 @@
 import { describe, test, expect, vi } from "vitest";
 import * as gql from "../client";
-import * as agui from "@copilotkit/shared";
+import type * as agui from "@copilotkit/shared";
 import {
   aguiToGQL,
   aguiTextMessageToGQLMessage,
@@ -590,7 +590,7 @@ describe("agui-to-gql", () => {
 
     test("should handle multiple tool calls with render functions", () => {
       const mockRender1 = () => "Render 1";
-      const mockRender2 = () => "Render 2";
+      const _mockRender2 = () => "Render 2";
       const aguiMessage: agui.Message = {
         id: "assistant-1",
         role: "assistant",
@@ -1242,7 +1242,7 @@ describe("agui-to-gql", () => {
         toolName: "testAction",
       };
 
-      const toolCallNames = { "tool-call-1": "testAction" };
+      const _toolCallNames = { "tool-call-1": "testAction" };
       const result = aguiToGQL(aguiMessage);
 
       expect(result).toHaveLength(1);

@@ -1,4 +1,4 @@
-import { Logger } from "pino";
+import type { Logger } from "pino";
 
 // Retry configuration for network requests
 export const RETRY_CONFIG = {

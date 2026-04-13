@@ -1,5 +1,5 @@
 import { useRenderToolCall } from "../v2";
-import { AIMessage, Message, ToolResult } from "@copilotkit/shared";
+import type { AIMessage, Message, ToolResult } from "@copilotkit/shared";
 import React, { useCallback } from "react";
 
 export function useLazyToolRenderer(): (

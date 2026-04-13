@@ -1,15 +1,15 @@
 import { randomId } from "@copilotkit/shared";
-import {
+import type {
   ActionExecutionMessageInput,
   ResultMessageInput,
   TextMessageInput,
   AgentStateMessageInput,
   ImageMessageInput,
 } from "../../inputs/message.input";
-import { BaseMessageInput } from "../base";
-import { BaseMessageOutput } from "../copilot-response.type";
+import type { BaseMessageOutput } from "../copilot-response.type";
 import { MessageRole } from "../enums";
-import { MessageStatus, MessageStatusCode } from "../message-status.type";
+import type { MessageStatus} from "../message-status.type";
+import { MessageStatusCode } from "../message-status.type";
 
 export type MessageType =
   | "TextMessage"
@@ -135,7 +135,7 @@ export class ResultMessage extends Message implements ResultMessageInput {
         return { result: JSON.stringify(parsed) };
       }
       return { result };
-    } catch (e) {
+    } catch {
       return { result };
     }
   }

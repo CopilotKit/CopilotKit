@@ -8,7 +8,7 @@ import {
   useLangGraphInterrupt,
 } from "@copilotkit/react-core";
 
-import { ResearchState } from "@/lib/types";
+import type { ResearchState } from "@/lib/types";
 import { Progress } from "@/components/progress";
 import SourcesModal from "@/components/resource-modal";
 import { useResearch } from "@/components/research-context";

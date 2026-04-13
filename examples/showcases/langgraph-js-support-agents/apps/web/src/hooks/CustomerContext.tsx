@@ -1,11 +1,13 @@
 "use client";
 
+import type {
+  ReactNode} from "react";
 import React, {
   createContext,
   useContext,
   useState,
   useCallback,
-  ReactNode,
+  useMemo,
   useEffect,
   useRef,
 } from "react";
@@ -124,7 +126,10 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
   const [localCustomers, setLocalCustomers] = useState<Customer[] | null>(null);
 
   // Derive customers: local override takes precedence over agent state
-  const customers = localCustomers ?? agentState.customers ?? [];
+  const customers = useMemo(
+    () => localCustomers ?? agentState.customers ?? [],
+    [localCustomers, agentState.customers],
+  );
   // Keep a ref to always have the latest customers in closures
   const customersRef = useRef<Customer[]>([]);
   useEffect(() => {
@@ -286,7 +291,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
 
       return updatedCustomer;
     },
-    [customers, recalculateCharges, setAgentState],
+    [recalculateCharges, setAgentState],
   );
 
   const removeAddon = (

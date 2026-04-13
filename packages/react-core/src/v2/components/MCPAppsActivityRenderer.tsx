@@ -274,6 +274,10 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     const agentRef = useRef(agent);
     agentRef.current = agent;
 
+    // Store copilotkit in a ref for use in async handlers
+    const copilotkitRef = useRef(copilotkit);
+    copilotkitRef.current = copilotkit;
+
     // Ref to track fetch state - survives StrictMode remounts
     const fetchStateRef = useRef<{
       inProgress: boolean;
@@ -575,7 +579,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                       // Fire-and-forget: errors are handled by RunHandler's error emission.
                       mcpAppsRequestQueue
                         .enqueue(currentAgent, () =>
-                          copilotkit.runAgent({ agent: currentAgent }),
+                          copilotkitRef.current.runAgent({ agent: currentAgent }),
                         )
                         .catch((err) =>
                           console.error(

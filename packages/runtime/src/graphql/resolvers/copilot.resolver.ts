@@ -1,8 +1,9 @@
 import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
+import type {
+  Subscription} from "rxjs";
 import {
   ReplaySubject,
   Subject,
-  Subscription,
   filter,
   finalize,
   firstValueFrom,
@@ -12,47 +13,49 @@ import {
   takeWhile,
   tap,
 } from "rxjs";
-import { GenerateCopilotResponseInput } from "../inputs/generate-copilot-response.input";
+import type { GenerateCopilotResponseInput } from "../inputs/generate-copilot-response.input";
 import { CopilotResponse } from "../types/copilot-response.type";
 import {
   CopilotKitLangGraphInterruptEvent,
   LangGraphInterruptEvent,
 } from "../types/meta-events.type";
-import { ActionInputAvailability, MessageRole } from "../types/enums";
+import { MessageRole } from "../types/enums";
 import { Repeater } from "graphql-yoga";
 import type {
   CopilotRequestContextProperties,
   GraphQLContext,
 } from "../../lib/integrations";
+import type {
+  RuntimeEvent} from "../../service-adapters/events";
 import {
-  RuntimeEvent,
   RuntimeEventTypes,
   RuntimeMetaEventName,
 } from "../../service-adapters/events";
+import type {
+  MessageStatusUnion} from "../types/message-status.type";
 import {
   FailedMessageStatus,
-  MessageStatusCode,
-  MessageStatusUnion,
   SuccessMessageStatus,
 } from "../types/message-status.type";
+import type {
+  ResponseStatusUnion} from "../types/response-status.type";
 import {
-  ResponseStatusUnion,
   SuccessResponseStatus,
 } from "../types/response-status.type";
 import { GraphQLJSONObject } from "graphql-scalars";
 import { plainToInstance } from "class-transformer";
-import { GuardrailsResult } from "../types/guardrails-result.type";
+import type { GuardrailsResult } from "../types/guardrails-result.type";
 import { GraphQLError } from "graphql";
 import {
   GuardrailsValidationFailureResponse,
   MessageStreamInterruptedResponse,
   UnknownErrorResponse,
 } from "../../utils";
+import type {
+  Message} from "../types/converted";
 import {
   ActionExecutionMessage,
   AgentStateMessage,
-  Message,
-  MessageType,
   ResultMessage,
   TextMessage,
 } from "../types/converted";
@@ -60,12 +63,8 @@ import telemetry from "../../lib/telemetry-client";
 import { randomId } from "@copilotkit/shared";
 import { AgentsResponse } from "../types/agents-response.type";
 import { LangGraphEventTypes } from "../../agents/langgraph/events";
-import {
-  CopilotKitError,
-  CopilotKitLowLevelError,
-  isStructuredCopilotKitError,
-} from "@copilotkit/shared";
-import { CopilotRuntime } from "../../lib";
+import { CopilotKitError, CopilotKitLowLevelError } from "@copilotkit/shared";
+import type { CopilotRuntime } from "../../lib";
 
 const invokeGuardrails = async ({
   baseUrl,
@@ -145,7 +144,8 @@ export class CopilotResolver {
 
     return {
       agents: agentsWithEndpoints.map(
-        ({ endpoint, ...agentWithoutEndpoint }) => agentWithoutEndpoint,
+        ({ endpoint: _endpoint, ...agentWithoutEndpoint }) =>
+          agentWithoutEndpoint,
       ),
     };
   }
@@ -189,8 +189,9 @@ export class CopilotResolver {
       ctx.properties = { ...ctx.properties, ...properties };
     }
 
-    const copilotRuntime = ctx._copilotkit.runtime as unknown as CopilotRuntime;
-    const serviceAdapter = ctx._copilotkit.serviceAdapter;
+    const _copilotRuntime = ctx._copilotkit
+      .runtime as unknown as CopilotRuntime;
+    const _serviceAdapter = ctx._copilotkit.serviceAdapter;
 
     let copilotCloudPublicApiKey: string | null = null;
     let copilotCloudBaseUrl: string;
@@ -241,7 +242,7 @@ export class CopilotResolver {
     let resolveOutputMessagesPromise: (messages: Message[]) => void;
     let rejectOutputMessagesPromise: (err: Error) => void;
 
-    const outputMessagesPromise = new Promise<Message[]>((resolve, reject) => {
+    const _outputMessagesPromise = new Promise<Message[]>((resolve, reject) => {
       resolveOutputMessagesPromise = resolve;
       rejectOutputMessagesPromise = reject;
     });
@@ -251,7 +252,8 @@ export class CopilotResolver {
     }
 
     logger.debug("Processing");
-    let runtimeResponse;
+    let runtimeResponse: any;
+    runtimeResponse = runtimeResponse ?? {};
 
     const {
       eventSource,
@@ -507,9 +509,9 @@ export class CopilotResolver {
                         .pipe(
                           shareReplay(),
                           take(1),
-                          tap(({ reason, messageId }) => {
+                          tap(({ reason, messageId: interruptedMessageId }) => {
                             logger.debug(
-                              { reason, messageId },
+                              { reason, messageId: interruptedMessageId },
                               "Text streaming interrupted",
                             );
 
@@ -519,7 +521,7 @@ export class CopilotResolver {
 
                             responseStatus$.next(
                               new MessageStreamInterruptedResponse({
-                                messageId,
+                                messageId: interruptedMessageId,
                               }),
                             );
                             stopStreamingText();

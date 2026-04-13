@@ -107,16 +107,12 @@ export function createCopilotExpressHandler({
 
   const nodeHandler = createExpressNodeHandler(handler);
 
-  const expressHandler = async (
+  const expressHandler = (
     req: ExpressRequest,
     res: ExpressResponse,
     next: NextFunction,
   ) => {
-    try {
-      await nodeHandler(req, res);
-    } catch (err) {
-      next(err);
-    }
+    Promise.resolve(nodeHandler(req, res)).catch(next);
   };
 
   const router = express.Router();

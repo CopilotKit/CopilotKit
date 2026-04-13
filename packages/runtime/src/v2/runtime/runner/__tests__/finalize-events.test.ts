@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import {
+import type {
   BaseEvent,
-  EventType,
   ToolCallResultEvent,
-  RunErrorEvent,
+  RunErrorEvent} from "@ag-ui/client";
+import {
+  EventType
 } from "@ag-ui/client";
 import { finalizeRunEvents } from "@copilotkit/shared";
 

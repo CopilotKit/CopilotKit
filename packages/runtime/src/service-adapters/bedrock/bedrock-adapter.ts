@@ -50,7 +50,7 @@ export class BedrockAdapter extends LangChainAdapter {
   public model: string = DEFAULT_MODEL;
   constructor(options?: BedrockAdapterParams) {
     super({
-      chainFn: async ({ messages, tools, threadId }) => {
+      chainFn: async ({ messages, tools, threadId: _threadId }) => {
         // Lazy require for optional peer dependency
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { ChatBedrockConverse } = require("@langchain/aws");

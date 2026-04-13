@@ -1,26 +1,20 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { z } from "zod";
-import {
-  CopilotKitProvider,
-  useCopilotKit,
-} from "../../../providers/CopilotKitProvider";
+import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
+import { AbstractAgent, EventType } from '@ag-ui/client';
+import type { BaseEvent, RunAgentInput } from '@ag-ui/client';
 import { Observable, Subject } from "rxjs";
-import {
-  defineToolCallRenderer,
+import type {
   ReactToolCallRenderer,
-  ReactFrontendTool,
+  ReactFrontendTool} from "../../../types";
+import {
+  defineToolCallRenderer
 } from "../../../types";
 import CopilotChatToolCallsView from "../CopilotChatToolCallsView";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
+import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useFrontendTool } from "../../../hooks/use-frontend-tool";
 
@@ -134,7 +128,7 @@ describe("CopilotChat tool rendering with mock agent", () => {
 
 describe("Tool render status narrowing", () => {
   function renderStatusWithProvider({
-    isRunning,
+    isRunning: _isRunning,
     withResult,
   }: {
     isRunning: boolean;

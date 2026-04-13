@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { UploadedFile } from "@/types/investigator";
+import type { UploadedFile } from "@/types/investigator";
 
 interface FileUploadProps {
   onFilesChange: (files: UploadedFile[]) => void;
@@ -31,6 +31,13 @@ const readFileAsBase64 = (file: File): Promise<string> => {
     reader.readAsDataURL(file);
   });
 };
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(0)}KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
 
 export function FileUpload({ onFilesChange, currentFiles }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
@@ -105,13 +112,6 @@ export function FileUpload({ onFilesChange, currentFiles }: FileUploadProps) {
   const handleDragLeave = useCallback(() => {
     setIsDragging(false);
   }, []);
-
-  const formatSize = (bytes: number): string => {
-    if (bytes < 1024 * 1024) {
-      return `${(bytes / 1024).toFixed(0)}KB`;
-    }
-    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-  };
 
   // Show file list when files exist
   if (currentFiles.length > 0) {

@@ -192,7 +192,7 @@ export const portfolios: Map<string, Portfolio> = new Map();
 export const trades: Map<string, Trade[]> = new Map();
 
 function generateId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 // Add some random price variation
@@ -236,8 +236,8 @@ export function createPortfolio(params: {
   const {
     name = "My Portfolio",
     initialBalance,
-    riskTolerance = "moderate",
-    focus,
+    riskTolerance: _riskTolerance = "moderate",
+    focus: _focus,
   } = params;
 
   const id = generateId("portfolio");

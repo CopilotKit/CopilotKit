@@ -7,10 +7,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Member } from "@/app/api/v1/data";
+import type { Member } from "@/app/api/v1/data";
+import type {
+  MemberDialogProps} from "@/components/add-or-edit-member-dialog";
 import {
-  defaultDialogState,
-  MemberDialogProps,
+  defaultDialogState
 } from "@/components/add-or-edit-member-dialog";
 
 export function RemoveMemberConfirmationDialog({

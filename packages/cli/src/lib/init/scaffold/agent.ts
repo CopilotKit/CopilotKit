@@ -1,7 +1,7 @@
 import ora from "ora";
 import chalk from "chalk";
 import { cloneGitHubSubdirectory } from "./github.js";
-import { Config } from "../types/index.js";
+import type { Config } from "../types/index.js";
 import path from "path";
 import fs from "fs";
 

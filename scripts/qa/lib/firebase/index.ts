@@ -15,6 +15,6 @@ import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
 // https://firebase.google.com/docs/functions/typescript
 
 export const copilotKit = onRequest((request, response) => {
-  const copilotKit = new CopilotRuntime();
-  copilotKit.streamHttpServerResponse(request, response, new OpenAIAdapter({}));
+  const runtime = new CopilotRuntime();
+  runtime.streamHttpServerResponse(request, response, new OpenAIAdapter({}));
 });

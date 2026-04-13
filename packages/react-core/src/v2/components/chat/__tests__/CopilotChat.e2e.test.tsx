@@ -1,7 +1,8 @@
 import React, { useEffect } from "react";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { z } from "zod";
-import { defineToolCallRenderer, ReactToolCallRenderer } from "../../../types";
+import type { ReactToolCallRenderer } from "../../../types";
+import { defineToolCallRenderer } from "../../../types";
 import {
   MockStepwiseAgent,
   SuggestionsProviderAgent,
@@ -12,7 +13,6 @@ import {
   toolCallChunkEvent,
   toolCallResultEvent,
   testId,
-  emitSuggestionToolCall,
   emitReasoningSequence,
   reasoningStartEvent,
   reasoningMessageStartEvent,
@@ -1007,7 +1007,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
       // Chat-level cursor (pulsing dot) should NOT be visible when last message is reasoning
       // The cursor has animate-pulse-cursor class
-      const cursors = document.querySelectorAll(".cpk\\:animate-pulse-cursor");
+      const _cursors = document.querySelectorAll(".cpk\\:animate-pulse-cursor");
       // Only the reasoning indicator should be present, not the chat-level cursor
       // The chat-level cursor is a direct child of the message view container
       const chatLevelCursor = document.querySelector(

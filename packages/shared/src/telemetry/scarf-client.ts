@@ -3,8 +3,6 @@ import * as packageJson from "../../package.json";
 const SCARF_BASE_URL = `https://copilotkit.gateway.scarf.sh/${packageJson.version}`;
 
 class ScarfClient {
-  constructor() {}
-
   async logEvent(properties: Record<string, any>): Promise<void> {
     try {
       const controller = new AbortController();

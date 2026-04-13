@@ -1,6 +1,6 @@
 "use client";
 
-import { type InputProps } from "@copilotkit/react-ui";
+import type { InputProps } from "@copilotkit/react-ui";
 import { useChatInput } from "@/lib/chat-input-context";
 import { useEffect, useRef } from "react";
 

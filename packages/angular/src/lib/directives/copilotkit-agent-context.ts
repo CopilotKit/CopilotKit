@@ -1,10 +1,11 @@
-import {
-  Directive,
-  Input,
+import type {
   OnInit,
   OnChanges,
   OnDestroy,
-  SimpleChanges,
+  SimpleChanges} from "@angular/core";
+import {
+  Directive,
+  Input,
   Inject,
 } from "@angular/core";
 import { CopilotKit } from "../copilotkit";

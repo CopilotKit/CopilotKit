@@ -1,3 +1,5 @@
+import type {
+  Type} from "@angular/core";
 import {
   Component,
   input,
@@ -5,20 +7,19 @@ import {
   TemplateRef,
   ContentChild,
   computed,
-  Type,
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
-import {
-  type CopilotChatUserMessageOnEditMessageProps,
-  type CopilotChatUserMessageOnSwitchToBranchProps,
-  type MessageRendererContext,
-  type CopyButtonContext,
-  type EditButtonContext,
-  type BranchNavigationContext,
-  type UserMessageToolbarContext,
+import type {
+  CopilotChatUserMessageOnEditMessageProps,
+  CopilotChatUserMessageOnSwitchToBranchProps,
+  MessageRendererContext,
+  CopyButtonContext,
+  EditButtonContext,
+  BranchNavigationContext,
+  UserMessageToolbarContext,
 } from "./copilot-chat-user-message.types";
 import { CopilotChatUserMessageRenderer } from "./copilot-chat-user-message-renderer";
 import {
@@ -28,7 +29,7 @@ import {
 import { CopilotChatUserMessageToolbar } from "./copilot-chat-user-message-toolbar";
 import { CopilotChatUserMessageBranchNavigation } from "./copilot-chat-user-message-branch-navigation";
 import { cn } from "../../utils";
-import { UserMessage } from "@ag-ui/core";
+import type { UserMessage } from "@ag-ui/core";
 
 function flattenUserMessageContent(content?: UserMessage["content"]): string {
   if (!content) {
@@ -273,5 +274,4 @@ export class CopilotChatUserMessage {
   ): void {
     this.switchToBranch.emit(props);
   }
-  constructor() {}
 }

@@ -2,13 +2,13 @@
  * Delete Resources
  */
 
-import { AgentState } from "./state";
-import { RunnableConfig } from "@langchain/core/runnables";
-import { ToolMessage, AIMessage } from "@langchain/core/messages";
+import type { AgentState } from "./state";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { ToolMessage, AIMessage } from "@langchain/core/messages";
 
 export async function delete_node(
   state: AgentState,
-  config: RunnableConfig,
+  _config: RunnableConfig,
 ): Promise<AgentState> {
   /**
    * Delete Node
@@ -18,7 +18,7 @@ export async function delete_node(
 
 export async function perform_delete_node(
   state: AgentState,
-  config: RunnableConfig,
+  _config: RunnableConfig,
 ) {
   /**
    * Perform Delete Node

@@ -1,5 +1,7 @@
-import { Injectable, ElementRef, NgZone, OnDestroy } from "@angular/core";
-import { Observable, Subject, BehaviorSubject } from "rxjs";
+import type { NgZone, OnDestroy } from "@angular/core";
+import { Injectable, ElementRef } from "@angular/core";
+import type { Observable} from "rxjs";
+import { Subject, BehaviorSubject } from "rxjs";
 import { debounceTime, takeUntil, distinctUntilChanged } from "rxjs/operators";
 
 export interface ResizeState {

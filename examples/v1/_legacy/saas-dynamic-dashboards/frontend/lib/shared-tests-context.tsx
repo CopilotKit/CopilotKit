@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
-import { TestsData } from "@/app/Interfaces/interface";
+import type { ReactNode } from "react";
+import { createContext, useContext, useState } from "react";
+import type { TestsData } from "@/app/Interfaces/interface";
 type SharedContextType = {
   testsData: TestsData[];
   setTestsData: (data: TestsData[]) => void;

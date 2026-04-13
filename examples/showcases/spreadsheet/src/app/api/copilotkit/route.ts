@@ -1,7 +1,7 @@
-import { Action } from "@copilotkit/shared";
+import type { Action } from "@copilotkit/shared";
 import { researchWithLangGraph } from "./research";
 
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   LangChainAdapter,

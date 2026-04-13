@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { CopilotChat, CopilotKitCSSProperties } from "@copilotkit/react-ui";
-import { PlaygroundConfig } from "@/types/playground";
+import type { CopilotKitCSSProperties } from "@copilotkit/react-ui";
+import { CopilotChat } from "@copilotkit/react-ui";
+import type { PlaygroundConfig } from "@/types/playground";
 
 export default function PreviewPage() {
   const [config, setConfig] = useState<PlaygroundConfig | null>(null);

@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { render, act } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { useAgentContext, type AgentContextInput } from "../use-agent-context";
+import { useAgentContext } from '../use-agent-context';
+import type { AgentContextInput } from '../use-agent-context';
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 
 // Mock the CopilotKitProvider

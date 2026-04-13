@@ -3,7 +3,8 @@ import { z } from "zod";
 import * as v from "valibot";
 import { type } from "arktype";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
-import { defineTool, type ToolDefinition } from "../index";
+import { defineTool } from '../index';
+import type { ToolDefinition } from '../index';
 
 describe("ToolDefinition type inference", () => {
   describe("defineTool with Zod", () => {

@@ -18,11 +18,7 @@ import { z } from "zod";
 import { useFrontendTool } from "../use-frontend-tool";
 import { useAgentContext } from "../use-agent-context";
 import { CopilotChat } from "../../components/chat/CopilotChat";
-import {
-  type AgentSubscriber,
-  type BaseEvent,
-  type RunAgentParameters,
-} from "@ag-ui/client";
+import type { AgentSubscriber, RunAgentParameters } from "@ag-ui/client";
 import type { Context } from "@ag-ui/client";
 import {
   MockStepwiseAgent,

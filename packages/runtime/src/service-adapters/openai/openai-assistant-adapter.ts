@@ -29,24 +29,20 @@ import type {
   AssistantStreamEvent,
   AssistantTool,
 } from "openai/resources/beta/assistants";
-import {
+import type {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
-import {
-  Message,
-  ResultMessage,
-  TextMessage,
-} from "../../graphql/types/converted";
+import type { Message, ResultMessage } from "../../graphql/types/converted";
 import {
   convertActionInputToOpenAITool,
   convertMessageToOpenAIMessage,
   convertSystemMessageToAssistantAPI,
 } from "./utils";
-import { RuntimeEventSource } from "../events";
-import { ActionInput } from "../../graphql/inputs/action.input";
-import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
+import type { RuntimeEventSource } from "../events";
+import type { ActionInput } from "../../graphql/inputs/action.input";
+import type { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
 
 export interface OpenAIAssistantAdapterParams {
   /**
@@ -374,7 +370,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 }
 
 function getRunIdFromStream(stream: AssistantStream): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
+  return new Promise<string>((resolve, _reject) => {
     let runIdGetter = (event: AssistantStreamEvent) => {
       if (event.event === "thread.run.created") {
         const runId = event.data.id;

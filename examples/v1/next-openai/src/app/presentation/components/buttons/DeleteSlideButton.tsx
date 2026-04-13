@@ -1,4 +1,4 @@
-import { SlideModel } from "../../types";
+import type { SlideModel } from "../../types";
 import { ActionButton } from "./ActionButton";
 import { TrashIcon } from "@heroicons/react/24/outline";
 
@@ -20,11 +20,11 @@ export function DeleteSlideButton({
       disabled={slides.length == 1}
       onClick={() => {
         // delete the current slide
-        setSlides((slides) => [
-          ...slides.slice(0, currentSlideIndex),
-          ...slides.slice(currentSlideIndex + 1),
+        setSlides((prevSlides) => [
+          ...prevSlides.slice(0, currentSlideIndex),
+          ...prevSlides.slice(currentSlideIndex + 1),
         ]);
-        setCurrentSlideIndex((i) => 0);
+        setCurrentSlideIndex((_i) => 0);
       }}
     >
       <TrashIcon className="h-5 w-5" />

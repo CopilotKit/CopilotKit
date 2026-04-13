@@ -51,11 +51,11 @@ export function useAddBrandingCss(
     // 2: Add the scroll listener (to keep the branding in the bottom right as the textarea scrolls)
     const textarea = document.querySelector(cssSelector);
     const handleScroll = () => {
-      const styleEl = document.getElementById("dynamic-styles");
-      if (styleEl && textarea) {
+      const scrollStyleEl = document.getElementById("dynamic-styles");
+      if (scrollStyleEl && textarea) {
         const offsetFromBottom = -textarea.scrollTop + 6;
         const offsetFromRight = -textarea.scrollLeft + 6;
-        styleEl.innerHTML = `
+        scrollStyleEl.innerHTML = `
           ${cssSelector}::after {
             ${dynamicStyles}
             bottom: ${offsetFromBottom}px;

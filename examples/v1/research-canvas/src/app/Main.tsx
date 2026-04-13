@@ -1,6 +1,6 @@
 import { ResearchCanvas } from "@/components/ResearchCanvas";
 import { useModelSelectorContext } from "@/lib/model-selector-provider";
-import { AgentState } from "@/lib/types";
+import type { AgentState } from "@/lib/types";
 import { useCoAgent } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-ui";
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
@@ -50,7 +50,7 @@ export default function Main() {
         >
           <CopilotChat
             className="h-full"
-            onSubmitMessage={async (message) => {
+            onSubmitMessage={async (_message) => {
               // clear the logs before starting the new research
               setState({ ...state, logs: [] });
               await new Promise((resolve) => setTimeout(resolve, 30));

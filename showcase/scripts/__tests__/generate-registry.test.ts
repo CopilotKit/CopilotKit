@@ -1,15 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
 import os from "os";
 
 const SCRIPT_PATH = path.resolve(__dirname, "..", "generate-registry.ts");
 
-function createTempDir(): string {
+function _createTempDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "showcase-test-"));
 }
 
-function setupTestEnv(tmpDir: string) {
+function _setupTestEnv(tmpDir: string) {
   const packagesDir = path.join(tmpDir, "packages");
   const sharedDir = path.join(tmpDir, "shared");
   const shellDir = path.join(tmpDir, "shell", "src", "data");
@@ -32,13 +32,13 @@ function setupTestEnv(tmpDir: string) {
   return { packagesDir, sharedDir, shellDir };
 }
 
-function writeManifest(packagesDir: string, slug: string, manifest: string) {
+function _writeManifest(packagesDir: string, slug: string, manifest: string) {
   const dir = path.join(packagesDir, slug);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, "manifest.yaml"), manifest);
 }
 
-function runGenerator(tmpDir: string): {
+function _runGenerator(tmpDir: string): {
   code: number;
   stdout: string;
   stderr: string;

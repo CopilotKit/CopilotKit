@@ -1,10 +1,8 @@
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
-  langGraphPlatformEndpoint,
-  copilotKitEndpoint,
 } from "@copilotkit/runtime";
 import {
   LangGraphAgent,

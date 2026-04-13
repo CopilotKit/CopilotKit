@@ -1,6 +1,7 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import type { ReactNode} from "react";
+import { useState } from "react";
 import { ModeToggle } from "./mode-toggle";
 import { useFrontendTool } from "@copilotkit/react-core";
 
@@ -42,6 +43,7 @@ export function ExampleLayout({ chatContent, appContent }: ExampleLayoutProps) {
         }`}
       >
         <div className="shrink-0 pt-6 pl-6 pb-2 max-lg:pl-4 max-lg:pt-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/copilotkit-logo.svg"
             alt="CopilotKit"

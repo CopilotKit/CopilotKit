@@ -13,7 +13,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { resetGlobalAudio, speak } from "../utils";
 import { ActionButton } from "./ActionButton";
-import { SlideModel, Slide } from "./Slide";
+import type { SlideModel} from "./Slide";
+import { Slide } from "./Slide";
 
 export const Presentation = ({
   chatInProgress,
@@ -85,7 +86,7 @@ export const Presentation = ({
         spokenNarration,
       };
 
-      setSlides((slides) => [...slides, newSlide]);
+      setSlides((prevSlides) => [...prevSlides, newSlide]);
     },
     render: "Adding slide...",
   });
@@ -100,10 +101,10 @@ export const Presentation = ({
 
   const updateCurrentSlide = useCallback(
     (partialSlide: Partial<SlideModel>) => {
-      setSlides((slides) => [
-        ...slides.slice(0, currentSlideIndex),
-        { ...slides[currentSlideIndex], ...partialSlide },
-        ...slides.slice(currentSlideIndex + 1),
+      setSlides((prevSlides) => [
+        ...prevSlides.slice(0, currentSlideIndex),
+        { ...prevSlides[currentSlideIndex], ...partialSlide },
+        ...prevSlides.slice(currentSlideIndex + 1),
       ]);
     },
     [currentSlideIndex, setSlides],
@@ -124,10 +125,10 @@ export const Presentation = ({
               backgroundImageDescription: "random",
               spokenNarration: "The speaker's notes for this slide.",
             };
-            setSlides((slides) => [
-              ...slides.slice(0, currentSlideIndex + 1),
+            setSlides((prevSlides) => [
+              ...prevSlides.slice(0, currentSlideIndex + 1),
               newSlide,
-              ...slides.slice(currentSlideIndex + 1),
+              ...prevSlides.slice(currentSlideIndex + 1),
             ]);
             setCurrentSlideIndex((i) => i + 1);
           }}
@@ -155,11 +156,11 @@ export const Presentation = ({
           }
           onClick={() => {
             // delete the current slide
-            setSlides((slides) => [
-              ...slides.slice(0, currentSlideIndex),
-              ...slides.slice(currentSlideIndex + 1),
+            setSlides((prevSlides) => [
+              ...prevSlides.slice(0, currentSlideIndex),
+              ...prevSlides.slice(currentSlideIndex + 1),
             ]);
-            setCurrentSlideIndex((i) => 0);
+            setCurrentSlideIndex((_i) => 0);
           }}
           className="ml-5 rounded-r-none"
         >

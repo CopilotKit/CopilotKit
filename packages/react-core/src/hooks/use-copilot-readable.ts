@@ -103,14 +103,14 @@ export interface UseCopilotReadableOptions {
  */
 export function useCopilotReadable(
   { description, value, convert, available }: UseCopilotReadableOptions,
-  dependencies?: any[],
+  _dependencies?: any[],
 ): string | undefined {
   const { copilotkit } = useCopilotKit();
   const ctxIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!copilotkit) return;
 
-    const found = Object.entries(copilotkit.context).find(([id, ctxItem]) => {
+    const found = Object.entries(copilotkit.context).find(([_id, ctxItem]) => {
       return JSON.stringify({ description, value }) == JSON.stringify(ctxItem);
     });
     if (found) {
@@ -129,7 +129,7 @@ export function useCopilotReadable(
       if (!ctxIdRef.current) return;
       copilotkit.removeContext(ctxIdRef.current);
     };
-  }, [description, value, convert]);
+  }, [description, value, convert, copilotkit, available]);
 
   return ctxIdRef.current;
 }

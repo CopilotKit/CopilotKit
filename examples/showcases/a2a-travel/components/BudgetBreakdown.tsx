@@ -25,6 +25,19 @@ interface BudgetBreakdownProps {
   data: BudgetData;
 }
 
+// Color mapping for categories using CopilotCloud Palette
+const getCategoryColor = (index: number) => {
+  const colors = [
+    { bg: "#BEC2FF", light: "rgba(190, 194, 255, 0.1)", text: "#010507" }, // Lilac
+    { bg: "#85E0CE", light: "rgba(133, 224, 206, 0.1)", text: "#010507" }, // Mint
+    { bg: "#FFF388", light: "rgba(255, 243, 136, 0.1)", text: "#010507" }, // Yellow
+    { bg: "#FFAC4D", light: "rgba(255, 172, 77, 0.1)", text: "#010507" }, // Orange
+    { bg: "#C9C9DA", light: "rgba(201, 201, 218, 0.1)", text: "#010507" }, // Grey
+    { bg: "#F3F3FC", light: "rgba(243, 243, 252, 0.1)", text: "#010507" }, // Light Purple
+  ];
+  return colors[index % colors.length];
+};
+
 export const BudgetBreakdown: React.FC<BudgetBreakdownProps> = ({ data }) => {
   // Format currency
   const formatCurrency = (amount: number) => {
@@ -34,19 +47,6 @@ export const BudgetBreakdown: React.FC<BudgetBreakdownProps> = ({ data }) => {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
-  };
-
-  // Color mapping for categories using CopilotCloud Palette
-  const getCategoryColor = (index: number) => {
-    const colors = [
-      { bg: "#BEC2FF", light: "rgba(190, 194, 255, 0.1)", text: "#010507" }, // Lilac
-      { bg: "#85E0CE", light: "rgba(133, 224, 206, 0.1)", text: "#010507" }, // Mint
-      { bg: "#FFF388", light: "rgba(255, 243, 136, 0.1)", text: "#010507" }, // Yellow
-      { bg: "#FFAC4D", light: "rgba(255, 172, 77, 0.1)", text: "#010507" }, // Orange
-      { bg: "#C9C9DA", light: "rgba(201, 201, 218, 0.1)", text: "#010507" }, // Grey
-      { bg: "#F3F3FC", light: "rgba(243, 243, 252, 0.1)", text: "#010507" }, // Light Purple
-    ];
-    return colors[index % colors.length];
   };
 
   return (
@@ -89,7 +89,7 @@ export const BudgetBreakdown: React.FC<BudgetBreakdownProps> = ({ data }) => {
                   <div
                     className="w-2 h-2 rounded-full"
                     style={{ backgroundColor: colors.bg }}
-                  ></div>
+                   />
                   <span className="text-sm font-semibold text-[#010507]">
                     {category.category}
                   </span>
@@ -112,7 +112,7 @@ export const BudgetBreakdown: React.FC<BudgetBreakdownProps> = ({ data }) => {
                     width: `${category.percentage}%`,
                     backgroundColor: colors.bg,
                   }}
-                ></div>
+                 />
               </div>
             </div>
           );

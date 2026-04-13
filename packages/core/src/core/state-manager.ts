@@ -1,11 +1,12 @@
-import {
+import type {
   AbstractAgent,
   Message,
   State,
   RunAgentInput,
   StateSnapshotEvent,
   StateDeltaEvent,
-  MessagesSnapshotEvent,
+  MessagesSnapshotEvent} from "@ag-ui/client";
+import {
   randomUUID,
 } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
@@ -287,7 +288,7 @@ export class StateManager {
     agent: AbstractAgent,
     event: MessagesSnapshotEvent,
     input: RunAgentInput,
-    messages: Message[],
+    _messages: Message[],
   ): void {
     if (!agent.agentId) return;
 

@@ -1,4 +1,4 @@
-import { SubTask, Todo } from "@/contexts/TodoContext";
+import type { SubTask, Todo } from "@/contexts/TodoContext";
 import "../app/globals.css";
 import { Handle, Position } from "reactflow";
 import DoneRoundedIcon from "@mui/icons-material/DoneRounded";

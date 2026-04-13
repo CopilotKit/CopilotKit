@@ -17,14 +17,7 @@
  *   npx jscodeshift -t ./codemods/migrate-attachments.ts --extensions=tsx,ts ./src
  */
 
-import type {
-  API,
-  FileInfo,
-  JSXElement,
-  JSXAttribute,
-  JSXExpressionContainer,
-  ImportSpecifier,
-} from "jscodeshift";
+import type { API, FileInfo, JSXAttribute, ImportSpecifier } from "jscodeshift";
 
 const COPILOTKIT_PACKAGE = "@copilotkit/react-ui";
 const TARGET_COMPONENTS = new Set([

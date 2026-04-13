@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import { createEditor, Element } from "slate";
 import { withReact } from "slate-react";
+import type {
+  ShouldSaveToHistory} from "../../lib/slatejs-edits/with-partial-history";
 import {
   defaultShouldSave,
-  ShouldSaveToHistory,
   withPartialHistory,
 } from "../../lib/slatejs-edits/with-partial-history";
-import { CustomEditor } from "../../types/base/custom-editor";
+import type { CustomEditor } from "../../types/base/custom-editor";
 
 const shouldSave: ShouldSaveToHistory = (op, prev) => {
   const excludedNodeType = "suggestion";
@@ -65,10 +66,13 @@ const shouldSave: ShouldSaveToHistory = (op, prev) => {
 
 export function useCopilotTextareaEditor(): CustomEditor {
   const editor = useMemo(() => {
-    const editor = withPartialHistory(withReact(createEditor()), shouldSave);
+    const baseEditor = withPartialHistory(
+      withReact(createEditor()),
+      shouldSave,
+    );
 
-    const { isVoid } = editor;
-    editor.isVoid = (element) => {
+    const { isVoid } = baseEditor;
+    baseEditor.isVoid = (element) => {
       switch (element.type) {
         case "suggestion":
           return true;
@@ -77,8 +81,8 @@ export function useCopilotTextareaEditor(): CustomEditor {
       }
     };
 
-    const { markableVoid } = editor;
-    editor.markableVoid = (element) => {
+    const { markableVoid } = baseEditor;
+    baseEditor.markableVoid = (element) => {
       switch (element.type) {
         case "suggestion":
           return true;
@@ -87,8 +91,8 @@ export function useCopilotTextareaEditor(): CustomEditor {
       }
     };
 
-    const { isInline } = editor;
-    editor.isInline = (element) => {
+    const { isInline } = baseEditor;
+    baseEditor.isInline = (element) => {
       switch (element.type) {
         case "suggestion":
           return element.inline;
@@ -97,7 +101,7 @@ export function useCopilotTextareaEditor(): CustomEditor {
       }
     };
 
-    return editor;
+    return baseEditor;
   }, []);
 
   return editor;

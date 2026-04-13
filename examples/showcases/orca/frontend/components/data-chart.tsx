@@ -2,9 +2,8 @@
 
 // import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "@/components/ui/chart"
 import { Pie, PieChart, Cell, Tooltip } from "recharts";
-import { useSharedContext } from "@/lib/shared-context";
 import { useEffect, useState } from "react";
-import { PRData, chartData } from "@/app/Interfaces/interface";
+import type { PRData, chartData } from "@/app/Interfaces/interface";
 import { CustomPieTooltip } from "./pr-pie-all-data";
 
 interface DataChartProps {
@@ -38,18 +37,20 @@ export function DataChart({ data }: DataChartProps) {
       value: "rgb(147 197 253)",
     },
   ];
+  /* eslint-disable react-hooks/exhaustive-deps -- status is a static array defined in the component, effectively constant */
   useEffect(() => {
-    let buffer = status.map((status) => {
+    let buffer = status.map((s) => {
       return {
-        name: status.name,
-        value: data.filter((pr: PRData) => pr.status === status.name).length,
+        name: s.name,
+        value: data.filter((pr: PRData) => pr.status === s.name).length,
       };
     });
     setChartData(buffer);
   }, [data]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   // Generate colors for each data key
-  const colors = [
+  const _colors = [
     "hsl(var(--chart-1))",
     "hsl(var(--chart-2))",
     "hsl(var(--chart-3))",
@@ -78,9 +79,7 @@ export function DataChart({ data }: DataChartProps) {
             {chartData.map((entry, index) => (
               <Cell
                 key={`cell-${index}`}
-                fill={
-                  status.find((status) => status.name === entry.name)?.value
-                }
+                fill={status.find((s) => s.name === entry.name)?.value}
               />
             ))}
           </Pie>
@@ -89,10 +88,10 @@ export function DataChart({ data }: DataChartProps) {
         </PieChart>
         {/* Custom Legend */}
         <div className="flex flex-row justify-center gap-6 mt-2">
-          {chartData.map((entry, idx) => (
+          {chartData.map((entry, _idx) => (
             <div key={entry.name} className="flex items-center gap-1">
               <span
-                className={`inline-block w-4 h-4 rounded-full ${status.find((status) => status.name === entry.name)?.color}`}
+                className={`inline-block w-4 h-4 rounded-full ${status.find((s) => s.name === entry.name)?.color}`}
               />
               <span className="text-sm text-black">
                 {entry.name.split("_").join(" ")}

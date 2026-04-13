@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { BasicAgent, type MCPClientProvider } from "../index";
-import { EventType, type RunAgentInput } from "@ag-ui/client";
-import { streamText, type ToolSet } from "ai";
+import { BasicAgent } from '../index';
+import type { MCPClientProvider } from '../index';
+import { EventType } from '@ag-ui/client';
+import type { RunAgentInput } from '@ag-ui/client';
+import type { experimental_createMCPClient } from "@ai-sdk/mcp";
+import { streamText } from "ai";
 import {
   mockStreamTextResponse,
   textDelta,
@@ -248,7 +251,7 @@ describe("mcpClients — user-managed MCP clients", () => {
     // @ai-sdk/mcp is mocked in this test file. The type check happens at compile time
     // regardless.
     type MCPClient = Awaited<
-      ReturnType<typeof import("@ai-sdk/mcp").experimental_createMCPClient>
+      ReturnType<typeof experimental_createMCPClient>
     >;
 
     // If this line causes a type error, MCPClientProvider needs to be widened

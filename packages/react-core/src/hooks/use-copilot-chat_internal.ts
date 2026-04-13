@@ -7,9 +7,9 @@ import React, {
   createElement,
 } from "react";
 import { useCopilotContext } from "../context/copilot-context";
-import { SystemMessageFunction } from "../types";
+import type { SystemMessageFunction } from "../types";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
-import { Message } from "@copilotkit/shared";
+import type { Message } from "@copilotkit/shared";
 import {
   gqlToAGUI,
   Message as DeprecatedGqlMessage,
@@ -21,20 +21,20 @@ import {
   useRenderCustomMessages,
   useSuggestions,
 } from "../v2";
+import type {
+  Suggestion} from "@copilotkit/core";
 import {
-  Suggestion,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
 import { useLazyToolRenderer } from "./use-lazy-tool-renderer";
+import type {
+  AbstractAgent} from "@ag-ui/client";
 import {
-  AbstractAgent,
   AGUIConnectNotImplementedError,
   HttpAgent,
 } from "@ag-ui/client";
-import {
-  CoAgentStateRenderBridge,
-  type CoAgentStateRenderBridgeProps,
-} from "./use-coagent-state-render-bridge";
+import { CoAgentStateRenderBridge } from './use-coagent-state-render-bridge';
+import type { CoAgentStateRenderBridgeProps } from './use-coagent-state-render-bridge';
 
 /**
  * The type of suggestions to use in the chat.
@@ -137,14 +137,6 @@ export interface UseCopilotChatOptions {
 export interface MCPServerConfig {
   endpoint: string;
   apiKey?: string;
-}
-
-// Old suggestion item interface, for returning from useCopilotChatInternal
-interface SuggestionItem {
-  title: string;
-  message: string;
-  partial?: boolean;
-  className?: string;
 }
 
 export interface UseCopilotChatReturn {
@@ -324,20 +316,20 @@ export interface UseCopilotChatReturn {
 }
 
 export function useCopilotChatInternal({
-  suggestions,
+  suggestions: suggestionsConfig,
   onInProgress,
   onSubmitMessage,
   onStopGeneration,
   onReloadMessages,
 }: UseCopilotChatOptions = {}): UseCopilotChatReturn {
   const { copilotkit } = useCopilotKit();
-  const { threadId, agentSession } = useCopilotContext();
+  const { threadId, agentSession: _agentSession } = useCopilotContext();
   const existingConfig = useCopilotChatConfiguration();
   const [agentAvailable, setAgentAvailable] = useState(false);
 
   // Apply priority: props > existing config > defaults
   const resolvedAgentId = existingConfig?.agentId ?? "default";
-  const { agent } = useAgent({
+  const { agent: chatInternalAgent } = useAgent({
     agentId: resolvedAgentId,
     threadId: existingConfig?.threadId,
   });
@@ -357,14 +349,14 @@ export function useCopilotChatInternal({
     // its fetch config.  connectAgent() does NOT create a new AbortController
     // automatically, so we must set one before connecting.
     const connectAbortController = new AbortController();
-    if (agent instanceof HttpAgent) {
-      agent.abortController = connectAbortController;
+    if (chatInternalAgent instanceof HttpAgent) {
+      chatInternalAgent.abortController = connectAbortController;
     }
 
-    const connect = async (agent: AbstractAgent) => {
+    const connect = async (agentToConnect: AbstractAgent) => {
       setAgentAvailable(false);
       try {
-        await copilotkit.connectAgent({ agent });
+        await copilotkit.connectAgent({ agent: agentToConnect });
         // Guard against setting state after cleanup (e.g. React StrictMode unmount)
         if (!detached) {
           setAgentAvailable(true);
@@ -381,13 +373,13 @@ export function useCopilotChatInternal({
       }
     };
     if (
-      agent &&
-      agent !== lastConnectedAgentRef.current &&
+      chatInternalAgent &&
+      chatInternalAgent !== lastConnectedAgentRef.current &&
       copilotkit.runtimeConnectionStatus ===
         CopilotKitCoreRuntimeConnectionStatus.Connected
     ) {
-      lastConnectedAgentRef.current = agent;
-      connect(agent);
+      lastConnectedAgentRef.current = chatInternalAgent;
+      connect(chatInternalAgent);
     }
     return () => {
       // Abort the HTTP request and detach the active run.
@@ -397,19 +389,19 @@ export function useCopilotChatInternal({
       lastConnectedAgentRef.current = null;
       detached = true;
       connectAbortController.abort();
-      agent?.detachActiveRun();
+      chatInternalAgent?.detachActiveRun();
     };
   }, [
     existingConfig?.threadId,
-    agent,
+    chatInternalAgent,
     copilotkit,
     copilotkit.runtimeConnectionStatus,
     resolvedAgentId,
   ]);
 
   useEffect(() => {
-    onInProgress?.(Boolean(agent?.isRunning));
-  }, [agent?.isRunning, onInProgress]);
+    onInProgress?.(Boolean(chatInternalAgent?.isRunning));
+  }, [chatInternalAgent?.isRunning, onInProgress]);
 
   // Subscribe to copilotkit.interruptElement so the v1 return type stays
   // reactive. The element is published by useInterrupt (v2) when user code
@@ -426,18 +418,18 @@ export function useCopilotChatInternal({
   }, [copilotkit]);
 
   const reset = () => {
-    agent?.setMessages([]);
-    agent?.setState(null);
+    chatInternalAgent?.setMessages([]);
+    chatInternalAgent?.setState(null);
   };
 
   const deleteMessage = useCallback(
     (messageId: string) => {
-      const filteredMessages = (agent?.messages ?? []).filter(
+      const filteredMessages = (chatInternalAgent?.messages ?? []).filter(
         (message) => message.id !== messageId,
       );
-      agent?.setMessages(filteredMessages);
+      chatInternalAgent?.setMessages(filteredMessages);
     },
-    [agent?.setMessages, agent?.messages],
+    [chatInternalAgent],
   );
 
   const latestDelete = useUpdatedRef(deleteMessage);
@@ -452,9 +444,9 @@ export function useCopilotChatInternal({
 
   const reload = useAsyncCallback(
     async (reloadMessageId: string): Promise<void> => {
-      if (!agent) return;
-      const messages = agent?.messages ?? [];
-      const isLoading = agent.isRunning;
+      if (!chatInternalAgent) return;
+      const messages = chatInternalAgent?.messages ?? [];
+      const isLoading = chatInternalAgent.isRunning;
       if (isLoading || messages.length === 0) {
         return;
       }
@@ -500,11 +492,11 @@ export function useCopilotChatInternal({
         historyCutoff = [messages[0], messages[1]];
       }
 
-      agent?.setMessages(historyCutoff);
+      chatInternalAgent?.setMessages(historyCutoff);
 
-      if (agent) {
+      if (chatInternalAgent) {
         try {
-          await copilotkit.runAgent({ agent });
+          await copilotkit.runAgent({ agent: chatInternalAgent });
         } catch (error) {
           console.error("CopilotChat: runAgent failed during reload", error);
           // Error will be reported through subscription
@@ -513,16 +505,16 @@ export function useCopilotChatInternal({
       return;
     },
     [
-      agent?.messages.length,
-      agent?.isRunning,
-      agent?.setMessages,
+      chatInternalAgent?.messages.length,
+      chatInternalAgent?.isRunning,
+      chatInternalAgent?.setMessages,
       copilotkit?.runAgent,
     ],
   );
 
   const latestSendMessageFunc = useAsyncCallback(
     async (message: Message, options?: AppendMessageOptions) => {
-      if (!agent) return;
+      if (!chatInternalAgent) return;
       const followUp = options?.followUp ?? true;
       if (options?.clearSuggestions) {
         copilotkit.clearSuggestions(resolvedAgentId);
@@ -546,17 +538,17 @@ export function useCopilotChatInternal({
         }
       }
 
-      agent?.addMessage(message);
+      chatInternalAgent?.addMessage(message);
       if (followUp) {
         try {
-          await copilotkit.runAgent({ agent });
+          await copilotkit.runAgent({ agent: chatInternalAgent });
         } catch (error) {
           console.error("CopilotChat: runAgent failed", error);
           // Error will be reported through subscription
         }
       }
     },
-    [agent, copilotkit, resolvedAgentId, onSubmitMessage],
+    [chatInternalAgent, copilotkit, resolvedAgentId, onSubmitMessage],
   );
 
   const latestAppendFunc = useAsyncCallback(
@@ -571,11 +563,11 @@ export function useCopilotChatInternal({
       if (
         messages.every((message) => message instanceof DeprecatedGqlMessage)
       ) {
-        return agent?.setMessages?.(gqlToAGUI(messages));
+        return chatInternalAgent?.setMessages?.(gqlToAGUI(messages));
       }
-      return agent?.setMessages?.(messages);
+      return chatInternalAgent?.setMessages?.(messages);
     },
-    [agent?.setMessages, agent],
+    [chatInternalAgent],
   );
 
   const latestReload = useUpdatedRef(reload);
@@ -583,21 +575,21 @@ export function useCopilotChatInternal({
     async (messageId: string) => {
       onReloadMessages?.({
         messageId,
-        currentAgentName: agent?.agentId,
-        messages: agent?.messages ?? [],
+        currentAgentName: chatInternalAgent?.agentId,
+        messages: chatInternalAgent?.messages ?? [],
       });
       return await latestReload.current(messageId);
     },
-    [latestReload, agent, onReloadMessages],
+    [latestReload, chatInternalAgent, onReloadMessages],
   );
 
   const latestStopFunc = useCallback(() => {
     onStopGeneration?.({
-      currentAgentName: agent?.agentId,
-      messages: agent?.messages ?? [],
+      currentAgentName: chatInternalAgent?.agentId,
+      messages: chatInternalAgent?.messages ?? [],
     });
-    return agent?.abortRun?.();
-  }, [onStopGeneration, agent]);
+    return chatInternalAgent?.abortRun?.();
+  }, [onStopGeneration, chatInternalAgent]);
 
   const latestReset = useUpdatedRef(reset);
   const latestResetFunc = useCallback(() => {
@@ -608,11 +600,14 @@ export function useCopilotChatInternal({
   const renderCustomMessage = useRenderCustomMessages();
   const legacyCustomMessageRenderer = useLegacyCoagentRenderer({
     copilotkit,
-    agent,
+    agent: chatInternalAgent,
     agentId: resolvedAgentId,
     threadId: existingConfig?.threadId ?? threadId,
   });
-  const allMessages = agent?.messages ?? [];
+  const allMessages = useMemo(
+    () => chatInternalAgent?.messages ?? [],
+    [chatInternalAgent?.messages],
+  );
   const resolvedMessages = useMemo(() => {
     let processedMessages = allMessages.map((message) => {
       if (message.role !== "assistant") {
@@ -674,10 +669,13 @@ export function useCopilotChatInternal({
         : null;
 
     const shouldRenderPlaceholder =
-      Boolean(agent?.isRunning) ||
-      Boolean(agent?.state && Object.keys(agent.state).length);
+      Boolean(chatInternalAgent?.isRunning) ||
+      Boolean(
+        chatInternalAgent?.state && Object.keys(chatInternalAgent.state).length,
+      );
 
-    const effectiveThreadId = threadId ?? agent?.threadId ?? "default";
+    const effectiveThreadId =
+      threadId ?? chatInternalAgent?.threadId ?? "default";
     let latestUserIndex = -1;
     for (let i = processedMessages.length - 1; i >= 0; i -= 1) {
       if (processedMessages[i].role === "user") {
@@ -734,26 +732,27 @@ export function useCopilotChatInternal({
 
     return processedMessages;
   }, [
-    agent?.messages,
-    lazyToolRendered,
     allMessages,
+    lazyToolRendered,
     renderCustomMessage,
     legacyCustomMessageRenderer,
     resolvedAgentId,
     copilotkit,
-    agent?.isRunning,
-    agent?.state,
+    chatInternalAgent?.isRunning,
+    chatInternalAgent?.state,
+    chatInternalAgent?.threadId,
+    threadId,
   ]);
 
   const renderedSuggestions = useMemo(() => {
-    if (Array.isArray(suggestions)) {
+    if (Array.isArray(suggestionsConfig)) {
       return {
-        suggestions: suggestions.map((s) => ({ ...s, isLoading: false })),
+        suggestions: suggestionsConfig.map((s) => ({ ...s, isLoading: false })),
         isLoading: false,
       };
     }
     return currentSuggestions;
-  }, [suggestions, currentSuggestions]);
+  }, [suggestionsConfig, currentSuggestions]);
 
   // @ts-ignore
   return {
@@ -766,18 +765,18 @@ export function useCopilotChatInternal({
     reset: latestResetFunc,
     deleteMessage: latestDeleteFunc,
     isAvailable: agentAvailable,
-    isLoading: Boolean(agent?.isRunning),
+    isLoading: Boolean(chatInternalAgent?.isRunning),
     // mcpServers,
     // setMcpServers,
     suggestions: renderedSuggestions.suggestions,
-    setSuggestions: (suggestions: Omit<Suggestion, "isLoading">[]) =>
-      copilotkit.addSuggestionsConfig({ suggestions }),
+    setSuggestions: (updatedSuggestions: Omit<Suggestion, "isLoading">[]) =>
+      copilotkit.addSuggestionsConfig({ suggestions: updatedSuggestions }),
     generateSuggestions: async () =>
       copilotkit.reloadSuggestions(resolvedAgentId),
     resetSuggestions: () => copilotkit.clearSuggestions(resolvedAgentId),
     isLoadingSuggestions: renderedSuggestions.isLoading,
     interrupt,
-    agent,
+    agent: chatInternalAgent,
     threadId,
   };
 }

@@ -1,5 +1,5 @@
 import * as gql from "../client";
-import * as agui from "@copilotkit/shared";
+import type * as agui from "@copilotkit/shared";
 import { MessageStatusCode } from "../graphql/@generated/graphql";
 
 // Define valid image formats based on the supported formats in the codebase
@@ -78,10 +78,9 @@ export function gqlActionExecutionMessageToAGUIMessage(
   }
 
   // Find the specific action first, then fall back to wild card action
-  const action =
-    Object.values(actions).find(
-      (action: any) => action.name === message.name,
-    ) || Object.values(actions).find((action: any) => action.name === "*");
+  const matchedAction =
+    Object.values(actions).find((a: any) => a.name === message.name) ||
+    Object.values(actions).find((a: any) => a.name === "*");
 
   // Create render function wrapper that provides proper props
   const createRenderWrapper = (originalRender: any) => {
@@ -102,7 +101,7 @@ export function gqlActionExecutionMessageToAGUIMessage(
       if (typeof props?.result === "string") {
         try {
           props.result = JSON.parse(props.result);
-        } catch (e) {
+        } catch {
           /* do nothing */
         }
       }
@@ -111,7 +110,7 @@ export function gqlActionExecutionMessageToAGUIMessage(
       if (typeof actionResult === "string") {
         try {
           actionResult = JSON.parse(actionResult);
-        } catch (e) {
+        } catch {
           /* do nothing */
         }
       }
@@ -125,7 +124,7 @@ export function gqlActionExecutionMessageToAGUIMessage(
       };
 
       // Add properties based on action type
-      if (action.name === "*") {
+      if (matchedAction.name === "*") {
         // Wildcard actions get the tool name; ensure it cannot be overridden by incoming props
         return originalRender({
           ...baseProps,
@@ -149,7 +148,7 @@ export function gqlActionExecutionMessageToAGUIMessage(
     role: "assistant",
     content: "",
     toolCalls: [actionExecutionMessageToAGUIMessage(message)],
-    generativeUI: createRenderWrapper(action.render),
+    generativeUI: createRenderWrapper(matchedAction.render),
     name: message.name,
   } as agui.AIMessage;
 }
@@ -164,15 +163,15 @@ function gqlAgentStateMessageToAGUIMessage(
       (render: any) => render.name === message.agentName,
     )
   ) {
-    const render = Object.values(coAgentStateRenders).find(
-      (render: any) => render.name === message.agentName,
+    const matchedRender = Object.values(coAgentStateRenders).find(
+      (r: any) => r.name === message.agentName,
     );
 
     // Create render function wrapper that provides proper props
     const createRenderWrapper = (originalRender: any) => {
       if (!originalRender) return undefined;
 
-      return (props?: any) => {
+      return (_props?: any) => {
         // Determine the correct status based on the same logic as RenderActionExecutionMessage
         const state = message.state;
 
@@ -188,7 +187,7 @@ function gqlAgentStateMessageToAGUIMessage(
     return {
       id: message.id,
       role: "assistant",
-      generativeUI: createRenderWrapper(render.render),
+      generativeUI: createRenderWrapper(matchedRender.render),
       agentName: message.agentName,
       state: message.state,
     };

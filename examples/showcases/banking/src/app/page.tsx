@@ -6,14 +6,15 @@ import {
   useHumanInTheLoop,
   useFrontendTool,
 } from "@copilotkit/react-core";
+import type {
+  NewCardRequest,
+  Transaction} from "@/app/api/v1/data";
 import {
   CARD_COLORS,
-  CardBrand,
-  NewCardRequest,
-  Transaction,
+  CardBrand
 } from "@/app/api/v1/data";
 import { CreditCardDetails } from "@/components/credit-card-details";
-import { PartialBy } from "@/lib/type-helpers";
+import type { PartialBy } from "@/lib/type-helpers";
 import {
   filterTransactionByTitle,
   filterTransactionsByCardLast4,
@@ -84,8 +85,8 @@ export default function Page() {
   const [state, dispatch] = useReducer<
     React.Reducer<ChangePinState, Partial<ChangePinState>>
   >(
-    (state: ChangePinState, payload: Partial<ChangePinState>) => ({
-      ...state,
+    (currentState: ChangePinState, payload: Partial<ChangePinState>) => ({
+      ...currentState,
       ...payload,
     }),
     { newPin: "", dialogOpen: false, cardId: null, loading: false },
@@ -507,13 +508,13 @@ export default function Page() {
 
       async function handleChangeTransactionStatus({
         id,
-        status,
+        status: newStatus,
       }: {
         id: string;
         status: Transaction["status"];
       }) {
-        await changeTransactionStatus({ id, status });
-        respond?.(`transaction ${id} ${status}`);
+        await changeTransactionStatus({ id, status: newStatus });
+        respond?.(`transaction ${id} ${newStatus}`);
       }
 
       return (
@@ -523,14 +524,14 @@ export default function Page() {
           )}
           showApprovalInterface
           approvalInterfaceProps={{
-            onApprove: (transactionId) =>
+            onApprove: (txnId) =>
               handleChangeTransactionStatus({
-                id: transactionId,
+                id: txnId,
                 status: "approved",
               }),
-            onDeny: (transactionId) =>
+            onDeny: (txnId) =>
               handleChangeTransactionStatus({
-                id: transactionId,
+                id: txnId,
                 status: "denied",
               }),
           }}

@@ -1,5 +1,5 @@
-import { RunnableConfig } from "@langchain/core/runnables";
-import { CustomerSupportState } from "../types/state";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { CustomerSupportState } from "../types/state";
 import { replyGeneratorTool } from "../tools";
 import { AIMessage } from "@langchain/core/messages";
 
@@ -9,7 +9,7 @@ import { AIMessage } from "@langchain/core/messages";
  */
 export async function replyAgentNode(
   state: CustomerSupportState,
-  config: RunnableConfig,
+  _config: RunnableConfig,
 ): Promise<Partial<CustomerSupportState>> {
   console.log("Reply Agent: Generating response...");
 

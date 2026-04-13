@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import {
+import type {
   DynamicSuggestionsConfig,
   StaticSuggestionsConfig,
   SuggestionsConfig,
@@ -85,7 +85,8 @@ export function useConfigureSuggestions(
 
     normalizationCacheRef.current = { serialized, config: built };
     return { normalizedConfig: built, serializedConfig: serialized };
-  }, [config, resolvedConsumerAgentId, ...extraDeps]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, ...extraDeps]);
   const latestConfigRef = useRef<SuggestionsConfig | null>(null);
   latestConfigRef.current = normalizedConfig;
   const previousSerializedConfigRef = useRef<string | null>(null);
@@ -168,6 +169,7 @@ export function useConfigureSuggestions(
       return;
     }
     requestReload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extraDeps.length, normalizedConfig, requestReload, ...extraDeps]);
 }
 

@@ -1,4 +1,4 @@
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import type { RenderFunctionStatus } from "@copilotkit/react-core";
 import { Button } from "../ui/button";
 import { useEffect } from "react";
 

@@ -1,7 +1,8 @@
+import type {
+  Severity} from "@copilotkit/shared";
 import {
   COPILOT_CLOUD_API_URL,
-  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
-  Severity,
+  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER
 } from "@copilotkit/shared";
 
 const STATUS_CHECK_INTERVAL = 1000 * 60 * 5; // 5 minutes
@@ -28,16 +29,16 @@ export class StatusChecker {
 
     const checkStatus = async () => {
       try {
-        const response = await fetch(`${COPILOT_CLOUD_API_URL}/ciu`, {
+        const statusResponse = await fetch(`${COPILOT_CLOUD_API_URL}/ciu`, {
           method: "GET",
           headers: {
             [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey,
           },
-        }).then((response) => response.json() as Promise<Status>);
-        this.lastResponse = response;
-        onUpdate?.(response);
-        return response;
-      } catch (error) {
+        }).then((res) => res.json() as Promise<Status>);
+        this.lastResponse = statusResponse;
+        onUpdate?.(statusResponse);
+        return statusResponse;
+      } catch {
         // Silently fail
         return null;
       }

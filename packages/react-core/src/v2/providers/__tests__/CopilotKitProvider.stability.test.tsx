@@ -4,12 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { ReactFrontendTool } from "../../types/frontend-tool";
 import type { ReactToolCallRenderer } from "../../types";
-import {
-  CopilotKitProvider,
-  useCopilotKit,
-  type CopilotKitContextValue,
-} from "../CopilotKitProvider";
-import { CopilotKitCoreReact } from "../../lib/react-core";
+import { CopilotKitProvider, useCopilotKit } from '../CopilotKitProvider';
+import type { CopilotKitContextValue } from '../CopilotKitProvider';
+import type { CopilotKitCoreReact } from "../../lib/react-core";
 import { useFrontendTool } from "../../hooks/use-frontend-tool";
 
 // Mock console methods to suppress expected warnings

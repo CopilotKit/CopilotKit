@@ -3,7 +3,8 @@ import * as Skeletons from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
 import { AvailableAgents } from "@/lib/available-agents";
 import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
-import { Icon, LatLngTuple } from "leaflet";
+import type { LatLngTuple } from "leaflet";
+import { Icon } from "leaflet";
 import "leaflet-defaulticon-compatibility";
 import "leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css";
 import "leaflet/dist/leaflet.css";
@@ -164,7 +165,7 @@ export default function MapComponent() {
             const isExecuting = status === "executing";
             const pending = isLoading || isExecuting;
             const colorClass = pending ? "text-blue-600" : "text-emerald-600";
-            const Icon = pending ? Loader2 : CheckCircle;
+            const StatusIcon = pending ? Loader2 : CheckCircle;
             const message = isLoading
               ? "Adding Trips..."
               : isExecuting
@@ -174,7 +175,7 @@ export default function MapComponent() {
             return (
               <div className="flex items-start py-2 px-3">
                 <span className={colorClass}>
-                  <Icon
+                  <StatusIcon
                     className={`h-4 w-4 ${pending ? "animate-spin" : ""}`}
                   />
                 </span>
@@ -287,7 +288,7 @@ export default function MapComponent() {
       if (!args.queries) {
         return (
           <div className="flex items-center justify-center p-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
             <span className="ml-3">Searching for Places...</span>
           </div>
         );

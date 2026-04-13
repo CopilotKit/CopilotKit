@@ -40,7 +40,7 @@ describe("CopilotKitCore credentials", () => {
 
     await waitForCondition(() => fetchMock.mock.calls.length >= 1);
 
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [_url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.credentials).toBeUndefined();
   });
 
@@ -58,7 +58,7 @@ describe("CopilotKitCore credentials", () => {
 
     await waitForCondition(() => fetchMock.mock.calls.length >= 1);
 
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [_url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.credentials).toBe("include");
   });
 
@@ -76,7 +76,7 @@ describe("CopilotKitCore credentials", () => {
 
     await waitForCondition(() => fetchMock.mock.calls.length >= 1);
 
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [_url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.credentials).toBe("same-origin");
   });
 

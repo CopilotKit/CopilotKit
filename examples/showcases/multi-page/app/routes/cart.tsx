@@ -1,15 +1,13 @@
 import { Form, Link, useLoaderData } from "@remix-run/react";
-import {
-  checkout,
-  getCart,
-  removeItem,
-  type CartRecord,
-} from "~/data/cartData";
-import { getAll, type InventoryRecord } from "~/data/inventoryData";
+import { checkout, getCart, removeItem } from '~/data/cartData';
+import type { CartRecord } from '~/data/cartData';
+import { getAll } from '~/data/inventoryData';
+import type { InventoryRecord } from '~/data/inventoryData';
 
 import type { FunctionComponent } from "react";
 import invariant from "tiny-invariant";
-import { ActionFunction, redirect } from "@remix-run/node";
+import type { ActionFunction} from "@remix-run/node";
+import { redirect } from "@remix-run/node";
 import { getAddress } from "~/data/settingsData";
 import { useCopilotReadable } from "@copilotkit/react-core";
 
@@ -111,14 +109,14 @@ export default function Cart() {
     value: JSON.stringify(cartItems),
   });
 
-  const total = Object.values(cartItems).reduce((total, cartItem) => {
+  const total = Object.values(cartItems).reduce((acc, cartItem) => {
     const inventoryItem = allInventory[cartItem.itemId];
     invariant(inventoryItem, "item not found in inventory");
     const quantity = cartItem.quantity;
     const priceInCents = inventoryItem.priceInCents;
     const multipliedPrice = quantity * priceInCents;
 
-    return total + multipliedPrice;
+    return acc + multipliedPrice;
   }, 0);
 
   if (!Object.keys(cartItems).length) {
@@ -143,7 +141,7 @@ export default function Cart() {
           <td>Price each</td>
           <td>Applied Price</td>
           {/* space for remove button*/}
-          <td></td>
+          <td />
         </thead>
         {cartItems.map((cartItem) => (
           <CartRow
@@ -154,8 +152,8 @@ export default function Cart() {
         ))}
 
         <tr>
-          <td></td>
-          <td></td>
+          <td />
+          <td />
           <td>Total:</td>
           <td>
             {(total / 100).toLocaleString("en-US", {
@@ -166,9 +164,9 @@ export default function Cart() {
         </tr>
 
         <tfoot>
-          <td></td>
-          <td></td>
-          <td></td>
+          <td />
+          <td />
+          <td />
           <td>
             <CheckoutButton address={address} />
           </td>

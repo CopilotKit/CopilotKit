@@ -3,7 +3,7 @@
 import { TodoItem } from "@/components/TodoItem";
 import { nanoid } from "nanoid";
 import { useState } from "react";
-import { Todo } from "../types/todo";
+import type { Todo } from "../types/todo";
 
 /**
  *

@@ -4,14 +4,16 @@ import {
 } from "@copilotkit/shared";
 import { catchError, mergeMap, ReplaySubject, scan } from "rxjs";
 import { generateHelpfulErrorMessage } from "../../lib/streaming";
+import type {
+  RuntimeEvent} from "../../service-adapters/events";
 import {
-  RuntimeEvent,
   RuntimeEventTypes,
   RuntimeMetaEventName,
 } from "../../service-adapters/events";
+import type {
+  LangGraphEvent} from "./events";
 import {
   CustomEventNames,
-  LangGraphEvent,
   LangGraphEventTypes,
 } from "./events";
 
@@ -92,7 +94,7 @@ export class RemoteLangGraphEventSource {
   }
 
   processLangGraphEvents() {
-    let lastEventWithState: LangGraphEventWithState | null = null;
+    let _lastEventWithState: LangGraphEventWithState | null = null;
 
     return this.eventStream$.pipe(
       scan(
@@ -130,7 +132,7 @@ export class RemoteLangGraphEventSource {
               });
           }
           acc.event = event;
-          lastEventWithState = acc; // Capture the state
+          _lastEventWithState = acc; // Capture the state
           return acc;
         },
         {

@@ -6,18 +6,19 @@ import {
 } from "../../providers/CopilotChatConfigurationProvider";
 import { twMerge } from "tailwind-merge";
 import { Button } from "../../components/ui/button";
-import { UserMessage } from "@ag-ui/core";
+import type { UserMessage } from "@ag-ui/core";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "../../components/ui/tooltip";
-import { renderSlot, WithSlots } from "../../lib/slots";
-import {
-  type ImageInputPart,
-  type AudioInputPart,
-  type VideoInputPart,
-  type DocumentInputPart,
+import type { WithSlots } from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
+import type {
+  ImageInputPart,
+  AudioInputPart,
+  VideoInputPart,
+  DocumentInputPart,
 } from "@copilotkit/shared";
 import { CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer";
 

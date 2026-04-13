@@ -61,14 +61,14 @@ const SQL_AGENT_INSTRUCTIONS = `
 // Due to how this demo app is structured, we actually arrive at this page when CopilotKit has quite some information
 // If we do not cap its knowledge with prompts, it is able to answers the questions without providing SQL queries.
 // In a real world application, there would be context boundaries and the copilot used here will have far less context.
+function handleExecuteQuery(query: string) {
+  // This is where you would typically send the query to your backend
+  // For now, we'll just console it
+  console.info("Execute query", query);
+}
+
 export default function Page() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
-  const handleExecuteQuery = (query: string) => {
-    // This is where you would typically send the query to your backend
-    // For now, we'll just console it
-    console.info("Execute query", query);
-  };
 
   useCopilotReadable({
     description: "The structure of the database",

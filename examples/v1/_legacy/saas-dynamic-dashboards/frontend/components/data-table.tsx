@@ -9,8 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { PRData } from "@/app/Interfaces/interface";
+import type { PRData } from "@/app/Interfaces/interface";
 import React, { useState } from "react";
 
 interface DataTableProps {

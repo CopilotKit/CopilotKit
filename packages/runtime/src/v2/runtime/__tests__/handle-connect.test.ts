@@ -1,9 +1,9 @@
 import { Observable } from "rxjs";
 import { describe, it, expect, vi } from "vitest";
-import { BaseEvent } from "@ag-ui/client";
+import type { BaseEvent } from "@ag-ui/client";
 import { handleConnectAgent } from "../handlers/handle-connect";
-import { CopilotRuntime } from "../core/runtime";
-import { AgentRunnerConnectRequest } from "../runner/agent-runner";
+import type { CopilotRuntime } from "../core/runtime";
+import type { AgentRunnerConnectRequest } from "../runner/agent-runner";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 
 describe("handleConnectAgent", () => {

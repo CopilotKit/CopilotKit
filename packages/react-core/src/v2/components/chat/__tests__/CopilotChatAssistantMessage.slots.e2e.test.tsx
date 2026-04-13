@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from "vitest";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { AssistantMessage } from "@ag-ui/core";
+import type { AssistantMessage } from "@ag-ui/core";
 
 // Wrapper to provide required context
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -192,7 +192,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
     describe("markdownRenderer slot", () => {
       it("should pass custom props to markdownRenderer", () => {
         const message = createAssistantMessage("Hello world");
-        const { container } = render(
+        const { container: _container } = render(
           <TestWrapper>
             <CopilotChatAssistantMessage
               message={message}
@@ -210,7 +210,7 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
       it("should pass custom onClick to toolbar", () => {
         const onClick = vi.fn();
         const message = createAssistantMessage("Hello world");
-        const { container } = render(
+        const { container: _container } = render(
           <TestWrapper>
             <CopilotChatAssistantMessage
               message={message}

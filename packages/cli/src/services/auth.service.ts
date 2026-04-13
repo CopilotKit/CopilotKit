@@ -8,10 +8,10 @@ import getPort from "get-port";
 import ora from "ora";
 import chalk from "chalk";
 import inquirer from "inquirer";
-import { Command } from "@oclif/core";
+import type { Command } from "@oclif/core";
 import { createTRPCClient } from "../utils/trpc.js";
 import { AnalyticsService } from "../services/analytics.service.js";
-import { BaseCommand } from "../commands/base-command.js";
+import type { BaseCommand } from "../commands/base-command.js";
 
 interface LoginResponse {
   cliToken: string;
@@ -38,7 +38,7 @@ export class AuthService {
     return cliToken;
   }
 
-  async logout(cmd: BaseCommand): Promise<void> {
+  async logout(_cmd: BaseCommand): Promise<void> {
     this.config.delete("cliToken");
   }
 
@@ -94,7 +94,7 @@ export class AuthService {
     const trpcClient = createTRPCClient(cliToken);
     try {
       me = await trpcClient.me.query();
-    } catch (error) {
+    } catch {
       // Token is invalid/expired, trigger new login
       cmd.log(
         chalk.yellow("Your authentication has expired. Re-authenticating..."),
@@ -102,7 +102,7 @@ export class AuthService {
       try {
         const loginResult = await this.login({ exitAfterLogin: false });
         return loginResult;
-      } catch (loginError) {
+      } catch {
         cmd.log(
           chalk.red(
             "Could not authenticate with Copilot Cloud. Please run: npx copilotkit@latest login",
@@ -134,52 +134,59 @@ export class AuthService {
     const port = await getPort();
     const state = crypto.randomBytes(16).toString("hex");
 
-    return new Promise(async (resolve, reject) => {
-      const server = app.listen(port, () => {});
+    const server = app.listen(port, () => {});
 
-      await analytics.track({
-        event: "cli.login.initiated",
-        properties: {},
-      });
+    await analytics.track({
+      event: "cli.login.initiated",
+      properties: {},
+    });
 
-      spinner.text = "🪁 Waiting for browser authentication to complete...";
+    spinner.text = "🪁 Waiting for browser authentication to complete...";
 
-      app.post("/callback", async (req, res) => {
-        const { cliToken, user, organization } = req.body;
+    return new Promise((resolve, reject) => {
+      app.post("/callback", (req, res) => {
+        Promise.resolve(
+          (async () => {
+            const { cliToken, user, organization } = req.body;
 
-        if (state !== req.query.state) {
-          res.status(401).json({ message: "Invalid state" });
-          spinner.fail("Invalid state");
-          server.close();
-          reject(new Error("OAuth state mismatch"));
-          return;
-        }
+            if (state !== req.query.state) {
+              res.status(401).json({ message: "Invalid state" });
+              spinner.fail("Invalid state");
+              server.close();
+              reject(new Error("OAuth state mismatch"));
+              return;
+            }
 
-        analytics = new AnalyticsService({
-          userId: user.id,
-          organizationId: organization.id,
-          email: user.email,
+            analytics = new AnalyticsService({
+              userId: user.id,
+              organizationId: organization.id,
+              email: user.email,
+            });
+            await analytics.track({
+              event: "cli.login.success",
+              properties: {
+                organizationId: organization.id,
+                userId: user.id,
+                email: user.email,
+              },
+            });
+
+            this.config.set("cliToken", cliToken);
+            res.status(200).json({ message: "Callback called" });
+            spinner.succeed(
+              `🪁 Successfully logged in as ${chalk.hex("#7553fc")(user.email)}`,
+            );
+            if (exitAfterLogin) {
+              process.exit(0);
+            } else {
+              server.close();
+              resolve({ cliToken, user, organization });
+            }
+          })(),
+        ).catch((err) => {
+          res.status(500).json({ message: "Internal server error" });
+          reject(err);
         });
-        await analytics.track({
-          event: "cli.login.success",
-          properties: {
-            organizationId: organization.id,
-            userId: user.id,
-            email: user.email,
-          },
-        });
-
-        this.config.set("cliToken", cliToken);
-        res.status(200).json({ message: "Callback called" });
-        spinner.succeed(
-          `🪁 Successfully logged in as ${chalk.hex("#7553fc")(user.email)}`,
-        );
-        if (exitAfterLogin) {
-          process.exit(0);
-        } else {
-          server.close();
-          resolve({ cliToken, user, organization });
-        }
       });
 
       open(

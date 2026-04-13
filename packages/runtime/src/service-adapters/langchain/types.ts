@@ -1,9 +1,9 @@
-import {
+import type {
   AIMessage,
   AIMessageChunk,
   BaseMessageChunk,
 } from "@langchain/core/messages";
-import {
+import type {
   IterableReadableStream,
   IterableReadableStreamInterface,
 } from "@langchain/core/utils/stream";

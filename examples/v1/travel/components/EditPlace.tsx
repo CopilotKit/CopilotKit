@@ -5,7 +5,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useTrips } from "@/lib/hooks/use-trips";
-import { Place } from "@/lib/types";
+import type { Place } from "@/lib/types";
 import { Pencil } from "lucide-react";
 import { useState } from "react";
 import { PlaceForm } from "./PlaceForm";
@@ -22,8 +22,8 @@ export function EditPlace({ place, onOpenChange }: EditPlaceProps) {
 
   if (!selectedTrip) return null;
 
-  const handleEditPlace = (place: Place) => {
-    updatePlace(selectedTrip.id, place.id, place);
+  const handleEditPlace = (updatedPlace: Place) => {
+    updatePlace(selectedTrip.id, updatedPlace.id, updatedPlace);
 
     setDialogOpen(false);
     onOpenChange?.(false);

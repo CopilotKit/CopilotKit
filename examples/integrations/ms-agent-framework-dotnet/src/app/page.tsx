@@ -9,9 +9,10 @@ import {
   useHumanInTheLoop,
   useRenderToolCall,
 } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import type { CopilotKitCSSProperties} from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
-import { AgentState } from "@/lib/types";
+import type { AgentState } from "@/lib/types";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
@@ -28,8 +29,8 @@ export default function CopilotKitPage() {
         required: true,
       },
     ],
-    handler: async ({ themeColor }) => {
-      setThemeColor(themeColor);
+    handler: async ({ themeColor: newThemeColor }) => {
+      setThemeColor(newThemeColor);
     },
   });
 

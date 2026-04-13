@@ -160,12 +160,13 @@
  */
 import { useEffect } from "react";
 import { useCopilotContext } from "../context/copilot-context";
-import {
-  useCopilotChatInternal,
-  defaultSystemMessage,
+import type {
   UseCopilotChatOptions as UseCopilotChatOptions_c,
   UseCopilotChatReturn as UseCopilotChatReturn_c,
-  MCPServerConfig,
+  MCPServerConfig} from "./use-copilot-chat_internal";
+import {
+  useCopilotChatInternal,
+  defaultSystemMessage
 } from "./use-copilot-chat_internal";
 
 import {
@@ -241,7 +242,7 @@ function useCopilotChatHeadless_c(
     } else {
       setBannerError(null); // Clear banner when API key is provided
     }
-  }, [hasPublicApiKey]); // Removed setBannerError dependency
+  }, [hasPublicApiKey, setBannerError]);
 
   // Return internal result if publicApiKey is available, otherwise return fallback
   if (hasPublicApiKey) {
@@ -259,6 +260,6 @@ export type {
   MCPServerConfig,
 };
 
-const noKeyWarning = () => {
+const _noKeyWarning = () => {
   styledConsole.logCopilotKitPlatformMessage();
 };

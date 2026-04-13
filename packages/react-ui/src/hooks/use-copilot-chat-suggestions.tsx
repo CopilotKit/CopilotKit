@@ -58,10 +58,8 @@
  * The hook registers the configuration with the chat context upon component mount and
  * removes it on unmount, ensuring a clean and efficient lifecycle management.
  */
-import {
-  useCopilotChatSuggestions as useCoreCopilotChatSuggestions,
-  type UseCopilotChatSuggestionsConfiguration,
-} from "@copilotkit/react-core";
+import { useCopilotChatSuggestions as useCoreCopilotChatSuggestions } from '@copilotkit/react-core';
+import type { UseCopilotChatSuggestionsConfiguration } from '@copilotkit/react-core';
 
 export function useCopilotChatSuggestions(
   config: UseCopilotChatSuggestionsConfiguration,

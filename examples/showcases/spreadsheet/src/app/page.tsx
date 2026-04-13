@@ -14,7 +14,7 @@ import {
 } from "@copilotkit/react-ui";
 import { INSTRUCTIONS } from "./instructions";
 import { canonicalSpreadsheetData } from "./utils/canonicalSpreadsheetData";
-import { SpreadsheetData } from "./types";
+import type { SpreadsheetData } from "./types";
 import { PreviewSpreadsheetChanges } from "./components/PreviewSpreadsheetChanges";
 import { sampleData, sampleData2 } from "./utils/sampleData";
 // import { Bottombar } from "./components/Bottombar";
@@ -116,10 +116,10 @@ const Main = () => {
           preCommitTitle="Create spreadsheet"
           postCommitTitle="Spreadsheet created"
           newRows={newRows}
-          commit={(rows) => {
+          commit={(committedRows) => {
             const newSpreadsheet: SpreadsheetData = {
               title: title || "Untitled Spreadsheet",
-              rows: rows,
+              rows: committedRows,
             };
             setSpreadsheets((prev) => [...prev, newSpreadsheet]);
             setSelectedSpreadsheetIndex(spreadsheets.length);
@@ -127,7 +127,7 @@ const Main = () => {
         />
       );
     },
-    handler: ({ rows, title }) => {
+    handler: ({ rows: _rows, title: _title }) => {
       // Do nothing.
       // The preview component will optionally handle committing the changes.
     },

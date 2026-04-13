@@ -1,23 +1,19 @@
-import {
-  ActionExecutionMessage,
-  Message,
-  ResultMessage,
-  TextMessage,
-} from "../../graphql/types/converted";
-import {
-  AIMessage,
+import type { Message } from "../../graphql/types/converted";
+import type {
   AIMessageChunk,
   BaseMessage,
-  BaseMessageChunk,
+  BaseMessageChunk} from "@langchain/core/messages";
+import {
+  AIMessage,
   HumanMessage,
   SystemMessage,
   ToolMessage,
 } from "@langchain/core/messages";
 import { DynamicStructuredTool } from "@langchain/core/tools";
-import { z } from "zod";
-import { ActionInput } from "../../graphql/inputs/action.input";
-import { LangChainReturnType } from "./types";
-import { RuntimeEventSubject } from "../events";
+import type { z } from "zod";
+import type { ActionInput } from "../../graphql/inputs/action.input";
+import type { LangChainReturnType } from "./types";
+import type { RuntimeEventSubject } from "../events";
 import { randomId, convertJsonSchemaToZodSchema } from "@copilotkit/shared";
 
 export function convertMessageToLangChainMessage(
@@ -75,18 +71,6 @@ interface StreamLangChainResponseParams {
     name: string;
     returnDirect?: boolean;
   };
-}
-
-function getConstructorName(object: any): string {
-  if (
-    object &&
-    typeof object === "object" &&
-    object.constructor &&
-    object.constructor.name
-  ) {
-    return object.constructor.name;
-  }
-  return "";
 }
 
 function isAIMessage(message: any): message is AIMessage {
@@ -172,7 +156,7 @@ export async function streamLangChainResponse({
       eventStream$.sendTextMessage(randomId(), result.content as string);
     }
     if (result.lc_kwargs?.tool_calls) {
-      for (const toolCall of result.lc_kwargs?.tool_calls) {
+      for (const toolCall of result.lc_kwargs?.tool_calls ?? []) {
         eventStream$.sendActionExecution({
           actionExecutionId: toolCall.id || randomId(),
           actionName: toolCall.name,

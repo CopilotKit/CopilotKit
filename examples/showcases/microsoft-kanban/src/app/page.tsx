@@ -6,8 +6,9 @@ import {
   useRenderToolCall,
 } from "@copilotkit/react-core";
 import { ToolCallCard } from "@/components/ToolCallCard";
+import type {
+  CopilotKitCSSProperties} from "@copilotkit/react-ui";
 import {
-  CopilotKitCSSProperties,
   CopilotChat,
   CopilotPopup,
 } from "@copilotkit/react-ui";
@@ -18,6 +19,13 @@ import { initialState, isNonEmptyAgentState } from "@/lib/kanban/state";
 import useMediaQuery from "@/hooks/use-media-query";
 import KanbanBoard from "@/components/kanban/KanbanBoard";
 import BoardTabs from "@/components/kanban/BoardTabs";
+
+function handleCreateBoard() {
+  const name = prompt("Enter board name:");
+  if (name) {
+    console.log(`[BoardTabs] Create board requested: ${name}`);
+  }
+}
 
 export default function CopilotKitPage() {
   const { state, setState } = useCoAgent<AgentState>({
@@ -177,13 +185,6 @@ export default function CopilotKitPage() {
 
   const handleSwitchBoard = (boardId: string) => {
     setState({ ...viewState, activeBoardId: boardId });
-  };
-
-  const handleCreateBoard = () => {
-    const name = prompt("Enter board name:");
-    if (name) {
-      console.log(`[BoardTabs] Create board requested: ${name}`);
-    }
   };
 
   // Task management handlers for UI-driven updates

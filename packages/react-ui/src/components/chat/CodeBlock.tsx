@@ -1,12 +1,8 @@
-import { FC, memo, useEffect, useState } from "react";
+import type { FC} from "react";
+import { memo, useEffect, useState } from "react";
 import { Prism, Light } from "react-syntax-highlighter";
 import { useCopyToClipboard } from "../../hooks/use-copy-to-clipboard";
 import { CheckIcon, CopyIcon, DownloadIcon } from "./Icons";
-
-interface CodeActionButtonProps {
-  onClick: () => void;
-  children: React.ReactNode;
-}
 
 interface Props {
   language: string;
@@ -61,7 +57,8 @@ const CodeBlock: FC<Props> = memo(({ language, value }) => {
 
   useEffect(() => {
     try {
-      new RegExp("(?<=#)\\w+");
+      // Test if the browser supports lookbehind assertions
+      RegExp.prototype.test.call(new RegExp("(?<=#)\\w+"), "");
       setSyntaxHighlighter(() => Prism);
     } catch {
       setSyntaxHighlighter(() => Light);

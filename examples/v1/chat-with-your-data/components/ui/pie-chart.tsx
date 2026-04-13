@@ -131,12 +131,12 @@ export function PieChart({
           label={showLabel ? renderCustomizedLabel : undefined}
           labelLine={false}
         >
-          {data.map((entry, index) => (
+          {data.map((entry, i) => (
             <Cell
-              key={`cell-${index}`}
-              fill={colors[index % colors.length]}
+              key={`cell-${i}`}
+              fill={colors[i % colors.length]}
               fillOpacity={0.1}
-              stroke={colors[index % colors.length]}
+              stroke={colors[i % colors.length]}
               strokeWidth={3}
             />
           ))}

@@ -1,6 +1,6 @@
 import React from "react";
 import { DocumentViewer } from "@/components/document-viewer";
-import { Section } from "@/lib/types";
+import type { Section } from "@/lib/types";
 import { NOOP } from "@/lib/utils";
 
 interface DocumentsScrollbarProps {

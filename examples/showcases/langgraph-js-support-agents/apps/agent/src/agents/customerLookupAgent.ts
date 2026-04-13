@@ -1,5 +1,5 @@
-import { RunnableConfig } from "@langchain/core/runnables";
-import { CustomerSupportState } from "../types/state";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { CustomerSupportState } from "../types/state";
 
 /**
  * Customer Lookup Agent Node
@@ -8,7 +8,7 @@ import { CustomerSupportState } from "../types/state";
  */
 export async function customerLookupAgentNode(
   state: CustomerSupportState,
-  config: RunnableConfig,
+  _config: RunnableConfig,
 ): Promise<Partial<CustomerSupportState>> {
   console.log("Customer Lookup Agent: Searching for customer...");
 

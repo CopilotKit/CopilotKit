@@ -291,7 +291,7 @@ export function getStockBySymbol(symbol: string): Stock | undefined {
  * Generate a unique portfolio ID.
  */
 function generatePortfolioId(): string {
-  return `pf-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  return `pf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 /**

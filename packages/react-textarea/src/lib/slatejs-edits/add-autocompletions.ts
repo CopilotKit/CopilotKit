@@ -1,5 +1,6 @@
-import { BasePoint, Transforms } from "slate";
-import { CustomEditor } from "../../types/base/custom-editor";
+import type { BasePoint} from "slate";
+import { Transforms } from "slate";
+import type { CustomEditor } from "../../types/base/custom-editor";
 
 export function addAutocompletionsToEditor(
   editor: CustomEditor,

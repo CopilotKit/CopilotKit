@@ -10,10 +10,8 @@ import {
 } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table-results";
 import { DataTable as DataTableTests } from "@/components/data-table-tests";
-import { DataChart } from "@/components/data-chart";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Table2, Code2 } from "lucide-react";
-import { getTestsService } from "@/app/Services/service";
+import { Table2, Code2 } from "lucide-react";
 import Loader from "./ui/loader";
 import { testData } from "@/lib/testData";
 import { DataCode } from "./data-code";
@@ -22,7 +20,7 @@ import { ChatGrid } from "./data-chat-grid";
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { testerPersonaSuggestions } from "@/lib/prompts";
 import { useSharedTestsContext } from "@/lib/shared-tests-context";
-import { TestsData } from "@/app/Interfaces/interface";
+import type { TestsData } from "@/app/Interfaces/interface";
 // Sample data for the tester dashboard
 const tableColumns = [
   {
@@ -70,7 +68,7 @@ const tableColumnsTests = [
   },
 ];
 
-const chartData = [
+const _chartData = [
   {
     name: "Mon",
     Passed: 42,
@@ -149,9 +147,11 @@ export function TesterDashboard() {
     },
   });
 
+  /* eslint-disable react-hooks/exhaustive-deps -- intentionally run only on mount */
   useEffect(() => {
     getTests();
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   async function getTests() {
     // const tests = await getTestsService()

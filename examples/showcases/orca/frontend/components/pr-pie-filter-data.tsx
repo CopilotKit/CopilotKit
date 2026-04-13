@@ -1,5 +1,5 @@
 import { Cell } from "recharts";
-import { PRData } from "@/app/Interfaces/interface";
+import type { PRData } from "@/app/Interfaces/interface";
 import { useSharedContext } from "@/lib/shared-context";
 import { useEffect, useState } from "react";
 import { Pie, PieChart, Tooltip } from "recharts";
@@ -46,13 +46,13 @@ export function PRPieFilterData({ args }: any) {
           return diffDays <= args.dayCount;
         }),
       ),
-    ).map(([status, count]) => ({
-      name: status,
+    ).map(([statusName, count]) => ({
+      name: statusName,
       value: count,
     }));
     console.log(pieData);
     setUserPRData(pieData);
-  }, [args]);
+  }, [args, prData]);
   const getStatusCounts = (data: PRData[]) => {
     return data.reduce((acc: any, pr: PRData) => {
       acc[pr.status] = (acc[pr.status] || 0) + 1;

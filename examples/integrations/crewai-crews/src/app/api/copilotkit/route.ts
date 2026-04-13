@@ -3,7 +3,7 @@ import {
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { CrewAIAgent } from "@ag-ui/crewai";
 
 // 1. You can use any service adapter here for multi-agent support. We use

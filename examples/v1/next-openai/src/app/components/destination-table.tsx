@@ -2,7 +2,7 @@
 
 import React from "react";
 import { DestinationRow } from "./destination-row";
-import { Destination } from "./vacation-list";
+import type { Destination } from "./vacation-list";
 import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
 
 export type DestinationTableProps = {
@@ -77,8 +77,8 @@ export function DestinationTable({
       handler: async ({ destinationName }) => {
         setCheckedRows((prevState) => {
           const newState = { ...prevState };
-          [destinationName].forEach((destinationName) => {
-            newState[destinationName] = true;
+          [destinationName].forEach((name) => {
+            newState[name] = true;
           });
           return newState;
         });

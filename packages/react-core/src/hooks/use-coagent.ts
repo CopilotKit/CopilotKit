@@ -88,11 +88,14 @@
  * </PropertyReference>
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Message } from "@copilotkit/shared";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import type { Message } from "@copilotkit/shared";
 import { useAgent, useCopilotKit } from "../v2";
-import { type AgentSubscriber } from "@ag-ui/client";
+import type { AgentSubscriber } from "@ag-ui/client";
 import { useAgentNodeName } from "./use-agent-nodename";
+
+const noop = () => {};
+const noopAsync = async () => {};
 
 interface UseCoagentOptionsBase {
   /**
@@ -209,6 +212,8 @@ export function useCoAgent<T = any>(
 ): UseCoagentReturnType<T> {
   const { agent } = useAgent({ agentId: options.name });
   const { copilotkit } = useCopilotKit();
+  const copilotkitRef = useRef(copilotkit);
+  copilotkitRef.current = copilotkit;
   const nodeName = useAgentNodeName(options.name);
 
   const handleStateUpdate = useCallback(
@@ -222,7 +227,7 @@ export function useCoAgent<T = any>(
         agent.setState({ ...agent.state, ...newState });
       }
     },
-    [agent?.state, agent?.setState],
+    [agent],
   );
 
   useEffect(() => {
@@ -238,29 +243,32 @@ export function useCoAgent<T = any>(
         },
       };
     }
-    copilotkit.setProperties(config);
+    copilotkitRef.current.setProperties(config);
   }, [options.config, options.configurable]);
 
+  const isExternal = isExternalStateManagement(options);
   const externalStateStr = useMemo(
     () =>
-      isExternalStateManagement(options)
-        ? JSON.stringify(options.state)
+      isExternal
+        ? JSON.stringify((options as WithExternalStateManagement<T>).state)
         : undefined,
-    [
-      isExternalStateManagement(options)
-        ? JSON.stringify(options.state)
-        : undefined,
-    ],
+    [isExternal, options],
   );
 
   // Sync internal state with external state if state management is external
+  // We use a ref to access options inside the effect to avoid re-running
+  // on every options object change (which would happen every render).
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
   useEffect(() => {
+    const currentOptions = optionsRef.current;
     if (
       agent?.state &&
-      isExternalStateManagement(options) &&
-      JSON.stringify(options.state) !== JSON.stringify(agent.state)
+      isExternalStateManagement(currentOptions) &&
+      JSON.stringify(currentOptions.state) !== JSON.stringify(agent.state)
     ) {
-      handleStateUpdate(options.state);
+      handleStateUpdate(currentOptions.state);
     }
   }, [agent, externalStateStr, handleStateUpdate]);
 
@@ -276,26 +284,34 @@ export function useCoAgent<T = any>(
         : undefined,
   );
 
-  useEffect(() => {
-    if (isExternalStateManagement(options)) {
-      initialStateRef.current = options.state;
-    } else if ("initialState" in options) {
-      initialStateRef.current = options.initialState;
+  const initialStateStr = useMemo(() => {
+    if (isExternal) {
+      return JSON.stringify((options as WithExternalStateManagement<T>).state);
     }
-  }, [
-    isExternalStateManagement(options)
-      ? JSON.stringify(options.state)
-      : "initialState" in options
-        ? JSON.stringify(options.initialState)
-        : undefined,
-  ]);
+    if ("initialState" in options) {
+      return JSON.stringify(
+        (options as WithInternalStateManagementAndInitial<T>).initialState,
+      );
+    }
+    return undefined;
+  }, [isExternal, options]);
+
+  useEffect(() => {
+    const currentOptions = optionsRef.current;
+    if (isExternalStateManagement(currentOptions)) {
+      initialStateRef.current = currentOptions.state;
+    } else if ("initialState" in currentOptions) {
+      initialStateRef.current = currentOptions.initialState;
+    }
+  }, [initialStateStr]);
 
   useEffect(() => {
     if (!agent) return;
     const subscriber: AgentSubscriber = {
       onStateChanged: (args: any) => {
-        if (isExternalStateManagement(options)) {
-          options.setState(args.state);
+        const currentOptions = optionsRef.current;
+        if (isExternalStateManagement(currentOptions)) {
+          currentOptions.setState(args.state);
         }
       },
       onRunInitialized: (args: any) => {
@@ -323,17 +339,17 @@ export function useCoAgent<T = any>(
 
   // Return a consistent shape whether or not the agent is available
   return useMemo<UseCoagentReturnType<T>>(() => {
+    const currentOptions = optionsRef.current;
     if (!agent) {
-      const noop = () => {};
-      const noopAsync = async () => {};
       const initialState =
         // prefer externally provided state if available
-        ("state" in options && (options as any).state) ??
+        ("state" in currentOptions && (currentOptions as any).state) ??
         // then initialState if provided
-        ("initialState" in options && (options as any).initialState) ??
+        ("initialState" in currentOptions &&
+          (currentOptions as any).initialState) ??
         ({} as T);
       return {
-        name: options.name,
+        name: currentOptions.name,
         nodeName,
         threadId: undefined,
         running: false,
@@ -346,7 +362,7 @@ export function useCoAgent<T = any>(
     }
 
     return {
-      name: agent?.agentId ?? options.name,
+      name: agent?.agentId ?? currentOptions.name,
       nodeName,
       threadId: agent.threadId,
       running: agent.isRunning,
@@ -357,17 +373,7 @@ export function useCoAgent<T = any>(
       stop: agent.abortRun,
       run: agent.runAgent,
     };
-  }, [
-    agent?.state,
-    agent?.runAgent,
-    agent?.abortRun,
-    agent?.runAgent,
-    agent?.threadId,
-    agent?.isRunning,
-    agent?.agentId,
-    handleStateUpdate,
-    options.name,
-  ]);
+  }, [agent, nodeName, handleStateUpdate]);
 }
 
 const isExternalStateManagement = <T>(

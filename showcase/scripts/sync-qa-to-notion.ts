@@ -43,7 +43,7 @@ const DRY_RUN = process.env.DRY_RUN === "true";
 const NOTION_API = "https://api.notion.com/v1";
 const NOTION_VERSION = "2022-06-28";
 
-interface Feature {
+interface _Feature {
   id: string;
   name: string;
 }

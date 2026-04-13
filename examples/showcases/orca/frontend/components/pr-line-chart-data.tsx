@@ -1,15 +1,28 @@
 import { useEffect, useState } from "react";
-import {
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { CartesianGrid, Legend, Line, LineChart, XAxis, YAxis } from "recharts";
 import { useSharedContext } from "@/lib/shared-context";
-import { PRData, WeeklyCount } from "@/app/Interfaces/interface";
+import type { PRData, WeeklyCount } from "@/app/Interfaces/interface";
+
+function groupPRsByWeek(prs: PRData[]): WeeklyCount[] {
+  const weekMap: Record<string, number> = {};
+
+  prs.forEach((pr) => {
+    const date = new Date(pr.createdAt);
+    const day = date.getUTCDay();
+    const diffToMonday = (day + 6) % 7;
+    const monday = new Date(date);
+    monday.setUTCDate(date.getUTCDate() - diffToMonday);
+    monday.setUTCHours(0, 0, 0, 0);
+
+    const mondayStr = monday.toISOString().split("T")[0];
+
+    weekMap[mondayStr] = (weekMap[mondayStr] || 0) + 1;
+  });
+
+  return Object.entries(weekMap)
+    .map(([week, count]) => ({ week, count }))
+    .sort((a, b) => a.week.localeCompare(b.week));
+}
 
 export function PRLineChartData({ args }: any) {
   const { prData } = useSharedContext();
@@ -31,28 +44,7 @@ export function PRLineChartData({ args }: any) {
     }));
     console.log(weeklyData);
     setLineData(weeklyData);
-  }, [args]);
-
-  function groupPRsByWeek(prs: PRData[]): WeeklyCount[] {
-    const weekMap: Record<string, number> = {};
-
-    prs.forEach((pr) => {
-      const date = new Date(pr.createdAt);
-      const day = date.getUTCDay(); // 0 (Sun) to 6 (Sat)
-      const diffToMonday = (day + 6) % 7; // get difference to previous Monday
-      const monday = new Date(date);
-      monday.setUTCDate(date.getUTCDate() - diffToMonday);
-      monday.setUTCHours(0, 0, 0, 0); // normalize to midnight
-
-      const mondayStr = monday.toISOString().split("T")[0];
-
-      weekMap[mondayStr] = (weekMap[mondayStr] || 0) + 1;
-    });
-
-    return Object.entries(weekMap)
-      .map(([week, count]) => ({ week, count }))
-      .sort((a, b) => a.week.localeCompare(b.week));
-  }
+  }, [args, prData]);
 
   return (
     <div className="p-4 rounded-2xl shadow-lg flex flex-col items-center w-full min-w-[250px] max-w-full">
@@ -87,7 +79,7 @@ export function PRLineChartData({ args }: any) {
   );
 }
 
-const CustomPieTooltip = ({ active, payload }: any) => {
+const _CustomPieTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const { week, count } = payload[0].payload;
     return (

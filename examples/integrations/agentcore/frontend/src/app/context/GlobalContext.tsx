@@ -7,7 +7,8 @@
  * Provides shared state and functionality across components
  */
 
-import { createContext, useContext, PropsWithChildren, useState } from "react";
+import type { PropsWithChildren} from "react";
+import { createContext, useContext, useState } from "react";
 
 interface GlobalContextType {
   isLoading: boolean;

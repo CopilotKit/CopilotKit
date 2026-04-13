@@ -1,5 +1,5 @@
 import axios from "axios";
-import { Post } from "@/app/lib/types/post";
+import type { Post } from "@/app/lib/types/post";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 

@@ -2,9 +2,10 @@ import { render, cleanup, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import React from "react";
 import { z } from "zod";
+import type {
+  OpenGenerativeUIContent} from "../OpenGenerativeUIRenderer";
 import {
-  OpenGenerativeUIActivityRenderer,
-  OpenGenerativeUIContent,
+  OpenGenerativeUIActivityRenderer
 } from "../OpenGenerativeUIRenderer";
 import { SandboxFunctionsContext } from "../../providers/SandboxFunctionsContext";
 import type { SandboxFunction } from "../../types/sandbox-function";

@@ -1,6 +1,6 @@
 "use client";
 import useUpdateSlide from "../../actions/useUpdateSlide";
-import { SlideModel } from "@/app/types";
+import type { SlideModel } from "@/app/types";
 
 export interface SlideProps {
   slide: SlideModel;

@@ -1,8 +1,6 @@
-import {
-  AbstractAgent,
+import type {
   BaseEvent,
   RunAgentInput,
-  EventType,
   Message,
   ReasoningEndEvent,
   ReasoningMessageContentEvent,
@@ -18,10 +16,12 @@ import {
   ToolCallResultEvent,
   RunErrorEvent,
   StateSnapshotEvent,
-  StateDeltaEvent,
-} from "@ag-ui/client";
+  StateDeltaEvent} from "@ag-ui/client";
 import {
-  streamText,
+  AbstractAgent,
+  EventType
+} from "@ag-ui/client";
+import type {
   LanguageModel,
   ModelMessage,
   AssistantModelMessage,
@@ -33,9 +33,11 @@ import {
   TextPart,
   ImagePart,
   FilePart,
-  tool as createVercelAISDKTool,
   ToolChoice,
-  ToolSet,
+  ToolSet} from "ai";
+import {
+  streamText,
+  tool as createVercelAISDKTool,
   stepCountIs,
 } from "ai";
 import { experimental_createMCPClient as createMCPClient } from "@ai-sdk/mcp";
@@ -51,9 +53,10 @@ import { schemaToJsonSchema } from "@copilotkit/shared";
 import { jsonSchema as aiJsonSchema } from "ai";
 import { convertAISDKStream } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
+import type {
+  StreamableHTTPClientTransportOptions} from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import {
-  StreamableHTTPClientTransport,
-  StreamableHTTPClientTransportOptions,
+  StreamableHTTPClientTransport
 } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { randomUUID } from "@copilotkit/shared";
@@ -1277,13 +1280,13 @@ export class BuiltInAgent extends AbstractAgent {
                 state.toolName = part.toolName;
                 if (!state.started) {
                   state.started = true;
-                  const startEvent: ToolCallStartEvent = {
+                  const toolCallStartEvent: ToolCallStartEvent = {
                     type: EventType.TOOL_CALL_START,
                     parentMessageId: messageId,
                     toolCallId,
                     toolCallName: part.toolName,
                   };
-                  subscriber.next(startEvent);
+                  subscriber.next(toolCallStartEvent);
                 }
                 break;
               }
@@ -1338,13 +1341,13 @@ export class BuiltInAgent extends AbstractAgent {
 
                 if (!state.started) {
                   state.started = true;
-                  const startEvent: ToolCallStartEvent = {
+                  const toolStartEvent: ToolCallStartEvent = {
                     type: EventType.TOOL_CALL_START,
                     parentMessageId: messageId,
                     toolCallId,
                     toolCallName: part.toolName,
                   };
-                  subscriber.next(startEvent);
+                  subscriber.next(toolStartEvent);
                 }
 
                 if (

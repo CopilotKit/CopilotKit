@@ -120,14 +120,19 @@ function RecipeEditor() {
   const setAgentState = (s: RecipeAgentState) => agent.setState(s);
   const isLoading = agent.isRunning;
 
+  const setAgentStateRef = useRef(setAgentState);
+  setAgentStateRef.current = setAgentState;
+  const agentStateRecipeRef = useRef(agentState?.recipe);
+  agentStateRecipeRef.current = agentState?.recipe;
+
   useEffect(() => {
-    if (!agentState?.recipe) {
-      setAgentState(INITIAL_STATE);
+    if (!agentStateRecipeRef.current) {
+      setAgentStateRef.current(INITIAL_STATE);
     }
   }, []);
 
   const [recipe, setRecipe] = useState(INITIAL_STATE.recipe);
-  const [editingInstructionIndex, setEditingInstructionIndex] = useState<
+  const [_editingInstructionIndex, setEditingInstructionIndex] = useState<
     number | null
   >(null);
   const changedKeysRef = useRef<string[]>([]);
@@ -171,9 +176,11 @@ function RecipeEditor() {
     changedKeysRef.current = [];
   }
 
+  const newRecipeStateJson = JSON.stringify(newRecipeState);
   useEffect(() => {
     setRecipe(newRecipeState);
-  }, [JSON.stringify(newRecipeState)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newRecipeStateJson]);
 
   const handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     updateRecipe({ title: event.target.value });

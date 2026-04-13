@@ -52,7 +52,7 @@ import type { LanguageModel } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type OpenAI from "openai";
 import Openai from "openai";
-import {
+import type {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,

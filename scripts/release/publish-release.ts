@@ -24,7 +24,8 @@ import {
   parseSemver,
 } from "./lib/versions.js";
 import { readReleaseDraft } from "./lib/notion.js";
-import { ROOT, getScopeConfig, type ReleaseScope } from "./lib/config.js";
+import { ROOT, getScopeConfig } from './lib/config.js';
+import type { ReleaseScope } from './lib/config.js';
 
 function run(cmd: string, args: string[], opts?: { cwd?: string }) {
   const result = spawnSync(cmd, args, {

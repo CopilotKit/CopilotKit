@@ -15,27 +15,10 @@ import {
   timeout,
   withLatestFrom,
 } from "rxjs/operators";
-import {
-  createActionGroup,
-  createEffect,
-  createReducer,
-  createSelector,
-  createStore,
-  empty,
-  ofType,
-  on,
-  props,
-  type Store,
-} from "./utils/micro-redux";
-import {
-  ɵphoenixChannel$,
-  ɵphoenixSocket$,
-  type ɵPhoenixChannelSession,
-  ɵobservePhoenixEvent$,
-  ɵobservePhoenixJoinOutcome$,
-  ɵobservePhoenixSocketHealth$,
-  ɵobservePhoenixSocketSignals$,
-} from "./utils/phoenix-observable";
+import { createActionGroup, createEffect, createReducer, createSelector, createStore, empty, ofType, on, props } from './utils/micro-redux';
+import type { Store } from './utils/micro-redux';
+import { ɵphoenixChannel$, ɵphoenixSocket$, ɵobservePhoenixEvent$, ɵobservePhoenixJoinOutcome$, ɵobservePhoenixSocketHealth$, ɵobservePhoenixSocketSignals$ } from './utils/phoenix-observable';
+import type { ɵPhoenixChannelSession } from './utils/phoenix-observable';
 
 const THREADS_CHANNEL_EVENT = "thread_metadata";
 const THREAD_SUBSCRIBE_PATH = "/threads/subscribe";

@@ -4,8 +4,8 @@
  * This module contains the implementation of the download_node function.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
-import { AgentState } from "./state";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { AgentState } from "./state";
 import { htmlToText } from "html-to-text";
 import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph";
 
@@ -64,7 +64,7 @@ export async function download_node(state: AgentState, config: RunnableConfig) {
   }
 
   // Emit the state to let the UI update
-  const { messages, ...restOfState } = state;
+  const { messages: _messages, ...restOfState } = state;
   await copilotkitEmitState(config, {
     ...restOfState,
     resources,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TestsData } from "@/app/Interfaces/interface";
+import type { TestsData } from "@/app/Interfaces/interface";
 import {
   TableHead,
   TableHeader,
@@ -21,7 +21,7 @@ export function ChatGrid({
   testSuite,
   setTestSuite,
   testCaseStatus,
-  setTestCaseStatus,
+  setTestCaseStatus: _setTestCaseStatus,
 }: {
   status: string;
   state: any;

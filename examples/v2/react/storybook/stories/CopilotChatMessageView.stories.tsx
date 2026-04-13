@@ -8,7 +8,7 @@ import {
 import { z } from "zod";
 import { ToolCallStatus } from "@copilotkit/core";
 
-const STORYBOOK_THREAD_ID = "storybook-thread";
+const _STORYBOOK_THREAD_ID = "storybook-thread";
 
 const meta = {
   title: "UI/CopilotChatMessageView",
@@ -606,6 +606,7 @@ export function WithToolCallsExample() {
       },
     ];
 
+    /* eslint-disable react-hooks/exhaustive-deps -- globalCounter intentionally forces re-memoization when counter buttons are clicked */
     const renderToolCalls = React.useMemo(
       () => [
         {
@@ -624,8 +625,9 @@ export function WithToolCallsExample() {
           render: WildcardToolRender,
         },
       ],
-      [globalCounter],
+      [globalCounter, calculatorSchema, searchSchema, CalculatorToolRender],
     );
+    /* eslint-enable react-hooks/exhaustive-deps */
 
     return (
       <CopilotKitProvider

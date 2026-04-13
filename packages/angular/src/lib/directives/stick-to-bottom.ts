@@ -1,9 +1,10 @@
+import type {
+  OnInit,
+  OnDestroy,
+  AfterViewInit} from "@angular/core";
 import {
   Directive,
   ElementRef,
-  OnInit,
-  OnDestroy,
-  AfterViewInit,
   inject,
   input,
   output,

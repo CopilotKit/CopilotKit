@@ -15,7 +15,7 @@ export class Comments {
 
     return commentRanges
       .map((comment) => {
-        let commentText = fullText.substring(comment.pos, comment.end);
+        let commentText = fullText.slice(comment.pos, comment.end);
         commentText = Comments.removeCommentSyntax(commentText);
 
         // for now, remove @default annotations
@@ -44,7 +44,7 @@ export class Comments {
     let defaultValue: string | undefined = undefined;
 
     for (const comment of commentRanges) {
-      let commentText = fullText.substring(comment.pos, comment.end);
+      let commentText = fullText.slice(comment.pos, comment.end);
       commentText = Comments.removeCommentSyntax(commentText);
 
       for (const line of commentText.split("\n")) {
@@ -88,7 +88,7 @@ export class Comments {
 
     for (const range of trivia) {
       const commentText = Comments.removeCommentSyntax(
-        sourceFile.text.substring(range.pos, range.end),
+        sourceFile.text.slice(range.pos, range.end),
       );
 
       const lines = commentText.split("\n").map((line) => line.trim());

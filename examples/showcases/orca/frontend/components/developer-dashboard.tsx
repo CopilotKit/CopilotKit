@@ -13,10 +13,9 @@ import { DataChart } from "@/components/data-chart";
 import { Button } from "@/components/ui/button";
 import { BarChart3, Table2, Filter } from "lucide-react";
 import { getPRDataService } from "@/app/Services/service";
-import { PRData } from "@/app/Interfaces/interface";
+import type { PRData } from "@/app/Interfaces/interface";
 import { useSharedContext } from "@/lib/shared-context";
 import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
-import { PieChart, Pie, Cell, Tooltip } from "recharts";
 import { PRPieData } from "./pr-pie-all-data";
 import { PRReviewBarData } from "./pr-review-bar-data";
 import {
@@ -52,7 +51,7 @@ const tableColumns = [
     header: "STATUS",
   },
 ];
-const chartData = [
+const _chartData = [
   {
     name: "Mon",
     "Build Time": 45,
@@ -90,7 +89,7 @@ const chartData = [
   },
 ];
 
-const status = [
+const _status = [
   {
     name: "approved",
     color: "bg-green-300",
@@ -124,9 +123,11 @@ export function DeveloperDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const ref1 = useRef(null);
   const ref2 = useRef(null);
+  /* eslint-disable react-hooks/exhaustive-deps -- intentionally run only on mount */
   useEffect(() => {
     getPRData();
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   useCopilotReadable({
     description: "A list of all the PR Data",

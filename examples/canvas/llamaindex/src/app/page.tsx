@@ -5,8 +5,9 @@ import {
   useCopilotAction,
   useCopilotAdditionalInstructions,
 } from "@copilotkit/react-core";
+import type {
+  CopilotKitCSSProperties} from "@copilotkit/react-ui";
 import {
-  CopilotKitCSSProperties,
   CopilotChat,
   CopilotPopup,
 } from "@copilotkit/react-ui";
@@ -49,6 +50,36 @@ import {
 import useMediaQuery from "@/hooks/use-media-query";
 import ItemHeader from "@/components/canvas/ItemHeader";
 import NewItemMenu from "@/components/canvas/NewItemMenu";
+
+function normalizeDate(input: unknown): string | null {
+  if (input == null) return null;
+  if (input instanceof Date && !isNaN(input.getTime())) {
+    const yyyy = input.getUTCFullYear();
+    const mm = String(input.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(input.getUTCDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  const asString = String(input);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(asString)) return asString;
+  const parsed = new Date(asString);
+  if (!isNaN(parsed.getTime())) {
+    const yyyy = parsed.getUTCFullYear();
+    const mm = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(parsed.getUTCDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return null;
+}
+
+function toBool(v: unknown): boolean | undefined {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    if (s === "true") return true;
+    if (s === "false") return false;
+  }
+  return undefined;
+}
 
 export default function CopilotKitPage() {
   const { state, setState } = useCoAgent<AgentState>({
@@ -709,26 +740,6 @@ export default function CopilotKitPage() {
         dictArgs["value"] ??
         dictArgs["val"] ??
         dictArgs["text"];
-      const normalizeDate = (input: unknown): string | null => {
-        if (input == null) return null;
-        if (input instanceof Date && !isNaN(input.getTime())) {
-          const yyyy = input.getUTCFullYear();
-          const mm = String(input.getUTCMonth() + 1).padStart(2, "0");
-          const dd = String(input.getUTCDate()).padStart(2, "0");
-          return `${yyyy}-${mm}-${dd}`;
-        }
-        const asString = String(input);
-        // Already in YYYY-MM-DD
-        if (/^\d{4}-\d{2}-\d{2}$/.test(asString)) return asString;
-        const parsed = new Date(asString);
-        if (!isNaN(parsed.getTime())) {
-          const yyyy = parsed.getUTCFullYear();
-          const mm = String(parsed.getUTCMonth() + 1).padStart(2, "0");
-          const dd = String(parsed.getUTCDate()).padStart(2, "0");
-          return `${yyyy}-${mm}-${dd}`;
-        }
-        return null;
-      };
       const normalized = normalizeDate(rawInput);
       if (!normalized) return;
       updateItemData(itemId, (prev) => {
@@ -859,15 +870,6 @@ export default function CopilotKitPage() {
       const maybeDone = args.done;
       const text: string | undefined =
         args.text != null ? String(args.text) : undefined;
-      const toBool = (v: unknown): boolean | undefined => {
-        if (typeof v === "boolean") return v;
-        if (typeof v === "string") {
-          const s = v.trim().toLowerCase();
-          if (s === "true") return true;
-          if (s === "false") return false;
-        }
-        return undefined;
-      };
       const done = toBool(maybeDone);
       updateItemData(itemId, (prev) => {
         let next = prev as ProjectData;

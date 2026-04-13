@@ -1,5 +1,5 @@
 import { useFrontendTool } from "@copilotkit/react-core";
-import { SlideModel } from "../types";
+import type { SlideModel } from "../types";
 import { SlidePreview } from "../components/misc/SlidePreview";
 
 interface AppendSlideParams {
@@ -56,8 +56,8 @@ export default function useAppendSlide({
         backgroundImageDescription,
       };
 
-      setSlides((slides) => [...slides, newSlide]);
-      setCurrentSlideIndex((i) => slides.length);
+      setSlides((prevSlides) => [...prevSlides, newSlide]);
+      setCurrentSlideIndex((_i) => slides.length);
     },
     render: (props) => {
       return (

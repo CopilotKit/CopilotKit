@@ -12,6 +12,6 @@ useCopilotAction({
   ],
   handler: async ({ arg }) => {
     // TODO this should fail
-    let x: string = arg;
+    let _x: string = arg;
   },
 });

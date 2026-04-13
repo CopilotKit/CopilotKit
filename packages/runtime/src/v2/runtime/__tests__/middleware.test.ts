@@ -1,4 +1,5 @@
-import { vi, type MockedFunction } from "vitest";
+import { vi } from 'vitest';
+import type { MockedFunction } from 'vitest';
 import { createCopilotEndpoint } from "../endpoints";
 import { CopilotRuntime } from "../core/runtime";
 import { logger } from "@copilotkit/shared";
@@ -25,7 +26,7 @@ describe("CopilotEndpoint middleware", () => {
   let originalFetch: typeof fetch;
   let fetchMock: MockedFunction<typeof fetch> | null = null;
 
-  const setupFetchMock = (beforeUrl: string, afterUrl: string) => {
+  const _setupFetchMock = (beforeUrl: string, afterUrl: string) => {
     originalFetch = global.fetch;
     fetchMock = vi.fn().mockImplementation(async (url: string) => {
       if (url === beforeUrl) {

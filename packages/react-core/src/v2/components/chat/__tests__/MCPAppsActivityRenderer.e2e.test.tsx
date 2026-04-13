@@ -8,7 +8,7 @@
  * 4. Tool calls proxied back through the agent
  */
 import { fireEvent, screen, waitFor, act } from "@testing-library/react";
-import { z } from "zod";
+import type { z } from "zod";
 import { vi } from "vitest";
 import {
   activitySnapshotEvent,
@@ -21,15 +21,17 @@ import {
   MCPAppsActivityType,
   MCPAppsActivityContentSchema,
 } from "../../../components/MCPAppsActivityRenderer";
-import { ReactActivityMessageRenderer } from "../../../types";
-import {
-  AbstractAgent,
+import type { ReactActivityMessageRenderer } from "../../../types";
+import type {
   RunAgentInput,
   RunAgentResult,
-  BaseEvent,
+  BaseEvent} from "@ag-ui/client";
+import {
+  AbstractAgent,
   EventType,
 } from "@ag-ui/client";
-import { Observable, Subject } from "rxjs";
+import type { Observable} from "rxjs";
+import { Subject } from "rxjs";
 
 /**
  * Mock agent that intercepts runAgent calls for proxied MCP requests

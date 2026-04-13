@@ -1,5 +1,5 @@
 import { useCoAgent } from "@copilotkit/react-core";
-import { AgentState } from "@/lib/types";
+import type { AgentState } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { PinnedMetrics } from "@/components/dashboard/layout/metrics";
 import { Charts } from "@/components/dashboard/layout/charts";

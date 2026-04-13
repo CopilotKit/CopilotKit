@@ -21,7 +21,7 @@ export const TripRequirementsForm: React.FC<TripRequirementsFormProps> = ({
   if (typeof args === "string") {
     try {
       parsedArgs = JSON.parse(args);
-    } catch (e) {
+    } catch {
       parsedArgs = {};
     }
   }
@@ -34,6 +34,7 @@ export const TripRequirementsForm: React.FC<TripRequirementsFormProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Pre-fill form from orchestrator extraction
+  /* eslint-disable react-hooks/exhaustive-deps -- intentionally only re-run when parsedArgs fields change, not when form state changes */
   useEffect(() => {
     if (parsedArgs && parsedArgs.city && parsedArgs.city !== city) {
       setCity(parsedArgs.city);
@@ -65,6 +66,7 @@ export const TripRequirementsForm: React.FC<TripRequirementsFormProps> = ({
     parsedArgs?.numberOfPeople,
     parsedArgs?.budgetLevel,
   ]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -13,10 +13,9 @@ import { DataChart } from "@/components/data-chart";
 import { Button } from "@/components/ui/button";
 import { BarChart3, Table2, Filter } from "lucide-react";
 import { getPRDataService } from "@/app/Services/service";
-import { PRData } from "@/app/Interfaces/interface";
+import type { PRData } from "@/app/Interfaces/interface";
 import { useSharedContext } from "@/lib/shared-context";
 import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
-import { PieChart, Pie, Cell, Tooltip } from "recharts";
 import { PRPieData } from "./pr-pie-all-data";
 import { PRReviewBarData } from "./pr-review-bar-data";
 import {
@@ -26,11 +25,8 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { PRPieFilterData } from "./pr-pie-filter-data";
 import { PRLineChartData } from "./pr-line-chart-data";
 import { Loader } from "./ui/loader";
-import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
-import { devSuggestions } from "@/lib/prompts";
 // Sample data for the developer dashboard
 const tableColumns = [
   {
@@ -64,9 +60,11 @@ export function DeveloperDashboard() {
   }>({ status: "a", author: "b" });
   const [viewMode, setViewMode] = useState<"table" | "chart">("table");
   const [isLoading, setIsLoading] = useState(true);
+  /* eslint-disable react-hooks/exhaustive-deps -- intentionally run only on mount */
   useEffect(() => {
     getPRData();
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   useCopilotReadable({
     description: "A list of all the PR Data",

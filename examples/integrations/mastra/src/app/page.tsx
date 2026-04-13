@@ -3,9 +3,10 @@
 import { ProverbsCard } from "@/components/proverbs";
 import { WeatherCard } from "@/components/weather";
 import { MoonCard } from "@/components/moon";
-import { AgentState } from "@/lib/types";
+import type { AgentState } from "@/lib/types";
 import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import type { CopilotKitCSSProperties} from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
 
 export default function CopilotKitPage() {
@@ -21,8 +22,8 @@ export default function CopilotKitPage() {
         required: true,
       },
     ],
-    handler({ themeColor }) {
-      setThemeColor(themeColor);
+    handler({ themeColor: newThemeColor }) {
+      setThemeColor(newThemeColor);
     },
   });
 

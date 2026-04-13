@@ -7,7 +7,7 @@ import { MastraAgent } from "@ag-ui/mastra";
 import { Agent } from "@mastra/core/agent";
 import { MCPClient } from "@mastra/mcp";
 import { createOpenAI } from "@ai-sdk/openai";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
@@ -15,7 +15,8 @@ import { Observable } from "rxjs";
 import crypto from "crypto";
 import { z } from "zod";
 import { E2BWorkspaceProvider } from "@/lib/workspace/e2b";
-import { getDefaultMcpServers, type McpServerConfig } from "@/lib/mcp-defaults";
+import { getDefaultMcpServers } from '@/lib/mcp-defaults';
+import type { McpServerConfig } from '@/lib/mcp-defaults';
 
 // Allow up to 5 minutes for long agent loops
 export const maxDuration = 300;

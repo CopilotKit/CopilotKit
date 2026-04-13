@@ -1,4 +1,5 @@
-import { ReactCustomMessageRendererPosition, useAgent } from "../v2";
+import type { ReactCustomMessageRendererPosition} from "../v2";
+import { useAgent } from "../v2";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentSubscriber } from "@ag-ui/client";
 import { useCoAgentStateRenders } from "../context";
@@ -150,7 +151,7 @@ export function useCoagentStateRenderBridge(
         },
       );
     },
-    [coAgentStateRenders, nodeName, agentId],
+    [coAgentStateRenders, nodeName, agentId, claimsRef],
   );
   const stateRenderEntry = useMemo(
     () => getStateRender(message.id),
@@ -214,6 +215,7 @@ export function useCoagentStateRenderBridge(
     message.id,
     stateSnapshot,
     canRender,
+    claimsRef,
   ]);
 }
 

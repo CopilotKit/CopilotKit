@@ -1,17 +1,21 @@
+import type {
+  BaseAutosuggestionsConfig} from "../base";
 import {
-  BaseAutosuggestionsConfig,
   defaultBaseAutosuggestionsConfig,
 } from "../base";
+import type {
+  SuggestionsApiConfig} from "./suggestions-api-config";
 import {
-  SuggestionsApiConfig,
   defaultSuggestionsApiConfig,
 } from "./suggestions-api-config";
+import type {
+  InsertionsApiConfig} from "./insertions-api-config";
 import {
-  InsertionsApiConfig,
   defaultInsertionsApiConfig,
 } from "./insertions-api-config";
+import type {
+  EditingApiConfig} from "./editing-api-config";
 import {
-  EditingApiConfig,
   defaultEditingApiConfig,
 } from "./editing-api-config";
 import { defaultCopilotContextCategories } from "@copilotkit/react-core";

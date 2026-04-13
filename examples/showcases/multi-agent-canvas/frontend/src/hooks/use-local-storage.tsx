@@ -28,7 +28,7 @@ export function useLocalStorage<T>(
     try {
       // Allow value to be a function so we have same API as useState
       const valueToStore =
-        value instanceof Function ? value(storedValue) : value;
+        typeof value === "function" ? value(storedValue) : value;
       // Save state
       setStoredValue(valueToStore);
       // Save to local storage
@@ -42,6 +42,7 @@ export function useLocalStorage<T>(
   };
 
   // Update local storage if key changes
+  /* eslint-disable react-hooks/exhaustive-deps -- intentionally only re-run when key/initialValue change, not when storedValue changes (would cause infinite loop) */
   useEffect(() => {
     const item = window.localStorage.getItem(key);
     if (item) {
@@ -57,6 +58,7 @@ export function useLocalStorage<T>(
       window.localStorage.setItem(key, JSON.stringify(storedValue));
     }
   }, [key, initialValue]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   return [storedValue, setValue];
 }

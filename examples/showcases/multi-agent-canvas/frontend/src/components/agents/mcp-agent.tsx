@@ -1,9 +1,11 @@
-import React, { FC, useState, useEffect, useRef } from "react";
+import type { FC} from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { AvailableAgents } from "@/lib/available-agents";
 import { useCoAgent, useCoAgentStateRender } from "@copilotkit/react-core";
 import { CheckCircleIcon } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { ServerConfig, MCP_STORAGE_KEY } from "@/lib/mcp-config-types";
+import type { ServerConfig} from "@/lib/mcp-config-types";
+import { MCP_STORAGE_KEY } from "@/lib/mcp-config-types";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 
 export type MCPAgentState = {
@@ -126,10 +128,10 @@ export const MCPAgent: FC = () => {
     return (
       <div className="flex flex-col gap-4 h-full z-[999]">
         <div className="animate-pulse p-6 bg-white rounded-lg shadow-sm">
-          <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-5/6 mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-4/6 mb-2"></div>
+          <div className="h-6 bg-gray-200 rounded w-1/3 mb-4" />
+          <div className="h-4 bg-gray-200 rounded w-5/6 mb-2" />
+          <div className="h-4 bg-gray-200 rounded w-full mb-2" />
+          <div className="h-4 bg-gray-200 rounded w-4/6 mb-2" />
         </div>
       </div>
     );

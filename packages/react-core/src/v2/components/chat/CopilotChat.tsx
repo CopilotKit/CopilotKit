@@ -1,11 +1,13 @@
 import { useAgent } from "../../hooks/use-agent";
 import { useAttachments } from "../../hooks/use-attachments";
 import { useSuggestions } from "../../hooks/use-suggestions";
-import { CopilotChatView, CopilotChatViewProps } from "./CopilotChatView";
-import { CopilotChatInputMode } from "./CopilotChatInput";
+import type { CopilotChatViewProps } from "./CopilotChatView";
+import { CopilotChatView } from "./CopilotChatView";
+import type { CopilotChatInputMode } from "./CopilotChatInput";
+import type {
+  CopilotChatLabels} from "../../providers/CopilotChatConfigurationProvider";
 import {
   CopilotChatConfigurationProvider,
-  CopilotChatLabels,
   useCopilotChatConfiguration,
 } from "../../providers/CopilotChatConfigurationProvider";
 import {
@@ -14,7 +16,7 @@ import {
   TranscriptionErrorCode,
 } from "@copilotkit/shared";
 import type { AttachmentsConfig, InputContent } from "@copilotkit/shared";
-import { Suggestion, CopilotKitCoreErrorCode } from "@copilotkit/core";
+import type { Suggestion, CopilotKitCoreErrorCode } from "@copilotkit/core";
 import React, {
   useCallback,
   useEffect,
@@ -27,8 +29,10 @@ import {
   useLicenseContext,
 } from "../../providers/CopilotKitProvider";
 import { InlineFeatureWarning } from "../../components/license-warning-banner";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
-import { renderSlot, useShallowStableRef, SlotValue } from "../../lib/slots";
+import type { AbstractAgent} from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
+import type { SlotValue } from "../../lib/slots";
+import { renderSlot, useShallowStableRef } from "../../lib/slots";
 import {
   transcribeAudio,
   TranscriptionError,
@@ -102,7 +106,7 @@ export function CopilotChat({
     [threadId, existingConfig?.threadId],
   );
 
-  const { agent } = useAgent({
+  const { agent: chatAgent } = useAgent({
     agentId: resolvedAgentId,
     threadId: resolvedThreadId,
     throttleMs,
@@ -199,13 +203,13 @@ export function CopilotChat({
     // in its fetch config. Unlike runAgent(), connectAgent() does NOT create a new
     // AbortController automatically, so we must set one before connecting.
     const connectAbortController = new AbortController();
-    if (agent instanceof HttpAgent) {
-      agent.abortController = connectAbortController;
+    if (chatAgent instanceof HttpAgent) {
+      chatAgent.abortController = connectAbortController;
     }
 
-    const connect = async (agent: AbstractAgent) => {
+    const connect = async (agentToConnect: AbstractAgent) => {
       try {
-        await copilotkit.connectAgent({ agent });
+        await copilotkit.connectAgent({ agent: agentToConnect });
       } catch (error) {
         // Ignore errors from aborted connections (e.g., React StrictMode cleanup)
         if (detached) return;
@@ -214,7 +218,7 @@ export function CopilotChat({
         console.error("CopilotChat: connectAgent failed", error);
       }
     };
-    connect(agent);
+    connect(chatAgent);
     return () => {
       // Abort the HTTP request and detach the active run.
       // This is critical for React StrictMode which unmounts+remounts in dev,
@@ -225,11 +229,11 @@ export function CopilotChat({
       // AbortError" in browser devtools. detachActiveRun() itself does not reject,
       // but without an attached handler V8 flags the promise chain as unhandled
       // when the abort signal propagates through connected promises internally.
-      void agent.detachActiveRun().catch(() => {});
+      void chatAgent.detachActiveRun().catch(() => {});
     };
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedThreadId, agent, resolvedAgentId]);
+  }, [resolvedThreadId, chatAgent, resolvedAgentId]);
 
   const onSubmitInput = useCallback(
     async (value: string) => {
@@ -261,13 +265,13 @@ export function CopilotChat({
             },
           } as InputContent);
         }
-        agent.addMessage({
+        chatAgent.addMessage({
           id: randomUUID(),
           role: "user",
           content: contentParts,
         });
       } else {
-        agent.addMessage({
+        chatAgent.addMessage({
           id: randomUUID(),
           role: "user",
           content: value,
@@ -277,26 +281,26 @@ export function CopilotChat({
       // Clear input after submitting
       setInputValue("");
       try {
-        await copilotkit.runAgent({ agent });
+        await copilotkit.runAgent({ agent: chatAgent });
       } catch (error) {
         console.error("CopilotChat: runAgent failed", error);
       }
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent, selectedAttachments, consumeAttachments],
+    [chatAgent, selectedAttachments, consumeAttachments],
   );
 
   const handleSelectSuggestion = useCallback(
     async (suggestion: Suggestion) => {
-      agent.addMessage({
+      chatAgent.addMessage({
         id: randomUUID(),
         role: "user",
         content: suggestion.message,
       });
 
       try {
-        await copilotkit.runAgent({ agent });
+        await copilotkit.runAgent({ agent: chatAgent });
       } catch (error) {
         console.error(
           "CopilotChat: runAgent failed after selecting suggestion",
@@ -305,22 +309,22 @@ export function CopilotChat({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent],
+    [chatAgent],
   );
 
   const stopCurrentRun = useCallback(() => {
     try {
-      copilotkit.stopAgent({ agent });
+      copilotkit.stopAgent({ agent: chatAgent });
     } catch (error) {
       console.error("CopilotChat: stopAgent failed", error);
       try {
-        agent.abortRun();
+        chatAgent.abortRun();
       } catch (abortError) {
         console.error("CopilotChat: abortRun fallback failed", abortError);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent]);
+  }, [chatAgent]);
 
   // Transcription handlers
   const handleStartTranscribe = useCallback(() => {
@@ -437,13 +441,13 @@ export function CopilotChat({
     setTimeout(() => {
       fileInputRef.current?.click();
     }, 100);
-  }, []);
+  }, [fileInputRef]);
 
   // Use shallow spread instead of ts-deepmerge. ts-deepmerge deep-clones plain
   // objects even from a single source, which would defeat the reference
   // stability we just established for stableMessageView and other slot values.
   const mergedProps: Partial<CopilotChatViewProps> = {
-    isRunning: agent.isRunning,
+    isRunning: chatAgent.isRunning,
     suggestions: autoSuggestions,
     onSelectSuggestion: handleSelectSuggestion,
     suggestionView: stableSuggestionView,
@@ -452,8 +456,8 @@ export function CopilotChat({
   if (stableMessageView !== undefined)
     mergedProps.messageView = stableMessageView;
 
-  const hasMessages = agent.messages.length > 0;
-  const shouldAllowStop = agent.isRunning && hasMessages;
+  const hasMessages = chatAgent.messages.length > 0;
+  const shouldAllowStop = chatAgent.isRunning && hasMessages;
   const effectiveStopHandler = shouldAllowStop
     ? (providedStopHandler ?? stopCurrentRun)
     : providedStopHandler;
@@ -472,7 +476,7 @@ export function CopilotChat({
   //   - message id, role, content length (text streaming)
   //   - content part count (multimodal additions)
   //   - tool call ids + argument lengths (tool call streaming)
-  const messagesMemoKey = agent.messages
+  const messagesMemoKey = chatAgent.messages
     .map((m) => {
       const contentKey =
         typeof m.content === "string"
@@ -492,7 +496,7 @@ export function CopilotChat({
     })
     .join(",");
   const messages = useMemo(
-    () => [...agent.messages],
+    () => [...chatAgent.messages],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [messagesMemoKey],
   );

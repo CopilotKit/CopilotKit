@@ -1,4 +1,4 @@
-import { AgentState } from "@/lib/state";
+import type { AgentState } from "@/lib/state";
 
 interface TeamSectionProps {
   state: AgentState;
@@ -19,12 +19,13 @@ export function TeamSection({ state }: TeamSectionProps) {
           >
             <div className="flex items-center gap-3">
               <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={user.image}
                   alt={user.name}
                   className="w-12 h-12 rounded-full object-cover border-2 border-white/20"
                 />
-                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
+                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-white text-sm truncate">

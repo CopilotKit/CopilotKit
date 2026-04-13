@@ -1,24 +1,17 @@
-import {
-  ActionRenderProps,
-  ActionRenderPropsWait,
-  FrontendAction,
-} from "../types";
+import type { ActionRenderPropsWait, FrontendAction } from "../types";
+import type {
+  MappedParameterTypes,
+  Parameter} from "@copilotkit/shared";
 import {
   CopilotKitError,
   CopilotKitErrorCode,
-  MappedParameterTypes,
-  Parameter,
   getZodParameters,
   parseJson,
 } from "@copilotkit/shared";
 import { useHumanInTheLoop as useHumanInTheLoopVNext } from "../v2";
 import { ToolCallStatus } from "@copilotkit/core";
-import React, {
-  ComponentType,
-  FunctionComponent,
-  useEffect,
-  useRef,
-} from "react";
+import type { FunctionComponent} from "react";
+import React, { useEffect, useRef } from "react";
 
 type HumanInTheLoopOptions = Parameters<typeof useHumanInTheLoopVNext>[0];
 type HumanInTheLoopRender = HumanInTheLoopOptions["render"];
@@ -69,6 +62,9 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
   const { name, description, parameters, followUp } = toolRest;
   const zodParameters = getZodParameters(parameters);
   const renderRef = useRef<HitlRenderer | null>(null);
+
+  // Serialize caller-provided dependencies so the dependency array is statically analyzable.
+  const depsKey = JSON.stringify(dependencies ?? []);
 
   useEffect(() => {
     renderRef.current = (args: HitlRendererArgs): React.ReactElement | null => {
@@ -124,7 +120,7 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
 
       return rendered ?? null;
     };
-  }, [render, ...(dependencies ?? [])]);
+  }, [render, depsKey]);
 
   useHumanInTheLoopVNext({
     name,

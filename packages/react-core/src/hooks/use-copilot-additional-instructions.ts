@@ -73,6 +73,9 @@ export function useCopilotAdditionalInstructions(
 ) {
   const { setAdditionalInstructions } = useCopilotContext();
 
+  // Serialize caller-provided dependencies so the dependency array is statically analyzable.
+  const depsKey = JSON.stringify(dependencies || []);
+
   useEffect(() => {
     if (available === "disabled") return;
 
@@ -89,10 +92,5 @@ export function useCopilotAdditionalInstructions(
           ) || [],
       );
     };
-  }, [
-    available,
-    instructions,
-    setAdditionalInstructions,
-    ...(dependencies || []),
-  ]);
+  }, [available, instructions, setAdditionalInstructions, depsKey]);
 }

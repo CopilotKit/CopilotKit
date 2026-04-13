@@ -1,13 +1,13 @@
-import { type Parameter, getZodParameters } from "@copilotkit/shared";
+import { getZodParameters } from '@copilotkit/shared';
+import type { Parameter } from '@copilotkit/shared';
 import { parseJson } from "@copilotkit/shared";
 import { defineToolCallRenderer, useCopilotKit } from "../v2";
 import type React from "react";
 import { useEffect, useRef } from "react";
-import {
-  type ActionRenderProps,
-  type ActionRenderPropsNoArgs,
-  ActionRenderPropsWait,
-  type FrontendAction,
+import type {
+  ActionRenderProps,
+  ActionRenderPropsNoArgs,
+  FrontendAction,
 } from "../types";
 
 type ToolCallRendererDefinition = Parameters<typeof defineToolCallRenderer>[0];
@@ -30,6 +30,9 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
 
   // Track whether we've already added this renderer to avoid duplicates
   const hasAddedRef = useRef(false);
+
+  // Serialize caller-provided dependencies so the dependency array is statically analyzable.
+  const depsKey = JSON.stringify(dependencies ?? []);
 
   useEffect(() => {
     const { name, parameters, render } = tool;
@@ -85,5 +88,5 @@ export function useRenderToolCall<const T extends Parameter[] | [] = []>(
         hasAddedRef.current = false;
       }
     };
-  }, [tool, ...(dependencies ?? [])]);
+  }, [tool, copilotkit.renderToolCalls, depsKey]);
 }

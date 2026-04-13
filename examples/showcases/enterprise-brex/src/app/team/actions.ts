@@ -1,5 +1,18 @@
-import { ExpenseRole, Member, MemberRole } from "@/app/api/v1/data";
+import type { ExpenseRole, Member, MemberRole } from "@/app/api/v1/data";
 import { useEffect, useState } from "react";
+
+async function removeMember(id: string) {
+  try {
+    const response = await fetch(`/api/v1/users/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      throw new Error("Network response was not ok");
+    }
+  } catch (error) {
+    console.error("There was a problem with the fetch operation:", error);
+  }
+}
 
 export default function useTeam() {
   const [team, setTeam] = useState<Member[]>([]);
@@ -17,23 +30,10 @@ export default function useTeam() {
     }
   };
 
-  const removeMember = async (id: string) => {
-    try {
-      const response = await fetch(`/api/v1/users/${id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        throw new Error("Network response was not ok");
-      }
-    } catch (error) {
-      console.error("There was a problem with the fetch operation:", error);
-    }
-  };
-
   const inviteMember = async (
     email: string,
     role: MemberRole,
-    team: ExpenseRole,
+    teamRole: ExpenseRole,
   ) => {
     try {
       const response = await fetch(`/api/v1/users`, {
@@ -41,7 +41,7 @@ export default function useTeam() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, role, team }),
+        body: JSON.stringify({ email, role, team: teamRole }),
       });
       if (!response.ok) {
         throw new Error("Network response was not ok");
@@ -72,14 +72,14 @@ export default function useTeam() {
     }
   };
 
-  const changeMemberTeam = async (id: string, team: ExpenseRole) => {
+  const changeMemberTeam = async (id: string, teamRole: ExpenseRole) => {
     try {
       const response = await fetch(`/api/v1/users/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ team }),
+        body: JSON.stringify({ team: teamRole }),
       });
       if (!response.ok) {
         throw new Error("Network response was not ok");

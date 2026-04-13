@@ -1,6 +1,6 @@
 import { Analytics } from "@segment/analytics-node";
 import { PostHog } from "posthog-node";
-import { AnalyticsEvents } from "./events.js";
+import type { AnalyticsEvents } from "./events.js";
 import Conf from "conf";
 
 export class AnalyticsService {
@@ -70,9 +70,9 @@ export class AnalyticsService {
   private getAnonymousId(): string {
     const anonymousId = this.config.get("anonymousId");
     if (!anonymousId) {
-      const anonymousId = crypto.randomUUID();
-      this.config.set("anonymousId", anonymousId);
-      return anonymousId;
+      const newAnonymousId = crypto.randomUUID();
+      this.config.set("anonymousId", newAnonymousId);
+      return newAnonymousId;
     }
 
     return anonymousId as string;
@@ -108,7 +108,7 @@ export class AnalyticsService {
       },
     };
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _reject) => {
       this.segment!.track(payload, (err) => {
         if (err) {
           // Resolve anyway

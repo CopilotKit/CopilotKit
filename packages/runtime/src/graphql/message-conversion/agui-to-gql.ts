@@ -1,6 +1,6 @@
 import * as gql from "../types/converted/index";
-import { MessageRole } from "../types/enums";
-import * as agui from "@copilotkit/shared"; // named agui for clarity, but this only includes agui message types
+import type { MessageRole } from "../types/enums";
+import type * as agui from "@copilotkit/shared"; // named agui for clarity, but this only includes agui message types
 
 // Helper function to extract agent name from message
 function extractAgentName(message: agui.Message): string {
@@ -232,7 +232,7 @@ export function aguiToolCallToGQLActionExecution(
     // Expected case: arguments is a JSON string
     try {
       argumentsObj = JSON.parse(toolCall.function.arguments);
-    } catch (error) {
+    } catch {
       console.warn(
         `[CopilotKit] Failed to parse tool arguments, falling back to empty object`,
       );

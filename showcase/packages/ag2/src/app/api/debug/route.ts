@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest} from "next/server";
+import { NextResponse } from "next/server";
 
 // Request log (in-memory ring buffer, last 50 requests)
 const requestLog: Array<{
@@ -10,7 +11,7 @@ const requestLog: Array<{
 }> = [];
 const MAX_LOG_SIZE = 50;
 
-function logRequest(
+function _logRequest(
   method: string,
   path: string,
   status: number,

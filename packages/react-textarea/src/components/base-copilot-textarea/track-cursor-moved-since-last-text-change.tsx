@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { BaseSelection } from "slate";
+import type { BaseSelection } from "slate";
 import { useSlateSelector } from "slate-react";
 import { Range } from "slate";
 import { editorToText } from "../../lib/editor-to-text";
@@ -10,6 +10,7 @@ interface TrackerTextEditedSinceLastCursorMovementProps {
 export function TrackerTextEditedSinceLastCursorMovement(
   props: TrackerTextEditedSinceLastCursorMovementProps,
 ) {
+  const { setCursorMovedSinceLastTextChange } = props;
   const cursorState: RelevantEditorState = useSlateSelector((state) => ({
     selection: state.selection,
     text: editorToText(state),
@@ -23,9 +24,9 @@ export function TrackerTextEditedSinceLastCursorMovement(
     }
 
     if (cursorChangedWithoutTextChanged(previousState, cursorState)) {
-      props.setCursorMovedSinceLastTextChange(true);
+      setCursorMovedSinceLastTextChange(true);
     }
-  }, [props.setCursorMovedSinceLastTextChange, cursorState]);
+  }, [setCursorMovedSinceLastTextChange, cursorState, previousState]);
 
   return <></>;
 }

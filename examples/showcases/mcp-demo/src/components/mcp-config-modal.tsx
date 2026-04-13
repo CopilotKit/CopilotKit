@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef, useContext } from "react";
-import { useCoAgent, useCopilotChat } from "@copilotkit/react-core";
+import { useCopilotChat } from "@copilotkit/react-core";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import {
+import type {
   ConnectionType,
-  ServerConfig,
+  ServerConfig} from "@/lib/mcp-config-types";
+import {
   MCP_STORAGE_KEY,
-  MCPConfig,
 } from "@/lib/mcp-config-types";
 import { X, Plus, Server, Globe, Trash2 } from "lucide-react";
 import { ServerConfigsContext } from "@/providers/Providers";
@@ -43,7 +43,7 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
   const configsRef = useRef<Record<string, ServerConfig>>({});
 
   // Use localStorage hook for persistent storage
-  const [savedConfigs, setSavedConfigs] = useLocalStorage<
+  const [savedConfigs, _setSavedConfigs] = useLocalStorage<
     Record<string, ServerConfig>
   >(MCP_STORAGE_KEY, {});
   // console.log(savedConfigs, "savedConfigs");
@@ -58,7 +58,7 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
   const [configs, setConfigs] = useState<Config[]>(con?.config || []);
   const [mcpConfig, setMcpConfig] = useLocalStorage<any>("mcpConfig", []);
   const [serverName, setServerName] = useState("");
-  const [connectionType, setConnectionType] = useState<ConnectionType>("sse");
+  const [connectionType, _setConnectionType] = useState<ConnectionType>("sse");
   const [command, setCommand] = useState("");
   const [args, setArgs] = useState("");
   const [url, setUrl] = useState("");
@@ -73,12 +73,14 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
   const { setMcpServers } = useCopilotChat();
 
   // Set loading to false when state is loaded
+  /* eslint-disable react-hooks/exhaustive-deps -- cleanup intentionally captures configs at unmount time */
   useEffect(() => {
     setIsLoading(false);
     return () => {
       setMcpConfig(configs);
     };
   }, []);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const addConfig = () => {
     if (!serverName) return;

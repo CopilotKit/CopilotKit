@@ -1,4 +1,4 @@
-import { AgentState } from "@/lib/types";
+import type { AgentState } from "@/lib/types";
 
 export interface ProverbsCardProps {
   state: AgentState;

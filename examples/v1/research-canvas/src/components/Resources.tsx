@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
-import { Resource } from "@/lib/types";
+import type { Resource } from "@/lib/types";
 import { truncateUrl } from "@/lib/utils";
 
 type ResourcesProps = {
@@ -70,6 +70,7 @@ export function Resources({
                 >
                   {resource.description && (
                     <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={`https://www.google.com/s2/favicons?domain=${resource.url}`}
                         alt="favicon"

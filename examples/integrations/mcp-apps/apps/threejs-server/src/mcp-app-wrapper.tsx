@@ -57,22 +57,22 @@ function McpAppWrapper() {
   const { app, error } = useApp({
     appInfo: { name: "Three.js Widget", version: "1.0.0" },
     capabilities: {},
-    onAppCreated: (app) => {
+    onAppCreated: (createdApp) => {
       // Complete tool input (streaming finished)
-      app.ontoolinput = (params) => {
+      createdApp.ontoolinput = (params) => {
         setToolInputs(params.arguments as Record<string, unknown>);
         setToolInputsPartial(null);
       };
       // Partial tool input (streaming in progress)
-      app.ontoolinputpartial = (params) => {
+      createdApp.ontoolinputpartial = (params) => {
         setToolInputsPartial(params.arguments as Record<string, unknown>);
       };
       // Tool execution result
-      app.ontoolresult = (params) => {
+      createdApp.ontoolresult = (params) => {
         setToolResult(params as CallToolResult);
       };
       // Host context changes (theme, dimensions, etc.)
-      app.onhostcontextchanged = (params) => {
+      createdApp.onhostcontextchanged = (params) => {
         setHostContext((prev) => ({ ...prev, ...params }));
       };
     },

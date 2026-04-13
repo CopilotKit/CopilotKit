@@ -16,7 +16,7 @@ interface ToolLogsProps {
 export function ToolLogs({ logs }: ToolLogsProps) {
   useEffect(() => {
     console.log(logs, "logs");
-  }, []);
+  }, [logs]);
   return (
     <div className="flex flex-col gap-2 p-2">
       {logs.map((log) => (
@@ -32,8 +32,8 @@ export function ToolLogs({ logs }: ToolLogsProps) {
         >
           {log.status === "processing" ? (
             <span className="relative flex h-4 w-4">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-4 w-4 bg-yellow-400"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-4 w-4 bg-yellow-400" />
             </span>
           ) : (
             <Check size={18} className="text-green-600" />

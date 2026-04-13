@@ -1,30 +1,26 @@
-import {
+import type {
   CopilotCloudConfig,
   FunctionCallHandler,
   CopilotErrorHandler,
   CopilotKitError,
 } from "@copilotkit/shared";
-import {
+import type {
   ActionRenderProps,
   CatchAllActionRenderProps,
   FrontendAction,
 } from "../types/frontend-action";
 import React from "react";
-import { TreeNodeId, Tree } from "../hooks/use-tree";
-import { DocumentPointer } from "../types";
-import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
-import {
-  CoAgentStateRender,
-  CoAgentStateRenderProps,
-} from "../types/coagent-action";
-import { CoagentState } from "../types/coagent-state";
-import {
-  CopilotRuntimeClient,
+import type { TreeNodeId, Tree } from "../hooks/use-tree";
+import type { DocumentPointer } from "../types";
+import type { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
+import type { CoAgentStateRenderProps } from "../types/coagent-action";
+import type { CoagentState } from "../types/coagent-state";
+import type {
   ExtensionsInput,
   ForwardedParametersInput,
 } from "@copilotkit/runtime-client-gql";
-import { Agent } from "@copilotkit/runtime-client-gql";
-import {
+import type { Agent } from "@copilotkit/runtime-client-gql";
+import type {
   LangGraphInterruptRender,
   LangGraphInterruptActionSetter,
   QueuedInterruptEvent,
@@ -275,7 +271,7 @@ const emptyCopilotContext: CopilotContextParams = {
   removeRegisteredAction: () => {},
 
   chatComponentsCache: { current: { actions: {}, coAgentStateRenders: {} } },
-  getContextString: (documents: DocumentPointer[], categories: string[]) =>
+  getContextString: (_documents: DocumentPointer[], _categories: string[]) =>
     returnAndThrowInDebug(""),
   addContext: () => "",
   removeContext: () => {},
@@ -292,7 +288,7 @@ const emptyCopilotContext: CopilotContextParams = {
   additionalInstructions: [],
   setAdditionalInstructions: () => returnAndThrowInDebug([]),
 
-  getDocumentsContext: (categories: string[]) => returnAndThrowInDebug([]),
+  getDocumentsContext: (_categories: string[]) => returnAndThrowInDebug([]),
   addDocumentContext: () => returnAndThrowInDebug(""),
   removeDocumentContext: () => {},
 

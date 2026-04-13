@@ -1,4 +1,4 @@
-import { Config, Flags, Args } from "@oclif/core";
+import { Flags, Args } from "@oclif/core";
 import inquirer from "inquirer";
 import chalk from "chalk";
 import fs from "fs-extra";
@@ -7,7 +7,8 @@ import { promisify } from "util";
 import { pipeline } from "stream";
 import { createWriteStream } from "fs";
 import { extract } from "tar";
-import ora, { Ora } from "ora";
+import type { Ora } from "ora";
+import ora from "ora";
 
 import { BaseCommand } from "./base-command.js";
 import {
@@ -190,10 +191,6 @@ export default class Create extends BaseCommand {
       required: false,
     }),
   };
-
-  constructor(argv: string[], config: Config) {
-    super(argv, config);
-  }
 
   async run() {
     const { args, flags } = await this.parse(Create);

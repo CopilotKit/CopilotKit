@@ -1,14 +1,15 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
-import { screen, fireEvent, waitFor } from "@testing-library/react";
+import { fireEvent, waitFor } from "@testing-library/react";
 import {
   MockStepwiseAgent,
   renderWithCopilotKit,
 } from "../../../__tests__/utils/test-helpers";
 import { CopilotChat } from "../CopilotChat";
 import type { AttachmentUploadError } from "@copilotkit/shared";
-import { type BaseEvent, type RunAgentInput } from "@ag-ui/client";
-import { Observable, EMPTY } from "rxjs";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { Observable} from "rxjs";
+import { EMPTY } from "rxjs";
 
 class NoopAgent extends MockStepwiseAgent {
   run(_input: RunAgentInput): Observable<BaseEvent> {

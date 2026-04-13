@@ -1,28 +1,28 @@
+import type {
+  OnDestroy,
+  OnInit} from "@angular/core";
 import {
   Component,
   ChangeDetectionStrategy,
   computed,
   inject,
   input,
-  signal,
-  OnDestroy,
-  OnInit,
+  signal
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
+import type {
+  HumanInTheLoopToolCall,
+  HumanInTheLoopToolRenderer} from "@copilotkit/angular";
 import {
   connectAgentContext,
   CopilotKit,
-  HumanInTheLoopToolCall,
-  HumanInTheLoopToolRenderer,
   injectAgentStore,
   registerHumanInTheLoop,
 } from "@copilotkit/angular";
 import { RenderToolCalls } from "@copilotkit/angular";
-import {
-  WEB_INSPECTOR_TAG,
-  type WebInspectorElement,
-} from "@copilotkit/web-inspector";
+import { WEB_INSPECTOR_TAG } from '@copilotkit/web-inspector';
+import type { WebInspectorElement } from '@copilotkit/web-inspector';
 import { z } from "zod";
 
 @Component({

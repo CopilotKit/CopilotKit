@@ -18,7 +18,7 @@ import type { LanguageModel } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { Groq } from "groq-sdk";
 import type { ChatCompletionMessageParam } from "groq-sdk/resources/chat";
-import {
+import type {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
@@ -105,7 +105,7 @@ export class GroqAdapter implements CopilotServiceAdapter {
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     const {
-      threadId,
+      threadId: _threadId,
       model = this.model,
       messages,
       actions,

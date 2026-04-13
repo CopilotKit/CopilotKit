@@ -1,11 +1,10 @@
-import { prData } from "@/lib/data";
 import {
   CopilotRuntime,
   OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 const serviceAdapter = new OpenAIAdapter();
 

@@ -1,4 +1,5 @@
-import { inject, Injectable, WritableSignal } from "@angular/core";
+import type { WritableSignal } from "@angular/core";
+import { inject, Injectable } from "@angular/core";
 
 @Injectable()
 export abstract class ChatState {

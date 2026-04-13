@@ -1,21 +1,22 @@
-import {
-  CopilotRuntimeClient,
+import type {
   CopilotRuntimeClientOptions,
-  GraphQLError,
+  GraphQLError} from "@copilotkit/runtime-client-gql";
+import {
+  CopilotRuntimeClient
 } from "@copilotkit/runtime-client-gql";
 import { useToast } from "../components/toast/toast-provider";
 import { useMemo, useRef } from "react";
+import type {
+  CopilotErrorHandler,
+  CopilotErrorEvent} from "@copilotkit/shared";
 import {
   ErrorVisibility,
   CopilotKitApiDiscoveryError,
   CopilotKitRemoteEndpointDiscoveryError,
   CopilotKitAgentDiscoveryError,
   CopilotKitError,
-  CopilotKitErrorCode,
-  CopilotErrorHandler,
-  CopilotErrorEvent,
+  CopilotKitErrorCode
 } from "@copilotkit/shared";
-import { shouldShowDevConsole } from "../utils/dev-console";
 
 export interface CopilotRuntimeClientHookOptions extends CopilotRuntimeClientOptions {
   showDevConsole?: boolean;
@@ -26,7 +27,11 @@ export const useCopilotRuntimeClient = (
   options: CopilotRuntimeClientHookOptions,
 ) => {
   const { setBannerError } = useToast();
-  const { showDevConsole, onError, ...runtimeOptions } = options;
+  const {
+    showDevConsole: _showDevConsole,
+    onError,
+    ...runtimeOptions
+  } = options;
 
   // Deduplication state for structured errors
   const lastStructuredErrorRef = useRef<{
@@ -34,8 +39,15 @@ export const useCopilotRuntimeClient = (
     timestamp: number;
   } | null>(null);
 
-  // Helper function to trace UI errors
-  const traceUIError = async (error: CopilotKitError, originalError?: any) => {
+  // Helper function to trace UI errors — stored in a ref to avoid
+  // re-creating the runtime client when traceUIError's closure changes.
+  const traceUIErrorRef = useRef<
+    (error: CopilotKitError, originalError?: any) => Promise<void>
+  >(async () => {});
+  traceUIErrorRef.current = async (
+    error: CopilotKitError,
+    originalError?: any,
+  ) => {
     try {
       const errorEvent: CopilotErrorEvent = {
         type: "error",
@@ -60,8 +72,8 @@ export const useCopilotRuntimeClient = (
         error,
       };
       await onError(errorEvent);
-    } catch (error) {
-      console.error("Error in onError handler:", error);
+    } catch (handlerError) {
+      console.error("Error in onError handler:", handlerError);
     }
   };
 
@@ -103,7 +115,7 @@ export const useCopilotRuntimeClient = (
             if (ckError) {
               setBannerError(ckError);
               // Trace the error
-              traceUIError(ckError, gqlError);
+              traceUIErrorRef.current(ckError, gqlError);
               // TODO: if onError & renderError should work without key, insert here
             } else {
               // Fallback for unstructured errors
@@ -113,7 +125,7 @@ export const useCopilotRuntimeClient = (
               });
               setBannerError(fallbackError);
               // Trace the fallback error
-              traceUIError(fallbackError, gqlError);
+              traceUIErrorRef.current(fallbackError, gqlError);
               // TODO: if onError & renderError should work without key, insert here
             }
           };
@@ -128,7 +140,7 @@ export const useCopilotRuntimeClient = (
           });
           setBannerError(fallbackError);
           // Trace the non-GraphQL error
-          traceUIError(fallbackError, error);
+          traceUIErrorRef.current(fallbackError, error);
           // TODO: if onError & renderError should work without key, insert here
         }
       },
@@ -142,7 +154,7 @@ export const useCopilotRuntimeClient = (
         setBannerError(warningError);
       },
     });
-  }, [runtimeOptions, setBannerError, onError]);
+  }, [runtimeOptions, setBannerError]);
 
   return runtimeClient;
 };

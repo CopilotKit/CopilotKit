@@ -1,5 +1,7 @@
-import { FC, memo, useMemo } from "react";
-import ReactMarkdown, { Options, Components } from "react-markdown";
+import type { FC} from "react";
+import { memo, useMemo } from "react";
+import type { Options, Components } from "react-markdown";
+import ReactMarkdown from "react-markdown";
 import { CodeBlock } from "./CodeBlock";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -19,7 +21,7 @@ const defaultComponents: Components = {
     );
   },
   // @ts-expect-error -- inline
-  code({ children, className, inline, ...props }) {
+  code({ children, className, inline: _inline, ...props }) {
     if (Array.isArray(children) && children.length) {
       if (children[0] == "▍") {
         return (
@@ -34,7 +36,7 @@ const defaultComponents: Components = {
         );
       }
 
-      children[0] = (children?.[0] as string).replace("`▍`", "▍");
+      children[0] = ((children[0] ?? "") as string).replace("`▍`", "▍");
     }
 
     const match = /language-(\w+)/.exec(className || "");

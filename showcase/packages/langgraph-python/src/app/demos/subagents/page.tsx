@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { CopilotKit, useLangGraphInterrupt } from "@copilotkit/react-core";
 import {
   CopilotSidebar,
@@ -90,6 +90,19 @@ export default function SubagentsDemo() {
   );
 }
 
+function formatAgentName(agentName: string) {
+  switch (agentName) {
+    case "flights":
+      return "Flights Agent";
+    case "hotels":
+      return "Hotels Agent";
+    case "experiences":
+      return "Experiences Agent";
+    default:
+      return `${agentName} Agent`;
+  }
+}
+
 function InterruptHumanInTheLoop<TAgent extends AvailableAgents>({
   event,
   resolve,
@@ -98,19 +111,6 @@ function InterruptHumanInTheLoop<TAgent extends AvailableAgents>({
   resolve: (value: string) => void;
 }) {
   const { message, options, agent, recommendation } = event.value;
-
-  const formatAgentName = (agentName: string) => {
-    switch (agentName) {
-      case "flights":
-        return "Flights Agent";
-      case "hotels":
-        return "Hotels Agent";
-      case "experiences":
-        return "Experiences Agent";
-      default:
-        return `${agentName} Agent`;
-    }
-  };
 
   const handleOptionSelect = (option: Flight | Hotel) => {
     resolve(JSON.stringify(option));
@@ -193,6 +193,10 @@ function TravelPlanner() {
   });
 
   const agentState = agent.state as TravelAgentState | undefined;
+  const agentRef = useRef(agent);
+  agentRef.current = agent;
+  const agentStateRef = useRef(agentState);
+  agentStateRef.current = agentState;
 
   useConfigureSuggestions({
     suggestions: [
@@ -213,8 +217,8 @@ function TravelPlanner() {
   });
 
   useEffect(() => {
-    if (!agentState) {
-      agent.setState(INITIAL_STATE);
+    if (!agentStateRef.current) {
+      agentRef.current.setState(INITIAL_STATE);
     }
   }, []);
 

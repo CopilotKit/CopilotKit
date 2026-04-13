@@ -65,10 +65,14 @@ function DocumentEditor() {
   const isLoading = agent.isRunning;
 
   const wasRunning = useRef(false);
+  const documentRef = useRef(document);
+  documentRef.current = document;
+  const setAgentStateRef = useRef(setAgentState);
+  setAgentStateRef.current = setAgentState;
 
   useEffect(() => {
     if (isLoading) {
-      setCurrentDocument(document);
+      setCurrentDocument(documentRef.current);
     }
   }, [isLoading]);
 
@@ -81,23 +85,23 @@ function DocumentEditor() {
       }
     }
     wasRunning.current = isLoading;
-  }, [isLoading]);
+  }, [isLoading, agentState?.document]);
 
   // Stream updates while loading
   useEffect(() => {
     if (isLoading && agentState?.document) {
       setDocument(agentState.document);
     }
-  }, [agentState?.document]);
+  }, [agentState?.document, isLoading]);
 
   // Sync local edits to agent state
   useEffect(() => {
     setPlaceholderVisible(document.length === 0);
     if (!isLoading) {
       setCurrentDocument(document);
-      setAgentState({ document });
+      setAgentStateRef.current({ document });
     }
-  }, [document]);
+  }, [document, isLoading]);
 
   // Human-in-the-loop for confirming changes
   useHumanInTheLoop(
@@ -176,7 +180,7 @@ interface ConfirmChangesProps {
 }
 
 function ConfirmChanges({
-  args,
+  args: _args,
   respond,
   status,
   onReject,

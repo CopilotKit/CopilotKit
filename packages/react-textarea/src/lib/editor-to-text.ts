@@ -1,7 +1,8 @@
-import { BaseEditor, Descendant, Element } from "slate";
-import { HistoryEditor } from "slate-history";
-import { ReactEditor } from "slate-react";
-import { SuggestionAwareText } from "../types/base/custom-editor";
+import type { BaseEditor, Descendant} from "slate";
+import { Element } from "slate";
+import type { HistoryEditor } from "slate-history";
+import type { ReactEditor } from "slate-react";
+import type { SuggestionAwareText } from "../types/base/custom-editor";
 
 function nodeChildrenToTextComponents(
   editor: BaseEditor & ReactEditor & HistoryEditor,

@@ -15,7 +15,7 @@ describe("defineToolCallRenderer", () => {
       // can be used together in the renderToolCalls array
       const WildCardRender = defineToolCallRenderer({
         name: "*",
-        render: ({ args, result, name, status }) => {
+        render: ({ args: _args, result: _result, name, status: _status }) => {
           return <div>Wildcard: {name}</div>;
         },
       });
@@ -25,7 +25,7 @@ describe("defineToolCallRenderer", () => {
         args: z.object({
           location: z.string(),
         }),
-        render: ({ args, result, name, status }) => {
+        render: ({ args, result: _result, name: _name, status: _status }) => {
           return <div>Weather in {args.location}</div>;
         },
       });
@@ -48,7 +48,7 @@ describe("defineToolCallRenderer", () => {
       // This is the exact scenario the user reported
       const WildCardRender = defineToolCallRenderer({
         name: "*",
-        render: ({ args, result, name, status }) => {
+        render: ({ args: _args, result: _result, name, status: _status }) => {
           return <div data-testid="wildcard">TODO: {name}</div>;
         },
       });
@@ -58,7 +58,7 @@ describe("defineToolCallRenderer", () => {
         args: z.object({
           location: z.string(),
         }),
-        render: ({ args, result, name, status }) => {
+        render: ({ args, result: _result, name: _name, status: _status }) => {
           return <div data-testid="weather">Weather for {args.location}</div>;
         },
       });
@@ -69,7 +69,7 @@ describe("defineToolCallRenderer", () => {
 
         // In real usage, this would be passed to CopilotKitProvider
         // We're just checking that the type is compatible
-        const providerProps: {
+        const _providerProps: {
           renderToolCalls?: ReactToolCallRenderer<any>[];
         } = {
           renderToolCalls: renderToolCalls,
@@ -86,7 +86,12 @@ describe("defineToolCallRenderer", () => {
       // Exact replication of the user's code that was causing type errors
       const WildCardRender = defineToolCallRenderer({
         name: "*",
-        render: ({ args, result, name, status }) => {
+        render: ({
+          args: _args,
+          result: _result,
+          name: _name,
+          status: _status,
+        }) => {
           return <div>TODO</div>;
         },
       });
@@ -96,7 +101,12 @@ describe("defineToolCallRenderer", () => {
         args: z.object({
           location: z.string(),
         }),
-        render: ({ args, result, name, status }) => {
+        render: ({
+          args: _args,
+          result: _result,
+          name: _name,
+          status: _status,
+        }) => {
           return <div>TODO</div>;
         },
       });
@@ -135,7 +145,7 @@ describe("defineToolCallRenderer", () => {
           location: z.string(),
           units: z.enum(["celsius", "fahrenheit"]).optional(),
         }),
-        render: ({ args, status, name, result }) => {
+        render: ({ args, status, name: _name, result }) => {
           // Test that types are properly inferred
           if (status === ToolCallStatus.InProgress) {
             // args should be Partial

@@ -24,7 +24,7 @@ export function PropertyReference({
   collapsable = false,
 }: Props) {
   const [isCollapsed, setIsCollapsed] = React.useState(
-    collapsable ? true : false,
+    !!collapsable,
   );
 
   const enhancedChildren = React.Children.map(children, (child) => {

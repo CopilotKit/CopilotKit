@@ -1,6 +1,6 @@
-import { BaseEditor } from "slate";
-import { ReactEditor } from "slate-react";
-import { HistoryEditor } from "slate-history";
+import type { BaseEditor } from "slate";
+import type { ReactEditor } from "slate-react";
+import type { HistoryEditor } from "slate-history";
 
 export type CustomEditor = BaseEditor & ReactEditor & HistoryEditor;
 

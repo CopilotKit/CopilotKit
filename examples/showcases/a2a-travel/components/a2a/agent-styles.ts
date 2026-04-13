@@ -8,7 +8,7 @@
  * - Orchestrator: Gray with no specific icon
  */
 
-import { AgentStyle } from "../types";
+import type { AgentStyle } from "../types";
 
 /**
  * Get the styling configuration for an agent based on its name
@@ -80,5 +80,5 @@ export function getAgentStyle(agentName: string): AgentStyle {
  */
 export function truncateTask(text: string, maxLength: number = 50): string {
   if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + "...";
+  return text.slice(0, maxLength) + "...";
 }

@@ -1,4 +1,4 @@
-import { ReferenceDocConfiguration } from "./reference-doc";
+import type { ReferenceDocConfiguration } from "./reference-doc";
 
 export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   /* Runtime */

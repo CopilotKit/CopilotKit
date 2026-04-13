@@ -2,6 +2,14 @@ import { createMiddleware, AIMessage, SystemMessage } from "langchain";
 import type { InteropZodObject } from "@langchain/core/utils/types";
 import * as z from "zod";
 
+// Helper to get message content as string
+const getContentString = (msg: any): string | null => {
+  if (typeof msg.content === "string") return msg.content;
+  if (Array.isArray(msg.content) && msg.content[0]?.text)
+    return msg.content[0].text;
+  return null;
+};
+
 const createAppContextBeforeAgent = (state, runtime) => {
   const messages = state.messages;
 
@@ -29,14 +37,6 @@ const createAppContextBeforeAgent = (state, runtime) => {
       : JSON.stringify(appContext, null, 2);
   const contextMessageContent = `App Context:\n${contextContent}`;
   const contextMessagePrefix = "App Context:\n";
-
-  // Helper to get message content as string
-  const getContentString = (msg: any): string | null => {
-    if (typeof msg.content === "string") return msg.content;
-    if (Array.isArray(msg.content) && msg.content[0]?.text)
-      return msg.content[0].text;
-    return null;
-  };
 
   // Find the first system/developer message (not our context message) to determine
   // where to insert our context message (right after it)

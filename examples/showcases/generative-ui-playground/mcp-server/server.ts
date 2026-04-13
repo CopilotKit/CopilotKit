@@ -10,15 +10,17 @@
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import express, { Request, Response } from "express";
+import type { Request, Response } from "express";
+import express from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import {
+import type {
   CallToolResult,
-  isInitializeRequest,
   ReadResourceResult,
-  Resource,
+  Resource} from "@modelcontextprotocol/sdk/types.js";
+import {
+  isInitializeRequest
 } from "@modelcontextprotocol/sdk/types.js";
 import { InMemoryEventStore } from "@modelcontextprotocol/sdk/examples/shared/inMemoryEventStore.js";
 import cors from "cors";
@@ -43,45 +45,40 @@ import {
 } from "./src/hotels.js";
 
 // Import trading logic
-import {
-  createPortfolio,
-  executeTrade,
-  refreshPrices,
-  getStocks,
-  getPortfolio,
-  type Portfolio,
-  type Sector,
-  type TradeType,
-} from "./src/stocks.js";
+import { createPortfolio, executeTrade, refreshPrices, getStocks } from './src/stocks.js';
+import type { Portfolio, Sector, TradeType } from './src/stocks.js';
 
 // Import kanban logic
+import type {
+  Board} from "./src/kanban.js";
 import {
   createBoard,
   addCard,
   updateCard,
   deleteCard,
-  moveCard,
-  Board,
+  moveCard
 } from "./src/kanban.js";
 
 // Import calculator logic (NEW)
+import type {
+  CalculatorState} from "./src/calculator.js";
 import {
   createCalculator,
   inputCalculator,
   evaluateExpression,
-  clearHistory,
-  CalculatorState,
+  clearHistory
 } from "./src/calculator.js";
 
 // Import todo logic (NEW)
+import type {
+  TodoList} from "./src/todo.js";
 import {
   createTodoList,
   addTodoItem,
   completeTodoItem,
   reopenTodoItem,
   deleteTodoItem,
-  clearCompleted,
-  TodoList,
+  clearCompleted
 } from "./src/todo.js";
 
 // MCP Apps Extension protocol constant
@@ -1534,6 +1531,7 @@ app.use(
 const transports: { [sessionId: string]: StreamableHTTPServerTransport } = {};
 
 // MCP POST handler - main entry point for MCP requests
+// oxlint-disable-next-line no-async-endpoint-handlers -- MCP handler requires async for transport
 const mcpPostHandler = async (req: Request, res: Response) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
@@ -1591,8 +1589,10 @@ const mcpPostHandler = async (req: Request, res: Response) => {
 };
 
 // Routes
+// oxlint-disable-next-line no-async-endpoint-handlers -- MCP handler requires async for transport
 app.post("/mcp", mcpPostHandler);
 
+// oxlint-disable-next-line no-async-endpoint-handlers -- MCP handler requires async for transport
 app.get("/mcp", async (req: Request, res: Response) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
   if (!sessionId || !transports[sessionId]) {
@@ -1603,6 +1603,7 @@ app.get("/mcp", async (req: Request, res: Response) => {
   await transport.handleRequest(req, res);
 });
 
+// oxlint-disable-next-line no-async-endpoint-handlers -- MCP handler requires async for transport
 app.delete("/mcp", async (req: Request, res: Response) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
   if (!sessionId || !transports[sessionId]) {

@@ -204,6 +204,7 @@ export function DemoDrawer({
               className="h-full w-full border-0"
               title={`${demoName} demo`}
               allow="clipboard-read; clipboard-write"
+              // oxlint-disable-next-line eslint-plugin-react(iframe-missing-sandbox)
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             />
           )}

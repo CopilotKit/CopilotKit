@@ -1,17 +1,17 @@
-import {
-  AgentRunner,
+import type {
   AgentRunnerConnectRequest,
   AgentRunnerIsRunningRequest,
-  AgentRunnerRunRequest,
-  type AgentRunnerStopRequest,
-} from "./agent-runner";
-import { Observable, ReplaySubject } from "rxjs";
-import {
+  AgentRunnerRunRequest} from "./agent-runner";
+import { AgentRunner } from './agent-runner';
+import type { AgentRunnerStopRequest } from './agent-runner';
+import type { Observable} from "rxjs";
+import { ReplaySubject } from "rxjs";
+import type {
   AbstractAgent,
   BaseEvent,
+  RunStartedEvent} from "@ag-ui/client";
+import {
   EventType,
-  MessagesSnapshotEvent,
-  RunStartedEvent,
   compactEvents,
 } from "@ag-ui/client";
 import { finalizeRunEvents } from "@copilotkit/shared";

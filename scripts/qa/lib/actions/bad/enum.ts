@@ -19,7 +19,7 @@ useCopilotAction({
         console.log("Two");
         break;
       default:
-        const exhaustiveCheck: never = arg;
+        const _exhaustiveCheck: never = arg;
     }
     console.log("No args action");
   },

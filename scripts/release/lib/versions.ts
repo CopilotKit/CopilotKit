@@ -1,11 +1,7 @@
 import fs from "fs";
 import path from "path";
-import {
-  loadConfig,
-  getScopeConfig,
-  ROOT,
-  type ReleaseScope,
-} from "./config.js";
+import { loadConfig, getScopeConfig, ROOT } from './config.js';
+import type { ReleaseScope } from './config.js';
 
 export type BumpLevel = "patch" | "minor" | "major";
 
@@ -47,7 +43,7 @@ export function getCurrentVersion(scope: ReleaseScope): string {
 
 export function parseSemver(version: string): SemVer {
   const match = version.match(
-    /^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.\-]+))?(?:\+(.+))?$/,
+    /^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.-]+))?(?:\+(.+))?$/,
   );
   if (!match) {
     throw new Error(`Invalid semver: ${version}`);

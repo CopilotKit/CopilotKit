@@ -1,5 +1,5 @@
 import React, { useContext } from "react";
-import { SpreadsheetData } from "../types";
+import type { SpreadsheetData } from "../types";
 import { ThemeContext } from "./ThemeProvider";
 
 interface SidebarProps {

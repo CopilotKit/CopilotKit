@@ -1,4 +1,4 @@
-import {
+import type {
   CopilotIntelligenceRuntimeLike,
   CopilotRuntimeUser,
 } from "../../core/runtime";

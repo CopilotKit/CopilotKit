@@ -1,10 +1,11 @@
+import type {
+  Type} from "@angular/core";
 import {
   Component,
   TemplateRef,
   ContentChild,
   signal,
   computed,
-  Type,
   ChangeDetectionStrategy,
   ViewEncapsulation,
   Optional,
@@ -16,19 +17,19 @@ import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { CopilotChatToolCallsView } from "./copilot-chat-tool-calls-view";
 import type { Message } from "@ag-ui/core";
-import {
-  type AssistantMessage,
-  type CopilotChatAssistantMessageOnThumbsUpProps,
-  type CopilotChatAssistantMessageOnThumbsDownProps,
-  type CopilotChatAssistantMessageOnReadAloudProps,
-  type CopilotChatAssistantMessageOnRegenerateProps,
-  type AssistantMessageMarkdownRendererContext,
-  type AssistantMessageCopyButtonContext,
-  type ThumbsUpButtonContext,
-  type ThumbsDownButtonContext,
-  type ReadAloudButtonContext,
-  type RegenerateButtonContext,
-  type AssistantMessageToolbarContext,
+import type {
+  AssistantMessage,
+  CopilotChatAssistantMessageOnThumbsUpProps,
+  CopilotChatAssistantMessageOnThumbsDownProps,
+  CopilotChatAssistantMessageOnReadAloudProps,
+  CopilotChatAssistantMessageOnRegenerateProps,
+  AssistantMessageMarkdownRendererContext,
+  AssistantMessageCopyButtonContext,
+  ThumbsUpButtonContext,
+  ThumbsDownButtonContext,
+  ReadAloudButtonContext,
+  RegenerateButtonContext,
+  AssistantMessageToolbarContext,
 } from "./copilot-chat-assistant-message.types";
 import { CopilotChatAssistantMessageRenderer } from "./copilot-chat-assistant-message-renderer";
 import {

@@ -1,7 +1,8 @@
-import { LoaderFunctionArgs } from "@remix-run/node";
+import type { LoaderFunctionArgs } from "@remix-run/node";
 import { Link, useLoaderData } from "@remix-run/react";
-import { FunctionComponent } from "react";
-import { getInventory, InventoryRecord } from "~/data/inventoryData";
+import type { FunctionComponent } from "react";
+import type { InventoryRecord } from "~/data/inventoryData";
+import { getInventory } from "~/data/inventoryData";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
@@ -27,6 +28,7 @@ const ItemCard: FunctionComponent<{ item: InventoryRecord }> = ({ item }) => {
   return (
     <Link to={`${item.id}`} className="itemCard">
       <div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           alt={`${item.displayName} avatar`}
           key={item.avatar}

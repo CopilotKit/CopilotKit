@@ -3,9 +3,8 @@ import { Ctx } from "type-graphql";
 import { Query } from "type-graphql";
 import { LoadAgentStateResponse } from "../types/load-agent-state-response.type";
 import type { GraphQLContext } from "../../lib/integrations";
-import { LoadAgentStateInput } from "../inputs/load-agent-state.input";
+import type { LoadAgentStateInput } from "../inputs/load-agent-state.input";
 import { CopilotKitAgentDiscoveryError } from "@copilotkit/shared";
-import { CopilotRuntime } from "../../lib";
 
 @Resolver(() => LoadAgentStateResponse)
 export class StateResolver {

@@ -2,7 +2,6 @@ import type React from "react";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { CopilotKit } from "@copilotkit/react-core";
 import { LayoutProvider } from "./contexts/LayoutContext";
 import Wrapper from "./wrapper";
 

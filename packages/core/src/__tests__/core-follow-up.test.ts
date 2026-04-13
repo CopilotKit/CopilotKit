@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { CopilotKitCore } from "../core";
-import { FrontendTool } from "../types";
+import type { FrontendTool } from "../types";
 import {
   MockAgent,
   createAssistantMessage,

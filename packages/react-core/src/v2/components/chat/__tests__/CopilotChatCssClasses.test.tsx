@@ -9,7 +9,7 @@ import { CopilotChatInput } from "../CopilotChatInput";
 import { CopilotModalHeader } from "../CopilotModalHeader";
 import { CopilotChatToggleButton } from "../CopilotChatToggleButton";
 import { CopilotChatView } from "../CopilotChatView";
-import { AssistantMessage, Message, UserMessage } from "@ag-ui/core";
+import type { AssistantMessage, Message, UserMessage } from "@ag-ui/core";
 
 const TEST_THREAD_ID = "test-thread";
 

@@ -1,4 +1,4 @@
-import { DocumentPointer } from "@copilotkit/react-core";
+import type { DocumentPointer } from "@copilotkit/react-core";
 import { Label } from "../../ui/label";
 import React from "react";
 import Chip from "@mui/material/Chip/Chip.js";
@@ -17,7 +17,7 @@ export const IncludedFilesPreview = ({
     <div className="flex flex-col gap-2 mt-2">
       <Label className="">Included context:</Label>
       <div className="flex flex-wrap gap-2">
-        {includedFiles.map((filePointer, index) => {
+        {includedFiles.map((filePointer, _index) => {
           return (
             <FileChipPreview
               key={`file-${filePointer.sourceApplication}.${filePointer.name}`}
@@ -53,7 +53,7 @@ export const FileChipPreview = ({
           src={filePointer.iconImageUri}
           alt={filePointer.sourceApplication}
           sx={{ backgroundColor: "transparent" }}
-        ></Avatar>
+         />
       }
     />
   );

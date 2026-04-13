@@ -1,8 +1,8 @@
-import { Place, Trip } from "@/lib/types";
+import type { Place, Trip } from "@/lib/types";
 import { PlaceCard } from "@/components/PlaceCard";
 import { X, Save } from "lucide-react";
 import { ActionButtons } from "./ActionButtons";
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import type { RenderFunctionStatus } from "@copilotkit/react-core";
 import { useState } from "react";
 
 export type EditTripsProps = {
@@ -12,6 +12,14 @@ export type EditTripsProps = {
   trips: Trip[];
   selectedTripId: string;
 };
+
+function getDelta(arr1: Place[], arr2: Place[]) {
+  const arr2Ids = new Set(arr2.map((item) => item.id));
+  const arr1Ids = new Set(arr1.map((item) => item.id));
+  const onlyInArr1 = arr1.filter((item) => !arr2Ids.has(item.id));
+  const onlyInArr2 = arr2.filter((item) => !arr1Ids.has(item.id));
+  return [...onlyInArr1, ...onlyInArr2];
+}
 
 export const EditTrips = ({
   args,
@@ -36,13 +44,6 @@ export const EditTrips = ({
     });
   };
 
-  function getDelta(arr1: Place[], arr2: Place[]) {
-    const arr2Ids = new Set(arr2.map((item) => item.id));
-    const arr1Ids = new Set(arr1.map((item) => item.id));
-    const onlyInArr1 = arr1.filter((item) => !arr2Ids.has(item.id));
-    const onlyInArr2 = arr2.filter((item) => !arr1Ids.has(item.id));
-    return [...onlyInArr1, ...onlyInArr2];
-  }
   return (
     <div className="space-y-4 w-full bg-secondary p-6 rounded-lg">
       {Array.isArray(args.trips) &&

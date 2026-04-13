@@ -1,14 +1,16 @@
 "use client";
 
+import type {
+  DocumentPointer} from "@copilotkit/react-core";
 import {
   CopilotKit,
-  DocumentPointer,
   useCopilotReadable,
   useMakeCopilotDocumentReadable,
 } from "@copilotkit/react-core";
+import type {
+  HTMLCopilotTextAreaElement} from "@copilotkit/react-textarea";
 import {
-  CopilotTextarea,
-  HTMLCopilotTextAreaElement,
+  CopilotTextarea
 } from "@copilotkit/react-textarea";
 import { useRef } from "react";
 import { useStateWithLocalStorage } from "../utils";

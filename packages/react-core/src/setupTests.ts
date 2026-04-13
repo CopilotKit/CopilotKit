@@ -1,5 +1,6 @@
 import { vi } from "vitest";
 import { z } from "zod";
+import type * as SharedModule from "@copilotkit/shared";
 
 // Mock modules that cause ES module issues
 vi.mock("@segment/analytics-node", () => ({
@@ -13,7 +14,7 @@ vi.mock("@segment/analytics-node", () => ({
 }));
 
 vi.mock("@copilotkit/shared", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@copilotkit/shared")>();
+  const actual = await importOriginal<typeof SharedModule>();
   return {
     ...actual,
     parseJson: vi.fn((jsonString, defaultValue) => {

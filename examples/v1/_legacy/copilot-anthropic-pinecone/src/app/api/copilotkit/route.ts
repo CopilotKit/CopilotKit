@@ -7,7 +7,7 @@ import {
 import { Pinecone } from "@pinecone-database/pinecone";
 import { posts } from "@/app/lib/data/data";
 
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const PINECONE_API_KEY = process.env.PINECONE_API_KEY;
@@ -132,7 +132,7 @@ const runtime = new CopilotRuntime({
 
           // Format the results in a more structured way for the AI
           const formattedResults =
-            queryResponse?.matches?.map((match, index) => {
+            queryResponse?.matches?.map((match, _index) => {
               return {
                 id: match.id,
                 relevance_score: match.score,

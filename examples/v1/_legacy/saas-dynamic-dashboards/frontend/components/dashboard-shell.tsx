@@ -12,7 +12,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { ModeToggle } from "@/components/mode-toggle";
 import {
   Code2,
   FlaskConical,
@@ -25,18 +24,13 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
 import { useCopilotChat, useCopilotReadable } from "@copilotkit/react-core";
-import {
-  devSuggestions,
-  generalSuggestions,
-  testerPersonaSuggestions,
-} from "@/lib/prompts";
+import { devSuggestions } from "@/lib/prompts";
 import { useSharedContext } from "@/lib/shared-context";
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { useSharedTestsContext } from "@/lib/shared-tests-context";
-import { useEffect } from "react";
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { prData } = useSharedContext();
-  const { testsData } = useSharedTestsContext();
+  const { prData: _prData } = useSharedContext();
+  const { testsData: _testsData } = useSharedTestsContext();
   const pathname = usePathname();
   const { setMessages } = useCopilotChat();
   const routes = [

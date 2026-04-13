@@ -1,23 +1,26 @@
+import type {
+  OnDestroy} from "@angular/core";
 import {
   Directive,
   Input,
   ElementRef,
   HostListener,
-  OnDestroy,
   inject,
   ViewContainerRef,
 } from "@angular/core";
+import type {
+  OverlayRef,
+  ConnectedPosition} from "@angular/cdk/overlay";
 import {
   Overlay,
-  OverlayRef,
-  OverlayPositionBuilder,
-  ConnectedPosition,
+  OverlayPositionBuilder
 } from "@angular/cdk/overlay";
 import { ComponentPortal } from "@angular/cdk/portal";
+import type {
+  ChangeDetectorRef} from "@angular/core";
 import {
   Component,
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
+  ChangeDetectionStrategy
 } from "@angular/core";
 
 @Component({

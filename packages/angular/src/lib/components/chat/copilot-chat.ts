@@ -1,3 +1,5 @@
+import type {
+  Type} from "@angular/core";
 import {
   Component,
   input,
@@ -7,7 +9,6 @@ import {
   effect,
   ChangeDetectorRef,
   Injector,
-  Type,
   computed,
   inject,
 } from "@angular/core";
@@ -15,9 +16,10 @@ import { CommonModule } from "@angular/common";
 import { CopilotChatView } from "./copilot-chat-view";
 
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
-import {
+import type {
   Message,
-  AbstractAgent,
+  AbstractAgent} from "@ag-ui/client";
+import {
   AGUIConnectNotImplementedError,
 } from "@ag-ui/client";
 import { injectAgentStore } from "../../agent";

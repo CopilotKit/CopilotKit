@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import {
-  type Feature,
-  type FeatureCategory,
-  type Integration,
+import type {
+  Feature,
+  FeatureCategory,
+  Integration,
 } from "@/lib/registry";
 
 interface FeatureCatalogProps {

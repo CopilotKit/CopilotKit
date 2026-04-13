@@ -1,4 +1,4 @@
-import { FC } from "react";
+import type { FC } from "react";
 type ResearchLog = {
   message: string;
   done: boolean;

@@ -14,7 +14,7 @@ import chai from "chai";
 import { Config } from "@oclif/core";
 import TunnelCreate from "../../src/commands/tunnel";
 import { TunnelService } from "../../src/services/tunnel.service";
-import { Tunnel } from "localtunnel";
+import type { Tunnel } from "localtunnel";
 
 chai.use(sinonChai);
 
@@ -127,7 +127,7 @@ describe("tunnel", () => {
 
     process.once("mockExit", () => {
       try {
-        expect(mockTunnel.close).to.have.been.called;
+        expect(mockTunnel.close.called).to.equal(true);
         done();
       } catch (error) {
         done(error);

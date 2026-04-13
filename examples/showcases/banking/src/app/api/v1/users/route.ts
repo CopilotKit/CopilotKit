@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { data, generateUniqueId } from "../data";
 
 export const GET = async () => {

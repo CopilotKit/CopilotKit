@@ -3,8 +3,8 @@ import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { z } from "zod";
 import { useFrontendTool } from "../use-frontend-tool";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
-import { ReactFrontendTool } from "../../types";
-import { CopilotKitCoreReact } from "../../lib/react-core";
+import type { ReactFrontendTool } from "../../types";
+import type { CopilotKitCoreReact } from "../../lib/react-core";
 import { renderWithCopilotKit } from "../../__tests__/utils/test-helpers";
 
 /**

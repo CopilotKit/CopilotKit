@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import type { ReactNode } from "react";
+import React, { createContext, useContext, useState } from "react";
 
 // Define the types for our todo items
 export interface SubTask {
@@ -147,9 +148,9 @@ export const TodoProvider: React.FC<{ children: ReactNode }> = ({
         id: Date.now(),
         text: title,
         completed: false,
-        subtasks: subtask.map((subtask) => ({
+        subtasks: subtask.map((st) => ({
           id: Date.now() + Math.random(),
-          text: subtask,
+          text: st,
           completed: false,
         })),
         expanded: false,

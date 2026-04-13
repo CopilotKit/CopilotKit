@@ -2,7 +2,8 @@ import { useCopilotKit } from "../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { useMemo, useEffect, useReducer, useRef } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent} from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 import {
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
@@ -150,9 +151,11 @@ export function useAgent({
 
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
+  const updatesStr = JSON.stringify(updates);
   const updateFlags = useMemo(
     () => updates ?? ALL_UPDATES,
-    [JSON.stringify(updates)],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- use serialized value for stable identity
+    [updatesStr],
   );
 
   // Cache provisional agents to avoid creating new references on every render
@@ -161,6 +164,8 @@ export function useAgent({
   const provisionalAgentCache = useRef<Map<string, ProxiedCopilotRuntimeAgent>>(
     new Map(),
   );
+
+  const headersStr = JSON.stringify(copilotkit.headers);
 
   const agent: AbstractAgent = useMemo(() => {
     // Use a composite key when threadId is provided so that different threads
@@ -271,7 +276,7 @@ export function useAgent({
     copilotkit.runtimeConnectionStatus,
     copilotkit.runtimeUrl,
     copilotkit.runtimeTransport,
-    JSON.stringify(copilotkit.headers),
+    headersStr,
   ]);
 
   useEffect(() => {
@@ -352,7 +357,7 @@ export function useAgent({
       agent.headers = { ...copilotkit.headers };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, JSON.stringify(copilotkit.headers)]);
+  }, [agent, headersStr]);
 
   return {
     agent,

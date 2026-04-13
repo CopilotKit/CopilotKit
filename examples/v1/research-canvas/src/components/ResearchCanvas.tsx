@@ -12,7 +12,7 @@ import { Progress } from "./Progress";
 import { EditResourceDialog } from "./EditResourceDialog";
 import { AddResourceDialog } from "./AddResourceDialog";
 import { Resources } from "./Resources";
-import { AgentState, Resource } from "@/lib/types";
+import type { AgentState, Resource } from "@/lib/types";
 import { useModelSelectorContext } from "@/lib/model-selector-provider";
 
 export function ResearchCanvas() {
@@ -27,11 +27,11 @@ export function ResearchCanvas() {
 
   useCoAgentStateRender({
     name: agent,
-    render: ({ state, nodeName, status }) => {
-      if (!state.logs || state.logs.length === 0) {
+    render: ({ state: renderState, nodeName: _nodeName, status: _status }) => {
+      if (!renderState.logs || renderState.logs.length === 0) {
         return null;
       }
-      return <Progress logs={state.logs} />;
+      return <Progress logs={renderState.logs} />;
     },
   });
 
@@ -84,8 +84,8 @@ export function ResearchCanvas() {
   });
 
   const resources: Resource[] = state.resources || [];
-  const setResources = (resources: Resource[]) => {
-    setState({ ...state, resources });
+  const setResources = (newResources: Resource[]) => {
+    setState({ ...state, resources: newResources });
   };
 
   // const [resources, setResources] = useState<Resource[]>(dummyResources);

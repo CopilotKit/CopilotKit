@@ -2,12 +2,11 @@ import type { Meta, StoryObj } from "@storybook/angular";
 import { moduleMetadata } from "@storybook/angular";
 import { fn } from "@storybook/test";
 import { CommonModule } from "@angular/common";
-import { Component, Input } from "@angular/core";
 import {
   CopilotChatAssistantMessage,
   provideCopilotChatLabels,
 } from "@copilotkit/angular";
-import { AssistantMessage } from "@ag-ui/client";
+import type { AssistantMessage } from "@ag-ui/client";
 
 // Simple default message
 const simpleMessage: AssistantMessage = {
@@ -469,16 +468,16 @@ export const WithToolbarButtons: Story = {
   render: (args) => ({
     props: {
       ...args,
-      onThumbsUp: (event: any) => {
+      onThumbsUp: (_event: any) => {
         alert("Thumbs up clicked!");
       },
-      onThumbsDown: (event: any) => {
+      onThumbsDown: (_event: any) => {
         alert("Thumbs down clicked!");
       },
-      onReadAloud: (event: any) => {
+      onReadAloud: (_event: any) => {
         alert("Read aloud clicked!");
       },
-      onRegenerate: (event: any) => {
+      onRegenerate: (_event: any) => {
         alert("Regenerate clicked!");
       },
     },
@@ -550,13 +549,13 @@ export class ChatComponent {
 };
 
 export const WithAdditionalToolbarItems: Story = {
-  render: (args) => ({
+  render: (_args) => ({
     props: {
       message: simpleMessage,
-      onThumbsUp: (event: any) => console.log("Thumbs up clicked!"),
-      onThumbsDown: (event: any) => console.log("Thumbs down clicked!"),
-      onReadAloud: (event: any) => console.log("Read aloud clicked!"),
-      onRegenerate: (event: any) => console.log("Regenerate clicked!"),
+      onThumbsUp: (_event: any) => console.log("Thumbs up clicked!"),
+      onThumbsDown: (_event: any) => console.log("Thumbs down clicked!"),
+      onReadAloud: (_event: any) => console.log("Read aloud clicked!"),
+      onRegenerate: (_event: any) => console.log("Regenerate clicked!"),
       onCustom1: () => alert("Custom button 1 clicked!"),
       onCustom2: () => alert("Custom button 2 clicked!"),
     },

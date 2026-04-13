@@ -1,9 +1,10 @@
-import {
+import type {
   CopilotContextParams,
-  CopilotMessagesContextParams,
+  CopilotMessagesContextParams} from "@copilotkit/react-core";
+import {
   defaultCopilotContextCategories,
 } from "@copilotkit/react-core";
-import { CopilotKitVersion } from "./types";
+import type { CopilotKitVersion } from "./types";
 export { shouldShowDevConsole } from "@copilotkit/react-core";
 
 export async function getPublishedCopilotKitVersion(

@@ -9,7 +9,17 @@ import {
   provideCopilotChatLabels,
   provideCopilotKit,
 } from "@copilotkit/angular";
-import { Message } from "@ag-ui/client";
+import type { Message } from "@ag-ui/client";
+
+function onThumbsUp(event: any) {
+  console.log("Thumbs up!", event);
+  alert("You liked this message!");
+}
+
+function onThumbsDown(event: any) {
+  console.log("Thumbs down!", event);
+  alert("You disliked this message!");
+}
 
 const meta: Meta<CopilotChatView> = {
   title: "UI/CopilotChatView/Custom Actions",
@@ -183,16 +193,6 @@ export class ChatActionsComponent {
         role: "assistant" as const,
       },
     ];
-
-    const onThumbsUp = (event: any) => {
-      console.log("Thumbs up!", event);
-      alert("You liked this message!");
-    };
-
-    const onThumbsDown = (event: any) => {
-      console.log("Thumbs down!", event);
-      alert("You disliked this message!");
-    };
 
     return {
       template: `

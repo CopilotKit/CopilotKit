@@ -1,4 +1,4 @@
-import { Message } from "@ag-ui/core";
+import type { Message } from "@ag-ui/core";
 
 export type ReactCustomMessageRendererPosition = "before" | "after";
 

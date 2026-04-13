@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { CopilotKitCore } from "../core";
-import {
-  AbstractAgent,
+import type {
   Message,
   State,
-  RunAgentInput,
+  RunAgentInput} from "@ag-ui/client";
+import {
+  AbstractAgent,
   EventType,
 } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
@@ -23,7 +24,7 @@ class EventEmittingMockAgent extends AbstractAgent {
     });
   }
 
-  protected run(input: RunAgentInput): any {
+  protected run(_input: RunAgentInput): any {
     // Not used in these tests
     throw new Error("run() should not be called in these tests");
   }

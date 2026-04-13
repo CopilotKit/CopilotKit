@@ -9,10 +9,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { PRData, TestsData } from "@/app/Interfaces/interface";
-import React, { useEffect, useState } from "react";
-import { useCoAgent, useCoAgentStateRender } from "@copilotkit/react-core";
+import type { TestsData } from "@/app/Interfaces/interface";
+import React, { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 
 interface DataTableProps {
@@ -42,7 +40,7 @@ export function DataTable({ columns, data }: DataTableProps) {
             <TableHead className="w-[50px]">
               <Checkbox
                 className="rounded-md border-gray-300 dark:border-gray-600"
-                onCheckedChange={(checked) => {
+                onCheckedChange={(_checked) => {
                   // Handle select all logic here
                 }}
               />
@@ -74,7 +72,7 @@ export function DataTable({ columns, data }: DataTableProps) {
                   <TableCell className="w-[50px]">
                     <Checkbox
                       className="rounded-md border-gray-300 dark:border-gray-600"
-                      onCheckedChange={(checked) => {
+                      onCheckedChange={(_checked) => {
                         // Handle individual checkbox logic here
                         event?.stopPropagation(); // Prevent row click when clicking checkbox
                       }}

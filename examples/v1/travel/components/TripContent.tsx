@@ -1,5 +1,5 @@
-import { Trip } from "@/lib/types";
-import { Map } from "leaflet";
+import type { Trip } from "@/lib/types";
+import type { Map } from "leaflet";
 import { PlaceForMap } from "@/components/PlaceForMap";
 import { AddPlace } from "./AddPlace";
 

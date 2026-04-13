@@ -1,16 +1,18 @@
 import { describe, it, expect } from "vitest";
 import { InMemoryAgentRunner } from "../in-memory";
-import {
-  AbstractAgent,
+import type {
   BaseEvent,
-  EventType,
   Message,
   RunAgentInput,
   RunErrorEvent,
   RunFinishedEvent,
-  RunStartedEvent,
+  RunStartedEvent} from "@ag-ui/client";
+import {
+  AbstractAgent,
+  EventType
 } from "@ag-ui/client";
-import { EMPTY, Subscription, firstValueFrom, from } from "rxjs";
+import type { Subscription} from "rxjs";
+import { EMPTY, firstValueFrom, from } from "rxjs";
 import { toArray } from "rxjs/operators";
 
 type RunCallbacks = {

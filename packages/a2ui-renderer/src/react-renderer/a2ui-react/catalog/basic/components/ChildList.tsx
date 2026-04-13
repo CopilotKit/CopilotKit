@@ -15,7 +15,7 @@
  */
 
 import React from "react";
-import { type ComponentContext } from "@a2ui/web_core/v0_9";
+import type { ComponentContext } from "@a2ui/web_core/v0_9";
 
 export const ChildList: React.FC<{
   childList: unknown;

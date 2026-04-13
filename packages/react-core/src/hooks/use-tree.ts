@@ -25,12 +25,12 @@ export interface UseTreeReturn {
   getAllElements: () => Tree;
 }
 
-const findNode = (nodes: Tree, id: TreeNodeId): TreeNode | undefined => {
+const _findNode = (nodes: Tree, id: TreeNodeId): TreeNode | undefined => {
   for (const node of nodes) {
     if (node.id === id) {
       return node;
     }
-    const result = findNode(node.children, id);
+    const result = _findNode(node.children, id);
     if (result) {
       return result;
     }

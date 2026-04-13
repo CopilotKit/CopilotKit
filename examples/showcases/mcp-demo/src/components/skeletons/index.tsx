@@ -1,4 +1,4 @@
-import { FC } from "react";
+import type { FC } from "react";
 import { Skeleton } from "../ui/skeleton";
 
 export const EmailSkeleton: FC = () => (
@@ -54,7 +54,7 @@ export const ResearchPaperSkeleton: FC = () => (
         <div key={i} className="prose max-w-none">
           <Skeleton className="h-8 w-1/3 mb-4" /> {/* Section title */}
           <div className="space-y-2">
-            {Array.from({ length: 4 }).map((_, idx) => (
+            {Array.from({ length: 4 }).map((_unused, idx) => (
               <Skeleton key={idx} className="h-4 w-full" />
             ))}
           </div>

@@ -37,6 +37,12 @@ type Props =
       result: string;
     };
 
+const _formatCurrency = (n: number) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(n);
+
 export function InvoiceApprovalCard(props: Props) {
   const { status, args } = props;
 
@@ -55,12 +61,6 @@ export function InvoiceApprovalCard(props: Props) {
   const isComplete = status === ToolCallStatus.Complete;
   const result = isComplete ? (props as { result: string }).result : null;
   const wasApproved = result?.includes("approved");
-
-  const formatCurrency = (n: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(n);
 
   return (
     <div

@@ -307,15 +307,14 @@ const SUBPATH_TO_COMPONENT: Record<string, string> = {
 
 const JSX_CONTAINER_TAGS = ["Accordion", "Tab"];
 
+const parseRow = (line: string): string[] =>
+  line
+    .split("|")
+    .slice(1, -1)
+    .map((cell) => cell.trim());
+
 function convertMarkdownTableToHtml(tableLines: string[]): string {
   if (tableLines.length < 2) return tableLines.join("\n");
-
-  // Parse header row
-  const parseRow = (line: string): string[] =>
-    line
-      .split("|")
-      .slice(1, -1)
-      .map((cell) => cell.trim());
 
   const headers = parseRow(tableLines[0]);
 
@@ -504,6 +503,7 @@ const components = {
           src={demoUrl}
           className="w-full"
           style={{ height: "500px" }}
+          // oxlint-disable-next-line eslint-plugin-react(iframe-missing-sandbox)
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           loading="lazy"
         />
@@ -564,7 +564,7 @@ const components = {
     </div>
   ),
   // Fumadocs-specific components we shim
-  IntegrationGrid: ({ path }: { path?: string }) => (
+  IntegrationGrid: ({ path: gridPath }: { path?: string }) => (
     <div
       style={{
         padding: "1rem",
@@ -576,10 +576,10 @@ const components = {
       }}
     >
       See{" "}
-      <a href="/integrations" style={{ color: "var(--accent)" }}>
+      <Link href="/integrations" style={{ color: "var(--accent)" }}>
         Integrations
-      </a>{" "}
-      for all available frameworks{path ? ` (${path})` : ""}.
+      </Link>{" "}
+      for all available frameworks{gridPath ? ` (${gridPath})` : ""}.
     </div>
   ),
   FeatureGrid: ({ children }: { children?: React.ReactNode }) => (
@@ -666,6 +666,7 @@ const components = {
         <iframe
           src={src}
           style={{ width: "100%", height: "400px", border: "none" }}
+          sandbox="allow-scripts"
         />
       </div>
     ) : (
@@ -788,6 +789,7 @@ const components = {
             border: "none",
             borderRadius: "0.5rem",
           }}
+          sandbox="allow-scripts allow-popups"
           allowFullScreen
         />
       </div>
@@ -862,9 +864,9 @@ const components = {
       }}
     >
       See the{" "}
-      <a href="/matrix" style={{ color: "var(--accent)" }}>
+      <Link href="/matrix" style={{ color: "var(--accent)" }}>
         Feature Matrix
-      </a>{" "}
+      </Link>{" "}
       for a full comparison.
     </div>
   ),
@@ -950,7 +952,7 @@ const components = {
     <div>{children}</div>
   ),
   // HTML/React elements that MDX tries to resolve as components
-  Image: ({ src, alt, ...props }: Record<string, unknown>) => (
+  Image: ({ src, alt, ..._props }: Record<string, unknown>) => (
     <img
       src={src as string}
       alt={(alt as string) || ""}
@@ -960,7 +962,7 @@ const components = {
   A: ({
     children,
     href,
-    ...props
+    ..._props
   }: {
     children?: React.ReactNode;
     href?: string;
@@ -969,7 +971,7 @@ const components = {
       {children}
     </a>
   ),
-  Button: ({ children, ...props }: { children?: React.ReactNode }) => (
+  Button: ({ children, ..._props }: { children?: React.ReactNode }) => (
     <button
       style={{
         padding: "0.5rem 1rem",

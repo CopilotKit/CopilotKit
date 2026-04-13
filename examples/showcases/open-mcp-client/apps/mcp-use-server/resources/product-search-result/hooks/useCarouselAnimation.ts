@@ -1,4 +1,5 @@
-import { useEffect, type RefObject } from "react";
+import { useEffect } from 'react';
+import type { RefObject } from 'react';
 
 export function useCarouselAnimation(
   carouselContainerRef: RefObject<HTMLDivElement | null>,
@@ -69,9 +70,8 @@ export function useCarouselAnimation(
     return () => {
       document.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("scroll", handleScroll, true);
-      const container = scrollContainerRef.current;
-      if (container) {
-        container.removeEventListener("scroll", handleScroll);
+      if (scrollContainer) {
+        scrollContainer.removeEventListener("scroll", handleScroll);
       }
     };
   }, [carouselContainerRef, scrollContainerRef]);

@@ -6,14 +6,14 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 const serviceAdapter = new OpenAIAdapter();
 
 export const POST = async (req: NextRequest) => {
   // console.log("req", req);
   const runtime = new CopilotRuntime({
-    actions: ({ properties, url }) => {
+    actions: ({ properties: _properties, url: _url }) => {
       return [
         {
           name: "fetchData_allPRData",

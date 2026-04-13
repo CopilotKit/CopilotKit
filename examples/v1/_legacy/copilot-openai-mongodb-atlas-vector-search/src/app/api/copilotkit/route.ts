@@ -7,7 +7,7 @@ import {
   OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const MONGODB_URI = process.env.MONGODB_CONNECTION_URI;
@@ -52,9 +52,9 @@ const createVectorIndex = async () => {
     let isQueryable = false;
     while (!isQueryable) {
       const cursor = collection.listSearchIndexes();
-      for await (const index of cursor as unknown as SearchIndex[]) {
-        if (index.name === result) {
-          if (index.queryable) {
+      for await (const searchIndex of cursor as unknown as SearchIndex[]) {
+        if (searchIndex.name === result) {
+          if (searchIndex.queryable) {
             console.log(`${result} is ready for querying`);
             isQueryable = true;
           } else {
@@ -126,10 +126,10 @@ const runtime = new CopilotRuntime({
             input: query,
           });
 
-          const database = client.db("knowledge_base");
-          const collection = database.collection("articles");
+          const db = client.db("knowledge_base");
+          const col = db.collection("articles");
 
-          const articles = await collection
+          const articles = await col
             .aggregate([
               {
                 $vectorSearch: {

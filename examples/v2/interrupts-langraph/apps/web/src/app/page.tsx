@@ -1,7 +1,8 @@
 "use client";
 
 import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import type { CopilotKitCSSProperties} from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useInterrupt } from "@copilotkit/react-core/v2";
 import { useState } from "react";
 
@@ -19,15 +20,19 @@ export default function CopilotKitPage() {
         required: true,
       },
     ],
-    handler({ themeColor }) {
-      setThemeColor(themeColor);
+    handler({ themeColor: newThemeColor }) {
+      setThemeColor(newThemeColor);
     },
   });
 
   // 🪁 Interrupts: Handle human-in-the-loop confirmations from the agent
   useInterrupt({
     render: ({ event, resolve }) => {
-      const { message, proverb, action } = event.value as {
+      const {
+        message,
+        proverb: _proverb,
+        action: _action,
+      } = event.value as {
         message: string;
         proverb: string;
         action: string;

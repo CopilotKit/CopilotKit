@@ -6,17 +6,17 @@ import React, {
   useLayoutEffect,
 } from "react";
 import { ScrollElementContext } from "./scroll-element-context";
-import { WithSlots, SlotValue, renderSlot } from "../../lib/slots";
+import type { WithSlots, SlotValue} from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
 import CopilotChatMessageView from "./CopilotChatMessageView";
-import CopilotChatInput, {
+import type {
   CopilotChatInputProps,
   CopilotChatInputMode,
 } from "./CopilotChatInput";
-import CopilotChatSuggestionView, {
-  CopilotChatSuggestionViewProps,
-} from "./CopilotChatSuggestionView";
-import { Suggestion } from "@copilotkit/core";
-import { Message } from "@ag-ui/core";
+import CopilotChatInput from "./CopilotChatInput";
+import CopilotChatSuggestionView from "./CopilotChatSuggestionView";
+import type { Suggestion } from "@copilotkit/core";
+import type { Message } from "@ag-ui/core";
 import type { Attachment } from "@copilotkit/shared";
 import { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
 import { twMerge } from "tailwind-merge";
@@ -151,8 +151,11 @@ export function CopilotChatView({
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Track keyboard state for mobile
-  const { isKeyboardOpen, keyboardHeight, availableHeight } =
-    useKeyboardHeight();
+  const {
+    isKeyboardOpen,
+    keyboardHeight,
+    availableHeight: _availableHeight,
+  } = useKeyboardHeight();
 
   // Track input container height changes
   useEffect(() => {

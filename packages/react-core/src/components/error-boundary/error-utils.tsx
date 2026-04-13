@@ -1,5 +1,5 @@
-import React, { useCallback } from "react";
-import { GraphQLError } from "@copilotkit/runtime-client-gql";
+import React, { useCallback, useRef } from "react";
+import type { GraphQLError } from "@copilotkit/runtime-client-gql";
 import { useToast } from "../toast/toast-provider";
 import { ExclamationMarkIcon } from "../toast/exclamation-mark-icon";
 import ReactMarkdown from "react-markdown";
@@ -92,14 +92,25 @@ export function useAsyncCallback<T extends (...args: any[]) => Promise<any>>(
   deps: Parameters<typeof useCallback>[1],
 ) {
   const addErrorToast = useErrorToast();
-  return useCallback(async (...args: Parameters<T>) => {
-    try {
-      return await callback(...args);
-    } catch (error) {
-      console.error("Error in async callback:", error);
-      // @ts-ignore
-      addErrorToast([error]);
-      throw error;
-    }
-  }, deps);
+  const callbackRef = useRef(callback);
+  callbackRef.current = callback;
+
+  // Serialize caller-provided deps into a stable key for the dependency array.
+  // This lets the linter verify a static array while still re-creating the
+  // callback whenever the caller's deps change.
+  const depsKey = JSON.stringify(deps);
+
+  return useCallback(
+    async (...args: Parameters<T>) => {
+      try {
+        return await callbackRef.current(...args);
+      } catch (error) {
+        console.error("Error in async callback:", error);
+        // @ts-ignore
+        addErrorToast([error]);
+        throw error;
+      }
+    },
+    [addErrorToast, depsKey],
+  );
 }

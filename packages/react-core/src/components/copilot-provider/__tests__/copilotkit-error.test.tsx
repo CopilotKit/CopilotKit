@@ -1,5 +1,6 @@
-import { vi, type Mock } from "vitest";
-import { CopilotErrorEvent, CopilotErrorHandler } from "@copilotkit/shared";
+import { vi } from 'vitest';
+import type { Mock } from 'vitest';
+import type { CopilotErrorEvent, CopilotErrorHandler } from "@copilotkit/shared";
 
 describe("CopilotKit onError types", () => {
   let mockError: Mock;
@@ -65,7 +66,7 @@ describe("CopilotKit onError types", () => {
     it("should handle async error handlers", async () => {
       // RED: Will fail - testing async handler support
       const asyncHandler: CopilotErrorHandler = async (
-        errorEvent: CopilotErrorEvent,
+        _errorEvent: CopilotErrorEvent,
       ) => {
         await Promise.resolve();
         return;

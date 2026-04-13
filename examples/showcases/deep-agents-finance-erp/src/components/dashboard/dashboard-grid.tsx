@@ -27,6 +27,7 @@ export function DashboardGrid() {
   useEffect(() => {
     const prevIds = prevIdsRef.current;
     const nextIds = new Set(widgets.map((w) => w.id));
+    const timers = exitTimersRef.current;
 
     const entering = widgets.filter((w) => !prevIds.has(w.id));
     const exiting = [...prevIdsRef.current].filter((id) => !nextIds.has(id));
@@ -54,9 +55,9 @@ export function DashboardGrid() {
     if (exiting.length > 0) {
       const timer = setTimeout(() => {
         setDisplayed((prev) => prev.filter((w) => w.phase !== "exiting"));
-        exitTimersRef.current.delete(timer);
+        timers.delete(timer);
       }, EXIT_DURATION);
-      exitTimersRef.current.add(timer);
+      timers.add(timer);
     }
 
     // Transition entering → visible after animation
@@ -68,18 +69,18 @@ export function DashboardGrid() {
               w.phase === "entering" ? { ...w, phase: "visible" } : w,
             ),
           );
-          exitTimersRef.current.delete(timer);
+          timers.delete(timer);
         },
         350 + entering.length * 80,
       );
-      exitTimersRef.current.add(timer);
+      timers.add(timer);
     }
 
     prevIdsRef.current = nextIds;
 
     return () => {
-      exitTimersRef.current.forEach(clearTimeout);
-      exitTimersRef.current.clear();
+      timers.forEach(clearTimeout);
+      timers.clear();
     };
   }, [widgets]);
 

@@ -1,23 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { EventType, type BaseEvent } from "@ag-ui/client";
-import {
-  BuiltInAgent,
-  type AgentFactoryContext,
-  type BuiltInAgentFactoryConfig,
-  createDefaultInput,
-  createAgent,
-  createThrowingAgent,
-  createMidStreamErrorAgent,
-  collectEvents,
-  collectEventsIncludingErrors,
-  expectLifecycleWrapped,
-  eventField,
-  textDelta,
-  finish,
-  tanstackTextChunk,
-  type AgentType,
-  type MockStreamEvent,
-} from "./agent-test-helpers";
+import { EventType } from '@ag-ui/client';
+import type { BaseEvent } from '@ag-ui/client';
+import { BuiltInAgent, createDefaultInput, createAgent, createThrowingAgent, createMidStreamErrorAgent, collectEvents, collectEventsIncludingErrors, expectLifecycleWrapped, eventField, textDelta, finish, tanstackTextChunk } from './agent-test-helpers';
+import type { AgentFactoryContext, BuiltInAgentFactoryConfig, AgentType, MockStreamEvent } from './agent-test-helpers';
 
 // ---------------------------------------------------------------------------
 // Local helpers for parameterized tests
@@ -576,6 +561,7 @@ describe("Concurrent run guard", () => {
           abortSignal.addEventListener("abort", () => r(), { once: true });
           factoryBlocked.then(() => r());
         });
+        yield;
       },
     });
     const input = createDefaultInput();

@@ -1,5 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Descendant, Editor } from "slate";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { Descendant} from "slate";
+import { Editor } from "slate";
 import { Editable, Slate } from "slate-react";
 import { twMerge } from "tailwind-merge";
 import { useAutosuggestions } from "../../hooks/base-copilot-textarea-implementation/use-autosuggestions";
@@ -12,12 +19,13 @@ import {
 import { addAutocompletionsToEditor } from "../../lib/slatejs-edits/add-autocompletions";
 import { clearAutocompletionsFromEditor } from "../../lib/slatejs-edits/clear-autocompletions";
 import { replaceEditorText } from "../../lib/slatejs-edits/replace-text";
+import type {
+  BaseAutosuggestionsConfig} from "../../types/base";
 import {
-  BaseAutosuggestionsConfig,
   defaultBaseAutosuggestionsConfig,
 } from "../../types/base";
-import { AutosuggestionState } from "../../types/base/autosuggestion-state";
-import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
+import type { AutosuggestionState } from "../../types/base/autosuggestion-state";
+import type { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
 import "./base-copilot-textarea.css";
 import { HoveringToolbar } from "../hovering-toolbar/hovering-toolbar";
 import { makeRenderElementFunction } from "./render-element";
@@ -98,6 +106,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       ...props.baseAutosuggestionsConfig,
     };
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally capture only the initial render value
     const valueOnInitialRender = useMemo(() => props.value ?? "", []);
     const [lastKnownFullEditorText, setLastKnownFullEditorText] =
       useState(valueOnInitialRender);
@@ -162,10 +171,13 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       shouldDisableAutosuggestions,
     );
 
+    const autosuggestionsConfigRef = useRef(autosuggestionsConfig);
+    autosuggestionsConfigRef.current = autosuggestionsConfig;
+
     const onKeyDownHandlerForHoveringEditor = useCallback(
       (event: React.KeyboardEvent<HTMLDivElement>) => {
         if (
-          autosuggestionsConfig.shouldToggleHoveringEditorOnKeyPress(
+          autosuggestionsConfigRef.current.shouldToggleHoveringEditorOnKeyPress(
             event,
             props.shortcut ?? "k",
           )
@@ -174,11 +186,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
           setHoveringEditorIsDisplayed(!hoveringEditorIsDisplayed);
         }
       },
-      [
-        hoveringEditorIsDisplayed,
-        setHoveringEditorIsDisplayed,
-        autosuggestionsConfig.shouldToggleHoveringEditorOnKeyPress,
-      ],
+      [hoveringEditorIsDisplayed, setHoveringEditorIsDisplayed, props.shortcut],
     );
 
     // sync autosuggestions state with the editor
@@ -191,7 +199,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
           currentAutocompleteSuggestion.point,
         );
       }
-    }, [currentAutocompleteSuggestion]);
+    }, [currentAutocompleteSuggestion, editor]);
 
     const suggestionStyleAugmented: React.CSSProperties = useMemo(() => {
       return {
@@ -227,18 +235,18 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
 
       setLastKnownFullEditorText(props.value ?? "");
       replaceEditorText(editor, props.value ?? "");
-    }, [props.value]);
+    }, [props.value, lastKnownFullEditorText, editor]);
 
     // separate into TextareaHTMLAttributes<HTMLDivElement> and CopilotTextareaProps
     const {
-      placeholderStyle,
-      value,
+      placeholderStyle: _placeholderStyle,
+      value: _value,
       hoverMenuClassname,
-      onValueChange,
-      baseAutosuggestionsConfig: autosuggestionsConfigFromProps,
+      onValueChange: _onValueChange,
+      baseAutosuggestionsConfig: _autosuggestionsConfigFromProps,
       className,
-      onChange,
-      onKeyDown,
+      onChange: _onChange,
+      onKeyDown: _onKeyDown,
       disableBranding,
       ...propsToForward
     } = props;
@@ -261,7 +269,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       <Slate
         editor={editor}
         initialValue={initialValue}
-        onChange={(value) => {
+        onChange={(_slateValue) => {
           const newEditorState = getTextAroundCollapsedCursor(editor);
 
           const fullEditorText = newEditorState

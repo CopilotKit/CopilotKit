@@ -21,7 +21,7 @@ export function Progress({
             key={index}
             data-test-id="progress-step-item"
             className={`flex ${
-              log.done || index === logs.findIndex((log) => !log.done)
+              log.done || index === logs.findIndex((l) => !l.done)
                 ? ""
                 : "opacity-50"
             }`}
@@ -44,7 +44,7 @@ export function Progress({
               {index < logs.length - 1 && (
                 <div
                   className={cn("h-full w-[1px] bg-[var(--border)] ml-[20px]")}
-                ></div>
+                 />
               )}
             </div>
             <div className="flex-1 flex justify-center py-2 pl-2 pr-4">

@@ -19,7 +19,7 @@ interface PieDataProps {
 export function PRPieData({ args }: PieDataProps) {
   const [chartData, setChartData] = useState<PieDataItem[]>([]);
   useEffect(() => {
-    console.log(JSON.stringify(args), "argsarhs");
+    console.log(JSON.stringify(args?.items), "argsarhs");
 
     if (args?.items) {
       setChartData(args?.items);

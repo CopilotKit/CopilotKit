@@ -10,27 +10,27 @@ interface ToolCallProps {
   result?: any;
 }
 
+// Format content for display
+function _format(content: any): string {
+  if (!content) return "";
+  const text =
+    typeof content === "object"
+      ? JSON.stringify(content, null, 2)
+      : String(content);
+  return text
+    .replace(/\\n/g, "\n")
+    .replace(/\\t/g, "\t")
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, "\\");
+}
+
 export default function MCPToolCall({
   status,
   name = "",
-  args,
+  args: _args,
   result,
 }: ToolCallProps) {
   const [isOpen, setIsOpen] = React.useState(false);
-
-  // Format content for display
-  const format = (content: any): string => {
-    if (!content) return "";
-    const text =
-      typeof content === "object"
-        ? JSON.stringify(content, null, 2)
-        : String(content);
-    return text
-      .replace(/\\n/g, "\n")
-      .replace(/\\t/g, "\t")
-      .replace(/\\"/g, '"')
-      .replace(/\\\\/g, "\\");
-  };
 
   const getStatusIcon = () => {
     if (status === "complete") {

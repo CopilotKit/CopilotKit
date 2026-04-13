@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import type {
+  PlaygroundConfig} from "@/types/playground";
 import {
-  PlaygroundConfig,
   DEFAULT_CONFIG,
   COLOR_SCHEMES,
 } from "@/types/playground";

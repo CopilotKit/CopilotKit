@@ -10,7 +10,7 @@ interface StopAgentParameters {
 
 export async function handleStopAgent({
   runtime,
-  request,
+  request: _request,
   agentId,
   threadId,
 }: StopAgentParameters) {

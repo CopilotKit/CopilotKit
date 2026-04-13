@@ -1,4 +1,5 @@
-import { inject, InjectionToken, Provider } from "@angular/core";
+import type { Provider } from "@angular/core";
+import { inject, InjectionToken } from "@angular/core";
 
 // Type for chat labels
 export interface CopilotChatLabels {

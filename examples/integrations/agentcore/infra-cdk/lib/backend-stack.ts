@@ -11,11 +11,10 @@ import * as bedrockagentcore from "aws-cdk-lib/aws-bedrockagentcore";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets";
 import * as cr from "aws-cdk-lib/custom-resources";
-import { Construct } from "constructs";
-import { AppConfig } from "./utils/config-manager";
+import type { Construct } from "constructs";
+import type { AppConfig } from "./utils/config-manager";
 import { AgentCoreRole } from "./utils/agentcore-role";
 import * as path from "path";
-import * as fs from "fs";
 import { execSync } from "child_process";
 
 export interface BackendStackProps extends cdk.NestedStackProps {
@@ -279,24 +278,24 @@ export class BackendStack extends cdk.NestedStack {
     this.runtimeArn = this.agentRuntime.agentRuntimeArn;
 
     // Outputs
-    new cdk.CfnOutput(this, "AgentRuntimeId", {
+    void new cdk.CfnOutput(this, "AgentRuntimeId", {
       description: "ID of the created agent runtime",
       value: this.agentRuntime.agentRuntimeId,
     });
 
-    new cdk.CfnOutput(this, "AgentRuntimeArn", {
+    void new cdk.CfnOutput(this, "AgentRuntimeArn", {
       description: "ARN of the created agent runtime",
       value: this.agentRuntime.agentRuntimeArn,
       exportName: `${config.stack_name_base}-AgentRuntimeArn`,
     });
 
-    new cdk.CfnOutput(this, "AgentRoleArn", {
+    void new cdk.CfnOutput(this, "AgentRoleArn", {
       description: "ARN of the agent execution role",
       value: agentRole.roleArn,
     });
 
     // Memory ARN output
-    new cdk.CfnOutput(this, "MemoryArn", {
+    void new cdk.CfnOutput(this, "MemoryArn", {
       description: "ARN of the agent memory resource",
       value: memoryArn,
     });
@@ -304,7 +303,7 @@ export class BackendStack extends cdk.NestedStack {
 
   private createRuntimeSSMParameters(config: AppConfig): void {
     // Store runtime ARN in SSM for frontend stack
-    new ssm.StringParameter(this, "RuntimeArnParam", {
+    void new ssm.StringParameter(this, "RuntimeArnParam", {
       parameterName: `/${config.stack_name_base}/runtime-arn`,
       stringValue: this.runtimeArn,
     });
@@ -312,26 +311,26 @@ export class BackendStack extends cdk.NestedStack {
 
   private createCognitoSSMParameters(config: AppConfig): void {
     // Store Cognito configuration in SSM for testing and frontend access
-    new ssm.StringParameter(this, "CognitoUserPoolIdParam", {
+    void new ssm.StringParameter(this, "CognitoUserPoolIdParam", {
       parameterName: `/${config.stack_name_base}/cognito-user-pool-id`,
       stringValue: this.userPoolId,
       description: "Cognito User Pool ID",
     });
 
-    new ssm.StringParameter(this, "CognitoUserPoolClientIdParam", {
+    void new ssm.StringParameter(this, "CognitoUserPoolClientIdParam", {
       parameterName: `/${config.stack_name_base}/cognito-user-pool-client-id`,
       stringValue: this.userPoolClientId,
       description: "Cognito User Pool Client ID",
     });
 
-    new ssm.StringParameter(this, "MachineClientIdParam", {
+    void new ssm.StringParameter(this, "MachineClientIdParam", {
       parameterName: `/${config.stack_name_base}/machine_client_id`,
       stringValue: this.machineClient.userPoolClientId,
       description: "Machine Client ID for M2M authentication",
     });
 
     // Use the correct Cognito domain format from the passed domain
-    new ssm.StringParameter(this, "CognitoDomainParam", {
+    void new ssm.StringParameter(this, "CognitoDomainParam", {
       parameterName: `/${config.stack_name_base}/cognito_provider`,
       stringValue: `${this.userPoolDomain.domainName}.auth.${cdk.Aws.REGION}.amazoncognito.com`,
       description: "Cognito domain URL for token endpoint",
@@ -475,13 +474,13 @@ export class BackendStack extends cdk.NestedStack {
 
     this.copilotKitRuntimeUrl = copilotKitApi.urlForPath("/copilotkit");
 
-    new ssm.StringParameter(this, "CopilotKitRuntimeUrlParam", {
+    void new ssm.StringParameter(this, "CopilotKitRuntimeUrlParam", {
       parameterName: `/${config.stack_name_base}/copilotkit-runtime-url`,
       stringValue: this.copilotKitRuntimeUrl,
       description: "CopilotKit runtime API URL",
     });
 
-    new cdk.CfnOutput(this, "CopilotKitRuntimeUrl", {
+    void new cdk.CfnOutput(this, "CopilotKitRuntimeUrl", {
       description: "CopilotKit runtime API URL",
       value: this.copilotKitRuntimeUrl,
     });
@@ -681,34 +680,34 @@ export class BackendStack extends cdk.NestedStack {
     gateway.node.addDependency(gatewayRole);
 
     // Store AgentCore Gateway URL in SSM for AgentCore Runtime access
-    new ssm.StringParameter(this, "GatewayUrlParam", {
+    void new ssm.StringParameter(this, "GatewayUrlParam", {
       parameterName: `/${config.stack_name_base}/gateway_url`,
       stringValue: gateway.attrGatewayUrl,
       description: "AgentCore Gateway URL",
     });
 
     // Output gateway information
-    new cdk.CfnOutput(this, "GatewayId", {
+    void new cdk.CfnOutput(this, "GatewayId", {
       value: gateway.attrGatewayIdentifier,
       description: "AgentCore Gateway ID",
     });
 
-    new cdk.CfnOutput(this, "GatewayUrl", {
+    void new cdk.CfnOutput(this, "GatewayUrl", {
       value: gateway.attrGatewayUrl,
       description: "AgentCore Gateway URL",
     });
 
-    new cdk.CfnOutput(this, "GatewayArn", {
+    void new cdk.CfnOutput(this, "GatewayArn", {
       value: gateway.attrGatewayArn,
       description: "AgentCore Gateway ARN",
     });
 
-    new cdk.CfnOutput(this, "GatewayTargetId", {
+    void new cdk.CfnOutput(this, "GatewayTargetId", {
       value: gatewayTarget.ref,
       description: "AgentCore Gateway Target ID",
     });
 
-    new cdk.CfnOutput(this, "ToolLambdaArn", {
+    void new cdk.CfnOutput(this, "ToolLambdaArn", {
       description: "ARN of the sample tool Lambda",
       value: toolLambda.functionArn,
     });

@@ -1,8 +1,8 @@
-import { ActivityMessage } from "@ag-ui/core";
+import type { ActivityMessage } from "@ag-ui/core";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { useCopilotKit, useCopilotChatConfiguration } from "../providers";
 import { useCallback, useMemo } from "react";
-import { ReactActivityMessageRenderer } from "../types";
+import type { ReactActivityMessageRenderer } from "../types";
 import { getThreadClone } from "./use-agent";
 
 export function useRenderActivityMessage() {

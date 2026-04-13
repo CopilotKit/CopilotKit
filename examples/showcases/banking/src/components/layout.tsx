@@ -17,7 +17,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Member, MemberRole } from "@/app/api/v1/data";
+import type { Member} from "@/app/api/v1/data";
+import { MemberRole } from "@/app/api/v1/data";
 import { useAuthContext } from "@/components/auth-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useCopilotReadable } from "@copilotkit/react-core";
@@ -25,6 +26,14 @@ import { usePathname } from "next/navigation";
 
 interface LayoutProps {
   children: React.ReactNode;
+}
+
+function getInitials(name: string) {
+  return (name || "X Y")
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
 }
 
 function UserNavigation({
@@ -36,14 +45,6 @@ function UserNavigation({
   currentUser: Member;
   onChangeUser: (user: Member) => void;
 }) {
-  const getInitials = (name: string) => {
-    return (name || "X Y")
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase();
-  };
-
   return (
     <div className="flex flex-col items-center space-y-4">
       <Popover>

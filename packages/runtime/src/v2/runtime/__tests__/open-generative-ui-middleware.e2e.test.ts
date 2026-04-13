@@ -1,11 +1,12 @@
 import { describe, it, expect } from "vitest";
-import {
-  AbstractAgent,
+import type {
   BaseEvent,
-  EventType,
   RunAgentInput,
   ActivitySnapshotEvent,
-  ActivityDeltaEvent,
+  ActivityDeltaEvent} from "@ag-ui/client";
+import {
+  AbstractAgent,
+  EventType
 } from "@ag-ui/client";
 import { Observable, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";

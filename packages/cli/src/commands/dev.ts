@@ -1,7 +1,9 @@
-import { Config, Flags } from "@oclif/core";
+import type { Config} from "@oclif/core";
+import { Flags } from "@oclif/core";
 import inquirer from "inquirer";
 import { createId } from "@paralleldrive/cuid2";
-import ora, { Ora } from "ora";
+import type { Ora } from "ora";
+import ora from "ora";
 import chalk from "chalk";
 
 import { AuthService } from "../services/auth.service.js";
@@ -213,12 +215,12 @@ export default class Dev extends BaseCommand {
       spinner,
     });
 
-    [await setupTunnel];
+    await setupTunnel;
   }
 
   private async setupTunnel({
     port,
-    subdomain,
+    subdomain: _subdomain,
     onSuccess,
     onTunnelClose,
     spinner,
@@ -237,7 +239,7 @@ export default class Dev extends BaseCommand {
     // First, test if the local port is accessible
     spinner.text = `Testing connection to localhost:${port}...`;
     try {
-      const testResponse = await Promise.race([
+      const _testResponse = await Promise.race([
         fetch(`http://localhost:${port}`, { method: "HEAD" }),
         new Promise((_, reject) =>
           setTimeout(
@@ -246,7 +248,7 @@ export default class Dev extends BaseCommand {
           ),
         ),
       ]);
-    } catch (error) {
+    } catch {
       spinner.fail();
       return this.gracefulError(
         `Cannot connect to localhost:${port}. Please ensure your application is running on port ${port} and try again.`,

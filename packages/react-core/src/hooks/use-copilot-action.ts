@@ -130,22 +130,24 @@
  *
  * This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/guides/generative-ui) page.
  */
-import { useEffect, useRef, useState } from "react";
-import { Parameter } from "@copilotkit/shared";
-import {
+import { useState } from "react";
+import type { Parameter } from "@copilotkit/shared";
+import type {
   CatchAllFrontendAction,
   FrontendAction,
 } from "../types/frontend-action";
-import { useFrontendTool, UseFrontendToolArgs } from "./use-frontend-tool";
+import type { UseFrontendToolArgs } from "./use-frontend-tool";
+import { useFrontendTool } from "./use-frontend-tool";
+import type {
+  UseRenderToolCallArgs} from "./use-render-tool-call";
 import {
-  useRenderToolCall,
-  UseRenderToolCallArgs,
+  useRenderToolCall
 } from "./use-render-tool-call";
+import type {
+  UseHumanInTheLoopArgs} from "./use-human-in-the-loop";
 import {
-  useHumanInTheLoop,
-  UseHumanInTheLoopArgs,
+  useHumanInTheLoop
 } from "./use-human-in-the-loop";
-import { useCopilotContext } from "../context";
 
 // Helper to determine which component and action config to use
 function getActionConfig<const T extends Parameter[] | [] = []>(

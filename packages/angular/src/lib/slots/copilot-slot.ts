@@ -1,19 +1,20 @@
+import type {
+  OnInit,
+  OnChanges,
+  SimpleChanges,
+  ChangeDetectorRef} from "@angular/core";
 import {
   Component,
   TemplateRef,
   ViewContainerRef,
-  OnInit,
-  OnChanges,
-  SimpleChanges,
   Inject,
   ChangeDetectionStrategy,
-  ChangeDetectorRef,
   input,
   ViewChild,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { renderSlot } from "./slot.utils";
-import { Type } from "@angular/core";
+import type { Type } from "@angular/core";
 
 /**
  * @internal - This component is for internal use only.

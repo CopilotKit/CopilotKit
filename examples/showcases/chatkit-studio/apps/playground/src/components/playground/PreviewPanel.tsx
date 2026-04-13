@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { PlaygroundConfig } from "@/types/playground";
+import type { PlaygroundConfig } from "@/types/playground";
 import { Button } from "@/components/ui/button";
 
 interface PreviewPanelProps {
@@ -49,11 +49,13 @@ export function PreviewPanel({ config, onExport }: PreviewPanelProps) {
       </div>
 
       <div className="p-6 flex-1 flex flex-col bg-palette-surface-main">
+        {/* eslint-disable react/iframe-missing-sandbox -- preview panel requires both allow-scripts and allow-same-origin */}
         <iframe
           key={iframeSrc}
           ref={iframeRef}
           src={iframeSrc}
           title="CopilotChat Preview"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           style={{
             width: "100%",
             height: "100%",

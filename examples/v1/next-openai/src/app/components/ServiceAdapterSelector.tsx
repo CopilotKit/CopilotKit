@@ -2,6 +2,13 @@
 
 import { useSearchParams } from "next/navigation";
 
+function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+  const value = e.target.value;
+  const url = new URL(window.location.href);
+  url.searchParams.set("serviceAdapter", value);
+  window.location.href = url.toString();
+}
+
 export function ServiceAdapterSelector() {
   const searchParams = useSearchParams();
   const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
@@ -9,13 +16,6 @@ export function ServiceAdapterSelector() {
   if (searchParams.has("publicApiKey")) {
     return null;
   }
-
-  const handleChange = (e) => {
-    const value = e.target.value;
-    const url = new URL(window.location.href);
-    url.searchParams.set("serviceAdapter", value);
-    window.location.href = url.toString();
-  };
 
   return (
     <div className="fixed bottom-0 p-4 z-50">

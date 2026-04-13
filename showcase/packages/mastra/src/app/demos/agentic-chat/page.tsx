@@ -30,11 +30,11 @@ function Chat() {
         .string()
         .describe("The CSS background value. Prefer gradients."),
     }),
-    handler: async ({ background }: { background: string }) => {
-      setBackground(background);
+    handler: async ({ background: newBackground }: { background: string }) => {
+      setBackground(newBackground);
       return {
         status: "success",
-        message: `Background changed to ${background}`,
+        message: `Background changed to ${newBackground}`,
       };
     },
   });

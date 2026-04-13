@@ -12,14 +12,10 @@ import { ToolDetailModal } from "./components/ToolDetail";
 import { ChatSuggestions } from "./components/ChatSuggestions";
 import { LoadingSpinner, EmptyState } from "./components/shared";
 import { useMcpServers } from "./components/CopilotKitProvider";
-import {
-  useMcpIntrospect,
-  type ServerIntrospection,
-} from "./hooks/useMcpIntrospect";
-import {
-  useToolConfigStore,
-  type MergedToolConfig,
-} from "./hooks/useToolConfigStore";
+import { useMcpIntrospect } from './hooks/useMcpIntrospect';
+import type { ServerIntrospection } from './hooks/useMcpIntrospect';
+import { useToolConfigStore } from './hooks/useToolConfigStore';
+import type { MergedToolConfig } from './hooks/useToolConfigStore';
 import {
   getHeaderDocsUrl,
   getHeaderLogoUrl,

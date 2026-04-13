@@ -1,4 +1,4 @@
-import { AssistantMessageProps } from "@copilotkit/react-ui";
+import type { AssistantMessageProps } from "@copilotkit/react-ui";
 import { Markdown } from "@copilotkit/react-ui";
 import { Loader } from "lucide-react";
 export const CustomAssistantMessage = (props: AssistantMessageProps) => {

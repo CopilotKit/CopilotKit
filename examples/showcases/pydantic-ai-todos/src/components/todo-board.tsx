@@ -1,4 +1,4 @@
-import { AgentState, TodoItem, TodoStatus } from "@/lib/types";
+import type { AgentState, TodoItem, TodoStatus } from "@/lib/types";
 import { generateRandomId } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
 import {
@@ -106,7 +106,7 @@ function TodoCard({
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
-              <path d="M5 13l4 4L19 7"></path>
+              <path d="M5 13l4 4L19 7" />
             </svg>
           )}
         </button>

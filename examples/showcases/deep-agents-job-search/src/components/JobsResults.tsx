@@ -1,6 +1,6 @@
 "use client";
 
-import { JobPosting } from "@/lib/types";
+import type { JobPosting } from "@/lib/types";
 
 export function JobsResults({ jobs }: { jobs: JobPosting[] }) {
   if (!jobs.length) return null;

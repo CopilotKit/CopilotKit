@@ -1,14 +1,6 @@
 import { useCopilotKit } from "../providers/CopilotKitProvider";
-import {
-  ɵcreateThreadStore,
-  ɵselectThreads,
-  ɵselectThreadsError,
-  ɵselectThreadsIsLoading,
-  ɵselectHasNextPage,
-  ɵselectIsFetchingNextPage,
-  type ɵThreadRuntimeContext,
-  type ɵThreadStore,
-} from "@copilotkit/core";
+import { ɵcreateThreadStore, ɵselectThreads, ɵselectThreadsError, ɵselectThreadsIsLoading, ɵselectHasNextPage, ɵselectIsFetchingNextPage } from '@copilotkit/core';
+import type { ɵThreadRuntimeContext, ɵThreadStore } from '@copilotkit/core';
 import {
   useCallback,
   useEffect,
@@ -179,9 +171,16 @@ export function useThreads({
   const threads: Thread[] = useMemo(
     () =>
       coreThreads.map(
-        ({ id, agentId, name, archived, createdAt, updatedAt }) => ({
+        ({
           id,
-          agentId,
+          agentId: threadAgentId,
+          name,
+          archived,
+          createdAt,
+          updatedAt,
+        }) => ({
+          id,
+          agentId: threadAgentId,
           name,
           archived,
           createdAt,

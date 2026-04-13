@@ -5,9 +5,11 @@ import {
   useCopilotAction,
 } from "@copilotkit/react-core";
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
-import { createContext, useContext, ReactNode, useMemo } from "react";
+import type { ReactNode} from "react";
+import { createContext, useContext, useMemo } from "react";
 import { AddTrips, EditTrips, DeleteTrips } from "@/components/humanInTheLoop";
-import { Trip, Place, AgentState, defaultTrips } from "@/lib/types";
+import type { Trip, Place, AgentState} from "@/lib/types";
+import { defaultTrips } from "@/lib/types";
 
 type TripsContextType = {
   trips: Trip[];
@@ -35,9 +37,12 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
 
   useCoAgentStateRender<AgentState>({
     name: "travel",
-    render: ({ state }) => {
-      if (state.search_progress && state.search_progress.length > 0) {
-        return <SearchProgress progress={state.search_progress} />;
+    render: ({ state: renderState }) => {
+      if (
+        renderState.search_progress &&
+        renderState.search_progress.length > 0
+      ) {
+        return <SearchProgress progress={renderState.search_progress} />;
       }
       return null;
     },

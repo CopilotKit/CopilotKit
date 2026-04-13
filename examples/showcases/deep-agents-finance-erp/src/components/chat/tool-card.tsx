@@ -1,19 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Check,
-  ChevronDown,
-  Search,
-  TrendingUp,
-  ArrowRight,
-  LayoutDashboard,
-  Settings,
-  BarChart3,
-  ShieldCheck,
-  Loader2,
-  type LucideIcon,
-} from "lucide-react";
+import { Check, ChevronDown, Search, TrendingUp, ArrowRight, LayoutDashboard, Settings, BarChart3, ShieldCheck, Loader2 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 /**
  * ToolCard — Generative UI for tool call rendering in the finance-erp chat.

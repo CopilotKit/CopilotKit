@@ -46,23 +46,25 @@
  * Have a look at the [Presentation Example App](https://github.com/CopilotKit/CopilotKit/blob/main/examples/v1/next-openai/src/app/presentation/page.tsx) for a more complete example.
  */
 
-import {
+import type {
   ActionExecutionMessage,
-  CopilotRuntimeClient,
   Message,
+  ForwardedParametersInput} from "@copilotkit/runtime-client-gql";
+import {
+  CopilotRuntimeClient,
   Role,
   TextMessage,
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
   filterAgentStateMessages,
-  CopilotRequestType,
-  ForwardedParametersInput,
+  CopilotRequestType
 } from "@copilotkit/runtime-client-gql";
+import type {
+  FrontendAction} from "../types/frontend-action";
 import {
-  FrontendAction,
   processActionsForRuntimeRequest,
 } from "../types/frontend-action";
-import { CopilotContextParams } from "../context";
+import type { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
 
 export interface CopilotTaskConfig {

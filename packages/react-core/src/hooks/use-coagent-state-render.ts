@@ -44,7 +44,7 @@
 import { useRef, useContext, useEffect } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import { randomId, CopilotKitAgentDiscoveryError } from "@copilotkit/shared";
-import { CoAgentStateRender } from "../types/coagent-action";
+import type { CoAgentStateRender } from "../types/coagent-action";
 import { useToast } from "../components/toast/toast-provider";
 import { useCoAgentStateRenders } from "../context/coagent-state-renders-context";
 
@@ -77,7 +77,7 @@ export function useCoAgentStateRender<T = any>(
       availableAgents?.length &&
       !availableAgents.some((a) => a.name === action.name)
     ) {
-      const message = `(useCoAgentStateRender): Agent "${action.name}" not found. Make sure the agent exists and is properly configured.`;
+      const _message = `(useCoAgentStateRender): Agent "${action.name}" not found. Make sure the agent exists and is properly configured.`;
 
       // Route to banner instead of toast for consistency
       const agentError = new CopilotKitAgentDiscoveryError({
@@ -89,7 +89,7 @@ export function useCoAgentStateRender<T = any>(
       });
       setBannerError(agentError);
     }
-  }, [availableAgents]);
+  }, [availableAgents, action.name, setBannerError]);
 
   const key = `${action.name}-${action.nodeName || "global"}`;
 
@@ -141,23 +141,40 @@ export function useCoAgentStateRender<T = any>(
         id: `dup-action-${action.name}`,
       });
     }
-  }, [coAgentStateRenders]);
+  }, [coAgentStateRenders, action.name, action.nodeName, addToast]);
+
+  const actionRenderStr =
+    typeof action.render === "string" ? action.render : undefined;
+  const effectDeps = dependencies || [];
+
+  // Store action in a ref so we can access latest value inside the effect
+  // without adding it to deps (action is a new object every render).
+  const actionRef = useRef(action);
+  actionRef.current = action;
 
   useEffect(() => {
-    setCoAgentStateRender(idRef.current, action as any);
-    if (chatComponentsCache.current !== null && action.render !== undefined) {
-      chatComponentsCache.current.coAgentStateRenders[key] = action.render;
+    const currentId = idRef.current;
+    const currentAction = actionRef.current;
+    setCoAgentStateRender(currentId, currentAction as any);
+    if (
+      chatComponentsCache.current !== null &&
+      currentAction.render !== undefined
+    ) {
+      chatComponentsCache.current.coAgentStateRenders[key] =
+        currentAction.render;
     }
     return () => {
-      removeCoAgentStateRender(idRef.current);
+      removeCoAgentStateRender(currentId);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     setCoAgentStateRender,
     removeCoAgentStateRender,
+    chatComponentsCache,
+    key,
     action.name,
-    // include render only if it's a string
-    typeof action.render === "string" ? action.render : undefined,
-    // dependencies set by the developer
-    ...(dependencies || []),
+    actionRenderStr,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    ...effectDeps,
   ]);
 }

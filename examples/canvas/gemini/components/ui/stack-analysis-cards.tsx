@@ -238,7 +238,7 @@ export function StackAnalysisCards({
               <div className="mt-3">
                 <div className="mb-1 text-gray-500">Dependencies</div>
                 <div className="flex flex-wrap gap-1.5">
-                  {(parsed.infrastructure?.dependencies as string[]).map(
+                  {(parsed.infrastructure!.dependencies as string[]).map(
                     (dep) => (
                       <Badge
                         key={dep}

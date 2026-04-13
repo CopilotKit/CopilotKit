@@ -1,9 +1,10 @@
 "use client";
 
 import { createCognitoAuthConfig, cognitoAuthConfig } from "@/lib/auth";
-import { useEffect, useState, PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
+import { useEffect, useState } from "react";
 import { AuthProvider as OidcAuthProvider } from "react-oidc-context";
-import { WebStorageStateStore } from "oidc-client-ts";
+import type { WebStorageStateStore } from "oidc-client-ts";
 import { AutoSignin } from "./AutoSignin";
 
 interface CognitoAuthConfig {

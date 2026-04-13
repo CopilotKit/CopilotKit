@@ -1,10 +1,11 @@
-import { YogaInitialContext } from "graphql-yoga";
+import type { YogaInitialContext } from "graphql-yoga";
 import { buildSchemaSync } from "type-graphql";
 import { CopilotResolver } from "../../graphql/resolvers/copilot.resolver";
-import { CopilotRuntime } from "../runtime/copilot-runtime";
-import { CopilotServiceAdapter } from "../../service-adapters";
-import { CopilotCloudOptions } from "../cloud";
-import { LogLevel, createLogger } from "../../lib/logger";
+import type { CopilotRuntime } from "../runtime/copilot-runtime";
+import type { CopilotServiceAdapter } from "../../service-adapters";
+import type { CopilotCloudOptions } from "../cloud";
+import type { LogLevel} from "../../lib/logger";
+import { createLogger } from "../../lib/logger";
 import telemetry from "../telemetry-client";
 import { StateResolver } from "../../graphql/resolvers/state.resolver";
 
@@ -80,7 +81,7 @@ export function getCommonConfig(
     (process.env.LOG_LEVEL as LogLevel) ||
     (options.logLevel as LogLevel) ||
     "error";
-  const logger = createLogger({
+  const _logger = createLogger({
     level: logLevel,
     component: "getCommonConfig",
   });

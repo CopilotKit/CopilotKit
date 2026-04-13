@@ -1,7 +1,9 @@
-import React, { useState, MouseEvent } from "react";
+import type { MouseEvent } from "react";
+import React, { useState } from "react";
 import { MessageCircle, X } from "lucide-react";
 
-import { renderSlot, SlotValue } from "../../lib/slots";
+import type { SlotValue } from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
 import { cn } from "../../lib/utils";
 import {
   CopilotChatDefaultLabels,

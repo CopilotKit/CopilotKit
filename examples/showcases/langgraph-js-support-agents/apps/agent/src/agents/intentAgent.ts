@@ -1,5 +1,5 @@
-import { RunnableConfig } from "@langchain/core/runnables";
-import { CustomerSupportState, IntentResult } from "../types/state";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import type { CustomerSupportState, IntentResult } from "../types/state";
 import { intentClassifierTool } from "../tools";
 import { AIMessage } from "@langchain/core/messages";
 
@@ -9,7 +9,7 @@ import { AIMessage } from "@langchain/core/messages";
  */
 export async function intentAgentNode(
   state: CustomerSupportState,
-  config: RunnableConfig,
+  _config: RunnableConfig,
 ): Promise<Partial<CustomerSupportState>> {
   // Get the last user message
   const messages = state.messages || [];

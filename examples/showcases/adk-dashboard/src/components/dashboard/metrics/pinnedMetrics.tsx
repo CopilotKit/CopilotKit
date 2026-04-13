@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { AgentSetState, AgentState, type Metric } from "@/lib/types";
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import type { AgentSetState, AgentState, Metric } from "@/lib/types";
+import type { RenderFunctionStatus } from "@copilotkit/react-core";
 import {
   Pin,
   TrendingUp,

@@ -34,7 +34,6 @@ if (!(globalThis as any).ResizeObserver) {
 // IntersectionObserver
 if (!(globalThis as any).IntersectionObserver) {
   class IO {
-    constructor(_: IntersectionObserverCallback) {}
     observe() {}
     unobserve() {}
     disconnect() {}

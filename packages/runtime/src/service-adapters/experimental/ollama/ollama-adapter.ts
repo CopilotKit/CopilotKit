@@ -17,8 +17,8 @@
  * );
  * ```
  */
-import { TextMessage } from "../../../graphql/types/converted";
-import {
+import type { TextMessage } from "../../../graphql/types/converted";
+import type {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
@@ -49,7 +49,7 @@ export class ExperimentalOllamaAdapter implements CopilotServiceAdapter {
   async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const { messages, actions, eventSource } = request;
+    const { messages, actions: _actions, eventSource } = request;
     // const messages = this.transformMessages(forwardedProps.messages);
 
     // eslint-disable-next-line @typescript-eslint/no-var-requires

@@ -142,7 +142,7 @@ export const hotelSearches: Map<string, HotelSearch> = new Map();
 export const hotelBookings: Map<string, HotelBooking> = new Map();
 
 function generateId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function generateConfirmationNumber(): string {
@@ -168,7 +168,7 @@ function generateHotelsForCity(city: City): Hotel[] {
 
     const rooms: Room[] = (
       ["standard", "deluxe", "suite", "penthouse", "family"] as RoomType[]
-    ).map((type, roomIndex) => {
+    ).map((type, _roomIndex) => {
       const template = ROOM_TYPES[type];
       const multiplier =
         type === "penthouse"

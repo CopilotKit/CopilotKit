@@ -11,15 +11,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useAuthContext } from "@/components/auth-context";
-import { ExpenseRole, MemberRole } from "@/app/api/v1/data";
+import type { ExpenseRole} from "@/app/api/v1/data";
+import { MemberRole } from "@/app/api/v1/data";
 import { useEffect, useReducer } from "react";
 import { TeamPageOperations } from "@/components/copilot-context";
 import { useSearchParams } from "next/navigation";
 import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
+import type {
+  DialogState} from "@/components/add-or-edit-member-dialog";
 import {
   AddOrEditMemberDialog,
-  defaultDialogState,
-  DialogState,
+  defaultDialogState
 } from "@/components/add-or-edit-member-dialog";
 import { RemoveMemberConfirmationDialog } from "@/components/remove-member-dialog";
 
@@ -92,7 +94,8 @@ export default function Team() {
         required: true,
       },
     ],
-    handler: ({ id, team }) => changeMemberTeam(id, team as ExpenseRole),
+    handler: ({ id, team: teamRole }) =>
+      changeMemberTeam(id, teamRole as ExpenseRole),
   });
 
   const [dialogState, dispatchDialogState] = useReducer<

@@ -1,9 +1,10 @@
+import type {
+  AfterViewInit} from "@angular/core";
 import {
   Component,
   input,
   output,
   ElementRef,
-  AfterViewInit,
   signal,
   computed,
   inject,
@@ -81,8 +82,6 @@ export class CopilotChatTextarea implements AfterViewInit {
     );
     return cn(baseClasses, this.inputClass());
   });
-
-  constructor() {}
 
   ngAfterViewInit(): void {
     this.calculateMaxHeight();

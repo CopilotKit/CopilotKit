@@ -1,4 +1,4 @@
-import {
+import type {
   CopilotErrorEvent,
   CopilotRequestContext,
   CopilotErrorHandler,
@@ -158,7 +158,7 @@ describe("CopilotRuntime onError types", () => {
       // Simulate header extraction logic
       const extractPublicApiKey = (
         headers: Map<string, string>,
-        hasCloudConfig: boolean,
+        _hasCloudConfig: boolean,
       ) => {
         const publicApiKeyFromHeaders = headers.get(
           "x-copilotcloud-public-api-key",

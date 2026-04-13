@@ -1,11 +1,12 @@
+import type {
+  Signal} from "@angular/core";
 import {
   effect,
   inject,
   Injector,
-  runInInjectionContext,
-  Signal,
+  runInInjectionContext
 } from "@angular/core";
-import { Context } from "@ag-ui/client";
+import type { Context } from "@ag-ui/client";
 import { CopilotKit } from "./copilotkit";
 
 export interface ConnectAgentContextConfig {

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Subject } from "rxjs";
+import type { ɵPhoenixSocketSession } from "../utils/phoenix-observable";
 import { MockSocket } from "./test-utils";
 
 const phoenix = vi.hoisted(() => ({
@@ -23,8 +24,7 @@ const {
   ɵphoenixSocket$,
 } = await import("../utils/phoenix-observable");
 
-type PhoenixSocketSession =
-  import("../utils/phoenix-observable").ɵPhoenixSocketSession;
+type PhoenixSocketSession = ɵPhoenixSocketSession;
 
 describe("phoenix observable utilities", () => {
   it("connects on subscribe and disconnects on teardown", () => {
