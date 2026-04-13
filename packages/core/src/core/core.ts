@@ -153,6 +153,15 @@ export interface CopilotKitCoreSubscriber {
     code: CopilotKitCoreErrorCode;
     context: Record<string, any>;
   }) => void | Promise<void>;
+  /**
+   * Fired when an agent run or connect begins. The `agent` may be a per-thread
+   * clone that is not present in `core.agents`. Subscribers (e.g. the inspector)
+   * can use this to subscribe to the clone's AG-UI events.
+   */
+  onAgentRunStarted?: (event: {
+    copilotkit: CopilotKitCore;
+    agent: AbstractAgent;
+  }) => void | Promise<void>;
 }
 
 // Subscription object returned by subscribe()
