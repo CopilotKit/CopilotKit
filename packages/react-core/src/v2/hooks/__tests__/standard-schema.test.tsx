@@ -6,12 +6,12 @@ import * as v from "valibot";
 import { type } from "arktype";
 import { useRenderTool, type RenderToolProps } from "../use-render-tool";
 import { useComponent } from "../use-component";
-import { useCopilotKit } from "../../providers/CopilotKitProvider";
+import { useCopilotKit } from "../../context";
 import { useFrontendTool } from "../use-frontend-tool";
 import type { ReactToolCallRenderer } from "../../types/react-tool-call-renderer";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
 
-vi.mock("../../providers/CopilotKitProvider", () => ({
+vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
 }));
 

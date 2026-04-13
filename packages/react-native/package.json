@@ -1,0 +1,63 @@
+{
+  "name": "@copilotkit/react-native",
+  "version": "1.55.0-next.8",
+  "private": false,
+  "keywords": [
+    "ai",
+    "assistant",
+    "copilot",
+    "copilotkit",
+    "mobile",
+    "react-native"
+  ],
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./polyfills": {
+      "import": "./dist/polyfills.js",
+      "require": "./dist/polyfills.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@copilotkit/core": "workspace:*",
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
+    "text-encoding": "^0.7.0",
+    "web-streams-polyfill": "^4.2.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.0",
+    "@types/react": "^19.2.0",
+    "jsdom": "^26.1.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tsdown": "0.12.6",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  },
+  "peerDependencies": {
+    "react": "^18 || ^19",
+    "react-native": ">=0.70"
+  }
+}

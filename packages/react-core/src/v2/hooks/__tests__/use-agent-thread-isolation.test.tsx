@@ -7,12 +7,12 @@ import {
   type BaseEvent,
   type RunAgentInput,
 } from "@ag-ui/client";
-import { useCopilotKit } from "../../providers/CopilotKitProvider";
+import { useCopilotKit } from "../../context";
 import { useAgent } from "../use-agent";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import { Observable } from "rxjs";
 
-vi.mock("../../providers/CopilotKitProvider", () => ({
+vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
 }));
 
