@@ -14,6 +14,32 @@
 
 declare const global: typeof globalThis;
 
+/** Subset of the Response interface implemented by the streaming fetch polyfill. */
+interface StreamingFetchResponse {
+  readonly ok: boolean;
+  readonly status: number;
+  readonly statusText: string;
+  readonly url: string;
+  readonly type: string;
+  readonly redirected: boolean;
+  readonly bodyUsed: boolean;
+  readonly headers: Headers;
+  readonly body: ReadableStream<Uint8Array>;
+  json(): Promise<unknown>;
+  text(): Promise<string>;
+  arrayBuffer(): Promise<ArrayBuffer>;
+  blob(): Promise<Blob>;
+  clone(): never;
+  formData(): Promise<never>;
+}
+
+function createAbortError(): DOMException {
+  return new (global as any).DOMException(
+    "The operation was aborted.",
+    "AbortError",
+  );
+}
+
 export function installStreamingFetch(): void {
   // Skip if native fetch already supports ReadableStream body.
   // Newer React Native versions (Hermes) may support this natively.
@@ -51,26 +77,23 @@ export function installStreamingFetch(): void {
     // Extract defaults from Request object when input is a Request
     const request =
       typeof input !== "string" && !(input instanceof URL) ? input : null;
-    const url =
-      typeof input === "string"
-        ? input
-        : input instanceof URL
-          ? input.href
-          : (input as Request).url;
+    let url: string;
+    if (typeof input === "string") {
+      url = input;
+    } else if (input instanceof URL) {
+      url = input.href;
+    } else {
+      url = (input as Request).url;
+    }
     const method = init?.method || request?.method || "GET";
     const headers = init?.headers || (request ? request.headers : {});
     const body = (init?.body ?? request?.body) as string | null | undefined;
     const signal = init?.signal || request?.signal;
 
     return new Promise((resolve, reject) => {
-      // Issue 4: Reject immediately if signal is already aborted
+      // Reject immediately if signal is already aborted (per fetch spec)
       if (signal?.aborted) {
-        reject(
-          new (global as any).DOMException(
-            "The operation was aborted.",
-            "AbortError",
-          ),
-        );
+        reject(createAbortError());
         return;
       }
 
@@ -82,12 +105,14 @@ export function installStreamingFetch(): void {
       // Callers can still use AbortSignal.timeout() for finer control.
       xhr.timeout = 60_000;
 
-      const headerEntries: [string, string][] =
-        headers instanceof Headers
-          ? Array.from(headers.entries())
-          : Array.isArray(headers)
-            ? (headers as [string, string][])
-            : Object.entries(headers as Record<string, string>);
+      let headerEntries: [string, string][];
+      if (headers instanceof Headers) {
+        headerEntries = Array.from(headers.entries());
+      } else if (Array.isArray(headers)) {
+        headerEntries = headers as [string, string][];
+      } else {
+        headerEntries = Object.entries(headers as Record<string, string>);
+      }
       for (const [key, value] of headerEntries) {
         xhr.setRequestHeader(key, value as string);
       }
@@ -100,15 +125,6 @@ export function installStreamingFetch(): void {
       let streamClosed = false;
       let settled = false;
       const encoder = new TextEncoder();
-
-      const stream = new ReadableStream<Uint8Array>({
-        start(controller) {
-          streamController = controller;
-        },
-        cancel() {
-          xhr.abort();
-        },
-      });
 
       // Promise that resolves/rejects when XHR completes or fails
       let resolveFullText: (text: string) => void;
@@ -144,11 +160,21 @@ export function installStreamingFetch(): void {
         }
       }
 
+      /** Centralized error handler — errors the stream, rejects fullTextPromise,
+       *  and rejects the outer fetch promise if not yet settled. */
+      function fail(err: Error) {
+        cleanupAbortListener();
+        errorStream(err);
+        rejectFullText(err);
+        if (!settled) {
+          settled = true;
+          reject(err);
+        }
+      }
+
       const onAbort = () => {
-        const err = new (global as any).DOMException(
-          "The operation was aborted.",
-          "AbortError",
-        );
+        cleanupAbortListener();
+        const err = createAbortError();
         xhr.abort();
         errorStream(err);
         rejectFullText(err);
@@ -168,18 +194,21 @@ export function installStreamingFetch(): void {
         }
       }
 
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          streamController = controller;
+        },
+        cancel() {
+          xhr.abort();
+          rejectFullText(createAbortError());
+        },
+      });
+
       xhr.onprogress = function () {
         try {
           flushChunks();
         } catch (err) {
-          const error = err instanceof Error ? err : new Error(String(err));
-          cleanupAbortListener();
-          errorStream(error);
-          rejectFullText(error);
-          if (!settled) {
-            settled = true;
-            reject(error);
-          }
+          fail(err instanceof Error ? err : new Error(String(err)));
           xhr.abort();
         }
       };
@@ -189,13 +218,7 @@ export function installStreamingFetch(): void {
         try {
           flushChunks();
         } catch (err) {
-          const error = err instanceof Error ? err : new Error(String(err));
-          errorStream(error);
-          rejectFullText(error);
-          if (!settled) {
-            settled = true;
-            reject(error);
-          }
+          fail(err instanceof Error ? err : new Error(String(err)));
           return;
         }
         closeStream();
@@ -203,44 +226,27 @@ export function installStreamingFetch(): void {
       };
 
       xhr.onerror = function () {
-        cleanupAbortListener();
-        const err = new TypeError("Network request failed");
-        errorStream(err);
-        rejectFullText(err);
-        if (!settled) {
-          settled = true;
-          reject(err);
-        }
+        fail(new TypeError("Network request failed"));
       };
 
       xhr.ontimeout = function () {
-        cleanupAbortListener();
-        const err = new TypeError("Network request timed out");
-        errorStream(err);
-        rejectFullText(err);
-        if (!settled) {
-          settled = true;
-          reject(err);
-        }
+        fail(new TypeError("Network request timed out"));
       };
 
       // Resolve with Response once headers arrive.
       // Guard against status === 0 which XHR produces for CORS failures,
       // DNS errors, and mixed-content blocks — let onerror handle those.
-      let resp: any = null;
+      let resp: StreamingFetchResponse | null = null;
       xhr.onreadystatechange = function () {
         // Safety net: if XHR completed but we never resolved/rejected, fail explicitly.
         // This can happen when status === 0 and onerror doesn't fire (some RN networking impls).
         if (xhr.readyState === 4 && !settled && !resp) {
-          cleanupAbortListener();
-          const err = new TypeError(
-            `Network request to ${url} completed with status ${xhr.status} but no response was produced. ` +
-              `This may indicate a CORS failure, DNS error, or React Native networking issue.`,
+          fail(
+            new TypeError(
+              `Network request to ${url} completed with status ${xhr.status} but no response was produced. ` +
+                `This may indicate a CORS failure, DNS error, or React Native networking issue.`,
+            ),
           );
-          errorStream(err);
-          rejectFullText(err);
-          settled = true;
-          reject(err);
           return;
         }
 
@@ -259,12 +265,9 @@ export function installStreamingFetch(): void {
           const responseHeaders = new Headers(respHeaders);
 
           let bodyUsed = false;
-          const markBodyUsed = () => {
-            bodyUsed = true;
-          };
 
           resp = {
-            // Standard Response properties
+            // Duck-typed Response object (not a native Response instance)
             ok: xhr.status >= 200 && xhr.status < 300,
             status: xhr.status,
             statusText: xhr.statusText,
@@ -277,7 +280,7 @@ export function installStreamingFetch(): void {
             headers: responseHeaders,
             body: stream,
             json: async () => {
-              markBodyUsed();
+              bodyUsed = true;
               const text = await fullTextPromise;
               try {
                 return JSON.parse(text);
@@ -290,15 +293,15 @@ export function installStreamingFetch(): void {
               }
             },
             text: async () => {
-              markBodyUsed();
+              bodyUsed = true;
               return fullTextPromise;
             },
             arrayBuffer: async () => {
-              markBodyUsed();
+              bodyUsed = true;
               return encoder.encode(await fullTextPromise).buffer;
             },
             blob: async () => {
-              markBodyUsed();
+              bodyUsed = true;
               const buf = encoder.encode(await fullTextPromise);
               if (typeof Blob !== "undefined") {
                 return new Blob([buf], {
@@ -321,8 +324,10 @@ export function installStreamingFetch(): void {
             },
           };
           settled = true;
-          cleanupAbortListener();
-          resolve(resp);
+          // NOTE: abort listener is NOT removed here — the signal must remain
+          // wired to xhr.abort() for mid-stream cancellation. Cleanup happens
+          // in terminal handlers (onload, onerror, ontimeout) or onAbort itself.
+          resolve(resp as unknown as Response);
         }
       };
 

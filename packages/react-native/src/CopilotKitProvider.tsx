@@ -106,6 +106,15 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     ReadonlySet<string>
   >(() => new Set());
 
+  // Use ref to avoid subscription churn when onError changes
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+
+  // Single subscription for tool execution tracking and error handling.
+  // Tool call IDs are tracked at the provider level because onToolExecutionStart
+  // fires before child components mount — critical for HITL reconnection.
   useEffect(() => {
     const subscription = copilotkit.subscribe({
       onToolExecutionStart: ({ toolCallId }) => {
@@ -124,19 +133,6 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
           return next;
         });
       },
-    });
-    return () => subscription.unsubscribe();
-  }, [copilotkit]);
-
-  // Use ref to avoid subscription churn when onError changes
-  const onErrorRef = useRef(onError);
-  useEffect(() => {
-    onErrorRef.current = onError;
-  }, [onError]);
-
-  // Always subscribe — fall back to console.error when no onError provided
-  useEffect(() => {
-    const subscription = copilotkit.subscribe({
       onError: (event) => {
         if (onErrorRef.current) {
           onErrorRef.current({
