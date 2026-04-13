@@ -281,6 +281,25 @@ export function useAgent({
     let timerId: ReturnType<typeof setTimeout> | null = null;
     let active = true;
 
+    // Microtask-batched forceUpdate: coalesces multiple synchronous
+    // notifications (e.g. OnStateChanged + OnRunStatusChanged firing in the
+    // same tick) into a single React re-render. This prevents the scroll
+    // jumping described in #3499 where rapid unbatched forceUpdate calls
+    // cause brief content height fluctuations during streaming.
+    let batchScheduled = false;
+    const batchedForceUpdate = () => {
+      if (!active) return;
+      if (!batchScheduled) {
+        batchScheduled = true;
+        queueMicrotask(() => {
+          batchScheduled = false;
+          if (active) {
+            forceUpdate();
+          }
+        });
+      }
+    };
+
     if (updateFlags.includes(UseAgentUpdate.OnMessagesChanged)) {
       const ms = effectiveThrottleMs;
       if (ms > 0) {
@@ -324,13 +343,13 @@ export function useAgent({
     }
 
     if (updateFlags.includes(UseAgentUpdate.OnStateChanged)) {
-      handlers.onStateChanged = forceUpdate;
+      handlers.onStateChanged = batchedForceUpdate;
     }
 
     if (updateFlags.includes(UseAgentUpdate.OnRunStatusChanged)) {
-      handlers.onRunInitialized = forceUpdate;
-      handlers.onRunFinalized = forceUpdate;
-      handlers.onRunFailed = forceUpdate;
+      handlers.onRunInitialized = batchedForceUpdate;
+      handlers.onRunFinalized = batchedForceUpdate;
+      handlers.onRunFailed = batchedForceUpdate;
     }
 
     const subscription = agent.subscribe(handlers);
