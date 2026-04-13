@@ -170,11 +170,18 @@ function VersionInfo({
     `&& npm install @copilotkit/runtime@${latestVersion}`,
   ].join(" ");
 
-  const handleCopyClick = () => {
-    navigator.clipboard.writeText(installCommand.trim()).then(() => {
+  const handleCopyClick = async () => {
+    try {
+      if (!navigator.clipboard?.writeText) {
+        console.error("Clipboard API is not available");
+        return;
+      }
+      await navigator.clipboard.writeText(installCommand.trim());
       setCopyStatus("Command copied to clipboard!");
       setTimeout(() => setCopyStatus(""), 1000);
-    });
+    } catch (err) {
+      console.error("Failed to copy command:", err);
+    }
   };
 
   if (versionStatus === "update-available" || versionStatus === "outdated") {

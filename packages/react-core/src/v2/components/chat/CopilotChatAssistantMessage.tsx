@@ -86,11 +86,11 @@ export function CopilotChatAssistantMessage({
     {
       onClick: async () => {
         if (message.content) {
-          try {
-            await navigator.clipboard.writeText(message.content);
-          } catch (err) {
-            console.error("Failed to copy message:", err);
+          if (!navigator.clipboard?.writeText) {
+            console.error("Clipboard API is not available");
+            return;
           }
+          await navigator.clipboard.writeText(message.content);
         }
       },
     },
@@ -275,18 +275,30 @@ export namespace CopilotChatAssistantMessage {
       };
     }, []);
 
-    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-      setCopied(true);
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-      }
-      timerRef.current = setTimeout(() => {
-        timerRef.current = null;
-        setCopied(false);
-      }, 2000);
+    const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
+      const clipboardAvailable = !!navigator.clipboard?.writeText;
 
-      if (onClick) {
-        onClick(event);
+      try {
+        if (onClick) {
+          await (
+            onClick as (
+              event: React.MouseEvent<HTMLButtonElement>,
+            ) => Promise<void>
+          )(event);
+        }
+
+        if (clipboardAvailable) {
+          setCopied(true);
+          if (timerRef.current !== null) {
+            clearTimeout(timerRef.current);
+          }
+          timerRef.current = setTimeout(() => {
+            timerRef.current = null;
+            setCopied(false);
+          }, 2000);
+        }
+      } catch (err) {
+        console.error("Failed to copy message:", err);
       }
     };
 

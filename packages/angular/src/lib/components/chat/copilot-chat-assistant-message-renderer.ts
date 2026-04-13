@@ -387,6 +387,11 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
   }
 
   private copyCodeBlock(blockId: string, code: string): void {
+    if (!navigator.clipboard?.writeText) {
+      console.error("Clipboard API is not available");
+      return;
+    }
+
     navigator.clipboard.writeText(code).then(
       () => {
         // Update the button in the DOM
