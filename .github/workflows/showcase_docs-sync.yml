@@ -1,0 +1,154 @@
+name: "Showcase: Docs Sync"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/content/docs/**"
+      - "docs/snippets/**"
+  workflow_dispatch:
+
+concurrency:
+  group: showcase-docs-sync
+  cancel-in-progress: false
+
+jobs:
+  sync-docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      SHOWCASE_BRANCH: main
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHOWCASE_BRANCH }}
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Fetch main branch
+        run: git fetch origin main
+
+      - name: Run docs sync
+        id: sync
+        run: |
+          set +e
+          npx tsx showcase/scripts/sync-docs-from-main.ts > sync-output.txt 2>&1
+          EXIT_CODE=$?
+          set -e
+
+          cat sync-output.txt
+
+          if [ $EXIT_CODE -eq 2 ]; then
+            echo "No changes to sync"
+            echo "action=none" >> "$GITHUB_OUTPUT"
+          elif [ $EXIT_CODE -eq 0 ]; then
+            echo "Clean transforms only"
+            echo "action=auto_push" >> "$GITHUB_OUTPUT"
+          elif [ $EXIT_CODE -eq 3 ]; then
+            echo "Has review items + clean transforms"
+            echo "action=push_and_pr" >> "$GITHUB_OUTPUT"
+          else
+            echo "Sync failed with exit code $EXIT_CODE"
+            exit 1
+          fi
+
+      # Generate a token from copilotkit-devops-bot (bypass actor on branch protection)
+      - name: Generate bot token
+        id: bot-token
+        if: steps.sync.outputs.action == 'auto_push' || steps.sync.outputs.action == 'push_and_pr'
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: 1108748
+          private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+
+      # Create PR and auto-merge via devops bot (bypasses branch protection)
+      - name: Create and merge PR for clean transforms
+        id: push
+        if: steps.sync.outputs.action == 'auto_push' || steps.sync.outputs.action == 'push_and_pr'
+        env:
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
+        run: |
+          git config user.name "copilotkit-devops-bot[bot]"
+          git config user.email "copilotkit-devops-bot[bot]@users.noreply.github.com"
+
+          SHORT_SHA=$(git rev-parse --short origin/main)
+          BRANCH="docs-sync/auto/${SHORT_SHA}-$(date +%s)"
+
+          git checkout -b "$BRANCH"
+          git add showcase/shell/src/content/ showcase/shell/.docs-sync-sha
+          CHANGED=$(git diff --cached --name-only | wc -l | tr -d ' ')
+
+          if [ "$CHANGED" = "0" ]; then
+            echo "Nothing to commit"
+            echo "files_changed=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git commit --no-verify -m "chore: auto-sync docs from main ($(date +%Y-%m-%d))"
+
+          # Override git credential to use bot token (checkout configured GITHUB_TOKEN)
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git push origin "$BRANCH"
+
+          PR_URL=$(gh pr create \
+            --title "chore: auto-sync docs from main (${SHORT_SHA})" \
+            --body "Automated docs sync. Clean transforms only." \
+            --base "$SHOWCASE_BRANCH" \
+            --head "$BRANCH")
+
+          echo "Created PR: $PR_URL"
+          echo "files_changed=${CHANGED}" >> "$GITHUB_OUTPUT"
+          echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
+
+          gh pr merge "$PR_URL" --merge
+
+      - name: Notify Slack (auto-sync)
+        if: always() && steps.push.outcome == 'success' && steps.push.outputs.files_changed != '0'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":arrows_counterclockwise: *Docs sync*: auto-merged ${{ steps.push.outputs.files_changed || '?' }} file(s)\n${{ steps.push.outputs.pr_url || '' }}\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+
+      - name: Notify Slack (merge failed)
+        if: failure() && steps.push.outputs.pr_url != ''
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":warning: *Docs sync*: PR created but auto-merge FAILED — needs manual merge\n${{ steps.push.outputs.pr_url }}\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+
+      # Review items = files the sync script flagged but did NOT write to disk
+      # (local modifications, files deleted on main). No file changes to propose —
+      # just alert Slack so a human can manually reconcile.
+      - name: Notify Slack (review needed)
+        if: always() && steps.sync.outputs.action == 'push_and_pr'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":warning: *Docs sync*: files needing manual review — see workflow run for details\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+
+      - name: Notify Slack (failure)
+        if: failure() && steps.push.outputs.pr_url == ''
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":x: *Docs sync*: workflow failed | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }

@@ -150,15 +150,15 @@ export class ChatActionsComponent {
         <div
           [class]="inputClass"
           style="
-          text-align: center;
-          padding: 12px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          font-size: 14px;
-          margin: 8px 16px;
-          border-radius: 8px;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        "
+            text-align: center;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 14px;
+            margin: 8px 16px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          "
         >
           🎨 This chat interface is fully customizable!
         </div>

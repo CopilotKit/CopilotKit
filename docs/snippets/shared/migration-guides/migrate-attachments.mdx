@@ -1,0 +1,231 @@
+import { Steps, Step } from "fumadocs-ui/components/steps";
+import { Callout } from "fumadocs-ui/components/callout";
+
+## Overview
+
+CopilotKit now supports multimodal attachments — images, audio, video, and documents — through a unified `attachments` configuration. The new API replaces the image-only upload props with a single, extensible config object that supports custom upload handlers, file size limits, and any file type.
+
+<Callout type="info">
+  For a full guide on the new attachments system, see [Multimodal Attachments](/multimodal-attachments).
+</Callout>
+
+## What's Changing
+
+The following props and types are deprecated:
+
+| Deprecated                   | Replacement                       |
+| ---------------------------- | --------------------------------- |
+| `imageUploadsEnabled`        | `attachments={{ enabled: true }}` |
+| `inputFileAccept`            | `attachments={{ accept: "..." }}` |
+| `ImageUpload` type           | `Attachment` type                 |
+| `ImageUploadQueue` component | `AttachmentQueue` component       |
+
+These deprecated APIs will continue to work until the next major version but will log a warning in development mode. You can suppress warnings by calling `suppressDeprecationWarnings()` from `@copilotkit/react-ui`.
+
+## Minimum Version
+
+- **New `attachments` API:** available from v1.56.0
+- **Deprecated APIs removed:** next major version
+
+## Before / After
+
+### Basic image uploads
+
+**Before:**
+
+```tsx
+import { CopilotChat } from "@copilotkit/react-ui";
+
+<CopilotChat imageUploadsEnabled={true} inputFileAccept="image/*" />;
+```
+
+**After:**
+
+```tsx
+import { CopilotChat } from "@copilotkit/react-ui";
+
+<CopilotChat
+  attachments={{
+    enabled: true,
+    accept: "image/*",
+  }}
+/>;
+```
+
+### Full multimodal support (images, audio, video, documents)
+
+```tsx
+import { CopilotChat } from "@copilotkit/react-ui";
+
+<CopilotChat
+  attachments={{
+    enabled: true,
+    // accept defaults to "*/*" — all file types
+  }}
+/>;
+```
+
+### Custom upload handler (e.g., upload to S3)
+
+```tsx
+import { CopilotChat } from "@copilotkit/react-ui";
+
+<CopilotChat
+  attachments={{
+    enabled: true,
+    maxSize: 10 * 1024 * 1024, // 10MB
+    onUpload: async (file) => {
+      const url = await uploadToS3(file);
+      return { type: "url", value: url, mimeType: file.type };
+    },
+  }}
+/>;
+```
+
+### Custom UI with AttachmentQueue
+
+**Before:**
+
+```tsx
+import { ImageUploadQueue } from "@copilotkit/react-ui";
+
+<ImageUploadQueue images={selectedImages} onRemoveImage={handleRemove} />;
+```
+
+**After:**
+
+```tsx
+import { AttachmentQueue } from "@copilotkit/react-ui";
+
+<AttachmentQueue
+  attachments={selectedAttachments}
+  onRemoveAttachment={handleRemove}
+/>;
+```
+
+## Automated Migration (Codemod)
+
+Run the codemod to automatically rename props, imports, and types:
+
+```bash
+npx jscodeshift -t https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/codemods/migrate-attachments.ts --parser=tsx --extensions=tsx,ts ./src
+```
+
+The codemod handles:
+- `imageUploadsEnabled` / `inputFileAccept` props → `attachments={{ enabled: true, accept: "..." }}`
+- `import { ImageUploadQueue }` → `import { AttachmentQueue }`
+- `import type { ImageUpload }` → `import type { Attachment }`
+
+It does NOT transform:
+- Custom upload handler signatures (the `onUpload` return type changed — see [Before / After](#custom-upload-handler-eg-upload-to-s3))
+- `ImageRenderer` prop usage (the v2 attachment rendering is a different architecture)
+
+After running, verify your app compiles and review the diff for anything the codemod couldn't handle.
+
+## Step-by-Step Migration (Manual)
+
+<Steps>
+  <Step>
+    ### Replace props on CopilotChat
+
+    Replace `imageUploadsEnabled` and `inputFileAccept` with the `attachments` config object:
+
+    ```tsx
+    // Remove these props:
+    // imageUploadsEnabled={true}
+    // inputFileAccept="image/*"
+
+    // Add this:
+    attachments={{ enabled: true, accept: "image/*" }}
+    ```
+
+    If you want to support all file types (not just images), omit the `accept` field — it defaults to `"*/*"`.
+
+  </Step>
+
+  <Step>
+    ### Update component imports (if using custom UI)
+
+    If you imported `ImageUploadQueue` directly:
+
+    ```tsx
+    // Before
+    import { ImageUploadQueue } from "@copilotkit/react-ui";
+    // After
+    import { AttachmentQueue } from "@copilotkit/react-ui";
+    ```
+
+    Update the component props: `images` → `attachments`, `onRemoveImage` → `onRemoveAttachment`.
+
+  </Step>
+
+  <Step>
+    ### Update type imports (if referencing ImageUpload)
+
+    If you imported the `ImageUpload` type:
+
+    ```tsx
+    // Before
+    import type { ImageUpload } from "@copilotkit/react-ui";
+    // After
+    import type { Attachment } from "@copilotkit/react-ui";
+    ```
+
+    Note: the `Attachment` type has a different shape — see [Gotchas](#gotchas) below.
+
+  </Step>
+
+  <Step>
+    ### Suppress warnings (optional)
+
+    If you are aware of the deprecations but cannot migrate immediately:
+
+    ```tsx
+    import { suppressDeprecationWarnings } from "@copilotkit/react-ui";
+
+    suppressDeprecationWarnings();
+    ```
+
+  </Step>
+</Steps>
+
+## Gotchas
+
+<Callout type="warning">
+  **Attachments are now actually sent to the LLM.** Previously,
+  `imageUploadsEnabled` collected images in the UI but did not include them in
+  messages sent to the model. The new `attachments` API sends all attachments as
+  part of the message content. If you were using `imageUploadsEnabled` without
+  expecting images to reach the model, be aware that they will now.
+</Callout>
+
+<Callout type="info">
+  **Default file type filter is broader.** The old `imageUploadsEnabled`
+  defaulted to `image/*`. The new `attachments` API defaults to `*/*` (all file
+  types). If you want to restrict to images only, set `accept: "image/*"`
+  explicitly.
+</Callout>
+
+**`Attachment` type shape differs from `ImageUpload`:**
+
+```tsx
+// Old: ImageUpload
+{ contentType: string; bytes: string }
+
+// New: Attachment
+{
+  type: "image" | "audio" | "video" | "document";
+  source: { type: "data"; value: string; mimeType: string }
+        | { type: "url"; value: string; mimeType?: string };
+  filename?: string;
+  size?: number;
+  status: "uploading" | "ready";
+  metadata?: Record<string, unknown>;
+}
+```
+
+## Coexistence
+
+The deprecated props and the new `attachments` prop can coexist in the same codebase during the transition period. If both `imageUploadsEnabled` and `attachments` are provided, `attachments` takes precedence.
+
+The deprecated APIs will be removed in the next major version of CopilotKit.

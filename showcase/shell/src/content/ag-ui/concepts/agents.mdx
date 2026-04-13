@@ -1,0 +1,410 @@
+---
+title: "Agents"
+description: "Learn about agents in the Agent User Interaction Protocol"
+---
+
+# Agents
+
+Agents are the core components in the AG-UI protocol that process requests and
+generate responses. They establish a standardized way for front-end applications
+to communicate with AI services through a consistent interface, regardless of
+the underlying implementation.
+
+## What is an Agent?
+
+In AG-UI, an agent is a class that:
+
+1. Manages conversation state and message history
+2. Processes incoming messages and context
+3. Generates responses through an event-driven streaming interface
+4. Follows a standardized protocol for communication
+
+Agents can be implemented to connect with any AI service, including:
+
+- Large language models (LLMs) like GPT-4 or Claude
+- Custom AI systems
+- Retrieval augmented generation (RAG) systems
+- Multi-agent systems
+
+## Agent Architecture
+
+All agents in AG-UI extend the `AbstractAgent` class, which provides the
+foundation for:
+
+- State management
+- Message history tracking
+- Event stream processing
+- Tool usage
+
+```typescript
+class MyAgent extends AbstractAgent {
+  run(input: RunAgentInput): RunAgent {
+    // Implementation details
+  }
+}
+```
+
+### Core Components
+
+AG-UI agents have several key components:
+
+1. **Configuration**: Agent ID, thread ID, and initial state
+2. **Messages**: Conversation history with user and assistant messages
+3. **State**: Structured data that persists across interactions
+4. **Events**: Standardized messages for communication with clients
+5. **Tools**: Functions that agents can use to interact with external systems
+
+## Agent Types
+
+AG-UI provides different agent implementations to suit various needs:
+
+### AbstractAgent
+
+The base class that all agents extend. It handles core event processing, state
+management, and message history.
+
+### HttpAgent
+
+A concrete implementation that connects to remote AI services via HTTP:
+
+```typescript
+const agent = new HttpAgent({
+  url: "https://your-agent-endpoint.com/agent",
+  headers: {
+    Authorization: "Bearer your-api-key",
+  },
+});
+```
+
+### Custom Agents
+
+You can create custom agents to integrate with any AI service by extending
+`AbstractAgent`:
+
+```typescript
+class CustomAgent extends AbstractAgent {
+  // Custom properties and methods
+
+  run(input: RunAgentInput): RunAgent {
+    // Implement the agent's logic
+  }
+}
+```
+
+## Implementing Agents
+
+### Basic Implementation
+
+To create a custom agent, extend the `AbstractAgent` class and implement the
+required `run` method:
+
+```typescript
+  AbstractAgent,
+  RunAgent,
+  RunAgentInput,
+  EventType,
+  BaseEvent,
+} from "@ag-ui/client"
+
+class SimpleAgent extends AbstractAgent {
+  run(input: RunAgentInput): RunAgent {
+    const { threadId, runId } = input
+
+    return () =>
+      new Observable<BaseEvent>((observer) => {
+        // Emit RUN_STARTED event
+        observer.next({
+          type: EventType.RUN_STARTED,
+          threadId,
+          runId,
+        })
+
+        // Send a message
+        const messageId = Date.now().toString()
+
+        // Message start
+        observer.next({
+          type: EventType.TEXT_MESSAGE_START,
+          messageId,
+          role: "assistant",
+        })
+
+        // Message content
+        observer.next({
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId,
+          delta: "Hello, world!",
+        })
+
+        // Message end
+        observer.next({
+          type: EventType.TEXT_MESSAGE_END,
+          messageId,
+        })
+
+        // Emit RUN_FINISHED event
+        observer.next({
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId,
+        })
+
+        // Complete the observable
+        observer.complete()
+      })
+  }
+}
+```
+
+## Agent Capabilities
+
+Agents in the AG-UI protocol provide a rich set of capabilities that enable
+sophisticated AI interactions:
+
+### Interactive Communication
+
+Agents establish bi-directional communication channels with front-end
+applications through event streams. This enables:
+
+- Real-time streaming responses character-by-character
+- Immediate feedback loops between user and AI
+- Progress indicators for long-running operations
+- Structured data exchange in both directions
+
+### Tool Usage
+
+Agents can use tools to perform actions and access external resources.
+Importantly, tools are defined and passed in from the front-end application to
+the agent, allowing for a flexible and extensible system:
+
+```typescript
+// Tool definition
+const confirmAction = {
+  name: "confirmAction",
+  description: "Ask the user to confirm a specific action before proceeding",
+  parameters: {
+    type: "object",
+    properties: {
+      action: {
+        type: "string",
+        description: "The action that needs user confirmation",
+      },
+      importance: {
+        type: "string",
+        enum: ["low", "medium", "high", "critical"],
+        description: "The importance level of the action",
+      },
+      details: {
+        type: "string",
+        description: "Additional details about the action",
+      },
+    },
+    required: ["action"],
+  },
+};
+
+// Running an agent with tools from the frontend
+agent.runAgent({
+  tools: [confirmAction], // Frontend-defined tools passed to the agent
+  // other parameters
+});
+```
+
+Tools are invoked through a sequence of events:
+
+1. `TOOL_CALL_START`: Indicates the beginning of a tool call
+2. `TOOL_CALL_ARGS`: Streams the arguments for the tool call
+3. `TOOL_CALL_END`: Marks the completion of the tool call
+
+Front-end applications can then execute the tool and provide results back to the
+agent. This bidirectional flow enables sophisticated human-in-the-loop workflows
+where:
+
+- The agent can request specific actions be performed
+- Humans can execute those actions with appropriate judgment
+- Results are fed back to the agent for continued reasoning
+- The agent maintains awareness of all decisions made in the process
+
+This mechanism is particularly powerful for implementing interfaces where AI and
+humans collaborate. For example, [CopilotKit](https://docs.copilotkit.ai/)
+leverages this exact pattern with their
+[`useCopilotAction`](https://docs.copilotkit.ai/guides/frontend-actions) hook,
+which provides a simplified way to define and handle tools in React
+applications.
+
+By keeping the AI informed about human decisions through the tool mechanism,
+applications can maintain context and create more natural collaborative
+experiences between users and AI assistants.
+
+### State Management
+
+Agents maintain a structured state that persists across interactions. This state
+can be:
+
+- Updated incrementally through `STATE_DELTA` events
+- Completely refreshed with `STATE_SNAPSHOT` events
+- Accessed by both the agent and front-end
+- Used to store user preferences, conversation context, or application state
+
+```typescript
+// Accessing agent state
+console.log(agent.state.preferences);
+
+// State is automatically updated during agent runs
+agent.runAgent().subscribe((event) => {
+  if (event.type === EventType.STATE_DELTA) {
+    // State has been updated
+    console.log("New state:", agent.state);
+  }
+});
+```
+
+### Multi-Agent Collaboration
+
+AG-UI supports agent-to-agent handoff and collaboration:
+
+- Agents can delegate tasks to other specialized agents
+- Multiple agents can work together in a coordinated workflow
+- State and context can be transferred between agents
+- The front-end maintains a consistent experience across agent transitions
+
+For example, a general assistant agent might hand off to a specialized coding
+agent when programming help is needed, passing along the conversation context
+and specific requirements.
+
+### Human-in-the-Loop Workflows
+
+Agents support human intervention and assistance:
+
+- Agents can request human input on specific decisions
+- Front-ends can pause agent execution and resume it after human feedback
+- Human experts can review and modify agent outputs before they're finalized
+- Hybrid workflows combine AI efficiency with human judgment
+
+This enables applications where the agent acts as a collaborative partner rather
+than an autonomous system.
+
+### Conversational Memory
+
+Agents maintain a complete history of conversation messages:
+
+- Past interactions inform future responses
+- Message history is synchronized between client and server
+- Messages can include rich content (text, structured data, references)
+- The context window can be managed to focus on relevant information
+
+```typescript
+// Accessing message history
+console.log(agent.messages);
+
+// Adding a new user message
+agent.messages.push({
+  id: "msg_123",
+  role: "user",
+  content: "Can you explain that in more detail?",
+});
+```
+
+### Metadata and Instrumentation
+
+Agents can emit metadata about their internal processes:
+
+- Reasoning steps through custom events
+- Performance metrics and timing information
+- Source citations and reference tracking
+- Confidence scores for different response options
+
+This allows front-ends to provide transparency into the agent's decision-making
+process and help users understand how conclusions were reached.
+
+## Using Agents
+
+Once you've implemented or instantiated an agent, you can use it like this:
+
+```typescript
+// Create an agent instance
+const agent = new HttpAgent({
+  url: "https://your-agent-endpoint.com/agent",
+});
+
+// Add initial messages if needed
+agent.messages = [
+  {
+    id: "1",
+    role: "user",
+    content: "Hello, how can you help me today?",
+  },
+];
+
+// Run the agent
+agent
+  .runAgent({
+    runId: "run_123",
+    tools: [], // Optional tools
+    context: [], // Optional context
+  })
+  .subscribe({
+    next: (event) => {
+      // Handle different event types
+      switch (event.type) {
+        case EventType.TEXT_MESSAGE_CONTENT:
+          console.log("Content:", event.delta);
+          break;
+        // Handle other events
+      }
+    },
+    error: (error) => console.error("Error:", error),
+    complete: () => console.log("Run complete"),
+  });
+```
+
+## Agent Configuration
+
+Agents accept configuration through the constructor:
+
+```typescript
+interface AgentConfig {
+  agentId?: string; // Unique identifier for the agent
+  description?: string; // Human-readable description
+  threadId?: string; // Conversation thread identifier
+  initialMessages?: Message[]; // Initial messages
+  initialState?: State; // Initial state object
+}
+
+// Using the configuration
+const agent = new HttpAgent({
+  agentId: "my-agent-123",
+  description: "A helpful assistant",
+  threadId: "thread-456",
+  initialMessages: [
+    { id: "1", role: "system", content: "You are a helpful assistant." },
+  ],
+  initialState: { preferredLanguage: "English" },
+});
+```
+
+## Agent State Management
+
+AG-UI agents maintain state across interactions:
+
+```typescript
+// Access current state
+console.log(agent.state);
+
+// Access messages
+console.log(agent.messages);
+
+// Clone an agent with its state
+const clonedAgent = agent.clone();
+```
+
+## Conclusion
+
+Agents are the foundation of the AG-UI protocol, providing a standardized way to
+connect front-end applications with AI services. By implementing the
+`AbstractAgent` class, you can create custom integrations with any AI service
+while maintaining a consistent interface for your applications.
+
+The event-driven architecture enables real-time, streaming interactions that are
+essential for modern AI applications, and the standardized protocol ensures
+compatibility across different implementations.

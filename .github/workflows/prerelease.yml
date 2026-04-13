@@ -1,0 +1,76 @@
+name: release / pre
+
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "What to release"
+        required: true
+        type: choice
+        options:
+          - monorepo
+          - cli
+          - angular
+      suffix:
+        description: "Version suffix (e.g. 'fix-user-issue'). Leave blank for timestamp."
+        required: false
+        type: string
+      dry_run:
+        description: "Dry run (don't actually publish)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NX_VERBOSE_LOGGING: true
+
+jobs:
+  prerelease:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.13.1"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          registry-url: https://registry.npmjs.org
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Configure npm auth
+        run: |
+          npm config set "//registry.npmjs.org/:_authToken" "${NPM_TOKEN}"
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Publish prerelease
+        run: |
+          ARGS="--scope ${{ inputs.scope }}"
+          if [ -n "${{ inputs.suffix }}" ]; then
+            ARGS="$ARGS --suffix ${{ inputs.suffix }}"
+          fi
+          if [ "${{ inputs.dry_run }}" == "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          pnpm tsx scripts/release/prerelease.ts $ARGS
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

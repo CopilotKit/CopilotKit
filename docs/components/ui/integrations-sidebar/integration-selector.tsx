@@ -199,8 +199,10 @@ const IntegrationSelector = ({
       return;
     }
 
-    // Only clear selection if we're specifically on /integrations page
-    if (pathname === "/integrations" && selectedIntegration) {
+    // Clear selection on any non-integration route so the picker returns to
+    // its default "Select integration..." state on the homepage and other
+    // docs sections.
+    if (selectedIntegration) {
       setSelectedIntegration(null);
     }
   }, [pathname, selectedIntegration, setSelectedIntegration]);

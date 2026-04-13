@@ -1,0 +1,82 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicolo-ribaudo/oxlint-json-schema/refs/heads/main/.oxlintrc.json",
+  "plugins": ["typescript", "unicorn", "oxc", "react", "nextjs", "import"],
+  "jsPlugins": ["./packages/react-ui/oxlint-rules/copilotkit-plugin.mjs"],
+  "categories": {
+    "correctness": "warn",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "import/no-unassigned-import": "off",
+    "unicorn/no-array-sort": "off",
+    "copilotkit/require-cpk-prefix": "off",
+    "no-restricted-imports": "off",
+
+    "typescript/consistent-type-imports": [
+      "warn",
+      { "prefer": "type-imports", "fixStyle": "separate-type-imports" }
+    ],
+    "typescript/no-import-type-side-effects": "warn",
+    "import/consistent-type-specifier-style": ["warn", "prefer-top-level"],
+    "typescript/no-unnecessary-type-assertion": "error",
+
+    "react/self-closing-comp": "warn",
+    "unicorn/prefer-optional-catch-binding": "warn",
+    "eslint/no-useless-computed-key": "warn",
+    "unicorn/prefer-string-slice": "warn",
+    "unicorn/prefer-array-flat-map": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["packages/**/*.{ts,tsx}", "examples/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@a2ui/lit",
+                "message": "Do not use value imports from '@a2ui/lit' — it registers custom elements as a side effect, which breaks React Strict Mode. Use `import type` for types, or import from '@a2ui/lit/0.8' for value access (core only, no UI side effects).",
+                "allowTypeImports": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/react-ui/src/**/*.{ts,tsx}"],
+      "rules": {
+        "copilotkit/require-cpk-prefix": "warn"
+      }
+    },
+    {
+      "files": ["**/__tests__/**", "**/*.test.*", "**/*.spec.*"],
+      "rules": {
+        "copilotkit/require-cpk-prefix": "off"
+      }
+    },
+    {
+      "files": [
+        "packages/angular/**/*.ts",
+        "packages/runtime/src/graphql/**/*.ts"
+      ],
+      "rules": {
+        "typescript/consistent-type-imports": "off",
+        "typescript/no-import-type-side-effects": "off",
+        "import/consistent-type-specifier-style": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "dist/**",
+    "node_modules/**",
+    ".next/**",
+    ".nuxt/**",
+    "coverage/**",
+    "storybook-static/**",
+    "**/@generated/**",
+    "docs/**"
+  ]
+}

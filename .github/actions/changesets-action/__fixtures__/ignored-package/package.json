@@ -1,8 +1,0 @@
-{
-  "private": true,
-  "name": "ignored-package",
-  "version": "1.0.0",
-  "workspaces": [
-    "packages/*"
-  ]
-}

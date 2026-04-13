@@ -26,6 +26,10 @@ export interface IntelligenceAgentRunnerOptions {
   url: string;
   /** Optional Phoenix socket auth token used during websocket connect. */
   authToken?: string;
+  /** Max delay (ms) for WebSocket reconnect backoff. @default 10_000 */
+  maxReconnectMs?: number;
+  /** Max delay (ms) for channel rejoin backoff. @default 30_000 */
+  maxRejoinMs?: number;
 }
 
 interface ThreadState {
@@ -59,10 +63,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
    *  - Each run gets its own independent retry budget.
    *
    * reconnectAfterMs — delay before Phoenix reconnects the WebSocket
-   *   after an unclean close. 100ms base, doubling up to a 10s cap.
+   *   after an unclean close. 100ms base, doubling up to maxReconnectMs (default 10s).
    *
    * rejoinAfterMs — delay before Phoenix re-joins a channel that
-   *   entered the "errored" state. 1s base, doubling up to 30s cap.
+   *   entered the "errored" state. 1s base, doubling up to maxRejoinMs (default 30s).
    *
    * These are set explicitly because Phoenix's default schedule is a
    * fixed stepped array (not exponential), and any code that calls
@@ -73,8 +77,14 @@ export class IntelligenceAgentRunner extends AgentRunner {
   private createSocket(): Socket {
     const socket = new Socket(this.options.url, {
       ...(this.options.authToken ? { authToken: this.options.authToken } : {}),
-      reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
-      rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
+      reconnectAfterMs: phoenixExponentialBackoff(
+        100,
+        this.options.maxReconnectMs ?? 10_000,
+      ),
+      rejoinAfterMs: phoenixExponentialBackoff(
+        1_000,
+        this.options.maxRejoinMs ?? 30_000,
+      ),
     });
     socket.connect();
     return socket;

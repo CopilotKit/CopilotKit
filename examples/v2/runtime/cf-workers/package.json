@@ -1,0 +1,17 @@
+{
+  "name": "@copilotkit/example-runtime-cf-workers",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "example-dev": "wrangler dev",
+    "example-deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@copilotkit/runtime": "workspace:^"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250214.0",
+    "typescript": "^5.8.2",
+    "wrangler": "^4.6.0"
+  }
+}

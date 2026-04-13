@@ -16,7 +16,7 @@
   "dependencies": {
     "@a2a-js/sdk": "latest",
     "@ag-ui/a2a-middleware": "0.0.2",
-    "@ag-ui/client": "0.0.40",
+    "@ag-ui/client": "0.0.52",
     "@copilotkit/react-core": "latest",
     "@copilotkit/react-ui": "latest",
     "@copilotkit/runtime": "latest",
@@ -30,14 +30,12 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "concurrently": "^9.1.2",
-    "eslint": "^8",
-    "eslint-config-next": "15.1.6",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5"
   },
   "overrides": {
-    "@ag-ui/client": "0.0.40"
+    "@ag-ui/client": "0.0.52"
   }
 }

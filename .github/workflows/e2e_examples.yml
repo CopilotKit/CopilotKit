@@ -21,8 +21,13 @@ on:
         type: string
 
 env:
+  NX_VERBOSE_LOGGING: true
   NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
   NX_CI_EXECUTION_ENV: "E2E Examples"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   examples:
@@ -70,6 +75,13 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Configure Nx Cloud environment
+        run: |
+          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-e2e-examples-${{ matrix.example }}" >> $GITHUB_ENV
+          echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
+          echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false" >> $GITHUB_ENV
+          echo "NX_NO_CLOUD=true" >> $GITHUB_ENV
 
       - name: Build CopilotKit
         id: build-cpk

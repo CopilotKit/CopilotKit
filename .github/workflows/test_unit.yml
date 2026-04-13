@@ -7,11 +7,6 @@ on:
       - "docs/**"
       - "README.md"
       - "examples/**"
-      - ".github/workflows/demos_preview.yml"
-      - ".github/workflows/release.yml"
-      - "packages/**/package.json"
-      - "packages/**/CHANGELOG.md"
-      - ".changeset/**"
   pull_request:
     branches: [main]
     paths-ignore:
@@ -27,13 +22,19 @@ on:
         type: string
 env:
   NODE_OPTIONS: "--max-old-space-size=4096"
+  NX_VERBOSE_LOGGING: true
   NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
   NX_CI_EXECUTION_ENV: "Unit Tests"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   unit:
     name: "unit"
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -53,9 +54,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Configure Nx Cloud environment
+        run: |
+          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-unit-v1-${{ matrix.node-version }}" >> $GITHUB_ENV
+          echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
+          echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false" >> $GITHUB_ENV
+          echo "NX_NO_CLOUD=true" >> $GITHUB_ENV
 
       - name: Generate GraphQL codegen files
         run: npx nx run @copilotkit/runtime-client-gql:graphql-codegen
@@ -65,3 +75,6 @@ jobs:
 
       - name: Run tests
         run: pnpm run test
+
+      - name: Run release script tests
+        run: npx vitest run --config scripts/release/vitest.config.mts

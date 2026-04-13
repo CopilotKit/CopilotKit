@@ -1,4 +1,3 @@
-# Requirements for test-feedback-api.py
 boto3>=1.34.0
 requests>=2.31.0
 PyYAML>=6.0.1

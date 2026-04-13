@@ -573,6 +573,76 @@ describe("CopilotKitProvider", () => {
     });
   });
 
+  describe("useSingleEndpoint → runtimeTransport mapping", () => {
+    it("maps useSingleEndpoint=true to 'single' transport", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider useSingleEndpoint={true}>
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current.copilotkit.runtimeTransport).toBe("single");
+    });
+
+    it("maps useSingleEndpoint=false to 'rest' transport", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider useSingleEndpoint={false}>
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current.copilotkit.runtimeTransport).toBe("rest");
+    });
+
+    it("maps omitted useSingleEndpoint to 'auto' transport", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider>{children}</CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current.copilotkit.runtimeTransport).toBe("auto");
+    });
+
+    it("updates transport when useSingleEndpoint prop changes", () => {
+      let capturedCopilotkit: ReturnType<typeof useCopilotKit>["copilotkit"];
+
+      function Collector({ children }: { children?: React.ReactNode }) {
+        const { copilotkit } = useCopilotKit();
+        capturedCopilotkit = copilotkit;
+        return <>{children}</>;
+      }
+
+      const { rerender } = render(
+        <CopilotKitProvider useSingleEndpoint={false}>
+          <Collector />
+        </CopilotKitProvider>,
+      );
+
+      expect(capturedCopilotkit!.runtimeTransport).toBe("rest");
+
+      rerender(
+        <CopilotKitProvider useSingleEndpoint={true}>
+          <Collector />
+        </CopilotKitProvider>,
+      );
+
+      expect(capturedCopilotkit!.runtimeTransport).toBe("single");
+
+      rerender(
+        <CopilotKitProvider>
+          <Collector />
+        </CopilotKitProvider>,
+      );
+
+      expect(capturedCopilotkit!.runtimeTransport).toBe("auto");
+    });
+  });
+
   describe("Edge cases", () => {
     it("handles empty arrays for tools", () => {
       const { result } = renderHook(() => useCopilotKit(), {
@@ -583,6 +653,7 @@ describe("CopilotKitProvider", () => {
         ),
       });
 
+      // No built-in tools when openGenerativeUI is not configured
       expect(result.current.copilotkit.tools).toHaveLength(0);
       expect(result.current.copilotkit.renderToolCalls).toHaveLength(0);
     });

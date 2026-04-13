@@ -97,6 +97,269 @@ export function useToast() {
   return context;
 }
 
+function formatBannerMessage(message: string): string {
+  // Try to extract the useful message from JSON first
+  const jsonMatch = message.match(/'message':\s*'([^']+)'/);
+  if (jsonMatch) {
+    return jsonMatch[1];
+  }
+
+  // Strip technical garbage but keep the meaningful message
+  let cleaned = message.split(" - ")[0];
+  cleaned = cleaned.split(": Error code")[0];
+  cleaned = cleaned.replace(/:\s*\d{3}$/, "");
+  cleaned = cleaned.replace(/See more:.*$/g, "");
+  cleaned = cleaned.trim();
+
+  return cleaned || "An error occurred.";
+}
+
+function extractUrl(message: string): { url: string; text: string } | null {
+  const markdownMatch = /\[([^\]]+)\]\(([^)]+)\)/.exec(message);
+  if (markdownMatch) {
+    return { url: markdownMatch[2], text: "See More" };
+  }
+  const plainMatch = /(https?:\/\/[^\s)]+)/.exec(message);
+  if (plainMatch) {
+    return {
+      url: plainMatch[0].replace(/[.,;:'"]*$/, ""),
+      text: "See More",
+    };
+  }
+  return null;
+}
+
+function BannerErrorDisplay({
+  bannerError,
+  onDismiss,
+}: {
+  bannerError: CopilotKitError;
+  onDismiss: () => void;
+}) {
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const severity = getErrorSeverity(bannerError);
+  const colors = getErrorColors(severity);
+
+  // Extract optional error details attached by CopilotListeners
+  const details = (bannerError as any).details as
+    | {
+        code?: string;
+        context?: Record<string, any>;
+        stack?: string;
+        originalMessage?: string;
+      }
+    | undefined;
+
+  const link = extractUrl(bannerError.message);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        bottom: "20px",
+        left: "50%",
+        transform: "translateX(-50%)",
+        zIndex: 9999,
+        backgroundColor: colors.background,
+        border: `1px solid ${colors.border}`,
+        borderLeft: `4px solid ${colors.border}`,
+        borderRadius: "8px",
+        padding: "12px 16px",
+        fontSize: "13px",
+        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+        backdropFilter: "blur(8px)",
+        maxWidth: "min(90vw, 700px)",
+        width: "100%",
+        boxSizing: "border-box",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "10px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            flex: 1,
+            minWidth: 0,
+          }}
+        >
+          <div
+            style={{
+              width: "12px",
+              height: "12px",
+              borderRadius: "50%",
+              backgroundColor: colors.border,
+              flexShrink: 0,
+            }}
+          />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            <div
+              style={{
+                color: colors.text,
+                lineHeight: "1.4",
+                fontWeight: "400",
+                fontSize: "13px",
+                flex: 1,
+                wordBreak: "break-all",
+                overflowWrap: "break-word",
+                maxWidth: "550px",
+                overflow: "hidden",
+                display: "-webkit-box",
+                WebkitLineClamp: 10,
+                WebkitBoxOrient: "vertical",
+              }}
+            >
+              {formatBannerMessage(bannerError.message)}
+            </div>
+
+            {link && (
+              <button
+                onClick={() =>
+                  window.open(link.url, "_blank", "noopener,noreferrer")
+                }
+                style={{
+                  background: colors.border,
+                  color: "white",
+                  border: "none",
+                  borderRadius: "5px",
+                  padding: "4px 10px",
+                  fontSize: "11px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  flexShrink: 0,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = "0.9";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = "1";
+                  e.currentTarget.style.transform = "translateY(0)";
+                }}
+              >
+                {link.text}
+              </button>
+            )}
+
+            {details && (
+              <button
+                onClick={() => setDetailsExpanded(!detailsExpanded)}
+                style={{
+                  background: "transparent",
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: "5px",
+                  padding: "4px 10px",
+                  fontSize: "11px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  color: colors.text,
+                  flexShrink: 0,
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(0, 0, 0, 0.05)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                }}
+              >
+                {detailsExpanded ? "Hide Details" : "Show Details"}
+              </button>
+            )}
+          </div>
+        </div>
+        <button
+          onClick={onDismiss}
+          style={{
+            background: "transparent",
+            border: "none",
+            color: colors.text,
+            cursor: "pointer",
+            padding: "2px",
+            borderRadius: "3px",
+            fontSize: "14px",
+            lineHeight: "1",
+            opacity: 0.6,
+            transition: "all 0.2s ease",
+            flexShrink: 0,
+          }}
+          title="Dismiss"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = "1";
+            e.currentTarget.style.background = "rgba(0, 0, 0, 0.05)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = "0.6";
+            e.currentTarget.style.background = "transparent";
+          }}
+        >
+          x
+        </button>
+      </div>
+
+      {detailsExpanded && details && (
+        <div
+          style={{
+            marginTop: "10px",
+            padding: "10px",
+            background: "rgba(0, 0, 0, 0.04)",
+            borderRadius: "6px",
+            fontSize: "11px",
+            fontFamily: "monospace",
+            color: colors.text,
+            lineHeight: "1.5",
+            maxHeight: "200px",
+            overflowY: "auto",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-all",
+          }}
+        >
+          {details.code && (
+            <div>
+              <strong>Code:</strong> {details.code}
+            </div>
+          )}
+          {details.originalMessage && (
+            <div style={{ marginTop: "4px" }}>
+              <strong>Message:</strong> {details.originalMessage}
+            </div>
+          )}
+          {details.context && Object.keys(details.context).length > 0 && (
+            <div style={{ marginTop: "4px" }}>
+              <strong>Context:</strong>{" "}
+              {JSON.stringify(details.context, null, 2)}
+            </div>
+          )}
+          {details.stack && (
+            <div style={{ marginTop: "4px", opacity: 0.7 }}>
+              <strong>Stack:</strong>
+              {"\n"}
+              {details.stack}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ToastProvider({
   enabled,
   children,
@@ -169,200 +432,12 @@ export function ToastProvider({
   return (
     <ToastContext.Provider value={value}>
       {/* Banner Error Display */}
-      {bannerError &&
-        (() => {
-          const severity = getErrorSeverity(bannerError);
-          const colors = getErrorColors(severity);
-
-          return (
-            <div
-              style={{
-                position: "fixed",
-                bottom: "20px",
-                left: "50%",
-                transform: "translateX(-50%)",
-                zIndex: 9999,
-                backgroundColor: colors.background,
-                border: `1px solid ${colors.border}`,
-                borderLeft: `4px solid ${colors.border}`,
-                borderRadius: "8px",
-                padding: "12px 16px",
-                fontSize: "13px",
-                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-                backdropFilter: "blur(8px)",
-                maxWidth: "min(90vw, 700px)",
-                width: "100%",
-                boxSizing: "border-box",
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: "10px",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    flex: 1,
-                    minWidth: 0,
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "12px",
-                      height: "12px",
-                      borderRadius: "50%",
-                      backgroundColor: colors.border,
-                      flexShrink: 0,
-                    }}
-                  />
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      flex: 1,
-                      minWidth: 0,
-                    }}
-                  >
-                    <div
-                      style={{
-                        color: colors.text,
-                        lineHeight: "1.4",
-                        fontWeight: "400",
-                        fontSize: "13px",
-                        flex: 1,
-                        wordBreak: "break-all",
-                        overflowWrap: "break-word",
-                        maxWidth: "550px",
-                        overflow: "hidden",
-                        display: "-webkit-box",
-                        WebkitLineClamp: 10,
-                        WebkitBoxOrient: "vertical",
-                      }}
-                    >
-                      {(() => {
-                        let message = bannerError.message;
-
-                        // Try to extract the useful message from JSON first
-                        const jsonMatch = message.match(
-                          /'message':\s*'([^']+)'/,
-                        );
-                        if (jsonMatch) {
-                          return jsonMatch[1]; // Return the actual error message
-                        }
-
-                        // Strip technical garbage but keep the meaningful message
-                        message = message.split(" - ")[0]; // Remove everything after " - {"
-                        message = message.split(": Error code")[0]; // Remove ": Error code: 401"
-                        message = message.replace(/:\s*\d{3}$/, ""); // Remove trailing ": 401"
-                        message = message.replace(/See more:.*$/g, ""); // Remove "See more" links
-                        message = message.trim();
-
-                        // If it's still garbage (contains { or '), use fallback
-                        // if (message.includes("{") || message.includes("'")) {
-                        //   return "Configuration error.... Please check your setup.";
-                        // }
-
-                        return message || "Configuration error occurred.";
-                      })()}
-                    </div>
-
-                    {(() => {
-                      const message = bannerError.message;
-                      const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-                      const plainUrlRegex = /(https?:\/\/[^\s)]+)/g;
-
-                      // Extract the first URL found
-                      let url = null;
-                      let buttonText = "See More";
-
-                      // Check for markdown links first
-                      const markdownMatch = markdownLinkRegex.exec(message);
-                      if (markdownMatch) {
-                        url = markdownMatch[2];
-                        buttonText = "See More";
-                      } else {
-                        // Check for plain URLs
-                        const urlMatch = plainUrlRegex.exec(message);
-                        if (urlMatch) {
-                          url = urlMatch[0].replace(/[.,;:'"]*$/, ""); // Remove trailing punctuation
-                          buttonText = "See More";
-                        }
-                      }
-
-                      if (!url) return null;
-
-                      return (
-                        <button
-                          onClick={() =>
-                            window.open(url, "_blank", "noopener,noreferrer")
-                          }
-                          style={{
-                            background: colors.border,
-                            color: "white",
-                            border: "none",
-                            borderRadius: "5px",
-                            padding: "4px 10px",
-                            fontSize: "11px",
-                            fontWeight: "500",
-                            cursor: "pointer",
-                            transition: "all 0.2s ease",
-                            flexShrink: 0,
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.opacity = "0.9";
-                            e.currentTarget.style.transform =
-                              "translateY(-1px)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.opacity = "1";
-                            e.currentTarget.style.transform = "translateY(0)";
-                          }}
-                        >
-                          {buttonText}
-                        </button>
-                      );
-                    })()}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setBannerError(null)}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: colors.text,
-                    cursor: "pointer",
-                    padding: "2px",
-                    borderRadius: "3px",
-                    fontSize: "14px",
-                    lineHeight: "1",
-                    opacity: 0.6,
-                    transition: "all 0.2s ease",
-                    flexShrink: 0,
-                  }}
-                  title="Dismiss"
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.opacity = "1";
-                    e.currentTarget.style.background = "rgba(0, 0, 0, 0.05)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.opacity = "0.6";
-                    e.currentTarget.style.background = "transparent";
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-          );
-        })()}
+      {bannerError && (
+        <BannerErrorDisplay
+          bannerError={bannerError}
+          onDismiss={() => setBannerError(null)}
+        />
+      )}
 
       {/* Toast Display - Deprecated: All errors now show as banners */}
       {children}

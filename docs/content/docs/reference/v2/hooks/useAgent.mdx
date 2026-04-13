@@ -34,6 +34,19 @@ function useAgent(options?: UseAgentProps): { agent: AbstractAgent }
 
     Pass an empty array `[]` to prevent automatic re-renders.
   </PropertyReference>
+
+  <PropertyReference name="throttleMs" type="number" default="0">
+    Throttle interval (in milliseconds) for React re-renders triggered by `OnMessagesChanged` notifications. Useful to reduce re-render frequency during streaming, where new tokens can fire many updates per second.
+
+    Uses a **leading+trailing** pattern:
+    - First update fires immediately (no delay for the initial token)
+    - Subsequent updates within the window are coalesced
+    - A trailing timer ensures the final state is always rendered
+
+    Only affects `OnMessagesChanged` — `OnStateChanged` and `OnRunStatusChanged` always fire immediately. Has no effect if `updates` does not include `OnMessagesChanged`.
+
+    Must be a non-negative finite number. Invalid values fall back to `0` with a `console.error`.
+  </PropertyReference>
 </PropertyReference>
 
 ## Return Value
@@ -231,9 +244,85 @@ function MessageCount() {
 }
 ```
 
+### Throttling Streaming Re-renders
+
+```tsx
+import { useAgent } from "@copilotkit/react-core/v2";
+
+// During streaming, coalesce rapid token updates into ~10 renders/sec
+function StreamingChat() {
+  const { agent } = useAgent({ throttleMs: 100 });
+
+  return (
+    <div>
+      {agent.messages.map((msg) => (
+        <div key={msg.id}>{msg.content}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Performance
+
+### Two levels of throttle control
+
+CopilotKit provides throttle controls at two independent layers. They are **additive** — you can use one or both depending on your architecture:
+
+| Layer | Option | Where | What it throttles |
+|-------|--------|-------|-------------------|
+| **React hook** | `useAgent({ throttleMs })` | Per-component | React re-renders triggered by `OnMessagesChanged` |
+| **AG-UI middleware** | `EventThrottleMiddleware` | Per-agent (all subscribers) | AG-UI stream events at the source — batches and coalesces rapid chunk events before they reach subscribers |
+
+**When to use which:**
+
+- **`throttleMs` on `useAgent`** — best for headless UIs where you control the React component but not the agent creation. Simple, one-line fix.
+- **`EventThrottleMiddleware`** — best when you control agent instantiation and want to throttle for ALL consumers (not just one React component). Supports both time-based (`intervalMs`) and character-count-based (`minChunkSize`) thresholds. Coalesces consecutive chunk events (text, tool call, reasoning) with the same ID into a single event with merged deltas.
+- **Both together** — the middleware reduces event frequency at the source, and the hook-level throttle further smooths the React rendering. They compose naturally.
+
+### Agent-level event throttle middleware
+
+When creating an agent directly (e.g., `HttpAgent`), you can add `EventThrottleMiddleware` to throttle stream events:
+
+```tsx
+import { HttpAgent } from "@ag-ui/client";
+import { EventThrottleMiddleware } from "@ag-ui/event-throttle-middleware";
+
+const agent = new HttpAgent({
+  url: "https://my-agent.example.com",
+});
+
+agent.use(
+  new EventThrottleMiddleware({
+    intervalMs: 16,     // ~60fps cap on notifications
+    minChunkSize: 20,   // also fire when 20+ new chars accumulate
+  }),
+);
+```
+
+When both `intervalMs` and `minChunkSize` are set, a notification fires when **either** threshold is hit first — whichever comes sooner. This gives you both a minimum visual update granularity (chunk size) and a maximum latency cap (time).
+
+Bufferable events (text chunks, tool call chunks, state snapshots) are batched and coalesced, while lifecycle events (`RUN_STARTED`, `TOOL_CALL_START`, etc.) flush the buffer and pass through immediately.
+
+### Memoizing message components
+
+Throttling reduces how often your component re-renders, but each re-render still runs `.map()` over all messages. For best performance, wrap your message component in `React.memo` so only the actively-streaming message re-renders:
+
+```tsx
+const MessageBubble = React.memo(function MessageBubble({ message }) {
+  return <div>{message.content}</div>;
+}, (prev, next) => {
+  return prev.message.id === next.message.id
+    && prev.message.content === next.message.content;
+});
+```
+
+This is what CopilotKit's built-in `CopilotChat` component does internally — it wraps every message type in `React.memo` with deep content comparators.
+
 ## Behavior
 
 - **Automatic Re-renders**: Component re-renders when agent state, messages, or execution status changes (configurable via `updates` parameter)
+- **Render Throttling**: When `throttleMs > 0`, message-change re-renders use a leading+trailing throttle — the first token renders instantly, rapid mid-stream updates are coalesced, and the final state is always rendered after the window expires. State and run-status changes are never throttled.
 - **Error Handling**: Throws error if no agent exists with specified `agentId`
 - **State Synchronization**: State updates via `setState()` are immediately available to both app and agent
 - **Event Subscriptions**: Subscribe/unsubscribe pattern for lifecycle and custom events

@@ -1,0 +1,56 @@
+name: MS Agent Framework (Python)
+slug: ms-agent-python
+category: enterprise-platform
+language: python
+logo: /logos/ms-agent-python.svg
+description: CopilotKit integration with MS Agent Framework (Python)
+partner_docs: null
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/ms-agent-python
+copilotkit_version: 2.0.0
+backend_url: https://showcase-ms-agent-python-production.up.railway.app
+deployed: true
+sort_order: 150
+generative_ui:
+  - constrained-explicit
+interaction_modalities:
+  - chat
+starter:
+  path: examples/integrations/ms-agent-framework-python
+  name: Proverbs Manager
+  description: Proverb management agent using Microsoft Agent Framework for Python
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/ms-agent-framework-python
+  demo_url: https://showcase-starter-ms-agent-python-production.up.railway.app
+features:
+  - agentic-chat
+  - tool-rendering
+  - hitl
+  - gen-ui-tool-based
+demos:
+  - id: agentic-chat
+    name: Agentic Chat
+    description: Natural conversation with frontend tool execution
+    tags:
+      - chat-ui
+    route: /demos/agentic-chat
+    animated_preview_url:
+  - id: tool-rendering
+    name: Tool Rendering
+    description: Backend agent tools rendered as UI components
+    tags:
+      - agent-capabilities
+    route: /demos/tool-rendering
+    animated_preview_url:
+  - id: hitl
+    name: Human in the Loop
+    description: User approves agent actions before execution
+    tags:
+      - interactivity
+    route: /demos/hitl
+    animated_preview_url:
+  - id: gen-ui-tool-based
+    name: Tool-Based Generative UI
+    description: Agent uses tools to trigger UI generation
+    tags:
+      - generative-ui
+    route: /demos/gen-ui-tool-based
+    animated_preview_url:

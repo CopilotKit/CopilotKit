@@ -1,0 +1,109 @@
+---
+title: "Java SDK Overview"
+description: "Connect to AG-UI agents using the official Java SDK"
+---
+
+The AG-UI Java SDK provides a robust and idiomatic way to connect Java applications to AG-UI agents.
+It enables real-time streaming communication through Server-Sent Events (SSE), allowing you to build intelligent agent-powered applications with Java.
+
+## Installation
+
+Add the packages you need as Maven dependencies (or Gradle):
+
+```xml
+<dependency>
+  <groupId>com.ag-ui</groupId>
+  <artifactId>core</artifactId>
+  <version>0.0.1</version>
+</dependency>
+
+<dependency>
+  <groupId>com.ag-ui</groupId>
+  <artifactId>client</artifactId>
+  <version>0.0.1</version>
+</dependency>
+
+<dependency>
+  <groupId>com.ag-ui</groupId>
+  <artifactId>http</artifactId>
+  <version>0.0.1</version>
+</dependency>
+```
+
+## Quick Start
+
+Create an `HttpAgent`, subscribe to events, and run the agent:
+
+```java
+
+HttpAgent agent = HttpAgent.builder()
+    .agentId("my-agent")
+    .threadId("thread-123")
+    .httpClient(myHttpClient) // e.g., new com.agui.okhttp.HttpClient("https://api.example.com/agent")
+    .state(new State())
+    .build();
+
+agent.subscribe(new AgentSubscriber() {
+  @Override
+  public void onTextMessageContentEvent(TextMessageContentEvent event) {
+    System.out.print(event.getDelta());
+  }
+});
+
+RunAgentParameters params = new RunAgentParameters();
+params.setContext(List.of());
+params.setTools(List.of());
+
+agent.runAgent(params, null).join();
+```
+
+## Package Structure
+
+The Java SDK is organized into several focused packages, each handling a specific aspect of the AG-UI protocol:
+
+### Core Package (`com.agui.core`)
+
+Foundational types and events: messages, state, tools, context, event stream, and all event classes.
+
+### Client Package (`com.agui.client`)
+
+Agent base class, message factory, and subscriber interfaces for building and integrating agents.
+
+### HTTP Package (`com.agui.http`)
+
+Ready-to-use `HttpAgent` that streams events from a remote server using your chosen HTTP client.
+
+## Next Steps
+
+Explore the detailed documentation for each package to learn more about specific features and advanced usage:
+
+<Card
+  title="Core Concepts"
+  icon="cube"
+  href="/sdk/java/core/overview"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Learn about events, types, and the foundational concepts of the AG-UI protocol
+</Card>
+
+<Card
+  title="Client Connectivity"
+  icon="cube"
+  href="/sdk/java/client/overview"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Detailed guide on SSE client configuration, streaming, and connection
+  management
+</Card>
+
+<Card
+  title="Agent Subscribers"
+  icon="bolt"
+  href="/sdk/java/client/subscriber"
+  color="#3B82F6"
+  iconType="solid"
+>
+  Build reactive UIs and middleware with the event subscriber API
+</Card>

@@ -61,7 +61,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         # ...
 
         async def chat_node(state: AgentState, config: RunnableConfig):
-            model = ChatOpenAI(model="gpt-5.2")
+            model = ChatOpenAI(model="gpt-5.4")
             model_with_tools = model.bind_tools([get_weather]) # [!code highlight]
 
             response = await model_with_tools.ainvoke([
@@ -93,7 +93,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         );
 
         async function chat_node(state: AgentState, config: RunnableConfig) {
-          const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.2" });
+          const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.4" });
           const modelWithTools = model.bindTools([get_weather]); // [!code highlight]
 
           const response = await modelWithTools.invoke([

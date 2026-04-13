@@ -1,0 +1,34 @@
+{
+  "fixtures": [
+    {
+      "match": { "userMessage": "Hello" },
+      "response": {
+        "content": "Hello! I'm your Mastra-powered assistant. I can help you with weather information and more. What would you like to know?"
+      }
+    },
+    {
+      "match": { "userMessage": "weather" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "get-weather",
+            "arguments": "{\"location\":\"New York\"}",
+            "id": "call_get_weather_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "toolCallId": "call_get_weather_001" },
+      "response": {
+        "content": "The weather in New York is currently 70°F with clear skies, 45% humidity, and a light breeze at 5 mph. It feels like 72°F. A beautiful day!"
+      }
+    },
+    {
+      "match": {},
+      "response": {
+        "content": "You're currently running against aimock (a mock LLM server). This response is a catch-all for requests that don't match any test fixture. To use a real LLM: (1) Add your OPENAI_API_KEY to .env, (2) Remove or unset OPENAI_BASE_URL from your environment so requests go to OpenAI instead of aimock, (3) Restart with `npm run dev`."
+      }
+    }
+  ]
+}

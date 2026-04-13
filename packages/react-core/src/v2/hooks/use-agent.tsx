@@ -24,6 +24,26 @@ export interface UseAgentProps {
   agentId?: string;
   threadId?: string;
   updates?: UseAgentUpdate[];
+  /**
+   * Throttle interval (in milliseconds) for React re-renders triggered by
+   * `OnMessagesChanged` notifications. Useful to reduce re-render frequency
+   * during high-frequency message updates such as streaming.
+   *
+   * Uses leading+trailing: first update fires immediately, subsequent updates
+   * within the window are coalesced, and a trailing timer ensures the most
+   * recent update fires after the window expires. The trailing edge restarts
+   * the throttle window, so no two renders occur within `throttleMs` of each
+   * other. Cleanup on unmount cancels any pending trailing timer.
+   *
+   * Must be a non-negative finite number. Negative or non-finite values fall
+   * back to unthrottled behavior with a `console.error`. Only affects
+   * `OnMessagesChanged` updates — `OnStateChanged` and `OnRunStatusChanged`
+   * always fire immediately. If `updates` does not include
+   * `OnMessagesChanged`, this property has no effect.
+   *
+   * Default: `0` (no throttle).
+   */
+  throttleMs?: number;
 }
 
 /**
@@ -94,16 +114,40 @@ function getOrCreateThreadClone(
   return clone;
 }
 
-export function useAgent({ agentId, threadId, updates }: UseAgentProps = {}) {
+export function useAgent({
+  agentId,
+  threadId,
+  updates,
+  throttleMs,
+}: UseAgentProps = {}) {
   agentId ??= DEFAULT_AGENT_ID;
 
   const { copilotkit } = useCopilotKit();
+  const providerThrottleMs = copilotkit.defaultThrottleMs;
   // Fall back to the enclosing CopilotChatConfigurationProvider's threadId so
   // that useAgent() called without explicit threadId (e.g. inside a custom
   // message renderer) automatically uses the same per-thread clone as the
   // CopilotChat component it lives within.
   const chatConfig = useCopilotChatConfiguration();
   threadId ??= chatConfig?.threadId;
+
+  const effectiveThrottleMs = useMemo(() => {
+    const resolved = throttleMs ?? providerThrottleMs ?? 0;
+    if (!Number.isFinite(resolved) || resolved < 0) {
+      // When both throttleMs and providerThrottleMs are undefined, resolved
+      // is 0 which passes validation — so one of them must be defined here.
+      const source =
+        throttleMs !== undefined
+          ? "hook-level throttleMs"
+          : "provider-level defaultThrottleMs";
+      console.error(
+        `useAgent: ${source} must be a non-negative finite number, got ${resolved}. Falling back to unthrottled.`,
+      );
+      return 0;
+    }
+    return resolved;
+  }, [throttleMs, providerThrottleMs]);
+
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
   const updateFlags = useMemo(
@@ -231,17 +275,52 @@ export function useAgent({ agentId, threadId, updates }: UseAgentProps = {}) {
   ]);
 
   useEffect(() => {
-    if (updateFlags.length === 0) {
-      return;
-    }
+    if (updateFlags.length === 0) return;
 
     const handlers: Parameters<AbstractAgent["subscribe"]>[0] = {};
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    let active = true;
 
     if (updateFlags.includes(UseAgentUpdate.OnMessagesChanged)) {
-      // Content stripping for immutableContent renderers is handled by CopilotKitCoreReact
-      handlers.onMessagesChanged = () => {
-        forceUpdate();
-      };
+      const ms = effectiveThrottleMs;
+      if (ms > 0) {
+        // Throttled onMessagesChanged: leading+trailing pattern.
+        // First notification fires immediately, subsequent ones within the
+        // window are coalesced. Trailing timer fires after the window to
+        // ensure the final state is rendered.
+        let throttleActive = false;
+        // Tracks whether a notification arrived during the throttle window,
+        // so the trailing timer knows whether a re-render is needed.
+        let pending = false;
+
+        const throttledNotify = () => {
+          if (!active) return;
+          if (!throttleActive) {
+            // Leading edge — fire immediately and start the throttle window
+            throttleActive = true;
+            pending = false;
+            forceUpdate();
+            timerId = setTimeout(function trailingEdge() {
+              timerId = null;
+              if (active && pending) {
+                // Trailing edge — fire and restart the window
+                pending = false;
+                forceUpdate();
+                timerId = setTimeout(trailingEdge, ms);
+              } else {
+                // No pending notifications — end the window
+                throttleActive = false;
+              }
+            }, ms);
+          } else {
+            pending = true;
+          }
+        };
+
+        handlers.onMessagesChanged = throttledNotify;
+      } else {
+        handlers.onMessagesChanged = forceUpdate;
+      }
     }
 
     if (updateFlags.includes(UseAgentUpdate.OnStateChanged)) {
@@ -255,9 +334,15 @@ export function useAgent({ agentId, threadId, updates }: UseAgentProps = {}) {
     }
 
     const subscription = agent.subscribe(handlers);
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      if (timerId !== null) {
+        clearTimeout(timerId);
+      }
+      subscription.unsubscribe();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, forceUpdate, JSON.stringify(updateFlags)]);
+  }, [agent, forceUpdate, effectiveThrottleMs, updateFlags]);
 
   // Keep HttpAgent headers fresh without mutating inside useMemo, which is
   // unsafe in concurrent mode (React may invoke useMemo multiple times and

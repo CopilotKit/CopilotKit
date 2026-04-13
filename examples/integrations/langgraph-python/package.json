@@ -3,16 +3,17 @@
   "private": true,
   "scripts": {
     "dev": "turbo run dev",
-    "dev:app": "turbo run dev --filter='app'",
-    "dev:agent": "turbo run dev --filter='agent'",
-    "dev:mcp": "turbo run dev --filter='mcp'",
+    "dev:app": "turbo run dev --filter='@repo/app'",
+    "dev:agent": "turbo run dev --filter='@repo/agent'",
+    "dev:mcp": "turbo run dev --filter='@repo/mcp'",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "clean": "turbo run clean"
+    "clean": "turbo run clean",
+    "local-install": "bash -c 'cd ../../.. && ./node_modules/.bin/nx run-many -t build -p @copilotkit/react-core @copilotkit/react-ui @copilotkit/runtime @copilotkitnext/shared' && bash -c 'cd ../../../.. && cd ag-ui && npx -y pnpm@10 install && npx -y pnpm@10 run build' && COPILOTKIT_LOCAL=1 pnpm install && bash -c 'SRC=../../../../ag-ui/middlewares/a2ui-middleware/dist; for f in $(find ../../.. -path \"*/@ag-ui/a2ui-middleware/dist/index.js\" 2>/dev/null); do DIR=$(dirname \"$f\"); cp $SRC/index.js $SRC/index.mjs $SRC/index.d.ts $SRC/index.d.mts \"$DIR/\" 2>/dev/null; done; echo \"a2ui-middleware: all copies patched with local build\"'"
   },
   "devDependencies": {
-    "turbo": "^2.5.4",
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "turbo": "^2.5.4"
   },
   "packageManager": "pnpm@9.0.0",
   "pnpm": {

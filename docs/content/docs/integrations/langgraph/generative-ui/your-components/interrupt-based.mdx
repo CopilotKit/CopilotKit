@@ -90,8 +90,8 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 
 </Step>
 <Step>
-    ### Call `interrupt` in your LangGraph agent
-    Now we can call `interrupt` in our LangGraph agent.
+    ### Call `interrupt` in your LangChain agent
+    Now we can call `interrupt` in our LangChain agent.
 
     <Callout type="info">
         Your agent will not be aware of the `interrupt` interaction by default in LangGraph.
@@ -121,7 +121,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                     content=f"You are a helpful assistant named {state.get('agent_name')}..."
                 )
 
-                response = ChatOpenAI(model="gpt-5.2").invoke(
+                response = ChatOpenAI(model="gpt-5.4").invoke(
                     [system_message, *state["messages"]],
                     config
                 )
@@ -154,7 +154,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                     content: `You are a helpful assistant named ${agentName}...`,
                 });
 
-                const response = await new ChatOpenAI({ model: "gpt-5.2" }).invoke(
+                const response = await new ChatOpenAI({ model: "gpt-5.4" }).invoke(
                     [systemMessage, ...state.messages],
                     config
                 );
@@ -171,7 +171,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 </Step>
 <Step>
     ### Handle the interrupt in your frontend
-    At this point, your LangGraph agent's `interrupt` will be called. However, we currently have no handling for rendering or
+    At this point, your LangChain agent's `interrupt` will be called. However, we currently have no handling for rendering or
     responding to the interrupt in the frontend.
 
     To do this, we'll use the `useInterrupt` hook, give it a component to render, and then call `resolve` with the user's response.
@@ -245,7 +245,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
                     content=f"You are a helpful assistant..."
                   )
 
-                  response = ChatOpenAI(model="gpt-5.2").invoke(
+                  response = ChatOpenAI(model="gpt-5.4").invoke(
                     [system_message, *state["messages"]],
                     config
                   )
@@ -276,7 +276,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
                     content: `You are a helpful assistant...`,
                   });
 
-                  const response = await new ChatOpenAI({ model: "gpt-5.2" }).invoke(
+                  const response = await new ChatOpenAI({ model: "gpt-5.4" }).invoke(
                     [systemMessage, ...state.messages],
                     config
                   );

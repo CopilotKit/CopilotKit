@@ -1,5 +1,5 @@
 import { handleTranscribe } from "../handlers/handle-transcribe";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 import {
   TranscriptionService,
   TranscribeFileOptions,

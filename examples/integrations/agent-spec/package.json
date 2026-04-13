@@ -1,8 +1,8 @@
 {
   "name": "agent-spec-starter",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run dev:ui\" \"npm run dev:agent\" --names ui,agentspecagent --prefix-colors blue,green --kill-others",
     "dev:debug": "LOG_LEVEL=debug npm run dev",
@@ -11,15 +11,14 @@
     "patch:ui": "./scripts/apply-ui-patches.sh",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
     "install:agent": "./scripts/setup-agent.sh",
     "postinstall": "npm run install:agent"
   },
   "dependencies": {
     "@a2ui/lit": "^0.8.1",
     "@ag-ui/a2ui-middleware": "^0.0.2",
+    "@ag-ui/client": "0.0.52",
     "@ag-ui/core": "^0.0.46",
-    "@ag-ui/client": "^0.0.46",
     "@ag-ui/encoder": "^0.0.46",
     "@ag-ui/proto": "^0.0.46",
     "@copilotkit/a2ui-renderer": "0.0.0-mme-ag-ui-0-0-46-20260227141603",
@@ -39,12 +38,10 @@
     "@types/node": "^22.15.3",
     "@types/react": "19.2.3",
     "@types/react-dom": "19.2.3",
-    "eslint": "^9.34.0",
+    "concurrently": "^9.2.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^4.1.13",
-    "typescript": "5.9.2",
-    "concurrently": "^9.2.1",
-    "eslint-config-next": "15.3.2"
+    "typescript": "5.9.2"
   },
   "resolutions": {}
 }

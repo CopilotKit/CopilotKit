@@ -1,5 +1,5 @@
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
-import { CopilotRuntime } from "../runtime";
+import { CopilotRuntime } from "../core/runtime";
 import { TranscriptionService } from "../transcription-service/transcription-service";
 import { describe, it, expect } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -34,6 +34,7 @@ describe("handleGetRuntimeInfo", () => {
       audioFileTranscriptionEnabled: false,
       mode: "sse",
       a2uiEnabled: false,
+      openGenerativeUIEnabled: false,
     });
   });
 
@@ -58,6 +59,7 @@ describe("handleGetRuntimeInfo", () => {
       audioFileTranscriptionEnabled: true,
       mode: "sse",
       a2uiEnabled: false,
+      openGenerativeUIEnabled: false,
     });
   });
 
@@ -94,6 +96,7 @@ describe("handleGetRuntimeInfo", () => {
       audioFileTranscriptionEnabled: true,
       mode: "sse",
       a2uiEnabled: false,
+      openGenerativeUIEnabled: false,
     });
   });
 

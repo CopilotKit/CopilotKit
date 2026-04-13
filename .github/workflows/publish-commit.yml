@@ -1,21 +1,29 @@
 name: 🚀 pkg-pr-new
-on: [push, pull_request]
+on:
+  push:
+    paths:
+      - "packages/**"
+  pull_request:
+    paths:
+      - "packages/**"
 
 concurrency:
   group: ${{ github.repository }}-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
+  NX_VERBOSE_LOGGING: true
   NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
   NX_CI_EXECUTION_ENV: "Publish Commit"
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -24,9 +32,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: "package.json"
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure Nx Cloud environment
+        run: |
+          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-pkg-pr-new" >> $GITHUB_ENV
+          echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
+          echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false" >> $GITHUB_ENV
+          echo "NX_NO_CLOUD=true" >> $GITHUB_ENV
 
       - name: Build
         run: pnpm run build
