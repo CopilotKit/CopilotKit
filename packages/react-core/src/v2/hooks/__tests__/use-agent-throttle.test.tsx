@@ -130,7 +130,7 @@ function createTestComponent(
 }
 
 /** Factory for the mock return value of useCopilotKit.
- *  Uses a real CopilotKitCore instance so subscribeToAgent (with its throttle
+ *  Uses a real CopilotKitCore instance so subscribeToAgentWithOptions (with its throttle
  *  logic) is exercised end-to-end rather than mocked. */
 function createMockContext(
   agent: MockStepwiseAgent,
@@ -151,7 +151,7 @@ function createMockContext(
       headers: {},
       agents: { [String(agent.agentId)]: agent },
       defaultThrottleMs: core.defaultThrottleMs,
-      subscribeToAgent: core.subscribeToAgent.bind(core),
+      subscribeToAgentWithOptions: core.subscribeToAgentWithOptions.bind(core),
     },
     executingToolCallIds: new Set(),
   };

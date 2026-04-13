@@ -47,7 +47,7 @@ describe("useAgent thread isolation", () => {
     runtimeTransport: string;
     headers: Record<string, string>;
     agents: Record<string, AbstractAgent>;
-    subscribeToAgent: (
+    subscribeToAgentWithOptions: (
       agent: AbstractAgent,
       subscriber: any,
     ) => { unsubscribe: () => void };
@@ -68,7 +68,8 @@ describe("useAgent thread isolation", () => {
       runtimeTransport: "rest",
       headers: {},
       agents: { "my-agent": registeredAgent },
-      subscribeToAgent: (agent, subscriber) => agent.subscribe(subscriber),
+      subscribeToAgentWithOptions: (agent, subscriber) =>
+        agent.subscribe(subscriber),
     };
 
     mockUseCopilotKit.mockReturnValue({

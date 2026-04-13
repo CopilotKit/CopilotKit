@@ -19,7 +19,7 @@ import {
 /** Function signature for subscribing to an agent — derived from
  *  CopilotKitCore so the types stay in sync automatically. Injected
  *  by the factory so that AgentStore stays decoupled from the concrete class. */
-type SubscribeToAgentFn = CopilotKitCore["subscribeToAgent"];
+type SubscribeToAgentFn = CopilotKitCore["subscribeToAgentWithOptions"];
 
 export class AgentStore {
   readonly #subscription?: {
@@ -86,7 +86,9 @@ export class CopilotkitAgentFactory {
   ): Signal<AgentStore> {
     let lastAgentStore: AgentStore | undefined;
     const subscribeToAgent: SubscribeToAgentFn =
-      this.#copilotkit.core.subscribeToAgent.bind(this.#copilotkit.core);
+      this.#copilotkit.core.subscribeToAgentWithOptions.bind(
+        this.#copilotkit.core,
+      );
 
     return computed(() => {
       this.#copilotkit.agents();

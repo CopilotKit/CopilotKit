@@ -84,7 +84,7 @@ function userMsg(id: string, content: string) {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("CopilotKitCore.subscribeToAgent", () => {
+describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
   let core: CopilotKitCore;
   let agent: TestAgent;
 
@@ -107,7 +107,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     const onMessages = vi.fn();
     const onState = vi.fn();
 
-    core.subscribeToAgent(agent, {
+    core.subscribeToAgentWithOptions(agent, {
       onMessagesChanged: onMessages,
       onStateChanged: onState,
     });
@@ -128,7 +128,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
   it("with throttle, first notification fires immediately (leading edge)", () => {
     const onMessages = vi.fn();
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages },
       { throttleMs: 100 },
@@ -147,7 +147,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
   it("with throttle, second notification is deferred to trailing edge", () => {
     const onMessages = vi.fn();
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages },
       { throttleMs: 100 },
@@ -177,7 +177,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
   it("trailing edge re-arms the throttle window when new events arrive during flush", () => {
     const onMessages = vi.fn();
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages },
       { throttleMs: 100 },
@@ -222,7 +222,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
   it("coalesces rapid bursts into leading + trailing", () => {
     const onMessages = vi.fn();
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages },
       { throttleMs: 100 },
@@ -253,7 +253,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     const onMessages = vi.fn();
     const onState = vi.fn();
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages, onStateChanged: onState },
       { throttleMs: 100 },
@@ -283,7 +283,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     const onMessages = vi.fn();
     const onState = vi.fn();
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages, onStateChanged: onState },
       { throttleMs: 100 },
@@ -312,7 +312,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     const onMessages = vi.fn();
     const onState = vi.fn();
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages, onStateChanged: onState },
       { throttleMs: 100 },
@@ -346,7 +346,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     const onMessages = vi.fn();
     const onRunInit = vi.fn();
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages, onRunInitialized: onRunInit },
       { throttleMs: 100 },
@@ -365,7 +365,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     const onMessages = vi.fn();
     const onRunFinalized = vi.fn();
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages, onRunFinalized },
       { throttleMs: 100 },
@@ -383,7 +383,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     const onMessages = vi.fn();
     const onRunFailed = vi.fn();
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages, onRunFailed },
       { throttleMs: 100 },
@@ -404,7 +404,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
   it("with only onStateChanged subscribed, first fires on leading edge", () => {
     const onState = vi.fn();
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onStateChanged: onState },
       { throttleMs: 100 },
@@ -431,7 +431,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
   it("unsubscribe clears pending trailing timer", () => {
     const onMessages = vi.fn();
 
-    const sub = core.subscribeToAgent(
+    const sub = core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages },
       { throttleMs: 100 },
@@ -457,7 +457,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
   it("unsubscribe removes the subscription from the agent", () => {
     const countBefore = agent.subscribers.length;
 
-    const sub = core.subscribeToAgent(agent, {
+    const sub = core.subscribeToAgentWithOptions(agent, {
       onMessagesChanged: vi.fn(),
     });
 
@@ -475,7 +475,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     core.setDefaultThrottleMs(200);
     const onMessages = vi.fn();
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages },
       { throttleMs: 50 },
@@ -497,7 +497,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     core.setDefaultThrottleMs(100);
     const onMessages = vi.fn();
 
-    core.subscribeToAgent(agent, { onMessagesChanged: onMessages });
+    core.subscribeToAgentWithOptions(agent, { onMessagesChanged: onMessages });
 
     agent.messages = [userMsg("1", "a")];
     notifyMessagesChanged(agent);
@@ -518,7 +518,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     const onMessages = vi.fn();
 
     // `??` (not `||`): 0 must override the default, not fall through
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages },
       { throttleMs: 0 },
@@ -549,7 +549,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const onMessages = vi.fn();
 
-      core.subscribeToAgent(
+      core.subscribeToAgentWithOptions(
         agent,
         { onMessagesChanged: onMessages },
         { throttleMs: value },
@@ -582,7 +582,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
       throw new Error("callback boom");
     });
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages, onStateChanged: onState },
       { throttleMs: 100 },
@@ -613,7 +613,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
       if (callCount === 1) throw new Error("first call boom");
     });
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages },
       { throttleMs: 100 },
@@ -647,7 +647,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
       return Promise.reject(new Error("async boom"));
     });
 
-    core.subscribeToAgent(agent, {
+    core.subscribeToAgentWithOptions(agent, {
       onMessagesChanged: onMessages,
     });
 
@@ -677,7 +677,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
       throw new Error("unthrottled boom");
     });
 
-    core.subscribeToAgent(agent, {
+    core.subscribeToAgentWithOptions(agent, {
       onMessagesChanged: onMessages,
       onStateChanged: onState,
     });
@@ -721,7 +721,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
         }
       });
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages },
       { throttleMs: 100 },
@@ -755,13 +755,13 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     const onMessagesA = vi.fn();
     const onMessagesB = vi.fn();
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessagesA },
       { throttleMs: 50 },
     );
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessagesB },
       { throttleMs: 200 },
@@ -793,13 +793,13 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     const onMessagesA = vi.fn();
     const onMessagesB = vi.fn();
 
-    const subA = core.subscribeToAgent(
+    const subA = core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessagesA },
       { throttleMs: 100 },
     );
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessagesB },
       { throttleMs: 100 },
@@ -834,7 +834,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     });
     const onState = vi.fn();
 
-    subHandle = core.subscribeToAgent(
+    subHandle = core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages, onStateChanged: onState },
       { throttleMs: 100 },
@@ -859,7 +859,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
       throw new Error("lifecycle boom");
     });
 
-    core.subscribeToAgent(agent, {
+    core.subscribeToAgentWithOptions(agent, {
       onRunInitialized: onRunInit,
     });
 
@@ -886,7 +886,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
       throw new Error("boom");
     });
 
-    core.subscribeToAgent(agent, { onMessagesChanged: onMessages });
+    core.subscribeToAgentWithOptions(agent, { onMessagesChanged: onMessages });
 
     agent.messages = [userMsg("1", "a")];
     notifyMessagesChanged(agent);
@@ -921,7 +921,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     });
     const onState = vi.fn();
 
-    subHandle = core.subscribeToAgent(
+    subHandle = core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages, onStateChanged: onState },
       { throttleMs: 100 },
@@ -955,7 +955,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     const onEvent = vi.fn();
 
     // Pass an unsupported key via cast (simulating JS consumer)
-    core.subscribeToAgent(agent, {
+    core.subscribeToAgentWithOptions(agent, {
       onMessagesChanged: vi.fn(),
       onEvent,
     } as any);
@@ -987,7 +987,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
       }
     });
 
-    core.subscribeToAgent(
+    core.subscribeToAgentWithOptions(
       agent,
       { onMessagesChanged: onMessages },
       { throttleMs: 100 },
@@ -1032,7 +1032,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
     const onMessagesThrottled = vi.fn();
 
     // First subscription — throttled via defaultThrottleMs
-    const sub1 = core.subscribeToAgent(agent, {
+    const sub1 = core.subscribeToAgentWithOptions(agent, {
       onMessagesChanged: onMessagesThrottled,
     });
 
@@ -1052,7 +1052,7 @@ describe("CopilotKitCore.subscribeToAgent", () => {
 
     // Second subscription — should be unthrottled
     const onMessagesUnthrottled = vi.fn();
-    core.subscribeToAgent(agent, {
+    core.subscribeToAgentWithOptions(agent, {
       onMessagesChanged: onMessagesUnthrottled,
     });
 

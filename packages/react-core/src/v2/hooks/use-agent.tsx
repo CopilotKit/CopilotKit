@@ -33,7 +33,7 @@ export interface UseAgentProps {
    * Uses a leading+trailing pattern with a shared window — first update
    * fires immediately, subsequent updates within the window are coalesced,
    * and a trailing timer ensures the most recent update fires after the
-   * window expires. See `CopilotKitCore.subscribeToAgent` in `@copilotkit/core`
+   * window expires. See `CopilotKitCore.subscribeToAgentWithOptions` in `@copilotkit/core`
    * for details.
    *
    * Resolved as: `throttleMs ?? provider defaultThrottleMs ?? 0`.
@@ -128,7 +128,7 @@ export function useAgent({
 
   const { copilotkit } = useCopilotKit();
   // Read the provider-level default so it appears in the effect's dep array.
-  // subscribeToAgent reads it from the core instance, but React needs the dep
+  // subscribeToAgentWithOptions reads it from the core instance, but React needs the dep
   // to know when to re-subscribe.
   const providerThrottleMs = copilotkit.defaultThrottleMs;
   // Fall back to the enclosing CopilotChatConfigurationProvider's threadId so
@@ -302,9 +302,13 @@ export function useAgent({
       handlers.onRunFailed = batchedForceUpdate;
     }
 
-    const subscription = copilotkit.subscribeToAgent(agent, handlers, {
-      throttleMs,
-    });
+    const subscription = copilotkit.subscribeToAgentWithOptions(
+      agent,
+      handlers,
+      {
+        throttleMs,
+      },
+    );
     return () => subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, forceUpdate, throttleMs, providerThrottleMs, updateFlags]);

@@ -18,7 +18,7 @@ type StubCore = Pick<
   | "runtimeTransport"
   | "runtimeConnectionStatus"
   | "headers"
-  | "subscribeToAgent"
+  | "subscribeToAgentWithOptions"
 > & {
   agents?: Record<string, AbstractAgent>;
 };
@@ -98,9 +98,8 @@ class CopilotKitStub {
     runtimeTransport: "auto",
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Disconnected,
     headers: {},
-    subscribeToAgent: this.#coreInstance.subscribeToAgent.bind(
-      this.#coreInstance,
-    ),
+    subscribeToAgentWithOptions:
+      this.#coreInstance.subscribeToAgentWithOptions.bind(this.#coreInstance),
   };
 
   setAgents(map: Record<string, AbstractAgent>) {
