@@ -279,6 +279,92 @@ describe("convertJsonSchemaToZodSchema", () => {
     warnSpy.mockRestore();
   });
 
+  it("should resolve the same $ref used by multiple sibling properties", () => {
+    // Two properties reference the same $def — the visited set must NOT
+    // mark the second usage as circular.
+    const jsonSchema = {
+      type: "object",
+      properties: {
+        billing: { $ref: "#/$defs/Address" },
+        shipping: { $ref: "#/$defs/Address" },
+      },
+      required: ["billing", "shipping"],
+      $defs: {
+        Address: {
+          type: "object",
+          properties: {
+            street: { type: "string", description: "Street" },
+            city: { type: "string", description: "City" },
+          },
+          required: ["street", "city"],
+          description: "An address",
+        },
+      },
+    };
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = convertJsonSchemaToZodSchema(jsonSchema, true);
+    const shape = (result as z.ZodObject<any>).shape;
+
+    // Both should be fully resolved objects, NOT z.any()
+    expect(shape.billing._def.typeName).toBe("ZodObject");
+    expect(shape.shipping._def.typeName).toBe("ZodObject");
+
+    // No circular-ref warning should have been emitted
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
+  it("should resolve a shared $ref used in different branches of a $ref chain", () => {
+    // Wrapper -> Container (via $ref) which has two children both using $ref to Leaf.
+    // Without set cloning, the second Leaf ref in Container would be wrongly flagged
+    // as circular because the first Leaf resolution already added it to the set.
+    const jsonSchema = {
+      type: "object",
+      properties: {
+        wrapper: { $ref: "#/$defs/Container" },
+      },
+      required: ["wrapper"],
+      $defs: {
+        Container: {
+          type: "object",
+          properties: {
+            first: { $ref: "#/$defs/Leaf" },
+            second: { $ref: "#/$defs/Leaf" },
+          },
+          required: ["first", "second"],
+          description: "A container with two leaves",
+        },
+        Leaf: {
+          type: "object",
+          properties: {
+            label: { type: "string", description: "Leaf label" },
+          },
+          required: ["label"],
+          description: "A leaf node",
+        },
+      },
+    };
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = convertJsonSchemaToZodSchema(jsonSchema, true);
+    const wrapperShape = (
+      (result as z.ZodObject<any>).shape.wrapper as z.ZodObject<any>
+    ).shape;
+
+    // Both first and second should be fully resolved Leaf objects
+    expect(wrapperShape.first._def.typeName).toBe("ZodObject");
+    expect(wrapperShape.second._def.typeName).toBe("ZodObject");
+
+    // No circular-ref warning should have been emitted
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
   it("should handle anyOf with $ref variants", () => {
     const jsonSchema = {
       type: "object",
