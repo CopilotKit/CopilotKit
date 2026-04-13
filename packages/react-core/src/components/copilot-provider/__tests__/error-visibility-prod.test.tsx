@@ -1,65 +1,70 @@
-import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
+import { describe, it, expect } from "vitest";
+import { ErrorVisibility } from "@copilotkit/shared";
+import { getErrorSuppression } from "../copilot-messages";
 
-// Mock modules before imports
-vi.mock("../../../utils/dev-console", () => ({
-  shouldShowDevConsole: vi.fn(),
-}));
+/**
+ * Regression tests for #2431: error visibility when showDevConsole=false.
+ *
+ * The bug: `routeError` returned early for ALL errors when `isDev` was false,
+ * suppressing TOAST and BANNER errors that should always reach the user.
+ *
+ * The fix: only SILENT and DEV_ONLY errors are suppressed in production;
+ * TOAST, BANNER, and untagged errors are always surfaced.
+ */
+describe("getErrorSuppression — error visibility routing (#2431)", () => {
+  // --- Production (isDev = false) ---
 
-vi.mock("../../../context/copilot-context", () => ({
-  useCopilotContext: vi.fn(),
-}));
-
-vi.mock("../../toast/toast-provider", () => ({
-  useToast: vi.fn(),
-}));
-
-vi.mock("@copilotkit/runtime-client-gql", () => ({
-  loadMessagesFromJsonRepresentation: vi.fn(),
-}));
-
-import { shouldShowDevConsole } from "../../../utils/dev-console";
-import { ErrorVisibility, CopilotKitErrorCode } from "@copilotkit/shared";
-
-describe("Error visibility when showDevConsole=false (#2431)", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  it("surfaces TOAST errors in production", () => {
+    expect(getErrorSuppression(ErrorVisibility.TOAST, false)).toBeNull();
   });
 
-  it("should NOT suppress errors with toast visibility when isDev is false", () => {
-    // Simulate production: shouldShowDevConsole returns false
-    (shouldShowDevConsole as Mock).mockReturnValue(false);
-
-    const isDev = shouldShowDevConsole(false);
-    expect(isDev).toBe(false);
-
-    // A TOAST-visible error should still be surfaced in production
-    const visibility = ErrorVisibility.TOAST;
-    const shouldSurface =
-      visibility === ErrorVisibility.TOAST ||
-      visibility === ErrorVisibility.BANNER;
-
-    expect(shouldSurface).toBe(true);
+  it("surfaces BANNER errors in production", () => {
+    expect(getErrorSuppression(ErrorVisibility.BANNER, false)).toBeNull();
   });
 
-  it("should suppress DEV_ONLY errors when isDev is false", () => {
-    (shouldShowDevConsole as Mock).mockReturnValue(false);
-
-    const isDev = shouldShowDevConsole(false);
-    const visibility = ErrorVisibility.DEV_ONLY;
-
-    // DEV_ONLY errors should be suppressed when not in dev mode
-    const shouldSuppress = !isDev && visibility === ErrorVisibility.DEV_ONLY;
-    expect(shouldSuppress).toBe(true);
+  it("suppresses DEV_ONLY errors in production", () => {
+    expect(getErrorSuppression(ErrorVisibility.DEV_ONLY, false)).not.toBeNull();
   });
 
-  it("should suppress SILENT errors regardless of isDev", () => {
-    (shouldShowDevConsole as Mock).mockReturnValue(false);
+  it("suppresses SILENT errors in production", () => {
+    expect(getErrorSuppression(ErrorVisibility.SILENT, false)).not.toBeNull();
+  });
 
-    const visibility = ErrorVisibility.SILENT;
-    const shouldSurface =
-      visibility === ErrorVisibility.TOAST ||
-      visibility === ErrorVisibility.BANNER;
+  it("surfaces errors with no visibility tag in production", () => {
+    expect(getErrorSuppression(undefined, false)).toBeNull();
+  });
 
-    expect(shouldSurface).toBe(false);
+  // --- Development (isDev = true) ---
+
+  it("surfaces TOAST errors in development", () => {
+    expect(getErrorSuppression(ErrorVisibility.TOAST, true)).toBeNull();
+  });
+
+  it("surfaces BANNER errors in development", () => {
+    expect(getErrorSuppression(ErrorVisibility.BANNER, true)).toBeNull();
+  });
+
+  it("surfaces DEV_ONLY errors in development", () => {
+    expect(getErrorSuppression(ErrorVisibility.DEV_ONLY, true)).toBeNull();
+  });
+
+  it("suppresses SILENT errors in development", () => {
+    expect(getErrorSuppression(ErrorVisibility.SILENT, true)).not.toBeNull();
+  });
+
+  it("surfaces errors with no visibility tag in development", () => {
+    expect(getErrorSuppression(undefined, true)).toBeNull();
+  });
+
+  // --- Log prefix strings ---
+
+  it("returns a 'Silent Error' prefix for SILENT visibility", () => {
+    const prefix = getErrorSuppression(ErrorVisibility.SILENT, false);
+    expect(prefix).toContain("Silent");
+  });
+
+  it("returns a 'hidden in production' prefix for DEV_ONLY visibility", () => {
+    const prefix = getErrorSuppression(ErrorVisibility.DEV_ONLY, false);
+    expect(prefix).toContain("hidden in production");
   });
 });
