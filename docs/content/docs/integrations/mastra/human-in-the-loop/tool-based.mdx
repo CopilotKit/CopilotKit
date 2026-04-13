@@ -1,14 +1,14 @@
 ---
-title: Human-in-the-Loop
-description: Learn how to implement Human-in-the-Loop (HITL) using Mastra Agents.
-icon: lucide/Pause
+title: Tool-based
+description: Implement HITL with Mastra using frontend tools that render UI and collect user input.
+icon: lucide/Share2
 ---
 
 import { IframeSwitcher } from "@/components/content"
 import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
 
 <IframeSwitcher
-  id="human-in-the-loop-example"
+  id="human-in-the-loop-tool-based-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/mastra/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
   codeUrl="https://feature-viewer.copilotkit.ai/mastra/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
@@ -18,10 +18,11 @@ import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
 
 ## What is this?
 
-CopilotKit lets you to add custom UI to take user input and then pass it back to the agent upon completion.
+CopilotKit lets you add custom UI to take user input and then pass it back to the agent upon completion.
+This approach uses `useHumanInTheLoop` to register a frontend tool that renders a UI component and waits for the user's response.
 
-<Callout type="warning">
-Calling `suspend()` or `resume()` inside of a workflow is not currently supported in this integration.
+<Callout type="info">
+  Looking for an approach where tools can pause mid-execution and wait for user input? See the [interrupt-based approach](/mastra/human-in-the-loop/interrupt-flow).
 </Callout>
 
 ## Why should I use this?
