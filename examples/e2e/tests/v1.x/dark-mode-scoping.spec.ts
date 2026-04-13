@@ -31,11 +31,6 @@ test.describe("dark mode CSS scoping (#2920)", () => {
     // In form-filling the <body> itself or a top-level container works.
     const body = page.locator("body");
 
-    // Record the body's color BEFORE toggling dark mode
-    const colorBefore = await body.evaluate(
-      (el) => window.getComputedStyle(el).color,
-    );
-
     // Toggle dark mode by adding .dark to <html>
     await page.evaluate(() => document.documentElement.classList.add("dark"));
 
@@ -53,12 +48,6 @@ test.describe("dark mode CSS scoping (#2920)", () => {
     // We verify the body color is NOT rgb(69, 69, 69) — the specific value
     // that the broken CopilotKit input.css `.dark` rule forced.
     expect(colorAfter).not.toBe("rgb(69, 69, 69)");
-
-    // Also verify the body color is NOT white from console.css's leaked
-    // `.dark { color: white }` — unless the host app itself sets white,
-    // which form-filling's .dark does set foreground to near-white.
-    // So we check that the actual color comes from the host app's CSS vars,
-    // not from CopilotKit's hardcoded values.
   });
 
   test("CopilotKit poweredBy gets correct dark mode color", async ({
@@ -73,12 +62,12 @@ test.describe("dark mode CSS scoping (#2920)", () => {
     // With the fix, .dark .poweredBy { color: rgb(69, 69, 69) !important }
     // should apply to the poweredBy element specifically.
     const count = await poweredBy.count();
-    if (count > 0) {
-      const color = await poweredBy
-        .first()
-        .evaluate((el) => window.getComputedStyle(el).color);
-      expect(color).toBe("rgb(69, 69, 69)");
-    }
+    test.skip(count === 0, "No .poweredBy element found — skipping");
+
+    const color = await poweredBy
+      .first()
+      .evaluate((el) => window.getComputedStyle(el).color);
+    expect(color).toBe("rgb(69, 69, 69)");
   });
 
   test("screenshot: dark mode side-by-side comparison", async ({ page }) => {
@@ -109,11 +98,6 @@ test.describe("dark mode CSS scoping (#2920)", () => {
       marker.textContent = "Leak detector";
       document.body.prepend(marker);
     });
-
-    // Record marker color before dark mode
-    const markerColorLight = await page
-      .locator("#leak-detector")
-      .evaluate((el) => window.getComputedStyle(el).color);
 
     // Enable dark mode
     await page.evaluate(() => document.documentElement.classList.add("dark"));
