@@ -1,5 +1,4 @@
 import type { AgentCapabilities } from "@ag-ui/core";
-import { ProxiedCopilotRuntimeAgent } from "@copilotkit/core";
 import { useAgent } from "./use-agent";
 
 /**
@@ -14,8 +13,8 @@ import { useAgent } from "./use-agent";
 export function useCapabilities(agentId?: string): AgentCapabilities | undefined {
   const { agent } = useAgent({ agentId });
 
-  if (agent instanceof ProxiedCopilotRuntimeAgent) {
-    return agent.capabilities;
+  if (agent && "capabilities" in agent) {
+    return (agent as { capabilities?: AgentCapabilities }).capabilities;
   }
 
   return undefined;

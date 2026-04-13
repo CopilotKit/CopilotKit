@@ -32,9 +32,18 @@ export async function handleGetRuntimeInfo({
 
     const agentEntries = await Promise.all(
       Object.entries(agents).map(async ([name, agent]) => {
-        const capabilities = agent.getCapabilities
-          ? await agent.getCapabilities()
-          : undefined;
+        let capabilities: Awaited<
+          ReturnType<NonNullable<typeof agent.getCapabilities>>
+        >;
+        try {
+          capabilities = agent.getCapabilities
+            ? await agent.getCapabilities()
+            : undefined;
+        } catch {
+          // Per-agent isolation: a single agent failing to report capabilities
+          // must not take down the entire /info endpoint.
+          capabilities = undefined;
+        }
 
         const description: AgentDescription = {
           name,

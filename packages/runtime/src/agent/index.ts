@@ -819,9 +819,12 @@ export interface BuiltInAgentClassicConfig {
    */
   providerOptions?: Record<string, any>;
   /**
-   * Explicit agent capabilities. Merged on top of auto-inferred defaults.
-   * Use this to declare capabilities that cannot be inferred from config
-   * (e.g., reasoning, identity, multimodal).
+   * Explicit agent capabilities. **Shallow-merged** at the category level on
+   * top of auto-inferred defaults — providing a category (e.g. `tools`)
+   * replaces that entire category, not individual fields within it.
+   *
+   * For example, `{ tools: { supported: true } }` will drop the inferred
+   * `clientProvided` value. Include all fields for any category you override.
    */
   capabilities?: Partial<AgentCapabilities>;
 }

@@ -129,8 +129,8 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     return this._capabilities;
   }
 
-  async getCapabilities(): Promise<AgentCapabilities> {
-    return this._capabilities ?? {};
+  async getCapabilities(): Promise<AgentCapabilities | undefined> {
+    return this._capabilities;
   }
 
   override async detachActiveRun(): Promise<void> {

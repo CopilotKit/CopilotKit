@@ -169,6 +169,52 @@ describe("handleGetRuntimeInfo", () => {
     expect(data.agents.basicAgent.capabilities).toBeUndefined();
   });
 
+  it("should isolate per-agent getCapabilities failures", async () => {
+    const failingAgent = {
+      description: "Failing agent",
+      constructor: { name: "FailingAgent" },
+      getCapabilities: async () => {
+        throw new Error("capability fetch failed");
+      },
+    };
+
+    const healthyAgent = {
+      description: "Healthy agent",
+      constructor: { name: "HealthyAgent" },
+      getCapabilities: async () => ({
+        tools: { supported: true },
+      }),
+    };
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        failing: failingAgent as unknown as AbstractAgent,
+        healthy: healthyAgent as unknown as AbstractAgent,
+      },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    // Failing agent should still appear but without capabilities
+    expect(data.agents.failing).toEqual({
+      name: "failing",
+      description: "Failing agent",
+      className: "FailingAgent",
+    });
+    expect(data.agents.failing.capabilities).toBeUndefined();
+
+    // Healthy agent should have its capabilities
+    expect(data.agents.healthy.capabilities).toEqual({
+      tools: { supported: true },
+    });
+  });
+
   it("should return 500 error when runtime.agents throws an error", async () => {
     const runtime = {
       get agents(): Record<string, AbstractAgent> {
