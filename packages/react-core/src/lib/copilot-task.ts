@@ -163,7 +163,7 @@ export class CopilotTask<T = any> {
           forwardedParameters: {
             // if forwardedParameters is provided, use it
             toolChoice: "required",
-            ...(this.forwardedParameters ?? {}),
+            ...this.forwardedParameters,
           },
         },
         properties: context.copilotApiConfig.properties,

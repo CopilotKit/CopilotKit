@@ -8,15 +8,13 @@ on:
 
 jobs:
   decommission-report:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -48,12 +46,15 @@ jobs:
             exit 1
           fi
 
+      - name: Build Slack payload
+        if: steps.report.outputs.has_candidates == 'true'
+        run: |
+          jq -n --rawfile text report.txt '{"text": $text}' > slack-payload.json
+
       - name: Post to Slack
         if: steps.report.outputs.has_candidates == 'true'
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
-        run: |
-          PAYLOAD=$(jq -n --rawfile text report.txt '{"text": $text}')
-          curl -sf -X POST -H 'Content-Type: application/json' \
-            -d "$PAYLOAD" \
-            "$SLACK_WEBHOOK_URL"
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload-file-path: slack-payload.json

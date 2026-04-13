@@ -50,6 +50,57 @@ describe("fetch-router", () => {
       expect(result).toBeNull();
     });
 
+    it("matches GET /threads", () => {
+      const result = matchRoute("/api/copilotkit/threads", basePath);
+      expect(result).toEqual({ method: "threads/list" });
+    });
+
+    it("matches POST /threads/subscribe", () => {
+      const result = matchRoute("/api/copilotkit/threads/subscribe", basePath);
+      expect(result).toEqual({ method: "threads/subscribe" });
+    });
+
+    it("matches PATCH /threads/:threadId", () => {
+      const result = matchRoute("/api/copilotkit/threads/thread-abc", basePath);
+      expect(result).toEqual({
+        method: "threads/update",
+        threadId: "thread-abc",
+      });
+    });
+
+    it("matches POST /threads/:threadId/archive", () => {
+      const result = matchRoute(
+        "/api/copilotkit/threads/thread-abc/archive",
+        basePath,
+      );
+      expect(result).toEqual({
+        method: "threads/archive",
+        threadId: "thread-abc",
+      });
+    });
+
+    it("matches GET /threads/:threadId/messages", () => {
+      const result = matchRoute(
+        "/api/copilotkit/threads/thread-abc/messages",
+        basePath,
+      );
+      expect(result).toEqual({
+        method: "threads/messages",
+        threadId: "thread-abc",
+      });
+    });
+
+    it("handles URL-encoded threadId in thread routes", () => {
+      const result = matchRoute(
+        "/api/copilotkit/threads/thread%2F123",
+        basePath,
+      );
+      expect(result).toEqual({
+        method: "threads/update",
+        threadId: "thread/123",
+      });
+    });
+
     it("returns null when basePath is a prefix but not a segment boundary", () => {
       const result = matchRoute("/api/copilotkitextra/info", basePath);
       expect(result).toBeNull();
@@ -122,6 +173,31 @@ describe("fetch-router", () => {
     it("returns null when no known suffix matches", () => {
       const result = matchRoute("/anything/unknown");
       expect(result).toBeNull();
+    });
+
+    it("matches /threads suffix", () => {
+      const result = matchRoute("/anything/threads");
+      expect(result).toEqual({ method: "threads/list" });
+    });
+
+    it("matches /threads/subscribe suffix", () => {
+      const result = matchRoute("/anything/threads/subscribe");
+      expect(result).toEqual({ method: "threads/subscribe" });
+    });
+
+    it("matches /threads/:threadId suffix", () => {
+      const result = matchRoute("/anything/threads/t1");
+      expect(result).toEqual({ method: "threads/update", threadId: "t1" });
+    });
+
+    it("matches /threads/:threadId/archive suffix", () => {
+      const result = matchRoute("/anything/threads/t1/archive");
+      expect(result).toEqual({ method: "threads/archive", threadId: "t1" });
+    });
+
+    it("matches /threads/:threadId/messages suffix", () => {
+      const result = matchRoute("/anything/threads/t1/messages");
+      expect(result).toEqual({ method: "threads/messages", threadId: "t1" });
     });
 
     it("works with deeply nested mount prefix", () => {

@@ -73,6 +73,33 @@ class EventEmittingMockAgent extends AbstractAgent {
     }
   }
 
+  // Helper to emit run error event
+  public async emitRunErrorEvent(
+    runId: string,
+    state: State = {},
+    message: string = "error",
+    code: string = "unknown",
+  ) {
+    this.state = state;
+    for (const sub of this.subscribers) {
+      if (sub.onRunErrorEvent) {
+        await sub.onRunErrorEvent({
+          event: {
+            type: EventType.RUN_ERROR,
+            threadId: this.threadId,
+            runId,
+            message,
+            code,
+          },
+          messages: this.messages,
+          state: this.state,
+          agent: this,
+          input: this.createRunInput(runId),
+        });
+      }
+    }
+  }
+
   // Helper to emit state snapshot event
   public async emitStateSnapshot(runId: string, snapshot: State) {
     for (const sub of this.subscribers) {
@@ -799,6 +826,77 @@ describe("StateManager - Edge Cases", () => {
       "msg1",
     );
     expect(runId).toBeUndefined();
+  });
+});
+
+describe("StateManager - RunErrorEvent Handling", () => {
+  let copilotKitCore: CopilotKitCore;
+  let agent: EventEmittingMockAgent;
+
+  beforeEach(() => {
+    copilotKitCore = new CopilotKitCore({});
+    agent = new EventEmittingMockAgent("agent1", "thread1", { count: 0 });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "agent1",
+      agent: agent as any,
+    });
+  });
+
+  it("should track state when run errors", async () => {
+    const runId = "run1";
+    const errorState = { count: 1, error: true };
+
+    await agent.emitRunStarted(runId, { count: 1 });
+    await agent.emitRunErrorEvent(
+      runId,
+      errorState,
+      "something failed",
+      "bad_request",
+    );
+
+    const storedState = copilotKitCore.getStateByRun(
+      "agent1",
+      "thread1",
+      runId,
+    );
+    expect(storedState).toEqual(errorState);
+  });
+
+  it("should allow a new run after a run error (runFinished resets)", async () => {
+    // First run errors out
+    const run1Id = "run1";
+    const run1State = { count: 1, status: "error" };
+
+    await agent.emitRunStarted(run1Id, { count: 1 });
+    await agent.emitRunErrorEvent(run1Id, run1State, "oops", "internal");
+
+    const storedRun1 = copilotKitCore.getStateByRun(
+      "agent1",
+      "thread1",
+      run1Id,
+    );
+    expect(storedRun1).toEqual(run1State);
+
+    // Second run succeeds — verifies runFinished flag was set by error
+    // and resets on the next RUN_STARTED
+    const run2Id = "run2";
+    const run2State = { count: 2, status: "completed" };
+
+    await agent.emitRunStarted(run2Id, { count: 2 });
+    await agent.emitRunFinished(run2Id, run2State);
+
+    const storedRun2 = copilotKitCore.getStateByRun(
+      "agent1",
+      "thread1",
+      run2Id,
+    );
+    expect(storedRun2).toEqual(run2State);
+
+    // Both runs are tracked independently
+    const runIds = copilotKitCore.getRunIdsForThread("agent1", "thread1");
+    expect(runIds).toHaveLength(2);
+    expect(runIds).toContain(run1Id);
+    expect(runIds).toContain(run2Id);
   });
 });
 

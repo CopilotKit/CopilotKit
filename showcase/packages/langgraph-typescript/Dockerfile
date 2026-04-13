@@ -1,19 +1,19 @@
 # Stage 1: Build Next.js frontend
-FROM node:20-slim AS frontend
+FROM node:20.20-slim AS frontend
 WORKDIR /app
-COPY package.json ./
-RUN npm install --legacy-peer-deps
+COPY package.json package-lock.json ./
+RUN npm ci --legacy-peer-deps
 COPY . .
 RUN npx next build
 
 # Stage 2: Install agent dependencies
-FROM node:20-slim AS agent-deps
+FROM node:20.20-slim AS agent-deps
 WORKDIR /agent
-COPY src/agent/package.json ./
-RUN npm install --legacy-peer-deps
+COPY src/agent/package.json src/agent/package-lock.json ./
+RUN npm ci --legacy-peer-deps
 
 # Stage 3: Production image
-FROM node:20-slim AS runner
+FROM node:20.20-slim AS runner
 WORKDIR /app
 
 # Next.js build artifacts

@@ -32,7 +32,7 @@ export function limitMessagesToTokenCount(
 
   let cutoff: boolean = false;
 
-  const reversedMessages = [...messages].reverse();
+  const reversedMessages = [...messages].toReversed();
   for (const message of reversedMessages) {
     if (message.role === "system") {
       result.unshift(message);

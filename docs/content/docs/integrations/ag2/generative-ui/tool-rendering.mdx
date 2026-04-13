@@ -43,6 +43,7 @@ Start your AG2 backend with a `/chat` endpoint and connect CopilotKit to that en
             name="assistant",
             system_message="You are a helpful assistant.",
             llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
+            human_input_mode="NEVER",
         )
 
         @agent.register_for_llm(

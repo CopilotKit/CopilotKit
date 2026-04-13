@@ -1,4 +1,8 @@
-import { CopilotRuntimeLike, isIntelligenceRuntime } from "../core/runtime";
+import {
+  CopilotRuntimeLike,
+  isIntelligenceRuntime,
+  resolveAgents,
+} from "../core/runtime";
 import {
   AgentDescription,
   RuntimeInfo,
@@ -26,9 +30,10 @@ interface HandleGetRuntimeInfoParameters {
 
 export async function handleGetRuntimeInfo({
   runtime,
+  request,
 }: HandleGetRuntimeInfoParameters) {
   try {
-    const agents = await runtime.agents;
+    const agents = await resolveAgents(runtime.agents, request);
 
     const agentsDict = Object.entries(agents).reduce(
       (acc, [name, agent]) => {
