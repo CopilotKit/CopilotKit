@@ -822,11 +822,23 @@ type Tab = "conversation" | "agent-state" | "ag-ui-events";
       }
 
       /* ── Generative UI ──────────────────────────────────────────────── */
+      @keyframes cpk-genui-enter {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
       .cpk-td__genui {
         display: flex;
         flex-direction: column;
         gap: 6px;
         padding: 4px 16px 8px;
+        animation: cpk-genui-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
       }
 
       .cpk-td__genui-badge {
@@ -1035,7 +1047,7 @@ export class ThreadDetailsComponent {
 
   // Long-message collapse
   private _expandedMessages = signal<Set<string>>(new Set());
-  readonly COLLAPSE_THRESHOLD = 280;
+  readonly COLLAPSE_THRESHOLD = 800;
 
   private fetchAbortController: AbortController | null = null;
 

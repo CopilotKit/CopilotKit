@@ -2096,7 +2096,7 @@ ${argsString}</pre
             </div>
           </div>
           <div class="flex flex-1 flex-col overflow-hidden">
-            <div class="flex-1 overflow-auto">
+            <div id="cpk-main-scroll" class="flex-1 overflow-auto">
               ${this.renderCoreWarningBanner()} ${this.renderMainContent()}
               <slot></slot>
             </div>
@@ -3398,7 +3398,16 @@ ${argsString}</pre
       makeThread("demo-1", "Q3 headcount planning", "crewai-agent", ago(1440)),
     ];
     // Start with SOC 2 thread open and a pre-existing conversation
+    this._resetToSoc2();
+    this._threadsUnlocked = true;
+    this.selectedMenu = "threads";
+    this.requestUpdate();
+  }
+
+  private _resetToSoc2(): void {
     this._demoSelectedThreadId = "demo-3";
+    this._demoAgentState = null;
+    this._demoAgentEvents = [];
     this._demoConversation = [
       {
         id: "soc-u1",
@@ -3411,11 +3420,7 @@ ${argsString}</pre
         id: "soc-a1",
         type: "assistant",
         content:
-          "Based on your current posture, here are the gaps to close before June:\n\n" +
-          "Access control policies need a formal review sign-off from your CISO. The last documented review was 14 months ago, which falls outside the 12-month requirement.\n\n" +
-          "Vendor risk assessments are missing for 3 of your critical subprocessors: the data pipeline vendor, your log aggregation provider, and your CDN. Each needs a completed questionnaire and a risk rating.\n\n" +
-          "Incident response runbooks exist but have never been tested. You need at least one tabletop exercise documented and completed before the audit window.\n\n" +
-          "Finally, your employee security training completion rate is at 71%. SOC 2 auditors typically want to see 95% or above for the prior 12 months.",
+          "Four gaps to close before the June audit. Access control needs CISO sign-off — last review was 14 months ago. Vendor risk assessments are missing for 3 critical subprocessors. Incident response runbooks have never been tested in a tabletop exercise. Security training completion is at 71%, below the 95% threshold auditors expect.",
         createdAt: "",
       },
     ];
@@ -3426,45 +3431,54 @@ ${argsString}</pre
       html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px 20px;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
     <span style="font-size:13px;font-weight:700;color:#0f172a;">SOC 2 Readiness Scorecard</span>
-    <span style="font-size:10px;font-weight:500;background:#eee6fe;color:#57575b;padding:2px 8px;border-radius:4px;">Audit: April 2026</span>
+    <span style="font-size:10px;font-weight:500;background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:4px;">74 days to audit</span>
   </div>
-  <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;">
-    <span style="font-size:32px;font-weight:800;color:#0f172a;">67%</span>
-    <div style="flex:1;">
-      <div style="height:8px;border-radius:9999px;background:#e2e8f0;overflow:hidden;">
-        <div style="width:67%;height:100%;background:#8b5cf6;border-radius:9999px;"></div>
+  <div style="display:flex;align-items:center;gap:20px;margin-bottom:16px;">
+    <div style="position:relative;width:72px;height:72px;flex-shrink:0;">
+      <svg viewBox="0 0 36 36" width="72" height="72" style="transform:rotate(-90deg);">
+        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e2e8f0" stroke-width="3.8"/>
+        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#8b5cf6" stroke-width="3.8" stroke-dasharray="67 33" stroke-linecap="round"/>
+      </svg>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        <span style="font-size:14px;font-weight:800;color:#0f172a;line-height:1;">67%</span>
+        <span style="font-size:8px;color:#94a3b8;line-height:1;margin-top:2px;">ready</span>
       </div>
-      <div style="font-size:10px;color:#64748b;margin-top:4px;">Overall readiness</div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:5px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:#f87171;flex-shrink:0;"></div>
+        <span style="font-size:11px;color:#334155;flex:1;">Access Control</span>
+        <span style="font-size:10px;color:#64748b;">Needs CISO sign-off</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:#f87171;flex-shrink:0;"></div>
+        <span style="font-size:11px;color:#334155;flex:1;">Vendor Risk</span>
+        <span style="font-size:10px;color:#64748b;">3 missing assessments</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:#fb923c;flex-shrink:0;"></div>
+        <span style="font-size:11px;color:#334155;flex:1;">Incident Response</span>
+        <span style="font-size:10px;color:#64748b;">No tabletop on record</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:#fbbf24;flex-shrink:0;"></div>
+        <span style="font-size:11px;color:#334155;flex:1;">Security Training</span>
+        <span style="font-size:10px;color:#64748b;">71% — need 95%</span>
+      </div>
     </div>
   </div>
-  <div style="display:flex;flex-direction:column;gap:6px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#f8fafc;border-radius:8px;">
-      <span style="font-size:11px;color:#334155;">Access Control</span>
-      <span style="font-size:10px;background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:4px;font-weight:500;border:1px solid #e2e8f0;">Needs sign-off</span>
-    </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#f8fafc;border-radius:8px;">
-      <span style="font-size:11px;color:#334155;">Vendor Risk</span>
-      <span style="font-size:10px;background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:4px;font-weight:500;border:1px solid #e2e8f0;">3 missing assessments</span>
-    </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#f8fafc;border-radius:8px;">
-      <span style="font-size:11px;color:#334155;">Incident Response</span>
-      <span style="font-size:10px;background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:4px;font-weight:500;border:1px solid #e2e8f0;">Untested runbooks</span>
-    </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#f8fafc;border-radius:8px;">
-      <span style="font-size:11px;color:#334155;">Security Training</span>
-      <span style="font-size:10px;background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:4px;font-weight:500;border:1px solid #e2e8f0;">71% completion</span>
-    </div>
-  </div>
-  <div style="margin-top:12px;font-size:9px;color:#94a3b8;display:flex;align-items:center;gap:4px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> Generative UI · compliance-agent</div>
+  <div style="font-size:9px;color:#94a3b8;display:flex;align-items:center;gap:4px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> Generative UI · compliance-agent</div>
 </div>`,
       createdAt: "",
     });
-    this._threadsUnlocked = true;
-    this.selectedMenu = "threads";
-    this.requestUpdate();
   }
 
   private _startChurnDemo(): void {
+    // Cancel any in-progress streaming before restarting
+    if (this._demoStreamInterval !== null) {
+      clearInterval(this._demoStreamInterval);
+      this._demoStreamInterval = null;
+    }
     this._demoSelectedThreadId = "demo-4";
     this._demoConversation = [
       {
@@ -3626,13 +3640,7 @@ ${argsString}</pre
 
     // Stream the assistant response word by word
     const fullResponse =
-      "Based on usage data from the last 90 days, three accounts stand out as high risk.\n\n" +
-      "Meridian Financial is down 64% in active users since January and has 4 open P1 support tickets with no resolution path. " +
-      "Crestwood Logistics has a contract renewal due in 47 days and their primary exec sponsor left in February with no replacement identified. " +
-      "Atlas Healthcare is sitting at 12% seat utilization and no admin logins in 6 weeks.\n\n" +
-      "Two more accounts worth watching: Northgate Capital has gone dark on Slack and missed their last two QBRs. " +
-      "Solaris Manufacturing flagged cost concerns in their last check-in and has been evaluating alternatives.\n\n" +
-      "Recommend scheduling EBRs with Meridian and Atlas this week, and looping in their CSMs on Crestwood before the renewal window closes.";
+      "Three accounts are high risk this quarter. Meridian Financial is down 64% in active users with 4 open P1 tickets. Crestwood Logistics renews in 47 days and their exec sponsor just left. Atlas Healthcare is at 12% seat utilization with no admin logins in 6 weeks. Recommend scheduling EBRs with Meridian and Atlas this week, and looping in their CSMs on Crestwood before the renewal closes.";
 
     const tokens = fullResponse.split(/(\s+)/);
     let tokenIndex = 0;
@@ -3642,49 +3650,56 @@ ${argsString}</pre
           clearInterval(this._demoStreamInterval);
           this._demoStreamInterval = null;
         }
-        this._demoConversation = [
-          ...this._demoConversation,
-          {
-            id: "churn-ui1",
-            type: "generative-ui",
-            content: "open-generative-ui",
-            html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px 20px;">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-    <span style="font-size:13px;font-weight:700;color:#0f172a;">Customer Churn Risk Dashboard</span>
-    <span style="font-size:10px;font-weight:500;background:#eee6fe;color:#57575b;padding:2px 8px;border-radius:4px;">3 High Risk</span>
+        // Guard against duplicate pushes if the demo was restarted mid-flight
+        if (!this._demoConversation.some((m) => m.id === "churn-ui1")) {
+          this._demoConversation = [
+            ...this._demoConversation,
+            {
+              id: "churn-ui1",
+              type: "generative-ui",
+              content: "open-generative-ui",
+              html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px 20px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+    <span style="font-size:13px;font-weight:700;color:#0f172a;">Churn Risk · Q3 Enterprise</span>
+    <span style="font-size:10px;font-weight:600;background:#fff1f2;color:#9f1239;padding:2px 8px;border-radius:4px;border:1px solid #fda4af;">$2.1M ARR at risk</span>
   </div>
-  <div style="display:flex;flex-direction:column;gap:8px;">
-    <div style="padding:10px 12px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:10px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <span style="font-size:12px;font-weight:700;color:#0f172a;">Meridian Financial</span>
-        <span style="font-size:11px;font-weight:600;color:#57575b;">91% risk</span>
-      </div>
-      <div style="height:4px;border-radius:9999px;background:#e2e8f0;margin-bottom:6px;"><div style="width:91%;height:100%;background:#7c3aed;border-radius:9999px;"></div></div>
-      <span style="font-size:10px;color:#64748b;">−64% active users · 4 open P1 tickets</span>
-    </div>
-    <div style="padding:10px 12px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:10px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <span style="font-size:12px;font-weight:700;color:#0f172a;">Crestwood Logistics</span>
-        <span style="font-size:11px;font-weight:600;color:#57575b;">84% risk</span>
-      </div>
-      <div style="height:4px;border-radius:9999px;background:#e2e8f0;margin-bottom:6px;"><div style="width:84%;height:100%;background:#8b5cf6;border-radius:9999px;"></div></div>
-      <span style="font-size:10px;color:#64748b;">Renewal in 47d · exec sponsor departed</span>
-    </div>
-    <div style="padding:10px 12px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:10px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <span style="font-size:12px;font-weight:700;color:#0f172a;">Atlas Healthcare</span>
-        <span style="font-size:11px;font-weight:600;color:#57575b;">79% risk</span>
-      </div>
-      <div style="height:4px;border-radius:9999px;background:#e2e8f0;margin-bottom:6px;"><div style="width:79%;height:100%;background:#a78bfa;border-radius:9999px;"></div></div>
-      <span style="font-size:10px;color:#64748b;">12% seat utilization · no admin login in 42d</span>
-    </div>
-  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:11px;">
+    <thead>
+      <tr style="border-bottom:1px solid #e2e8f0;">
+        <th style="text-align:left;padding:4px 6px 6px 0;font-weight:600;color:#64748b;font-size:10px;">Account</th>
+        <th style="text-align:center;padding:4px 6px 6px;font-weight:600;color:#64748b;font-size:10px;">Risk</th>
+        <th style="text-align:right;padding:4px 6px 6px;font-weight:600;color:#64748b;font-size:10px;">ARR</th>
+        <th style="text-align:left;padding:4px 0 6px 8px;font-weight:600;color:#64748b;font-size:10px;">Key signal</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:7px 6px 7px 0;font-weight:600;color:#0f172a;">Meridian Financial</td>
+        <td style="padding:7px 6px;text-align:center;"><span style="background:#fff1f2;color:#9f1239;border:1px solid #fda4af;padding:2px 7px;border-radius:4px;font-weight:600;font-size:10px;">91%</span></td>
+        <td style="padding:7px 6px;text-align:right;color:#334155;font-weight:500;">$840k</td>
+        <td style="padding:7px 0 7px 8px;color:#64748b;"><span style="color:#9f1239;">↓64%</span> DAU · 4 P1s open</td>
+      </tr>
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:7px 6px 7px 0;font-weight:600;color:#0f172a;">Crestwood Logistics</td>
+        <td style="padding:7px 6px;text-align:center;"><span style="background:#fff7ed;color:#c2410c;border:1px solid #fdba74;padding:2px 7px;border-radius:4px;font-weight:600;font-size:10px;">84%</span></td>
+        <td style="padding:7px 6px;text-align:right;color:#334155;font-weight:500;">$720k</td>
+        <td style="padding:7px 0 7px 8px;color:#64748b;">Renewal 47d · exec departed</td>
+      </tr>
+      <tr>
+        <td style="padding:7px 6px 7px 0;font-weight:600;color:#0f172a;">Atlas Healthcare</td>
+        <td style="padding:7px 6px;text-align:center;"><span style="background:#fffbeb;color:#b45309;border:1px solid #fcd34d;padding:2px 7px;border-radius:4px;font-weight:600;font-size:10px;">79%</span></td>
+        <td style="padding:7px 6px;text-align:right;color:#334155;font-weight:500;">$540k</td>
+        <td style="padding:7px 0 7px 8px;color:#64748b;">12% seat util · no admin 42d</td>
+      </tr>
+    </tbody>
+  </table>
   <div style="margin-top:12px;font-size:9px;color:#94a3b8;display:flex;align-items:center;gap:4px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> Generative UI · langgraph-agent</div>
 </div>`,
-            createdAt: "",
-          },
-        ];
-        this.requestUpdate();
+              createdAt: "",
+            },
+          ];
+          this.requestUpdate();
+        }
         return;
       }
       const last = this._demoConversation[this._demoConversation.length - 1];
@@ -3706,7 +3721,7 @@ ${argsString}</pre
       ];
       tokenIndex++;
       this.requestUpdate();
-    }, 35);
+    }, 18);
   }
 
   private renderThreadsGate() {
@@ -3911,15 +3926,19 @@ ${argsString}</pre
                 if (e.detail === "demo-4") {
                   this._startChurnDemo();
                 } else {
-                  this._demoSelectedThreadId = e.detail;
-                  // Clear churn-specific data when switching away
+                  // Clear any in-progress churn streaming
                   if (this._demoStreamInterval !== null) {
                     clearInterval(this._demoStreamInterval);
                     this._demoStreamInterval = null;
                   }
-                  this._demoAgentState = null;
-                  this._demoAgentEvents = [];
-                  this._demoConversation = [];
+                  if (e.detail === "demo-3") {
+                    this._resetToSoc2();
+                  } else {
+                    this._demoSelectedThreadId = e.detail;
+                    this._demoAgentState = null;
+                    this._demoAgentEvents = [];
+                    this._demoConversation = [];
+                  }
                 }
               } else {
                 this.selectedThreadId = e.detail;
@@ -4656,6 +4675,13 @@ ${prettyEvent}</pre
 
     if (key === "threads") {
       this.autoSelectLatestThread();
+    }
+
+    if (key === "ag-ui-events" || key === "agents") {
+      requestAnimationFrame(() => {
+        const scroller = this.shadowRoot?.getElementById("cpk-main-scroll");
+        if (scroller) scroller.scrollTop = 0;
+      });
     }
 
     this.contextMenuOpen = false;
