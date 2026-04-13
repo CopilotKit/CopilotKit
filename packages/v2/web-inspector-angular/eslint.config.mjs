@@ -7,7 +7,6 @@ export default tseslint.config(
   {
     files: ["src/**/*.ts"],
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",
         {
