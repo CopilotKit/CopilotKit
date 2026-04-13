@@ -1,5 +1,9 @@
 import type { AgentCapabilities } from "@ag-ui/core";
-import { CopilotRuntimeLike, isIntelligenceRuntime } from "../core/runtime";
+import {
+  CopilotRuntimeLike,
+  isIntelligenceRuntime,
+  resolveAgents,
+} from "../core/runtime";
 import {
   AgentDescription,
   RuntimeInfo,
@@ -27,9 +31,10 @@ interface HandleGetRuntimeInfoParameters {
 
 export async function handleGetRuntimeInfo({
   runtime,
+  request,
 }: HandleGetRuntimeInfoParameters) {
   try {
-    const agents = await runtime.agents;
+    const agents = await resolveAgents(runtime.agents, request);
 
     const agentEntries = await Promise.all(
       Object.entries(agents).map(async ([name, agent]) => {

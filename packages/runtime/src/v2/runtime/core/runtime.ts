@@ -56,9 +56,70 @@ interface CopilotRuntimeMiddlewares {
   openGenerativeUI?: OpenGenerativeUIConfig;
 }
 
+/**
+ * Context passed to agent factory functions for per-request agent resolution.
+ */
+export interface AgentFactoryContext {
+  /** The incoming HTTP request. */
+  request: Request;
+}
+
+/**
+ * A function that dynamically creates agents on a per-request basis.
+ * Useful for multi-tenant scenarios or request-scoped agent configuration.
+ */
+export type AgentsFactory = (
+  ctx: AgentFactoryContext,
+) => MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>>;
+
+/**
+ * Agents can be provided as:
+ * - A static record of agents
+ * - A Promise that resolves to a record of agents
+ * - A factory function that receives request context and returns agents (or a Promise of agents)
+ */
+export type AgentsConfig =
+  | MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>>
+  | AgentsFactory;
+
+/**
+ * Resolve an AgentsConfig value to a concrete record of agents.
+ * If the config is a factory function, it is called with the given request context.
+ * Otherwise it is awaited directly (static record or Promise).
+ */
+export async function resolveAgents(
+  agents: AgentsConfig,
+  request?: Request,
+): Promise<Record<string, AbstractAgent>> {
+  if (typeof agents === "function") {
+    if (!request) {
+      throw new Error(
+        "Agent factory function requires a request context, but none was provided.",
+      );
+    }
+    return agents({ request });
+  }
+  return agents;
+}
+
 interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
-  /** Map of available agents (loaded lazily is fine). */
-  agents: MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>>;
+  /**
+   * Map of available agents, or a factory function for per-request agent resolution.
+   *
+   * Static record:
+   * ```ts
+   * agents: { support: new SupportAgent(), technical: new TechnicalAgent() }
+   * ```
+   *
+   * Factory function (called per-request):
+   * ```ts
+   * agents: ({ request }) => {
+   *   const tenantId = request.headers.get("x-tenant-id");
+   *   return { default: createAgentForTenant(tenantId) };
+   * }
+   * ```
+   */
+  agents: AgentsConfig;
   /** Optional transcription service for audio processing. */
   transcriptionService?: TranscriptionService;
   /** Optional *before* middleware – callback function or webhook URL. */
