@@ -1,3 +1,4 @@
+import type OpenAI from "openai";
 import { Message } from "../../graphql/types/converted";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import {
@@ -9,6 +10,33 @@ import {
   ChatCompletionDeveloperMessageParam,
 } from "openai/resources/chat";
 import { parseJson } from "@copilotkit/shared";
+
+/**
+ * Detects whether the provided OpenAI client is v5+ by checking for the
+ * removal of the `beta.chat` namespace (which was promoted to `chat` in v5).
+ */
+export function isOpenAIV5(openai: OpenAI): boolean {
+  return (
+    !(openai as Record<string, unknown>).beta ||
+    !((openai as Record<string, unknown>).beta as Record<string, unknown>).chat
+  );
+}
+
+/**
+ * Returns the chat completions object that supports `.stream()`.
+ * In v4 this lives under `openai.beta.chat.completions`;
+ * in v5 it was promoted to `openai.chat.completions`.
+ */
+export function getChatCompletionsForStreaming(openai: OpenAI) {
+  if (isOpenAIV5(openai)) {
+    return openai.chat.completions;
+  }
+  return (
+    openai as Record<string, unknown> & {
+      beta: { chat: { completions: unknown } };
+    }
+  ).beta.chat.completions;
+}
 
 export function limitMessagesToTokenCount(
   messages: any[],
