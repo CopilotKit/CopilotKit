@@ -10,7 +10,9 @@ import { useAgent } from "./use-agent";
  * @returns The agent's capabilities, or `undefined` if the agent hasn't
  *          connected yet or doesn't declare capabilities.
  */
-export function useCapabilities(agentId?: string): AgentCapabilities | undefined {
+export function useCapabilities(
+  agentId?: string,
+): AgentCapabilities | undefined {
   const { agent } = useAgent({ agentId });
 
   if (agent && "capabilities" in agent) {
