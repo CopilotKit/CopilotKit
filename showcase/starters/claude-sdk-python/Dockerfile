@@ -29,6 +29,7 @@ COPY --from=frontend /app/package.json ./
 # Agent code (self-contained — tools + data bundled inside)
 COPY agent/ ./agent/
 
+
 # Entrypoint
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh

@@ -25,7 +25,7 @@ fi
 
 echo "[entrypoint] Starting LangGraph agent server on port 8123..."
 python -m langgraph_cli dev \
-  --config agent/langgraph.json \
+  --config langgraph.json \
   --host 0.0.0.0 \
   --port 8123 \
   --no-browser 2>&1 | sed 's/^/[agent] /' &

@@ -170,7 +170,8 @@ describe("generate-starters", () => {
   describe("Python agents are self-contained", () => {
     for (const slug of PYTHON_SLUGS) {
       describe(slug, () => {
-        const agentDir = path.join(STARTERS_DIR, slug, "agent");
+        const fw = FRAMEWORKS.find((f) => f.slug === slug)!;
+        const agentDir = path.join(STARTERS_DIR, slug, fw.agentDir);
 
         it("has no sys.path.insert", () => {
           const pyFiles = findFiles(agentDir, [".py"]);

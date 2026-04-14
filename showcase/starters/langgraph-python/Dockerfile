@@ -18,8 +18,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Python dependencies
-COPY agent/requirements.txt ./agent/requirements.txt
-RUN pip install --no-cache-dir -r agent/requirements.txt
+COPY src/agents/requirements.txt ./src/agents/requirements.txt
+RUN pip install --no-cache-dir -r src/agents/requirements.txt
 
 # Next.js build artifacts
 COPY --from=frontend /app/.next ./.next
@@ -27,7 +27,10 @@ COPY --from=frontend /app/node_modules ./node_modules
 COPY --from=frontend /app/package.json ./
 
 # Agent code (self-contained — tools + data bundled inside)
-COPY agent/ ./agent/
+COPY src/agents/ ./src/agents/
+
+# Framework config
+COPY langgraph.json ./
 
 # Entrypoint
 COPY entrypoint.sh ./
