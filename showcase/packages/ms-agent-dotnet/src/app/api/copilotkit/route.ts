@@ -20,11 +20,15 @@ function createAgent() {
 // Register the same agent under all names used by demo pages.
 // The .NET backend exposes a single ProverbsAgent mapped at "/".
 const agentNames = [
-  "my_agent",
-  "agentic-chat",
+  "agentic_chat",
+  "human_in_the_loop",
   "tool-rendering",
-  "hitl",
   "gen-ui-tool-based",
+  "gen-ui-agent",
+  "shared-state-read",
+  "shared-state-write",
+  "shared-state-streaming",
+  "subagents",
 ];
 
 const agents: Record<string, AbstractAgent> = {};

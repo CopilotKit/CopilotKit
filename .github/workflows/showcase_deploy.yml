@@ -155,7 +155,7 @@ jobs:
           version: "10.13.1"
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.x
+          node-version: 22.x
       - run: pnpm install --frozen-lockfile --ignore-scripts
 
   build:
@@ -198,6 +198,21 @@ jobs:
           echo "args<<BUILDARGS_EOF" >> $GITHUB_OUTPUT
           echo "$ARGS" >> $GITHUB_OUTPUT
           echo "BUILDARGS_EOF" >> $GITHUB_OUTPUT
+
+      - name: Copy shared modules into build context
+        run: |
+          CONTEXT="${{ matrix.service.context }}"
+          if [ -d "showcase/shared/python" ] && [ -d "$CONTEXT" ]; then
+            cp -r showcase/shared/python "$CONTEXT/shared_python"
+          fi
+          if [ -d "showcase/shared/frontend/src" ] && [ -d "$CONTEXT" ]; then
+            mkdir -p "$CONTEXT/shared_frontend/src"
+            cp -r showcase/shared/frontend/src/ "$CONTEXT/shared_frontend/src/"
+          fi
+          if [ -d "showcase/shared/typescript/tools" ] && [ -d "$CONTEXT" ]; then
+            mkdir -p "$CONTEXT/shared_typescript/tools"
+            cp -r showcase/shared/typescript/tools/ "$CONTEXT/shared_typescript/tools/"
+          fi
 
       - name: Build and push
         uses: docker/build-push-action@v6

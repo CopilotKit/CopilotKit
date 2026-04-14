@@ -1,9 +1,9 @@
 /**
  * LangGraph TypeScript agent — CopilotKit showcase integration
  *
- * Defines a simple graph with a chat node and weather tool, wired to
- * CopilotKit via the sdk-js LangGraph adapter so frontend actions and
- * shared state flow seamlessly.
+ * Defines a graph with a chat node and all showcase tools,
+ * wired to CopilotKit via the sdk-js LangGraph adapter so frontend actions
+ * and shared state flow seamlessly.
  */
 
 import { z } from "zod";
@@ -22,6 +22,16 @@ import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
 } from "@copilotkit/sdk-js/langgraph";
+import {
+  getWeatherImpl,
+  queryDataImpl,
+  manageSalesTodosImpl,
+  getSalesTodosImpl,
+  scheduleMeetingImpl,
+  searchFlightsImpl,
+  generateA2uiImpl,
+  buildA2uiOperationsFromToolCall,
+} from "./shared-tools";
 
 // ---------------------------------------------------------------------------
 // 1. Agent state — extends CopilotKit state with a proverbs list
@@ -35,86 +45,13 @@ const AgentStateAnnotation = Annotation.Root({
 export type AgentState = typeof AgentStateAnnotation.State;
 
 // ---------------------------------------------------------------------------
-// 2. Tools — real weather via Open-Meteo (same API as other showcase pkgs)
+// 2. Tools — shared implementations wrapped for LangChain
 // ---------------------------------------------------------------------------
 
-interface GeocodingResponse {
-  results: { latitude: number; longitude: number; name: string }[];
-}
-
-interface WeatherResponse {
-  current: {
-    time: string;
-    temperature_2m: number;
-    apparent_temperature: number;
-    relative_humidity_2m: number;
-    wind_speed_10m: number;
-    wind_gusts_10m: number;
-    weather_code: number;
-  };
-}
-
-function getWeatherCondition(code: number): string {
-  const conditions: Record<number, string> = {
-    0: "Clear sky",
-    1: "Mainly clear",
-    2: "Partly cloudy",
-    3: "Overcast",
-    45: "Foggy",
-    48: "Depositing rime fog",
-    51: "Light drizzle",
-    53: "Moderate drizzle",
-    55: "Dense drizzle",
-    56: "Light freezing drizzle",
-    57: "Dense freezing drizzle",
-    61: "Slight rain",
-    63: "Moderate rain",
-    65: "Heavy rain",
-    66: "Light freezing rain",
-    67: "Heavy freezing rain",
-    71: "Slight snow fall",
-    73: "Moderate snow fall",
-    75: "Heavy snow fall",
-    77: "Snow grains",
-    80: "Slight rain showers",
-    81: "Moderate rain showers",
-    82: "Violent rain showers",
-    85: "Slight snow showers",
-    86: "Heavy snow showers",
-    95: "Thunderstorm",
-    96: "Thunderstorm with slight hail",
-    99: "Thunderstorm with heavy hail",
-  };
-  return conditions[code] || "Unknown";
-}
-
 const getWeather = tool(
-  async (args) => {
-    const geocodingUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(args.location)}&count=1`;
-    const geocodingResponse = await fetch(geocodingUrl);
-    const geocodingData = (await geocodingResponse.json()) as GeocodingResponse;
-
-    if (!geocodingData.results?.[0]) {
-      return JSON.stringify({ error: `Location '${args.location}' not found` });
-    }
-
-    const { latitude, longitude, name } = geocodingData.results[0];
-    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,weather_code`;
-    const response = await fetch(weatherUrl);
-    const data = (await response.json()) as WeatherResponse;
-
-    return JSON.stringify({
-      temperature: data.current.temperature_2m,
-      feelsLike: data.current.apparent_temperature,
-      humidity: data.current.relative_humidity_2m,
-      windSpeed: data.current.wind_speed_10m,
-      windGust: data.current.wind_gusts_10m,
-      conditions: getWeatherCondition(data.current.weather_code),
-      location: name,
-    });
-  },
+  async ({ location }) => JSON.stringify(getWeatherImpl(location)),
   {
-    name: "getWeather",
+    name: "get_weather",
     description: "Get current weather for a location",
     schema: z.object({
       location: z.string().describe("City name"),
@@ -122,7 +59,167 @@ const getWeather = tool(
   },
 );
 
-const tools = [getWeather];
+const queryData = tool(
+  async ({ query }) => JSON.stringify(queryDataImpl(query)),
+  {
+    name: "query_data",
+    description: "Query financial database for chart data",
+    schema: z.object({
+      query: z.string().describe("Natural language query"),
+    }),
+  },
+);
+
+const manageSalesTodos = tool(
+  async ({ todos }) => JSON.stringify(manageSalesTodosImpl(todos)),
+  {
+    name: "manage_sales_todos",
+    description: "Create or update the sales todo list",
+    schema: z.object({
+      todos: z
+        .array(
+          z.object({
+            id: z.string().optional(),
+            title: z.string(),
+            stage: z.string().optional(),
+            value: z.number().optional(),
+            dueDate: z.string().optional(),
+            assignee: z.string().optional(),
+            completed: z.boolean().optional(),
+          }),
+        )
+        .describe("Array of sales todo items"),
+    }),
+  },
+);
+
+const getSalesTodos = tool(
+  async ({ currentTodos }) => JSON.stringify(getSalesTodosImpl(currentTodos)),
+  {
+    name: "get_sales_todos",
+    description: "Get the current sales todo list",
+    schema: z.object({
+      currentTodos: z
+        .array(
+          z.object({
+            id: z.string().optional(),
+            title: z.string().optional(),
+            stage: z.string().optional(),
+            value: z.number().optional(),
+            dueDate: z.string().optional(),
+            assignee: z.string().optional(),
+            completed: z.boolean().optional(),
+          }),
+        )
+        .optional()
+        .nullable()
+        .describe("Current todos if any"),
+    }),
+  },
+);
+
+const scheduleMeeting = tool(
+  async ({ reason, durationMinutes }) =>
+    JSON.stringify(scheduleMeetingImpl(reason, durationMinutes)),
+  {
+    name: "schedule_meeting",
+    description: "Schedule a meeting (requires user approval via HITL)",
+    schema: z.object({
+      reason: z.string().describe("Reason for the meeting"),
+      durationMinutes: z.number().optional().describe("Duration in minutes"),
+    }),
+  },
+);
+
+const searchFlights = tool(
+  async ({ flights }) => JSON.stringify(searchFlightsImpl(flights)),
+  {
+    name: "search_flights",
+    description: "Search for available flights",
+    schema: z.object({
+      flights: z
+        .array(
+          z.object({
+            airline: z.string(),
+            airlineLogo: z.string().optional(),
+            flightNumber: z.string(),
+            origin: z.string(),
+            destination: z.string(),
+            date: z.string(),
+            departureTime: z.string(),
+            arrivalTime: z.string(),
+            duration: z.string(),
+            status: z.string(),
+            statusColor: z.string().optional(),
+            price: z.string(),
+            currency: z.string().optional(),
+          }),
+        )
+        .describe("Array of flight results"),
+    }),
+  },
+);
+
+const generateA2ui = tool(
+  async ({ messages, contextEntries }) => {
+    const prep = generateA2uiImpl({ messages, contextEntries });
+
+    const secondaryModel = new ChatOpenAI({ temperature: 0, model: "gpt-4.1" });
+    const renderTool = tool(async () => "rendered", {
+      name: "render_a2ui",
+      description: "Render a dynamic A2UI v0.9 surface.",
+      schema: z.object({
+        surfaceId: z.string().describe("Unique surface identifier."),
+        catalogId: z.string().describe("The catalog ID."),
+        components: z
+          .array(z.record(z.unknown()))
+          .describe("A2UI v0.9 component array."),
+        data: z
+          .record(z.unknown())
+          .optional()
+          .describe("Optional initial data model."),
+      }),
+    });
+
+    const modelWithTool = secondaryModel.bindTools!([renderTool], {
+      tool_choice: { type: "function", function: { name: "render_a2ui" } },
+    });
+
+    const response = await modelWithTool.invoke([
+      new SystemMessage({ content: prep.systemPrompt }),
+      ...prep.messages.map((m) => m as any),
+    ]);
+
+    const aiMsg = response as AIMessage;
+    if (!aiMsg.tool_calls?.length) {
+      return JSON.stringify({ error: "LLM did not call render_a2ui" });
+    }
+
+    const args = aiMsg.tool_calls[0].args as Record<string, unknown>;
+    return JSON.stringify(buildA2uiOperationsFromToolCall(args));
+  },
+  {
+    name: "generate_a2ui",
+    description: "Generate dynamic A2UI surface components",
+    schema: z.object({
+      messages: z.array(z.record(z.unknown())).describe("Chat messages"),
+      contextEntries: z
+        .array(z.record(z.unknown()))
+        .optional()
+        .describe("Context entries"),
+    }),
+  },
+);
+
+const tools = [
+  getWeather,
+  queryData,
+  manageSalesTodos,
+  getSalesTodos,
+  scheduleMeeting,
+  searchFlights,
+  generateA2ui,
+];
 
 // ---------------------------------------------------------------------------
 // 3. Chat node — binds backend + frontend tools, invokes the model

@@ -16,6 +16,8 @@ deployed: true
 sort_order: 10
 generative_ui:
   - constrained-explicit
+  - a2ui-fixed-schema
+  - a2ui-dynamic-schema
 interaction_modalities:
   - sidebar
   - embedded

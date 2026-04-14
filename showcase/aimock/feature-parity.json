@@ -1,0 +1,182 @@
+{
+  "fixtures": [
+    {
+      "match": { "userMessage": "weather" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "weather summary" },
+      "response": {
+        "content": "The current weather in Tokyo is 22°C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
+      }
+    },
+    {
+      "match": { "userMessage": "pie chart" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_data",
+            "arguments": "{\"query\":\"revenue by category\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "show pie" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "pieChart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Breakdown of revenue across product categories\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "bar chart" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_data",
+            "arguments": "{\"query\":\"monthly sales\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "show bar" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "barChart",
+            "arguments": "{\"title\":\"Monthly Sales\",\"description\":\"Sales performance January through June\",\"data\":[{\"label\":\"Jan\",\"value\":15000},{\"label\":\"Feb\",\"value\":22000},{\"label\":\"Mar\",\"value\":18000},{\"label\":\"Apr\",\"value\":31000},{\"label\":\"May\",\"value\":27000},{\"label\":\"Jun\",\"value\":35000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "schedule" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "schedule_meeting",
+            "arguments": "{\"reason\":\"Team sync to discuss Q3 roadmap\",\"duration_minutes\":30}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "meeting" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "scheduleTime",
+            "arguments": "{\"reasonForScheduling\":\"Weekly standup\",\"meetingDuration\":15}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "sales" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "get_sales_todos",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "pipeline" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "get_sales_todos",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "todo" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "get_sales_todos",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "flight" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA123\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$349\",\"currency\":\"USD\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL456\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$289\",\"currency\":\"USD\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "fly" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA123\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$349\",\"currency\":\"USD\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL456\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$289\",\"currency\":\"USD\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "theme" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "toggleTheme",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "toggle" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "toggleTheme",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "hello" },
+      "response": {
+        "content": "Hello! I can help you with weather lookups, creating pie and bar charts, scheduling meetings, managing sales todos, searching flights, and toggling the theme. What would you like to do?"
+      }
+    },
+    {
+      "match": { "userMessage": "help" },
+      "response": {
+        "content": "Here are the things I can help with:\n- Check the weather for any location\n- Create pie charts and bar charts from data\n- Schedule meetings with a reason and duration\n- Manage your sales pipeline and todos\n- Search for flights between cities\n- Toggle the UI theme between light and dark\n\nJust ask me about any of these!"
+      }
+    },
+    {
+      "match": { "userMessage": "hi" },
+      "response": {
+        "content": "Hi there! I'm your showcase assistant. I can help with weather, charts, meetings, sales todos, flights, and theme toggling. What would you like to try?"
+      }
+    }
+  ]
+}

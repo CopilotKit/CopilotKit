@@ -1,12 +1,12 @@
 """
-Strands agent with proverbs state, weather tool, and HITL support.
+Strands agent with sales pipeline state, weather tool, and HITL support.
 
 Adapted from examples/integrations/strands-python/agent/main.py
 """
 
 import json
 import os
-from typing import List
+import sys
 
 from ag_ui_strands import (
     StrandsAgent,
@@ -21,47 +21,24 @@ from strands.models.openai import OpenAIModel
 
 load_dotenv()
 
-
-# =====
-# State
-# =====
-class ProverbsList(BaseModel):
-    """A list of proverbs."""
-
-    proverbs: List[str] = Field(description="The complete list of proverbs")
+# Import shared tool implementations
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"))
+from tools import (
+    get_weather_impl,
+    query_data_impl,
+    manage_sales_todos_impl,
+    schedule_meeting_impl,
+    search_flights_impl,
+    build_a2ui_operations_from_tool_call,
+)
 
 
 # =====
 # Tools
 # =====
 @tool
-def get_proverbs():
-    """Get the current list of proverbs.
-
-    Returns:
-        Instruction to check the proverbs in context
-    """
-    return "Check the proverbs list provided in the context."
-
-
-@tool
-def update_proverbs(proverbs_list: ProverbsList):
-    """Update the complete list of proverbs.
-
-    IMPORTANT: Always provide the entire list, not just new proverbs.
-
-    Args:
-        proverbs_list: The complete updated proverbs list
-
-    Returns:
-        Success message
-    """
-    return "Proverbs updated successfully"
-
-
-@tool
 def get_weather(location: str):
-    """Get the weather for a location.
+    """Get current weather for a location.
 
     Args:
         location: The location to get weather for
@@ -69,14 +46,138 @@ def get_weather(location: str):
     Returns:
         Weather information as JSON string
     """
-    return json.dumps({
-        "location": location,
-        "temperature": 22,
-        "conditions": "Clear skies",
-        "humidity": 55,
-        "wind_speed": 12,
-        "feels_like": 22,
-    })
+    return json.dumps(get_weather_impl(location))
+
+
+@tool
+def query_data(query: str):
+    """Query financial database for chart data.
+
+    Always call before showing a chart or graph.
+
+    Args:
+        query: Natural language query for financial data
+
+    Returns:
+        Financial data as JSON string
+    """
+    return json.dumps(query_data_impl(query))
+
+
+@tool
+def manage_sales_todos(todos: list[dict]):
+    """Manage the sales pipeline by replacing the entire list of todos.
+
+    IMPORTANT: Always provide the entire list, not just new items.
+
+    Args:
+        todos: The complete updated list of sales todos
+
+    Returns:
+        Success message
+    """
+    result = manage_sales_todos_impl(todos)
+    return f"Sales todos updated. Tracking {len(result)} item(s)."
+
+
+@tool
+def get_sales_todos():
+    """Get the current sales pipeline todos.
+
+    Returns:
+        Instruction to check the sales pipeline in context
+    """
+    return "Check the sales pipeline provided in the context."
+
+
+@tool
+def schedule_meeting(reason: str):
+    """Schedule a meeting with user approval.
+
+    Args:
+        reason: Reason for the meeting
+
+    Returns:
+        Meeting scheduling result as JSON string
+    """
+    return json.dumps(schedule_meeting_impl(reason))
+
+
+@tool
+def search_flights(flights: list[dict]):
+    """Search for flights and display the results as rich cards. Return exactly 2 flights.
+
+    Each flight must have: airline, airlineLogo, flightNumber, origin, destination,
+    date (short readable format like "Tue, Mar 18" -- use near-future dates),
+    departureTime, arrivalTime, duration (e.g. "4h 25m"),
+    status (e.g. "On Time" or "Delayed"),
+    statusColor (hex color for status dot),
+    price (e.g. "$289"), and currency (e.g. "USD").
+
+    For airlineLogo use Google favicon API:
+    https://www.google.com/s2/favicons?domain={airline_domain}&sz=128
+
+    Args:
+        flights: List of flight objects
+
+    Returns:
+        Flight search results as JSON string
+    """
+    result = search_flights_impl(flights)
+    return json.dumps(result)
+
+
+@tool
+def generate_a2ui(context: str):
+    """Generate dynamic A2UI components based on the conversation.
+
+    A secondary LLM designs the UI schema and data. The result is
+    returned as an a2ui_operations container for the middleware to detect.
+
+    Args:
+        context: Conversation context to generate UI from
+
+    Returns:
+        A2UI operations as JSON string
+    """
+    from openai import OpenAI
+
+    client = OpenAI()
+    tool_schema = {
+        "type": "function",
+        "function": {
+            "name": "render_a2ui",
+            "description": "Render a dynamic A2UI v0.9 surface.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "surfaceId": {"type": "string"},
+                    "catalogId": {"type": "string"},
+                    "components": {"type": "array", "items": {"type": "object"}},
+                    "data": {"type": "object"},
+                },
+                "required": ["surfaceId", "catalogId", "components"],
+            },
+        },
+    }
+
+    response = client.chat.completions.create(
+        model="gpt-4.1",
+        messages=[
+            {"role": "system", "content": context or "Generate a useful dashboard UI."},
+            {"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."},
+        ],
+        tools=[tool_schema],
+        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+    )
+
+    if not response.choices[0].message.tool_calls:
+        return json.dumps({"error": "LLM did not call render_a2ui"})
+
+    tool_call = response.choices[0].message.tool_calls[0]
+    args = json.loads(tool_call.function.arguments)
+    result = build_a2ui_operations_from_tool_call(args)
+    return json.dumps(result)
 
 
 @tool
@@ -95,43 +196,42 @@ def set_theme_color(theme_color: str):
 # =====
 # State management
 # =====
-def build_proverbs_prompt(input_data, user_message: str) -> str:
-    """Inject the current proverbs state into the prompt."""
+def build_sales_prompt(input_data, user_message: str) -> str:
+    """Inject the current sales pipeline state into the prompt."""
     state_dict = getattr(input_data, "state", None)
-    if isinstance(state_dict, dict) and "proverbs" in state_dict:
-        proverbs_json = json.dumps(state_dict["proverbs"], indent=2)
+    if isinstance(state_dict, dict) and "todos" in state_dict:
+        todos_json = json.dumps(state_dict["todos"], indent=2)
         return (
-            f"Current proverbs list:\n{proverbs_json}\n\nUser request: {user_message}"
+            f"Current sales pipeline:\n{todos_json}\n\nUser request: {user_message}"
         )
     return user_message
 
 
-async def proverbs_state_from_args(context):
-    """Extract proverbs state from tool arguments.
+async def sales_state_from_args(context):
+    """Extract sales pipeline state from tool arguments.
 
-    This function is called when update_proverbs tool is executed
+    This function is called when manage_sales_todos tool is executed
     to emit a state snapshot to the UI.
 
     Args:
         context: ToolResultContext containing tool execution details
 
     Returns:
-        dict: State snapshot with proverbs array, or None on error
+        dict: State snapshot with todos array, or None on error
     """
     try:
         tool_input = context.tool_input
         if isinstance(tool_input, str):
             tool_input = json.loads(tool_input)
 
-        proverbs_data = tool_input.get("proverbs_list", tool_input)
+        todos_data = tool_input.get("todos", tool_input)
 
-        # Extract proverbs array
-        if isinstance(proverbs_data, dict):
-            proverbs_array = proverbs_data.get("proverbs", [])
-        else:
-            proverbs_array = []
+        # Process through shared implementation
+        if isinstance(todos_data, list):
+            processed = manage_sales_todos_impl(todos_data)
+            return {"todos": [dict(t) for t in processed]}
 
-        return {"proverbs": proverbs_array}
+        return None
     except Exception:
         return None
 
@@ -140,11 +240,11 @@ async def proverbs_state_from_args(context):
 # Agent configuration
 # =====
 shared_state_config = StrandsAgentConfig(
-    state_context_builder=build_proverbs_prompt,
+    state_context_builder=build_sales_prompt,
     tool_behaviors={
-        "update_proverbs": ToolBehavior(
+        "manage_sales_todos": ToolBehavior(
             skip_messages_snapshot=True,
-            state_from_args=proverbs_state_from_args,
+            state_from_args=sales_state_from_args,
         )
     },
 )
@@ -157,24 +257,33 @@ model = OpenAIModel(
 )
 
 system_prompt = (
-    "You are a helpful assistant that helps manage and discuss proverbs. "
-    "The user has a list of proverbs that you can help them manage. "
-    "You have tools available to add, set, or retrieve proverbs from the list. "
-    "When discussing proverbs, ALWAYS use the get_proverbs tool to see the current list before "
-    "mentioning, updating, or discussing proverbs with the user."
+    "You are a polished, professional demo assistant for CopilotKit. "
+    "Keep responses brief and clear -- 1 to 2 sentences max.\n\n"
+    "You can:\n"
+    "- Chat naturally with the user\n"
+    "- Change the UI background when asked (via frontend tool)\n"
+    "- Query data and render charts (via query_data tool)\n"
+    "- Get weather information (via get_weather tool)\n"
+    "- Schedule meetings with the user (via schedule_meeting tool -- the user picks a time in the UI)\n"
+    "- Manage sales pipeline todos (via manage_sales_todos / get_sales_todos tools)\n"
+    "- Search flights and display rich A2UI cards (via search_flights tool)\n"
+    "- Generate dynamic A2UI dashboards from conversation context (via generate_a2ui tool)\n"
+    "- Generate step-by-step plans for user review (human-in-the-loop)\n"
+    "When discussing the sales pipeline, ALWAYS use the get_sales_todos tool to see the current list before "
+    "mentioning, updating, or discussing todos with the user."
 )
 
 # Create Strands agent with tools
 strands_agent = Agent(
     model=model,
     system_prompt=system_prompt,
-    tools=[get_proverbs, update_proverbs, get_weather, set_theme_color],
+    tools=[get_sales_todos, manage_sales_todos, get_weather, query_data, schedule_meeting, search_flights, generate_a2ui, set_theme_color],
 )
 
 # Wrap with AG-UI integration
 agui_agent = StrandsAgent(
     agent=strands_agent,
     name="strands_agent",
-    description="A proverbs assistant that collaborates with you to manage proverbs",
+    description="A sales assistant that collaborates with you to manage a sales pipeline",
     config=shared_state_config,
 )

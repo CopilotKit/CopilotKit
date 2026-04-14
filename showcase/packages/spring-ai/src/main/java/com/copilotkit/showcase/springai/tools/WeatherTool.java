@@ -1,5 +1,7 @@
 package com.copilotkit.showcase.springai.tools;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -32,40 +34,59 @@ public class WeatherTool implements Function<WeatherRequest, String> {
 
     @Override
     public String apply(WeatherRequest request) {
-        // Geocode the location
-        String geoUrl = UriComponentsBuilder
-                .fromHttpUrl("https://geocoding-api.open-meteo.com/v1/search")
-                .queryParam("name", request.getLocation())
-                .queryParam("count", 1)
-                .toUriString();
+        WeatherResponse.GeocodingResponse geo;
+        try {
+            // Geocode the location
+            String geoUrl = UriComponentsBuilder
+                    .fromHttpUrl("https://geocoding-api.open-meteo.com/v1/search")
+                    .queryParam("name", request.getLocation())
+                    .queryParam("count", 1)
+                    .toUriString();
 
-        WeatherResponse.GeocodingResponse geo = restTemplate.getForObject(geoUrl, WeatherResponse.GeocodingResponse.class);
+            geo = restTemplate.getForObject(geoUrl, WeatherResponse.GeocodingResponse.class);
+        } catch (RestClientException e) {
+            return "Failed to geocode location '" + request.getLocation() + "': " + e.getMessage();
+        }
+
         if (geo == null || geo.getResults() == null || geo.getResults().isEmpty()) {
             return "Location not found: " + request.getLocation();
         }
 
         WeatherResponse.GeocodingResult loc = geo.getResults().get(0);
 
-        // Get weather
-        String weatherUrl = UriComponentsBuilder
-                .fromHttpUrl("https://api.open-meteo.com/v1/forecast")
-                .queryParam("latitude", loc.getLatitude())
-                .queryParam("longitude", loc.getLongitude())
-                .queryParam("current", "temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code")
-                .toUriString();
+        WeatherResponse weather;
+        try {
+            // Get weather
+            String weatherUrl = UriComponentsBuilder
+                    .fromHttpUrl("https://api.open-meteo.com/v1/forecast")
+                    .queryParam("latitude", loc.getLatitude())
+                    .queryParam("longitude", loc.getLongitude())
+                    .queryParam("current", "temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code")
+                    .toUriString();
 
-        WeatherResponse weather = restTemplate.getForObject(weatherUrl, WeatherResponse.class);
+            weather = restTemplate.getForObject(weatherUrl, WeatherResponse.class);
+        } catch (RestClientException e) {
+            return "Failed to fetch weather for " + loc.getName() + ": " + e.getMessage();
+        }
+
         if (weather == null || weather.getCurrent() == null) {
             return "Could not fetch weather for " + loc.getName();
         }
 
         WeatherResponse.CurrentWeather w = weather.getCurrent();
-        String condition = CONDITIONS.getOrDefault(w.getWeatherCode(), "Unknown");
+        String conditions = CONDITIONS.getOrDefault(w.getWeatherCode(), "Unknown");
 
-        return String.format(
-                "Weather in %s: %.1f°C (feels like %.1f°C), %s, humidity %d%%, wind %.1f km/h",
-                loc.getName(), w.getTemperature2m(), w.getApparentTemperature(),
-                condition, (int) w.getRelativeHumidity2m(), w.getWindSpeed10m()
-        );
+        try {
+            return new ObjectMapper().writeValueAsString(Map.of(
+                    "city", loc.getName(),
+                    "temperature", w.getTemperature2m(),
+                    "humidity", (int) w.getRelativeHumidity2m(),
+                    "wind_speed", w.getWindSpeed10m(),
+                    "feels_like", w.getApparentTemperature(),
+                    "conditions", conditions
+            ));
+        } catch (Exception e) {
+            return "{\"error\": \"Failed to serialize weather data: " + e.getMessage() + "\"}";
+        }
     }
 }

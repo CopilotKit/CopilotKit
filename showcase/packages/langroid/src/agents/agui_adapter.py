@@ -13,6 +13,7 @@ AG-UI event types used:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from typing import Any, AsyncGenerator
@@ -45,9 +46,9 @@ from langroid.agent.tool_message import ToolMessage
 
 
 def _sse_line(event: Any) -> str:
-    """Format an AG-UI event as an SSE data line."""
+    """Format an AG-UI event as an SSE data line (camelCase keys per AG-UI protocol)."""
     if hasattr(event, "model_dump"):
-        data = event.model_dump()
+        data = event.model_dump(by_alias=True, exclude_none=True)
     else:
         data = dict(event)
     return f"data: {json.dumps(data)}\n\n"
@@ -60,14 +61,17 @@ async def handle_run(request: Request) -> StreamingResponse:
 
     agent = create_agent()
 
-    # Build the user message from the last message in the thread
-    user_message = ""
+    # Build conversation history from all messages so multi-turn works
+    conversation_parts: list[str] = []
     if run_input.messages:
-        last = run_input.messages[-1]
-        if hasattr(last, "content"):
-            user_message = last.content
-        elif isinstance(last, dict):
-            user_message = last.get("content", "")
+        for msg in run_input.messages:
+            if hasattr(msg, "role") and hasattr(msg, "content"):
+                conversation_parts.append(f"{msg.role}: {msg.content}")
+            elif isinstance(msg, dict):
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                conversation_parts.append(f"{role}: {content}")
+    user_message = "\n".join(conversation_parts) if conversation_parts else ""
 
     async def event_stream() -> AsyncGenerator[str, None]:
         run_id = str(uuid.uuid4())
@@ -130,7 +134,7 @@ async def handle_run(request: Request) -> StreamingResponse:
 
             # If it's a backend tool, execute it and stream the result as text
             if tool_name not in FRONTEND_TOOL_NAMES:
-                result = tool_msg.handle()
+                result = await asyncio.to_thread(tool_msg.handle)
 
                 yield _sse_line(TextMessageStartEvent(
                     type=EventType.TEXT_MESSAGE_START,
@@ -181,13 +185,12 @@ async def handle_run(request: Request) -> StreamingResponse:
 
 def _try_parse_tool(content: str, agent: lr.ChatAgent) -> ToolMessage | None:
     """Try to parse a Langroid ToolMessage from the LLM response content."""
-    for tool_cls in ALL_TOOLS:
-        try:
-            msg = agent.agent_response(content)
-            if msg is not None and isinstance(msg, ToolMessage):
-                return msg
-        except Exception:
-            pass
+    try:
+        msg = agent.agent_response(content)
+        if msg is not None and isinstance(msg, ToolMessage):
+            return msg
+    except Exception:
+        pass
 
     # Try JSON-based parsing as fallback
     try:

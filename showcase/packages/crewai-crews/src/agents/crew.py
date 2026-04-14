@@ -3,6 +3,14 @@ from crewai.project import CrewBase, agent, crew, task
 from crewai.agents.agent_builder.base_agent import BaseAgent
 from typing import List
 
+from agents.tools.custom_tool import (
+    GetWeatherTool,
+    QueryDataTool,
+    ScheduleMeetingTool,
+    SearchFlightsTool,
+    GenerateA2uiTool,
+)
+
 
 @CrewBase
 class LatestAiDevelopment():
@@ -16,14 +24,16 @@ class LatestAiDevelopment():
     def researcher(self) -> Agent:
         return Agent(
             config=self.agents_config['researcher'],  # type: ignore[index]
-            verbose=True
+            verbose=True,
+            tools=[GetWeatherTool(), QueryDataTool(), ScheduleMeetingTool(), SearchFlightsTool(), GenerateA2uiTool()],
         )
 
     @agent
     def reporting_analyst(self) -> Agent:
         return Agent(
             config=self.agents_config['reporting_analyst'],  # type: ignore[index]
-            verbose=True
+            verbose=True,
+            tools=[QueryDataTool()],
         )
 
     @task

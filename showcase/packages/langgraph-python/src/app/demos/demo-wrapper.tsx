@@ -2,7 +2,8 @@
 
 import React, { useEffect } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import { DemoErrorBoundary } from "./error-boundary";
+import { DemoErrorBoundary } from "@copilotkit/showcase-shared";
+import { demonstrationCatalog } from "@copilotkit/showcase-shared";
 
 interface DemoWrapperProps {
   demoName: string;
@@ -27,6 +28,7 @@ export function DemoWrapper({ demoName, agentId, children }: DemoWrapperProps) {
       <CopilotKit
         runtimeUrl="/api/copilotkit"
         agent={agentId}
+        a2ui={{ catalog: demonstrationCatalog }}
         onError={(error) => {
           console.error(`[${agentId}] CopilotKit error:`, error);
         }}
