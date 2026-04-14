@@ -552,7 +552,10 @@ def crewai_flow_messages_to_copilotkit(messages: List[Dict]) -> List[Message]: #
         if "content" in message and message.get("role") == "assistant":
             if message.get("tool_calls"):
                 for tool_call in message["tool_calls"]:
-                    tool_call_names[tool_call["id"]] = tool_call["function"]["name"]
+                    if tool_call.get("function"):
+                        tool_call_names[tool_call["id"]] = tool_call["function"]["name"]
+                    else:
+                        tool_call_names[tool_call["id"]] = tool_call.get("name", "")
 
     for message in messages:
         message_id = message_ids[id(message)]
