@@ -91,8 +91,8 @@ export class DevtoolsListener {
   }
 
   /**
-   * Returns all agent instances for a given agentId: the registry agent
-   * plus any per-thread clones created by the React layer.
+   * Returns per-thread clones for the given agentId if available,
+   * otherwise falls back to the registry agent itself.
    */
   private resolveAllInstances(agentId: string): AbstractAgent[] {
     const registryAgent = this.deps.getAgents()[agentId];
@@ -238,8 +238,7 @@ export class DevtoolsListener {
         });
       });
 
-      // Update agent.messages on all instances (registry + thread clones)
-      // so React consumers (useAgent) re-render
+      // Update on all resolved instances so React consumers re-render
       const messages = [
         {
           id: parentMessageId,
@@ -263,7 +262,14 @@ export class DevtoolsListener {
         },
       ];
       for (const instance of this.resolveAllInstances(payload.agentId)) {
-        instance.addMessages(messages);
+        try {
+          instance.addMessages(messages);
+        } catch (err) {
+          console.error(
+            `[CopilotKit DevTools] Failed to update messages on agent "${payload.agentId}":`,
+            err,
+          );
+        }
       }
     });
   }
@@ -309,14 +315,20 @@ export class DevtoolsListener {
         });
       });
 
-      // Update agent.messages on all instances (registry + thread clones)
-      // so React consumers (useAgent) re-render
+      // Update on all resolved instances so React consumers re-render
       for (const instance of this.resolveAllInstances(payload.agentId)) {
-        instance.addMessage({
-          id: messageId,
-          role: "assistant",
-          content: payload.content,
-        });
+        try {
+          instance.addMessage({
+            id: messageId,
+            role: "assistant",
+            content: payload.content,
+          });
+        } catch (err) {
+          console.error(
+            `[CopilotKit DevTools] Failed to update messages on agent "${payload.agentId}":`,
+            err,
+          );
+        }
       }
     });
   }
@@ -372,14 +384,20 @@ export class DevtoolsListener {
         });
       });
 
-      // Update agent.messages on all instances (registry + thread clones)
-      // so React consumers (useAgent) re-render
+      // Update on all resolved instances so React consumers re-render
       for (const instance of this.resolveAllInstances(payload.agentId)) {
-        instance.addMessage({
-          id: messageId,
-          role: "reasoning",
-          content: payload.content,
-        });
+        try {
+          instance.addMessage({
+            id: messageId,
+            role: "reasoning",
+            content: payload.content,
+          });
+        } catch (err) {
+          console.error(
+            `[CopilotKit DevTools] Failed to update messages on agent "${payload.agentId}":`,
+            err,
+          );
+        }
       }
     });
   }
@@ -400,10 +418,16 @@ export class DevtoolsListener {
         });
       });
 
-      // Update agent.state on all instances (registry + thread clones)
-      // so React consumers (useAgent) re-render
+      // Update on all resolved instances so React consumers re-render
       for (const instance of this.resolveAllInstances(payload.agentId)) {
-        instance.setState(payload.state);
+        try {
+          instance.setState(payload.state);
+        } catch (err) {
+          console.error(
+            `[CopilotKit DevTools] Failed to update state on agent "${payload.agentId}":`,
+            err,
+          );
+        }
       }
     });
   }

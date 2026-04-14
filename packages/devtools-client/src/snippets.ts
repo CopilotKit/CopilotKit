@@ -7,7 +7,17 @@ export function loadSnippets(): DevtoolsSnippet[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) {
+      console.warn("[CopilotKit DevTools] Snippets data is not an array — ignoring stored value.");
+      return [];
+    }
+    return parsed.filter(
+      (s): s is DevtoolsSnippet =>
+        s != null &&
+        typeof s === "object" &&
+        typeof s.id === "string" &&
+        typeof s.eventType === "string",
+    );
   } catch (err) {
     console.warn("[CopilotKit DevTools] Failed to load snippets:", err);
     return [];

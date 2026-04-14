@@ -18,13 +18,12 @@ export default defineConfig([
     sourcemap: true,
     target: "es2018",
     outDir: "dist",
-    external: ["@tanstack/devtools-event-client", "@ag-ui/client"],
+    external: ["@tanstack/devtools-event-client"],
     codeSplitting: false,
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";
       options.globals = {
         "@tanstack/devtools-event-client": "TanStackDevtoolsEventClient",
-        "@ag-ui/client": "AgUIClient",
       };
       return options;
     },

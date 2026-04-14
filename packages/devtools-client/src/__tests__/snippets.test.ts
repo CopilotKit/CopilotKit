@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { loadSnippets, saveSnippet, deleteSnippet } from "../snippets.js";
+import { loadSnippets, saveSnippet, deleteSnippet, updateSnippet } from "../snippets.js";
 import type { DevtoolsSnippet } from "../types.js";
 
 const STORAGE_KEY = "cpk:inspector:snippets";
@@ -103,5 +103,30 @@ describe("snippets", () => {
 
   it("saveSnippet returns true on success", () => {
     expect(saveSnippet(makeSnippet())).toBe(true);
+  });
+
+  it("updates an existing snippet", () => {
+    const s1 = makeSnippet({ id: "s1", name: "Original" });
+    saveSnippet(s1);
+    const updated = makeSnippet({ id: "s1", name: "Updated" });
+    expect(updateSnippet(updated)).toBe(true);
+    const loaded = loadSnippets();
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0]!.name).toBe("Updated");
+  });
+
+  it("updateSnippet returns false when snippet not found", () => {
+    const s1 = makeSnippet({ id: "s1" });
+    saveSnippet(s1);
+    expect(updateSnippet(makeSnippet({ id: "non-existent" }))).toBe(false);
+  });
+
+  it("updateSnippet returns false on localStorage write error", () => {
+    saveSnippet(makeSnippet({ id: "s1" }));
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("QuotaExceededError");
+    });
+    expect(updateSnippet(makeSnippet({ id: "s1", name: "Updated" }))).toBe(false);
+    spy.mockRestore();
   });
 });

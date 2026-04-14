@@ -104,6 +104,25 @@ describe("DevtoolsListener", () => {
       expect(resultCall.event.role).toBe("tool");
       expect(resultCall.event.messageId).toBeDefined();
     });
+
+    it("updates agent.messages with tool call and result messages", () => {
+      devtoolsClient.emit("tool-call", {
+        agentId: "test-agent",
+        toolName: "search",
+        args: { query: "hello" },
+        result: "found it",
+      });
+
+      expect(agent.messages).toHaveLength(2);
+      const assistantMsg = agent.messages[0]!;
+      expect(assistantMsg.role).toBe("assistant");
+      expect((assistantMsg as any).toolCalls).toHaveLength(1);
+      expect((assistantMsg as any).toolCalls[0].function.name).toBe("search");
+
+      const toolMsg = agent.messages[1]!;
+      expect(toolMsg.role).toBe("tool");
+      expect((toolMsg as any).content).toBe("found it");
+    });
   });
 
   describe("text-message", () => {
@@ -121,6 +140,17 @@ describe("DevtoolsListener", () => {
 
       const contentCall = subscriber.onTextMessageContentEvent.mock.calls[0][0];
       expect(contentCall.textMessageBuffer).toBe("Hello world");
+    });
+
+    it("updates agent.messages with assistant message", () => {
+      devtoolsClient.emit("text-message", {
+        agentId: "test-agent",
+        content: "Hello world",
+      });
+
+      expect(agent.messages).toHaveLength(1);
+      expect(agent.messages[0]!.role).toBe("assistant");
+      expect((agent.messages[0] as any).content).toBe("Hello world");
     });
   });
 
@@ -158,6 +188,15 @@ describe("DevtoolsListener", () => {
 
       const snapshotCall = subscriber.onStateSnapshotEvent.mock.calls[0][0];
       expect(snapshotCall.event.snapshot).toEqual({ count: 42 });
+    });
+
+    it("updates agent.state with snapshot", () => {
+      devtoolsClient.emit("state-snapshot", {
+        agentId: "test-agent",
+        state: { count: 42 },
+      });
+
+      expect(agent.state).toEqual({ count: 42 });
     });
   });
 
@@ -265,6 +304,41 @@ describe("DevtoolsListener", () => {
 
       expect(subscriber.onRunStartedEvent).toHaveBeenCalledOnce();
       expect(subscriber.onRunFinishedEvent).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("thread clone resolver", () => {
+    it("dispatches state updates to thread clones instead of registry agent", () => {
+      const clone1 = new TestAgent("test-agent");
+      const clone2 = new TestAgent("test-agent");
+
+      listener.setThreadCloneResolver(() => [clone1, clone2]);
+
+      devtoolsClient.emit("text-message", {
+        agentId: "test-agent",
+        content: "Hello clones",
+      });
+
+      // Clones should receive the message
+      expect(clone1.messages).toHaveLength(1);
+      expect((clone1.messages[0] as any).content).toBe("Hello clones");
+      expect(clone2.messages).toHaveLength(1);
+      expect((clone2.messages[0] as any).content).toBe("Hello clones");
+
+      // Registry agent should NOT receive the message (clones take priority)
+      expect(agent.messages).toHaveLength(0);
+    });
+
+    it("falls back to registry agent when resolver returns empty array", () => {
+      listener.setThreadCloneResolver(() => []);
+
+      devtoolsClient.emit("text-message", {
+        agentId: "test-agent",
+        content: "Fallback message",
+      });
+
+      expect(agent.messages).toHaveLength(1);
+      expect((agent.messages[0] as any).content).toBe("Fallback message");
     });
   });
 });

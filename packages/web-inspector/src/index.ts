@@ -4964,6 +4964,8 @@ ${this.announcementMarkdown}</pre
       case "tool-call":
         if (!p.toolName || typeof p.toolName !== "string" || !p.toolName.trim())
           return "Snippet is missing a valid toolName.";
+        if (p.args != null && typeof p.args !== "object")
+          return "Snippet has invalid args (expected object).";
         break;
       case "text-message":
       case "reasoning":
@@ -5015,23 +5017,27 @@ ${this.announcementMarkdown}</pre
 
     // Load the payload into the form fields
     const p = snippet.payload as Record<string, any>;
-    switch (snippet.eventType) {
-      case "tool-call":
-        this.emitterToolName = p.toolName ?? "";
-        this.emitterArgs = JSON.stringify(p.args ?? {}, null, 2);
-        this.emitterResult = p.result ?? "";
-        break;
-      case "text-message":
-      case "reasoning":
-        this.emitterContent = p.content ?? "";
-        break;
-      case "state-snapshot":
-        this.emitterStateJson = JSON.stringify(p.state ?? {}, null, 2);
-        break;
-      case "custom-event":
-        this.emitterCustomName = p.name ?? "";
-        this.emitterCustomValue = JSON.stringify(p.value ?? {}, null, 2);
-        break;
+    try {
+      switch (snippet.eventType) {
+        case "tool-call":
+          this.emitterToolName = p.toolName ?? "";
+          this.emitterArgs = JSON.stringify(p.args ?? {}, null, 2);
+          this.emitterResult = p.result ?? "";
+          break;
+        case "text-message":
+        case "reasoning":
+          this.emitterContent = p.content ?? "";
+          break;
+        case "state-snapshot":
+          this.emitterStateJson = JSON.stringify(p.state ?? {}, null, 2);
+          break;
+        case "custom-event":
+          this.emitterCustomName = p.name ?? "";
+          this.emitterCustomValue = JSON.stringify(p.value ?? {}, null, 2);
+          break;
+      }
+    } catch (err) {
+      this.emitterJsonError = `Failed to load snippet: ${(err as Error).message}`;
     }
     this.revalidateEmitterJson();
     this.requestUpdate();
@@ -5085,7 +5091,7 @@ ${this.announcementMarkdown}</pre
     }
     if (deleteSnippet(id)) {
       this.emitterSnippets = loadSnippets();
-      this.requestUpdate();
+      this.showStatus("Snippet deleted.");
     } else {
       this.emitterJsonError = "Failed to delete snippet from localStorage.";
       this.requestUpdate();

@@ -58,4 +58,26 @@ describe("CopilotKitEventClient", () => {
       value: { foo: "bar" },
     });
   });
+
+  it("emitDynamic delivers events for dynamically-determined event keys", () => {
+    const handler = vi.fn();
+    cleanups.push(devtoolsClient.on("tool-call", handler, { withEventTarget: true }));
+    devtoolsClient.emitDynamic("tool-call", {
+      agentId: "agent-1",
+      toolName: "search",
+      args: { query: "hello" },
+      result: "found it",
+    });
+    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: {
+          agentId: "agent-1",
+          toolName: "search",
+          args: { query: "hello" },
+          result: "found it",
+        },
+      }),
+    );
+  });
 });
