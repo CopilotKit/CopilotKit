@@ -205,7 +205,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     try {
       const openai = this.ensureOpenAI();
       const completions = getChatCompletionsForStreaming(openai);
-      const stream = (completions as typeof openai.chat.completions).stream({
+      const stream = completions.stream({
         model: model,
         stream: true,
         messages: openaiMessages,
