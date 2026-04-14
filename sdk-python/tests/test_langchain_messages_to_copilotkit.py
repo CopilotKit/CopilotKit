@@ -12,6 +12,14 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from copilotkit.langgraph import langchain_messages_to_copilotkit
 
 
+def _convert_and_split(messages):
+    """Convert messages and split result into assistant vs tool-call entries."""
+    result = langchain_messages_to_copilotkit(messages)
+    assistant_msgs = [m for m in result if m.get("role") == "assistant"]
+    tool_call_msgs = [m for m in result if "parentMessageId" in m]
+    return result, assistant_msgs, tool_call_msgs
+
+
 class TestAssistantMessageAlwaysEmitted:
     """The assistant message must always be present so tool call entries can
     reference it via parentMessageId. Without it, tool calls are orphaned
@@ -26,10 +34,7 @@ class TestAssistantMessageAlwaysEmitted:
                 tool_calls=[{"id": "tc-1", "name": "get_help", "args": {"topic": "billing"}}],
             ),
         ]
-        result = langchain_messages_to_copilotkit(messages)
-
-        assistant_msgs = [m for m in result if m.get("role") == "assistant"]
-        tool_call_msgs = [m for m in result if "parentMessageId" in m]
+        _, assistant_msgs, tool_call_msgs = _convert_and_split(messages)
 
         assert len(assistant_msgs) == 1
         assert assistant_msgs[0]["id"] == "ai-1"
@@ -47,10 +52,7 @@ class TestAssistantMessageAlwaysEmitted:
                 tool_calls=[{"id": "tc-1", "name": "get_help", "args": {"topic": "billing"}}],
             ),
         ]
-        result = langchain_messages_to_copilotkit(messages)
-
-        assistant_msgs = [m for m in result if m.get("role") == "assistant"]
-        tool_call_msgs = [m for m in result if "parentMessageId" in m]
+        _, assistant_msgs, tool_call_msgs = _convert_and_split(messages)
 
         assert len(assistant_msgs) == 1, "Assistant message must be emitted even with empty content"
         assert assistant_msgs[0]["id"] == "ai-1"
@@ -69,9 +71,8 @@ class TestAssistantMessageAlwaysEmitted:
         # Simulate None content (some models/edge cases)
         msg.content = None  # type: ignore[assignment]
 
-        result = langchain_messages_to_copilotkit([msg])
+        _, assistant_msgs, _ = _convert_and_split([msg])
 
-        assistant_msgs = [m for m in result if m.get("role") == "assistant"]
         assert len(assistant_msgs) == 1, "Assistant message must be emitted even with None content"
         assert assistant_msgs[0]["content"] == ""
 
@@ -90,10 +91,9 @@ class TestAssistantMessageAlwaysEmitted:
             ToolMessage(id="tm-1", content="done", tool_call_id="tc-1"),
             ToolMessage(id="tm-2", content="found", tool_call_id="tc-2"),
         ]
-        result = langchain_messages_to_copilotkit(messages)
+        result, _, tool_call_msgs = _convert_and_split(messages)
 
         message_ids = {m["id"] for m in result if "role" in m}
-        tool_call_msgs = [m for m in result if "parentMessageId" in m]
 
         for tc in tool_call_msgs:
             assert tc["parentMessageId"] in message_ids, (
@@ -110,10 +110,7 @@ class TestAssistantMessageAlwaysEmitted:
         # Anthropic models can return content as a list; empty list is falsy
         msg.content = []  # type: ignore[assignment]
 
-        result = langchain_messages_to_copilotkit([msg])
-
-        assistant_msgs = [m for m in result if m.get("role") == "assistant"]
-        tool_call_msgs = [m for m in result if "parentMessageId" in m]
+        _, assistant_msgs, tool_call_msgs = _convert_and_split([msg])
 
         assert len(assistant_msgs) == 1, "Assistant message must be emitted even with empty list content"
         assert assistant_msgs[0]["content"] == ""
@@ -124,7 +121,7 @@ class TestAssistantMessageAlwaysEmitted:
     def test_ai_message_without_tool_calls(self):
         """Plain AIMessage (no tool calls) emits just the assistant message."""
         messages = [AIMessage(id="ai-1", content="Hello!")]
-        result = langchain_messages_to_copilotkit(messages)
+        result, _, _ = _convert_and_split(messages)
 
         assert len(result) == 1
         assert result[0]["role"] == "assistant"
