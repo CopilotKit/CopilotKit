@@ -398,6 +398,10 @@ export class CopilotKitCore {
     return this._debug;
   }
 
+  setDebug(debug: DebugConfig | undefined): void {
+    this._debug = debug;
+  }
+
   get runtimeConnectionStatus(): CopilotKitCoreRuntimeConnectionStatus {
     return this.agentRegistry.runtimeConnectionStatus;
   }

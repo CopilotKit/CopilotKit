@@ -672,6 +672,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     copilotkit.setCredentials(credentials);
     copilotkit.setProperties(properties);
     copilotkit.setAgents__unsafe_dev_only(mergedAgents);
+    copilotkit.setDebug(debug);
   }, [
     copilotkit,
     chatApiEndpoint,
@@ -680,6 +681,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     properties,
     mergedAgents,
     useSingleEndpoint,
+    debug,
   ]);
 
   // Sync render/tool arrays to the stable instance via setters.
