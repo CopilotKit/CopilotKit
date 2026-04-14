@@ -2,9 +2,8 @@ import { OpenAI } from "openai";
 
 export const runtime = "edge";
 
-const openai = new OpenAI();
-
 export async function POST(req: Request): Promise<Response> {
+  const openai = new OpenAI();
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;
