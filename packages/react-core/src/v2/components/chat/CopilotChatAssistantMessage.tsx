@@ -22,6 +22,7 @@ import {
 import { useKatexStyles } from "../../hooks/useKatexStyles";
 import { WithSlots, renderSlot } from "../../lib/slots";
 import { Streamdown } from "streamdown";
+import { copyToClipboard } from "@copilotkit/shared";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
 
 export type CopilotChatAssistantMessageProps = WithSlots<
@@ -86,12 +87,9 @@ export function CopilotChatAssistantMessage({
     {
       onClick: async () => {
         if (message.content) {
-          try {
-            await navigator.clipboard.writeText(message.content);
-          } catch (err) {
-            console.error("Failed to copy message:", err);
-          }
+          return await copyToClipboard(message.content);
         }
+        return false;
       },
     },
   );
@@ -275,18 +273,23 @@ export namespace CopilotChatAssistantMessage {
       };
     }, []);
 
-    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-      setCopied(true);
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-      }
-      timerRef.current = setTimeout(() => {
-        timerRef.current = null;
-        setCopied(false);
-      }, 2000);
-
+    const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
+      let success = false;
       if (onClick) {
-        onClick(event);
+        // onClick may return a boolean indicating copy success
+        const result = await Promise.resolve(onClick(event));
+        success = result === true;
+      }
+
+      if (success) {
+        setCopied(true);
+        if (timerRef.current !== null) {
+          clearTimeout(timerRef.current);
+        }
+        timerRef.current = setTimeout(() => {
+          timerRef.current = null;
+          setCopied(false);
+        }, 2000);
       }
     };
 
