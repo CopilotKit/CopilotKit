@@ -224,13 +224,20 @@ jobs:
           tags: |
             ghcr.io/copilotkit/${{ matrix.service.image }}:latest
             ghcr.io/copilotkit/${{ matrix.service.image }}:${{ github.sha }}
-          no-cache: true
+          cache-from: type=gha,scope=${{ matrix.service.cache_scope }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service.cache_scope }}
           build-args: ${{ steps.build-args.outputs.args }}
 
       - name: Deploy to Railway
         if: matrix.service.railway_id != ''
         run: |
+          # Update image source to the exact SHA tag just pushed
+          curl -sf -X POST "https://backboard.railway.app/graphql/v2" \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceUpdate(serviceId: \"${{ matrix.service.railway_id }}\", environmentId: \"${{ env.RAILWAY_ENV_ID }}\", input: { source: { image: \"ghcr.io/copilotkit/${{ matrix.service.image }}:${{ github.sha }}\" } }) }"}' \
+            && echo "Image updated for ${{ matrix.service.dispatch_name }}"
+          # Trigger redeploy with the new image
           curl -sf -X POST "https://backboard.railway.com/graphql/v2" \
             -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
             -H "Content-Type: application/json" \
