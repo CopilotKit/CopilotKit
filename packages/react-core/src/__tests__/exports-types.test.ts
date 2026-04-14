@@ -12,19 +12,25 @@ describe("react-core package.json exports", () => {
   );
   const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
 
-  it('has a "types" condition in the "." export entry', () => {
+  it('has nested "types" conditions in the "." export entry', () => {
     const dotExport = pkg.exports["."];
     expect(dotExport).toBeDefined();
-    expect(dotExport.types).toBeDefined();
-    expect(typeof dotExport.types).toBe("string");
-    expect(dotExport.types).toMatch(/\.d\.c?ts$/);
+    expect(dotExport.import).toBeDefined();
+    expect(dotExport.import.types).toMatch(/\.d\.mts$/);
+    expect(dotExport.import.default).toMatch(/\.mjs$/);
+    expect(dotExport.require).toBeDefined();
+    expect(dotExport.require.types).toMatch(/\.d\.cts$/);
+    expect(dotExport.require.default).toMatch(/\.cjs$/);
   });
 
-  it('has a "types" condition in the "./v2" export entry', () => {
+  it('has nested "types" conditions in the "./v2" export entry', () => {
     const v2Export = pkg.exports["./v2"];
     expect(v2Export).toBeDefined();
-    expect(v2Export.types).toBeDefined();
-    expect(typeof v2Export.types).toBe("string");
-    expect(v2Export.types).toMatch(/\.d\.c?ts$/);
+    expect(v2Export.import).toBeDefined();
+    expect(v2Export.import.types).toMatch(/\.d\.mts$/);
+    expect(v2Export.import.default).toMatch(/\.mjs$/);
+    expect(v2Export.require).toBeDefined();
+    expect(v2Export.require.types).toMatch(/\.d\.cts$/);
+    expect(v2Export.require.default).toMatch(/\.cjs$/);
   });
 });
