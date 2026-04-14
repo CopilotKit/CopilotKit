@@ -117,6 +117,58 @@ describe("handleGetRuntimeInfo", () => {
     expect(data.a2uiEnabled).toBe(true);
   });
 
+  it("should include capabilities when agent implements getCapabilities", async () => {
+    const mockCapabilities = {
+      tools: { supported: true, clientProvided: true },
+      transport: { streaming: true },
+    };
+
+    const mockAgent = {
+      description: "Capable agent",
+      constructor: { name: "CapableAgent" },
+      getCapabilities: async () => mockCapabilities,
+    };
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        capableAgent: mockAgent as unknown as AbstractAgent,
+      },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.agents.capableAgent.capabilities).toEqual(mockCapabilities);
+  });
+
+  it("should omit capabilities when agent does not implement getCapabilities", async () => {
+    const mockAgent = {
+      description: "Basic agent",
+      constructor: { name: "BasicAgent" },
+    };
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        basicAgent: mockAgent as unknown as AbstractAgent,
+      },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.agents.basicAgent.capabilities).toBeUndefined();
+  });
+
   it("should return 500 error when runtime.agents throws an error", async () => {
     const runtime = {
       get agents(): Record<string, AbstractAgent> {

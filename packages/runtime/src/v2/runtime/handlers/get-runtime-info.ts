@@ -35,17 +35,25 @@ export async function handleGetRuntimeInfo({
   try {
     const agents = await resolveAgents(runtime.agents, request);
 
-    const agentsDict = Object.entries(agents).reduce(
-      (acc, [name, agent]) => {
-        acc[name] = {
+    const agentEntries = await Promise.all(
+      Object.entries(agents).map(async ([name, agent]) => {
+        const capabilities = agent.getCapabilities
+          ? await agent.getCapabilities()
+          : undefined;
+
+        const description: AgentDescription = {
           name,
           description: agent.description,
           className: agent.constructor.name,
+          ...(capabilities ? { capabilities } : {}),
         };
-        return acc;
-      },
-      {} as Record<string, AgentDescription>,
+
+        return [name, description] as const;
+      }),
     );
+
+    const agentsDict: Record<string, AgentDescription> =
+      Object.fromEntries(agentEntries);
 
     const runtimeInfo: RuntimeInfo = {
       version: VERSION,

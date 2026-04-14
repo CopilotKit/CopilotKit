@@ -275,7 +275,7 @@ export class AgentRegistry {
       const credentials = (this.core as unknown as CopilotKitCoreFriendsAccess)
         .credentials;
       const agents: Record<string, AbstractAgent> = Object.fromEntries(
-        Object.entries(runtimeInfo.agents).map(([id, { description }]) => {
+        Object.entries(runtimeInfo.agents).map(([id, { description, capabilities }]) => {
           const agent = new ProxiedCopilotRuntimeAgent({
             runtimeUrl: this.runtimeUrl,
             agentId: id, // Runtime agents always have their ID set correctly
@@ -284,6 +284,7 @@ export class AgentRegistry {
             credentials,
             runtimeMode: runtimeInfoResponse.mode ?? RUNTIME_MODE_SSE,
             intelligence: runtimeInfoResponse.intelligence,
+            capabilities,
           });
           this.applyHeadersToAgent(agent);
           return [id, agent];
