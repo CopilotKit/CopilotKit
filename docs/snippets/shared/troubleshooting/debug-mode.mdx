@@ -1,12 +1,15 @@
 # Debug Mode
 
-CopilotKit has a built-in debug mode that provides detailed logging of the AG-UI event pipeline. It works on both the server (runtime) and client (React) side, and each can be enabled independently.
+When your agent isn't behaving as expected — events are missing, state isn't updating, or tool calls aren't executing — you need visibility into what's happening in the event pipeline. Debug mode gives you that visibility with detailed logging on both the server (runtime) and client (React) side.
 
-Debug mode is useful when you need to understand:
-- What events are being emitted by your agent
-- Whether events are being received, validated, or dropped on the client
-- Where in the pipeline something is going wrong
+Enable it to see:
+- What events your agent is emitting and whether they reach the client
+- Where in the pipeline events are being dropped or failing validation
 - The full lifecycle of a request from start to finish
+
+<Callout type="info">
+  For visual error display during local development (error banners, dev console), see [Error Debugging](/troubleshooting/error-debugging). Debug mode focuses on event pipeline logging rather than UI-level error display.
+</Callout>
 
 ## Enabling Debug Mode
 
@@ -64,7 +67,7 @@ This produces `console.debug` output in the browser devtools, showing the event 
 ```
 [SSE] Event received: { type: "TEXT_MESSAGE_START" }
 [HTTP] Event validated: { type: "TEXT_MESSAGE_START", valid: true }
-[VERIFY]: { type: "TEXT_MESSAGE_START" }
+[VERIFY] { type: "TEXT_MESSAGE_START" }
 [APPLY] Event applied: { type: "TEXT_MESSAGE_START", subscribers: 2 }
 ```
 
@@ -110,6 +113,31 @@ Log events with full payloads but skip lifecycle:
 debug: { events: true, lifecycle: false, verbose: true }
 ```
 
+## Troubleshooting with Debug Mode
+
+### Events Not Reaching the Client
+
+Enable debug on both sides:
+1. Check server logs for `Event emitted` — are the expected events being sent?
+2. Check client logs for `[SSE] Event received` — are they arriving?
+3. Check `[HTTP] Event validated` — are any events failing validation?
+4. Check `[VERIFY]` — are events being rejected by the state machine?
+
+### Events Being Dropped
+
+Look for `[APPLY] Event dropped` in the client logs. This means a subscriber called `stopPropagation`, preventing the event from being applied to state.
+
+### Tool Calls Not Executing
+
+Enable debug and look for:
+1. `TOOL_CALL_START` events being emitted on the server
+2. `TOOL_CALL_ARGS` and `TOOL_CALL_END` events following correctly
+3. The events being validated and applied on the client
+
+### State Not Updating
+
+Look for `STATE_SNAPSHOT` or `STATE_DELTA` events in both server and client logs. If they appear on the server but not the client, there may be a connection issue. If they appear on the client but state isn't updating, check for `stopPropagation` in the apply stage.
+
 ## What Gets Logged
 
 ### Server-Side Logs
@@ -140,28 +168,3 @@ Events pass through several pipeline stages. Debug mode logs at each one:
 <Callout type="warn">
   Debug mode can produce a large volume of log output, especially in verbose mode. Use it during development and debugging, not in production.
 </Callout>
-
-## Troubleshooting with Debug Mode
-
-### Events Not Reaching the Client
-
-Enable debug on both sides:
-1. Check server logs for `Event emitted` — are the expected events being sent?
-2. Check client logs for `[SSE] Event received` — are they arriving?
-3. Check `[HTTP] Event validated` — are any events failing validation?
-4. Check `[VERIFY]` — are events being rejected by the state machine?
-
-### Events Being Dropped
-
-Look for `[APPLY] Event dropped` in the client logs. This means a subscriber called `stopPropagation`, preventing the event from being applied to state.
-
-### Tool Calls Not Executing
-
-Enable debug and look for:
-1. `TOOL_CALL_START` events being emitted on the server
-2. `TOOL_CALL_ARGS` and `TOOL_CALL_END` events following correctly
-3. The events being validated and applied on the client
-
-### State Not Updating
-
-Look for `STATE_SNAPSHOT` or `STATE_DELTA` events in both server and client logs. If they appear on the server but not the client, there may be a connection issue. If they appear on the client but state isn't updating, check for `stopPropagation` in the apply stage.
