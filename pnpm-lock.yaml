@@ -2455,7 +2455,7 @@ importers:
         specifier: '>=0.3.3'
         version: 1.2.7(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76)))(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod-to-json-schema@3.25.1(zod@3.25.76))
       openai:
-        specifier: ^4.85.1
+        specifier: ^4.85.1 || >=5.0.0
         version: 4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76)
       partial-json:
         specifier: ^0.1.7
