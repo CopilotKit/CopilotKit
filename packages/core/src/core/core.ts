@@ -728,8 +728,8 @@ export class CopilotKitCore {
       };
       try {
         const result = fn(...args);
-        if (result != null && typeof (result as any).then === "function") {
-          return (result as Promise<any>).catch((err: unknown) => {
+        if (result instanceof Promise) {
+          return result.catch((err: unknown) => {
             reportError(err, "rejected");
           });
         }
@@ -741,18 +741,33 @@ export class CopilotKitCore {
 
     // Wrap every allowed callback in the subscriber with safeCall so errors
     // in any callback cannot corrupt the agent's notification loop.
-    // Unsupported keys are silently skipped here — the pre-scan below
-    // already warned about them.
     const guardAll = (
       sub: SubscribeToAgentSubscriber,
     ): SubscribeToAgentSubscriber => {
       const guarded: SubscribeToAgentSubscriber = {};
-      for (const [key, value] of Object.entries(sub)) {
-        if (typeof value !== "function") continue;
-        if (ALLOWED_KEYS.has(key as keyof SubscribeToAgentSubscriber)) {
-          (guarded as any)[key] = (...args: any[]) =>
-            safeCall(key, value as (...a: any[]) => any, ...args);
-        }
+      if (sub.onMessagesChanged) {
+        const fn = sub.onMessagesChanged;
+        guarded.onMessagesChanged = (params) =>
+          safeCall("onMessagesChanged", fn, params);
+      }
+      if (sub.onStateChanged) {
+        const fn = sub.onStateChanged;
+        guarded.onStateChanged = (params) =>
+          safeCall("onStateChanged", fn, params);
+      }
+      if (sub.onRunInitialized) {
+        const fn = sub.onRunInitialized;
+        guarded.onRunInitialized = (params) =>
+          safeCall("onRunInitialized", fn, params);
+      }
+      if (sub.onRunFinalized) {
+        const fn = sub.onRunFinalized;
+        guarded.onRunFinalized = (params) =>
+          safeCall("onRunFinalized", fn, params);
+      }
+      if (sub.onRunFailed) {
+        const fn = sub.onRunFailed;
+        guarded.onRunFailed = (params) => safeCall("onRunFailed", fn, params);
       }
       return guarded;
     };
@@ -761,8 +776,8 @@ export class CopilotKitCore {
     // unthrottled paths get the same diagnostic for JS / `as any` consumers.
     for (const key of Object.keys(subscriber)) {
       if (
-        typeof (subscriber as any)[key] === "function" &&
-        !ALLOWED_KEYS.has(key as keyof SubscribeToAgentSubscriber)
+        typeof (subscriber as Record<string, unknown>)[key] === "function" &&
+        !(ALLOWED_KEYS as ReadonlySet<string>).has(key)
       ) {
         const message =
           `CopilotKitCore.subscribeToAgentWithOptions[${agentLabel}]: callback "${key}" is not supported ` +
