@@ -53,8 +53,8 @@ on:
           - shell-dojolike
 
 concurrency:
-  group: showcase-deploy-${{ github.ref }}
-  cancel-in-progress: true
+  group: showcase-deploy-${{ github.ref }}-${{ github.event.inputs.service || 'auto' }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 env:
   RAILWAY_ENV_ID: "b14919f4-6417-429f-848d-c6ae2201e04f"
@@ -274,18 +274,54 @@ jobs:
             -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"${{ matrix.service.railway_id }}\", environmentId: \"${{ env.RAILWAY_ENV_ID }}\") }"}' \
             && echo "Deploy triggered for ${{ matrix.service.dispatch_name }}"
 
+      - name: Verify deploy health
+        if: matrix.service.railway_id != ''
+        run: |
+          # Wait for Railway to pull and start the new image
+          sleep 30
+
+          # Get the service domain from Railway API or construct from naming pattern
+          IMAGE="${{ matrix.service.image }}"
+          # Try the standard domain pattern
+          HEALTH_URL="https://${IMAGE}-production.up.railway.app/api/health"
+
+          echo "Checking health: $HEALTH_URL"
+          for i in $(seq 1 6); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$HEALTH_URL" 2>/dev/null || echo "000")
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Service healthy"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Service did not return 200 after 90s (may still be starting with sleep-on-idle)"
+          # Don't fail the job — sleep-on-idle services may take longer to wake
+          # But log it clearly for visibility
+
   notify:
     needs: [detect-changes, check-lockfile, build]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
+      - name: Build deploy summary
+        id: summary
+        if: needs.detect-changes.result == 'success' && needs.detect-changes.outputs.has_changes == 'true'
+        run: |
+          MATRIX='${{ needs.detect-changes.outputs.matrix }}'
+          SERVICES=$(echo "$MATRIX" | jq -r '[.[].dispatch_name] | join(", ")')
+          COUNT=$(echo "$MATRIX" | jq 'length')
+          echo "services=$SERVICES" >> $GITHUB_OUTPUT
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+
       - name: Collect results and notify Slack
+        if: "${{ secrets.SLACK_WEBHOOK_OSS_ALERTS != '' }}"
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload: |
             {
-              "text": "${{ (needs.detect-changes.result == 'failure' || needs.check-lockfile.result == 'failure') && format(':x: *Showcase deploy*: FAILED (pre-build check)') || needs.build.result == 'success' && ':white_check_mark: *Showcase deploy*: all services deployed to Railway' || (needs.build.result == 'skipped' && needs.detect-changes.result == 'success') && ':white_check_mark: *Showcase deploy*: no changes detected, nothing to deploy' || format(':x: *Showcase deploy*: FAILED (result: {0})', needs.build.result) }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+              "text": "${{ (needs.detect-changes.result == 'failure' || needs.check-lockfile.result == 'failure') && format(':x: *Showcase deploy*: FAILED (pre-build check)') || needs.build.result == 'success' && format(':white_check_mark: *Showcase deploy*: {0} service(s) deployed to Railway ({1})', steps.summary.outputs.count, steps.summary.outputs.services) || (needs.build.result == 'skipped' && needs.detect-changes.result == 'success') && ':white_check_mark: *Showcase deploy*: no changes detected, nothing to deploy' || format(':x: *Showcase deploy*: FAILED — {0} service(s) targeted ({1})', steps.summary.outputs.count, steps.summary.outputs.services) }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
             }
