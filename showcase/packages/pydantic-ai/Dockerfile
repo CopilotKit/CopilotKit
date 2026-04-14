@@ -5,6 +5,7 @@ COPY package.json ./
 RUN npm install --legacy-peer-deps
 COPY . .
 COPY shared_frontend/src/ ./shared_frontend/src/
+RUN echo "=== DEBUG: next.config.ts ===" && cat next.config.ts && echo "=== DEBUG: shared_frontend contents ===" && ls -la shared_frontend/src/ && echo "=== DEBUG: node -e test ===" && node -e "const fs=require('fs'); console.log('index.ts exists:', fs.existsSync('./shared_frontend/src/index.ts')); console.log('cwd:', process.cwd());"
 RUN npm run build
 
 # Stage 2: Production image with Node.js + Python
