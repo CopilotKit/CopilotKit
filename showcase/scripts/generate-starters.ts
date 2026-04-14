@@ -603,6 +603,16 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
       }
       fs.mkdirSync(path.dirname(destPath), { recursive: true });
       fs.copyFileSync(srcPath, destPath);
+
+      // Rewrite langgraph.json graph paths for the starter layout.
+      // In packages, agents live at src/agents/main.py — but in starters,
+      // they're flattened into the agent dir so the path becomes ./main.py.
+      if (dest.endsWith("langgraph.json")) {
+        let lgContent = fs.readFileSync(destPath, "utf-8");
+        lgContent = lgContent.replace(/\.\/src\/agents\//g, "./");
+        lgContent = lgContent.replace(/\.\/src\/agent\//g, "./");
+        fs.writeFileSync(destPath, lgContent);
+      }
     }
   }
 
