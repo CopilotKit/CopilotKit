@@ -68,7 +68,7 @@ jobs:
       - name: Generate bot token
         id: bot-token
         if: steps.sync.outputs.action == 'auto_push' || steps.sync.outputs.action == 'push_and_pr'
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v2
         with:
           app-id: 1108748
           private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
@@ -151,4 +151,4 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload: |
-            { "text": ":x: *Docs sync*: workflow failed | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+            { "text": ":x: *Docs sync*: workflow failed\n*Failed step:* ${{ steps.sync.outcome == 'failure' && 'sync-docs script' || steps.bot-token.outcome == 'failure' && 'bot token generation (check DEVOPS_BOT_PRIVATE_KEY secret)' || steps.push.outcome == 'failure' && 'push/PR creation' || 'unknown' }} | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }

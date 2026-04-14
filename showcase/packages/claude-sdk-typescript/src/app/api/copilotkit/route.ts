@@ -25,6 +25,11 @@ const agentNames = [
   "tool-rendering",
   "hitl",
   "gen-ui-tool-based",
+  "gen-ui-agent",
+  "shared-state-read",
+  "shared-state-write",
+  "shared-state-streaming",
+  "subagents",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
@@ -59,10 +64,7 @@ export const POST = async (req: NextRequest) => {
     const err = error as Error;
     console.error(`[copilotkit/route] ERROR: ${err.message}`);
     console.error(`[copilotkit/route] Stack: ${err.stack}`);
-    return NextResponse.json(
-      { error: err.message, stack: err.stack },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 };
 

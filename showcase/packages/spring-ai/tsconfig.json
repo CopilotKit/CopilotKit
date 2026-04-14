@@ -19,9 +19,18 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@copilotkit/showcase-shared": ["./shared_frontend/src"],
+      "@copilotkit/showcase-shared/*": ["./shared_frontend/src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "shared_frontend/src/**/*.ts",
+    "shared_frontend/src/**/*.tsx"
+  ],
   "exclude": ["node_modules"]
 }

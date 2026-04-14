@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-09T04:13:36.116Z",
+  "generated_at": "2026-04-13T22:51:16.917Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
@@ -334,6 +334,30 @@
         "name": "vNext Chat",
         "category": "platform",
         "description": "Experimental next-generation chat using CopilotKit vNext runtime"
+      },
+      {
+        "id": "shared-state",
+        "name": "Shared State",
+        "category": "agent-state",
+        "description": "Bidirectional state sharing between agent and UI"
+      },
+      {
+        "id": "controlled-gen-ui",
+        "name": "Controlled Generative UI",
+        "category": "generative-ui",
+        "description": "Controlled generative UI rendering from agent"
+      },
+      {
+        "id": "a2ui",
+        "name": "A2UI",
+        "category": "a2ui",
+        "description": "Agent-to-UI protocol rendering"
+      },
+      {
+        "id": "frontend-tools",
+        "name": "Frontend Tools",
+        "category": "interactivity",
+        "description": "Frontend tool execution triggered by the agent"
       }
     ]
   },
@@ -351,7 +375,11 @@
       "backend_url": "https://showcase-langgraph-python-production.up.railway.app",
       "deployed": true,
       "sort_order": 10,
-      "generative_ui": ["constrained-explicit"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
       "interaction_modalities": ["sidebar", "embedded", "chat"],
       "managed_platform": {
         "name": "LangGraph Platform",
@@ -530,7 +558,11 @@
       "backend_url": "https://showcase-langgraph-fastapi-production.up.railway.app",
       "deployed": true,
       "sort_order": 12,
-      "generative_ui": ["constrained-explicit"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
       "interaction_modalities": ["sidebar", "embedded", "chat"],
       "managed_platform": {
         "name": "LangGraph Platform",
@@ -547,7 +579,12 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read",
+        "shared-state-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
@@ -581,6 +618,46 @@
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": null
+        },
+        {
+          "id": "shared-state-read",
+          "name": "Shared State (Reading)",
+          "description": "Reading agent state from UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-read",
+          "animated_preview_url": null
+        },
+        {
+          "id": "shared-state-write",
+          "name": "Shared State (Writing)",
+          "description": "Writing to agent state from UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-write",
+          "animated_preview_url": null
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": null
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": ["multi-agent"],
+          "route": "/demos/subagents",
+          "animated_preview_url": null
         }
       ]
     },
@@ -610,7 +687,10 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "shared-state",
+        "controlled-gen-ui",
+        "a2ui"
       ],
       "demos": [
         {
@@ -740,7 +820,10 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "shared-state",
+        "controlled-gen-ui",
+        "a2ui"
       ],
       "demos": [
         {
@@ -807,7 +890,10 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "shared-state",
+        "controlled-gen-ui",
+        "a2ui"
       ],
       "demos": [
         {
@@ -863,7 +949,8 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "shared-state"
       ],
       "demos": [
         {
@@ -982,7 +1069,10 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "shared-state",
+        "controlled-gen-ui",
+        "a2ui"
       ],
       "demos": [
         {
@@ -1042,7 +1132,8 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "shared-state"
       ],
       "demos": [
         {
@@ -1109,7 +1200,8 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "shared-state"
       ],
       "demos": [
         {
@@ -1176,7 +1268,8 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "shared-state"
       ],
       "demos": [
         {
@@ -1286,8 +1379,8 @@
       "interaction_modalities": ["chat"],
       "starter": {
         "path": "examples/integrations/ms-agent-framework-python",
-        "name": "Proverbs Manager",
-        "description": "Proverb management agent using Microsoft Agent Framework for Python",
+        "name": "Sales Pipeline Manager",
+        "description": "Sales pipeline management agent using Microsoft Agent Framework for Python",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/ms-agent-framework-python",
         "demo_url": "https://showcase-starter-ms-agent-python-production.up.railway.app"
       },
@@ -1349,8 +1442,8 @@
       "interaction_modalities": ["chat"],
       "starter": {
         "path": "examples/integrations/ms-agent-framework-dotnet",
-        "name": "Proverbs Manager (.NET)",
-        "description": "Proverb management agent using Microsoft Agent Framework for .NET",
+        "name": "Sales Pipeline Manager (.NET)",
+        "description": "Sales pipeline management agent using Microsoft Agent Framework for .NET",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/ms-agent-framework-dotnet",
         "demo_url": "https://showcase-starter-ms-agent-dotnet-production.up.railway.app"
       },
@@ -1358,7 +1451,11 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "controlled-gen-ui",
+        "frontend-tools",
+        "shared-state-read",
+        "shared-state-write"
       ],
       "demos": [
         {
@@ -1414,7 +1511,9 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "controlled-gen-ui",
+        "frontend-tools"
       ],
       "demos": [
         {

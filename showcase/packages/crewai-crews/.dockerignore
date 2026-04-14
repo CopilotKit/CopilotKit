@@ -1,7 +1,13 @@
-node_modules
+**/node_modules
 .next
 __pycache__
 *.pyc
 .env
 .env.local
 .git
+**/vitest.config.ts
+**/test-setup.ts
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
