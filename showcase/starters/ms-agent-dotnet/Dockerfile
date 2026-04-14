@@ -35,7 +35,7 @@ COPY --from=dotnet-builder /agent/publish ./agent/
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
-RUN addgroup --system --gid 1001 app && adduser --system --uid 1001 --gid 1001 app
+RUN groupadd --system --gid 1001 app && useradd --system --uid 1001 --gid 1001 --no-create-home app
 USER app
 
 EXPOSE 10000

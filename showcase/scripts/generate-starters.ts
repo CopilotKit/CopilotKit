@@ -616,7 +616,9 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
   if (!fs.existsSync(dockerfileSrc)) {
     throw new Error(`Dockerfile missing for ${fw.slug}: ${dockerfileSrc}`);
   }
-  fs.copyFileSync(dockerfileSrc, path.join(outDir, "Dockerfile"));
+  let dockerfileContent = fs.readFileSync(dockerfileSrc, "utf-8");
+  dockerfileContent = substituteVars(dockerfileContent, vars);
+  fs.writeFileSync(path.join(outDir, "Dockerfile"), dockerfileContent);
 
   // 6. Generate entrypoint.sh
   const entrypointTemplate = fs.readFileSync(
