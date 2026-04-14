@@ -1,0 +1,133 @@
+---
+title: "useCapabilities"
+description: "React hook for reading an agent's declared capabilities"
+---
+## Overview
+
+`useCapabilities` returns the [AG-UI `AgentCapabilities`](https://docs.ag-ui.com/concepts/capabilities) declared by an agent. Capabilities describe what an agent supports -- tool calling, streaming, multi-agent coordination, human-in-the-loop, and more.
+
+Capabilities are populated from the runtime `/info` response at connection time. The value is `undefined` until the runtime handshake completes or if the agent doesn't declare capabilities.
+
+## Signature
+
+```tsx
+import { useCapabilities } from "@copilotkit/react-core/v2";
+
+function useCapabilities(agentId?: string): AgentCapabilities | undefined
+```
+
+## Parameters
+
+<PropertyReference name="agentId" type="string" default='"default"'>
+  ID of the agent whose capabilities to read. If omitted, uses the default agent.
+</PropertyReference>
+
+## Return Value
+
+<PropertyReference name="capabilities" type="AgentCapabilities | undefined">
+  The agent's capability declaration, or `undefined` if the agent hasn't reported capabilities yet (e.g., the runtime handshake is still in progress) or doesn't implement `getCapabilities()`.
+
+  When defined, the object contains these optional categories:
+
+  <PropertyReference name="identity" type="IdentityCapabilities">
+    Agent metadata: `name`, `type` (framework), `description`, `version`, `provider`, `documentationUrl`, `metadata`.
+  </PropertyReference>
+
+  <PropertyReference name="transport" type="TransportCapabilities">
+    Supported transports: `streaming`, `websocket`, `httpBinary`, `pushNotifications`, `resumable`.
+  </PropertyReference>
+
+  <PropertyReference name="tools" type="ToolsCapabilities">
+    Tool support: `supported`, `items`, `parallelCalls`, `clientProvided`.
+  </PropertyReference>
+
+  <PropertyReference name="output" type="OutputCapabilities">
+    Output formats: `structuredOutput`, `supportedMimeTypes`.
+  </PropertyReference>
+
+  <PropertyReference name="state" type="StateCapabilities">
+    State management: `snapshots`, `deltas`, `memory`, `persistentState`.
+  </PropertyReference>
+
+  <PropertyReference name="multiAgent" type="MultiAgentCapabilities">
+    Multi-agent coordination: `supported`, `delegation`, `handoffs`, `subAgents`.
+  </PropertyReference>
+
+  <PropertyReference name="reasoning" type="ReasoningCapabilities">
+    Reasoning/thinking visibility: `supported`, `streaming`, `encrypted`.
+  </PropertyReference>
+
+  <PropertyReference name="multimodal" type="MultimodalCapabilities">
+    Multimodal input/output: `input` and `output` sub-objects for images, audio, video, PDF, and file support.
+  </PropertyReference>
+
+  <PropertyReference name="execution" type="ExecutionCapabilities">
+    Code execution: `codeExecution`, `sandboxed`, `maxIterations`, `maxExecutionTime`.
+  </PropertyReference>
+
+  <PropertyReference name="humanInTheLoop" type="HumanInTheLoopCapabilities">
+    Human-in-the-loop: `supported`, `approvals`, `interventions`, `feedback`.
+  </PropertyReference>
+
+  <PropertyReference name="custom" type="Record&lt;string, unknown&gt;">
+    Arbitrary key-value pairs for integration-specific capabilities.
+  </PropertyReference>
+</PropertyReference>
+
+## Usage
+
+### Conditionally render UI based on capabilities
+
+```tsx title="ToolPanel.tsx"
+import { useCapabilities } from "@copilotkit/react-core/v2";
+
+function ToolPanel() {
+  const capabilities = useCapabilities();
+
+  if (!capabilities?.tools?.supported) {
+    return null; // Agent doesn't support tools — hide the panel
+  }
+
+  return (
+    <div>
+      <h3>Tools</h3>
+      {capabilities.tools.clientProvided && (
+        <p>This agent accepts client-provided tools.</p>
+      )}
+    </div>
+  );
+}
+```
+
+### Read capabilities for a specific agent
+
+```tsx title="AgentInfo.tsx"
+import { useCapabilities } from "@copilotkit/react-core/v2";
+
+function AgentInfo({ agentId }: { agentId: string }) {
+  const capabilities = useCapabilities(agentId);
+
+  if (!capabilities) {
+    return <p>Loading capabilities…</p>;
+  }
+
+  return (
+    <ul>
+      <li>Streaming: {capabilities.transport?.streaming ? "Yes" : "No"}</li>
+      <li>Tools: {capabilities.tools?.supported ? "Yes" : "No"}</li>
+      <li>Human-in-the-loop: {capabilities.humanInTheLoop?.supported ? "Yes" : "No"}</li>
+    </ul>
+  );
+}
+```
+
+## Behavior
+
+- **Synchronous read** -- The hook reads `capabilities` directly from the agent instance. There is no separate loading state or async fetch -- the value is `undefined` until the runtime `/info` handshake populates it, then becomes defined.
+- **Re-renders** -- The hook calls `useAgent()` internally, so the component re-renders on agent state, message, and run-status changes (the default `updates` set). If you only need capabilities and want fewer re-renders, read `agent.capabilities` directly via `useAgent({ updates: [] })`.
+- **Stable reference** -- The capabilities object reference only changes when the agent reconnects or the runtime response changes. It does not change on every render.
+
+## Related
+
+- [`useAgent`](/reference/v2/hooks/useAgent) -- access the full agent instance (capabilities are a property of the agent)
+- [AG-UI Protocol](/learn/ag-ui-protocol) -- the protocol that defines the capabilities schema
