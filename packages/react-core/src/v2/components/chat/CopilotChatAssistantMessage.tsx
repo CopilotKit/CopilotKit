@@ -87,8 +87,9 @@ export function CopilotChatAssistantMessage({
     {
       onClick: async () => {
         if (message.content) {
-          await copyToClipboard(message.content);
+          return await copyToClipboard(message.content);
         }
+        return false;
       },
     },
   );
@@ -273,17 +274,14 @@ export namespace CopilotChatAssistantMessage {
     }, []);
 
     const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
+      let success = false;
       if (onClick) {
-        await (
-          onClick as (
-            event: React.MouseEvent<HTMLButtonElement>,
-          ) => Promise<void>
-        )(event);
+        // onClick may return a boolean indicating copy success
+        const result = await Promise.resolve(onClick(event));
+        success = result === true;
       }
 
-      // Only show copied state if the clipboard API is available.
-      // The actual copy is performed by the onClick handler via copyToClipboard.
-      if (navigator.clipboard?.writeText) {
+      if (success) {
         setCopied(true);
         if (timerRef.current !== null) {
           clearTimeout(timerRef.current);

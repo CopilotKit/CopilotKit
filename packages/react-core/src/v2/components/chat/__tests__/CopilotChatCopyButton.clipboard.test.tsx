@@ -134,6 +134,10 @@ describe("CopyButton clipboard behavior", () => {
         );
       });
 
+      // Should NOT show copied state when write failed
+      const checkIcon = copyButton.querySelector(".lucide-check");
+      expect(checkIcon).toBeNull();
+
       consoleSpy.mockRestore();
     });
   });
@@ -226,6 +230,10 @@ describe("CopyButton clipboard behavior", () => {
           expect.any(Error),
         );
       });
+
+      // Should NOT show copied state when write failed
+      const checkIcon = copyButton.querySelector(".lucide-check");
+      expect(checkIcon).toBeNull();
 
       consoleSpy.mockRestore();
     });
