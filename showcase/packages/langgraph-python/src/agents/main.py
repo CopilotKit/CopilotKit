@@ -8,8 +8,16 @@ from langgraph.prebuilt import create_react_agent
 from langchain_openai import ChatOpenAI
 
 from src.agents.tools import query_data, get_weather, schedule_meeting
-from src.agents.a2ui_fixed_schema import search_flights
-from src.agents.a2ui_dynamic_schema import generate_a2ui
+
+try:
+    from src.agents.a2ui_fixed_schema import search_flights
+except Exception:
+    search_flights = None
+
+try:
+    from src.agents.a2ui_dynamic_schema import generate_a2ui
+except Exception:
+    generate_a2ui = None
 
 # Import todo_tools but not custom AgentState — newer langgraph requires
 # remaining_steps in state_schema which the custom schema doesn't have
@@ -37,7 +45,7 @@ model = ChatOpenAI(model="gpt-4o-mini")
 
 graph = create_react_agent(
     model=model,
-    tools=[query_data, get_weather, schedule_meeting, search_flights, generate_a2ui]
+    tools=[t for t in [query_data, get_weather, schedule_meeting, search_flights, generate_a2ui] if t]
     + todo_tools,
     prompt=SYSTEM_PROMPT,
 )
