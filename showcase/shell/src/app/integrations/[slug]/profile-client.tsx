@@ -199,10 +199,12 @@ export function ProfileClient({
             Developer Guide
           </a>
         </div>
+      </div>
 
-        {/* Full Starter */}
-        {integration.starter && keyFile && (
-          <section className="mt-10">
+      {/* Full Starter — wider breakout container */}
+      {integration.starter && keyFile && (
+        <div className="mx-auto max-w-[90rem] px-6">
+          <section className="mt-0">
             <div className="rounded-xl border-2 border-[var(--accent)] bg-[var(--bg-elevated)] p-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -413,8 +415,10 @@ export function ProfileClient({
               </div>
             </div>
           </section>
-        )}
+        </div>
+      )}
 
+      <div className="mx-auto max-w-5xl px-6 pb-12">
         {/* Demos */}
         <section className="mt-10">
           <h2 className="mb-4 text-xs font-mono uppercase tracking-widest text-[var(--text-muted)]">
