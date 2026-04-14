@@ -231,13 +231,8 @@ jobs:
       - name: Deploy to Railway
         if: matrix.service.railway_id != ''
         run: |
-          # Update image source to the exact SHA tag just pushed
-          curl -sf -X POST "https://backboard.railway.app/graphql/v2" \
-            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d '{"query":"mutation { serviceInstanceUpdate(serviceId: \"${{ matrix.service.railway_id }}\", environmentId: \"${{ env.RAILWAY_ENV_ID }}\", input: { source: { image: \"ghcr.io/copilotkit/${{ matrix.service.image }}:${{ github.sha }}\" } }) }"}' \
-            && echo "Image updated for ${{ matrix.service.dispatch_name }}"
-          # Trigger redeploy with the new image
+          # All Railway services are configured to pull :latest from GHCR.
+          # serviceInstanceRedeploy triggers a fresh pull of the configured image.
           curl -sf -X POST "https://backboard.railway.com/graphql/v2" \
             -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
             -H "Content-Type: application/json" \
