@@ -8,16 +8,22 @@ export function loadSnippets(): DevtoolsSnippet[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) {
-      console.warn("[CopilotKit DevTools] Snippets data is not an array — ignoring stored value.");
+      console.warn(
+        "[CopilotKit DevTools] Snippets data is not an array — ignoring stored value.",
+      );
       return [];
     }
-    return parsed.filter(
+    const filtered = parsed.filter(
       (s): s is DevtoolsSnippet =>
         s != null &&
         typeof s === "object" &&
         typeof s.id === "string" &&
         typeof s.eventType === "string",
     );
+    if (filtered.length < parsed.length) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+    }
+    return filtered;
   } catch (err) {
     console.warn("[CopilotKit DevTools] Failed to load snippets:", err);
     return [];
@@ -54,6 +60,7 @@ export function deleteSnippet(id: string): boolean {
   try {
     const snippets = loadSnippets();
     const filtered = snippets.filter((s) => s.id !== id);
+    if (filtered.length === snippets.length) return false;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
     return true;
   } catch (err) {

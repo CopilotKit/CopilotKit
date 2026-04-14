@@ -35,6 +35,8 @@ class CopilotKitEventClient {
     }
     if (!this._client) {
       try {
+        // Note: listenToSelf defaults to true in @tanstack/devtools-event-client,
+        // which is required for the devtools panel to receive its own emitted events.
         this._client = new EventClient<CopilotKitEventSuffixes>({
           pluginId: "copilotkit",
           debug: false,

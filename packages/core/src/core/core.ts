@@ -46,6 +46,13 @@ export interface CopilotKitCoreConfig {
   suggestionsConfig?: SuggestionsConfig[];
   /** Enable debug logging for the client-side event pipeline. */
   debug?: DebugConfig;
+  /**
+   * Whether to initialize the DevtoolsListener that bridges devtools events
+   * to AG-UI subscribers. When `false` (or omitted), the listener is not
+   * started. Pass `true` to opt in — typically wired to `showDevConsole`
+   * from the React layer.
+   */
+  showDevConsole?: boolean;
 }
 
 export type { CopilotKitCoreAddAgentParams };
@@ -258,6 +265,7 @@ export class CopilotKitCore {
     tools = [],
     suggestionsConfig = [],
     debug,
+    showDevConsole = false,
   }: CopilotKitCoreConfig) {
     this._headers = headers;
     this._credentials = credentials;
@@ -279,13 +287,15 @@ export class CopilotKitCore {
     this.runHandler.initialize(tools);
     this.suggestionEngine.initialize(suggestionsConfig);
     this.stateManager.initialize();
-    try {
-      this.devtoolsListener.initialize();
-    } catch (err) {
-      console.warn(
-        "[CopilotKit] DevtoolsListener failed to initialize — devtools will be unavailable:",
-        err,
-      );
+    if (showDevConsole) {
+      try {
+        this.devtoolsListener.initialize();
+      } catch (err) {
+        console.warn(
+          "[CopilotKit] DevtoolsListener failed to initialize — devtools will be unavailable:",
+          err,
+        );
+      }
     }
 
     this.agentRegistry.setRuntimeTransport(runtimeTransport);

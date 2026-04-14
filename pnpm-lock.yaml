@@ -1278,7 +1278,7 @@ importers:
     dependencies:
       '@ai-sdk/openai':
         specifier: latest
-        version: 3.0.52(zod@3.25.76)
+        version: 3.0.53(zod@3.25.76)
       '@copilotkit/react-core':
         specifier: workspace:*
         version: link:../../../packages/react-core
@@ -1296,7 +1296,7 @@ importers:
         version: 0.7.4(@tanstack/ai-client@0.7.5)(@tanstack/ai@0.10.2)(ws@8.19.0)(zod@3.25.76)
       ai:
         specifier: latest
-        version: 6.0.159(zod@3.25.76)
+        version: 6.0.160(zod@3.25.76)
       isbot:
         specifier: ^5.1.27
         version: 5.1.37
@@ -2004,9 +2004,6 @@ importers:
 
   packages/devtools-client:
     dependencies:
-      '@ag-ui/client':
-        specifier: 0.0.52
-        version: 0.0.52
       '@tanstack/devtools-event-client':
         specifier: ^0.4.3
         version: 0.4.3
@@ -2014,9 +2011,9 @@ importers:
       '@copilotkit/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
-      eslint:
-        specifier: ^9.30.0
-        version: 9.39.2(jiti@2.6.1)
+      jsdom:
+        specifier: ^29.0.2
+        version: 29.0.2(@noble/hashes@1.8.0)
       tsdown:
         specifier: ^0.20.3
         version: 0.20.3(@arethetypeswrong/core@0.18.2)(publint@0.3.17)(synckit@0.11.12)(typescript@5.8.2)
@@ -3056,8 +3053,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/gateway@3.0.96':
-    resolution: {integrity: sha512-BDiVEMUVHGpngReeigzLyJobG0TvzYbNGzdHI8JYBZHrjOX4aL6qwIls7z3p7V4TuXVWUCbG8TSWEe7ksX4Vhw==}
+  '@ai-sdk/gateway@3.0.97':
+    resolution: {integrity: sha512-ERHmVGX30YKTwxObuHQzNqoOf8Nb5WwYMDBn34e3TGGVn0vLEXwMimo7uRVTbhhi4gfu9WtwYTE4x1+csZok1w==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -3092,8 +3089,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/openai@3.0.52':
-    resolution: {integrity: sha512-4Rr8NCGmfWTz6DCUvixn9UmyZcMatiHn0zWoMzI3JCUe9R1P/vsPOpCBALKoSzVYOjyJnhtnVIbfUKujcS39uw==}
+  '@ai-sdk/openai@3.0.53':
+    resolution: {integrity: sha512-Wld+Rbc05KaUn08uBt06eEuwcgalcIFtIl32Yp+GxuZXUQwOb6YeAuq+C6da4ch6BurFoqEaLemJVwjBb7x+PQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -11870,8 +11867,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  ai@6.0.159:
-    resolution: {integrity: sha512-S18ozG7Dkm3Ud1tzOtAK5acczD4vygfml80RkpM9VWMFpvAFwAKSHaGYkATvPQHIE+VpD1tJY9zcTXLZ/zR5cw==}
+  ai@6.0.160:
+    resolution: {integrity: sha512-7ezNpbdCGhhBMWX8zrF7/iDdG2CazVlFqPNWFKefpTaRbT3faBzcbH9o7VfO9GIW1aRq8rvMli1d0q8MOdPYVg==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -22457,7 +22454,7 @@ snapshots:
       '@vercel/oidc': 3.1.0
       zod: 3.25.76
 
-  '@ai-sdk/gateway@3.0.96(zod@3.25.76)':
+  '@ai-sdk/gateway@3.0.97(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
       '@ai-sdk/provider-utils': 4.0.23(zod@3.25.76)
@@ -22500,7 +22497,7 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.15(zod@3.25.76)
       zod: 3.25.76
 
-  '@ai-sdk/openai@3.0.52(zod@3.25.76)':
+  '@ai-sdk/openai@3.0.53(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
       '@ai-sdk/provider-utils': 4.0.23(zod@3.25.76)
@@ -23322,7 +23319,6 @@ snapshots:
       '@csstools/css-color-parser': 4.1.0(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-tokenizer': 4.0.0
-    optional: true
 
   '@asamuzakjp/dom-selector@7.0.9':
     dependencies:
@@ -23330,10 +23326,8 @@ snapshots:
       bidi-js: 1.0.3
       css-tree: 3.2.1
       is-potential-custom-element-name: 1.0.1
-    optional: true
 
-  '@asamuzakjp/nwsapi@2.3.9':
-    optional: true
+  '@asamuzakjp/nwsapi@2.3.9': {}
 
   '@asyncapi/parser@3.4.0(encoding@0.1.13)':
     dependencies:
@@ -25920,7 +25914,6 @@ snapshots:
   '@bramus/specificity@2.4.2':
     dependencies:
       css-tree: 3.2.1
-    optional: true
 
   '@browserbasehq/sdk@2.6.0(encoding@0.1.13)':
     dependencies:
@@ -26156,8 +26149,7 @@ snapshots:
 
   '@csstools/color-helpers@5.1.0': {}
 
-  '@csstools/color-helpers@6.0.2':
-    optional: true
+  '@csstools/color-helpers@6.0.2': {}
 
   '@csstools/css-calc@2.1.4(@csstools/css-parser-algorithms@3.0.5(@csstools/css-tokenizer@3.0.4))(@csstools/css-tokenizer@3.0.4)':
     dependencies:
@@ -26168,7 +26160,6 @@ snapshots:
     dependencies:
       '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-tokenizer': 4.0.0
-    optional: true
 
   '@csstools/css-color-parser@3.1.0(@csstools/css-parser-algorithms@3.0.5(@csstools/css-tokenizer@3.0.4))(@csstools/css-tokenizer@3.0.4)':
     dependencies:
@@ -26183,7 +26174,6 @@ snapshots:
       '@csstools/css-calc': 3.2.0(@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0))(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-parser-algorithms': 4.0.0(@csstools/css-tokenizer@4.0.0)
       '@csstools/css-tokenizer': 4.0.0
-    optional: true
 
   '@csstools/css-parser-algorithms@3.0.5(@csstools/css-tokenizer@3.0.4)':
     dependencies:
@@ -26192,17 +26182,14 @@ snapshots:
   '@csstools/css-parser-algorithms@4.0.0(@csstools/css-tokenizer@4.0.0)':
     dependencies:
       '@csstools/css-tokenizer': 4.0.0
-    optional: true
 
   '@csstools/css-syntax-patches-for-csstree@1.1.3(css-tree@3.2.1)':
     optionalDependencies:
       css-tree: 3.2.1
-    optional: true
 
   '@csstools/css-tokenizer@3.0.4': {}
 
-  '@csstools/css-tokenizer@4.0.0':
-    optional: true
+  '@csstools/css-tokenizer@4.0.0': {}
 
   '@dabh/diagnostics@2.0.8':
     dependencies:
@@ -26795,11 +26782,6 @@ snapshots:
       eslint: 9.39.2(jiti@1.21.7)
       eslint-visitor-keys: 3.4.3
 
-  '@eslint-community/eslint-utils@4.9.1(eslint@9.39.2(jiti@2.6.1))':
-    dependencies:
-      eslint: 9.39.2(jiti@2.6.1)
-      eslint-visitor-keys: 3.4.3
-
   '@eslint-community/regexpp@4.12.2': {}
 
   '@eslint/config-array@0.21.2':
@@ -26860,7 +26842,6 @@ snapshots:
   '@exodus/bytes@1.15.0(@noble/hashes@1.8.0)':
     optionalDependencies:
       '@noble/hashes': 1.8.0
-    optional: true
 
   '@fastify/busboy@3.2.0': {}
 
@@ -34482,9 +34463,9 @@ snapshots:
       '@opentelemetry/api': 1.9.0
       zod: 3.25.76
 
-  ai@6.0.159(zod@3.25.76):
+  ai@6.0.160(zod@3.25.76):
     dependencies:
-      '@ai-sdk/gateway': 3.0.96(zod@3.25.76)
+      '@ai-sdk/gateway': 3.0.97(zod@3.25.76)
       '@ai-sdk/provider': 3.0.8
       '@ai-sdk/provider-utils': 4.0.23(zod@3.25.76)
       '@opentelemetry/api': 1.9.0
@@ -35074,7 +35055,6 @@ snapshots:
   bidi-js@1.0.3:
     dependencies:
       require-from-string: 2.0.2
-    optional: true
 
   big.js@5.2.2: {}
 
@@ -36175,7 +36155,6 @@ snapshots:
     dependencies:
       mdn-data: 2.27.1
       source-map-js: 1.2.1
-    optional: true
 
   css-what@6.2.2: {}
 
@@ -36440,7 +36419,6 @@ snapshots:
       whatwg-url: 16.0.1(@noble/hashes@1.8.0)
     transitivePeerDependencies:
       - '@noble/hashes'
-    optional: true
 
   data-view-buffer@1.0.2:
     dependencies:
@@ -37489,47 +37467,6 @@ snapshots:
       optionator: 0.9.4
     optionalDependencies:
       jiti: 1.21.7
-    transitivePeerDependencies:
-      - supports-color
-
-  eslint@9.39.2(jiti@2.6.1):
-    dependencies:
-      '@eslint-community/eslint-utils': 4.9.1(eslint@9.39.2(jiti@2.6.1))
-      '@eslint-community/regexpp': 4.12.2
-      '@eslint/config-array': 0.21.2
-      '@eslint/config-helpers': 0.4.2
-      '@eslint/core': 0.17.0
-      '@eslint/eslintrc': 3.3.5
-      '@eslint/js': 9.39.2
-      '@eslint/plugin-kit': 0.4.1
-      '@humanfs/node': 0.16.7
-      '@humanwhocodes/module-importer': 1.0.1
-      '@humanwhocodes/retry': 0.4.3
-      '@types/estree': 1.0.8
-      ajv: 6.14.0
-      chalk: 4.1.2
-      cross-spawn: 7.0.6
-      debug: 4.4.3(supports-color@8.1.1)
-      escape-string-regexp: 4.0.0
-      eslint-scope: 8.4.0
-      eslint-visitor-keys: 4.2.1
-      espree: 10.4.0
-      esquery: 1.7.0
-      esutils: 2.0.3
-      fast-deep-equal: 3.1.3
-      file-entry-cache: 8.0.0
-      find-up: 5.0.0
-      glob-parent: 6.0.2
-      ignore: 5.3.2
-      imurmurhash: 0.1.4
-      is-glob: 4.0.3
-      json-stable-stringify-without-jsonify: 1.0.1
-      lodash.merge: 4.6.2
-      minimatch: 3.1.5
-      natural-compare: 1.4.0
-      optionator: 0.9.4
-    optionalDependencies:
-      jiti: 2.6.1
     transitivePeerDependencies:
       - supports-color
 
@@ -39004,7 +38941,6 @@ snapshots:
       '@exodus/bytes': 1.15.0(@noble/hashes@1.8.0)
     transitivePeerDependencies:
       - '@noble/hashes'
-    optional: true
 
   html-entities@2.6.0: {}
 
@@ -40483,7 +40419,6 @@ snapshots:
       xml-name-validator: 5.0.0
     transitivePeerDependencies:
       - '@noble/hashes'
-    optional: true
 
   jsep@1.4.0: {}
 
@@ -41265,8 +41200,7 @@ snapshots:
 
   lru-cache@11.2.4: {}
 
-  lru-cache@11.3.5:
-    optional: true
+  lru-cache@11.3.5: {}
 
   lru-cache@5.1.1:
     dependencies:
@@ -41657,8 +41591,7 @@ snapshots:
 
   mdn-data@2.0.30: {}
 
-  mdn-data@2.27.1:
-    optional: true
+  mdn-data@2.27.1: {}
 
   media-typer@0.3.0: {}
 
@@ -43449,7 +43382,6 @@ snapshots:
   parse5@8.0.0:
     dependencies:
       entities: 6.0.1
-    optional: true
 
   parseurl@1.3.3: {}
 
@@ -43500,7 +43432,7 @@ snapshots:
 
   path-scurry@2.0.1:
     dependencies:
-      lru-cache: 11.2.4
+      lru-cache: 11.3.5
       minipass: 7.1.2
 
   path-to-regexp@0.1.12: {}
@@ -46364,8 +46296,7 @@ snapshots:
 
   tldts-core@6.1.86: {}
 
-  tldts-core@7.0.28:
-    optional: true
+  tldts-core@7.0.28: {}
 
   tldts@6.1.86:
     dependencies:
@@ -46374,7 +46305,6 @@ snapshots:
   tldts@7.0.28:
     dependencies:
       tldts-core: 7.0.28
-    optional: true
 
   tmp@0.2.5: {}
 
@@ -46417,7 +46347,6 @@ snapshots:
   tough-cookie@6.0.1:
     dependencies:
       tldts: 7.0.28
-    optional: true
 
   tr46@0.0.3: {}
 
@@ -46428,7 +46357,6 @@ snapshots:
   tr46@6.0.0:
     dependencies:
       punycode: 2.3.1
-    optional: true
 
   tree-dump@1.1.0(tslib@2.8.1):
     dependencies:
@@ -46917,8 +46845,7 @@ snapshots:
 
   undici@7.24.4: {}
 
-  undici@7.25.0:
-    optional: true
+  undici@7.25.0: {}
 
   unenv@2.0.0-rc.24:
     dependencies:
@@ -47933,8 +47860,7 @@ snapshots:
 
   webidl-conversions@7.0.0: {}
 
-  webidl-conversions@8.0.1:
-    optional: true
+  webidl-conversions@8.0.1: {}
 
   webpack-dev-middleware@6.1.3(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.23.1)):
     dependencies:
@@ -48145,8 +48071,7 @@ snapshots:
 
   whatwg-mimetype@4.0.0: {}
 
-  whatwg-mimetype@5.0.0:
-    optional: true
+  whatwg-mimetype@5.0.0: {}
 
   whatwg-url@14.2.0:
     dependencies:
@@ -48160,7 +48085,6 @@ snapshots:
       webidl-conversions: 8.0.1
     transitivePeerDependencies:
       - '@noble/hashes'
-    optional: true
 
   whatwg-url@5.0.0:
     dependencies:

@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { loadSnippets, saveSnippet, deleteSnippet, updateSnippet } from "../snippets.js";
+import {
+  loadSnippets,
+  saveSnippet,
+  deleteSnippet,
+  updateSnippet,
+} from "../snippets.js";
 import type { DevtoolsSnippet } from "../types.js";
 
 const STORAGE_KEY = "cpk:inspector:snippets";
@@ -89,6 +94,8 @@ describe("snippets", () => {
   });
 
   it("deleteSnippet returns false on localStorage write error", () => {
+    saveSnippet(makeSnippet({ id: "s1" }));
+
     const spy = vi
       .spyOn(Storage.prototype, "setItem")
       .mockImplementation(() => {
@@ -123,10 +130,36 @@ describe("snippets", () => {
 
   it("updateSnippet returns false on localStorage write error", () => {
     saveSnippet(makeSnippet({ id: "s1" }));
-    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new DOMException("QuotaExceededError");
-    });
-    expect(updateSnippet(makeSnippet({ id: "s1", name: "Updated" }))).toBe(false);
+    const spy = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new DOMException("QuotaExceededError");
+      });
+    expect(updateSnippet(makeSnippet({ id: "s1", name: "Updated" }))).toBe(
+      false,
+    );
     spy.mockRestore();
+  });
+
+  it("deleteSnippet returns false for nonexistent ID", () => {
+    saveSnippet(makeSnippet({ id: "s1" }));
+    expect(deleteSnippet("nonexistent")).toBe(false);
+    expect(loadSnippets()).toHaveLength(1);
+  });
+
+  it("loadSnippets repairs corrupt localStorage by removing invalid entries", () => {
+    const valid = makeSnippet({ id: "s1" });
+    const corrupt = [valid, null, { id: 123 }, { id: "s2" }, "garbage"];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(corrupt));
+
+    const loaded = loadSnippets();
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0]!.id).toBe("s1");
+
+    // Verify localStorage was repaired
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const stored = JSON.parse(raw!);
+    expect(stored).toHaveLength(1);
+    expect(stored[0].id).toBe("s1");
   });
 });
