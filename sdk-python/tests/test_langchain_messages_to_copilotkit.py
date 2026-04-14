@@ -1,19 +1,21 @@
 """Tests for langchain_messages_to_copilotkit assistant message emission.
 
-Covers the parentMessageId orphan bug from c5ec0f8512: tool call entries
+Covers the parentMessageId orphan bug where an `if content:` guard skipped
+emitting the assistant message when content was empty. Tool call entries
 reference their parent assistant message via parentMessageId, so the
 assistant message must always be emitted — even when content is empty
 (standard OpenAI behavior for tool-call-only responses).
 """
 
-import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from copilotkit.langgraph import langchain_messages_to_copilotkit
 
 
 class TestAssistantMessageAlwaysEmitted:
-    """The assistant message must always be present so tool calls can reference it."""
+    """The assistant message must always be present so tool call entries can
+    reference it via parentMessageId. Without it, tool calls are orphaned
+    and the frontend cannot reconstruct tool call rendering on reconnect."""
 
     def test_ai_message_with_content_and_tool_calls(self):
         """AIMessage with both content and tool_calls emits assistant + tool calls."""
@@ -97,6 +99,27 @@ class TestAssistantMessageAlwaysEmitted:
             assert tc["parentMessageId"] in message_ids, (
                 f"Tool call {tc['id']} has orphaned parentMessageId {tc['parentMessageId']}"
             )
+
+    def test_ai_message_with_list_content_and_tool_calls(self):
+        """AIMessage with empty list content (Anthropic-style) still emits the assistant message."""
+        msg = AIMessage(
+            id="ai-1",
+            content="",
+            tool_calls=[{"id": "tc-1", "name": "get_help", "args": {}}],
+        )
+        # Anthropic models can return content as a list; empty list is falsy
+        msg.content = []  # type: ignore[assignment]
+
+        result = langchain_messages_to_copilotkit([msg])
+
+        assistant_msgs = [m for m in result if m.get("role") == "assistant"]
+        tool_call_msgs = [m for m in result if "parentMessageId" in m]
+
+        assert len(assistant_msgs) == 1, "Assistant message must be emitted even with empty list content"
+        assert assistant_msgs[0]["content"] == ""
+
+        assert len(tool_call_msgs) == 1
+        assert tool_call_msgs[0]["parentMessageId"] == "ai-1"
 
     def test_ai_message_without_tool_calls(self):
         """Plain AIMessage (no tool calls) emits just the assistant message."""

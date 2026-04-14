@@ -565,6 +565,14 @@ def crewai_flow_messages_to_copilotkit(messages: List[Dict]) -> List[Message]: #
                 "id": message_id,
             })
         elif message.get("tool_calls"):
+            # Always emit the assistant message, even with empty content.
+            # Tool call entries reference it via parentMessageId; omitting it
+            # orphans tool calls and breaks frontend thread reconstruction.
+            result.append({
+                "role": message["role"],
+                "content": message.get("content") or "",
+                "id": message_id,
+            })
             for tool_call in message["tool_calls"]:
                 if tool_call.get("function"):
                     result.append({
