@@ -24,7 +24,10 @@ const nextConfig: NextConfig = {
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
-      "@copilotkit/showcase-shared": path.resolve(process.cwd(), "shared_frontend/src"),
+      "@copilotkit/showcase-shared": path.resolve(
+        process.cwd(),
+        "shared_frontend/src",
+      ),
     };
     return config;
   },
