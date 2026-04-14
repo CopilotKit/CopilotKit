@@ -41,6 +41,7 @@ interface Integration {
     description?: string;
     github_url?: string;
     demo_url?: string;
+    clone_command?: string;
   };
   features: string[];
   demos: Demo[];
@@ -114,11 +115,19 @@ export function ProfileClient({
 
   function copyCloneCommand() {
     if (!integration.starter) return;
-    const cmd = `git clone https://github.com/CopilotKit/CopilotKit.git && cd CopilotKit/${integration.starter.path}`;
-    navigator.clipboard.writeText(cmd).then(() => {
-      setCloneCopied(true);
-      setTimeout(() => setCloneCopied(false), 2000);
-    });
+    const cmd =
+      integration.starter.clone_command ||
+      `npx degit CopilotKit/CopilotKit/${integration.starter.path} my-copilotkit-app`;
+    navigator.clipboard
+      .writeText(cmd)
+      .then(() => {
+        setCloneCopied(true);
+        setTimeout(() => setCloneCopied(false), 2000);
+      })
+      .catch(() => {
+        // Fallback: show the command in a prompt if clipboard fails
+        window.prompt("Copy this command:", cmd);
+      });
   }
 
   // Find the "key" agent file — prefer a Python file with "agent" or "main" in the name, else first backend file
