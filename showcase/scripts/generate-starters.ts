@@ -45,10 +45,10 @@ const FRAMEWORKS: FrameworkDef[] = [
     name: "LangGraph Python",
     language: "python",
     agentSourceDir: "src/agents",
-    agentDir: "agent",
+    agentDir: "src/agents",
     devScript:
-      'concurrently "next dev --turbopack" "python -m langgraph_cli dev --config agent/langgraph.json --host 0.0.0.0 --port 8123 --no-browser"',
-    extraFiles: { "agent/langgraph.json": "langgraph.json" },
+      'concurrently "next dev --turbopack" "python -m langgraph_cli dev --config langgraph.json --host 0.0.0.0 --port 8123 --no-browser"',
+    extraFiles: { "langgraph.json": "langgraph.json" },
   },
   {
     slug: "langgraph-fastapi",
@@ -370,7 +370,7 @@ function getEntrypointBlock(fw: FrameworkDef): string {
       if (fw.slug === "langgraph-python") {
         return `echo "[entrypoint] Starting LangGraph agent server on port 8123..."
 python -m langgraph_cli dev \\
-  --config agent/langgraph.json \\
+  --config langgraph.json \\
   --host 0.0.0.0 \\
   --port 8123 \\
   --no-browser 2>&1 | sed 's/^/[agent] /' &
@@ -493,6 +493,16 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
   }
   fs.mkdirSync(outDir, { recursive: true });
 
+  // Extra Dockerfile COPY lines for frameworks that need root-level config files
+  const dockerExtraCopy =
+    fw.extraFiles &&
+    Object.keys(fw.extraFiles).some((dest) => !dest.includes("/"))
+      ? Object.keys(fw.extraFiles)
+          .filter((dest) => !dest.includes("/"))
+          .map((dest) => `\n# Framework config\nCOPY ${dest} ./`)
+          .join("")
+      : "";
+
   const vars: Record<string, string> = {
     SLUG: fw.slug,
     NAME: fw.name,
@@ -501,6 +511,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     DEV_SCRIPT: fw.devScript,
     AGENT_PORT: "8123",
     DEV_SCRIPT_BLOCK: getEntrypointBlock(fw),
+    DOCKER_EXTRA_COPY: dockerExtraCopy,
   };
 
   // 1. Copy frontend files into src/
@@ -605,9 +616,13 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
       fs.copyFileSync(srcPath, destPath);
 
       // Rewrite langgraph.json graph paths for the starter layout.
-      // In packages, agents live at src/agents/main.py — but in starters,
-      // they're flattened into the agent dir so the path becomes ./main.py.
-      if (dest.endsWith("langgraph.json")) {
+      // Only rewrite paths when agents are flattened into a different dir
+      // (e.g. src/agents/ -> agent/). Skip rewriting when the starter
+      // preserves the same directory structure as the package.
+      if (
+        dest.endsWith("langgraph.json") &&
+        fw.agentDir !== fw.agentSourceDir
+      ) {
         let lgContent = fs.readFileSync(destPath, "utf-8");
         lgContent = lgContent.replace(/\.\/src\/agents\//g, "./");
         lgContent = lgContent.replace(/\.\/src\/agent\//g, "./");

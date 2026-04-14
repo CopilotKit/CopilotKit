@@ -188,7 +188,7 @@ describe("Cross-starter consistency", () => {
 
     for (const fw of pythonFrameworks) {
       it(`${fw.slug} has Python agent with requirements.txt`, () => {
-        const agentDir = path.join(STARTERS_DIR, fw.slug, "agent");
+        const agentDir = path.join(STARTERS_DIR, fw.slug, fw.agentDir);
         expect(fs.existsSync(path.join(agentDir, "requirements.txt"))).toBe(
           true,
         );

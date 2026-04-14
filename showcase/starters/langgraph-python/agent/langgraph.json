@@ -1,6 +1,0 @@
-{
-  "dependencies": ["."],
-  "graphs": {
-    "sample_agent": "./main.py:graph"
-  }
-}
