@@ -9,6 +9,12 @@ import {
   useShowcaseHooks,
   useShowcaseSuggestions,
   demonstrationCatalog,
+  RendererSelector,
+  useRenderMode,
+  ToolBasedDashboard,
+  A2UIDashboard,
+  HashBrownDashboard,
+  OpenGenUIDashboard,
 } from "@copilotkit/showcase-shared";
 
 export default function AgenticChatDemo() {
@@ -38,13 +44,30 @@ function DemoContent() {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center">
-      <SalesDashboard agentId="agentic_chat" />
+      <DashboardWithRenderer agentId="agentic_chat" />
       <CopilotSidebar
         defaultOpen={true}
         labels={{
           modalHeaderTitle: "Sales Dashboard Assistant",
         }}
       />
+    </div>
+  );
+}
+
+function DashboardWithRenderer({ agentId }: { agentId: string }) {
+  const { mode, setMode } = useRenderMode();
+
+  return (
+    <div className="flex flex-col h-full">
+      <RendererSelector mode={mode} onModeChange={setMode} />
+      <div className="flex-1">
+        {mode === "tool-based" && <ToolBasedDashboard agentId={agentId} />}
+        {mode === "a2ui" && <A2UIDashboard agentId={agentId} />}
+        {mode === "hashbrown" && <HashBrownDashboard />}
+        {mode === "open-genui" && <OpenGenUIDashboard />}
+        {mode === "json-render" && <ToolBasedDashboard agentId={agentId} />}
+      </div>
     </div>
   );
 }

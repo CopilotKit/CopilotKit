@@ -12,6 +12,12 @@ from src.agents.todos import todo_tools, AgentState
 from src.agents.a2ui_fixed_schema import search_flights
 from src.agents.a2ui_dynamic_schema import generate_a2ui
 
+# Render mode middleware — adjusts agent output based on frontend renderer selection
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"))
+from middleware.render_mode import apply_render_mode
+
 SYSTEM_PROMPT = """You are a polished, professional demo assistant for CopilotKit.
 Keep responses brief and clear -- 1 to 2 sentences max.
 
@@ -35,4 +41,5 @@ graph = create_react_agent(
     + todo_tools,
     prompt=SYSTEM_PROMPT,
     state_schema=AgentState,
+    middleware=[apply_render_mode],
 )

@@ -7,6 +7,12 @@ import {
   useShowcaseHooks,
   useShowcaseSuggestions,
   demonstrationCatalog,
+  RendererSelector,
+  useRenderMode,
+  ToolBasedDashboard,
+  A2UIDashboard,
+  HashBrownDashboard,
+  OpenGenUIDashboard,
 } from "@copilotkit/showcase-shared";
 
 export default function GenUiToolBasedDemo() {
@@ -35,18 +41,30 @@ function SidebarWithContent() {
   useShowcaseSuggestions();
 
   return (
-    <div className="relative flex items-center justify-center h-full w-full">
+    <div className="relative flex flex-col h-full w-full">
+      <DashboardWithRenderer agentId="gen-ui-tool-based" />
       <CopilotSidebar
         defaultOpen={true}
         labels={{
           modalHeaderTitle: "Chart Generator",
         }}
       />
-      <div style={{ padding: "48px 80px", width: "100%", maxWidth: "56rem" }}>
-        <div className="text-center text-gray-400 text-lg">
-          Use the sidebar to generate charts. Try "Show me a pie chart of
-          revenue by category" or "Show me a bar chart of expenses."
-        </div>
+    </div>
+  );
+}
+
+function DashboardWithRenderer({ agentId }: { agentId: string }) {
+  const { mode, setMode } = useRenderMode();
+
+  return (
+    <div className="flex flex-col h-full">
+      <RendererSelector mode={mode} onModeChange={setMode} />
+      <div className="flex-1 flex items-center justify-center">
+        {mode === "tool-based" && <ToolBasedDashboard agentId={agentId} />}
+        {mode === "a2ui" && <A2UIDashboard agentId={agentId} />}
+        {mode === "hashbrown" && <HashBrownDashboard />}
+        {mode === "open-genui" && <OpenGenUIDashboard />}
+        {mode === "json-render" && <ToolBasedDashboard agentId={agentId} />}
       </div>
     </div>
   );
