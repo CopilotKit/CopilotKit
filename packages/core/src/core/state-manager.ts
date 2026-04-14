@@ -6,6 +6,7 @@ import {
   StateSnapshotEvent,
   StateDeltaEvent,
   MessagesSnapshotEvent,
+  ToolCallResultEvent,
   randomUUID,
 } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
@@ -143,6 +144,14 @@ export class StateManager {
         this.handleNewMessage(
           agent,
           message,
+          input ? effectiveInput(input) : undefined,
+        );
+      },
+      onToolCallResultEvent: ({ event, input }) => {
+        if (revoked) return;
+        this.handleToolCallResult(
+          agent,
+          event,
           input ? effectiveInput(input) : undefined,
         );
       },
@@ -327,6 +336,38 @@ export class StateManager {
 
     const { threadId, runId } = input;
     this.associateMessageWithRun(agent.agentId, threadId, message.id, runId);
+  }
+
+  /**
+   * Handle tool call result event.
+   *
+   * AG-UI servers emit TOOL_CALL_RESULT events for tool outputs.  Without
+   * this handler the tool-result message is never associated with a run,
+   * which causes multi-turn conversations with tool calls to fail because
+   * the next turn replays the assistant tool_calls message without the
+   * matching tool-result message.
+   */
+  private handleToolCallResult(
+    agent: AbstractAgent,
+    event: ToolCallResultEvent,
+    input?: RunAgentInput,
+  ): void {
+    if (!agent.agentId) return;
+
+    const messageId = event.messageId;
+    if (!messageId) return;
+
+    if (!input) {
+      const threadId = agent.threadId ?? "";
+      const runId = this.activeRun.get(`${agent.agentId}:${threadId}`);
+      if (runId) {
+        this.associateMessageWithRun(agent.agentId, threadId, messageId, runId);
+      }
+      return;
+    }
+
+    const { threadId, runId } = input;
+    this.associateMessageWithRun(agent.agentId, threadId, messageId, runId);
   }
 
   /**
