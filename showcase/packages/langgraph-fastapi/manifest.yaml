@@ -22,11 +22,12 @@ managed_platform:
   name: LangGraph Platform
   url: https://langsmith.com
 starter:
-  path: examples/integrations/langgraph-fastapi
-  name: Investment Analyst (FastAPI)
-  description: Investment analysis agent using LangGraph with a FastAPI backend
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-fastapi
-  demo_url: https://showcase-starter-langgraph-fastapi-production.up.railway.app
+  path: showcase/starters/langgraph-fastapi
+  name: Sales Dashboard
+  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langgraph-fastapi
+  demo_url: https://showcase-starter-langgraph-fastapi-production-c7d2.up.railway.app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-fastapi my-copilotkit-app
 features:
   - agentic-chat
   - tool-rendering

@@ -25,11 +25,12 @@ managed_platform:
   name: Mastra Cloud
   url: https://mastra.ai/cloud
 starter:
-  path: examples/integrations/mastra
-  name: Fullstack TypeScript Agent
-  description: End-to-end TypeScript agent with tool management and workflow orchestration
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra
-  demo_url: https://showcase-starter-mastra-production.up.railway.app
+  path: showcase/starters/mastra
+  name: Sales Dashboard
+  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/mastra
+  demo_url: https://showcase-starter-mastra-production-3a00.up.railway.app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/mastra my-copilotkit-app
 features:
   - agentic-chat
   - hitl

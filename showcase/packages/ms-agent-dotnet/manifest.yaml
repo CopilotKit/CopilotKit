@@ -22,11 +22,12 @@ interaction_modalities:
   - embedded
   - chat
 starter:
-  path: examples/integrations/ms-agent-framework-dotnet
-  name: Sales Pipeline Manager (.NET)
-  description: Sales pipeline management agent using Microsoft Agent Framework for .NET
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/ms-agent-framework-dotnet
-  demo_url: https://showcase-starter-ms-agent-dotnet-production.up.railway.app
+  path: showcase/starters/ms-agent-dotnet
+  name: Sales Dashboard
+  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/ms-agent-dotnet
+  demo_url: https://showcase-starter-ms-agent-dotnet-production-b8cf.up.railway.app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/ms-agent-dotnet my-copilotkit-app
 features:
   - agentic-chat
   - hitl
