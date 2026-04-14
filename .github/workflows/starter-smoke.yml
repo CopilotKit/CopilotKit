@@ -37,7 +37,6 @@ jobs:
           - strands-python
           - ms-agent-framework-python
           - ms-agent-framework-dotnet
-          - test-integration-tmp
       fail-fast: false
 
     steps:
