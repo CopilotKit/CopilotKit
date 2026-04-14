@@ -20,6 +20,7 @@ import {
   StateSnapshotEvent,
   StateDeltaEvent,
 } from "@ag-ui/client";
+import type { AgentCapabilities } from "@ag-ui/core";
 import {
   streamText,
   LanguageModel,
@@ -817,6 +818,15 @@ export interface BuiltInAgentClassicConfig {
    * Example: `{ openai: { reasoningEffort: "high" } }`
    */
   providerOptions?: Record<string, any>;
+  /**
+   * Explicit agent capabilities. **Shallow-merged** at the category level on
+   * top of auto-inferred defaults — providing a category (e.g. `tools`)
+   * replaces that entire category, not individual fields within it.
+   *
+   * For example, `{ tools: { supported: true } }` will drop the inferred
+   * `clientProvided` value. Include all fields for any category you override.
+   */
+  capabilities?: Partial<AgentCapabilities>;
 }
 
 /**
@@ -852,6 +862,29 @@ export class BuiltInAgent extends AbstractAgent {
   canOverride(property: OverridableProperty): boolean {
     if (isFactoryConfig(this.config)) return false;
     return this.config?.overridableProperties?.includes(property) ?? false;
+  }
+
+  async getCapabilities(): Promise<AgentCapabilities> {
+    const inferred: AgentCapabilities = {
+      tools: {
+        supported: true,
+        clientProvided: true,
+      },
+      transport: {
+        streaming: true,
+      },
+    };
+
+    if (!this.config.capabilities) {
+      return inferred;
+    }
+
+    // Shallow merge at the category level — explicit overrides replace
+    // entire categories when provided, inferred defaults fill the rest.
+    return {
+      ...inferred,
+      ...this.config.capabilities,
+    };
   }
 
   run(input: RunAgentInput): Observable<BaseEvent> {
