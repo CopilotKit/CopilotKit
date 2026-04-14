@@ -20,8 +20,26 @@ describe("resolveDebugConfig", () => {
     });
   });
 
-  it("returns all-on (including verbose) for true", () => {
+  it("returns events + lifecycle on but verbose off for true (PII safety)", () => {
     expect(resolveDebugConfig(true)).toEqual({
+      enabled: true,
+      events: true,
+      lifecycle: true,
+      verbose: false,
+    });
+  });
+
+  it("allows explicit verbose opt-in via object shorthand", () => {
+    expect(resolveDebugConfig({ verbose: true })).toEqual({
+      enabled: true,
+      events: true,
+      lifecycle: true,
+      verbose: true,
+    });
+  });
+
+  it("allows explicit verbose opt-in with events", () => {
+    expect(resolveDebugConfig({ events: true, verbose: true })).toEqual({
       enabled: true,
       events: true,
       lifecycle: true,
@@ -62,15 +80,6 @@ describe("resolveDebugConfig", () => {
       events: true,
       lifecycle: false,
       verbose: false,
-    });
-  });
-
-  it("defaults events and lifecycle to true when only verbose is set", () => {
-    expect(resolveDebugConfig({ verbose: true })).toEqual({
-      enabled: true,
-      events: true,
-      lifecycle: true,
-      verbose: true,
     });
   });
 

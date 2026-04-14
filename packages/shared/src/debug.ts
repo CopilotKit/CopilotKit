@@ -1,6 +1,7 @@
 /**
  * Granular debug configuration for CopilotKit runtime and client.
- * Pass `true` for full debug output, or an object for granular control.
+ * Pass `true` to enable events + lifecycle logging (but NOT verbose payloads),
+ * or an object for granular control including `verbose: true` for full payloads.
  */
 export type DebugConfig =
   | boolean
@@ -9,7 +10,7 @@ export type DebugConfig =
       events?: boolean;
       /** Log request/run lifecycle. Default: true */
       lifecycle?: boolean;
-      /** Log full event payloads instead of summaries. Default: true when debug is boolean, false when debug is object */
+      /** Log full event payloads instead of summaries. Default: false — must be explicitly opted in */
       verbose?: boolean;
     };
 
@@ -33,7 +34,7 @@ const DEBUG_OFF: ResolvedDebugConfig = {
  * Normalizes a DebugConfig value into a ResolvedDebugConfig.
  *
  * - `false` / `undefined` → all off
- * - `true` → all on (events, lifecycle, verbose)
+ * - `true` → events + lifecycle on, verbose off (no PII in logs)
  * - object → merges with defaults (events: true, lifecycle: true, verbose: false)
  */
 export function resolveDebugConfig(
@@ -42,7 +43,7 @@ export function resolveDebugConfig(
   if (!debug) return DEBUG_OFF;
 
   if (debug === true) {
-    return { enabled: true, events: true, lifecycle: true, verbose: true };
+    return { enabled: true, events: true, lifecycle: true, verbose: false };
   }
 
   const events = debug.events ?? true;
