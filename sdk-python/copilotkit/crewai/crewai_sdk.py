@@ -552,10 +552,13 @@ def crewai_flow_messages_to_copilotkit(messages: List[Dict]) -> List[Message]: #
         if "content" in message and message.get("role") == "assistant":
             if message.get("tool_calls"):
                 for tool_call in message["tool_calls"]:
+                    tc_id = tool_call.get("id")
+                    if tc_id is None:
+                        continue
                     if tool_call.get("function"):
-                        tool_call_names[tool_call["id"]] = tool_call["function"]["name"]
+                        tool_call_names[tc_id] = tool_call["function"].get("name", "")
                     else:
-                        tool_call_names[tool_call["id"]] = tool_call.get("name", "")
+                        tool_call_names[tc_id] = tool_call.get("name", "")
 
     for message in messages:
         message_id = message_ids[id(message)]
@@ -573,22 +576,25 @@ def crewai_flow_messages_to_copilotkit(messages: List[Dict]) -> List[Message]: #
             # orphans tool calls and breaks frontend thread reconstruction.
             result.append({
                 "role": message["role"],
-                "content": message.get("content") or "",
+                "content": message.get("content") if message.get("content") is not None else "",
                 "id": message_id,
             })
             for tool_call in message["tool_calls"]:
+                tc_id = tool_call.get("id")
+                if tc_id is None:
+                    continue
                 if tool_call.get("function"):
                     result.append({
-                        "id": tool_call["id"],
-                        "name": tool_call["function"]["name"],
+                        "id": tc_id,
+                        "name": tool_call["function"].get("name", ""),
                         "arguments": json.loads(tool_call["function"]["arguments"]),
                         "parentMessageId": message_id,
                     })
                 else:
                     result.append({
-                        "id": tool_call["id"],
-                        "name": tool_call["name"],
-                        "arguments": tool_call["arguments"],
+                        "id": tc_id,
+                        "name": tool_call.get("name", ""),
+                        "arguments": tool_call.get("arguments", {}),
                         "parentMessageId": message_id,
                     })
         elif message.get("content"):
