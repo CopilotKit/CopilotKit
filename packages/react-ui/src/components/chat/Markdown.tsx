@@ -155,7 +155,7 @@ export const Markdown = ({
           [remarkMath, { singleDollarTextMath: false }],
         ]}
         rehypePlugins={[rehypeRaw]}
-        {...(urlTransform ? { urlTransform } : {})}
+        {...(urlTransform !== undefined ? { urlTransform } : {})}
       >
         {content}
       </MemoizedReactMarkdown>
