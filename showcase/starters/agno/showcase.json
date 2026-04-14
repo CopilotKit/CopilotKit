@@ -1,0 +1,8 @@
+{
+  "slug": "agno",
+  "name": "Agno",
+  "language": "python",
+  "agentDir": "agent",
+  "agentPort": 8123,
+  "generated": true
+}
