@@ -33,7 +33,6 @@ on:
           - claude-sdk-typescript
           - ms-agent-dotnet
           - claude-sdk-python
-          - test-integration-tmp
           - starter-langgraph-python
           - starter-mastra
           - starter-crewai-crews
@@ -54,7 +53,6 @@ jobs:
     outputs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
       has_changes: ${{ steps.build-matrix.outputs.has_changes }}
-      test_integration_tmp: ${{ steps.changes.outputs.test_integration_tmp }}
     steps:
       - uses: actions/checkout@v4
 
@@ -85,7 +83,6 @@ jobs:
             claude_sdk_typescript: 'showcase/packages/claude-sdk-typescript/**'
             ms_agent_dotnet: 'showcase/packages/ms-agent-dotnet/**'
             claude_sdk_python: 'showcase/packages/claude-sdk-python/**'
-            test_integration_tmp: 'showcase/packages/test-integration-tmp/**'
             starter_langgraph_python: 'examples/integrations/langgraph-python/**'
             starter_mastra: 'examples/integrations/mastra/**'
             starter_crewai_crews: 'examples/integrations/crewai-crews/**'
@@ -117,7 +114,6 @@ jobs:
             {"dispatch_name":"claude-sdk-typescript","filter_key":"claude_sdk_typescript","context":"showcase/packages/claude-sdk-typescript","image":"showcase-claude-sdk-typescript","cache_scope":"claude_sdk_typescript","railway_id":"18a98727-5700-44aa-b497-b60795dbbd6a","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"ms-agent-dotnet","filter_key":"ms_agent_dotnet","context":"showcase/packages/ms-agent-dotnet","image":"showcase-ms-agent-dotnet","cache_scope":"ms_agent_dotnet","railway_id":"beeb2dd6-87a4-4599-aa07-0578f7bd6519","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/packages/claude-sdk-python","image":"showcase-claude-sdk-python","cache_scope":"claude_sdk_python","railway_id":"b122ab65-9854-4cb2-a68e-b50ff13f7481","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"test-integration-tmp","filter_key":"test_integration_tmp","context":"showcase/packages/test-integration-tmp","image":"showcase-test-integration-tmp","cache_scope":"test_integration_tmp","railway_id":"","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"starter-langgraph-python","filter_key":"starter_langgraph_python","context":"examples/integrations/langgraph-python","image":"showcase-starter-langgraph-python","cache_scope":"starter_langgraph_python","railway_id":"","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"starter-mastra","filter_key":"starter_mastra","context":"examples/integrations/mastra","image":"showcase-starter-mastra","cache_scope":"starter_mastra","railway_id":"","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"starter-crewai-crews","filter_key":"starter_crewai_crews","context":"examples/integrations/crewai-crews","image":"showcase-starter-crewai-crews","cache_scope":"starter_crewai_crews","railway_id":"","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
@@ -252,46 +248,3 @@ jobs:
             {
               "text": "${{ (needs.detect-changes.result == 'failure' || needs.check-lockfile.result == 'failure') && format(':x: *Showcase deploy*: FAILED (pre-build check)') || needs.build.result == 'success' && ':white_check_mark: *Showcase deploy*: all services deployed to Railway' || (needs.build.result == 'skipped' && needs.detect-changes.result == 'success') && ':white_check_mark: *Showcase deploy*: no changes detected, nothing to deploy' || format(':x: *Showcase deploy*: FAILED (result: {0})', needs.build.result) }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
             }
-
-  build-test_integration_tmp:
-    name: Build & Push Test Integration
-    needs: [detect-changes, check-lockfile]
-    if: |
-      needs.detect-changes.outputs.test_integration_tmp == 'true' ||
-      github.event.inputs.service == 'test-integration-tmp' ||
-      github.event.inputs.service == 'all'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: showcase/packages/test-integration-tmp
-          push: true
-          tags: |
-            ghcr.io/copilotkit/showcase-test-integration-tmp:latest
-            ghcr.io/copilotkit/showcase-test-integration-tmp:${{ github.sha }}
-          cache-from: type=gha,scope=test_integration_tmp
-          cache-to: type=gha,scope=test_integration_tmp,mode=max
-
-      - name: Trigger Railway deploy
-        run: |
-          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
-            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"RAILWAY_SERVICE_ID\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
-            && echo "test-integration-tmp deploy triggered"
