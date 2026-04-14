@@ -87,7 +87,7 @@ export type CatalogRenderers<D extends CatalogDefinitions> = {
  * // catalog.tsx (React renderers)
  * export const demoCatalog = createCatalog(demoCatalogDefinitions, {
  *   Card: ({ props, children }) => (
- *     <div>{props.title}{props.child && children(props.child)}</div>
+ *     <div>{props.title}{typeof props.child === "string" && children(props.child)}</div>
  *   ),
  * });
  * ```

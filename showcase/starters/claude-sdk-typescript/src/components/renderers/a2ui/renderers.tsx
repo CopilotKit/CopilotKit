@@ -256,7 +256,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
             </div>
           )}
         </div>
-        {props.child && children(props.child)}
+        {typeof props.child === "string" && children(props.child)}
       </div>
     ),
 
@@ -451,7 +451,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
     Button: ({ props, children }) => {
       return (
         <ActionButton label="Click" doneLabel="Done" action={props.action}>
-          {props.child ? children(props.child) : null}
+          {typeof props.child === "string" ? children(props.child) : null}
         </ActionButton>
       );
     },
