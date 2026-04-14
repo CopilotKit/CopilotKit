@@ -1,0 +1,31 @@
+name: "Showcase: Starter Template Drift Detection"
+
+on:
+  pull_request:
+    paths:
+      - "showcase/starters/**"
+      - "showcase/packages/*/src/agents/**"
+      - "showcase/packages/*/src/mastra/**"
+      - "showcase/scripts/generate-starters.ts"
+      - "showcase/shared/python/**"
+      - "showcase/shared/typescript/**"
+  push:
+    branches: [main]
+    paths:
+      - "showcase/starters/**"
+      - "showcase/packages/*/src/agents/**"
+      - "showcase/packages/*/src/mastra/**"
+      - "showcase/scripts/generate-starters.ts"
+      - "showcase/shared/python/**"
+      - "showcase/shared/typescript/**"
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - run: npx tsx showcase/scripts/generate-starters.ts --check

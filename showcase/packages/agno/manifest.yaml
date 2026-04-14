@@ -21,11 +21,12 @@ interaction_modalities:
   - embedded
   - chat
 starter:
-  path: examples/integrations/agno
-  name: Investment Analyst (Agno)
-  description: Investment analysis agent built with the Agno framework
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agno
-  demo_url: https://showcase-starter-agno-production.up.railway.app
+  path: showcase/starters/agno
+  name: Sales Dashboard
+  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/agno
+  demo_url: https://showcase-starter-agno-production-359f.up.railway.app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/agno my-copilotkit-app
 features:
   - agentic-chat
   - hitl

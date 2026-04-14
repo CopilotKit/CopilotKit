@@ -195,6 +195,10 @@
           "type": "string",
           "format": "uri",
           "description": "URL of the deployed starter app for live demo iframe"
+        },
+        "clone_command": {
+          "type": "string",
+          "description": "Shell command to clone the starter (e.g. npx degit ...)"
         }
       },
       "required": ["path", "name"],

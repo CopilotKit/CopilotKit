@@ -19,11 +19,12 @@ interaction_modalities:
   - embedded
   - chat
 starter:
-  path: examples/integrations/ms-agent-framework-python
-  name: Sales Pipeline Manager
-  description: Sales pipeline management agent using Microsoft Agent Framework for Python
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/ms-agent-framework-python
-  demo_url: https://showcase-starter-ms-agent-python-production.up.railway.app
+  path: showcase/starters/ms-agent-python
+  name: Sales Dashboard
+  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/ms-agent-python
+  demo_url: https://showcase-starter-ms-agent-python-production-d140.up.railway.app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/ms-agent-python my-copilotkit-app
 features:
   - agentic-chat
   - hitl
