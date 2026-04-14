@@ -316,7 +316,7 @@ jobs:
           echo "count=$COUNT" >> $GITHUB_OUTPUT
 
       - name: Build Slack payload
-        if: "${{ secrets.SLACK_WEBHOOK_OSS_ALERTS != '' }}"
+        if: always()
         run: |
           URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           DETECT="${{ needs.detect-changes.result }}"
@@ -338,7 +338,7 @@ jobs:
           jq -n --arg text "$MSG | <$URL|View run>" '{text: $text}' > /tmp/slack-payload.json
 
       - name: Post to Slack
-        if: "${{ secrets.SLACK_WEBHOOK_OSS_ALERTS != '' }}"
+        if: always()
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
