@@ -163,12 +163,11 @@ def langchain_messages_to_copilotkit(
                 "id": message.id,
             })
         elif isinstance(message, AIMessage):
-            if content:
-                result.append({
-                    "role": "assistant",
-                    "content": content,
-                    "id": message.id,
-                })
+            result.append({
+                "role": "assistant",
+                "content": content or "",
+                "id": message.id,
+            })
             if message.tool_calls:
                 for tool_call in message.tool_calls:
                     result.append({
