@@ -7,8 +7,23 @@ COPY src/ ./src/
 COPY next.config.ts tsconfig.json postcss.config.mjs ./
 RUN npm run build
 
-# Stage 2: Build Java agent
+# Stage 2: Build AG-UI Java SDK from source + Java agent
 FROM maven:3-eclipse-temurin-21 AS java-builder
+
+# AG-UI community artifacts aren't on Maven Central yet — build from source
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+ENV GIT_LFS_SKIP_SMUDGE=1
+RUN git clone --depth 1 https://github.com/ag-ui-protocol/ag-ui.git /ag-ui && \
+    cd /ag-ui/sdks/community/java && \
+    mvn install \
+        -pl servers/spring,integrations/spring-ai -am \
+        -DskipTests -Dgpg.skip=true \
+        -Dmaven.javadoc.skip=true -Djavadoc.skip=true \
+        -Dmaven.source.skip=true -Dcheckstyle.skip=true \
+        -Dmaven.site.skip=true -Dreporting.skip=true \
+        -Dassembly.skipAssembly=true \
+        -B
+
 WORKDIR /agent
 COPY agent/ ./
 RUN mvn -B package -DskipTests
