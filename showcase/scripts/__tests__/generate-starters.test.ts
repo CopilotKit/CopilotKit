@@ -302,14 +302,14 @@ describe("generate-starters", () => {
   });
 
   describe("extractUvicornModule()", () => {
-    it("extracts agent.agent:app from pydantic-ai devScript", () => {
+    it("extracts agent_server:app from pydantic-ai devScript", () => {
       const fw = FRAMEWORKS.find((f) => f.slug === "pydantic-ai")!;
-      expect(extractUvicornModule(fw)).toBe("agent.agent:app");
+      expect(extractUvicornModule(fw)).toBe("agent_server:app");
     });
 
-    it("extracts agent.crew:app from crewai-crews devScript", () => {
+    it("extracts agent_server:app from crewai-crews devScript", () => {
       const fw = FRAMEWORKS.find((f) => f.slug === "crewai-crews")!;
-      expect(extractUvicornModule(fw)).toBe("agent.crew:app");
+      expect(extractUvicornModule(fw)).toBe("agent_server:app");
     });
 
     it("extracts agent.main:app from langgraph-fastapi devScript", () => {
@@ -440,7 +440,7 @@ describe("generate-starters", () => {
     it("Python: returns uvicorn command with correct module", () => {
       const fw = FRAMEWORKS.find((f) => f.slug === "pydantic-ai")!;
       const block = getEntrypointBlock(fw);
-      expect(block).toContain("uvicorn agent.agent:app");
+      expect(block).toContain("uvicorn agent_server:app");
       expect(block).toContain("kill -0");
     });
 
