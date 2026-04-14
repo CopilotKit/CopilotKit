@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { copyToClipboard } from "../clipboard";
 
+// Mock navigator for Node 20 environments where it doesn't exist
+if (typeof globalThis.navigator === "undefined") {
+  Object.defineProperty(globalThis, "navigator", {
+    value: { clipboard: { writeText: vi.fn() } },
+    writable: true,
+    configurable: true,
+  });
+}
+
 describe("copyToClipboard", () => {
   let originalClipboard: Clipboard;
 
