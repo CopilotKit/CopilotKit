@@ -433,9 +433,7 @@ describe("InMemoryAgentRunner", () => {
 
     it("returns empty when no store and no agent provided", async () => {
       const events = await firstValueFrom(
-        runner
-          .connect({ threadId: "completely-unknown" })
-          .pipe(toArray()),
+        runner.connect({ threadId: "completely-unknown" }).pipe(toArray()),
       );
 
       expect(events).toHaveLength(0);
