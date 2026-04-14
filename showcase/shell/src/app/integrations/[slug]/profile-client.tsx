@@ -248,7 +248,7 @@ export function ProfileClient({
                       <iframe
                         src={integration.starter.demo_url}
                         className="w-full rounded-lg border border-[var(--border)]"
-                        style={{ height: "600px" }}
+                        style={{ height: "min(80vh, 900px)" }}
                         sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                         loading="lazy"
                       />
