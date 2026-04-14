@@ -376,8 +376,8 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
             if (chunk.type === "message_start") {
               currentMessageId = chunk.message.id;
             } else if (chunk.type === "content_block_start") {
-              hasReceivedContent = true;
               if (chunk.content_block.type === "text") {
+                hasReceivedContent = true;
                 didOutputText = false;
                 filterThinkingTextBuffer.reset();
                 mode = "message";
@@ -387,6 +387,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
                   mode = null;
                   continue;
                 }
+                hasReceivedContent = true;
                 currentToolCallId = chunk.content_block.id;
                 eventStream$.sendActionExecutionStart({
                   actionExecutionId: currentToolCallId,
