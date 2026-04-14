@@ -5,13 +5,17 @@ import {
   useFrontendTool,
   useRenderTool,
   useAgentContext,
-  useConfigureSuggestions,
   CopilotChat,
 } from "@copilotkit/react-core/v2";
 import { CopilotKit } from "@copilotkit/react-core";
 import { z } from "zod";
 import { DemoErrorBoundary } from "@copilotkit/showcase-shared";
-import { WeatherCard, getWeatherIcon } from "@copilotkit/showcase-shared";
+import {
+  WeatherCard,
+  useShowcaseHooks,
+  useShowcaseSuggestions,
+  demonstrationCatalog,
+} from "@copilotkit/showcase-shared";
 
 export default function AgenticChatDemo() {
   useEffect(() => {
@@ -23,6 +27,7 @@ export default function AgenticChatDemo() {
       <CopilotKit
         runtimeUrl="/api/copilotkit"
         agent="agentic_chat"
+        a2ui={{ catalog: demonstrationCatalog }}
         onError={(error) => {
           console.error("[agentic-chat] CopilotKit error:", error);
         }}
@@ -35,6 +40,9 @@ export default function AgenticChatDemo() {
 
 function Chat() {
   const [background, setBackground] = useState<string>("#fafaf9");
+
+  useShowcaseHooks();
+  useShowcaseSuggestions();
 
   useAgentContext({
     description: "Name of the user",
@@ -66,60 +74,21 @@ function Chat() {
     }),
     render: ({ args, result, status }: any) => {
       if (status !== "complete") {
-        return (
-          <div
-            className="flex items-center gap-3 px-5 py-4 rounded-2xl max-w-sm"
-            style={{
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            }}
-          >
-            <div className="animate-pulse text-2xl">
-              {getWeatherIcon("Clear")}
-            </div>
-            <div>
-              <p className="text-white font-medium text-sm">
-                Checking weather...
-              </p>
-              <p className="text-white/60 text-xs">{args.location}</p>
-            </div>
-          </div>
-        );
-      }
-
-      let parsed = result;
-      if (typeof result === "string") {
-        try {
-          parsed = JSON.parse(result);
-        } catch {
-          parsed = {};
-        }
+        return <WeatherCard location={args.location} loading />;
       }
 
       return (
         <WeatherCard
-          location={parsed?.city || args.location}
-          temperature={parsed?.temperature ?? 22}
-          conditions={parsed?.conditions || "Clear"}
-          humidity={parsed?.humidity ?? 55}
-          windSpeed={parsed?.wind_speed ?? 12}
-          feelsLike={parsed?.feels_like ?? parsed?.temperature ?? 22}
+          location={args.location}
+          temperature={result?.temperature}
+          conditions={result?.conditions}
+          humidity={result?.humidity}
+          windSpeed={result?.wind_speed}
+          feelsLike={result?.feels_like}
+          city={result?.city}
         />
       );
     },
-  });
-
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Generate sonnet",
-        message: "Write a short sonnet about AI.",
-      },
-      {
-        title: "Weather check",
-        message: "What's the weather like in Tokyo?",
-      },
-    ],
-    available: "always",
   });
 
   return (

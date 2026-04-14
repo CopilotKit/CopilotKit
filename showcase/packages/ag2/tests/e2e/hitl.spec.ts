@@ -19,7 +19,9 @@ test.describe("Human in the Loop", () => {
     });
   });
 
-  test("task request shows step selector with checkboxes", async ({ page }) => {
+  test("task request shows step selector with checkboxes", async ({
+    page,
+  }) => {
     const input = page.getByPlaceholder("Type a message");
     await input.fill(
       "Create a plan with steps to organize a team offsite event",
@@ -61,7 +63,9 @@ test.describe("Human in the Loop", () => {
     await expect(actionButton).toBeVisible();
   });
 
-  test("can approve a step selection and agent continues", async ({ page }) => {
+  test("can approve a step selection and agent continues", async ({
+    page,
+  }) => {
     const input = page.getByPlaceholder("Type a message");
     await input.fill("Plan a trip to mars in 5 steps");
     await input.press("Enter");

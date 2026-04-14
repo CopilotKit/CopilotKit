@@ -23,7 +23,14 @@ load_dotenv()
 
 # Import shared tool implementations
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"))
-from tools import get_weather_impl, query_data_impl, manage_sales_todos_impl, schedule_meeting_impl
+from tools import (
+    get_weather_impl,
+    query_data_impl,
+    manage_sales_todos_impl,
+    schedule_meeting_impl,
+    search_flights_impl,
+    build_a2ui_operations_from_tool_call,
+)
 
 
 # =====
@@ -69,7 +76,8 @@ def manage_sales_todos(todos: list[dict]):
     Returns:
         Success message
     """
-    return "Sales pipeline updated successfully"
+    result = manage_sales_todos_impl(todos)
+    return f"Sales todos updated. Tracking {len(result)} item(s)."
 
 
 @tool
@@ -93,6 +101,83 @@ def schedule_meeting(reason: str):
         Meeting scheduling result as JSON string
     """
     return json.dumps(schedule_meeting_impl(reason))
+
+
+@tool
+def search_flights(flights: list[dict]):
+    """Search for flights and display the results as rich cards. Return exactly 2 flights.
+
+    Each flight must have: airline, airlineLogo, flightNumber, origin, destination,
+    date (short readable format like "Tue, Mar 18" -- use near-future dates),
+    departureTime, arrivalTime, duration (e.g. "4h 25m"),
+    status (e.g. "On Time" or "Delayed"),
+    statusColor (hex color for status dot),
+    price (e.g. "$289"), and currency (e.g. "USD").
+
+    For airlineLogo use Google favicon API:
+    https://www.google.com/s2/favicons?domain={airline_domain}&sz=128
+
+    Args:
+        flights: List of flight objects
+
+    Returns:
+        Flight search results as JSON string
+    """
+    result = search_flights_impl(flights)
+    return json.dumps(result)
+
+
+@tool
+def generate_a2ui(context: str):
+    """Generate dynamic A2UI components based on the conversation.
+
+    A secondary LLM designs the UI schema and data. The result is
+    returned as an a2ui_operations container for the middleware to detect.
+
+    Args:
+        context: Conversation context to generate UI from
+
+    Returns:
+        A2UI operations as JSON string
+    """
+    from openai import OpenAI
+
+    client = OpenAI()
+    tool_schema = {
+        "type": "function",
+        "function": {
+            "name": "render_a2ui",
+            "description": "Render a dynamic A2UI v0.9 surface.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "surfaceId": {"type": "string"},
+                    "catalogId": {"type": "string"},
+                    "components": {"type": "array", "items": {"type": "object"}},
+                    "data": {"type": "object"},
+                },
+                "required": ["surfaceId", "catalogId", "components"],
+            },
+        },
+    }
+
+    response = client.chat.completions.create(
+        model="gpt-4.1",
+        messages=[
+            {"role": "system", "content": context or "Generate a useful dashboard UI."},
+            {"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."},
+        ],
+        tools=[tool_schema],
+        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+    )
+
+    if not response.choices[0].message.tool_calls:
+        return json.dumps({"error": "LLM did not call render_a2ui"})
+
+    tool_call = response.choices[0].message.tool_calls[0]
+    args = json.loads(tool_call.function.arguments)
+    result = build_a2ui_operations_from_tool_call(args)
+    return json.dumps(result)
 
 
 @tool
@@ -172,9 +257,18 @@ model = OpenAIModel(
 )
 
 system_prompt = (
-    "You are a helpful sales assistant that helps manage a sales pipeline. "
-    "You have tools available to manage sales todos, query financial data, "
-    "get weather, and schedule meetings. "
+    "You are a polished, professional demo assistant for CopilotKit. "
+    "Keep responses brief and clear -- 1 to 2 sentences max.\n\n"
+    "You can:\n"
+    "- Chat naturally with the user\n"
+    "- Change the UI background when asked (via frontend tool)\n"
+    "- Query data and render charts (via query_data tool)\n"
+    "- Get weather information (via get_weather tool)\n"
+    "- Schedule meetings with the user (via schedule_meeting tool -- the user picks a time in the UI)\n"
+    "- Manage sales pipeline todos (via manage_sales_todos / get_sales_todos tools)\n"
+    "- Search flights and display rich A2UI cards (via search_flights tool)\n"
+    "- Generate dynamic A2UI dashboards from conversation context (via generate_a2ui tool)\n"
+    "- Generate step-by-step plans for user review (human-in-the-loop)\n"
     "When discussing the sales pipeline, ALWAYS use the get_sales_todos tool to see the current list before "
     "mentioning, updating, or discussing todos with the user."
 )
@@ -183,7 +277,7 @@ system_prompt = (
 strands_agent = Agent(
     model=model,
     system_prompt=system_prompt,
-    tools=[get_sales_todos, manage_sales_todos, get_weather, query_data, schedule_meeting, set_theme_color],
+    tools=[get_sales_todos, manage_sales_todos, get_weather, query_data, schedule_meeting, search_flights, generate_a2ui, set_theme_color],
 )
 
 # Wrap with AG-UI integration

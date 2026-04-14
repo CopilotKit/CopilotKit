@@ -1,50 +1,38 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
 import {
+  SalesDashboard,
   useShowcaseHooks,
   useShowcaseSuggestions,
-  DemoErrorBoundary,
-  SalesDashboard,
+  demonstrationCatalog,
 } from "@copilotkit/showcase-shared";
 
 export default function AgenticChatDemo() {
-  useEffect(() => {
-    console.log("[agentic-chat] Demo mounted");
-  }, []);
-
   return (
-    <DemoErrorBoundary demoName="Agentic Chat">
-      <CopilotKit
-        runtimeUrl="/api/copilotkit"
-        agent="agentic_chat"
-        onError={(error) => {
-          console.error("[agentic-chat] CopilotKit error:", error);
-        }}
-      >
-        <Chat />
-      </CopilotKit>
-    </DemoErrorBoundary>
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      agent="agentic_chat"
+      a2ui={{ catalog: demonstrationCatalog }}
+    >
+      <div className="min-h-screen w-full flex items-center justify-center">
+        <DemoContent />
+        <CopilotSidebar
+          defaultOpen={true}
+          labels={{
+            modalHeaderTitle: "Sales Assistant",
+          }}
+        />
+      </div>
+    </CopilotKit>
   );
 }
 
-function Chat() {
+function DemoContent() {
   useShowcaseHooks();
   useShowcaseSuggestions();
 
-  return (
-    <div className="flex h-full w-full">
-      <div className="flex-1 flex justify-center items-center">
-        <div className="h-full w-full md:w-4/5 md:h-4/5 rounded-lg px-6">
-          <CopilotChat
-            agentId="agentic_chat"
-            className="h-full rounded-2xl max-w-6xl mx-auto"
-          />
-        </div>
-      </div>
-      <SalesDashboard />
-    </div>
-  );
+  return <SalesDashboard agentId="agentic_chat" />;
 }

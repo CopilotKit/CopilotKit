@@ -20,7 +20,15 @@ sys.path.insert(
     0,
     os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"),
 )
-from tools import get_weather_impl, query_data_impl, manage_sales_todos_impl, get_sales_todos_impl, schedule_meeting_impl
+from tools import (
+    get_weather_impl,
+    query_data_impl,
+    manage_sales_todos_impl,
+    get_sales_todos_impl,
+    schedule_meeting_impl,
+    search_flights_impl,
+    build_a2ui_operations_from_tool_call,
+)
 
 load_dotenv()
 
@@ -62,6 +70,97 @@ def get_sales_todos(tool_context: ToolContext) -> list:
 def schedule_meeting(tool_context: ToolContext, reason: str, duration_minutes: int = 30) -> dict:
     """Schedule a meeting. The user will be asked to pick a time via the UI."""
     return schedule_meeting_impl(reason, duration_minutes)
+
+
+def search_flights(tool_context: ToolContext, flights: list[dict]) -> dict:
+    """Search for flights and display the results as rich cards. Return exactly 2 flights.
+
+    Each flight must have: airline, airlineLogo, flightNumber, origin, destination,
+    date (short readable format like "Tue, Mar 18" -- use near-future dates),
+    departureTime, arrivalTime, duration (e.g. "4h 25m"),
+    status (e.g. "On Time" or "Delayed"),
+    statusColor (hex color for status dot),
+    price (e.g. "$289"), and currency (e.g. "USD").
+
+    For airlineLogo use Google favicon API:
+    https://www.google.com/s2/favicons?domain={airline_domain}&sz=128
+    """
+    return search_flights_impl(flights)
+
+
+def generate_a2ui(tool_context: ToolContext) -> dict:
+    """Generate dynamic A2UI components based on the conversation.
+
+    A secondary LLM designs the UI schema and data. The result is
+    returned as an a2ui_operations container for the middleware to detect.
+    """
+    from openai import OpenAI
+
+    # Extract copilotkit context entries from session state
+    copilotkit_state = tool_context.state.get("copilotkit", {})
+    context_entries = copilotkit_state.get("context", []) if isinstance(copilotkit_state, dict) else []
+    context_text = "\n\n".join(
+        entry.get("value", "")
+        for entry in context_entries
+        if isinstance(entry, dict) and entry.get("value")
+    )
+
+    # Extract conversation messages from session history
+    conversation_messages: list[dict] = []
+    try:
+        session = tool_context._invocation_context.session
+        if session and hasattr(session, "events"):
+            for event in session.events:
+                if hasattr(event, "content") and event.content and hasattr(event.content, "parts"):
+                    role_str = getattr(event.content, "role", "")
+                    if role_str in ("user", "model"):
+                        text_parts = []
+                        for part in event.content.parts:
+                            if hasattr(part, "text") and part.text:
+                                text_parts.append(part.text)
+                        if text_parts:
+                            oai_role = "assistant" if role_str == "model" else "user"
+                            conversation_messages.append({"role": oai_role, "content": "".join(text_parts)})
+    except Exception:
+        pass
+
+    client = OpenAI()
+    tool_schema = {
+        "type": "function",
+        "function": {
+            "name": "render_a2ui",
+            "description": "Render a dynamic A2UI v0.9 surface.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "surfaceId": {"type": "string"},
+                    "catalogId": {"type": "string"},
+                    "components": {"type": "array", "items": {"type": "object"}},
+                    "data": {"type": "object"},
+                },
+                "required": ["surfaceId", "catalogId", "components"],
+            },
+        },
+    }
+
+    llm_messages: list[dict] = [
+        {"role": "system", "content": context_text or "Generate a useful dashboard UI."},
+    ]
+    llm_messages.extend(conversation_messages)
+
+    response = client.chat.completions.create(
+        model="gpt-4.1",
+        messages=llm_messages,
+        tools=[tool_schema],
+        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+    )
+
+    if not response.choices[0].message.tool_calls:
+        return {"error": "LLM did not call render_a2ui"}
+
+    tool_call = response.choices[0].message.tool_calls[0]
+    args = json.loads(tool_call.function.arguments)
+    return build_a2ui_operations_from_tool_call(args)
 
 
 def on_before_agent(callback_context: CallbackContext):
@@ -151,8 +250,14 @@ sales_pipeline_agent = LlmAgent(
 
         GET SALES TODOS:
         Use the get_sales_todos tool to retrieve the current list of sales todos before discussing them.
+
+        SEARCH FLIGHTS:
+        Use the search_flights tool to search for flights and display rich A2UI cards.
+
+        GENERATE A2UI:
+        Use the generate_a2ui tool to generate dynamic A2UI dashboards from conversation context.
         """,
-    tools=[get_weather, query_data, manage_sales_todos, get_sales_todos, schedule_meeting],
+    tools=[get_weather, query_data, manage_sales_todos, get_sales_todos, schedule_meeting, search_flights, generate_a2ui],
     before_agent_callback=on_before_agent,
     before_model_callback=before_model_modifier,
     after_model_callback=simple_after_model_modifier,

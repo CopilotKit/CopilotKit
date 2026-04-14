@@ -2,57 +2,47 @@
 
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import {
-  CopilotChat,
-  useHumanInTheLoop,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotChat, useHumanInTheLoop } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { MeetingTimePicker } from "@copilotkit/showcase-shared";
+import {
+  DemoErrorBoundary,
+  MeetingTimePicker,
+  useShowcaseSuggestions,
+  demonstrationCatalog,
+} from "@copilotkit/showcase-shared";
 
 export default function HitlDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="human_in_the_loop">
-      <DemoContent />
-    </CopilotKit>
+    <DemoErrorBoundary demoName="Human in the Loop">
+      <CopilotKit
+        runtimeUrl="/api/copilotkit"
+        agent="human_in_the_loop"
+        a2ui={{ catalog: demonstrationCatalog }}
+      >
+        <DemoContent />
+      </CopilotKit>
+    </DemoErrorBoundary>
   );
 }
 
 function DemoContent() {
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Schedule a meeting",
-        message:
-          "I'd like to schedule a 30-minute meeting to discuss our sales pipeline.",
-      },
-      {
-        title: "Quick sync",
-        message: "Schedule a 15-minute quick sync about the Q2 forecast.",
-      },
-    ],
-    available: "always",
-  });
+  useShowcaseSuggestions();
 
   useHumanInTheLoop({
     agentId: "human_in_the_loop",
-    name: "schedule_meeting",
-    description:
-      "Schedule a meeting. The user will be asked to pick a time via the meeting time picker UI.",
+    name: "scheduleTime",
+    description: "Use human-in-the-loop to schedule a meeting with the user.",
     parameters: z.object({
-      reason: z.string().describe("Reason for scheduling the meeting."),
-      duration_minutes: z
+      reasonForScheduling: z
+        .string()
+        .describe("Reason for scheduling, very brief - 5 words."),
+      meetingDuration: z
         .number()
         .describe("Duration of the meeting in minutes"),
     }),
-    render: ({ args, respond, status }: any) => (
-      <MeetingTimePicker
-        status={status}
-        respond={respond}
-        reasonForScheduling={args?.reason}
-        meetingDuration={args?.duration_minutes}
-      />
-    ),
+    render: ({ respond, status, args }: any) => {
+      return <MeetingTimePicker status={status} respond={respond} {...args} />;
+    },
   });
 
   return (

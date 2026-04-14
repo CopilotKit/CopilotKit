@@ -40,6 +40,8 @@ from tools import (
     manage_sales_todos_impl,
     get_sales_todos_impl,
     schedule_meeting_impl,
+    search_flights_impl,
+    build_a2ui_operations_from_tool_call,
 )
 
 
@@ -136,12 +138,79 @@ class ScheduleMeetingTool(ToolMessage):
 # Agent factory
 # =====================================================================
 
+class SearchFlightsTool(ToolMessage):
+    """Search for flights and display the results as rich A2UI cards."""
+    request: str = "search_flights"
+    purpose: str = (
+        "Search for flights and display the results as rich cards. Return exactly 2 flights. "
+        "Each flight must have: airline, airlineLogo, flightNumber, origin, destination, "
+        "date, departureTime, arrivalTime, duration, status, statusColor, price, currency."
+    )
+    flights: list[dict]
+
+    def handle(self) -> str:
+        result = search_flights_impl(self.flights)
+        return json.dumps(result)
+
+
+class GenerateA2UITool(ToolMessage):
+    """Generate dynamic A2UI components based on the conversation."""
+    request: str = "generate_a2ui"
+    purpose: str = (
+        "Generate dynamic A2UI components based on the conversation. "
+        "A secondary LLM designs the UI schema and data."
+    )
+    context: str
+
+    def handle(self) -> str:
+        from openai import OpenAI
+
+        client = OpenAI()
+        tool_schema = {
+            "type": "function",
+            "function": {
+                "name": "render_a2ui",
+                "description": "Render a dynamic A2UI v0.9 surface.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "surfaceId": {"type": "string"},
+                        "catalogId": {"type": "string"},
+                        "components": {"type": "array", "items": {"type": "object"}},
+                        "data": {"type": "object"},
+                    },
+                    "required": ["surfaceId", "catalogId", "components"],
+                },
+            },
+        }
+
+        response = client.chat.completions.create(
+            model="gpt-4.1",
+            messages=[
+                {"role": "system", "content": self.context or "Generate a useful dashboard UI."},
+                {"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."},
+            ],
+            tools=[tool_schema],
+            tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+        )
+
+        if not response.choices[0].message.tool_calls:
+            return json.dumps({"error": "LLM did not call render_a2ui"})
+
+        tool_call = response.choices[0].message.tool_calls[0]
+        args = json.loads(tool_call.function.arguments)
+        result = build_a2ui_operations_from_tool_call(args)
+        return json.dumps(result)
+
+
 # Tools that execute server-side (Langroid handles them directly)
 BACKEND_TOOLS = [
     GetWeatherTool,
     QueryDataTool,
     ManageSalesTodosTool,
     GetSalesTodosTool,
+    SearchFlightsTool,
+    GenerateA2UITool,
 ]
 
 # Tools that execute client-side (AG-UI adapter forwards to frontend)
@@ -156,17 +225,20 @@ ALL_TOOLS = BACKEND_TOOLS + FRONTEND_TOOLS
 FRONTEND_TOOL_NAMES = {t.default_value("request") for t in FRONTEND_TOOLS}
 
 SYSTEM_PROMPT = (
-    "You are a helpful assistant that can: "
-    "get the weather for a given location, "
-    "query a database for financial/sales data, "
-    "manage a list of sales todos, "
-    "schedule meetings (which requires user approval via the meeting time picker), "
-    "change the background color/gradient of the chat area, "
-    "and generate haikus with Japanese and English text. "
-    "When asked about weather, always use the get_weather tool and return the JSON result. "
-    "When asked about data, charts, or graphs, use the query_data tool first. "
-    "When asked to manage todos, use manage_sales_todos or get_sales_todos. "
-    "When asked to schedule a meeting, use the schedule_meeting tool."
+    "You are a polished, professional demo assistant for CopilotKit. "
+    "Keep responses brief and clear -- 1 to 2 sentences max.\n\n"
+    "You can:\n"
+    "- Chat naturally with the user\n"
+    "- Change the UI background when asked (via frontend tool)\n"
+    "- Query data and render charts (via query_data tool)\n"
+    "- Get weather information (via get_weather tool)\n"
+    "- Schedule meetings with the user (via schedule_meeting tool -- the user picks a time in the UI)\n"
+    "- Manage sales pipeline todos (via manage_sales_todos / get_sales_todos tools)\n"
+    "- Search flights and display rich A2UI cards (via search_flights tool)\n"
+    "- Generate dynamic A2UI dashboards from conversation context (via generate_a2ui tool)\n"
+    "- Generate step-by-step plans for user review (human-in-the-loop)\n"
+    "When asked about weather, always use the get_weather tool. "
+    "When asked about data, charts, or graphs, use the query_data tool first."
 )
 
 

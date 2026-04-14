@@ -12,3 +12,4 @@ test-results/
 # Shared modules (copied by CI)
 shared_frontend/
 shared_python/
+shared_typescript/

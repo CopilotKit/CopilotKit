@@ -5,6 +5,7 @@ import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotChat, useHumanInTheLoop } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import {
+  DemoErrorBoundary,
   MeetingTimePicker,
   useShowcaseSuggestions,
   demonstrationCatalog,
@@ -12,13 +13,15 @@ import {
 
 export default function HitlDemo() {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      agent="human_in_the_loop"
-      a2ui={{ catalog: demonstrationCatalog }}
-    >
-      <DemoContent />
-    </CopilotKit>
+    <DemoErrorBoundary demoName="Human in the Loop">
+      <CopilotKit
+        runtimeUrl="/api/copilotkit"
+        agent="human_in_the_loop"
+        a2ui={{ catalog: demonstrationCatalog }}
+      >
+        <DemoContent />
+      </CopilotKit>
+    </DemoErrorBoundary>
   );
 }
 

@@ -46,9 +46,9 @@ from langroid.agent.tool_message import ToolMessage
 
 
 def _sse_line(event: Any) -> str:
-    """Format an AG-UI event as an SSE data line."""
+    """Format an AG-UI event as an SSE data line (camelCase keys per AG-UI protocol)."""
     if hasattr(event, "model_dump"):
-        data = event.model_dump()
+        data = event.model_dump(by_alias=True, exclude_none=True)
     else:
         data = dict(event)
     return f"data: {json.dumps(data)}\n\n"

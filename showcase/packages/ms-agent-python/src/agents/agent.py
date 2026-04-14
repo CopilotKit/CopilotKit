@@ -31,6 +31,8 @@ from tools import (
     manage_sales_todos_impl,
     get_sales_todos_impl,
     schedule_meeting_impl,
+    search_flights_impl,
+    build_a2ui_operations_from_tool_call,
 )
 
 STATE_SCHEMA: dict[str, object] = {
@@ -131,6 +133,76 @@ def schedule_meeting(
     return json.dumps(result)
 
 
+@tool(
+    name="search_flights",
+    description=(
+        "Search for flights and display the results as rich A2UI cards. Return exactly 2 flights. "
+        "Each flight must have: airline, airlineLogo, flightNumber, origin, destination, "
+        "date, departureTime, arrivalTime, duration, status, statusColor, price, currency."
+    ),
+)
+def search_flights(
+    flights: Annotated[
+        list[dict],
+        Field(description="List of flight objects to search and display."),
+    ],
+) -> str:
+    """Search for flights and display as rich cards."""
+    result = search_flights_impl(flights)
+    return json.dumps(result)
+
+
+@tool(
+    name="generate_a2ui",
+    description=(
+        "Generate dynamic A2UI components based on the conversation. "
+        "A secondary LLM designs the UI schema and data."
+    ),
+)
+def generate_a2ui(
+    context: Annotated[str, Field(description="Conversation context to generate UI from.")],
+) -> str:
+    """Generate dynamic A2UI dashboard from conversation context."""
+    from openai import OpenAI
+
+    client = OpenAI()
+    tool_schema = {
+        "type": "function",
+        "function": {
+            "name": "render_a2ui",
+            "description": "Render a dynamic A2UI v0.9 surface.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "surfaceId": {"type": "string"},
+                    "catalogId": {"type": "string"},
+                    "components": {"type": "array", "items": {"type": "object"}},
+                    "data": {"type": "object"},
+                },
+                "required": ["surfaceId", "catalogId", "components"],
+            },
+        },
+    }
+
+    response = client.chat.completions.create(
+        model="gpt-4.1",
+        messages=[
+            {"role": "system", "content": context or "Generate a useful dashboard UI."},
+            {"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."},
+        ],
+        tools=[tool_schema],
+        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+    )
+
+    if not response.choices[0].message.tool_calls:
+        return json.dumps({"error": "LLM did not call render_a2ui"})
+
+    tool_call = response.choices[0].message.tool_calls[0]
+    args = json.loads(tool_call.function.arguments)
+    result = build_a2ui_operations_from_tool_call(args)
+    return json.dumps(result)
+
+
 def create_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
     """Instantiate the CopilotKit demo agent backed by Microsoft Agent Framework."""
     base_agent = Agent(
@@ -169,7 +241,7 @@ def create_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
               after that summary unless the user asks. ALWAYS send this conversational summary so the message persists.
             """.strip()
         ),
-        tools=[manage_sales_todos, get_sales_todos, get_weather, query_data, schedule_meeting],
+        tools=[manage_sales_todos, get_sales_todos, get_weather, query_data, schedule_meeting, search_flights, generate_a2ui],
     )
 
     return AgentFrameworkAgent(

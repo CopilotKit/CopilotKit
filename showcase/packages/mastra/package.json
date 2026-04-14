@@ -12,6 +12,7 @@
   "dependencies": {
     "@ag-ui/mastra": "beta",
     "@ai-sdk/openai": "^2.0.42",
+    "ai": "^4.0.0",
     "@copilotkit/a2ui-renderer": "next",
     "@copilotkit/react-core": "next",
     "@copilotkit/runtime": "next",

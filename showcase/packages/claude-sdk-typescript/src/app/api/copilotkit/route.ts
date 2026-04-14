@@ -25,6 +25,11 @@ const agentNames = [
   "tool-rendering",
   "hitl",
   "gen-ui-tool-based",
+  "gen-ui-agent",
+  "shared-state-read",
+  "shared-state-write",
+  "shared-state-streaming",
+  "subagents",
 ];
 
 const agents: Record<string, AbstractAgent> = {};

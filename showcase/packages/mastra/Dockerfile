@@ -1,5 +1,5 @@
 # Stage 1: Build Next.js frontend
-FROM node:20.20-slim AS frontend
+FROM node:22-slim AS frontend
 WORKDIR /app
 COPY package.json ./
 RUN npm install --legacy-peer-deps
@@ -9,7 +9,7 @@ COPY shared_typescript/tools/ ./shared_typescript/tools/
 RUN npx next build
 
 # Stage 2: Production image
-FROM node:20.20-slim AS runner
+FROM node:22-slim AS runner
 WORKDIR /app
 
 # Next.js build artifacts

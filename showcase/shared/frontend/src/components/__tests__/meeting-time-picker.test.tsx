@@ -18,7 +18,9 @@ describe("MeetingTimePicker", () => {
   });
 
   it("shows time slot buttons in executing status", () => {
-    render(<MeetingTimePicker status="executing" timeSlots={defaultSlots} />);
+    render(
+      <MeetingTimePicker status="executing" timeSlots={defaultSlots} />,
+    );
     expect(screen.getByText("Tomorrow")).toBeTruthy();
     expect(screen.getByText("2:00 PM")).toBeTruthy();
     expect(screen.getByText("Friday")).toBeTruthy();
@@ -28,7 +30,9 @@ describe("MeetingTimePicker", () => {
   });
 
   it("shows decline button in executing status", () => {
-    render(<MeetingTimePicker status="executing" timeSlots={defaultSlots} />);
+    render(
+      <MeetingTimePicker status="executing" timeSlots={defaultSlots} />,
+    );
     expect(screen.getByText("None of these work")).toBeTruthy();
   });
 
@@ -106,7 +110,11 @@ describe("MeetingTimePicker", () => {
   });
 
   it("shows pick-a-time prompt in executing status", () => {
-    render(<MeetingTimePicker status="executing" timeSlots={defaultSlots} />);
-    expect(screen.getByText("Pick a time that works for you")).toBeTruthy();
+    render(
+      <MeetingTimePicker status="executing" timeSlots={defaultSlots} />,
+    );
+    expect(
+      screen.getByText("Pick a time that works for you"),
+    ).toBeTruthy();
   });
 });
