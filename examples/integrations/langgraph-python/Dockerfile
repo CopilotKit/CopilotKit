@@ -19,7 +19,8 @@ COPY docker-route-override.ts ./apps/app/src/app/api/copilotkit/route.ts
 RUN pnpm --filter @repo/app add @ag-ui/client
 
 ENV NODE_OPTIONS="--max-old-space-size=4096"
-RUN pnpm --filter @repo/app exec next build --no-turbopack
+# Next.js 16+ uses Turbopack by default; use --webpack for serverExternalPackages compat
+RUN pnpm --filter @repo/app exec next build --webpack
 
 # Stage 2: Production image with Python + Node
 FROM python:3.12.10-slim AS runner
