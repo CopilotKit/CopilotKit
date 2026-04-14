@@ -155,11 +155,11 @@ Before you begin, you'll need the following:
                   First, we'll create a simple LangGraph agent:
 
                   ```python title="main.py"
-                  import dotenv
+                  from dotenv import load_dotenv
                   from langchain_core.messages import SystemMessage
                   from langchain_openai import ChatOpenAI
                   from langgraph.graph import END, START, MessagesState, StateGraph
-                  dotenv.load_dotenv()
+                  load_dotenv()
 
                   async def mock_llm(state: MessagesState):
                     model = ChatOpenAI(model="gpt-4.1-mini")
@@ -210,7 +210,7 @@ Before you begin, you'll need the following:
                   ```python title="main.py"
 
                   # [!code highlight:2]
-                  import dotenv
+                  from dotenv import load_dotenv
                   from ag_ui_langgraph import add_langgraph_fastapi_endpoint
                   from copilotkit import LangGraphAGUIAgent
                   from fastapi import FastAPI
@@ -218,7 +218,7 @@ Before you begin, you'll need the following:
                   from langchain_core.messages import SystemMessage
                   from langchain_openai import ChatOpenAI
                   import uvicorn
-                  dotenv.load_dotenv()
+                  load_dotenv()
 
                   async def mock_llm(state: MessagesState):
                     model = ChatOpenAI(model="gpt-4.1-mini")
