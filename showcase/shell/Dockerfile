@@ -1,4 +1,4 @@
-FROM node:20-slim AS builder
+FROM node:20.19-slim AS builder
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
 WORKDIR /app
@@ -26,7 +26,7 @@ RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
     && node node_modules/tsx/dist/cli.mjs generate-search-index.ts \
     && cd ../shell && npx next build
 
-FROM node:20-slim AS runner
+FROM node:20.19-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=10000

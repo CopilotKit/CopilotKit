@@ -1,4 +1,4 @@
-FROM ghcr.io/copilotkit/aimock:latest
+FROM ghcr.io/copilotkit/aimock:1.13.0
 COPY smoke.json /fixtures/smoke.json
 COPY feature-parity.json /fixtures/feature-parity.json
 CMD ["--proxy-only", \
