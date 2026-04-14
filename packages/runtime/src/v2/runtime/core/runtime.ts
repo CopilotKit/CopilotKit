@@ -22,6 +22,7 @@ import type {
   BeforeRequestMiddleware,
   AfterRequestMiddleware,
 } from "./middleware";
+import { createLogger, type CopilotRuntimeLogger } from "../../../lib/logger";
 import { TranscriptionService } from "../transcription-service/transcription-service";
 import { AgentRunner } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
@@ -189,6 +190,7 @@ export interface CopilotRuntimeLike {
   mode: RuntimeMode;
   licenseChecker?: LicenseChecker;
   debug: ResolvedDebugConfig;
+  debugLogger?: CopilotRuntimeLogger;
 }
 
 export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
@@ -217,6 +219,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
   public licenseChecker?: LicenseChecker;
   public debug: ResolvedDebugConfig;
+  public debugLogger?: CopilotRuntimeLogger;
 
   abstract readonly intelligence?: CopilotKitIntelligence;
   abstract readonly mode: RuntimeMode;
@@ -241,6 +244,12 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.openGenerativeUI = openGenerativeUI;
     this.runner = runner;
     this.debug = resolveDebugConfig(options.debug);
+    if (this.debug.enabled) {
+      this.debugLogger = createLogger({
+        level: "debug",
+        component: "copilotkit-debug",
+      });
+    }
   }
 }
 
@@ -400,5 +409,9 @@ export class CopilotRuntime implements CopilotRuntimeLike {
 
   get debug(): ResolvedDebugConfig {
     return this.delegate.debug;
+  }
+
+  get debugLogger(): CopilotRuntimeLogger | undefined {
+    return this.delegate.debugLogger;
   }
 }

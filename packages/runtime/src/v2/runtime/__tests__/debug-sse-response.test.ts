@@ -18,6 +18,7 @@ vi.mock("../../telemetry", () => ({
   telemetry: { capture: vi.fn() },
 }));
 
+import pino from "pino";
 import { createSseEventResponse } from "../handlers/shared/sse-response";
 
 function createTestObservable(events: BaseEvent[]): Observable<BaseEvent> {
@@ -213,6 +214,47 @@ describe("createSseEventResponse debug logging", () => {
     const [verboseArg] = eventEmittedCalls[0];
     expect(verboseArg).toHaveProperty("event");
     expect(verboseArg.event).toEqual(event);
+  });
+
+  it("uses a pre-created logger instead of calling createLogger when one is provided", async () => {
+    const debug: ResolvedDebugConfig = {
+      enabled: true,
+      events: false,
+      lifecycle: true,
+      verbose: false,
+    };
+
+    const externalDebug = vi.fn();
+    const externalLogger = { debug: externalDebug } as any;
+
+    // Clear the pino mock call count so we can assert it was NOT called again
+    const pinoMock = pino as unknown as ReturnType<typeof vi.fn>;
+    pinoMock.mockClear();
+
+    const event: BaseEvent = {
+      type: EventType.RUN_STARTED,
+      threadId: "t-1",
+      runId: "r-1",
+    } as BaseEvent;
+
+    const response = createSseEventResponse({
+      request: createMockRequest(),
+      observableFactory: () => createTestObservable([event]),
+      debug,
+      logger: externalLogger,
+    });
+
+    await drainResponse(response);
+
+    // The external logger should have been used for lifecycle messages
+    expect(externalDebug).toHaveBeenCalledWith("SSE stream opened");
+    expect(externalDebug).toHaveBeenCalledWith(
+      { eventCount: 1, loggedEventCount: 0 },
+      "SSE stream completed",
+    );
+
+    // pino should NOT have been called – the pre-created logger was reused
+    expect(pinoMock).not.toHaveBeenCalled();
   });
 
   it("does not log events when events is disabled", async () => {

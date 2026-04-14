@@ -8,7 +8,6 @@ import {
 } from "./shared/agent-utils";
 import { handleIntelligenceRun } from "./intelligence/run";
 import { handleSseRun } from "./sse/run";
-import { createLogger } from "../../../lib/logger";
 
 export async function handleRunAgent({
   runtime,
@@ -56,12 +55,8 @@ export async function handleRunAgent({
     agent.setState(input.state);
     agent.threadId = input.threadId;
 
-    if (runtime.debug?.lifecycle) {
-      const debugLogger = createLogger({
-        level: "debug",
-        component: "copilotkit-debug",
-      });
-      debugLogger.debug(
+    if (runtime.debug?.lifecycle && runtime.debugLogger) {
+      runtime.debugLogger.debug(
         { agentName: agentId, threadId: input.threadId },
         "Agent run started",
       );
@@ -83,6 +78,7 @@ export async function handleRunAgent({
       agent,
       input,
       debug: runtime.debug,
+      logger: runtime.debugLogger,
     });
   } catch (error) {
     console.error("Error running agent:", error);

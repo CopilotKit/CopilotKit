@@ -2,7 +2,10 @@ import { BaseEvent } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
 import { Observable, Subscription } from "rxjs";
 import { ResolvedDebugConfig } from "@copilotkit/shared";
-import { createLogger } from "../../../../lib/logger";
+import {
+  createLogger,
+  type CopilotRuntimeLogger,
+} from "../../../../lib/logger";
 import { telemetry } from "../../telemetry";
 
 interface CreateSseEventResponseParams {
@@ -11,12 +14,15 @@ interface CreateSseEventResponseParams {
     | Promise<Observable<BaseEvent>>
     | Observable<BaseEvent>;
   debug?: ResolvedDebugConfig;
+  /** Pre-created logger instance to avoid creating a new pino logger per request. */
+  logger?: CopilotRuntimeLogger;
 }
 
 export function createSseEventResponse({
   request,
   observableFactory,
   debug,
+  logger,
 }: CreateSseEventResponseParams): Response {
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
@@ -24,7 +30,8 @@ export function createSseEventResponse({
   let streamClosed = false;
 
   const debugLogger = debug?.enabled
-    ? createLogger({ level: "debug", component: "copilotkit-debug" })
+    ? (logger ??
+      createLogger({ level: "debug", component: "copilotkit-debug" }))
     : undefined;
 
   const closeStream = async () => {
