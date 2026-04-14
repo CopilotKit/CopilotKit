@@ -15,7 +15,9 @@ describe("RendererSelector", () => {
     render(<RendererSelector mode="tool-based" onModeChange={onModeChange} />);
 
     for (const strategy of RENDER_STRATEGIES) {
-      expect(screen.getByRole("radio", { name: new RegExp(strategy.name) })).toBeDefined();
+      expect(
+        screen.getByRole("radio", { name: new RegExp(strategy.name) }),
+      ).toBeDefined();
     }
 
     const pills = screen.getAllByRole("radio");
@@ -43,7 +45,9 @@ describe("RendererSelector", () => {
     render(<RendererSelector mode="tool-based" onModeChange={onModeChange} />);
 
     const pill = screen.getByRole("radio", { name: /json-render/ });
-    expect(pill.getAttribute("title")).toBe("JSONL patches with built-in state");
+    expect(pill.getAttribute("title")).toBe(
+      "JSONL patches with built-in state",
+    );
   });
 
   it("applies highlighted styles to the active pill", () => {

@@ -41,8 +41,16 @@ export {
 export { demonstrationCatalog } from "./a2ui/renderers";
 
 // Renderers
-export type { RenderMode, RenderStrategyInfo, RendererSelectorProps } from "./renderers";
-export { RENDER_STRATEGIES, RendererSelector, useRenderMode } from "./renderers";
+export type {
+  RenderMode,
+  RenderStrategyInfo,
+  RendererSelectorProps,
+} from "./renderers";
+export {
+  RENDER_STRATEGIES,
+  RendererSelector,
+  useRenderMode,
+} from "./renderers";
 export { ToolBasedDashboard } from "./renderers/tool-based";
 export { A2UIDashboard } from "./renderers/a2ui";
 export {

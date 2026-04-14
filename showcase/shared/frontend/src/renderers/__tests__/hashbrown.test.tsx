@@ -32,7 +32,10 @@ vi.mock("@hashbrownai/core", () => {
       _desc: desc,
       optional: () => ({ _type: "number", _optional: true, _desc: desc }),
     }),
-    object: (shape: Record<string, unknown>) => ({ _type: "object", _shape: shape }),
+    object: (shape: Record<string, unknown>) => ({
+      _type: "object",
+      _shape: shape,
+    }),
     streaming: {
       array: (item: unknown) => ({ _type: "streaming_array", _item: item }),
       string: (desc?: string) => ({ _type: "streaming_string", _desc: desc }),
@@ -58,15 +61,21 @@ vi.mock("@hashbrownai/react", () => {
 
   function exposeComponent(
     component: unknown,
-    options: { name: string; props: Record<string, unknown>; description?: string },
+    options: {
+      name: string;
+      props: Record<string, unknown>;
+      description?: string;
+    },
   ) {
-    return { _type: "component", _component: component, _name: options.name, _props: options.props };
+    return {
+      _type: "component",
+      _component: component,
+      _name: options.name,
+      _props: options.props,
+    };
   }
 
-  function useUiKit(options: {
-    examples: string;
-    components: unknown[];
-  }) {
+  function useUiKit(options: { examples: string; components: unknown[] }) {
     return {
       schema: { _components: options.components, _examples: options.examples },
       render: (value: unknown) => {
@@ -94,10 +103,7 @@ vi.mock("@hashbrownai/react", () => {
 });
 
 // Now import the module under test
-import {
-  useSalesDashboardKit,
-  HashBrownDashboard,
-} from "../hashbrown";
+import { useSalesDashboardKit, HashBrownDashboard } from "../hashbrown";
 
 describe("HashBrown renderer adapter", () => {
   describe("useSalesDashboardKit", () => {
@@ -109,7 +115,9 @@ describe("HashBrown renderer adapter", () => {
 
     it("schema contains registered components", () => {
       const { result } = renderHook(() => useSalesDashboardKit());
-      const schema = result.current.schema as { _components: { _name: string }[] };
+      const schema = result.current.schema as {
+        _components: { _name: string }[];
+      };
       const names = schema._components
         .filter((c: { _name?: string }) => c._name)
         .map((c: { _name: string }) => c._name);
@@ -121,7 +129,9 @@ describe("HashBrown renderer adapter", () => {
 
     it("schema includes markdown component", () => {
       const { result } = renderHook(() => useSalesDashboardKit());
-      const schema = result.current.schema as { _components: { _type: string }[] };
+      const schema = result.current.schema as {
+        _components: { _type: string }[];
+      };
       const hasMarkdown = schema._components.some(
         (c: { _type: string }) => c._type === "markdown",
       );
@@ -149,7 +159,9 @@ describe("HashBrown renderer adapter", () => {
       const { result } = renderHook(() => useSalesDashboardKit());
       const mockValue = { type: "metric", label: "Revenue", value: "$1M" };
 
-      const { container } = render(result.current.render(mockValue) as React.ReactElement);
+      const { container } = render(
+        result.current.render(mockValue) as React.ReactElement,
+      );
       const rendered = container.querySelector("[data-testid='kit-render']");
       expect(rendered).toBeTruthy();
       expect(rendered!.textContent).toContain("Revenue");

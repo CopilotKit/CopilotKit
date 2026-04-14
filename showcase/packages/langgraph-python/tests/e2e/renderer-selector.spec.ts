@@ -11,8 +11,12 @@ test.describe("Renderer Selector", () => {
 
     // Verify all strategy names are visible
     await expect(page.getByRole("radio", { name: /Tool-Based/ })).toBeVisible();
-    await expect(page.getByRole("radio", { name: /A2UI Catalog/ })).toBeVisible();
-    await expect(page.getByRole("radio", { name: /json-render/ })).toBeVisible();
+    await expect(
+      page.getByRole("radio", { name: /A2UI Catalog/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("radio", { name: /json-render/ }),
+    ).toBeVisible();
     await expect(page.getByRole("radio", { name: /HashBrown/ })).toBeVisible();
     await expect(page.getByRole("radio", { name: /Open GenUI/ })).toBeVisible();
   });

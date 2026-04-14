@@ -4,14 +4,12 @@ const STAGE_COLORS: Record<SalesTodo["stage"], string> = {
   prospect: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   qualified:
     "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-  proposal:
-    "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+  proposal: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
   negotiation:
     "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
   "closed-won":
     "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  "closed-lost":
-    "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  "closed-lost": "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
 export interface DealCardProps {
@@ -42,9 +40,7 @@ export function DealCard({ deal }: DealCardProps) {
         <span
           data-testid="completion-indicator"
           className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${
-            deal.completed
-              ? "bg-[var(--muted-foreground)]"
-              : "bg-green-500"
+            deal.completed ? "bg-[var(--muted-foreground)]" : "bg-green-500"
           }`}
         />
       </div>

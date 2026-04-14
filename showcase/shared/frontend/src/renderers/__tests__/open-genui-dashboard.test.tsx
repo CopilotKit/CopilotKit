@@ -10,7 +10,11 @@ let capturedSidebarProps: Record<string, unknown> = {};
 vi.mock("@copilotkit/react-core/v2", () => ({
   CopilotKitProvider: (props: Record<string, unknown>) => {
     capturedProviderProps = props;
-    return <div data-testid="copilotkit-provider">{props.children as React.ReactNode}</div>;
+    return (
+      <div data-testid="copilotkit-provider">
+        {props.children as React.ReactNode}
+      </div>
+    );
   },
   CopilotSidebar: (props: Record<string, unknown>) => {
     capturedSidebarProps = props;
@@ -44,7 +48,9 @@ describe("OpenGenUIDashboard", () => {
     render(<OpenGenUIDashboard />);
     expect(capturedProviderProps.openGenerativeUI).toBeDefined();
     expect(typeof capturedProviderProps.openGenerativeUI).toBe("object");
-    expect(Object.keys(capturedProviderProps.openGenerativeUI as object)).toHaveLength(0);
+    expect(
+      Object.keys(capturedProviderProps.openGenerativeUI as object),
+    ).toHaveLength(0);
   });
 
   it("does not pass a2ui config to provider", () => {

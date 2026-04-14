@@ -16,9 +16,16 @@ export interface RendererSelectorProps {
  * Each pill shows the strategy icon and name. Hovering reveals a tooltip with
  * the one-line description. The active pill is visually highlighted.
  */
-export function RendererSelector({ mode, onModeChange }: RendererSelectorProps) {
+export function RendererSelector({
+  mode,
+  onModeChange,
+}: RendererSelectorProps) {
   return (
-    <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Render mode">
+    <div
+      className="flex flex-wrap gap-2"
+      role="radiogroup"
+      aria-label="Render mode"
+    >
       {RENDER_STRATEGIES.map((strategy) => {
         const isActive = strategy.mode === mode;
         return (

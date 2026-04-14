@@ -1,4 +1,9 @@
-export type RenderMode = "tool-based" | "a2ui" | "json-render" | "hashbrown" | "open-genui";
+export type RenderMode =
+  | "tool-based"
+  | "a2ui"
+  | "json-render"
+  | "hashbrown"
+  | "open-genui";
 
 export interface RenderStrategyInfo {
   mode: RenderMode;
@@ -19,34 +24,59 @@ export const RENDER_STRATEGIES: RenderStrategyInfo[] = [
     name: "Tool-Based",
     description: "Agent calls typed tool functions",
     icon: "\u{1F527}",
-    features: { streaming: false, interactivity: true, sandbox: false, constraintLevel: "high" },
+    features: {
+      streaming: false,
+      interactivity: true,
+      sandbox: false,
+      constraintLevel: "high",
+    },
   },
   {
     mode: "a2ui",
     name: "A2UI Catalog",
     description: "Component tree from predefined catalog",
     icon: "\u{1F4CB}",
-    features: { streaming: false, interactivity: true, sandbox: false, constraintLevel: "medium" },
+    features: {
+      streaming: false,
+      interactivity: true,
+      sandbox: false,
+      constraintLevel: "medium",
+    },
   },
   {
     mode: "json-render",
     name: "json-render",
     description: "JSONL patches with built-in state",
     icon: "\u{1F4C4}",
-    features: { streaming: true, interactivity: true, sandbox: false, constraintLevel: "medium" },
+    features: {
+      streaming: true,
+      interactivity: true,
+      sandbox: false,
+      constraintLevel: "medium",
+    },
   },
   {
     mode: "hashbrown",
     name: "HashBrown",
     description: "Streaming structured output",
     icon: "\u{1F954}",
-    features: { streaming: true, interactivity: false, sandbox: false, constraintLevel: "high" },
+    features: {
+      streaming: true,
+      interactivity: false,
+      sandbox: false,
+      constraintLevel: "high",
+    },
   },
   {
     mode: "open-genui",
     name: "Open GenUI",
     description: "Agent generates arbitrary UI",
     icon: "\u{1F3A8}",
-    features: { streaming: false, interactivity: true, sandbox: true, constraintLevel: "none" },
+    features: {
+      streaming: false,
+      interactivity: true,
+      sandbox: true,
+      constraintLevel: "none",
+    },
   },
 ];

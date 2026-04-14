@@ -43,10 +43,7 @@ function DashboardContent() {
 
 export function OpenGenUIDashboard() {
   return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
-      openGenerativeUI={{}}
-    >
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" openGenerativeUI={{}}>
       <DashboardContent />
     </CopilotKitProvider>
   );

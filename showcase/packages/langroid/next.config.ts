@@ -1,6 +1,5 @@
 import type { NextConfig } from "next";
 
-
 const nextConfig: NextConfig = {
   // Allow iframe embedding from the showcase shell
   async headers() {

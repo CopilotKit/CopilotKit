@@ -7,6 +7,7 @@
 
 json-render (`@json-render/react`) depends on Zod 4, while the monorepo uses Zod 3.
 The isolation requires:
+
 - Separate sub-package with its own `package.json` declaring `zod@^4`
 - Bundled separately (webpack externals or separate build step)
 - JSON boundary — no Zod schemas cross between packages

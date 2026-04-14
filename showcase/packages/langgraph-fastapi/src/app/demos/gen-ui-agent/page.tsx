@@ -57,22 +57,25 @@ function Chat() {
       <div className="flex-1 flex justify-center items-center">
         <div className="h-full w-full md:w-4/5 md:h-4/5 rounded-lg px-6">
           <CopilotChat
-          agentId="gen-ui-agent"
-          className="h-full rounded-2xl max-w-6xl mx-auto"
-          messageView={{
-            children: ({ messageElements, interruptElement }) => (
-              <div data-testid="copilot-message-list" className="flex flex-col">
-                {messageElements}
-                {steps && steps.length > 0 && (
-                  <div className="my-4">
-                    <TaskProgress steps={steps} />
-                  </div>
-                )}
-                {interruptElement}
-              </div>
-            ),
-          }}
-        />
+            agentId="gen-ui-agent"
+            className="h-full rounded-2xl max-w-6xl mx-auto"
+            messageView={{
+              children: ({ messageElements, interruptElement }) => (
+                <div
+                  data-testid="copilot-message-list"
+                  className="flex flex-col"
+                >
+                  {messageElements}
+                  {steps && steps.length > 0 && (
+                    <div className="my-4">
+                      <TaskProgress steps={steps} />
+                    </div>
+                  )}
+                  {interruptElement}
+                </div>
+              ),
+            }}
+          />
         </div>
       </div>
     </div>

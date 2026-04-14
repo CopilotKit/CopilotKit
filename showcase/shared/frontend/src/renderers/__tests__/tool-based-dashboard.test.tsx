@@ -10,7 +10,11 @@ let capturedSidebarProps: Record<string, unknown> = {};
 vi.mock("@copilotkit/react-core", () => ({
   CopilotKit: (props: Record<string, unknown>) => {
     capturedCopilotKitProps = props;
-    return <div data-testid="copilotkit-provider">{props.children as React.ReactNode}</div>;
+    return (
+      <div data-testid="copilotkit-provider">
+        {props.children as React.ReactNode}
+      </div>
+    );
   },
 }));
 
@@ -19,7 +23,9 @@ vi.mock("@copilotkit/react-core/v2", () => ({
     capturedSidebarProps = props;
     return <div data-testid="copilot-sidebar" />;
   },
-  useAgent: () => ({ agent: { state: {}, isRunning: false, setState: vi.fn() } }),
+  useAgent: () => ({
+    agent: { state: {}, isRunning: false, setState: vi.fn() },
+  }),
 }));
 
 vi.mock("../../hooks/use-showcase-hooks", () => ({
@@ -68,9 +74,9 @@ describe("ToolBasedDashboard", () => {
   it("sets sidebar to default open with correct title", () => {
     render(<ToolBasedDashboard agentId="test-agent" />);
     expect(capturedSidebarProps.defaultOpen).toBe(true);
-    expect((capturedSidebarProps.labels as Record<string, string>).modalHeaderTitle).toBe(
-      "Sales Dashboard Assistant",
-    );
+    expect(
+      (capturedSidebarProps.labels as Record<string, string>).modalHeaderTitle,
+    ).toBe("Sales Dashboard Assistant");
   });
 
   it("passes different agentId correctly", () => {

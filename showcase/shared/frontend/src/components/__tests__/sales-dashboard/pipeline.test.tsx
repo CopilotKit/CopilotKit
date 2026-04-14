@@ -98,7 +98,9 @@ describe("Pipeline", () => {
   it("renders multiple deals within the same stage column", () => {
     render(<Pipeline deals={deals} />);
     // Both Acme Corp and TechStart are in prospect
-    const prospectColumn = screen.getByRole("region", { name: /Prospect column/ });
+    const prospectColumn = screen.getByRole("region", {
+      name: /Prospect column/,
+    });
     expect(prospectColumn).toBeTruthy();
     expect(prospectColumn.textContent).toContain("Acme Corp");
     expect(prospectColumn.textContent).toContain("TechStart");
@@ -107,7 +109,9 @@ describe("Pipeline", () => {
   it("shows correct count badge for columns with multiple deals", () => {
     render(<Pipeline deals={deals} />);
     // Prospect column should show "2" count badge
-    const prospectColumn = screen.getByRole("region", { name: /Prospect column/ });
+    const prospectColumn = screen.getByRole("region", {
+      name: /Prospect column/,
+    });
     expect(prospectColumn.textContent).toContain("2");
   });
 
@@ -115,12 +119,60 @@ describe("Pipeline", () => {
 
   it("distributes deals across all possible stages", () => {
     const allStageDeals: SalesTodo[] = [
-      { id: "a", title: "Deal A", stage: "prospect", value: 10000, dueDate: "", assignee: "", completed: false },
-      { id: "b", title: "Deal B", stage: "qualified", value: 20000, dueDate: "", assignee: "", completed: false },
-      { id: "c", title: "Deal C", stage: "proposal", value: 30000, dueDate: "", assignee: "", completed: false },
-      { id: "d", title: "Deal D", stage: "negotiation", value: 40000, dueDate: "", assignee: "", completed: false },
-      { id: "e", title: "Deal E", stage: "closed-won", value: 50000, dueDate: "", assignee: "", completed: true },
-      { id: "f", title: "Deal F", stage: "closed-lost", value: 60000, dueDate: "", assignee: "", completed: false },
+      {
+        id: "a",
+        title: "Deal A",
+        stage: "prospect",
+        value: 10000,
+        dueDate: "",
+        assignee: "",
+        completed: false,
+      },
+      {
+        id: "b",
+        title: "Deal B",
+        stage: "qualified",
+        value: 20000,
+        dueDate: "",
+        assignee: "",
+        completed: false,
+      },
+      {
+        id: "c",
+        title: "Deal C",
+        stage: "proposal",
+        value: 30000,
+        dueDate: "",
+        assignee: "",
+        completed: false,
+      },
+      {
+        id: "d",
+        title: "Deal D",
+        stage: "negotiation",
+        value: 40000,
+        dueDate: "",
+        assignee: "",
+        completed: false,
+      },
+      {
+        id: "e",
+        title: "Deal E",
+        stage: "closed-won",
+        value: 50000,
+        dueDate: "",
+        assignee: "",
+        completed: true,
+      },
+      {
+        id: "f",
+        title: "Deal F",
+        stage: "closed-lost",
+        value: 60000,
+        dueDate: "",
+        assignee: "",
+        completed: false,
+      },
     ];
     render(<Pipeline deals={allStageDeals} />);
 
@@ -143,12 +195,24 @@ describe("Pipeline", () => {
 
   it("each column has aria-label with stage name", () => {
     render(<Pipeline deals={deals} />);
-    expect(screen.getByRole("region", { name: /Prospect column/ })).toBeTruthy();
-    expect(screen.getByRole("region", { name: /Qualified column/ })).toBeTruthy();
-    expect(screen.getByRole("region", { name: /Proposal column/ })).toBeTruthy();
-    expect(screen.getByRole("region", { name: /Negotiation column/ })).toBeTruthy();
-    expect(screen.getByRole("region", { name: /Closed Won column/ })).toBeTruthy();
-    expect(screen.getByRole("region", { name: /Closed Lost column/ })).toBeTruthy();
+    expect(
+      screen.getByRole("region", { name: /Prospect column/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("region", { name: /Qualified column/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("region", { name: /Proposal column/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("region", { name: /Negotiation column/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("region", { name: /Closed Won column/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("region", { name: /Closed Lost column/ }),
+    ).toBeTruthy();
   });
 
   // --- Large dataset ---
@@ -157,7 +221,16 @@ describe("Pipeline", () => {
     const manyDeals: SalesTodo[] = Array.from({ length: 20 }, (_, i) => ({
       id: `deal-${i}`,
       title: `Deal ${i}`,
-      stage: (["prospect", "qualified", "proposal", "negotiation", "closed-won", "closed-lost"] as const)[i % 6],
+      stage: (
+        [
+          "prospect",
+          "qualified",
+          "proposal",
+          "negotiation",
+          "closed-won",
+          "closed-lost",
+        ] as const
+      )[i % 6],
       value: (i + 1) * 10000,
       dueDate: "2026-05-01",
       assignee: "Team",

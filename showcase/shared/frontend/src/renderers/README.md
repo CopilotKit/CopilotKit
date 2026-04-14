@@ -25,10 +25,10 @@ User clicks pill → useRenderMode() updates state + localStorage
 
 ## Strategies
 
-| Mode | Agent Output | Frontend Rendering |
-|------|-------------|-------------------|
-| tool-based | Text + tool calls | useComponent hooks |
-| a2ui | Text + A2UI operations | createCatalog renders |
-| hashbrown | Structured JSON (response_format) | useJsonParser + kit.render |
-| json-render | JSONL patches in text (deferred) | Renderer + createMixedStreamParser |
-| open-genui | HTML/JS/CSS | Sandboxed iframe |
+| Mode        | Agent Output                      | Frontend Rendering                 |
+| ----------- | --------------------------------- | ---------------------------------- |
+| tool-based  | Text + tool calls                 | useComponent hooks                 |
+| a2ui        | Text + A2UI operations            | createCatalog renders              |
+| hashbrown   | Structured JSON (response_format) | useJsonParser + kit.render         |
+| json-render | JSONL patches in text (deferred)  | Renderer + createMixedStreamParser |
+| open-genui  | HTML/JS/CSS                       | Sandboxed iframe                   |

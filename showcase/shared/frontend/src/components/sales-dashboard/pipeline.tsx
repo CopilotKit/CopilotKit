@@ -61,9 +61,7 @@ export function Pipeline({ deals }: PipelineProps) {
                   No deals
                 </div>
               ) : (
-                stageDeals.map((deal) => (
-                  <DealCard key={deal.id} deal={deal} />
-                ))
+                stageDeals.map((deal) => <DealCard key={deal.id} deal={deal} />)
               )}
             </div>
           </section>

@@ -26,8 +26,10 @@ interface MetricCardProps {
 }
 
 function MetricCard({ label, value, trend }: MetricCardProps) {
-  const isPositive = trend?.startsWith("+") || trend?.toLowerCase().includes("up");
-  const isNegative = trend?.startsWith("-") || trend?.toLowerCase().includes("down");
+  const isPositive =
+    trend?.startsWith("+") || trend?.toLowerCase().includes("up");
+  const isNegative =
+    trend?.startsWith("-") || trend?.toLowerCase().includes("down");
   const trendColor = isPositive
     ? "text-green-600 dark:text-green-400"
     : isNegative
@@ -70,14 +72,12 @@ const STAGE_COLORS: Record<string, string> = {
   prospect: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   qualified:
     "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
-  proposal:
-    "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+  proposal: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
   negotiation:
     "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
   "closed-won":
     "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  "closed-lost":
-    "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  "closed-lost": "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
 function DealCardComponent({
@@ -235,11 +235,14 @@ export interface HashBrownDashboardProps {
  * components. The kit schema is forwarded to the agent as `output_schema`
  * context, constraining the agent's `response_format` to structured JSON.
  */
-const HashBrownKitContext = React.createContext<ReturnType<typeof useSalesDashboardKit> | null>(null);
+const HashBrownKitContext = React.createContext<ReturnType<
+  typeof useSalesDashboardKit
+> | null>(null);
 
 function useHashBrownKit() {
   const kit = React.useContext(HashBrownKitContext);
-  if (!kit) throw new Error("useHashBrownKit must be used within HashBrownDashboard");
+  if (!kit)
+    throw new Error("useHashBrownKit must be used within HashBrownDashboard");
   return kit;
 }
 
