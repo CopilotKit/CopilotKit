@@ -25,11 +25,7 @@ export default function GenUiToolBasedDemo() {
         position: "relative",
       }}
     >
-      <CopilotKit
-        runtimeUrl="/api/copilotkit"
-        agent="gen-ui-tool-based"
-        a2ui={{ catalog: demonstrationCatalog }}
-      >
+      <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based" a2ui={{ catalog: demonstrationCatalog }}>
         <SidebarWithContent />
       </CopilotKit>
     </div>

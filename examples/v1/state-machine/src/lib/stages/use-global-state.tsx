@@ -1,12 +1,5 @@
 import { createContext, useContext, ReactNode, useState } from "react";
-import {
-  Car,
-  ContactInfo,
-  CardInfo,
-  Order,
-  defaultOrders,
-  FinancingInfo,
-} from "@/lib/types";
+import { Car, ContactInfo, CardInfo, Order, defaultOrders, FinancingInfo } from "@/lib/types";
 
 import { useCopilotReadable } from "@copilotkit/react-core";
 
@@ -59,9 +52,7 @@ export function GlobalStateProvider({ children }: { children: ReactNode }) {
   const [contactInfo, setContactInfo] = useState<ContactInfo | null>(null);
   const [cardInfo, setCardInfo] = useState<CardInfo | null>(null);
   const [orders, setOrders] = useState<Order[]>(defaultOrders);
-  const [financingInfo, setFinancingInfo] = useState<FinancingInfo | null>(
-    null,
-  );
+  const [financingInfo, setFinancingInfo] = useState<FinancingInfo | null>(null);
 
   useCopilotReadable({
     description: "Currently Specified Information",

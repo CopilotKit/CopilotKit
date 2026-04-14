@@ -15,9 +15,7 @@ export function MainLayout({ className }: { className?: string }) {
   useSearchActions();
 
   return (
-    <div
-      className={cn("min-h-screen bg-background text-foreground", className)}
-    >
+    <div className={cn("min-h-screen bg-background text-foreground", className)}>
       <div className="max-w-6xl mx-auto p-4 grid gap-4">
         <PinnedMetrics state={state} setState={setState} />
         <Charts state={state} setState={setState} />

@@ -1,15 +1,9 @@
 import { Sandbox } from "e2b";
-import type {
-  WorkspaceProvider,
-  WorkspaceInfo,
-  ExecOpts,
-  ExecResult,
-} from "./types";
+import type { WorkspaceProvider, WorkspaceInfo, ExecOpts, ExecResult } from "./types";
 
 const WORKSPACE_PATH = "/home/user/workspace";
 // Hardcoded fallback so sandbox clone works without env; override with E2B_REPO_URL if needed
-const REPO_URL =
-  process.env.E2B_REPO_URL ?? "https://github.com/CopilotKit/CopilotKit";
+const REPO_URL = process.env.E2B_REPO_URL ?? "https://github.com/CopilotKit/CopilotKit";
 const TEMPLATE_ID = process.env.E2B_TEMPLATE;
 // Default sandbox lifetime: 60 minutes (can be extended during a session)
 const SANDBOX_TIMEOUT_MS = 60 * 60 * 1000;
@@ -17,9 +11,7 @@ const SANDBOX_TIMEOUT_MS = 60 * 60 * 1000;
 export class E2BWorkspaceProvider implements WorkspaceProvider {
   async provision(_name: string): Promise<WorkspaceInfo> {
     if (!TEMPLATE_ID && !REPO_URL) {
-      throw new Error(
-        "Set E2B_TEMPLATE (recommended) or E2B_REPO_URL in your .env.local.",
-      );
+      throw new Error("Set E2B_TEMPLATE (recommended) or E2B_REPO_URL in your .env.local.");
     }
 
     // Create sandbox — use custom template if provided (pre-installed deps = faster cold start)
@@ -33,15 +25,12 @@ export class E2BWorkspaceProvider implements WorkspaceProvider {
       // Nothing to do — just get the endpoint below.
     } else {
       // No template — full cold start: clone + install (~60-90s)
-      const clone = await sandbox.commands.run(
-        `git clone --depth 1 ${REPO_URL} ${WORKSPACE_PATH}`,
-        { timeoutMs: 2 * 60_000 },
-      );
+      const clone = await sandbox.commands.run(`git clone --depth 1 ${REPO_URL} ${WORKSPACE_PATH}`, {
+        timeoutMs: 2 * 60_000,
+      });
       if (clone.exitCode !== 0) {
         await sandbox.kill();
-        throw new Error(
-          `git clone failed (exit ${clone.exitCode}): ${clone.stderr}`,
-        );
+        throw new Error(`git clone failed (exit ${clone.exitCode}): ${clone.stderr}`);
       }
 
       const install = await sandbox.commands.run(
@@ -50,9 +39,7 @@ export class E2BWorkspaceProvider implements WorkspaceProvider {
       );
       if (install.exitCode !== 0) {
         await sandbox.kill();
-        throw new Error(
-          `npm install failed (exit ${install.exitCode}): ${install.stderr}`,
-        );
+        throw new Error(`npm install failed (exit ${install.exitCode}): ${install.stderr}`);
       }
 
       // Start dev server in background and wait for it to come up
@@ -88,11 +75,7 @@ export class E2BWorkspaceProvider implements WorkspaceProvider {
     return sandbox.files.read(this._fullPath(path));
   }
 
-  async writeFile(
-    workspaceId: string,
-    path: string,
-    content: string,
-  ): Promise<void> {
+  async writeFile(workspaceId: string, path: string, content: string): Promise<void> {
     const sandbox = await Sandbox.connect(workspaceId);
     const full = this._fullPath(path);
     // Ensure parent directory exists
@@ -101,28 +84,17 @@ export class E2BWorkspaceProvider implements WorkspaceProvider {
     await sandbox.files.write(full, content);
   }
 
-  async editFile(
-    workspaceId: string,
-    path: string,
-    search: string,
-    replace: string,
-  ): Promise<void> {
+  async editFile(workspaceId: string, path: string, search: string, replace: string): Promise<void> {
     const sandbox = await Sandbox.connect(workspaceId);
     const full = this._fullPath(path);
     const content = await sandbox.files.read(full);
     if (!content.includes(search)) {
-      throw new Error(
-        `Search string not found in "${path}". Make sure the search string matches exactly.`,
-      );
+      throw new Error(`Search string not found in "${path}". Make sure the search string matches exactly.`);
     }
     await sandbox.files.write(full, content.replace(search, replace));
   }
 
-  async exec(
-    workspaceId: string,
-    cmd: string,
-    opts?: ExecOpts,
-  ): Promise<ExecResult> {
+  async exec(workspaceId: string, cmd: string, opts?: ExecOpts): Promise<ExecResult> {
     const sandbox = await Sandbox.connect(workspaceId);
 
     if (opts?.background) {
@@ -148,14 +120,11 @@ export class E2BWorkspaceProvider implements WorkspaceProvider {
   async prepareDownload(workspaceId: string): Promise<{ downloadUrl: string }> {
     const sandbox = await Sandbox.connect(workspaceId);
     // Strip heavy dirs, then archive with tar (GNU zip is often missing → exit 127 on `zip`).
-    const clean = await sandbox.commands.run(
-      `cd ${WORKSPACE_PATH} && rm -rf node_modules dist .agent`,
-      { timeoutMs: 120_000 },
-    );
+    const clean = await sandbox.commands.run(`cd ${WORKSPACE_PATH} && rm -rf node_modules dist .agent`, {
+      timeoutMs: 120_000,
+    });
     if (clean.exitCode !== 0) {
-      throw new Error(
-        `Failed to prepare workspace for download: ${clean.stderr || clean.stdout || "unknown error"}`,
-      );
+      throw new Error(`Failed to prepare workspace for download: ${clean.stderr || clean.stdout || "unknown error"}`);
     }
     const archive = await sandbox.commands.run(
       `cd /home/user && rm -f workspace.tar.gz workspace.zip && tar -czf workspace.tar.gz workspace`,

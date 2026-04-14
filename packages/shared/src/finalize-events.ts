@@ -9,17 +9,12 @@ interface FinalizeRunOptions {
 const defaultStopMessage = "Run stopped by user";
 const defaultAbruptEndMessage = "Run ended without emitting a terminal event";
 
-export function finalizeRunEvents(
-  events: BaseEvent[],
-  options: FinalizeRunOptions = {},
-): BaseEvent[] {
+export function finalizeRunEvents(events: BaseEvent[], options: FinalizeRunOptions = {}): BaseEvent[] {
   const { stopRequested = false, interruptionMessage } = options;
 
   const resolvedStopMessage = interruptionMessage ?? defaultStopMessage;
   const resolvedAbruptMessage =
-    interruptionMessage && interruptionMessage !== defaultStopMessage
-      ? interruptionMessage
-      : defaultAbruptEndMessage;
+    interruptionMessage && interruptionMessage !== defaultStopMessage ? interruptionMessage : defaultAbruptEndMessage;
 
   const appended: BaseEvent[] = [];
 
@@ -79,12 +74,8 @@ export function finalizeRunEvents(
     }
   }
 
-  const hasRunFinished = events.some(
-    (event) => event.type === EventType.RUN_FINISHED,
-  );
-  const hasRunError = events.some(
-    (event) => event.type === EventType.RUN_ERROR,
-  );
+  const hasRunFinished = events.some((event) => event.type === EventType.RUN_FINISHED);
+  const hasRunError = events.some((event) => event.type === EventType.RUN_ERROR);
   const hasTerminalEvent = hasRunFinished || hasRunError;
   const terminalEventMissing = !hasTerminalEvent;
 

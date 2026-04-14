@@ -23,8 +23,7 @@ export async function GET(req: NextRequest) {
   };
 
   // Extended diagnostics: only with debug token
-  const token =
-    req.headers.get("x-debug-token") || req.nextUrl.searchParams.get("debug");
+  const token = req.headers.get("x-debug-token") || req.nextUrl.searchParams.get("debug");
   const expectedToken = process.env.SHOWCASE_DEBUG_TOKEN;
 
   if (token && expectedToken && token === expectedToken) {

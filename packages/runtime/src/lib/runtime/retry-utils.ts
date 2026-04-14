@@ -34,9 +34,7 @@ export function isRetryableError(error: any, response?: Response): boolean {
 
   // Check error messages
   const errorMessage = error?.message?.toLowerCase() || "";
-  return RETRY_CONFIG.retryableErrorMessages.some((msg) =>
-    errorMessage.includes(msg),
-  );
+  return RETRY_CONFIG.retryableErrorMessages.some((msg) => errorMessage.includes(msg));
 }
 
 // Helper function to sleep for a given duration
@@ -51,11 +49,7 @@ export function calculateDelay(attempt: number): number {
 }
 
 // Retry wrapper for fetch requests
-export async function fetchWithRetry(
-  url: string,
-  options: RequestInit,
-  logger?: Logger,
-): Promise<Response> {
+export async function fetchWithRetry(url: string, options: RequestInit, logger?: Logger): Promise<Response> {
   let lastError: any;
 
   for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
@@ -63,10 +57,7 @@ export async function fetchWithRetry(
       const response = await fetch(url, options);
 
       // If response is retryable, treat as error and retry
-      if (
-        isRetryableError(null, response) &&
-        attempt < RETRY_CONFIG.maxRetries
-      ) {
+      if (isRetryableError(null, response) && attempt < RETRY_CONFIG.maxRetries) {
         const delay = calculateDelay(attempt);
         logger?.warn(
           `Request to ${url} failed with status ${response.status}. ` +

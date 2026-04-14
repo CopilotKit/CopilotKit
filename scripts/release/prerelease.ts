@@ -11,12 +11,7 @@
  */
 
 import { spawnSync } from "child_process";
-import {
-  getCurrentVersion,
-  computePrereleaseVersion,
-  bumpPackages,
-  getPackagesForScope,
-} from "./lib/versions.js";
+import { getCurrentVersion, computePrereleaseVersion, bumpPackages, getPackagesForScope } from "./lib/versions.js";
 import { ROOT, loadConfig, type ReleaseScope } from "./lib/config.js";
 
 function run(cmd: string, args: string[], opts?: { cwd?: string }) {
@@ -39,14 +34,10 @@ function main() {
   const suffixIdx = argv.indexOf("--suffix");
   const suffix = suffixIdx !== -1 ? argv[suffixIdx + 1] : undefined;
   const scopeIdx = argv.indexOf("--scope");
-  const scope = (
-    scopeIdx !== -1 ? argv[scopeIdx + 1] : null
-  ) as ReleaseScope | null;
+  const scope = (scopeIdx !== -1 ? argv[scopeIdx + 1] : null) as ReleaseScope | null;
 
   if (!scope || !VALID_SCOPES.includes(scope)) {
-    console.error(
-      `Usage: prerelease.ts --scope <${VALID_SCOPES.join("|")}> [--suffix <label>] [--dry-run]`,
-    );
+    console.error(`Usage: prerelease.ts --scope <${VALID_SCOPES.join("|")}> [--suffix <label>] [--dry-run]`);
     process.exit(1);
   }
 
@@ -79,14 +70,8 @@ function main() {
   // Publish each package
   console.log("\nPublishing packages...");
   for (const p of getPackagesForScope(scope)) {
-    console.log(
-      `  Publishing ${p.name}@${prereleaseVersion} with tag ${distTag}...`,
-    );
-    run(
-      "pnpm",
-      ["publish", "--no-git-checks", "--tag", distTag, "--access", "public"],
-      { cwd: p.dir },
-    );
+    console.log(`  Publishing ${p.name}@${prereleaseVersion} with tag ${distTag}...`);
+    run("pnpm", ["publish", "--no-git-checks", "--tag", distTag, "--access", "public"], { cwd: p.dir });
   }
 
   console.log(`\nPrerelease published: ${prereleaseVersion} (tag: ${distTag})`);

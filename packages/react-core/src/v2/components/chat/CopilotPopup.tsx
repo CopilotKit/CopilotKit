@@ -29,9 +29,7 @@ export function CopilotPopup({
 
   useEffect(() => {
     if (!isPopupLicensed) {
-      console.warn(
-        '[CopilotKit] Warning: "popup" feature is not licensed. Visit copilotkit.ai/pricing',
-      );
+      console.warn('[CopilotKit] Warning: "popup" feature is not licensed. Visit copilotkit.ai/pricing');
     }
   }, [isPopupLicensed]);
 

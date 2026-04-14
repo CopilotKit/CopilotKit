@@ -32,10 +32,7 @@ vi.mock("phoenix", () => {
     left = false;
     channels: MockChannel[] = [];
 
-    private handlers = new Map<
-      string,
-      Array<{ ref: number; callback: (payload: unknown) => void }>
-    >();
+    private handlers = new Map<string, Array<{ ref: number; callback: (payload: unknown) => void }>>();
     private joinPush = new MockPush();
     private nextRef = 1;
 
@@ -201,9 +198,7 @@ describe("useThreads", () => {
 
   it("fetches threads and subscribes to the user metadata channel", async () => {
     fetchMock
-      .mockReturnValueOnce(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
-      )
+      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }))
       .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
 
     const { result } = renderHook(() => useThreads(defaultInput));
@@ -212,10 +207,7 @@ describe("useThreads", () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    expect(result.current.threads.map((thread) => thread.id)).toEqual([
-      "t-2",
-      "t-1",
-    ]);
+    expect(result.current.threads.map((thread) => thread.id)).toEqual(["t-2", "t-1"]);
     expect(result.current.error).toBeNull();
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/threads?agentId=agent-1"),
@@ -259,9 +251,7 @@ describe("useThreads", () => {
 
   it("updates local state directly from realtime metadata events", async () => {
     fetchMock
-      .mockReturnValueOnce(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
-      )
+      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }))
       .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
 
     const { result } = renderHook(() => useThreads(defaultInput));
@@ -296,9 +286,7 @@ describe("useThreads", () => {
 
   it("applies realtime metadata without client-side user filtering", async () => {
     fetchMock
-      .mockReturnValueOnce(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
-      )
+      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }))
       .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
 
     const { result } = renderHook(() => useThreads(defaultInput));
@@ -325,9 +313,7 @@ describe("useThreads", () => {
 
   it("renames a thread through the runtime contract", async () => {
     fetchMock
-      .mockReturnValueOnce(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
-      )
+      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }))
       .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }))
       .mockReturnValueOnce(jsonResponse({}));
 
@@ -352,9 +338,7 @@ describe("useThreads", () => {
 
   it("archives and deletes threads through the runtime contract", async () => {
     fetchMock
-      .mockReturnValueOnce(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
-      )
+      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }))
       .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }))
       .mockReturnValueOnce(jsonResponse({}))
       .mockReturnValueOnce(jsonResponse({}));
@@ -414,9 +398,7 @@ describe("useThreads", () => {
 
   it("does not expose organizationId or createdById on threads", async () => {
     fetchMock
-      .mockReturnValueOnce(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
-      )
+      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }))
       .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
 
     const { result } = renderHook(() => useThreads(defaultInput));
@@ -439,9 +421,7 @@ describe("useThreads", () => {
 
   it("tears down sockets after repeated connection failures", async () => {
     fetchMock
-      .mockReturnValueOnce(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
-      )
+      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }))
       .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
 
     renderHook(() => useThreads(defaultInput));
@@ -465,9 +445,7 @@ describe("useThreads", () => {
 
   it("tears down the active socket on unmount", async () => {
     fetchMock
-      .mockReturnValueOnce(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
-      )
+      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }))
       .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
 
     const { unmount } = renderHook(() => useThreads(defaultInput));

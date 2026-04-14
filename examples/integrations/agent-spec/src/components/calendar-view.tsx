@@ -25,9 +25,7 @@ function formatTime(t: string): string {
   const [h, m] = t.split(":").map(Number);
   const suffix = h >= 12 ? "PM" : "AM";
   const display = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return m
-    ? `${display}:${String(m).padStart(2, "0")} ${suffix}`
-    : `${display} ${suffix}`;
+  return m ? `${display}:${String(m).padStart(2, "0")} ${suffix}` : `${display} ${suffix}`;
 }
 
 function formatTimeShort(t: string): string {
@@ -117,9 +115,7 @@ export function CalendarView({ date, dayName, events }: CalendarViewProps) {
   const guests = selectedEvent?.guests || [];
   const acceptedCount = guests.filter((g) => g.status === "accepted").length;
   const declinedCount = guests.filter((g) => g.status === "declined").length;
-  const pendingCount = guests.filter(
-    (g) => g.status === "pending" || g.status === "maybe",
-  ).length;
+  const pendingCount = guests.filter((g) => g.status === "pending" || g.status === "maybe").length;
 
   return (
     <div
@@ -142,9 +138,7 @@ export function CalendarView({ date, dayName, events }: CalendarViewProps) {
               d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
             />
           </svg>
-          <h2 className="text-base font-semibold text-[var(--text-primary)]">
-            Schedule
-          </h2>
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">Schedule</h2>
         </div>
         <span className="text-xs font-medium text-[var(--text-tertiary)] bg-[var(--surface-quaternary)] px-2 py-0.5 rounded-full">
           {formatDateBadge(date, dayName)} · {bookedCount} event
@@ -166,9 +160,7 @@ export function CalendarView({ date, dayName, events }: CalendarViewProps) {
               <div
                 key={i}
                 className={`flex items-center gap-3 px-4 py-3 transition-colors ${
-                  isBooked
-                    ? "hover:bg-[var(--surface-tertiary)] cursor-pointer"
-                    : ""
+                  isBooked ? "hover:bg-[var(--surface-tertiary)] cursor-pointer" : ""
                 } ${isActive ? "bg-indigo-500/10" : ""}`}
                 onClick={() => {
                   if (isBooked) {
@@ -180,9 +172,7 @@ export function CalendarView({ date, dayName, events }: CalendarViewProps) {
                 {/* Dot */}
                 <div
                   className={`w-2 h-2 rounded-full shrink-0 ${
-                    isBooked
-                      ? "bg-indigo-500"
-                      : "bg-[var(--surface-quaternary)]"
+                    isBooked ? "bg-indigo-500" : "bg-[var(--surface-quaternary)]"
                   }`}
                 />
 
@@ -200,9 +190,7 @@ export function CalendarView({ date, dayName, events }: CalendarViewProps) {
                 {/* Title */}
                 <p
                   className={`flex-1 text-sm truncate ${
-                    isBooked
-                      ? "text-[var(--text-primary)] font-medium"
-                      : "text-[var(--text-tertiary)]"
+                    isBooked ? "text-[var(--text-primary)] font-medium" : "text-[var(--text-tertiary)]"
                   }`}
                 >
                   {event.title}
@@ -224,13 +212,9 @@ export function CalendarView({ date, dayName, events }: CalendarViewProps) {
           <div className="w-1/2 p-5 overflow-y-auto flex flex-col">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-3 h-3 rounded-full bg-indigo-500 shrink-0" />
-              <span className="text-xs font-medium text-indigo-600 uppercase tracking-wide">
-                Event
-              </span>
+              <span className="text-xs font-medium text-indigo-600 uppercase tracking-wide">Event</span>
             </div>
-            <h3 className="text-base font-semibold text-[var(--text-primary)] mb-3">
-              {selectedEvent.title}
-            </h3>
+            <h3 className="text-base font-semibold text-[var(--text-primary)] mb-3">{selectedEvent.title}</h3>
 
             {/* Time & date info */}
             <div className="space-y-2 mb-4">
@@ -250,8 +234,7 @@ export function CalendarView({ date, dayName, events }: CalendarViewProps) {
                 </svg>
                 <span>
                   {formatTime(selectedEvent.startTime)}
-                  {selectedEvent.endTime &&
-                    ` - ${formatTime(selectedEvent.endTime)}`}
+                  {selectedEvent.endTime && ` - ${formatTime(selectedEvent.endTime)}`}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
@@ -300,8 +283,7 @@ export function CalendarView({ date, dayName, events }: CalendarViewProps) {
                 </div>
                 <div className="space-y-1.5">
                   {guests.map((guest, gi) => {
-                    const statusInfo =
-                      STATUS_ICONS[guest.status] || STATUS_ICONS.pending;
+                    const statusInfo = STATUS_ICONS[guest.status] || STATUS_ICONS.pending;
                     return (
                       <div key={gi} className="flex items-center gap-2">
                         <div
@@ -319,11 +301,7 @@ export function CalendarView({ date, dayName, events }: CalendarViewProps) {
                           strokeWidth={1.5}
                           stroke="currentColor"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d={statusInfo.icon}
-                          />
+                          <path strokeLinecap="round" strokeLinejoin="round" d={statusInfo.icon} />
                         </svg>
                       </div>
                     );
@@ -387,9 +365,7 @@ export function CalendarLoadingState() {
           </div>
         ))}
       </div>
-      <div className="px-5 pb-3 text-xs text-[var(--text-tertiary)]">
-        Loading schedule...
-      </div>
+      <div className="px-5 pb-3 text-xs text-[var(--text-tertiary)]">Loading schedule...</div>
     </div>
   );
 }

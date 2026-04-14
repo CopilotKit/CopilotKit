@@ -2,10 +2,7 @@ import { render, cleanup, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import React from "react";
 import { z } from "zod";
-import {
-  OpenGenerativeUIActivityRenderer,
-  OpenGenerativeUIContent,
-} from "../OpenGenerativeUIRenderer";
+import { OpenGenerativeUIActivityRenderer, OpenGenerativeUIContent } from "../OpenGenerativeUIRenderer";
 import { SandboxFunctionsContext } from "../../providers/SandboxFunctionsContext";
 import type { SandboxFunction } from "../../types/sandbox-function";
 
@@ -47,12 +44,7 @@ async function flushImport() {
 
 function renderRenderer(content: OpenGenerativeUIContent) {
   return render(
-    <OpenGenerativeUIActivityRenderer
-      activityType="open-generative-ui"
-      content={content}
-      message={{}}
-      agent={{}}
-    />,
+    <OpenGenerativeUIActivityRenderer activityType="open-generative-ui" content={content} message={{}} agent={{}} />,
   );
 }
 
@@ -195,9 +187,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     });
     await flushImport();
 
-    const callCountAfterFirst = mockRun.mock.calls.filter(
-      (c: unknown[]) => c[0] === "expr1()",
-    ).length;
+    const callCountAfterFirst = mockRun.mock.calls.filter((c: unknown[]) => c[0] === "expr1()").length;
     expect(callCountAfterFirst).toBe(1);
 
     // Re-render with additional expression
@@ -216,15 +206,11 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     await flushImport();
 
     // expr1 should NOT have been called again
-    const expr1Calls = mockRun.mock.calls.filter(
-      (c: unknown[]) => c[0] === "expr1()",
-    ).length;
+    const expr1Calls = mockRun.mock.calls.filter((c: unknown[]) => c[0] === "expr1()").length;
     expect(expr1Calls).toBe(1);
 
     // expr2 should have been called
-    const expr2Calls = mockRun.mock.calls.filter(
-      (c: unknown[]) => c[0] === "expr2()",
-    ).length;
+    const expr2Calls = mockRun.mock.calls.filter((c: unknown[]) => c[0] === "expr2()").length;
     expect(expr2Calls).toBe(1);
   });
 
@@ -290,10 +276,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
   });
 
   describe("sandboxFunctions / localApi", () => {
-    function renderWithSandboxFunctions(
-      content: OpenGenerativeUIContent,
-      sandboxFunctions: SandboxFunction[],
-    ) {
+    function renderWithSandboxFunctions(content: OpenGenerativeUIContent, sandboxFunctions: SandboxFunction[]) {
       return render(
         <SandboxFunctionsContext.Provider value={sandboxFunctions}>
           <OpenGenerativeUIActivityRenderer
@@ -317,10 +300,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
         },
       ];
 
-      renderWithSandboxFunctions(
-        { html: ["<head></head><body>test</body>"], htmlComplete: true },
-        fns,
-      );
+      renderWithSandboxFunctions({ html: ["<head></head><body>test</body>"], htmlComplete: true }, fns);
       await flushImport();
 
       expect(mockCreate).toHaveBeenCalledTimes(1);
@@ -330,10 +310,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     });
 
     it("passes empty localApi when no sandbox functions", async () => {
-      renderWithSandboxFunctions(
-        { html: ["<head></head><body>test</body>"], htmlComplete: true },
-        [],
-      );
+      renderWithSandboxFunctions({ html: ["<head></head><body>test</body>"], htmlComplete: true }, []);
       await flushImport();
 
       expect(mockCreate).toHaveBeenCalledTimes(1);
@@ -426,10 +403,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
         },
       ];
 
-      renderWithSandboxFunctions(
-        { html: ["<head></head><body>test</body>"], htmlComplete: true },
-        fns,
-      );
+      renderWithSandboxFunctions({ html: ["<head></head><body>test</body>"], htmlComplete: true }, fns);
       await flushImport();
 
       const [localApi] = mockCreate.mock.calls[0];
@@ -481,9 +455,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
       // Should have called run with innerHTML update (initial content — immediate flush)
       const innerHtmlCalls = mockRun.mock.calls.filter(
-        (c: unknown[]) =>
-          typeof c[0] === "string" &&
-          (c[0] as string).includes("document.body.innerHTML"),
+        (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("document.body.innerHTML"),
       );
       expect(innerHtmlCalls.length).toBeGreaterThanOrEqual(1);
 
@@ -511,9 +483,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
       // Should have updated innerHTML with new content after throttle
       const updateCalls = mockRun.mock.calls.filter(
-        (c: unknown[]) =>
-          typeof c[0] === "string" &&
-          (c[0] as string).includes("document.body.innerHTML"),
+        (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("document.body.innerHTML"),
       );
       expect(updateCalls.length).toBeGreaterThanOrEqual(1);
       expect(updateCalls[updateCalls.length - 1]![0]).toContain("World");
@@ -543,9 +513,7 @@ describe("OpenGenerativeUIActivityRenderer", () => {
         <OpenGenerativeUIActivityRenderer
           activityType="open-generative-ui"
           content={{
-            html: [
-              "<head><style>body{margin:0}</style></head><body><div>Hello</div></body>",
-            ],
+            html: ["<head><style>body{margin:0}</style></head><body><div>Hello</div></body>"],
             htmlComplete: true,
             cssComplete: true,
             generating: false,
@@ -617,18 +585,14 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
       // CSS should be injected into <head> as a <style> tag
       const headCalls = mockRun.mock.calls.filter(
-        (c: unknown[]) =>
-          typeof c[0] === "string" &&
-          (c[0] as string).includes("document.head.innerHTML"),
+        (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("document.head.innerHTML"),
       );
       expect(headCalls.length).toBeGreaterThanOrEqual(1);
       expect(headCalls[0][0]).toContain("body { margin: 0; color: red; }");
 
       // HTML body content should be rendered in the preview
       const bodyCalls = mockRun.mock.calls.filter(
-        (c: unknown[]) =>
-          typeof c[0] === "string" &&
-          (c[0] as string).includes("document.body.innerHTML"),
+        (c: unknown[]) => typeof c[0] === "string" && (c[0] as string).includes("document.body.innerHTML"),
       );
       expect(bodyCalls.length).toBeGreaterThanOrEqual(1);
       expect(bodyCalls[0][0]).toContain("Streaming content");

@@ -8,22 +8,14 @@ import {
   cloneAgentForRequest,
 } from "./shared/agent-utils";
 
-export async function handleConnectAgent({
-  runtime,
-  request,
-  agentId,
-}: ConnectAgentParameters) {
+export async function handleConnectAgent({ runtime, request, agentId }: ConnectAgentParameters) {
   telemetry.capture("oss.runtime.copilot_request_created", {
     "cloud.guardrails.enabled": false,
     requestType: "connect",
-    "cloud.api_key_provided": !!request.headers.get(
-      "x-copilotcloud-public-api-key",
-    ),
+    "cloud.api_key_provided": !!request.headers.get("x-copilotcloud-public-api-key"),
     ...(request.headers.get("x-copilotcloud-public-api-key")
       ? {
-          "cloud.public_api_key": request.headers.get(
-            "x-copilotcloud-public-api-key",
-          )!,
+          "cloud.public_api_key": request.headers.get("x-copilotcloud-public-api-key")!,
         }
       : {}),
   });
@@ -55,10 +47,7 @@ export async function handleConnectAgent({
     });
   } catch (error) {
     console.error("Error running agent:", error);
-    console.error(
-      "Error stack:",
-      error instanceof Error ? error.stack : "No stack trace",
-    );
+    console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
     console.error("Error details:", {
       name: error instanceof Error ? error.name : "Unknown",
       message: error instanceof Error ? error.message : String(error),

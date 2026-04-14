@@ -23,13 +23,7 @@ import { TextField } from "./components/TextField";
 import type { ReactComponentImplementation } from "../../adapter";
 import { z } from "zod";
 
-const minimalComponents: ReactComponentImplementation[] = [
-  Text,
-  Button,
-  Row,
-  Column,
-  TextField,
-];
+const minimalComponents: ReactComponentImplementation[] = [Text, Button, Row, Column, TextField];
 
 export const minimalCatalog = new Catalog<ReactComponentImplementation>(
   "https://a2ui.org/specification/v0_9/catalogs/minimal/minimal_catalog.json",

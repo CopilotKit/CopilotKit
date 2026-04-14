@@ -1,7 +1,4 @@
-import type {
-  StandardSchemaV1,
-  StandardJSONSchemaV1,
-} from "@standard-schema/spec";
+import type { StandardSchemaV1, StandardJSONSchemaV1 } from "@standard-schema/spec";
 
 export type { StandardSchemaV1, StandardJSONSchemaV1 };
 
@@ -9,8 +6,7 @@ export type { StandardSchemaV1, StandardJSONSchemaV1 };
  * Extract the Output type from a StandardSchemaV1 schema.
  * Replaces `z.infer<S>` for generic schema inference.
  */
-export type InferSchemaOutput<S> =
-  S extends StandardSchemaV1<any, infer O> ? O : never;
+export type InferSchemaOutput<S> = S extends StandardSchemaV1<any, infer O> ? O : never;
 
 export interface SchemaToJsonSchemaOptions {
   /**
@@ -18,18 +14,13 @@ export interface SchemaToJsonSchemaOptions {
    * `zod-to-json-schema`. Required when the schema is a Zod v3 schema that
    * does not implement Standard JSON Schema V1.
    */
-  zodToJsonSchema?: (
-    schema: unknown,
-    options?: { $refStrategy?: string },
-  ) => Record<string, unknown>;
+  zodToJsonSchema?: (schema: unknown, options?: { $refStrategy?: string }) => Record<string, unknown>;
 }
 
 /**
  * Check whether a schema implements the Standard JSON Schema V1 protocol.
  */
-function hasStandardJsonSchema(
-  schema: StandardSchemaV1,
-): schema is StandardSchemaV1 & StandardJSONSchemaV1 {
+function hasStandardJsonSchema(schema: StandardSchemaV1): schema is StandardSchemaV1 & StandardJSONSchemaV1 {
   const props = schema["~standard"];
   return (
     props != null &&

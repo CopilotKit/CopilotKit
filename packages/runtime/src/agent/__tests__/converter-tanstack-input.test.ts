@@ -167,9 +167,7 @@ describe("convertInputToTanStackAI", () => {
 
       const { systemPrompts } = convertInputToTanStackAI(input);
 
-      const statePrompt = systemPrompts.find((p) =>
-        p.startsWith("Application State:"),
-      );
+      const statePrompt = systemPrompts.find((p) => p.startsWith("Application State:"));
       expect(statePrompt).toBeDefined();
       expect(statePrompt).toContain('"count": 42');
     });
@@ -179,9 +177,7 @@ describe("convertInputToTanStackAI", () => {
 
       const { systemPrompts } = convertInputToTanStackAI(input);
 
-      expect(
-        systemPrompts.find((p) => p.startsWith("Application State:")),
-      ).toBeUndefined();
+      expect(systemPrompts.find((p) => p.startsWith("Application State:"))).toBeUndefined();
     });
 
     it("does not add state when state is null", () => {
@@ -189,9 +185,7 @@ describe("convertInputToTanStackAI", () => {
 
       const { systemPrompts } = convertInputToTanStackAI(input);
 
-      expect(
-        systemPrompts.find((p) => p.startsWith("Application State:")),
-      ).toBeUndefined();
+      expect(systemPrompts.find((p) => p.startsWith("Application State:"))).toBeUndefined();
     });
   });
 

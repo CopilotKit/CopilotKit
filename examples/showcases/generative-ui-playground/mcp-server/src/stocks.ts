@@ -3,13 +3,7 @@
  * Contains mock stock data, portfolio management, and trade execution.
  */
 
-export type Sector =
-  | "technology"
-  | "healthcare"
-  | "finance"
-  | "consumer"
-  | "energy"
-  | "industrial";
+export type Sector = "technology" | "healthcare" | "finance" | "consumer" | "energy" | "industrial";
 export type TradeType = "buy" | "sell";
 
 export interface Stock {
@@ -205,8 +199,7 @@ function getStockWithVariation(stock: Stock): Stock {
     ...stock,
     price: Math.round(newPrice * 100) / 100,
     change: Math.round(newChange * 100) / 100,
-    changePercent:
-      Math.round((newChange / (stock.price - stock.change)) * 10000) / 100,
+    changePercent: Math.round((newChange / (stock.price - stock.change)) * 10000) / 100,
   };
 }
 
@@ -215,16 +208,12 @@ export function getStocks(): Stock[] {
 }
 
 export function getStock(symbol: string): Stock | undefined {
-  const stock = STOCKS.find(
-    (s) => s.symbol.toUpperCase() === symbol.toUpperCase(),
-  );
+  const stock = STOCKS.find((s) => s.symbol.toUpperCase() === symbol.toUpperCase());
   return stock ? getStockWithVariation(stock) : undefined;
 }
 
 export function getStocksBySector(sector: Sector): Stock[] {
-  return STOCKS.filter((s) => s.sector === sector).map((s) =>
-    getStockWithVariation(s),
-  );
+  return STOCKS.filter((s) => s.sector === sector).map((s) => getStockWithVariation(s));
 }
 
 export function createPortfolio(params: {
@@ -233,12 +222,7 @@ export function createPortfolio(params: {
   riskTolerance?: "conservative" | "moderate" | "aggressive";
   focus?: Sector;
 }): Portfolio {
-  const {
-    name = "My Portfolio",
-    initialBalance,
-    riskTolerance = "moderate",
-    focus,
-  } = params;
+  const { name = "My Portfolio", initialBalance, riskTolerance = "moderate", focus } = params;
 
   const id = generateId("portfolio");
 
@@ -288,18 +272,12 @@ export function getPortfolio(portfolioId: string): Portfolio | undefined {
 
   portfolio.totalValue = portfolio.cashBalance + holdingsValue;
   portfolio.totalGain = holdingsValue - totalCost;
-  portfolio.totalGainPercent =
-    totalCost > 0 ? (portfolio.totalGain / totalCost) * 100 : 0;
+  portfolio.totalGainPercent = totalCost > 0 ? (portfolio.totalGain / totalCost) * 100 : 0;
 
   return portfolio;
 }
 
-export function executeTrade(
-  portfolioId: string,
-  type: TradeType,
-  symbol: string,
-  shares: number,
-): TradeResult {
+export function executeTrade(portfolioId: string, type: TradeType, symbol: string, shares: number): TradeResult {
   const portfolio = portfolios.get(portfolioId);
   if (!portfolio) return { success: false, message: "Portfolio not found" };
 
@@ -322,8 +300,7 @@ export function executeTrade(
     const existingHolding = portfolio.holdings.find((h) => h.symbol === symbol);
     if (existingHolding) {
       const totalShares = existingHolding.shares + shares;
-      const totalCost =
-        existingHolding.shares * existingHolding.avgCost + total;
+      const totalCost = existingHolding.shares * existingHolding.avgCost + total;
       existingHolding.shares = totalShares;
       existingHolding.avgCost = totalCost / totalShares;
       existingHolding.currentPrice = stock.price;
@@ -343,8 +320,7 @@ export function executeTrade(
   } else {
     // Sell
     const existingHolding = portfolio.holdings.find((h) => h.symbol === symbol);
-    if (!existingHolding)
-      return { success: false, message: `No ${symbol} shares to sell` };
+    if (!existingHolding) return { success: false, message: `No ${symbol} shares to sell` };
     if (existingHolding.shares < shares) {
       return {
         success: false,
@@ -356,9 +332,7 @@ export function executeTrade(
     existingHolding.shares -= shares;
 
     if (existingHolding.shares === 0) {
-      portfolio.holdings = portfolio.holdings.filter(
-        (h) => h.symbol !== symbol,
-      );
+      portfolio.holdings = portfolio.holdings.filter((h) => h.symbol !== symbol);
     } else {
       existingHolding.value = existingHolding.shares * stock.price;
     }

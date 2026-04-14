@@ -5,10 +5,6 @@ export type { RendererSelectorProps } from "./renderer-selector";
 export { useRenderMode } from "./use-render-mode";
 export { ToolBasedDashboard } from "./tool-based";
 export { A2UIDashboard } from "./a2ui";
-export {
-  HashBrownDashboard,
-  useHashBrownMessageRenderer,
-  useSalesDashboardKit,
-} from "./hashbrown";
+export { HashBrownDashboard, useHashBrownMessageRenderer, useSalesDashboardKit } from "./hashbrown";
 export type { HashBrownDashboardProps } from "./hashbrown";
 export { OpenGenUIDashboard } from "./open-genui";

@@ -1,15 +1,9 @@
 import * as ts from "typescript";
 
 export class Comments {
-  static getCleanedCommentsForNode(
-    node: ts.Node,
-    sourceFile: ts.SourceFile,
-  ): string {
+  static getCleanedCommentsForNode(node: ts.Node, sourceFile: ts.SourceFile): string {
     const fullText = sourceFile.getFullText();
-    const commentRanges = ts.getLeadingCommentRanges(
-      fullText,
-      node.getFullStart(),
-    );
+    const commentRanges = ts.getLeadingCommentRanges(fullText, node.getFullStart());
 
     if (!commentRanges) return "";
 
@@ -30,15 +24,9 @@ export class Comments {
       .trim();
   }
 
-  static getDefaultValueForNode(
-    node: ts.Node,
-    sourceFile: ts.SourceFile,
-  ): string | undefined {
+  static getDefaultValueForNode(node: ts.Node, sourceFile: ts.SourceFile): string | undefined {
     const fullText = sourceFile.getFullText();
-    const commentRanges = ts.getLeadingCommentRanges(
-      fullText,
-      node.getFullStart(),
-    );
+    const commentRanges = ts.getLeadingCommentRanges(fullText, node.getFullStart());
 
     if (!commentRanges) return "";
     let defaultValue: string | undefined = undefined;
@@ -69,10 +57,7 @@ export class Comments {
 
   static getFirstCommentBlock(sourceFile: ts.SourceFile): string | null {
     for (const statement of sourceFile.statements) {
-      const comments = Comments.getCleanedCommentsForNode(
-        statement,
-        sourceFile,
-      );
+      const comments = Comments.getCleanedCommentsForNode(statement, sourceFile);
       if (comments) return comments;
     }
 
@@ -81,15 +66,12 @@ export class Comments {
 
   static getTsDocCommentsForFunction(node: ts.Node, sourceFile: ts.SourceFile) {
     const params: Record<string, string> = {};
-    const trivia =
-      ts.getLeadingCommentRanges(sourceFile.text, node.getFullStart()) || [];
+    const trivia = ts.getLeadingCommentRanges(sourceFile.text, node.getFullStart()) || [];
 
     let comment = "";
 
     for (const range of trivia) {
-      const commentText = Comments.removeCommentSyntax(
-        sourceFile.text.substring(range.pos, range.end),
-      );
+      const commentText = Comments.removeCommentSyntax(sourceFile.text.substring(range.pos, range.end));
 
       const lines = commentText.split("\n").map((line) => line.trim());
 

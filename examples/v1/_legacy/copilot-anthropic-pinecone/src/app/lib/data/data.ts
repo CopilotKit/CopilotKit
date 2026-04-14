@@ -11,8 +11,7 @@ export const posts: Post[] = [
   {
     id: 1,
     title: "Getting Started with CopilotKit",
-    summary:
-      "Learn the basics of CopilotKit and how to set up your first project.",
+    summary: "Learn the basics of CopilotKit and how to set up your first project.",
     content: `
         CopilotKit is an open-source framework for building AI copilots and assistants for your applications. Here's how to get started:
         
@@ -64,8 +63,7 @@ export const posts: Post[] = [
   {
     id: 3,
     title: "Implementing CopilotKit Components",
-    summary:
-      "Learn how to use the different components provided by CopilotKit.",
+    summary: "Learn how to use the different components provided by CopilotKit.",
     content: `
         CopilotKit provides several key components for your applications:
         
@@ -93,8 +91,7 @@ export const posts: Post[] = [
   {
     id: 4,
     title: "Troubleshooting Common Issues",
-    summary:
-      "Follow these steps to troubleshoot common issues when using CopilotKit.",
+    summary: "Follow these steps to troubleshoot common issues when using CopilotKit.",
     content: `
         When troubleshooting CopilotKit implementations, follow these steps:
         
@@ -122,8 +119,7 @@ export const posts: Post[] = [
   {
     id: 5,
     title: "Advanced CopilotKit Usage",
-    summary:
-      "Take your CopilotKit implementation to the next level with advanced techniques.",
+    summary: "Take your CopilotKit implementation to the next level with advanced techniques.",
     content: `
         Advanced techniques for leveraging CopilotKit in your applications:
         

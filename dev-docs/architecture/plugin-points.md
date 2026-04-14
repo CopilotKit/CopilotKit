@@ -412,11 +412,7 @@ graph TB
 
 ```typescript
 abstract class TranscriptionService {
-  abstract transcribeFile(options: {
-    audioFile: File;
-    mimeType?: string;
-    size?: number;
-  }): Promise<string>;
+  abstract transcribeFile(options: { audioFile: File; mimeType?: string; size?: number }): Promise<string>;
 }
 ```
 
@@ -434,10 +430,7 @@ abstract class TranscriptionService {
 
 ```typescript
 abstract class Middleware {
-  abstract run(
-    input: RunAgentInput,
-    next: AbstractAgent,
-  ): Observable<BaseEvent>;
+  abstract run(input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent>;
 }
 
 // Built-in implementations:

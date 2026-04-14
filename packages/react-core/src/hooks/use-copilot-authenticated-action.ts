@@ -34,9 +34,7 @@ export function useCopilotAuthenticatedAction_c<T extends Parameter[]>(
 
   const wrappedRender = useCallback(
     (props: ActionRenderProps<Parameter[]>): string | React.ReactElement => {
-      const isAuthenticated = Object.values(authStates_c || {}).some(
-        (state) => state.status === "authenticated",
-      );
+      const isAuthenticated = Object.values(authStates_c || {}).some((state) => state.status === "authenticated");
 
       if (!isAuthenticated) {
         // Store action details for later execution

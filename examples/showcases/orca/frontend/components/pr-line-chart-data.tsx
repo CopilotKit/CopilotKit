@@ -1,13 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { CartesianGrid, Legend, Line, LineChart, Tooltip, XAxis, YAxis } from "recharts";
 import { useSharedContext } from "@/lib/shared-context";
 import { PRData, WeeklyCount } from "@/app/Interfaces/interface";
 
@@ -19,9 +11,7 @@ export function PRLineChartData({ args }: any) {
 
     let weeklyData;
     if (args?.userId) {
-      weeklyData = groupPRsByWeek(
-        prData.filter((pr: PRData) => pr.userId === args.userId),
-      );
+      weeklyData = groupPRsByWeek(prData.filter((pr: PRData) => pr.userId === args.userId));
     } else {
       weeklyData = groupPRsByWeek(prData);
     }
@@ -56,9 +46,7 @@ export function PRLineChartData({ args }: any) {
 
   return (
     <div className="p-4 rounded-2xl shadow-lg flex flex-col items-center w-full min-w-[250px] max-w-full">
-      <h2 className="text-xl font-semibold mb-2 text-gray-700 text-center">
-        Weekly PR Trends
-      </h2>
+      <h2 className="text-xl font-semibold mb-2 text-gray-700 text-center">Weekly PR Trends</h2>
       <div className="h-[200px] w-full flex items-center justify-center">
         <LineChart width={520} height={220} data={lineData}>
           <CartesianGrid strokeDasharray="4 4" stroke="#B6C7DB" />
@@ -90,11 +78,7 @@ export function PRLineChartData({ args }: any) {
 const CustomPieTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const { week, count } = payload[0].payload;
-    return (
-      <div className="bg-white p-2 rounded shadow text-black">
-        {`${week} - ${count}`}
-      </div>
-    );
+    return <div className="bg-white p-2 rounded shadow text-black">{`${week} - ${count}`}</div>;
   }
   return null;
 };

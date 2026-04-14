@@ -2,11 +2,7 @@
 
 import { useState, useEffect } from "react";
 // All modes use @copilotkit packages
-import {
-  CopilotKitProvider,
-  CopilotSidebar,
-  CopilotPopup,
-} from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, CopilotSidebar, CopilotPopup } from "@copilotkit/react-core/v2";
 import { useMediaQuery } from "@/hooks/use-media-query";
 // Mode-specific wrappers with their own CopilotKitProvider configurations
 import { A2UIPage } from "./components/A2UIPage";
@@ -33,10 +29,7 @@ function PageContent({
   setActiveAgent: (agent: "default" | "a2ui" | "opengenui") => void;
   pendingMessage: string | null;
   clearPendingMessage: () => void;
-  onPillClick: (
-    prompt: string,
-    targetMode: "default" | "a2ui" | "opengenui",
-  ) => void;
+  onPillClick: (prompt: string, targetMode: "default" | "a2ui" | "opengenui") => void;
 }) {
   const { sendMessage } = useSendMessage();
 
@@ -81,8 +74,7 @@ function PageContent({
                 </a>
               </div>
               <p className="text-lg text-[var(--color-text-secondary)] max-w-2xl mx-auto">
-                Explore four approaches to building AI-powered user interfaces
-                with CopilotKit
+                Explore four approaches to building AI-powered user interfaces with CopilotKit
               </p>
               <div className="flex justify-center gap-3 mt-4">
                 <a
@@ -111,14 +103,7 @@ function PageContent({
                 className={`protocol-tab ${activeAgent === "default" ? "active" : ""}`}
               >
                 <span className="flex items-center gap-2">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="3" y="3" width="18" height="18" rx="2" />
                     <path d="M9 9h6v6H9z" />
                   </svg>
@@ -130,14 +115,7 @@ function PageContent({
                 className={`protocol-tab ${activeAgent === "a2ui" ? "active" : ""}`}
               >
                 <span className="flex items-center gap-2">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10" />
                     <path d="M12 6v6l4 2" />
                   </svg>
@@ -149,14 +127,7 @@ function PageContent({
                 className={`protocol-tab ${activeAgent === "opengenui" ? "active" : ""}`}
               >
                 <span className="flex items-center gap-2">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M12 2L2 7l10 5 10-5-10-5z" />
                     <path d="M2 17l10 5 10-5" />
                     <path d="M2 12l10 5 10-5" />
@@ -176,10 +147,7 @@ function PageContent({
                 isActive={activeAgent === "default"}
                 onPromptClick={(prompt) => onPillClick(prompt, "default")}
               />
-              <A2UICard
-                isActive={activeAgent === "a2ui"}
-                onPromptClick={(prompt) => onPillClick(prompt, "a2ui")}
-              />
+              <A2UICard isActive={activeAgent === "a2ui"} onPromptClick={(prompt) => onPillClick(prompt, "a2ui")} />
               <OpenGenUICard
                 isActive={activeAgent === "opengenui"}
                 onPromptClick={(prompt) => onPillClick(prompt, "opengenui")}
@@ -191,9 +159,7 @@ function PageContent({
 
             {/* Example Prompts */}
             <div className="mt-8 text-center">
-              <p className="text-[var(--color-text-tertiary)] mb-4">
-                Try these prompts in the chat:
-              </p>
+              <p className="text-[var(--color-text-tertiary)] mb-4">Try these prompts in the chat:</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {activeAgent === "default" ? (
                   <>
@@ -253,8 +219,7 @@ function PageContent({
                       : activeAgent === "a2ui"
                         ? a2uiPrompts
                         : openGenUIPrompts;
-                  const randomPrompt =
-                    prompts[Math.floor(Math.random() * prompts.length)];
+                  const randomPrompt = prompts[Math.floor(Math.random() * prompts.length)];
                   sendMessage(randomPrompt);
                 }}
                 className="mt-4 px-4 py-2 bg-gradient-to-r from-[#9f8fef] to-[#7dd3c0] text-white rounded-full font-medium hover:opacity-90 transition-opacity flex items-center gap-2 mx-auto"
@@ -271,19 +236,14 @@ function PageContent({
 
 export default function Home() {
   // Active agent state - switches between "default" (Static+MCP), "a2ui", and "opengenui"
-  const [activeAgent, setActiveAgent] = useState<
-    "default" | "a2ui" | "opengenui"
-  >("default");
+  const [activeAgent, setActiveAgent] = useState<"default" | "a2ui" | "opengenui">("default");
   // Pending message for cross-mode pill clicks (sent after provider remount)
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   // Responsive layout: sidebar on desktop, popup on mobile
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   // Handler for protocol card pill clicks - triggers mode switch if needed
-  const handlePillClick = (
-    prompt: string,
-    targetMode: "default" | "a2ui" | "opengenui",
-  ) => {
+  const handlePillClick = (prompt: string, targetMode: "default" | "a2ui" | "opengenui") => {
     setPendingMessage(prompt);
     if (targetMode !== activeAgent) {
       setActiveAgent(targetMode);
@@ -326,11 +286,7 @@ export default function Home() {
   // Default mode: Static GenUI + MCP Apps (no A2UI renderer needed)
   // Key forces complete remount when switching to avoid stale state issues
   return (
-    <CopilotKitProvider
-      key="default-provider"
-      runtimeUrl="/api/copilotkit"
-      showDevConsole={false}
-    >
+    <CopilotKitProvider key="default-provider" runtimeUrl="/api/copilotkit" showDevConsole={false}>
       <CopilotContextProvider>
         {isDesktop ? (
           // Desktop: Sidebar layout
@@ -346,8 +302,7 @@ export default function Home() {
               defaultOpen={true}
               labels={{
                 modalHeaderTitle: "Static + MCP Apps",
-                chatInputPlaceholder:
-                  "Ask about weather, stocks, or try the interactive apps!",
+                chatInputPlaceholder: "Ask about weather, stocks, or try the interactive apps!",
               }}
             />
           </>
@@ -365,8 +320,7 @@ export default function Home() {
               defaultOpen={false}
               labels={{
                 modalHeaderTitle: "Static + MCP Apps",
-                chatInputPlaceholder:
-                  "Ask about weather, stocks, or try the interactive apps!",
+                chatInputPlaceholder: "Ask about weather, stocks, or try the interactive apps!",
               }}
             />
           </>

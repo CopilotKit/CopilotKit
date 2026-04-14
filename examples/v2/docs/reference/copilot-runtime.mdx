@@ -82,13 +82,7 @@ const runtime = new CopilotRuntime({
       throw new Response("Unauthorized", { status: 401 });
     }
   },
-  afterRequestMiddleware: async ({
-    response,
-    path,
-    messages,
-    threadId,
-    runId,
-  }) => {
+  afterRequestMiddleware: async ({ response, path, messages, threadId, runId }) => {
     console.info("Handled", path, response.status);
     console.info("Thread:", threadId, "Run:", runId);
     console.info("Messages:", messages);
@@ -133,10 +127,7 @@ This enables the `/transcribe` endpoint and shows a microphone button in the cha
 For custom providers, extend `TranscriptionService` from runtime:
 
 ```ts
-import {
-  TranscriptionService,
-  TranscribeFileOptions,
-} from "@copilotkit/runtime";
+import { TranscriptionService, TranscribeFileOptions } from "@copilotkit/runtime";
 
 class MyTranscriptionService extends TranscriptionService {
   async transcribeFile(options: TranscribeFileOptions): Promise<string> {
@@ -230,10 +221,7 @@ import express from "express";
 import { createCopilotEndpointExpress } from "@copilotkit/runtime/express";
 
 const app = express();
-app.use(
-  "/api/copilotkit",
-  createCopilotEndpointExpress({ runtime, basePath: "/" }),
-);
+app.use("/api/copilotkit", createCopilotEndpointExpress({ runtime, basePath: "/" }));
 ```
 
 The router mirrors the Hono REST routes and automatically enables permissive CORS (allowing all origins, headers, and methods). Adjust headers upstream if you need tighter controls.
@@ -245,10 +233,7 @@ import express from "express";
 import { createCopilotEndpointSingleRouteExpress } from "@copilotkit/runtime/express";
 
 const app = express();
-app.use(
-  "/api/copilotkit",
-  createCopilotEndpointSingleRouteExpress({ runtime, basePath: "/" }),
-);
+app.use("/api/copilotkit", createCopilotEndpointSingleRouteExpress({ runtime, basePath: "/" }));
 ```
 
 Single-route Express works identically to the Hono version: send the JSON envelope described earlier, and set `useSingleEndpoint` on the client.
@@ -279,10 +264,7 @@ async function bootstrap() {
   });
 
   // Mount under /api/copilotkit (REST-style routes)
-  app.use(
-    "/api/copilotkit",
-    createCopilotEndpointExpress({ runtime, basePath: "/" }),
-  );
+  app.use("/api/copilotkit", createCopilotEndpointExpress({ runtime, basePath: "/" }));
 
   await app.listen(3000);
 }
@@ -302,10 +284,7 @@ If you prefer the single-route transport, mount the single-route helper instead 
 ```ts
 import { createCopilotEndpointSingleRouteExpress } from "@copilotkit/runtime/express";
 
-app.use(
-  "/api/copilotkit",
-  createCopilotEndpointSingleRouteExpress({ runtime, basePath: "/" }),
-);
+app.use("/api/copilotkit", createCopilotEndpointSingleRouteExpress({ runtime, basePath: "/" }));
 ```
 
 Notes:

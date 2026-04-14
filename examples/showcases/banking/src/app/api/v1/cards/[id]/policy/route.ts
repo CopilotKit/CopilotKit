@@ -10,27 +10,19 @@ const getCardById = (id: string) => {
 };
 
 // Get policy per card
-export const GET = async (
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) => {
+export const GET = async (req: NextRequest, { params }: { params: { id: string } }) => {
   const card = getCardById(params.id);
   if (!card) {
     return new Response(JSON.stringify({ error: "Card not found" }), {
       status: 404,
     });
   }
-  const policy = data.policies.find(
-    (policy) => policy.id === card.expensePolicyId,
-  );
+  const policy = data.policies.find((policy) => policy.id === card.expensePolicyId);
   return new Response(JSON.stringify(policy), { status: 200 });
 };
 
 // Assign policy
-export const POST = async (
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) => {
+export const POST = async (req: NextRequest, { params }: { params: { id: string } }) => {
   try {
     const card = getCardById(params.id);
     if (!card) {

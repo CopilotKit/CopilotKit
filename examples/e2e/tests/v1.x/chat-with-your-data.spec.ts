@@ -8,8 +8,6 @@ test.describe("chat-with-your-data", () => {
   test("loads", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveTitle(/Chat with your data/i);
-    await expect(
-      page.getByRole("heading", { name: "Data Dashboard" }),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Data Dashboard" })).toBeVisible();
   });
 });

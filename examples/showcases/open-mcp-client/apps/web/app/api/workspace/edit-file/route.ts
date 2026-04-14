@@ -9,16 +9,8 @@ export async function POST(req: NextRequest) {
       search?: string;
       replace?: string;
     };
-    if (
-      !workspaceId ||
-      !path ||
-      search === undefined ||
-      replace === undefined
-    ) {
-      return NextResponse.json(
-        { error: "workspaceId, path, search, and replace are required" },
-        { status: 400 },
-      );
+    if (!workspaceId || !path || search === undefined || replace === undefined) {
+      return NextResponse.json({ error: "workspaceId, path, search, and replace are required" }, { status: 400 });
     }
 
     const provider = getProvider();

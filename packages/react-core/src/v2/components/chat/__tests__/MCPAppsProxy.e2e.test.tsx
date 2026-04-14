@@ -18,13 +18,7 @@ import {
   testId,
 } from "../../../__tests__/utils/test-helpers";
 import { MCPAppsActivityType } from "../../../components/MCPAppsActivityRenderer";
-import {
-  AbstractAgent,
-  RunAgentInput,
-  RunAgentResult,
-  BaseEvent,
-  EventType,
-} from "@ag-ui/client";
+import { AbstractAgent, RunAgentInput, RunAgentResult, BaseEvent, EventType } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
 
 // ---------------------------------------------------------------------------
@@ -44,10 +38,7 @@ class MockMCPProxyAgent extends AbstractAgent {
   emit(event: BaseEvent) {
     if (event.type === EventType.RUN_STARTED) {
       this.isRunning = true;
-    } else if (
-      event.type === EventType.RUN_FINISHED ||
-      event.type === EventType.RUN_ERROR
-    ) {
+    } else if (event.type === EventType.RUN_FINISHED || event.type === EventType.RUN_ERROR) {
       this.isRunning = false;
     }
     act(() => {
@@ -70,15 +61,9 @@ class MockMCPProxyAgent extends AbstractAgent {
       runAgentCalls: Array<{ input: Partial<RunAgentInput> }>;
       runAgentResponses: Map<string, unknown>;
     };
-    (cloned as unknown as Internal).subject = (
-      this as unknown as Internal
-    ).subject;
-    (cloned as unknown as Internal).runAgentCalls = (
-      this as unknown as Internal
-    ).runAgentCalls;
-    (cloned as unknown as Internal).runAgentResponses = (
-      this as unknown as Internal
-    ).runAgentResponses;
+    (cloned as unknown as Internal).subject = (this as unknown as Internal).subject;
+    (cloned as unknown as Internal).runAgentCalls = (this as unknown as Internal).runAgentCalls;
+    (cloned as unknown as Internal).runAgentResponses = (this as unknown as Internal).runAgentResponses;
 
     const registry = this;
     Object.defineProperty(cloned, "isRunning", {
@@ -93,9 +78,7 @@ class MockMCPProxyAgent extends AbstractAgent {
     });
 
     const proto = MockMCPProxyAgent.prototype;
-    cloned.runAgent = async function (
-      input?: Partial<RunAgentInput>,
-    ): Promise<RunAgentResult> {
+    cloned.runAgent = async function (input?: Partial<RunAgentInput>): Promise<RunAgentResult> {
       const proxiedRequest = input?.forwardedProps?.__proxiedMCPRequest;
       if (proxiedRequest) {
         return registry.runAgent(input);
@@ -165,10 +148,7 @@ class MockMCPProxyAgent extends AbstractAgent {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function mcpAppsActivityContent(overrides: {
-  resourceUri?: string;
-  serverHash?: string;
-}) {
+function mcpAppsActivityContent(overrides: { resourceUri?: string; serverHash?: string }) {
   return {
     resourceUri: overrides.resourceUri ?? "ui://test-server/test-resource",
     serverHash: overrides.serverHash ?? "abc123hash",
@@ -261,12 +241,7 @@ async function setupMCPActivity(
 /**
  * Send a JSON-RPC request to the component as if it came from the iframe.
  */
-function sendJsonRpc(
-  iframe: HTMLIFrameElement,
-  id: string | number,
-  method: string,
-  params?: Record<string, unknown>,
-) {
+function sendJsonRpc(iframe: HTMLIFrameElement, id: string | number, method: string, params?: Record<string, unknown>) {
   const msg = new MessageEvent("message", {
     data: {
       jsonrpc: "2.0",
@@ -320,11 +295,7 @@ describe("MCP Apps Proxy E2E", () => {
         isError: false,
       });
 
-      const iframe = await setupMCPActivity(
-        agent,
-        "proxy-tools-call",
-        "Tools call test",
-      );
+      const iframe = await setupMCPActivity(agent, "proxy-tools-call", "Tools call test");
       const captured = captureIframeMessages(iframe);
 
       // Send a tools/call JSON-RPC request from the "iframe"
@@ -336,22 +307,16 @@ describe("MCP Apps Proxy E2E", () => {
 
       // Verify the agent received a proxied MCP request with method tools/call
       const toolsCallEntry = agent.runAgentCalls.find(
-        (call) =>
-          call.input.forwardedProps?.__proxiedMCPRequest?.method ===
-          "tools/call",
+        (call) => call.input.forwardedProps?.__proxiedMCPRequest?.method === "tools/call",
       );
       expect(toolsCallEntry).toBeDefined();
-      expect(
-        toolsCallEntry?.input.forwardedProps?.__proxiedMCPRequest?.params,
-      ).toMatchObject({
+      expect(toolsCallEntry?.input.forwardedProps?.__proxiedMCPRequest?.params).toMatchObject({
         name: "calculator",
         arguments: { expression: "6 * 7" },
       });
 
       // Verify a success response was posted back to the iframe
-      const response = captured.find(
-        (m: any) => m && m.jsonrpc === "2.0" && m.id === reqId && m.result,
-      ) as any;
+      const response = captured.find((m: any) => m && m.jsonrpc === "2.0" && m.id === reqId && m.result) as any;
       expect(response).toBeDefined();
       expect(response.result).toMatchObject({
         content: [{ type: "text", text: "calculator result: 42" }],
@@ -365,21 +330,13 @@ describe("MCP Apps Proxy E2E", () => {
       const agent = new MockMCPProxyAgent();
       agent.agentId = "proxy-tools-error";
 
-      const iframe = await setupMCPActivity(
-        agent,
-        "proxy-tools-error",
-        "Tools error test",
-      );
+      const iframe = await setupMCPActivity(agent, "proxy-tools-error", "Tools error test");
       const captured = captureIframeMessages(iframe);
 
       // Override runAgent to throw for tools/call
       const originalRunAgent = agent.runAgent.bind(agent);
-      agent.runAgent = async (
-        input?: Partial<RunAgentInput>,
-      ): Promise<RunAgentResult> => {
-        const proxiedRequest = input?.forwardedProps?.__proxiedMCPRequest as
-          | { method: string }
-          | undefined;
+      agent.runAgent = async (input?: Partial<RunAgentInput>): Promise<RunAgentResult> => {
+        const proxiedRequest = input?.forwardedProps?.__proxiedMCPRequest as { method: string } | undefined;
         if (proxiedRequest?.method === "tools/call") {
           throw new Error("Server unreachable: connection refused");
         }
@@ -393,14 +350,10 @@ describe("MCP Apps Proxy E2E", () => {
       });
 
       // Verify an error response was posted back to the iframe
-      const errorResponse = captured.find(
-        (m: any) => m && m.jsonrpc === "2.0" && m.id === reqId && m.error,
-      ) as any;
+      const errorResponse = captured.find((m: any) => m && m.jsonrpc === "2.0" && m.id === reqId && m.error) as any;
       expect(errorResponse).toBeDefined();
       expect(errorResponse.error.code).toBe(-32603);
-      expect(errorResponse.error.message).toContain(
-        "Server unreachable: connection refused",
-      );
+      expect(errorResponse.error.message).toContain("Server unreachable: connection refused");
     });
   });
 
@@ -409,11 +362,7 @@ describe("MCP Apps Proxy E2E", () => {
       const agent = new MockMCPProxyAgent();
       agent.agentId = "proxy-open-link";
 
-      const iframe = await setupMCPActivity(
-        agent,
-        "proxy-open-link",
-        "Open link test",
-      );
+      const iframe = await setupMCPActivity(agent, "proxy-open-link", "Open link test");
       const captured = captureIframeMessages(iframe);
 
       // Spy on window.open
@@ -425,16 +374,10 @@ describe("MCP Apps Proxy E2E", () => {
       });
 
       // Verify window.open was called with the correct args
-      expect(openSpy).toHaveBeenCalledWith(
-        "https://example.com/docs",
-        "_blank",
-        "noopener,noreferrer",
-      );
+      expect(openSpy).toHaveBeenCalledWith("https://example.com/docs", "_blank", "noopener,noreferrer");
 
       // Verify a success response was sent back
-      const response = captured.find(
-        (m: any) => m && m.jsonrpc === "2.0" && m.id === reqId && m.result,
-      ) as any;
+      const response = captured.find((m: any) => m && m.jsonrpc === "2.0" && m.id === reqId && m.result) as any;
       expect(response).toBeDefined();
       expect(response.result).toMatchObject({ isError: false });
 
@@ -445,20 +388,14 @@ describe("MCP Apps Proxy E2E", () => {
       const agent = new MockMCPProxyAgent();
       agent.agentId = "proxy-open-link-no-url";
 
-      const iframe = await setupMCPActivity(
-        agent,
-        "proxy-open-link-no-url",
-        "No URL test",
-      );
+      const iframe = await setupMCPActivity(agent, "proxy-open-link-no-url", "No URL test");
       const captured = captureIframeMessages(iframe);
 
       const reqId = testId("req");
       await sendJsonRpc(iframe, reqId, "ui/open-link", {});
 
       // Verify an error response for missing url
-      const errorResponse = captured.find(
-        (m: any) => m && m.jsonrpc === "2.0" && m.id === reqId && m.error,
-      ) as any;
+      const errorResponse = captured.find((m: any) => m && m.jsonrpc === "2.0" && m.id === reqId && m.error) as any;
       expect(errorResponse).toBeDefined();
       expect(errorResponse.error.code).toBe(-32602);
       expect(errorResponse.error.message).toContain("Missing url");
@@ -473,9 +410,7 @@ describe("MCP Apps Proxy E2E", () => {
       // Respond with different HTML for each URI.
       // Override runAgent while still tracking calls in runAgentCalls.
       const originalRunAgent = agent.runAgent.bind(agent);
-      agent.runAgent = async (
-        input?: Partial<RunAgentInput>,
-      ): Promise<RunAgentResult> => {
+      agent.runAgent = async (input?: Partial<RunAgentInput>): Promise<RunAgentResult> => {
         const proxiedRequest = input?.forwardedProps?.__proxiedMCPRequest as
           | {
               method: string;
@@ -573,15 +508,11 @@ describe("MCP Apps Proxy E2E", () => {
 
       // Verify that two separate resource fetches were made
       const resourceCalls = agent.runAgentCalls.filter(
-        (call) =>
-          call.input.forwardedProps?.__proxiedMCPRequest?.method ===
-          "resources/read",
+        (call) => call.input.forwardedProps?.__proxiedMCPRequest?.method === "resources/read",
       );
       expect(resourceCalls.length).toBe(2);
 
-      const uris = resourceCalls.map(
-        (c) => c.input.forwardedProps?.__proxiedMCPRequest?.params?.uri,
-      );
+      const uris = resourceCalls.map((c) => c.input.forwardedProps?.__proxiedMCPRequest?.params?.uri);
       expect(uris).toContain("ui://first/widget");
       expect(uris).toContain("ui://second/widget");
     });

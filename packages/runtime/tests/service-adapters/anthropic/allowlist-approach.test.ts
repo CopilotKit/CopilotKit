@@ -56,24 +56,12 @@ describe("Anthropic Adapter - Allowlist Approach", () => {
     expect(filteredMessages.length).toBe(3); // text + 2 valid tool results (no duplicates or invalid)
 
     // Valid results should be included
-    expect(
-      filteredMessages.some(
-        (m) => m.type === "tool_result" && m.actionExecutionId === "valid-id-1",
-      ),
-    ).toBe(true);
+    expect(filteredMessages.some((m) => m.type === "tool_result" && m.actionExecutionId === "valid-id-1")).toBe(true);
 
-    expect(
-      filteredMessages.some(
-        (m) => m.type === "tool_result" && m.actionExecutionId === "valid-id-2",
-      ),
-    ).toBe(true);
+    expect(filteredMessages.some((m) => m.type === "tool_result" && m.actionExecutionId === "valid-id-2")).toBe(true);
 
     // Invalid result should be excluded
-    expect(
-      filteredMessages.some(
-        (m) => m.type === "tool_result" && m.actionExecutionId === "invalid-id",
-      ),
-    ).toBe(false);
+    expect(filteredMessages.some((m) => m.type === "tool_result" && m.actionExecutionId === "invalid-id")).toBe(false);
 
     // Duplicate should be excluded
     const validId1Count = filteredMessages.filter(
@@ -161,10 +149,7 @@ describe("Anthropic Adapter - Allowlist Approach", () => {
     };
 
     filteredMessages.forEach((message) => {
-      if (
-        message.type === "tool_result" &&
-        message.actionExecutionId in toolResultCounts
-      ) {
+      if (message.type === "tool_result" && message.actionExecutionId in toolResultCounts) {
         toolResultCounts[message.actionExecutionId]++;
       }
     });
@@ -184,10 +169,7 @@ describe("Anthropic Adapter - Allowlist Approach", () => {
 
     for (const message of messages) {
       if (message.type === "tool_result") {
-        if (
-          !validToolUseIds.has(message.actionExecutionId) ||
-          processedIds.has(message.actionExecutionId)
-        ) {
+        if (!validToolUseIds.has(message.actionExecutionId) || processedIds.has(message.actionExecutionId)) {
           continue;
         }
         processedIds.add(message.actionExecutionId);
@@ -226,10 +208,7 @@ describe("Anthropic Adapter - Allowlist Approach", () => {
 
     for (const message of messages) {
       if (message.type === "tool_result") {
-        if (
-          !validToolUseIds.has(message.actionExecutionId) ||
-          processedIds.has(message.actionExecutionId)
-        ) {
+        if (!validToolUseIds.has(message.actionExecutionId) || processedIds.has(message.actionExecutionId)) {
           continue;
         }
         processedIds.add(message.actionExecutionId);
@@ -241,9 +220,7 @@ describe("Anthropic Adapter - Allowlist Approach", () => {
     expect(filteredMessages.length).toBe(6); // 7 original - 1 duplicate
 
     // Valid tool_result should be included exactly once
-    const toolResults = filteredMessages.filter(
-      (m) => m.type === "tool_result",
-    );
+    const toolResults = filteredMessages.filter((m) => m.type === "tool_result");
     expect(toolResults.length).toBe(1);
     expect(toolResults[0].actionExecutionId).toBe("valid-id-1");
 
@@ -252,8 +229,6 @@ describe("Anthropic Adapter - Allowlist Approach", () => {
     expect(filteredMessages.filter((m) => m.type === "image").length).toBe(1);
     expect(filteredMessages.filter((m) => m.type === "custom").length).toBe(1);
     expect(filteredMessages.filter((m) => m.type === "null").length).toBe(1);
-    expect(filteredMessages.filter((m) => m.type === "undefined").length).toBe(
-      1,
-    );
+    expect(filteredMessages.filter((m) => m.type === "undefined").length).toBe(1);
   });
 });

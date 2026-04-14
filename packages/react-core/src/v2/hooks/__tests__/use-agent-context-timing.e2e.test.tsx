@@ -18,11 +18,7 @@ import { z } from "zod";
 import { useFrontendTool } from "../use-frontend-tool";
 import { useAgentContext } from "../use-agent-context";
 import { CopilotChat } from "../../components/chat/CopilotChat";
-import {
-  type AgentSubscriber,
-  type BaseEvent,
-  type RunAgentParameters,
-} from "@ag-ui/client";
+import { type AgentSubscriber, type BaseEvent, type RunAgentParameters } from "@ag-ui/client";
 import type { Context } from "@ag-ui/client";
 import {
   MockStepwiseAgent,
@@ -47,15 +43,11 @@ describe("useAgentContext timing - follow-up run sees updated context", () => {
 
       clone(): this {
         const cloned = super.clone();
-        (cloned as unknown as ContextCapturingAgent).contextPerRun =
-          this.contextPerRun;
+        (cloned as unknown as ContextCapturingAgent).contextPerRun = this.contextPerRun;
         return cloned;
       }
 
-      async runAgent(
-        parameters?: RunAgentParameters,
-        subscriber?: AgentSubscriber,
-      ) {
+      async runAgent(parameters?: RunAgentParameters, subscriber?: AgentSubscriber) {
         this.contextPerRun.push(parameters?.context ?? []);
         return super.runAgent(parameters, subscriber);
       }
@@ -133,8 +125,6 @@ describe("useAgentContext timing - follow-up run sees updated context", () => {
     // The follow-up run should see the context updated by the tool handler
     // (spicy: false), not the stale value from before the handler ran (spicy: true).
     const followUpContext = agent.contextPerRun[1];
-    expect(followUpContext).toContainEqual(
-      expect.objectContaining({ value: '{"spicy":false}' }),
-    );
+    expect(followUpContext).toContainEqual(expect.objectContaining({ value: '{"spicy":false}' }));
   });
 });

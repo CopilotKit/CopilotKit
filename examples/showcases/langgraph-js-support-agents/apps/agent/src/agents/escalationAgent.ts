@@ -13,9 +13,7 @@ export async function escalationAgentNode(
 
   const intent = state.intent?.category || "general_inquiry";
   const urgency = state.intent?.urgency || "low";
-  const customerId = state.currentCustomer?.found
-    ? state.currentCustomer.id
-    : undefined;
+  const customerId = state.currentCustomer?.found ? state.currentCustomer.id : undefined;
 
   try {
     const escalationResult = await escalationDecisionTool.invoke({
@@ -29,9 +27,7 @@ export async function escalationAgentNode(
     if (escalation.required) {
       console.log(`ESCALATION REQUIRED: ${escalation.reason}`);
       console.log(`Ticket: ${escalation.ticketId}`);
-      console.log(
-        `Assigned to: ${escalation.assignedTo} (Priority: ${escalation.priority})`,
-      );
+      console.log(`Assigned to: ${escalation.assignedTo} (Priority: ${escalation.priority})`);
 
       const messages = state.messages || [];
       const escalationMessage = new AIMessage({

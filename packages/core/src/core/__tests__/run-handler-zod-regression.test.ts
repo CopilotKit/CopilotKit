@@ -19,9 +19,7 @@ function createRunHandler(): RunHandler {
 
 function buildSingleToolSchema(params?: z.ZodTypeAny): Record<string, unknown> {
   const runHandler = createRunHandler();
-  runHandler.initialize([
-    { name: "test", ...(params ? { parameters: params } : {}) },
-  ]);
+  runHandler.initialize([{ name: "test", ...(params ? { parameters: params } : {}) }]);
   const [tool] = runHandler.buildFrontendTools();
   return tool.parameters;
 }
@@ -54,9 +52,7 @@ describe("RunHandler Zod regression — tool schema generation", () => {
     });
 
     it("strips additionalProperties from passthrough schemas", () => {
-      const schema = buildSingleToolSchema(
-        z.object({ id: z.number() }).passthrough(),
-      );
+      const schema = buildSingleToolSchema(z.object({ id: z.number() }).passthrough());
       expect(schema).not.toHaveProperty("additionalProperties");
     });
 
@@ -164,17 +160,13 @@ describe("RunHandler Zod regression — tool schema generation", () => {
     });
 
     it("nullable fields", () => {
-      const schema = buildSingleToolSchema(
-        z.object({ bio: z.string().nullable() }),
-      );
+      const schema = buildSingleToolSchema(z.object({ bio: z.string().nullable() }));
       expect(schema).toHaveProperty("type", "object");
       expect(schema).toHaveProperty("properties.bio");
     });
 
     it("record fields", () => {
-      const schema = buildSingleToolSchema(
-        z.object({ meta: z.record(z.string(), z.string()) }),
-      );
+      const schema = buildSingleToolSchema(z.object({ meta: z.record(z.string(), z.string()) }));
       expect(schema).toHaveProperty("type", "object");
       expect(schema).toHaveProperty("properties.meta");
     });
@@ -186,14 +178,8 @@ describe("RunHandler Zod regression — tool schema generation", () => {
           limit: z.number().describe("Max results").optional(),
         }),
       );
-      expect(schema).toHaveProperty(
-        "properties.query.description",
-        "The search query",
-      );
-      expect(schema).toHaveProperty(
-        "properties.limit.description",
-        "Max results",
-      );
+      expect(schema).toHaveProperty("properties.query.description", "The search query");
+      expect(schema).toHaveProperty("properties.limit.description", "Max results");
     });
 
     it("string constraints", () => {
@@ -281,17 +267,11 @@ describe("RunHandler Zod regression — tool schema generation", () => {
       expect(tools).toHaveLength(3);
 
       const weather = tools.find((t) => t.name === "weather");
-      expect(weather.parameters).toHaveProperty(
-        "properties.city.type",
-        "string",
-      );
+      expect(weather.parameters).toHaveProperty("properties.city.type", "string");
       expect(weather.parameters.required).toContain("city");
 
       const search = tools.find((t) => t.name === "search");
-      expect(search.parameters).toHaveProperty(
-        "properties.query.type",
-        "string",
-      );
+      expect(search.parameters).toHaveProperty("properties.query.type", "string");
       expect(search.parameters.required).toContain("query");
 
       const noParams = tools.find((t) => t.name === "noParams");

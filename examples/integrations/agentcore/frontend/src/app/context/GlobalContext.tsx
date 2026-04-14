@@ -42,7 +42,5 @@ export function GlobalContextProvider({ children }: PropsWithChildren) {
     setIsLoading,
   };
 
-  return (
-    <GlobalContext.Provider value={value}>{children}</GlobalContext.Provider>
-  );
+  return <GlobalContext.Provider value={value}>{children}</GlobalContext.Provider>;
 }

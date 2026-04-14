@@ -19,8 +19,7 @@ export class StateManager {
   private stateByRun: Map<string, Map<string, Map<string, State>>> = new Map();
 
   // Message tracking: agentId -> threadId -> messageId -> runId
-  private messageToRun: Map<string, Map<string, Map<string, string>>> =
-    new Map();
+  private messageToRun: Map<string, Map<string, Map<string, string>>> = new Map();
 
   // Active run tracking: `agentId:threadId` -> runId (used when messages arrive without input)
   private activeRun: Map<string, string> = new Map();
@@ -56,8 +55,7 @@ export class StateManager {
     }
 
     const agentId = agent.agentId;
-    const subscriptionKey =
-      isClone && agent.threadId ? `${agentId}:${agent.threadId}` : agentId;
+    const subscriptionKey = isClone && agent.threadId ? `${agentId}:${agent.threadId}` : agentId;
 
     // Unsubscribe existing subscription for this key only
     const existingUnsubscribe = this.agentSubscriptions.get(subscriptionKey);
@@ -131,20 +129,11 @@ export class StateManager {
       },
       onMessagesSnapshotEvent: ({ event, input, messages }) => {
         if (revoked) return;
-        this.handleMessagesSnapshot(
-          agent,
-          event,
-          effectiveInput(input),
-          messages,
-        );
+        this.handleMessagesSnapshot(agent, event, effectiveInput(input), messages);
       },
       onNewMessage: ({ message, input }) => {
         if (revoked) return;
-        this.handleNewMessage(
-          agent,
-          message,
-          input ? effectiveInput(input) : undefined,
-        );
+        this.handleNewMessage(agent, message, input ? effectiveInput(input) : undefined);
       },
     });
 
@@ -172,11 +161,7 @@ export class StateManager {
    * Get state for a specific run
    * Returns a deep copy to prevent external mutations
    */
-  getStateByRun(
-    agentId: string,
-    threadId: string,
-    runId: string,
-  ): State | undefined {
+  getStateByRun(agentId: string, threadId: string, runId: string): State | undefined {
     const state = this.stateByRun.get(agentId)?.get(threadId)?.get(runId);
     if (!state) return undefined;
     // Return a deep copy to prevent mutations
@@ -186,11 +171,7 @@ export class StateManager {
   /**
    * Get runId associated with a message
    */
-  getRunIdForMessage(
-    agentId: string,
-    threadId: string,
-    messageId: string,
-  ): string | undefined {
+  getRunIdForMessage(agentId: string, threadId: string, messageId: string): string | undefined {
     return this.messageToRun.get(agentId)?.get(threadId)?.get(messageId);
   }
 
@@ -212,11 +193,7 @@ export class StateManager {
   /**
    * Handle run started event
    */
-  private handleRunStarted(
-    agent: AbstractAgent,
-    input: RunAgentInput,
-    state: State,
-  ): void {
+  private handleRunStarted(agent: AbstractAgent, input: RunAgentInput, state: State): void {
     if (!agent.agentId) return;
 
     const { threadId, runId } = input;
@@ -233,11 +210,7 @@ export class StateManager {
   /**
    * Handle run finished event
    */
-  private handleRunFinished(
-    agent: AbstractAgent,
-    input: RunAgentInput,
-    state: State,
-  ): void {
+  private handleRunFinished(agent: AbstractAgent, input: RunAgentInput, state: State): void {
     if (!agent.agentId) return;
 
     const { threadId, runId } = input;
@@ -267,12 +240,7 @@ export class StateManager {
   /**
    * Handle state delta event
    */
-  private handleStateDelta(
-    agent: AbstractAgent,
-    event: StateDeltaEvent,
-    input: RunAgentInput,
-    state: State,
-  ): void {
+  private handleStateDelta(agent: AbstractAgent, event: StateDeltaEvent, input: RunAgentInput, state: State): void {
     if (!agent.agentId) return;
 
     const { threadId, runId } = input;
@@ -302,11 +270,7 @@ export class StateManager {
   /**
    * Handle new message event
    */
-  private handleNewMessage(
-    agent: AbstractAgent,
-    message: Message,
-    input?: RunAgentInput,
-  ): void {
+  private handleNewMessage(agent: AbstractAgent, message: Message, input?: RunAgentInput): void {
     if (!agent.agentId) return;
 
     if (!input) {
@@ -315,12 +279,7 @@ export class StateManager {
       const threadId = agent.threadId ?? "";
       const runId = this.activeRun.get(`${agent.agentId}:${threadId}`);
       if (runId) {
-        this.associateMessageWithRun(
-          agent.agentId,
-          threadId,
-          message.id,
-          runId,
-        );
+        this.associateMessageWithRun(agent.agentId, threadId, message.id, runId);
       }
       return;
     }
@@ -332,12 +291,7 @@ export class StateManager {
   /**
    * Save state for a specific run
    */
-  private saveState(
-    agentId: string,
-    threadId: string,
-    runId: string,
-    state: State,
-  ): void {
+  private saveState(agentId: string, threadId: string, runId: string, state: State): void {
     // Ensure nested maps exist
     if (!this.stateByRun.has(agentId)) {
       this.stateByRun.set(agentId, new Map());
@@ -356,12 +310,7 @@ export class StateManager {
   /**
    * Associate a message with a run
    */
-  private associateMessageWithRun(
-    agentId: string,
-    threadId: string,
-    messageId: string,
-    runId: string,
-  ): void {
+  private associateMessageWithRun(agentId: string, threadId: string, messageId: string, runId: string): void {
     // Ensure nested maps exist
     if (!this.messageToRun.has(agentId)) {
       this.messageToRun.set(agentId, new Map());

@@ -1,9 +1,4 @@
-import {
-  Component,
-  input,
-  ChangeDetectionStrategy,
-  ViewEncapsulation,
-} from "@angular/core";
+import { Component, input, ChangeDetectionStrategy, ViewEncapsulation } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { cn } from "../..//utils";
 import { injectChatLabels } from "../../chat-config";
@@ -42,9 +37,6 @@ export class CopilotChatViewDisclaimer {
 
   // Computed class matching React exactly
   get computedClass(): string {
-    return cn(
-      "text-center text-xs text-muted-foreground py-3 px-4 max-w-3xl mx-auto",
-      this.inputClass(),
-    );
+    return cn("text-center text-xs text-muted-foreground py-3 px-4 max-w-3xl mx-auto", this.inputClass());
   }
 }

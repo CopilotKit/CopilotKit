@@ -3,15 +3,12 @@
 import { useState, useEffect } from "react";
 import { SearchModal } from "./search-modal";
 
-export function SearchTrigger({
-  iconOnly = false,
-}: { iconOnly?: boolean } = {}) {
+export function SearchTrigger({ iconOnly = false }: { iconOnly?: boolean } = {}) {
   const [isMac, setIsMac] = useState(true);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    const mac =
-      typeof navigator !== "undefined" && /mac/i.test(navigator.userAgent);
+    const mac = typeof navigator !== "undefined" && /mac/i.test(navigator.userAgent);
     setIsMac(mac);
   }, []);
 
@@ -35,12 +32,7 @@ export function SearchTrigger({
           className="flex items-center justify-center w-8 h-8 rounded-md text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"
           aria-label="Search"
         >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"

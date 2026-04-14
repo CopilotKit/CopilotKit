@@ -58,12 +58,8 @@ export class CopilotChatTextarea implements AfterViewInit {
   maxHeight = signal<number>(0);
 
   // Computed values
-  computedValue = computed(
-    () => this.inputValue() ?? this.chatState.inputValue() ?? "",
-  );
-  placeholder = computed(
-    () => this.inputPlaceholder() || this.chatLabels.chatInputPlaceholder,
-  );
+  computedValue = computed(() => this.inputValue() ?? this.chatState.inputValue() ?? "");
+  placeholder = computed(() => this.inputPlaceholder() || this.chatLabels.chatInputPlaceholder);
   disabled = computed(() => this.inputDisabled() ?? false);
 
   computedClass = computed(() => {
@@ -135,8 +131,7 @@ export class CopilotChatTextarea implements AfterViewInit {
     const contentHeight = textarea.scrollHeight - paddingTop - paddingBottom;
 
     // Calculate max height: content height for maxRows + padding
-    const calculatedMaxHeight =
-      contentHeight * maxRowsValue + paddingTop + paddingBottom;
+    const calculatedMaxHeight = contentHeight * maxRowsValue + paddingTop + paddingBottom;
     this.maxHeight.set(calculatedMaxHeight);
 
     // Restore original value

@@ -27,12 +27,8 @@ export function TeamSection({ state }: TeamSectionProps) {
                 <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-white text-sm truncate">
-                  {user.name}
-                </div>
-                <div className="text-xs text-gray-300 truncate">
-                  {user.role}
-                </div>
+                <div className="font-semibold text-white text-sm truncate">{user.name}</div>
+                <div className="text-xs text-gray-300 truncate">{user.role}</div>
               </div>
             </div>
           </div>

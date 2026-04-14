@@ -3,50 +3,38 @@ import { ReferenceDocConfiguration } from "./reference-doc";
 export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   /* Runtime */
   {
-    sourcePath:
-      "packages/runtime/src/service-adapters/google/google-genai-adapter.ts",
-    destinationPath:
-      "docs/content/docs/reference/v1/classes/llm-adapters/GoogleGenerativeAIAdapter.mdx",
+    sourcePath: "packages/runtime/src/service-adapters/google/google-genai-adapter.ts",
+    destinationPath: "docs/content/docs/reference/v1/classes/llm-adapters/GoogleGenerativeAIAdapter.mdx",
     className: "GoogleGenerativeAIAdapter",
-    description:
-      "Copilot Runtime adapter for Google Generative AI (e.g. Gemini).",
+    description: "Copilot Runtime adapter for Google Generative AI (e.g. Gemini).",
   },
   {
     sourcePath: "packages/runtime/src/service-adapters/groq/groq-adapter.ts",
-    destinationPath:
-      "docs/content/docs/reference/v1/classes/llm-adapters/GroqAdapter.mdx",
+    destinationPath: "docs/content/docs/reference/v1/classes/llm-adapters/GroqAdapter.mdx",
     className: "GroqAdapter",
     description: "Copilot Runtime adapter for Groq.",
   },
   {
-    sourcePath:
-      "packages/runtime/src/service-adapters/langchain/langchain-adapter.ts",
-    destinationPath:
-      "docs/content/docs/reference/v1/classes/llm-adapters/LangChainAdapter.mdx",
+    sourcePath: "packages/runtime/src/service-adapters/langchain/langchain-adapter.ts",
+    destinationPath: "docs/content/docs/reference/v1/classes/llm-adapters/LangChainAdapter.mdx",
     className: "LangChainAdapter",
     description: "Copilot Runtime adapter for LangChain.",
   },
   {
-    sourcePath:
-      "packages/runtime/src/service-adapters/openai/openai-adapter.ts",
-    destinationPath:
-      "docs/content/docs/reference/v1/classes/llm-adapters/OpenAIAdapter.mdx",
+    sourcePath: "packages/runtime/src/service-adapters/openai/openai-adapter.ts",
+    destinationPath: "docs/content/docs/reference/v1/classes/llm-adapters/OpenAIAdapter.mdx",
     className: "OpenAIAdapter",
     description: "Copilot Runtime adapter for OpenAI.",
   },
   {
-    sourcePath:
-      "packages/runtime/src/service-adapters/openai/openai-assistant-adapter.ts",
-    destinationPath:
-      "docs/content/docs/reference/v1/classes/llm-adapters/OpenAIAssistantAdapter.mdx",
+    sourcePath: "packages/runtime/src/service-adapters/openai/openai-assistant-adapter.ts",
+    destinationPath: "docs/content/docs/reference/v1/classes/llm-adapters/OpenAIAssistantAdapter.mdx",
     className: "OpenAIAssistantAdapter",
     description: "Copilot Runtime adapter for OpenAI Assistant API.",
   },
   {
-    sourcePath:
-      "packages/runtime/src/service-adapters/anthropic/anthropic-adapter.ts",
-    destinationPath:
-      "docs/content/docs/reference/v1/classes/llm-adapters/AnthropicAdapter.mdx",
+    sourcePath: "packages/runtime/src/service-adapters/anthropic/anthropic-adapter.ts",
+    destinationPath: "docs/content/docs/reference/v1/classes/llm-adapters/AnthropicAdapter.mdx",
     className: "AnthropicAdapter",
     description: "Copilot Runtime adapter for Anthropic.",
   },
@@ -55,55 +43,42 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     sourcePath: "packages/react-core/src/lib/copilot-task.ts",
     destinationPath: "docs/content/docs/reference/v1/classes/CopilotTask.mdx",
     className: "CopilotTask",
-    description:
-      "CopilotTask is used to execute one-off tasks, for example on button click.",
+    description: "CopilotTask is used to execute one-off tasks, for example on button click.",
   },
   {
     sourcePath: "packages/runtime/src/lib/runtime/copilot-runtime.ts",
-    destinationPath:
-      "docs/content/docs/reference/v1/classes/CopilotRuntime.mdx",
+    destinationPath: "docs/content/docs/reference/v1/classes/CopilotRuntime.mdx",
     className: "CopilotRuntime",
-    description:
-      "Copilot Runtime is the back-end component of CopilotKit, enabling interaction with LLMs.",
+    description: "Copilot Runtime is the back-end component of CopilotKit, enabling interaction with LLMs.",
   },
   /* Components */
   {
     sourcePath: "packages/react-ui/src/components/chat/Chat.tsx",
-    destinationPath:
-      "docs/content/docs/reference/v1/components/chat/CopilotChat.mdx",
+    destinationPath: "docs/content/docs/reference/v1/components/chat/CopilotChat.mdx",
     component: "CopilotChat",
-    description:
-      "The CopilotChat component, providing a chat interface for interacting with your copilot.",
+    description: "The CopilotChat component, providing a chat interface for interacting with your copilot.",
   },
   {
-    sourcePath:
-      "packages/react-core/src/components/copilot-provider/copilotkit.tsx",
+    sourcePath: "packages/react-core/src/components/copilot-provider/copilotkit.tsx",
     destinationPath: "docs/content/docs/reference/v1/components/CopilotKit.mdx",
     component: "CopilotKit",
-    description:
-      "The CopilotKit provider component, wrapping your application.",
+    description: "The CopilotKit provider component, wrapping your application.",
   },
   {
     sourcePath: "packages/react-ui/src/components/chat/Popup.tsx",
-    destinationPath:
-      "docs/content/docs/reference/v1/components/chat/CopilotPopup.mdx",
+    destinationPath: "docs/content/docs/reference/v1/components/chat/CopilotPopup.mdx",
     component: "CopilotPopup",
-    description:
-      "The CopilotPopup component, providing a popup interface for interacting with your copilot.",
+    description: "The CopilotPopup component, providing a popup interface for interacting with your copilot.",
   },
   {
     sourcePath: "packages/react-ui/src/components/chat/Sidebar.tsx",
-    destinationPath:
-      "docs/content/docs/reference/v1/components/chat/CopilotSidebar.mdx",
+    destinationPath: "docs/content/docs/reference/v1/components/chat/CopilotSidebar.mdx",
     component: "CopilotSidebar",
-    description:
-      "The CopilotSidebar component, providing a sidebar interface for interacting with your copilot.",
+    description: "The CopilotSidebar component, providing a sidebar interface for interacting with your copilot.",
   },
   {
-    sourcePath:
-      "packages/react-textarea/src/components/copilot-textarea/copilot-textarea.tsx",
-    destinationPath:
-      "docs/content/docs/reference/v1/components/CopilotTextarea.mdx",
+    sourcePath: "packages/react-textarea/src/components/copilot-textarea/copilot-textarea.tsx",
+    destinationPath: "docs/content/docs/reference/v1/components/CopilotTextarea.mdx",
     component: "CopilotTextarea",
     description:
       "An AI-powered textarea component for your application, which serves as a drop-in replacement for any textarea.",
@@ -116,33 +91,28 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   },
   {
     sourcePath: "packages/react-core/src/hooks/use-copilot-chat-headless_c.ts",
-    destinationPath:
-      "docs/content/docs/reference/v1/hooks/useCopilotChatHeadless_c.mdx",
+    destinationPath: "docs/content/docs/reference/v1/hooks/useCopilotChatHeadless_c.mdx",
     hook: "useCopilotChatHeadless_c",
   },
   {
     sourcePath: "packages/react-ui/src/hooks/use-copilot-chat-suggestions.tsx",
-    destinationPath:
-      "docs/content/docs/reference/v1/hooks/useCopilotChatSuggestions.mdx",
+    destinationPath: "docs/content/docs/reference/v1/hooks/useCopilotChatSuggestions.mdx",
     hook: "useCopilotChatSuggestions",
     description:
       "The useCopilotChatSuggestions hook generates suggestions in the chat window based on real-time app state.",
   },
   {
     sourcePath: "packages/react-core/src/hooks/use-copilot-readable.ts",
-    destinationPath:
-      "docs/content/docs/reference/v1/hooks/useCopilotReadable.mdx",
+    destinationPath: "docs/content/docs/reference/v1/hooks/useCopilotReadable.mdx",
     hook: "useCopilotReadable",
     description:
       "The useCopilotReadable hook allows you to provide knowledge to your copilot (e.g. application state).",
   },
   {
     sourcePath: "packages/react-core/src/hooks/use-coagent-state-render.ts",
-    destinationPath:
-      "docs/content/docs/reference/v1/hooks/useCoAgentStateRender.mdx",
+    destinationPath: "docs/content/docs/reference/v1/hooks/useCoAgentStateRender.mdx",
     hook: "useCoAgentStateRender",
-    description:
-      "The useCoAgentStateRender hook allows you to render the state of the agent in the chat.",
+    description: "The useCoAgentStateRender hook allows you to render the state of the agent in the chat.",
   },
   {
     sourcePath: "packages/react-core/src/hooks/use-coagent.ts",
@@ -152,10 +122,8 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
       "The useCoAgent hook allows you to share state bidirectionally between your application and the agent.",
   },
   {
-    sourcePath:
-      "packages/react-core/src/hooks/use-copilot-additional-instructions.ts",
-    destinationPath:
-      "docs/content/docs/reference/v1/hooks/useCopilotAdditionalInstructions.mdx",
+    sourcePath: "packages/react-core/src/hooks/use-copilot-additional-instructions.ts",
+    destinationPath: "docs/content/docs/reference/v1/hooks/useCopilotAdditionalInstructions.mdx",
     hook: "useCopilotAdditionalInstructions",
     description:
       "The useCopilotAdditionalInstructions hook allows you to provide additional instructions to the agent.",
@@ -180,8 +148,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     sourcePath: "../../sdk-python/copilotkit/crewai/crewai_sdk.py",
     destinationPath: "docs/content/docs/reference/sdk/python/CrewAI.mdx",
     title: "CrewAI SDK",
-    description:
-      "The CopilotKit CrewAI SDK for Python allows you to build and run CrewAI agents with CopilotKit.",
+    description: "The CopilotKit CrewAI SDK for Python allows you to build and run CrewAI agents with CopilotKit.",
     pythonSymbols: [
       "copilotkit_emit_state",
       "copilotkit_predict_state",
@@ -194,25 +161,21 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   /* Agents */
   {
     sourcePath: "../../sdk-python/copilotkit/langgraph_agent.py",
-    destinationPath:
-      "docs/content/docs/reference/sdk/python/LangGraphAgent.mdx",
+    destinationPath: "docs/content/docs/reference/sdk/python/LangGraphAgent.mdx",
     title: "LangGraphAgent",
-    description:
-      "LangGraphAgent lets you define your agent for use with CopilotKit.",
+    description: "LangGraphAgent lets you define your agent for use with CopilotKit.",
     pythonSymbols: ["LangGraphAgent", "CopilotKitConfig"],
   },
   {
     sourcePath: "../../sdk-python/copilotkit/crewai/crewai_agent.py",
     destinationPath: "docs/content/docs/reference/sdk/python/CrewAIAgent.mdx",
     title: "CrewAIAgent",
-    description:
-      "CrewAIAgent lets you define your agent for use with CopilotKit.",
+    description: "CrewAIAgent lets you define your agent for use with CopilotKit.",
     pythonSymbols: ["CrewAIAgent", "CopilotKitConfig"],
   },
   {
     sourcePath: "../../sdk-python/copilotkit/sdk.py",
-    destinationPath:
-      "docs/content/docs/reference/sdk/python/RemoteEndpoints.mdx",
+    destinationPath: "docs/content/docs/reference/sdk/python/RemoteEndpoints.mdx",
     title: "Remote Endpoints",
     description:
       "CopilotKit Remote Endpoints allow you to connect actions and agents written in Python to your CopilotKit application.",

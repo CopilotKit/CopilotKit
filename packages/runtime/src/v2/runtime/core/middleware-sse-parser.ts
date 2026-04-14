@@ -25,9 +25,7 @@ interface ToolCall {
  * Parse a cloned SSE Response body into structured messages.
  * Returns empty results for non-SSE responses.
  */
-export async function parseSSEResponse(
-  response: Response,
-): Promise<ParsedSSEResult> {
+export async function parseSSEResponse(response: Response): Promise<ParsedSSEResult> {
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("text/event-stream")) {
     return { messages: [] };

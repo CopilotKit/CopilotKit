@@ -15,12 +15,7 @@ import {
 } from "../graphql/@generated/graphql";
 import { parseJson } from "@copilotkit/shared";
 
-type MessageType =
-  | "TextMessage"
-  | "ActionExecutionMessage"
-  | "ResultMessage"
-  | "AgentStateMessage"
-  | "ImageMessage";
+type MessageType = "TextMessage" | "ActionExecutionMessage" | "ResultMessage" | "AgentStateMessage" | "ImageMessage";
 
 export class Message {
   type: MessageType;
@@ -62,13 +57,9 @@ export const Role = MessageRole;
 // when constructing any message, the base fields are optional
 type MessageConstructorOptions = Partial<Message>;
 
-type TextMessageConstructorOptions = MessageConstructorOptions &
-  TextMessageInput;
+type TextMessageConstructorOptions = MessageConstructorOptions & TextMessageInput;
 
-export class TextMessage
-  extends Message
-  implements TextMessageConstructorOptions
-{
+export class TextMessage extends Message implements TextMessageConstructorOptions {
   content: TextMessageInput["content"];
   parentMessageId: TextMessageInput["parentMessageId"];
   role: TextMessageInput["role"];
@@ -98,13 +89,9 @@ export class ActionExecutionMessage
   }
 }
 
-type ResultMessageConstructorOptions = MessageConstructorOptions &
-  ResultMessageInput;
+type ResultMessageConstructorOptions = MessageConstructorOptions & ResultMessageInput;
 
-export class ResultMessage
-  extends Message
-  implements ResultMessageConstructorOptions
-{
+export class ResultMessage extends Message implements ResultMessageConstructorOptions {
   actionExecutionId: ResultMessageInput["actionExecutionId"];
   actionName: ResultMessageInput["actionName"];
   result: ResultMessageInput["result"];
@@ -129,10 +116,7 @@ export class ResultMessage
   }
 }
 
-export class AgentStateMessage
-  extends Message
-  implements Omit<AgentStateMessageInput, "state">
-{
+export class AgentStateMessage extends Message implements Omit<AgentStateMessageInput, "state"> {
   agentName: AgentStateMessageInput["agentName"];
   state: any;
   running: AgentStateMessageInput["running"];
@@ -148,13 +132,9 @@ export class AgentStateMessage
   }
 }
 
-type ImageMessageConstructorOptions = MessageConstructorOptions &
-  ImageMessageInput;
+type ImageMessageConstructorOptions = MessageConstructorOptions & ImageMessageInput;
 
-export class ImageMessage
-  extends Message
-  implements ImageMessageConstructorOptions
-{
+export class ImageMessage extends Message implements ImageMessageConstructorOptions {
   format: ImageMessageInput["format"];
   bytes: ImageMessageInput["bytes"];
   role: ImageMessageInput["role"];
@@ -176,16 +156,12 @@ export function langGraphInterruptEvent(
   };
 }
 
-export type LangGraphInterruptEvent<TValue extends any = any> =
-  GqlLangGraphInterruptEvent & {
-    value: TValue;
-  };
+export type LangGraphInterruptEvent<TValue extends any = any> = GqlLangGraphInterruptEvent & {
+  value: TValue;
+};
 
-type CopilotKitLangGraphInterruptEvent<TValue extends any = any> =
-  GqlCopilotKitLangGraphInterruptEvent & {
-    data: GqlCopilotKitLangGraphInterruptEvent["data"] & { value: TValue };
-  };
+type CopilotKitLangGraphInterruptEvent<TValue extends any = any> = GqlCopilotKitLangGraphInterruptEvent & {
+  data: GqlCopilotKitLangGraphInterruptEvent["data"] & { value: TValue };
+};
 
-export type MetaEvent =
-  | LangGraphInterruptEvent
-  | CopilotKitLangGraphInterruptEvent;
+export type MetaEvent = LangGraphInterruptEvent | CopilotKitLangGraphInterruptEvent;

@@ -8,11 +8,7 @@ import { describe, it, expect } from "vitest";
 function safeParseToolArgs(raw: string): Record<string, unknown> {
   try {
     const parsed = JSON.parse(raw);
-    if (
-      typeof parsed === "object" &&
-      parsed !== null &&
-      !Array.isArray(parsed)
-    ) {
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
       return parsed as Record<string, unknown>;
     }
     return {};

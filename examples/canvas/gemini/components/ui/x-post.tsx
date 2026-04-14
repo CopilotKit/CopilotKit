@@ -5,16 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Heart,
-  MessageCircle,
-  Repeat2,
-  Share,
-  MoreHorizontal,
-  ExternalLink,
-  Calendar,
-  MapPin,
-} from "lucide-react";
+import { Heart, MessageCircle, Repeat2, Share, MoreHorizontal, ExternalLink, Calendar, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface XPostProps {
@@ -67,16 +58,10 @@ export function XPost({ title, content, className }: XPostProps) {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-semibold text-gray-900 text-sm truncate">
-                {defaultAuthor.name}
-              </span>
+              <span className="font-semibold text-gray-900 text-sm truncate">{defaultAuthor.name}</span>
               {defaultAuthor.verified && (
                 <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                  <svg
-                    className="w-2.5 h-2.5 text-white"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
+                  <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path
                       fillRule="evenodd"
                       d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -85,9 +70,7 @@ export function XPost({ title, content, className }: XPostProps) {
                   </svg>
                 </div>
               )}
-              <span className="text-gray-500 text-sm">
-                @{defaultAuthor.handle}
-              </span>
+              <span className="text-gray-500 text-sm">@{defaultAuthor.handle}</span>
               <span className="text-gray-400">·</span>
               <span className="text-gray-500 text-sm">{defaultTimestamp}</span>
             </div>
@@ -116,9 +99,7 @@ export function XPost({ title, content, className }: XPostProps) {
 
         {/* Content */}
         <div className="mb-3">
-          <p className="text-gray-900 text-sm leading-relaxed whitespace-pre-wrap">
-            {content}
-          </p>
+          <p className="text-gray-900 text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
         </div>
 
         {/* Action Bar */}
@@ -168,11 +149,7 @@ export function XLogo({ className }: { className?: string }) {
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-        <svg
-          className="w-5 h-5 text-white"
-          fill="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
           <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
         </svg>
       </div>
@@ -182,13 +159,7 @@ export function XLogo({ className }: { className?: string }) {
 }
 
 // X Post Preview Component (for the canvas)
-export function XPostPreview({
-  title,
-  content,
-}: {
-  title: string;
-  content: string;
-}) {
+export function XPostPreview({ title, content }: { title: string; content: string }) {
   //   const samplePost = {
   //     title: "AI Research Breakthrough",
   //     content: "🚀 Exciting breakthrough in AI research! Our latest paper on multimodal reasoning shows significant improvements in complex problem-solving tasks. The integration of vision and language models opens new possibilities for scientific discovery.\n\n#AI #Research #DeepMind #Breakthrough"
@@ -238,10 +209,7 @@ export function XPostCompact({ title, content, className }: XPostProps) {
 
   return (
     <Card
-      className={cn(
-        "w-full max-w-sm bg-white border border-gray-200/50 shadow-sm",
-        className,
-      )}
+      className={cn("w-full max-w-sm bg-white border border-gray-200/50 shadow-sm", className)}
       style={{ transform: "scale(0.9)", transformOrigin: "top left" }}
     >
       <CardContent className="p-3">
@@ -258,16 +226,10 @@ export function XPostCompact({ title, content, className }: XPostProps) {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1 mb-1">
-              <span className="font-semibold text-gray-900 text-xs truncate">
-                {defaultAuthor.name}
-              </span>
+              <span className="font-semibold text-gray-900 text-xs truncate">{defaultAuthor.name}</span>
               {defaultAuthor.verified && (
                 <div className="w-3 h-3 bg-blue-500 rounded-full flex items-center justify-center">
-                  <svg
-                    className="w-1.5 h-1.5 text-white"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
+                  <svg className="w-1.5 h-1.5 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path
                       fillRule="evenodd"
                       d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -276,9 +238,7 @@ export function XPostCompact({ title, content, className }: XPostProps) {
                   </svg>
                 </div>
               )}
-              <span className="text-gray-500 text-xs">
-                @{defaultAuthor.handle}
-              </span>
+              <span className="text-gray-500 text-xs">@{defaultAuthor.handle}</span>
               <span className="text-gray-400">·</span>
               <span className="text-gray-500 text-xs">{defaultTimestamp}</span>
             </div>

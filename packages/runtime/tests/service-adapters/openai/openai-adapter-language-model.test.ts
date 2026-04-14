@@ -6,13 +6,7 @@ import OpenAI from "openai";
 // Keys from OpenAIProviderSettings that we forward from the OpenAI SDK client.
 // If @ai-sdk/openai adds new keys, the type assertion below will fail at
 // compile time, forcing us to decide whether to forward them.
-type ForwardedOpenAIKeys =
-  | "baseURL"
-  | "apiKey"
-  | "organization"
-  | "project"
-  | "headers"
-  | "fetch";
+type ForwardedOpenAIKeys = "baseURL" | "apiKey" | "organization" | "project" | "headers" | "fetch";
 
 // We set `name` ourselves (not forwarded from the SDK client).
 type ControlledOpenAIKeys = "name";
@@ -22,17 +16,11 @@ type ControlledOpenAIKeys = "name";
 // If this line errors, a new key was added to OpenAIProviderSettings that
 // needs to be handled.
 type _exhaustive =
-  Exclude<
-    keyof OpenAIProviderSettings,
-    ForwardedOpenAIKeys | ControlledOpenAIKeys
-  > extends never
+  Exclude<keyof OpenAIProviderSettings, ForwardedOpenAIKeys | ControlledOpenAIKeys> extends never
     ? true
     : {
         error: "OpenAIProviderSettings has unhandled keys";
-        unhandled: Exclude<
-          keyof OpenAIProviderSettings,
-          ForwardedOpenAIKeys | ControlledOpenAIKeys
-        >;
+        unhandled: Exclude<keyof OpenAIProviderSettings, ForwardedOpenAIKeys | ControlledOpenAIKeys>;
       };
 const _check: _exhaustive = true;
 
@@ -96,9 +84,7 @@ describe("OpenAIAdapter.getLanguageModel()", () => {
     expect(mockCreateOpenAI).toHaveBeenCalledOnce();
     const settings = mockCreateOpenAI.mock.calls[0][0];
 
-    expect(settings.baseURL).toBe(
-      "https://myinstance.openai.azure.com/openai/deployments/gpt-4o",
-    );
+    expect(settings.baseURL).toBe("https://myinstance.openai.azure.com/openai/deployments/gpt-4o");
     expect(settings.apiKey).toBe("azure-key");
     expect(settings.organization).toBe("org-123");
     expect(settings.project).toBe("proj-456");

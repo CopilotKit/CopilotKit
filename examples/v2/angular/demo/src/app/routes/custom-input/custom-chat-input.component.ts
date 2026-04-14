@@ -1,9 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  Input,
-  inject,
-} from "@angular/core";
+import { ChangeDetectionStrategy, Component, Input, inject } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { injectChatState } from "@copilotkit/angular";
@@ -13,21 +8,8 @@ import { injectChatState } from "@copilotkit/angular";
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <form
-      class="ck-input-wrapper"
-      (ngSubmit)="submit()"
-      [class.ck-disabled]="inProgress"
-      novalidate
-      autocomplete="off"
-    >
-      <button
-        type="button"
-        class="ck-icon"
-        [disabled]="inProgress"
-        title="Add attachment"
-      >
-        ＋
-      </button>
+    <form class="ck-input-wrapper" (ngSubmit)="submit()" [class.ck-disabled]="inProgress" novalidate autocomplete="off">
+      <button type="button" class="ck-icon" [disabled]="inProgress" title="Add attachment">＋</button>
 
       <label for="ck-message" class="sr-only">Message</label>
       <input
@@ -48,12 +30,7 @@ import { injectChatState } from "@copilotkit/angular";
         (compositionend)="composing = false"
       />
 
-      <button
-        type="submit"
-        class="ck-send"
-        [disabled]="inProgress || !canSend"
-        [attr.aria-label]="'Send message'"
-      >
+      <button type="submit" class="ck-send" [disabled]="inProgress || !canSend" [attr.aria-label]="'Send message'">
         ↑
       </button>
     </form>

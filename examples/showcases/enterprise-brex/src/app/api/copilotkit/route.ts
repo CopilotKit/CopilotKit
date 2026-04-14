@@ -1,8 +1,4 @@
-import {
-  CopilotRuntime,
-  OpenAIAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 import OpenAI from "openai";
 import { NextRequest } from "next/server";
 import { PERMISSIONS } from "../v1/permissions";
@@ -11,15 +7,9 @@ import { Document } from "@langchain/core/documents";
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import { MemoryVectorStore } from "langchain/vectorstores/memory";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
-import {
-  RunnablePassthrough,
-  RunnableSequence,
-} from "@langchain/core/runnables";
+import { RunnablePassthrough, RunnableSequence } from "@langchain/core/runnables";
 import { AIMessageChunk } from "@langchain/core/messages";
-import {
-  SERVICE_NOW_BASE_URL,
-  serviceNowApiHeaders,
-} from "@/app/api/servicenow/[...path]/route";
+import { SERVICE_NOW_BASE_URL, serviceNowApiHeaders } from "@/app/api/servicenow/[...path]/route";
 import { DocxLoader } from "@langchain/community/document_loaders/fs/docx";
 import * as path from "path";
 
@@ -37,22 +27,16 @@ export interface Article {
   workflow_state: string;
 }
 
-const getKBArticlesByQuery = async (
-  query: string,
-): Promise<Article[] | null> => {
+const getKBArticlesByQuery = async (query: string): Promise<Article[] | null> => {
   const params = new URLSearchParams({
     sysparm_query: `text LIKE ${query}^ORDERBYDESCsys_created_on`,
     sysparm_limit: "5",
-    sysparm_fields:
-      "short_description,text,number,sys_created_on,workflow_state",
+    sysparm_fields: "short_description,text,number,sys_created_on,workflow_state",
   });
 
-  const response = await fetch(
-    `${SERVICE_NOW_BASE_URL}/table/kb_knowledge?${params.toString()}`,
-    {
-      headers: serviceNowApiHeaders,
-    },
-  );
+  const response = await fetch(`${SERVICE_NOW_BASE_URL}/table/kb_knowledge?${params.toString()}`, {
+    headers: serviceNowApiHeaders,
+  });
 
   const { result } = await response.json();
   return result.length ? result : null;
@@ -107,14 +91,10 @@ const runtime = new CopilotRuntime({
       {
         name: "answerTensaiRelatedQuestions",
         description: "Get any answer regarding Tensai.",
-        parameters: [
-          { name: "query", type: "string", description: "The question" },
-        ],
+        parameters: [{ name: "query", type: "string", description: "The question" }],
         handler: async ({ query }: { query: string }) => {
           // Pass the File to the DocxLoader
-          const loader = new DocxLoader(
-            path.resolve(process.cwd(), "./assets/all_about_tensai.docx"),
-          ); // {{ edit_6 }}
+          const loader = new DocxLoader(path.resolve(process.cwd(), "./assets/all_about_tensai.docx")); // {{ edit_6 }}
           const docs = await loader.load();
 
           return await performRagByDocuments(query, docs);
@@ -134,10 +114,7 @@ export const POST = async (req: NextRequest) => {
   return handleRequest(req);
 };
 
-export async function performRagByDocuments(
-  userQuery: string,
-  docs: Document[],
-): Promise<AIMessageChunk> {
+export async function performRagByDocuments(userQuery: string, docs: Document[]): Promise<AIMessageChunk> {
   if (!docs.length) return new AIMessageChunk("Answer cannot be provided");
   const textSplitter = new RecursiveCharacterTextSplitter({
     chunkSize: 1000,

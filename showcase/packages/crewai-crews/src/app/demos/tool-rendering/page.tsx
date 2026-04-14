@@ -14,11 +14,7 @@ import {
 export default function ToolRenderingDemo() {
   return (
     <DemoErrorBoundary demoName="Tool Rendering">
-      <CopilotKit
-        runtimeUrl="/api/copilotkit"
-        agent="tool-rendering"
-        a2ui={{ catalog: demonstrationCatalog }}
-      >
+      <CopilotKit runtimeUrl="/api/copilotkit" agent="tool-rendering" a2ui={{ catalog: demonstrationCatalog }}>
         <Chat />
       </CopilotKit>
     </DemoErrorBoundary>
@@ -45,9 +41,7 @@ function Chat() {
               background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
             }}
           >
-            <div style={{ fontSize: "24px", animation: "pulse 2s infinite" }}>
-              🌤️
-            </div>
+            <div style={{ fontSize: "24px", animation: "pulse 2s infinite" }}>🌤️</div>
             <div>
               <p
                 style={{

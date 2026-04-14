@@ -27,19 +27,13 @@ export async function scaffoldShadCN(flags: any, userAnswers: Config) {
         break;
       case "MCP":
         components.push(templateMapping.McpStarter);
-        if (
-          userAnswers.deploymentChoice === "Self-hosted" ||
-          userAnswers.useCopilotCloud === "No"
-        ) {
+        if (userAnswers.deploymentChoice === "Self-hosted" || userAnswers.useCopilotCloud === "No") {
           components.push(templateMapping.McpRuntime);
         }
         break;
       case "Standard":
         components.push(templateMapping.StandardStarter);
-        if (
-          userAnswers.deploymentChoice === "Self-hosted" ||
-          userAnswers.useCopilotCloud === "No"
-        ) {
+        if (userAnswers.deploymentChoice === "Self-hosted" || userAnswers.useCopilotCloud === "No") {
           components.push(templateMapping.StandardRuntime);
         }
         break;
@@ -52,18 +46,12 @@ export async function scaffoldShadCN(flags: any, userAnswers: Config) {
 
     try {
       // Run shadcn with inherited stdio for all streams to allow for user input
-      const result = spawn.sync(
-        "npx",
-        ["shadcn@latest", "add", ...components],
-        {
-          stdio: "inherit", // This ensures stdin/stdout/stderr are all passed through
-        },
-      );
+      const result = spawn.sync("npx", ["shadcn@latest", "add", ...components], {
+        stdio: "inherit", // This ensures stdin/stdout/stderr are all passed through
+      });
 
       if (result.status !== 0) {
-        throw new Error(
-          `The shadcn installation process exited with code ${result.status}`,
-        );
+        throw new Error(`The shadcn installation process exited with code ${result.status}`);
       }
     } catch (error) {
       throw error;

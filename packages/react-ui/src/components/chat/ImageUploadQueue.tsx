@@ -6,11 +6,7 @@ interface ImageUploadQueueProps {
   className?: string;
 }
 
-export const ImageUploadQueue: React.FC<ImageUploadQueueProps> = ({
-  images,
-  onRemoveImage,
-  className = "",
-}) => {
+export const ImageUploadQueue: React.FC<ImageUploadQueueProps> = ({ images, onRemoveImage, className = "" }) => {
   if (images.length === 0) return null;
 
   return (

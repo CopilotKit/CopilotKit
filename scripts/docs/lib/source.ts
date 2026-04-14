@@ -36,12 +36,7 @@ export class SourceFile {
 
   parse() {
     const fileContents = fs.readFileSync(this.filePath, "utf8");
-    this.sourceFile = ts.createSourceFile(
-      this.filePath,
-      fileContents,
-      ts.ScriptTarget.Latest,
-      true,
-    );
+    this.sourceFile = ts.createSourceFile(this.filePath, fileContents, ts.ScriptTarget.Latest, true);
   }
 
   /**
@@ -77,9 +72,7 @@ export class SourceFile {
       }
       // if we find a matching forwardRef declaration
       else if (ts.isVariableStatement(node) || ts.isVariableDeclaration(node)) {
-        const declarations = ts.isVariableStatement(node)
-          ? node.declarationList.declarations
-          : [node];
+        const declarations = ts.isVariableStatement(node) ? node.declarationList.declarations : [node];
 
         declarations.forEach((declaration) => {
           if (
@@ -113,8 +106,7 @@ export class SourceFile {
     }
 
     // extract the interface definition
-    let interfaceFilePath =
-      this.findTypeDeclaration(interfaceName) || this.filePath;
+    let interfaceFilePath = this.findTypeDeclaration(interfaceName) || this.filePath;
 
     const interfaceSource = new SourceFile(interfaceFilePath);
     interfaceSource.parse();
@@ -125,9 +117,7 @@ export class SourceFile {
   /**
    * Extracts the interface definition from the source file.
    */
-  protected extractInterfaceDefinition(
-    interfaceName: string,
-  ): InterfaceDefinition {
+  protected extractInterfaceDefinition(interfaceName: string): InterfaceDefinition {
     const definition: InterfaceDefinition = {
       name: interfaceName,
       properties: [],
@@ -152,34 +142,21 @@ export class SourceFile {
                   const omittedProps = omitArgs[1];
                   if (ts.isUnionTypeNode(omittedProps)) {
                     omittedProps.types.forEach((prop) => {
-                      omittedProperties.add(
-                        prop.getText(this.sourceFile).replace(/['"]/g, ""),
-                      );
+                      omittedProperties.add(prop.getText(this.sourceFile).replace(/['"]/g, ""));
                     });
                   } else if (ts.isLiteralTypeNode(omittedProps)) {
-                    omittedProperties.add(
-                      omittedProps
-                        .getText(this.sourceFile)
-                        .replace(/['"]/g, ""),
-                    );
+                    omittedProperties.add(omittedProps.getText(this.sourceFile).replace(/['"]/g, ""));
                   }
                 }
               }
             }
 
-            const extendedInterfaceFilePath = this.findTypeDeclaration(
-              extendedInterfaceName,
-            );
+            const extendedInterfaceFilePath = this.findTypeDeclaration(extendedInterfaceName);
             if (extendedInterfaceFilePath) {
               // Parse the extended interface file and extract its definition
-              const extendedInterfaceSource = new SourceFile(
-                extendedInterfaceFilePath,
-              );
+              const extendedInterfaceSource = new SourceFile(extendedInterfaceFilePath);
               extendedInterfaceSource.parse();
-              const extendedDefinition =
-                extendedInterfaceSource.extractInterfaceDefinition(
-                  extendedInterfaceName,
-                );
+              const extendedDefinition = extendedInterfaceSource.extractInterfaceDefinition(extendedInterfaceName);
               // Merge properties from the extended interface, excluding omitted properties
               extendedDefinition.properties.forEach((prop) => {
                 if (!omittedProperties.has(prop.name)) {
@@ -192,20 +169,12 @@ export class SourceFile {
         node.members.forEach((member) => {
           if (ts.isPropertySignature(member)) {
             const propertyName = member.name.getText(this.sourceFile);
-            const comment = Comments.getCleanedCommentsForNode(
-              member,
-              this.sourceFile,
-            );
-            const defaultValue = Comments.getDefaultValueForNode(
-              member,
-              this.sourceFile,
-            );
+            const comment = Comments.getCleanedCommentsForNode(member, this.sourceFile);
+            const defaultValue = Comments.getDefaultValueForNode(member, this.sourceFile);
 
             definition.properties.push({
               name: propertyName,
-              type: (member.type?.getText(this.sourceFile) || "unknown")
-                .replace(/\n/g, "")
-                .replace(/\s+/g, " "),
+              type: (member.type?.getText(this.sourceFile) || "unknown").replace(/\n/g, "").replace(/\s+/g, " "),
               required: !member.questionToken,
               comment,
               defaultValue,
@@ -228,18 +197,11 @@ export class SourceFile {
       if (ts.isImportDeclaration(statement) && statement.importClause) {
         const namedBindings = statement.importClause.namedBindings;
         if (namedBindings && ts.isNamedImports(namedBindings)) {
-          const imports = namedBindings.elements.filter(
-            (element) => element.name.text === typeName,
-          );
+          const imports = namedBindings.elements.filter((element) => element.name.text === typeName);
           if (imports.length > 0) {
-            const moduleSpecifier = (
-              statement.moduleSpecifier as ts.StringLiteral
-            ).text;
+            const moduleSpecifier = (statement.moduleSpecifier as ts.StringLiteral).text;
             // Resolve the path relative to the directory of the current source file
-            let resolvedPath = resolve(
-              dirname(this.sourceFile.fileName),
-              moduleSpecifier,
-            );
+            let resolvedPath = resolve(dirname(this.sourceFile.fileName), moduleSpecifier);
 
             if (existsSync(resolvedPath + ".ts")) {
               return resolvedPath + ".ts";
@@ -265,9 +227,7 @@ export class SourceFile {
         node.members.forEach((member) => {
           if (
             ts.isMethodDeclaration(member) &&
-            member.modifiers?.every(
-              (modifier) => modifier.kind !== ts.SyntaxKind.PrivateKeyword,
-            )
+            member.modifiers?.every((modifier) => modifier.kind !== ts.SyntaxKind.PrivateKeyword)
           ) {
             methodDefinitions.push(this.extractMethodDefinition(member));
           }
@@ -284,21 +244,10 @@ export class SourceFile {
   /**
    * Extracts the method definition from a method declaration.
    */
-  private extractMethodDefinition(
-    member: ts.MethodDeclaration,
-  ): MethodDefinition {
-    const functionComments = Comments.getTsDocCommentsForFunction(
-      member,
-      this.sourceFile,
-    );
-    const name = ts.isConstructorDeclaration(member)
-      ? "constructor"
-      : member.name.getText();
-    let signature =
-      name +
-      "(" +
-      member.parameters.map((param) => param.getText()).join(", ") +
-      ")";
+  private extractMethodDefinition(member: ts.MethodDeclaration): MethodDefinition {
+    const functionComments = Comments.getTsDocCommentsForFunction(member, this.sourceFile);
+    const name = ts.isConstructorDeclaration(member) ? "constructor" : member.name.getText();
+    let signature = name + "(" + member.parameters.map((param) => param.getText()).join(", ") + ")";
     signature = signature.replace(/</g, "&lt;").replace(/>/g, "&gt;");
     return {
       signature,
@@ -322,9 +271,7 @@ export class SourceFile {
 
     const visit = (node: ts.Node) => {
       if (ts.isClassDeclaration(node) && node.name?.getText() === className) {
-        const constr = node.members.find((member) =>
-          ts.isConstructorDeclaration(member),
-        ) as any;
+        const constr = node.members.find((member) => ts.isConstructorDeclaration(member)) as any;
         if (constr) {
           constructorDefinition = this.extractMethodDefinition(constr);
         }
@@ -344,14 +291,8 @@ export class SourceFile {
     let functionComment: string | null = null;
 
     const visit = (node: ts.Node) => {
-      if (
-        ts.isFunctionDeclaration(node) &&
-        node.name?.getText() === functionName
-      ) {
-        functionComment = Comments.getCleanedCommentsForNode(
-          node,
-          this.sourceFile,
-        );
+      if (ts.isFunctionDeclaration(node) && node.name?.getText() === functionName) {
+        functionComment = Comments.getCleanedCommentsForNode(node, this.sourceFile);
       }
       ts.forEachChild(node, visit);
     };
@@ -380,23 +321,15 @@ export class SourceFile {
     }> | null = null;
 
     const visit = (node: ts.Node) => {
-      if (
-        ts.isFunctionDeclaration(node) &&
-        node.name?.getText() === functionName
-      ) {
+      if (ts.isFunctionDeclaration(node) && node.name?.getText() === functionName) {
         functionArguments = node.parameters.map((param) => {
           const name = param.name.getText();
           const type = param.type?.getText() || "unknown";
           const required = !param.questionToken;
-          const defaultValue = param.initializer
-            ? param.initializer.getText()
-            : "";
+          const defaultValue = param.initializer ? param.initializer.getText() : "";
 
           // Use the comment cleaning method
-          const description = Comments.getCleanedCommentsForNode(
-            param,
-            this.sourceFile,
-          );
+          const description = Comments.getCleanedCommentsForNode(param, this.sourceFile);
 
           return { name, type, required, defaultValue, description };
         });

@@ -18,9 +18,7 @@ export function LivePreviewPanel() {
 
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-semibold text-slate-900">
-                    {name}
-                  </span>
+                  <span className="truncate text-sm font-semibold text-slate-900">{name}</span>
 
                   <span
                     className={[
@@ -44,9 +42,7 @@ export function LivePreviewPanel() {
                   </span>
                 </div>
 
-                <div className="text-xs text-slate-600">
-                  {isComplete ? "Called tool" : "Calling tool"}
-                </div>
+                <div className="text-xs text-slate-600">{isComplete ? "Called tool" : "Calling tool"}</div>
               </div>
             </div>
 
@@ -55,9 +51,7 @@ export function LivePreviewPanel() {
 
           <div className="border-t border-slate-200 bg-slate-50 px-4 py-3 space-y-3">
             <Row label="Status">
-              <span className="text-xs font-medium text-slate-800">
-                {status}
-              </span>
+              <span className="text-xs font-medium text-slate-800">{status}</span>
             </Row>
 
             <Row label="Args">
@@ -78,19 +72,13 @@ export function LivePreviewPanel() {
       <div className="bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden">
         <div className="bg-linear-to-r from-purple-600 to-purple-700 px-6 py-4">
           <h2 className="text-xl font-semibold text-white">Tool Calls</h2>
-          <p className="text-purple-100 text-sm">
-            Tool calls will appear inside the chat stream.
-          </p>
+          <p className="text-purple-100 text-sm">Tool calls will appear inside the chat stream.</p>
         </div>
 
         <div className="max-h-[600px] overflow-y-auto p-6 space-y-3">
           <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center">
-            <p className="text-sm font-medium text-slate-900">
-              Waiting for tool calls…
-            </p>
-            <p className="text-sm text-slate-600">
-              Expand a call to inspect args + result.
-            </p>
+            <p className="text-sm font-medium text-slate-900">Waiting for tool calls…</p>
+            <p className="text-sm text-slate-600">Expand a call to inspect args + result.</p>
           </div>
         </div>
       </div>
@@ -98,13 +86,7 @@ export function LivePreviewPanel() {
   );
 }
 
-function Row({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
       <div className="text-xs font-semibold text-slate-700">{label}</div>

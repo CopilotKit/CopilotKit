@@ -7,21 +7,13 @@ import { ImageRendererProps } from "../props";
  * See https://docs.copilotkit.ai/migration-guides/migrate-attachments
  * @since 1.56.0
  */
-export const ImageRenderer: React.FC<ImageRendererProps> = ({
-  image,
-  source,
-  content,
-  className = "",
-}) => {
+export const ImageRenderer: React.FC<ImageRendererProps> = ({ image, source, content, className = "" }) => {
   const [imageError, setImageError] = useState(false);
 
   // Determine image src from either legacy ImageData or new InputContentSource
   let imageSrc: string;
   if (source) {
-    imageSrc =
-      source.type === "url"
-        ? source.value
-        : `data:${source.mimeType};base64,${source.value}`;
+    imageSrc = source.type === "url" ? source.value : `data:${source.mimeType};base64,${source.value}`;
   } else if (image) {
     imageSrc = `data:image/${image.format};base64,${image.bytes}`;
   } else {
@@ -32,30 +24,17 @@ export const ImageRenderer: React.FC<ImageRendererProps> = ({
 
   if (imageError) {
     return (
-      <div
-        className={`copilotKitImageRendering copilotKitImageRenderingError ${className}`}
-      >
-        <div className="copilotKitImageRenderingErrorMessage">
-          Failed to load image
-        </div>
-        {content && (
-          <div className="copilotKitImageRenderingContent">{content}</div>
-        )}
+      <div className={`copilotKitImageRendering copilotKitImageRenderingError ${className}`}>
+        <div className="copilotKitImageRenderingErrorMessage">Failed to load image</div>
+        {content && <div className="copilotKitImageRenderingContent">{content}</div>}
       </div>
     );
   }
 
   return (
     <div className={`copilotKitImageRendering ${className}`}>
-      <img
-        src={imageSrc}
-        alt={altText}
-        className="copilotKitImageRenderingImage"
-        onError={() => setImageError(true)}
-      />
-      {content && (
-        <div className="copilotKitImageRenderingContent">{content}</div>
-      )}
+      <img src={imageSrc} alt={altText} className="copilotKitImageRenderingImage" onError={() => setImageError(true)} />
+      {content && <div className="copilotKitImageRenderingContent">{content}</div>}
     </div>
   );
 };

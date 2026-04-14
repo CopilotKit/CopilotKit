@@ -1,10 +1,4 @@
-import {
-  Component,
-  input,
-  ChangeDetectionStrategy,
-  ViewEncapsulation,
-  computed,
-} from "@angular/core";
+import { Component, input, ChangeDetectionStrategy, ViewEncapsulation, computed } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { cn } from "../../utils";
 

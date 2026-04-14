@@ -13,17 +13,11 @@ export function singleEndpointSuite(
   factory: (opts?: {
     capturedHeaders?: Record<string, string>[];
   }) => Promise<ServerHandle & { handler?: (r: Request) => Promise<Response> }>,
-  requestFn?: (
-    input: RequestInfo | URL,
-    init?: RequestInit,
-  ) => Promise<Response>,
+  requestFn?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
 ) {
   describe(`[${name}] Single-Endpoint`, () => {
     let handle: ServerHandle & { handler?: (r: Request) => Promise<Response> };
-    let doFetch: (
-      input: RequestInfo | URL,
-      init?: RequestInit,
-    ) => Promise<Response>;
+    let doFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
     beforeAll(async () => {
       handle = await factory();
@@ -31,14 +25,7 @@ export function singleEndpointSuite(
         requestFn ??
         (handle.handler
           ? (input, init) =>
-              handle.handler!(
-                new Request(
-                  typeof input === "string" || input instanceof URL
-                    ? input
-                    : input,
-                  init,
-                ),
-              )
+              handle.handler!(new Request(typeof input === "string" || input instanceof URL ? input : input, init))
           : fetch);
     });
 
@@ -48,10 +35,7 @@ export function singleEndpointSuite(
 
     const endpoint = () => `${handle.baseUrl}${handle.basePath}`;
 
-    function postEnvelope(
-      envelope: Record<string, unknown>,
-      extraHeaders?: Record<string, string>,
-    ) {
+    function postEnvelope(envelope: Record<string, unknown>, extraHeaders?: Record<string, string>) {
       return doFetch(endpoint(), {
         method: "POST",
         headers: {
@@ -286,10 +270,7 @@ export function singleEndpointSuite(
         const h = await factory({ capturedHeaders: captured });
         const localFetch =
           requestFn ??
-          ((h as any).handler
-            ? (input: any, init: any) =>
-                (h as any).handler(new Request(input, init))
-            : fetch);
+          ((h as any).handler ? (input: any, init: any) => (h as any).handler(new Request(input, init)) : fetch);
 
         try {
           const res = await localFetch(`${h.baseUrl}${h.basePath}`, {
@@ -325,10 +306,7 @@ export function singleEndpointSuite(
         const h = await factory({ capturedHeaders: captured });
         const localFetch =
           requestFn ??
-          ((h as any).handler
-            ? (input: any, init: any) =>
-                (h as any).handler(new Request(input, init))
-            : fetch);
+          ((h as any).handler ? (input: any, init: any) => (h as any).handler(new Request(input, init)) : fetch);
 
         try {
           const res = await localFetch(`${h.baseUrl}${h.basePath}`, {

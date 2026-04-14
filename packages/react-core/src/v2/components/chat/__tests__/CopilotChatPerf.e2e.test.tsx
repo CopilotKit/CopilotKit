@@ -23,13 +23,8 @@ import type { Message } from "@ag-ui/core";
 // ---------------------------------------------------------------------------
 const renderCounts = new Map<string, number>();
 
-const SpyAssistantMessage = (
-  props: React.ComponentProps<typeof CopilotChatAssistantMessage>,
-) => {
-  renderCounts.set(
-    props.message.id,
-    (renderCounts.get(props.message.id) ?? 0) + 1,
-  );
+const SpyAssistantMessage = (props: React.ComponentProps<typeof CopilotChatAssistantMessage>) => {
+  renderCounts.set(props.message.id, (renderCounts.get(props.message.id) ?? 0) + 1);
   return React.createElement(CopilotChatAssistantMessage, props);
 };
 
@@ -47,8 +42,7 @@ function renderWithSpy(agent: MockStepwiseAgent) {
           welcomeScreen={false}
           messageView={
             {
-              assistantMessage:
-                SpyAssistantMessage as unknown as typeof CopilotChatAssistantMessage,
+              assistantMessage: SpyAssistantMessage as unknown as typeof CopilotChatAssistantMessage,
             } as any
           }
         />

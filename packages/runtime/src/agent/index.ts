@@ -172,10 +172,7 @@ export interface MCPClientProvider {
  * @param apiKey - Optional API key to use instead of environment variables
  * @returns LanguageModel instance
  */
-export function resolveModel(
-  spec: ModelSpecifier,
-  apiKey?: string,
-): LanguageModel {
+export function resolveModel(spec: ModelSpecifier, apiKey?: string): LanguageModel {
   // If already a LanguageModel instance, pass through
   if (typeof spec !== "string") {
     return spec;
@@ -241,18 +238,14 @@ export function resolveModel(
     }
 
     default:
-      throw new Error(
-        `Unknown provider "${provider}" in "${spec}". Supported: openai, anthropic, google (gemini).`,
-      );
+      throw new Error(`Unknown provider "${provider}" in "${spec}". Supported: openai, anthropic, google (gemini).`);
   }
 }
 
 /**
  * Tool definition for BuiltInAgent
  */
-export interface ToolDefinition<
-  TParameters extends StandardSchemaV1 = StandardSchemaV1,
-> {
+export interface ToolDefinition<TParameters extends StandardSchemaV1 = StandardSchemaV1> {
   name: string;
   description: string;
   parameters: TParameters;
@@ -444,19 +437,14 @@ export function convertMessagesToVercelAISDKMessages(
         content: message.content ?? "",
       };
       result.push(systemMsg);
-    } else if (
-      message.role === "developer" &&
-      options.forwardDeveloperMessages
-    ) {
+    } else if (message.role === "developer" && options.forwardDeveloperMessages) {
       const systemMsg: SystemModelMessage = {
         role: "system",
         content: message.content ?? "",
       };
       result.push(systemMsg);
     } else if (message.role === "assistant") {
-      const parts: Array<TextPart | ToolCallPart> = message.content
-        ? [{ type: "text", text: message.content }]
-        : [];
+      const parts: Array<TextPart | ToolCallPart> = message.content ? [{ type: "text", text: message.content }] : [];
 
       for (const toolCall of message.toolCalls ?? []) {
         const toolCallPart: ToolCallPart = {
@@ -529,10 +517,7 @@ interface JsonSchema {
 /**
  * Converts JSON Schema to Zod schema
  */
-export function convertJsonSchemaToZodSchema(
-  jsonSchema: JsonSchema,
-  required: boolean,
-): z.ZodSchema {
+export function convertJsonSchemaToZodSchema(jsonSchema: JsonSchema, required: boolean): z.ZodSchema {
   // Handle empty schemas {} (no input required) - treat as empty object
   if (!jsonSchema.type) {
     return required ? z.object({}) : z.object({}).optional();
@@ -545,18 +530,13 @@ export function convertJsonSchemaToZodSchema(
     }
 
     for (const [key, value] of Object.entries(jsonSchema.properties)) {
-      spec[key] = convertJsonSchemaToZodSchema(
-        value,
-        jsonSchema.required ? jsonSchema.required.includes(key) : false,
-      );
+      spec[key] = convertJsonSchemaToZodSchema(value, jsonSchema.required ? jsonSchema.required.includes(key) : false);
     }
     const schema = z.object(spec).describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "string") {
     if (jsonSchema.enum && jsonSchema.enum.length > 0) {
-      const schema = z
-        .enum(jsonSchema.enum as [string, ...string[]])
-        .describe(jsonSchema.description ?? "");
+      const schema = z.enum(jsonSchema.enum as [string, ...string[]]).describe(jsonSchema.description ?? "");
       return required ? schema : schema.optional();
     }
     const schema = z.string().describe(jsonSchema.description ?? "");
@@ -589,15 +569,11 @@ function isJsonSchema(obj: unknown): obj is JsonSchema {
   if (Object.keys(schema).length === 0) return true;
   return (
     typeof schema.type === "string" &&
-    ["object", "string", "number", "integer", "boolean", "array"].includes(
-      schema.type,
-    )
+    ["object", "string", "number", "integer", "boolean", "array"].includes(schema.type)
   );
 }
 
-export function convertToolsToVercelAITools(
-  tools: RunAgentInput["tools"],
-): ToolSet {
+export function convertToolsToVercelAITools(tools: RunAgentInput["tools"]): ToolSet {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result: Record<string, any> = {};
 
@@ -629,9 +605,7 @@ function isZodSchema(schema: StandardSchemaV1): boolean {
  * For non-Zod schemas, converts to JSON Schema via schemaToJsonSchema() and wraps
  * with the AI SDK's jsonSchema() helper.
  */
-export function convertToolDefinitionsToVercelAITools(
-  tools: ToolDefinition[],
-): ToolSet {
+export function convertToolDefinitionsToVercelAITools(tools: ToolDefinition[]): ToolSet {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result: Record<string, any> = {};
 
@@ -680,9 +654,7 @@ export interface BuiltInAgentAISDKFactoryConfig {
   type: "aisdk";
   factory: (
     ctx: AgentFactoryContext,
-  ) =>
-    | { fullStream: AsyncIterable<unknown> }
-    | Promise<{ fullStream: AsyncIterable<unknown> }>;
+  ) => { fullStream: AsyncIterable<unknown> } | Promise<{ fullStream: AsyncIterable<unknown> }>;
 }
 
 /**
@@ -691,9 +663,7 @@ export interface BuiltInAgentAISDKFactoryConfig {
  */
 export interface BuiltInAgentTanStackFactoryConfig {
   type: "tanstack";
-  factory: (
-    ctx: AgentFactoryContext,
-  ) => AsyncIterable<unknown> | Promise<AsyncIterable<unknown>>;
+  factory: (ctx: AgentFactoryContext) => AsyncIterable<unknown> | Promise<AsyncIterable<unknown>>;
 }
 
 /**
@@ -701,9 +671,7 @@ export interface BuiltInAgentTanStackFactoryConfig {
  */
 export interface BuiltInAgentCustomFactoryConfig {
   type: "custom";
-  factory: (
-    ctx: AgentFactoryContext,
-  ) => AsyncIterable<BaseEvent> | Promise<AsyncIterable<BaseEvent>>;
+  factory: (ctx: AgentFactoryContext) => AsyncIterable<BaseEvent> | Promise<AsyncIterable<BaseEvent>>;
 }
 
 /**
@@ -826,16 +794,12 @@ export interface BuiltInAgentClassicConfig {
  * - **Classic** (model + params): BuiltInAgent handles everything — streamText, tools, MCP, state tools.
  * - **Factory** (type + factory): You own the LLM call. BuiltInAgent handles lifecycle only.
  */
-export type BuiltInAgentConfiguration =
-  | BuiltInAgentClassicConfig
-  | BuiltInAgentFactoryConfig;
+export type BuiltInAgentConfiguration = BuiltInAgentClassicConfig | BuiltInAgentFactoryConfig;
 
 /**
  * Type guard: returns true if this is a factory-mode config.
  */
-function isFactoryConfig(
-  config: BuiltInAgentConfiguration,
-): config is BuiltInAgentFactoryConfig {
+function isFactoryConfig(config: BuiltInAgentConfiguration): config is BuiltInAgentFactoryConfig {
   return "factory" in config;
 }
 
@@ -860,9 +824,7 @@ export class BuiltInAgent extends AbstractAgent {
     }
 
     if (this.abortController) {
-      throw new Error(
-        "Agent is already running. Call abortRun() first or create a new instance.",
-      );
+      throw new Error("Agent is already running. Call abortRun() first or create a new instance.");
     }
 
     // Set synchronously before Observable creation to close TOCTOU window
@@ -893,10 +855,7 @@ export class BuiltInAgent extends AbstractAgent {
       const hasState =
         input.state !== undefined &&
         input.state !== null &&
-        !(
-          typeof input.state === "object" &&
-          Object.keys(input.state).length === 0
-        );
+        !(typeof input.state === "object" && Object.keys(input.state).length === 0);
 
       if (hasPrompt || hasContext || hasState) {
         const parts: string[] = [];
@@ -941,9 +900,7 @@ export class BuiltInAgent extends AbstractAgent {
       // Merge tools from input and config
       let allTools: ToolSet = convertToolsToVercelAITools(input.tools);
       if (this.config.tools && this.config.tools.length > 0) {
-        const configTools = convertToolDefinitionsToVercelAITools(
-          this.config.tools,
-        );
+        const configTools = convertToolDefinitionsToVercelAITools(this.config.tools);
         allTools = { ...allTools, ...configTools };
       }
 
@@ -952,9 +909,7 @@ export class BuiltInAgent extends AbstractAgent {
         messages,
         tools: allTools,
         toolChoice: this.config.toolChoice,
-        stopWhen: this.config.maxSteps
-          ? stepCountIs(this.config.maxSteps)
-          : undefined,
+        stopWhen: this.config.maxSteps ? stepCountIs(this.config.maxSteps) : undefined,
         maxOutputTokens: this.config.maxOutputTokens,
         temperature: this.config.temperature,
         topP: this.config.topP,
@@ -973,16 +928,10 @@ export class BuiltInAgent extends AbstractAgent {
 
         // Check and apply each overridable property
         if (props.model !== undefined && this.canOverride("model")) {
-          if (
-            typeof props.model === "string" ||
-            typeof props.model === "object"
-          ) {
+          if (typeof props.model === "string" || typeof props.model === "object") {
             // Accept any string or LanguageModel instance for model override
             // Use the configured API key when resolving overridden models
-            streamTextParams.model = resolveModel(
-              props.model as string | LanguageModel,
-              this.config.apiKey,
-            );
+            streamTextParams.model = resolveModel(props.model as string | LanguageModel, this.config.apiKey);
           }
         }
         if (props.toolChoice !== undefined && this.canOverride("toolChoice")) {
@@ -997,21 +946,13 @@ export class BuiltInAgent extends AbstractAgent {
               "type" in toolChoice &&
               toolChoice.type === "tool")
           ) {
-            streamTextParams.toolChoice = toolChoice as ToolChoice<
-              Record<string, unknown>
-            >;
+            streamTextParams.toolChoice = toolChoice as ToolChoice<Record<string, unknown>>;
           }
         }
-        if (
-          typeof props.maxOutputTokens === "number" &&
-          this.canOverride("maxOutputTokens")
-        ) {
+        if (typeof props.maxOutputTokens === "number" && this.canOverride("maxOutputTokens")) {
           streamTextParams.maxOutputTokens = props.maxOutputTokens;
         }
-        if (
-          typeof props.temperature === "number" &&
-          this.canOverride("temperature")
-        ) {
+        if (typeof props.temperature === "number" && this.canOverride("temperature")) {
           streamTextParams.temperature = props.temperature;
         }
         if (typeof props.topP === "number" && this.canOverride("topP")) {
@@ -1020,52 +961,27 @@ export class BuiltInAgent extends AbstractAgent {
         if (typeof props.topK === "number" && this.canOverride("topK")) {
           streamTextParams.topK = props.topK;
         }
-        if (
-          typeof props.presencePenalty === "number" &&
-          this.canOverride("presencePenalty")
-        ) {
+        if (typeof props.presencePenalty === "number" && this.canOverride("presencePenalty")) {
           streamTextParams.presencePenalty = props.presencePenalty;
         }
-        if (
-          typeof props.frequencyPenalty === "number" &&
-          this.canOverride("frequencyPenalty")
-        ) {
+        if (typeof props.frequencyPenalty === "number" && this.canOverride("frequencyPenalty")) {
           streamTextParams.frequencyPenalty = props.frequencyPenalty;
         }
-        if (
-          Array.isArray(props.stopSequences) &&
-          this.canOverride("stopSequences")
-        ) {
+        if (Array.isArray(props.stopSequences) && this.canOverride("stopSequences")) {
           // Validate all elements are strings
-          if (
-            props.stopSequences.every(
-              (item): item is string => typeof item === "string",
-            )
-          ) {
+          if (props.stopSequences.every((item): item is string => typeof item === "string")) {
             streamTextParams.stopSequences = props.stopSequences;
           }
         }
         if (typeof props.seed === "number" && this.canOverride("seed")) {
           streamTextParams.seed = props.seed;
         }
-        if (
-          typeof props.maxRetries === "number" &&
-          this.canOverride("maxRetries")
-        ) {
+        if (typeof props.maxRetries === "number" && this.canOverride("maxRetries")) {
           streamTextParams.maxRetries = props.maxRetries;
         }
-        if (
-          props.providerOptions !== undefined &&
-          this.canOverride("providerOptions")
-        ) {
-          if (
-            typeof props.providerOptions === "object" &&
-            props.providerOptions !== null
-          ) {
-            streamTextParams.providerOptions = props.providerOptions as Record<
-              string,
-              any
-            >;
+        if (props.providerOptions !== undefined && this.canOverride("providerOptions")) {
+          if (typeof props.providerOptions === "object" && props.providerOptions !== null) {
+            streamTextParams.providerOptions = props.providerOptions as Record<string, any>;
           }
         }
       }
@@ -1105,8 +1021,7 @@ export class BuiltInAgent extends AbstractAgent {
           streamTextParams.tools = {
             ...streamTextParams.tools,
             AGUISendStateSnapshot: createVercelAISDKTool({
-              description:
-                "Replace the entire application state with a new snapshot",
+              description: "Replace the entire application state with a new snapshot",
               inputSchema: z.object({
                 snapshot: z.any().describe("The complete new state object"),
               }),
@@ -1115,18 +1030,13 @@ export class BuiltInAgent extends AbstractAgent {
               },
             }),
             AGUISendStateDelta: createVercelAISDKTool({
-              description:
-                "Apply incremental updates to application state using JSON Patch operations",
+              description: "Apply incremental updates to application state using JSON Patch operations",
               inputSchema: z.object({
                 delta: z
                   .array(
                     z.object({
-                      op: z
-                        .enum(["add", "replace", "remove"])
-                        .describe("The operation to perform"),
-                      path: z
-                        .string()
-                        .describe("JSON Pointer path (e.g., '/foo/bar')"),
+                      op: z.enum(["add", "replace", "remove"]).describe("The operation to perform"),
+                      path: z.string().describe("JSON Pointer path (e.g., '/foo/bar')"),
                       value: z
                         .any()
                         .optional()
@@ -1161,15 +1071,9 @@ export class BuiltInAgent extends AbstractAgent {
 
               if (serverConfig.type === "http") {
                 const url = new URL(serverConfig.url);
-                transport = new StreamableHTTPClientTransport(
-                  url,
-                  serverConfig.options,
-                );
+                transport = new StreamableHTTPClientTransport(url, serverConfig.options);
               } else if (serverConfig.type === "sse") {
-                transport = new SSEClientTransport(
-                  new URL(serverConfig.url),
-                  serverConfig.headers,
-                );
+                transport = new SSEClientTransport(new URL(serverConfig.url), serverConfig.headers);
               }
 
               if (transport) {
@@ -1238,9 +1142,7 @@ export class BuiltInAgent extends AbstractAgent {
                 // to prevent consecutive reasoning blocks from sharing a messageId
                 const providedId = "id" in part ? part.id : undefined;
                 reasoningMessageId =
-                  providedId && providedId !== "0"
-                    ? (providedId as typeof reasoningMessageId)
-                    : randomUUID();
+                  providedId && providedId !== "0" ? (providedId as typeof reasoningMessageId) : randomUUID();
                 const reasoningStartEvent: ReasoningStartEvent = {
                   type: EventType.REASONING_START,
                   messageId: reasoningMessageId,
@@ -1310,10 +1212,7 @@ export class BuiltInAgent extends AbstractAgent {
                 // New text message starting - use the SDK-provided id
                 // Use randomUUID() if part.id is falsy or "0" to prevent message merging issues
                 const providedId = "id" in part ? part.id : undefined;
-                messageId =
-                  providedId && providedId !== "0"
-                    ? (providedId as typeof messageId)
-                    : randomUUID();
+                messageId = providedId && providedId !== "0" ? (providedId as typeof messageId) : randomUUID();
                 break;
               }
 
@@ -1347,11 +1246,7 @@ export class BuiltInAgent extends AbstractAgent {
                   subscriber.next(startEvent);
                 }
 
-                if (
-                  !state.hasArgsDelta &&
-                  "input" in part &&
-                  part.input !== undefined
-                ) {
+                if (!state.hasArgsDelta && "input" in part && part.input !== undefined) {
                   let serializedInput = "";
                   if (typeof part.input === "string") {
                     serializedInput = part.input;
@@ -1386,21 +1281,12 @@ export class BuiltInAgent extends AbstractAgent {
               }
 
               case "tool-result": {
-                const toolResult =
-                  "output" in part
-                    ? part.output
-                    : "result" in part
-                      ? part.result
-                      : null;
+                const toolResult = "output" in part ? part.output : "result" in part ? part.result : null;
                 const toolName = "toolName" in part ? part.toolName : "";
                 toolCallStates.delete(part.toolCallId);
 
                 // Check if this is a state update tool
-                if (
-                  toolName === "AGUISendStateSnapshot" &&
-                  toolResult &&
-                  typeof toolResult === "object"
-                ) {
+                if (toolName === "AGUISendStateSnapshot" && toolResult && typeof toolResult === "object") {
                   const snapshot = toolResult.snapshot;
                   if (snapshot !== undefined) {
                     const stateSnapshotEvent: StateSnapshotEvent = {
@@ -1409,11 +1295,7 @@ export class BuiltInAgent extends AbstractAgent {
                     };
                     subscriber.next(stateSnapshotEvent);
                   }
-                } else if (
-                  toolName === "AGUISendStateDelta" &&
-                  toolResult &&
-                  typeof toolResult === "object"
-                ) {
+                } else if (toolName === "AGUISendStateDelta" && toolResult && typeof toolResult === "object") {
                   const delta = toolResult.delta;
                   if (delta !== undefined) {
                     const stateDeltaEvent: StateDeltaEvent = {
@@ -1478,12 +1360,7 @@ export class BuiltInAgent extends AbstractAgent {
 
                 // Handle error
                 if (err instanceof Error) subscriber.error(err);
-                else
-                  subscriber.error(
-                    new Error(
-                      typeof err === "string" ? err : `AI SDK stream error`,
-                    ),
-                  );
+                else subscriber.error(new Error(typeof err === "string" ? err : `AI SDK stream error`));
                 break;
               }
             }
@@ -1537,14 +1414,9 @@ export class BuiltInAgent extends AbstractAgent {
     });
   }
 
-  private runFactory(
-    input: RunAgentInput,
-    config: BuiltInAgentFactoryConfig,
-  ): Observable<BaseEvent> {
+  private runFactory(input: RunAgentInput, config: BuiltInAgentFactoryConfig): Observable<BaseEvent> {
     if (this.abortController) {
-      throw new Error(
-        "Agent is already running. Call abortRun() first or create a new instance.",
-      );
+      throw new Error("Agent is already running. Call abortRun() first or create a new instance.");
     }
 
     // Set synchronously before Observable creation to close TOCTOU window
@@ -1586,9 +1458,7 @@ export class BuiltInAgent extends AbstractAgent {
             }
             default: {
               const _exhaustive: never = config;
-              throw new Error(
-                `Unknown agent config type: ${(_exhaustive as BuiltInAgentFactoryConfig).type}`,
-              );
+              throw new Error(`Unknown agent config type: ${(_exhaustive as BuiltInAgentFactoryConfig).type}`);
             }
           }
 

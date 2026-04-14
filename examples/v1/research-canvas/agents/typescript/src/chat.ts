@@ -6,19 +6,14 @@ import { RunnableConfig } from "@langchain/core/runnables";
 import { AgentState, Resource } from "./state";
 import { getModel } from "./model";
 import { getResource } from "./download";
-import {
-  SystemMessage,
-  AIMessage,
-  ToolMessage,
-} from "@langchain/core/messages";
+import { SystemMessage, AIMessage, ToolMessage } from "@langchain/core/messages";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { copilotkitCustomizeConfig } from "@copilotkit/sdk-js/langgraph";
 
 const Search = tool(() => {}, {
   name: "Search",
-  description:
-    "A list of one or more search queries to find good resources to support the research.",
+  description: "A list of one or more search queries to find good resources to support the research.",
   schema: z.object({ queries: z.array(z.string()) }),
 });
 

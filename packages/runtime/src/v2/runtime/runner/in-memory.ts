@@ -85,10 +85,7 @@ function getGlobalStore(): Map<string, InMemoryEventStore> {
   return data.stores;
 }
 
-function backupHistoricRuns(
-  threadId: string,
-  historicRuns: HistoricRun[],
-): void {
+function backupHistoricRuns(threadId: string, historicRuns: HistoricRun[]): void {
   const globalAny = globalThis as unknown as Record<symbol, GlobalStoreData>;
   if (globalAny[GLOBAL_STORE_KEY]) {
     globalAny[GLOBAL_STORE_KEY].historicRunsBackup.set(threadId, historicRuns);
@@ -160,15 +157,11 @@ export class InMemoryAgentRunner extends AgentRunner {
               const runStartedEvent = event as RunStartedEvent;
               if (!runStartedEvent.input) {
                 const sanitizedMessages = request.input.messages
-                  ? request.input.messages.filter(
-                      (message) => !historicMessageIds.has(message.id),
-                    )
+                  ? request.input.messages.filter((message) => !historicMessageIds.has(message.id))
                   : undefined;
                 const updatedInput = {
                   ...request.input,
-                  ...(sanitizedMessages !== undefined
-                    ? { messages: sanitizedMessages }
-                    : {}),
+                  ...(sanitizedMessages !== undefined ? { messages: sanitizedMessages } : {}),
                 };
                 processedEvent = {
                   ...runStartedEvent,
@@ -234,8 +227,7 @@ export class InMemoryAgentRunner extends AgentRunner {
         runSubject.complete();
         nextSubject.complete();
       } catch (error) {
-        const interruptionMessage =
-          error instanceof Error ? error.message : String(error);
+        const interruptionMessage = error instanceof Error ? error.message : String(error);
         const appendedEvents = finalizeRunEvents(currentRunEvents, {
           stopRequested: store.stopRequested,
           interruptionMessage,
@@ -324,11 +316,7 @@ export class InMemoryAgentRunner extends AgentRunner {
       store.subject.subscribe({
         next: (event) => {
           // Skip message events that we've already emitted from historic
-          if (
-            "messageId" in event &&
-            typeof event.messageId === "string" &&
-            emittedMessageIds.has(event.messageId)
-          ) {
+          if ("messageId" in event && typeof event.messageId === "string" && emittedMessageIds.has(event.messageId)) {
             return;
           }
           connectionSubject.next(event);

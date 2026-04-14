@@ -8,15 +8,7 @@ import { CompletedToolCard } from "@/components/chat/tool-card";
 const processedSaveKeys = new Set<string>();
 const processedLoadKeys = new Set<string>();
 
-function SaveHandler({
-  name,
-  status,
-  result,
-}: {
-  name: string;
-  status: string;
-  result?: unknown;
-}) {
+function SaveHandler({ name, status, result }: { name: string; status: string; result?: unknown }) {
   const { saveCurrent } = useDashboard();
 
   useEffect(() => {
@@ -30,30 +22,12 @@ function SaveHandler({
   }, [status, name, saveCurrent]);
 
   if (status === ToolCallStatus.Complete) {
-    return (
-      <CompletedToolCard
-        name="save_dashboard"
-        args={{ name }}
-        result={result}
-      />
-    );
+    return <CompletedToolCard name="save_dashboard" args={{ name }} result={result} />;
   }
-  return (
-    <p className="text-sm text-muted-foreground animate-pulse py-1">
-      Saving dashboard...
-    </p>
-  );
+  return <p className="text-sm text-muted-foreground animate-pulse py-1">Saving dashboard...</p>;
 }
 
-function LoadHandler({
-  name,
-  status,
-  result,
-}: {
-  name: string;
-  status: string;
-  result?: unknown;
-}) {
+function LoadHandler({ name, status, result }: { name: string; status: string; result?: unknown }) {
   const { loadSavedByName } = useDashboard();
 
   useEffect(() => {
@@ -67,28 +41,16 @@ function LoadHandler({
   }, [status, name, loadSavedByName]);
 
   if (status === ToolCallStatus.Complete) {
-    return (
-      <CompletedToolCard
-        name="load_dashboard"
-        args={{ name }}
-        result={result}
-      />
-    );
+    return <CompletedToolCard name="load_dashboard" args={{ name }} result={result} />;
   }
-  return (
-    <p className="text-sm text-muted-foreground animate-pulse py-1">
-      Loading dashboard...
-    </p>
-  );
+  return <p className="text-sm text-muted-foreground animate-pulse py-1">Loading dashboard...</p>;
 }
 
 export function useSaveDashboard() {
   useRenderTool(
     {
       name: "save_dashboard",
-      render: ({ args, status, result }) => (
-        <SaveHandler name={args?.name ?? ""} status={status} result={result} />
-      ),
+      render: ({ args, status, result }) => <SaveHandler name={args?.name ?? ""} status={status} result={result} />,
     },
     [],
   );
@@ -96,9 +58,7 @@ export function useSaveDashboard() {
   useRenderTool(
     {
       name: "load_dashboard",
-      render: ({ args, status, result }) => (
-        <LoadHandler name={args?.name ?? ""} status={status} result={result} />
-      ),
+      render: ({ args, status, result }) => <LoadHandler name={args?.name ?? ""} status={status} result={result} />,
     },
     [],
   );

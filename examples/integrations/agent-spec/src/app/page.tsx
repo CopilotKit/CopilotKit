@@ -8,10 +8,7 @@ import {
   useFrontendTool,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
-import {
-  createA2UIMessageRenderer,
-  A2UIViewer,
-} from "@copilotkit/a2ui-renderer";
+import { createA2UIMessageRenderer, A2UIViewer } from "@copilotkit/a2ui-renderer";
 import { z } from "zod";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 
@@ -21,10 +18,7 @@ import { CalendarView, CalendarLoadingState } from "@/components/calendar-view";
 import type { CalendarEvent } from "@/components/calendar-view";
 import { InboxView, InboxLoadingState } from "@/components/inbox-view";
 import type { Email } from "@/components/inbox-view";
-import {
-  EmailComposeView,
-  EmailComposeLoadingState,
-} from "@/components/email-compose-view";
+import { EmailComposeView, EmailComposeLoadingState } from "@/components/email-compose-view";
 import type { EmailComposeData } from "@/components/email-compose-view";
 
 // Disable static optimization for this page
@@ -129,14 +123,7 @@ function LoadingSpinner({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-md text-gray-500 text-sm mb-3">
       <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-        <circle
-          className="opacity-25"
-          cx="12"
-          cy="12"
-          r="10"
-          stroke="currentColor"
-          strokeWidth="4"
-        />
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
         <path
           className="opacity-75"
           fill="currentColor"
@@ -238,20 +225,10 @@ function CompactToolCard({
           <span className="compact-tool-card-summary">{summary}</span>
         </div>
       </div>
-      <button
-        type="button"
-        className="compact-tool-card-btn"
-        onClick={onAction}
-      >
+      <button type="button" className="compact-tool-card-btn" onClick={onAction}>
         {buttonLabel}
         {isCanvasAction ? (
-          <svg
-            className="w-3 h-3"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -259,18 +236,8 @@ function CompactToolCard({
             />
           </svg>
         ) : (
-          <svg
-            className="w-3 h-3"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25"
-            />
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
           </svg>
         )}
       </button>
@@ -300,11 +267,7 @@ function CanvasContentRenderer({ content }: { content: CanvasContent }) {
     case "calendar":
       return (
         <div className="canvas-content-centered">
-          <CalendarView
-            date={content.date}
-            dayName={content.dayName}
-            events={content.events}
-          />
+          <CalendarView date={content.date} dayName={content.dayName} events={content.events} />
         </div>
       );
     case "inbox":
@@ -322,28 +285,15 @@ function CanvasContentRenderer({ content }: { content: CanvasContent }) {
   }
 }
 
-function Canvas({
-  content,
-  onClose,
-}: {
-  content: CanvasContent;
-  onClose: () => void;
-}) {
+function Canvas({ content, onClose }: { content: CanvasContent; onClose: () => void }) {
   return (
     <div className="canvas-panel">
       <div className="canvas-header">
         <div className="canvas-header-left">
           {CARD_ICONS[content.type]}
-          <span className="canvas-header-title">
-            {CANVAS_TITLES[content.type]}
-          </span>
+          <span className="canvas-header-title">{CANVAS_TITLES[content.type]}</span>
         </div>
-        <button
-          type="button"
-          className="canvas-header-close"
-          onClick={onClose}
-          title="Close canvas"
-        >
+        <button type="button" className="canvas-header-close" onClick={onClose} title="Close canvas">
           <svg
             width="16"
             height="16"
@@ -393,9 +343,7 @@ function Chat({
       description: "Sends A2UI JSON to the client to render rich UI",
       parameters: z.object({ a2ui_json: z.string() }) as any,
       render: ({ status }) =>
-        status !== ToolCallStatus.Complete ? (
-          <LoadingSpinner label="Building interface..." />
-        ) : null,
+        status !== ToolCallStatus.Complete ? <LoadingSpinner label="Building interface..." /> : null,
     },
     [],
   );
@@ -410,15 +358,7 @@ function Chat({
         data: z.string(),
         root: z.string(),
       }) as any,
-      handler: async ({
-        components,
-        data,
-        root,
-      }: {
-        components: string;
-        data: string;
-        root: string;
-      }) => {
+      handler: async ({ components, data, root }: { components: string; data: string; root: string }) => {
         try {
           onCanvasUpdate({
             type: "dashboard",
@@ -433,8 +373,7 @@ function Chat({
         return "Dashboard rendered in canvas workspace";
       },
       render: ({ status }) => {
-        if (status !== ToolCallStatus.Complete)
-          return <LoadingSpinner label="Building dashboard..." />;
+        if (status !== ToolCallStatus.Complete) return <LoadingSpinner label="Building dashboard..." />;
         if (isCanvasMode) {
           return (
             <CompactToolCard
@@ -471,15 +410,7 @@ function Chat({
         dayName: z.string(),
         events: z.string(),
       }) as any,
-      handler: async ({
-        date,
-        dayName,
-        events,
-      }: {
-        date: string;
-        dayName: string;
-        events: string;
-      }) => {
+      handler: async ({ date, dayName, events }: { date: string; dayName: string; events: string }) => {
         if (isCanvasModeRef.current) {
           try {
             onCanvasUpdate({
@@ -495,8 +426,7 @@ function Chat({
         return "Calendar rendered";
       },
       render: ({ status, args }) => {
-        if (status !== ToolCallStatus.Complete || !args)
-          return <CalendarLoadingState />;
+        if (status !== ToolCallStatus.Complete || !args) return <CalendarLoadingState />;
         let events: CalendarEvent[] = [];
         try {
           events = parseCalendarEvents(args.events);
@@ -515,13 +445,7 @@ function Chat({
             />
           );
         }
-        return (
-          <CalendarView
-            date={args.date}
-            dayName={args.dayName}
-            events={events}
-          />
-        );
+        return <CalendarView date={args.date} dayName={args.dayName} events={events} />;
       },
     },
     [isCanvasMode, onCanvasUpdate, onShowChat],
@@ -546,8 +470,7 @@ function Chat({
         return "Inbox rendered";
       },
       render: ({ status, args }) => {
-        if (status !== ToolCallStatus.Complete || !args)
-          return <InboxLoadingState />;
+        if (status !== ToolCallStatus.Complete || !args) return <InboxLoadingState />;
         let emails: Email[] = [];
         try {
           emails = parseEmailList(args.emails);
@@ -591,8 +514,7 @@ function Chat({
         return "Email compose rendered";
       },
       render: ({ status, args }) => {
-        if (status !== ToolCallStatus.Complete || !args)
-          return <EmailComposeLoadingState />;
+        if (status !== ToolCallStatus.Complete || !args) return <EmailComposeLoadingState />;
         let email: EmailComposeData = { to: "", subject: "", body: "" };
         try {
           email = parseEmailCompose(args.email);
@@ -641,10 +563,7 @@ function Chat({
     // Use viewport root — the sentinel is inside a nested scroll container that
     // clips it via CSS overflow, so the IO correctly reports it as not-intersecting
     // when the user scrolls up (the sentinel is visually clipped out of view).
-    const io = new IntersectionObserver(
-      ([entry]) => setIsAtBottom(entry.isIntersecting),
-      { threshold: 0.1 },
-    );
+    const io = new IntersectionObserver(([entry]) => setIsAtBottom(entry.isIntersecting), { threshold: 0.1 });
     io.observe(sentinelEl);
     return () => io.disconnect();
   }, [sentinelEl]);
@@ -660,12 +579,7 @@ function Chat({
           : "Ask about your schedule, inbox, or compose an email...",
       }}
       messageView={{
-        children: ({
-          messages,
-          messageElements,
-          interruptElement,
-          isRunning,
-        }) => (
+        children: ({ messages, messageElements, interruptElement, isRunning }) => (
           <>
             {deduplicateMessages(messages, messageElements)}
             {interruptElement}
@@ -730,17 +644,11 @@ export default function Page() {
   const isCanvasMode = canvas.mode === "canvas" && canvas.content !== null;
 
   return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
-      showDevConsole="auto"
-      renderActivityMessages={activityRenderers}
-    >
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole="auto" renderActivityMessages={activityRenderers}>
       <div
         className={`a2ui-chat-container flex h-full min-h-0 overflow-hidden ${isCanvasMode ? "layout-split" : "layout-chat"}`}
       >
-        {isCanvasMode && canvas.content && (
-          <Canvas content={canvas.content} onClose={handleShowChat} />
-        )}
+        {isCanvasMode && canvas.content && <Canvas content={canvas.content} onClose={handleShowChat} />}
         <div
           className={`chat-panel flex flex-col min-h-0 overflow-hidden ${isCanvasMode ? "chat-sidebar" : "flex-1"}`}
           {...(isCanvasMode ? { "data-sidebar-chat": true } : {})}

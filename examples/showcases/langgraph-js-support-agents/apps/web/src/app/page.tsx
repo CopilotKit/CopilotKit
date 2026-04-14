@@ -24,13 +24,11 @@ export default function CustomerSupportPage() {
           suggestions={[
             {
               title: "Check my services",
-              message:
-                "Hi, I want to know about my services for customer ID: 5575-GNVDE",
+              message: "Hi, I want to know about my services for customer ID: 5575-GNVDE",
             },
             {
               title: "Report an outage",
-              message:
-                "My internet has been down for 2 hours! Customer ID: 7590-VHVEG",
+              message: "My internet has been down for 2 hours! Customer ID: 7590-VHVEG",
             },
           ]}
         />
@@ -40,17 +38,9 @@ export default function CustomerSupportPage() {
 }
 
 function MainApp() {
-  const {
-    customers,
-    getCustomerByCustomerId,
-    addAddon,
-    removeAddon,
-    updateCustomer,
-  } = useCustomers();
+  const { customers, getCustomerByCustomerId, addAddon, removeAddon, updateCustomer } = useCustomers();
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
-  const selectedCustomer = selectedCustomerId
-    ? getCustomerByCustomerId(selectedCustomerId)
-    : null;
+  const selectedCustomer = selectedCustomerId ? getCustomerByCustomerId(selectedCustomerId) : null;
 
   return (
     <div className="flex-1 flex flex-col bg-gray-50 overflow-hidden">
@@ -82,9 +72,7 @@ function TopHeader({ customers, selectedCustomerId, onCustomerChange }: any) {
       </div>
 
       <div className="flex items-center gap-4">
-        <label className="text-sm font-medium text-gray-600">
-          Customer Account:
-        </label>
+        <label className="text-sm font-medium text-gray-600">Customer Account:</label>
         <select
           value={selectedCustomerId}
           onChange={(e) => onCustomerChange(e.target.value)}
@@ -93,8 +81,7 @@ function TopHeader({ customers, selectedCustomerId, onCustomerChange }: any) {
           <option value="">Select Customer Account</option>
           {customers.map((customer: any) => (
             <option key={customer.id} value={customer.customerID}>
-              {customer.customerID} - {customer.gender} ({customer.tenure}{" "}
-              months)
+              {customer.customerID} - {customer.gender} ({customer.tenure} months)
             </option>
           ))}
         </select>
@@ -165,26 +152,17 @@ function CustomerCard({
                 {/* Header */}
                 <h2 className="text-2xl font-bold mb-2">Current Plan</h2>
                 <p className="text-sm text-gray-400 mb-6">
-                  Customer ID:{" "}
-                  <span className="font-mono font-semibold text-gray-300">
-                    {data.customerID}
-                  </span>
+                  Customer ID: <span className="font-mono font-semibold text-gray-300">{data.customerID}</span>
                 </p>
 
                 {/* Price Display */}
                 <div className="mb-6">
                   <div className="flex items-baseline gap-1">
                     <span className="text-3xl font-bold">$</span>
-                    <span className="text-6xl font-extrabold">
-                      {Math.floor(monthlyCharges)}
-                    </span>
+                    <span className="text-6xl font-extrabold">{Math.floor(monthlyCharges)}</span>
                     <div className="flex flex-col">
-                      <span className="text-3xl font-bold">
-                        .{(monthlyCharges % 1).toFixed(2).slice(2)}
-                      </span>
-                      <span className="text-sm font-medium text-gray-400">
-                        /month
-                      </span>
+                      <span className="text-3xl font-bold">.{(monthlyCharges % 1).toFixed(2).slice(2)}</span>
+                      <span className="text-sm font-medium text-gray-400">/month</span>
                     </div>
                   </div>
                 </div>
@@ -192,17 +170,12 @@ function CustomerCard({
                 {/* Details */}
                 <div className="flex gap-8 text-sm">
                   <p className="text-gray-400">
-                    Contract Type:{" "}
-                    <span className="text-white font-medium">
-                      {data.Contract}
-                    </span>
+                    Contract Type: <span className="text-white font-medium">{data.Contract}</span>
                   </p>
                   <p className="text-gray-400">
                     Customer Since:{" "}
                     <span className="text-white font-medium">
-                      Jan{" "}
-                      {new Date().getFullYear() -
-                        Math.floor(parseInt(data.tenure) / 12)}
+                      Jan {new Date().getFullYear() - Math.floor(parseInt(data.tenure) / 12)}
                     </span>
                   </p>
                 </div>
@@ -228,27 +201,17 @@ function CustomerCard({
         <div className="lg:col-span-1">
           <div className="bg-white rounded-3xl shadow-xl p-8">
             {/* Active Services */}
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">
-              Active Services
-            </h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-6">Active Services</h3>
 
             <div className="space-y-3 mb-8">
               {activeServices.map((service: any, index: number) => {
                 return (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between gap-3 group"
-                  >
+                  <div key={index} className="flex items-center justify-between gap-3 group">
                     <div className="flex items-center gap-3">
                       <div className="flex-shrink-0 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                        <FiCheck
-                          className="w-4 h-4 text-white"
-                          strokeWidth={3}
-                        />
+                        <FiCheck className="w-4 h-4 text-white" strokeWidth={3} />
                       </div>
-                      <span className="text-sm text-gray-700 font-medium">
-                        {service.name}
-                      </span>
+                      <span className="text-sm text-gray-700 font-medium">{service.name}</span>
                     </div>
                   </div>
                 );
@@ -259,29 +222,19 @@ function CustomerCard({
             {inactiveServices.length > 0 && (
               <>
                 <div className="border-t border-gray-200 pt-6">
-                  <h3 className="text-xl font-bold text-gray-500 mb-6">
-                    Inactive Services
-                  </h3>
+                  <h3 className="text-xl font-bold text-gray-500 mb-6">Inactive Services</h3>
 
                   <div className="space-y-3">
                     {inactiveServices.map((service: any, index: number) => {
                       const serviceName = service.name.replace(" ", "");
 
                       return (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between gap-3 group"
-                        >
+                        <div key={index} className="flex items-center justify-between gap-3 group">
                           <div className="flex items-center gap-3">
                             <div className="shrink-0 w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center">
-                              <FiX
-                                className="w-4 h-4 text-white"
-                                strokeWidth={3}
-                              />
+                              <FiX className="w-4 h-4 text-white" strokeWidth={3} />
                             </div>
-                            <span className="text-sm text-gray-400 font-medium">
-                              {service.name}
-                            </span>
+                            <span className="text-sm text-gray-400 font-medium">{service.name}</span>
                           </div>
                         </div>
                       );
@@ -295,15 +248,11 @@ function CustomerCard({
       </div>
 
       <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-800 mb-3">
-          You Can also Ask
-        </h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-3">You Can also Ask</h3>
         <p className="text-sm text-gray-600 leading-relaxed">
           Ask the AI assistant to <strong>switch to Fiber Optic or DSL</strong>,
-          <strong> enable paperless billing</strong>,
-          <strong> change payment method</strong>, or
-          <strong> add/remove services</strong> like streaming, security, and
-          tech support.
+          <strong> enable paperless billing</strong>,<strong> change payment method</strong>, or
+          <strong> add/remove services</strong> like streaming, security, and tech support.
         </p>
       </div>
     </div>

@@ -5,10 +5,7 @@ import Globe, { type GlobeMethods } from "react-globe.gl";
 import CountryTooltip from "./CountryTooltip";
 import type { VisitedCountry } from "@/hooks/useJourneyProgress";
 import { useCountryData } from "@/hooks/useCountryData";
-import {
-  useGlobeInteraction,
-  type ClickedCountry,
-} from "@/hooks/useGlobeInteraction";
+import { useGlobeInteraction, type ClickedCountry } from "@/hooks/useGlobeInteraction";
 import { type CountryFeature, getPolygonColor } from "@/utils/countryData";
 
 /**
@@ -34,13 +31,7 @@ const CountryGlobe = ({
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   const { polygons } = useCountryData();
-  const {
-    selectedId,
-    hoverId,
-    handlePolygonClick,
-    handlePolygonHover,
-    polygonLabel,
-  } = useGlobeInteraction(
+  const { selectedId, hoverId, handlePolygonClick, handlePolygonHover, polygonLabel } = useGlobeInteraction(
     globeRef,
     visitedCountries,
     clickedCountry,
@@ -92,10 +83,7 @@ const CountryGlobe = ({
       ref={containerRef}
       className="relative h-full w-full"
       onClick={(e) => {
-        if (
-          e.target === e.currentTarget ||
-          (e.target as HTMLElement).tagName === "CANVAS"
-        ) {
+        if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === "CANVAS") {
           if (!hoverId && clickedCountry) handleCloseTooltip();
         }
       }}
@@ -111,19 +99,12 @@ const CountryGlobe = ({
           backgroundImageUrl="/textures/night-sky.png"
           polygonsData={polygons}
           polygonCapColor={(polygon: unknown) =>
-            getPolygonColor(
-              polygon as CountryFeature,
-              selectedId,
-              hoverId,
-              visitedCountries,
-            )
+            getPolygonColor(polygon as CountryFeature, selectedId, hoverId, visitedCountries)
           }
           polygonSideColor={() => "rgba(30, 41, 59, 0.6)"}
           polygonStrokeColor={() => "rgba(15, 23, 42, 0.8)"}
           polygonAltitude={(polygon: unknown) =>
-            (polygon as CountryFeature).id?.toString() === selectedId
-              ? 0.02
-              : 0.005
+            (polygon as CountryFeature).id?.toString() === selectedId ? 0.02 : 0.005
           }
           polygonsTransitionDuration={400}
           onPolygonClick={handlePolygonClick}

@@ -8,11 +8,7 @@
  * The frontend uses the `agent` prop on CopilotKitProvider to select which agent to use.
  */
 
-import {
-  CopilotRuntime,
-  createCopilotEndpoint,
-  InMemoryAgentRunner,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotEndpoint, InMemoryAgentRunner } from "@copilotkit/runtime";
 import { handle } from "hono/vercel";
 import { BasicAgent } from "@copilotkit/runtime/v2";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
@@ -100,9 +96,7 @@ You also have access to 6 interactive apps that render in the chat:
  * Handles:
  * - Restaurant finding and booking with rich UI
  */
-const a2aClient = new A2AClient(
-  process.env.A2A_AGENT_URL || "http://localhost:10002",
-);
+const a2aClient = new A2AClient(process.env.A2A_AGENT_URL || "http://localhost:10002");
 const a2uiAgent = new A2AAgent({ a2aClient });
 
 // Create CopilotKit runtime with both agents

@@ -17,18 +17,12 @@ import type { RouteInfo } from "./hooks";
  * @param basePath - Optional base path prefix to strip first
  * @returns RouteInfo if matched, null otherwise
  */
-export function matchRoute(
-  pathname: string,
-  basePath?: string,
-): RouteInfo | null {
+export function matchRoute(pathname: string, basePath?: string): RouteInfo | null {
   let remainder: string;
 
   if (basePath) {
     // Normalize: ensure basePath doesn't end with /
-    const normalizedBase =
-      basePath.length > 1 && basePath.endsWith("/")
-        ? basePath.slice(0, -1)
-        : basePath;
+    const normalizedBase = basePath.length > 1 && basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
 
     // Special case: basePath === "/" matches everything
     if (normalizedBase === "/") {
@@ -75,33 +69,21 @@ function matchSegments(path: string): RouteInfo | null {
   }
 
   // /agent/:agentId/run (3 segments)
-  if (
-    len >= 3 &&
-    segments[len - 3] === "agent" &&
-    segments[len - 1] === "run"
-  ) {
+  if (len >= 3 && segments[len - 3] === "agent" && segments[len - 1] === "run") {
     const agentId = safeDecodeURIComponent(segments[len - 2]!);
     if (!agentId) return null;
     return { method: "agent/run", agentId };
   }
 
   // /agent/:agentId/connect (3 segments)
-  if (
-    len >= 3 &&
-    segments[len - 3] === "agent" &&
-    segments[len - 1] === "connect"
-  ) {
+  if (len >= 3 && segments[len - 3] === "agent" && segments[len - 1] === "connect") {
     const agentId = safeDecodeURIComponent(segments[len - 2]!);
     if (!agentId) return null;
     return { method: "agent/connect", agentId };
   }
 
   // /agent/:agentId/stop/:threadId (4 segments)
-  if (
-    len >= 4 &&
-    segments[len - 4] === "agent" &&
-    segments[len - 2] === "stop"
-  ) {
+  if (len >= 4 && segments[len - 4] === "agent" && segments[len - 2] === "stop") {
     const agentId = safeDecodeURIComponent(segments[len - 3]!);
     const threadId = safeDecodeURIComponent(segments[len - 1]!);
     if (!agentId || !threadId) return null;
@@ -109,42 +91,26 @@ function matchSegments(path: string): RouteInfo | null {
   }
 
   // /threads/subscribe (2 segments)
-  if (
-    len >= 2 &&
-    segments[len - 2] === "threads" &&
-    segments[len - 1] === "subscribe"
-  ) {
+  if (len >= 2 && segments[len - 2] === "threads" && segments[len - 1] === "subscribe") {
     return { method: "threads/subscribe" };
   }
 
   // /threads/:threadId/messages (3 segments)
-  if (
-    len >= 3 &&
-    segments[len - 3] === "threads" &&
-    segments[len - 1] === "messages"
-  ) {
+  if (len >= 3 && segments[len - 3] === "threads" && segments[len - 1] === "messages") {
     const threadId = safeDecodeURIComponent(segments[len - 2]!);
     if (!threadId) return null;
     return { method: "threads/messages", threadId };
   }
 
   // /threads/:threadId/archive (3 segments)
-  if (
-    len >= 3 &&
-    segments[len - 3] === "threads" &&
-    segments[len - 1] === "archive"
-  ) {
+  if (len >= 3 && segments[len - 3] === "threads" && segments[len - 1] === "archive") {
     const threadId = safeDecodeURIComponent(segments[len - 2]!);
     if (!threadId) return null;
     return { method: "threads/archive", threadId };
   }
 
   // /threads/:threadId (2 segments) — update or delete
-  if (
-    len >= 2 &&
-    segments[len - 2] === "threads" &&
-    segments[len - 1] !== "subscribe"
-  ) {
+  if (len >= 2 && segments[len - 2] === "threads" && segments[len - 1] !== "subscribe") {
     const threadId = safeDecodeURIComponent(segments[len - 1]!);
     if (!threadId) return null;
     // Disambiguated by HTTP method in the handler

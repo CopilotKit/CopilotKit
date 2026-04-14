@@ -58,16 +58,10 @@ export function MapCanvas({ className }: MapCanvasProps) {
         <>
           {isDesktop ? (
             <div className="absolute h-screen top-0 p-10 pointer-events-none flex items-start w-[30%] md:w-[50%] lg:w-[40%] 2xl:w-[35%]">
-              <TripCard
-                className="w-full h-full pointer-events-auto"
-                map={map}
-              />
+              <TripCard className="w-full h-full pointer-events-auto" map={map} />
             </div>
           ) : (
-            <MobileTripCard
-              className="w-full h-full pointer-events-auto"
-              map={map}
-            />
+            <MobileTripCard className="w-full h-full pointer-events-auto" map={map} />
           )}
         </>
       )}

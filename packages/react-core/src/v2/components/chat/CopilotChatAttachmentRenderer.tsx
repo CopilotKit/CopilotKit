@@ -10,13 +10,7 @@ interface CopilotChatAttachmentRendererProps {
   className?: string;
 }
 
-const ImageAttachment = memo(function ImageAttachment({
-  src,
-  className,
-}: {
-  src: string;
-  className?: string;
-}) {
+const ImageAttachment = memo(function ImageAttachment({ src, className }: { src: string; className?: string }) {
   const [error, setError] = useState(false);
 
   if (error) {
@@ -53,28 +47,15 @@ const AudioAttachment = memo(function AudioAttachment({
 }) {
   return (
     <div className={cn("cpk:flex cpk:flex-col cpk:gap-1", className)}>
-      <audio
-        src={src}
-        controls
-        preload="metadata"
-        className="cpk:max-w-[300px] cpk:w-full cpk:h-10"
-      />
+      <audio src={src} controls preload="metadata" className="cpk:max-w-[300px] cpk:w-full cpk:h-10" />
       {filename && (
-        <span className="cpk:text-xs cpk:text-muted-foreground cpk:truncate cpk:max-w-[300px]">
-          {filename}
-        </span>
+        <span className="cpk:text-xs cpk:text-muted-foreground cpk:truncate cpk:max-w-[300px]">{filename}</span>
       )}
     </div>
   );
 });
 
-const VideoAttachment = memo(function VideoAttachment({
-  src,
-  className,
-}: {
-  src: string;
-  className?: string;
-}) {
+const VideoAttachment = memo(function VideoAttachment({ src, className }: { src: string; className?: string }) {
   return (
     <video
       src={src}
@@ -101,9 +82,7 @@ const DocumentAttachment = memo(function DocumentAttachment({
         className,
       )}
     >
-      <span className="cpk:text-xs cpk:font-bold cpk:uppercase">
-        {getDocumentIcon(source.mimeType ?? "")}
-      </span>
+      <span className="cpk:text-xs cpk:font-bold cpk:uppercase">{getDocumentIcon(source.mimeType ?? "")}</span>
       <span className="cpk:text-sm cpk:text-muted-foreground cpk:truncate">
         {filename || source.mimeType || "Unknown type"}
       </span>
@@ -111,28 +90,23 @@ const DocumentAttachment = memo(function DocumentAttachment({
   );
 });
 
-export const CopilotChatAttachmentRenderer: React.FC<
-  CopilotChatAttachmentRendererProps
-> = ({ type, source, filename, className }) => {
+export const CopilotChatAttachmentRenderer: React.FC<CopilotChatAttachmentRendererProps> = ({
+  type,
+  source,
+  filename,
+  className,
+}) => {
   const src = getSourceUrl(source);
 
   switch (type) {
     case "image":
       return <ImageAttachment src={src} className={className} />;
     case "audio":
-      return (
-        <AudioAttachment src={src} filename={filename} className={className} />
-      );
+      return <AudioAttachment src={src} filename={filename} className={className} />;
     case "video":
       return <VideoAttachment src={src} className={className} />;
     case "document":
-      return (
-        <DocumentAttachment
-          source={source}
-          filename={filename}
-          className={className}
-        />
-      );
+      return <DocumentAttachment source={source} filename={filename} className={className} />;
   }
 };
 

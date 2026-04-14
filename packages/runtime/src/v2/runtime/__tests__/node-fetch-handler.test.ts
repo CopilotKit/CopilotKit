@@ -13,22 +13,17 @@ function listen(server: Server, port: number): Promise<void> {
 }
 
 function close(server: Server): Promise<void> {
-  return new Promise((resolve, reject) =>
-    server.close((err) => (err ? reject(err) : resolve())),
-  );
+  return new Promise((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
 }
 
 describe("createNodeFetchHandler", () => {
   it("converts Node request to Fetch and sends response back", async () => {
     const fetchHandler: CopilotRuntimeFetchHandler = async (request) => {
       const url = new URL(request.url);
-      return new Response(
-        JSON.stringify({ path: url.pathname, method: request.method }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
+      return new Response(JSON.stringify({ path: url.pathname, method: request.method }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     };
 
     const nodeHandler = createNodeFetchHandler(fetchHandler);

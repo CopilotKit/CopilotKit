@@ -5,11 +5,7 @@
  * Reference: v2.x/apps/react/demo/src/app/api/copilotkit-mcp/[[...slug]]/route.ts
  */
 
-import {
-  CopilotRuntime,
-  createCopilotEndpoint,
-  InMemoryAgentRunner,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, createCopilotEndpoint, InMemoryAgentRunner } from "@copilotkit/runtime";
 import { handle } from "hono/vercel";
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";

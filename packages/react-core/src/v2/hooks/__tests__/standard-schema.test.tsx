@@ -29,9 +29,7 @@ type MockCore = {
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 const mockUseFrontendTool = useFrontendTool as ReturnType<typeof vi.fn>;
 
-function createMockCore(
-  initialRenderToolCalls: ReactToolCallRenderer[] = [],
-): MockCore {
+function createMockCore(initialRenderToolCalls: ReactToolCallRenderer[] = []): MockCore {
   const hookEntries = new Map<string, ReactToolCallRenderer>();
   const core: MockCore = {
     renderToolCalls: initialRenderToolCalls,
@@ -41,10 +39,7 @@ function createMockCore(
     addHookRenderToolCall: vi.fn((entry: ReactToolCallRenderer) => {
       const key = `${entry.agentId ?? ""}:${entry.name}`;
       hookEntries.set(key, entry);
-      core.renderToolCalls = [
-        ...initialRenderToolCalls,
-        ...hookEntries.values(),
-      ];
+      core.renderToolCalls = [...initialRenderToolCalls, ...hookEntries.values()];
     }),
     removeHookRenderToolCall: vi.fn(),
   };
@@ -79,9 +74,7 @@ describe("useRenderTool with Standard Schema", () => {
       render(<Harness />);
 
       expect(core.addHookRenderToolCall).toHaveBeenCalledTimes(1);
-      const renderer = core.renderToolCalls.find(
-        (item) => item.name === "search",
-      );
+      const renderer = core.renderToolCalls.find((item) => item.name === "search");
       expect(renderer).toBeDefined();
       expect(renderer?.args).toBe(schema);
     });
@@ -98,10 +91,7 @@ describe("useRenderTool with Standard Schema", () => {
         useRenderTool(
           {
             name: "searchValibot",
-            parameters: schema as unknown as StandardSchemaV1<
-              any,
-              { query: string }
-            >,
+            parameters: schema as unknown as StandardSchemaV1<any, { query: string }>,
             render: () => <div>valibot render</div>,
           },
           [],
@@ -112,9 +102,7 @@ describe("useRenderTool with Standard Schema", () => {
       render(<Harness />);
 
       expect(core.addHookRenderToolCall).toHaveBeenCalledTimes(1);
-      const renderer = core.renderToolCalls.find(
-        (item) => item.name === "searchValibot",
-      );
+      const renderer = core.renderToolCalls.find((item) => item.name === "searchValibot");
       expect(renderer).toBeDefined();
       expect(renderer?.args["~standard"].vendor).toBe("valibot");
     });
@@ -131,10 +119,7 @@ describe("useRenderTool with Standard Schema", () => {
         useRenderTool(
           {
             name: "searchArktype",
-            parameters: schema as unknown as StandardSchemaV1<
-              any,
-              { query: string }
-            >,
+            parameters: schema as unknown as StandardSchemaV1<any, { query: string }>,
             render: () => <div>arktype render</div>,
           },
           [],
@@ -145,9 +130,7 @@ describe("useRenderTool with Standard Schema", () => {
       render(<Harness />);
 
       expect(core.addHookRenderToolCall).toHaveBeenCalledTimes(1);
-      const renderer = core.renderToolCalls.find(
-        (item) => item.name === "searchArktype",
-      );
+      const renderer = core.renderToolCalls.find((item) => item.name === "searchArktype");
       expect(renderer).toBeDefined();
       expect(renderer?.args["~standard"].vendor).toBe("arktype");
     });
@@ -221,9 +204,7 @@ describe("useComponent with Standard Schema", () => {
   });
 
   it("registers a component with a Valibot schema", () => {
-    const DemoComponent: React.FC<{ city: string }> = ({ city }) => (
-      <div>{city}</div>
-    );
+    const DemoComponent: React.FC<{ city: string }> = ({ city }) => <div>{city}</div>;
 
     const schema = v.object({
       city: v.string(),
@@ -232,10 +213,7 @@ describe("useComponent with Standard Schema", () => {
     const Harness: React.FC = () => {
       useComponent({
         name: "weatherCard",
-        parameters: schema as unknown as StandardSchemaV1<
-          any,
-          { city: string }
-        >,
+        parameters: schema as unknown as StandardSchemaV1<any, { city: string }>,
         render: DemoComponent,
       });
       return null;
@@ -244,27 +222,20 @@ describe("useComponent with Standard Schema", () => {
     render(<Harness />);
 
     expect(mockUseFrontendTool).toHaveBeenCalledTimes(1);
-    const [toolConfig] = mockUseFrontendTool.mock.calls[0] as [
-      { name: string; parameters: any },
-    ];
+    const [toolConfig] = mockUseFrontendTool.mock.calls[0] as [{ name: string; parameters: any }];
     expect(toolConfig.name).toBe("weatherCard");
     expect(toolConfig.parameters["~standard"].vendor).toBe("valibot");
   });
 
   it("registers a component with an ArkType schema", () => {
-    const DemoComponent: React.FC<{ city: string }> = ({ city }) => (
-      <div>{city}</div>
-    );
+    const DemoComponent: React.FC<{ city: string }> = ({ city }) => <div>{city}</div>;
 
     const schema = type({ city: "string" });
 
     const Harness: React.FC = () => {
       useComponent({
         name: "weatherCardArktype",
-        parameters: schema as unknown as StandardSchemaV1<
-          any,
-          { city: string }
-        >,
+        parameters: schema as unknown as StandardSchemaV1<any, { city: string }>,
         render: DemoComponent,
       });
       return null;
@@ -273,9 +244,7 @@ describe("useComponent with Standard Schema", () => {
     render(<Harness />);
 
     expect(mockUseFrontendTool).toHaveBeenCalledTimes(1);
-    const [toolConfig] = mockUseFrontendTool.mock.calls[0] as [
-      { name: string; parameters: any },
-    ];
+    const [toolConfig] = mockUseFrontendTool.mock.calls[0] as [{ name: string; parameters: any }];
     expect(toolConfig.name).toBe("weatherCardArktype");
     expect(toolConfig.parameters["~standard"].vendor).toBe("arktype");
   });

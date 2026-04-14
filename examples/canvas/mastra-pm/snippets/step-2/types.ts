@@ -23,8 +23,7 @@ export const users: z.infer<typeof UserSchema>[] = [
     role: "Founding Engineer",
     name: "Tyler Slaton",
     email: "tyler@copilotkit.ai",
-    summary:
-      "Tyler is a software engineer at CopilotKit. He is good at building UI and connecting the dots.",
+    summary: "Tyler is a software engineer at CopilotKit. He is good at building UI and connecting the dots.",
     image: "https://ui-avatars.com/api/?size=128&name=Tyler+Slaton",
   },
   {
@@ -32,8 +31,7 @@ export const users: z.infer<typeof UserSchema>[] = [
     role: "Founding Engineer",
     name: "Suhas Deshpande",
     email: "suhas@copilotkit.ai",
-    summary:
-      "Suhas is a software engineer at CopilotKit. He is good at building backend systems.",
+    summary: "Suhas is a software engineer at CopilotKit. He is good at building backend systems.",
     image: "https://ui-avatars.com/api/?size=128&name=Suhas+Deshpande",
   },
   {
@@ -41,8 +39,7 @@ export const users: z.infer<typeof UserSchema>[] = [
     role: "Product Manager",
     name: "John Rae Grant",
     email: "john@copilotkit.ai",
-    summary:
-      "John is a product manager at CopilotKit. He is able to look at the big picture and make decisions.",
+    summary: "John is a product manager at CopilotKit. He is able to look at the big picture and make decisions.",
     image: "https://ui-avatars.com/api/?size=128&name=John+Rae+Grant",
   },
   {

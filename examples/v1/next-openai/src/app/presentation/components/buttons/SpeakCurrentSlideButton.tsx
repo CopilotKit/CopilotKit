@@ -7,9 +7,7 @@ interface SpeakCurrentSlideButtonProps {
   spokenNarration: string;
 }
 
-export function SpeakCurrentSlideButton({
-  spokenNarration,
-}: SpeakCurrentSlideButtonProps) {
+export function SpeakCurrentSlideButton({ spokenNarration }: SpeakCurrentSlideButtonProps) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   return (
     <ActionButton inProgress={isSpeaking}>

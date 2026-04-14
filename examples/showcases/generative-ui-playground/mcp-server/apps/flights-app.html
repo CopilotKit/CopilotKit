@@ -44,11 +44,8 @@
 
         /* Shadows */
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-        --shadow-md:
-          0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-        --shadow-lg:
-          0 10px 25px -3px rgba(0, 0, 0, 0.08),
-          0 4px 6px -2px rgba(0, 0, 0, 0.03);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+        --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
         --shadow-glass: 0 4px 30px rgba(0, 0, 0, 0.1);
 
         /* Status Colors */
@@ -74,8 +71,7 @@
         --radius-full: 9999px;
 
         /* Typography */
-        --font-family:
-          "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+        --font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
       }
 
       * {
@@ -86,11 +82,7 @@
 
       body {
         font-family: var(--font-family);
-        background: linear-gradient(
-          135deg,
-          var(--color-surface-light) 0%,
-          var(--color-surface) 100%
-        );
+        background: linear-gradient(135deg, var(--color-surface-light) 0%, var(--color-surface) 100%);
         color: var(--color-text-primary);
         line-height: 1.5;
         -webkit-font-smoothing: antialiased;
@@ -210,11 +202,7 @@
       }
 
       .step-dot.active {
-        background: linear-gradient(
-          135deg,
-          var(--color-lilac),
-          var(--color-mint)
-        );
+        background: linear-gradient(135deg, var(--color-lilac), var(--color-mint));
         border-color: transparent;
         color: white;
         box-shadow: 0 4px 12px rgba(190, 194, 255, 0.4);
@@ -234,11 +222,7 @@
       }
 
       .step-line.active {
-        background: linear-gradient(
-          90deg,
-          var(--color-lilac),
-          var(--color-mint)
-        );
+        background: linear-gradient(90deg, var(--color-lilac), var(--color-mint));
       }
 
       /* =============================================================================
@@ -360,11 +344,7 @@
       }
 
       .btn-primary {
-        background: linear-gradient(
-          135deg,
-          var(--color-lilac),
-          var(--color-mint)
-        );
+        background: linear-gradient(135deg, var(--color-lilac), var(--color-mint));
         color: var(--color-text-primary);
         box-shadow: 0 4px 12px rgba(190, 194, 255, 0.3);
       }
@@ -422,11 +402,7 @@
         font-size: 24px;
         font-weight: 700;
         margin-bottom: var(--space-2);
-        background: linear-gradient(
-          135deg,
-          var(--color-text-primary),
-          var(--color-text-secondary)
-        );
+        background: linear-gradient(135deg, var(--color-text-primary), var(--color-text-secondary));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -709,11 +685,7 @@
         width: 32px;
         height: 32px;
         border-radius: var(--radius-full);
-        background: linear-gradient(
-          135deg,
-          var(--color-lilac),
-          var(--color-mint)
-        );
+        background: linear-gradient(135deg, var(--color-lilac), var(--color-mint));
         color: white;
         display: flex;
         align-items: center;
@@ -746,11 +718,7 @@
         width: 64px;
         height: 64px;
         border-radius: var(--radius-full);
-        background: linear-gradient(
-          135deg,
-          var(--color-mint),
-          var(--color-mint-dark)
-        );
+        background: linear-gradient(135deg, var(--color-mint), var(--color-mint-dark));
         margin: 0 auto var(--space-4);
         display: flex;
         align-items: center;
@@ -910,9 +878,7 @@
       <div id="step-1" class="step-container active">
         <div class="glass" style="padding: var(--space-5)">
           <h2 class="step-title">Find Your Flight</h2>
-          <p class="step-subtitle">
-            Search for the best flights to your destination
-          </p>
+          <p class="step-subtitle">Search for the best flights to your destination</p>
 
           <div class="form-row">
             <div class="form-group">
@@ -937,9 +903,7 @@
             <div class="form-group">
               <label class="form-label">Passengers</label>
               <div class="counter-input">
-                <button class="counter-btn" id="decPassengers" disabled>
-                  −
-                </button>
+                <button class="counter-btn" id="decPassengers" disabled>−</button>
                 <span class="counter-value" id="passengerCount">1</span>
                 <button class="counter-btn" id="incPassengers">+</button>
               </div>
@@ -984,24 +948,18 @@
 
         <div class="nav-buttons">
           <button class="btn btn-secondary" id="backToSearch">Back</button>
-          <button class="btn btn-primary" id="selectFlightBtn" disabled>
-            Continue
-          </button>
+          <button class="btn btn-primary" id="selectFlightBtn" disabled>Continue</button>
         </div>
       </div>
 
       <!-- Step 3: Seat Selection -->
       <div id="step-3" class="step-container">
         <h2 class="step-title">Choose Your Seats</h2>
-        <p class="step-subtitle" id="seatSubtitle">
-          Select seats for 2 passengers
-        </p>
+        <p class="step-subtitle" id="seatSubtitle">Select seats for 2 passengers</p>
 
         <div class="seat-map-container glass" style="padding: var(--space-4)">
           <div class="seat-map-header">
-            <div class="seats-selected">
-              Selected: <strong id="selectedSeatsText">0 of 2</strong>
-            </div>
+            <div class="seats-selected">Selected: <strong id="selectedSeatsText">0 of 2</strong></div>
           </div>
 
           <div class="seat-legend">
@@ -1024,9 +982,7 @@
 
         <div class="nav-buttons">
           <button class="btn btn-secondary" id="backToFlights">Back</button>
-          <button class="btn btn-primary" id="confirmSeatsBtn" disabled>
-            Continue
-          </button>
+          <button class="btn btn-primary" id="confirmSeatsBtn" disabled>Continue</button>
         </div>
       </div>
 
@@ -1039,9 +995,7 @@
 
         <div class="nav-buttons">
           <button class="btn btn-secondary" id="backToSeats">Back</button>
-          <button class="btn btn-primary" id="confirmBookingBtn">
-            Complete Booking
-          </button>
+          <button class="btn btn-primary" id="confirmBookingBtn">Complete Booking</button>
         </div>
       </div>
 
@@ -1064,9 +1018,7 @@
             </svg>
           </div>
           <h2 class="confirmation-title">Booking Confirmed!</h2>
-          <p class="confirmation-ref">
-            Confirmation: <strong id="confirmationCode">ABC123</strong>
-          </p>
+          <p class="confirmation-ref">Confirmation: <strong id="confirmationCode">ABC123</strong></p>
 
           <div class="booking-summary" id="bookingSummary"></div>
 
@@ -1132,10 +1084,7 @@
             const id = requestId++;
             return new Promise((resolve, reject) => {
               pendingRequests.set(id, { resolve, reject });
-              window.parent.postMessage(
-                { jsonrpc: "2.0", id, method, params },
-                "*",
-              );
+              window.parent.postMessage({ jsonrpc: "2.0", id, method, params }, "*");
             });
           },
 
@@ -1236,9 +1185,7 @@
       function showLoading(text = "Loading...") {
         $("loading").style.display = "flex";
         $("loading").querySelector(".loading-text").textContent = text;
-        document
-          .querySelectorAll(".step-container")
-          .forEach((el) => el.classList.remove("active"));
+        document.querySelectorAll(".step-container").forEach((el) => el.classList.remove("active"));
       }
 
       function hideLoading() {
@@ -1348,8 +1295,7 @@
         const list = $("flightsList");
         list.innerHTML = "";
 
-        $("resultsSubtitle").textContent =
-          `${state.flights.length} flights found`;
+        $("resultsSubtitle").textContent = `${state.flights.length} flights found`;
 
         state.flights.forEach((flight) => {
           const card = document.createElement("div");
@@ -1489,9 +1435,7 @@
           rowEl.innerHTML = html;
 
           rowEl.querySelectorAll(".seat:not(.occupied)").forEach((seatEl) => {
-            seatEl.addEventListener("click", () =>
-              toggleSeat(seatEl.dataset.seat),
-            );
+            seatEl.addEventListener("click", () => toggleSeat(seatEl.dataset.seat));
           });
 
           container.appendChild(rowEl);
@@ -1512,21 +1456,16 @@
         // Update UI
         document.querySelectorAll(".seat").forEach((el) => {
           if (el.dataset.seat) {
-            el.classList.toggle(
-              "selected",
-              state.selectedSeats.includes(el.dataset.seat),
-            );
+            el.classList.toggle("selected", state.selectedSeats.includes(el.dataset.seat));
           }
         });
 
         updateSelectedSeatsText();
-        $("confirmSeatsBtn").disabled =
-          state.selectedSeats.length !== state.passengers;
+        $("confirmSeatsBtn").disabled = state.selectedSeats.length !== state.passengers;
       }
 
       function updateSelectedSeatsText() {
-        $("selectedSeatsText").textContent =
-          `${state.selectedSeats.length} of ${state.passengers}`;
+        $("selectedSeatsText").textContent = `${state.selectedSeats.length} of ${state.passengers}`;
       }
 
       async function confirmSeats() {

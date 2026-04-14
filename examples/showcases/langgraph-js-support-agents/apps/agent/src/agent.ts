@@ -4,24 +4,11 @@ import { AIMessage, SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { convertActionsToDynamicStructuredTools } from "@copilotkit/sdk-js/langgraph";
-import {
-  CustomerSupportStateAnnotation,
-  CustomerSupportState,
-} from "./types/state";
-import {
-  customerLookupTool,
-  intentClassifierTool,
-  escalationDecisionTool,
-  replyGeneratorTool,
-} from "./tools/index";
+import { CustomerSupportStateAnnotation, CustomerSupportState } from "./types/state";
+import { customerLookupTool, intentClassifierTool, escalationDecisionTool, replyGeneratorTool } from "./tools/index";
 
 // 1. Define all tools in an array
-const tools = [
-  customerLookupTool,
-  intentClassifierTool,
-  escalationDecisionTool,
-  replyGeneratorTool,
-];
+const tools = [customerLookupTool, intentClassifierTool, escalationDecisionTool, replyGeneratorTool];
 
 // 2. Main chat node - invokes AI model with tools
 async function chat_node(state: CustomerSupportState, config: RunnableConfig) {
@@ -72,10 +59,7 @@ Be helpful and professional. Use the customers array from state for lookups.`,
   });
 
   // Invoke the model
-  const response = await modelWithTools.invoke(
-    [systemMessage, ...state.messages],
-    config,
-  );
+  const response = await modelWithTools.invoke([systemMessage, ...state.messages], config);
 
   console.log("Model response generated");
 
@@ -88,10 +72,7 @@ Be helpful and professional. Use the customers array from state for lookups.`,
 const tool_node = new ToolNode(tools);
 
 // 4. Process tool results and update state
-async function process_tool_results(
-  state: CustomerSupportState,
-  config: RunnableConfig,
-) {
+async function process_tool_results(state: CustomerSupportState, config: RunnableConfig) {
   const messages = state.messages || [];
   const lastMessage = messages[messages.length - 1];
 

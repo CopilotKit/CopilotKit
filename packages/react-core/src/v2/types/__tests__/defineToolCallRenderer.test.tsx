@@ -146,9 +146,7 @@ describe("defineToolCallRenderer", () => {
           if (status === ToolCallStatus.Executing) {
             // args should be complete
             const loc: string = args.location;
-            return (
-              <div data-testid="executing">Fetching weather for {loc}</div>
-            );
+            return <div data-testid="executing">Fetching weather for {loc}</div>;
           }
 
           // Complete status
@@ -170,9 +168,7 @@ describe("defineToolCallRenderer", () => {
           result={undefined}
         />,
       );
-      expect(screen.getByTestId("progress").textContent).toBe(
-        "Loading Paris...",
-      );
+      expect(screen.getByTestId("progress").textContent).toBe("Loading Paris...");
 
       // Test Executing state
       rerender(
@@ -183,9 +179,7 @@ describe("defineToolCallRenderer", () => {
           result={undefined}
         />,
       );
-      expect(screen.getByTestId("executing").textContent).toBe(
-        "Fetching weather for London",
-      );
+      expect(screen.getByTestId("executing").textContent).toBe("Fetching weather for London");
 
       // Test Complete state
       rerender(
@@ -196,9 +190,7 @@ describe("defineToolCallRenderer", () => {
           result="Sunny, 75°F"
         />,
       );
-      expect(screen.getByTestId("complete").textContent).toBe(
-        "Weather in Tokyo: Sunny, 75°F",
-      );
+      expect(screen.getByTestId("complete").textContent).toBe("Weather in Tokyo: Sunny, 75°F");
     });
 
     it("should work with wildcard tool without args definition", () => {
@@ -254,13 +246,9 @@ describe("defineToolCallRenderer", () => {
                 <div data-testid="user-info">
                   User: {args.user.name} ({args.user.email})
                 </div>
-                <div data-testid="options">
-                  Options: {args.options.join(", ")}
-                </div>
+                <div data-testid="options">Options: {args.options.join(", ")}</div>
                 {args.metadata && (
-                  <div data-testid="metadata">
-                    Metadata keys: {Object.keys(args.metadata).join(", ")}
-                  </div>
+                  <div data-testid="metadata">Metadata keys: {Object.keys(args.metadata).join(", ")}</div>
                 )}
               </div>
             );
@@ -283,15 +271,9 @@ describe("defineToolCallRenderer", () => {
         />,
       );
 
-      expect(screen.getByTestId("user-info").textContent).toBe(
-        "User: John Doe (john@example.com)",
-      );
-      expect(screen.getByTestId("options").textContent).toBe(
-        "Options: option1, option2, option3",
-      );
-      expect(screen.getByTestId("metadata").textContent).toBe(
-        "Metadata keys: key1, key2",
-      );
+      expect(screen.getByTestId("user-info").textContent).toBe("User: John Doe (john@example.com)");
+      expect(screen.getByTestId("options").textContent).toBe("Options: option1, option2, option3");
+      expect(screen.getByTestId("metadata").textContent).toBe("Metadata keys: key1, key2");
     });
 
     it("should properly handle all status states in union", () => {
@@ -303,15 +285,9 @@ describe("defineToolCallRenderer", () => {
         render: (props) => {
           switch (props.status) {
             case ToolCallStatus.InProgress:
-              return (
-                <div data-testid="in-progress">
-                  In Progress: {props.args.value || "..."}
-                </div>
-              );
+              return <div data-testid="in-progress">In Progress: {props.args.value || "..."}</div>;
             case ToolCallStatus.Executing:
-              return (
-                <div data-testid="executing">Executing: {props.args.value}</div>
-              );
+              return <div data-testid="executing">Executing: {props.args.value}</div>;
             case ToolCallStatus.Complete:
               return (
                 <div data-testid="complete">
@@ -333,9 +309,7 @@ describe("defineToolCallRenderer", () => {
           result={undefined}
         />,
       );
-      expect(screen.getByTestId("in-progress").textContent).toBe(
-        "In Progress: partial",
-      );
+      expect(screen.getByTestId("in-progress").textContent).toBe("In Progress: partial");
 
       rerender(
         <UnionComponent
@@ -345,21 +319,12 @@ describe("defineToolCallRenderer", () => {
           result={undefined}
         />,
       );
-      expect(screen.getByTestId("executing").textContent).toBe(
-        "Executing: test",
-      );
+      expect(screen.getByTestId("executing").textContent).toBe("Executing: test");
 
       rerender(
-        <UnionComponent
-          name="union_test"
-          args={{ value: "test" }}
-          status={ToolCallStatus.Complete}
-          result="success"
-        />,
+        <UnionComponent name="union_test" args={{ value: "test" }} status={ToolCallStatus.Complete} result="success" />,
       );
-      expect(screen.getByTestId("complete").textContent).toBe(
-        "Complete: test = success",
-      );
+      expect(screen.getByTestId("complete").textContent).toBe("Complete: test = success");
     });
 
     it("should support agentId parameter", () => {
@@ -378,9 +343,7 @@ describe("defineToolCallRenderer", () => {
       const agentWildcard = defineToolCallRenderer({
         name: "*",
         agentId: "fallback-agent",
-        render: ({ name }) => (
-          <div data-testid="wildcard-agent">Unknown: {name}</div>
-        ),
+        render: ({ name }) => <div data-testid="wildcard-agent">Unknown: {name}</div>,
       });
 
       expect(agentWildcard.agentId).toBe("fallback-agent");
@@ -396,9 +359,7 @@ describe("defineToolCallRenderer", () => {
         />,
       );
 
-      expect(screen.getByTestId("wildcard-agent").textContent).toBe(
-        "Unknown: unknownTool",
-      );
+      expect(screen.getByTestId("wildcard-agent").textContent).toBe("Unknown: unknownTool");
     });
   });
 
@@ -426,9 +387,7 @@ describe("defineToolCallRenderer", () => {
         />,
       );
 
-      expect(screen.getByTestId("weather").textContent).toBe(
-        "Weather: San Francisco",
-      );
+      expect(screen.getByTestId("weather").textContent).toBe("Weather: San Francisco");
     });
 
     it("should allow wildcard as fallback for undefined tools", () => {
@@ -436,9 +395,7 @@ describe("defineToolCallRenderer", () => {
         defineToolCallRenderer({
           name: "known_tool",
           args: z.object({ id: z.number() }),
-          render: ({ args }) => (
-            <div data-testid="known">Known tool: {args.id}</div>
-          ),
+          render: ({ args }) => <div data-testid="known">Known tool: {args.id}</div>,
         }),
         defineToolCallRenderer({
           name: "*",
@@ -453,12 +410,7 @@ describe("defineToolCallRenderer", () => {
       // Test known tool
       const KnownComponent = renders[0]!.render as React.FC<any>;
       const { rerender } = render(
-        <KnownComponent
-          name="known_tool"
-          args={{ id: 123 }}
-          status={ToolCallStatus.Executing}
-          result={undefined}
-        />,
+        <KnownComponent name="known_tool" args={{ id: 123 }} status={ToolCallStatus.Executing} result={undefined} />,
       );
       expect(screen.getByTestId("known").textContent).toBe("Known tool: 123");
 
@@ -472,9 +424,7 @@ describe("defineToolCallRenderer", () => {
           result={undefined}
         />,
       );
-      expect(screen.getByTestId("fallback").textContent).toBe(
-        'Fallback for unknown_tool: {"data":"test"}',
-      );
+      expect(screen.getByTestId("fallback").textContent).toBe('Fallback for unknown_tool: {"data":"test"}');
     });
 
     it("should handle optional fields correctly", () => {

@@ -16,13 +16,7 @@ const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, "..");
 const REPO_ROOT = path.resolve(ROOT, "..");
 const REGISTRY_PATH = path.join(ROOT, "shell", "src", "data", "registry.json");
-const OUTPUT_PATH = path.join(
-  ROOT,
-  "shell",
-  "src",
-  "data",
-  "starter-content.json",
-);
+const OUTPUT_PATH = path.join(ROOT, "shell", "src", "data", "starter-content.json");
 
 const MAX_FILE_SIZE = 50 * 1024; // 50KB
 
@@ -71,16 +65,11 @@ function detectLanguage(filename: string): string {
   return map[ext] || "text";
 }
 
-function tryReadFile(
-  filePath: string,
-  displayName: string,
-): StarterFile | null {
+function tryReadFile(filePath: string, displayName: string): StarterFile | null {
   if (!fs.existsSync(filePath)) return null;
   const stat = fs.statSync(filePath);
   if (stat.size > MAX_FILE_SIZE) {
-    console.log(
-      `    SKIP ${displayName} (${(stat.size / 1024).toFixed(1)}KB > 50KB)`,
-    );
+    console.log(`    SKIP ${displayName} (${(stat.size / 1024).toFixed(1)}KB > 50KB)`);
     return null;
   }
   return {
@@ -91,16 +80,10 @@ function tryReadFile(
 }
 
 // Search candidate paths and return the first file found
-function findFile(
-  basePath: string,
-  candidates: string[],
-  displayPrefix?: string,
-): StarterFile | null {
+function findFile(basePath: string, candidates: string[], displayPrefix?: string): StarterFile | null {
   for (const candidate of candidates) {
     const fullPath = path.join(basePath, candidate);
-    const displayName = displayPrefix
-      ? `${displayPrefix}/${candidate}`
-      : candidate;
+    const displayName = displayPrefix ? `${displayPrefix}/${candidate}` : candidate;
     const file = tryReadFile(fullPath, displayName);
     if (file) return file;
   }
@@ -111,12 +94,7 @@ function findFile(
 function collectAgentFiles(dir: string, prefix: string): StarterFile[] {
   if (!fs.existsSync(dir)) return [];
   const results: StarterFile[] = [];
-  const SKIP = new Set([
-    "__pycache__",
-    "node_modules",
-    ".ruff_cache",
-    "__init__.py",
-  ]);
+  const SKIP = new Set(["__pycache__", "node_modules", ".ruff_cache", "__init__.py"]);
   const EXTENSIONS = new Set([".py", ".ts", ".js", ".cs"]);
 
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -125,10 +103,7 @@ function collectAgentFiles(dir: string, prefix: string): StarterFile[] {
     const fullPath = path.join(dir, entry.name);
     const displayName = prefix ? `${prefix}/${entry.name}` : entry.name;
 
-    if (
-      entry.isFile() &&
-      EXTENSIONS.has(path.extname(entry.name).toLowerCase())
-    ) {
+    if (entry.isFile() && EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
       const file = tryReadFile(fullPath, displayName);
       if (file) results.push(file);
     } else if (entry.isDirectory()) {
@@ -159,10 +134,7 @@ function discoverStarterFiles(starterPath: string): StarterFile[] {
       }
 
       // API route
-      const route = findFile(appBase, [
-        "src/app/api/copilotkit/route.ts",
-        "src/app/api/copilotkit/route.js",
-      ]);
+      const route = findFile(appBase, ["src/app/api/copilotkit/route.ts", "src/app/api/copilotkit/route.js"]);
       if (route) {
         route.filename = `${appDir}/${route.filename}`;
         files.push(route);
@@ -179,32 +151,20 @@ function discoverStarterFiles(starterPath: string): StarterFile[] {
       for (const entry of agentEntries) {
         if (!entry.isFile()) continue;
         if (AGENT_SKIP.has(entry.name)) continue;
-        if (!AGENT_EXTENSIONS.has(path.extname(entry.name).toLowerCase()))
-          continue;
-        const file = tryReadFile(
-          path.join(agentDir, entry.name),
-          `apps/agent/${entry.name}`,
-        );
+        if (!AGENT_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) continue;
+        const file = tryReadFile(path.join(agentDir, entry.name), `apps/agent/${entry.name}`);
         if (file) files.push(file);
       }
 
       // Then collect from src/
-      const srcFiles = collectAgentFiles(
-        path.join(agentDir, "src"),
-        "apps/agent/src",
-      );
+      const srcFiles = collectAgentFiles(path.join(agentDir, "src"), "apps/agent/src");
       files.push(...srcFiles);
     }
   } else {
     // Standard layout: single Next.js app with optional agent/ directory
 
     // Main page
-    const page = findFile(starterPath, [
-      "src/app/page.tsx",
-      "src/app/page.ts",
-      "app/page.tsx",
-      "app/page.ts",
-    ]);
+    const page = findFile(starterPath, ["src/app/page.tsx", "src/app/page.ts", "app/page.tsx", "app/page.ts"]);
     if (page) files.push(page);
 
     // API route
@@ -226,19 +186,12 @@ function discoverStarterFiles(starterPath: string): StarterFile[] {
       for (const entry of agentEntries) {
         if (!entry.isFile()) continue;
         if (AGENT_SKIP.has(entry.name)) continue;
-        if (!AGENT_EXTENSIONS.has(path.extname(entry.name).toLowerCase()))
-          continue;
-        const file = tryReadFile(
-          path.join(agentDir, entry.name),
-          `agent/${entry.name}`,
-        );
+        if (!AGENT_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) continue;
+        const file = tryReadFile(path.join(agentDir, entry.name), `agent/${entry.name}`);
         if (file) files.push(file);
       }
       // Collect from agent/src/
-      const srcFiles = collectAgentFiles(
-        path.join(agentDir, "src"),
-        "agent/src",
-      );
+      const srcFiles = collectAgentFiles(path.join(agentDir, "src"), "agent/src");
       files.push(...srcFiles);
     }
 
@@ -270,9 +223,7 @@ function main() {
   console.log("Bundling starter content...\n");
 
   if (!fs.existsSync(REGISTRY_PATH)) {
-    console.error(
-      `Registry not found at ${REGISTRY_PATH}. Run generate-registry.ts first.`,
-    );
+    console.error(`Registry not found at ${REGISTRY_PATH}. Run generate-registry.ts first.`);
     process.exit(1);
   }
 
@@ -291,9 +242,7 @@ function main() {
 
     const starterPath = path.join(REPO_ROOT, integration.starter.path);
     if (!fs.existsSync(starterPath)) {
-      console.log(
-        `  WARN: ${integration.slug} starter path not found: ${integration.starter.path}`,
-      );
+      console.log(`  WARN: ${integration.slug} starter path not found: ${integration.starter.path}`);
       continue;
     }
 

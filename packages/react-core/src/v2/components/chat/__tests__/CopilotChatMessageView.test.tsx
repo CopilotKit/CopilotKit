@@ -4,16 +4,8 @@ import { z } from "zod";
 import { vi } from "vitest";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import CopilotChatMessageView, {
-  deduplicateMessages,
-} from "../CopilotChatMessageView";
-import type {
-  ActivityMessage,
-  AssistantMessage,
-  Message,
-  ToolCall,
-  UserMessage,
-} from "@ag-ui/core";
+import CopilotChatMessageView, { deduplicateMessages } from "../CopilotChatMessageView";
+import type { ActivityMessage, AssistantMessage, Message, ToolCall, UserMessage } from "@ag-ui/core";
 import type { ReactActivityMessageRenderer } from "../../../types";
 
 // ---------------------------------------------------------------------------
@@ -34,11 +26,7 @@ function assistantMsg(id: string, content?: string, toolCalls?: ToolCall[]) {
 }
 
 /** Typed factory — avoids `as ActivityMessage` casts everywhere. */
-function activityMsg(
-  id: string,
-  activityType: string,
-  content: ActivityMessage["content"],
-) {
+function activityMsg(id: string, activityType: string, content: ActivityMessage["content"]) {
   return { id, role: "activity" as const, activityType, content };
 }
 
@@ -77,19 +65,13 @@ function renderMessageView({
 
 describe("CopilotChatMessageView activity rendering", () => {
   it("renders activity messages via matching custom renderer", () => {
-    const messages: Message[] = [
-      activityMsg("act-1", "search-progress", { percent: 42 }),
-    ];
+    const messages: Message[] = [activityMsg("act-1", "search-progress", { percent: 42 })];
 
     const renderers: ReactActivityMessageRenderer<{ percent: number }>[] = [
       {
         activityType: "search-progress",
         content: z.object({ percent: z.number() }),
-        render: ({ content }) => (
-          <div data-testid="activity-renderer">
-            Progress: {content.percent}%
-          </div>
-        ),
+        render: ({ content }) => <div data-testid="activity-renderer">Progress: {content.percent}%</div>,
       },
     ];
 
@@ -99,9 +81,7 @@ describe("CopilotChatMessageView activity rendering", () => {
   });
 
   it("skips rendering when no activity renderer matches", () => {
-    const messages: Message[] = [
-      activityMsg("act-2", "unknown-type", { message: "should not render" }),
-    ];
+    const messages: Message[] = [activityMsg("act-2", "unknown-type", { message: "should not render" })];
 
     renderMessageView({ messages, renderActivityMessages: [] });
 
@@ -115,18 +95,13 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
       userMsg("user-1", "Record a headache"),
       assistantMsg("assistant-1", "Let me record that..."),
       assistantMsg("assistant-1", "", [toolCall("tc-1", "captureData")]),
-      assistantMsg("assistant-1", "", [
-        toolCall("tc-1", "captureData"),
-        toolCall("tc-2", "updateMemory"),
-      ]),
+      assistantMsg("assistant-1", "", [toolCall("tc-1", "captureData"), toolCall("tc-2", "updateMemory")]),
     ];
 
     renderMessageView({ messages });
 
     // One merged assistant message (not three)
-    const assistantMessages = screen.getAllByTestId(
-      "copilot-assistant-message",
-    );
+    const assistantMessages = screen.getAllByTestId("copilot-assistant-message");
     expect(assistantMessages).toHaveLength(1);
 
     // Original text content must survive despite later empty-content duplicates
@@ -145,13 +120,9 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
     renderMessageView({ messages });
 
     // Should render only the last occurrence of assistant-1 (the complete one)
-    const assistantMessages = screen.getAllByTestId(
-      "copilot-assistant-message",
-    );
+    const assistantMessages = screen.getAllByTestId("copilot-assistant-message");
     expect(assistantMessages).toHaveLength(1);
-    expect(assistantMessages[0].textContent).toContain(
-      "Full response from the assistant.",
-    );
+    expect(assistantMessages[0].textContent).toContain("Full response from the assistant.");
 
     // Should render the user message too
     const userMessages = screen.getAllByTestId("copilot-user-message");
@@ -159,8 +130,7 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
 
     // Should NOT produce React duplicate key warnings
     const duplicateKeyWarnings = consoleSpy.mock.calls.filter(
-      (call) =>
-        typeof call[0] === "string" && call[0].includes("duplicate key"),
+      (call) => typeof call[0] === "string" && call[0].includes("duplicate key"),
     );
     expect(duplicateKeyWarnings).toHaveLength(0);
 
@@ -178,9 +148,7 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
     renderMessageView({ messages });
 
     const userMessages = screen.getAllByTestId("copilot-user-message");
-    const assistantMessages = screen.getAllByTestId(
-      "copilot-assistant-message",
-    );
+    const assistantMessages = screen.getAllByTestId("copilot-assistant-message");
     expect(userMessages).toHaveLength(2);
     expect(assistantMessages).toHaveLength(2);
   });
@@ -191,10 +159,7 @@ describe("deduplicateMessages", () => {
     const messages: Message[] = [
       assistantMsg("assistant-1", "Let me record that..."),
       assistantMsg("assistant-1", "", [toolCall("tc-1", "captureData")]),
-      assistantMsg("assistant-1", "", [
-        toolCall("tc-1", "captureData"),
-        toolCall("tc-2", "updateMemory"),
-      ]),
+      assistantMsg("assistant-1", "", [toolCall("tc-1", "captureData"), toolCall("tc-2", "updateMemory")]),
     ];
 
     const result = deduplicateMessages(messages);
@@ -209,10 +174,7 @@ describe("deduplicateMessages", () => {
   });
 
   it("uses content from a later occurrence when early occurrence has empty content", () => {
-    const messages: Message[] = [
-      assistantMsg("assistant-1", ""),
-      assistantMsg("assistant-1", "Here is the result."),
-    ];
+    const messages: Message[] = [assistantMsg("assistant-1", ""), assistantMsg("assistant-1", "Here is the result.")];
 
     const result = deduplicateMessages(messages);
 
@@ -254,10 +216,7 @@ describe("deduplicateMessages", () => {
   it("handles undefined content on both occurrences without error", () => {
     // assistantMsg with no content arg produces content: undefined.
     // undefined || undefined = undefined — should not throw or produce garbage.
-    const messages: Message[] = [
-      assistantMsg("assistant-1"),
-      assistantMsg("assistant-1"),
-    ];
+    const messages: Message[] = [assistantMsg("assistant-1"), assistantMsg("assistant-1")];
 
     const result = deduplicateMessages(messages);
 
@@ -266,10 +225,7 @@ describe("deduplicateMessages", () => {
   });
 
   it("keeps last entry for non-assistant roles", () => {
-    const messages: Message[] = [
-      userMsg("u-1", "Hello"),
-      userMsg("u-1", "Hello (updated)"),
-    ];
+    const messages: Message[] = [userMsg("u-1", "Hello"), userMsg("u-1", "Hello (updated)")];
 
     const result = deduplicateMessages(messages);
 

@@ -52,11 +52,7 @@ import { randomUUID } from "@copilotkit/shared";
       </div>
     }
 
-    <input
-      [value]="input()"
-      (input)="input.set($any($event.target).value)"
-      (keyup.enter)="send()"
-    />
+    <input [value]="input()" (input)="input.set($any($event.target).value)" (keyup.enter)="send()" />
     <button (click)="send()" [disabled]="store().isRunning()">Send</button>
   `,
 })
@@ -246,11 +242,7 @@ These helpers auto-remove tools when the current injection context is destroyed:
 Call them from an injection context (e.g., a component constructor, directive, or `runInInjectionContext`).
 
 ```ts
-import {
-  registerFrontendTool,
-  registerRenderToolCall,
-  registerHumanInTheLoop,
-} from "@copilotkit/angular";
+import { registerFrontendTool, registerRenderToolCall, registerHumanInTheLoop } from "@copilotkit/angular";
 import { z } from "zod";
 
 registerFrontendTool({

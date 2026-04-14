@@ -7,10 +7,7 @@ export type CopilotChatToolCallsViewProps = {
   messages?: Message[];
 };
 
-export function CopilotChatToolCallsView({
-  message,
-  messages = [],
-}: CopilotChatToolCallsViewProps) {
+export function CopilotChatToolCallsView({ message, messages = [] }: CopilotChatToolCallsViewProps) {
   const renderToolCall = useRenderToolCall();
 
   if (!message.toolCalls || message.toolCalls.length === 0) {
@@ -20,9 +17,9 @@ export function CopilotChatToolCallsView({
   return (
     <>
       {message.toolCalls.map((toolCall) => {
-        const toolMessage = messages.find(
-          (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-        ) as ToolMessage | undefined;
+        const toolMessage = messages.find((m) => m.role === "tool" && m.toolCallId === toolCall.id) as
+          | ToolMessage
+          | undefined;
 
         return (
           <React.Fragment key={toolCall.id}>

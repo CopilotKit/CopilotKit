@@ -1,11 +1,7 @@
 import { researchWithLangGraph } from "./research";
 import { Action } from "@copilotkit/shared";
 import { NextRequest } from "next/server";
-import {
-  CopilotRuntime,
-  copilotRuntimeNextJSAppRouterEndpoint,
-  OpenAIAdapter,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, copilotRuntimeNextJSAppRouterEndpoint, OpenAIAdapter } from "@copilotkit/runtime";
 
 const UNSPLASH_ACCESS_KEY_ENV = "UNSPLASH_ACCESS_KEY";
 const UNSPLASH_ACCESS_KEY = process.env[UNSPLASH_ACCESS_KEY_ENV];
@@ -56,19 +52,12 @@ export const POST = async (req: NextRequest) => {
             return data.results[randomIndex].urls.regular;
           }
         }
-        return (
-          'url("https://loremflickr.com/800/600/' +
-          encodeURIComponent(topic) +
-          '")'
-        );
+        return 'url("https://loremflickr.com/800/600/' + encodeURIComponent(topic) + '")';
       },
     },
   ];
 
-  if (
-    process.env["TAVILY_API_KEY"] &&
-    process.env["TAVILY_API_KEY"] !== "NONE"
-  ) {
+  if (process.env["TAVILY_API_KEY"] && process.env["TAVILY_API_KEY"] !== "NONE") {
     actions.push(researchAction);
   }
 

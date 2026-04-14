@@ -35,19 +35,11 @@ export const CloseIcon = () => (
     width="20"
     height="20"
   >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M6 18L18 6M6 6l12 12"
-    />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
   </svg>
 );
 
-export const LoadingSpinnerIcon = ({
-  color = "rgb(107 114 128)",
-}: {
-  color?: string;
-}) => (
+export const LoadingSpinnerIcon = ({ color = "rgb(107 114 128)" }: { color?: string }) => (
   <svg
     style={{
       animation: "copilotKitSpinAnimation 1s linear infinite",
@@ -59,14 +51,7 @@ export const LoadingSpinnerIcon = ({
     fill="none"
     viewBox="0 0 24 24"
   >
-    <circle
-      style={{ opacity: 0.25 }}
-      cx="12"
-      cy="12"
-      r="10"
-      stroke="currentColor"
-      strokeWidth="4"
-    ></circle>
+    <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
     <path
       style={{ opacity: 0.75 }}
       fill="currentColor"

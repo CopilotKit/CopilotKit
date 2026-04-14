@@ -1,11 +1,5 @@
 import { GraphQLJSON } from "graphql-scalars";
-import {
-  Field,
-  InterfaceType,
-  ObjectType,
-  createUnionType,
-  registerEnumType,
-} from "type-graphql";
+import { Field, InterfaceType, ObjectType, createUnionType, registerEnumType } from "type-graphql";
 
 export enum ResponseStatusCode {
   Pending = "pending",
@@ -68,10 +62,5 @@ export class FailedResponseStatus extends BaseResponseStatus {
 
 export const ResponseStatusUnion = createUnionType({
   name: "ResponseStatus",
-  types: () =>
-    [
-      PendingResponseStatus,
-      SuccessResponseStatus,
-      FailedResponseStatus,
-    ] as const,
+  types: () => [PendingResponseStatus, SuccessResponseStatus, FailedResponseStatus] as const,
 });

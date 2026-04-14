@@ -12,11 +12,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { z } from "zod";
-import {
-  defineTool,
-  convertToolDefinitionsToVercelAITools,
-  BuiltInAgent,
-} from "../index";
+import { defineTool, convertToolDefinitionsToVercelAITools, BuiltInAgent } from "../index";
 import type { RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
 import { mockStreamTextResponse, finish, collectEvents } from "./test-helpers";
@@ -244,9 +240,7 @@ describe("BuiltInAgent Zod regression", () => {
       ],
     });
 
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
-    );
+    vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
     const input: RunAgentInput = {
       threadId: "thread1",
@@ -286,9 +280,7 @@ describe("BuiltInAgent Zod regression", () => {
       ],
     });
 
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
-    );
+    vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
     const input: RunAgentInput = {
       threadId: "thread1",
@@ -325,9 +317,7 @@ describe("BuiltInAgent Zod regression", () => {
       ],
     });
 
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
-    );
+    vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
     const input: RunAgentInput = {
       threadId: "thread1",

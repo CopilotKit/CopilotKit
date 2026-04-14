@@ -12,12 +12,7 @@ export const CustomUserMessage = (props: UserMessageProps) => {
       <Card className={messageStyles}>
         <Markdown content={props.message?.content || ""} />
       </Card>
-      <Avatar
-        format={Format.Icon}
-        glyph="Person"
-        size={AvatarSize.XLarge}
-        className={avatarStyles}
-      />
+      <Avatar format={Format.Icon} glyph="Person" size={AvatarSize.XLarge} className={avatarStyles} />
     </div>
   );
 };

@@ -1,11 +1,6 @@
 import React, { useMemo, useCallback, useEffect, useRef } from "react";
 import { ChatContextProvider, useChatContext } from "./ChatContext";
-import {
-  ButtonProps,
-  HeaderProps,
-  WindowProps,
-  CopilotObservabilityHooks,
-} from "./props";
+import { ButtonProps, HeaderProps, WindowProps, CopilotObservabilityHooks } from "./props";
 import { Window as DefaultWindow } from "./Window";
 import { Button as DefaultButton } from "./Button";
 import { Header as DefaultHeader } from "./Header";
@@ -15,13 +10,7 @@ import { CopilotChat, CopilotChatProps } from "./Chat";
 import { AssistantMessage as DefaultAssistantMessage } from "./messages/AssistantMessage";
 import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
 import { useCopilotContext } from "@copilotkit/react-core";
-import {
-  CopilotKitError,
-  CopilotKitErrorCode,
-  Severity,
-  ErrorVisibility,
-  styledConsole,
-} from "@copilotkit/shared";
+import { CopilotKitError, CopilotKitErrorCode, Severity, ErrorVisibility, styledConsole } from "@copilotkit/shared";
 
 export interface CopilotModalProps extends CopilotChatProps {
   /**
@@ -143,11 +132,7 @@ const CopilotModalInner = ({
       <div className="copilotKitModalChildrenWrapper">{memoizedChildren}</div>
       <div className={className}>
         <Button></Button>
-        <Window
-          clickOutsideToClose={clickOutsideToClose}
-          shortcut={shortcut}
-          hitEscapeToClose={hitEscapeToClose}
-        >
+        <Window clickOutsideToClose={clickOutsideToClose} shortcut={shortcut} hitEscapeToClose={hitEscapeToClose}>
           {memoizedHeader}
           <CopilotChat {...chatProps} observabilityHooks={observabilityHooks} />
         </Window>
@@ -190,12 +175,7 @@ export const CopilotModal = ({
   const [openState, setOpenState] = React.useState(defaultOpen);
 
   return (
-    <ChatContextProvider
-      icons={icons}
-      labels={labels}
-      open={openState}
-      setOpen={setOpenState}
-    >
+    <ChatContextProvider icons={icons} labels={labels} open={openState} setOpen={setOpenState}>
       <CopilotModalInner
         observabilityHooks={observabilityHooks}
         onSetOpen={onSetOpen}

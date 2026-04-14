@@ -13,11 +13,7 @@ import {
 
 export default function ToolRenderingDemo() {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      agent="tool-rendering"
-      a2ui={{ catalog: demonstrationCatalog }}
-    >
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="tool-rendering" a2ui={{ catalog: demonstrationCatalog }}>
       <Chat />
     </CopilotKit>
   );

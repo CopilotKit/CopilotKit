@@ -14,14 +14,7 @@
  * ```
  */
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  SetStateAction,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, SetStateAction } from "react";
 import {
   CopilotChatConfigurationProvider,
   CopilotKitInspector,
@@ -37,10 +30,7 @@ import {
   useCopilotContext,
 } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
-import {
-  CopilotChatSuggestionConfiguration,
-  DocumentPointer,
-} from "../../types";
+import { CopilotChatSuggestionConfiguration, DocumentPointer } from "../../types";
 import { flushSync } from "react-dom";
 import {
   COPILOT_CLOUD_CHAT_URL,
@@ -85,10 +75,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 
   return (
     <ToastProvider enabled={enabled}>
-      <CopilotErrorBoundary
-        publicApiKey={publicApiKey}
-        showUsageBanner={enabled}
-      >
+      <CopilotErrorBoundary publicApiKey={publicApiKey} showUsageBanner={enabled}>
         <ThreadsProvider threadId={props.threadId}>
           <CopilotKitV2Provider
             {...props}
@@ -132,10 +119,7 @@ function CopilotKitErrorBridge() {
             },
             technical: {
               environment: "browser",
-              userAgent:
-                typeof navigator !== "undefined"
-                  ? navigator.userAgent
-                  : undefined,
+              userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
               stackTrace: event.error.stack,
             },
             // Add additional context from v2.x event
@@ -173,9 +157,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const chatApiEndpoint = props.runtimeUrl || COPILOT_CLOUD_CHAT_URL;
 
-  const [actions, setActions] = useState<Record<string, FrontendAction<any>>>(
-    {},
-  );
+  const [actions, setActions] = useState<Record<string, FrontendAction<any>>>({});
 
   // State for registered actions from useCopilotAction
   const [registeredActionConfigs, setRegisteredActionConfigs] = useState<
@@ -192,9 +174,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const [chatInstructions, setChatInstructions] = useState("");
   const [authStates, setAuthStates] = useState<Record<string, AuthState>>({});
   const [extensions, setExtensions] = useState<ExtensionsInput>({});
-  const [additionalInstructions, setAdditionalInstructions] = useState<
-    string[]
-  >([]);
+  const [additionalInstructions, setAdditionalInstructions] = useState<string[]>([]);
 
   const {
     addElement: addDocument,
@@ -236,11 +216,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   );
 
   const addContext = useCallback(
-    (
-      context: string,
-      parentId?: string,
-      categories: string[] = defaultCopilotContextCategories,
-    ) => {
+    (context: string, parentId?: string, categories: string[] = defaultCopilotContextCategories) => {
       return addElement(context, categories, parentId);
     },
     [addElement],
@@ -259,9 +235,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const getFunctionCallHandler = useCallback(
     (customEntryPoints?: Record<string, FrontendAction<any>>) => {
-      return entryPointsToFunctionCallHandler(
-        Object.values(customEntryPoints || actions),
-      );
+      return entryPointsToFunctionCallHandler(Object.values(customEntryPoints || actions));
     },
     [actions],
   );
@@ -274,10 +248,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   );
 
   const addDocumentContext = useCallback(
-    (
-      documentPointer: DocumentPointer,
-      categories: string[] = defaultCopilotContextCategories,
-    ) => {
+    (documentPointer: DocumentPointer, categories: string[] = defaultCopilotContextCategories) => {
       return addDocument(documentPointer, categories);
     },
     [addDocument],
@@ -311,10 +282,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       publicApiKey: publicApiKey,
       ...(cloud ? { cloud } : {}),
       chatApiEndpoint: chatApiEndpoint,
-      headers:
-        typeof props.headers === "function"
-          ? props.headers()
-          : props.headers || {},
+      headers: typeof props.headers === "function" ? props.headers() : props.headers || {},
       properties: props.properties || {},
       transcribeAudioUrl: props.transcribeAudioUrl,
       textToSpeechUrl: props.textToSpeechUrl,
@@ -352,26 +320,20 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       ...copilotApiConfig.headers,
       ...(copilotApiConfig.publicApiKey
         ? {
-            [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]:
-              copilotApiConfig.publicApiKey,
+            [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey,
           }
         : {}),
       ...authHeaders,
     };
   }, [copilotApiConfig.headers, copilotApiConfig.publicApiKey, authStates]);
 
-  const [internalErrorHandlers, _setInternalErrorHandler] = useState<
-    Record<string, CopilotErrorHandler>
-  >({});
-  const setInternalErrorHandler = useCallback(
-    (handler: Record<string, CopilotErrorHandler>) => {
-      _setInternalErrorHandler((prev: Record<string, CopilotErrorHandler>) => ({
-        ...prev,
-        ...handler,
-      }));
-    },
-    [],
-  );
+  const [internalErrorHandlers, _setInternalErrorHandler] = useState<Record<string, CopilotErrorHandler>>({});
+  const setInternalErrorHandler = useCallback((handler: Record<string, CopilotErrorHandler>) => {
+    _setInternalErrorHandler((prev: Record<string, CopilotErrorHandler>) => ({
+      ...prev,
+      ...handler,
+    }));
+  }, []);
   const removeInternalErrorHandler = useCallback((key: string) => {
     _setInternalErrorHandler((prev) => {
       const { [key]: _removed, ...rest } = prev;
@@ -402,19 +364,16 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       const handlers = Object.values(internalHandlersRef.current);
       await Promise.all(
         handlers.map((h) =>
-          Promise.resolve(h(error)).catch((e) =>
-            console.error("Error in internal error handler:", e),
-          ),
+          Promise.resolve(h(error)).catch((e) => console.error("Error in internal error handler:", e)),
         ),
       );
     },
     [copilotApiConfig.publicApiKey],
   );
 
-  const [chatSuggestionConfiguration, setChatSuggestionConfiguration] =
-    useState<{
-      [key: string]: CopilotChatSuggestionConfiguration;
-    }>({});
+  const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
+    [key: string]: CopilotChatSuggestionConfiguration;
+  }>({});
 
   const addChatSuggestionConfiguration = useCallback(
     (id: string, suggestion: CopilotChatSuggestionConfiguration) => {
@@ -434,20 +393,11 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   );
 
   const [availableAgents, setAvailableAgents] = useState<Agent[]>([]);
-  const [coagentStates, setCoagentStates] = useState<
-    Record<string, CoagentState>
-  >({});
+  const [coagentStates, setCoagentStates] = useState<Record<string, CoagentState>>({});
   const coagentStatesRef = useRef<Record<string, CoagentState>>({});
   const setCoagentStatesWithRef = useCallback(
-    (
-      value:
-        | Record<string, CoagentState>
-        | ((
-            prev: Record<string, CoagentState>,
-          ) => Record<string, CoagentState>),
-    ) => {
-      const newValue =
-        typeof value === "function" ? value(coagentStatesRef.current) : value;
+    (value: Record<string, CoagentState> | ((prev: Record<string, CoagentState>) => Record<string, CoagentState>)) => {
+      const newValue = typeof value === "function" ? value(coagentStatesRef.current) : value;
       coagentStatesRef.current = newValue;
       setCoagentStates((prev) => {
         return newValue;
@@ -463,9 +413,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     };
   }
 
-  const [agentSession, setAgentSession] = useState<AgentSession | null>(
-    initialAgentSession,
-  );
+  const [agentSession, setAgentSession] = useState<AgentSession | null>(initialAgentSession);
 
   // Update agentSession when props.agent changes
   useEffect(() => {
@@ -483,9 +431,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const setThreadId = useCallback(
     (value: SetStateAction<string>) => {
       if (props.threadId) {
-        throw new Error(
-          "Cannot call setThreadId() when threadId is provided via props.",
-        );
+        throw new Error("Cannot call setThreadId() when threadId is provided via props.");
       }
       setInternalThreadId(value);
     },
@@ -498,27 +444,22 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const showDevConsole = shouldShowDevConsole(props.showDevConsole);
 
-  const [interruptActions, _setInterruptActions] = useState<
-    Record<string, LangGraphInterruptRender>
-  >({});
-  const setInterruptAction = useCallback(
-    (action: LangGraphInterruptActionSetterArgs) => {
-      _setInterruptActions((prev) => {
-        if (action == null || !action.id) {
-          // Cannot set action without id
-          return prev;
-        }
-        return {
-          ...prev,
-          [action.id]: {
-            ...prev[action.id],
-            ...action,
-          } as LangGraphInterruptRender,
-        };
-      });
-    },
-    [],
-  );
+  const [interruptActions, _setInterruptActions] = useState<Record<string, LangGraphInterruptRender>>({});
+  const setInterruptAction = useCallback((action: LangGraphInterruptActionSetterArgs) => {
+    _setInterruptActions((prev) => {
+      if (action == null || !action.id) {
+        // Cannot set action without id
+        return prev;
+      }
+      return {
+        ...prev,
+        [action.id]: {
+          ...prev[action.id],
+          ...action,
+        } as LangGraphInterruptRender,
+      };
+    });
+  }, []);
   const removeInterruptAction = useCallback((actionId: string): void => {
     _setInterruptActions((prev) => {
       const { [actionId]: _, ...rest } = prev;
@@ -526,9 +467,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     });
   }, []);
 
-  const [interruptEventQueue, setInterruptEventQueue] = useState<
-    Record<string, QueuedInterruptEvent[]>
-  >({});
+  const [interruptEventQueue, setInterruptEventQueue] = useState<Record<string, QueuedInterruptEvent[]>>({});
 
   const addInterruptEvent = useCallback((queuedEvent: QueuedInterruptEvent) => {
     setInterruptEventQueue((prev) => {
@@ -540,42 +479,30 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     });
   }, []);
 
-  const resolveInterruptEvent = useCallback(
-    (threadId: string, eventId: string, response: string) => {
-      setInterruptEventQueue((prev) => {
-        const threadQueue = prev[threadId] || [];
-        return {
-          ...prev,
-          [threadId]: threadQueue.map((queuedEvent) =>
-            queuedEvent.eventId === eventId
-              ? { ...queuedEvent, event: { ...queuedEvent.event, response } }
-              : queuedEvent,
-          ),
-        };
-      });
-    },
-    [],
-  );
+  const resolveInterruptEvent = useCallback((threadId: string, eventId: string, response: string) => {
+    setInterruptEventQueue((prev) => {
+      const threadQueue = prev[threadId] || [];
+      return {
+        ...prev,
+        [threadId]: threadQueue.map((queuedEvent) =>
+          queuedEvent.eventId === eventId ? { ...queuedEvent, event: { ...queuedEvent.event, response } } : queuedEvent,
+        ),
+      };
+    });
+  }, []);
 
   const memoizedChildren = useMemo(() => children, [children]);
   const [bannerError, setBannerError] = useState<CopilotKitError | null>(null);
 
   const agentLock = useMemo(() => props.agent ?? null, [props.agent]);
 
-  const forwardedParameters = useMemo(
-    () => props.forwardedParameters ?? {},
-    [props.forwardedParameters],
-  );
+  const forwardedParameters = useMemo(() => props.forwardedParameters ?? {}, [props.forwardedParameters]);
 
   const updateExtensions = useCallback(
     (newExtensions: SetStateAction<ExtensionsInput>) => {
       setExtensions((prev: ExtensionsInput) => {
-        const resolved =
-          typeof newExtensions === "function"
-            ? newExtensions(prev)
-            : newExtensions;
-        const isSameLength =
-          Object.keys(resolved).length === Object.keys(prev).length;
+        const resolved = typeof newExtensions === "function" ? newExtensions(prev) : newExtensions;
+        const isSameLength = Object.keys(resolved).length === Object.keys(prev).length;
         const isEqual =
           isSameLength &&
           // @ts-ignore
@@ -590,12 +517,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const updateAuthStates = useCallback(
     (newAuthStates: SetStateAction<Record<string, AuthState>>) => {
       setAuthStates((prev) => {
-        const resolved =
-          typeof newAuthStates === "function"
-            ? newAuthStates(prev)
-            : newAuthStates;
-        const isSameLength =
-          Object.keys(resolved).length === Object.keys(prev).length;
+        const resolved = typeof newAuthStates === "function" ? newAuthStates(prev) : newAuthStates;
+        const isSameLength = Object.keys(resolved).length === Object.keys(prev).length;
         const isEqual =
           isSameLength &&
           // @ts-ignore
@@ -607,18 +530,15 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     [setAuthStates],
   );
 
-  const handleSetRegisteredActions = useCallback(
-    (actionConfig: any): string => {
-      const key = actionConfig.action.name || randomUUID();
-      setRegisteredActionConfigs((prev) => {
-        const newMap = new Map(prev);
-        newMap.set(key, actionConfig);
-        return newMap;
-      });
-      return key;
-    },
-    [],
-  );
+  const handleSetRegisteredActions = useCallback((actionConfig: any): string => {
+    const key = actionConfig.action.name || randomUUID();
+    setRegisteredActionConfigs((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(key, actionConfig);
+      return newMap;
+    });
+    return key;
+  }, []);
 
   const handleRemoveRegisteredAction = useCallback((actionKey: string) => {
     setRegisteredActionConfigs((prev) => {
@@ -784,16 +704,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
 export const defaultCopilotContextCategories = ["global"];
 
-function entryPointsToFunctionCallHandler(
-  actions: FrontendAction<any>[],
-): FunctionCallHandler {
-  return async ({
-    name,
-    args,
-  }: {
-    name: string;
-    args: Record<string, any>;
-  }) => {
+function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): FunctionCallHandler {
+  return async ({ name, args }: { name: string; args: Record<string, any> }) => {
     let actionsByFunctionName: Record<string, FrontendAction<any>> = {};
     for (let action of actions) {
       actionsByFunctionName[action.name] = action;
@@ -833,9 +745,7 @@ function validateProps(props: CopilotKitProps): never | void {
   const hasApiKey = props.publicApiKey || props.publicLicenseKey;
 
   if (!props.runtimeUrl && !hasApiKey) {
-    throw new ConfigurationError(
-      "Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'",
-    );
+    throw new ConfigurationError("Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'");
   }
 
   if (cloudFeatures.length > 0 && !hasApiKey) {

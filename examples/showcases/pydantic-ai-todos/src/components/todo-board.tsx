@@ -1,10 +1,7 @@
 import { AgentState, TodoItem, TodoStatus } from "@/lib/types";
 import { generateRandomId } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
-import {
-  draggable,
-  dropTargetForElements,
-} from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
+import { draggable, dropTargetForElements } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 
 interface TodoCardProps {
   todo: TodoItem;
@@ -16,15 +13,7 @@ interface TodoCardProps {
   onDragEnd: () => void;
 }
 
-function TodoCard({
-  todo,
-  isDragging,
-  onUpdate,
-  onDelete,
-  onUpdateStatus,
-  onDragStart,
-  onDragEnd,
-}: TodoCardProps) {
+function TodoCard({ todo, isDragging, onUpdate, onDelete, onUpdateStatus, onDragStart, onDragEnd }: TodoCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<HTMLDivElement>(null);
@@ -90,9 +79,7 @@ function TodoCard({
             onUpdateStatus(todo.id, todo.status === "done" ? "todo" : "done");
           }}
           className={`flex-shrink-0 w-5 h-5 mt-0.5 rounded border-2 transition-all ${
-            todo.status === "done"
-              ? "bg-white/90 border-white"
-              : "bg-white/10 border-white/50 hover:border-white/80"
+            todo.status === "done" ? "bg-white/90 border-white" : "bg-white/10 border-white/50 hover:border-white/80"
           }`}
           title={todo.status === "done" ? "Mark incomplete" : "Mark complete"}
         >
@@ -153,18 +140,8 @@ function TodoCard({
             className="text-white/70 hover:text-red-300 transition-colors"
             title="Delete"
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -230,17 +207,13 @@ export function TodoBoard({ state, setState }: TodoBoardProps) {
 
   const updateTodo = (id: string, title: string, description: string) => {
     const updatedTodos = state.todos.map((todo) =>
-      todo.id === id
-        ? { ...todo, title, description: description || undefined }
-        : todo,
+      todo.id === id ? { ...todo, title, description: description || undefined } : todo,
     );
     setState({ todos: updatedTodos });
   };
 
   const updateTodoStatus = (id: string, newStatus: TodoStatus) => {
-    const updatedTodos = state.todos.map((todo) =>
-      todo.id === id ? { ...todo, status: newStatus } : todo,
-    );
+    const updatedTodos = state.todos.map((todo) => (todo.id === id ? { ...todo, status: newStatus } : todo));
     setState({ todos: updatedTodos });
   };
 
@@ -266,9 +239,7 @@ export function TodoBoard({ state, setState }: TodoBoardProps) {
 
   return (
     <div className="w-full h-full flex flex-col p-4 md:p-8">
-      <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 text-center">
-        Todo Board
-      </h1>
+      <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 text-center">Todo Board</h1>
       <p className="text-white/80 text-center italic mb-6 md:mb-8">
         Manage your tasks with the help of your AI assistant! 🪁
       </p>
@@ -276,12 +247,8 @@ export function TodoBoard({ state, setState }: TodoBoardProps) {
       <div className="flex flex-col md:grid md:grid-cols-3 gap-4 md:gap-6 flex-1 md:min-h-0 overflow-y-auto md:overflow-visible">
         {columns.map((column) => (
           <div key={column.status} className="flex flex-col md:min-h-0 gap-3">
-            <div
-              className={`${column.bgColor} backdrop-blur-sm p-3 rounded-xl`}
-            >
-              <h2 className="text-lg font-bold text-white text-center">
-                {column.title}
-              </h2>
+            <div className={`${column.bgColor} backdrop-blur-sm p-3 rounded-xl`}>
+              <h2 className="text-lg font-bold text-white text-center">{column.title}</h2>
             </div>
 
             {/* Add new task button */}
@@ -289,18 +256,8 @@ export function TodoBoard({ state, setState }: TodoBoardProps) {
               onClick={() => addNewTodo(column.status)}
               className="w-full py-2.5 text-white/60 hover:text-white/90 border border-dashed border-white/20 hover:border-white/40 hover:bg-white/5 rounded-lg transition-all text-sm flex items-center justify-center gap-2"
             >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               Add Task
             </button>
@@ -321,11 +278,8 @@ export function TodoBoard({ state, setState }: TodoBoardProps) {
                   />
                 ))}
 
-              {state.todos?.filter((todo) => todo.status === column.status)
-                .length === 0 && (
-                <p className="text-center text-white/60 italic text-sm mt-4">
-                  No tasks yet
-                </p>
+              {state.todos?.filter((todo) => todo.status === column.status).length === 0 && (
+                <p className="text-center text-white/60 italic text-sm mt-4">No tasks yet</p>
               )}
             </ColumnDropZone>
           </div>

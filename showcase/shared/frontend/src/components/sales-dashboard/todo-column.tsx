@@ -33,9 +33,7 @@ export function TodoColumn({
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold tracking-tight text-[var(--foreground)]">
-            {title}
-          </h2>
+          <h2 className="text-lg font-bold tracking-tight text-[var(--foreground)]">{title}</h2>
           <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-0.5 text-xs font-semibold text-[var(--secondary-foreground)]">
             {todos.length}
           </span>

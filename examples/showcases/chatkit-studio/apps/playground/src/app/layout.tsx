@@ -5,8 +5,7 @@ import "@copilotkit/react-ui/styles.css";
 
 export const metadata: Metadata = {
   title: "CopilotKit Chat Playground",
-  description:
-    "Customize and preview CopilotKit chat components with real-time styling and code export",
+  description: "Customize and preview CopilotKit chat components with real-time styling and code export",
 };
 
 export default function RootLayout({

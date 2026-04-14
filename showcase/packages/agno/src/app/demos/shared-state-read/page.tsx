@@ -12,11 +12,7 @@ import {
 
 export default function SharedStateReadDemo() {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      agent="shared-state-read"
-      a2ui={{ catalog: demonstrationCatalog }}
-    >
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-read" a2ui={{ catalog: demonstrationCatalog }}>
       <div className="min-h-screen w-full flex items-center justify-center">
         <DemoContent />
         <CopilotSidebar

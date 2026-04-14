@@ -1,40 +1,14 @@
-import React, {
-  useRef,
-  useEffect,
-  useCallback,
-  useMemo,
-  useState,
-  createElement,
-} from "react";
+import React, { useRef, useEffect, useCallback, useMemo, useState, createElement } from "react";
 import { useCopilotContext } from "../context/copilot-context";
 import { SystemMessageFunction } from "../types";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
 import { Message } from "@copilotkit/shared";
-import {
-  gqlToAGUI,
-  Message as DeprecatedGqlMessage,
-} from "@copilotkit/runtime-client-gql";
-import {
-  useAgent,
-  useCopilotChatConfiguration,
-  useCopilotKit,
-  useRenderCustomMessages,
-  useSuggestions,
-} from "../v2";
-import {
-  Suggestion,
-  CopilotKitCoreRuntimeConnectionStatus,
-} from "@copilotkit/core";
+import { gqlToAGUI, Message as DeprecatedGqlMessage } from "@copilotkit/runtime-client-gql";
+import { useAgent, useCopilotChatConfiguration, useCopilotKit, useRenderCustomMessages, useSuggestions } from "../v2";
+import { Suggestion, CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import { useLazyToolRenderer } from "./use-lazy-tool-renderer";
-import {
-  AbstractAgent,
-  AGUIConnectNotImplementedError,
-  HttpAgent,
-} from "@ag-ui/client";
-import {
-  CoAgentStateRenderBridge,
-  type CoAgentStateRenderBridgeProps,
-} from "./use-coagent-state-render-bridge";
+import { AbstractAgent, AGUIConnectNotImplementedError, HttpAgent } from "@ag-ui/client";
+import { CoAgentStateRenderBridge, type CoAgentStateRenderBridgeProps } from "./use-coagent-state-render-bridge";
 
 /**
  * The type of suggestions to use in the chat.
@@ -43,10 +17,7 @@ import {
  * `manual` - Suggestions are controlled programmatically.
  * `SuggestionItem[]` - Static suggestions array.
  */
-export type ChatSuggestions =
-  | "auto"
-  | "manual"
-  | Omit<Suggestion, "isLoading">[];
+export type ChatSuggestions = "auto" | "manual" | Omit<Suggestion, "isLoading">[];
 
 export interface AppendMessageOptions {
   /**
@@ -162,10 +133,7 @@ export interface UseCopilotChatReturn {
   messages: Message[];
 
   /** @deprecated use `sendMessage` in `useCopilotChatHeadless_c` instead. This will be removed in a future major version. */
-  appendMessage: (
-    message: DeprecatedGqlMessage,
-    options?: AppendMessageOptions,
-  ) => Promise<void>;
+  appendMessage: (message: DeprecatedGqlMessage, options?: AppendMessageOptions) => Promise<void>;
 
   /**
    * Send a new message to the chat
@@ -178,10 +146,7 @@ export interface UseCopilotChatReturn {
    * });
    * ```
    */
-  sendMessage: (
-    message: Message,
-    options?: AppendMessageOptions,
-  ) => Promise<void>;
+  sendMessage: (message: Message, options?: AppendMessageOptions) => Promise<void>;
 
   /**
    * Replace all messages in the chat
@@ -383,8 +348,7 @@ export function useCopilotChatInternal({
     if (
       agent &&
       agent !== lastConnectedAgentRef.current &&
-      copilotkit.runtimeConnectionStatus ===
-        CopilotKitCoreRuntimeConnectionStatus.Connected
+      copilotkit.runtimeConnectionStatus === CopilotKitCoreRuntimeConnectionStatus.Connected
     ) {
       lastConnectedAgentRef.current = agent;
       connect(agent);
@@ -399,13 +363,7 @@ export function useCopilotChatInternal({
       connectAbortController.abort();
       agent?.detachActiveRun();
     };
-  }, [
-    existingConfig?.threadId,
-    agent,
-    copilotkit,
-    copilotkit.runtimeConnectionStatus,
-    resolvedAgentId,
-  ]);
+  }, [existingConfig?.threadId, agent, copilotkit, copilotkit.runtimeConnectionStatus, resolvedAgentId]);
 
   useEffect(() => {
     onInProgress?.(Boolean(agent?.isRunning));
@@ -432,9 +390,7 @@ export function useCopilotChatInternal({
 
   const deleteMessage = useCallback(
     (messageId: string) => {
-      const filteredMessages = (agent?.messages ?? []).filter(
-        (message) => message.id !== messageId,
-      );
+      const filteredMessages = (agent?.messages ?? []).filter((message) => message.id !== messageId);
       agent?.setMessages(filteredMessages);
     },
     [agent?.setMessages, agent?.messages],
@@ -459,9 +415,7 @@ export function useCopilotChatInternal({
         return;
       }
 
-      const reloadMessageIndex = messages.findIndex(
-        (msg) => msg.id === reloadMessageId,
-      );
+      const reloadMessageIndex = messages.findIndex((msg) => msg.id === reloadMessageId);
       if (reloadMessageIndex === -1) {
         console.warn(`Message with id ${reloadMessageId} not found`);
         return;
@@ -469,9 +423,7 @@ export function useCopilotChatInternal({
 
       const reloadMessageRole = messages[reloadMessageIndex].role;
       if (reloadMessageRole !== "assistant") {
-        console.warn(
-          `Regenerate cannot be performed on ${reloadMessageRole} role`,
-        );
+        console.warn(`Regenerate cannot be performed on ${reloadMessageRole} role`);
         return;
       }
       let historyCutoff: Message[] = [messages[0]];
@@ -491,10 +443,7 @@ export function useCopilotChatInternal({
             (msg) => msg.id === lastUserMessageBeforeRegenerate.id,
           );
           // Include the user message, remove everything after it
-          historyCutoff = messages.slice(
-            0,
-            indexOfLastUserMessageBeforeRegenerate + 1,
-          );
+          historyCutoff = messages.slice(0, indexOfLastUserMessageBeforeRegenerate + 1);
         }
       } else if (messages.length > 2 && reloadMessageIndex === 0) {
         historyCutoff = [messages[0], messages[1]];
@@ -512,12 +461,7 @@ export function useCopilotChatInternal({
       }
       return;
     },
-    [
-      agent?.messages.length,
-      agent?.isRunning,
-      agent?.setMessages,
-      copilotkit?.runAgent,
-    ],
+    [agent?.messages.length, agent?.isRunning, agent?.setMessages, copilotkit?.runAgent],
   );
 
   const latestSendMessageFunc = useAsyncCallback(
@@ -568,9 +512,7 @@ export function useCopilotChatInternal({
 
   const latestSetMessagesFunc = useCallback(
     (messages: Message[] | DeprecatedGqlMessage[]) => {
-      if (
-        messages.every((message) => message instanceof DeprecatedGqlMessage)
-      ) {
+      if (messages.every((message) => message instanceof DeprecatedGqlMessage)) {
         return agent?.setMessages?.(gqlToAGUI(messages));
       }
       return agent?.setMessages?.(messages);
@@ -637,14 +579,9 @@ export function useCopilotChatInternal({
                 });
               }
               try {
-                return (
-                  renderCustomMessage?.({ message, position: "before" }) ?? null
-                );
+                return renderCustomMessage?.({ message, position: "before" }) ?? null;
               } catch (error) {
-                console.warn(
-                  "[CopilotKit] renderCustomMessages failed, falling back to legacy renderer",
-                  error,
-                );
+                console.warn("[CopilotKit] renderCustomMessages failed, falling back to legacy renderer", error);
                 return null;
               }
             }
@@ -661,12 +598,8 @@ export function useCopilotChatInternal({
       return message;
     });
 
-    const hasAssistantMessages = processedMessages.some(
-      (msg) => msg.role === "assistant",
-    );
-    const canUseCustomRenderer = Boolean(
-      renderCustomMessage && copilotkit?.getAgent?.(resolvedAgentId),
-    );
+    const hasAssistantMessages = processedMessages.some((msg) => msg.role === "assistant");
+    const canUseCustomRenderer = Boolean(renderCustomMessage && copilotkit?.getAgent?.(resolvedAgentId));
     const placeholderRenderer = legacyCustomMessageRenderer
       ? legacyCustomMessageRenderer
       : canUseCustomRenderer
@@ -674,8 +607,7 @@ export function useCopilotChatInternal({
         : null;
 
     const shouldRenderPlaceholder =
-      Boolean(agent?.isRunning) ||
-      Boolean(agent?.state && Object.keys(agent.state).length);
+      Boolean(agent?.isRunning) || Boolean(agent?.state && Object.keys(agent.state).length);
 
     const effectiveThreadId = threadId ?? agent?.threadId ?? "default";
     let latestUserIndex = -1;
@@ -685,29 +617,19 @@ export function useCopilotChatInternal({
         break;
       }
     }
-    const latestUserMessageId =
-      latestUserIndex >= 0 ? processedMessages[latestUserIndex].id : undefined;
+    const latestUserMessageId = latestUserIndex >= 0 ? processedMessages[latestUserIndex].id : undefined;
     const currentRunId = latestUserMessageId
-      ? copilotkit.getRunIdForMessage(
-          resolvedAgentId,
-          effectiveThreadId,
-          latestUserMessageId,
-        ) || `pending:${latestUserMessageId}`
+      ? copilotkit.getRunIdForMessage(resolvedAgentId, effectiveThreadId, latestUserMessageId) ||
+        `pending:${latestUserMessageId}`
       : undefined;
     const hasAssistantForCurrentRun =
       latestUserIndex >= 0
-        ? processedMessages
-            .slice(latestUserIndex + 1)
-            .some((msg) => msg.role === "assistant")
+        ? processedMessages.slice(latestUserIndex + 1).some((msg) => msg.role === "assistant")
         : hasAssistantMessages;
 
     // Insert a placeholder assistant message so state snapshots can render before any
     // assistant text exists for the current run.
-    if (
-      placeholderRenderer &&
-      shouldRenderPlaceholder &&
-      !hasAssistantForCurrentRun
-    ) {
+    if (placeholderRenderer && shouldRenderPlaceholder && !hasAssistantForCurrentRun) {
       const placeholderId = currentRunId
         ? `coagent-state-render-${resolvedAgentId}-${currentRunId}`
         : `coagent-state-render-${resolvedAgentId}`;
@@ -770,10 +692,8 @@ export function useCopilotChatInternal({
     // mcpServers,
     // setMcpServers,
     suggestions: renderedSuggestions.suggestions,
-    setSuggestions: (suggestions: Omit<Suggestion, "isLoading">[]) =>
-      copilotkit.addSuggestionsConfig({ suggestions }),
-    generateSuggestions: async () =>
-      copilotkit.reloadSuggestions(resolvedAgentId),
+    setSuggestions: (suggestions: Omit<Suggestion, "isLoading">[]) => copilotkit.addSuggestionsConfig({ suggestions }),
+    generateSuggestions: async () => copilotkit.reloadSuggestions(resolvedAgentId),
     resetSuggestions: () => copilotkit.clearSuggestions(resolvedAgentId),
     isLoadingSuggestions: renderedSuggestions.isLoading,
     interrupt,
@@ -845,10 +765,7 @@ function useLegacyCoagentRenderer({
   }, [agent, agentId, copilotkit, threadId]);
 }
 
-export function defaultSystemMessage(
-  contextString: string,
-  additionalInstructions?: string,
-): string {
+export function defaultSystemMessage(contextString: string, additionalInstructions?: string): string {
   return (
     `
 Please act as an efficient, competent, conscientious, and industrious professional assistant.

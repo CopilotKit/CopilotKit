@@ -103,9 +103,7 @@ Don't reference local image files from agent-generated content. The agent may ge
 
 ```tsx
 {
-  imageUrl && !imageError && (
-    <img src={imageUrl} onError={() => setImageError(true)} alt="..." />
-  );
+  imageUrl && !imageError && <img src={imageUrl} onError={() => setImageError(true)} alt="..." />;
 }
 ```
 

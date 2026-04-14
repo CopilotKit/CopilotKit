@@ -5,18 +5,12 @@ test.describe("Tool-Based Generative UI", () => {
     await page.goto("/demos/gen-ui-tool-based");
   });
 
-  test("page loads with sidebar open and instructional text", async ({
-    page,
-  }) => {
+  test("page loads with sidebar open and instructional text", async ({ page }) => {
     // The CopilotSidebar should be open with a chat input
-    await expect(
-      page.locator('textarea, [placeholder*="message"]').first(),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('textarea, [placeholder*="message"]').first()).toBeVisible({ timeout: 10000 });
 
     // The instructional text should be visible in the main content area
-    await expect(
-      page.getByText("Use the sidebar to generate charts"),
-    ).toBeVisible();
+    await expect(page.getByText("Use the sidebar to generate charts")).toBeVisible();
   });
 
   test("sidebar header shows Chart Generator title", async ({ page }) => {

@@ -15,9 +15,7 @@ export interface SlideProps {
 export const Slide = (props: SlideProps) => {
   const heightOfSpeakerNotes = 200;
   const backgroundImage =
-    'url("https://source.unsplash.com/featured/?' +
-    encodeURIComponent(props.slide.backgroundImageDescription) +
-    '")';
+    'url("https://source.unsplash.com/featured/?' + encodeURIComponent(props.slide.backgroundImageDescription) + '")';
 
   useCopilotAction({
     name: "updateSlide",
@@ -31,8 +29,7 @@ export const Slide = (props: SlideProps) => {
       {
         name: "content",
         type: "string",
-        description:
-          "The content of the slide. Should generally consist of a few bullet points.",
+        description: "The content of the slide. Should generally consist of a few bullet points.",
       },
       {
         name: "backgroundImageDescription",
@@ -43,16 +40,10 @@ export const Slide = (props: SlideProps) => {
       {
         name: "spokenNarration",
         type: "string",
-        description:
-          "The spoken narration for the slide. This is what the user will hear when the slide is shown.",
+        description: "The spoken narration for the slide. This is what the user will hear when the slide is shown.",
       },
     ],
-    handler: async ({
-      title,
-      content,
-      backgroundImageDescription,
-      spokenNarration,
-    }) => {
+    handler: async ({ title, content, backgroundImageDescription, spokenNarration }) => {
       props.partialUpdateSlide({
         title,
         content,

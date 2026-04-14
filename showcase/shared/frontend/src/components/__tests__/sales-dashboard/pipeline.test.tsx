@@ -195,24 +195,12 @@ describe("Pipeline", () => {
 
   it("each column has aria-label with stage name", () => {
     render(<Pipeline deals={deals} />);
-    expect(
-      screen.getByRole("region", { name: /Prospect column/ }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("region", { name: /Qualified column/ }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("region", { name: /Proposal column/ }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("region", { name: /Negotiation column/ }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("region", { name: /Closed Won column/ }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("region", { name: /Closed Lost column/ }),
-    ).toBeTruthy();
+    expect(screen.getByRole("region", { name: /Prospect column/ })).toBeTruthy();
+    expect(screen.getByRole("region", { name: /Qualified column/ })).toBeTruthy();
+    expect(screen.getByRole("region", { name: /Proposal column/ })).toBeTruthy();
+    expect(screen.getByRole("region", { name: /Negotiation column/ })).toBeTruthy();
+    expect(screen.getByRole("region", { name: /Closed Won column/ })).toBeTruthy();
+    expect(screen.getByRole("region", { name: /Closed Lost column/ })).toBeTruthy();
   });
 
   // --- Large dataset ---
@@ -221,16 +209,7 @@ describe("Pipeline", () => {
     const manyDeals: SalesTodo[] = Array.from({ length: 20 }, (_, i) => ({
       id: `deal-${i}`,
       title: `Deal ${i}`,
-      stage: (
-        [
-          "prospect",
-          "qualified",
-          "proposal",
-          "negotiation",
-          "closed-won",
-          "closed-lost",
-        ] as const
-      )[i % 6],
+      stage: (["prospect", "qualified", "proposal", "negotiation", "closed-won", "closed-lost"] as const)[i % 6],
       value: (i + 1) * 10000,
       dueDate: "2026-05-01",
       assignee: "Team",

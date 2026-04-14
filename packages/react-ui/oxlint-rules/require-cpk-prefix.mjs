@@ -307,8 +307,7 @@ function prefixToken(token) {
 
 // Detect tokens where cpk: is placed after variant(s) instead of before them.
 // e.g. dark:cpk:bg-white, hover:cpk:text-blue, dark:hover:cpk:bg-red
-const WRONG_PREFIX_RE =
-  /^((?:[a-z][-a-z0-9]*(?:\[.*?\])?:|\[.*?\]:)+)cpk:(.+)$/;
+const WRONG_PREFIX_RE = /^((?:[a-z][-a-z0-9]*(?:\[.*?\])?:|\[.*?\]:)+)cpk:(.+)$/;
 
 function hasWrongPrefixPosition(token) {
   return WRONG_PREFIX_RE.test(token);
@@ -324,8 +323,7 @@ const rule = {
   meta: {
     type: "suggestion",
     docs: {
-      description:
-        "Enforce cpk: prefix on Tailwind utility classes in className attributes",
+      description: "Enforce cpk: prefix on Tailwind utility classes in className attributes",
     },
     fixable: "code",
     schema: [],
@@ -355,12 +353,7 @@ const rule = {
       const trimmed = value.trim();
       if (!trimmed.includes(" ") && !trimmed.includes("\t")) {
         if (JS_VALUE_WORDS.has(trimmed)) return;
-        if (
-          !trimmed.includes("-") &&
-          !trimmed.includes(":") &&
-          !trimmed.includes("[")
-        )
-          return;
+        if (!trimmed.includes("-") && !trimmed.includes(":") && !trimmed.includes("[")) return;
       }
 
       // Work with the raw source to get accurate positions
@@ -510,10 +503,7 @@ const rule = {
       }
       // Handle e.g. module.cn()
       if (callee.type === "MemberExpression" && callee.property) {
-        const name =
-          callee.property.type === "Identifier"
-            ? callee.property.name
-            : callee.property.value;
+        const name = callee.property.type === "Identifier" ? callee.property.name : callee.property.value;
         return CLASS_HELPERS.has(name);
       }
       return false;
@@ -523,12 +513,7 @@ const rule = {
 
     return {
       JSXAttribute(node) {
-        if (
-          node.name &&
-          node.name.type === "JSXIdentifier" &&
-          node.name.name === "className" &&
-          node.value
-        ) {
+        if (node.name && node.name.type === "JSXIdentifier" && node.name.name === "className" && node.value) {
           checkExpression(node.value);
         }
       },

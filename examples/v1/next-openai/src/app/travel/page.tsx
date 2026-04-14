@@ -16,9 +16,7 @@ interface BookableItem {
 export default function PanelPage() {
   const searchParams = useSearchParams();
   const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
-  const runtimeUrl =
-    searchParams.get("runtimeUrl") ||
-    `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
+  const runtimeUrl = searchParams.get("runtimeUrl") || `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
   const publicApiKey = searchParams.get("publicApiKey");
   const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
     runtimeUrl,
@@ -66,13 +64,7 @@ function TravelPlanner() {
             <h1 className="text-xl font-bold">{args.title || ""}</h1>
             <p className="text-sm">{args.description || ""}</p>
           </div>
-          {status == "complete" && (
-            <Image
-              className="rounded-b-lg"
-              src={args.image || ""}
-              alt={args.title || ""}
-            />
-          )}
+          {status == "complete" && <Image className="rounded-b-lg" src={args.image || ""} alt={args.title || ""} />}
         </div>
       );
     },
@@ -98,10 +90,7 @@ function TravelPlanner() {
       },
     ],
     handler: async ({ name, arrivalDate, departureDate }) => {
-      setBookableItems((prev) => [
-        ...prev,
-        { name, arrivalDate, departureDate },
-      ]);
+      setBookableItems((prev) => [...prev, { name, arrivalDate, departureDate }]);
     },
   });
 
@@ -123,27 +112,16 @@ function TravelPlanner() {
           <>
             <h2 className="text-2xl font-bold mb-4">Your Bookings</h2>
             {bookableItems.map((item, index) => (
-              <div
-                key={index}
-                className="bg-white p-4 rounded-lg shadow-md border relative"
-              >
+              <div key={index} className="bg-white p-4 rounded-lg shadow-md border relative">
                 <button
                   className="absolute top-2 right-2 text-red-500 text-xs"
-                  onClick={() =>
-                    setBookableItems((prev) =>
-                      prev.filter((_, i) => i !== index),
-                    )
-                  }
+                  onClick={() => setBookableItems((prev) => prev.filter((_, i) => i !== index))}
                 >
                   Remove
                 </button>
                 <h2 className="text-lg font-semibold">{item.name}</h2>
-                <p className="text-sm text-gray-600">
-                  Arrival: {item.arrivalDate}
-                </p>
-                <p className="text-sm text-gray-600">
-                  Departure: {item.departureDate}
-                </p>
+                <p className="text-sm text-gray-600">Arrival: {item.arrivalDate}</p>
+                <p className="text-sm text-gray-600">Departure: {item.departureDate}</p>
               </div>
             ))}
           </>

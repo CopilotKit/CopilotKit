@@ -55,8 +55,7 @@ export function CodeBlock({ code, language }: CodeBlockProps) {
           color: "#838389",
           fontSize: 13,
           lineHeight: 1.5,
-          fontFamily:
-            "'Spline Sans Mono', 'SF Mono', Menlo, Consolas, monospace",
+          fontFamily: "'Spline Sans Mono', 'SF Mono', Menlo, Consolas, monospace",
           whiteSpace: "pre",
           flexShrink: 0,
         }}
@@ -72,8 +71,7 @@ export function CodeBlock({ code, language }: CodeBlockProps) {
           padding: "16px",
           fontSize: 13,
           lineHeight: 1.5,
-          fontFamily:
-            "'Spline Sans Mono', 'SF Mono', Menlo, Consolas, monospace",
+          fontFamily: "'Spline Sans Mono', 'SF Mono', Menlo, Consolas, monospace",
           whiteSpace: "pre",
           overflowX: "auto",
           flex: 1,

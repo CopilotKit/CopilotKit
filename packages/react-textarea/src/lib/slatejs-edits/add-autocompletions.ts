@@ -1,11 +1,7 @@
 import { BasePoint, Transforms } from "slate";
 import { CustomEditor } from "../../types/base/custom-editor";
 
-export function addAutocompletionsToEditor(
-  editor: CustomEditor,
-  newSuggestion: string,
-  point: BasePoint,
-) {
+export function addAutocompletionsToEditor(editor: CustomEditor, newSuggestion: string, point: BasePoint) {
   const editorPosition = editor.selection;
 
   Transforms.insertNodes(

@@ -12,8 +12,6 @@ export function injectChatState(): ChatState {
   try {
     return inject(ChatState);
   } catch {
-    throw new Error(
-      "ChatState not found. A parent component must provide ChatState.",
-    );
+    throw new Error("ChatState not found. A parent component must provide ChatState.");
   }
 }

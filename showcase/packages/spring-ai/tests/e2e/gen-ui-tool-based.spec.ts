@@ -6,9 +6,7 @@ test.describe("Tool-Based Generative UI", () => {
   });
 
   test("page loads with sidebar open", async ({ page }) => {
-    await expect(
-      page.locator('textarea, [placeholder*="message"]').first(),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('textarea, [placeholder*="message"]').first()).toBeVisible({ timeout: 10000 });
   });
 
   test("sidebar header shows Haiku Generator title", async ({ page }) => {
@@ -24,11 +22,7 @@ test.describe("Tool-Based Generative UI", () => {
 
     // Haiku cards contain Japanese and English lines
     await expect(
-      page
-        .locator(
-          '[data-testid="haiku-japanese-line"], [data-testid="haiku-english-line"]',
-        )
-        .first(),
+      page.locator('[data-testid="haiku-japanese-line"], [data-testid="haiku-english-line"]').first(),
     ).toBeVisible({ timeout: 60000 });
   });
 

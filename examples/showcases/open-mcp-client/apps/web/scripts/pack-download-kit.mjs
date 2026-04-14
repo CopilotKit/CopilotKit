@@ -79,12 +79,7 @@ async function main() {
     await fs.mkdir(stage, { recursive: true });
     await fs.writeFile(path.join(stage, "README.md"), KIT_README, "utf8");
 
-    const rootFiles = [
-      "package.json",
-      "pnpm-workspace.yaml",
-      "turbo.json",
-      ".env.example",
-    ];
+    const rootFiles = ["package.json", "pnpm-workspace.yaml", "turbo.json", ".env.example"];
     for (const f of rootFiles) {
       const from = path.join(REPO_ROOT, f);
       if (await pathExists(from)) {
@@ -101,22 +96,14 @@ async function main() {
     const appDirs = await fs.readdir(appsSrc, { withFileTypes: true });
     for (const d of appDirs) {
       if (!d.isDirectory()) continue;
-      await copyFiltered(
-        path.join(appsSrc, d.name),
-        path.join(appsDest, d.name),
-      );
+      await copyFiltered(path.join(appsSrc, d.name), path.join(appsDest, d.name));
     }
 
     await fs.mkdir(OUT_DIR, { recursive: true });
     const ws = createWriteStream(OUT_FILE);
-    await pipeline(
-      tar.c({ gzip: true, cwd: tmp, portable: true }, [KIT_ROOT]),
-      ws,
-    );
+    await pipeline(tar.c({ gzip: true, cwd: tmp, portable: true }, [KIT_ROOT]), ws);
     const st = await fs.stat(OUT_FILE);
-    console.log(
-      `[pack-download-kit] wrote ${OUT_FILE} (${(st.size / 1024 / 1024).toFixed(2)} MiB)`,
-    );
+    console.log(`[pack-download-kit] wrote ${OUT_FILE} (${(st.size / 1024 / 1024).toFixed(2)} MiB)`);
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
   }

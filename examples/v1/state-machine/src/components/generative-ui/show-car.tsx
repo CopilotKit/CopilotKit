@@ -20,10 +20,7 @@ const ColorDisplay = ({ color }: { color?: string }) => {
 
   return (
     <span className="flex items-center gap-2">
-      <span
-        className="w-5 h-5 rounded-full border border-gray-200 shadow-sm"
-        style={{ backgroundColor: color }}
-      />
+      <span className="w-5 h-5 rounded-full border border-gray-200 shadow-sm" style={{ backgroundColor: color }} />
       <span className="text-gray-600 text-sm">{color}</span>
     </span>
   );
@@ -47,13 +44,7 @@ const CarImage = ({ car }: { car: Car }) => {
   );
 };
 
-export function ShowCar({
-  car,
-  onSelect,
-  onReject,
-  status,
-  className,
-}: ShowCarProps) {
+export function ShowCar({ car, onSelect, onReject, status, className }: ShowCarProps) {
   const carDetails = [
     { label: "Make", value: car.make },
     { label: "Model", value: car.model },
@@ -62,10 +53,7 @@ export function ShowCar({
     { label: "Price", value: `$${car.price?.toLocaleString()}`, bold: true },
   ];
 
-  const cardStyles = cn(
-    "min-w-[300px] max-w-sm bg-white rounded-xl overflow-hidden p-0 gap-0",
-    className,
-  );
+  const cardStyles = cn("min-w-[300px] max-w-sm bg-white rounded-xl overflow-hidden p-0 gap-0", className);
   const informationWrapperStyles = cn("space-y-6 pt-4 pb-4");
   const acceptButtonStyles = cn(
     "flex-1 bg-pink-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-pink-700 transition-all duration-200 shadow-sm hover:shadow-md",
@@ -86,24 +74,12 @@ export function ShowCar({
           {carDetails.map(({ label, value, bold }) => (
             <div key={label} className="flex justify-between items-center py-1">
               <span className="text-gray-500 text-sm">{label}</span>
-              <span
-                className={cn(
-                  "text-gray-900",
-                  bold ? "font-semibold text-lg" : "text-sm",
-                )}
-              >
-                {value}
-              </span>
+              <span className={cn("text-gray-900", bold ? "font-semibold text-lg" : "text-sm")}>{value}</span>
             </div>
           ))}
         </div>
 
-        <div
-          className={cn(
-            "px-6 pt-2",
-            status === "complete" ? "hidden" : "animate-fade-in",
-          )}
-        >
+        <div className={cn("px-6 pt-2", status === "complete" ? "hidden" : "animate-fade-in")}>
           <hr className="mb-4 border-gray-100" />
           <div className="flex gap-3">
             {onReject && (
@@ -148,11 +124,7 @@ export function ShowCars({ cars, onSelect, status }: ShowCarsProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: index * 0.2 }}
           >
-            <ShowCar
-              car={car}
-              onSelect={() => handleSelect(car)}
-              status={status}
-            />
+            <ShowCar car={car} onSelect={() => handleSelect(car)} status={status} />
           </motion.div>
         );
       })}

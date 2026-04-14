@@ -1,9 +1,5 @@
 import { AbstractAgent, ToolCall } from "@ag-ui/client";
-import type {
-  IntelligenceRuntimeInfo,
-  RuntimeMode,
-  RuntimeLicenseStatus,
-} from "@copilotkit/shared";
+import type { IntelligenceRuntimeInfo, RuntimeMode, RuntimeLicenseStatus } from "@copilotkit/shared";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
 
 /**
@@ -29,9 +25,7 @@ export type FrontendToolHandlerContext = {
   signal?: AbortSignal;
 };
 
-export type FrontendTool<
-  T extends Record<string, unknown> = Record<string, unknown>,
-> = {
+export type FrontendTool<T extends Record<string, unknown> = Record<string, unknown>> = {
   name: string;
   description?: string;
   parameters?: StandardSchemaV1<any, T>;
@@ -59,11 +53,7 @@ export type Suggestion = {
   className?: string;
 };
 
-export type SuggestionAvailability =
-  | "before-first-message"
-  | "after-first-message"
-  | "always"
-  | "disabled";
+export type SuggestionAvailability = "before-first-message" | "after-first-message" | "always" | "disabled";
 
 export type DynamicSuggestionsConfig = {
   /**
@@ -114,6 +104,4 @@ export type StaticSuggestionsConfig = {
   consumerAgentId?: string;
 };
 
-export type SuggestionsConfig =
-  | DynamicSuggestionsConfig
-  | StaticSuggestionsConfig;
+export type SuggestionsConfig = DynamicSuggestionsConfig | StaticSuggestionsConfig;

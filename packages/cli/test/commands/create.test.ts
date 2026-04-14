@@ -73,15 +73,11 @@ describe("Create Command - Cloudless flow", () => {
   test("does not mention automatic cloud sign-up messaging", () => {
     expect(createCommandSource).not.toContain("Setting up your cloud account");
     expect(createCommandSource).not.toContain("Retrieving your API key");
-    expect(createCommandSource).toContain(
-      "Your project is ready to explore CopilotKit locally",
-    );
+    expect(createCommandSource).toContain("Your project is ready to explore CopilotKit locally");
   });
 
   test("supports creating projects in the current directory", () => {
     expect(createCommandSource).toMatch(/projectName === ["']\.["']/);
-    expect(createCommandSource).toContain(
-      "You are already inside your new project directory",
-    );
+    expect(createCommandSource).toContain("You are already inside your new project directory");
   });
 });

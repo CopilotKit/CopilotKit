@@ -14,13 +14,9 @@ import { useMediaQuery } from "@/lib/hooks/use-media-query";
 //
 // https://github.com/PaulLeCam/react-leaflet/issues/45
 let MapCanvas: any;
-MapCanvas = dynamic(
-  () =>
-    import("@/components/MapCanvas").then((module: any) => module.MapCanvas),
-  {
-    ssr: false,
-  },
-);
+MapCanvas = dynamic(() => import("@/components/MapCanvas").then((module: any) => module.MapCanvas), {
+  ssr: false,
+});
 
 function MainContent() {
   const { setOpen } = useChatContext();
@@ -49,9 +45,7 @@ function MainContent() {
 
 export default function Home() {
   const lgcDeploymentUrl =
-    globalThis.window === undefined
-      ? null
-      : new URL(window.location.href).searchParams.get("lgcDeploymentUrl");
+    globalThis.window === undefined ? null : new URL(window.location.href).searchParams.get("lgcDeploymentUrl");
 
   return (
     <CopilotKit

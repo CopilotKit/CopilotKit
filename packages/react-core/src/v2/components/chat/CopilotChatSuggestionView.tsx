@@ -2,27 +2,24 @@ import React from "react";
 import { Suggestion } from "@copilotkit/core";
 import { renderSlot, WithSlots } from "../../lib/slots";
 import { cn } from "../../lib/utils";
-import CopilotChatSuggestionPill, {
-  CopilotChatSuggestionPillProps,
-} from "./CopilotChatSuggestionPill";
+import CopilotChatSuggestionPill, { CopilotChatSuggestionPillProps } from "./CopilotChatSuggestionPill";
 
-const DefaultContainer = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(function DefaultContainer({ className, ...props }, ref) {
-  return (
-    <div
-      ref={ref}
-      data-copilotkit
-      data-testid="copilot-suggestions"
-      className={cn(
-        "cpk:flex cpk:flex-wrap cpk:items-center cpk:gap-1.5 cpk:sm:gap-2 cpk:pl-0 cpk:pr-4 cpk:sm:px-0 cpk:pointer-events-none",
-        className,
-      )}
-      {...props}
-    />
-  );
-});
+const DefaultContainer = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  function DefaultContainer({ className, ...props }, ref) {
+    return (
+      <div
+        ref={ref}
+        data-copilotkit
+        data-testid="copilot-suggestions"
+        className={cn(
+          "cpk:flex cpk:flex-wrap cpk:items-center cpk:gap-1.5 cpk:sm:gap-2 cpk:pl-0 cpk:pr-4 cpk:sm:px-0 cpk:pointer-events-none",
+          className,
+        )}
+        {...props}
+      />
+    );
+  },
+);
 
 export type CopilotChatSuggestionViewProps = WithSlots<
   {
@@ -36,98 +33,92 @@ export type CopilotChatSuggestionViewProps = WithSlots<
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
-export const CopilotChatSuggestionView = React.forwardRef<
-  HTMLDivElement,
-  CopilotChatSuggestionViewProps
->(function CopilotChatSuggestionView(
-  {
-    suggestions,
-    onSelectSuggestion,
-    loadingIndexes,
-    container,
-    suggestion: suggestionSlot,
-    className,
-    children,
-    ...restProps
-  },
-  ref,
-) {
-  const loadingSet = React.useMemo(() => {
-    if (!loadingIndexes || loadingIndexes.length === 0) {
-      return new Set<number>();
-    }
-    return new Set(loadingIndexes);
-  }, [loadingIndexes]);
-
-  const ContainerElement = renderSlot(container, DefaultContainer, {
+export const CopilotChatSuggestionView = React.forwardRef<HTMLDivElement, CopilotChatSuggestionViewProps>(
+  function CopilotChatSuggestionView(
+    {
+      suggestions,
+      onSelectSuggestion,
+      loadingIndexes,
+      container,
+      suggestion: suggestionSlot,
+      className,
+      children,
+      ...restProps
+    },
     ref,
-    className,
-    ...restProps,
-  });
+  ) {
+    const loadingSet = React.useMemo(() => {
+      if (!loadingIndexes || loadingIndexes.length === 0) {
+        return new Set<number>();
+      }
+      return new Set(loadingIndexes);
+    }, [loadingIndexes]);
 
-  const suggestionElements = suggestions.map((suggestion, index) => {
-    const isLoading = loadingSet.has(index) || suggestion.isLoading === true;
-    const pill = renderSlot<
-      typeof CopilotChatSuggestionPill,
-      CopilotChatSuggestionPillProps
-    >(suggestionSlot, CopilotChatSuggestionPill, {
-      children: suggestion.title,
-      className: suggestion.className,
-      isLoading,
-      type: "button",
-      onClick: () => onSelectSuggestion?.(suggestion, index),
+    const ContainerElement = renderSlot(container, DefaultContainer, {
+      ref,
+      className,
+      ...restProps,
     });
 
-    return React.cloneElement(pill, {
-      key: `${suggestion.title}-${index}`,
-    });
-  });
+    const suggestionElements = suggestions.map((suggestion, index) => {
+      const isLoading = loadingSet.has(index) || suggestion.isLoading === true;
+      const pill = renderSlot<typeof CopilotChatSuggestionPill, CopilotChatSuggestionPillProps>(
+        suggestionSlot,
+        CopilotChatSuggestionPill,
+        {
+          children: suggestion.title,
+          className: suggestion.className,
+          isLoading,
+          type: "button",
+          onClick: () => onSelectSuggestion?.(suggestion, index),
+        },
+      );
 
-  const boundContainer = React.cloneElement(
-    ContainerElement,
-    undefined,
-    suggestionElements,
-  );
-
-  if (typeof children === "function") {
-    const sampleSuggestion = renderSlot<
-      typeof CopilotChatSuggestionPill,
-      CopilotChatSuggestionPillProps
-    >(suggestionSlot, CopilotChatSuggestionPill, {
-      children: suggestions[0]?.title ?? "",
-      isLoading:
-        suggestions.length > 0
-          ? loadingSet.has(0) || suggestions[0]?.isLoading === true
-          : false,
-      type: "button",
+      return React.cloneElement(pill, {
+        key: `${suggestion.title}-${index}`,
+      });
     });
 
-    return (
-      <div data-copilotkit style={{ display: "contents" }}>
-        {children({
-          container: boundContainer,
-          suggestion: sampleSuggestion,
-          suggestions,
-          onSelectSuggestion,
-          loadingIndexes,
-          className,
-          ...restProps,
-        })}
-      </div>
-    );
-  }
+    const boundContainer = React.cloneElement(ContainerElement, undefined, suggestionElements);
 
-  if (children) {
-    return (
-      <div data-copilotkit style={{ display: "contents" }}>
-        {boundContainer}
-        {children}
-      </div>
-    );
-  }
+    if (typeof children === "function") {
+      const sampleSuggestion = renderSlot<typeof CopilotChatSuggestionPill, CopilotChatSuggestionPillProps>(
+        suggestionSlot,
+        CopilotChatSuggestionPill,
+        {
+          children: suggestions[0]?.title ?? "",
+          isLoading: suggestions.length > 0 ? loadingSet.has(0) || suggestions[0]?.isLoading === true : false,
+          type: "button",
+        },
+      );
 
-  return boundContainer;
-});
+      return (
+        <div data-copilotkit style={{ display: "contents" }}>
+          {children({
+            container: boundContainer,
+            suggestion: sampleSuggestion,
+            suggestions,
+            onSelectSuggestion,
+            loadingIndexes,
+            className,
+            ...restProps,
+          })}
+        </div>
+      );
+    }
+
+    if (children) {
+      return (
+        <div data-copilotkit style={{ display: "contents" }}>
+          {boundContainer}
+          {children}
+        </div>
+      );
+    }
+
+    return boundContainer;
+  },
+);
 
 CopilotChatSuggestionView.displayName = "CopilotChatSuggestionView";
 

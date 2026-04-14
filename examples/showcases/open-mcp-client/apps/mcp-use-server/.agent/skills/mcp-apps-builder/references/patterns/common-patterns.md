@@ -22,10 +22,7 @@ const server = new MCPServer({
 });
 
 // Mock weather data
-const weatherData: Record<
-  string,
-  { temp: number; conditions: string; icon: string }
-> = {
+const weatherData: Record<string, { temp: number; conditions: string; icon: string }> = {
   "New York": { temp: 22, conditions: "Partly Cloudy", icon: "⛅" },
   London: { temp: 15, conditions: "Rainy", icon: "🌧️" },
   Tokyo: { temp: 28, conditions: "Sunny", icon: "☀️" },
@@ -51,9 +48,7 @@ server.tool(
     const data = weatherData[city];
 
     if (!data) {
-      return error(
-        `No weather data for ${city}. Available cities: ${Object.keys(weatherData).join(", ")}`,
-      );
+      return error(`No weather data for ${city}. Available cities: ${Object.keys(weatherData).join(", ")}`);
     }
 
     return widget({
@@ -89,12 +84,7 @@ server.listen();
 ### Widget (resources/weather-display.tsx)
 
 ```tsx
-import {
-  McpUseProvider,
-  useWidget,
-  useWidgetTheme,
-  type WidgetMetadata,
-} from "mcp-use/react";
+import { McpUseProvider, useWidget, useWidgetTheme, type WidgetMetadata } from "mcp-use/react";
 import { z } from "zod";
 
 export const widgetMetadata: WidgetMetadata = {
@@ -139,21 +129,15 @@ export default function WeatherDisplay() {
         }}
       >
         <h2 style={{ margin: "0 0 8px 0", fontSize: 24 }}>{props.city}</h2>
-        <p
-          style={{ margin: "0 0 20px 0", color: secondaryColor, fontSize: 12 }}
-        >
+        <p style={{ margin: "0 0 20px 0", color: secondaryColor, fontSize: 12 }}>
           {new Date(props.timestamp).toLocaleString()}
         </p>
 
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ fontSize: 64 }}>{props.icon}</div>
           <div>
-            <div style={{ fontSize: 48, fontWeight: "bold" }}>
-              {props.temp}°C
-            </div>
-            <div style={{ fontSize: 18, color: secondaryColor }}>
-              {props.conditions}
-            </div>
+            <div style={{ fontSize: 48, fontWeight: "bold" }}>{props.temp}°C</div>
+            <div style={{ fontSize: 18, color: secondaryColor }}>{props.conditions}</div>
           </div>
         </div>
       </div>
@@ -204,9 +188,7 @@ server.tool(
         totalCount: todos.length,
         completedCount: todos.filter((t) => t.completed).length,
       },
-      output: text(
-        `Found ${todos.length} todos (${todos.filter((t) => t.completed).length} completed)`,
-      ),
+      output: text(`Found ${todos.length} todos (${todos.filter((t) => t.completed).length} completed)`),
     });
   },
 );
@@ -288,13 +270,7 @@ server.listen();
 
 ```tsx
 import { useState } from "react";
-import {
-  McpUseProvider,
-  useWidget,
-  useWidgetTheme,
-  useCallTool,
-  type WidgetMetadata,
-} from "mcp-use/react";
+import { McpUseProvider, useWidget, useWidgetTheme, useCallTool, type WidgetMetadata } from "mcp-use/react";
 import { z } from "zod";
 
 export const widgetMetadata: WidgetMetadata = {
@@ -316,8 +292,7 @@ export const widgetMetadata: WidgetMetadata = {
 export default function TodoList() {
   const { props, isPending } = useWidget();
   const theme = useWidgetTheme();
-  const { callTool: createTodo, isPending: isCreating } =
-    useCallTool("create-todo");
+  const { callTool: createTodo, isPending: isCreating } = useCallTool("create-todo");
   const { callTool: toggleTodo } = useCallTool("toggle-todo");
   const { callTool: deleteTodo } = useCallTool("delete-todo");
   const [newTodo, setNewTodo] = useState("");
@@ -369,18 +344,13 @@ export default function TodoList() {
 
   return (
     <McpUseProvider autoSize>
-      <div
-        style={{ padding: 20, backgroundColor: colors.bg, color: colors.text }}
-      >
+      <div style={{ padding: 20, backgroundColor: colors.bg, color: colors.text }}>
         <h2 style={{ margin: "0 0 8px 0" }}>
           Todos ({props.completedCount}/{props.totalCount})
         </h2>
 
         {/* Create form */}
-        <form
-          onSubmit={handleCreate}
-          style={{ marginBottom: 16, display: "flex", gap: 8 }}
-        >
+        <form onSubmit={handleCreate} style={{ marginBottom: 16, display: "flex", gap: 8 }}>
           <input
             type="text"
             value={newTodo}
@@ -460,9 +430,7 @@ export default function TodoList() {
         </div>
 
         {props.todos.length === 0 && (
-          <p style={{ textAlign: "center", color: colors.border, padding: 40 }}>
-            No todos yet. Create one above!
-          </p>
+          <p style={{ textAlign: "center", color: colors.border, padding: 40 }}>No todos yet. Create one above!</p>
         )}
       </div>
     </McpUseProvider>
@@ -495,8 +463,7 @@ const recipes = [
     time: 20,
     difficulty: "Easy",
     ingredients: ["Spaghetti", "Eggs", "Bacon", "Parmesan", "Black pepper"],
-    instructions:
-      "Cook pasta. Fry bacon. Mix eggs and cheese. Combine all with pasta.",
+    instructions: "Cook pasta. Fry bacon. Mix eggs and cheese. Combine all with pasta.",
   },
   {
     id: "2",
@@ -524,10 +491,7 @@ server.tool(
     name: "browse-recipes",
     description: "Browse recipe collection",
     schema: z.object({
-      category: z
-        .string()
-        .optional()
-        .describe("Filter by category (Italian, Indian, Salad)"),
+      category: z.string().optional().describe("Filter by category (Italian, Indian, Salad)"),
     }),
     widget: {
       name: "recipe-browser",
@@ -536,9 +500,7 @@ server.tool(
     },
   },
   async ({ category }) => {
-    const filtered = category
-      ? recipes.filter((r) => r.category === category)
-      : recipes;
+    const filtered = category ? recipes.filter((r) => r.category === category) : recipes;
 
     return widget({
       props: {
@@ -558,12 +520,7 @@ server.listen();
 
 ```tsx
 import { useState, useEffect } from "react";
-import {
-  McpUseProvider,
-  useWidget,
-  useWidgetTheme,
-  type WidgetMetadata,
-} from "mcp-use/react";
+import { McpUseProvider, useWidget, useWidgetTheme, type WidgetMetadata } from "mcp-use/react";
 import { z } from "zod";
 
 export const widgetMetadata: WidgetMetadata = {
@@ -616,10 +573,7 @@ export default function RecipeBrowser() {
     hover: theme === "dark" ? "#2a2a2a" : "#f5f5f5",
   };
 
-  const filteredRecipes =
-    filter === "All"
-      ? props.recipes
-      : props.recipes.filter((r) => r.category === filter);
+  const filteredRecipes = filter === "All" ? props.recipes : props.recipes.filter((r) => r.category === filter);
 
   const selected = filteredRecipes.find((r) => r.id === selectedRecipe);
 
@@ -627,9 +581,7 @@ export default function RecipeBrowser() {
     <McpUseProvider autoSize>
       <div style={{ backgroundColor: colors.bg, color: colors.text }}>
         {/* Header */}
-        <div
-          style={{ padding: 16, borderBottom: `1px solid ${colors.border}` }}
-        >
+        <div style={{ padding: 16, borderBottom: `1px solid ${colors.border}` }}>
           <h2 style={{ margin: "0 0 12px 0" }}>Recipe Browser</h2>
 
           {/* Category filters */}
@@ -665,13 +617,10 @@ export default function RecipeBrowser() {
                   padding: 16,
                   borderBottom: `1px solid ${colors.border}`,
                   cursor: "pointer",
-                  backgroundColor:
-                    selectedRecipe === recipe.id ? colors.hover : "transparent",
+                  backgroundColor: selectedRecipe === recipe.id ? colors.hover : "transparent",
                 }}
               >
-                <h3 style={{ margin: "0 0 4px 0", fontSize: 16 }}>
-                  {recipe.name}
-                </h3>
+                <h3 style={{ margin: "0 0 4px 0", fontSize: 16 }}>{recipe.name}</h3>
                 <p
                   style={{
                     margin: 0,
@@ -691,8 +640,7 @@ export default function RecipeBrowser() {
               <div>
                 <h2 style={{ margin: "0 0 8px 0" }}>{selected.name}</h2>
                 <p style={{ margin: "0 0 16px 0", color: colors.secondary }}>
-                  {selected.category} • {selected.time} minutes •{" "}
-                  {selected.difficulty}
+                  {selected.category} • {selected.time} minutes • {selected.difficulty}
                 </p>
 
                 <h3 style={{ fontSize: 16, marginBottom: 8 }}>Ingredients</h3>
@@ -780,14 +728,10 @@ server.tool(
   },
   async ({ city }) => {
     if (!WEATHER_API_KEY) {
-      return error(
-        "WEATHER_API_KEY not configured. Set it in environment variables.",
-      );
+      return error("WEATHER_API_KEY not configured. Set it in environment variables.");
     }
 
-    const response = await fetch(
-      `https://api.weatherapi.com/v1/current.json?key=${WEATHER_API_KEY}&q=${city}`,
-    );
+    const response = await fetch(`https://api.weatherapi.com/v1/current.json?key=${WEATHER_API_KEY}&q=${city}`);
 
     if (!response.ok) {
       return error(`Weather API error: ${response.statusText}`);
@@ -803,9 +747,7 @@ server.tool(
         icon: data.current.condition.icon,
         timestamp: data.current.last_updated,
       },
-      output: text(
-        `Weather in ${city}: ${data.current.temp_c}°C, ${data.current.condition.text}`,
-      ),
+      output: text(`Weather in ${city}: ${data.current.temp_c}°C, ${data.current.condition.text}`),
     });
   },
 );
@@ -829,23 +771,18 @@ db.exec(`
   )
 `);
 
-server.tool(
-  { name: "list-todos", schema: z.object({}), widget: { name: "todo-list" } },
-  async () => {
-    const todos = db
-      .prepare("SELECT * FROM todos ORDER BY created_at DESC")
-      .all();
+server.tool({ name: "list-todos", schema: z.object({}), widget: { name: "todo-list" } }, async () => {
+  const todos = db.prepare("SELECT * FROM todos ORDER BY created_at DESC").all();
 
-    return widget({
-      props: {
-        todos: todos.map((t) => ({ ...t, completed: Boolean(t.completed) })),
-        totalCount: todos.length,
-        completedCount: todos.filter((t) => t.completed).length,
-      },
-      output: text(`Found ${todos.length} todos`),
-    });
-  },
-);
+  return widget({
+    props: {
+      todos: todos.map((t) => ({ ...t, completed: Boolean(t.completed) })),
+      totalCount: todos.length,
+      completedCount: todos.filter((t) => t.completed).length,
+    },
+    output: text(`Found ${todos.length} todos`),
+  });
+});
 ```
 
 ---

@@ -43,33 +43,19 @@ export function ComparisonTable() {
       <div className="md:hidden space-y-4">
         {protocols.map((protocol) => (
           <div key={protocol.name} className="glass-card p-4">
-            <h3 className="font-bold text-lg mb-2 text-gradient">
-              {protocol.name}
-            </h3>
+            <h3 className="font-bold text-lg mb-2 text-gradient">{protocol.name}</h3>
             <dl className="space-y-2 text-sm">
               <div>
-                <dt className="font-medium text-[--color-text-tertiary]">
-                  Features
-                </dt>
-                <dd className="text-[--color-text-secondary]">
-                  {protocol.features}
-                </dd>
+                <dt className="font-medium text-[--color-text-tertiary]">Features</dt>
+                <dd className="text-[--color-text-secondary]">{protocol.features}</dd>
               </div>
               <div>
-                <dt className="font-medium text-[--color-text-tertiary]">
-                  Best For
-                </dt>
-                <dd className="text-[--color-text-secondary]">
-                  {protocol.bestFor}
-                </dd>
+                <dt className="font-medium text-[--color-text-tertiary]">Best For</dt>
+                <dd className="text-[--color-text-secondary]">{protocol.bestFor}</dd>
               </div>
               <div>
-                <dt className="font-medium text-[--color-text-tertiary]">
-                  Example
-                </dt>
-                <dd className="text-[--color-text-secondary]">
-                  {protocol.example}
-                </dd>
+                <dt className="font-medium text-[--color-text-tertiary]">Example</dt>
+                <dd className="text-[--color-text-secondary]">{protocol.example}</dd>
               </div>
             </dl>
           </div>

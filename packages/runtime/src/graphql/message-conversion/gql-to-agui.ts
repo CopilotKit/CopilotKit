@@ -38,13 +38,9 @@ export function gqlToAGUI(
     } else if (message.isResultMessage()) {
       aguiMessages.push(gqlResultMessageToAGUIMessage(message));
     } else if (message.isActionExecutionMessage()) {
-      aguiMessages.push(
-        gqlActionExecutionMessageToAGUIMessage(message, actions, actionResults),
-      );
+      aguiMessages.push(gqlActionExecutionMessageToAGUIMessage(message, actions, actionResults));
     } else if (message.isAgentStateMessage()) {
-      aguiMessages.push(
-        gqlAgentStateMessageToAGUIMessage(message, coAgentStateRenders),
-      );
+      aguiMessages.push(gqlAgentStateMessageToAGUIMessage(message, coAgentStateRenders));
     } else if (message.isImageMessage()) {
       aguiMessages.push(gqlImageMessageToAGUIMessage(message));
     } else {
@@ -61,12 +57,8 @@ export function gqlActionExecutionMessageToAGUIMessage(
   actionResults?: Map<string, string>,
 ): agui.Message {
   // Check if we have actions and if there's a specific action or wild card action
-  const hasSpecificAction =
-    actions &&
-    Object.values(actions).some((action: any) => action.name === message.name);
-  const hasWildcardAction =
-    actions &&
-    Object.values(actions).some((action: any) => action.name === "*");
+  const hasSpecificAction = actions && Object.values(actions).some((action: any) => action.name === message.name);
+  const hasWildcardAction = actions && Object.values(actions).some((action: any) => action.name === "*");
 
   if (!actions || (!hasSpecificAction && !hasWildcardAction)) {
     return {
@@ -79,9 +71,8 @@ export function gqlActionExecutionMessageToAGUIMessage(
 
   // Find the specific action first, then fall back to wild card action
   const action =
-    Object.values(actions).find(
-      (action: any) => action.name === message.name,
-    ) || Object.values(actions).find((action: any) => action.name === "*");
+    Object.values(actions).find((action: any) => action.name === message.name) ||
+    Object.values(actions).find((action: any) => action.name === "*");
 
   // Create render function wrapper that provides proper props
   const createRenderWrapper = (originalRender: any) => {
@@ -160,13 +151,9 @@ function gqlAgentStateMessageToAGUIMessage(
 ): agui.Message {
   if (
     coAgentStateRenders &&
-    Object.values(coAgentStateRenders).some(
-      (render: any) => render.name === message.agentName,
-    )
+    Object.values(coAgentStateRenders).some((render: any) => render.name === message.agentName)
   ) {
-    const render = Object.values(coAgentStateRenders).find(
-      (render: any) => render.name === message.agentName,
-    );
+    const render = Object.values(coAgentStateRenders).find((render: any) => render.name === message.agentName);
 
     // Create render function wrapper that provides proper props
     const createRenderWrapper = (originalRender: any) => {
@@ -202,9 +189,7 @@ function gqlAgentStateMessageToAGUIMessage(
   };
 }
 
-function actionExecutionMessageToAGUIMessage(
-  actionExecutionMessage: gql.ActionExecutionMessage,
-): agui.ToolCall {
+function actionExecutionMessageToAGUIMessage(actionExecutionMessage: gql.ActionExecutionMessage): agui.ToolCall {
   return {
     id: actionExecutionMessage.id,
     function: {
@@ -215,9 +200,7 @@ function actionExecutionMessageToAGUIMessage(
   };
 }
 
-export function gqlTextMessageToAGUIMessage(
-  message: gql.TextMessage,
-): agui.Message {
+export function gqlTextMessageToAGUIMessage(message: gql.TextMessage): agui.Message {
   switch (message.role) {
     case gql.Role.developer:
       return {
@@ -248,9 +231,7 @@ export function gqlTextMessageToAGUIMessage(
   }
 }
 
-export function gqlResultMessageToAGUIMessage(
-  message: gql.ResultMessage,
-): agui.Message {
+export function gqlResultMessageToAGUIMessage(message: gql.ResultMessage): agui.Message {
   return {
     id: message.id,
     role: "tool",
@@ -260,9 +241,7 @@ export function gqlResultMessageToAGUIMessage(
   };
 }
 
-export function gqlImageMessageToAGUIMessage(
-  message: gql.ImageMessage,
-): agui.Message {
+export function gqlImageMessageToAGUIMessage(message: gql.ImageMessage): agui.Message {
   // Validate image format
   if (!validateImageFormat(message.format)) {
     throw new Error(
@@ -271,11 +250,7 @@ export function gqlImageMessageToAGUIMessage(
   }
 
   // Validate that bytes is a non-empty string
-  if (
-    !message.bytes ||
-    typeof message.bytes !== "string" ||
-    message.bytes.trim() === ""
-  ) {
+  if (!message.bytes || typeof message.bytes !== "string" || message.bytes.trim() === "") {
     throw new Error("Image bytes must be a non-empty string");
   }
 

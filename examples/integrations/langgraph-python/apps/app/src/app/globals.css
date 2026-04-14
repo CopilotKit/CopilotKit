@@ -38,8 +38,7 @@
 
   /* Fonts */
   --font-body: "Plus Jakarta Sans", "DM Sans", "Segoe UI", sans-serif;
-  --font-code:
-    "Spline Sans Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  --font-code: "Spline Sans Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
 
   /* Brand accent colors */
   --cpk-mint-400: #85ecce;
@@ -47,12 +46,7 @@
   --cpk-lilac-400: #bec2ff;
   --cpk-orange-400: #ffac4d;
   --cpk-yellow-400: #fff388;
-  --cpk-ambient-gradient: linear-gradient(
-    90deg,
-    #bec2ff 0%,
-    #85ecce 45.673%,
-    #ffac4d 100%
-  );
+  --cpk-ambient-gradient: linear-gradient(90deg, #bec2ff 0%, #85ecce 45.673%, #ffac4d 100%);
 }
 
 :root.dark,

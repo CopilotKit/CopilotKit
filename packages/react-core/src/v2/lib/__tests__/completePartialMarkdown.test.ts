@@ -240,21 +240,15 @@ describe("completePartialMarkdown", () => {
 
   describe("URL and link stress tests", () => {
     it("handles complex URLs with query parameters", () => {
-      const input =
-        "Visit [API docs](https://api.example.com/v1/docs?filter=all&sort=";
+      const input = "Visit [API docs](https://api.example.com/v1/docs?filter=all&sort=";
       const result = completePartialMarkdown(input);
-      expect(result).toBe(
-        "Visit [API docs](https://api.example.com/v1/docs?filter=all&sort=)",
-      );
+      expect(result).toBe("Visit [API docs](https://api.example.com/v1/docs?filter=all&sort=)");
     });
 
     it("handles URLs with fragments and encoded characters", () => {
-      const input =
-        "See [section](https://example.com/page#section%20with%20spaces";
+      const input = "See [section](https://example.com/page#section%20with%20spaces";
       const result = completePartialMarkdown(input);
-      expect(result).toBe(
-        "See [section](https://example.com/page#section%20with%20spaces)",
-      );
+      expect(result).toBe("See [section](https://example.com/page#section%20with%20spaces)");
     });
 
     it("handles image syntax with alt text containing emphasis", () => {
@@ -280,42 +274,31 @@ describe("completePartialMarkdown", () => {
     it("handles code block containing markdown-like syntax", () => {
       const input = "```markdown\n# Header\n**Bold** text\n*italic*";
       const result = completePartialMarkdown(input);
-      expect(result).toBe(
-        "```markdown\n# Header\n**Bold** text\n*italic*\n```",
-      );
+      expect(result).toBe("```markdown\n# Header\n**Bold** text\n*italic*\n```");
     });
 
     it("handles code block with nested code fences", () => {
       const input = "````\n```javascript\nconsole.log('nested');\n```";
       const result = completePartialMarkdown(input);
-      expect(result).toBe(
-        "````\n```javascript\nconsole.log('nested');\n```\n````",
-      );
+      expect(result).toBe("````\n```javascript\nconsole.log('nested');\n```\n````");
     });
 
     it("handles SQL with asterisks and underscores", () => {
       const input = "```sql\nSELECT * FROM users_table WHERE name LIKE '%test_";
       const result = completePartialMarkdown(input);
-      expect(result).toBe(
-        "```sql\nSELECT * FROM users_table WHERE name LIKE '%test_\n```",
-      );
+      expect(result).toBe("```sql\nSELECT * FROM users_table WHERE name LIKE '%test_\n```");
     });
 
     it("handles regex patterns in code", () => {
       const input = "```javascript\nconst pattern = /\\*{2,}.*_+.*`+/";
       const result = completePartialMarkdown(input);
-      expect(result).toBe(
-        "```javascript\nconst pattern = /\\*{2,}.*_+.*`+/\n```",
-      );
+      expect(result).toBe("```javascript\nconst pattern = /\\*{2,}.*_+.*`+/\n```");
     });
 
     it("handles bash commands with special characters", () => {
-      const input =
-        "```bash\nfind . -name '*.md' | grep -E '**bold**|_italic_|`code`";
+      const input = "```bash\nfind . -name '*.md' | grep -E '**bold**|_italic_|`code`";
       const result = completePartialMarkdown(input);
-      expect(result).toBe(
-        "```bash\nfind . -name '*.md' | grep -E '**bold**|_italic_|`code`\n```",
-      );
+      expect(result).toBe("```bash\nfind . -name '*.md' | grep -E '**bold**|_italic_|`code`\n```");
     });
   });
 
@@ -370,34 +353,25 @@ describe("completePartialMarkdown", () => {
     it("handles emphasis with emoji and Unicode", () => {
       const input = "This is **really important 🚨 información crítica";
       const result = completePartialMarkdown(input);
-      expect(result).toBe(
-        "This is **really important 🚨 información crítica**",
-      );
+      expect(result).toBe("This is **really important 🚨 información crítica**");
     });
 
     it("handles code with special characters", () => {
       const input = "Use `console.log('Hello 世界! ñáéíóú')` to **debug";
       const result = completePartialMarkdown(input);
-      expect(result).toBe(
-        "Use `console.log('Hello 世界! ñáéíóú')` to **debug**",
-      );
+      expect(result).toBe("Use `console.log('Hello 世界! ñáéíóú')` to **debug**");
     });
 
     it("handles links with international domains", () => {
-      const input =
-        "Visit [日本語サイト](https://example.日本/path/to/resource";
+      const input = "Visit [日本語サイト](https://example.日本/path/to/resource";
       const result = completePartialMarkdown(input);
-      expect(result).toBe(
-        "Visit [日本語サイト](https://example.日本/path/to/resource)",
-      );
+      expect(result).toBe("Visit [日本語サイト](https://example.日本/path/to/resource)");
     });
 
     it("handles emphasis with mathematical symbols", () => {
       const input = "The formula is **E = mc²** and the result _≈ 3.14159";
       const result = completePartialMarkdown(input);
-      expect(result).toBe(
-        "The formula is **E = mc²** and the result _≈ 3.14159_",
-      );
+      expect(result).toBe("The formula is **E = mc²** and the result _≈ 3.14159_");
     });
   });
 
@@ -422,23 +396,17 @@ describe("completePartialMarkdown", () => {
     });
 
     it("handles mixed quotes and emphasis", () => {
-      const input =
-        "He said \"this is **really important** and 'very _critical";
+      const input = "He said \"this is **really important** and 'very _critical";
       const result = completePartialMarkdown(input);
-      expect(result).toBe(
-        "He said \"this is **really important** and 'very _critical_",
-      );
+      expect(result).toBe("He said \"this is **really important** and 'very _critical_");
     });
   });
 
   describe("Malformed markdown recovery", () => {
     it("handles unmatched emphasis in realistic context", () => {
-      const input =
-        "The **API endpoint** returns _JSON data_ but **sometimes the response";
+      const input = "The **API endpoint** returns _JSON data_ but **sometimes the response";
       const result = completePartialMarkdown(input);
-      expect(result).toBe(
-        "The **API endpoint** returns _JSON data_ but **sometimes the response**",
-      );
+      expect(result).toBe("The **API endpoint** returns _JSON data_ but **sometimes the response**");
     });
 
     it("handles code fence without language but with content", () => {
@@ -462,20 +430,15 @@ describe("completePartialMarkdown", () => {
 
   describe("Streaming with realistic pauses", () => {
     it("handles mid-word cutoff in technical terms", () => {
-      const input =
-        "Configure the `webpack.config.js` file with **optimization";
+      const input = "Configure the `webpack.config.js` file with **optimization";
       const result = completePartialMarkdown(input);
-      expect(result).toBe(
-        "Configure the `webpack.config.js` file with **optimization**",
-      );
+      expect(result).toBe("Configure the `webpack.config.js` file with **optimization**");
     });
 
     it("handles cutoff after punctuation", () => {
       const input = "First step: **install Node.js**. Second step: **configure";
       const result = completePartialMarkdown(input);
-      expect(result).toBe(
-        "First step: **install Node.js**. Second step: **configure**",
-      );
+      expect(result).toBe("First step: **install Node.js**. Second step: **configure**");
     });
 
     it("handles cutoff in compound words", () => {
@@ -487,9 +450,7 @@ describe("completePartialMarkdown", () => {
     it("handles cutoff with numbers and symbols", () => {
       const input = "Version **2.1.0** introduces **new features like auto-";
       const result = completePartialMarkdown(input);
-      expect(result).toBe(
-        "Version **2.1.0** introduces **new features like auto-**",
-      );
+      expect(result).toBe("Version **2.1.0** introduces **new features like auto-**");
     });
   });
 });

@@ -1,17 +1,6 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreditCard, Lock } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Card as ICard, ExpensePolicy } from "../app/api/v1/data";
 
@@ -44,9 +33,7 @@ export function CreditCardDetails({
             </div>
             <div className="flex justify-between">
               <span>Available Credit:</span>
-              <span className="font-semibold">
-                ${policy.limit - policy.spent}
-              </span>
+              <span className="font-semibold">${policy.limit - policy.spent}</span>
             </div>
           </div>
         </CardContent>
@@ -62,11 +49,7 @@ export function CreditCardDetails({
             <div className="grid gap-4">
               <h4 className="font-medium leading-none">Card Options</h4>
               <hr />
-              <Button
-                variant="ghost"
-                className="w-full justify-start"
-                onClick={onChangePinModalOpen}
-              >
+              <Button variant="ghost" className="w-full justify-start" onClick={onChangePinModalOpen}>
                 <Lock className="mr-2 h-4 w-4" />
                 Change PIN
               </Button>

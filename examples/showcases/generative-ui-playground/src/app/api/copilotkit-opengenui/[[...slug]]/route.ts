@@ -5,11 +5,7 @@
  * runtime's openGenerativeUI option.
  */
 
-import {
-  CopilotRuntime,
-  createCopilotEndpoint,
-  InMemoryAgentRunner,
-} from "@copilotkitnext/runtime";
+import { CopilotRuntime, createCopilotEndpoint, InMemoryAgentRunner } from "@copilotkitnext/runtime";
 import { handle } from "hono/vercel";
 import { BuiltInAgent } from "@copilotkitnext/agent";
 

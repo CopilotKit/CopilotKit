@@ -18,9 +18,7 @@ export default function Items() {
   const { q } = useLoaderData<typeof loader>();
   const navigation = useNavigation();
 
-  const searching =
-    navigation.location &&
-    new URLSearchParams(navigation.location.search).has("q");
+  const searching = navigation.location && new URLSearchParams(navigation.location.search).has("q");
 
   useEffect(() => {
     const searchField = document.getElementById("q");
@@ -30,9 +28,7 @@ export default function Items() {
   }, [q]);
 
   return (
-    <div
-      className={navigation.state === "loading" && !searching ? "loading" : ""}
-    >
+    <div className={navigation.state === "loading" && !searching ? "loading" : ""}>
       <Outlet />
     </div>
   );

@@ -1,30 +1,13 @@
 "use client";
 
-import {
-  ComposedChart,
-  Area,
-  Bar,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
+import { ComposedChart, Area, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { quarterlyRevenue } from "@/lib/data";
 import { formatCurrency } from "@/lib/utils";
 import type { RevenueForecastWidget } from "@/types/dashboard";
 
 function formatTick(value: number) {
-  if (Math.abs(value) >= 1_000_000)
-    return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
   if (Math.abs(value) >= 1000) return `$${(value / 1000).toFixed(0)}K`;
   return `$${value.toFixed(0)}`;
 }
@@ -33,11 +16,7 @@ function formatTick(value: number) {
 // Forecast mode — fan chart with confidence bands
 // ---------------------------------------------------------------------------
 
-function ForecastChart({
-  scenarios,
-}: {
-  scenarios?: RevenueForecastWidget["config"]["scenarios"];
-}) {
+function ForecastChart({ scenarios }: { scenarios?: RevenueForecastWidget["config"]["scenarios"] }) {
   // Default scenarios if none provided
   const defaultScenarios = [
     {
@@ -75,8 +54,7 @@ function ForecastChart({
   const sc = scenarios ?? defaultScenarios;
   const optimistic = sc.find((s) => s.label === "Optimistic") ?? sc[0];
   const base = sc.find((s) => s.label === "Base") ?? sc[1] ?? sc[0];
-  const conservative =
-    sc.find((s) => s.label === "Conservative") ?? sc[sc.length - 1];
+  const conservative = sc.find((s) => s.label === "Conservative") ?? sc[sc.length - 1];
 
   // Build chart data: for the band, we need the conservative as the floor
   // and a "band" that extends from conservative to optimistic
@@ -101,32 +79,19 @@ function ForecastChart({
   return (
     <>
       <div className="mb-3 flex items-baseline gap-2">
-        <span className="text-2xl font-bold tracking-tight text-foreground">
-          {formatCurrency(baseTarget)}
-        </span>
+        <span className="text-2xl font-bold tracking-tight text-foreground">{formatCurrency(baseTarget)}</span>
         <span className="text-xs text-muted-foreground">base case target</span>
       </div>
       <ResponsiveContainer width="100%" height={240}>
-        <ComposedChart
-          data={chartData}
-          margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-        >
+        <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
           <defs>
             <linearGradient id="forecast-band" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#22c55e" stopOpacity={0.12} />
               <stop offset="100%" stopColor="#ef4444" stopOpacity={0.08} />
             </linearGradient>
           </defs>
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="#e5e7eb"
-            vertical={false}
-          />
-          <XAxis
-            dataKey="name"
-            tick={{ fill: "#6b7280", fontSize: 11 }}
-            tickLine={false}
-          />
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+          <XAxis dataKey="name" tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} />
           <YAxis
             tick={{ fill: "#6b7280", fontSize: 11 }}
             axisLine={false}
@@ -143,8 +108,7 @@ function ForecastChart({
               boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
             }}
             formatter={(value: number, name: string) => {
-              if (name === "bandFloor" || name === "bandHeight")
-                return [null, null];
+              if (name === "bandFloor" || name === "bandHeight") return [null, null];
               const labels: Record<string, string> = {
                 optimistic: "Optimistic",
                 base: "Base Case",
@@ -155,20 +119,8 @@ function ForecastChart({
           />
 
           {/* Confidence band — stacked area: invisible floor + colored band */}
-          <Area
-            type="monotone"
-            dataKey="bandFloor"
-            stackId="band"
-            fill="transparent"
-            stroke="none"
-          />
-          <Area
-            type="monotone"
-            dataKey="bandHeight"
-            stackId="band"
-            fill="url(#forecast-band)"
-            stroke="none"
-          />
+          <Area type="monotone" dataKey="bandFloor" stackId="band" fill="transparent" stroke="none" />
+          <Area type="monotone" dataKey="bandHeight" stackId="band" fill="url(#forecast-band)" stroke="none" />
 
           {/* Scenario lines */}
           <Line
@@ -202,20 +154,14 @@ function ForecastChart({
       </ResponsiveContainer>
       <div className="mt-2 flex gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span
-            className="h-0.5 w-4 rounded bg-emerald-500 opacity-60"
-            style={{ borderTop: "2px dashed #22c55e" }}
-          />{" "}
+          <span className="h-0.5 w-4 rounded bg-emerald-500 opacity-60" style={{ borderTop: "2px dashed #22c55e" }} />{" "}
           Optimistic
         </span>
         <span className="flex items-center gap-1.5">
           <span className="h-0.5 w-4 rounded bg-blue-500" /> Base Case
         </span>
         <span className="flex items-center gap-1.5">
-          <span
-            className="h-0.5 w-4 rounded bg-red-500 opacity-60"
-            style={{ borderTop: "2px dashed #ef4444" }}
-          />{" "}
+          <span className="h-0.5 w-4 rounded bg-red-500 opacity-60" style={{ borderTop: "2px dashed #ef4444" }} />{" "}
           Conservative
         </span>
       </div>
@@ -246,10 +192,7 @@ function QuarterlyChart({
   // QoQ growth
   const latest = chartData[chartData.length - 1];
   const prev = chartData[chartData.length - 2];
-  const qoqGrowth =
-    prev && latest
-      ? Math.round(((latest.revenue - prev.revenue) / prev.revenue) * 100)
-      : 0;
+  const qoqGrowth = prev && latest ? Math.round(((latest.revenue - prev.revenue) / prev.revenue) * 100) : 0;
 
   return (
     <>
@@ -263,20 +206,9 @@ function QuarterlyChart({
         <span className="text-xs text-muted-foreground">revenue growth</span>
       </div>
       <ResponsiveContainer width="100%" height={240}>
-        <ComposedChart
-          data={chartData}
-          margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-        >
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="#e5e7eb"
-            vertical={false}
-          />
-          <XAxis
-            dataKey="name"
-            tick={{ fill: "#6b7280", fontSize: 11 }}
-            tickLine={false}
-          />
+        <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+          <XAxis dataKey="name" tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} />
           <YAxis
             yAxisId="left"
             tick={{ fill: "#6b7280", fontSize: 11 }}
@@ -306,10 +238,7 @@ function QuarterlyChart({
             }}
             formatter={(value: number, name: string) => {
               if (name === "margin") return [`${value}%`, "Margin"];
-              return [
-                formatCurrency(value),
-                name === "revenue" ? "Revenue" : "Profit",
-              ];
+              return [formatCurrency(value), name === "revenue" ? "Revenue" : "Profit"];
             }}
           />
           <Bar
@@ -364,15 +293,9 @@ function QuarterlyChart({
 // Main export
 // ---------------------------------------------------------------------------
 
-export function RevenueForecastChart({
-  config,
-}: {
-  config: RevenueForecastWidget["config"];
-}) {
+export function RevenueForecastChart({ config }: { config: RevenueForecastWidget["config"] }) {
   const isQuarterly = config.mode === "quarterly";
-  const title =
-    config.title ??
-    (isQuarterly ? "Quarterly Revenue & Profit" : "Revenue Scenario Forecast");
+  const title = config.title ?? (isQuarterly ? "Quarterly Revenue & Profit" : "Revenue Scenario Forecast");
   const subtitle =
     config.subtitle ??
     (isQuarterly
@@ -387,10 +310,7 @@ export function RevenueForecastChart({
       </CardHeader>
       <CardContent>
         {isQuarterly ? (
-          <QuarterlyChart
-            trailingQuarters={config.trailingQuarters}
-            showMarginLine={config.showMarginLine}
-          />
+          <QuarterlyChart trailingQuarters={config.trailingQuarters} showMarginLine={config.showMarginLine} />
         ) : (
           <ForecastChart scenarios={config.scenarios} />
         )}

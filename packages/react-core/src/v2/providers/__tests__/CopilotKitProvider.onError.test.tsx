@@ -28,10 +28,7 @@ describe("CopilotKitProvider onError", () => {
     const onError = vi.fn();
 
     render(
-      <CopilotKitProvider
-        runtimeUrl="http://localhost:59999/nonexistent"
-        onError={onError}
-      >
+      <CopilotKitProvider runtimeUrl="http://localhost:59999/nonexistent" onError={onError}>
         <div>child</div>
       </CopilotKitProvider>,
     );
@@ -54,10 +51,7 @@ describe("CopilotKitProvider onError", () => {
 
     // No publicApiKey — onError should still fire (unlike v1)
     render(
-      <CopilotKitProvider
-        runtimeUrl="http://localhost:59999/nonexistent"
-        onError={onError}
-      >
+      <CopilotKitProvider runtimeUrl="http://localhost:59999/nonexistent" onError={onError}>
         <div>child</div>
       </CopilotKitProvider>,
     );

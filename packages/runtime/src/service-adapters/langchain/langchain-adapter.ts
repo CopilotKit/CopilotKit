@@ -33,15 +33,8 @@
 
 import type { BaseMessage } from "@langchain/core/messages";
 import { CopilotServiceAdapter } from "../service-adapter";
-import {
-  CopilotRuntimeChatCompletionRequest,
-  CopilotRuntimeChatCompletionResponse,
-} from "../service-adapter";
-import {
-  convertActionInputToLangChainTool,
-  convertMessageToLangChainMessage,
-  streamLangChainResponse,
-} from "./utils";
+import { CopilotRuntimeChatCompletionRequest, CopilotRuntimeChatCompletionResponse } from "../service-adapter";
+import { convertActionInputToLangChainTool, convertMessageToLangChainMessage, streamLangChainResponse } from "./utils";
 import type { DynamicStructuredTool } from "@langchain/core/tools";
 import { LangChainReturnType } from "./types";
 import { randomUUID } from "@copilotkit/shared";
@@ -70,18 +63,9 @@ export class LangChainAdapter implements CopilotServiceAdapter {
   }
   constructor(private options: LangChainAdapterOptions) {}
 
-  async process(
-    request: CopilotRuntimeChatCompletionRequest,
-  ): Promise<CopilotRuntimeChatCompletionResponse> {
+  async process(request: CopilotRuntimeChatCompletionRequest): Promise<CopilotRuntimeChatCompletionResponse> {
     try {
-      const {
-        eventSource,
-        model,
-        actions,
-        messages,
-        runId,
-        threadId: threadIdFromRequest,
-      } = request;
+      const { eventSource, model, actions, messages, runId, threadId: threadIdFromRequest } = request;
       const threadId = threadIdFromRequest ?? randomUUID();
       const result = await this.options.chainFn({
         messages: messages.map(convertMessageToLangChainMessage),
@@ -104,9 +88,7 @@ export class LangChainAdapter implements CopilotServiceAdapter {
     } finally {
       // Lazy require for optional peer dependency
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const {
-        awaitAllCallbacks,
-      } = require("@langchain/core/callbacks/promises");
+      const { awaitAllCallbacks } = require("@langchain/core/callbacks/promises");
       await awaitAllCallbacks();
     }
   }

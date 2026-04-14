@@ -19,13 +19,7 @@ services:
       aimock:
         condition: service_started
     healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:8123/ok')",
-        ]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8123/ok')"]
       interval: 5s
       timeout: 5s
       retries: 30

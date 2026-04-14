@@ -1,11 +1,5 @@
 import { AppsSDKUIProvider } from "@openai/apps-sdk-ui/components/AppsSDKUIProvider";
-import {
-  Image,
-  McpUseProvider,
-  useCallTool,
-  useWidget,
-  type WidgetMetadata,
-} from "mcp-use/react";
+import { Image, McpUseProvider, useCallTool, useWidget, type WidgetMetadata } from "mcp-use/react";
 import React, { useCallback } from "react";
 import { Link } from "react-router";
 import "../styles.css";
@@ -15,15 +9,9 @@ import { Accordion } from "./components/Accordion";
 import type { ProductSearchResultProps } from "./types";
 import { propSchema } from "./types";
 import { Button } from "@openai/apps-sdk-ui/components/Button";
-import {
-  Expand,
-  HeartFilled,
-  HeartXs,
-  PictureInPicture,
-} from "@openai/apps-sdk-ui/components/Icon";
+import { Expand, HeartFilled, HeartXs, PictureInPicture } from "@openai/apps-sdk-ui/components/Icon";
 export const widgetMetadata: WidgetMetadata = {
-  description:
-    "Display product search results with filtering, state management, and tool interactions",
+  description: "Display product search results with filtering, state management, and tool interactions",
   props: propSchema,
   exposeAsTool: false,
   metadata: {
@@ -39,16 +27,10 @@ export const widgetMetadata: WidgetMetadata = {
 type FavoritesState = { favorites: string[] };
 
 const ProductSearchResult: React.FC = () => {
-  const {
-    props,
-    isPending,
-    displayMode,
-    requestDisplayMode,
-    sendFollowUpMessage,
-    locale,
-    state,
-    setState,
-  } = useWidget<ProductSearchResultProps, FavoritesState>();
+  const { props, isPending, displayMode, requestDisplayMode, sendFollowUpMessage, locale, state, setState } = useWidget<
+    ProductSearchResultProps,
+    FavoritesState
+  >();
 
   const {
     callTool: getFruitDetails,
@@ -56,17 +38,13 @@ const ProductSearchResult: React.FC = () => {
     isPending: isLoadingDetails,
   } = useCallTool("get-fruit-details");
 
-  const selectedFruit = fruitDetails?.structuredContent as
-    | { fruit: string; facts?: string[] }
-    | undefined;
+  const selectedFruit = fruitDetails?.structuredContent as { fruit: string; facts?: string[] } | undefined;
   const favorites = state?.favorites ?? [];
 
   const toggleFavorite = useCallback(
     (fruit: string) => {
       const current = state?.favorites ?? [];
-      const next = current.includes(fruit)
-        ? current.filter((f: string) => f !== fruit)
-        : [...current, fruit];
+      const next = current.includes(fruit) ? current.filter((f: string) => f !== fruit) : [...current, fruit];
       setState({ favorites: next });
     },
     [state, setState],
@@ -113,14 +91,7 @@ const ProductSearchResult: React.FC = () => {
 
             {/* Favorites count */}
             {favorites.length > 0 && (
-              <Button
-                color="secondary"
-                pill
-                size="lg"
-                uniform
-                variant="ghost"
-                className="text-danger/80"
-              >
+              <Button color="secondary" pill size="lg" uniform variant="ghost" className="text-danger/80">
                 <HeartFilled />
                 {favorites.length}
               </Button>
@@ -186,9 +157,7 @@ const ProductSearchResult: React.FC = () => {
             <h5 className="text-secondary mb-1">MCP-Apps Template</h5>
             <h2 className="heading-xl mb-1">Lovely Little Fruit Shop</h2>
             <p className="text-md text-secondary">
-              {query
-                ? `Showing results for "${query}"`
-                : "Tap a fruit to see details"}
+              {query ? `Showing results for "${query}"` : "Tap a fruit to see details"}
             </p>
           </div>
 
@@ -196,9 +165,7 @@ const ProductSearchResult: React.FC = () => {
           <Carousel
             results={results}
             favorites={favorites}
-            onSelectFruit={(fruit: string) =>
-              getFruitDetails({ fruit } as never)
-            }
+            onSelectFruit={(fruit: string) => getFruitDetails({ fruit } as never)}
             onToggleFavorite={toggleFavorite}
           />
 
@@ -207,9 +174,7 @@ const ProductSearchResult: React.FC = () => {
             <div className="mx-8 my-6 rounded-2xl border border-default bg-surface p-5 flex items-center gap-6">
               <div
                 className={`rounded-xl p-4 shrink-0 ${
-                  results.find(
-                    (r: { fruit: string }) => r.fruit === selectedFruit.fruit,
-                  )?.color ?? ""
+                  results.find((r: { fruit: string }) => r.fruit === selectedFruit.fruit)?.color ?? ""
                 }`}
               >
                 <Image
@@ -224,9 +189,7 @@ const ProductSearchResult: React.FC = () => {
                 ) : (
                   <>
                     <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold text-lg capitalize">
-                        {selectedFruit.fruit}
-                      </h3>
+                      <h3 className="font-semibold text-lg capitalize">{selectedFruit.fruit}</h3>
                       <Button
                         color="secondary"
                         pill
@@ -234,30 +197,15 @@ const ProductSearchResult: React.FC = () => {
                         uniform
                         variant="ghost"
                         onClick={() => toggleFavorite(selectedFruit.fruit)}
-                        title={
-                          favorites.includes(selectedFruit.fruit)
-                            ? "Remove from favorites"
-                            : "Add to favorites"
-                        }
-                        className={
-                          favorites.includes(selectedFruit.fruit)
-                            ? "text-danger/80"
-                            : "text-secondary"
-                        }
+                        title={favorites.includes(selectedFruit.fruit) ? "Remove from favorites" : "Add to favorites"}
+                        className={favorites.includes(selectedFruit.fruit) ? "text-danger/80" : "text-secondary"}
                       >
-                        {favorites.includes(selectedFruit.fruit) ? (
-                          <HeartFilled />
-                        ) : (
-                          <HeartXs />
-                        )}
+                        {favorites.includes(selectedFruit.fruit) ? <HeartFilled /> : <HeartXs />}
                       </Button>
                     </div>
                     <ul className="space-y-1">
                       {(selectedFruit.facts ?? []).map((fact: string) => (
-                        <li
-                          key={fact}
-                          className="text-sm text-secondary flex items-start gap-2"
-                        >
+                        <li key={fact} className="text-sm text-secondary flex items-start gap-2">
                           <span className="text-info mt-0.5">•</span>
                           {fact}
                         </li>
@@ -265,11 +213,7 @@ const ProductSearchResult: React.FC = () => {
                     </ul>
                     {/* Follow-up message demo — sends a message to the LLM from the widget */}
                     <button
-                      onClick={() =>
-                        sendFollowUpMessage(
-                          `Tell me more interesting facts about ${selectedFruit.fruit}`,
-                        )
-                      }
+                      onClick={() => sendFollowUpMessage(`Tell me more interesting facts about ${selectedFruit.fruit}`)}
                       className="mt-3 px-3 py-1.5 text-xs font-medium rounded-lg bg-info/10 text-info hover:bg-info/20 transition-colors cursor-pointer"
                     >
                       Ask the AI for more about {selectedFruit.fruit}

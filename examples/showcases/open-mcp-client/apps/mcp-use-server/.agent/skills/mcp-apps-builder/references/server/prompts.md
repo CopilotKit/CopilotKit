@@ -22,15 +22,8 @@ server.prompt(
     name: "code-review",
     description: "Generate a code review prompt for given language",
     schema: z.object({
-      language: z
-        .string()
-        .describe("Programming language (e.g., 'TypeScript', 'Python')"),
-      focusArea: z
-        .string()
-        .optional()
-        .describe(
-          "Specific area to focus on (e.g., 'security', 'performance')",
-        ),
+      language: z.string().describe("Programming language (e.g., 'TypeScript', 'Python')"),
+      focusArea: z.string().optional().describe("Specific area to focus on (e.g., 'security', 'performance')"),
     }),
   },
   async ({ language, focusArea }) => {
@@ -94,14 +87,8 @@ Define parameters with Zod, always use `.describe()`:
 // ✅ Good
 z.object({
   language: z.string().describe("Programming language to review"),
-  focusArea: z
-    .enum(["security", "performance", "style", "bugs"])
-    .optional()
-    .describe("Specific aspect to focus on"),
-  severity: z
-    .enum(["all", "critical", "major"])
-    .default("all")
-    .describe("Minimum issue severity to report"),
+  focusArea: z.enum(["security", "performance", "style", "bugs"]).optional().describe("Specific aspect to focus on"),
+  severity: z.enum(["all", "critical", "major"]).default("all").describe("Minimum issue severity to report"),
 });
 
 // ❌ Bad - no descriptions
@@ -124,16 +111,12 @@ server.prompt(
     description: "Generate code review instructions",
     schema: z.object({
       language: z.string().describe("Programming language"),
-      style: z
-        .enum(["strict", "moderate", "lenient"])
-        .optional()
-        .describe("Review strictness"),
+      style: z.enum(["strict", "moderate", "lenient"]).optional().describe("Review strictness"),
     }),
   },
   async ({ language, style = "moderate" }) => {
     const strictness = {
-      strict:
-        "Be thorough and point out all issues, including minor style problems.",
+      strict: "Be thorough and point out all issues, including minor style problems.",
       moderate: "Focus on significant issues and best practices.",
       lenient: "Only highlight critical bugs and security issues.",
     };
@@ -159,12 +142,8 @@ server.prompt(
     name: "summarize",
     description: "Create a summarization prompt",
     schema: z.object({
-      length: z
-        .enum(["brief", "medium", "detailed"])
-        .describe("Summary length"),
-      format: z
-        .enum(["paragraph", "bullets", "outline"])
-        .describe("Output format"),
+      length: z.enum(["brief", "medium", "detailed"]).describe("Summary length"),
+      format: z.enum(["paragraph", "bullets", "outline"]).describe("Output format"),
     }),
   },
   async ({ length, format }) => {
@@ -199,10 +178,7 @@ server.prompt(
     schema: z.object({
       sourceLang: z.string().describe("Source language"),
       targetLang: z.string().describe("Target language"),
-      tone: z
-        .enum(["formal", "casual", "technical"])
-        .optional()
-        .describe("Translation tone"),
+      tone: z.enum(["formal", "casual", "technical"]).optional().describe("Translation tone"),
     }),
   },
   async ({ sourceLang, targetLang, tone = "formal" }) => {
@@ -225,13 +201,8 @@ server.prompt(
     description: "Generate explanation instructions for technical concepts",
     schema: z.object({
       concept: z.string().describe("Concept to explain"),
-      audience: z
-        .enum(["beginner", "intermediate", "expert"])
-        .describe("Target audience"),
-      includeExamples: z
-        .boolean()
-        .default(true)
-        .describe("Include code examples"),
+      audience: z.enum(["beginner", "intermediate", "expert"]).describe("Target audience"),
+      includeExamples: z.boolean().default(true).describe("Include code examples"),
     }),
   },
   async ({ concept, audience, includeExamples }) => {
@@ -324,9 +295,7 @@ server.prompt(
     name: "debug-help",
     description: "Generate debugging assistance prompt",
     schema: z.object({
-      errorType: z
-        .string()
-        .describe("Type of error (e.g., 'TypeError', 'NetworkError')"),
+      errorType: z.string().describe("Type of error (e.g., 'TypeError', 'NetworkError')"),
       language: z.string().describe("Programming language"),
       hasStackTrace: z.boolean().describe("Whether a stack trace is available"),
     }),
@@ -364,9 +333,7 @@ server.prompt(
     description: "Generate step-by-step refactoring instructions",
     schema: z.object({
       codeSmell: z.string().describe("Type of code smell to address"),
-      safetyLevel: z
-        .enum(["aggressive", "moderate", "conservative"])
-        .describe("Refactoring approach"),
+      safetyLevel: z.enum(["aggressive", "moderate", "conservative"]).describe("Refactoring approach"),
     }),
   },
   async ({ codeSmell, safetyLevel }) => {
@@ -413,22 +380,16 @@ server.prompt(
     name: "optimize-for-runtime",
     description: "Generate optimization suggestions for specific runtime",
     schema: z.object({
-      runtime: z
-        .enum(["node", "browser", "edge", "serverless"])
-        .describe("Target runtime"),
-      metric: z
-        .enum(["latency", "throughput", "memory", "cost"])
-        .describe("Optimization goal"),
+      runtime: z.enum(["node", "browser", "edge", "serverless"]).describe("Target runtime"),
+      metric: z.enum(["latency", "throughput", "memory", "cost"]).describe("Optimization goal"),
     }),
   },
   async ({ runtime, metric }) => {
     const runtimeContext = {
       node: "Node.js server environment with access to filesystem and native modules",
-      browser:
-        "Browser environment with limited resources and network constraints",
+      browser: "Browser environment with limited resources and network constraints",
       edge: "Edge runtime with fast cold starts but limited execution time",
-      serverless:
-        "Serverless function with cold start concerns and pay-per-invocation pricing",
+      serverless: "Serverless function with cold start concerns and pay-per-invocation pricing",
     };
 
     return text(
@@ -460,12 +421,7 @@ server.prompt(
   {
     name: "code-review",
     schema: z.object({
-      language: completable(z.string().describe("Programming language"), [
-        "python",
-        "typescript",
-        "go",
-        "rust",
-      ]),
+      language: completable(z.string().describe("Programming language"), ["python", "typescript", "go", "rust"]),
       code: z.string().describe("Code to review"),
     }),
   },
@@ -486,15 +442,12 @@ server.prompt(
         const users = await fetchUsers();
         return users.map((u) => u.id).filter((id) => id.startsWith(value));
       }),
-      projectId: completable(
-        z.string().describe("Project ID"),
-        async (value, ctx) => {
-          // Use other argument values for contextual suggestions
-          const userId = ctx?.arguments?.userId;
-          const projects = await fetchProjects(userId);
-          return projects.map((p) => p.id).filter((id) => id.startsWith(value));
-        },
-      ),
+      projectId: completable(z.string().describe("Project ID"), async (value, ctx) => {
+        // Use other argument values for contextual suggestions
+        const userId = ctx?.arguments?.userId;
+        const projects = await fetchProjects(userId);
+        return projects.map((p) => p.id).filter((id) => id.startsWith(value));
+      }),
     }),
   },
   async ({ userId, projectId }) => text(`Analyzing project ${projectId}...`),

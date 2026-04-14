@@ -2,12 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "fs";
 import path from "path";
 import os from "os";
-import {
-  parseSemver,
-  computeNextStableVersion,
-  computePrereleaseVersion,
-  bumpPackages,
-} from "./versions.js";
+import { parseSemver, computeNextStableVersion, computePrereleaseVersion, bumpPackages } from "./versions.js";
 
 let tmpDir: string;
 
@@ -111,9 +106,7 @@ describe("computeNextStableVersion", () => {
   });
 
   it("strips prerelease suffix on any bump", () => {
-    expect(computeNextStableVersion("1.56.0-canary.123", "patch")).toBe(
-      "1.56.0",
-    );
+    expect(computeNextStableVersion("1.56.0-canary.123", "patch")).toBe("1.56.0");
   });
 
   it("strips prerelease suffix regardless of bump level", () => {
@@ -134,22 +127,16 @@ describe("computePrereleaseVersion", () => {
   });
 
   it("appends canary tag with custom suffix", () => {
-    expect(computePrereleaseVersion("1.55.2", "fix-user-issue")).toBe(
-      "1.55.2-canary.fix-user-issue",
-    );
+    expect(computePrereleaseVersion("1.55.2", "fix-user-issue")).toBe("1.55.2-canary.fix-user-issue");
   });
 
   it("uses the base version as-is (no bump)", () => {
-    expect(computePrereleaseVersion("1.55.2", "test")).toBe(
-      "1.55.2-canary.test",
-    );
+    expect(computePrereleaseVersion("1.55.2", "test")).toBe("1.55.2-canary.test");
     expect(computePrereleaseVersion("2.0.0", "test")).toBe("2.0.0-canary.test");
   });
 
   it("strips existing prerelease before appending", () => {
-    expect(computePrereleaseVersion("1.55.2-canary.old", "new")).toBe(
-      "1.55.2-canary.new",
-    );
+    expect(computePrereleaseVersion("1.55.2-canary.old", "new")).toBe("1.55.2-canary.new");
   });
 });
 
@@ -193,24 +180,14 @@ describe("bumpPackages", () => {
     expect(result).toHaveLength(2);
     expect(result[0].newVersion).toBe("1.55.3");
 
-    const pkg = JSON.parse(
-      fs.readFileSync(
-        path.join(tmpDir, "packages/shared/package.json"),
-        "utf8",
-      ),
-    );
+    const pkg = JSON.parse(fs.readFileSync(path.join(tmpDir, "packages/shared/package.json"), "utf8"));
     expect(pkg.version).toBe("1.55.3");
   });
 
   it("preserves workspace:* protocol in dependencies", () => {
     bumpPackages("monorepo", "1.55.3");
 
-    const pkg = JSON.parse(
-      fs.readFileSync(
-        path.join(tmpDir, "packages/react-core/package.json"),
-        "utf8",
-      ),
-    );
+    const pkg = JSON.parse(fs.readFileSync(path.join(tmpDir, "packages/react-core/package.json"), "utf8"));
     expect(pkg.dependencies["@copilotkit/shared"]).toBe("workspace:*");
   });
 
@@ -229,12 +206,7 @@ describe("bumpPackages", () => {
 
     bumpPackages("monorepo", "1.55.3");
 
-    const pkg = JSON.parse(
-      fs.readFileSync(
-        path.join(tmpDir, "packages/react-core/package.json"),
-        "utf8",
-      ),
-    );
+    const pkg = JSON.parse(fs.readFileSync(path.join(tmpDir, "packages/react-core/package.json"), "utf8"));
     expect(pkg.dependencies["@copilotkit/shared"]).toBe("1.55.3");
   });
 });

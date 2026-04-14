@@ -98,9 +98,7 @@ const TOTAL_COUNTRIES = 175;
 const STORAGE_KEY = "journey_progress";
 
 export function useJourneyProgress() {
-  const [visitedCountries, setVisitedCountries] = useState<VisitedCountry[]>(
-    [],
-  );
+  const [visitedCountries, setVisitedCountries] = useState<VisitedCountry[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Load from localStorage on mount
@@ -131,11 +129,7 @@ export function useJourneyProgress() {
 
   const getCurrentLevel = useCallback((): LevelInfo => {
     const count = visitedCountries.length;
-    return (
-      LEVELS.find(
-        (level) => count >= level.minCountries && count <= level.maxCountries,
-      ) || LEVELS[0]
-    );
+    return LEVELS.find((level) => count >= level.minCountries && count <= level.maxCountries) || LEVELS[0];
   }, [visitedCountries.length]);
 
   const getProgress = useCallback((): number => {
@@ -150,9 +144,7 @@ export function useJourneyProgress() {
   const getCountriesToNextLevel = useCallback((): number => {
     const currentLevel = getCurrentLevel();
     if (currentLevel.level === LEVELS.length) return 0;
-    const nextLevel = LEVELS.find(
-      (level) => level.level === currentLevel.level + 1,
-    );
+    const nextLevel = LEVELS.find((level) => level.level === currentLevel.level + 1);
     if (!nextLevel) return 0;
     return nextLevel.minCountries - visitedCountries.length;
   }, [visitedCountries.length, getCurrentLevel]);
@@ -165,9 +157,7 @@ export function useJourneyProgress() {
   }, []);
 
   const removeCountry = useCallback((name: string) => {
-    setVisitedCountries((prev) =>
-      prev.filter((country) => country.name !== name),
-    );
+    setVisitedCountries((prev) => prev.filter((country) => country.name !== name));
   }, []);
 
   const resetProgress = useCallback(() => {

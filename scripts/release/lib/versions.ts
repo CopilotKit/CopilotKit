@@ -1,11 +1,6 @@
 import fs from "fs";
 import path from "path";
-import {
-  loadConfig,
-  getScopeConfig,
-  ROOT,
-  type ReleaseScope,
-} from "./config.js";
+import { loadConfig, getScopeConfig, ROOT, type ReleaseScope } from "./config.js";
 
 export type BumpLevel = "patch" | "minor" | "major";
 
@@ -39,16 +34,12 @@ function findPackageDir(packageName: string): string {
 export function getCurrentVersion(scope: ReleaseScope): string {
   const scopeConfig = getScopeConfig(scope);
   const dir = findPackageDir(scopeConfig.versionSource);
-  const pkg = JSON.parse(
-    fs.readFileSync(path.join(dir, "package.json"), "utf8"),
-  );
+  const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
   return pkg.version;
 }
 
 export function parseSemver(version: string): SemVer {
-  const match = version.match(
-    /^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.\-]+))?(?:\+(.+))?$/,
-  );
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-([a-zA-Z0-9.\-]+))?(?:\+(.+))?$/);
   if (!match) {
     throw new Error(`Invalid semver: ${version}`);
   }
@@ -60,10 +51,7 @@ export function parseSemver(version: string): SemVer {
   };
 }
 
-export function computeNextStableVersion(
-  currentVersion: string,
-  bumpLevel: BumpLevel,
-): string {
+export function computeNextStableVersion(currentVersion: string, bumpLevel: BumpLevel): string {
   const v = parseSemver(currentVersion);
 
   if (v.prerelease) {
@@ -80,10 +68,7 @@ export function computeNextStableVersion(
   }
 }
 
-export function computePrereleaseVersion(
-  currentVersion: string,
-  suffix?: string,
-): string {
+export function computePrereleaseVersion(currentVersion: string, suffix?: string): string {
   const v = parseSemver(currentVersion);
   const config = loadConfig();
   const tag = config.prereleaseTag;
@@ -124,8 +109,7 @@ export function bumpPackages(
   const scopeConfig = getScopeConfig(scope);
   const packages = getPackagesForScope(scope);
   const scopeNames = new Set(scopeConfig.packages);
-  const updated: { name: string; oldVersion: string; newVersion: string }[] =
-    [];
+  const updated: { name: string; oldVersion: string; newVersion: string }[] = [];
 
   for (const p of packages) {
     const pkg = JSON.parse(fs.readFileSync(p.pkgJsonPath, "utf8"));
@@ -135,11 +119,7 @@ export function bumpPackages(
     // For shared-version scopes, update internal dependency references —
     // but only if they use exact versions, not workspace:* protocol
     if (scopeConfig.sharedVersion) {
-      for (const depField of [
-        "dependencies",
-        "peerDependencies",
-        "devDependencies",
-      ] as const) {
+      for (const depField of ["dependencies", "peerDependencies", "devDependencies"] as const) {
         if (!pkg[depField]) continue;
         for (const depName of Object.keys(pkg[depField])) {
           const depValue = pkg[depField][depName];

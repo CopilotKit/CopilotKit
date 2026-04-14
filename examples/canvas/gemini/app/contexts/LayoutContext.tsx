@@ -20,8 +20,7 @@ interface LayoutContextType {
 
 const defaultLayoutState: LayoutState = {
   title: "DeepMind × Gemini",
-  description:
-    "Powered by Google's most advanced AI models for generating LinkedIn and X posts",
+  description: "Powered by Google's most advanced AI models for generating LinkedIn and X posts",
   showHeader: true,
   theme: "light",
   agent: "post_generation_agent",
@@ -34,21 +33,14 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   console.log(pathname);
   const [layoutState, setLayoutState] = useState<LayoutState>({
     ...defaultLayoutState,
-    agent:
-      pathname == "/post-generator"
-        ? "post_generation_agent"
-        : "stack_analysis_agent",
+    agent: pathname == "/post-generator" ? "post_generation_agent" : "stack_analysis_agent",
   });
   console.log(layoutState);
   const updateLayout = (updates: Partial<LayoutState>) => {
     setLayoutState((prev) => ({ ...prev, ...updates }));
   };
 
-  return (
-    <LayoutContext.Provider value={{ layoutState, updateLayout }}>
-      {children}
-    </LayoutContext.Provider>
-  );
+  return <LayoutContext.Provider value={{ layoutState, updateLayout }}>{children}</LayoutContext.Provider>;
 }
 
 export function useLayout() {

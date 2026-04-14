@@ -37,10 +37,7 @@ export const TodoApp = () => {
     setNewSubtask({ parentId: null, text: "" });
   };
 
-  const handleSubtaskChange = (
-    e: ChangeEvent<HTMLInputElement>,
-    todoId: number,
-  ) => {
+  const handleSubtaskChange = (e: ChangeEvent<HTMLInputElement>, todoId: number) => {
     setNewSubtask({ parentId: todoId, text: e.target.value });
   };
 
@@ -211,15 +208,10 @@ export const TodoApp = () => {
 
       <div className="w-full space-y-3">
         {todos.length === 0 ? (
-          <p className="text-center text-gray-500 italic">
-            No todos yet. Add one above!
-          </p>
+          <p className="text-center text-gray-500 italic">No todos yet. Add one above!</p>
         ) : (
           todos.map((todo, index) => (
-            <div
-              key={index}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
-            >
+            <div key={index} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
               <div
                 className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
                 onClick={() => toggleAccordion(todo.id)}
@@ -232,11 +224,7 @@ export const TodoApp = () => {
                     }}
                     className="mr-2 text-gray-500 hover:text-gray-700 flex-shrink-0"
                   >
-                    {todo.expanded ? (
-                      <ChevronDown className="w-5 h-5" />
-                    ) : (
-                      <ChevronRight className="w-5 h-5" />
-                    )}
+                    {todo.expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
                   </button>
                   <button
                     onClick={(e) => {
@@ -244,18 +232,14 @@ export const TodoApp = () => {
                       toggleTodo(todo.id);
                     }}
                     className={`w-6 h-6 rounded-full border-2 mr-3 flex items-center justify-center flex-shrink-0 ${
-                      todo.completed
-                        ? "bg-green-500 border-green-500"
-                        : "border-gray-400"
+                      todo.completed ? "bg-green-500 border-green-500" : "border-gray-400"
                     }`}
                   >
                     {todo.completed && <Check className="w-4 h-4 text-white" />}
                   </button>
                   <span
                     className={`inline-block truncate ${
-                      todo.completed
-                        ? "line-through text-gray-400"
-                        : "text-gray-800"
+                      todo.completed ? "line-through text-gray-400" : "text-gray-800"
                     }`}
                     title={todo.text}
                   >
@@ -287,9 +271,7 @@ export const TodoApp = () => {
                       type="text"
                       value={newSubtask.text}
                       onChange={(e) => handleSubtaskChange(e, todo.id)}
-                      onKeyDown={(e) =>
-                        e.key === "Enter" && handleAddSubtask(todo.id)
-                      }
+                      onKeyDown={(e) => e.key === "Enter" && handleAddSubtask(todo.id)}
                       placeholder="Add a subtask..."
                       className="flex-grow p-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     />
@@ -315,20 +297,14 @@ export const TodoApp = () => {
                                 toggleSubtask(todo.id, subtask.id);
                               }}
                               className={`w-5 h-5 rounded-full border-2 mr-2 flex items-center justify-center ${
-                                subtask.completed
-                                  ? "bg-green-500 border-green-500"
-                                  : "border-gray-400"
+                                subtask.completed ? "bg-green-500 border-green-500" : "border-gray-400"
                               }`}
                             >
-                              {subtask.completed && (
-                                <Check className="w-3 h-3 text-white" />
-                              )}
+                              {subtask.completed && <Check className="w-3 h-3 text-white" />}
                             </button>
                             <span
                               className={`text-sm ${
-                                subtask.completed
-                                  ? "line-through text-gray-400"
-                                  : "text-gray-800"
+                                subtask.completed ? "line-through text-gray-400" : "text-gray-800"
                               }`}
                             >
                               {subtask.text}
@@ -347,9 +323,7 @@ export const TodoApp = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-center text-gray-500 italic text-sm">
-                      No subtasks yet
-                    </p>
+                    <p className="text-center text-gray-500 italic text-sm">No subtasks yet</p>
                   )}
                 </div>
               )}

@@ -8,13 +8,7 @@ import { useEffect, useRef } from "react";
  * scrolls the active nav item into view so the user never loses
  * their place in the navigation hierarchy.
  */
-export function SidebarNav({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+export function SidebarNav({ children, className }: { children: React.ReactNode; className?: string }) {
   const ref = useRef<HTMLElement>(null);
 
   useEffect(() => {

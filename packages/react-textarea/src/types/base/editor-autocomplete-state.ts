@@ -7,10 +7,7 @@ export interface EditorAutocompleteState {
   textAfterCursor: string;
 }
 
-export function areEqual_autocompleteState(
-  prev: EditorAutocompleteState,
-  next: EditorAutocompleteState,
-) {
+export function areEqual_autocompleteState(prev: EditorAutocompleteState, next: EditorAutocompleteState) {
   return (
     prev.cursorPoint.offset === next.cursorPoint.offset &&
     arraysAreEqual(prev.cursorPoint.path, next.cursorPoint.path) &&

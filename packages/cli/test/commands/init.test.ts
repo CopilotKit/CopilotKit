@@ -22,9 +22,7 @@ describe("Init Command - Comprehensive Tests", () => {
     test("should ask crew questions for both Crews and Flows", () => {
       const crewNameQuestion = questions.find((q) => q.name === "crewName");
       const crewUrlQuestion = questions.find((q) => q.name === "crewUrl");
-      const crewBearerTokenQuestion = questions.find(
-        (q) => q.name === "crewBearerToken",
-      );
+      const crewBearerTokenQuestion = questions.find((q) => q.name === "crewBearerToken");
 
       // All questions should exist
       expect(crewNameQuestion).toBeDefined();
@@ -97,9 +95,7 @@ describe("Init Command - Comprehensive Tests", () => {
 
   describe("LangGraph Mode", () => {
     test("should ask alreadyDeployed question for LangGraph", () => {
-      const alreadyDeployedQuestion = questions.find(
-        (q) => q.name === "alreadyDeployed",
-      );
+      const alreadyDeployedQuestion = questions.find((q) => q.name === "alreadyDeployed");
       expect(alreadyDeployedQuestion).toBeDefined();
 
       const langGraphAnswers = { mode: "LangGraph" as const };
@@ -107,9 +103,7 @@ describe("Init Command - Comprehensive Tests", () => {
     });
 
     test("should ask langGraphPlatform when already deployed", () => {
-      const langGraphPlatformQuestion = questions.find(
-        (q) => q.name === "langGraphPlatform",
-      );
+      const langGraphPlatformQuestion = questions.find((q) => q.name === "langGraphPlatform");
       expect(langGraphPlatformQuestion).toBeDefined();
 
       const deployedAnswers = {
@@ -120,9 +114,7 @@ describe("Init Command - Comprehensive Tests", () => {
     });
 
     test("should ask langGraphAgent when not deployed", () => {
-      const langGraphAgentQuestion = questions.find(
-        (q) => q.name === "langGraphAgent",
-      );
+      const langGraphAgentQuestion = questions.find((q) => q.name === "langGraphAgent");
       expect(langGraphAgentQuestion).toBeDefined();
 
       const notDeployedAnswers = {
@@ -133,9 +125,7 @@ describe("Init Command - Comprehensive Tests", () => {
     });
 
     test("should ask for platform URL when using platform", () => {
-      const platformUrlQuestion = questions.find(
-        (q) => q.name === "langGraphPlatformUrl",
-      );
+      const platformUrlQuestion = questions.find((q) => q.name === "langGraphPlatformUrl");
       expect(platformUrlQuestion).toBeDefined();
 
       const platformAnswers = {
@@ -147,9 +137,7 @@ describe("Init Command - Comprehensive Tests", () => {
     });
 
     test("should ask for LangSmith API key for non-localhost platform", () => {
-      const langSmithQuestion = questions.find(
-        (q) => q.name === "langSmithApiKey",
-      );
+      const langSmithQuestion = questions.find((q) => q.name === "langSmithApiKey");
       expect(langSmithQuestion).toBeDefined();
 
       const remoteAnswers = {
@@ -180,9 +168,7 @@ describe("Init Command - Comprehensive Tests", () => {
 
   describe("Standard/MCP Mode", () => {
     test("should ask useCopilotCloud for Standard mode", () => {
-      const useCopilotCloudQuestion = questions.find(
-        (q) => q.name === "useCopilotCloud",
-      );
+      const useCopilotCloudQuestion = questions.find((q) => q.name === "useCopilotCloud");
       expect(useCopilotCloudQuestion).toBeDefined();
 
       const standardAnswers = { mode: "Standard" as const };
@@ -190,9 +176,7 @@ describe("Init Command - Comprehensive Tests", () => {
     });
 
     test("should ask useCopilotCloud for MCP mode", () => {
-      const useCopilotCloudQuestion = questions.find(
-        (q) => q.name === "useCopilotCloud",
-      );
+      const useCopilotCloudQuestion = questions.find((q) => q.name === "useCopilotCloud");
       expect(useCopilotCloudQuestion).toBeDefined();
 
       const mcpAnswers = { mode: "MCP" as const };
@@ -269,12 +253,8 @@ describe("Init Command - Comprehensive Tests", () => {
         return `Adding CrewAI ${isFlow ? "Flow" : "Crew"} to Copilot Cloud...`;
       };
 
-      expect(getChalkMessage("Crews")).toBe(
-        "Adding CrewAI Crew to Copilot Cloud...",
-      );
-      expect(getChalkMessage("Flows")).toBe(
-        "Adding CrewAI Flow to Copilot Cloud...",
-      );
+      expect(getChalkMessage("Crews")).toBe("Adding CrewAI Crew to Copilot Cloud...");
+      expect(getChalkMessage("Flows")).toBe("Adding CrewAI Flow to Copilot Cloud...");
     });
   });
 
@@ -322,9 +302,7 @@ describe("Init Command - Comprehensive Tests", () => {
 
         // Should call with correct flag name
         mockAnalyticsService.getFeatureFlagPayload("enterprise-by-default");
-        expect(mockAnalyticsService.getFeatureFlagPayload).toHaveBeenCalledWith(
-          "enterprise-by-default",
-        );
+        expect(mockAnalyticsService.getFeatureFlagPayload).toHaveBeenCalledWith("enterprise-by-default");
       });
     });
 
@@ -333,15 +311,11 @@ describe("Init Command - Comprehensive Tests", () => {
         const branchAQuestions = getQuestionsForBranch("A");
 
         // Should not have deployment choice questions
-        const hasDeploymentChoice = branchAQuestions.some(
-          (q) => q.name === "deploymentChoice",
-        );
+        const hasDeploymentChoice = branchAQuestions.some((q) => q.name === "deploymentChoice");
         expect(hasDeploymentChoice).toBe(false);
 
         // Should not have cloud deployment questions
-        const hasCloudDeployment = branchAQuestions.some(
-          (q) => q.name === "useCopilotCloud",
-        );
+        const hasCloudDeployment = branchAQuestions.some((q) => q.name === "useCopilotCloud");
         expect(hasCloudDeployment).toBe(false);
 
         // Should have base questions (mode, crew config, langgraph config, IDE docs)
@@ -354,9 +328,7 @@ describe("Init Command - Comprehensive Tests", () => {
 
         // No questions should ask about cloud choice - it's automatic
         const cloudRelatedQuestions = branchAQuestions.filter(
-          (q) =>
-            q.message.toLowerCase().includes("cloud") ||
-            q.message.toLowerCase().includes("sign up"),
+          (q) => q.message.toLowerCase().includes("cloud") || q.message.toLowerCase().includes("sign up"),
         );
         expect(cloudRelatedQuestions.length).toBe(0);
       });
@@ -367,15 +339,11 @@ describe("Init Command - Comprehensive Tests", () => {
         const branchBQuestions = getQuestionsForBranch("B");
 
         // Should have deployment choice questions
-        const hasDeploymentChoice = branchBQuestions.some(
-          (q) => q.name === "deploymentChoice",
-        );
+        const hasDeploymentChoice = branchBQuestions.some((q) => q.name === "deploymentChoice");
         expect(hasDeploymentChoice).toBe(true);
 
         // Should not have cloud deployment questions (replaced by deployment choice)
-        const hasCloudDeployment = branchBQuestions.some(
-          (q) => q.name === "useCopilotCloud",
-        );
+        const hasCloudDeployment = branchBQuestions.some((q) => q.name === "useCopilotCloud");
         expect(hasCloudDeployment).toBe(false);
 
         // Should have base questions
@@ -385,18 +353,11 @@ describe("Init Command - Comprehensive Tests", () => {
 
       test("should have correct deployment choice options for Branch B", () => {
         const branchBQuestions = getQuestionsForBranch("B");
-        const deploymentChoiceQuestion = branchBQuestions.find(
-          (q) => q.name === "deploymentChoice",
-        );
+        const deploymentChoiceQuestion = branchBQuestions.find((q) => q.name === "deploymentChoice");
 
         expect(deploymentChoiceQuestion).toBeDefined();
-        expect(deploymentChoiceQuestion?.choices).toEqual([
-          "Copilot Cloud",
-          "Self-hosted",
-        ]);
-        expect(deploymentChoiceQuestion?.message).toContain(
-          "Use Copilot Cloud, or self-hosted?",
-        );
+        expect(deploymentChoiceQuestion?.choices).toEqual(["Copilot Cloud", "Self-hosted"]);
+        expect(deploymentChoiceQuestion?.message).toContain("Use Copilot Cloud, or self-hosted?");
       });
     });
 
@@ -405,15 +366,11 @@ describe("Init Command - Comprehensive Tests", () => {
         const branchCQuestions = getQuestionsForBranch("C");
 
         // Should not have deployment choice questions
-        const hasDeploymentChoice = branchCQuestions.some(
-          (q) => q.name === "deploymentChoice",
-        );
+        const hasDeploymentChoice = branchCQuestions.some((q) => q.name === "deploymentChoice");
         expect(hasDeploymentChoice).toBe(false);
 
         // Should have cloud deployment questions
-        const hasCloudDeployment = branchCQuestions.some(
-          (q) => q.name === "useCopilotCloud",
-        );
+        const hasCloudDeployment = branchCQuestions.some((q) => q.name === "useCopilotCloud");
         expect(hasCloudDeployment).toBe(true);
 
         // Should have base questions
@@ -423,22 +380,16 @@ describe("Init Command - Comprehensive Tests", () => {
 
       test("should have correct cloud deployment question for Branch C", () => {
         const branchCQuestions = getQuestionsForBranch("C");
-        const cloudDeploymentQuestion = branchCQuestions.find(
-          (q) => q.name === "useCopilotCloud",
-        );
+        const cloudDeploymentQuestion = branchCQuestions.find((q) => q.name === "useCopilotCloud");
 
         expect(cloudDeploymentQuestion).toBeDefined();
-        expect(cloudDeploymentQuestion?.message).toContain(
-          "Deploy with Copilot Cloud?",
-        );
+        expect(cloudDeploymentQuestion?.message).toContain("Deploy with Copilot Cloud?");
         expect(cloudDeploymentQuestion?.type).toBe("yes/no");
       });
 
       test("should show cloud deployment question for new LangGraph agents in Branch C", () => {
         const branchCQuestions = getQuestionsForBranch("C");
-        const cloudDeploymentQuestion = branchCQuestions.find(
-          (q) => q.name === "useCopilotCloud",
-        );
+        const cloudDeploymentQuestion = branchCQuestions.find((q) => q.name === "useCopilotCloud");
 
         expect(cloudDeploymentQuestion).toBeDefined();
         expect(cloudDeploymentQuestion?.when).toBeDefined();
@@ -450,8 +401,7 @@ describe("Init Command - Comprehensive Tests", () => {
           langGraphAgent: "Python Starter" as const,
         };
 
-        const shouldShowForNewAgent =
-          cloudDeploymentQuestion?.when?.(mockAnswersNewAgent);
+        const shouldShowForNewAgent = cloudDeploymentQuestion?.when?.(mockAnswersNewAgent);
         expect(shouldShowForNewAgent).toBe(true);
 
         // Test the when condition for LangGraph with existing agent (alreadyDeployed: 'Yes', platform: 'Yes')
@@ -462,9 +412,7 @@ describe("Init Command - Comprehensive Tests", () => {
           langGraphPlatformUrl: "https://example.com",
         };
 
-        const shouldShowForExistingAgent = cloudDeploymentQuestion?.when?.(
-          mockAnswersExistingAgent,
-        );
+        const shouldShowForExistingAgent = cloudDeploymentQuestion?.when?.(mockAnswersExistingAgent);
         expect(shouldShowForExistingAgent).toBe(true);
       });
     });
@@ -478,10 +426,7 @@ describe("Init Command - Comprehensive Tests", () => {
         // Extract base question names (excluding branch-specific ones)
         const getBaseQuestionNames = (questions: typeof branchAQuestions) => {
           return questions
-            .filter(
-              (q) =>
-                q.name !== "useCopilotCloud" && q.name !== "deploymentChoice",
-            )
+            .filter((q) => q.name !== "useCopilotCloud" && q.name !== "deploymentChoice")
             .map((q) => q.name)
             .sort();
         };
@@ -508,9 +453,7 @@ describe("Init Command - Comprehensive Tests", () => {
         };
 
         // Branch A logic: no deployment fields means cloud
-        const branchANeedsCloud =
-          !("deploymentChoice" in branchAConfig) &&
-          !("useCopilotCloud" in branchAConfig);
+        const branchANeedsCloud = !("deploymentChoice" in branchAConfig) && !("useCopilotCloud" in branchAConfig);
         expect(branchANeedsCloud).toBe(true); // Branch A default
 
         // Branch B: Based on deployment choice
@@ -522,12 +465,8 @@ describe("Init Command - Comprehensive Tests", () => {
           mode: "Standard" as const,
           deploymentChoice: "Self-hosted" as const,
         };
-        expect(branchBCloudConfig.deploymentChoice === "Copilot Cloud").toBe(
-          true,
-        );
-        expect(branchBSelfHostedConfig.deploymentChoice === "Self-hosted").toBe(
-          true,
-        );
+        expect(branchBCloudConfig.deploymentChoice === "Copilot Cloud").toBe(true);
+        expect(branchBSelfHostedConfig.deploymentChoice === "Self-hosted").toBe(true);
 
         // Branch C: Based on useCopilotCloud
         const branchCCloudConfig = {
@@ -600,9 +539,7 @@ describe("Init Command - Comprehensive Tests", () => {
           getCopilotCloudPublicApiKey: jest.fn() as jest.MockedFunction<any>,
         };
 
-        mockTRPCClient.listOrgProjects.mockResolvedValue([
-          { id: "proj_123", name: "Test Project" },
-        ]);
+        mockTRPCClient.listOrgProjects.mockResolvedValue([{ id: "proj_123", name: "Test Project" }]);
         mockTRPCClient.getCopilotCloudPublicApiKey.mockResolvedValue({
           key: "pk_test_retrieved_key",
         });
@@ -613,13 +550,11 @@ describe("Init Command - Comprehensive Tests", () => {
         expect(mockTRPCClient.getCopilotCloudPublicApiKey).toBeDefined();
 
         // Test successful flow
-        expect(mockAuthService.requireLogin("cloud-features")).resolves.toEqual(
-          {
-            cliToken: "test_cli_token",
-            organization: { id: "org_123", name: "Test Org" },
-            user: { id: "user_456", email: "test@example.com" },
-          },
-        );
+        expect(mockAuthService.requireLogin("cloud-features")).resolves.toEqual({
+          cliToken: "test_cli_token",
+          organization: { id: "org_123", name: "Test Org" },
+          user: { id: "user_456", email: "test@example.com" },
+        });
       });
     });
   });
@@ -653,9 +588,7 @@ describe("Init Command - Comprehensive Tests", () => {
         getCopilotCloudPublicApiKey: jest.fn() as jest.MockedFunction<any>,
       };
 
-      mockTRPC.listOrgProjects.mockResolvedValue([
-        { id: "proj_a", name: "Test Project A" },
-      ]);
+      mockTRPC.listOrgProjects.mockResolvedValue([{ id: "proj_a", name: "Test Project A" }]);
       mockTRPC.getCopilotCloudPublicApiKey.mockResolvedValue({
         key: "pk_test_branch_a_automatic",
       });
@@ -665,12 +598,8 @@ describe("Init Command - Comprehensive Tests", () => {
 
       // Should only have base questions
       expect(branchAQuestions.some((q) => q.name === "mode")).toBe(true);
-      expect(branchAQuestions.some((q) => q.name === "deploymentChoice")).toBe(
-        false,
-      );
-      expect(branchAQuestions.some((q) => q.name === "useCopilotCloud")).toBe(
-        false,
-      );
+      expect(branchAQuestions.some((q) => q.name === "deploymentChoice")).toBe(false);
+      expect(branchAQuestions.some((q) => q.name === "useCopilotCloud")).toBe(false);
 
       // Simulate answering base questions
       const branchAConfig = {
@@ -681,14 +610,10 @@ describe("Init Command - Comprehensive Tests", () => {
       // Validate config
       const validatedConfig = ConfigSchema.parse(branchAConfig);
       expect(validatedConfig.mode).toBe("Standard");
-      expect(validatedConfig.copilotCloudPublicApiKey).toBe(
-        "pk_test_branch_a_automatic",
-      );
+      expect(validatedConfig.copilotCloudPublicApiKey).toBe("pk_test_branch_a_automatic");
 
       // Should determine cloud deployment automatically
-      const needsCloud =
-        !("deploymentChoice" in validatedConfig) &&
-        !("useCopilotCloud" in validatedConfig);
+      const needsCloud = !("deploymentChoice" in validatedConfig) && !("useCopilotCloud" in validatedConfig);
       expect(needsCloud).toBe(true); // Branch A always needs cloud
 
       // Verify mocks would be called correctly
@@ -711,12 +636,8 @@ describe("Init Command - Comprehensive Tests", () => {
 
       // Should have base questions + deployment choice
       expect(branchBQuestions.some((q) => q.name === "mode")).toBe(true);
-      expect(branchBQuestions.some((q) => q.name === "deploymentChoice")).toBe(
-        true,
-      );
-      expect(branchBQuestions.some((q) => q.name === "useCopilotCloud")).toBe(
-        false,
-      );
+      expect(branchBQuestions.some((q) => q.name === "deploymentChoice")).toBe(true);
+      expect(branchBQuestions.some((q) => q.name === "useCopilotCloud")).toBe(false);
 
       // Test both deployment choices
       const branchBCloudConfig = {
@@ -734,9 +655,7 @@ describe("Init Command - Comprehensive Tests", () => {
 
       // Validate both configs
       const validatedCloudConfig = ConfigSchema.parse(branchBCloudConfig);
-      const validatedSelfHostedConfig = ConfigSchema.parse(
-        branchBSelfHostedConfig,
-      );
+      const validatedSelfHostedConfig = ConfigSchema.parse(branchBSelfHostedConfig);
 
       expect(validatedCloudConfig.deploymentChoice).toBe("Copilot Cloud");
       expect(validatedSelfHostedConfig.deploymentChoice).toBe("Self-hosted");
@@ -746,13 +665,8 @@ describe("Init Command - Comprehensive Tests", () => {
       expect(validatedSelfHostedConfig.copilotCloudPublicApiKey).toBeDefined();
 
       // Verify deployment choice question
-      const deploymentQuestion = branchBQuestions.find(
-        (q) => q.name === "deploymentChoice",
-      );
-      expect(deploymentQuestion?.choices).toEqual([
-        "Copilot Cloud",
-        "Self-hosted",
-      ]);
+      const deploymentQuestion = branchBQuestions.find((q) => q.name === "deploymentChoice");
+      expect(deploymentQuestion?.choices).toEqual(["Copilot Cloud", "Self-hosted"]);
     });
 
     test("should handle complete Branch C flow (current flow)", async () => {
@@ -769,12 +683,8 @@ describe("Init Command - Comprehensive Tests", () => {
 
       // Should have base questions + cloud deployment
       expect(branchCQuestions.some((q) => q.name === "mode")).toBe(true);
-      expect(branchCQuestions.some((q) => q.name === "useCopilotCloud")).toBe(
-        true,
-      );
-      expect(branchCQuestions.some((q) => q.name === "deploymentChoice")).toBe(
-        false,
-      );
+      expect(branchCQuestions.some((q) => q.name === "useCopilotCloud")).toBe(true);
+      expect(branchCQuestions.some((q) => q.name === "deploymentChoice")).toBe(false);
 
       // Test both cloud deployment choices
       const branchCCloudConfig = {
@@ -791,23 +701,17 @@ describe("Init Command - Comprehensive Tests", () => {
 
       // Validate both configs
       const validatedCloudConfig = ConfigSchema.parse(branchCCloudConfig);
-      const validatedSelfHostedConfig = ConfigSchema.parse(
-        branchCSelfHostedConfig,
-      );
+      const validatedSelfHostedConfig = ConfigSchema.parse(branchCSelfHostedConfig);
 
       expect(validatedCloudConfig.useCopilotCloud).toBe("Yes");
       expect(validatedSelfHostedConfig.useCopilotCloud).toBe("No");
 
       // Cloud should have API key, self-hosted should not
       expect(validatedCloudConfig.copilotCloudPublicApiKey).toBeDefined();
-      expect(
-        validatedSelfHostedConfig.copilotCloudPublicApiKey,
-      ).toBeUndefined();
+      expect(validatedSelfHostedConfig.copilotCloudPublicApiKey).toBeUndefined();
 
       // Verify cloud deployment question
-      const cloudQuestion = branchCQuestions.find(
-        (q) => q.name === "useCopilotCloud",
-      );
+      const cloudQuestion = branchCQuestions.find((q) => q.name === "useCopilotCloud");
       expect(cloudQuestion?.message).toContain("Deploy with Copilot Cloud?");
     });
 
@@ -839,9 +743,7 @@ describe("Init Command - Comprehensive Tests", () => {
 
       // All should return Branch C questions (same as default)
       const defaultQuestions = getQuestionsForBranch("C");
-      expect(defaultQuestions.some((q) => q.name === "useCopilotCloud")).toBe(
-        true,
-      );
+      expect(defaultQuestions.some((q) => q.name === "useCopilotCloud")).toBe(true);
       expect(defaultQuestions.some((q) => q.name === "mode")).toBe(true);
     });
 
@@ -883,9 +785,7 @@ describe("Init Command - Comprehensive Tests", () => {
       };
 
       const validatedConfig = ConfigSchema.parse(configWithRetrievedKey);
-      expect(validatedConfig.copilotCloudPublicApiKey).toBe(
-        "pk_test_retrieved_successfully",
-      );
+      expect(validatedConfig.copilotCloudPublicApiKey).toBe("pk_test_retrieved_successfully");
     });
   });
 
@@ -897,9 +797,7 @@ describe("Init Command - Comprehensive Tests", () => {
       const nonCrewAIAnswers = { mode: "Standard" as const };
       expect(crewTypeQuestion!.when!(nonCrewAIAnswers)).toBe(false);
 
-      const langGraphAgentQuestion = questions.find(
-        (q) => q.name === "langGraphAgent",
-      );
+      const langGraphAgentQuestion = questions.find((q) => q.name === "langGraphAgent");
       const deployedAnswers = {
         mode: "LangGraph" as const,
         alreadyDeployed: "Yes" as const,
@@ -943,9 +841,7 @@ describe("Init Command - Comprehensive Tests", () => {
       const validatedConfig = ConfigSchema.parse(config);
       expect(validatedConfig.mode).toBe("Standard");
 
-      const needsCloud =
-        validatedConfig.useCopilotCloud === "Yes" ||
-        validatedConfig.mode === "CrewAI";
+      const needsCloud = validatedConfig.useCopilotCloud === "Yes" || validatedConfig.mode === "CrewAI";
       expect(needsCloud).toBe(true);
     });
 
@@ -988,9 +884,7 @@ describe("Init Command - Comprehensive Tests", () => {
       expect(validatedConfig.mode).toBe("MCP");
       expect(validatedConfig.useCopilotCloud).toBe("No");
 
-      const needsCloud =
-        validatedConfig.useCopilotCloud === "Yes" ||
-        validatedConfig.mode === "CrewAI";
+      const needsCloud = validatedConfig.useCopilotCloud === "Yes" || validatedConfig.mode === "CrewAI";
       expect(needsCloud).toBe(false);
     });
 
@@ -1010,8 +904,7 @@ describe("Init Command - Comprehensive Tests", () => {
       const needsCloud = validatedConfig.mode === "CrewAI";
       expect(needsCloud).toBe(true);
 
-      const endpointType =
-        validatedConfig.crewType === "Flows" ? "CrewAIFlows" : "CrewAI";
+      const endpointType = validatedConfig.crewType === "Flows" ? "CrewAIFlows" : "CrewAI";
       expect(endpointType).toBe("CrewAI");
     });
 
@@ -1031,8 +924,7 @@ describe("Init Command - Comprehensive Tests", () => {
       const needsCloud = validatedConfig.mode === "CrewAI";
       expect(needsCloud).toBe(true);
 
-      const endpointType =
-        validatedConfig.crewType === "Flows" ? "CrewAIFlows" : "CrewAI";
+      const endpointType = validatedConfig.crewType === "Flows" ? "CrewAIFlows" : "CrewAI";
       expect(endpointType).toBe("CrewAIFlows");
     });
   });

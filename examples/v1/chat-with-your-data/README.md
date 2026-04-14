@@ -97,14 +97,10 @@ This provides the chat context to all of the children components.
 <em>[app/layout.tsx](./app/layout.tsx)</em>
 
 ```tsx
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <CopilotKit runtimeUrl="/api/copilotkit">{children}</CopilotKit>
       </body>
     </html>
@@ -120,8 +116,7 @@ This makes your dashboard data available to the AI, allowing it to understand an
 
 ```tsx
 useCopilotReadable({
-  description:
-    "Dashboard data including sales trends, product performance, and category distribution",
+  description: "Dashboard data including sales trends, product performance, and category distribution",
   value: {
     salesData,
     productData,
@@ -191,12 +186,7 @@ useCopilotAction({
     },
   ],
   render: ({ args, status }) => {
-    return (
-      <SearchResults
-        query={args.query || "No query provided"}
-        status={status}
-      />
-    );
+    return <SearchResults query={args.query || "No query provided"} status={status} />;
   },
 });
 ```
@@ -213,8 +203,7 @@ The CopilotSidebar component provides a chat interface for users to interact wit
   AssistantMessage={CustomAssistantMessage}
   labels={{
     title: "Data Assistant",
-    initial:
-      "Hello, I'm here to help you understand your data. How can I help?",
+    initial: "Hello, I'm here to help you understand your data. How can I help?",
     placeholder: "Ask about sales, trends, or metrics...",
   }}
 />

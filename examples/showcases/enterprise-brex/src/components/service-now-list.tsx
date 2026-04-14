@@ -16,9 +16,7 @@ interface ServiceNowListProps {
 }
 
 export function ServiceNowList({ items, title }: ServiceNowListProps) {
-  const [expandedItems, setExpandedItems] = React.useState<Set<string>>(
-    new Set(),
-  );
+  const [expandedItems, setExpandedItems] = React.useState<Set<string>>(new Set());
 
   const toggleItem = (number: string) => {
     const newExpandedItems = new Set(expandedItems);
@@ -54,16 +52,10 @@ export function ServiceNowList({ items, title }: ServiceNowListProps) {
             </Button>
             {expandedItems.has(item.number) && (
               <div className="px-4 py-2 bg-gray-50">
-                <p className="text-sm text-gray-600">
-                  {item.short_description}
-                </p>
+                <p className="text-sm text-gray-600">{item.short_description}</p>
                 <div className="flex justify-between content-center">
-                  <p className="text-xs text-gray-400 mt-1">
-                    Created: {item.sys_created_on}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    State: {item.state}
-                  </p>
+                  <p className="text-xs text-gray-400 mt-1">Created: {item.sys_created_on}</p>
+                  <p className="text-xs text-gray-400 mt-1">State: {item.state}</p>
                 </div>
               </div>
             )}

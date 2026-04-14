@@ -95,10 +95,7 @@ export async function* convertAISDKStream(
           // Use SDK-provided id, or generate a fresh UUID if id is falsy/"0"
           // to prevent consecutive reasoning blocks from sharing a messageId
           const providedId = "id" in p ? p.id : undefined;
-          reasoningMessageId =
-            providedId && providedId !== "0"
-              ? (providedId as string)
-              : randomUUID();
+          reasoningMessageId = providedId && providedId !== "0" ? (providedId as string) : randomUUID();
           const reasoningStartEvent: ReasoningStartEvent = {
             type: EventType.REASONING_START,
             messageId: reasoningMessageId,
@@ -171,10 +168,7 @@ export async function* convertAISDKStream(
           // New text message starting - use the SDK-provided id
           // Use randomUUID() if part.id is falsy or "0" to prevent message merging issues
           const providedId = "id" in p ? p.id : undefined;
-          messageId =
-            providedId && providedId !== "0"
-              ? (providedId as string)
-              : randomUUID();
+          messageId = providedId && providedId !== "0" ? (providedId as string) : randomUUID();
           break;
         }
 
@@ -243,17 +237,12 @@ export async function* convertAISDKStream(
 
         case "tool-result": {
           // AI SDK tool-result uses "output"; older versions used "result" — check both
-          const toolResult =
-            "output" in p ? p.output : "result" in p ? p.result : null;
+          const toolResult = "output" in p ? p.output : "result" in p ? p.result : null;
           const toolName = "toolName" in p ? (p.toolName as string) : "";
           toolCallStates.delete(p.toolCallId as string);
 
           // Check if this is a state update tool
-          if (
-            toolName === "AGUISendStateSnapshot" &&
-            toolResult &&
-            typeof toolResult === "object"
-          ) {
+          if (toolName === "AGUISendStateSnapshot" && toolResult && typeof toolResult === "object") {
             const snapshot = (toolResult as Record<string, unknown>).snapshot;
             if (snapshot !== undefined) {
               const stateSnapshotEvent: StateSnapshotEvent = {
@@ -262,11 +251,7 @@ export async function* convertAISDKStream(
               };
               yield stateSnapshotEvent;
             }
-          } else if (
-            toolName === "AGUISendStateDelta" &&
-            toolResult &&
-            typeof toolResult === "object"
-          ) {
+          } else if (toolName === "AGUISendStateDelta" && toolResult && typeof toolResult === "object") {
             const delta = (toolResult as Record<string, unknown>).delta;
             if (delta !== undefined) {
               const stateDeltaEvent: StateDeltaEvent = {
@@ -307,11 +292,7 @@ export async function* convertAISDKStream(
           // Re-throw so the caller can emit RUN_ERROR
           const err = p.error ?? p.message ?? p.cause;
           if (err instanceof Error) throw err;
-          throw new Error(
-            typeof err === "string"
-              ? err
-              : `AI SDK stream error: ${JSON.stringify(p)}`,
-          );
+          throw new Error(typeof err === "string" ? err : `AI SDK stream error: ${JSON.stringify(p)}`);
         }
 
         default:

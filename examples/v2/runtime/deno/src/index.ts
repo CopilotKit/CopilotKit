@@ -1,8 +1,4 @@
-import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
-  BuiltInAgent,
-} from "@copilotkit/runtime/v2";
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -18,6 +14,4 @@ const handler = createCopilotRuntimeHandler({
 
 const port = Number(Deno.env.get("PORT") ?? "4005");
 Deno.serve({ port }, handler);
-console.log(
-  `Deno runtime listening on http://localhost:${port}/api/copilotkit`,
-);
+console.log(`Deno runtime listening on http://localhost:${port}/api/copilotkit`);

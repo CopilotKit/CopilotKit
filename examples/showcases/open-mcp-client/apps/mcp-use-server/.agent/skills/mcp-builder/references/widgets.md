@@ -55,9 +55,7 @@ export default function WeatherDisplay() {
   if (isPending) {
     return (
       <McpUseProvider autoSize>
-        <div style={{ padding: 16, textAlign: "center" }}>
-          Loading weather...
-        </div>
+        <div style={{ padding: 16, textAlign: "center" }}>Loading weather...</div>
       </McpUseProvider>
     );
   }
@@ -68,9 +66,7 @@ export default function WeatherDisplay() {
         <h2 style={{ margin: 0, fontSize: 24 }}>{props.city}</h2>
         <div style={{ fontSize: 48, fontWeight: "bold" }}>{props.temp}°C</div>
         <p style={{ color: "#666" }}>{props.conditions}</p>
-        <p style={{ color: "#999", fontSize: 14 }}>
-          Humidity: {props.humidity}%
-        </p>
+        <p style={{ color: "#999", fontSize: 14 }}>Humidity: {props.humidity}%</p>
       </div>
     </McpUseProvider>
   );
@@ -179,10 +175,7 @@ Control what the AI model sees when the auto-registered tool is called:
 export const widgetMetadata: WidgetMetadata = {
   description: "Recipe card",
   props: z.object({ name: z.string(), ingredients: z.array(z.string()) }),
-  toolOutput: (params) =>
-    text(
-      `Showing recipe: ${params.name} (${params.ingredients.length} ingredients)`,
-    ),
+  toolOutput: (params) => text(`Showing recipe: ${params.name} (${params.ingredients.length} ingredients)`),
 };
 ```
 
@@ -266,11 +259,7 @@ const handleRefresh = async () => {
 ```tsx
 const { sendFollowUpMessage } = useWidget();
 
-<button
-  onClick={() => sendFollowUpMessage("Compare the weather in these cities")}
->
-  Ask AI to Compare
-</button>;
+<button onClick={() => sendFollowUpMessage("Compare the weather in these cities")}>Ask AI to Compare</button>;
 ```
 
 ### Persistent State
@@ -493,8 +482,7 @@ export default function RecipeList() {
               >
                 <h3 style={{ margin: "0 0 4px" }}>{recipe.name}</h3>
                 <p style={{ margin: 0, color: "#666", fontSize: 14 }}>
-                  {recipe.cuisine} · {recipe.time} min ·{" "}
-                  {recipe.ingredients.join(", ")}
+                  {recipe.cuisine} · {recipe.time} min · {recipe.ingredients.join(", ")}
                 </p>
               </div>
             ))}

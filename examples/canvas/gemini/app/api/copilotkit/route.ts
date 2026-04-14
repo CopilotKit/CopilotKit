@@ -12,9 +12,7 @@ const serviceAdapter = new GoogleGenerativeAIAdapter();
 const runtime = new CopilotRuntime({
   remoteEndpoints: [
     {
-      url:
-        process.env.NEXT_PUBLIC_LANGGRAPH_URL ||
-        "http://localhost:8000/copilotkit",
+      url: process.env.NEXT_PUBLIC_LANGGRAPH_URL || "http://localhost:8000/copilotkit",
     },
   ],
 });

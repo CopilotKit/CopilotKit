@@ -31,66 +31,45 @@ export const TextFieldApiDef = {
   schema: TextFieldSchema,
 };
 
-export const TextField = createReactComponent(
-  TextFieldApiDef,
-  ({ props, context }) => {
-    const onChange = (
-      e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-    ) => {
-      if (props.setValue) {
-        props.setValue(e.target.value);
-      }
-    };
+export const TextField = createReactComponent(TextFieldApiDef, ({ props, context }) => {
+  const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (props.setValue) {
+      props.setValue(e.target.value);
+    }
+  };
 
-    const isLong = props.variant === "longText";
-    const type =
-      props.variant === "number"
-        ? "number"
-        : props.variant === "obscured"
-          ? "password"
-          : "text";
+  const isLong = props.variant === "longText";
+  const type = props.variant === "number" ? "number" : props.variant === "obscured" ? "password" : "text";
 
-    const style: React.CSSProperties = {
-      padding: "8px",
-      width: "100%",
-      border: "1px solid #ccc",
-      borderRadius: "4px",
-      boxSizing: "border-box",
-    };
+  const style: React.CSSProperties = {
+    padding: "8px",
+    width: "100%",
+    border: "1px solid #ccc",
+    borderRadius: "4px",
+    boxSizing: "border-box",
+  };
 
-    const id = `textfield-${context.componentModel.id}`;
+  const id = `textfield-${context.componentModel.id}`;
 
-    return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "4px",
-          width: "100%",
-        }}
-      >
-        {props.label && (
-          <label htmlFor={id} style={{ fontSize: "14px", fontWeight: "bold" }}>
-            {props.label}
-          </label>
-        )}
-        {isLong ? (
-          <textarea
-            id={id}
-            style={style}
-            value={props.value || ""}
-            onChange={onChange}
-          />
-        ) : (
-          <input
-            id={id}
-            type={type}
-            style={style}
-            value={props.value || ""}
-            onChange={onChange}
-          />
-        )}
-      </div>
-    );
-  },
-);
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px",
+        width: "100%",
+      }}
+    >
+      {props.label && (
+        <label htmlFor={id} style={{ fontSize: "14px", fontWeight: "bold" }}>
+          {props.label}
+        </label>
+      )}
+      {isLong ? (
+        <textarea id={id} style={style} value={props.value || ""} onChange={onChange} />
+      ) : (
+        <input id={id} type={type} style={style} value={props.value || ""} onChange={onChange} />
+      )}
+    </div>
+  );
+});

@@ -48,12 +48,9 @@ const getWeatherIcon = (condition: string): string => {
  */
 const getConditionStyle = (condition: string) => {
   const cond = condition.toLowerCase();
-  if (cond.includes("sun") || cond.includes("clear"))
-    return "bg-[#FFF388]/20 border-[#FFF388] text-[#010507]";
-  if (cond.includes("cloud"))
-    return "bg-[#C9C9DA]/20 border-[#C9C9DA] text-[#010507]";
-  if (cond.includes("rain") || cond.includes("storm"))
-    return "bg-[#BEC2FF]/20 border-[#BEC2FF] text-[#010507]";
+  if (cond.includes("sun") || cond.includes("clear")) return "bg-[#FFF388]/20 border-[#FFF388] text-[#010507]";
+  if (cond.includes("cloud")) return "bg-[#C9C9DA]/20 border-[#C9C9DA] text-[#010507]";
+  if (cond.includes("rain") || cond.includes("storm")) return "bg-[#BEC2FF]/20 border-[#BEC2FF] text-[#010507]";
   return "bg-[#85E0CE]/20 border-[#85E0CE] text-[#010507]";
 };
 
@@ -64,13 +61,9 @@ export const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
       <div className="mb-3">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-xl">🌤️</span>
-          <h2 className="text-xl font-semibold text-[#010507]">
-            {data.destination} Weather
-          </h2>
+          <h2 className="text-xl font-semibold text-[#010507]">{data.destination} Weather</h2>
         </div>
-        <p className="text-[#57575B] text-xs">
-          {data.forecast.length}-day forecast
-        </p>
+        <p className="text-[#57575B] text-xs">{data.forecast.length}-day forecast</p>
       </div>
 
       {/* Forecast Days */}
@@ -81,9 +74,7 @@ export const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
             <div
               key={index}
               className={`bg-white/80 backdrop-blur-sm rounded-lg p-2 shadow-elevation-sm border ${
-                isBestDay
-                  ? "border-[#85E0CE] ring-2 ring-[#85E0CE]/30"
-                  : "border-[#E9E9EF]"
+                isBestDay ? "border-[#85E0CE] ring-2 ring-[#85E0CE]/30" : "border-[#E9E9EF]"
               } relative`}
             >
               {/* Best Day Badge */}
@@ -99,9 +90,7 @@ export const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
                   <div className="flex items-center justify-center w-6 h-6 rounded-full bg-[#BEC2FF] text-white font-bold text-[10px]">
                     {day.day}
                   </div>
-                  <span className="text-[10px] font-semibold text-[#57575B]">
-                    {day.date}
-                  </span>
+                  <span className="text-[10px] font-semibold text-[#57575B]">{day.date}</span>
                 </div>
                 <span className="text-xl">{getWeatherIcon(day.condition)}</span>
               </div>
@@ -117,9 +106,7 @@ export const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
 
               {/* Temperature */}
               <div className="flex items-center justify-center gap-2 mb-1">
-                <span className="text-lg font-bold text-[#010507]">
-                  {day.highTemp}°
-                </span>
+                <span className="text-lg font-bold text-[#010507]">{day.highTemp}°</span>
                 <span className="text-xs text-[#838389]">{day.lowTemp}°</span>
               </div>
 
@@ -129,17 +116,13 @@ export const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
                   <span>💧 {day.precipitation}%</span>
                   <span>💨 {day.windSpeed}mph</span>
                 </div>
-                <div className="text-[9px] text-[#57575B] text-center">
-                  Humidity {day.humidity}%
-                </div>
+                <div className="text-[9px] text-[#57575B] text-center">Humidity {day.humidity}%</div>
               </div>
 
               {/* Description */}
               {day.description && (
                 <div className="mt-1 pt-1 border-t border-[#E9E9EF]">
-                  <p className="text-[9px] text-[#57575B] line-clamp-2">
-                    {day.description}
-                  </p>
+                  <p className="text-[9px] text-[#57575B] line-clamp-2">{day.description}</p>
                 </div>
               )}
             </div>
@@ -152,13 +135,9 @@ export const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
         <div className="bg-white/80 backdrop-blur-sm rounded-lg p-3 border border-[#DBDBE5] shadow-elevation-sm">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-sm">💼</span>
-            <h3 className="text-sm font-semibold text-[#010507]">
-              Travel Advice
-            </h3>
+            <h3 className="text-sm font-semibold text-[#010507]">Travel Advice</h3>
           </div>
-          <p className="text-xs text-[#57575B] leading-relaxed">
-            {data.travelAdvice}
-          </p>
+          <p className="text-xs text-[#57575B] leading-relaxed">{data.travelAdvice}</p>
         </div>
       )}
 
@@ -168,8 +147,7 @@ export const WeatherCard: React.FC<WeatherCardProps> = ({ data }) => {
           <div className="flex items-center gap-1">
             <span className="text-xs">✨</span>
             <span className="text-xs font-semibold text-[#010507]">
-              Best days for outdoor activities: Day{" "}
-              {data.bestDays.join(", Day ")}
+              Best days for outdoor activities: Day {data.bestDays.join(", Day ")}
             </span>
           </div>
         </div>

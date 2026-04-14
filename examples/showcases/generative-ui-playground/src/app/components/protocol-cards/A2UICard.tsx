@@ -23,14 +23,7 @@ export function A2UICard({ isActive, onPromptClick }: A2UICardProps) {
   return (
     <div className={`protocol-card ${isActive ? "active" : ""}`}>
       <div className="protocol-card-icon a2ui">
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="10" />
           <path d="M12 6v6l4 2" />
         </svg>
@@ -41,11 +34,7 @@ export function A2UICard({ isActive, onPromptClick }: A2UICardProps) {
       </p>
       <div className="flex flex-wrap gap-2">
         {Object.entries(PROMPTS).map(([label, prompt]) => (
-          <button
-            key={label}
-            className="prompt-pill text-xs"
-            onClick={() => onPromptClick?.(prompt)}
-          >
+          <button key={label} className="prompt-pill text-xs" onClick={() => onPromptClick?.(prompt)}>
             {label}
           </button>
         ))}

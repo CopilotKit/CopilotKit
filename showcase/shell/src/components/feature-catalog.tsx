@@ -2,11 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import {
-  type Feature,
-  type FeatureCategory,
-  type Integration,
-} from "@/lib/registry";
+import { type Feature, type FeatureCategory, type Integration } from "@/lib/registry";
 
 interface FeatureCatalogProps {
   features: Feature[];
@@ -19,15 +15,8 @@ interface FeatureWithIntegrations {
   integrations: Integration[];
 }
 
-export function FeatureCatalog({
-  features,
-  categories,
-  integrations,
-}: FeatureCatalogProps) {
-  const deployed = useMemo(
-    () => integrations.filter((i) => i.deployed),
-    [integrations],
-  );
+export function FeatureCatalog({ features, categories, integrations }: FeatureCatalogProps) {
+  const deployed = useMemo(() => integrations.filter((i) => i.deployed), [integrations]);
 
   // Group features by category, attaching which deployed integrations support each
   const groupedFeatures = useMemo(() => {
@@ -37,15 +26,11 @@ export function FeatureCatalog({
     }[] = [];
 
     for (const category of categories) {
-      const categoryFeatures = features.filter(
-        (f) => f.category === category.id,
-      );
+      const categoryFeatures = features.filter((f) => f.category === category.id);
       const items: FeatureWithIntegrations[] = [];
 
       for (const feature of categoryFeatures) {
-        const supporting = deployed.filter((i) =>
-          i.features.includes(feature.id),
-        );
+        const supporting = deployed.filter((i) => i.features.includes(feature.id));
         items.push({ feature, integrations: supporting });
       }
 
@@ -60,9 +45,7 @@ export function FeatureCatalog({
 
   if (groupedFeatures.length === 0) {
     return (
-      <div className="text-center py-16 text-[var(--text-muted)] text-sm">
-        No features with live integrations yet.
-      </div>
+      <div className="text-center py-16 text-[var(--text-muted)] text-sm">No features with live integrations yet.</div>
     );
   }
 
@@ -75,11 +58,7 @@ export function FeatureCatalog({
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {items.map(({ feature, integrations: supporting }) => (
-              <FeatureCard
-                key={feature.id}
-                feature={feature}
-                integrations={supporting}
-              />
+              <FeatureCard key={feature.id} feature={feature} integrations={supporting} />
             ))}
           </div>
         </section>
@@ -88,13 +67,7 @@ export function FeatureCatalog({
   );
 }
 
-function FeatureCard({
-  feature,
-  integrations,
-}: {
-  feature: Feature;
-  integrations: Integration[];
-}) {
+function FeatureCard({ feature, integrations }: { feature: Feature; integrations: Integration[] }) {
   const hasIntegrations = integrations.length > 0;
 
   return (
@@ -106,9 +79,7 @@ function FeatureCard({
       }`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
-        <h4 className="text-sm font-semibold text-[var(--text)]">
-          {feature.name}
-        </h4>
+        <h4 className="text-sm font-semibold text-[var(--text)]">{feature.name}</h4>
         {hasIntegrations && (
           <Link
             href={`/integrations?feature=${feature.id}`}
@@ -118,9 +89,7 @@ function FeatureCard({
           </Link>
         )}
       </div>
-      <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed mb-3">
-        {feature.description}
-      </p>
+      <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed mb-3">{feature.description}</p>
       {hasIntegrations ? (
         <div className="flex flex-wrap gap-1.5">
           {integrations.map((i) => (
@@ -144,9 +113,7 @@ function FeatureCard({
           ))}
         </div>
       ) : (
-        <span className="text-[10px] text-[var(--text-faint)] italic">
-          Coming soon
-        </span>
+        <span className="text-[10px] text-[var(--text-faint)] italic">Coming soon</span>
       )}
     </div>
   );

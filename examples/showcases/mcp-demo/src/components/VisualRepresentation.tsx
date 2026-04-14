@@ -33,12 +33,8 @@ const VisualRepresentation = () => {
           id: item.id.toString(),
           data: item,
           position: {
-            x:
-              nodes.find((node) => node.id.toString() === item.id.toString())
-                ?.position.x || 0 * 100,
-            y:
-              nodes.find((node) => node.id.toString() === item.id.toString())
-                ?.position.y || 0 * 100,
+            x: nodes.find((node) => node.id.toString() === item.id.toString())?.position.x || 0 * 100,
+            y: nodes.find((node) => node.id.toString() === item.id.toString())?.position.y || 0 * 100,
           },
           type: "ParentNode",
         },
@@ -50,15 +46,10 @@ const VisualRepresentation = () => {
             data: { ...item.subtasks[i], parentId: item.id.toString() },
             position: {
               x:
-                nodes.find(
-                  (node) =>
-                    node.id.toString() === item.subtasks[i].id.toString(),
-                )?.position.x || (i % 2 == 0 ? -100 : 100),
+                nodes.find((node) => node.id.toString() === item.subtasks[i].id.toString())?.position.x ||
+                (i % 2 == 0 ? -100 : 100),
               y:
-                nodes.find(
-                  (node) =>
-                    node.id.toString() === item.subtasks[i].id.toString(),
-                )?.position.y ||
+                nodes.find((node) => node.id.toString() === item.subtasks[i].id.toString())?.position.y ||
                 (i % 2 == 0 ? i * 100 + 100 : (i - 1) * 100 + 100),
             },
             type: "ChildNode",
@@ -105,15 +96,10 @@ const VisualRepresentation = () => {
   // This assumes we are showing progress for the *first* expanded todo
   // A more robust solution would need context on which task is "active"
   const activeTodo = useMemo(
-    () =>
-      todos.find((todo) => todo.expanded) ||
-      (todos.length > 0 ? todos[0] : null),
+    () => todos.find((todo) => todo.expanded) || (todos.length > 0 ? todos[0] : null),
     [todos],
   );
-  const totalSubtasks = useMemo(
-    () => activeTodo?.subtasks.length || 0,
-    [activeTodo],
-  );
+  const totalSubtasks = useMemo(() => activeTodo?.subtasks.length || 0, [activeTodo]);
   const completedSubtasks = useMemo(
     () => activeTodo?.subtasks.filter((sub) => sub.completed).length || 0,
     [activeTodo],
@@ -122,10 +108,7 @@ const VisualRepresentation = () => {
     () => (totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0),
     [completedSubtasks, totalSubtasks],
   );
-  const taskTitle = useMemo(
-    () => activeTodo?.text || "Task Overview",
-    [activeTodo],
-  );
+  const taskTitle = useMemo(() => activeTodo?.text || "Task Overview", [activeTodo]);
 
   return (
     // Wrap existing content in a flex column container
@@ -138,10 +121,7 @@ const VisualRepresentation = () => {
             {completedSubtasks} of {totalSubtasks} subtasks completed
           </span>
           <div className="w-[100px] h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-blue-500"
-              style={{ width: `${progressValue}%` }}
-            ></div>
+            <div className="h-full bg-blue-500" style={{ width: `${progressValue}%` }}></div>
           </div>
         </div>
       </div>

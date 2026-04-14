@@ -6,9 +6,7 @@ test.describe("Tool-Based Generative UI", () => {
   });
 
   test("page loads with sidebar open and dashboard", async ({ page }) => {
-    await expect(
-      page.locator('textarea, [placeholder*="message"]').first(),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('textarea, [placeholder*="message"]').first()).toBeVisible({ timeout: 10000 });
 
     await expect(page.getByText("Weather Dashboard")).toBeVisible();
   });

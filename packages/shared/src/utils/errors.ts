@@ -17,8 +17,7 @@ export enum ErrorVisibility {
 export const ERROR_NAMES = {
   COPILOT_ERROR: "CopilotError",
   COPILOT_API_DISCOVERY_ERROR: "CopilotApiDiscoveryError",
-  COPILOT_REMOTE_ENDPOINT_DISCOVERY_ERROR:
-    "CopilotKitRemoteEndpointDiscoveryError",
+  COPILOT_REMOTE_ENDPOINT_DISCOVERY_ERROR: "CopilotKitRemoteEndpointDiscoveryError",
   COPILOT_KIT_AGENT_DISCOVERY_ERROR: "CopilotKitAgentDiscoveryError",
   COPILOT_KIT_LOW_LEVEL_ERROR: "CopilotKitLowLevelError",
   COPILOT_KIT_VERSION_MISMATCH_ERROR: "CopilotKitVersionMismatchError",
@@ -154,10 +153,8 @@ export class CopilotKitError extends GraphQLError {
     const name = ERROR_NAMES.COPILOT_ERROR;
     const config = ERROR_CONFIG[code];
     const { statusCode } = config;
-    const resolvedVisibility =
-      visibility ?? config.visibility ?? ErrorVisibility.TOAST;
-    const resolvedSeverity =
-      severity ?? ("severity" in config ? config.severity : undefined);
+    const resolvedVisibility = visibility ?? config.visibility ?? ErrorVisibility.TOAST;
+    const resolvedSeverity = severity ?? ("severity" in config ? config.severity : undefined);
 
     super(message, {
       extensions: {
@@ -166,8 +163,7 @@ export class CopilotKitError extends GraphQLError {
         code,
         visibility: resolvedVisibility,
         severity: resolvedSeverity,
-        troubleshootingUrl:
-          "troubleshootingUrl" in config ? config.troubleshootingUrl : null,
+        troubleshootingUrl: "troubleshootingUrl" in config ? config.troubleshootingUrl : null,
         originalError: {
           message,
           stack: new Error().stack,
@@ -190,16 +186,9 @@ export class CopilotKitError extends GraphQLError {
  * @extends CopilotKitError
  */
 export class CopilotKitMisuseError extends CopilotKitError {
-  constructor({
-    message,
-    code = CopilotKitErrorCode.MISUSE,
-  }: {
-    message: string;
-    code?: CopilotKitErrorCode;
-  }) {
+  constructor({ message, code = CopilotKitErrorCode.MISUSE }: { message: string; code?: CopilotKitErrorCode }) {
     const docsLink =
-      "troubleshootingUrl" in ERROR_CONFIG[code] &&
-      ERROR_CONFIG[code].troubleshootingUrl
+      "troubleshootingUrl" in ERROR_CONFIG[code] && ERROR_CONFIG[code].troubleshootingUrl
         ? getSeeMoreMarkdown(ERROR_CONFIG[code].troubleshootingUrl as string)
         : null;
     const finalMessage = docsLink ? `${message}.\n\n${docsLink}` : message;
@@ -220,11 +209,7 @@ const getVersionMismatchErrorMessage = ({
  * @extends CopilotKitError
  */
 export class CopilotKitVersionMismatchError extends CopilotKitError {
-  constructor({
-    reactCoreVersion,
-    runtimeVersion,
-    runtimeClientGqlVersion,
-  }: VersionMismatchResponse) {
+  constructor({ reactCoreVersion, runtimeVersion, runtimeClientGqlVersion }: VersionMismatchResponse) {
     const code = CopilotKitErrorCode.VERSION_MISMATCH;
     super({
       message: getVersionMismatchErrorMessage({
@@ -251,22 +236,16 @@ export class CopilotKitApiDiscoveryError extends CopilotKitError {
   constructor(
     params: {
       message?: string;
-      code?:
-        | CopilotKitErrorCode.API_NOT_FOUND
-        | CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND;
+      code?: CopilotKitErrorCode.API_NOT_FOUND | CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND;
       url?: string;
     } = {},
   ) {
     const url = params.url ?? "";
     let operationSuffix = "";
-    if (url?.includes("/info"))
-      operationSuffix = `when fetching CopilotKit info`;
-    else if (url.includes("/actions/execute"))
-      operationSuffix = `when attempting to execute actions.`;
-    else if (url.includes("/agents/state"))
-      operationSuffix = `when attempting to get agent state.`;
-    else if (url.includes("/agents/execute"))
-      operationSuffix = `when attempting to execute agent(s).`;
+    if (url?.includes("/info")) operationSuffix = `when fetching CopilotKit info`;
+    else if (url.includes("/actions/execute")) operationSuffix = `when attempting to execute actions.`;
+    else if (url.includes("/agents/state")) operationSuffix = `when attempting to get agent state.`;
+    else if (url.includes("/agents/execute")) operationSuffix = `when attempting to execute agent(s).`;
     const message =
       params.message ??
       (params.url
@@ -310,10 +289,7 @@ export class CopilotKitRemoteEndpointDiscoveryError extends CopilotKitApiDiscove
  * @extends CopilotKitError
  */
 export class CopilotKitAgentDiscoveryError extends CopilotKitError {
-  constructor(params: {
-    agentName?: string;
-    availableAgents: { name: string; id: string }[];
-  }) {
+  constructor(params: { agentName?: string; availableAgents: { name: string; id: string }[] }) {
     const { agentName, availableAgents } = params;
     const code = CopilotKitErrorCode.AGENT_NOT_FOUND;
 
@@ -350,21 +326,12 @@ export class CopilotKitAgentDiscoveryError extends CopilotKitError {
  * - Protocol/transport layer errors like SSL/TLS issues
  */
 export class CopilotKitLowLevelError extends CopilotKitError {
-  constructor({
-    error,
-    url,
-    message,
-  }: {
-    error: Error;
-    url: string;
-    message?: string;
-  }) {
+  constructor({ error, url, message }: { error: Error; url: string; message?: string }) {
     let code = CopilotKitErrorCode.NETWORK_ERROR;
 
     // @ts-expect-error -- code may exist
     const errorCode = error.code as string;
-    const errorMessage =
-      message ?? resolveLowLevelErrorMessage({ errorCode, url });
+    const errorMessage = message ?? resolveLowLevelErrorMessage({ errorCode, url });
 
     super({ message: errorMessage, code });
 
@@ -470,10 +437,7 @@ export function isStructuredCopilotKitError(error: any): boolean {
  * @param converter - Function to convert unstructured errors to structured ones
  * @returns The structured error
  */
-export function ensureStructuredError<T extends CopilotKitError>(
-  error: any,
-  converter: (error: any) => T,
-): T | any {
+export function ensureStructuredError<T extends CopilotKitError>(error: any, converter: (error: any) => T): T | any {
   return isStructuredCopilotKitError(error) ? error : converter(error);
 }
 
@@ -490,8 +454,7 @@ export async function getPossibleVersionMismatch({
   runtimeVersion?: string;
   runtimeClientGqlVersion: string;
 }) {
-  if (!runtimeVersion || runtimeVersion === "" || !runtimeClientGqlVersion)
-    return;
+  if (!runtimeVersion || runtimeVersion === "" || !runtimeClientGqlVersion) return;
   if (
     COPILOTKIT_VERSION !== runtimeVersion ||
     COPILOTKIT_VERSION !== runtimeClientGqlVersion ||
@@ -512,18 +475,9 @@ export async function getPossibleVersionMismatch({
   return;
 }
 
-const resolveLowLevelErrorMessage = ({
-  errorCode,
-  url,
-}: {
-  errorCode?: string;
-  url: string;
-}) => {
-  const troubleshootingLink =
-    ERROR_CONFIG[CopilotKitErrorCode.NETWORK_ERROR].troubleshootingUrl;
-  const genericMessage = (
-    description = `Failed to fetch from url ${url}.`,
-  ) => `${description}.
+const resolveLowLevelErrorMessage = ({ errorCode, url }: { errorCode?: string; url: string }) => {
+  const troubleshootingLink = ERROR_CONFIG[CopilotKitErrorCode.NETWORK_ERROR].troubleshootingUrl;
+  const genericMessage = (description = `Failed to fetch from url ${url}.`) => `${description}.
 
 Possible reasons:
 - -The server may have an error preventing it from returning a response (Check the server logs for more info).
@@ -535,15 +489,10 @@ Possible reasons:
 ${getSeeMoreMarkdown(troubleshootingLink)}`;
 
   if (url.includes("/info"))
-    return genericMessage(
-      `Failed to fetch CopilotKit agents/action information from url ${url}.`,
-    );
-  if (url.includes("/actions/execute"))
-    return genericMessage(`Fetch call to ${url} to execute actions failed.`);
-  if (url.includes("/agents/state"))
-    return genericMessage(`Fetch call to ${url} to get agent state failed.`);
-  if (url.includes("/agents/execute"))
-    return genericMessage(`Fetch call to ${url} to execute agent(s) failed.`);
+    return genericMessage(`Failed to fetch CopilotKit agents/action information from url ${url}.`);
+  if (url.includes("/actions/execute")) return genericMessage(`Fetch call to ${url} to execute actions failed.`);
+  if (url.includes("/agents/state")) return genericMessage(`Fetch call to ${url} to get agent state failed.`);
+  if (url.includes("/agents/execute")) return genericMessage(`Fetch call to ${url} to execute agent(s) failed.`);
 
   switch (errorCode) {
     case "ECONNREFUSED":

@@ -21,18 +21,12 @@ describe("fetch-router", () => {
     });
 
     it("matches POST /agent/:agentId/connect", () => {
-      const result = matchRoute(
-        "/api/copilotkit/agent/myAgent/connect",
-        basePath,
-      );
+      const result = matchRoute("/api/copilotkit/agent/myAgent/connect", basePath);
       expect(result).toEqual({ method: "agent/connect", agentId: "myAgent" });
     });
 
     it("matches POST /agent/:agentId/stop/:threadId", () => {
-      const result = matchRoute(
-        "/api/copilotkit/agent/myAgent/stop/thread-123",
-        basePath,
-      );
+      const result = matchRoute("/api/copilotkit/agent/myAgent/stop/thread-123", basePath);
       expect(result).toEqual({
         method: "agent/stop",
         agentId: "myAgent",
@@ -69,10 +63,7 @@ describe("fetch-router", () => {
     });
 
     it("matches POST /threads/:threadId/archive", () => {
-      const result = matchRoute(
-        "/api/copilotkit/threads/thread-abc/archive",
-        basePath,
-      );
+      const result = matchRoute("/api/copilotkit/threads/thread-abc/archive", basePath);
       expect(result).toEqual({
         method: "threads/archive",
         threadId: "thread-abc",
@@ -80,10 +71,7 @@ describe("fetch-router", () => {
     });
 
     it("matches GET /threads/:threadId/messages", () => {
-      const result = matchRoute(
-        "/api/copilotkit/threads/thread-abc/messages",
-        basePath,
-      );
+      const result = matchRoute("/api/copilotkit/threads/thread-abc/messages", basePath);
       expect(result).toEqual({
         method: "threads/messages",
         threadId: "thread-abc",
@@ -91,10 +79,7 @@ describe("fetch-router", () => {
     });
 
     it("handles URL-encoded threadId in thread routes", () => {
-      const result = matchRoute(
-        "/api/copilotkit/threads/thread%2F123",
-        basePath,
-      );
+      const result = matchRoute("/api/copilotkit/threads/thread%2F123", basePath);
       expect(result).toEqual({
         method: "threads/update",
         threadId: "thread/123",
@@ -112,18 +97,12 @@ describe("fetch-router", () => {
     });
 
     it("handles URL-encoded agentId", () => {
-      const result = matchRoute(
-        "/api/copilotkit/agent/my%20agent/run",
-        basePath,
-      );
+      const result = matchRoute("/api/copilotkit/agent/my%20agent/run", basePath);
       expect(result).toEqual({ method: "agent/run", agentId: "my agent" });
     });
 
     it("handles URL-encoded threadId", () => {
-      const result = matchRoute(
-        "/api/copilotkit/agent/ag/stop/thread%2F123",
-        basePath,
-      );
+      const result = matchRoute("/api/copilotkit/agent/ag/stop/thread%2F123", basePath);
       expect(result).toEqual({
         method: "agent/stop",
         agentId: "ag",

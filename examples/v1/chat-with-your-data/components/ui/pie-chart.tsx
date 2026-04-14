@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  Cell,
-  Legend,
-  Pie,
-  PieChart as RechartsPieChart,
-  ResponsiveContainer,
-  Tooltip,
-  Text,
-} from "recharts";
+import { Cell, Legend, Pie, PieChart as RechartsPieChart, ResponsiveContainer, Tooltip, Text } from "recharts";
 
 // Define a generic type for chart data
 interface ChartDataItem {
@@ -27,19 +19,13 @@ interface CustomTooltipProps {
 }
 
 // Custom tooltip component for the pie chart
-const CustomTooltip = ({
-  active,
-  payload,
-  valueFormatter,
-}: CustomTooltipProps) => {
+const CustomTooltip = ({ active, payload, valueFormatter }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-white p-2 border border-gray-200 rounded-md shadow-sm text-sm">
         <p className="font-medium text-gray-700">{payload[0].name}</p>
         <p style={{ color: payload[0].color }}>
-          {valueFormatter
-            ? valueFormatter(payload[0].value)
-            : `${payload[0].value}%`}
+          {valueFormatter ? valueFormatter(payload[0].value) : `${payload[0].value}%`}
         </p>
       </div>
     );
@@ -74,16 +60,8 @@ interface CustomizedLabelProps {
 }
 
 const RADIAN = Math.PI / 180;
-const renderCustomizedLabel = ({
-  cx,
-  cy,
-  midAngle,
-  innerRadius,
-  outerRadius,
-  percent,
-}: CustomizedLabelProps) => {
-  const radius =
-    Number(innerRadius) + (Number(outerRadius) - Number(innerRadius)) * 0.5;
+const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: CustomizedLabelProps) => {
+  const radius = Number(innerRadius) + (Number(outerRadius) - Number(innerRadius)) * 0.5;
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
@@ -161,11 +139,7 @@ export function PieChart({
             align="center"
             iconType="circle"
             iconSize={8}
-            formatter={(value) => (
-              <span style={{ color: "#6b7280", fontSize: "0.875rem" }}>
-                {value}
-              </span>
-            )}
+            formatter={(value) => <span style={{ color: "#6b7280", fontSize: "0.875rem" }}>{value}</span>}
           />
         )}
       </RechartsPieChart>

@@ -11,16 +11,9 @@ import { tool } from "@langchain/core/tools";
 import { tavily } from "@tavily/core";
 import { AgentState } from "./state";
 import { RunnableConfig } from "@langchain/core/runnables";
-import {
-  AIMessage,
-  SystemMessage,
-  ToolMessage,
-} from "@langchain/core/messages";
+import { AIMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
 import { getModel } from "./model";
-import {
-  copilotkitCustomizeConfig,
-  copilotkitEmitState,
-} from "@copilotkit/sdk-js/langgraph";
+import { copilotkitCustomizeConfig, copilotkitEmitState } from "@copilotkit/sdk-js/langgraph";
 
 const ResourceInput = z.object({
   url: z.string().describe("The URL of the resource"),
@@ -39,9 +32,7 @@ const tavilyClient = tavily({
 });
 
 export async function search_node(state: AgentState, config: RunnableConfig) {
-  const aiMessage = state["messages"][
-    state["messages"].length - 1
-  ] as AIMessage;
+  const aiMessage = state["messages"][state["messages"].length - 1] as AIMessage;
 
   let resources = state["resources"] || [];
   let logs = state["logs"] || [];

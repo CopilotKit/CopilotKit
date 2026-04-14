@@ -8,10 +8,7 @@ export async function POST(req: NextRequest) {
       path?: string;
     };
     if (!workspaceId || !path) {
-      return NextResponse.json(
-        { error: "workspaceId and path are required" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "workspaceId and path are required" }, { status: 400 });
     }
 
     const provider = getProvider();

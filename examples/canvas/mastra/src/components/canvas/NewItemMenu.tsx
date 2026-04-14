@@ -26,31 +26,17 @@ export function NewItemMenu({
         <Button
           variant="outline"
           size="default"
-          className={cn(
-            "gap-2 text-base font-semibold bg-card rounded-lg",
-            className,
-          )}
+          className={cn("gap-2 text-base font-semibold bg-card rounded-lg", className)}
         >
           <Plus className="size-5" />
           New
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align={align}
-        className="min-w-0 w-fit bg-background"
-      >
-        <DropdownMenuItem onClick={() => onSelect("project")}>
-          Project
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onSelect("entity")}>
-          Entity
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onSelect("note")}>
-          Note
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onSelect("chart")}>
-          Chart
-        </DropdownMenuItem>
+      <DropdownMenuContent align={align} className="min-w-0 w-fit bg-background">
+        <DropdownMenuItem onClick={() => onSelect("project")}>Project</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onSelect("entity")}>Entity</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onSelect("note")}>Note</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onSelect("chart")}>Chart</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

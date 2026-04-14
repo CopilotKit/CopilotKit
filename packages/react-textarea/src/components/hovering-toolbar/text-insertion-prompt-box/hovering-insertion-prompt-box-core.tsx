@@ -33,13 +33,11 @@ export const HoveringInsertionPromptBoxCore = ({
   const { getDocumentsContext } = useCopilotContext();
 
   const [editSuggestion, setEditSuggestion] = useState<string>("");
-  const [suggestionIsLoading, setSuggestionIsLoading] =
-    useState<boolean>(false);
+  const [suggestionIsLoading, setSuggestionIsLoading] = useState<boolean>(false);
 
   const [adjustmentPrompt, setAdjustmentPrompt] = useState<string>("");
 
-  const [generatingSuggestion, setGeneratingSuggestion] =
-    useState<ReadableStream<string> | null>(null);
+  const [generatingSuggestion, setGeneratingSuggestion] = useState<ReadableStream<string> | null>(null);
 
   const adjustmentTextAreaRef = useRef<HTMLTextAreaElement>(null);
   const suggestionTextAreaRef = useRef<HTMLTextAreaElement>(null);
@@ -88,8 +86,7 @@ export const HoveringInsertionPromptBoxCore = ({
 
           // Scroll to the bottom of the textarea. We call this here to make sure scroll-to-bottom is synchronous with the state update.
           if (suggestionTextAreaRef.current) {
-            suggestionTextAreaRef.current.scrollTop =
-              suggestionTextAreaRef.current.scrollHeight;
+            suggestionTextAreaRef.current.scrollTop = suggestionTextAreaRef.current.scrollHeight;
           }
           return newSuggestion;
         });
@@ -134,26 +131,16 @@ export const HoveringInsertionPromptBoxCore = ({
       filePointers,
       new AbortController().signal,
     );
-    const adjustmentSuggestionTextStream = streamPromiseFlatten(
-      adjustmentSuggestionTextStreamPromise,
-    );
+    const adjustmentSuggestionTextStream = streamPromiseFlatten(adjustmentSuggestionTextStreamPromise);
 
     setGeneratingSuggestion(adjustmentSuggestionTextStream);
-  }, [
-    adjustmentPrompt,
-    editSuggestion,
-    state.editorState,
-    insertionOrEditingFunction,
-    filePointers,
-  ]);
+  }, [adjustmentPrompt, editSuggestion, state.editorState, insertionOrEditingFunction, filePointers]);
 
   const isLoading = suggestionIsLoading;
 
   const textToEdit = editSuggestion || state.editorState.selectedText;
   const adjustmentLabel =
-    textToEdit === ""
-      ? "Describe the text you want to insert"
-      : "Describe adjustments to the suggested text";
+    textToEdit === "" ? "Describe the text you want to insert" : "Describe adjustments to the suggested text";
   const placeholder =
     textToEdit === ""
       ? "e.g. 'summarize the client's top 3 pain-points from @CallTranscript'"
@@ -247,27 +234,20 @@ export const HoveringInsertionPromptBoxCore = ({
   // show source search if the last word in the adjustment prompt BEGINS with an @
   const sourceSearchCandidate = adjustmentPrompt.split(" ").pop();
   // if the candidate is @someCandidate, then 'someCandidate', otherwise undefined
-  const sourceSearchWord = sourceSearchCandidate?.startsWith("@")
-    ? sourceSearchCandidate.slice(1)
-    : undefined;
+  const sourceSearchWord = sourceSearchCandidate?.startsWith("@") ? sourceSearchCandidate.slice(1) : undefined;
 
   return (
     <div className="w-full flex flex-col items-start relative gap-2">
       {AdjustmentPromptComponent}
       {filePointers.length > 0 && (
-        <IncludedFilesPreview
-          includedFiles={filePointers}
-          setIncludedFiles={setFilePointers}
-        />
+        <IncludedFilesPreview includedFiles={filePointers} setIncludedFiles={setFilePointers} />
       )}
       {sourceSearchWord !== undefined && (
         <SourceSearchBox
           searchTerm={sourceSearchWord}
           suggestedFiles={suggestedFiles}
           onSelectedFile={(filePointer) => {
-            setAdjustmentPrompt(
-              adjustmentPrompt.replace(new RegExp(`@${sourceSearchWord}$`), ""),
-            );
+            setAdjustmentPrompt(adjustmentPrompt.replace(new RegExp(`@${sourceSearchWord}$`), ""));
             setFilePointers((prev) => [...prev, filePointer]);
 
             // focus back on the adjustment prompt, and move the cursor to the end

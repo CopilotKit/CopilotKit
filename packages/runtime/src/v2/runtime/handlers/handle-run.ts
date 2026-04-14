@@ -9,22 +9,14 @@ import {
 import { handleIntelligenceRun } from "./intelligence/run";
 import { handleSseRun } from "./sse/run";
 
-export async function handleRunAgent({
-  runtime,
-  request,
-  agentId,
-}: RunAgentParameters) {
+export async function handleRunAgent({ runtime, request, agentId }: RunAgentParameters) {
   telemetry.capture("oss.runtime.copilot_request_created", {
     "cloud.guardrails.enabled": false,
     requestType: "run",
-    "cloud.api_key_provided": !!request.headers.get(
-      "x-copilotcloud-public-api-key",
-    ),
+    "cloud.api_key_provided": !!request.headers.get("x-copilotcloud-public-api-key"),
     ...(request.headers.get("x-copilotcloud-public-api-key")
       ? {
-          "cloud.public_api_key": request.headers.get(
-            "x-copilotcloud-public-api-key",
-          )!,
+          "cloud.public_api_key": request.headers.get("x-copilotcloud-public-api-key")!,
         }
       : {}),
   });
@@ -37,13 +29,8 @@ export async function handleRunAgent({
 
     configureAgentForRequest({ runtime, request, agentId, agent });
 
-    if (
-      runtime.licenseChecker &&
-      !runtime.licenseChecker.checkFeature("agents")
-    ) {
-      console.warn(
-        '[CopilotKit Runtime] Warning: "agents" feature is not licensed. Visit copilotkit.ai/pricing',
-      );
+    if (runtime.licenseChecker && !runtime.licenseChecker.checkFeature("agents")) {
+      console.warn('[CopilotKit Runtime] Warning: "agents" feature is not licensed. Visit copilotkit.ai/pricing');
     }
 
     const input = await parseRunRequest(request);
@@ -68,10 +55,7 @@ export async function handleRunAgent({
     return handleSseRun({ runtime, request, agent, input });
   } catch (error) {
     console.error("Error running agent:", error);
-    console.error(
-      "Error stack:",
-      error instanceof Error ? error.stack : "No stack trace",
-    );
+    console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
     console.error("Error details:", {
       name: error instanceof Error ? error.name : "Unknown",
       message: error instanceof Error ? error.message : String(error),

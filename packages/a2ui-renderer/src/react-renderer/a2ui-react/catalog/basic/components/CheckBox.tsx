@@ -29,9 +29,7 @@ export const CheckBox = createReactComponent(CheckBoxApi, ({ props }) => {
   const hasError = props.validationErrors && props.validationErrors.length > 0;
 
   return (
-    <div
-      style={{ display: "flex", flexDirection: "column", margin: LEAF_MARGIN }}
-    >
+    <div style={{ display: "flex", flexDirection: "column", margin: LEAF_MARGIN }}>
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
         <input
           id={uniqueId}
@@ -44,18 +42,13 @@ export const CheckBox = createReactComponent(CheckBoxApi, ({ props }) => {
           }}
         />
         {props.label && (
-          <label
-            htmlFor={uniqueId}
-            style={{ cursor: "pointer", color: hasError ? "red" : "inherit" }}
-          >
+          <label htmlFor={uniqueId} style={{ cursor: "pointer", color: hasError ? "red" : "inherit" }}>
             {props.label}
           </label>
         )}
       </div>
       {hasError && (
-        <span style={{ fontSize: "12px", color: "red", marginTop: "4px" }}>
-          {props.validationErrors?.[0]}
-        </span>
+        <span style={{ fontSize: "12px", color: "red", marginTop: "4px" }}>{props.validationErrors?.[0]}</span>
       )}
     </div>
   );

@@ -15,10 +15,7 @@ export const EmailSkeleton: FC = () => (
 export const EmailListSkeleton: FC = () => (
   <div className="space-y-4">
     {Array.from({ length: 5 }).map((_, idx) => (
-      <div
-        key={idx}
-        className="flex items-center gap-4 p-4 hover:bg-gray-50 cursor-pointer"
-      >
+      <div key={idx} className="flex items-center gap-4 p-4 hover:bg-gray-50 cursor-pointer">
         <Skeleton className="h-12 w-12 rounded-full" />
         <div className="space-y-2 flex-1">
           <div className="flex items-center justify-between">
@@ -26,8 +23,7 @@ export const EmailListSkeleton: FC = () => (
               <Skeleton className="h-4 w-32" /> {/* Sender name */}
               <Skeleton className="h-3 w-24" /> {/* Time */}
             </div>
-            <Skeleton className="h-3 w-3 rounded-full" />{" "}
-            {/* Unread indicator */}
+            <Skeleton className="h-3 w-3 rounded-full" /> {/* Unread indicator */}
           </div>
           <Skeleton className="h-4 w-3/4" /> {/* Subject */}
           <Skeleton className="h-3 w-4/5" /> {/* Preview text */}

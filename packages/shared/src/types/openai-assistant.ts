@@ -32,9 +32,7 @@ export interface FunctionCallHandlerArguments {
   args: any;
 }
 
-export type FunctionCallHandler = (
-  args: FunctionCallHandlerArguments,
-) => Promise<any>;
+export type FunctionCallHandler = (args: FunctionCallHandlerArguments) => Promise<any>;
 
 export type CoAgentStateRenderHandlerArguments = {
   name: string;
@@ -42,9 +40,7 @@ export type CoAgentStateRenderHandlerArguments = {
   state: any;
 };
 
-export type CoAgentStateRenderHandler = (
-  args: CoAgentStateRenderHandlerArguments,
-) => Promise<any>;
+export type CoAgentStateRenderHandler = (args: CoAgentStateRenderHandlerArguments) => Promise<any>;
 
 export type AssistantMessage = {
   id: string;
@@ -57,10 +53,4 @@ export type AssistantMessage = {
   }>;
 };
 
-export type JSONValue =
-  | null
-  | string
-  | number
-  | boolean
-  | { [x: string]: JSONValue }
-  | Array<JSONValue>;
+export type JSONValue = null | string | number | boolean | { [x: string]: JSONValue } | Array<JSONValue>;

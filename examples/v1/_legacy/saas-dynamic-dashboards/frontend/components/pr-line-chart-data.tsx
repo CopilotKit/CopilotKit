@@ -1,13 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { CartesianGrid, Legend, Line, LineChart, Tooltip, XAxis, YAxis } from "recharts";
 import { useSharedContext } from "@/lib/shared-context";
 import { PRData, WeeklyCount } from "@/app/Interfaces/interface";
 
@@ -20,9 +12,7 @@ export function PRLineChartData({ args }: any) {
 
     if (args?.items) {
       const allKeys = new Set();
-      args?.items
-        ?.flat()
-        ?.forEach(({ accessorKey }: any) => allKeys.add(accessorKey));
+      args?.items?.flat()?.forEach(({ accessorKey }: any) => allKeys.add(accessorKey));
       const merged: any = {};
       args?.items?.flat()?.forEach(({ name, value, accessorKey }: any) => {
         if (!merged[name]) {
@@ -86,9 +76,7 @@ export function PRLineChartData({ args }: any) {
   ];
   return (
     <div className="p-4 rounded-2xl shadow-lg flex flex-col items-center w-full min-w-[250px] max-w-full">
-      <h2 className="text-xl font-semibold mb-2 text-gray-700 text-center">
-        Trend Distribution
-      </h2>
+      <h2 className="text-xl font-semibold mb-2 text-gray-700 text-center">Trend Distribution</h2>
       <div className="h-[200px] w-full flex items-center justify-center">
         <LineChart width={520} height={220} data={lineData}>
           <CartesianGrid strokeDasharray="4 4" stroke="#B6C7DB" />
@@ -103,15 +91,7 @@ export function PRLineChartData({ args }: any) {
             wrapperStyle={{ color: "black", fontSize: "12px", paddingLeft: 10 }}
           />
           {xarr.map((item: any, index: number) => {
-            return (
-              <Line
-                type="monotone"
-                dataKey={item}
-                stroke={chartColors[index]}
-                strokeWidth={3}
-                dot={{ r: 5 }}
-              />
-            );
+            return <Line type="monotone" dataKey={item} stroke={chartColors[index]} strokeWidth={3} dot={{ r: 5 }} />;
           })}
           {/* <Line type="monotone" dataKey="merged" stroke="#475569" strokeWidth={3} dot={{ r: 5 }} /> */}
           {/* <Line type="monotone" dataKey="closed" stroke="#B6C7DB" strokeWidth={3} dot={{ r: 5 }} /> */}
@@ -124,11 +104,7 @@ export function PRLineChartData({ args }: any) {
 const CustomPieTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const { week, count } = payload[0].payload;
-    return (
-      <div className="bg-white p-2 rounded shadow text-black">
-        {`${week} - ${count}`}
-      </div>
-    );
+    return <div className="bg-white p-2 rounded shadow text-black">{`${week} - ${count}`}</div>;
   }
   return null;
 };

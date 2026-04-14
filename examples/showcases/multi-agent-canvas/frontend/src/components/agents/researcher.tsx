@@ -31,26 +31,23 @@ export const AIResearchAgent: FC = () => {
 
   const isResearchInProgress = useRef(false);
 
-  const { state: researchAgentState, stop: stopResearchAgent } =
-    useCoAgent<ResearchAgentState>({
-      name: AvailableAgents.RESEARCH_AGENT,
-      initialState: {
-        model: "openai",
-        research_question: "",
-        resources: [],
-        report: "",
-        logs: [],
-      },
-    });
+  const { state: researchAgentState, stop: stopResearchAgent } = useCoAgent<ResearchAgentState>({
+    name: AvailableAgents.RESEARCH_AGENT,
+    initialState: {
+      model: "openai",
+      research_question: "",
+      resources: [],
+      report: "",
+      logs: [],
+    },
+  });
 
   useEffect(() => {
     if (researchAgentState.logs) {
       setLogs((prevLogs) => {
         const newLogs = [...prevLogs];
         researchAgentState.logs.forEach((log) => {
-          const existingLogIndex = newLogs.findIndex(
-            (l) => l.message === log.message,
-          );
+          const existingLogIndex = newLogs.findIndex((l) => l.message === log.message);
           if (existingLogIndex >= 0) {
             // Only update done status if changing from false to true
             if (log.done && !newLogs[existingLogIndex].done) {
@@ -115,26 +112,12 @@ export const AIResearchAgent: FC = () => {
         <ReactMarkdown
           className="prose prose-sm md:prose-base lg:prose-lg prose-slate max-w-none bg-gray-50 p-6 rounded-lg border border-gray-200"
           components={{
-            h1: ({ children }) => (
-              <h1 className="text-3xl font-bold mb-6 pb-2 border-b">
-                {children}
-              </h1>
-            ),
-            h2: ({ children }) => (
-              <h2 className="text-2xl font-bold mb-4 mt-8">{children}</h2>
-            ),
-            h3: ({ children }) => (
-              <h3 className="text-xl font-bold mb-3 mt-6">{children}</h3>
-            ),
-            p: ({ children }) => (
-              <p className="mb-4 leading-relaxed">{children}</p>
-            ),
-            ul: ({ children }) => (
-              <ul className="list-disc pl-6 mb-4 space-y-2">{children}</ul>
-            ),
-            ol: ({ children }) => (
-              <ol className="list-decimal pl-6 mb-4 space-y-2">{children}</ol>
-            ),
+            h1: ({ children }) => <h1 className="text-3xl font-bold mb-6 pb-2 border-b">{children}</h1>,
+            h2: ({ children }) => <h2 className="text-2xl font-bold mb-4 mt-8">{children}</h2>,
+            h3: ({ children }) => <h3 className="text-xl font-bold mb-3 mt-6">{children}</h3>,
+            p: ({ children }) => <p className="mb-4 leading-relaxed">{children}</p>,
+            ul: ({ children }) => <ul className="list-disc pl-6 mb-4 space-y-2">{children}</ul>,
+            ol: ({ children }) => <ol className="list-decimal pl-6 mb-4 space-y-2">{children}</ol>,
             blockquote: ({ children }) => (
               <blockquote className="border-l-4 border-gray-300 pl-4 py-2 my-6 bg-gray-50 rounded-r">
                 {children}
@@ -144,35 +127,30 @@ export const AIResearchAgent: FC = () => {
         >
           {researchAgentState.report}
         </ReactMarkdown>
-        {researchAgentState.resources &&
-          researchAgentState.resources.length > 0 && (
-            <div className="prose max-w-none z-[999] bg-gray-50 p-6 rounded-lg border border-gray-200">
-              <h2 className="text-2xl font-bold mb-4 mt-8">Resources</h2>
-              <ul className="list-disc pl-6 mb-4 space-y-2">
-                {researchAgentState.resources.map((resource, index) => (
-                  <li key={index} className="text-gray-700">
-                    {resource.url ? (
-                      <a
-                        href={resource.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline"
-                      >
-                        {resource.title || resource.url}
-                      </a>
-                    ) : (
-                      resource.title
-                    )}
-                    {resource.description && (
-                      <p className="text-sm text-gray-600 mt-1">
-                        {resource.description}
-                      </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+        {researchAgentState.resources && researchAgentState.resources.length > 0 && (
+          <div className="prose max-w-none z-[999] bg-gray-50 p-6 rounded-lg border border-gray-200">
+            <h2 className="text-2xl font-bold mb-4 mt-8">Resources</h2>
+            <ul className="list-disc pl-6 mb-4 space-y-2">
+              {researchAgentState.resources.map((resource, index) => (
+                <li key={index} className="text-gray-700">
+                  {resource.url ? (
+                    <a
+                      href={resource.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline"
+                    >
+                      {resource.title || resource.url}
+                    </a>
+                  ) : (
+                    resource.title
+                  )}
+                  {resource.description && <p className="text-sm text-gray-600 mt-1">{resource.description}</p>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -9,10 +9,7 @@ export async function POST(req: NextRequest) {
       content?: string;
     };
     if (!workspaceId || !path || content === undefined) {
-      return NextResponse.json(
-        { error: "workspaceId, path, and content are required" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "workspaceId, path, and content are required" }, { status: 400 });
     }
 
     const provider = getProvider();

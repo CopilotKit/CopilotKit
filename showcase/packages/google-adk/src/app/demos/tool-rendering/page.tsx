@@ -4,19 +4,11 @@ import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotChat, useRenderTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import {
-  WeatherCard,
-  useShowcaseSuggestions,
-  demonstrationCatalog,
-} from "@copilotkit/showcase-shared";
+import { WeatherCard, useShowcaseSuggestions, demonstrationCatalog } from "@copilotkit/showcase-shared";
 
 export default function ToolRenderingDemo() {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      agent="tool-rendering"
-      a2ui={{ catalog: demonstrationCatalog }}
-    >
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="tool-rendering" a2ui={{ catalog: demonstrationCatalog }}>
       <Chat />
     </CopilotKit>
   );
@@ -39,9 +31,7 @@ function Chat() {
           >
             <div className="animate-pulse text-2xl">🌤️</div>
             <div>
-              <p className="text-white font-medium text-sm">
-                Checking weather...
-              </p>
+              <p className="text-white font-medium text-sm">Checking weather...</p>
               <p className="text-white/60 text-xs">{args.location}</p>
             </div>
           </div>

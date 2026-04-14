@@ -29,15 +29,10 @@ const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, "..");
 const PACKAGES_DIR = path.join(ROOT, "packages");
-const FEATURE_REGISTRY_PATH = path.join(
-  ROOT,
-  "shared",
-  "feature-registry.json",
-);
+const FEATURE_REGISTRY_PATH = path.join(ROOT, "shared", "feature-registry.json");
 
 const NOTION_API_KEY = process.env.NOTION_API_KEY;
-const QA_PARENT_PAGE_ID =
-  process.env.QA_PARENT_PAGE_ID || "32d3aa38-1852-81af-a1f4-d1ef37402428";
+const QA_PARENT_PAGE_ID = process.env.QA_PARENT_PAGE_ID || "32d3aa38-1852-81af-a1f4-d1ef37402428";
 const DRY_RUN = process.env.DRY_RUN === "true";
 
 const NOTION_API = "https://api.notion.com/v1";
@@ -59,11 +54,7 @@ interface QAFile {
 
 // --- Notion API helpers ---
 
-async function notionRequest(
-  endpoint: string,
-  method: string = "GET",
-  body?: any,
-): Promise<any> {
+async function notionRequest(endpoint: string, method: string = "GET", body?: any): Promise<any> {
   const response = await fetch(`${NOTION_API}${endpoint}`, {
     method,
     headers: {
@@ -82,13 +73,8 @@ async function notionRequest(
   return response.json();
 }
 
-async function findChildPage(
-  parentId: string,
-  title: string,
-): Promise<string | null> {
-  const result = await notionRequest(
-    `/blocks/${parentId}/children?page_size=100`,
-  );
+async function findChildPage(parentId: string, title: string): Promise<string | null> {
+  const result = await notionRequest(`/blocks/${parentId}/children?page_size=100`);
 
   for (const block of result.results) {
     if (block.type === "child_page" && block.child_page?.title === title) {
@@ -98,11 +84,7 @@ async function findChildPage(
   return null;
 }
 
-async function createPage(
-  parentId: string,
-  title: string,
-  icon?: string,
-): Promise<string> {
+async function createPage(parentId: string, title: string, icon?: string): Promise<string> {
   const result = await notionRequest("/pages", "POST", {
     parent: { page_id: parentId },
     properties: {
@@ -207,14 +189,9 @@ function markdownToNotionBlocks(markdown: string): any[] {
   return blocks;
 }
 
-async function replacePageContent(
-  pageId: string,
-  blocks: any[],
-): Promise<void> {
+async function replacePageContent(pageId: string, blocks: any[]): Promise<void> {
   // First, delete all existing blocks
-  const existing = await notionRequest(
-    `/blocks/${pageId}/children?page_size=100`,
-  );
+  const existing = await notionRequest(`/blocks/${pageId}/children?page_size=100`);
   for (const block of existing.results) {
     await notionRequest(`/blocks/${block.id}`, "DELETE");
   }
@@ -292,9 +269,7 @@ async function syncToNotion(qaFiles: QAFile[]): Promise<void> {
     byIntegration.get(file.integrationSlug)!.files.push(file);
   }
 
-  console.log(
-    `Syncing ${qaFiles.length} QA docs across ${byIntegration.size} integrations\n`,
-  );
+  console.log(`Syncing ${qaFiles.length} QA docs across ${byIntegration.size} integrations\n`);
 
   for (const [slug, { name, files }] of byIntegration) {
     console.log(`  ${name} (${slug}): ${files.length} QA docs`);
@@ -372,16 +347,9 @@ async function syncToNotion(qaFiles: QAFile[]): Promise<void> {
 
   // Update the parent page's "last synced" timestamp
   if (!DRY_RUN) {
-    const parentBlocks = await notionRequest(
-      `/blocks/${QA_PARENT_PAGE_ID}/children?page_size=100`,
-    );
+    const parentBlocks = await notionRequest(`/blocks/${QA_PARENT_PAGE_ID}/children?page_size=100`);
     for (const block of parentBlocks.results) {
-      if (
-        block.type === "paragraph" &&
-        block.paragraph?.rich_text?.[0]?.text?.content?.startsWith(
-          "Last synced:",
-        )
-      ) {
+      if (block.type === "paragraph" && block.paragraph?.rich_text?.[0]?.text?.content?.startsWith("Last synced:")) {
         await notionRequest(`/blocks/${block.id}`, "PATCH", {
           paragraph: {
             rich_text: [
@@ -403,9 +371,7 @@ async function syncToNotion(qaFiles: QAFile[]): Promise<void> {
 async function main() {
   if (!NOTION_API_KEY) {
     console.error("Error: NOTION_API_KEY environment variable is required.");
-    console.error(
-      "Create a Notion integration at https://www.notion.so/my-integrations",
-    );
+    console.error("Create a Notion integration at https://www.notion.so/my-integrations");
     console.error("and share the QA parent page with it.");
     process.exit(1);
   }

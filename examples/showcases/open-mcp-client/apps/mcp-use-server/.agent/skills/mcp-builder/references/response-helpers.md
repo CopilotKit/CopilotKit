@@ -5,19 +5,7 @@ Complete reference for mcp-use response helpers.
 All helpers are imported from `mcp-use/server`:
 
 ```typescript
-import {
-  text,
-  object,
-  markdown,
-  html,
-  image,
-  audio,
-  binary,
-  error,
-  mix,
-  widget,
-  resource,
-} from "mcp-use/server";
+import { text, object, markdown, html, image, audio, binary, error, mix, widget, resource } from "mcp-use/server";
 ```
 
 ## Table of Contents
@@ -116,9 +104,7 @@ try {
   const data = await fetchData(id);
   return object(data);
 } catch (err) {
-  return error(
-    `Failed to fetch: ${err instanceof Error ? err.message : "Unknown error"}`,
-  );
+  return error(`Failed to fetch: ${err instanceof Error ? err.message : "Unknown error"}`);
 }
 ```
 
@@ -271,13 +257,7 @@ server.prompt(
   {
     name: "code-review",
     schema: z.object({
-      language: completable(z.string(), [
-        "python",
-        "typescript",
-        "go",
-        "rust",
-        "java",
-      ]),
+      language: completable(z.string(), ["python", "typescript", "go", "rust", "java"]),
     }),
   },
   async ({ language }) => text(`Review this ${language} code.`),

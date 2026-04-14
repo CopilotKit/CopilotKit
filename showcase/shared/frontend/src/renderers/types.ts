@@ -1,9 +1,4 @@
-export type RenderMode =
-  | "tool-based"
-  | "a2ui"
-  | "json-render"
-  | "hashbrown"
-  | "open-genui";
+export type RenderMode = "tool-based" | "a2ui" | "json-render" | "hashbrown" | "open-genui";
 
 export interface RenderStrategyInfo {
   mode: RenderMode;

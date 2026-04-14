@@ -8,12 +8,7 @@ export default defineConfig([
     sourcemap: true,
     target: "es2022",
     outDir: "dist",
-    external: [
-      "react",
-      "react-dom",
-      "@copilotkit/core",
-      "@copilotkit/react-core/v2",
-    ],
+    external: ["react", "react-dom", "@copilotkit/core", "@copilotkit/react-core/v2"],
     exports: {
       customExports: (exports) => ({
         ...exports,
@@ -29,13 +24,7 @@ export default defineConfig([
     sourcemap: true,
     target: "es2018",
     outDir: "dist",
-    external: [
-      "react",
-      "react-dom",
-      "@copilotkit/react-core",
-      "@copilotkit/shared",
-      "@copilotkit/runtime-client-gql",
-    ],
+    external: ["react", "react-dom", "@copilotkit/react-core", "@copilotkit/shared", "@copilotkit/runtime-client-gql"],
     codeSplitting: false,
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";

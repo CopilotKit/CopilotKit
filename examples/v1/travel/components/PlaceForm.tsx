@@ -18,11 +18,7 @@ interface PlaceFormProps {
   submitLabel?: string;
 }
 
-export function PlaceForm({
-  onSubmit,
-  place,
-  submitLabel = place ? "Save Changes" : "Add Place",
-}: PlaceFormProps) {
+export function PlaceForm({ onSubmit, place, submitLabel = place ? "Save Changes" : "Add Place" }: PlaceFormProps) {
   const [name, setName] = useState(place?.name ?? "");
   const [description, setDescription] = useState(place?.description ?? "");
   const [address, setAddress] = useState(place?.address ?? "");

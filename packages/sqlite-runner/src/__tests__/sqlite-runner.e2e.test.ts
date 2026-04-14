@@ -39,10 +39,7 @@ interface EmitAgentOptions {
   emitDefaultRunStarted?: boolean;
   includeRunFinished?: boolean;
   runFinishedEvent?: RunFinishedEvent;
-  afterEvent?: (args: {
-    event: BaseEvent;
-    index: number;
-  }) => void | Promise<void>;
+  afterEvent?: (args: { event: BaseEvent; index: number }) => void | Promise<void>;
 }
 
 class EmitAgent extends AbstractAgent {
@@ -51,12 +48,7 @@ class EmitAgent extends AbstractAgent {
   }
 
   async runAgent(input: RunAgentInput, callbacks: RunCallbacks): Promise<void> {
-    const {
-      emitDefaultRunStarted = true,
-      includeRunFinished = true,
-      runFinishedEvent,
-      afterEvent,
-    } = this.options;
+    const { emitDefaultRunStarted = true, includeRunFinished = true, runFinishedEvent, afterEvent } = this.options;
     const scriptedEvents = this.options.events ?? [];
 
     let index = 0;
@@ -150,9 +142,7 @@ class RunnerConnectAgent extends AbstractAgent {
     return EMPTY;
   }
 
-  protected connect(
-    input: RunAgentInput,
-  ): ReturnType<AbstractAgent["connect"]> {
+  protected connect(input: RunAgentInput): ReturnType<AbstractAgent["connect"]> {
     return this.runner.connect({ threadId: input.threadId });
   }
 }
@@ -174,9 +164,7 @@ function createDeferred<T>(): Deferred<T> {
 }
 
 async function collectEvents(
-  observable:
-    | ReturnType<SqliteAgentRunner["run"]>
-    | ReturnType<SqliteAgentRunner["connect"]>,
+  observable: ReturnType<SqliteAgentRunner["run"]> | ReturnType<SqliteAgentRunner["connect"]>,
 ) {
   return firstValueFrom(observable.pipe(toArray()));
 }
@@ -362,9 +350,7 @@ describe("SqliteAgentRunner e2e", () => {
       await replayAgent.connectAgent({ runId: "replay-run" });
 
       expect(replayAgent.messages).toEqual([existingMessage, newMessage]);
-      expect(
-        new Set(replayAgent.messages.map((message) => message.id)).size,
-      ).toBe(replayAgent.messages.length);
+      expect(new Set(replayAgent.messages.map((message) => message.id)).size).toBe(replayAgent.messages.length);
     });
   });
 
@@ -452,9 +438,7 @@ describe("SqliteAgentRunner e2e", () => {
       );
 
       expectRunStartedEvent(runEvents[0], baseMessages);
-      expect(
-        runEvents.filter((event) => event.type === EventType.TOOL_CALL_RESULT),
-      ).toHaveLength(1);
+      expect(runEvents.filter((event) => event.type === EventType.TOOL_CALL_RESULT)).toHaveLength(1);
 
       const replayEvents = await collectEvents(runner.connect({ threadId }));
       const replayAgent = new ReplayAgent(replayEvents, threadId);
@@ -486,9 +470,7 @@ describe("SqliteAgentRunner e2e", () => {
           toolCallId,
         },
       ]);
-      expect(
-        replayAgent.messages.filter((message) => message.role === "tool"),
-      ).toHaveLength(1);
+      expect(replayAgent.messages.filter((message) => message.role === "tool")).toHaveLength(1);
     });
   });
 
@@ -556,16 +538,11 @@ describe("SqliteAgentRunner e2e", () => {
       await replayAgent.connectAgent({ runId: "replay-final" });
 
       const finalMessages = replayAgent.messages;
-      expect(new Set(finalMessages.map((message) => message.id)).size).toBe(
-        finalMessages.length,
-      );
-      const roleCounts = finalMessages.reduce<Record<string, number>>(
-        (counts, message) => {
-          counts[message.role] = (counts[message.role] ?? 0) + 1;
-          return counts;
-        },
-        {},
-      );
+      expect(new Set(finalMessages.map((message) => message.id)).size).toBe(finalMessages.length);
+      const roleCounts = finalMessages.reduce<Record<string, number>>((counts, message) => {
+        counts[message.role] = (counts[message.role] ?? 0) + 1;
+        return counts;
+      }, {});
       expect(roleCounts.system).toBe(1);
       expect(roleCounts.user).toBe(3);
       expect(roleCounts.assistant).toBe(3);
@@ -628,16 +605,12 @@ describe("SqliteAgentRunner e2e", () => {
       );
 
       expect(runEvents[0]).toEqual(customRunStarted);
-      expect(
-        runEvents.filter((event) => event.type === EventType.RUN_FINISHED),
-      ).toHaveLength(1);
+      expect(runEvents.filter((event) => event.type === EventType.RUN_FINISHED)).toHaveLength(1);
 
       const replayEvents = await collectEvents(runner.connect({ threadId }));
       const replayAgent = new ReplayAgent(replayEvents, threadId);
       await replayAgent.connectAgent({ runId: "replay-run" });
-      expect(
-        replayAgent.messages.find((message) => message.id === "custom-user"),
-      ).toEqual(customMessages[0]);
+      expect(replayAgent.messages.find((message) => message.id === "custom-user")).toEqual(customMessages[0]);
     });
   });
 
@@ -728,10 +701,7 @@ describe("SqliteAgentRunner e2e", () => {
 
       const replayAgent = new ReplayAgent(persistedEvents, threadId);
       await replayAgent.connectAgent({ runId: "replay-run" });
-      expect(replayAgent.messages.map((message) => message.id)).toEqual([
-        initialMessage.id,
-        "assistant-live",
-      ]);
+      expect(replayAgent.messages.map((message) => message.id)).toEqual([initialMessage.id, "assistant-live"]);
     });
   });
 

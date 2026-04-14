@@ -27,19 +27,11 @@ export const ChildList: React.FC<{
           // The new binder outputs objects like { id: string, basePath: string } for arrays of structural nodes
           if (item && typeof item === "object" && "id" in item) {
             const node = item as { id: string; basePath?: string };
-            return (
-              <React.Fragment key={`${node.id}-${i}`}>
-                {buildChild(node.id, node.basePath)}
-              </React.Fragment>
-            );
+            return <React.Fragment key={`${node.id}-${i}`}>{buildChild(node.id, node.basePath)}</React.Fragment>;
           }
           // Fallback for static string lists
           if (typeof item === "string") {
-            return (
-              <React.Fragment key={`${item}-${i}`}>
-                {buildChild(item)}
-              </React.Fragment>
-            );
+            return <React.Fragment key={`${item}-${i}`}>{buildChild(item)}</React.Fragment>;
           }
           return null;
         })}

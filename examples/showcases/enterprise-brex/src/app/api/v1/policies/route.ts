@@ -12,10 +12,7 @@ export const POST = async (req: NextRequest) => {
     const body = await req.json();
     const { policyId, type, limit } = body;
     if (!policyId || !type || !limit) {
-      return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
-        { status: 400 },
-      );
+      return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400 });
     }
     // Handle new policy creation
     const newPolicy = { id: policyId, type, limit, spent: 0 };

@@ -42,9 +42,7 @@ export async function scaffoldPackages(userAnswers: Config) {
     });
 
     if (result.status !== 0) {
-      throw new Error(
-        `Package installation process exited with code ${result.status}`,
-      );
+      throw new Error(`Package installation process exited with code ${result.status}`);
     }
 
     // Resume the spinner for success message

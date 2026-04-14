@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  useDefaultTool,
-  useRenderToolCall,
-  useFrontendTool,
-  useCoAgent,
-} from "@copilotkit/react-core";
+import { useDefaultTool, useRenderToolCall, useFrontendTool, useCoAgent } from "@copilotkit/react-core";
 import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
 import { useEffect, useState } from "react";
 import { DefaultToolComponent } from "@/components/default-tool-ui";
@@ -34,11 +29,7 @@ export default function CopilotKitPage() {
   });
 
   return (
-    <main
-      style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
-      }
-    >
+    <main style={{ "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties}>
       <CopilotSidebar
         clickOutsideToClose={false}
         defaultOpen={true}
@@ -75,9 +66,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   const { state, setState } = useCoAgent({
     name: "strands_agent",
     initialState: {
-      proverbs: [
-        "CopilotKit may be new, but its the best thing since sliced bread.",
-      ],
+      proverbs: ["CopilotKit may be new, but its the best thing since sliced bread."],
     },
   });
 
@@ -96,9 +85,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
           required: true,
         },
       ],
-      render: (props) => (
-        <WeatherCard themeColor={themeColor} location={props.args.location} />
-      ),
+      render: (props) => <WeatherCard themeColor={themeColor} location={props.args.location} />,
     },
     [themeColor],
   );
@@ -106,9 +93,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   //🪁 Default Generative UI: https://docs.copilotkit.ai/strands/generative-ui/backend-tools
   useDefaultTool(
     {
-      render: (props) => (
-        <DefaultToolComponent themeColor={themeColor} {...props} />
-      ),
+      render: (props) => <DefaultToolComponent themeColor={themeColor} {...props} />,
     },
     [themeColor],
   );
@@ -119,9 +104,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
       className="h-screen flex justify-center items-center flex-col transition-colors duration-300"
     >
       <div className="bg-white/20 backdrop-blur-md p-8 rounded-2xl shadow-xl max-w-2xl w-full">
-        <h1 className="text-4xl font-bold text-white mb-2 text-center">
-          Proverbs
-        </h1>
+        <h1 className="text-4xl font-bold text-white mb-2 text-center">Proverbs</h1>
         <p className="text-gray-200 text-center italic mb-6">
           This is a demonstrative page, but it could be anything you want! 🪁
         </p>
@@ -149,9 +132,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
           ))}
         </div>
         {state.proverbs?.length === 0 && (
-          <p className="text-center text-white/80 italic my-8">
-            No proverbs yet. Ask the assistant to add some!
-          </p>
+          <p className="text-center text-white/80 italic my-8">No proverbs yet. Ask the assistant to add some!</p>
         )}
       </div>
     </div>

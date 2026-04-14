@@ -19,15 +19,9 @@ export class CognitoStack extends cdk.NestedStack {
     this.createCognitoUserPool(props.config, props.callbackUrls);
   }
 
-  private createCognitoUserPool(
-    config: AppConfig,
-    callbackUrls?: string[],
-  ): void {
+  private createCognitoUserPool(config: AppConfig, callbackUrls?: string[]): void {
     // Use provided callback URLs or defaults
-    const defaultCallbackUrls = [
-      "http://localhost:3000",
-      "https://localhost:3000",
-    ];
+    const defaultCallbackUrls = ["http://localhost:3000", "https://localhost:3000"];
     const finalCallbackUrls = callbackUrls || defaultCallbackUrls;
 
     const userPool = new cognito.UserPool(this, "UserPool", {
@@ -77,11 +71,7 @@ export class CognitoStack extends cdk.NestedStack {
         flows: {
           authorizationCodeGrant: true,
         },
-        scopes: [
-          cognito.OAuthScope.OPENID,
-          cognito.OAuthScope.EMAIL,
-          cognito.OAuthScope.PROFILE,
-        ],
+        scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
         // Support both localhost development and production URLs
         callbackUrls: finalCallbackUrls,
         logoutUrls: finalCallbackUrls,
@@ -92,9 +82,7 @@ export class CognitoStack extends cdk.NestedStack {
     this.userPoolDomain = new cognito.UserPoolDomain(this, "UserPoolDomain", {
       userPool: userPool,
       cognitoDomain: {
-        domainPrefix: `${config.stack_name_base.toLowerCase()}-${cdk.Aws.ACCOUNT_ID}-${
-          cdk.Aws.REGION
-        }`,
+        domainPrefix: `${config.stack_name_base.toLowerCase()}-${cdk.Aws.ACCOUNT_ID}-${cdk.Aws.REGION}`,
       },
       // Enable the newer managed login UI (v2) with the branding designer. Comment or remove this
       // if you'd like to use the old classic UI.
@@ -103,15 +91,11 @@ export class CognitoStack extends cdk.NestedStack {
 
     // Create managed login branding with Cognito's default styles
     // This is required for the v2 managed login to display properly
-    const managedLoginBranding = new cognito.CfnManagedLoginBranding(
-      this,
-      "ManagedLoginBranding",
-      {
-        userPoolId: userPool.userPoolId,
-        clientId: userPoolClient.userPoolClientId,
-        useCognitoProvidedValues: true,
-      },
-    );
+    const managedLoginBranding = new cognito.CfnManagedLoginBranding(this, "ManagedLoginBranding", {
+      userPoolId: userPool.userPoolId,
+      clientId: userPoolClient.userPoolClientId,
+      useCognitoProvidedValues: true,
+    });
 
     managedLoginBranding.node.addDependency(this.userPoolDomain);
 

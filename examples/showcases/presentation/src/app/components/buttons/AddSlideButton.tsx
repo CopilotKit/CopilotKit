@@ -8,11 +8,7 @@ interface AddSlideButtonProps {
   setSlides: (fn: (slides: SlideModel[]) => SlideModel[]) => void;
 }
 
-export function AddSlideButton({
-  currentSlideIndex,
-  setCurrentSlideIndex,
-  setSlides,
-}: AddSlideButtonProps) {
+export function AddSlideButton({ currentSlideIndex, setCurrentSlideIndex, setSlides }: AddSlideButtonProps) {
   return (
     <ActionButton
       onClick={() => {

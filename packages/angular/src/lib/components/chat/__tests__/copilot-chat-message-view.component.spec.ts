@@ -24,10 +24,7 @@ describe("CopilotChatMessageView", () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({});
     injector = TestBed.inject(EnvironmentInjector);
-    component = runInInjectionContext(
-      injector,
-      () => new CopilotChatMessageView(),
-    );
+    component = runInInjectionContext(injector, () => new CopilotChatMessageView());
     (component as any).messages = () => [userMessage, assistantMessage];
     (component as any).isLoading = () => false;
     (component as any).showCursor = () => false;

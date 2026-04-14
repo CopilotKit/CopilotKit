@@ -5,8 +5,7 @@ import "./style.css";
 
 export const metadata: Metadata = {
   title: "Scheduling Assistant",
-  description:
-    "AI scheduling assistant demo — manage your calendar, inbox, and emails",
+  description: "AI scheduling assistant demo — manage your calendar, inbox, and emails",
 };
 
 export default function RootLayout({
@@ -28,9 +27,7 @@ export default function RootLayout({
         />
       </head>
       <body className={"antialiased"}>
-        <div className="flex h-dvh w-screen flex-col min-h-0 overflow-hidden bg-background">
-          {children}
-        </div>
+        <div className="flex h-dvh w-screen flex-col min-h-0 overflow-hidden bg-background">{children}</div>
       </body>
     </html>
   );

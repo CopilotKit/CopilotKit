@@ -119,8 +119,7 @@
 }
 
 @theme {
-  --animate-pulse-cursor: pulse-cursor 0.9s cubic-bezier(0.4, 0, 0.2, 1)
-    infinite;
+  --animate-pulse-cursor: pulse-cursor 0.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   @keyframes pulse-cursor {
     0%,
     100% {
@@ -150,25 +149,15 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-[data-copilotkit]
-  .prose
-  :where(code):not(
-    :where([class~="not-prose"], [class~="not-prose"] *)
-  )::before {
+[data-copilotkit] .prose :where(code):not(:where([class~="not-prose"], [class~="not-prose"] *))::before {
   content: none;
 }
 
-[data-copilotkit]
-  .prose
-  :where(code):not(
-    :where([class~="not-prose"], [class~="not-prose"] *)
-  )::after {
+[data-copilotkit] .prose :where(code):not(:where([class~="not-prose"], [class~="not-prose"] *))::after {
   content: none;
 }
 
-[data-copilotkit]
-  .prose
-  :where(code):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+[data-copilotkit] .prose :where(code):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   font-weight: 400;
 }
 
@@ -215,9 +204,7 @@
 
 [data-copilotkit]
   .prose
-  :where(blockquote p:first-of-type):not(
-    :where([class~="not-prose"], [class~="not-prose"] *)
-  )::before {
+  :where(blockquote p:first-of-type):not(:where([class~="not-prose"], [class~="not-prose"] *))::before {
   content: none;
 }
 

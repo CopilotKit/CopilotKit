@@ -45,26 +45,11 @@ export function AreaChart({
 }: AreaChartProps) {
   return (
     <ResponsiveContainer width="100%" height="100%" className={className}>
-      <RechartsAreaChart
-        data={data}
-        margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
-      >
-        {showGrid && (
-          <CartesianGrid
-            strokeDasharray="3 3"
-            vertical={false}
-            stroke="#e5e7eb"
-          />
-        )}
+      <RechartsAreaChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
+        {showGrid && <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />}
 
         {showXAxis && (
-          <XAxis
-            dataKey={index}
-            axisLine={false}
-            tickLine={false}
-            tick={{ fill: "#6b7280", fontSize: 12 }}
-            dy={10}
-          />
+          <XAxis dataKey={index} axisLine={false} tickLine={false} tick={{ fill: "#6b7280", fontSize: 12 }} dy={10} />
         )}
 
         {showYAxis && (
@@ -97,11 +82,7 @@ export function AreaChart({
             height={36}
             iconType="circle"
             iconSize={8}
-            formatter={(value) => (
-              <span style={{ color: "#6b7280", fontSize: "0.875rem" }}>
-                {value}
-              </span>
-            )}
+            formatter={(value) => <span style={{ color: "#6b7280", fontSize: "0.875rem" }}>{value}</span>}
           />
         )}
 

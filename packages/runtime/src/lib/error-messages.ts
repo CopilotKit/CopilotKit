@@ -41,12 +41,7 @@
 
 export interface ErrorPatternConfig {
   message: string;
-  category:
-    | "network"
-    | "connection"
-    | "authentication"
-    | "validation"
-    | "unknown";
+  category: "network" | "connection" | "authentication" | "validation" | "unknown";
   severity: "error" | "warning" | "info";
   actionable: boolean;
 }
@@ -110,22 +105,19 @@ export const errorConfig: ErrorConfig = {
     },
     // Authentication patterns
     "401": {
-      message:
-        "Authentication failed. Please check your API keys and ensure they are correctly configured.",
+      message: "Authentication failed. Please check your API keys and ensure they are correctly configured.",
       category: "authentication",
       severity: "error",
       actionable: true,
     },
     "api key": {
-      message:
-        "API key error detected. Please verify your API key is correct and has the necessary permissions.",
+      message: "API key error detected. Please verify your API key is correct and has the necessary permissions.",
       category: "authentication",
       severity: "error",
       actionable: true,
     },
     unauthorized: {
-      message:
-        "Unauthorized access. Please check your authentication credentials.",
+      message: "Unauthorized access. Please check your authentication credentials.",
       category: "authentication",
       severity: "error",
       actionable: true,
@@ -139,36 +131,31 @@ export const errorConfig: ErrorConfig = {
       actionable: true,
     },
     "Incorrect API key provided": {
-      message:
-        "OpenAI API key is invalid. Please verify your OPENAI_API_KEY is correct and active.",
+      message: "OpenAI API key is invalid. Please verify your OPENAI_API_KEY is correct and active.",
       category: "authentication",
       severity: "error",
       actionable: true,
     },
     RateLimitError: {
-      message:
-        "OpenAI rate limit exceeded. Please wait a moment and try again, or check your OpenAI usage limits.",
+      message: "OpenAI rate limit exceeded. Please wait a moment and try again, or check your OpenAI usage limits.",
       category: "network",
       severity: "warning",
       actionable: true,
     },
     InvalidRequestError: {
-      message:
-        "Invalid request to OpenAI API. Please check your request parameters and model configuration.",
+      message: "Invalid request to OpenAI API. Please check your request parameters and model configuration.",
       category: "validation",
       severity: "error",
       actionable: true,
     },
     PermissionDeniedError: {
-      message:
-        "Permission denied for OpenAI API. Please check your API key permissions and billing status.",
+      message: "Permission denied for OpenAI API. Please check your API key permissions and billing status.",
       category: "authentication",
       severity: "error",
       actionable: true,
     },
     NotFoundError: {
-      message:
-        "OpenAI resource not found. Please check your model name and availability.",
+      message: "OpenAI resource not found. Please check your model name and availability.",
       category: "validation",
       severity: "error",
       actionable: true,
@@ -179,14 +166,10 @@ export const errorConfig: ErrorConfig = {
       "A network error occurred while connecting to the agent service. Please check your connection and ensure the agent service is running.",
     connection:
       "The connection to the agent service was lost unexpectedly. This may indicate an issue with the agent service.",
-    authentication:
-      "Authentication failed. Please check your API keys and credentials.",
-    validation:
-      "Invalid input or configuration. Please check your parameters and try again.",
-    unknown:
-      "An unexpected error occurred. Please check the logs for more details.",
-    default:
-      "An unexpected error occurred. Please check the logs for more details.",
+    authentication: "Authentication failed. Please check your API keys and credentials.",
+    validation: "Invalid input or configuration. Please check your parameters and try again.",
+    unknown: "An unexpected error occurred. Please check the logs for more details.",
+    default: "An unexpected error occurred. Please check the logs for more details.",
   },
   contextTemplates: {
     connection: "connection",

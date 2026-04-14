@@ -1,8 +1,4 @@
-import {
-  CopilotRuntime,
-  OpenAIAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 import { OpenAI } from "openai";
 import { NextRequest } from "next/server";
 import { FEDEX_MSA } from "@/lib/fake-msa";

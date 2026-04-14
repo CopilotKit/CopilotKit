@@ -20,19 +20,12 @@ import { TextFieldApi } from "@a2ui/web_core/v0_9/basic_catalog";
 import { LEAF_MARGIN, STANDARD_BORDER, STANDARD_RADIUS } from "../utils";
 
 export const TextField = createReactComponent(TextFieldApi, ({ props }) => {
-  const onChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
+  const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     props.setValue(e.target.value);
   };
 
   const isLong = props.variant === "longText";
-  const type =
-    props.variant === "number"
-      ? "number"
-      : props.variant === "obscured"
-        ? "password"
-        : "text";
+  const type = props.variant === "number" ? "number" : props.variant === "obscured" ? "password" : "text";
 
   const style: React.CSSProperties = {
     padding: "8px",
@@ -60,10 +53,7 @@ export const TextField = createReactComponent(TextFieldApi, ({ props }) => {
       }}
     >
       {props.label && (
-        <label
-          htmlFor={uniqueId}
-          style={{ fontSize: "14px", fontWeight: "bold" }}
-        >
+        <label htmlFor={uniqueId} style={{ fontSize: "14px", fontWeight: "bold" }}>
           {props.label}
         </label>
       )}
@@ -89,11 +79,7 @@ export const TextField = createReactComponent(TextFieldApi, ({ props }) => {
           onChange={onChange}
         />
       )}
-      {hasError && (
-        <span style={{ fontSize: "12px", color: "red" }}>
-          {props.validationErrors![0]}
-        </span>
-      )}
+      {hasError && <span style={{ fontSize: "12px", color: "red" }}>{props.validationErrors![0]}</span>}
     </div>
   );
 });

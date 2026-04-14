@@ -45,7 +45,5 @@ app.use(
 const port = Number(process.env.PORT ?? 4000);
 
 app.listen(port, () => {
-  console.log(
-    `CopilotKit v2 runtime listening at http://localhost:${port}/api/copilotkit`,
-  );
+  console.log(`CopilotKit v2 runtime listening at http://localhost:${port}/api/copilotkit`);
 });

@@ -89,19 +89,11 @@ This provides the chat context to all of the children components.
 <em>[app/layout.tsx](./app/layout.tsx)</em>
 
 ```tsx
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <CopilotKit
-          publicApiKey={process.env.NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY}
-        >
-          {children}
-        </CopilotKit>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <CopilotKit publicApiKey={process.env.NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY}>{children}</CopilotKit>
       </body>
     </html>
   );

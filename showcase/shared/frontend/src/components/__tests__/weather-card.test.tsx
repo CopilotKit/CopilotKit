@@ -1,10 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import {
-  WeatherCard,
-  getWeatherGradient,
-  getWeatherIcon,
-} from "../weather-card";
+import { WeatherCard, getWeatherGradient, getWeatherIcon } from "../weather-card";
 
 describe("WeatherCard", () => {
   const defaultProps = {

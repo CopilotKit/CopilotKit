@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  useCoAgent,
-  useCopilotAction,
-  useCopilotReadable,
-  useHumanInTheLoop,
-} from "@copilotkit/react-core";
+import { useCoAgent, useCopilotAction, useCopilotReadable, useHumanInTheLoop } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import { ArtifactPanel } from "@/components/ArtifactPanel";
 import { CustomChatInput } from "@/components/CustomChatInput";
@@ -176,9 +171,7 @@ export default function SceneCreatorPage() {
             artifactType={args.artifact_type as string}
             name={args.name as string}
             prompt={args.prompt as string}
-            onApprove={(finalPrompt) =>
-              respond({ approved: true, prompt: finalPrompt })
-            }
+            onApprove={(finalPrompt) => respond({ approved: true, prompt: finalPrompt })}
             onCancel={() => respond({ approved: false })}
           />
         );
@@ -192,16 +185,12 @@ export default function SceneCreatorPage() {
               {res.approved ? (
                 <>
                   <span className="text-green-600">✓</span>
-                  <span className="text-sm text-neutral-600">
-                    Prompt approved
-                  </span>
+                  <span className="text-sm text-neutral-600">Prompt approved</span>
                 </>
               ) : (
                 <>
                   <span className="text-red-500">✕</span>
-                  <span className="text-sm text-neutral-600">
-                    Generation cancelled
-                  </span>
+                  <span className="text-sm text-neutral-600">Generation cancelled</span>
                 </>
               )}
             </div>
@@ -268,11 +257,7 @@ export default function SceneCreatorPage() {
         title="Editing Character"
         status={status}
         description={args?.edit_description as string}
-        result={
-          result && !(result as any)?.error
-            ? `Updated "${(result as any)?.name}"`
-            : (result as any)?.error
-        }
+        result={result && !(result as any)?.error ? `Updated "${(result as any)?.name}"` : (result as any)?.error}
       />
     ),
   });
@@ -287,11 +272,7 @@ export default function SceneCreatorPage() {
         title="Editing Background"
         status={status}
         description={args?.edit_description as string}
-        result={
-          result && !(result as any)?.error
-            ? `Updated "${(result as any)?.name}"`
-            : (result as any)?.error
-        }
+        result={result && !(result as any)?.error ? `Updated "${(result as any)?.name}"` : (result as any)?.error}
       />
     ),
   });
@@ -306,11 +287,7 @@ export default function SceneCreatorPage() {
         title="Editing Scene"
         status={status}
         description={args?.edit_description as string}
-        result={
-          result && !(result as any)?.error
-            ? `Updated "${(result as any)?.name}"`
-            : (result as any)?.error
-        }
+        result={result && !(result as any)?.error ? `Updated "${(result as any)?.name}"` : (result as any)?.error}
       />
     ),
   });
@@ -322,15 +299,9 @@ export default function SceneCreatorPage() {
         <div className="max-w-2xl w-full px-8">
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold uppercase mb-4">Scene Creator</h1>
-            <p className="text-lg opacity-70">
-              AI-powered scene generation with Gemini 3 & Nano Banana
-            </p>
+            <p className="text-lg opacity-70">AI-powered scene generation with Gemini 3 & Nano Banana</p>
           </div>
-          <ApiKeyInput
-            currentKey={apiKey}
-            onSave={saveApiKey}
-            onClear={clearApiKey}
-          />
+          <ApiKeyInput currentKey={apiKey} onSave={saveApiKey} onClear={clearApiKey} />
         </div>
       </main>
     );
@@ -341,11 +312,7 @@ export default function SceneCreatorPage() {
       <main className="h-screen w-screen flex relative">
         {/* Floating API Key Tooltip - Top Left */}
         <div className="absolute bottom-4 left-4 z-50">
-          <ApiKeyInput
-            currentKey={apiKey}
-            onSave={saveApiKey}
-            onClear={clearApiKey}
-          />
+          <ApiKeyInput currentKey={apiKey} onSave={saveApiKey} onClear={clearApiKey} />
         </div>
 
         {/* Main artifact display panel */}
@@ -404,9 +371,7 @@ function ToolCard({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="font-bold uppercase tracking-wider text-sm">
-              {title}
-            </span>
+            <span className="font-bold uppercase tracking-wider text-sm">{title}</span>
             {isExecuting && (
               <span className="inline-flex items-center gap-1 text-xs font-bold bg-[var(--accent-blue)] text-white px-2 py-0.5 border border-black">
                 <span className="animate-pulse">PROCESSING</span>
@@ -419,14 +384,10 @@ function ToolCard({
             )}
           </div>
           {description && (
-            <p className="text-sm text-neutral-600 mb-2 border-l-2 border-neutral-300 pl-2">
-              {description}
-            </p>
+            <p className="text-sm text-neutral-600 mb-2 border-l-2 border-neutral-300 pl-2">{description}</p>
           )}
           {isComplete && result && (
-            <div className="mt-2 text-sm font-bold p-2 bg-neutral-100 border border-black">
-              → {result}
-            </div>
+            <div className="mt-2 text-sm font-bold p-2 bg-neutral-100 border border-black">→ {result}</div>
           )}
         </div>
       </div>
@@ -451,26 +412,17 @@ function PromptApprovalCard({
   const [editedPrompt, setEditedPrompt] = useState(prompt);
   const [isEditing, setIsEditing] = useState(false);
 
-  const icon =
-    artifactType === "character"
-      ? "👤"
-      : artifactType === "background"
-        ? "🏞️"
-        : "🎬";
+  const icon = artifactType === "character" ? "👤" : artifactType === "background" ? "🏞️" : "🎬";
 
   return (
     <div className="my-4 brutalist-card bg-[var(--accent-yellow)] p-4">
       <div className="flex items-center gap-3 mb-4 border-b-2 border-black pb-2">
         <span className="text-2xl">{icon}</span>
-        <span className="font-bold uppercase text-lg">
-          APPROVE {artifactType}
-        </span>
+        <span className="font-bold uppercase text-lg">APPROVE {artifactType}</span>
       </div>
 
       <div className="mb-4">
-        <div className="text-xs font-bold uppercase mb-1 opacity-70">
-          Target: {name}
-        </div>
+        <div className="text-xs font-bold uppercase mb-1 opacity-70">Target: {name}</div>
         {isEditing ? (
           <textarea
             value={editedPrompt}
@@ -480,9 +432,7 @@ function PromptApprovalCard({
             autoFocus
           />
         ) : (
-          <div className="bg-white border-2 border-black p-3 text-sm font-mono">
-            {editedPrompt}
-          </div>
+          <div className="bg-white border-2 border-black p-3 text-sm font-mono">{editedPrompt}</div>
         )}
       </div>
 
@@ -493,16 +443,10 @@ function PromptApprovalCard({
         >
           {isEditing ? "SAVE & RUN" : "EXECUTE"}
         </button>
-        <button
-          onClick={() => setIsEditing(!isEditing)}
-          className="brutalist-btn bg-black py-2 px-4"
-        >
+        <button onClick={() => setIsEditing(!isEditing)} className="brutalist-btn bg-black py-2 px-4">
           {isEditing ? "CANCEL EDIT" : "EDIT"}
         </button>
-        <button
-          onClick={onCancel}
-          className="brutalist-btn bg-[var(--accent-red)] text-black py-2 px-4"
-        >
+        <button onClick={onCancel} className="brutalist-btn bg-[var(--accent-red)] text-black py-2 px-4">
           ABORT
         </button>
       </div>

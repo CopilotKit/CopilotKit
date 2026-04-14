@@ -59,9 +59,7 @@ describe("micro-redux", () => {
       });
 
       expect(actions.boot().type).toBe("[Feature Alpha] boot");
-      expect(actions.setValue({ value: 42 }).type).toBe(
-        "[Feature Alpha] setValue",
-      );
+      expect(actions.setValue({ value: 42 }).type).toBe("[Feature Alpha] setValue");
     });
   });
 
@@ -104,10 +102,7 @@ describe("micro-redux", () => {
       const afterIncrement = reducer(afterUnknown, counterActions.increment());
       expect(afterIncrement).toEqual({ count: 1, updates: 1 });
 
-      const afterSet = reducer(
-        afterIncrement,
-        counterActions.setCount({ count: 10 }),
-      );
+      const afterSet = reducer(afterIncrement, counterActions.setCount({ count: 10 }));
       expect(afterSet).toEqual({ count: 10, updates: 2 });
 
       const afterReset = reducer(afterSet, counterActions.reset());
@@ -135,9 +130,9 @@ describe("micro-redux", () => {
     });
 
     it("throws when on is called without creators", () => {
-      expect(() =>
-        (on as unknown as (...args: unknown[]) => unknown)(),
-      ).toThrow("on requires at least one action creator and one reducer");
+      expect(() => (on as unknown as (...args: unknown[]) => unknown)()).toThrow(
+        "on requires at least one action creator and one reducer",
+      );
     });
   });
 
@@ -153,14 +148,10 @@ describe("micro-redux", () => {
       const selectMultiplier = (state: State) => state.multiplier;
 
       let projectorCalls = 0;
-      const selectScaled = createSelector(
-        selectItems,
-        selectMultiplier,
-        (items, multiplier) => {
-          projectorCalls += 1;
-          return items.map((item) => item * multiplier);
-        },
-      );
+      const selectScaled = createSelector(selectItems, selectMultiplier, (items, multiplier) => {
+        projectorCalls += 1;
+        return items.map((item) => item * multiplier);
+      });
 
       const state: State = {
         items: [1, 2],
@@ -193,11 +184,9 @@ describe("micro-redux", () => {
       const source$ = new Subject<{ count: number }>();
       const seen: number[] = [];
 
-      const sub = source$
-        .pipe(select((state) => state.count % 2))
-        .subscribe((v) => {
-          seen.push(v);
-        });
+      const sub = source$.pipe(select((state) => state.count % 2)).subscribe((v) => {
+        seen.push(v);
+      });
 
       source$.next({ count: 1 });
       source$.next({ count: 3 });
@@ -223,11 +212,9 @@ describe("micro-redux", () => {
       const sub1 = source$.pipe(ofType(actions.one)).subscribe((action) => {
         seenSingle.push(action.type);
       });
-      const sub2 = source$
-        .pipe(ofType(actions.one, actions.three))
-        .subscribe((action) => {
-          seenMulti.push(action.type);
-        });
+      const sub2 = source$.pipe(ofType(actions.one, actions.three)).subscribe((action) => {
+        seenMulti.push(action.type);
+      });
 
       source$.next(actions.one());
       source$.next(actions.two());
@@ -241,9 +228,7 @@ describe("micro-redux", () => {
     });
 
     it("ofType throws when called with no creators", () => {
-      expect(() => (ofType as unknown as () => unknown)()).toThrow(
-        "ofType requires at least one action creator",
-      );
+      expect(() => (ofType as unknown as () => unknown)()).toThrow("ofType requires at least one action creator");
     });
   });
 
@@ -390,12 +375,11 @@ describe("micro-redux", () => {
         })),
       );
 
-      const effect = createEffect(
-        (actions$: Observable<AnyAction | StoreLifecycleAction>) =>
-          actions$.pipe(
-            filter((action) => action.type === "@@micro-redux/init"),
-            map(() => actions.completed()),
-          ),
+      const effect = createEffect((actions$: Observable<AnyAction | StoreLifecycleAction>) =>
+        actions$.pipe(
+          filter((action) => action.type === "@@micro-redux/init"),
+          map(() => actions.completed()),
+        ),
       );
 
       const store = createStore({ reducer, effects: [effect] });
@@ -422,10 +406,7 @@ describe("micro-redux", () => {
 
       sub.unsubscribe();
 
-      expect(seenActionTypes).toEqual([
-        "@@micro-redux/init",
-        "@@micro-redux/stop",
-      ]);
+      expect(seenActionTypes).toEqual(["@@micro-redux/init", "@@micro-redux/stop"]);
     });
 
     it("unsubscribes effects on stop", async () => {
@@ -473,12 +454,8 @@ describe("micro-redux", () => {
       const stateEmissions: number[] = [];
       const actionTypes: string[] = [];
 
-      const stateSub = store.state$.subscribe((state) =>
-        stateEmissions.push(state.count),
-      );
-      const actionSub = store.actions$.subscribe((action) =>
-        actionTypes.push(action.type),
-      );
+      const stateSub = store.state$.subscribe((state) => stateEmissions.push(state.count));
+      const actionSub = store.actions$.subscribe((action) => actionTypes.push(action.type));
 
       store.dispatch(actions.ping());
 
@@ -501,9 +478,7 @@ describe("micro-redux", () => {
 
       const store = createStore({ reducer });
       const parityValues: number[] = [];
-      const sub = store
-        .select((s) => s.count % 2)
-        .subscribe((v) => parityValues.push(v));
+      const sub = store.select((s) => s.count % 2).subscribe((v) => parityValues.push(v));
 
       store.dispatch(actions.set({ count: 1 }));
       store.dispatch(actions.set({ count: 3 }));
@@ -573,9 +548,7 @@ describe("micro-redux", () => {
       expect((actionErrors[0] as Error).message).toBe("boom");
       expect((stateErrors[0] as Error).message).toBe("boom");
 
-      expect(() => store.dispatch(actions.trigger())).toThrow(
-        "Store is in a failed state due to an effect error",
-      );
+      expect(() => store.dispatch(actions.trigger())).toThrow("Store is in a failed state due to an effect error");
     });
 
     it("fails fast when a non-dispatching effect errors", async () => {

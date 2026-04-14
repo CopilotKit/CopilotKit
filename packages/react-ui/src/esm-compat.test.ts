@@ -12,16 +12,12 @@ import * as path from "node:path";
  */
 describe("ESM compatibility", () => {
   const pkgRoot = path.resolve(__dirname, "..");
-  const pkg = JSON.parse(
-    fs.readFileSync(path.join(pkgRoot, "package.json"), "utf-8"),
-  );
+  const pkg = JSON.parse(fs.readFileSync(path.join(pkgRoot, "package.json"), "utf-8"));
 
   it('should not have .js config files with CJS syntax when package uses "type": "module"', () => {
     if (pkg.type !== "module") return;
 
-    const jsFiles = fs
-      .readdirSync(pkgRoot)
-      .filter((f) => f.endsWith(".config.js") || f === ".postcssrc.js");
+    const jsFiles = fs.readdirSync(pkgRoot).filter((f) => f.endsWith(".config.js") || f === ".postcssrc.js");
 
     const cjsFiles: string[] = [];
     for (const file of jsFiles) {

@@ -3,11 +3,7 @@
 
 import "@copilotkit/react-core/v2/styles.css";
 import { useEffect, useState } from "react";
-import {
-  CopilotChat,
-  CopilotKitProvider,
-  useFrontendTool,
-} from "@copilotkit/react-core/v2";
+import { CopilotChat, CopilotKitProvider, useFrontendTool } from "@copilotkit/react-core/v2";
 import { useAuth as useOidcAuth } from "react-oidc-context";
 import { loadAwsConfig, type AwsExportsConfig } from "@/lib/runtime-config";
 import { useExampleSuggestions } from "@/hooks/useExampleSuggestions";
@@ -52,9 +48,7 @@ function CopilotChatContent() {
       </div>
       <div
         className={`h-full overflow-hidden ${
-          mode === "app"
-            ? "w-2/3 border-l dark:border-zinc-700 max-lg:w-full max-lg:border-l-0"
-            : "w-0 border-l-0"
+          mode === "app" ? "w-2/3 border-l dark:border-zinc-700 max-lg:w-full max-lg:border-l-0" : "w-0 border-l-0"
         }`}
       >
         <div className="h-full w-full lg:w-[66.666vw]">
@@ -97,11 +91,7 @@ export default function CopilotChatInterface() {
   }, []);
 
   if (error) {
-    return (
-      <div className="flex h-full items-center justify-center px-6 text-center text-sm text-red-600">
-        {error}
-      </div>
-    );
+    return <div className="flex h-full items-center justify-center px-6 text-center text-sm text-red-600">{error}</div>;
   }
 
   if (!config) {
@@ -119,9 +109,7 @@ export default function CopilotChatInterface() {
       <div className="h-full bg-[#f5f7fb]">
         <CopilotKitProvider
           runtimeUrl={config.copilotKitRuntimeUrl}
-          headers={
-            accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined
-          }
+          headers={accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined}
         >
           <CopilotChatContent />
         </CopilotKitProvider>

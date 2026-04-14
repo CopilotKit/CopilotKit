@@ -18,12 +18,8 @@ const accountTypeColors: Record<string, string> = {
 };
 
 export default function AccountsPage() {
-  const totalAssets = accounts
-    .filter((a) => a.type === "asset")
-    .reduce((sum, a) => sum + a.balance, 0);
-  const totalLiabilities = accounts
-    .filter((a) => a.type === "liability")
-    .reduce((sum, a) => sum + a.balance, 0);
+  const totalAssets = accounts.filter((a) => a.type === "asset").reduce((sum, a) => sum + a.balance, 0);
+  const totalLiabilities = accounts.filter((a) => a.type === "liability").reduce((sum, a) => sum + a.balance, 0);
 
   return (
     <Shell>
@@ -34,32 +30,20 @@ export default function AccountsPage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Card size="sm">
             <CardContent>
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Total Assets
-              </p>
-              <p className="mt-2 text-2xl font-bold text-emerald-600">
-                {formatCurrency(totalAssets)}
-              </p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Assets</p>
+              <p className="mt-2 text-2xl font-bold text-emerald-600">{formatCurrency(totalAssets)}</p>
             </CardContent>
           </Card>
           <Card size="sm">
             <CardContent>
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Total Liabilities
-              </p>
-              <p className="mt-2 text-2xl font-bold text-rose-600">
-                {formatCurrency(totalLiabilities)}
-              </p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Liabilities</p>
+              <p className="mt-2 text-2xl font-bold text-rose-600">{formatCurrency(totalLiabilities)}</p>
             </CardContent>
           </Card>
           <Card size="sm">
             <CardContent>
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Net Position
-              </p>
-              <p className="mt-2 text-2xl font-bold text-primary">
-                {formatCurrency(totalAssets - totalLiabilities)}
-              </p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Net Position</p>
+              <p className="mt-2 text-2xl font-bold text-primary">{formatCurrency(totalAssets - totalLiabilities)}</p>
             </CardContent>
           </Card>
         </div>
@@ -95,11 +79,7 @@ export default function AccountsPage() {
                 },
                 {
                   header: "Balance",
-                  accessor: (row) => (
-                    <span className="font-medium text-foreground">
-                      {formatCurrency(row.balance)}
-                    </span>
-                  ),
+                  accessor: (row) => <span className="font-medium text-foreground">{formatCurrency(row.balance)}</span>,
                 },
               ]}
               data={accounts}
@@ -140,11 +120,7 @@ export default function AccountsPage() {
                   header: "Amount",
                   accessor: (row) => (
                     <span
-                      className={
-                        row.type === "credit"
-                          ? "font-medium text-emerald-600"
-                          : "font-medium text-foreground"
-                      }
+                      className={row.type === "credit" ? "font-medium text-emerald-600" : "font-medium text-foreground"}
                     >
                       {row.type === "credit" ? "+" : "-"}
                       {formatCurrency(row.amount)}

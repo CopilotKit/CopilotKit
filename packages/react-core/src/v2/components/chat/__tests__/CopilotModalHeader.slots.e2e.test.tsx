@@ -8,9 +8,7 @@ import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChat
 // Wrapper to provide required context
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <CopilotKitProvider>
-    <CopilotChatConfigurationProvider threadId="test-thread">
-      {children}
-    </CopilotChatConfigurationProvider>
+    <CopilotChatConfigurationProvider threadId="test-thread">{children}</CopilotChatConfigurationProvider>
   </CopilotKitProvider>
 );
 
@@ -23,10 +21,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
       it("should apply tailwind class string to titleContent", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotModalHeader
-              title="Test Title"
-              titleContent="text-2xl font-bold text-blue-600"
-            />
+            <CopilotModalHeader title="Test Title" titleContent="text-2xl font-bold text-blue-600" />
           </TestWrapper>,
         );
 
@@ -39,10 +34,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
       it("should merge titleContent classes with defaults", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotModalHeader
-              title="Test Title"
-              titleContent="custom-title-class"
-            />
+            <CopilotModalHeader title="Test Title" titleContent="custom-title-class" />
           </TestWrapper>,
         );
 
@@ -57,10 +49,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
       it("should apply tailwind class string to closeButton", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotModalHeader
-              title="Test Title"
-              closeButton="bg-red-100 hover:bg-red-200 text-red-600"
-            />
+            <CopilotModalHeader title="Test Title" closeButton="bg-red-100 hover:bg-red-200 text-red-600" />
           </TestWrapper>,
         );
 
@@ -90,10 +79,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
       it("should pass custom props to titleContent", () => {
         render(
           <TestWrapper>
-            <CopilotModalHeader
-              title="Test Title"
-              titleContent={{ "data-testid": "custom-title" }}
-            />
+            <CopilotModalHeader title="Test Title" titleContent={{ "data-testid": "custom-title" }} />
           </TestWrapper>,
         );
 
@@ -106,10 +92,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
         const onClick = vi.fn();
         render(
           <TestWrapper>
-            <CopilotModalHeader
-              title="Click Me"
-              titleContent={{ onClick, "data-testid": "clickable-title" }}
-            />
+            <CopilotModalHeader title="Click Me" titleContent={{ onClick, "data-testid": "clickable-title" }} />
           </TestWrapper>,
         );
 
@@ -126,10 +109,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
         const customOnClick = vi.fn();
         const { container } = render(
           <TestWrapper>
-            <CopilotModalHeader
-              title="Test Title"
-              closeButton={{ onClick: customOnClick }}
-            />
+            <CopilotModalHeader title="Test Title" closeButton={{ onClick: customOnClick }} />
           </TestWrapper>,
         );
 
@@ -143,10 +123,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
       it("should support disabled state on closeButton", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotModalHeader
-              title="Test Title"
-              closeButton={{ disabled: true }}
-            />
+            <CopilotModalHeader title="Test Title" closeButton={{ disabled: true }} />
           </TestWrapper>,
         );
 
@@ -159,16 +136,11 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
       it("should pass custom aria-label to closeButton", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotModalHeader
-              title="Test Title"
-              closeButton={{ "aria-label": "Dismiss dialog" }}
-            />
+            <CopilotModalHeader title="Test Title" closeButton={{ "aria-label": "Dismiss dialog" }} />
           </TestWrapper>,
         );
 
-        const closeBtn = container.querySelector(
-          'button[aria-label="Dismiss dialog"]',
-        );
+        const closeBtn = container.querySelector('button[aria-label="Dismiss dialog"]');
         expect(closeBtn).toBeDefined();
       });
     });
@@ -187,10 +159,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
 
       render(
         <TestWrapper>
-          <CopilotModalHeader
-            title="Custom Header"
-            titleContent={CustomTitle as any}
-          />
+          <CopilotModalHeader title="Custom Header" titleContent={CustomTitle as any} />
         </TestWrapper>,
       );
 
@@ -201,9 +170,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
     });
 
     it("should allow custom component for closeButton", () => {
-      const CustomCloseButton: React.FC<
-        React.ButtonHTMLAttributes<HTMLButtonElement>
-      > = (props) => (
+      const CustomCloseButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (props) => (
         <button data-testid="custom-close-btn" {...props}>
           X Close
         </button>
@@ -211,10 +178,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
 
       render(
         <TestWrapper>
-          <CopilotModalHeader
-            title="Test Title"
-            closeButton={CustomCloseButton as any}
-          />
+          <CopilotModalHeader title="Test Title" closeButton={CustomCloseButton as any} />
         </TestWrapper>,
       );
 
@@ -225,9 +189,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
 
     it("should call onClick when custom closeButton is clicked", () => {
       const handleClose = vi.fn();
-      const CustomCloseButton: React.FC<
-        React.ButtonHTMLAttributes<HTMLButtonElement>
-      > = ({ onClick, ...props }) => (
+      const CustomCloseButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ onClick, ...props }) => (
         <button
           data-testid="custom-close-btn"
           onClick={(e) => {
@@ -242,10 +204,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
 
       render(
         <TestWrapper>
-          <CopilotModalHeader
-            title="Test Title"
-            closeButton={CustomCloseButton as any}
-          />
+          <CopilotModalHeader title="Test Title" closeButton={CustomCloseButton as any} />
         </TestWrapper>,
       );
 
@@ -271,9 +230,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
 
       render(
         <TestWrapper>
-          <CopilotModalHeader title="Test Title">
-            {childrenFn}
-          </CopilotModalHeader>
+          <CopilotModalHeader title="Test Title">{childrenFn}</CopilotModalHeader>
         </TestWrapper>,
       );
 
@@ -291,9 +248,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
 
       render(
         <TestWrapper>
-          <CopilotModalHeader title="My Custom Title">
-            {childrenFn}
-          </CopilotModalHeader>
+          <CopilotModalHeader title="My Custom Title">{childrenFn}</CopilotModalHeader>
         </TestWrapper>,
       );
 
@@ -306,10 +261,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
         <TestWrapper>
           <CopilotModalHeader title="Custom Layout">
             {({ titleContent, closeButton, title }) => (
-              <header
-                data-testid="custom-header-layout"
-                className="custom-header"
-              >
+              <header data-testid="custom-header-layout" className="custom-header">
                 <div className="left-side">{closeButton}</div>
                 <div className="center">{titleContent}</div>
                 <div className="right-side">
@@ -359,10 +311,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
     it("should apply className to header root element", () => {
       const { container } = render(
         <TestWrapper>
-          <CopilotModalHeader
-            title="Test Title"
-            className="custom-header-class bg-slate-100"
-          />
+          <CopilotModalHeader title="Test Title" className="custom-header-class bg-slate-100" />
         </TestWrapper>,
       );
 
@@ -452,9 +401,7 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
       );
 
       // Should render with default "CopilotKit" title from CopilotChatDefaultLabels
-      const header = document.querySelector(
-        '[data-slot="copilot-modal-header"]',
-      );
+      const header = document.querySelector('[data-slot="copilot-modal-header"]');
       expect(header).toBeDefined();
     });
 

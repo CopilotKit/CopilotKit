@@ -17,20 +17,14 @@ import {
 describe("stripProviderPrefix", () => {
   it("strips known provider prefixes", () => {
     expect(stripProviderPrefix("openai/gpt-5.4")).toBe("gpt-5.4");
-    expect(stripProviderPrefix("anthropic/claude-sonnet-4")).toBe(
-      "claude-sonnet-4",
-    );
+    expect(stripProviderPrefix("anthropic/claude-sonnet-4")).toBe("claude-sonnet-4");
     expect(stripProviderPrefix("google/gemini-2.5-pro")).toBe("gemini-2.5-pro");
     expect(stripProviderPrefix("cohere/command-r-plus")).toBe("command-r-plus");
     expect(stripProviderPrefix("meta/llama-4-scout")).toBe("llama-4-scout");
     expect(stripProviderPrefix("mistral/mistral-large")).toBe("mistral-large");
     expect(stripProviderPrefix("azure/gpt-4o")).toBe("gpt-4o");
-    expect(stripProviderPrefix("bedrock/claude-sonnet-4")).toBe(
-      "claude-sonnet-4",
-    );
-    expect(stripProviderPrefix("vertex/gemini-2.5-flash")).toBe(
-      "gemini-2.5-flash",
-    );
+    expect(stripProviderPrefix("bedrock/claude-sonnet-4")).toBe("claude-sonnet-4");
+    expect(stripProviderPrefix("vertex/gemini-2.5-flash")).toBe("gemini-2.5-flash");
   });
 
   it("returns the name unchanged when no prefix matches", () => {
@@ -72,36 +66,21 @@ describe("looksLikeModelName", () => {
 
 describe("extractModelNames", () => {
   it('extracts model from model="..." in fenced code block', () => {
-    const content = [
-      "Some text",
-      "```python",
-      'ChatOpenAI(model="gpt-5.4-mini")',
-      "```",
-    ].join("\n");
+    const content = ["Some text", "```python", 'ChatOpenAI(model="gpt-5.4-mini")', "```"].join("\n");
 
     const results = extractModelNames(content);
     expect(results).toEqual([{ model: "gpt-5.4-mini", line: 3 }]);
   });
 
   it('extracts model from model: "..." pattern', () => {
-    const content = [
-      "```tsx",
-      'const config = { model: "claude-sonnet-4" };',
-      "```",
-    ].join("\n");
+    const content = ["```tsx", 'const config = { model: "claude-sonnet-4" };', "```"].join("\n");
 
     const results = extractModelNames(content);
     expect(results).toEqual([{ model: "claude-sonnet-4", line: 2 }]);
   });
 
   it('extracts model from "model": "..." JSON pattern', () => {
-    const content = [
-      "```json",
-      "{",
-      '  "model": "gemini-2.5-flash"',
-      "}",
-      "```",
-    ].join("\n");
+    const content = ["```json", "{", '  "model": "gemini-2.5-flash"', "}", "```"].join("\n");
 
     const results = extractModelNames(content);
     expect(results).toEqual([{ model: "gemini-2.5-flash", line: 3 }]);
@@ -150,11 +129,7 @@ describe("extractModelNames", () => {
   });
 
   it("ignores text outside code blocks", () => {
-    const content = [
-      'We recommend model="gpt-5.4" for production.',
-      "",
-      "This is plain text, not code.",
-    ].join("\n");
+    const content = ['We recommend model="gpt-5.4" for production.', "", "This is plain text, not code."].join("\n");
 
     // No fenced block, no inline code — nothing extracted
     const results = extractModelNames(content);
@@ -169,12 +144,9 @@ describe("extractModelNames", () => {
   });
 
   it("does not extract non-model strings from code blocks", () => {
-    const content = [
-      "```tsx",
-      'const name = "react-component";',
-      'import something from "next/router";',
-      "```",
-    ].join("\n");
+    const content = ["```tsx", 'const name = "react-component";', 'import something from "next/router";', "```"].join(
+      "\n",
+    );
 
     const results = extractModelNames(content);
     expect(results).toEqual([]);
@@ -187,10 +159,7 @@ describe("extractModelNames", () => {
 
 describe("loadAllowlist", () => {
   it("loads all model names from allowlist JSON", () => {
-    const allowlistPath = path.resolve(
-      __dirname,
-      "../../docs/model-allowlist.json",
-    );
+    const allowlistPath = path.resolve(__dirname, "../../docs/model-allowlist.json");
     const allowed = loadAllowlist(allowlistPath);
 
     expect(allowed.has("gpt-5.4")).toBe(true);
@@ -201,10 +170,7 @@ describe("loadAllowlist", () => {
   });
 
   it("excludes the _comment field", () => {
-    const allowlistPath = path.resolve(
-      __dirname,
-      "../../docs/model-allowlist.json",
-    );
+    const allowlistPath = path.resolve(__dirname, "../../docs/model-allowlist.json");
     const allowed = loadAllowlist(allowlistPath);
 
     // _comment value should not be in the set
@@ -229,14 +195,8 @@ describe("validateFiles", () => {
     const dir = createTempDir();
     const allowlist = path.join(dir, "allowlist.json");
 
-    fs.writeFileSync(
-      allowlist,
-      JSON.stringify({ openai: ["gpt-5.4"], anthropic: ["claude-sonnet-4"] }),
-    );
-    fs.writeFileSync(
-      path.join(dir, "test.mdx"),
-      ["```python", 'ChatOpenAI(model="gpt-5.4")', "```"].join("\n"),
-    );
+    fs.writeFileSync(allowlist, JSON.stringify({ openai: ["gpt-5.4"], anthropic: ["claude-sonnet-4"] }));
+    fs.writeFileSync(path.join(dir, "test.mdx"), ["```python", 'ChatOpenAI(model="gpt-5.4")', "```"].join("\n"));
 
     const violations = validateFiles(dir, allowlist);
     expect(violations).toEqual([]);
@@ -249,10 +209,7 @@ describe("validateFiles", () => {
     const allowlist = path.join(dir, "allowlist.json");
 
     fs.writeFileSync(allowlist, JSON.stringify({ openai: ["gpt-5.4"] }));
-    fs.writeFileSync(
-      path.join(dir, "test.mdx"),
-      ["```python", 'model="gpt-99"', "```"].join("\n"),
-    );
+    fs.writeFileSync(path.join(dir, "test.mdx"), ["```python", 'model="gpt-99"', "```"].join("\n"));
 
     const violations = validateFiles(dir, allowlist);
     expect(violations).toHaveLength(1);
@@ -269,10 +226,7 @@ describe("validateFiles", () => {
     const allowlist = path.join(dir, "allowlist.json");
 
     fs.writeFileSync(allowlist, JSON.stringify({ openai: ["gpt-5.4"] }));
-    fs.writeFileSync(
-      path.join(sub, "deep.mdx"),
-      ["```", 'model="gpt-unknown"', "```"].join("\n"),
-    );
+    fs.writeFileSync(path.join(sub, "deep.mdx"), ["```", 'model="gpt-unknown"', "```"].join("\n"));
 
     const violations = validateFiles(dir, allowlist);
     expect(violations).toHaveLength(1);

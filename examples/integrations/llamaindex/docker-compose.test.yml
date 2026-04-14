@@ -16,13 +16,7 @@ services:
       aimock:
         condition: service_started
     healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import socket; socket.create_connection(('localhost', 9000), 2)",
-        ]
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('localhost', 9000), 2)"]
       interval: 5s
       timeout: 5s
       retries: 30

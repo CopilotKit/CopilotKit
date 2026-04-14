@@ -2,10 +2,7 @@ import { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
 import { logger } from "@copilotkit/shared";
 import { randomUUID } from "node:crypto";
 import { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
-import {
-  cloneAgentForRequest,
-  configureAgentForRequest,
-} from "../shared/agent-utils";
+import { cloneAgentForRequest, configureAgentForRequest } from "../shared/agent-utils";
 import { ThreadSummary } from "../../intelligence-platform";
 import { isHandlerResponse } from "../shared/json-response";
 
@@ -76,10 +73,7 @@ export async function generateThreadNameForNewThread({
         "Thread name generation returned an empty or invalid title",
       );
     } catch (error) {
-      logger.warn(
-        { err: error, agentId, attempt, threadId: thread.id },
-        "Thread name generation attempt failed",
-      );
+      logger.warn({ err: error, agentId, attempt, threadId: thread.id }, "Thread name generation attempt failed");
     }
   }
 
@@ -101,10 +95,7 @@ async function runTitleGenerationAttempt(params: {
   const { runtime, request, agentId, threadId, prompt } = params;
   const agent = await cloneAgentForRequest(runtime, agentId, request);
   if (isHandlerResponse(agent)) {
-    logger.warn(
-      { agentId, threadId },
-      "Skipping thread naming because the agent could not be cloned",
-    );
+    logger.warn({ agentId, threadId }, "Skipping thread naming because the agent could not be cloned");
     return null;
   }
 
@@ -140,20 +131,14 @@ async function runTitleGenerationAttempt(params: {
   });
 
   const lastMessage = newMessages.at(-1);
-  const titleContent = lastMessage
-    ? stringifyMessageContent(lastMessage.content)
-    : "";
+  const titleContent = lastMessage ? stringifyMessageContent(lastMessage.content) : "";
 
   return normalizeGeneratedTitle(titleContent);
 }
 
-function buildThreadTitlePrompt(
-  messages: Message[] | undefined,
-): string | null {
+function buildThreadTitlePrompt(messages: Message[] | undefined): string | null {
   const transcript = (messages ?? [])
-    .filter((message) =>
-      ["user", "assistant", "system", "developer"].includes(message.role),
-    )
+    .filter((message) => ["user", "assistant", "system", "developer"].includes(message.role))
     .map((message) => {
       const content = stringifyMessageContent(message.content);
       if (!content) {
@@ -169,11 +154,7 @@ function buildThreadTitlePrompt(
     return null;
   }
 
-  return [
-    "Generate a short title for this conversation.",
-    "Conversation:",
-    transcript.join("\n"),
-  ].join("\n\n");
+  return ["Generate a short title for this conversation.", "Conversation:", transcript.join("\n")].join("\n\n");
 }
 
 function stringifyMessageContent(content: Message["content"]): string {

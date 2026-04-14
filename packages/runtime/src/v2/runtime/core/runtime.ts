@@ -5,18 +5,12 @@ import {
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
 } from "@copilotkit/shared";
-import {
-  createLicenseChecker,
-  type LicenseChecker,
-} from "@copilotkit/license-verifier";
+import { createLicenseChecker, type LicenseChecker } from "@copilotkit/license-verifier";
 import { AbstractAgent } from "@ag-ui/client";
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
 import { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
 import pkg from "../../../../package.json";
-import type {
-  BeforeRequestMiddleware,
-  AfterRequestMiddleware,
-} from "./middleware";
+import type { BeforeRequestMiddleware, AfterRequestMiddleware } from "./middleware";
 import { TranscriptionService } from "../transcription-service/transcription-service";
 import { AgentRunner } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
@@ -68,9 +62,7 @@ export interface AgentFactoryContext {
  * A function that dynamically creates agents on a per-request basis.
  * Useful for multi-tenant scenarios or request-scoped agent configuration.
  */
-export type AgentsFactory = (
-  ctx: AgentFactoryContext,
-) => MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>>;
+export type AgentsFactory = (ctx: AgentFactoryContext) => MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>>;
 
 /**
  * Agents can be provided as:
@@ -78,24 +70,17 @@ export type AgentsFactory = (
  * - A Promise that resolves to a record of agents
  * - A factory function that receives request context and returns agents (or a Promise of agents)
  */
-export type AgentsConfig =
-  | MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>>
-  | AgentsFactory;
+export type AgentsConfig = MaybePromise<NonEmptyRecord<Record<string, AbstractAgent>>> | AgentsFactory;
 
 /**
  * Resolve an AgentsConfig value to a concrete record of agents.
  * If the config is a factory function, it is called with the given request context.
  * Otherwise it is awaited directly (static record or Promise).
  */
-export async function resolveAgents(
-  agents: AgentsConfig,
-  request?: Request,
-): Promise<Record<string, AbstractAgent>> {
+export async function resolveAgents(agents: AgentsConfig, request?: Request): Promise<Record<string, AbstractAgent>> {
   if (typeof agents === "function") {
     if (!request) {
-      throw new Error(
-        "Agent factory function requires a request context, but none was provided.",
-      );
+      throw new Error("Agent factory function requires a request context, but none was provided.");
     }
     return agents({ request });
   }
@@ -134,9 +119,7 @@ export interface CopilotRuntimeUser {
   id: string;
 }
 
-export type IdentifyUserCallback = (
-  request: Request,
-) => MaybePromise<CopilotRuntimeUser>;
+export type IdentifyUserCallback = (request: Request) => MaybePromise<CopilotRuntimeUser>;
 
 export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   /** The runner to use for running agents in SSE mode. */
@@ -164,9 +147,7 @@ export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOpt
   lockHeartbeatIntervalSeconds?: number;
 }
 
-export type CopilotRuntimeOptions =
-  | CopilotSseRuntimeOptions
-  | CopilotIntelligenceRuntimeOptions;
+export type CopilotRuntimeOptions = CopilotSseRuntimeOptions | CopilotIntelligenceRuntimeOptions;
 
 export interface CopilotRuntimeLike {
   agents: CopilotRuntimeOptions["agents"];
@@ -234,10 +215,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   }
 }
 
-export class CopilotSseRuntime
-  extends BaseCopilotRuntime
-  implements CopilotSseRuntimeLike
-{
+export class CopilotSseRuntime extends BaseCopilotRuntime implements CopilotSseRuntimeLike {
   readonly intelligence = undefined;
   readonly mode = RUNTIME_MODE_SSE;
 
@@ -246,10 +224,7 @@ export class CopilotSseRuntime
   }
 }
 
-export class CopilotIntelligenceRuntime
-  extends BaseCopilotRuntime
-  implements CopilotIntelligenceRuntimeLike
-{
+export class CopilotIntelligenceRuntime extends BaseCopilotRuntime implements CopilotIntelligenceRuntimeLike {
   readonly intelligence: CopilotKitIntelligence;
   readonly identifyUser: IdentifyUserCallback;
   readonly generateThreadNames: boolean;
@@ -277,10 +252,7 @@ export class CopilotIntelligenceRuntime
     this.identifyUser = options.identifyUser;
     this.generateThreadNames = options.generateThreadNames ?? true;
     this.licenseChecker = createLicenseChecker(options.licenseToken);
-    this.lockTtlSeconds = Math.min(
-      options.lockTtlSeconds ?? 20,
-      CopilotIntelligenceRuntime.MAX_LOCK_TTL_SECONDS,
-    );
+    this.lockTtlSeconds = Math.min(options.lockTtlSeconds ?? 20, CopilotIntelligenceRuntime.MAX_LOCK_TTL_SECONDS);
     this.lockKeyPrefix = options.lockKeyPrefix;
     this.lockHeartbeatIntervalSeconds = Math.min(
       options.lockHeartbeatIntervalSeconds ?? 15,
@@ -289,15 +261,11 @@ export class CopilotIntelligenceRuntime
   }
 }
 
-function hasIntelligenceOptions(
-  options: CopilotRuntimeOptions,
-): options is CopilotIntelligenceRuntimeOptions {
+function hasIntelligenceOptions(options: CopilotRuntimeOptions): options is CopilotIntelligenceRuntimeOptions {
   return "intelligence" in options && !!options.intelligence;
 }
 
-export function isIntelligenceRuntime(
-  runtime: CopilotRuntimeLike,
-): runtime is CopilotIntelligenceRuntimeLike {
+export function isIntelligenceRuntime(runtime: CopilotRuntimeLike): runtime is CopilotIntelligenceRuntimeLike {
   return runtime.mode === RUNTIME_MODE_INTELLIGENCE && !!runtime.intelligence;
 }
 
@@ -351,33 +319,23 @@ export class CopilotRuntime implements CopilotRuntimeLike {
   }
 
   get generateThreadNames(): boolean | undefined {
-    return isIntelligenceRuntime(this.delegate)
-      ? this.delegate.generateThreadNames
-      : undefined;
+    return isIntelligenceRuntime(this.delegate) ? this.delegate.generateThreadNames : undefined;
   }
 
   get identifyUser(): IdentifyUserCallback | undefined {
-    return isIntelligenceRuntime(this.delegate)
-      ? this.delegate.identifyUser
-      : undefined;
+    return isIntelligenceRuntime(this.delegate) ? this.delegate.identifyUser : undefined;
   }
 
   get lockTtlSeconds(): number | undefined {
-    return isIntelligenceRuntime(this.delegate)
-      ? this.delegate.lockTtlSeconds
-      : undefined;
+    return isIntelligenceRuntime(this.delegate) ? this.delegate.lockTtlSeconds : undefined;
   }
 
   get lockKeyPrefix(): string | undefined {
-    return isIntelligenceRuntime(this.delegate)
-      ? this.delegate.lockKeyPrefix
-      : undefined;
+    return isIntelligenceRuntime(this.delegate) ? this.delegate.lockKeyPrefix : undefined;
   }
 
   get lockHeartbeatIntervalSeconds(): number | undefined {
-    return isIntelligenceRuntime(this.delegate)
-      ? this.delegate.lockHeartbeatIntervalSeconds
-      : undefined;
+    return isIntelligenceRuntime(this.delegate) ? this.delegate.lockHeartbeatIntervalSeconds : undefined;
   }
 
   get mode(): RuntimeMode {

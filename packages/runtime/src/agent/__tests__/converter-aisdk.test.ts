@@ -33,67 +33,43 @@ describe("AI SDK Converter", () => {
 
       expectLifecycleWrapped(events);
 
-      const textChunks = events.filter(
-        (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      );
+      const textChunks = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CHUNK);
       expect(textChunks).toHaveLength(1);
 
       expect(eventField<string>(textChunks[0], "role")).toBe("assistant");
       expect(eventField<string>(textChunks[0], "delta")).toBe("Hello");
       expect(eventField<string>(textChunks[0], "messageId")).toBeDefined();
-      expect(typeof eventField<string>(textChunks[0], "messageId")).toBe(
-        "string",
-      );
+      expect(typeof eventField<string>(textChunks[0], "messageId")).toBe("string");
     });
 
     it("text-start with provider id uses that id as messageId", async () => {
-      const agent = createAgent("aisdk", [
-        textStart("custom-msg-id"),
-        textDelta("Hi"),
-        finish(),
-      ]);
+      const agent = createAgent("aisdk", [textStart("custom-msg-id"), textDelta("Hi"), finish()]);
       const input = createDefaultInput();
       const events = await collectEvents(agent.run(input));
 
-      const chunk = events.find(
-        (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      )!;
+      const chunk = events.find((e) => e.type === EventType.TEXT_MESSAGE_CHUNK)!;
       expect(eventField<string>(chunk, "messageId")).toBe("custom-msg-id");
     });
 
     it('text-start with "0" generates a unique messageId (not "0")', async () => {
-      const agent = createAgent("aisdk", [
-        textStart("0"),
-        textDelta("Hi"),
-        finish(),
-      ]);
+      const agent = createAgent("aisdk", [textStart("0"), textDelta("Hi"), finish()]);
       const input = createDefaultInput();
       const events = await collectEvents(agent.run(input));
 
-      const chunk = events.find(
-        (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      )!;
+      const chunk = events.find((e) => e.type === EventType.TEXT_MESSAGE_CHUNK)!;
       expect(eventField<string>(chunk, "messageId")).not.toBe("0");
       expect(eventField<string>(chunk, "messageId")).toBeDefined();
       expect(eventField<string>(chunk, "messageId").length).toBeGreaterThan(0);
     });
 
     it("multiple text deltas share the same messageId", async () => {
-      const agent = createAgent("aisdk", [
-        textDelta("Hello "),
-        textDelta("world"),
-        finish(),
-      ]);
+      const agent = createAgent("aisdk", [textDelta("Hello "), textDelta("world"), finish()]);
       const input = createDefaultInput();
       const events = await collectEvents(agent.run(input));
 
-      const textChunks = events.filter(
-        (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      );
+      const textChunks = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CHUNK);
       expect(textChunks).toHaveLength(2);
-      expect(eventField<string>(textChunks[0], "messageId")).toBe(
-        eventField<string>(textChunks[1], "messageId"),
-      );
+      expect(eventField<string>(textChunks[0], "messageId")).toBe(eventField<string>(textChunks[1], "messageId"));
     });
 
     it("empty stream (only finish) emits only RUN_STARTED + RUN_FINISHED", async () => {
@@ -101,10 +77,7 @@ describe("AI SDK Converter", () => {
       const input = createDefaultInput();
       const events = await collectEvents(agent.run(input));
 
-      expectEventSequence(events, [
-        EventType.RUN_STARTED,
-        EventType.RUN_FINISHED,
-      ]);
+      expectEventSequence(events, [EventType.RUN_STARTED, EventType.RUN_FINISHED]);
     });
   });
 
@@ -149,9 +122,7 @@ describe("AI SDK Converter", () => {
       expect(eventField<string>(toolEvents[0], "toolCallName")).toBe("myTool");
 
       // Verify TOOL_CALL_ARGS deltas
-      const argsEvts = toolEvents.filter(
-        (e) => e.type === EventType.TOOL_CALL_ARGS,
-      );
+      const argsEvts = toolEvents.filter((e) => e.type === EventType.TOOL_CALL_ARGS);
       expect(eventField<string>(argsEvts[0], "delta")).toBe('{"key":');
       expect(eventField<string>(argsEvts[1], "delta")).toBe('"value"}');
 
@@ -166,10 +137,7 @@ describe("AI SDK Converter", () => {
     });
 
     it("non-streamed tool call (tool-call with input, no prior tool-input-start) emits START + ARGS + END", async () => {
-      const agent = createAgent("aisdk", [
-        toolCall("tc-2", "directTool", { foo: "bar" }),
-        finish(),
-      ]);
+      const agent = createAgent("aisdk", [toolCall("tc-2", "directTool", { foo: "bar" }), finish()]);
       const input = createDefaultInput();
       const events = await collectEvents(agent.run(input));
 
@@ -182,16 +150,10 @@ describe("AI SDK Converter", () => {
           e.type === EventType.TOOL_CALL_END,
       );
 
-      expectEventSequence(toolEvents, [
-        EventType.TOOL_CALL_START,
-        EventType.TOOL_CALL_ARGS,
-        EventType.TOOL_CALL_END,
-      ]);
+      expectEventSequence(toolEvents, [EventType.TOOL_CALL_START, EventType.TOOL_CALL_ARGS, EventType.TOOL_CALL_END]);
 
       expect(eventField<string>(toolEvents[0], "toolCallId")).toBe("tc-2");
-      expect(eventField<string>(toolEvents[0], "toolCallName")).toBe(
-        "directTool",
-      );
+      expect(eventField<string>(toolEvents[0], "toolCallName")).toBe("directTool");
 
       expect(JSON.parse(eventField<string>(toolEvents[1], "delta"))).toEqual({
         foo: "bar",
@@ -209,9 +171,7 @@ describe("AI SDK Converter", () => {
       const events = await collectEvents(agent.run(input));
 
       const startEvents = events.filter(
-        (e) =>
-          e.type === EventType.TOOL_CALL_START &&
-          eventField<string>(e, "toolCallId") === "tc-3",
+        (e) => e.type === EventType.TOOL_CALL_START && eventField<string>(e, "toolCallId") === "tc-3",
       );
       expect(startEvents).toHaveLength(1);
     });
@@ -235,49 +195,33 @@ describe("AI SDK Converter", () => {
 
       // Verify each tool call has its own START
       const startsA = events.filter(
-        (e) =>
-          e.type === EventType.TOOL_CALL_START &&
-          eventField<string>(e, "toolCallId") === "tc-a",
+        (e) => e.type === EventType.TOOL_CALL_START && eventField<string>(e, "toolCallId") === "tc-a",
       );
       const startsB = events.filter(
-        (e) =>
-          e.type === EventType.TOOL_CALL_START &&
-          eventField<string>(e, "toolCallId") === "tc-b",
+        (e) => e.type === EventType.TOOL_CALL_START && eventField<string>(e, "toolCallId") === "tc-b",
       );
       expect(startsA).toHaveLength(1);
       expect(startsB).toHaveLength(1);
 
       // Verify args are correctly paired
       const argsA = events.filter(
-        (e) =>
-          e.type === EventType.TOOL_CALL_ARGS &&
-          eventField<string>(e, "toolCallId") === "tc-a",
+        (e) => e.type === EventType.TOOL_CALL_ARGS && eventField<string>(e, "toolCallId") === "tc-a",
       );
       const argsB = events.filter(
-        (e) =>
-          e.type === EventType.TOOL_CALL_ARGS &&
-          eventField<string>(e, "toolCallId") === "tc-b",
+        (e) => e.type === EventType.TOOL_CALL_ARGS && eventField<string>(e, "toolCallId") === "tc-b",
       );
       expect(eventField<string>(argsA[0], "delta")).toBe('{"a":1}');
       expect(eventField<string>(argsB[0], "delta")).toBe('{"b":2}');
 
       // Verify results are correctly paired
       const resultsA = events.filter(
-        (e) =>
-          e.type === EventType.TOOL_CALL_RESULT &&
-          eventField<string>(e, "toolCallId") === "tc-a",
+        (e) => e.type === EventType.TOOL_CALL_RESULT && eventField<string>(e, "toolCallId") === "tc-a",
       );
       const resultsB = events.filter(
-        (e) =>
-          e.type === EventType.TOOL_CALL_RESULT &&
-          eventField<string>(e, "toolCallId") === "tc-b",
+        (e) => e.type === EventType.TOOL_CALL_RESULT && eventField<string>(e, "toolCallId") === "tc-b",
       );
-      expect(JSON.parse(eventField<string>(resultsA[0], "content"))).toBe(
-        "resultA",
-      );
-      expect(JSON.parse(eventField<string>(resultsB[0], "content"))).toBe(
-        "resultB",
-      );
+      expect(JSON.parse(eventField<string>(resultsA[0], "content"))).toBe("resultA");
+      expect(JSON.parse(eventField<string>(resultsB[0], "content"))).toBe("resultB");
     });
   });
 
@@ -321,9 +265,7 @@ describe("AI SDK Converter", () => {
       expect(eventField<string>(reasoningEvents[1], "messageId")).toBe("r-1");
       expect(eventField<string>(reasoningEvents[1], "role")).toBe("reasoning");
       expect(eventField<string>(reasoningEvents[2], "messageId")).toBe("r-1");
-      expect(eventField<string>(reasoningEvents[2], "delta")).toBe(
-        "thinking...",
-      );
+      expect(eventField<string>(reasoningEvents[2], "delta")).toBe("thinking...");
       expect(eventField<string>(reasoningEvents[3], "messageId")).toBe("r-1");
       expect(eventField<string>(reasoningEvents[4], "messageId")).toBe("r-1");
     });
@@ -340,13 +282,9 @@ describe("AI SDK Converter", () => {
       const input = createDefaultInput();
       const events = await collectEvents(agent.run(input));
 
-      const contentEvents = events.filter(
-        (e) => e.type === EventType.REASONING_MESSAGE_CONTENT,
-      );
+      const contentEvents = events.filter((e) => e.type === EventType.REASONING_MESSAGE_CONTENT);
       expect(contentEvents).toHaveLength(1);
-      expect(eventField<string>(contentEvents[0], "delta")).toBe(
-        "actual content",
-      );
+      expect(eventField<string>(contentEvents[0], "delta")).toBe("actual content");
     });
 
     it("auto-close reasoning before text-delta", async () => {
@@ -396,11 +334,7 @@ describe("AI SDK Converter", () => {
     });
 
     it("auto-close reasoning before finish", async () => {
-      const agent = createAgent("aisdk", [
-        reasoningStart(),
-        reasoningDelta("deep thought"),
-        finish(),
-      ]);
+      const agent = createAgent("aisdk", [reasoningStart(), reasoningDelta("deep thought"), finish()]);
       const input = createDefaultInput();
       const events = await collectEvents(agent.run(input));
 
@@ -436,9 +370,7 @@ describe("AI SDK Converter", () => {
       const input = createDefaultInput();
       const events = await collectEvents(agent.run(input));
 
-      const stateSnapshots = events.filter(
-        (e) => e.type === EventType.STATE_SNAPSHOT,
-      );
+      const stateSnapshots = events.filter((e) => e.type === EventType.STATE_SNAPSHOT);
       expect(stateSnapshots).toHaveLength(1);
       expect(eventField(stateSnapshots[0], "snapshot")).toEqual({ count: 1 });
     });
@@ -455,9 +387,7 @@ describe("AI SDK Converter", () => {
       const input = createDefaultInput();
       const events = await collectEvents(agent.run(input));
 
-      const stateDeltas = events.filter(
-        (e) => e.type === EventType.STATE_DELTA,
-      );
+      const stateDeltas = events.filter((e) => e.type === EventType.STATE_DELTA);
       expect(stateDeltas).toHaveLength(1);
       expect(eventField(stateDeltas[0], "delta")).toEqual(delta);
     });
@@ -475,13 +405,9 @@ describe("AI SDK Converter", () => {
       const input = createDefaultInput();
       const events = await collectEvents(agent.run(input));
 
-      const toolResults = events.filter(
-        (e) => e.type === EventType.TOOL_CALL_RESULT,
-      );
+      const toolResults = events.filter((e) => e.type === EventType.TOOL_CALL_RESULT);
       expect(toolResults).toHaveLength(1);
-      expect(eventField<string>(toolResults[0], "toolCallId")).toBe(
-        "tc-state2",
-      );
+      expect(eventField<string>(toolResults[0], "toolCallId")).toBe("tc-state2");
     });
 
     it("does not emit STATE_SNAPSHOT when snapshot field is undefined", async () => {
@@ -497,15 +423,11 @@ describe("AI SDK Converter", () => {
       const input = createDefaultInput();
       const events = await collectEvents(agent.run(input));
 
-      const stateSnapshots = events.filter(
-        (e) => e.type === EventType.STATE_SNAPSHOT,
-      );
+      const stateSnapshots = events.filter((e) => e.type === EventType.STATE_SNAPSHOT);
       expect(stateSnapshots).toHaveLength(0);
 
       // Should still emit the TOOL_CALL_RESULT
-      const toolResults = events.filter(
-        (e) => e.type === EventType.TOOL_CALL_RESULT,
-      );
+      const toolResults = events.filter((e) => e.type === EventType.TOOL_CALL_RESULT);
       expect(toolResults).toHaveLength(1);
     });
 
@@ -522,9 +444,7 @@ describe("AI SDK Converter", () => {
       const input = createDefaultInput();
       const events = await collectEvents(agent.run(input));
 
-      const stateDeltas = events.filter(
-        (e) => e.type === EventType.STATE_DELTA,
-      );
+      const stateDeltas = events.filter((e) => e.type === EventType.STATE_DELTA);
       expect(stateDeltas).toHaveLength(0);
     });
   });
@@ -549,13 +469,9 @@ describe("AI SDK Converter", () => {
       const input = createDefaultInput();
       const events = await collectEvents(agent.run(input));
 
-      const resultEvents = events.filter(
-        (e) => e.type === EventType.TOOL_CALL_RESULT,
-      );
+      const resultEvents = events.filter((e) => e.type === EventType.TOOL_CALL_RESULT);
       expect(resultEvents).toHaveLength(1);
-      expect(
-        JSON.parse(eventField<string>(resultEvents[0], "content")),
-      ).toEqual({ data: "from-result-prop" });
+      expect(JSON.parse(eventField<string>(resultEvents[0], "content"))).toEqual({ data: "from-result-prop" });
     });
 
     it("prefers 'output' over 'result' when both are present", async () => {
@@ -573,12 +489,8 @@ describe("AI SDK Converter", () => {
       const input = createDefaultInput();
       const events = await collectEvents(agent.run(input));
 
-      const resultEvents = events.filter(
-        (e) => e.type === EventType.TOOL_CALL_RESULT,
-      );
-      expect(
-        JSON.parse(eventField<string>(resultEvents[0], "content")),
-      ).toEqual({ source: "output" });
+      const resultEvents = events.filter((e) => e.type === EventType.TOOL_CALL_RESULT);
+      expect(JSON.parse(eventField<string>(resultEvents[0], "content"))).toEqual({ source: "output" });
     });
   });
 
@@ -594,48 +506,32 @@ describe("AI SDK Converter", () => {
       ]);
       const input = createDefaultInput();
 
-      const { events, errored } = await collectEventsIncludingErrors(
-        agent.run(input),
-      );
+      const { events, errored } = await collectEventsIncludingErrors(agent.run(input));
 
       expect(errored).toBe(true);
       const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
       expect(errorEvents).toHaveLength(1);
       // Should contain a useful message, not just "undefined"
-      expect(eventField<string>(errorEvents[0], "message")).not.toBe(
-        "undefined",
-      );
-      expect(
-        eventField<string>(errorEvents[0], "message").length,
-      ).toBeGreaterThan(5);
+      expect(eventField<string>(errorEvents[0], "message")).not.toBe("undefined");
+      expect(eventField<string>(errorEvents[0], "message").length).toBeGreaterThan(5);
     });
 
     it("preserves Error instances from error event", async () => {
-      const agent = createAgent("aisdk", [
-        { type: "error", error: new Error("rate limit exceeded") },
-      ]);
+      const agent = createAgent("aisdk", [{ type: "error", error: new Error("rate limit exceeded") }]);
       const input = createDefaultInput();
 
-      const { events, errored } = await collectEventsIncludingErrors(
-        agent.run(input),
-      );
+      const { events, errored } = await collectEventsIncludingErrors(agent.run(input));
 
       expect(errored).toBe(true);
       const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
-      expect(eventField<string>(errorEvents[0], "message")).toBe(
-        "rate limit exceeded",
-      );
+      expect(eventField<string>(errorEvents[0], "message")).toBe("rate limit exceeded");
     });
 
     it("handles string error from error event", async () => {
-      const agent = createAgent("aisdk", [
-        { type: "error", message: "auth failed" },
-      ]);
+      const agent = createAgent("aisdk", [{ type: "error", message: "auth failed" }]);
       const input = createDefaultInput();
 
-      const { events, errored } = await collectEventsIncludingErrors(
-        agent.run(input),
-      );
+      const { events, errored } = await collectEventsIncludingErrors(agent.run(input));
 
       expect(errored).toBe(true);
       const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
@@ -661,17 +557,11 @@ describe("AI SDK Converter", () => {
       expectLifecycleWrapped(events);
 
       // Should still have the text chunk
-      const textChunks = events.filter(
-        (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      );
+      const textChunks = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CHUNK);
       expect(textChunks).toHaveLength(1);
 
       // No events for unknown types — only RUN_STARTED, TEXT_MESSAGE_CHUNK, RUN_FINISHED
-      expectEventSequence(events, [
-        EventType.RUN_STARTED,
-        EventType.TEXT_MESSAGE_CHUNK,
-        EventType.RUN_FINISHED,
-      ]);
+      expectEventSequence(events, [EventType.RUN_STARTED, EventType.TEXT_MESSAGE_CHUNK, EventType.RUN_FINISHED]);
     });
 
     it("large text deltas (100k chars) are passed through", async () => {
@@ -682,9 +572,7 @@ describe("AI SDK Converter", () => {
 
       expectLifecycleWrapped(events);
 
-      const chunk = events.find(
-        (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      )!;
+      const chunk = events.find((e) => e.type === EventType.TEXT_MESSAGE_CHUNK)!;
       expect(eventField<string>(chunk, "delta")).toBe(largeText);
       expect(eventField<string>(chunk, "delta").length).toBe(100_000);
     });

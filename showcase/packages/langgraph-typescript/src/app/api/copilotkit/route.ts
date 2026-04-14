@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
 // The LangGraph TypeScript agent runs as a separate process on port 8123
 // via @langchain/langgraph-cli. This runtime proxies CopilotKit requests
 // to it via AG-UI protocol.
-const AGENT_URL =
-  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
+const AGENT_URL = process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
 
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
@@ -67,10 +62,7 @@ export const POST = async (req: NextRequest) => {
     const err = error as Error;
     console.error(`[copilotkit/route] ERROR: ${err.message}`);
     console.error(`[copilotkit/route] Stack: ${err.stack}`);
-    return NextResponse.json(
-      { error: err.message, stack: err.stack },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: err.message, stack: err.stack }, { status: 500 });
   }
 };
 

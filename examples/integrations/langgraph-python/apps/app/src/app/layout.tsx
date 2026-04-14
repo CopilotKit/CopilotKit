@@ -8,18 +8,12 @@ import { ThemeProvider } from "@/hooks/use-theme";
 // A2UI catalog: definitions + renderers in ./declarative-generative-ui/
 import { demonstrationCatalog } from "./declarative-generative-ui/renderers";
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
       <head>
         <title>CopilotKit</title>
-        <link
-          rel="icon"
-          type="image/svg+xml"
-          href="/copilotkit-logo-mark.svg"
-        />
+        <link rel="icon" type="image/svg+xml" href="/copilotkit-logo-mark.svg" />
       </head>
       <body className={`antialiased`}>
         <ThemeProvider>

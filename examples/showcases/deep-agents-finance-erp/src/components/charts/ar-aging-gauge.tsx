@@ -1,18 +1,7 @@
 "use client";
 
-import {
-  RadialBarChart,
-  RadialBar,
-  PolarAngleAxis,
-  ResponsiveContainer,
-} from "recharts";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
+import { RadialBarChart, RadialBar, PolarAngleAxis, ResponsiveContainer } from "recharts";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { arAging } from "@/lib/data";
 import { formatCurrency } from "@/lib/utils";
 import type { ArAgingGaugeWidget } from "@/types/dashboard";
@@ -24,11 +13,7 @@ const BUCKETS = [
   { key: "ninetyPlus" as const, label: "90+ days", color: "#ef4444" },
 ] as const;
 
-export function ArAgingGauge({
-  config,
-}: {
-  config: ArAgingGaugeWidget["config"];
-}) {
+export function ArAgingGauge({ config }: { config: ArAgingGaugeWidget["config"] }) {
   const title = config.title ?? "Accounts Receivable Aging";
   const warningThreshold = config.warningThreshold ?? 0.85;
   const criticalThreshold = config.criticalThreshold ?? 0.7;
@@ -45,12 +30,7 @@ export function ArAgingGauge({
   const gaugeData = [{ name: "rate", value: ratePercent }];
 
   // Max bucket value for proportional bars
-  const maxBucket = Math.max(
-    arAging.current,
-    arAging.thirtyDay,
-    arAging.sixtyDay,
-    arAging.ninetyPlus,
-  );
+  const maxBucket = Math.max(arAging.current, arAging.thirtyDay, arAging.sixtyDay, arAging.ninetyPlus);
 
   return (
     <Card>
@@ -58,14 +38,10 @@ export function ArAgingGauge({
         <div className="flex items-center justify-between">
           <div>
             <CardTitle>{title}</CardTitle>
-            <CardDescription>
-              Collection health & aging distribution
-            </CardDescription>
+            <CardDescription>Collection health & aging distribution</CardDescription>
           </div>
           <div className="text-right">
-            <p className="text-lg font-bold text-foreground">
-              {formatCurrency(arAging.total)}
-            </p>
+            <p className="text-lg font-bold text-foreground">{formatCurrency(arAging.total)}</p>
             <p className="text-[11px] text-muted-foreground">Total AR</p>
           </div>
         </div>
@@ -73,10 +49,7 @@ export function ArAgingGauge({
       <CardContent>
         <div className="flex items-center gap-6">
           {/* Left: Radial gauge */}
-          <div
-            className="relative flex-shrink-0"
-            style={{ width: 160, height: 160 }}
-          >
+          <div className="relative flex-shrink-0" style={{ width: 160, height: 160 }}>
             <ResponsiveContainer width="100%" height="100%">
               <RadialBarChart
                 cx="50%"
@@ -88,12 +61,7 @@ export function ArAgingGauge({
                 data={gaugeData}
                 barSize={14}
               >
-                <PolarAngleAxis
-                  type="number"
-                  domain={[0, 100]}
-                  angleAxisId={0}
-                  tick={false}
-                />
+                <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
                 {/* Background track */}
                 <RadialBar
                   dataKey="value"
@@ -104,25 +72,15 @@ export function ArAgingGauge({
                   isAnimationActive={false}
                 />
                 {/* Active arc */}
-                <RadialBar
-                  dataKey="value"
-                  cornerRadius={10}
-                  fill={gaugeColor}
-                  data={gaugeData}
-                />
+                <RadialBar dataKey="value" cornerRadius={10} fill={gaugeColor} data={gaugeData} />
               </RadialBarChart>
             </ResponsiveContainer>
             {/* Center text */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span
-                className="text-3xl font-bold tracking-tight"
-                style={{ color: gaugeColor }}
-              >
+              <span className="text-3xl font-bold tracking-tight" style={{ color: gaugeColor }}>
                 {ratePercent}%
               </span>
-              <span className="text-[10px] text-muted-foreground">
-                Collection Rate
-              </span>
+              <span className="text-[10px] text-muted-foreground">Collection Rate</span>
             </div>
           </div>
 
@@ -134,12 +92,8 @@ export function ArAgingGauge({
               return (
                 <div key={bucket.key}>
                   <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">
-                      {bucket.label}
-                    </span>
-                    <span className="font-medium text-foreground">
-                      {formatCurrency(value)}
-                    </span>
+                    <span className="text-muted-foreground">{bucket.label}</span>
+                    <span className="font-medium text-foreground">{formatCurrency(value)}</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted">
                     <div

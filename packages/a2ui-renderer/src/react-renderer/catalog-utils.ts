@@ -2,8 +2,7 @@ import { basicCatalog } from "./a2ui-react";
 import type { ComponentApi, Catalog } from "@a2ui/web_core/v0_9";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
-const BASIC_CATALOG_ID =
-  "https://a2ui.org/specification/v0_9/basic_catalog.json";
+const BASIC_CATALOG_ID = "https://a2ui.org/specification/v0_9/basic_catalog.json";
 
 /**
  * Context description used to identify the A2UI component schema in RunAgentInput.context.
@@ -29,9 +28,7 @@ export function extendsBasicCatalog(catalog: Catalog<ComponentApi>): boolean {
 /**
  * Return the names of components in a catalog that are not in the basic catalog.
  */
-export function getCustomComponentNames(
-  catalog: Catalog<ComponentApi>,
-): string[] {
+export function getCustomComponentNames(catalog: Catalog<ComponentApi>): string[] {
   const custom: string[] = [];
   for (const name of catalog.components.keys()) {
     if (!basicCatalog.components.has(name)) {
@@ -46,9 +43,7 @@ export function getCustomComponentNames(
  * Custom components (those not in the basic catalog) are described using their
  * JSON Schema representation, matching the canonical A2UI catalog format.
  */
-export function buildCatalogContextValue(
-  catalog?: Catalog<ComponentApi>,
-): string {
+export function buildCatalogContextValue(catalog?: Catalog<ComponentApi>): string {
   const resolved = catalog ?? basicCatalog;
   const lines: string[] = [];
   lines.push("Available A2UI catalog:");
@@ -63,9 +58,7 @@ export function buildCatalogContextValue(
 
   lines.push(`- ${resolved.id}`);
   if (isSuperset) {
-    lines.push(
-      "  Extends the basic catalog with all standard components plus:",
-    );
+    lines.push("  Extends the basic catalog with all standard components plus:");
   } else {
     lines.push("  Custom catalog (does NOT include all basic components).");
     lines.push("  Custom components:");
@@ -76,9 +69,7 @@ export function buildCatalogContextValue(
     if (!comp) continue;
     const jsonSchema = zodToJsonSchema(comp.schema);
     lines.push(`  - ${name}:`);
-    lines.push(
-      `    ${JSON.stringify(jsonSchema, null, 2).split("\n").join("\n    ")}`,
-    );
+    lines.push(`    ${JSON.stringify(jsonSchema, null, 2).split("\n").join("\n    ")}`);
   }
 
   return lines.join("\n");
@@ -101,10 +92,7 @@ export function extractCatalogComponentSchemas(
   for (const [name, comp] of resolved.components) {
     schemas.push({
       name,
-      props: zodToJsonSchema(comp.schema, { target: "openApi3" }) as Record<
-        string,
-        unknown
-      >,
+      props: zodToJsonSchema(comp.schema, { target: "openApi3" }) as Record<string, unknown>,
     });
   }
 

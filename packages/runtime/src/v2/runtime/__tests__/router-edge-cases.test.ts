@@ -185,10 +185,7 @@ describe("matchRoute — segment edge cases", () => {
   });
 
   it("matches agent route with deep basePath", () => {
-    const result = matchRoute(
-      "/v1/api/copilotkit/agent/default/run",
-      "/v1/api/copilotkit",
-    );
+    const result = matchRoute("/v1/api/copilotkit/agent/default/run", "/v1/api/copilotkit");
     expect(result).toEqual({ method: "agent/run", agentId: "default" });
   });
 

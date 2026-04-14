@@ -1,7 +1,5 @@
 import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
-import telemetry, {
-  getRuntimeInstanceTelemetryInfo,
-} from "../../telemetry-client";
+import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
 import { createCopilotEndpointSingleRoute } from "../../../v2/runtime";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
@@ -15,9 +13,7 @@ import {
   toHeaders,
 } from "./request-handler";
 
-export function copilotRuntimeNodeHttpEndpoint(
-  options: CreateCopilotRuntimeServerOptions,
-) {
+export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServerOptions) {
   const commonConfig = getCommonConfig(options);
 
   telemetry.setGlobalProperties({
@@ -32,10 +28,7 @@ export function copilotRuntimeNodeHttpEndpoint(
     });
   }
 
-  telemetry.capture(
-    "oss.runtime.instance_created",
-    getRuntimeInstanceTelemetryInfo(options),
-  );
+  telemetry.capture("oss.runtime.instance_created", getRuntimeInstanceTelemetryInfo(options));
 
   const logger = commonConfig.logging;
   logger.debug("Creating Node HTTP endpoint");
@@ -52,10 +45,7 @@ export function copilotRuntimeNodeHttpEndpoint(
     ...(options.cors && { cors: options.cors }),
   } as any);
 
-  const handle = async function handler(
-    req: IncomingWithBody,
-    res: ServerResponse,
-  ) {
+  const handle = async function handler(req: IncomingWithBody, res: ServerResponse) {
     const url = getFullUrl(req);
     const hasBody = req.method !== "GET" && req.method !== "HEAD";
 
@@ -75,10 +65,7 @@ export function copilotRuntimeNodeHttpEndpoint(
 
     if (hasBody && streamConsumed) {
       if (parsedBody !== undefined) {
-        const synthesized = synthesizeBodyFromParsedBody(
-          parsedBody,
-          baseHeaders,
-        );
+        const synthesized = synthesizeBodyFromParsedBody(parsedBody, baseHeaders);
         requestBody = synthesized.body ?? undefined;
         baseHeaders.delete("content-length");
 
@@ -86,22 +73,14 @@ export function copilotRuntimeNodeHttpEndpoint(
           baseHeaders.set("content-type", synthesized.contentType);
         }
 
-        logger.debug(
-          "Request stream already consumed; using parsed req.body to rebuild request.",
-        );
+        logger.debug("Request stream already consumed; using parsed req.body to rebuild request.");
       } else {
-        logger.warn(
-          "Request stream consumed with no available body; sending empty payload.",
-        );
+        logger.warn("Request stream consumed with no available body; sending empty payload.");
         requestBody = undefined;
       }
     }
 
-    const buildRequest = (
-      body: BodyInit | null | undefined,
-      headers: Headers,
-      duplex: boolean,
-    ) =>
+    const buildRequest = (body: BodyInit | null | undefined, headers: Headers, duplex: boolean) =>
       new Request(url, {
         method: req.method,
         headers,
@@ -111,9 +90,7 @@ export function copilotRuntimeNodeHttpEndpoint(
 
     let response: Response;
     try {
-      response = await honoApp.fetch(
-        buildRequest(requestBody, baseHeaders, useDuplex),
-      );
+      response = await honoApp.fetch(buildRequest(requestBody, baseHeaders, useDuplex));
     } catch (error) {
       if (isDisturbedOrLockedError(error) && hasBody) {
         logger.warn(
@@ -124,10 +101,7 @@ export function copilotRuntimeNodeHttpEndpoint(
         let fallbackBody: BodyInit | null | undefined;
 
         if (parsedBody !== undefined) {
-          const synthesized = synthesizeBodyFromParsedBody(
-            parsedBody,
-            fallbackHeaders,
-          );
+          const synthesized = synthesizeBodyFromParsedBody(parsedBody, fallbackHeaders);
           fallbackBody = synthesized.body ?? undefined;
           fallbackHeaders.delete("content-length");
 
@@ -138,9 +112,7 @@ export function copilotRuntimeNodeHttpEndpoint(
           fallbackBody = undefined;
         }
 
-        response = await honoApp.fetch(
-          buildRequest(fallbackBody, fallbackHeaders, false),
-        );
+        response = await honoApp.fetch(buildRequest(fallbackBody, fallbackHeaders, false));
       } else {
         throw error;
       }

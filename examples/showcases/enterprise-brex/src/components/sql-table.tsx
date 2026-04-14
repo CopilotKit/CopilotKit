@@ -15,13 +15,7 @@ export function SqlTable({
   );
 }
 
-function TableCard({
-  name,
-  fields,
-}: {
-  name: string;
-  fields: { name: string; type: string }[];
-}) {
+function TableCard({ name, fields }: { name: string; fields: { name: string; type: string }[] }) {
   return (
     <Card>
       <CardHeader>

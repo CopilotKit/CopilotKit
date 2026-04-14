@@ -34,9 +34,7 @@ describe("TodoCard", () => {
 
   it("shows stage badge with correct color class for prospect", () => {
     const prospectTodo = { ...baseTodo, stage: "prospect" as const };
-    const { container } = render(
-      <TodoCard todo={prospectTodo} {...noopHandlers} />,
-    );
+    const { container } = render(<TodoCard todo={prospectTodo} {...noopHandlers} />);
     const badge = container.querySelector(".bg-blue-100");
     expect(badge).toBeTruthy();
   });
@@ -65,19 +63,11 @@ describe("TodoCard", () => {
 
   it("checkbox toggles completion", () => {
     const onToggle = vi.fn();
-    const { container } = render(
-      <TodoCard
-        todo={baseTodo}
-        {...noopHandlers}
-        onToggleCompleted={onToggle}
-      />,
-    );
+    const { container } = render(<TodoCard todo={baseTodo} {...noopHandlers} onToggleCompleted={onToggle} />);
     // The checkbox is the first button (before the delete button)
     const buttons = container.querySelectorAll("button");
     // Delete button has aria-label, checkbox does not
-    const checkbox = Array.from(buttons).find(
-      (btn) => !btn.getAttribute("aria-label"),
-    );
+    const checkbox = Array.from(buttons).find((btn) => !btn.getAttribute("aria-label"));
     expect(checkbox).toBeTruthy();
     fireEvent.click(checkbox!);
     expect(onToggle).toHaveBeenCalledWith(baseTodo);
@@ -93,13 +83,9 @@ describe("TodoCard", () => {
 
   it("applies reduced opacity when completed", () => {
     const completedTodo = { ...baseTodo, completed: true };
-    const { container } = render(
-      <TodoCard todo={completedTodo} {...noopHandlers} />,
-    );
+    const { container } = render(<TodoCard todo={completedTodo} {...noopHandlers} />);
     expect(container.firstChild).toBeTruthy();
-    expect((container.firstChild as HTMLElement).className).toContain(
-      "opacity-60",
-    );
+    expect((container.firstChild as HTMLElement).className).toContain("opacity-60");
   });
 
   describe("inline title editing", () => {
@@ -110,13 +96,7 @@ describe("TodoCard", () => {
     });
 
     it("clicking title text enters edit mode with an input", () => {
-      render(
-        <TodoCard
-          todo={baseTodo}
-          {...noopHandlers}
-          onUpdateTitle={onUpdateTitle}
-        />,
-      );
+      render(<TodoCard todo={baseTodo} {...noopHandlers} onUpdateTitle={onUpdateTitle} />);
       const titleDiv = screen.getByText("Follow up with Acme Corp");
       fireEvent.click(titleDiv);
       const input = screen.getByDisplayValue("Follow up with Acme Corp");
@@ -124,13 +104,7 @@ describe("TodoCard", () => {
     });
 
     it("typing new title and pressing Enter calls onUpdateTitle", () => {
-      render(
-        <TodoCard
-          todo={baseTodo}
-          {...noopHandlers}
-          onUpdateTitle={onUpdateTitle}
-        />,
-      );
+      render(<TodoCard todo={baseTodo} {...noopHandlers} onUpdateTitle={onUpdateTitle} />);
       fireEvent.click(screen.getByText("Follow up with Acme Corp"));
       const input = screen.getByDisplayValue("Follow up with Acme Corp");
       fireEvent.change(input, { target: { value: "New Deal Title" } });
@@ -139,13 +113,7 @@ describe("TodoCard", () => {
     });
 
     it("pressing Escape cancels editing without calling onUpdateTitle", () => {
-      render(
-        <TodoCard
-          todo={baseTodo}
-          {...noopHandlers}
-          onUpdateTitle={onUpdateTitle}
-        />,
-      );
+      render(<TodoCard todo={baseTodo} {...noopHandlers} onUpdateTitle={onUpdateTitle} />);
       fireEvent.click(screen.getByText("Follow up with Acme Corp"));
       const input = screen.getByDisplayValue("Follow up with Acme Corp");
       fireEvent.change(input, { target: { value: "Changed" } });
@@ -156,13 +124,7 @@ describe("TodoCard", () => {
     });
 
     it("blur saves the title", () => {
-      render(
-        <TodoCard
-          todo={baseTodo}
-          {...noopHandlers}
-          onUpdateTitle={onUpdateTitle}
-        />,
-      );
+      render(<TodoCard todo={baseTodo} {...noopHandlers} onUpdateTitle={onUpdateTitle} />);
       fireEvent.click(screen.getByText("Follow up with Acme Corp"));
       const input = screen.getByDisplayValue("Follow up with Acme Corp");
       fireEvent.change(input, { target: { value: "Blur Save Title" } });
@@ -171,13 +133,7 @@ describe("TodoCard", () => {
     });
 
     it("empty title after trim does not save", () => {
-      render(
-        <TodoCard
-          todo={baseTodo}
-          {...noopHandlers}
-          onUpdateTitle={onUpdateTitle}
-        />,
-      );
+      render(<TodoCard todo={baseTodo} {...noopHandlers} onUpdateTitle={onUpdateTitle} />);
       fireEvent.click(screen.getByText("Follow up with Acme Corp"));
       const input = screen.getByDisplayValue("Follow up with Acme Corp");
       fireEvent.change(input, { target: { value: "   " } });

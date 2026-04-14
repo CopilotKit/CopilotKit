@@ -8,8 +8,7 @@ class MockResizeObserver {
   unobserve() {}
   disconnect() {}
 }
-globalThis.ResizeObserver =
-  MockResizeObserver as unknown as typeof ResizeObserver;
+globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
 
 describe("BarChart", () => {
   const sampleData = [
@@ -19,21 +18,13 @@ describe("BarChart", () => {
   ];
 
   it("renders title and description", () => {
-    render(
-      <BarChart
-        title="Monthly Revenue"
-        description="Revenue by month"
-        data={sampleData}
-      />,
-    );
+    render(<BarChart title="Monthly Revenue" description="Revenue by month" data={sampleData} />);
     expect(screen.getByText("Monthly Revenue")).toBeTruthy();
     expect(screen.getByText("Revenue by month")).toBeTruthy();
   });
 
   it("renders with data without crashing", () => {
-    const { container } = render(
-      <BarChart title="Sales" description="test" data={sampleData} />,
-    );
+    const { container } = render(<BarChart title="Sales" description="test" data={sampleData} />);
     expect(container.firstChild).toBeTruthy();
   });
 
@@ -44,11 +35,7 @@ describe("BarChart", () => {
 
   it("shows empty state for null data", () => {
     render(
-      <BarChart
-        title="Null"
-        description="null data"
-        data={null as unknown as { label: string; value: number }[]}
-      />,
+      <BarChart title="Null" description="null data" data={null as unknown as { label: string; value: number }[]} />,
     );
     expect(screen.getByText("No data available")).toBeTruthy();
   });

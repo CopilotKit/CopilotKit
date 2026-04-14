@@ -36,12 +36,9 @@ Simple string responses. Most common helper.
 ```typescript
 import { text } from "mcp-use/server";
 
-server.tool(
-  { name: "greet", schema: z.object({ name: z.string() }) },
-  async ({ name }) => {
-    return text(`Hello, ${name}!`);
-  },
-);
+server.tool({ name: "greet", schema: z.object({ name: z.string() }) }, async ({ name }) => {
+  return text(`Hello, ${name}!`);
+});
 
 // Multi-line text
 server.tool(
@@ -58,11 +55,7 @@ server.tool(
     }),
   },
   async ({ address }) => {
-    return text(
-      `${address.street}\n` +
-        `${address.city}, ${address.state} ${address.zip}\n` +
-        `${address.country}`,
-    );
+    return text(`${address.street}\n` + `${address.city}, ${address.state} ${address.zip}\n` + `${address.country}`);
   },
 );
 ```
@@ -83,23 +76,20 @@ Structured JSON data. Use when AI or client needs structured information.
 ```typescript
 import { object } from "mcp-use/server";
 
-server.tool(
-  { name: "get-user", schema: z.object({ id: z.string() }) },
-  async ({ id }) => {
-    const user = await fetchUser(id);
+server.tool({ name: "get-user", schema: z.object({ id: z.string() }) }, async ({ id }) => {
+  const user = await fetchUser(id);
 
-    return object({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      createdAt: user.createdAt,
-      settings: {
-        theme: user.theme,
-        notifications: user.notifications,
-      },
-    });
-  },
-);
+  return object({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    createdAt: user.createdAt,
+    settings: {
+      theme: user.theme,
+      notifications: user.notifications,
+    },
+  });
+});
 
 // With arrays
 server.tool({ name: "list-todos", schema: z.object({}) }, async () => {
@@ -133,10 +123,8 @@ Formatted text with markdown syntax. Great for documentation, reports, explanati
 ```typescript
 import { markdown } from "mcp-use/server";
 
-server.tool(
-  { name: "generate-report", schema: z.object({ data: z.array(z.any()) }) },
-  async ({ data }) => {
-    return markdown(`
+server.tool({ name: "generate-report", schema: z.object({ data: z.array(z.any()) }) }, async ({ data }) => {
+  return markdown(`
 # Daily Report
 
 ## Summary
@@ -154,14 +142,11 @@ ${data.map((d) => `- **${d.id}**: ${d.message}`).join("\n")}
 ---
 *Generated at ${new Date().toISOString()}*
     `);
-  },
-);
+});
 
 // Code examples in markdown
-server.tool(
-  { name: "explain-function", schema: z.object({ name: z.string() }) },
-  async ({ name }) => {
-    return markdown(`
+server.tool({ name: "explain-function", schema: z.object({ name: z.string() }) }, async ({ name }) => {
+  return markdown(`
 # ${name}() Function
 
 ## Usage
@@ -178,8 +163,7 @@ This function performs...
 ## Returns
 Returns a Promise that resolves to...
     `);
-  },
-);
+});
 ```
 
 **Use for:**
@@ -200,31 +184,22 @@ Embed images in responses. Supports URLs or base64 data.
 import { image } from "mcp-use/server";
 
 // Image from URL
-server.tool(
-  { name: "get-chart", schema: z.object({ data: z.array(z.number()) }) },
-  async ({ data }) => {
-    const chartUrl = await generateChart(data);
-    return image(chartUrl);
-  },
-);
+server.tool({ name: "get-chart", schema: z.object({ data: z.array(z.number()) }) }, async ({ data }) => {
+  const chartUrl = await generateChart(data);
+  return image(chartUrl);
+});
 
 // Base64 image
-server.tool(
-  { name: "generate-qr", schema: z.object({ text: z.string() }) },
-  async ({ text }) => {
-    const qrCodeBase64 = await generateQRCode(text);
-    return image(`data:image/png;base64,${qrCodeBase64}`);
-  },
-);
+server.tool({ name: "generate-qr", schema: z.object({ text: z.string() }) }, async ({ text }) => {
+  const qrCodeBase64 = await generateQRCode(text);
+  return image(`data:image/png;base64,${qrCodeBase64}`);
+});
 
 // Image with MIME type
-server.tool(
-  { name: "get-diagram", schema: z.object({ id: z.string() }) },
-  async ({ id }) => {
-    const diagramUrl = await getDiagram(id);
-    return image(diagramUrl, "image/svg+xml");
-  },
-);
+server.tool({ name: "get-diagram", schema: z.object({ id: z.string() }) }, async ({ id }) => {
+  const diagramUrl = await getDiagram(id);
+  return image(diagramUrl, "image/svg+xml");
+});
 ```
 
 **Use for:**
@@ -244,24 +219,19 @@ Error responses. Always use this instead of throwing exceptions.
 ```typescript
 import { error } from "mcp-use/server";
 
-server.tool(
-  { name: "fetch-data", schema: z.object({ id: z.string() }) },
-  async ({ id }) => {
-    try {
-      const data = await fetchData(id);
+server.tool({ name: "fetch-data", schema: z.object({ id: z.string() }) }, async ({ id }) => {
+  try {
+    const data = await fetchData(id);
 
-      if (!data) {
-        return error(`No data found for ID: ${id}`);
-      }
-
-      return object(data);
-    } catch (err) {
-      return error(
-        `Failed to fetch data: ${err instanceof Error ? err.message : "Unknown error"}`,
-      );
+    if (!data) {
+      return error(`No data found for ID: ${id}`);
     }
-  },
-);
+
+    return object(data);
+  } catch (err) {
+    return error(`Failed to fetch data: ${err instanceof Error ? err.message : "Unknown error"}`);
+  }
+});
 
 // Multiple error cases
 server.tool(
@@ -353,36 +323,30 @@ Combine multiple content types in a single response.
 ```typescript
 import { mix, text, image, markdown } from "mcp-use/server";
 
-server.tool(
-  { name: "generate-report", schema: z.object({ id: z.string() }) },
-  async ({ id }) => {
-    const report = await getReport(id);
-    const chartUrl = await generateChart(report.data);
+server.tool({ name: "generate-report", schema: z.object({ id: z.string() }) }, async ({ id }) => {
+  const report = await getReport(id);
+  const chartUrl = await generateChart(report.data);
 
-    return mix(
-      markdown(`# Report: ${report.title}\n\n${report.summary}`),
-      image(chartUrl),
-      text(`Generated at ${new Date().toISOString()}`),
-    );
-  },
-);
+  return mix(
+    markdown(`# Report: ${report.title}\n\n${report.summary}`),
+    image(chartUrl),
+    text(`Generated at ${new Date().toISOString()}`),
+  );
+});
 
 // Text + structured data
-server.tool(
-  { name: "analyze-code", schema: z.object({ code: z.string() }) },
-  async ({ code }) => {
-    const analysis = await analyzeCode(code);
+server.tool({ name: "analyze-code", schema: z.object({ code: z.string() }) }, async ({ code }) => {
+  const analysis = await analyzeCode(code);
 
-    return mix(
-      text(`Analysis complete. Found ${analysis.issues.length} issues.`),
-      object({
-        complexity: analysis.complexity,
-        issues: analysis.issues,
-        suggestions: analysis.suggestions,
-      }),
-    );
-  },
-);
+  return mix(
+    text(`Analysis complete. Found ${analysis.issues.length} issues.`),
+    object({
+      complexity: analysis.complexity,
+      issues: analysis.issues,
+      suggestions: analysis.suggestions,
+    }),
+  );
+});
 ```
 
 **Use for:**
@@ -401,15 +365,9 @@ Reference resources in tool responses:
 ```typescript
 import { text, resource } from "mcp-use/server";
 
-server.tool(
-  { name: "get-help", schema: z.object({ topic: z.string() }) },
-  async ({ topic }) => {
-    return mix(
-      text(`Help documentation for: ${topic}`),
-      resource(`docs://${topic}`, "text/markdown"),
-    );
-  },
-);
+server.tool({ name: "get-help", schema: z.object({ topic: z.string() }) }, async ({ topic }) => {
+  return mix(text(`Help documentation for: ${topic}`), resource(`docs://${topic}`, "text/markdown"));
+});
 ```
 
 ---
@@ -464,16 +422,7 @@ try {
 ## Complete Example
 
 ```typescript
-import {
-  MCPServer,
-  text,
-  object,
-  markdown,
-  image,
-  error,
-  widget,
-  mix,
-} from "mcp-use/server";
+import { MCPServer, text, object, markdown, image, error, widget, mix } from "mcp-use/server";
 import { z } from "zod";
 
 const server = new MCPServer({
@@ -482,10 +431,7 @@ const server = new MCPServer({
 });
 
 // Simple text
-server.tool(
-  { name: "greet", schema: z.object({ name: z.string() }) },
-  async ({ name }) => text(`Hello, ${name}!`),
-);
+server.tool({ name: "greet", schema: z.object({ name: z.string() }) }, async ({ name }) => text(`Hello, ${name}!`));
 
 // Structured data
 server.tool({ name: "get-stats", schema: z.object({}) }, async () =>
@@ -514,37 +460,27 @@ server.tool({ name: "daily-summary", schema: z.object({}) }, async () =>
 );
 
 // Error handling
-server.tool(
-  { name: "fetch-item", schema: z.object({ id: z.string() }) },
-  async ({ id }) => {
-    try {
-      const item = await db.get(id);
+server.tool({ name: "fetch-item", schema: z.object({ id: z.string() }) }, async ({ id }) => {
+  try {
+    const item = await db.get(id);
 
-      if (!item) {
-        return error(`Item not found: ${id}`);
-      }
-
-      return object(item);
-    } catch (err) {
-      return error("Database error");
+    if (!item) {
+      return error(`Item not found: ${id}`);
     }
-  },
-);
+
+    return object(item);
+  } catch (err) {
+    return error("Database error");
+  }
+});
 
 // Mixed content
-server.tool(
-  { name: "analyze", schema: z.object({ data: z.array(z.number()) }) },
-  async ({ data }) => {
-    const stats = calculateStats(data);
-    const chartUrl = await generateChart(data);
+server.tool({ name: "analyze", schema: z.object({ data: z.array(z.number()) }) }, async ({ data }) => {
+  const stats = calculateStats(data);
+  const chartUrl = await generateChart(data);
 
-    return mix(
-      markdown(`## Analysis Results\n\nProcessed ${data.length} data points`),
-      object(stats),
-      image(chartUrl),
-    );
-  },
-);
+  return mix(markdown(`## Analysis Results\n\nProcessed ${data.length} data points`), object(stats), image(chartUrl));
+});
 
 // Widget response
 server.tool(

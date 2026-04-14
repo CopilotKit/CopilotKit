@@ -16,14 +16,7 @@ describe("Content Bundler", () => {
     expect(stdout).toContain("Bundling demo content");
     expect(stdout).toContain("langgraph-python::agentic-chat");
 
-    const contentPath = path.resolve(
-      scriptsDir,
-      "..",
-      "shell",
-      "src",
-      "data",
-      "demo-content.json",
-    );
+    const contentPath = path.resolve(scriptsDir, "..", "shell", "src", "data", "demo-content.json");
     expect(fs.existsSync(contentPath)).toBe(true);
 
     const content = JSON.parse(fs.readFileSync(contentPath, "utf-8"));
@@ -32,15 +25,7 @@ describe("Content Bundler", () => {
   });
 
   it("bundles correct files for each demo", async () => {
-    const contentPath = path.resolve(
-      __dirname,
-      "..",
-      "..",
-      "shell",
-      "src",
-      "data",
-      "demo-content.json",
-    );
+    const contentPath = path.resolve(__dirname, "..", "..", "shell", "src", "data", "demo-content.json");
 
     if (!fs.existsSync(contentPath)) {
       // Run bundler first
@@ -66,23 +51,13 @@ describe("Content Bundler", () => {
     expect(agenticChat.files[0].content).toContain("CopilotKit");
 
     // agent.py should be present
-    const agentFile = agenticChat.files.find(
-      (f: any) => f.filename === "agent.py",
-    );
+    const agentFile = agenticChat.files.find((f: any) => f.filename === "agent.py");
     expect(agentFile).toBeDefined();
     expect(agentFile.language).toBe("python");
   });
 
   it("detects correct language for each file type", async () => {
-    const contentPath = path.resolve(
-      __dirname,
-      "..",
-      "..",
-      "shell",
-      "src",
-      "data",
-      "demo-content.json",
-    );
+    const contentPath = path.resolve(__dirname, "..", "..", "shell", "src", "data", "demo-content.json");
     const content = JSON.parse(fs.readFileSync(contentPath, "utf-8"));
 
     for (const [, demo] of Object.entries(content.demos) as any) {
@@ -99,15 +74,7 @@ describe("Content Bundler", () => {
   });
 
   it("includes backend files for packages with agent code", async () => {
-    const contentPath = path.resolve(
-      __dirname,
-      "..",
-      "..",
-      "shell",
-      "src",
-      "data",
-      "demo-content.json",
-    );
+    const contentPath = path.resolve(__dirname, "..", "..", "shell", "src", "data", "demo-content.json");
     const content = JSON.parse(fs.readFileSync(contentPath, "utf-8"));
 
     // langgraph-python should have agent_server.py in backend files
@@ -115,9 +82,7 @@ describe("Content Bundler", () => {
     expect(lgDemo).toBeDefined();
     expect(lgDemo.backend_files).toBeDefined();
     expect(lgDemo.backend_files.length).toBeGreaterThan(0);
-    const agentServer = lgDemo.backend_files.find(
-      (f: any) => f.filename === "agent_server.py",
-    );
+    const agentServer = lgDemo.backend_files.find((f: any) => f.filename === "agent_server.py");
     expect(agentServer).toBeDefined();
     expect(agentServer.language).toBe("python");
 
@@ -125,22 +90,12 @@ describe("Content Bundler", () => {
     const mastraDemo = content.demos["mastra::agentic-chat"];
     expect(mastraDemo).toBeDefined();
     expect(mastraDemo.backend_files.length).toBeGreaterThan(0);
-    const mastraAgent = mastraDemo.backend_files.find(
-      (f: any) => f.filename === "mastra/agents/index.ts",
-    );
+    const mastraAgent = mastraDemo.backend_files.find((f: any) => f.filename === "mastra/agents/index.ts");
     expect(mastraAgent).toBeDefined();
   });
 
   it("includes all 9 langgraph-python demos", () => {
-    const contentPath = path.resolve(
-      __dirname,
-      "..",
-      "..",
-      "shell",
-      "src",
-      "data",
-      "demo-content.json",
-    );
+    const contentPath = path.resolve(__dirname, "..", "..", "shell", "src", "data", "demo-content.json");
     const content = JSON.parse(fs.readFileSync(contentPath, "utf-8"));
 
     const expectedDemos = [

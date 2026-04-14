@@ -14,8 +14,7 @@ Widgets interact with the outside world using hooks from `mcp-use/react`. `useCa
 ```tsx
 import { useCallTool } from "mcp-use/react";
 
-const { callTool, callToolAsync, isPending, isSuccess, isError, data, error } =
-  useCallTool("tool-name");
+const { callTool, callToolAsync, isPending, isSuccess, isError, data, error } = useCallTool("tool-name");
 
 // Fire-and-forget with optional callbacks
 callTool(
@@ -49,12 +48,7 @@ const result = await callToolAsync({ param: "value" });
 ## Simple Button Action
 
 ```tsx
-import {
-  McpUseProvider,
-  useWidget,
-  useCallTool,
-  type WidgetMetadata,
-} from "mcp-use/react";
+import { McpUseProvider, useWidget, useCallTool, type WidgetMetadata } from "mcp-use/react";
 import { z } from "zod";
 
 export const widgetMetadata: WidgetMetadata = {
@@ -91,9 +85,7 @@ export default function TodoList() {
             <input
               type="checkbox"
               checked={todo.completed}
-              onChange={() =>
-                callTool({ id: todo.id, completed: !todo.completed })
-              }
+              onChange={() => callTool({ id: todo.id, completed: !todo.completed })}
               disabled={isPending}
             />
             <span
@@ -216,8 +208,7 @@ server.tool(
 ## Delete Action
 
 ```tsx
-const { callTool: deleteTodo, isPending: isDeleting } =
-  useCallTool("delete-todo");
+const { callTool: deleteTodo, isPending: isDeleting } = useCallTool("delete-todo");
 
 const handleDelete = (id: string) => {
   if (!confirm("Are you sure you want to delete this item?")) return;
@@ -282,11 +273,7 @@ export default function OptimisticWidget() {
 
   const handleToggle = async (id: string) => {
     // Optimistic update
-    setTodos((prev) =>
-      prev.map((todo) =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo,
-      ),
-    );
+    setTodos((prev) => prev.map((todo) => (todo.id === id ? { ...todo, completed: !todo.completed } : todo)));
 
     try {
       await callToolAsync({ id });
@@ -310,11 +297,7 @@ export default function OptimisticWidget() {
       <div>
         {todos.map((todo) => (
           <div key={todo.id}>
-            <input
-              type="checkbox"
-              checked={todo.completed}
-              onChange={() => handleToggle(todo.id)}
-            />
+            <input type="checkbox" checked={todo.completed} onChange={() => handleToggle(todo.id)} />
             {todo.title}
           </div>
         ))}
@@ -340,25 +323,15 @@ return (
   <McpUseProvider autoSize>
     <div>
       {props.items.map((item) => (
-        <div
-          key={item.id}
-          style={{ padding: 12, border: "1px solid #ddd", marginBottom: 8 }}
-        >
+        <div key={item.id} style={{ padding: 12, border: "1px solid #ddd", marginBottom: 8 }}>
           <h3>{item.title}</h3>
           <p>{item.description}</p>
 
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => editItem({ id: item.id })}>Edit</button>
-            <button onClick={() => duplicateItem({ id: item.id })}>
-              Duplicate
-            </button>
-            <button onClick={() => archiveItem({ id: item.id })}>
-              Archive
-            </button>
-            <button
-              onClick={() => deleteItem({ id: item.id })}
-              style={{ color: "red" }}
-            >
+            <button onClick={() => duplicateItem({ id: item.id })}>Duplicate</button>
+            <button onClick={() => archiveItem({ id: item.id })}>Archive</button>
+            <button onClick={() => deleteItem({ id: item.id })} style={{ color: "red" }}>
               Delete
             </button>
           </div>
@@ -417,12 +390,7 @@ export default function EditableList() {
           <div key={item.id} style={{ padding: 8, display: "flex", gap: 8 }}>
             {editingId === item.id ? (
               <>
-                <input
-                  type="text"
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  autoFocus
-                />
+                <input type="text" value={editValue} onChange={(e) => setEditValue(e.target.value)} autoFocus />
                 <button onClick={() => saveEdit(item.id)} disabled={isSaving}>
                   Save
                 </button>
@@ -431,9 +399,7 @@ export default function EditableList() {
             ) : (
               <>
                 <span>{item.title}</span>
-                <button onClick={() => startEdit(item.id, item.title)}>
-                  Edit
-                </button>
+                <button onClick={() => startEdit(item.id, item.title)}>Edit</button>
               </>
             )}
           </div>
@@ -456,10 +422,8 @@ import { McpUseProvider, useWidget, useCallTool } from "mcp-use/react";
 
 export default function BatchActions() {
   const { props, isPending: isLoading } = useWidget();
-  const { callTool: archiveItems, isPending: isArchiving } =
-    useCallTool("archive-items");
-  const { callTool: deleteItems, isPending: isDeleting } =
-    useCallTool("delete-items");
+  const { callTool: archiveItems, isPending: isArchiving } = useCallTool("archive-items");
+  const { callTool: deleteItems, isPending: isDeleting } = useCallTool("delete-items");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const processing = isArchiving || isDeleting;
@@ -514,18 +478,10 @@ export default function BatchActions() {
             }}
           >
             <span>{selectedIds.size} selected</span>
-            <button
-              onClick={handleBatchArchive}
-              disabled={processing}
-              style={{ marginLeft: 8 }}
-            >
+            <button onClick={handleBatchArchive} disabled={processing} style={{ marginLeft: 8 }}>
               Archive
             </button>
-            <button
-              onClick={handleBatchDelete}
-              disabled={processing}
-              style={{ marginLeft: 8 }}
-            >
+            <button onClick={handleBatchDelete} disabled={processing} style={{ marginLeft: 8 }}>
               Delete
             </button>
           </div>
@@ -533,11 +489,7 @@ export default function BatchActions() {
 
         {props.items.map((item) => (
           <div key={item.id} style={{ padding: 8, display: "flex", gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={selectedIds.has(item.id)}
-              onChange={() => toggleSelection(item.id)}
-            />
+            <input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => toggleSelection(item.id)} />
             <span>{item.title}</span>
           </div>
         ))}
@@ -631,10 +583,7 @@ return (
       {props.items.map((item) => (
         <div key={item.id}>
           <span>{item.title}</span>
-          <button
-            onClick={() => handleAction(item.id)}
-            disabled={loadingId === item.id}
-          >
+          <button onClick={() => handleAction(item.id)} disabled={loadingId === item.id}>
             {loadingId === item.id ? "Processing..." : "Process"}
           </button>
         </div>
@@ -696,9 +645,7 @@ return (
       {props.items.map((item) => (
         <div key={item.id}>
           <span>{item.title}</span>
-          <button onClick={() => handleDeleteClick(item.id, item.title)}>
-            Delete
-          </button>
+          <button onClick={() => handleDeleteClick(item.id, item.title)}>Delete</button>
         </div>
       ))}
 
@@ -716,9 +663,7 @@ return (
             justifyContent: "center",
           }}
         >
-          <div
-            style={{ backgroundColor: "white", padding: 24, borderRadius: 8 }}
-          >
+          <div style={{ backgroundColor: "white", padding: 24, borderRadius: 8 }}>
             <h3>Confirm Delete</h3>
             <p>Delete "{confirmDialog.title}"?</p>
             <button onClick={handleConfirmDelete}>Delete</button>
@@ -756,19 +701,14 @@ export default function AnalysisWidget() {
       <div style={{ padding: 20 }}>
         <h2>Results for "{props.query}"</h2>
         {props.items.map((item) => (
-          <div
-            key={item.id}
-            style={{ padding: 8, borderBottom: "1px solid #ddd" }}
-          >
+          <div key={item.id} style={{ padding: 8, borderBottom: "1px solid #ddd" }}>
             <strong>{item.name}</strong> — ${item.price}
           </div>
         ))}
 
         <button
           onClick={() =>
-            sendFollowUpMessage(
-              `Compare the top 3 results for "${props.query}" and recommend the best one.`,
-            )
+            sendFollowUpMessage(`Compare the top 3 results for "${props.query}" and recommend the best one.`)
           }
           style={{ marginTop: 16, padding: "8px 16px" }}
         >
@@ -789,8 +729,7 @@ import { useState } from "react";
 import { McpUseProvider, useWidget, useCallTool } from "mcp-use/react";
 
 export default function TodoWidget() {
-  const { props, isPending, state, setState, sendFollowUpMessage } =
-    useWidget();
+  const { props, isPending, state, setState, sendFollowUpMessage } = useWidget();
   const { callTool: toggleTodo } = useCallTool("toggle-todo");
 
   if (isPending) {
@@ -819,11 +758,7 @@ export default function TodoWidget() {
         ))}
 
         <button
-          onClick={() =>
-            sendFollowUpMessage(
-              `I have ${remaining} tasks left. Help me prioritize them.`,
-            )
-          }
+          onClick={() => sendFollowUpMessage(`I have ${remaining} tasks left. Help me prioritize them.`)}
           style={{ marginTop: 16, padding: "8px 16px" }}
         >
           Ask AI to Prioritize
@@ -840,12 +775,7 @@ export default function TodoWidget() {
 
 ```tsx
 import { useState } from "react";
-import {
-  McpUseProvider,
-  useWidget,
-  useCallTool,
-  type WidgetMetadata,
-} from "mcp-use/react";
+import { McpUseProvider, useWidget, useCallTool, type WidgetMetadata } from "mcp-use/react";
 import { z } from "zod";
 
 const propsSchema = z.object({
@@ -868,8 +798,7 @@ export const widgetMetadata: WidgetMetadata = {
 
 export default function InteractiveTodoList() {
   const { props, isPending: isLoading } = useWidget<Props>();
-  const { callTool: createTodo, isPending: isCreating } =
-    useCallTool("create-todo");
+  const { callTool: createTodo, isPending: isCreating } = useCallTool("create-todo");
   const { callTool: toggleTodo } = useCallTool("toggle-todo");
   const { callTool: deleteTodo } = useCallTool("delete-todo");
   const [newTodo, setNewTodo] = useState("");
@@ -942,11 +871,7 @@ export default function InteractiveTodoList() {
                 borderBottom: "1px solid #eee",
               }}
             >
-              <input
-                type="checkbox"
-                checked={todo.completed}
-                onChange={() => handleToggle(todo.id, todo.completed)}
-              />
+              <input type="checkbox" checked={todo.completed} onChange={() => handleToggle(todo.id, todo.completed)} />
               <span
                 style={{
                   flex: 1,
@@ -956,20 +881,14 @@ export default function InteractiveTodoList() {
               >
                 {todo.title}
               </span>
-              <button
-                onClick={() => handleDelete(todo.id)}
-                disabled={deletingId === todo.id}
-                style={{ color: "red" }}
-              >
+              <button onClick={() => handleDelete(todo.id)} disabled={deletingId === todo.id} style={{ color: "red" }}>
                 {deletingId === todo.id ? "Deleting..." : "Delete"}
               </button>
             </div>
           ))}
         </div>
 
-        {props.todos.length === 0 && (
-          <p style={{ color: "#999", textAlign: "center" }}>No todos yet</p>
-        )}
+        {props.todos.length === 0 && <p style={{ color: "#999", textAlign: "center" }}>No todos yet</p>}
       </div>
     </McpUseProvider>
   );

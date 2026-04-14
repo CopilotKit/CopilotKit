@@ -3,19 +3,15 @@ import { getProvider } from "@/lib/workspace";
 
 export async function POST(req: NextRequest) {
   try {
-    const { workspaceId, cmd, background, cwd, timeoutMs } =
-      (await req.json()) as {
-        workspaceId?: string;
-        cmd?: string;
-        background?: boolean;
-        cwd?: string;
-        timeoutMs?: number;
-      };
+    const { workspaceId, cmd, background, cwd, timeoutMs } = (await req.json()) as {
+      workspaceId?: string;
+      cmd?: string;
+      background?: boolean;
+      cwd?: string;
+      timeoutMs?: number;
+    };
     if (!workspaceId || !cmd) {
-      return NextResponse.json(
-        { error: "workspaceId and cmd are required" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "workspaceId and cmd are required" }, { status: 400 });
     }
 
     const provider = getProvider();

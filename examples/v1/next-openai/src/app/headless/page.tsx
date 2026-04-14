@@ -7,10 +7,7 @@ import {
   useCopilotChatHeadless_c,
   useLangGraphInterrupt,
 } from "@copilotkit/react-core";
-import {
-  CopilotSidebar,
-  useCopilotChatSuggestions,
-} from "@copilotkit/react-ui";
+import { CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { randomId } from "@copilotkit/shared";
 import { AnimatedMarkdown } from "flowtoken";
 import { useSearchParams } from "next/navigation";
@@ -19,15 +16,7 @@ import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 import "flowtoken/dist/styles.css";
 
 // Modal Component
-function MessageDetailsModal({
-  message,
-  isOpen,
-  onClose,
-}: {
-  message: any;
-  isOpen: boolean;
-  onClose: () => void;
-}) {
+function MessageDetailsModal({ message, isOpen, onClose }: { message: any; isOpen: boolean; onClose: () => void }) {
   if (!isOpen) return null;
 
   return (
@@ -40,18 +29,8 @@ function MessageDetailsModal({
               onClick={onClose}
               className="text-white/80 hover:text-white transition-colors rounded-full p-1 hover:bg-white/10"
             >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
@@ -69,9 +48,7 @@ function MessageDetailsModal({
 export default function PanelPage() {
   const searchParams = useSearchParams();
   const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
-  const runtimeUrl =
-    searchParams.get("runtimeUrl") ||
-    `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
+  const runtimeUrl = searchParams.get("runtimeUrl") || `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
   const publicApiKey = searchParams.get("publicApiKey");
   const publicLicenseKey = searchParams.get("publicLicenseKey");
   const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
@@ -101,33 +78,16 @@ function ScrollToBottomButton() {
       onClick={() => scrollToBottom()}
       title="Scroll to bottom"
     >
-      <svg
-        className="w-4 h-4"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M19 14l-7 7m0 0l-7-7m7 7V3"
-        />
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
       </svg>
     </button>
   );
 }
 
 function ChatApp() {
-  const {
-    messages,
-    suggestions,
-    setSuggestions,
-    sendMessage,
-    interrupt,
-    isLoading,
-    generateSuggestions,
-  } = useCopilotChatHeadless_c();
+  const { messages, suggestions, setSuggestions, sendMessage, interrupt, isLoading, generateSuggestions } =
+    useCopilotChatHeadless_c();
   const [newMessage, setNewMessage] = useState("");
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -137,8 +97,7 @@ function ChatApp() {
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height =
-        textareaRef.current.scrollHeight + "px";
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
     }
   }, [newMessage]);
 
@@ -147,12 +106,8 @@ function ChatApp() {
     render: (state) => {
       return (
         <details className="mb-4">
-          <summary className="cursor-pointer text-sm text-gray-600">
-            Agent State
-          </summary>
-          <pre className="text-xs bg-gray-100 p-2 rounded mt-2 overflow-auto">
-            {JSON.stringify(state, null, 2)}
-          </pre>
+          <summary className="cursor-pointer text-sm text-gray-600">Agent State</summary>
+          <pre className="text-xs bg-gray-100 p-2 rounded mt-2 overflow-auto">{JSON.stringify(state, null, 2)}</pre>
         </details>
       );
     },
@@ -163,12 +118,8 @@ function ChatApp() {
       return (
         <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
           <details>
-            <summary className="cursor-pointer text-sm font-medium text-yellow-800">
-              LangGraph Interrupt
-            </summary>
-            <pre className="text-xs mt-2">
-              {JSON.stringify({ result, event }, null, 2)}
-            </pre>
+            <summary className="cursor-pointer text-sm font-medium text-yellow-800">LangGraph Interrupt</summary>
+            <pre className="text-xs mt-2">{JSON.stringify({ result, event }, null, 2)}</pre>
           </details>
           <button
             onClick={() => resolve("the secret is 1234")}
@@ -189,12 +140,7 @@ function ChatApp() {
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 my-2 shadow-sm">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-              <svg
-                className="w-4 h-4 text-blue-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -209,9 +155,7 @@ function ChatApp() {
                 />
               </svg>
             </div>
-            <div className="text-blue-700 font-medium">
-              🔧 Generative UI Activated
-            </div>
+            <div className="text-blue-700 font-medium">🔧 Generative UI Activated</div>
           </div>
         </div>
       );
@@ -265,12 +209,7 @@ function ChatApp() {
         <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-4 my-2 shadow-sm">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-              <svg
-                className="w-4 h-4 text-purple-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -279,9 +218,7 @@ function ChatApp() {
                 />
               </svg>
             </div>
-            <div className="text-purple-700 font-medium text-sm">
-              🔧 Waiting for Response
-            </div>
+            <div className="text-purple-700 font-medium text-sm">🔧 Waiting for Response</div>
           </div>
           <button
             onClick={() => props.respond?.("the secret is 120")}
@@ -312,12 +249,7 @@ function ChatApp() {
         <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-red-50 border border-amber-200 rounded-xl p-4 my-2 shadow-sm">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
-              <svg
-                className="w-4 h-4 text-amber-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -326,17 +258,11 @@ function ChatApp() {
                 />
               </svg>
             </div>
-            <div className="text-amber-700 font-medium">
-              ✨ Poem Generator Activated
-            </div>
+            <div className="text-amber-700 font-medium">✨ Poem Generator Activated</div>
           </div>
           <div className="bg-white/60 rounded-lg p-3 border border-amber-100">
-            <div className="text-xs text-amber-600 font-medium mb-2">
-              Generated Content:
-            </div>
-            <div className="text-amber-800 font-medium text-sm">
-              {props.args.generatedPoem}
-            </div>
+            <div className="text-xs text-amber-600 font-medium mb-2">Generated Content:</div>
+            <div className="text-amber-800 font-medium text-sm">{props.args.generatedPoem}</div>
           </div>
         </div>
       );
@@ -422,12 +348,8 @@ function ChatApp() {
                   <div className="flex-1 flex items-center justify-center h-full">
                     <div className="text-center">
                       <div className="text-4xl mb-4">💬</div>
-                      <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                        What is on the agenda today?
-                      </h2>
-                      <p className="text-gray-600">
-                        Start a conversation to get help with anything.
-                      </p>
+                      <h2 className="text-2xl font-semibold text-gray-900 mb-2">What is on the agenda today?</h2>
+                      <p className="text-gray-600">Start a conversation to get help with anything.</p>
                     </div>
                   </div>
                 ) : (
@@ -462,25 +384,17 @@ function ChatApp() {
                               </div>
                             )}
 
-                            {message.role === "user" && (
-                              <p className="text-white">{userMessageContent}</p>
-                            )}
+                            {message.role === "user" && <p className="text-white">{userMessageContent}</p>}
 
                             {/* Loading spinner for assistant messages */}
-                            {message.role === "assistant" &&
-                              !message.content &&
-                              !message.toolCalls &&
-                              isLoading && (
-                                <div className="flex items-center gap-2 mt-2">
-                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-                                  <span className="text-sm text-gray-500">
-                                    Thinking...
-                                  </span>
-                                </div>
-                              )}
+                            {message.role === "assistant" && !message.content && !message.toolCalls && isLoading && (
+                              <div className="flex items-center gap-2 mt-2">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                                <span className="text-sm text-gray-500">Thinking...</span>
+                              </div>
+                            )}
 
-                            {message.role === "assistant" &&
-                              message.generativeUI?.()}
+                            {message.role === "assistant" && message.generativeUI?.()}
 
                             {message.role === "tool" && (
                               <div className="flex items-center gap-2 mt-2">
@@ -507,12 +421,7 @@ function ChatApp() {
                                   className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
                                   title="Copy message"
                                 >
-                                  <svg
-                                    className="w-4 h-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
@@ -523,59 +432,43 @@ function ChatApp() {
                                 </button>
 
                                 {/* Thumbs up/down only for assistant messages */}
-                                {message.role === "assistant" &&
-                                  message.content && (
-                                    <>
-                                      <button
-                                        className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
-                                        title="Thumbs up"
-                                      >
-                                        <svg
-                                          className="w-4 h-4"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          viewBox="0 0 24 24"
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
-                                          />
-                                        </svg>
-                                      </button>
-                                      <button
-                                        className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
-                                        title="Thumbs down"
-                                      >
-                                        <svg
-                                          className="w-4 h-4"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          viewBox="0 0 24 24"
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018c.163 0 .326.02.485.06L17 4m-7 10v5a2 2 0 002 2h.095c.5 0 .905-.405.905-.905 0-.714.211-1.412.608-2.006L17 13V4m-7 10h2"
-                                          />
-                                        </svg>
-                                      </button>
-                                    </>
-                                  )}
+                                {message.role === "assistant" && message.content && (
+                                  <>
+                                    <button
+                                      className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
+                                      title="Thumbs up"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
+                                        />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
+                                      title="Thumbs down"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018c.163 0 .326.02.485.06L17 4m-7 10v5a2 2 0 002 2h.095c.5 0 .905-.405.905-.905 0-.714.211-1.412.608-2.006L17 13V4m-7 10h2"
+                                        />
+                                      </svg>
+                                    </button>
+                                  </>
+                                )}
 
                                 <button
                                   onClick={() => handleShowDetails(message)}
                                   className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
                                   title="Show details"
                                 >
-                                  <svg
-                                    className="w-4 h-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
@@ -602,12 +495,7 @@ function ChatApp() {
                                 className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
                                 title="Copy message"
                               >
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
@@ -622,12 +510,7 @@ function ChatApp() {
                                 className="text-gray-500 hover:text-gray-700 p-1 rounded transition-colors"
                                 title="Show details"
                               >
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
@@ -690,12 +573,7 @@ function ChatApp() {
                       disabled={!newMessage.trim()}
                       className="bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 text-white p-2 rounded-full transition-all duration-200 ml-2"
                     >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -714,11 +592,7 @@ function ChatApp() {
         </div>
 
         {/* Message Details Modal */}
-        <MessageDetailsModal
-          message={selectedMessage}
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-        />
+        <MessageDetailsModal message={selectedMessage} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       </StickToBottom>
     </>
   );

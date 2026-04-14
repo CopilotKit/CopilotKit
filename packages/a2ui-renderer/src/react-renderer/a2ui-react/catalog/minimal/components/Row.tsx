@@ -21,17 +21,7 @@ import { ChildList } from "./ChildList";
 
 export const RowSchema = z.object({
   children: CommonSchemas.ChildList,
-  justify: z
-    .enum([
-      "center",
-      "end",
-      "spaceAround",
-      "spaceBetween",
-      "spaceEvenly",
-      "start",
-      "stretch",
-    ])
-    .optional(),
+  justify: z.enum(["center", "end", "spaceAround", "spaceBetween", "spaceEvenly", "start", "stretch"]).optional(),
   align: z.enum(["start", "center", "end", "stretch"]).optional(),
 });
 

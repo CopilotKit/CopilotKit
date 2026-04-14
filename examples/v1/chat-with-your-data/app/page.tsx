@@ -24,8 +24,7 @@ function HomeContent() {
         AssistantMessage={CustomAssistantMessage}
         labels={{
           title: "Data Assistant",
-          initial:
-            "Hello, I'm here to help you understand your data. How can I help?",
+          initial: "Hello, I'm here to help you understand your data. How can I help?",
           placeholder: "Ask about sales, trends, or metrics...",
         }}
       >

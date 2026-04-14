@@ -1,14 +1,6 @@
 import { useTodo } from "@/contexts/TodoContext";
 import { useEffect, useState, useCallback } from "react";
-import ReactFlow, {
-  Node,
-  Edge,
-  Controls,
-  Background,
-  useNodesState,
-  useEdgesState,
-  Position,
-} from "reactflow";
+import ReactFlow, { Node, Edge, Controls, Background, useNodesState, useEdgesState, Position } from "reactflow";
 import "reactflow/dist/style.css";
 import styled from "@emotion/styled";
 import { motion } from "framer-motion";
@@ -19,8 +11,7 @@ const TodoNode = styled.div`
   background: white;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   border: 2px solid
-    ${(props: { completed: boolean }) =>
-      props.completed ? "#10B981" : "#E5E7EB"};
+    ${(props: { completed: boolean }) => (props.completed ? "#10B981" : "#E5E7EB")};
   min-width: 150px;
   text-align: center;
   transition: all 0.3s ease;
@@ -40,10 +31,8 @@ const NodeContent = styled.div`
 const NodeTitle = styled.h3`
   margin: 0;
   font-size: 14px;
-  color: ${(props: { completed: boolean }) =>
-    props.completed ? "#6B7280" : "#1F2937"};
-  text-decoration: ${(props: { completed: boolean }) =>
-    props.completed ? "line-through" : "none"};
+  color: ${(props: { completed: boolean }) => (props.completed ? "#6B7280" : "#1F2937")};
+  text-decoration: ${(props: { completed: boolean }) => (props.completed ? "line-through" : "none")};
 `;
 
 const SubTaskList = styled.div`
@@ -55,13 +44,10 @@ const SubTaskList = styled.div`
 
 const SubTaskItem = styled.div`
   font-size: 12px;
-  color: ${(props: { completed: boolean }) =>
-    props.completed ? "#6B7280" : "#4B5563"};
-  text-decoration: ${(props: { completed: boolean }) =>
-    props.completed ? "line-through" : "none"};
+  color: ${(props: { completed: boolean }) => (props.completed ? "#6B7280" : "#4B5563")};
+  text-decoration: ${(props: { completed: boolean }) => (props.completed ? "line-through" : "none")};
   padding: 4px 8px;
-  background: ${(props: { completed: boolean }) =>
-    props.completed ? "#F3F4F6" : "#F9FAFB"};
+  background: ${(props: { completed: boolean }) => (props.completed ? "#F3F4F6" : "#F9FAFB")};
   border-radius: 4px;
 `;
 

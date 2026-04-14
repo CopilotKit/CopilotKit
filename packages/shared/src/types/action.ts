@@ -31,24 +31,16 @@ interface ObjectArrayParameter extends AbstractParameter {
   attributes?: Parameter[];
 }
 
-type SpecialParameters =
-  | StringParameter
-  | ObjectParameter
-  | ObjectArrayParameter;
+type SpecialParameters = StringParameter | ObjectParameter | ObjectArrayParameter;
 interface BaseParameter extends AbstractParameter {
   type?: Exclude<AbstractParameter["type"], SpecialParameters["type"]>;
 }
 
 export type Parameter = BaseParameter | SpecialParameters;
 
-type OptionalParameterType<P extends AbstractParameter> =
-  P["required"] extends false ? undefined : never;
+type OptionalParameterType<P extends AbstractParameter> = P["required"] extends false ? undefined : never;
 
-type StringParameterType<P> = P extends StringParameter
-  ? P extends { enum?: Array<infer E> }
-    ? E
-    : string
-  : never;
+type StringParameterType<P> = P extends StringParameter ? (P extends { enum?: Array<infer E> } ? E : string) : never;
 
 type ObjectParameterType<P> = P extends ObjectParameter
   ? P extends { attributes?: infer Attributes extends Parameter[] }
@@ -86,9 +78,7 @@ export type Action<T extends Parameter[] | [] = []> = {
   name: string;
   description?: string;
   parameters?: T;
-  handler?: T extends []
-    ? () => any | Promise<any>
-    : (args: MappedParameterTypes<T>) => any | Promise<any>;
+  handler?: T extends [] ? () => any | Promise<any> : (args: MappedParameterTypes<T>) => any | Promise<any>;
   additionalConfig?: Record<string, any>;
 };
 

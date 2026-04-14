@@ -22,8 +22,7 @@ export const useChartActions = ({ state, setState }: UseChartActionsProps) => {
   useCopilotAction(
     {
       name: "add_chart",
-      description:
-        "Add a chart to the dashboard by type. You *must* populate the data, do not create empty charts.",
+      description: "Add a chart to the dashboard by type. You *must* populate the data, do not create empty charts.",
       parameters: [
         { name: "type", type: "string", required: true },
         { name: "title", type: "string", required: true },
@@ -69,16 +68,12 @@ export const useChartActions = ({ state, setState }: UseChartActionsProps) => {
           return <></>;
         }
 
-        const dataRecords: ChartDataRecord[] = Array.isArray(data)
-          ? (data as ChartDataRecord[])
-          : [];
+        const dataRecords: ChartDataRecord[] = Array.isArray(data) ? (data as ChartDataRecord[]) : [];
         const chart: Chart = { ...spec, data: dataRecords };
 
         const onHumanResponse = (shouldProceed: boolean) => {
           if (!shouldProceed) {
-            respond?.(
-              "User declined adding the chart. This is not an issuue, they just don't want to add it.",
-            );
+            respond?.("User declined adding the chart. This is not an issuue, they just don't want to add it.");
             return;
           }
           setState({
@@ -92,12 +87,7 @@ export const useChartActions = ({ state, setState }: UseChartActionsProps) => {
         };
 
         return (
-          <ChartCard
-            spec={spec}
-            onHumanInput={onHumanResponse}
-            status={status}
-            chartData={{ [title]: dataRecords }}
-          />
+          <ChartCard spec={spec} onHumanInput={onHumanResponse} status={status} chartData={{ [title]: dataRecords }} />
         );
       },
     },
@@ -130,8 +120,7 @@ export const useChartActions = ({ state, setState }: UseChartActionsProps) => {
 
         const currentCharts = state?.charts || [];
         const chartIndex = currentCharts.findIndex(
-          (chart) =>
-            ("title" in chart ? chart.title : "Untitled") === currentTitle,
+          (chart) => ("title" in chart ? chart.title : "Untitled") === currentTitle,
         );
 
         if (chartIndex === -1) {
@@ -143,9 +132,7 @@ export const useChartActions = ({ state, setState }: UseChartActionsProps) => {
 
         const existingChart = currentCharts[chartIndex];
         const newType = type || existingChart.type;
-        const newTitle =
-          title ||
-          ("title" in existingChart ? existingChart.title : "Untitled");
+        const newTitle = title || ("title" in existingChart ? existingChart.title : "Untitled");
 
         let spec: ChartSpec | null = null;
         if (newType === "line") {
@@ -224,16 +211,13 @@ export const useChartActions = ({ state, setState }: UseChartActionsProps) => {
   useCopilotAction(
     {
       name: "delete_chart",
-      description:
-        "Delete a chart from the dashboard. Provide the title of the chart to delete.",
+      description: "Delete a chart from the dashboard. Provide the title of the chart to delete.",
       parameters: [{ name: "title", type: "string", required: true }],
       renderAndWaitForResponse: ({ args, respond, status }) => {
         const { title } = args as { title: string };
 
         const currentCharts = state?.charts || [];
-        const chartIndex = currentCharts.findIndex(
-          (chart) => ("title" in chart ? chart.title : "Untitled") === title,
-        );
+        const chartIndex = currentCharts.findIndex((chart) => ("title" in chart ? chart.title : "Untitled") === title);
 
         if (chartIndex === -1) {
           respond?.(
@@ -256,9 +240,7 @@ export const useChartActions = ({ state, setState }: UseChartActionsProps) => {
             });
             return;
           }
-          const updatedCharts = currentCharts.filter(
-            (_, index) => index !== chartIndex,
-          );
+          const updatedCharts = currentCharts.filter((_, index) => index !== chartIndex);
           setState({
             ...state,
             charts: updatedCharts,
@@ -272,32 +254,20 @@ export const useChartActions = ({ state, setState }: UseChartActionsProps) => {
         return (
           <div className="space-y-4">
             <div className="p-4 border border-destructive/20 bg-destructive/5 rounded-lg">
-              <h3 className="font-medium text-destructive mb-2">
-                Delete Chart
-              </h3>
+              <h3 className="font-medium text-destructive mb-2">Delete Chart</h3>
               <p className="text-sm text-muted-foreground mb-3">
-                Are you sure you want to delete the chart:{" "}
-                <strong>{title}</strong>?
+                Are you sure you want to delete the chart: <strong>{title}</strong>?
               </p>
               <div className="border border-border rounded-lg p-3 bg-background">
-                <ChartCard
-                  spec={chartToDelete}
-                  chartData={{ [title]: chartToDelete.data }}
-                />
+                <ChartCard spec={chartToDelete} chartData={{ [title]: chartToDelete.data }} />
               </div>
             </div>
             {status !== "complete" && (
               <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => onHumanResponse(false)}
-                >
+                <Button variant="outline" onClick={() => onHumanResponse(false)}>
                   Cancel
                 </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => onHumanResponse(true)}
-                >
+                <Button variant="destructive" onClick={() => onHumanResponse(true)}>
                   Delete
                 </Button>
               </div>

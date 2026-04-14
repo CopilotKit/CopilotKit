@@ -2,13 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarHeader,
-} from "@/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarHeader } from "@/components/ui/sidebar";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Mail, User, ClipboardList } from "lucide-react";
 import Image from "next/image";
@@ -19,23 +13,14 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader>
         <div className="flex items-center gap-2 p-2">
-          <Image
-            src="/icon.png"
-            alt="OMAC"
-            width={24}
-            height={24}
-            className="h-6 w-6"
-          />
+          <Image src="/icon.png" alt="OMAC" width={24} height={24} className="h-6 w-6" />
           <h2 className="text-lg font-semibold">OMAC</h2>
         </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <div className="space-y-1 px-2">
-            <Link
-              href="/tasks"
-              className="flex w-full items-center gap-2 rounded p-2 hover:bg-accent"
-            >
+            <Link href="/tasks" className="flex w-full items-center gap-2 rounded p-2 hover:bg-accent">
               <ClipboardList className="h-4 w-4" />
               <span>Task Manager</span>
             </Link>
@@ -55,39 +40,19 @@ export function AppSidebar() {
               <Dialog.Portal>
                 <Dialog.Overlay className="fixed inset-0 bg-black opacity-30" />
                 <Dialog.Content className="fixed top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded p-6 bg-white shadow-lg">
-                  <Dialog.Title className="text-lg font-semibold mb-4">
-                    Update Profile
-                  </Dialog.Title>
+                  <Dialog.Title className="text-lg font-semibold mb-4">Update Profile</Dialog.Title>
                   <form className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        First Name
-                      </label>
-                      <Input
-                        type="text"
-                        name="firstName"
-                        placeholder="First Name"
-                      />
+                      <label className="block text-sm font-medium text-gray-700">First Name</label>
+                      <Input type="text" name="firstName" placeholder="First Name" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Last Name
-                      </label>
-                      <Input
-                        type="text"
-                        name="lastName"
-                        placeholder="Last Name"
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                      <Input type="text" name="lastName" placeholder="Last Name" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Email Address
-                      </label>
-                      <Input
-                        type="email"
-                        name="email"
-                        placeholder="Email Address"
-                      />
+                      <label className="block text-sm font-medium text-gray-700">Email Address</label>
+                      <Input type="email" name="email" placeholder="Email Address" />
                     </div>
                     <div className="flex justify-end gap-2">
                       <Dialog.Close asChild>
@@ -107,9 +72,7 @@ export function AppSidebar() {
               <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse"></div>
             </button>
           </div>
-          <div className="px-4 py-2 text-sm text-muted-foreground">
-            Version 0.0.1
-          </div>
+          <div className="px-4 py-2 text-sm text-muted-foreground">Version 0.0.1</div>
         </SidebarGroup>
       </SidebarFooter>
     </Sidebar>

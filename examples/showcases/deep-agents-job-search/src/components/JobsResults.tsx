@@ -29,18 +29,11 @@ export function JobsResults({ jobs }: { jobs: JobPosting[] }) {
                 <td className="px-4 py-2">{j.title}</td>
                 <td className="px-4 py-2">{j.location}</td>
                 <td className="px-4 py-2">
-                  <a
-                    className="text-blue-600 hover:underline"
-                    href={j.url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
+                  <a className="text-blue-600 hover:underline" href={j.url} target="_blank" rel="noreferrer">
                     Open
                   </a>
                 </td>
-                <td className="px-4 py-2">
-                  {j.goodMatch === true ? "Yes" : "No"}
-                </td>
+                <td className="px-4 py-2">{j.goodMatch === true ? "Yes" : "No"}</td>
               </tr>
             ))}
           </tbody>

@@ -9,8 +9,7 @@ export interface TunnelOptions {
 }
 
 export class TunnelService {
-  private readonly META_DATA_URL =
-    "https://metadata-cdn.copilotkit.ai/cloud.config.json";
+  private readonly META_DATA_URL = "https://metadata-cdn.copilotkit.ai/cloud.config.json";
 
   async create(options: TunnelOptions): Promise<Tunnel> {
     const metadata = await this.getMetaData();

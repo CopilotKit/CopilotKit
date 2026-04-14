@@ -12,13 +12,7 @@ interface CountryTooltipProps {
   onVisit: (countryName: string, flagEmoji: string | null) => void;
 }
 
-const CountryTooltip = ({
-  countryName,
-  flagEmoji,
-  position,
-  isVisited,
-  onVisit,
-}: CountryTooltipProps) => {
+const CountryTooltip = ({ countryName, flagEmoji, position, isVisited, onVisit }: CountryTooltipProps) => {
   return (
     <div
       className="fixed z-50 pointer-events-auto"
@@ -33,8 +27,7 @@ const CountryTooltip = ({
         <div className="bg-black/80 text-white p-0 flex items-center justify-center rounded-4xl px-2 py-1">
           {flagEmoji ? (
             <>
-              <span className="text-3xl mr-2">{flagEmoji}</span>{" "}
-              <span>{countryName}</span>
+              <span className="text-3xl mr-2">{flagEmoji}</span> <span>{countryName}</span>
             </>
           ) : (
             <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center">

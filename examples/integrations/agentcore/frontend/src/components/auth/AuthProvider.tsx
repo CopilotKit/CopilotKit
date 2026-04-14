@@ -60,11 +60,7 @@ const AuthProvider = ({ children }: PropsWithChildren) => {
       {...authConfig}
       // This callback removes the `?code=` from the URL, which will break page refreshes
       onSigninCallback={() => {
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname,
-        );
+        window.history.replaceState({}, document.title, window.location.pathname);
       }}
     >
       <AutoSignin>{children}</AutoSignin>

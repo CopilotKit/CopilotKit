@@ -33,22 +33,16 @@ export default function ReferencePage() {
   const indexPath = path.join(CONTENT_DIR, "index.mdx");
   if (fs.existsSync(indexPath)) {
     const { data } = matter(fs.readFileSync(indexPath, "utf-8"));
-    intro =
-      (data.description as string) ||
-      "API Reference for the next-generation CopilotKit React API.";
+    intro = (data.description as string) || "API Reference for the next-generation CopilotKit React API.";
   }
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
-      <h1 className="text-2xl font-bold text-[var(--text)] mb-2">
-        API Reference
-      </h1>
+      <h1 className="text-2xl font-bold text-[var(--text)] mb-2">API Reference</h1>
       <p className="text-[var(--text-muted)] text-sm mb-10">{intro}</p>
 
       <section className="mb-10">
-        <h2 className="text-lg font-semibold text-[var(--text)] mb-4">
-          UI Components
-        </h2>
+        <h2 className="text-lg font-semibold text-[var(--text)] mb-4">UI Components</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {components.map((item) => (
             <Link
@@ -61,11 +55,7 @@ export default function ReferencePage() {
                 {item.title}
                 {" />"}
               </div>
-              {item.description && (
-                <div className="text-xs text-[var(--text-muted)] mt-1">
-                  {item.description}
-                </div>
-              )}
+              {item.description && <div className="text-xs text-[var(--text-muted)] mt-1">{item.description}</div>}
             </Link>
           ))}
         </div>
@@ -80,14 +70,8 @@ export default function ReferencePage() {
               href={`/reference/${item.slug}`}
               className="block rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 hover:bg-[var(--bg-elevated)] transition-colors"
             >
-              <div className="font-mono text-sm font-semibold text-[var(--accent)]">
-                {item.title}()
-              </div>
-              {item.description && (
-                <div className="text-xs text-[var(--text-muted)] mt-1">
-                  {item.description}
-                </div>
-              )}
+              <div className="font-mono text-sm font-semibold text-[var(--accent)]">{item.title}()</div>
+              {item.description && <div className="text-xs text-[var(--text-muted)] mt-1">{item.description}</div>}
             </Link>
           ))}
         </div>

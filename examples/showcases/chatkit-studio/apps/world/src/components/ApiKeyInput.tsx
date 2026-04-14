@@ -48,10 +48,7 @@ export default function ApiKeyInput() {
             <div className="w-2 h-2 rounded-full bg-green-500"></div>
             <span className="text-sm text-slate-300">API Key Configured</span>
           </div>
-          <button
-            onClick={handleChange}
-            className="text-xs text-slate-400 hover:text-slate-200 underline"
-          >
+          <button onClick={handleChange} className="text-xs text-slate-400 hover:text-slate-200 underline">
             Change
           </button>
         </div>
@@ -62,12 +59,10 @@ export default function ApiKeyInput() {
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
       <div className="bg-slate-800 rounded-lg p-6 shadow-xl border border-slate-700 max-w-md w-full mx-4">
-        <h2 className="text-xl font-semibold text-white mb-4">
-          OpenAI API Key Required
-        </h2>
+        <h2 className="text-xl font-semibold text-white mb-4">OpenAI API Key Required</h2>
         <p className="text-sm text-slate-300 mb-4">
-          Enter your OpenAI API key to use the World Travel Agent. Your key is
-          stored locally and never sent to our servers.
+          Enter your OpenAI API key to use the World Travel Agent. Your key is stored locally and never sent to our
+          servers.
         </p>
         <input
           type="password"
@@ -95,10 +90,7 @@ export default function ApiKeyInput() {
           )}
         </div>
         {isConfigured && (
-          <button
-            onClick={handleClear}
-            className="w-full mt-3 text-xs text-red-400 hover:text-red-300 underline"
-          >
+          <button onClick={handleClear} className="w-full mt-3 text-xs text-red-400 hover:text-red-300 underline">
             Clear saved key
           </button>
         )}

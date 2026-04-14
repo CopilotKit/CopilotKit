@@ -12,20 +12,13 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { cashFlowData } from "@/lib/data";
 import { formatCurrency } from "@/lib/utils";
 import type { CashWaterfallWidget } from "@/types/dashboard";
 
 function formatTick(value: number) {
-  if (Math.abs(value) >= 1_000_000)
-    return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
   if (Math.abs(value) >= 1000) return `$${(value / 1000).toFixed(0)}K`;
   return `$${value.toFixed(0)}`;
 }
@@ -34,13 +27,7 @@ function formatTick(value: number) {
 // Waterfall mode — shows cash flow components building the net position
 // ---------------------------------------------------------------------------
 
-function WaterfallChart({
-  quarters = 8,
-  showNetLine = true,
-}: {
-  quarters?: number;
-  showNetLine?: boolean;
-}) {
+function WaterfallChart({ quarters = 8, showNetLine = true }: { quarters?: number; showNetLine?: boolean }) {
   const data = cashFlowData.slice(-quarters);
 
   // Build waterfall data: each bar floats from a running base
@@ -69,34 +56,19 @@ function WaterfallChart({
   return (
     <>
       <div className="mb-4 flex items-baseline gap-3">
-        <span className="text-3xl font-bold tracking-tight text-foreground">
-          {formatCurrency(latestNet)}
-        </span>
-        <span className="text-sm text-muted-foreground">
-          cumulative net cash flow
-        </span>
+        <span className="text-3xl font-bold tracking-tight text-foreground">{formatCurrency(latestNet)}</span>
+        <span className="text-sm text-muted-foreground">cumulative net cash flow</span>
       </div>
       <ResponsiveContainer width="100%" height={280}>
-        <ComposedChart
-          data={waterfallData}
-          margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-        >
+        <ComposedChart data={waterfallData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
           <defs>
             <linearGradient id="waterfall-net-grad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.3} />
               <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="#e5e7eb"
-            vertical={false}
-          />
-          <XAxis
-            dataKey="name"
-            tick={{ fill: "#6b7280", fontSize: 11 }}
-            tickLine={false}
-          />
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+          <XAxis dataKey="name" tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} />
           <YAxis
             tick={{ fill: "#6b7280", fontSize: 11 }}
             axisLine={false}
@@ -127,44 +99,24 @@ function WaterfallChart({
           <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
 
           {/* Invisible base bar */}
-          <Bar
-            dataKey="base"
-            stackId="waterfall"
-            fill="transparent"
-            stroke="none"
-          />
+          <Bar dataKey="base" stackId="waterfall" fill="transparent" stroke="none" />
 
           {/* Operating (green) */}
-          <Bar
-            dataKey="operating"
-            stackId="waterfall"
-            name="operating"
-            radius={[4, 4, 0, 0]}
-          >
+          <Bar dataKey="operating" stackId="waterfall" name="operating" radius={[4, 4, 0, 0]}>
             {waterfallData.map((_, i) => (
               <Cell key={i} fill="#22c55e" fillOpacity={0.85} />
             ))}
           </Bar>
 
           {/* Investing (red — negative values) */}
-          <Bar
-            dataKey="investing"
-            stackId="waterfall"
-            name="investing"
-            radius={[4, 4, 0, 0]}
-          >
+          <Bar dataKey="investing" stackId="waterfall" name="investing" radius={[4, 4, 0, 0]}>
             {waterfallData.map((_, i) => (
               <Cell key={i} fill="#ef4444" fillOpacity={0.85} />
             ))}
           </Bar>
 
           {/* Financing (amber — negative values) */}
-          <Bar
-            dataKey="financing"
-            stackId="waterfall"
-            name="financing"
-            radius={[4, 4, 0, 0]}
-          >
+          <Bar dataKey="financing" stackId="waterfall" name="financing" radius={[4, 4, 0, 0]}>
             {waterfallData.map((_, i) => (
               <Cell key={i} fill="#f59e0b" fillOpacity={0.85} />
             ))}
@@ -233,20 +185,9 @@ function FlowComparisonChart({
   return (
     <>
       <ResponsiveContainer width="100%" height={240}>
-        <ComposedChart
-          data={chartData}
-          margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-        >
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="#e5e7eb"
-            vertical={false}
-          />
-          <XAxis
-            dataKey="name"
-            tick={{ fill: "#6b7280", fontSize: 11 }}
-            tickLine={false}
-          />
+        <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+          <XAxis dataKey="name" tick={{ fill: "#6b7280", fontSize: 11 }} tickLine={false} />
           <YAxis
             tick={{ fill: "#6b7280", fontSize: 11 }}
             axisLine={false}
@@ -263,10 +204,7 @@ function FlowComparisonChart({
               boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
             }}
             formatter={(value: number, name: string) => {
-              return [
-                formatCurrency(Math.abs(value)),
-                name === "inflow" ? "Inflows" : "Outflows",
-              ];
+              return [formatCurrency(Math.abs(value)), name === "inflow" ? "Inflows" : "Outflows"];
             }}
           />
           <ReferenceLine y={0} stroke="#9ca3af" strokeWidth={1.5} />
@@ -298,14 +236,8 @@ function FlowComparisonChart({
 // Main export
 // ---------------------------------------------------------------------------
 
-export function CashWaterfallChart({
-  config,
-}: {
-  config: CashWaterfallWidget["config"];
-}) {
-  const title =
-    config.title ??
-    (config.mode === "waterfall" ? "Cash Flow Waterfall" : "Inflow vs Outflow");
+export function CashWaterfallChart({ config }: { config: CashWaterfallWidget["config"] }) {
+  const title = config.title ?? (config.mode === "waterfall" ? "Cash Flow Waterfall" : "Inflow vs Outflow");
   const subtitle =
     config.subtitle ??
     (config.mode === "waterfall"
@@ -320,10 +252,7 @@ export function CashWaterfallChart({
       </CardHeader>
       <CardContent>
         {config.mode === "waterfall" ? (
-          <WaterfallChart
-            quarters={config.quarters}
-            showNetLine={config.showNetLine}
-          />
+          <WaterfallChart quarters={config.quarters} showNetLine={config.showNetLine} />
         ) : (
           <FlowComparisonChart comparisonData={config.comparisonData} />
         )}

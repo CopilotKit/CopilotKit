@@ -2,11 +2,7 @@ import React from "react";
 import { render } from "@testing-library/react";
 import { renderHook } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import {
-  AbstractAgent,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
+import { AbstractAgent, type BaseEvent, type RunAgentInput } from "@ag-ui/client";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useAgent } from "../use-agent";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
@@ -56,9 +52,7 @@ describe("useAgent thread isolation", () => {
     registeredAgent.agentId = "my-agent";
 
     mockCopilotkit = {
-      getAgent: vi.fn((id: string) =>
-        id === "my-agent" ? registeredAgent : undefined,
-      ),
+      getAgent: vi.fn((id: string) => (id === "my-agent" ? registeredAgent : undefined)),
       runtimeUrl: "http://localhost:3000/api/copilotkit",
       runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
       runtimeTransport: "rest",
@@ -208,8 +202,7 @@ describe("useAgent thread isolation", () => {
   it("invalidates stale clone when the registry agent is replaced", () => {
     // Simulates reconnect / hot-reload: copilotkit.agents holds a new object.
     const { result, rerender } = renderHook(
-      ({ tid }: { tid: string }) =>
-        useAgent({ agentId: "my-agent", threadId: tid }),
+      ({ tid }: { tid: string }) => useAgent({ agentId: "my-agent", threadId: tid }),
       { initialProps: { tid: "thread-a" } },
     );
 
@@ -221,9 +214,7 @@ describe("useAgent thread isolation", () => {
     replacementAgent.agentId = "my-agent";
 
     mockCopilotkit.agents = { "my-agent": replacementAgent };
-    mockCopilotkit.getAgent.mockImplementation((id: string) =>
-      id === "my-agent" ? replacementAgent : undefined,
-    );
+    mockCopilotkit.getAgent.mockImplementation((id: string) => (id === "my-agent" ? replacementAgent : undefined));
     mockUseCopilotKit.mockReturnValue({
       copilotkit: { ...mockCopilotkit },
       executingToolCallIds: new Set(),
@@ -238,8 +229,7 @@ describe("useAgent thread isolation", () => {
 
   it("switching threadId returns a fresh clone; switching back returns the cached one", () => {
     const { result, rerender } = renderHook(
-      ({ tid }: { tid: string }) =>
-        useAgent({ agentId: "my-agent", threadId: tid }),
+      ({ tid }: { tid: string }) => useAgent({ agentId: "my-agent", threadId: tid }),
       { initialProps: { tid: "thread-a" } },
     );
 
@@ -256,8 +246,7 @@ describe("useAgent thread isolation", () => {
 
   it("uses a fresh clone with correct threadId when provisional transitions to real agent", () => {
     // Start in Disconnected state — a provisional is created
-    mockCopilotkit.runtimeConnectionStatus =
-      CopilotKitCoreRuntimeConnectionStatus.Disconnected;
+    mockCopilotkit.runtimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     mockCopilotkit.getAgent.mockReturnValue(undefined);
     mockCopilotkit.agents = {};
     mockUseCopilotKit.mockReturnValue({
@@ -265,19 +254,14 @@ describe("useAgent thread isolation", () => {
       executingToolCallIds: new Set(),
     });
 
-    const { result, rerender } = renderHook(() =>
-      useAgent({ agentId: "my-agent", threadId: "thread-a" }),
-    );
+    const { result, rerender } = renderHook(() => useAgent({ agentId: "my-agent", threadId: "thread-a" }));
 
     const provisional = result.current.agent;
     expect(provisional.threadId).toBe("thread-a");
 
     // Real agent appears (runtime connected and agent registered)
-    mockCopilotkit.runtimeConnectionStatus =
-      CopilotKitCoreRuntimeConnectionStatus.Connected;
-    mockCopilotkit.getAgent.mockImplementation((id: string) =>
-      id === "my-agent" ? registeredAgent : undefined,
-    );
+    mockCopilotkit.runtimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Connected;
+    mockCopilotkit.getAgent.mockImplementation((id: string) => (id === "my-agent" ? registeredAgent : undefined));
     mockCopilotkit.agents = { "my-agent": registeredAgent };
     mockUseCopilotKit.mockReturnValue({
       copilotkit: { ...mockCopilotkit },
@@ -294,8 +278,7 @@ describe("useAgent thread isolation", () => {
 
   it("uses composite key for provisional agents when threadId is provided", () => {
     // Put runtime in Disconnected state so provisionals are created
-    mockCopilotkit.runtimeConnectionStatus =
-      CopilotKitCoreRuntimeConnectionStatus.Disconnected;
+    mockCopilotkit.runtimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     mockCopilotkit.getAgent.mockReturnValue(undefined);
     mockCopilotkit.agents = {};
 

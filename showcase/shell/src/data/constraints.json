@@ -47,14 +47,7 @@
         "subagents",
         "voice"
       ],
-      "excluded": [
-        "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based",
-        "gen-ui-interrupt",
-        "useComponent",
-        "agentic-chat"
-      ]
+      "excluded": ["tool-rendering", "hitl", "gen-ui-tool-based", "gen-ui-interrupt", "useComponent", "agentic-chat"]
     }
   },
   "interaction_modalities": {

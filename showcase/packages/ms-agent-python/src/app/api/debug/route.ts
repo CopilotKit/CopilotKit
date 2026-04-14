@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   // Token-gated: SHOWCASE_DEBUG_TOKEN must be set in env and matched
-  const token =
-    req.headers.get("x-debug-token") || req.nextUrl.searchParams.get("token");
+  const token = req.headers.get("x-debug-token") || req.nextUrl.searchParams.get("token");
   const expectedToken = process.env.SHOWCASE_DEBUG_TOKEN;
 
   if (!expectedToken || !token || token !== expectedToken) {

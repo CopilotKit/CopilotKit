@@ -7,11 +7,7 @@
  * The A2AAgent from @ag-ui/a2a works with the v2 runtime API.
  */
 
-import {
-  CopilotKitProvider,
-  CopilotSidebar,
-  CopilotPopup,
-} from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, CopilotSidebar, CopilotPopup } from "@copilotkit/react-core/v2";
 import { createA2UIMessageRenderer } from "@copilotkit/a2ui-renderer";
 import { a2uiTheme } from "../theme";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -41,8 +37,7 @@ export function A2UIPage({ children }: A2UIPageProps) {
             defaultOpen={true}
             labels={{
               modalHeaderTitle: "A2UI Assistant",
-              chatInputPlaceholder:
-                "Ask me to generate any UI - forms, lists, cards, and more!",
+              chatInputPlaceholder: "Ask me to generate any UI - forms, lists, cards, and more!",
             }}
           />
         </>
@@ -54,8 +49,7 @@ export function A2UIPage({ children }: A2UIPageProps) {
             defaultOpen={false}
             labels={{
               modalHeaderTitle: "A2UI Assistant",
-              chatInputPlaceholder:
-                "Ask me to generate any UI - forms, lists, cards, and more!",
+              chatInputPlaceholder: "Ask me to generate any UI - forms, lists, cards, and more!",
             }}
           />
         </>

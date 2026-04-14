@@ -38,9 +38,7 @@ export function ToolLogs({ logs }: ToolLogsProps) {
           ) : (
             <Check size={18} className="text-green-600" />
           )}
-          <span className="text-xs font-semibold font-['Plus_Jakarta_Sans']">
-            {log.message}
-          </span>
+          <span className="text-xs font-semibold font-['Plus_Jakarta_Sans']">{log.message}</span>
         </div>
       ))}
     </div>

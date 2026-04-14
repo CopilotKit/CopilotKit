@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "./ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
 import { AreaChart } from "./ui/area-chart";
 import { BarChart } from "./ui/bar-chart";
@@ -37,8 +31,7 @@ export function Dashboard() {
 
   // Make data available to the Copilot
   useCopilotReadable({
-    description:
-      "Dashboard data including sales trends, product performance, and category distribution",
+    description: "Dashboard data including sales trends, product performance, and category distribution",
     value: {
       salesData,
       productData,
@@ -70,12 +63,7 @@ export function Dashboard() {
       },
     ],
     render: ({ args, status }) => {
-      return (
-        <SearchResults
-          query={args.query || "No query provided"}
-          status={status}
-        />
-      );
+      return <SearchResults query={args.query || "No query provided"} status={status} />;
     },
   });
 
@@ -95,39 +83,27 @@ export function Dashboard() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
             <p className="text-xs text-gray-500">Total Revenue</p>
-            <p className="text-xl font-semibold text-gray-900">
-              ${totalRevenue.toLocaleString()}
-            </p>
+            <p className="text-xl font-semibold text-gray-900">${totalRevenue.toLocaleString()}</p>
           </div>
           <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
             <p className="text-xs text-gray-500">Total Profit</p>
-            <p className="text-xl font-semibold text-gray-900">
-              ${totalProfit.toLocaleString()}
-            </p>
+            <p className="text-xl font-semibold text-gray-900">${totalProfit.toLocaleString()}</p>
           </div>
           <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
             <p className="text-xs text-gray-500">Customers</p>
-            <p className="text-xl font-semibold text-gray-900">
-              {totalCustomers.toLocaleString()}
-            </p>
+            <p className="text-xl font-semibold text-gray-900">{totalCustomers.toLocaleString()}</p>
           </div>
           <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
             <p className="text-xs text-gray-500">Conversion Rate</p>
-            <p className="text-xl font-semibold text-gray-900">
-              {conversionRate}
-            </p>
+            <p className="text-xl font-semibold text-gray-900">{conversionRate}</p>
           </div>
           <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
             <p className="text-xs text-gray-500">Avg Order Value</p>
-            <p className="text-xl font-semibold text-gray-900">
-              ${averageOrderValue}
-            </p>
+            <p className="text-xl font-semibold text-gray-900">${averageOrderValue}</p>
           </div>
           <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
             <p className="text-xs text-gray-500">Profit Margin</p>
-            <p className="text-xl font-semibold text-gray-900">
-              {profitMargin}
-            </p>
+            <p className="text-xl font-semibold text-gray-900">{profitMargin}</p>
           </div>
         </div>
       </div>
@@ -135,12 +111,8 @@ export function Dashboard() {
       {/* Charts */}
       <Card className="col-span-1 md:col-span-2 lg:col-span-4">
         <CardHeader className="pb-1 pt-3">
-          <CardTitle className="text-base font-medium">
-            Sales Overview
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Monthly sales and profit data
-          </CardDescription>
+          <CardTitle className="text-base font-medium">Sales Overview</CardTitle>
+          <CardDescription className="text-xs">Monthly sales and profit data</CardDescription>
         </CardHeader>
         <CardContent className="p-3">
           <div className="h-60">
@@ -161,12 +133,8 @@ export function Dashboard() {
 
       <Card className="col-span-1 md:col-span-1 lg:col-span-2">
         <CardHeader className="pb-1 pt-3">
-          <CardTitle className="text-base font-medium">
-            Product Performance
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Top selling products
-          </CardDescription>
+          <CardTitle className="text-base font-medium">Product Performance</CardTitle>
+          <CardDescription className="text-xs">Top selling products</CardDescription>
         </CardHeader>
         <CardContent className="p-3">
           <div className="h-60">
@@ -186,12 +154,8 @@ export function Dashboard() {
 
       <Card className="col-span-1 md:col-span-1 lg:col-span-2">
         <CardHeader className="pb-1 pt-3">
-          <CardTitle className="text-base font-medium">
-            Sales by Category
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Distribution across categories
-          </CardDescription>
+          <CardTitle className="text-base font-medium">Sales by Category</CardTitle>
+          <CardDescription className="text-xs">Distribution across categories</CardDescription>
         </CardHeader>
         <CardContent className="p-3">
           <div className="h-60">
@@ -214,12 +178,8 @@ export function Dashboard() {
 
       <Card className="col-span-1 md:col-span-1 lg:col-span-2">
         <CardHeader className="pb-1 pt-3">
-          <CardTitle className="text-base font-medium">
-            Regional Sales
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Sales by geographic region
-          </CardDescription>
+          <CardTitle className="text-base font-medium">Regional Sales</CardTitle>
+          <CardDescription className="text-xs">Sales by geographic region</CardDescription>
         </CardHeader>
         <CardContent className="p-3">
           <div className="h-60">
@@ -239,12 +199,8 @@ export function Dashboard() {
 
       <Card className="col-span-1 md:col-span-1 lg:col-span-2">
         <CardHeader className="pb-1 pt-3">
-          <CardTitle className="text-base font-medium">
-            Customer Demographics
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Spending by age group
-          </CardDescription>
+          <CardTitle className="text-base font-medium">Customer Demographics</CardTitle>
+          <CardDescription className="text-xs">Spending by age group</CardDescription>
         </CardHeader>
         <CardContent className="p-3">
           <div className="h-60">

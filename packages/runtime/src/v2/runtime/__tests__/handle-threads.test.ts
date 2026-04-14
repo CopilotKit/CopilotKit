@@ -13,9 +13,7 @@ describe("thread handlers", () => {
   const createIdentifyUser = () => vi.fn().mockResolvedValue({ id: "user-1" });
 
   const createIntelligenceRuntime = (options?: {
-    identifyUser?: (
-      request: Request,
-    ) => { id: string } | Promise<{ id: string }>;
+    identifyUser?: (request: Request) => { id: string } | Promise<{ id: string }>;
     intelligence?: Record<string, unknown>;
   }) =>
     ({
@@ -35,11 +33,7 @@ describe("thread handlers", () => {
       intelligence: options?.intelligence,
     }) as unknown as CopilotRuntime;
 
-  const createMutationRequest = (
-    path: string,
-    method: "PATCH" | "POST" | "DELETE",
-    body: Record<string, unknown>,
-  ) =>
+  const createMutationRequest = (path: string, method: "PATCH" | "POST" | "DELETE", body: Record<string, unknown>) =>
     new Request(`https://example.com${path}`, {
       method,
       headers: { "Content-Type": "application/json" },
@@ -131,9 +125,7 @@ describe("thread handlers", () => {
 
   it("updates, archives, and deletes threads using identifyUser and ignoring request userId", async () => {
     const intelligence = {
-      updateThread: vi
-        .fn()
-        .mockResolvedValue({ id: "thread-1", name: "Renamed" }),
+      updateThread: vi.fn().mockResolvedValue({ id: "thread-1", name: "Renamed" }),
       archiveThread: vi.fn().mockResolvedValue(undefined),
       deleteThread: vi.fn().mockResolvedValue(undefined),
     };
@@ -145,11 +137,7 @@ describe("thread handlers", () => {
       name: "Renamed",
     };
 
-    const updateRequest = createMutationRequest(
-      "/threads/thread-1",
-      "PATCH",
-      mutationBody,
-    );
+    const updateRequest = createMutationRequest("/threads/thread-1", "PATCH", mutationBody);
     const updateResponse = await handleUpdateThread({
       runtime,
       request: updateRequest,
@@ -164,11 +152,7 @@ describe("thread handlers", () => {
       updates: { name: "Renamed" },
     });
 
-    const archiveRequest = createMutationRequest(
-      "/threads/thread-1/archive",
-      "POST",
-      mutationBody,
-    );
+    const archiveRequest = createMutationRequest("/threads/thread-1/archive", "POST", mutationBody);
     const archiveResponse = await handleArchiveThread({
       runtime,
       request: archiveRequest,
@@ -182,11 +166,7 @@ describe("thread handlers", () => {
       agentId: "agent-1",
     });
 
-    const deleteRequest = createMutationRequest(
-      "/threads/thread-1",
-      "DELETE",
-      mutationBody,
-    );
+    const deleteRequest = createMutationRequest("/threads/thread-1", "DELETE", mutationBody);
     const deleteResponse = await handleDeleteThread({
       runtime,
       request: deleteRequest,
@@ -204,9 +184,7 @@ describe("thread handlers", () => {
 
   it("subscribes to threads using identifyUser", async () => {
     const intelligence = {
-      ɵsubscribeToThreads: vi
-        .fn()
-        .mockResolvedValue({ joinToken: "join-token-1" }),
+      ɵsubscribeToThreads: vi.fn().mockResolvedValue({ joinToken: "join-token-1" }),
     };
     const identifyUser = createIdentifyUser();
     const runtime = createIntelligenceRuntime({ intelligence, identifyUser });
@@ -295,14 +273,11 @@ describe("thread handlers", () => {
 
   it("returns 422 when intelligence is not configured for thread mutations", async () => {
     const runtime = new CopilotRuntime({ agents: {} });
-    const mutationRequest = new Request(
-      "https://example.com/threads/thread-1",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: "user-1", agentId: "agent-1" }),
-      },
-    );
+    const mutationRequest = new Request("https://example.com/threads/thread-1", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: "user-1", agentId: "agent-1" }),
+    });
 
     const updateResponse = await handleUpdateThread({
       runtime,

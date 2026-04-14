@@ -29,10 +29,7 @@ const fakeCart = {
     return newRecord;
   },
 
-  async updateQuantity(
-    id: string,
-    quantity: number,
-  ): Promise<CartRecord | null> {
+  async updateQuantity(id: string, quantity: number): Promise<CartRecord | null> {
     invariant(quantity >= 0, "quantity must be >= 0");
     if (quantity == 0) {
       return fakeCart.removeItem(id);

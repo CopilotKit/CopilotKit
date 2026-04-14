@@ -3,10 +3,7 @@
 import React, { useId, useMemo, useEffect, useRef } from "react";
 import type { Types } from "@a2ui/lit/0.8";
 import type { v0_8 } from "@a2ui/lit";
-import {
-  A2UIProvider,
-  useA2UIActions,
-} from "./react-renderer/core/A2UIProvider";
+import { A2UIProvider, useA2UIActions } from "./react-renderer/core/A2UIProvider";
 import { A2UIRenderer } from "./react-renderer/core/A2UIRenderer";
 import { initializeDefaultCatalog } from "./react-renderer/registry/defaultCatalog";
 import { litTheme } from "./react-renderer/theme/litTheme";
@@ -100,10 +97,7 @@ export function A2UIViewer({
   // Show placeholder if no components provided
   if (!components || components.length === 0) {
     return (
-      <div
-        className={className}
-        style={{ padding: 16, color: "#666", fontFamily: "system-ui" }}
-      >
+      <div className={className} style={{ padding: 16, color: "#666", fontFamily: "system-ui" }}>
         No content to display
       </div>
     );
@@ -200,9 +194,7 @@ function valueToValueMap(key: string, value: unknown): Types.ValueMap {
     return { key };
   }
   if (Array.isArray(value)) {
-    const valueMap = value.map((item, index) =>
-      valueToValueMap(String(index), item),
-    );
+    const valueMap = value.map((item, index) => valueToValueMap(String(index), item));
     return { key, valueMap };
   }
   if (typeof value === "object") {

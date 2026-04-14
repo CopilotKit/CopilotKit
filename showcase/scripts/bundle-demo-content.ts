@@ -15,13 +15,7 @@ const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, "..");
 const PACKAGES_DIR = path.join(ROOT, "packages");
-const OUTPUT_PATH = path.join(
-  ROOT,
-  "shell",
-  "src",
-  "data",
-  "demo-content.json",
-);
+const OUTPUT_PATH = path.join(ROOT, "shell", "src", "data", "demo-content.json");
 
 interface DemoFile {
   filename: string;
@@ -89,9 +83,7 @@ function readFilesFromDir(dir: string, prefix: string): DemoFile[] {
         if (sub.isFile() && isBackendFile(sub.name)) {
           const subPath = path.join(fullPath, sub.name);
           results.push({
-            filename: prefix
-              ? `${prefix}/${entry.name}/${sub.name}`
-              : `${entry.name}/${sub.name}`,
+            filename: prefix ? `${prefix}/${entry.name}/${sub.name}` : `${entry.name}/${sub.name}`,
             language: detectLanguage(sub.name),
             content: fs.readFileSync(subPath, "utf-8"),
           });
@@ -132,12 +124,8 @@ function discoverBackendFiles(pkgRoot: string): DemoFile[] {
         content: fs.readFileSync(mastraIndex, "utf-8"),
       });
     }
-    files.push(
-      ...readFilesFromDir(path.join(mastraDir, "agents"), "mastra/agents"),
-    );
-    files.push(
-      ...readFilesFromDir(path.join(mastraDir, "tools"), "mastra/tools"),
-    );
+    files.push(...readFilesFromDir(path.join(mastraDir, "agents"), "mastra/agents"));
+    files.push(...readFilesFromDir(path.join(mastraDir, "tools"), "mastra/tools"));
   }
 
   // Pattern 4: src/agent/ directory (e.g. langgraph-typescript)
@@ -194,14 +182,7 @@ function main() {
       const backendFiles = discoverBackendFiles(pkgRoot);
 
       for (const demo of demos) {
-        const demoDir = path.join(
-          PACKAGES_DIR,
-          pkgDir,
-          "src",
-          "app",
-          "demos",
-          demo.id,
-        );
+        const demoDir = path.join(PACKAGES_DIR, pkgDir, "src", "app", "demos", demo.id);
         if (!fs.existsSync(demoDir)) continue;
 
         const key = `${slug}::${demo.id}`;
@@ -252,9 +233,7 @@ function main() {
 
   fs.mkdirSync(path.dirname(OUTPUT_PATH), { recursive: true });
   fs.writeFileSync(OUTPUT_PATH, JSON.stringify(bundle, null, 2) + "\n");
-  console.log(
-    `\nBundled ${Object.keys(bundle.demos).length} demos to ${OUTPUT_PATH}\n`,
-  );
+  console.log(`\nBundled ${Object.keys(bundle.demos).length} demos to ${OUTPUT_PATH}\n`);
 }
 
 main();

@@ -17,10 +17,7 @@ export async function readSSEStream(
     if (done) break;
     if (value) {
       // The stream may emit strings (direct fetch handler) or Uint8Array (real HTTP)
-      output +=
-        typeof value === "string"
-          ? value
-          : decoder.decode(value, { stream: true });
+      output += typeof value === "string" ? value : decoder.decode(value, { stream: true });
       if (output.includes("RUN_FINISHED")) break;
     }
   }

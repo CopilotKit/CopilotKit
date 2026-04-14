@@ -57,9 +57,7 @@ function getIcon(name, size = 24) {
   const svg = icons[name];
   if (!svg) return icons.info;
   if (size !== 24) {
-    return svg
-      .replace(/width="24"/g, `width="${size}"`)
-      .replace(/height="24"/g, `height="${size}"`);
+    return svg.replace(/width="24"/g, `width="${size}"`).replace(/height="24"/g, `height="${size}"`);
   }
   return svg;
 }

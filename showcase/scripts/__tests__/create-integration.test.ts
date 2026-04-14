@@ -7,18 +7,8 @@ import addFormats from "ajv-formats";
 
 const SCRIPTS_DIR = path.resolve(__dirname, "..");
 const PACKAGES_DIR = path.resolve(SCRIPTS_DIR, "..", "packages");
-const SCHEMA_PATH = path.resolve(
-  SCRIPTS_DIR,
-  "..",
-  "shared",
-  "manifest.schema.json",
-);
-const FEATURE_REGISTRY_PATH = path.resolve(
-  SCRIPTS_DIR,
-  "..",
-  "shared",
-  "feature-registry.json",
-);
+const SCHEMA_PATH = path.resolve(SCRIPTS_DIR, "..", "shared", "manifest.schema.json");
+const FEATURE_REGISTRY_PATH = path.resolve(SCRIPTS_DIR, "..", "shared", "feature-registry.json");
 
 const TEST_SLUG = "test-integration-tmp";
 const TEST_DIR = path.join(PACKAGES_DIR, TEST_SLUG);
@@ -81,9 +71,7 @@ describe("Template Generator", () => {
       { cwd: SCRIPTS_DIR, encoding: "utf-8", timeout: 15000 },
     );
 
-    const manifest = yaml.parse(
-      fs.readFileSync(path.join(TEST_DIR, "manifest.yaml"), "utf-8"),
-    );
+    const manifest = yaml.parse(fs.readFileSync(path.join(TEST_DIR, "manifest.yaml"), "utf-8"));
 
     const schema = JSON.parse(fs.readFileSync(SCHEMA_PATH, "utf-8"));
     const ajv = new Ajv({ allErrors: true });
@@ -129,14 +117,10 @@ describe("Template Generator", () => {
       expect(fs.existsSync(path.join(demoDir, "README.md"))).toBe(true);
 
       // E2E test
-      expect(
-        fs.existsSync(path.join(TEST_DIR, "tests", "e2e", `${demoId}.spec.ts`)),
-      ).toBe(true);
+      expect(fs.existsSync(path.join(TEST_DIR, "tests", "e2e", `${demoId}.spec.ts`))).toBe(true);
 
       // QA template
-      expect(fs.existsSync(path.join(TEST_DIR, "qa", `${demoId}.md`))).toBe(
-        true,
-      );
+      expect(fs.existsSync(path.join(TEST_DIR, "qa", `${demoId}.md`))).toBe(true);
     }
   });
 
@@ -168,9 +152,7 @@ describe("Template Generator", () => {
       { cwd: SCRIPTS_DIR, encoding: "utf-8", timeout: 15000 },
     );
 
-    const manifest = yaml.parse(
-      fs.readFileSync(path.join(TEST_DIR, "manifest.yaml"), "utf-8"),
-    );
+    const manifest = yaml.parse(fs.readFileSync(path.join(TEST_DIR, "manifest.yaml"), "utf-8"));
 
     expect(manifest.features).toEqual(features);
     expect(manifest.demos.length).toBe(features.length);
@@ -207,9 +189,7 @@ describe("Template Generator", () => {
   });
 
   it("validates feature IDs against the registry", () => {
-    const featureRegistry = JSON.parse(
-      fs.readFileSync(FEATURE_REGISTRY_PATH, "utf-8"),
-    );
+    const featureRegistry = JSON.parse(fs.readFileSync(FEATURE_REGISTRY_PATH, "utf-8"));
     const validIds = new Set(featureRegistry.features.map((f: any) => f.id));
 
     // All features in the registry should have valid IDs
@@ -221,9 +201,7 @@ describe("Template Generator", () => {
     }
 
     // Registry should have all expected categories
-    const categories = new Set(
-      featureRegistry.categories.map((c: any) => c.id),
-    );
+    const categories = new Set(featureRegistry.categories.map((c: any) => c.id));
     expect(categories.has("chat-ui")).toBe(true);
     expect(categories.has("generative-ui")).toBe(true);
     expect(categories.has("agent-state")).toBe(true);

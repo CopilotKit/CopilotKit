@@ -13,12 +13,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface AgentSetupModalProps {
   isOpen: boolean;
@@ -165,9 +160,7 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
         <DialogOverlay className="bg-black/20" />
         <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0 bg-white/50 backdrop-blur-sm border-2 border-white">
           <DialogHeader className="px-6 pt-6 pb-3 border-b border-palette-border-container">
-            <DialogTitle className="text-xl text-palette-text-primary">
-              Agent Endpoint Setup
-            </DialogTitle>
+            <DialogTitle className="text-xl text-palette-text-primary">Agent Endpoint Setup</DialogTitle>
             <DialogDescription className="text-xs text-palette-text-secondary">
               Learn how to set up your agent endpoint URL
             </DialogDescription>
@@ -175,11 +168,7 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
 
           <ScrollArea className="flex-1 overflow-y-auto">
             {/* Main Paths */}
-            <Accordion
-              type="multiple"
-              defaultValue={["new-agent"]}
-              className="mx-6 mt-4"
-            >
+            <Accordion type="multiple" defaultValue={["new-agent"]} className="mx-6 mt-4">
               {/* Path 1: Already have an agent */}
               <AccordionItem
                 value="existing-agent"
@@ -191,20 +180,14 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
                 <AccordionContent className="pb-3">
                   <div className="space-y-3">
                     <p className="text-xs text-palette-text-secondary leading-relaxed">
-                      If you already have a LangGraph agent running, simply use
-                      its URL:
+                      If you already have a LangGraph agent running, simply use its URL:
                     </p>
                     <div className="space-y-2">
                       <div className="flex items-start gap-2">
-                        <span className="text-xs font-semibold text-palette-text-primary mt-0.5">
-                          •
-                        </span>
+                        <span className="text-xs font-semibold text-palette-text-primary mt-0.5">•</span>
                         <div className="flex-1">
                           <p className="text-xs text-palette-text-secondary">
-                            <span className="font-semibold">
-                              Local development:
-                            </span>{" "}
-                            Use{" "}
+                            <span className="font-semibold">Local development:</span> Use{" "}
                             <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
                               http://localhost:PORT
                             </code>{" "}
@@ -213,15 +196,10 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
                         </div>
                       </div>
                       <div className="flex items-start gap-2">
-                        <span className="text-xs font-semibold text-palette-text-primary mt-0.5">
-                          •
-                        </span>
+                        <span className="text-xs font-semibold text-palette-text-primary mt-0.5">•</span>
                         <div className="flex-1">
                           <p className="text-xs text-palette-text-secondary">
-                            <span className="font-semibold">
-                              Deployed agent:
-                            </span>{" "}
-                            Use your deployment URL (e.g.,
+                            <span className="font-semibold">Deployed agent:</span> Use your deployment URL (e.g.,
                             https://your-agent.example.com)
                           </p>
                         </div>
@@ -229,8 +207,7 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
                     </div>
                     <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-xs text-blue-900 font-medium">
-                        💡 Make sure your agent is running before testing the
-                        chat interface!
+                        💡 Make sure your agent is running before testing the chat interface!
                       </p>
                     </div>
                   </div>
@@ -264,10 +241,8 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
                           </p>
                           <p className="text-xs text-palette-text-secondary mb-2">
                             Create an{" "}
-                            <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
-                              agent/
-                            </code>{" "}
-                            folder in your project root
+                            <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">agent/</code> folder
+                            in your project root
                           </p>
                         </div>
                       </div>
@@ -283,10 +258,7 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
                           </p>
                           <p className="text-xs text-palette-text-secondary mb-2">
                             Copy the files from the tabs below into your{" "}
-                            <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
-                              agent/
-                            </code>{" "}
-                            folder
+                            <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">agent/</code> folder
                           </p>
                         </div>
                       </div>
@@ -297,14 +269,11 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
                           3
                         </span>
                         <div className="flex-1">
-                          <p className="text-xs text-palette-text-primary font-semibold mb-1">
-                            Install dependencies
-                          </p>
+                          <p className="text-xs text-palette-text-primary font-semibold mb-1">Install dependencies</p>
                           <div className="relative mt-2">
                             <pre className="bg-white/50 border border-palette-border-container px-3 py-2 rounded-lg text-xs font-mono overflow-x-auto pr-16">
                               <code>
-                                cd agent && python3 -m venv .venv && source
-                                .venv/bin/activate && pip install -r
+                                cd agent && python3 -m venv .venv && source .venv/bin/activate && pip install -r
                                 requirements.txt
                               </code>
                             </pre>
@@ -335,15 +304,10 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
                             Set up environment variables
                           </p>
                           <p className="text-xs text-palette-text-secondary mb-2">
-                            Create a{" "}
-                            <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
-                              .env
-                            </code>{" "}
+                            Create a <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">.env</code>{" "}
                             file in the{" "}
-                            <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
-                              agent/
-                            </code>{" "}
-                            folder with your OpenAI API key
+                            <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">agent/</code> folder
+                            with your OpenAI API key
                           </p>
                         </div>
                       </div>
@@ -354,24 +318,15 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
                           5
                         </span>
                         <div className="flex-1">
-                          <p className="text-xs text-palette-text-primary font-semibold mb-1">
-                            Run your agent
-                          </p>
+                          <p className="text-xs text-palette-text-primary font-semibold mb-1">Run your agent</p>
                           <div className="relative mt-2">
                             <pre className="bg-white/50 border border-palette-border-container px-3 py-2 rounded-lg text-xs font-mono overflow-x-auto pr-16">
-                              <code>
-                                npx @langchain/langgraph-cli dev --port 8123
-                              </code>
+                              <code>npx @langchain/langgraph-cli dev --port 8123</code>
                             </pre>
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() =>
-                                handleCopy(
-                                  "npx @langchain/langgraph-cli dev --port 8123",
-                                  "run-agent",
-                                )
-                              }
+                              onClick={() => handleCopy("npx @langchain/langgraph-cli dev --port 8123", "run-agent")}
                               className="absolute top-2 right-2 h-6 text-xs px-2"
                             >
                               {copiedItems.has("run-agent") ? "✓" : "Copy"}
@@ -379,10 +334,7 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
                           </div>
                           <p className="text-xs text-palette-text-secondary mt-2">
                             Or add to your{" "}
-                            <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
-                              package.json
-                            </code>
-                            :
+                            <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">package.json</code>:
                           </p>
                           <div className="relative mt-2">
                             <pre className="bg-white/50 border border-palette-border-container px-3 py-2 rounded-lg text-xs font-mono overflow-x-auto pr-16">
@@ -411,9 +363,7 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
                           6
                         </span>
                         <div className="flex-1">
-                          <p className="text-xs text-palette-text-primary font-semibold mb-1">
-                            Use the agent URL
-                          </p>
+                          <p className="text-xs text-palette-text-primary font-semibold mb-1">Use the agent URL</p>
                           <p className="text-xs text-palette-text-secondary">
                             Enter{" "}
                             <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
@@ -427,8 +377,7 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
 
                     <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                       <p className="text-xs text-green-900 font-medium">
-                        ✨ That&apos;s it! Your agent should now be running and
-                        ready to use.
+                        ✨ That&apos;s it! Your agent should now be running and ready to use.
                       </p>
                     </div>
                   </div>
@@ -445,10 +394,7 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
               <div className="mb-2">
                 <p className="text-xs text-palette-text-secondary">
                   📁 Files to create in your{" "}
-                  <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
-                    agent/
-                  </code>{" "}
-                  folder:
+                  <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">agent/</code> folder:
                 </p>
               </div>
               <TabsList className="w-full justify-start h-9">
@@ -482,10 +428,7 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
                 </div>
               </TabsContent>
 
-              <TabsContent
-                value="requirements"
-                className="flex-1 mt-3 overflow-auto"
-              >
+              <TabsContent value="requirements" className="flex-1 mt-3 overflow-auto">
                 <div className="relative">
                   <pre className="bg-white/50 border border-palette-border-container text-palette-text-primary p-4 rounded-lg overflow-x-auto text-xs font-mono leading-relaxed">
                     <code>{requirementsTxtCode}</code>
@@ -493,9 +436,7 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
                   <Button
                     size="sm"
                     variant="default"
-                    onClick={() =>
-                      handleCopy(requirementsTxtCode, "requirements")
-                    }
+                    onClick={() => handleCopy(requirementsTxtCode, "requirements")}
                     className="absolute top-3 right-3 h-7 text-xs"
                   >
                     {copiedItems.has("requirements") ? "✓ Copied!" : "Copy"}
@@ -503,10 +444,7 @@ export function AgentSetupModal({ isOpen, onClose }: AgentSetupModalProps) {
                 </div>
               </TabsContent>
 
-              <TabsContent
-                value="langgraph"
-                className="flex-1 mt-3 overflow-auto"
-              >
+              <TabsContent value="langgraph" className="flex-1 mt-3 overflow-auto">
                 <div className="relative">
                   <pre className="bg-white/50 border border-palette-border-container text-palette-text-primary p-4 rounded-lg overflow-x-auto text-xs font-mono leading-relaxed">
                     <code>{langgraphJsonCode}</code>

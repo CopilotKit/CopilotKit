@@ -17,13 +17,11 @@ const server = new MCPServer({
   oauth: oauthSupabaseProvider(),
 });
 
-server.tool(
-  { name: "whoami", description: "Get authenticated user info" },
-  async (_args, ctx) =>
-    object({
-      userId: ctx.auth.user.userId,
-      email: ctx.auth.user.email,
-    }),
+server.tool({ name: "whoami", description: "Get authenticated user info" }, async (_args, ctx) =>
+  object({
+    userId: ctx.auth.user.userId,
+    email: ctx.auth.user.email,
+  }),
 );
 
 server.listen();
@@ -124,29 +122,26 @@ Use `ctx.auth.accessToken` as the bearer token for Supabase REST API calls. This
 ```typescript
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-server.tool(
-  { name: "get-notes", description: "Fetch user's notes from Supabase" },
-  async (_args, ctx) => {
-    const projectId = process.env.MCP_USE_OAUTH_SUPABASE_PROJECT_ID;
+server.tool({ name: "get-notes", description: "Fetch user's notes from Supabase" }, async (_args, ctx) => {
+  const projectId = process.env.MCP_USE_OAUTH_SUPABASE_PROJECT_ID;
 
-    if (!projectId || !SUPABASE_ANON_KEY) {
-      return error("Supabase credentials not configured");
-    }
+  if (!projectId || !SUPABASE_ANON_KEY) {
+    return error("Supabase credentials not configured");
+  }
 
-    const res = await fetch(`https://${projectId}.supabase.co/rest/v1/notes`, {
-      headers: {
-        Authorization: `Bearer ${ctx.auth.accessToken}`,
-        apikey: SUPABASE_ANON_KEY,
-      },
-    });
+  const res = await fetch(`https://${projectId}.supabase.co/rest/v1/notes`, {
+    headers: {
+      Authorization: `Bearer ${ctx.auth.accessToken}`,
+      apikey: SUPABASE_ANON_KEY,
+    },
+  });
 
-    if (!res.ok) {
-      return error(`Supabase API failed: ${res.status}`);
-    }
+  if (!res.ok) {
+    return error(`Supabase API failed: ${res.status}`);
+  }
 
-    return object(await res.json());
-  },
-);
+  return object(await res.json());
+});
 ```
 
 **Key point:** The `Authorization` header uses the user's access token (for RLS), while the `apikey` header uses the anon key (for API access).

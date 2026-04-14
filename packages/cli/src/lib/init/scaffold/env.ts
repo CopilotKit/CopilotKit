@@ -68,18 +68,13 @@ export async function scaffoldEnv(flags: any, userAnswers: Config) {
     // Runtime URL if provided via flags
     if (flags.runtimeUrl) {
       newEnvValues += `NEXT_PUBLIC_COPILOTKIT_RUNTIME_URL=${flags.runtimeUrl}\n`;
-    } else if (
-      !isCloudDeployment &&
-      userAnswers.crewType !== "Crews" &&
-      userAnswers.crewType !== "Flows"
-    ) {
+    } else if (!isCloudDeployment && userAnswers.crewType !== "Crews" && userAnswers.crewType !== "Flows") {
       newEnvValues += `NEXT_PUBLIC_COPILOTKIT_RUNTIME_URL=/api/copilotkit\n`;
     }
 
     if (
       userAnswers.langGraphPlatformUrl &&
-      (userAnswers.langSmithApiKey ||
-        isLocalhost(userAnswers.langGraphPlatformUrl))
+      (userAnswers.langSmithApiKey || isLocalhost(userAnswers.langGraphPlatformUrl))
     ) {
       const langGraphAgents = await getLangGraphAgents(
         userAnswers.langGraphPlatformUrl,

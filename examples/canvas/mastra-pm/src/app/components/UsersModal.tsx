@@ -15,9 +15,7 @@ export function UsersModal({ isOpen, onClose, state }: UsersModalProps) {
         <div className="flex justify-between items-center p-8 border-b border-white/10">
           <div>
             <h2 className="text-3xl font-bold text-white">Team Members</h2>
-            <p className="text-gray-200 text-sm mt-1">
-              Manage your project team
-            </p>
+            <p className="text-gray-200 text-sm mt-1">Manage your project team</p>
           </div>
           <button
             onClick={onClose}
@@ -44,19 +42,13 @@ function UserCard({ user }: UserCardProps) {
   return (
     <div className="flex items-center gap-4 bg-white/10 rounded-xl p-6 border border-white/10 hover:bg-white/20 transition-all duration-200">
       <div className="relative">
-        <img
-          src={user.image}
-          alt={user.name}
-          className="w-16 h-16 rounded-xl object-cover border-2 border-white/20"
-        />
+        <img src={user.image} alt={user.name} className="w-16 h-16 rounded-xl object-cover border-2 border-white/20" />
         <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white"></div>
       </div>
       <div className="flex-1">
         <div className="font-semibold text-xl text-white mb-1">{user.name}</div>
         <div className="text-sm text-gray-200 mb-2">{user.role}</div>
-        <div className="text-sm text-gray-300 leading-relaxed">
-          {user.summary}
-        </div>
+        <div className="text-sm text-gray-300 leading-relaxed">{user.summary}</div>
       </div>
       <div className="text-right">
         <div className="text-sm text-gray-400">{user.email}</div>

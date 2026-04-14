@@ -62,9 +62,7 @@ server.tool(
         conditions: data.conditions,
         icon: data.icon,
       },
-      output: text(
-        `Weather in ${city}: ${data.temperature}°C, ${data.conditions}`,
-      ),
+      output: text(`Weather in ${city}: ${data.temperature}°C, ${data.conditions}`),
     });
   },
 );
@@ -742,19 +740,10 @@ export default function ProductList() {
           }}
         >
           {props.products.map((product) => (
-            <div
-              key={product.id}
-              style={{ border: "1px solid #ddd", padding: 12, borderRadius: 8 }}
-            >
-              <img
-                src={product.image}
-                alt={product.name}
-                style={{ width: "100%", height: 150, objectFit: "cover" }}
-              />
+            <div key={product.id} style={{ border: "1px solid #ddd", padding: 12, borderRadius: 8 }}>
+              <img src={product.image} alt={product.name} style={{ width: "100%", height: 150, objectFit: "cover" }} />
               <h3 style={{ fontSize: 16, margin: "8px 0" }}>{product.name}</h3>
-              <p style={{ fontSize: 18, fontWeight: "bold" }}>
-                ${product.price}
-              </p>
+              <p style={{ fontSize: 18, fontWeight: "bold" }}>${product.price}</p>
             </div>
           ))}
         </div>

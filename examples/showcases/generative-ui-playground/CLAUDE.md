@@ -187,11 +187,7 @@ import { useSendMessage } from "./hooks/useSendMessage";
 function MyComponent() {
   const { sendMessage } = useSendMessage();
 
-  return (
-    <button onClick={() => sendMessage("What's the weather in Tokyo?")}>
-      Ask about weather
-    </button>
-  );
+  return <button onClick={() => sendMessage("What's the weather in Tokyo?")}>Ask about weather</button>;
 }
 ```
 

@@ -18,11 +18,7 @@
 import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
-import {
-  getCurrentVersion,
-  getPackagesForScope,
-  parseSemver,
-} from "./lib/versions.js";
+import { getCurrentVersion, getPackagesForScope, parseSemver } from "./lib/versions.js";
 import { readReleaseDraft } from "./lib/notion.js";
 import { ROOT, getScopeConfig, type ReleaseScope } from "./lib/config.js";
 
@@ -60,14 +56,10 @@ const VALID_SCOPES = ["monorepo", "cli", "angular"];
 async function main() {
   const argv = process.argv.slice(2);
   const scopeIdx = argv.indexOf("--scope");
-  const scope = (
-    scopeIdx !== -1 ? argv[scopeIdx + 1] : null
-  ) as ReleaseScope | null;
+  const scope = (scopeIdx !== -1 ? argv[scopeIdx + 1] : null) as ReleaseScope | null;
 
   if (!scope || !VALID_SCOPES.includes(scope)) {
-    console.error(
-      `Usage: publish-release.ts --scope <${VALID_SCOPES.join("|")}>`,
-    );
+    console.error(`Usage: publish-release.ts --scope <${VALID_SCOPES.join("|")}>`);
     process.exit(1);
   }
 
@@ -91,9 +83,7 @@ async function main() {
   if (published) {
     console.log(`Currently published version: ${published}`);
     if (!isGreaterVersion(version, published)) {
-      console.error(
-        `Refusing to publish: ${version} is not greater than the currently published ${published}.`,
-      );
+      console.error(`Refusing to publish: ${version} is not greater than the currently published ${published}.`);
       process.exit(1);
     }
   }
@@ -127,11 +117,7 @@ async function main() {
   console.log("\nPublishing packages...");
   for (const p of getPackagesForScope(scope)) {
     console.log(`  Publishing ${p.name}@${version}...`);
-    run(
-      "pnpm",
-      ["publish", "--no-git-checks", "--tag", "latest", "--access", "public"],
-      { cwd: p.dir },
-    );
+    run("pnpm", ["publish", "--no-git-checks", "--tag", "latest", "--access", "public"], { cwd: p.dir });
   }
 
   // Output version for downstream steps

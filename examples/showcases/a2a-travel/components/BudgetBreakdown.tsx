@@ -56,21 +56,15 @@ export const BudgetBreakdown: React.FC<BudgetBreakdownProps> = ({ data }) => {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="text-xl">💰</span>
-            <h2 className="text-xl font-semibold text-[#010507]">
-              Budget Estimate
-            </h2>
+            <h2 className="text-xl font-semibold text-[#010507]">Budget Estimate</h2>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold text-[#010507]">
-              {formatCurrency(data.totalBudget)}
-            </div>
+            <div className="text-2xl font-bold text-[#010507]">{formatCurrency(data.totalBudget)}</div>
             <div className="text-xs text-[#57575B]">{data.currency}</div>
           </div>
         </div>
         {data.notes && (
-          <p className="text-xs text-[#57575B] bg-[#F7F7F9] rounded p-2 border border-[#DBDBE5]">
-            ℹ️ {data.notes}
-          </p>
+          <p className="text-xs text-[#57575B] bg-[#F7F7F9] rounded p-2 border border-[#DBDBE5]">ℹ️ {data.notes}</p>
         )}
       </div>
 
@@ -86,21 +80,12 @@ export const BudgetBreakdown: React.FC<BudgetBreakdownProps> = ({ data }) => {
               {/* Category Header */}
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
-                  <div
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: colors.bg }}
-                  ></div>
-                  <span className="text-sm font-semibold text-[#010507]">
-                    {category.category}
-                  </span>
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.bg }}></div>
+                  <span className="text-sm font-semibold text-[#010507]">{category.category}</span>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-bold text-[#010507]">
-                    {formatCurrency(category.amount)}
-                  </div>
-                  <div className="text-xs text-[#838389]">
-                    {category.percentage.toFixed(1)}%
-                  </div>
+                  <div className="text-sm font-bold text-[#010507]">{formatCurrency(category.amount)}</div>
+                  <div className="text-xs text-[#838389]">{category.percentage.toFixed(1)}%</div>
                 </div>
               </div>
 

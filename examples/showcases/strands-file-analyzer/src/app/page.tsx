@@ -5,18 +5,9 @@ import { CopilotChat } from "@copilotkit/react-ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { FileUpload } from "@/components/file-upload";
-import {
-  FindingsPanel,
-  RedactedPanel,
-  TweetsPanel,
-  SummaryPanel,
-} from "@/components/dashboard-panels";
+import { FindingsPanel, RedactedPanel, TweetsPanel, SummaryPanel } from "@/components/dashboard-panels";
 import { DefaultToolCard } from "@/components/tool-cards";
-import {
-  FileInvestigatorState,
-  INITIAL_STATE,
-  UploadedFile,
-} from "@/types/investigator";
+import { FileInvestigatorState, INITIAL_STATE, UploadedFile } from "@/types/investigator";
 
 export default function FileInvestigatorPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -62,9 +53,7 @@ export default function FileInvestigatorPage() {
     (id: string) => {
       setState({
         ...stateRef.current,
-        tweets: stateRef.current.tweets.map((t) =>
-          t.id === id ? { ...t, posted: true } : t,
-        ),
+        tweets: stateRef.current.tweets.map((t) => (t.id === id ? { ...t, posted: true } : t)),
       });
       setToastMessage("Tweet posted! The truth is out there.");
       setTimeout(() => setToastMessage(null), 2000);
@@ -77,9 +66,7 @@ export default function FileInvestigatorPage() {
     (id: string, newContent: string) => {
       setState({
         ...stateRef.current,
-        tweets: stateRef.current.tweets.map((t) =>
-          t.id === id ? { ...t, content: newContent } : t,
-        ),
+        tweets: stateRef.current.tweets.map((t) => (t.id === id ? { ...t, content: newContent } : t)),
       });
     },
     [setState],
@@ -90,12 +77,7 @@ export default function FileInvestigatorPage() {
   // === Default Tool Renderer ===
   useDefaultTool({
     render: (props) => (
-      <DefaultToolCard
-        name={props.name}
-        status={props.status}
-        args={props.args}
-        result={props.result}
-      />
+      <DefaultToolCard name={props.name} status={props.status} args={props.args} result={props.result} />
     ),
   });
 
@@ -113,12 +95,7 @@ export default function FileInvestigatorPage() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-              <svg
-                className="w-5 h-5 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -128,17 +105,11 @@ export default function FileInvestigatorPage() {
               </svg>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">
-                File Investigator
-              </h1>
-              <p className="text-sm text-slate-500">
-                AI-powered document analysis
-              </p>
+              <h1 className="text-xl font-bold text-slate-900">File Investigator</h1>
+              <p className="text-sm text-slate-500">AI-powered document analysis</p>
             </div>
           </div>
-          <div className="text-xs text-slate-400">
-            Powered by things that didn&apos;t happen
-          </div>
+          <div className="text-xs text-slate-400">Powered by things that didn&apos;t happen</div>
         </div>
       </header>
 
@@ -149,10 +120,7 @@ export default function FileInvestigatorPage() {
           <div className="lg:col-span-2 flex flex-col h-[calc(100vh-120px)]">
             {/* File Upload */}
             <div className="flex-shrink-0 mb-6">
-              <FileUpload
-                onFilesChange={handleFilesChange}
-                currentFiles={state.uploadedFiles}
-              />
+              <FileUpload onFilesChange={handleFilesChange} currentFiles={state.uploadedFiles} />
             </div>
 
             {/* Results Grid - fills remaining space, 2 rows split evenly */}

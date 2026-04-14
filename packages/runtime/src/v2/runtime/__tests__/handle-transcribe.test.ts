@@ -1,9 +1,6 @@
 import { handleTranscribe } from "../handlers/handle-transcribe";
 import { CopilotRuntime } from "../core/runtime";
-import {
-  TranscriptionService,
-  TranscribeFileOptions,
-} from "../transcription-service/transcription-service";
+import { TranscriptionService, TranscribeFileOptions } from "../transcription-service/transcription-service";
 import { describe, it, expect } from "vitest";
 
 // Mock TranscriptionService
@@ -27,9 +24,7 @@ class MockTranscriptionService extends TranscriptionService {
 }
 
 describe("handleTranscribe", () => {
-  const createMockRuntime = (
-    transcriptionService?: TranscriptionService,
-  ): CopilotRuntime => {
+  const createMockRuntime = (transcriptionService?: TranscriptionService): CopilotRuntime => {
     return {
       agents: Promise.resolve({}),
       transcriptionService,
@@ -38,11 +33,7 @@ describe("handleTranscribe", () => {
     } as CopilotRuntime;
   };
 
-  const createMockAudioFile = (
-    name = "test.mp3",
-    type = "audio/mpeg",
-    size = 1024,
-  ): File => {
+  const createMockAudioFile = (name = "test.mp3", type = "audio/mpeg", size = 1024): File => {
     const content = new Uint8Array(size);
     return new File([content], name, { type });
   };
@@ -117,8 +108,7 @@ describe("handleTranscribe", () => {
     const body = await response.json();
     expect(body).toEqual({
       error: "invalid_request",
-      message:
-        "Request must include 'audio' field with base64-encoded audio data",
+      message: "Request must include 'audio' field with base64-encoded audio data",
       retryable: false,
     });
   });
@@ -136,8 +126,7 @@ describe("handleTranscribe", () => {
     const body = await response.json();
     expect(body).toEqual({
       error: "invalid_request",
-      message:
-        "No audio file found in form data. Please include an 'audio' field.",
+      message: "No audio file found in form data. Please include an 'audio' field.",
       retryable: false,
     });
   });
@@ -180,10 +169,7 @@ describe("handleTranscribe", () => {
   it("should accept files with application/octet-stream type (fallback)", async () => {
     const mockService = new MockTranscriptionService();
     const runtime = createMockRuntime(mockService);
-    const audioFile = createMockAudioFile(
-      "test.mp3",
-      "application/octet-stream",
-    );
+    const audioFile = createMockAudioFile("test.mp3", "application/octet-stream");
     const request = createFormDataRequest(audioFile);
 
     const response = await handleTranscribe({ runtime, request });
@@ -268,8 +254,7 @@ describe("handleTranscribe", () => {
     const body = await response.json();
     expect(body).toEqual({
       error: "invalid_request",
-      message:
-        "No audio file found in form data. Please include an 'audio' field.",
+      message: "No audio file found in form data. Please include an 'audio' field.",
       retryable: false,
     });
   });
@@ -277,11 +262,7 @@ describe("handleTranscribe", () => {
   it("should pass file metadata to transcription service", async () => {
     const mockService = new MockTranscriptionService();
     const runtime = createMockRuntime(mockService);
-    const audioFile = createMockAudioFile(
-      "my-recording.wav",
-      "audio/wav",
-      2048,
-    );
+    const audioFile = createMockAudioFile("my-recording.wav", "audio/wav", 2048);
 
     const request = createFormDataRequest(audioFile);
 

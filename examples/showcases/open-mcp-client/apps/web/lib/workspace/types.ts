@@ -25,12 +25,7 @@ export interface WorkspaceProvider {
 
   readFile(workspaceId: string, path: string): Promise<string>;
   writeFile(workspaceId: string, path: string, content: string): Promise<void>;
-  editFile(
-    workspaceId: string,
-    path: string,
-    search: string,
-    replace: string,
-  ): Promise<void>;
+  editFile(workspaceId: string, path: string, search: string, replace: string): Promise<void>;
 
   exec(workspaceId: string, cmd: string, opts?: ExecOpts): Promise<ExecResult>;
   prepareDownload(workspaceId: string): Promise<{ downloadUrl: string }>;

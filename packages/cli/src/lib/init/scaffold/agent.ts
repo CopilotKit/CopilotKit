@@ -72,16 +72,13 @@ export async function scaffoldAgent(userAnswers: Config) {
 export const AgentTemplates = {
   LangGraph: {
     Starter: {
-      Python:
-        "https://github.com/CopilotKit/CopilotKit/tree/main/examples/starters/coagents-langgraph/agent-py",
-      TypeScript:
-        "https://github.com/CopilotKit/CopilotKit/tree/main/examples/starters/coagents-langgraph/agent-js",
+      Python: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/starters/coagents-langgraph/agent-py",
+      TypeScript: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/starters/coagents-langgraph/agent-js",
     },
   },
   CrewAI: {
     Flows: {
-      Starter:
-        "https://github.com/CopilotKit/CopilotKit/tree/main/examples/starters/coagents-crewai-flows/agent-py",
+      Starter: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/starters/coagents-crewai-flows/agent-py",
     },
   },
 };

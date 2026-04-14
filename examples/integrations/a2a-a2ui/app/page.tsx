@@ -12,15 +12,8 @@ const activityRenderers = [A2UIMessageRenderer];
 
 export default function Home() {
   return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
-      showDevConsole="auto"
-      renderActivityMessages={activityRenderers}
-    >
-      <main
-        className="h-full overflow-auto w-screen"
-        style={{ minHeight: "100dvh" }}
-      >
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole="auto" renderActivityMessages={activityRenderers}>
+      <main className="h-full overflow-auto w-screen" style={{ minHeight: "100dvh" }}>
         <CopilotChat className="h-full" />;
       </main>
     </CopilotKitProvider>

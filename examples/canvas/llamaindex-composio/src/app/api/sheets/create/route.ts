@@ -6,10 +6,7 @@ export async function POST(request: NextRequest) {
     const { title } = body;
 
     if (!title || typeof title !== "string" || title.trim() === "") {
-      return NextResponse.json(
-        { error: "Sheet title is required and must be a non-empty string" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Sheet title is required and must be a non-empty string" }, { status: 400 });
     }
 
     // Make request to Python agent to create new sheet
@@ -27,20 +24,14 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Agent create failed:", errorText);
-      return NextResponse.json(
-        { error: "Failed to create sheet", details: errorText },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: "Failed to create sheet", details: errorText }, { status: 500 });
     }
 
     const result = await response.json();
     return NextResponse.json(result);
   } catch (error) {
     console.error("Create error:", error);
-    return NextResponse.json(
-      { error: "Internal server error during sheet creation" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Internal server error during sheet creation" }, { status: 500 });
   }
 }
 

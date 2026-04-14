@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  useCopilotAction,
-  CatchAllActionRenderProps,
-} from "@copilotkit/react-core";
+import { useCopilotAction, CatchAllActionRenderProps } from "@copilotkit/react-core";
 import MCPToolCall from "./MCPToolCall";
 
 export function ToolRenderer() {
@@ -13,9 +10,7 @@ export function ToolRenderer() {
      */
     name: "*",
     render: ({ name, status, args, result }: CatchAllActionRenderProps<[]>) => {
-      return (
-        <MCPToolCall status={status} name={name} args={args} result={result} />
-      );
+      return <MCPToolCall status={status} name={name} args={args} result={result} />;
     },
   });
   return null;

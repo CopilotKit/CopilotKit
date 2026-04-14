@@ -53,17 +53,13 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
         const onClick = vi.fn();
         const { container } = render(
           <TestWrapper>
-            <CopilotChatView
-              messages={createMessages()}
-              scrollView={{ scrollToBottomButton: { onClick } }}
-            />
+            <CopilotChatView messages={createMessages()} scrollView={{ scrollToBottomButton: { onClick } }} />
           </TestWrapper>,
         );
 
         // Find and click the scroll to bottom button (may need scrolling to appear)
         const scrollBtn =
-          container.querySelector('[aria-label*="scroll"]') ||
-          container.querySelector('button[class*="scroll"]');
+          container.querySelector('[aria-label*="scroll"]') || container.querySelector('button[class*="scroll"]');
         if (scrollBtn) {
           fireEvent.click(scrollBtn);
           expect(onClick).toHaveBeenCalled();
@@ -76,16 +72,11 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
         const onClick = vi.fn();
         const { container } = render(
           <TestWrapper>
-            <CopilotChatView
-              messages={createMessages()}
-              input={{ onClick, "data-testid": "input-slot" } as any}
-            />
+            <CopilotChatView messages={createMessages()} input={{ onClick, "data-testid": "input-slot" } as any} />
           </TestWrapper>,
         );
 
-        const input =
-          screen.queryByTestId("input-slot") ||
-          container.querySelector('[data-slot="input"]');
+        const input = screen.queryByTestId("input-slot") || container.querySelector('[data-slot="input"]');
         if (input) {
           fireEvent.click(input);
           expect(onClick).toHaveBeenCalled();
@@ -135,8 +126,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
 
         // Find send button by aria-label or common patterns
         const sendBtn =
-          container.querySelector('button[aria-label*="Send"]') ||
-          container.querySelector('button[type="submit"]');
+          container.querySelector('button[aria-label*="Send"]') || container.querySelector('button[type="submit"]');
         if (sendBtn) {
           fireEvent.click(sendBtn);
           expect(onClick).toHaveBeenCalled();
@@ -259,9 +249,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
         );
 
         // Find assistant message by data-message-id or content
-        const assistantMsg =
-          container.querySelector('[data-message-id="2"]') ||
-          container.querySelector(".prose");
+        const assistantMsg = container.querySelector('[data-message-id="2"]') || container.querySelector(".prose");
         if (assistantMsg) {
           fireEvent.click(assistantMsg);
           expect(onClick).toHaveBeenCalled();
@@ -314,9 +302,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
 
         // Find copy button in assistant message toolbar (message id "2" is an assistant message)
         const assistantMsg = container.querySelector('[data-message-id="2"]');
-        const copyBtn = assistantMsg?.querySelector(
-          'button[aria-label*="Copy"]',
-        );
+        const copyBtn = assistantMsg?.querySelector('button[aria-label*="Copy"]');
         if (copyBtn) {
           fireEvent.click(copyBtn);
           expect(onClick).toHaveBeenCalled();
@@ -342,9 +328,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const thumbsUpBtn = container.querySelector(
-          'button[aria-label*="Thumbs up"]',
-        );
+        const thumbsUpBtn = container.querySelector('button[aria-label*="Thumbs up"]');
         if (thumbsUpBtn) {
           fireEvent.click(thumbsUpBtn);
           expect(onClick).toHaveBeenCalled();
@@ -370,9 +354,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const thumbsDownBtn = container.querySelector(
-          'button[aria-label*="Thumbs down"]',
-        );
+        const thumbsDownBtn = container.querySelector('button[aria-label*="Thumbs down"]');
         if (thumbsDownBtn) {
           fireEvent.click(thumbsDownBtn);
           expect(onClick).toHaveBeenCalled();
@@ -398,9 +380,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const readAloudBtn = container.querySelector(
-          'button[aria-label*="Read"]',
-        );
+        const readAloudBtn = container.querySelector('button[aria-label*="Read"]');
         if (readAloudBtn) {
           fireEvent.click(readAloudBtn);
           expect(onClick).toHaveBeenCalled();
@@ -426,9 +406,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const regenerateBtn = container.querySelector(
-          'button[aria-label*="Regenerate"]',
-        );
+        const regenerateBtn = container.querySelector('button[aria-label*="Regenerate"]');
         if (regenerateBtn) {
           fireEvent.click(regenerateBtn);
           expect(onClick).toHaveBeenCalled();
@@ -485,9 +463,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
 
         // User message copy buttons may be in hover state
         // Need to trigger hover first or find them directly
-        const userMsgContainers = container.querySelectorAll(
-          '[data-message-id="1"], [data-message-id="3"]',
-        );
+        const userMsgContainers = container.querySelectorAll('[data-message-id="1"], [data-message-id="3"]');
         const firstUserMsg = userMsgContainers[0];
         if (firstUserMsg) {
           // Trigger mouseenter to show toolbar
@@ -519,9 +495,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const userMsgContainers = container.querySelectorAll(
-          '[data-message-id="1"], [data-message-id="3"]',
-        );
+        const userMsgContainers = container.querySelectorAll('[data-message-id="1"], [data-message-id="3"]');
         const firstUserMsg = userMsgContainers[0];
         if (firstUserMsg) {
           fireEvent.mouseEnter(firstUserMsg);
@@ -561,9 +535,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
         );
 
         // Find suggestion container
-        const suggestionContainer = container.querySelector(
-          '[data-testid="suggestion-container"]',
-        );
+        const suggestionContainer = container.querySelector('[data-testid="suggestion-container"]');
         if (suggestionContainer) {
           fireEvent.click(suggestionContainer);
           expect(onClick).toHaveBeenCalled();
@@ -603,19 +575,12 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
       it("should support passing render function to input slot", () => {
         const onSubmitMessage = vi.fn();
         const CustomInput = (props: any) => (
-          <CopilotChatInput
-            {...props}
-            onSubmitMessage={onSubmitMessage}
-            sendButton="custom-send-class"
-          />
+          <CopilotChatInput {...props} onSubmitMessage={onSubmitMessage} sendButton="custom-send-class" />
         );
 
         render(
           <TestWrapper>
-            <CopilotChatView
-              messages={createMessages()}
-              input={CustomInput as any}
-            />
+            <CopilotChatView messages={createMessages()} input={CustomInput as any} />
           </TestWrapper>,
         );
 
@@ -627,16 +592,11 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
 
     describe("messageView slot with render function", () => {
       it("should support passing render function to messageView slot", () => {
-        const CustomMessageView = (props: any) => (
-          <CopilotChatMessageView {...props} className="custom-message-view" />
-        );
+        const CustomMessageView = (props: any) => <CopilotChatMessageView {...props} className="custom-message-view" />;
 
         render(
           <TestWrapper>
-            <CopilotChatView
-              messages={createMessages()}
-              messageView={CustomMessageView as any}
-            />
+            <CopilotChatView messages={createMessages()} messageView={CustomMessageView as any} />
           </TestWrapper>,
         );
 
@@ -655,10 +615,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
         const onSubmitMessage = vi.fn();
         const { container } = render(
           <TestWrapper>
-            <CopilotChatView
-              messages={createMessages()}
-              onSubmitMessage={onSubmitMessage}
-            />
+            <CopilotChatView messages={createMessages()} onSubmitMessage={onSubmitMessage} />
           </TestWrapper>,
         );
 
@@ -678,11 +635,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
         const onStop = vi.fn();
         const { container } = render(
           <TestWrapper>
-            <CopilotChatView
-              messages={createMessages()}
-              isRunning={true}
-              onStop={onStop}
-            />
+            <CopilotChatView messages={createMessages()} isRunning={true} onStop={onStop} />
           </TestWrapper>,
         );
 
@@ -713,9 +666,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const thumbsUpBtn = container.querySelector(
-          'button[aria-label*="Thumbs up"]',
-        );
+        const thumbsUpBtn = container.querySelector('button[aria-label*="Thumbs up"]');
         if (thumbsUpBtn) {
           fireEvent.click(thumbsUpBtn);
           expect(onThumbsUp).toHaveBeenCalled();
@@ -737,9 +688,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
           </TestWrapper>,
         );
 
-        const thumbsDownBtn = container.querySelector(
-          'button[aria-label*="Thumbs down"]',
-        );
+        const thumbsDownBtn = container.querySelector('button[aria-label*="Thumbs down"]');
         if (thumbsDownBtn) {
           fireEvent.click(thumbsDownBtn);
           expect(onThumbsDown).toHaveBeenCalled();
@@ -764,9 +713,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
         );
 
         // Find user message and hover to show toolbar
-        const userMsgContainers = container.querySelectorAll(
-          '[data-message-id="1"]',
-        );
+        const userMsgContainers = container.querySelectorAll('[data-message-id="1"]');
         const firstUserMsg = userMsgContainers[0];
         if (firstUserMsg) {
           fireEvent.mouseEnter(firstUserMsg);
@@ -804,8 +751,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
       );
 
       const copyBtn =
-        container.querySelector(".custom-copy-class") ||
-        container.querySelector('button[aria-label*="Copy"]');
+        container.querySelector(".custom-copy-class") || container.querySelector('button[aria-label*="Copy"]');
       if (copyBtn) {
         fireEvent.click(copyBtn);
         expect(onClick).toHaveBeenCalled();
@@ -814,9 +760,7 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
 
     it("should allow custom component with onClick handling", () => {
       const customOnClick = vi.fn();
-      const CustomCopyButton: React.FC<
-        React.ButtonHTMLAttributes<HTMLButtonElement>
-      > = ({ onClick, ...props }) => (
+      const CustomCopyButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ onClick, ...props }) => (
         <button
           {...props}
           onClick={(e) => {

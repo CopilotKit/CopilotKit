@@ -39,10 +39,8 @@ export function DemoDrawer({
   alternatives,
 }: DemoDrawerProps) {
   const [activeBackendUrl, setActiveBackendUrl] = useState(backendUrl);
-  const [activeIntegrationName, setActiveIntegrationName] =
-    useState(integrationName);
-  const [activeIntegrationSlug, setActiveIntegrationSlug] =
-    useState(integrationSlug);
+  const [activeIntegrationName, setActiveIntegrationName] = useState(integrationName);
+  const [activeIntegrationSlug, setActiveIntegrationSlug] = useState(integrationSlug);
 
   // Reset when a new demo is opened
   useEffect(() => {
@@ -51,12 +49,8 @@ export function DemoDrawer({
     setActiveIntegrationSlug(integrationSlug);
     setCodeSubTab("frontend");
   }, [demoId, backendUrl, integrationName, integrationSlug]);
-  const [activeTab, setActiveTab] = useState<"preview" | "code" | "docs">(
-    "preview",
-  );
-  const [codeSubTab, setCodeSubTab] = useState<"frontend" | "backend">(
-    "frontend",
-  );
+  const [activeTab, setActiveTab] = useState<"preview" | "code" | "docs">("preview");
+  const [codeSubTab, setCodeSubTab] = useState<"frontend" | "backend">("frontend");
   const [demoContent, setDemoContent] = useState<any>(null);
 
   useEffect(() => {
@@ -127,9 +121,7 @@ export function DemoDrawer({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--border)]">
           <div className="flex items-center gap-3">
-            <span className="text-[13px] font-semibold text-[var(--text)]">
-              {demoName}
-            </span>
+            <span className="text-[13px] font-semibold text-[var(--text)]">{demoName}</span>
             {/* Framework switcher */}
             {alternatives && alternatives.length > 0 ? (
               <select
@@ -230,10 +222,7 @@ export function DemoDrawer({
               )}
               <div className="flex-1 overflow-auto">
                 {(() => {
-                  const files =
-                    codeSubTab === "backend"
-                      ? demoContent?.backend_files
-                      : demoContent?.files;
+                  const files = codeSubTab === "backend" ? demoContent?.backend_files : demoContent?.files;
                   if (!files || files.length === 0) {
                     return (
                       <div className="flex h-full items-center justify-center text-[var(--text-muted)] text-sm">
@@ -252,9 +241,7 @@ export function DemoDrawer({
                     ) => (
                       <div key={`${file.filename}-${idx}`}>
                         <div className="sticky top-0 z-10 px-4 py-1.5 border-b border-[var(--border)] bg-[var(--bg-surface)]">
-                          <span className="text-[11px] font-mono text-[var(--text-secondary)]">
-                            {file.filename}
-                          </span>
+                          <span className="text-[11px] font-mono text-[var(--text-secondary)]">{file.filename}</span>
                         </div>
                         <SyntaxHighlighter
                           language={file.language}
@@ -289,10 +276,7 @@ export function DemoDrawer({
             <div className="h-full overflow-auto p-6">
               {demoContent?.readme ? (
                 <div className="max-w-2xl mx-auto [&_h1]:text-xl [&_h1]:font-semibold [&_h1]:text-[var(--text)] [&_h1]:mb-3 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-[var(--text)] [&_h2]:mt-6 [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-[var(--text)] [&_h3]:mt-4 [&_h3]:mb-1 [&_p]:text-sm [&_p]:text-[var(--text-secondary)] [&_p]:leading-relaxed [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_li]:text-sm [&_li]:text-[var(--text-secondary)] [&_li]:mb-1 [&_strong]:text-[var(--text)] [&_code]:text-[var(--accent)] [&_code]:bg-[var(--bg-elevated)] [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_pre]:bg-[var(--bg-elevated)] [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:text-xs">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    rehypePlugins={[rehypeRaw]}
-                  >
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                     {demoContent.readme}
                   </ReactMarkdown>
                 </div>

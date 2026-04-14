@@ -185,13 +185,10 @@ server.app.use(async (c, next) => {
   console.log("5. Middleware end");
 });
 
-server.tool(
-  { name: "greet", schema: z.object({ name: z.string() }) },
-  async ({ name }) => {
-    console.log("3. Tool handler");
-    return text(`Hello, ${name}`); // 4. Response helper
-  },
-);
+server.tool({ name: "greet", schema: z.object({ name: z.string() }) }, async ({ name }) => {
+  console.log("3. Tool handler");
+  return text(`Hello, ${name}`); // 4. Response helper
+});
 ```
 
 ---

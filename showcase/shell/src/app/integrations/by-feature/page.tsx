@@ -1,8 +1,4 @@
-import {
-  getIntegrations,
-  getFeatures,
-  getFeatureCategories,
-} from "@/lib/registry";
+import { getIntegrations, getFeatures, getFeatureCategories } from "@/lib/registry";
 import { IntegrationsTabs } from "@/components/integrations-tabs";
 import { FeatureCatalog } from "@/components/feature-catalog";
 
@@ -16,11 +12,7 @@ export default function ByFeaturePage() {
       <div className="mx-auto max-w-7xl">
         <IntegrationsTabs />
       </div>
-      <FeatureCatalog
-        features={features}
-        categories={categories}
-        integrations={integrations}
-      />
+      <FeatureCatalog features={features} categories={categories} integrations={integrations} />
     </div>
   );
 }

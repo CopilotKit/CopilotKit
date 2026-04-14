@@ -2,17 +2,9 @@
 
 import { CopilotChat } from "@copilotkit/react-ui";
 import "./styles.css";
-import {
-  CopilotKit,
-  useCopilotAction,
-  useCopilotChat,
-} from "@copilotkit/react-core";
+import { CopilotKit, useCopilotAction, useCopilotChat } from "@copilotkit/react-core";
 import { useSearchParams } from "next/navigation";
-import {
-  MessageRole,
-  TextMessage,
-  Message,
-} from "@copilotkit/runtime-client-gql";
+import { MessageRole, TextMessage, Message } from "@copilotkit/runtime-client-gql";
 import { randomId } from "@copilotkit/shared";
 
 const testMessages = [
@@ -28,8 +20,7 @@ const testMessages = [
   },
   {
     name: "Multiple HITL actions and non-hitl actions",
-    message:
-      "Get the weather, hotel and flight all at once, you decide everything. Do not ask me for anything.",
+    message: "Get the weather, hotel and flight all at once, you decide everything. Do not ask me for anything.",
   },
   {
     name: "Add a message",
@@ -40,9 +31,7 @@ const testMessages = [
 export default function PanelPage() {
   const searchParams = useSearchParams();
   const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
-  const runtimeUrl =
-    searchParams.get("runtimeUrl") ||
-    `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
+  const runtimeUrl = searchParams.get("runtimeUrl") || `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
   const publicApiKey = searchParams.get("publicApiKey");
   const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
     runtimeUrl,
@@ -107,10 +96,7 @@ function TravelPlanner() {
           <p>Hotel</p>
           <p>Status: {status}</p>
           {status !== "complete" && (
-            <button
-              className="bg-blue-500 text-white p-2 rounded-md"
-              onClick={() => respond?.("Marriott")}
-            >
+            <button className="bg-blue-500 text-white p-2 rounded-md" onClick={() => respond?.("Marriott")}>
               Continue
             </button>
           )}

@@ -1,30 +1,15 @@
-import React, {
-  useCallback,
-  useRef,
-  useState,
-  useEffect,
-  useLayoutEffect,
-} from "react";
+import React, { useCallback, useRef, useState, useEffect, useLayoutEffect } from "react";
 import { ScrollElementContext } from "./scroll-element-context";
 import { WithSlots, SlotValue, renderSlot } from "../../lib/slots";
 import CopilotChatMessageView from "./CopilotChatMessageView";
-import CopilotChatInput, {
-  CopilotChatInputProps,
-  CopilotChatInputMode,
-} from "./CopilotChatInput";
-import CopilotChatSuggestionView, {
-  CopilotChatSuggestionViewProps,
-} from "./CopilotChatSuggestionView";
+import CopilotChatInput, { CopilotChatInputProps, CopilotChatInputMode } from "./CopilotChatInput";
+import CopilotChatSuggestionView, { CopilotChatSuggestionViewProps } from "./CopilotChatSuggestionView";
 import { Suggestion } from "@copilotkit/core";
 import { Message } from "@ag-ui/core";
 import type { Attachment } from "@copilotkit/shared";
 import { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
 import { twMerge } from "tailwind-merge";
-import {
-  StickToBottom,
-  useStickToBottom,
-  useStickToBottomContext,
-} from "use-stick-to-bottom";
+import { StickToBottom, useStickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 import { ChevronDown, Upload } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/utils";
@@ -151,8 +136,7 @@ export function CopilotChatView({
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Track keyboard state for mobile
-  const { isKeyboardOpen, keyboardHeight, availableHeight } =
-    useKeyboardHeight();
+  const { isKeyboardOpen, keyboardHeight, availableHeight } = useKeyboardHeight();
 
   // Track input container height changes
   useEffect(() => {
@@ -244,11 +228,7 @@ export function CopilotChatView({
       >
         <div className="cpk:max-w-3xl cpk:mx-auto">
           {BoundMessageView}
-          {hasSuggestions ? (
-            <div className="cpk:pl-0 cpk:pr-4 cpk:sm:px-0 cpk:mt-4">
-              {BoundSuggestionView}
-            </div>
-          ) : null}
+          {hasSuggestions ? <div className="cpk:pl-0 cpk:pr-4 cpk:sm:px-0 cpk:mt-4">{BoundSuggestionView}</div> : null}
         </div>
       </div>
     ),
@@ -280,9 +260,9 @@ export function CopilotChatView({
     } as CopilotChatInputProps);
 
     // Convert boolean `true` to undefined (use default), and exclude `false` since we've checked for it
-    const welcomeScreenSlot = (
-      welcomeScreen === true ? undefined : welcomeScreen
-    ) as SlotValue<React.FC<WelcomeScreenProps>> | undefined;
+    const welcomeScreenSlot = (welcomeScreen === true ? undefined : welcomeScreen) as
+      | SlotValue<React.FC<WelcomeScreenProps>>
+      | undefined;
     // Wrap the input with attachment queue above it
     const inputWithAttachments = (
       <div className="cpk:w-full">
@@ -297,14 +277,10 @@ export function CopilotChatView({
       </div>
     );
 
-    const BoundWelcomeScreen = renderSlot(
-      welcomeScreenSlot,
-      CopilotChatView.WelcomeScreen,
-      {
-        input: inputWithAttachments,
-        suggestionView: BoundSuggestionView ?? <></>,
-      },
-    );
+    const BoundWelcomeScreen = renderSlot(welcomeScreenSlot, CopilotChatView.WelcomeScreen, {
+      input: inputWithAttachments,
+      suggestionView: BoundSuggestionView ?? <></>,
+    });
 
     return (
       <div
@@ -314,10 +290,7 @@ export function CopilotChatView({
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
-        className={cn(
-          "copilotKitChat cpk:relative cpk:h-full cpk:flex cpk:flex-col",
-          className,
-        )}
+        className={cn("copilotKitChat cpk:relative cpk:h-full cpk:flex cpk:flex-col", className)}
         {...props}
       >
         {dragOver && <DropOverlay />}
@@ -347,10 +320,7 @@ export function CopilotChatView({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className={cn(
-        "copilotKitChat cpk:relative cpk:h-full cpk:flex cpk:flex-col",
-        className,
-      )}
+      className={cn("copilotKitChat cpk:relative cpk:h-full cpk:flex cpk:flex-col", className)}
       {...props}
     >
       {dragOver && <DropOverlay />}
@@ -375,19 +345,11 @@ export namespace CopilotChatView {
   // Inner component that has access to StickToBottom context
   const ScrollContent: React.FC<{
     children: React.ReactNode;
-    scrollToBottomButton?: SlotValue<
-      React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>
-    >;
+    scrollToBottomButton?: SlotValue<React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>>;
     feather?: SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>;
     inputContainerHeight: number;
     isResizing: boolean;
-  }> = ({
-    children,
-    scrollToBottomButton,
-    feather,
-    inputContainerHeight,
-    isResizing,
-  }) => {
+  }> = ({ children, scrollToBottomButton, feather, inputContainerHeight, isResizing }) => {
     const { isAtBottom, scrollToBottom, scrollRef } = useStickToBottomContext();
 
     // Capture the scroll element in state so the context value is reactive —
@@ -428,13 +390,9 @@ export namespace CopilotChatView {
                 bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px`,
               }}
             >
-              {renderSlot(
-                scrollToBottomButton,
-                CopilotChatView.ScrollToBottomButton,
-                {
-                  onClick: () => scrollToBottom(),
-                },
-              )}
+              {renderSlot(scrollToBottomButton, CopilotChatView.ScrollToBottomButton, {
+                onClick: () => scrollToBottom(),
+              })}
             </div>
           )}
         </>
@@ -445,9 +403,7 @@ export namespace CopilotChatView {
   export const ScrollView: React.FC<
     React.HTMLAttributes<HTMLDivElement> & {
       autoScroll?: boolean;
-      scrollToBottomButton?: SlotValue<
-        React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>
-      >;
+      scrollToBottomButton?: SlotValue<React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>>;
       feather?: SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>;
       inputContainerHeight?: number;
       isResizing?: boolean;
@@ -467,9 +423,7 @@ export namespace CopilotChatView {
     const [showScrollButton, setShowScrollButton] = useState(false);
     // Tracks the scroll container element for the non-autoScroll path so the
     // context value is reactive (element state, not a ref).
-    const [nonAutoScrollEl, setNonAutoScrollEl] = useState<HTMLElement | null>(
-      null,
-    );
+    const [nonAutoScrollEl, setNonAutoScrollEl] = useState<HTMLElement | null>(null);
 
     // Callback ref that keeps scrollRef in sync with the DOM element while also
     // updating context state — eliminates the need for a useLayoutEffect.
@@ -495,11 +449,7 @@ export namespace CopilotChatView {
       if (!scrollElement) return;
 
       const checkScroll = () => {
-        const atBottom =
-          scrollElement.scrollHeight -
-            scrollElement.scrollTop -
-            scrollElement.clientHeight <
-          10;
+        const atBottom = scrollElement.scrollHeight - scrollElement.scrollTop - scrollElement.clientHeight < 10;
         setShowScrollButton(!atBottom);
       };
 
@@ -560,13 +510,9 @@ export namespace CopilotChatView {
                   bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px`,
                 }}
               >
-                {renderSlot(
-                  scrollToBottomButton,
-                  CopilotChatView.ScrollToBottomButton,
-                  {
-                    onClick: () => scrollToBottom(),
-                  },
-                )}
+                {renderSlot(scrollToBottomButton, CopilotChatView.ScrollToBottomButton, {
+                  onClick: () => scrollToBottom(),
+                })}
               </div>
             )}
           </div>
@@ -576,10 +522,7 @@ export namespace CopilotChatView {
 
     return (
       <StickToBottom
-        className={cn(
-          "cpk:flex-1 cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0",
-          className,
-        )}
+        className={cn("cpk:flex-1 cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0", className)}
         resize="smooth"
         initial="smooth"
         {...props}
@@ -596,9 +539,10 @@ export namespace CopilotChatView {
     );
   };
 
-  export const ScrollToBottomButton: React.FC<
-    React.ButtonHTMLAttributes<HTMLButtonElement>
-  > = ({ className, ...props }) => (
+  export const ScrollToBottomButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({
+    className,
+    ...props
+  }) => (
     <Button
       data-testid="copilot-scroll-to-bottom"
       variant="outline"
@@ -617,11 +561,7 @@ export namespace CopilotChatView {
     </Button>
   );
 
-  export const Feather: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
-    className,
-    style,
-    ...props
-  }) => (
+  export const Feather: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, style, ...props }) => (
     <div
       className={cn(
         "cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-4 cpk:h-24 cpk:pointer-events-none cpk:z-10 cpk:bg-gradient-to-t",
@@ -634,18 +574,13 @@ export namespace CopilotChatView {
     />
   );
 
-  export const WelcomeMessage: React.FC<
-    React.HTMLAttributes<HTMLDivElement>
-  > = ({ className, ...props }) => {
+  export const WelcomeMessage: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...props }) => {
     const config = useCopilotChatConfiguration();
     const labels = config?.labels ?? CopilotChatDefaultLabels;
 
     return (
       <h1
-        className={cn(
-          "cpk:text-xl cpk:sm:text-2xl cpk:font-medium cpk:text-foreground cpk:text-center",
-          className,
-        )}
+        className={cn("cpk:text-xl cpk:sm:text-2xl cpk:font-medium cpk:text-foreground cpk:text-center", className)}
         {...props}
       >
         {labels.welcomeMessageText}
@@ -662,11 +597,7 @@ export namespace CopilotChatView {
     ...props
   }) => {
     // Render the welcomeMessage slot internally
-    const BoundWelcomeMessage = renderSlot(
-      welcomeMessage,
-      CopilotChatView.WelcomeMessage,
-      {},
-    );
+    const BoundWelcomeMessage = renderSlot(welcomeMessage, CopilotChatView.WelcomeMessage, {});
 
     if (children) {
       return (
@@ -685,10 +616,7 @@ export namespace CopilotChatView {
     return (
       <div
         data-testid="copilot-welcome-screen"
-        className={cn(
-          "cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4",
-          className,
-        )}
+        className={cn("cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4", className)}
         {...props}
       >
         <div className="cpk:w-full cpk:max-w-3xl cpk:flex cpk:flex-col cpk:items-center">
@@ -699,9 +627,7 @@ export namespace CopilotChatView {
           <div className="cpk:w-full">{input}</div>
 
           {/* Suggestions */}
-          <div className="cpk:mt-4 cpk:flex cpk:justify-center">
-            {suggestionView}
-          </div>
+          <div className="cpk:mt-4 cpk:flex cpk:justify-center">{suggestionView}</div>
         </div>
       </div>
     );

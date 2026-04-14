@@ -40,16 +40,11 @@ describe("useKatexStyles", () => {
     // Read the component source and verify no static katex CSS import.
     const fs = await import("fs");
     const path = await import("path");
-    const componentPath = path.resolve(
-      __dirname,
-      "../../components/chat/CopilotChatAssistantMessage.tsx",
-    );
+    const componentPath = path.resolve(__dirname, "../../components/chat/CopilotChatAssistantMessage.tsx");
     const source = fs.readFileSync(componentPath, "utf-8");
 
     // Should NOT have a static import of katex CSS
-    expect(source).not.toMatch(
-      /^import\s+['"]katex\/dist\/katex\.min\.css['"]/m,
-    );
+    expect(source).not.toMatch(/^import\s+['"]katex\/dist\/katex\.min\.css['"]/m);
     // Should use the hook instead
     expect(source).toMatch(/useKatexStyles/);
   });

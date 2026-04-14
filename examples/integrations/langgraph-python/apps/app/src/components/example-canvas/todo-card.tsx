@@ -34,18 +34,14 @@ export function TodoCard({
   onUpdateDescription,
   onUpdateEmoji,
 }: TodoCardProps) {
-  const [editingField, setEditingField] = useState<
-    "title" | "description" | null
-  >(null);
+  const [editingField, setEditingField] = useState<"title" | "description" | null>(null);
   const [editValue, setEditValue] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isCompleted = todo.status === "completed";
   const truncatedDescription =
-    todo.description.length > 120
-      ? todo.description.slice(0, 120) + "..."
-      : todo.description;
+    todo.description.length > 120 ? todo.description.slice(0, 120) + "..." : todo.description;
 
   const startEdit = (field: "title" | "description") => {
     setEditingField(field);
@@ -72,18 +68,12 @@ export function TodoCard({
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height =
-        textareaRef.current.scrollHeight + "px";
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
     }
   }, [editValue]);
 
   return (
-    <Card
-      className={cn(
-        "group relative p-5 transition-all duration-150",
-        isCompleted && "opacity-60",
-      )}
-    >
+    <Card className={cn("group relative p-5 transition-all duration-150", isCompleted && "opacity-60")}>
       {/* Delete — top right on hover */}
       <Button
         variant="ghost"
@@ -128,11 +118,7 @@ export function TodoCard({
 
       {/* Title */}
       <div className="flex items-start gap-3">
-        <Checkbox
-          checked={isCompleted}
-          onCheckedChange={() => onToggleStatus(todo)}
-          className="mt-[2px]"
-        />
+        <Checkbox checked={isCompleted} onCheckedChange={() => onToggleStatus(todo)} className="mt-[2px]" />
 
         <div className="flex-1 min-w-0">
           {editingField === "title" ? (
@@ -154,9 +140,7 @@ export function TodoCard({
               onClick={() => startEdit("title")}
               className={cn(
                 "text-base font-semibold cursor-text break-words leading-snug",
-                isCompleted
-                  ? "text-[var(--muted-foreground)] line-through"
-                  : "text-[var(--foreground)]",
+                isCompleted ? "text-[var(--muted-foreground)] line-through" : "text-[var(--foreground)]",
               )}
             >
               {todo.title}
@@ -182,9 +166,7 @@ export function TodoCard({
               onClick={() => startEdit("description")}
               className={cn(
                 "mt-1.5 text-sm leading-relaxed cursor-text",
-                isCompleted
-                  ? "text-[var(--muted-foreground)] line-through"
-                  : "text-[var(--muted-foreground)]",
+                isCompleted ? "text-[var(--muted-foreground)] line-through" : "text-[var(--muted-foreground)]",
               )}
             >
               {truncatedDescription}

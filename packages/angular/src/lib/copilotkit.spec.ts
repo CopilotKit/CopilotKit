@@ -43,8 +43,7 @@ vi.mock("@copilotkit/core", () => {
     runtimeUrl = undefined;
     runtimeTransport = "auto";
     headers: Record<string, string> = {};
-    runtimeConnectionStatus =
-      CopilotKitCoreRuntimeConnectionStatus.Disconnected;
+    runtimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     listener?: Parameters<typeof mockSubscribe>[0];
 
     constructor(config: any) {
@@ -162,9 +161,7 @@ describe("CopilotKit", () => {
       injector,
     });
 
-    expect(mockAddTool).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "client" }),
-    );
+    expect(mockAddTool).toHaveBeenCalledWith(expect.objectContaining({ name: "client" }));
     expect(copilotKit.clientToolCallRenderConfigs()).toHaveLength(1);
 
     const tool = mockAddTool.mock.calls.at(-1)![0];
@@ -178,9 +175,7 @@ describe("CopilotKit", () => {
   });
 
   it("registers human-in-the-loop tools and delegates responses", async () => {
-    const onResultSpy = vi
-      .spyOn(HumanInTheLoop.prototype, "onResult")
-      .mockResolvedValue("result");
+    const onResultSpy = vi.spyOn(HumanInTheLoop.prototype, "onResult").mockResolvedValue("result");
 
     TestBed.configureTestingModule({
       providers: [provideCopilotKit({ licenseKey })],
@@ -201,9 +196,7 @@ describe("CopilotKit", () => {
     copilotKit.addHumanInTheLoop(toolConfig);
 
     expect(copilotKit.humanInTheLoopToolRenderConfigs()).toEqual([toolConfig]);
-    expect(mockAddTool).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "approval" }),
-    );
+    expect(mockAddTool).toHaveBeenCalledWith(expect.objectContaining({ name: "approval" }));
 
     const tool = mockAddTool.mock.calls.at(-1)![0];
     const mockAgent = { agentId: "agent-1" };
@@ -286,8 +279,6 @@ describe("CopilotKit", () => {
 
     TestBed.inject(CopilotKit);
 
-    expect(
-      document.getElementById("copilotkit-license-watermark"),
-    ).toBeTruthy();
+    expect(document.getElementById("copilotkit-license-watermark")).toBeTruthy();
   });
 });

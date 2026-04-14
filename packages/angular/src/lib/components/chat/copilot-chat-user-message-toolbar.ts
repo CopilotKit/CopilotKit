@@ -1,10 +1,4 @@
-import {
-  Component,
-  input,
-  computed,
-  ChangeDetectionStrategy,
-  ViewEncapsulation,
-} from "@angular/core";
+import { Component, input, computed, ChangeDetectionStrategy, ViewEncapsulation } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { cn } from "../../utils";
 
@@ -25,9 +19,6 @@ export class CopilotChatUserMessageToolbar {
   readonly inputClass = input<string | undefined>();
 
   readonly computedClass = computed(() =>
-    cn(
-      "w-full bg-transparent flex items-center justify-end mt-[4px] invisible group-hover:visible",
-      this.inputClass(),
-    ),
+    cn("w-full bg-transparent flex items-center justify-end mt-[4px] invisible group-hover:visible", this.inputClass()),
   );
 }

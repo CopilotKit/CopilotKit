@@ -1,11 +1,7 @@
 import React, { useCallback, useRef } from "react";
 import { LangGraphInterruptRender } from "../types/interrupt-action";
 import { useInterrupt, useCopilotChatConfiguration } from "../v2";
-import type {
-  InterruptEvent,
-  InterruptRenderProps,
-  InterruptHandlerProps,
-} from "../v2";
+import type { InterruptEvent, InterruptRenderProps, InterruptHandlerProps } from "../v2";
 import { MetaEventName } from "@copilotkit/runtime-client-gql";
 import { parseJson } from "@copilotkit/shared";
 import { useAgentNodeName } from "./use-agent-nodename";
@@ -16,10 +12,7 @@ import type { AgentSession } from "../context/copilot-context";
  * expected by existing useLangGraphInterrupt callbacks.
  */
 function toV1Event<TEventValue>(event: InterruptEvent<TEventValue>) {
-  const value =
-    typeof event.value === "string"
-      ? parseJson(event.value, event.value)
-      : event.value;
+  const value = typeof event.value === "string" ? parseJson(event.value, event.value) : event.value;
   return {
     name: MetaEventName.LangGraphInterruptEvent,
     type: "MetaEvent" as const,
@@ -37,8 +30,7 @@ export function useLangGraphInterrupt<TEventValue = any>(
   actionRef.current = action;
 
   const existingConfig = useCopilotChatConfiguration();
-  const resolvedAgentId =
-    action.agentId ?? existingConfig?.agentId ?? "default";
+  const resolvedAgentId = action.agentId ?? existingConfig?.agentId ?? "default";
   const threadId = existingConfig?.threadId;
   const nodeName = useAgentNodeName(resolvedAgentId);
 
@@ -57,34 +49,28 @@ export function useLangGraphInterrupt<TEventValue = any>(
   // Stable callback references that always read the latest action from the ref.
   // This prevents useInterrupt's internal useMemo/useEffect from seeing new
   // function identities on every render, which would cause an infinite loop.
-  const render = useCallback(
-    ({ event, result, resolve }: InterruptRenderProps<TEventValue>) => {
-      const renderFn = actionRef.current.render;
-      if (!renderFn) return React.createElement(React.Fragment);
-      const rendered = renderFn({
-        event: toV1Event(event) as any,
-        result,
-        resolve: (r) => resolve(r),
-      });
-      if (typeof rendered === "string") {
-        return React.createElement(React.Fragment, null, rendered);
-      }
-      return rendered;
-    },
-    [],
-  );
+  const render = useCallback(({ event, result, resolve }: InterruptRenderProps<TEventValue>) => {
+    const renderFn = actionRef.current.render;
+    if (!renderFn) return React.createElement(React.Fragment);
+    const rendered = renderFn({
+      event: toV1Event(event) as any,
+      result,
+      resolve: (r) => resolve(r),
+    });
+    if (typeof rendered === "string") {
+      return React.createElement(React.Fragment, null, rendered);
+    }
+    return rendered;
+  }, []);
 
   // Handler always delegates to the ref — if no handler is set at call time,
   // the optional chaining returns undefined which useInterrupt treats as null.
-  const handler = useCallback(
-    ({ event, resolve }: InterruptHandlerProps<TEventValue>) => {
-      return actionRef.current.handler?.({
-        event: toV1Event(event) as any,
-        resolve: (r) => resolve(r),
-      });
-    },
-    [],
-  );
+  const handler = useCallback(({ event, resolve }: InterruptHandlerProps<TEventValue>) => {
+    return actionRef.current.handler?.({
+      event: toV1Event(event) as any,
+      resolve: (r) => resolve(r),
+    });
+  }, []);
 
   const enabled = useCallback((event: InterruptEvent<TEventValue>) => {
     if (!actionRef.current.enabled) return true;

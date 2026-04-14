@@ -30,9 +30,7 @@ export type AgentState = {
   pinnedMetrics: Metric[];
 };
 
-export type AgentSetState<T extends AgentState> = (
-  newState: T | ((prevState: T | undefined) => T),
-) => void;
+export type AgentSetState<T extends AgentState> = (newState: T | ((prevState: T | undefined) => T)) => void;
 
 export const initialState: AgentState = {
   title: "Dashboard",

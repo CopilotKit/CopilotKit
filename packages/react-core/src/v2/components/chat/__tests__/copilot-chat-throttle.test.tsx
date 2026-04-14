@@ -22,24 +22,14 @@ vi.mock("../../../providers/CopilotKitProvider", () => ({
   })),
 }));
 
-vi.mock(
-  "../../../providers/CopilotChatConfigurationProvider",
-  async (importOriginal) => {
-    const actual =
-      await importOriginal<
-        typeof import("../../../providers/CopilotChatConfigurationProvider")
-      >();
-    return {
-      ...actual,
-      useCopilotChatConfiguration: vi.fn(() => undefined),
-      CopilotChatConfigurationProvider: ({
-        children,
-      }: {
-        children: React.ReactNode;
-      }) => <>{children}</>,
-    };
-  },
-);
+vi.mock("../../../providers/CopilotChatConfigurationProvider", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../providers/CopilotChatConfigurationProvider")>();
+  return {
+    ...actual,
+    useCopilotChatConfiguration: vi.fn(() => undefined),
+    CopilotChatConfigurationProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  };
+});
 
 // Mock suggestions hook
 vi.mock("../../../hooks/use-suggestions", () => ({

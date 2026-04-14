@@ -26,9 +26,7 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
       t.id === todo.id
         ? {
             ...t,
-            status: (t.status === "completed" ? "pending" : "completed") as
-              | "pending"
-              | "completed",
+            status: (t.status === "completed" ? "pending" : "completed") as "pending" | "completed",
           }
         : t,
     );
@@ -45,9 +43,7 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
   };
 
   const updateDescription = (todoId: string, description: string) => {
-    const updated = todos.map((t) =>
-      t.id === todoId ? { ...t, description } : t,
-    );
+    const updated = todos.map((t) => (t.id === todoId ? { ...t, description } : t));
     onUpdate(updated);
   };
 
@@ -71,12 +67,8 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <div className="text-5xl">✏️</div>
-        <p className="text-base font-semibold text-[--foreground]">
-          No todos yet
-        </p>
-        <p className="text-sm text-[--muted-foreground]">
-          Create your first task to get started
-        </p>
+        <p className="text-base font-semibold text-[--foreground]">No todos yet</p>
+        <p className="text-sm text-[--muted-foreground]">Create your first task to get started</p>
         <Button onClick={addTodo} disabled={isAgentRunning} className="mt-2">
           Add a task
         </Button>

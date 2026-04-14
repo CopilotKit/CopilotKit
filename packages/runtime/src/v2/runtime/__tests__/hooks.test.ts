@@ -108,9 +108,7 @@ describe("hooks — onRequest", () => {
   });
 
   it("throwing a non-Response error triggers onError", async () => {
-    const onError = vi
-      .fn()
-      .mockReturnValue(new Response("Custom error", { status: 503 }));
+    const onError = vi.fn().mockReturnValue(new Response("Custom error", { status: 503 }));
     const runtime = createRuntime();
     const handler = createCopilotRuntimeHandler({
       runtime,
@@ -372,8 +370,7 @@ describe("hooks — onError", () => {
         onRequest: () => {
           throw new Error("test error");
         },
-        onError: () =>
-          new Response(JSON.stringify({ custom: true }), { status: 503 }),
+        onError: () => new Response(JSON.stringify({ custom: true }), { status: 503 }),
       },
     });
 
@@ -518,23 +515,15 @@ describe("hooks — composition with legacy middleware", () => {
     await handler(get("http://localhost/api/info"));
     await new Promise((r) => setTimeout(r, 10));
 
-    expect(order).toEqual([
-      "onRequest",
-      "legacy-before",
-      "onBeforeHandler",
-      "onResponse",
-      "legacy-after",
-    ]);
+    expect(order).toEqual(["onRequest", "legacy-before", "onBeforeHandler", "onResponse", "legacy-after"]);
   });
 
   it("request modifications from hooks are visible to legacy middleware", async () => {
     let legacySawCustomHeader = false;
 
-    const beforeRequestMiddleware = vi
-      .fn()
-      .mockImplementation(({ request }: { request: Request }) => {
-        legacySawCustomHeader = request.headers.get("x-from-hook") === "hello";
-      });
+    const beforeRequestMiddleware = vi.fn().mockImplementation(({ request }: { request: Request }) => {
+      legacySawCustomHeader = request.headers.get("x-from-hook") === "hello";
+    });
 
     const runtime = createRuntime({ beforeRequestMiddleware });
     const handler = createCopilotRuntimeHandler({

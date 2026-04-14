@@ -73,9 +73,7 @@ export async function handleIntelligenceRun({
       threadId: input.threadId,
       runId: input.runId,
       userId,
-      ...(runtime.lockKeyPrefix !== undefined
-        ? { lockKeyPrefix: runtime.lockKeyPrefix }
-        : {}),
+      ...(runtime.lockKeyPrefix !== undefined ? { lockKeyPrefix: runtime.lockKeyPrefix } : {}),
       ttlSeconds: runtime.lockTtlSeconds,
     });
     joinToken = lockResult.joinToken;
@@ -106,12 +104,8 @@ export async function handleIntelligenceRun({
       const history = await runtime.intelligence.getThreadMessages({
         threadId: input.threadId,
       });
-      const historicMessageIds = new Set(
-        history.messages.map((message) => message.id),
-      );
-      persistedInputMessages = input.messages.filter(
-        (message) => !historicMessageIds.has(message.id),
-      );
+      const historicMessageIds = new Set(history.messages.map((message) => message.id));
+      persistedInputMessages = input.messages.filter((message) => !historicMessageIds.has(message.id));
     } catch (error) {
       logger.error("Thread history lookup failed:", error);
       return Response.json(
@@ -133,9 +127,7 @@ export async function handleIntelligenceRun({
         threadId: input.threadId,
         runId: input.runId,
         ttlSeconds: runtime.lockTtlSeconds,
-        ...(runtime.lockKeyPrefix !== undefined
-          ? { lockKeyPrefix: runtime.lockKeyPrefix }
-          : {}),
+        ...(runtime.lockKeyPrefix !== undefined ? { lockKeyPrefix: runtime.lockKeyPrefix } : {}),
       })
       .catch((err) => {
         logger.error("Failed to renew thread lock:", err);
@@ -154,9 +146,7 @@ export async function handleIntelligenceRun({
       threadId: input.threadId,
       agent,
       input,
-      ...(persistedInputMessages !== undefined
-        ? { persistedInputMessages }
-        : {}),
+      ...(persistedInputMessages !== undefined ? { persistedInputMessages } : {}),
       ...(joinCode ? { joinCode } : {}),
     })
     .subscribe({

@@ -8,11 +8,7 @@ interface HandleSseConnectParams {
   threadId: string;
 }
 
-export function handleSseConnect({
-  runtime,
-  request,
-  threadId,
-}: HandleSseConnectParams): Response {
+export function handleSseConnect({ runtime, request, threadId }: HandleSseConnectParams): Response {
   return createSseEventResponse({
     request,
     observableFactory: () =>

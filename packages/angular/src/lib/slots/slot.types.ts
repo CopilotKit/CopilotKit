@@ -48,9 +48,7 @@ export interface RenderSlotOptions<T = any> {
 /**
  * Injection token for slot configuration
  */
-export const SLOT_CONFIG = new InjectionToken<
-  ReadonlyMap<string, SlotRegistryEntry>
->("SLOT_CONFIG");
+export const SLOT_CONFIG = new InjectionToken<ReadonlyMap<string, SlotRegistryEntry>>("SLOT_CONFIG");
 
 /**
  * Type for components with slots

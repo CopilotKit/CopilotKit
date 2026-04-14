@@ -64,10 +64,7 @@ export async function POST(request: Request) {
   const { name, description, widgets, category } = body;
 
   if (!name || !widgets) {
-    return NextResponse.json(
-      { error: "name and widgets are required" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "name and widgets are required" }, { status: 400 });
   }
 
   if (sql) {

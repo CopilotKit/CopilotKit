@@ -2,11 +2,7 @@ import { Action } from "@copilotkit/shared";
 import { researchWithLangGraph } from "./research";
 
 import { NextRequest } from "next/server";
-import {
-  CopilotRuntime,
-  LangChainAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, LangChainAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 import { ChatOpenAI } from "@langchain/openai";
 
 const researchAction: Action<any> = {

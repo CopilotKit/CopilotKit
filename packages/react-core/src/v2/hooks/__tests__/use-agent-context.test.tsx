@@ -35,18 +35,12 @@ describe("useAgentContext", () => {
 
   describe("context cleanup on unmount", () => {
     it("removes the context when the component unmounts", () => {
-      const TestComponent: React.FC<{ context: AgentContextInput }> = ({
-        context,
-      }) => {
+      const TestComponent: React.FC<{ context: AgentContextInput }> = ({ context }) => {
         useAgentContext(context);
         return <div>Test</div>;
       };
 
-      const { unmount } = render(
-        <TestComponent
-          context={{ description: "test context", value: "test value" }}
-        />,
-      );
+      const { unmount } = render(<TestComponent context={{ description: "test context", value: "test value" }} />);
 
       // Context should be added
       expect(addContextMock).toHaveBeenCalledTimes(1);
@@ -78,10 +72,7 @@ describe("useAgentContext", () => {
         const [showContext, setShowContext] = useState(true);
         return (
           <>
-            <button
-              data-testid="toggle"
-              onClick={() => setShowContext((prev) => !prev)}
-            >
+            <button data-testid="toggle" onClick={() => setShowContext((prev) => !prev)}>
               Toggle
             </button>
             {showContext && <ContextUser />}
@@ -124,9 +115,7 @@ describe("useAgentContext", () => {
         value: "stable value",
       };
 
-      const { rerender } = render(
-        <TestComponent context={context} counter={0} />,
-      );
+      const { rerender } = render(<TestComponent context={context} counter={0} />);
 
       // Initial render - context added once
       expect(addContextMock).toHaveBeenCalledTimes(1);
@@ -157,10 +146,7 @@ describe("useAgentContext", () => {
         const [counter, setCounter] = useState(0);
         return (
           <>
-            <button
-              data-testid="increment"
-              onClick={() => setCounter((c) => c + 1)}
-            >
+            <button data-testid="increment" onClick={() => setCounter((c) => c + 1)}>
               Increment ({counter})
             </button>
             <ContextUser />
@@ -191,9 +177,7 @@ describe("useAgentContext", () => {
     });
 
     it("re-adds context when description changes", () => {
-      const TestComponent: React.FC<{ description: string }> = ({
-        description,
-      }) => {
+      const TestComponent: React.FC<{ description: string }> = ({ description }) => {
         useAgentContext({ description, value: "same value" });
         return <div>{description}</div>;
       };

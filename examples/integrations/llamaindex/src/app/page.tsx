@@ -25,11 +25,7 @@ export default function CopilotKitPage() {
   });
 
   return (
-    <main
-      style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
-      }
-    >
+    <main style={{ "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties}>
       <YourMainContent themeColor={themeColor} />
       <CopilotSidebar
         clickOutsideToClose={false}
@@ -54,9 +50,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   const { state, setState } = useCoAgent<AgentState>({
     name: "sample_agent",
     initialState: {
-      proverbs: [
-        "CopilotKit may be new, but its the best thing since sliced bread.",
-      ],
+      proverbs: ["CopilotKit may be new, but its the best thing since sliced bread."],
     },
   });
 
@@ -96,9 +90,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
       className="h-screen w-screen flex justify-center items-center flex-col transition-colors duration-300"
     >
       <div className="bg-white/20 backdrop-blur-md p-8 rounded-2xl shadow-xl max-w-2xl w-full">
-        <h1 className="text-4xl font-bold text-white mb-2 text-center">
-          Proverbs
-        </h1>
+        <h1 className="text-4xl font-bold text-white mb-2 text-center">Proverbs</h1>
         <p className="text-gray-200 text-center italic mb-6">
           This is a demonstrative page, but it could be anything you want! 🪁
         </p>
@@ -126,9 +118,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
           ))}
         </div>
         {state.proverbs?.length === 0 && (
-          <p className="text-center text-white/80 italic my-8">
-            No proverbs yet. Ask the assistant to add some!
-          </p>
+          <p className="text-center text-white/80 italic my-8">No proverbs yet. Ask the assistant to add some!</p>
         )}
       </div>
     </div>

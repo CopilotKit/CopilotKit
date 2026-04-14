@@ -719,9 +719,7 @@
         <a href="#" onclick="showPage('matrix')">Matrix</a>
         <a href="#">Reference</a>
       </nav>
-      <div class="search">
-        <span>⌕</span> Search docs, demos, APIs...<span class="kbd">⌘K</span>
-      </div>
+      <div class="search"><span>⌕</span> Search docs, demos, APIs...<span class="kbd">⌘K</span></div>
     </header>
 
     <div class="layout">
@@ -730,10 +728,7 @@
         <div class="back" onclick="showPage('home')">← Home</div>
         <div class="int-header">
           <h2>LangGraph</h2>
-          <div class="tags">
-            <span class="tag">Python</span
-            ><span class="tag">Agent Framework</span>
-          </div>
+          <div class="tags"><span class="tag">Python</span><span class="tag">Agent Framework</span></div>
         </div>
         <div class="sec">Getting Started</div>
         <div class="item">Overview</div>
@@ -806,42 +801,25 @@
             <div class="home-left">
               <div class="home-header">
                 <h1>CopilotKit Docs</h1>
-                <p>
-                  Ask anything, explore the stack, or jump straight to what you
-                  need.
-                </p>
+                <p>Ask anything, explore the stack, or jump straight to what you need.</p>
               </div>
               <div class="home-chat">
                 <div class="messages">
                   <div class="msg bot">
                     <div class="name">CopilotKit</div>
-                    Welcome! I can help you find the right integration, explore
-                    features, or get started with a quickstart guide. What are
-                    you working on?
+                    Welcome! I can help you find the right integration, explore features, or get started with a
+                    quickstart guide. What are you working on?
                   </div>
                   <div class="quick-replies">
-                    <button class="quick-reply" onclick="showPage('guide')">
-                      🚀 Get started with a framework
-                    </button>
-                    <button class="quick-reply" onclick="showPage('guide')">
-                      🎨 Explore Generative UI
-                    </button>
-                    <button class="quick-reply" onclick="toggleDrawer()">
-                      💬 Try a live demo
-                    </button>
-                    <button class="quick-reply" onclick="showPage('matrix')">
-                      📊 Feature comparison
-                    </button>
-                    <button class="quick-reply">
-                      🤔 Help me choose a stack
-                    </button>
+                    <button class="quick-reply" onclick="showPage('guide')">🚀 Get started with a framework</button>
+                    <button class="quick-reply" onclick="showPage('guide')">🎨 Explore Generative UI</button>
+                    <button class="quick-reply" onclick="toggleDrawer()">💬 Try a live demo</button>
+                    <button class="quick-reply" onclick="showPage('matrix')">📊 Feature comparison</button>
+                    <button class="quick-reply">🤔 Help me choose a stack</button>
                   </div>
                 </div>
                 <div class="home-input">
-                  <input
-                    type="text"
-                    placeholder="Ask anything about CopilotKit..."
-                  />
+                  <input type="text" placeholder="Ask anything about CopilotKit..." />
                   <button class="send">↑</button>
                 </div>
               </div>
@@ -852,9 +830,7 @@
               <div class="stack-layer">
                 <div class="layer-name">Frontend Platform</div>
                 <div class="stack-chips">
-                  <span class="stack-chip" onclick="showPage('guide')"
-                    >React</span
-                  >
+                  <span class="stack-chip" onclick="showPage('guide')">React</span>
                   <span class="stack-chip">Angular</span>
                   <span class="stack-chip">Vue</span>
                   <span class="stack-chip">TanStack</span>
@@ -866,9 +842,7 @@
               <div class="stack-layer">
                 <div class="layer-name">Chat UI</div>
                 <div class="stack-chips">
-                  <span class="stack-chip" onclick="showPage('guide')"
-                    >CopilotChat</span
-                  >
+                  <span class="stack-chip" onclick="showPage('guide')">CopilotChat</span>
                   <span class="stack-chip">Sidebar</span>
                   <span class="stack-chip">Popup</span>
                   <span class="stack-chip">Headless</span>
@@ -878,9 +852,7 @@
               <div class="stack-layer">
                 <div class="layer-name">Generative UI</div>
                 <div class="stack-chips">
-                  <span class="stack-chip" onclick="toggleDrawer()"
-                    >Controlled</span
-                  >
+                  <span class="stack-chip" onclick="toggleDrawer()">Controlled</span>
                   <span class="stack-chip">Declarative</span>
                   <span class="stack-chip">Open</span>
                 </div>
@@ -902,9 +874,7 @@
               <div class="stack-layer">
                 <div class="layer-name">Agent Frameworks</div>
                 <div class="stack-chips">
-                  <span class="stack-chip" onclick="showPage('guide')"
-                    >LangGraph</span
-                  >
+                  <span class="stack-chip" onclick="showPage('guide')">LangGraph</span>
                   <span class="stack-chip">Mastra</span>
                   <span class="stack-chip">CrewAI</span>
                   <span class="stack-chip">PydanticAI</span>
@@ -940,48 +910,40 @@
         <div class="page" id="page-guide">
           <div class="guide">
             <div class="crumb">
-              <a href="#" onclick="showPage('home')">Home</a> /
-              <a href="#">LangGraph</a> / Features / Generative UI
+              <a href="#" onclick="showPage('home')">Home</a> / <a href="#">LangGraph</a> / Features / Generative UI
             </div>
             <h1>Generative UI</h1>
             <p class="desc">
-              Let your agent generate interactive React components on the fly.
-              Tool-based, controlled, or fully agent-driven.
+              Let your agent generate interactive React components on the fly. Tool-based, controlled, or fully
+              agent-driven.
             </p>
             <div class="demo-cta" onclick="toggleDrawer()">▶ Try Live Demo</div>
             <h2>Tool-Based Approach</h2>
             <p>
-              Register a frontend tool with <code>useFrontendTool</code> and the
-              agent calls it to render components in the chat.
+              Register a frontend tool with <code>useFrontendTool</code> and the agent calls it to render components in
+              the chat.
             </p>
             <div class="codeblock">
-              useFrontendTool({ name: "render_chart", parameters: z.object({
-              data: z.array(...), type: z.enum(["bar", "pie"]) }), handler:
-              async ({ data, type }) => { return { rendered: true }; }, });
+              useFrontendTool({ name: "render_chart", parameters: z.object({ data: z.array(...), type: z.enum(["bar",
+              "pie"]) }), handler: async ({ data, type }) => { return { rendered: true }; }, });
             </div>
             <p>
-              When the agent calls this tool, CopilotKit renders your component
-              inline. The user sees an interactive chart appear in the chat.
+              When the agent calls this tool, CopilotKit renders your component inline. The user sees an interactive
+              chart appear in the chat.
             </p>
             <h2>Agentic Approach</h2>
             <p>
-              For long-running tasks, the agent orchestrates multi-step
-              workflows and renders progress UI along the way.
-              <span
-                style="color: var(--accent); cursor: pointer"
-                onclick="toggleDrawer()"
-                >Try the demo →</span
-              >
+              For long-running tasks, the agent orchestrates multi-step workflows and renders progress UI along the way.
+              <span style="color: var(--accent); cursor: pointer" onclick="toggleDrawer()">Try the demo →</span>
             </p>
             <h2>Declarative (BYOC)</h2>
             <p>
-              Use A2UI, Hashbrown, JSON Render, or other declarative renderers.
-              The agent sends a schema, your renderer turns it into components.
+              Use A2UI, Hashbrown, JSON Render, or other declarative renderers. The agent sends a schema, your renderer
+              turns it into components.
             </p>
             <h2>API Reference</h2>
             <p>
-              Key hooks: <code>useFrontendTool</code>,
-              <code>useRenderTool</code>, <code>useComponent</code>.
+              Key hooks: <code>useFrontendTool</code>, <code>useRenderTool</code>, <code>useComponent</code>.
               <a href="#" style="color: var(--blue)">Full reference →</a>
             </p>
           </div>
@@ -991,10 +953,7 @@
         <div class="page" id="page-matrix">
           <div class="matrix">
             <h1>Feature Matrix</h1>
-            <div class="sub">
-              47 features across 30 integrations. Click any checkmark to try the
-              live demo.
-            </div>
+            <div class="sub">47 features across 30 integrations. Click any checkmark to try the live demo.</div>
             <div class="matrix-table">
               <table>
                 <thead>
@@ -1012,12 +971,7 @@
                 </thead>
                 <tbody>
                   <tr>
-                    <td>
-                      <span class="name">LangGraph (Python)</span><br /><span
-                        class="cat"
-                        >Agent Framework</span
-                      >
-                    </td>
+                    <td><span class="name">LangGraph (Python)</span><br /><span class="cat">Agent Framework</span></td>
                     <td class="cell">
                       <span class="check" onclick="toggleDrawer()">✓</span>
                     </td>
@@ -1040,11 +994,7 @@
                     <td class="cell"><span class="dash">—</span></td>
                   </tr>
                   <tr>
-                    <td>
-                      <span class="name">Mastra</span><br /><span class="cat"
-                        >Agent Framework</span
-                      >
-                    </td>
+                    <td><span class="name">Mastra</span><br /><span class="cat">Agent Framework</span></td>
                     <td class="cell"><span class="dash">○</span></td>
                     <td class="cell"><span class="dash">○</span></td>
                     <td class="cell"><span class="dash">○</span></td>
@@ -1055,12 +1005,7 @@
                     <td class="cell"><span class="dash">—</span></td>
                   </tr>
                   <tr>
-                    <td>
-                      <span class="name">Google ADK</span><br /><span
-                        class="cat"
-                        >Enterprise</span
-                      >
-                    </td>
+                    <td><span class="name">Google ADK</span><br /><span class="cat">Enterprise</span></td>
                     <td class="cell"><span class="dash">○</span></td>
                     <td class="cell"><span class="dash">○</span></td>
                     <td class="cell"><span class="dash">○</span></td>
@@ -1103,13 +1048,9 @@
       </div>
       <div class="drawer-body">
         <div style="text-align: center">
-          <div style="font-size: 36px; opacity: 0.3; margin-bottom: 8px">
-            💬
-          </div>
+          <div style="font-size: 36px; opacity: 0.3; margin-bottom: 8px">💬</div>
           Live demo slides in here<br />
-          <span style="font-size: 11px; color: var(--text4)"
-            >Click "Guide" tab to return to docs</span
-          >
+          <span style="font-size: 11px; color: var(--text4)">Click "Guide" tab to return to docs</span>
         </div>
       </div>
     </div>
@@ -1117,23 +1058,15 @@
     <!-- PAGE TABS -->
     <div class="page-tabs">
       <span class="label">View</span>
-      <button class="page-tab active" onclick="showPage('home')">
-        Home (Conversational)
-      </button>
-      <button class="page-tab" onclick="showPage('guide')">
-        Guide + Drawer
-      </button>
+      <button class="page-tab active" onclick="showPage('home')">Home (Conversational)</button>
+      <button class="page-tab" onclick="showPage('guide')">Guide + Drawer</button>
       <button class="page-tab" onclick="showPage('matrix')">Matrix</button>
     </div>
 
     <script>
       function showPage(id) {
-        document
-          .querySelectorAll(".page")
-          .forEach((p) => p.classList.remove("active"));
-        document
-          .querySelectorAll(".page-tab")
-          .forEach((t) => t.classList.remove("active"));
+        document.querySelectorAll(".page").forEach((p) => p.classList.remove("active"));
+        document.querySelectorAll(".page-tab").forEach((t) => t.classList.remove("active"));
         document.getElementById("page-" + id).classList.add("active");
         document.querySelectorAll(".page-tab").forEach((t) => {
           if (
@@ -1149,21 +1082,10 @@
         document.getElementById("drawer").classList.remove("open");
         document.getElementById("overlay").classList.remove("open");
         // Update nav
-        document
-          .querySelectorAll(".topbar .nav a")
-          .forEach((a) => a.classList.remove("active"));
-        if (id === "home")
-          document
-            .querySelector(".topbar .nav a:nth-child(1)")
-            .classList.add("active");
-        else if (id === "guide")
-          document
-            .querySelector(".topbar .nav a:nth-child(2)")
-            .classList.add("active");
-        else if (id === "matrix")
-          document
-            .querySelector(".topbar .nav a:nth-child(3)")
-            .classList.add("active");
+        document.querySelectorAll(".topbar .nav a").forEach((a) => a.classList.remove("active"));
+        if (id === "home") document.querySelector(".topbar .nav a:nth-child(1)").classList.add("active");
+        else if (id === "guide") document.querySelector(".topbar .nav a:nth-child(2)").classList.add("active");
+        else if (id === "matrix") document.querySelector(".topbar .nav a:nth-child(3)").classList.add("active");
       }
       function toggleDrawer() {
         document.getElementById("drawer").classList.toggle("open");

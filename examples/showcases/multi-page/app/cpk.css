@@ -9,10 +9,8 @@
   --copilot-kit-separator-color: rgb(200 200 200);
   --copilot-kit-muted-color: rgb(200 200 200);
   --copilot-kit-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --copilot-kit-shadow-md:
-    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --copilot-kit-shadow-lg:
-    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --copilot-kit-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --copilot-kit-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   --copilot-kit-dev-console-bg: #f8f8fa;
   --copilot-kit-dev-console-text: black;
 }
@@ -31,10 +29,8 @@ body[style*="color-scheme: dark"] :root {
   --copilot-kit-separator-color: rgb(45, 45, 45);
   --copilot-kit-muted-color: rgb(45, 45, 45);
   --copilot-kit-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --copilot-kit-shadow-md:
-    0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-  --copilot-kit-shadow-lg:
-    0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --copilot-kit-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --copilot-kit-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
 }
 
 /* src/css/popup.css */
@@ -483,8 +479,7 @@ body[style*="color-scheme: dark"] .poweredBy {
   display: block;
   pointer-events: none;
 }
-.copilotKitMessage.copilotKitAssistantMessage
-  + .copilotKitMessage.copilotKitUserMessage {
+.copilotKitMessage.copilotKitAssistantMessage + .copilotKitMessage.copilotKitUserMessage {
   margin-top: 1.5rem;
 }
 .copilotKitCustomAssistantMessage {
@@ -898,11 +893,7 @@ li.copilotKitMarkdownElement {
   font-size: 8px;
 }
 .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover {
-  background-color: color-mix(
-    in srgb,
-    var(--copilot-kit-dev-console-bg) 85%,
-    black
-  );
+  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 85%, black);
   color: var(--copilot-kit-dev-console-text);
 }
 .dark,
@@ -910,9 +901,7 @@ html.dark,
 body.dark,
 [data-theme="dark"],
 html[style*="color-scheme: dark"],
-body[style*="color-scheme: dark"]
-  .copilotKitDevConsole
-  .copilotKitDebugMenuTriggerButton {
+body[style*="color-scheme: dark"] .copilotKitDevConsole .copilotKitDebugMenuTriggerButton {
   color: white;
 }
 .dark,
@@ -920,24 +909,14 @@ html.dark,
 body.dark,
 [data-theme="dark"],
 html[style*="color-scheme: dark"],
-body[style*="color-scheme: dark"]
-  .copilotKitDevConsole
-  .copilotKitDebugMenuTriggerButton:hover {
-  background-color: color-mix(
-    in srgb,
-    var(--copilot-kit-dev-console-bg) 20%,
-    black
-  );
+body[style*="color-scheme: dark"] .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover {
+  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 20%, black);
 }
 .copilotKitDevConsole .copilotKitDebugMenuTriggerButton > svg {
   margin-left: 10px;
 }
 .copilotKitDebugMenu {
-  --copilot-kit-dev-console-border: color-mix(
-    in srgb,
-    var(--copilot-kit-dev-console-bg) 80%,
-    black
-  );
+  --copilot-kit-dev-console-border: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 80%, black);
   margin-top: 2px;
   border-radius: 6px;
   background-color: var(--copilot-kit-dev-console-bg);
@@ -960,11 +939,7 @@ body[style*="color-scheme: dark"]
   color: var(--copilot-kit-dev-console-text);
 }
 .copilotKitDebugMenuItem:hover {
-  background-color: color-mix(
-    in srgb,
-    var(--copilot-kit-dev-console-bg) 95%,
-    black
-  );
+  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 95%, black);
   border-radius: 4px;
 }
 .copilotKitDebugMenu[data-closed] {
@@ -996,11 +971,7 @@ body[style*="color-scheme: dark"]
   background-color: var(--copilot-kit-dev-console-bg);
 }
 .copilotKitHelpItemButton:hover {
-  background-color: color-mix(
-    in srgb,
-    var(--copilot-kit-dev-console-bg) 95%,
-    black
-  );
+  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 95%, black);
 }
 
 /* src/css/crew.css */

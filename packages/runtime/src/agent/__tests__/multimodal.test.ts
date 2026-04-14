@@ -62,12 +62,8 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
   });
 
   it("converts AudioInputPart to FilePart", () => {
-    const result = convertUserContent([
-      { type: "audio", source: dataSource("base64audiodata", "audio/mp3") },
-    ]);
-    expect(result.content).toEqual([
-      { type: "file", data: "base64audiodata", mediaType: "audio/mp3" },
-    ]);
+    const result = convertUserContent([{ type: "audio", source: dataSource("base64audiodata", "audio/mp3") }]);
+    expect(result.content).toEqual([{ type: "file", data: "base64audiodata", mediaType: "audio/mp3" }]);
   });
 
   it("converts VideoInputPart with url source to FilePart", () => {
@@ -93,9 +89,7 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
         source: dataSource("base64pdfdata", "application/pdf"),
       },
     ]);
-    expect(result.content).toEqual([
-      { type: "file", data: "base64pdfdata", mediaType: "application/pdf" },
-    ]);
+    expect(result.content).toEqual([{ type: "file", data: "base64pdfdata", mediaType: "application/pdf" }]);
   });
 
   it("handles mixed text and multimodal parts", () => {
@@ -144,9 +138,7 @@ describe("convertMessagesToVercelAISDKMessages — multimodal", () => {
       ];
       const result = convertMessagesToVercelAISDKMessages(messages);
       const userMsg = result[0] as UserModelMessage;
-      expect(userMsg.content).toEqual([
-        { type: "image", image: "legacybase64", mediaType: "image/jpeg" },
-      ]);
+      expect(userMsg.content).toEqual([{ type: "image", image: "legacybase64", mediaType: "image/jpeg" }]);
     });
 
     it("converts binary with non-image mimeType and url to FilePart", () => {

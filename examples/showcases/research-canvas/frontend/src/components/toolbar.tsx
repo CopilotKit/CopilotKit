@@ -1,11 +1,7 @@
 import { FileText, RefreshCcw } from "lucide-react";
 import { useResearch } from "@/components/research-context";
 import { LucideIcon } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface NavButtonProps {
   icon: LucideIcon;
@@ -16,9 +12,7 @@ interface NavButtonProps {
 function NavButton({ icon: Icon, onClick, disabled }: NavButtonProps) {
   return (
     <button onClick={onClick} disabled={disabled}>
-      <Icon
-        className={`h-6 w-6 ${disabled ? "text-[#8B4513]/40" : "text-[#8B4513]"}`}
-      />
+      <Icon className={`h-6 w-6 ${disabled ? "text-[#8B4513]/40" : "text-[#8B4513]"}`} />
     </button>
   );
 }

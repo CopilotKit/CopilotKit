@@ -25,21 +25,9 @@ html {
 
 body {
   background-image:
-    radial-gradient(
-      circle at 15% 10%,
-      rgba(59, 130, 246, 0.14),
-      transparent 36%
-    ),
-    radial-gradient(
-      circle at 85% 18%,
-      rgba(16, 185, 129, 0.1),
-      transparent 34%
-    ),
-    radial-gradient(
-      circle at 48% 92%,
-      rgba(249, 115, 22, 0.08),
-      transparent 38%
-    ),
+    radial-gradient(circle at 15% 10%, rgba(59, 130, 246, 0.14), transparent 36%),
+    radial-gradient(circle at 85% 18%, rgba(16, 185, 129, 0.1), transparent 34%),
+    radial-gradient(circle at 48% 92%, rgba(249, 115, 22, 0.08), transparent 38%),
     linear-gradient(180deg, #f7f9fc 0%, #eef3fa 100%);
   background-attachment: fixed;
 }
@@ -67,11 +55,7 @@ body > div:first-child {
 }
 
 .glass-panel {
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.78) 0%,
-    rgba(255, 255, 255, 0.7) 100%
-  );
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(255, 255, 255, 0.7) 100%);
   border: 1px solid rgba(148, 163, 184, 0.25);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.75) inset,
@@ -112,10 +96,7 @@ body > div:first-child {
  * Ensure the last chat message never sits behind the fixed composer.
  * We keep CopilotKit's dynamic padding and add a small extra spacer.
  */
-.chat-container
-  [class*="overflow-y-scroll"]
-  > div
-  > div[style*="padding-bottom"]::after {
+.chat-container [class*="overflow-y-scroll"] > div > div[style*="padding-bottom"]::after {
   content: "";
   display: block;
   height: 5rem;

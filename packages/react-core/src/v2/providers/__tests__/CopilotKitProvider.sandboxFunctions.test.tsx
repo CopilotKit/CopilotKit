@@ -16,10 +16,7 @@ describe("CopilotKitProvider — openGenerativeUI.sandboxFunctions", () => {
     vi.restoreAllMocks();
   });
 
-  const makeSandboxFunction = (
-    name: string,
-    overrides?: Partial<SandboxFunction>,
-  ): SandboxFunction => ({
+  const makeSandboxFunction = (name: string, overrides?: Partial<SandboxFunction>): SandboxFunction => ({
     name,
     description: `${name} description`,
     parameters: z.object({ value: z.string() }),
@@ -28,12 +25,8 @@ describe("CopilotKitProvider — openGenerativeUI.sandboxFunctions", () => {
   });
 
   /** Helper: find the sandbox-functions context entry from the context record */
-  function findSandboxContext(
-    ctx: Record<string, { description: string; value: string }>,
-  ) {
-    return Object.values(ctx).find((c) =>
-      c.description.includes("Sandbox functions"),
-    );
+  function findSandboxContext(ctx: Record<string, { description: string; value: string }>) {
+    return Object.values(ctx).find((c) => c.description.includes("Sandbox functions"));
   }
 
   describe("SandboxFunctionsContext", () => {
@@ -42,9 +35,7 @@ describe("CopilotKitProvider — openGenerativeUI.sandboxFunctions", () => {
 
       const { result } = renderHook(() => useSandboxFunctions(), {
         wrapper: ({ children }) => (
-          <CopilotKitProvider openGenerativeUI={{ sandboxFunctions: fns }}>
-            {children}
-          </CopilotKitProvider>
+          <CopilotKitProvider openGenerativeUI={{ sandboxFunctions: fns }}>{children}</CopilotKitProvider>
         ),
       });
 
@@ -54,9 +45,7 @@ describe("CopilotKitProvider — openGenerativeUI.sandboxFunctions", () => {
 
     it("provides empty array when openGenerativeUI is not set", () => {
       const { result } = renderHook(() => useSandboxFunctions(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider>{children}</CopilotKitProvider>
-        ),
+        wrapper: ({ children }) => <CopilotKitProvider>{children}</CopilotKitProvider>,
       });
 
       expect(result.current).toHaveLength(0);
@@ -64,11 +53,7 @@ describe("CopilotKitProvider — openGenerativeUI.sandboxFunctions", () => {
 
     it("provides empty array when sandboxFunctions is not set", () => {
       const { result } = renderHook(() => useSandboxFunctions(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider openGenerativeUI={{}}>
-            {children}
-          </CopilotKitProvider>
-        ),
+        wrapper: ({ children }) => <CopilotKitProvider openGenerativeUI={{}}>{children}</CopilotKitProvider>,
       });
 
       expect(result.current).toHaveLength(0);
@@ -81,15 +66,11 @@ describe("CopilotKitProvider — openGenerativeUI.sandboxFunctions", () => {
 
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
-          <CopilotKitProvider openGenerativeUI={{ sandboxFunctions: fns }}>
-            {children}
-          </CopilotKitProvider>
+          <CopilotKitProvider openGenerativeUI={{ sandboxFunctions: fns }}>{children}</CopilotKitProvider>
         ),
       });
 
-      const sandboxContext = findSandboxContext(
-        result.current.copilotkit.context,
-      );
+      const sandboxContext = findSandboxContext(result.current.copilotkit.context);
       expect(sandboxContext).toBeDefined();
 
       const parsed = JSON.parse(sandboxContext!.value);
@@ -103,28 +84,20 @@ describe("CopilotKitProvider — openGenerativeUI.sandboxFunctions", () => {
     it("does not register agent context when sandbox functions are empty", () => {
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
-          <CopilotKitProvider openGenerativeUI={{ sandboxFunctions: [] }}>
-            {children}
-          </CopilotKitProvider>
+          <CopilotKitProvider openGenerativeUI={{ sandboxFunctions: [] }}>{children}</CopilotKitProvider>
         ),
       });
 
-      const sandboxContext = findSandboxContext(
-        result.current.copilotkit.context,
-      );
+      const sandboxContext = findSandboxContext(result.current.copilotkit.context);
       expect(sandboxContext).toBeUndefined();
     });
 
     it("does not register agent context when openGenerativeUI is omitted", () => {
       const { result } = renderHook(() => useCopilotKit(), {
-        wrapper: ({ children }) => (
-          <CopilotKitProvider>{children}</CopilotKitProvider>
-        ),
+        wrapper: ({ children }) => <CopilotKitProvider>{children}</CopilotKitProvider>,
       });
 
-      const sandboxContext = findSandboxContext(
-        result.current.copilotkit.context,
-      );
+      const sandboxContext = findSandboxContext(result.current.copilotkit.context);
       expect(sandboxContext).toBeUndefined();
     });
 
@@ -133,15 +106,11 @@ describe("CopilotKitProvider — openGenerativeUI.sandboxFunctions", () => {
 
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
-          <CopilotKitProvider openGenerativeUI={{ sandboxFunctions: fns }}>
-            {children}
-          </CopilotKitProvider>
+          <CopilotKitProvider openGenerativeUI={{ sandboxFunctions: fns }}>{children}</CopilotKitProvider>
         ),
       });
 
-      const sandboxContext = findSandboxContext(
-        result.current.copilotkit.context,
-      );
+      const sandboxContext = findSandboxContext(result.current.copilotkit.context);
       const parsed = JSON.parse(sandboxContext!.value);
       expect(parsed).toHaveLength(2);
       expect(parsed.map((f: any) => f.name)).toEqual(["fnA", "fnB"]);
@@ -159,15 +128,11 @@ describe("CopilotKitProvider — openGenerativeUI.sandboxFunctions", () => {
 
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
-          <CopilotKitProvider openGenerativeUI={{ sandboxFunctions: fns }}>
-            {children}
-          </CopilotKitProvider>
+          <CopilotKitProvider openGenerativeUI={{ sandboxFunctions: fns }}>{children}</CopilotKitProvider>
         ),
       });
 
-      const sandboxContext = findSandboxContext(
-        result.current.copilotkit.context,
-      );
+      const sandboxContext = findSandboxContext(result.current.copilotkit.context);
       const parsed = JSON.parse(sandboxContext!.value);
       const params = parsed[0].parameters;
 
@@ -181,9 +146,7 @@ describe("CopilotKitProvider — openGenerativeUI.sandboxFunctions", () => {
 
       const { result, unmount } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
-          <CopilotKitProvider openGenerativeUI={{ sandboxFunctions: fns }}>
-            {children}
-          </CopilotKitProvider>
+          <CopilotKitProvider openGenerativeUI={{ sandboxFunctions: fns }}>{children}</CopilotKitProvider>
         ),
       });
 

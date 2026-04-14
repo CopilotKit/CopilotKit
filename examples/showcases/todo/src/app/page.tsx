@@ -11,11 +11,7 @@ import { Todo } from "../types/todo";
  *
  **/
 
-import {
-  CopilotKit,
-  useCopilotAction,
-  useCopilotReadable,
-} from "@copilotkit/react-core";
+import { CopilotKit, useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
 import { CopilotPopup } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 
@@ -93,8 +89,7 @@ const TodoList: React.FC = () => {
           {
             name: "id",
             type: "string",
-            description:
-              "The id of the todo item. When creating a new todo item, just make up a new id.",
+            description: "The id of the todo item. When creating a new todo item, just make up a new id.",
           },
           {
             name: "text",
@@ -109,8 +104,7 @@ const TodoList: React.FC = () => {
           {
             name: "assignedTo",
             type: "string",
-            description:
-              "The person assigned to the todo item. If you don't know, assign it to 'YOU'.",
+            description: "The person assigned to the todo item. If you don't know, assign it to 'YOU'.",
             required: true,
           },
         ],
@@ -120,9 +114,7 @@ const TodoList: React.FC = () => {
       console.log(items);
       const newTodos = [...todos];
       for (const item of items) {
-        const existingItemIndex = newTodos.findIndex(
-          (todo) => todo.id === item.id,
-        );
+        const existingItemIndex = newTodos.findIndex((todo) => todo.id === item.id);
         if (existingItemIndex !== -1) {
           newTodos[existingItemIndex] = item;
         } else {
@@ -175,11 +167,7 @@ const TodoList: React.FC = () => {
   };
 
   const toggleComplete = (id: string) => {
-    setTodos(
-      todos.map((todo) =>
-        todo.id === id ? { ...todo, isCompleted: !todo.isCompleted } : todo,
-      ),
-    );
+    setTodos(todos.map((todo) => (todo.id === id ? { ...todo, isCompleted: !todo.isCompleted } : todo)));
   };
 
   const deleteTodo = (id: string) => {
@@ -187,13 +175,7 @@ const TodoList: React.FC = () => {
   };
 
   const assignPerson = (id: string, person: string | null) => {
-    setTodos(
-      todos.map((todo) =>
-        todo.id === id
-          ? { ...todo, assignedTo: person ? person : undefined }
-          : todo,
-      ),
-    );
+    setTodos(todos.map((todo) => (todo.id === id ? { ...todo, assignedTo: person ? person : undefined } : todo)));
   };
 
   return (
@@ -205,10 +187,7 @@ const TodoList: React.FC = () => {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyPress} // Add this to handle the Enter key press
         />
-        <button
-          className="bg-blue-500 rounded-md p-2 text-white"
-          onClick={addTodo}
-        >
+        <button className="bg-blue-500 rounded-md p-2 text-white" onClick={addTodo}>
           Add Todo
         </button>
       </div>

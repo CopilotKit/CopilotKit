@@ -21,16 +21,12 @@ test.describe("Agentic Generative UI", () => {
 
   test("message list container exists", async ({ page }) => {
     // The custom messageView renders a container with data-testid
-    await expect(
-      page.locator('[data-testid="copilot-message-list"]'),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[data-testid="copilot-message-list"]')).toBeVisible({ timeout: 10000 });
   });
 
   test("complex task triggers task progress tracker", async ({ page }) => {
     const input = page.getByPlaceholder("Type a message");
-    await input.fill(
-      "Create a comprehensive dashboard showing sales metrics, revenue trends, and customer segments",
-    );
+    await input.fill("Create a comprehensive dashboard showing sales metrics, revenue trends, and customer segments");
     await input.press("Enter");
 
     // The TaskProgress component should appear when the agent reports steps

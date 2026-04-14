@@ -11,8 +11,7 @@ export const posts: Post[] = [
   {
     id: 1,
     title: "Getting Started with CopilotKit",
-    summary:
-      "Learn the basics of CopilotKit and how to set up your first project.",
+    summary: "Learn the basics of CopilotKit and how to set up your first project.",
     content: `
         Explore the documentation to understand the SDK and UI components.
         Integrate your React app with CopilotKit using the provided SDK.
@@ -41,8 +40,7 @@ export const posts: Post[] = [
   {
     id: 3,
     title: "Troubleshooting common issues",
-    summary:
-      "Follow these steps to troubleshoot common issues when using CopilotKit.",
+    summary: "Follow these steps to troubleshoot common issues when using CopilotKit.",
     content: `
         Step 1: Check SDK Integration: Ensure that your React app is properly integrated with the CopilotKit SDK. 
         Step 2: Inspect Console Logs: Look for error messages or warnings in the browser console or server logs for any issues.

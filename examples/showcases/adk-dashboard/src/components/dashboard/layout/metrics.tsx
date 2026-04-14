@@ -30,10 +30,7 @@ export const PinnedMetrics = ({ state, setState }: PinnedMetricsProps) => {
             setState((prev) => ({
               title: prev?.title ?? "Dashboard",
               charts: prev?.charts ?? [],
-              pinnedMetrics: [
-                ...(prev?.pinnedMetrics ?? []),
-                CreateDefaultMetric(),
-              ],
+              pinnedMetrics: [...(prev?.pinnedMetrics ?? []), CreateDefaultMetric()],
             }));
           }}
         >

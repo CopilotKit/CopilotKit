@@ -182,10 +182,7 @@ export interface ConnectThreadLiveResponse {
   events: BaseEvent[];
 }
 
-export type ConnectThreadResponse =
-  | ConnectThreadBootstrapResponse
-  | ConnectThreadLiveResponse
-  | null;
+export type ConnectThreadResponse = ConnectThreadBootstrapResponse | ConnectThreadLiveResponse | null;
 
 /** A single message within a thread's persisted history. */
 export interface ThreadMessage {
@@ -324,9 +321,7 @@ export class CopilotKitIntelligence {
    *   the deleted thread.
    * @returns A function that removes this listener when called.
    */
-  onThreadDeleted(
-    callback: (params: ThreadDeletedPayload) => void,
-  ): () => void {
+  onThreadDeleted(callback: (params: ThreadDeletedPayload) => void): () => void {
     this.#threadDeletedListeners.add(callback);
     return () => {
       this.#threadDeletedListeners.delete(callback);
@@ -370,10 +365,7 @@ export class CopilotKitIntelligence {
 
     if (!response.ok) {
       const text = await response.text().catch(() => "");
-      logger.error(
-        { status: response.status, body: text, path },
-        "Intelligence platform request failed",
-      );
+      logger.error({ status: response.status, body: text, path }, "Intelligence platform request failed");
       throw new PlatformRequestError(
         `Intelligence platform error ${response.status}: ${text || response.statusText}`,
         response.status,
@@ -402,10 +394,7 @@ export class CopilotKitIntelligence {
       try {
         void (callback as (p: typeof payload) => void)(payload);
       } catch (error) {
-        logger.error(
-          { err: error, callbackName, payload },
-          "Intelligence lifecycle callback failed",
-        );
+        logger.error({ err: error, callbackName, payload }, "Intelligence lifecycle callback failed");
       }
     }
   }
@@ -437,16 +426,10 @@ export class CopilotKitIntelligence {
     return this.#request<ListThreadsResponse>("GET", `/api/threads?${qs}`);
   }
 
-  async ɵsubscribeToThreads(
-    params: SubscribeToThreadsRequest,
-  ): Promise<SubscribeToThreadsResponse> {
-    return this.#request<SubscribeToThreadsResponse>(
-      "POST",
-      "/api/threads/subscribe",
-      {
-        userId: params.userId,
-      },
-    );
+  async ɵsubscribeToThreads(params: SubscribeToThreadsRequest): Promise<SubscribeToThreadsResponse> {
+    return this.#request<SubscribeToThreadsResponse>("POST", "/api/threads/subscribe", {
+      userId: params.userId,
+    });
   }
 
   /**
@@ -486,16 +469,12 @@ export class CopilotKitIntelligence {
    *   same `threadId` already exists.
    */
   async createThread(params: CreateThreadRequest): Promise<ThreadSummary> {
-    const response = await this.#request<ThreadEnvelope>(
-      "POST",
-      `/api/threads`,
-      {
-        threadId: params.threadId,
-        userId: params.userId,
-        agentId: params.agentId,
-        ...(params.name !== undefined ? { name: params.name } : {}),
-      },
-    );
+    const response = await this.#request<ThreadEnvelope>("POST", `/api/threads`, {
+      threadId: params.threadId,
+      userId: params.userId,
+      agentId: params.agentId,
+      ...(params.name !== undefined ? { name: params.name } : {}),
+    });
     this.#invokeLifecycleCallback("onThreadCreated", response.thread);
     return response.thread;
   }
@@ -508,10 +487,7 @@ export class CopilotKitIntelligence {
    *   not exist.
    */
   async getThread(params: { threadId: string }): Promise<ThreadSummary> {
-    const response = await this.#request<ThreadEnvelope>(
-      "GET",
-      `/api/threads/${encodeURIComponent(params.threadId)}`,
-    );
+    const response = await this.#request<ThreadEnvelope>("GET", `/api/threads/${encodeURIComponent(params.threadId)}`);
     return response.thread;
   }
 
@@ -530,9 +506,7 @@ export class CopilotKitIntelligence {
    * @throws {@link PlatformRequestError} on non-2xx responses other than
    *   404 (get) and 409 (create race).
    */
-  async getOrCreateThread(
-    params: CreateThreadRequest,
-  ): Promise<{ thread: ThreadSummary; created: boolean }> {
+  async getOrCreateThread(params: CreateThreadRequest): Promise<{ thread: ThreadSummary; created: boolean }> {
     try {
       const thread = await this.getThread({ threadId: params.threadId });
       return { thread, created: false };
@@ -561,13 +535,8 @@ export class CopilotKitIntelligence {
    * @returns All persisted messages in chronological order.
    * @throws {@link PlatformRequestError} on non-2xx responses.
    */
-  async getThreadMessages(params: {
-    threadId: string;
-  }): Promise<ThreadMessagesResponse> {
-    return this.#request<ThreadMessagesResponse>(
-      "GET",
-      `/api/threads/${encodeURIComponent(params.threadId)}/messages`,
-    );
+  async getThreadMessages(params: { threadId: string }): Promise<ThreadMessagesResponse> {
+    return this.#request<ThreadMessagesResponse>("GET", `/api/threads/${encodeURIComponent(params.threadId)}/messages`);
   }
 
   /**
@@ -578,11 +547,7 @@ export class CopilotKitIntelligence {
    *
    * @throws {@link PlatformRequestError} on non-2xx responses.
    */
-  async archiveThread(params: {
-    threadId: string;
-    userId: string;
-    agentId: string;
-  }): Promise<void> {
+  async archiveThread(params: { threadId: string; userId: string; agentId: string }): Promise<void> {
     const response = await this.#request<ThreadEnvelope>(
       "PATCH",
       `/api/threads/${encodeURIComponent(params.threadId)}`,
@@ -599,60 +564,31 @@ export class CopilotKitIntelligence {
    *
    * @throws {@link PlatformRequestError} on non-2xx responses.
    */
-  async deleteThread(params: {
-    threadId: string;
-    userId: string;
-    agentId: string;
-  }): Promise<void> {
-    await this.#request<void>(
-      "DELETE",
-      `/api/threads/${encodeURIComponent(params.threadId)}`,
-      {
-        reason: `Deleted via CopilotKit runtime (userId=${params.userId}, agentId=${params.agentId})`,
-      },
-    );
+  async deleteThread(params: { threadId: string; userId: string; agentId: string }): Promise<void> {
+    await this.#request<void>("DELETE", `/api/threads/${encodeURIComponent(params.threadId)}`, {
+      reason: `Deleted via CopilotKit runtime (userId=${params.userId}, agentId=${params.agentId})`,
+    });
     this.#invokeLifecycleCallback("onThreadDeleted", params);
   }
 
-  async ɵacquireThreadLock(
-    params: AcquireThreadLockRequest,
-  ): Promise<ThreadConnectionResponse> {
-    return this.#request<ThreadConnectionResponse>(
-      "POST",
-      `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
-      {
-        runId: params.runId,
-        userId: params.userId,
-        ...(params.lockKeyPrefix !== undefined
-          ? { lockKeyPrefix: params.lockKeyPrefix }
-          : {}),
-        ...(params.ttlSeconds !== undefined
-          ? { ttlSeconds: params.ttlSeconds }
-          : {}),
-      },
-    );
+  async ɵacquireThreadLock(params: AcquireThreadLockRequest): Promise<ThreadConnectionResponse> {
+    return this.#request<ThreadConnectionResponse>("POST", `/api/threads/${encodeURIComponent(params.threadId)}/lock`, {
+      runId: params.runId,
+      userId: params.userId,
+      ...(params.lockKeyPrefix !== undefined ? { lockKeyPrefix: params.lockKeyPrefix } : {}),
+      ...(params.ttlSeconds !== undefined ? { ttlSeconds: params.ttlSeconds } : {}),
+    });
   }
 
-  async ɵrenewThreadLock(
-    params: RenewThreadLockRequest,
-  ): Promise<RenewThreadLockResponse> {
-    return this.#request<RenewThreadLockResponse>(
-      "PATCH",
-      `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
-      {
-        runId: params.runId,
-        ttlSeconds: params.ttlSeconds,
-        ...(params.lockKeyPrefix !== undefined
-          ? { lockKeyPrefix: params.lockKeyPrefix }
-          : {}),
-      },
-    );
+  async ɵrenewThreadLock(params: RenewThreadLockRequest): Promise<RenewThreadLockResponse> {
+    return this.#request<RenewThreadLockResponse>("PATCH", `/api/threads/${encodeURIComponent(params.threadId)}/lock`, {
+      runId: params.runId,
+      ttlSeconds: params.ttlSeconds,
+      ...(params.lockKeyPrefix !== undefined ? { lockKeyPrefix: params.lockKeyPrefix } : {}),
+    });
   }
 
-  async ɵgetActiveJoinCode(params: {
-    threadId: string;
-    userId: string;
-  }): Promise<ThreadConnectionResponse> {
+  async ɵgetActiveJoinCode(params: { threadId: string; userId: string }): Promise<ThreadConnectionResponse> {
     const qs = new URLSearchParams({ userId: params.userId }).toString();
     return this.#request<ThreadConnectionResponse>(
       "GET",
@@ -665,14 +601,14 @@ export class CopilotKitIntelligence {
     userId: string;
     lastSeenEventId?: string | null;
   }): Promise<ConnectThreadResponse> {
-    const result = await this.#request<
-      ConnectThreadBootstrapResponse | ConnectThreadLiveResponse
-    >("POST", `/api/threads/${encodeURIComponent(params.threadId)}/connect`, {
-      userId: params.userId,
-      ...(params.lastSeenEventId !== undefined
-        ? { lastSeenEventId: params.lastSeenEventId }
-        : {}),
-    });
+    const result = await this.#request<ConnectThreadBootstrapResponse | ConnectThreadLiveResponse>(
+      "POST",
+      `/api/threads/${encodeURIComponent(params.threadId)}/connect`,
+      {
+        userId: params.userId,
+        ...(params.lastSeenEventId !== undefined ? { lastSeenEventId: params.lastSeenEventId } : {}),
+      },
+    );
 
     // request() returns undefined for empty/204 responses
     return result ?? null;

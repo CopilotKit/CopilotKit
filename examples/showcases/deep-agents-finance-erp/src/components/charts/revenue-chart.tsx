@@ -1,21 +1,7 @@
 "use client";
 
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { revenueData } from "@/lib/data";
 
 interface RevenueChartConfig {
@@ -97,30 +83,12 @@ export function RevenueChart({ config }: { config?: RevenueChartConfig }) {
               }}
               formatter={(value: number) => [`$${(value / 1000).toFixed(0)}K`]}
             />
-            <Area
-              type="monotone"
-              dataKey="revenue"
-              stroke="#2563eb"
-              strokeWidth={2}
-              fill="url(#gradRevenue)"
-            />
+            <Area type="monotone" dataKey="revenue" stroke="#2563eb" strokeWidth={2} fill="url(#gradRevenue)" />
             {showExpenses && (
-              <Area
-                type="monotone"
-                dataKey="expenses"
-                stroke="#fb7185"
-                strokeWidth={2}
-                fill="url(#gradExpenses)"
-              />
+              <Area type="monotone" dataKey="expenses" stroke="#fb7185" strokeWidth={2} fill="url(#gradExpenses)" />
             )}
             {showProfit && (
-              <Area
-                type="monotone"
-                dataKey="profit"
-                stroke="#10b981"
-                strokeWidth={2}
-                fill="url(#gradProfit)"
-              />
+              <Area type="monotone" dataKey="profit" stroke="#10b981" strokeWidth={2} fill="url(#gradProfit)" />
             )}
           </AreaChart>
         </ResponsiveContainer>

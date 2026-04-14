@@ -1,8 +1,4 @@
-import {
-  EnvironmentInjector,
-  runInInjectionContext,
-  computed,
-} from "@angular/core";
+import { EnvironmentInjector, runInInjectionContext, computed } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CopilotChatUserMessage } from "../copilot-chat-user-message";
@@ -22,10 +18,7 @@ describe("CopilotChatUserMessage", () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({});
     injector = TestBed.inject(EnvironmentInjector);
-    component = runInInjectionContext(
-      injector,
-      () => new CopilotChatUserMessage(),
-    );
+    component = runInInjectionContext(injector, () => new CopilotChatUserMessage());
     (component as any).message = () => sampleMessage;
   });
 
@@ -39,15 +32,11 @@ describe("CopilotChatUserMessage", () => {
 
   it("indicates when branch navigation should be shown", () => {
     (component as any).numberOfBranches = () => 3;
-    component.showBranchNavigation = computed(
-      () => ((component as any).numberOfBranches() ?? 1) > 1,
-    );
+    component.showBranchNavigation = computed(() => ((component as any).numberOfBranches() ?? 1) > 1);
     expect(component.showBranchNavigation()).toBe(true);
 
     (component as any).numberOfBranches = () => 1;
-    component.showBranchNavigation = computed(
-      () => ((component as any).numberOfBranches() ?? 1) > 1,
-    );
+    component.showBranchNavigation = computed(() => ((component as any).numberOfBranches() ?? 1) > 1);
     expect(component.showBranchNavigation()).toBe(false);
   });
 

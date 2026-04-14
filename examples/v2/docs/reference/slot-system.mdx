@@ -24,10 +24,7 @@ Every slot accepts one of four value types, from simplest to most flexible:
 Pass a string of Tailwind classes to add or override styles:
 
 ```tsx
-<CopilotChat
-  input="border-2 border-blue-500 rounded-xl"
-  messageView="space-y-4 p-4"
-/>
+<CopilotChat input="border-2 border-blue-500 rounded-xl" messageView="space-y-4 p-4" />
 ```
 
 Classes are merged with the component's existing classes using `tailwind-merge`, so conflicting classes are resolved intelligently.
@@ -61,11 +58,7 @@ Replace the component entirely with your own implementation:
 function CustomInput({ onSubmitMessage, isRunning, ...props }) {
   return (
     <div className="my-custom-wrapper">
-      <CopilotChatInput
-        onSubmitMessage={onSubmitMessage}
-        isRunning={isRunning}
-        {...props}
-      />
+      <CopilotChatInput onSubmitMessage={onSubmitMessage} isRunning={isRunning} {...props} />
     </div>
   );
 }

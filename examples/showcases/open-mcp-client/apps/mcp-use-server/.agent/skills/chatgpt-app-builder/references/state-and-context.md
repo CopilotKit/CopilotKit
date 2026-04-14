@@ -26,19 +26,14 @@ function TodoList() {
   const addTask = async (title: string) => {
     await setState((prev) => ({
       ...prev,
-      tasks: [
-        ...(prev?.tasks || []),
-        { id: Date.now(), title, completed: false },
-      ],
+      tasks: [...(prev?.tasks || []), { id: Date.now(), title, completed: false }],
     }));
   };
 
   const toggleTask = async (id: number) => {
     await setState((prev) => ({
       ...prev,
-      tasks: prev.tasks.map((t: any) =>
-        t.id === id ? { ...t, completed: !t.completed } : t,
-      ),
+      tasks: prev.tasks.map((t: any) => (t.id === id ? { ...t, completed: !t.completed } : t)),
     }));
   };
 
@@ -67,11 +62,7 @@ function Counter() {
   const [state, setState] = useWidgetState({ count: 0 });
 
   return (
-    <button
-      onClick={() => setState((prev) => ({ count: (prev?.count || 0) + 1 }))}
-    >
-      Count: {state?.count || 0}
-    </button>
+    <button onClick={() => setState((prev) => ({ count: (prev?.count || 0) + 1 }))}>Count: {state?.count || 0}</button>
   );
 }
 ```
@@ -161,9 +152,7 @@ function AnalyzeButton() {
   return (
     <button
       onClick={() =>
-        sendFollowUpMessage(
-          "Compare the top 3 results and recommend the best one based on price and reviews.",
-        )
+        sendFollowUpMessage("Compare the top 3 results and recommend the best one based on price and reviews.")
       }
     >
       Ask AI to Analyze
@@ -188,11 +177,7 @@ import { useWidget } from "mcp-use/react";
 function CheckoutButton({ checkoutUrl }) {
   const { openExternal } = useWidget();
 
-  return (
-    <button onClick={() => openExternal(checkoutUrl)}>
-      Proceed to Payment
-    </button>
-  );
+  return <button onClick={() => openExternal(checkoutUrl)}>Proceed to Payment</button>;
 }
 ```
 
@@ -205,8 +190,7 @@ import { McpUseProvider, useWidget } from "mcp-use/react";
 import { useState } from "react";
 
 export default function TodoWidget() {
-  const { props, isPending, state, setState, sendFollowUpMessage } =
-    useWidget();
+  const { props, isPending, state, setState, sendFollowUpMessage } = useWidget();
 
   // PERSISTENT: Tasks survive widget close/reopen, LLM sees them
   const tasks = state?.tasks || props.tasks || [];
@@ -224,9 +208,7 @@ export default function TodoWidget() {
   const toggleTask = async (id: string) => {
     await setState((prev: any) => ({
       ...prev,
-      tasks: (prev?.tasks || tasks).map((t: any) =>
-        t.id === id ? { ...t, completed: !t.completed } : t,
-      ),
+      tasks: (prev?.tasks || tasks).map((t: any) => (t.id === id ? { ...t, completed: !t.completed } : t)),
     }));
   };
 
@@ -246,21 +228,11 @@ export default function TodoWidget() {
               opacity: t.completed ? 0.5 : 1,
             }}
           >
-            <input
-              type="checkbox"
-              checked={t.completed}
-              onChange={() => toggleTask(t.id)}
-            />
+            <input type="checkbox" checked={t.completed} onChange={() => toggleTask(t.id)} />
             {t.title}
           </div>
         ))}
-        <button
-          onClick={() =>
-            sendFollowUpMessage(
-              `I have ${remaining} tasks left. Help me prioritize them.`,
-            )
-          }
-        >
+        <button onClick={() => sendFollowUpMessage(`I have ${remaining} tasks left. Help me prioritize them.`)}>
           Ask AI to Prioritize
         </button>
       </div>

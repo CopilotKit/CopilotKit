@@ -8,17 +8,9 @@ import { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { AIMessage, SystemMessage } from "@langchain/core/messages";
-import {
-  interrupt,
-  MemorySaver,
-  START,
-  StateGraph,
-} from "@langchain/langgraph";
+import { interrupt, MemorySaver, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
-import {
-  convertActionsToDynamicStructuredTools,
-  CopilotKitStateAnnotation,
-} from "@copilotkit/sdk-js/langgraph";
+import { convertActionsToDynamicStructuredTools, CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 import { Annotation } from "@langchain/langgraph";
 
 // 1. Define our agent state, which includes CopilotKit state to
@@ -61,8 +53,7 @@ const deleteProverb = tool(
   },
   {
     name: "deleteProverb",
-    description:
-      "Delete a proverb from the list. This will ask the user for confirmation before deleting.",
+    description: "Delete a proverb from the list. This will ask the user for confirmation before deleting.",
     schema: z.object({
       proverb: z.string().describe("The proverb to delete"),
     }),
@@ -91,10 +82,7 @@ async function chat_node(state: AgentState, config: RunnableConfig) {
   });
 
   // 5.4 Invoke the model with the system message and the messages in the state
-  const response = await modelWithTools.invoke(
-    [systemMessage, ...state.messages],
-    config,
-  );
+  const response = await modelWithTools.invoke([systemMessage, ...state.messages], config);
 
   // 5.5 Return the response, which will be added to the state
   return {

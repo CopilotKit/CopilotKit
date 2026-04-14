@@ -1,19 +1,10 @@
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useSandboxFunctions } from "../providers/SandboxFunctionsContext";
-import {
-  processPartialHtml,
-  extractCompleteStyles,
-} from "../lib/processPartialHtml";
+import { processPartialHtml, extractCompleteStyles } from "../lib/processPartialHtml";
 
 export const OpenGenerativeUIActivityType = "open-generative-ui";
 
@@ -30,9 +21,7 @@ export const OpenGenerativeUIContentSchema = z.object({
   jsExpressionsComplete: z.boolean().optional(),
 });
 
-export type OpenGenerativeUIContent = z.infer<
-  typeof OpenGenerativeUIContentSchema
->;
+export type OpenGenerativeUIContent = z.infer<typeof OpenGenerativeUIContentSchema>;
 
 /**
  * Schema for the generateSandboxedUi tool call arguments.
@@ -47,9 +36,7 @@ export const GenerateSandboxedUiArgsSchema = z.object({
   jsExpressions: z.array(z.string()).optional(),
 });
 
-export type GenerateSandboxedUiArgs = z.infer<
-  typeof GenerateSandboxedUiArgsSchema
->;
+export type GenerateSandboxedUiArgs = z.infer<typeof GenerateSandboxedUiArgsSchema>;
 
 interface OpenGenerativeUIActivityRendererProps {
   activityType: string;
@@ -64,10 +51,7 @@ const THROTTLE_MS = 1000;
  * Returns true when the inner component should re-render immediately
  * (no throttle delay).
  */
-function shouldFlushImmediately(
-  prev: OpenGenerativeUIContent | null,
-  next: OpenGenerativeUIContent,
-): boolean {
+function shouldFlushImmediately(prev: OpenGenerativeUIContent | null, next: OpenGenerativeUIContent): boolean {
   // CSS finished — switch from placeholder to preview
   if (next.cssComplete && (!prev || !prev.cssComplete)) return true;
   // Streaming done
@@ -77,8 +61,7 @@ function shouldFlushImmediately(
   // jsFunctions appeared
   if (next.jsFunctions && (!prev || !prev.jsFunctions)) return true;
   // jsExpressions grew
-  if ((next.jsExpressions?.length ?? 0) > (prev?.jsExpressions?.length ?? 0))
-    return true;
+  if ((next.jsExpressions?.length ?? 0) > (prev?.jsExpressions?.length ?? 0)) return true;
   // First html chunk arrived (first preview — no delay)
   if (next.html?.length && (!prev || !prev.html?.length)) return true;
   return false;
@@ -93,8 +76,7 @@ export const OpenGenerativeUIActivityRenderer: React.FC<OpenGenerativeUIActivity
     const latestContentRef = useRef(content);
     latestContentRef.current = content;
 
-    const [throttledContent, setThrottledContent] =
-      useState<OpenGenerativeUIContent>(content);
+    const [throttledContent, setThrottledContent] = useState<OpenGenerativeUIContent>(content);
     const throttledContentRef = useRef(throttledContent);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -159,11 +141,7 @@ function ensureHead(html: string): string {
 function injectCssIntoHtml(html: string, css: string): string {
   const headCloseIdx = html.indexOf("</head>");
   if (headCloseIdx !== -1) {
-    return (
-      html.slice(0, headCloseIdx) +
-      `<style>${css}</style>` +
-      html.slice(headCloseIdx)
-    );
+    return html.slice(0, headCloseIdx) + `<style>${css}</style>` + html.slice(headCloseIdx);
   }
   return `<head><style>${css}</style></head>${html}`;
 }
@@ -183,10 +161,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     }, [sandboxFunctions]);
 
     // Join html chunks only when streaming is complete
-    const fullHtml =
-      content.htmlComplete && content.html?.length
-        ? content.html.join("")
-        : undefined;
+    const fullHtml = content.htmlComplete && content.html?.length ? content.html.join("") : undefined;
 
     // CSS from the dedicated parameter (available once cssComplete)
     const css = content.cssComplete ? content.css : undefined;
@@ -194,13 +169,8 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     // Derived state for preview streaming — gate on cssComplete so we
     // show the placeholder until styles are ready.
     const cssReady = !!content.cssComplete;
-    const partialHtml =
-      !content.htmlComplete && content.html?.length
-        ? content.html.join("")
-        : undefined;
-    const previewBody = partialHtml
-      ? processPartialHtml(partialHtml)
-      : undefined;
+    const partialHtml = !content.htmlComplete && content.html?.length ? content.html.join("") : undefined;
+    const previewBody = partialHtml ? processPartialHtml(partialHtml) : undefined;
     const previewStyles = partialHtml ? extractCompleteStyles(partialHtml) : "";
     const hasPreview = cssReady && !!previewBody?.trim();
     const hasVisibleSandbox = !!fullHtml || hasPreview;
@@ -225,8 +195,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     // Effect 0 — Preview sandbox creation
     useEffect(() => {
       const container = containerRef.current;
-      if (!container || fullHtml || !hasPreview || previewSandboxRef.current)
-        return;
+      if (!container || fullHtml || !hasPreview || previewSandboxRef.current) return;
 
       let cancelled = false;
 
@@ -266,22 +235,15 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
             if (css) headParts.push(`<style>${css}</style>`);
             if (previewStyles) headParts.push(previewStyles);
             if (headParts.length) {
-              sandbox.run(
-                `document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`,
-              );
+              sandbox.run(`document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`);
             }
             if (previewBody) {
-              sandbox.run(
-                `document.body.innerHTML = ${JSON.stringify(previewBody)}`,
-              );
+              sandbox.run(`document.body.innerHTML = ${JSON.stringify(previewBody)}`);
             }
           });
         })
         .catch((err: unknown) => {
-          console.error(
-            "[OpenGenerativeUI] Failed to load sandbox module:",
-            err,
-          );
+          console.error("[OpenGenerativeUI] Failed to load sandbox module:", err);
         });
 
       return () => {
@@ -296,14 +258,10 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       if (css) headParts.push(`<style>${css}</style>`);
       if (previewStyles) headParts.push(previewStyles);
       if (headParts.length) {
-        previewSandboxRef.current.run(
-          `document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`,
-        );
+        previewSandboxRef.current.run(`document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`);
       }
       if (!previewBody) return;
-      previewSandboxRef.current.run(
-        `document.body.innerHTML = ${JSON.stringify(previewBody)}`,
-      );
+      previewSandboxRef.current.run(`document.body.innerHTML = ${JSON.stringify(previewBody)}`);
     }, [previewBody, previewStyles, css]);
 
     // Effect 1 — Final sandbox lifecycle (depends on fullHtml)
@@ -369,10 +327,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
           });
         })
         .catch((err: unknown) => {
-          console.error(
-            "[OpenGenerativeUI] Failed to load sandbox module:",
-            err,
-          );
+          console.error("[OpenGenerativeUI] Failed to load sandbox module:", err);
         });
 
       return () => {
@@ -439,10 +394,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       let handled = false;
       const onMessage = (e: MessageEvent) => {
         if (handled) return;
-        if (
-          e.source === sandbox.iframe.contentWindow &&
-          e.data?.type === "__ck_resize"
-        ) {
+        if (e.source === sandbox.iframe.contentWindow && e.data?.type === "__ck_resize") {
           handled = true;
           setAutoHeight(e.data.height);
           window.removeEventListener("message", onMessage);
@@ -516,12 +468,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
               style={{ animation: "ck-spin 1s linear infinite" }}
             >
               <circle cx="12" cy="12" r="10" stroke="#e0e0e0" strokeWidth="3" />
-              <path
-                d="M12 2a10 10 0 0 1 10 10"
-                stroke="#999"
-                strokeWidth="3"
-                strokeLinecap="round"
-              />
+              <path d="M12 2a10 10 0 0 1 10 10" stroke="#999" strokeWidth="3" strokeLinecap="round" />
             </svg>
             <style>{`@keyframes ck-spin { to { transform: rotate(360deg) } }`}</style>
           </div>

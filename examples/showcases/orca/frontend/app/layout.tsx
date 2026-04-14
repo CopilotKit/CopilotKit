@@ -15,23 +15,12 @@ export const metadata: Metadata = {
   generator: "v0.dev",
 };
 
-export default function RootLayout({
-  children,
-  chat,
-}: {
-  children: React.ReactNode;
-  chat: React.ReactNode;
-}) {
+export default function RootLayout({ children, chat }: { children: React.ReactNode; chat: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <CopilotKit runtimeUrl="/api/copilotkit">
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-            disableTransitionOnChange
-          >
+          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
             <SharedProvider>
               <SidebarProvider>
                 <div className="flex h-screen w-full overflow-hidden bg-background">

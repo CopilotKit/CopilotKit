@@ -25,9 +25,7 @@ import {
 
 const allTypes: AgentType[] = ["aisdk", "tanstack", "custom"];
 
-function minimalStreamData(
-  type: AgentType,
-): MockStreamEvent[] | Record<string, unknown>[] | BaseEvent[] {
+function minimalStreamData(type: AgentType): MockStreamEvent[] | Record<string, unknown>[] | BaseEvent[] {
   switch (type) {
     case "aisdk":
       return [textDelta("hi"), finish()];
@@ -44,9 +42,7 @@ function minimalStreamData(
   }
 }
 
-function emptyStreamData(
-  type: AgentType,
-): MockStreamEvent[] | Record<string, unknown>[] | BaseEvent[] {
+function emptyStreamData(type: AgentType): MockStreamEvent[] | Record<string, unknown>[] | BaseEvent[] {
   switch (type) {
     case "aisdk":
       return [finish()];
@@ -123,31 +119,23 @@ describe.each(allTypes)("Agent [%s]", (type) => {
     it("emits RUN_ERROR when factory throws", async () => {
       const agent = createThrowingAgent(type, "factory-boom");
       const input = createDefaultInput();
-      const { events, errored } = await collectEventsIncludingErrors(
-        agent.run(input),
-      );
+      const { events, errored } = await collectEventsIncludingErrors(agent.run(input));
 
       expect(errored).toBe(true);
       const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
       expect(errorEvents.length).toBe(1);
-      expect(eventField<string>(errorEvents[0], "message")).toBe(
-        "factory-boom",
-      );
+      expect(eventField<string>(errorEvents[0], "message")).toBe("factory-boom");
     });
 
     it("emits RUN_ERROR when stream throws mid-iteration", async () => {
       const agent = createMidStreamErrorAgent(type, "mid-stream-boom");
       const input = createDefaultInput();
-      const { events, errored } = await collectEventsIncludingErrors(
-        agent.run(input),
-      );
+      const { events, errored } = await collectEventsIncludingErrors(agent.run(input));
 
       expect(errored).toBe(true);
       const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);
       expect(errorEvents.length).toBe(1);
-      expect(eventField<string>(errorEvents[0], "message")).toBe(
-        "mid-stream-boom",
-      );
+      expect(eventField<string>(errorEvents[0], "message")).toBe("mid-stream-boom");
     });
 
     it("does not emit RUN_FINISHED after RUN_ERROR", async () => {
@@ -159,9 +147,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
       expect(errorIdx).toBeGreaterThanOrEqual(0);
 
       const eventsAfterError = events.slice(errorIdx + 1);
-      const finishAfterError = eventsAfterError.filter(
-        (e) => e.type === EventType.RUN_FINISHED,
-      );
+      const finishAfterError = eventsAfterError.filter((e) => e.type === EventType.RUN_FINISHED);
       expect(finishAfterError.length).toBe(0);
     });
   });
@@ -173,9 +159,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
     it("completes without error after abortRun()", async () => {
       // Use a signal to synchronize: abort after the first chunk is emitted
       let emittedFirstChunk: () => void;
-      const firstChunkEmitted = new Promise<void>(
-        (r) => (emittedFirstChunk = r),
-      );
+      const firstChunkEmitted = new Promise<void>((r) => (emittedFirstChunk = r));
 
       let config: BuiltInAgentFactoryConfig;
       switch (type) {
@@ -363,9 +347,7 @@ describe.each(allTypes)("Agent [%s]", (type) => {
       await collectEvents(agent.run(input));
 
       expect(capturedCtx!.abortController).toBeInstanceOf(AbortController);
-      expect(capturedCtx!.abortSignal).toBe(
-        capturedCtx!.abortController.signal,
-      );
+      expect(capturedCtx!.abortSignal).toBe(capturedCtx!.abortController.signal);
     });
   });
 
@@ -402,34 +384,23 @@ describe.each(allTypes)("Agent [%s]", (type) => {
 
 describe("Agent type discrimination", () => {
   it('"aisdk" routes to AI SDK converter and produces text content', async () => {
-    const agent = createAgent("aisdk", [
-      textDelta("hello from aisdk"),
-      finish(),
-    ]);
+    const agent = createAgent("aisdk", [textDelta("hello from aisdk"), finish()]);
     const input = createDefaultInput();
     const events = await collectEvents(agent.run(input));
 
-    const textEvents = events.filter(
-      (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-    );
+    const textEvents = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CHUNK);
     expect(textEvents.length).toBe(1);
     expect(eventField<string>(textEvents[0], "delta")).toBe("hello from aisdk");
   });
 
   it('"tanstack" routes to TanStack converter and produces text content', async () => {
-    const agent = createAgent("tanstack", [
-      tanstackTextChunk("hello from tanstack"),
-    ]);
+    const agent = createAgent("tanstack", [tanstackTextChunk("hello from tanstack")]);
     const input = createDefaultInput();
     const events = await collectEvents(agent.run(input));
 
-    const textEvents = events.filter(
-      (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-    );
+    const textEvents = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CHUNK);
     expect(textEvents.length).toBe(1);
-    expect(eventField<string>(textEvents[0], "delta")).toBe(
-      "hello from tanstack",
-    );
+    expect(eventField<string>(textEvents[0], "delta")).toBe("hello from tanstack");
   });
 
   it('"custom" forwards events directly without conversion', async () => {
@@ -443,13 +414,9 @@ describe("Agent type discrimination", () => {
     const input = createDefaultInput();
     const events = await collectEvents(agent.run(input));
 
-    const textEvents = events.filter(
-      (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-    );
+    const textEvents = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CHUNK);
     expect(textEvents.length).toBe(1);
-    expect(eventField<string>(textEvents[0], "delta")).toBe(
-      "hello from custom",
-    );
+    expect(eventField<string>(textEvents[0], "delta")).toBe("hello from custom");
   });
 });
 
@@ -476,9 +443,7 @@ describe("Async factory (Promise-returning)", () => {
     const events = await collectEvents(agent.run(input));
 
     expectLifecycleWrapped(events);
-    const textEvents = events.filter(
-      (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-    );
+    const textEvents = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CHUNK);
     expect(textEvents).toHaveLength(1);
     expect(eventField<string>(textEvents[0], "delta")).toBe("async-aisdk");
   });
@@ -497,9 +462,7 @@ describe("Async factory (Promise-returning)", () => {
     const events = await collectEvents(agent.run(input));
 
     expectLifecycleWrapped(events);
-    const textEvents = events.filter(
-      (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-    );
+    const textEvents = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CHUNK);
     expect(textEvents).toHaveLength(1);
     expect(eventField<string>(textEvents[0], "delta")).toBe("async-tanstack");
   });
@@ -522,9 +485,7 @@ describe("Async factory (Promise-returning)", () => {
     const events = await collectEvents(agent.run(input));
 
     expectLifecycleWrapped(events);
-    const textEvents = events.filter(
-      (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-    );
+    const textEvents = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CHUNK);
     expect(textEvents).toHaveLength(1);
     expect(eventField<string>(textEvents[0], "delta")).toBe("async-custom");
   });
@@ -546,9 +507,7 @@ describe("RUN_ERROR correlation fields", () => {
       threadId: "err-thread",
       runId: "err-run",
     });
-    const { events, errored } = await collectEventsIncludingErrors(
-      agent.run(input),
-    );
+    const { events, errored } = await collectEventsIncludingErrors(agent.run(input));
 
     expect(errored).toBe(true);
     const errorEvents = events.filter((e) => e.type === EventType.RUN_ERROR);

@@ -2,18 +2,9 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import {
-  CopilotSidebar,
-  useAgent,
-  UseAgentUpdate,
-  useHumanInTheLoop,
-} from "@copilotkit/react-core/v2";
+import { CopilotSidebar, useAgent, UseAgentUpdate, useHumanInTheLoop } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import {
-  useShowcaseHooks,
-  useShowcaseSuggestions,
-  demonstrationCatalog,
-} from "@copilotkit/showcase-shared";
+import { useShowcaseHooks, useShowcaseSuggestions, demonstrationCatalog } from "@copilotkit/showcase-shared";
 
 interface AgentState {
   document: string;
@@ -21,11 +12,7 @@ interface AgentState {
 
 export default function SharedStateStreamingDemo() {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      agent="shared-state-streaming"
-      a2ui={{ catalog: demonstrationCatalog }}
-    >
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-streaming" a2ui={{ catalog: demonstrationCatalog }}>
       <div className="min-h-screen w-full">
         <CopilotSidebar
           defaultOpen={true}
@@ -95,9 +82,7 @@ function DocumentEditor() {
       name: "write_document",
       description: "Present the proposed changes to the user for review",
       parameters: z.object({
-        document: z
-          .string()
-          .describe("The full updated document in markdown format"),
+        document: z.string().describe("The full updated document in markdown format"),
       }),
       render({
         args,
@@ -140,9 +125,7 @@ function DocumentEditor() {
   return (
     <div className="relative min-h-screen w-full p-6">
       {placeholderVisible && (
-        <div className="absolute top-10 left-10 pointer-events-none text-gray-400">
-          Write whatever you want here...
-        </div>
+        <div className="absolute top-10 left-10 pointer-events-none text-gray-400">Write whatever you want here...</div>
       )}
       <textarea
         ref={textareaRef}
@@ -164,13 +147,7 @@ interface ConfirmChangesProps {
   onConfirm: () => void;
 }
 
-function ConfirmChanges({
-  args,
-  respond,
-  status,
-  onReject,
-  onConfirm,
-}: ConfirmChangesProps) {
+function ConfirmChanges({ args, respond, status, onReject, onConfirm }: ConfirmChangesProps) {
   const [accepted, setAccepted] = useState<boolean | null>(null);
 
   return (
@@ -218,10 +195,7 @@ function ConfirmChanges({
       )}
       {accepted !== null && (
         <div className="flex justify-end">
-          <div
-            data-testid="status-display"
-            className="mt-4 bg-gray-200 text-black py-2 px-4 rounded inline-block"
-          >
+          <div data-testid="status-display" className="mt-4 bg-gray-200 text-black py-2 px-4 rounded inline-block">
             {accepted ? "Accepted" : "Rejected"}
           </div>
         </div>

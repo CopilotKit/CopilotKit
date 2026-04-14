@@ -132,12 +132,8 @@ describe("InferSchemaOutput type inference", () => {
 
   describe("StandardSchemaV1 compatibility", () => {
     it("all schema types satisfy StandardSchemaV1", () => {
-      expectTypeOf(
-        z.object({ a: z.string() }),
-      ).toMatchTypeOf<StandardSchemaV1>();
-      expectTypeOf(
-        v.object({ a: v.string() }),
-      ).toMatchTypeOf<StandardSchemaV1>();
+      expectTypeOf(z.object({ a: z.string() })).toMatchTypeOf<StandardSchemaV1>();
+      expectTypeOf(v.object({ a: v.string() })).toMatchTypeOf<StandardSchemaV1>();
       expectTypeOf(type({ a: "string" })).toMatchTypeOf<StandardSchemaV1>();
     });
   });

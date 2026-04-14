@@ -14,12 +14,7 @@ import https from "https";
 
 const NOTION_API_VERSION = "2022-06-28";
 
-function notionRequest(
-  apiKey: string,
-  method: string,
-  path: string,
-  body?: unknown,
-): Promise<any> {
+function notionRequest(apiKey: string, method: string, path: string, body?: unknown): Promise<any> {
   return new Promise((resolve, reject) => {
     const options = {
       hostname: "api.notion.com",
@@ -38,11 +33,7 @@ function notionRequest(
       res.on("end", () => {
         const parsed = JSON.parse(data);
         if (res.statusCode && res.statusCode >= 400) {
-          reject(
-            new Error(
-              `Notion API ${res.statusCode}: ${parsed.message || data}`,
-            ),
-          );
+          reject(new Error(`Notion API ${res.statusCode}: ${parsed.message || data}`));
         } else {
           resolve(parsed);
         }
@@ -108,10 +99,7 @@ function blocksToMarkdown(blocks: any[]): string {
   const lines: string[] = [];
 
   for (const block of blocks) {
-    const richText =
-      block[block.type]?.rich_text
-        ?.map((t: any) => t.plain_text || "")
-        .join("") || "";
+    const richText = block[block.type]?.rich_text?.map((t: any) => t.plain_text || "").join("") || "";
 
     switch (block.type) {
       case "heading_1":
@@ -186,11 +174,7 @@ export async function readReleaseDraft(pageId: string): Promise<string> {
     throw new Error("NOTION_API_KEY must be set");
   }
 
-  const response = await notionRequest(
-    apiKey,
-    "GET",
-    `/v1/blocks/${pageId}/children?page_size=100`,
-  );
+  const response = await notionRequest(apiKey, "GET", `/v1/blocks/${pageId}/children?page_size=100`);
 
   return blocksToMarkdown(response.results);
 }

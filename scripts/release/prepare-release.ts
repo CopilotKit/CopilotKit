@@ -14,18 +14,10 @@ import {
   getPackagesForScope,
   type BumpLevel,
 } from "./lib/versions.js";
-import {
-  getChangesSummary,
-  type ChangesSummary,
-  type Commit,
-} from "./lib/changes.js";
+import { getChangesSummary, type ChangesSummary, type Commit } from "./lib/changes.js";
 import { ROOT, type ReleaseScope } from "./lib/config.js";
 
-function generateRawReleaseNotes(
-  version: string,
-  scope: ReleaseScope,
-  summary: ChangesSummary,
-): string {
+function generateRawReleaseNotes(version: string, scope: ReleaseScope, summary: ChangesSummary): string {
   const lines: string[] = [];
   const label = scope === "monorepo" ? "" : ` (${scope})`;
   lines.push(`## v${version}${label}`, "");
@@ -47,8 +39,7 @@ function generateRawReleaseNotes(
 
   if (features.length > 0) {
     lines.push("### Features", "");
-    for (const c of features)
-      lines.push(`- ${c.subject} (${c.hash.slice(0, 7)})`);
+    for (const c of features) lines.push(`- ${c.subject} (${c.hash.slice(0, 7)})`);
     lines.push("");
   }
 
@@ -73,25 +64,17 @@ function main() {
   const argv = process.argv.slice(2);
   const dryRun = argv.includes("--dry-run");
   const bumpIdx = argv.indexOf("--bump");
-  const bumpLevel = (
-    bumpIdx !== -1 ? argv[bumpIdx + 1] : null
-  ) as BumpLevel | null;
+  const bumpLevel = (bumpIdx !== -1 ? argv[bumpIdx + 1] : null) as BumpLevel | null;
   const scopeIdx = argv.indexOf("--scope");
-  const scope = (
-    scopeIdx !== -1 ? argv[scopeIdx + 1] : null
-  ) as ReleaseScope | null;
+  const scope = (scopeIdx !== -1 ? argv[scopeIdx + 1] : null) as ReleaseScope | null;
 
   if (!bumpLevel || !["patch", "minor", "major"].includes(bumpLevel)) {
-    console.error(
-      "Usage: prepare-release.ts --bump <patch|minor|major> --scope <monorepo|cli|angular>",
-    );
+    console.error("Usage: prepare-release.ts --bump <patch|minor|major> --scope <monorepo|cli|angular>");
     process.exit(1);
   }
 
   if (!scope || !VALID_SCOPES.includes(scope)) {
-    console.error(
-      `Invalid scope: ${scope}. Valid scopes: ${VALID_SCOPES.join(", ")}`,
-    );
+    console.error(`Invalid scope: ${scope}. Valid scopes: ${VALID_SCOPES.join(", ")}`);
     process.exit(1);
   }
 
@@ -103,9 +86,7 @@ function main() {
   console.log(`Next version: ${nextVersion}`);
 
   const summary = getChangesSummary();
-  console.log(
-    `\nCommits since ${summary.lastTag || "beginning"}: ${summary.commitCount}`,
-  );
+  console.log(`\nCommits since ${summary.lastTag || "beginning"}: ${summary.commitCount}`);
 
   if (dryRun) {
     console.log("\n[DRY RUN] Would bump these packages:");

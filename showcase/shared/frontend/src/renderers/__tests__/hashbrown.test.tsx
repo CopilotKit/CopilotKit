@@ -81,11 +81,7 @@ vi.mock("@hashbrownai/react", () => {
       render: (value: unknown) => {
         // Simple mock render -- returns a div with the JSON value
         const React = require("react");
-        return React.createElement(
-          "div",
-          { "data-testid": "kit-render" },
-          JSON.stringify(value),
-        );
+        return React.createElement("div", { "data-testid": "kit-render" }, JSON.stringify(value));
       },
     };
   }
@@ -132,9 +128,7 @@ describe("HashBrown renderer adapter", () => {
       const schema = result.current.schema as {
         _components: { _type: string }[];
       };
-      const hasMarkdown = schema._components.some(
-        (c: { _type: string }) => c._type === "markdown",
-      );
+      const hasMarkdown = schema._components.some((c: { _type: string }) => c._type === "markdown");
       expect(hasMarkdown).toBe(true);
     });
 
@@ -159,9 +153,7 @@ describe("HashBrown renderer adapter", () => {
       const { result } = renderHook(() => useSalesDashboardKit());
       const mockValue = { type: "metric", label: "Revenue", value: "$1M" };
 
-      const { container } = render(
-        result.current.render(mockValue) as React.ReactElement,
-      );
+      const { container } = render(result.current.render(mockValue) as React.ReactElement);
       const rendered = container.querySelector("[data-testid='kit-render']");
       expect(rendered).toBeTruthy();
       expect(rendered!.textContent).toContain("Revenue");
@@ -189,8 +181,7 @@ describe("HashBrown renderer adapter", () => {
 
       // HashBrownDashboard calls useAgentContext with output_schema
       const outputSchemaCall = mockUseAgentContext.mock.calls.find(
-        (call: unknown[]) =>
-          (call[0] as { description: string }).description === "output_schema",
+        (call: unknown[]) => (call[0] as { description: string }).description === "output_schema",
       );
       expect(outputSchemaCall).toBeTruthy();
       // The value should be the toJsonSchema result

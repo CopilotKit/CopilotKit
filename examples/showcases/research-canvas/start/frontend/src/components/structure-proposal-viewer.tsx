@@ -3,14 +3,7 @@
 import { useCallback, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Proposal, ProposalSection, ProposalSectionName } from "@/lib/types";
 import { useResearch } from "@/components/research-context";
@@ -24,11 +17,7 @@ function ProposalItem({
 }: {
   proposal: Proposal;
   proposalItemKey: ProposalSectionName;
-  renderSection: (
-    name: ProposalSectionName,
-    title: string,
-    section: ProposalSection,
-  ) => React.ReactNode;
+  renderSection: (name: ProposalSectionName, title: string, section: ProposalSection) => React.ReactNode;
   title: string;
 }) {
   const proposalItem = proposal[proposalItemKey];
@@ -37,9 +26,7 @@ function ProposalItem({
     <div>
       <h3 className="text-lg font-semibold">{title}</h3>
       {Object.entries(proposalItem).map(([key, section]) =>
-        typeof section === "string"
-          ? null
-          : renderSection(proposalItemKey, key, section),
+        typeof section === "string" ? null : renderSection(proposalItemKey, key, section),
       )}
     </div>
   );
@@ -54,11 +41,7 @@ export function ProposalViewer({
 }) {
   const [reviewedProposal, setReviewedProposal] = useState(proposal);
 
-  const handleCheckboxChange = (
-    sectionType: ProposalSectionName,
-    sectionKey: string,
-    checked: boolean,
-  ) => {
+  const handleCheckboxChange = (sectionType: ProposalSectionName, sectionKey: string, checked: boolean) => {
     setReviewedProposal((prev) => {
       const newStructure = { ...prev };
       newStructure[sectionType][sectionKey].approved = checked;
@@ -80,21 +63,12 @@ export function ProposalViewer({
     [onSubmit, reviewedProposal],
   );
 
-  const renderSection = (
-    sectionType: ProposalSectionName,
-    sectionKey: string,
-    section: ProposalSection,
-  ) => (
-    <div
-      key={`${sectionType}-${sectionKey}`}
-      className="flex items-start space-x-2 mb-2"
-    >
+  const renderSection = (sectionType: ProposalSectionName, sectionKey: string, section: ProposalSection) => (
+    <div key={`${sectionType}-${sectionKey}`} className="flex items-start space-x-2 mb-2">
       <Checkbox
         id={`${sectionType}-${sectionKey}`}
         checked={section.approved}
-        onCheckedChange={(checked) =>
-          handleCheckboxChange(sectionType, sectionKey, checked as boolean)
-        }
+        onCheckedChange={(checked) => handleCheckboxChange(sectionType, sectionKey, checked as boolean)}
         className="border border-black/10 data-[state=checked]:text-[var(--primary)]"
       />
       <div className="grid gap-1.5 leading-none">
@@ -114,9 +88,8 @@ export function ProposalViewer({
       <CardHeader>
         <CardTitle>Research Paper Proposal</CardTitle>
         <CardDescription>
-          I&apos;ve prepared a proposal for structuring your research. Feel free
-          to modify any sections or points to better match your needs - we can
-          adjust until it&apos;s exactly what you&apos;re looking for.
+          I&apos;ve prepared a proposal for structuring your research. Feel free to modify any sections or points to
+          better match your needs - we can adjust until it&apos;s exactly what you&apos;re looking for.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -154,11 +127,7 @@ export function ProposalViewer({
         <Button
           onClick={() => handleSubmit(true)}
           className="bg-[var(--primary)] text-white hover:bg-[#68330d]"
-          disabled={
-            !Object.values(reviewedProposal.sections).some(
-              (section) => section.approved,
-            )
-          }
+          disabled={!Object.values(reviewedProposal.sections).some((section) => section.approved)}
         >
           Approve Proposal
         </Button>

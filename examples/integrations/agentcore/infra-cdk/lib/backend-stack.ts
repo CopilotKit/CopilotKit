@@ -49,17 +49,9 @@ export class BackendStack extends cdk.NestedStack {
     this.userPoolDomain = props.userPoolDomain;
 
     // Import the Cognito resources from the other stack
-    this.userPool = cognito.UserPool.fromUserPoolId(
-      this,
-      "ImportedUserPoolForBackend",
-      props.userPoolId,
-    );
+    this.userPool = cognito.UserPool.fromUserPoolId(this, "ImportedUserPoolForBackend", props.userPoolId);
     // then create the user pool client
-    cognito.UserPoolClient.fromUserPoolClientId(
-      this,
-      "ImportedUserPoolClient",
-      props.userPoolClientId,
-    );
+    cognito.UserPoolClient.fromUserPoolClientId(this, "ImportedUserPoolClient", props.userPoolClientId);
 
     // Create Machine-to-Machine authentication components
     this.createMachineAuthentication(props.config);
@@ -106,13 +98,10 @@ export class BackendStack extends cdk.NestedStack {
     let agentRuntimeArtifact: agentcore.AgentRuntimeArtifact;
 
     // DOCKER DEPLOYMENT: Use container-based deployment
-    agentRuntimeArtifact = agentcore.AgentRuntimeArtifact.fromAsset(
-      path.resolve(__dirname, "..", ".."),
-      {
-        platform: ecr_assets.Platform.LINUX_ARM64,
-        file: `agents/${pattern}/Dockerfile`,
-      },
-    );
+    agentRuntimeArtifact = agentcore.AgentRuntimeArtifact.fromAsset(path.resolve(__dirname, "..", ".."), {
+      platform: ecr_assets.Platform.LINUX_ARM64,
+      file: `agents/${pattern}/Dockerfile`,
+    });
 
     // Configure network mode based on config.yaml settings.
     // PUBLIC: Runtime is accessible over the public internet (default).
@@ -122,11 +111,10 @@ export class BackendStack extends cdk.NestedStack {
     const networkConfiguration = this.buildNetworkConfiguration(config);
 
     // Configure JWT authorizer with Cognito
-    const authorizerConfiguration =
-      agentcore.RuntimeAuthorizerConfiguration.usingJWT(
-        `https://cognito-idp.${stack.region}.amazonaws.com/${this.userPoolId}/.well-known/openid-configuration`,
-        [this.userPoolClientId],
-      );
+    const authorizerConfiguration = agentcore.RuntimeAuthorizerConfiguration.usingJWT(
+      `https://cognito-idp.${stack.region}.amazonaws.com/${this.userPoolId}/.well-known/openid-configuration`,
+      [this.userPoolClientId],
+    );
 
     // Create AgentCore execution role
     const agentRole = new AgentCoreRole(this, "AgentCoreRole");
@@ -174,9 +162,7 @@ export class BackendStack extends cdk.NestedStack {
         sid: "SSMParameterAccess",
         effect: iam.Effect.ALLOW,
         actions: ["ssm:GetParameter", "ssm:GetParameters"],
-        resources: [
-          `arn:aws:ssm:${this.region}:${this.account}:parameter/${config.stack_name_base}/*`,
-        ],
+        resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter/${config.stack_name_base}/*`],
       }),
     );
 
@@ -190,9 +176,7 @@ export class BackendStack extends cdk.NestedStack {
           "bedrock-agentcore:StopCodeInterpreterSession",
           "bedrock-agentcore:InvokeCodeInterpreter",
         ],
-        resources: [
-          `arn:aws:bedrock-agentcore:${this.region}:aws:code-interpreter/*`,
-        ],
+        resources: [`arn:aws:bedrock-agentcore:${this.region}:aws:code-interpreter/*`],
       }),
     );
 
@@ -204,10 +188,7 @@ export class BackendStack extends cdk.NestedStack {
       new iam.PolicyStatement({
         sid: "OAuth2CredentialProviderAccess",
         effect: iam.Effect.ALLOW,
-        actions: [
-          "bedrock-agentcore:GetOauth2CredentialProvider",
-          "bedrock-agentcore:GetResourceOauth2Token",
-        ],
+        actions: ["bedrock-agentcore:GetOauth2CredentialProvider", "bedrock-agentcore:GetResourceOauth2Token"],
         resources: [
           `arn:aws:bedrock-agentcore:${this.region}:${this.account}:oauth2-credential-provider/*`,
           `arn:aws:bedrock-agentcore:${this.region}:${this.account}:token-vault/*`,
@@ -242,18 +223,12 @@ export class BackendStack extends cdk.NestedStack {
     };
 
     // Add claude-agent-sdk specific environment variable
-    if (
-      pattern === "claude-agent-sdk-single-agent" ||
-      pattern === "claude-agent-sdk-multi-agent"
-    ) {
+    if (pattern === "claude-agent-sdk-single-agent" || pattern === "claude-agent-sdk-multi-agent") {
       envVars["CLAUDE_CODE_USE_BEDROCK"] = "1";
     }
 
     // Enable AG-UI / CopilotKit protocol for LangGraph and Strands agents
-    if (
-      pattern === "langgraph-single-agent" ||
-      pattern === "strands-single-agent"
-    ) {
+    if (pattern === "langgraph-single-agent" || pattern === "strands-single-agent") {
       envVars["AGUI_ENABLED"] = "true";
     }
 
@@ -338,10 +313,7 @@ export class BackendStack extends cdk.NestedStack {
     });
   }
 
-  private createCopilotKitRuntimeApi(
-    config: AppConfig,
-    frontendUrl: string,
-  ): void {
+  private createCopilotKitRuntimeApi(config: AppConfig, frontendUrl: string): void {
     const buildAgentCoreAgUiUrl = (runtimeArn: string): string => {
       const encodedRuntimeArn = cdk.Fn.join(
         "%2F",
@@ -359,83 +331,67 @@ export class BackendStack extends cdk.NestedStack {
 
     const agentCoreAgUiUrl = buildAgentCoreAgUiUrl(this.runtimeArn);
 
-    const copilotKitRuntimeLambda = new lambda.Function(
-      this,
-      "CopilotKitRuntimeLambda",
-      {
-        functionName: `${config.stack_name_base}-copilotkit-runtime`,
-        runtime: lambda.Runtime.NODEJS_20_X,
-        architecture: lambda.Architecture.ARM_64,
-        handler: "dist/index.handler",
-        code: lambda.Code.fromAsset(
-          path.join(__dirname, "..", "lambdas", "copilotkit-runtime"),
-          {
-            assetHashType: cdk.AssetHashType.OUTPUT,
-            bundling: {
-              local: {
-                tryBundle(outputDir: string) {
-                  const runtimeDir = path.join(
-                    __dirname,
-                    "..",
-                    "lambdas",
-                    "copilotkit-runtime",
-                  );
-                  execSync("npm ci --no-audit --no-fund", {
-                    cwd: runtimeDir,
-                    stdio: "inherit",
-                  });
-                  execSync("npm run build", {
-                    cwd: runtimeDir,
-                    stdio: "inherit",
-                  });
-                  execSync("npm prune --omit=dev", {
-                    cwd: runtimeDir,
-                    stdio: "inherit",
-                  });
-                  execSync(
-                    `cp -R dist node_modules package.json package-lock.json ${outputDir}/`,
-                    {
-                      cwd: runtimeDir,
-                      stdio: "inherit",
-                    },
-                  );
-                  return true;
-                },
-              },
-              image: lambda.Runtime.NODEJS_20_X.bundlingImage,
-              environment: {
-                NPM_CONFIG_CACHE: "/tmp/.npm",
-                NPM_CONFIG_FETCH_RETRIES: "5",
-                NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: "120000",
-              },
-              command: [
-                "bash",
-                "-c",
-                [
-                  "mkdir -p /tmp/.npm",
-                  "npm ci --no-audit --no-fund",
-                  "npm run build",
-                  "npm prune --omit=dev",
-                  "cp -R dist node_modules package.json package-lock.json /asset-output/",
-                ].join(" && "),
-              ],
+    const copilotKitRuntimeLambda = new lambda.Function(this, "CopilotKitRuntimeLambda", {
+      functionName: `${config.stack_name_base}-copilotkit-runtime`,
+      runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64,
+      handler: "dist/index.handler",
+      code: lambda.Code.fromAsset(path.join(__dirname, "..", "lambdas", "copilotkit-runtime"), {
+        assetHashType: cdk.AssetHashType.OUTPUT,
+        bundling: {
+          local: {
+            tryBundle(outputDir: string) {
+              const runtimeDir = path.join(__dirname, "..", "lambdas", "copilotkit-runtime");
+              execSync("npm ci --no-audit --no-fund", {
+                cwd: runtimeDir,
+                stdio: "inherit",
+              });
+              execSync("npm run build", {
+                cwd: runtimeDir,
+                stdio: "inherit",
+              });
+              execSync("npm prune --omit=dev", {
+                cwd: runtimeDir,
+                stdio: "inherit",
+              });
+              execSync(`cp -R dist node_modules package.json package-lock.json ${outputDir}/`, {
+                cwd: runtimeDir,
+                stdio: "inherit",
+              });
+              return true;
             },
           },
-        ),
-        environment: {
-          AGENTCORE_AG_UI_URL: agentCoreAgUiUrl,
-          COPILOTKIT_AGENT_NAME:
-            config.backend?.pattern || "langgraph-single-agent",
+          image: lambda.Runtime.NODEJS_20_X.bundlingImage,
+          environment: {
+            NPM_CONFIG_CACHE: "/tmp/.npm",
+            NPM_CONFIG_FETCH_RETRIES: "5",
+            NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: "120000",
+          },
+          command: [
+            "bash",
+            "-c",
+            [
+              "mkdir -p /tmp/.npm",
+              "npm ci --no-audit --no-fund",
+              "npm run build",
+              "npm prune --omit=dev",
+              "cp -R dist node_modules package.json package-lock.json /asset-output/",
+            ].join(" && "),
+          ],
         },
-        timeout: cdk.Duration.seconds(30),
-        memorySize: 1024,
-        logGroup: new logs.LogGroup(this, "CopilotKitRuntimeLambdaLogGroup", {
-          logGroupName: `/aws/lambda/${config.stack_name_base}-copilotkit-runtime`,
-          retention: logs.RetentionDays.ONE_WEEK,
-          removalPolicy: cdk.RemovalPolicy.DESTROY,
-        }),
+      }),
+      environment: {
+        AGENTCORE_AG_UI_URL: agentCoreAgUiUrl,
+        COPILOTKIT_AGENT_NAME: config.backend?.pattern || "langgraph-single-agent",
       },
-    );
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 1024,
+      logGroup: new logs.LogGroup(this, "CopilotKitRuntimeLambdaLogGroup", {
+        logGroupName: `/aws/lambda/${config.stack_name_base}-copilotkit-runtime`,
+        retention: logs.RetentionDays.ONE_WEEK,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      }),
+    });
 
     const copilotKitApi = new apigateway.RestApi(this, "CopilotKitRuntimeApi", {
       restApiName: `${config.stack_name_base}-copilotkit-runtime-api`,
@@ -450,12 +406,9 @@ export class BackendStack extends cdk.NestedStack {
       },
     });
 
-    const runtimeIntegration = new apigateway.LambdaIntegration(
-      copilotKitRuntimeLambda,
-      {
-        responseTransferMode: apigateway.ResponseTransferMode.STREAM,
-      },
-    );
+    const runtimeIntegration = new apigateway.LambdaIntegration(copilotKitRuntimeLambda, {
+      responseTransferMode: apigateway.ResponseTransferMode.STREAM,
+    });
 
     const runtimeResource = copilotKitApi.root.addResource("copilotkit");
     runtimeResource.addMethod("GET", runtimeIntegration, {
@@ -498,14 +451,8 @@ export class BackendStack extends cdk.NestedStack {
     gatewayRole.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
-        actions: [
-          "bedrock:InvokeModel",
-          "bedrock:InvokeModelWithResponseStream",
-        ],
-        resources: [
-          "arn:aws:bedrock:*::foundation-model/*",
-          `arn:aws:bedrock:*:${this.account}:inference-profile/*`,
-        ],
+        actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+        resources: ["arn:aws:bedrock:*::foundation-model/*", `arn:aws:bedrock:*:${this.account}:inference-profile/*`],
       }),
     );
 
@@ -514,9 +461,7 @@ export class BackendStack extends cdk.NestedStack {
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ["ssm:GetParameter", "ssm:GetParameters"],
-        resources: [
-          `arn:aws:ssm:${this.region}:${this.account}:parameter/${config.stack_name_base}/*`,
-        ],
+        resources: [`arn:aws:ssm:${this.region}:${this.account}:parameter/${config.stack_name_base}/*`],
       }),
     );
 
@@ -524,10 +469,7 @@ export class BackendStack extends cdk.NestedStack {
     gatewayRole.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
-        actions: [
-          "cognito-idp:DescribeUserPoolClient",
-          "cognito-idp:InitiateAuth",
-        ],
+        actions: ["cognito-idp:DescribeUserPoolClient", "cognito-idp:InitiateAuth"],
         resources: [this.userPool.userPoolArn],
       }),
     );
@@ -536,14 +478,8 @@ export class BackendStack extends cdk.NestedStack {
     gatewayRole.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
-        actions: [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents",
-        ],
-        resources: [
-          `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/bedrock-agentcore/*`,
-        ],
+        actions: ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+        resources: [`arn:aws:logs:${this.region}:${this.account}:log-group:/aws/bedrock-agentcore/*`],
       }),
     );
 
@@ -556,23 +492,17 @@ export class BackendStack extends cdk.NestedStack {
     const providerName = `${config.stack_name_base}-runtime-gateway-auth`;
 
     // Lambda to create/delete OAuth2 provider
-    const oauth2ProviderLambda = new lambda.Function(
-      this,
-      "OAuth2ProviderLambda",
-      {
-        runtime: lambda.Runtime.PYTHON_3_13,
-        handler: "index.handler",
-        code: lambda.Code.fromAsset(
-          path.join(__dirname, "..", "lambdas", "oauth2-provider"),
-        ),
-        timeout: cdk.Duration.minutes(5),
-        logGroup: new logs.LogGroup(this, "OAuth2ProviderLambdaLogGroup", {
-          logGroupName: `/aws/lambda/${config.stack_name_base}-oauth2-provider`,
-          retention: logs.RetentionDays.ONE_WEEK,
-          removalPolicy: cdk.RemovalPolicy.DESTROY,
-        }),
-      },
-    );
+    const oauth2ProviderLambda = new lambda.Function(this, "OAuth2ProviderLambda", {
+      runtime: lambda.Runtime.PYTHON_3_13,
+      handler: "index.handler",
+      code: lambda.Code.fromAsset(path.join(__dirname, "..", "lambdas", "oauth2-provider")),
+      timeout: cdk.Duration.minutes(5),
+      logGroup: new logs.LogGroup(this, "OAuth2ProviderLambdaLogGroup", {
+        logGroupName: `/aws/lambda/${config.stack_name_base}-oauth2-provider`,
+        retention: logs.RetentionDays.ONE_WEEK,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      }),
+    });
 
     // Grant Lambda permissions to read machine client secret
     this.machineClientSecret.grantRead(oauth2ProviderLambda);
@@ -636,19 +566,15 @@ export class BackendStack extends cdk.NestedStack {
     });
 
     // Create Custom Resource
-    const runtimeCredentialProvider = new cdk.CustomResource(
-      this,
-      "RuntimeCredentialProvider",
-      {
-        serviceToken: oauth2Provider.serviceToken,
-        properties: {
-          ProviderName: providerName,
-          ClientSecretArn: this.machineClientSecret.secretArn,
-          DiscoveryUrl: cognitoDiscoveryUrl,
-          ClientId: this.machineClient.userPoolClientId,
-        },
+    const runtimeCredentialProvider = new cdk.CustomResource(this, "RuntimeCredentialProvider", {
+      serviceToken: oauth2Provider.serviceToken,
+      properties: {
+        ProviderName: providerName,
+        ClientSecretArn: this.machineClientSecret.secretArn,
+        DiscoveryUrl: cognitoDiscoveryUrl,
+        ClientId: this.machineClient.userPoolClientId,
       },
-    );
+    });
 
     // Store for use in createAgentCoreRuntime()
     this.runtimeCredentialProvider = runtimeCredentialProvider;
@@ -717,25 +643,21 @@ export class BackendStack extends cdk.NestedStack {
   private createMachineAuthentication(config: AppConfig): void {
     // Create Resource Server for Machine-to-Machine (M2M) authentication
     // This defines the API scopes that machine clients can request access to
-    const resourceServer = new cognito.UserPoolResourceServer(
-      this,
-      "ResourceServer",
-      {
-        userPool: this.userPool,
-        identifier: `${config.stack_name_base}-gateway`,
-        userPoolResourceServerName: `${config.stack_name_base}-gateway-resource-server`,
-        scopes: [
-          new cognito.ResourceServerScope({
-            scopeName: "read",
-            scopeDescription: "Read access to gateway",
-          }),
-          new cognito.ResourceServerScope({
-            scopeName: "write",
-            scopeDescription: "Write access to gateway",
-          }),
-        ],
-      },
-    );
+    const resourceServer = new cognito.UserPoolResourceServer(this, "ResourceServer", {
+      userPool: this.userPool,
+      identifier: `${config.stack_name_base}-gateway`,
+      userPoolResourceServerName: `${config.stack_name_base}-gateway-resource-server`,
+      scopes: [
+        new cognito.ResourceServerScope({
+          scopeName: "read",
+          scopeDescription: "Read access to gateway",
+        }),
+        new cognito.ResourceServerScope({
+          scopeName: "write",
+          scopeDescription: "Write access to gateway",
+        }),
+      ],
+    });
 
     // Create Machine Client for AgentCore Gateway authentication
     //
@@ -789,17 +711,11 @@ export class BackendStack extends cdk.NestedStack {
 
     // Store machine client secret in Secrets Manager for testing and external access.
     // This secret is used by test scripts and potentially other external tools.
-    this.machineClientSecret = new secretsmanager.Secret(
-      this,
-      "MachineClientSecret",
-      {
-        secretName: `/${config.stack_name_base}/machine_client_secret`,
-        secretStringValue: cdk.SecretValue.unsafePlainText(
-          this.machineClient.userPoolClientSecret.unsafeUnwrap(),
-        ),
-        description: "Machine Client Secret for M2M authentication",
-      },
-    );
+    this.machineClientSecret = new secretsmanager.Secret(this, "MachineClientSecret", {
+      secretName: `/${config.stack_name_base}/machine_client_secret`,
+      secretStringValue: cdk.SecretValue.unsafePlainText(this.machineClient.userPoolClientSecret.unsafeUnwrap()),
+      description: "Machine Client Secret for M2M authentication",
+    });
   }
 
   /**
@@ -811,16 +727,12 @@ export class BackendStack extends cdk.NestedStack {
    * @param config - The application configuration from config.yaml.
    * @returns A RuntimeNetworkConfiguration for the AgentCore Runtime.
    */
-  private buildNetworkConfiguration(
-    config: AppConfig,
-  ): agentcore.RuntimeNetworkConfiguration {
+  private buildNetworkConfiguration(config: AppConfig): agentcore.RuntimeNetworkConfiguration {
     if (config.backend.network_mode === "VPC") {
       const vpcConfig = config.backend.vpc;
       // vpc config is validated in ConfigManager, but guard here for type safety
       if (!vpcConfig) {
-        throw new Error(
-          "backend.vpc configuration is required when network_mode is 'VPC'.",
-        );
+        throw new Error("backend.vpc configuration is required when network_mode is 'VPC'.");
       }
 
       // Import the user's existing VPC by ID.
@@ -831,9 +743,8 @@ export class BackendStack extends cdk.NestedStack {
 
       // Import the user-specified subnets by their IDs.
       // These subnets must exist within the VPC specified above.
-      const subnets: ec2.ISubnet[] = vpcConfig.subnet_ids.map(
-        (subnetId: string, index: number) =>
-          ec2.Subnet.fromSubnetId(this, `ImportedSubnet${index}`, subnetId),
+      const subnets: ec2.ISubnet[] = vpcConfig.subnet_ids.map((subnetId: string, index: number) =>
+        ec2.Subnet.fromSubnetId(this, `ImportedSubnet${index}`, subnetId),
       );
 
       // Build the VPC config props for the AgentCore L2 construct.
@@ -841,11 +752,7 @@ export class BackendStack extends cdk.NestedStack {
       const securityGroups =
         vpcConfig.security_group_ids && vpcConfig.security_group_ids.length > 0
           ? vpcConfig.security_group_ids.map((sgId: string, index: number) =>
-              ec2.SecurityGroup.fromSecurityGroupId(
-                this,
-                `ImportedSG${index}`,
-                sgId,
-              ),
+              ec2.SecurityGroup.fromSecurityGroupId(this, `ImportedSG${index}`, sgId),
             )
           : undefined;
 
@@ -857,10 +764,7 @@ export class BackendStack extends cdk.NestedStack {
         securityGroups: securityGroups,
       };
 
-      return agentcore.RuntimeNetworkConfiguration.usingVpc(
-        this,
-        vpcConfigProps,
-      );
+      return agentcore.RuntimeNetworkConfiguration.usingVpc(this, vpcConfigProps);
     }
 
     // Default: public network mode

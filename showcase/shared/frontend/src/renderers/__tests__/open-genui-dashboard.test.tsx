@@ -10,11 +10,7 @@ let capturedSidebarProps: Record<string, unknown> = {};
 vi.mock("@copilotkit/react-core/v2", () => ({
   CopilotKitProvider: (props: Record<string, unknown>) => {
     capturedProviderProps = props;
-    return (
-      <div data-testid="copilotkit-provider">
-        {props.children as React.ReactNode}
-      </div>
-    );
+    return <div data-testid="copilotkit-provider">{props.children as React.ReactNode}</div>;
   },
   CopilotSidebar: (props: Record<string, unknown>) => {
     capturedSidebarProps = props;
@@ -48,9 +44,7 @@ describe("OpenGenUIDashboard", () => {
     render(<OpenGenUIDashboard />);
     expect(capturedProviderProps.openGenerativeUI).toBeDefined();
     expect(typeof capturedProviderProps.openGenerativeUI).toBe("object");
-    expect(
-      Object.keys(capturedProviderProps.openGenerativeUI as object),
-    ).toHaveLength(0);
+    expect(Object.keys(capturedProviderProps.openGenerativeUI as object)).toHaveLength(0);
   });
 
   it("does not pass a2ui config to provider", () => {
@@ -71,9 +65,7 @@ describe("OpenGenUIDashboard", () => {
   it("sets sidebar to default open with correct title", () => {
     render(<OpenGenUIDashboard />);
     expect(capturedSidebarProps.defaultOpen).toBe(true);
-    expect(
-      (capturedSidebarProps.labels as Record<string, string>).modalHeaderTitle,
-    ).toBe("Open GenUI Dashboard");
+    expect((capturedSidebarProps.labels as Record<string, string>).modalHeaderTitle).toBe("Open GenUI Dashboard");
   });
 
   it("shows placeholder text directing users to ask for a dashboard", () => {

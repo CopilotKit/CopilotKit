@@ -69,18 +69,13 @@ export function ProfileClient({
   featureInfos: FeatureInfo[];
   categoryLabel: string;
   languageLabel: string;
-  demoAlternatives?: Record<
-    string,
-    Array<{ slug: string; name: string; backendUrl: string }>
-  >;
+  demoAlternatives?: Record<string, Array<{ slug: string; name: string; backendUrl: string }>>;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeDemo, setActiveDemo] = useState<Demo | null>(null);
   const [starterFiles, setStarterFiles] = useState<StarterFile[] | null>(null);
   const [starterReadme, setStarterReadme] = useState<string | null>(null);
-  const [starterTab, setStarterTab] = useState<"demo" | "code" | "docs">(
-    "demo",
-  );
+  const [starterTab, setStarterTab] = useState<"demo" | "code" | "docs">("demo");
   const [showAllFiles, setShowAllFiles] = useState(false);
   const [cloneCopied, setCloneCopied] = useState(false);
 
@@ -123,9 +118,7 @@ export function ProfileClient({
 
   // Find the "key" agent file — prefer a Python file with "agent" or "main" in the name, else first backend file
   const keyFile = starterFiles
-    ? starterFiles.find(
-        (f) => /agent|main/.test(f.filename) && f.language === "python",
-      ) ||
+    ? starterFiles.find((f) => /agent|main/.test(f.filename) && f.language === "python") ||
       starterFiles.find((f) => f.language === "python") ||
       starterFiles[0]
     : null;
@@ -146,19 +139,13 @@ export function ProfileClient({
                 }}
               />
             )}
-            <h1 className="text-3xl font-light text-[var(--text)]">
-              {integration.name}
-            </h1>
+            <h1 className="text-3xl font-light text-[var(--text)]">{integration.name}</h1>
             <span className="rounded-md bg-[var(--bg-elevated)] px-2 py-0.5 text-[10px] font-mono text-[var(--text-muted)] border border-[var(--border)]">
               {languageLabel}
             </span>
           </div>
-          <p className="mt-1 text-xs font-mono uppercase tracking-widest text-[var(--accent)]">
-            {categoryLabel}
-          </p>
-          <p className="mt-4 text-[var(--text-secondary)] max-w-2xl leading-relaxed">
-            {integration.description}
-          </p>
+          <p className="mt-1 text-xs font-mono uppercase tracking-widest text-[var(--accent)]">{categoryLabel}</p>
+          <p className="mt-4 text-[var(--text-secondary)] max-w-2xl leading-relaxed">{integration.description}</p>
         </div>
 
         {/* Links */}
@@ -256,9 +243,7 @@ export function ProfileClient({
                   <>
                     <div className="rounded-lg border border-[var(--border)] overflow-hidden">
                       <div className="flex items-center justify-between px-4 py-2 border-b border-[var(--border)] bg-[var(--bg-surface)]">
-                        <span className="text-[11px] font-mono text-[var(--text-secondary)]">
-                          {keyFile.filename}
-                        </span>
+                        <span className="text-[11px] font-mono text-[var(--text-secondary)]">{keyFile.filename}</span>
                       </div>
                       <SyntaxHighlighter
                         language={keyFile.language}
@@ -280,9 +265,7 @@ export function ProfileClient({
                           minWidth: "3em",
                         }}
                       >
-                        {showAllFiles
-                          ? keyFile.content
-                          : keyFile.content.split("\n").slice(0, 30).join("\n")}
+                        {showAllFiles ? keyFile.content : keyFile.content.split("\n").slice(0, 30).join("\n")}
                       </SyntaxHighlighter>
                     </div>
 
@@ -293,9 +276,7 @@ export function ProfileClient({
                           onClick={() => setShowAllFiles(!showAllFiles)}
                           className="text-xs font-medium text-[var(--accent)] hover:underline transition-colors"
                         >
-                          {showAllFiles
-                            ? "Show less ▲"
-                            : `Show all ${starterFiles.length} files ▼`}
+                          {showAllFiles ? "Show less ▲" : `Show all ${starterFiles.length} files ▼`}
                         </button>
 
                         {showAllFiles && (
@@ -350,17 +331,12 @@ export function ProfileClient({
                   >
                     {starterReadme ? (
                       <div className="max-w-none [&_h1]:text-xl [&_h1]:font-semibold [&_h1]:text-[var(--text)] [&_h1]:mb-3 [&_h1]:mt-6 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-[var(--text)] [&_h2]:mt-6 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-[var(--text)] [&_h3]:mt-4 [&_h3]:mb-1 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-[var(--text)] [&_h4]:mt-3 [&_h4]:mb-1 [&_p]:text-sm [&_p]:text-[var(--text-secondary)] [&_p]:leading-relaxed [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3 [&_li]:text-sm [&_li]:text-[var(--text-secondary)] [&_li]:mb-1 [&_strong]:text-[var(--text)] [&_code]:text-[var(--accent)] [&_code]:bg-[var(--bg-elevated)] [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_pre]:bg-[var(--bg-elevated)] [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:mb-3 [&_pre]:overflow-x-auto [&_pre]:text-xs [&_a]:text-[var(--accent)] [&_a]:underline [&_details]:mb-3 [&_details]:text-sm [&_summary]:cursor-pointer [&_summary]:font-medium [&_summary]:text-[var(--text)] [&_hr]:border-[var(--border)] [&_hr]:my-4">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          rehypePlugins={[rehypeRaw]}
-                        >
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                           {starterReadme}
                         </ReactMarkdown>
                       </div>
                     ) : (
-                      <p className="text-sm text-[var(--text-muted)]">
-                        No README available for this starter.
-                      </p>
+                      <p className="text-sm text-[var(--text-muted)]">No README available for this starter.</p>
                     )}
                   </div>
                 )}
@@ -375,11 +351,7 @@ export function ProfileClient({
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-xs font-medium text-white hover:opacity-90 transition-opacity"
                   >
-                    <svg
-                      className="w-4 h-4"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                     </svg>
                     View on GitHub
@@ -389,13 +361,7 @@ export function ProfileClient({
                   onClick={copyCloneCommand}
                   className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] px-4 py-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:border-[var(--text-muted)] transition-colors"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    strokeWidth={2}
-                  >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                     <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
                   </svg>
@@ -408,9 +374,7 @@ export function ProfileClient({
 
         {/* Demos */}
         <section className="mt-10">
-          <h2 className="mb-4 text-xs font-mono uppercase tracking-widest text-[var(--text-muted)]">
-            Live Demos
-          </h2>
+          <h2 className="mb-4 text-xs font-mono uppercase tracking-widest text-[var(--text-muted)]">Live Demos</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {integration.demos.map((demo) => (
               <button
@@ -418,12 +382,8 @@ export function ProfileClient({
                 onClick={() => openDemo(demo)}
                 className="group text-left rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 hover:border-[var(--accent)] hover:-translate-y-0.5 transition-all"
               >
-                <h3 className="text-sm font-semibold text-[var(--text)]">
-                  {demo.name}
-                </h3>
-                <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                  {demo.description}
-                </p>
+                <h3 className="text-sm font-semibold text-[var(--text)]">{demo.name}</h3>
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">{demo.description}</p>
                 <div className="mt-3 flex flex-wrap gap-1">
                   {demo.tags.map((tag) => (
                     <span

@@ -1,8 +1,4 @@
-import {
-  CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { NextRequest } from "next/server";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";

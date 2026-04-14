@@ -23,9 +23,7 @@ import {
 import { randomUUID } from "@copilotkit/shared";
 
 export class EmptyAdapter implements CopilotServiceAdapter {
-  async process(
-    request: CopilotRuntimeChatCompletionRequest,
-  ): Promise<CopilotRuntimeChatCompletionResponse> {
+  async process(request: CopilotRuntimeChatCompletionRequest): Promise<CopilotRuntimeChatCompletionResponse> {
     return {
       threadId: request.threadId || randomUUID(),
     };

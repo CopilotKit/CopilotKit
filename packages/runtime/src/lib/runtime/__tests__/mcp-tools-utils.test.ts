@@ -111,8 +111,7 @@ describe("MCP Tools Utils", () => {
       expect(result[1]).toEqual({
         name: "objectArray",
         type: "array",
-        description:
-          "Array of objects Array of objects with properties: name, value",
+        description: "Array of objects Array of objects with properties: name, value",
         required: false,
       });
     });
@@ -189,8 +188,7 @@ describe("MCP Tools Utils", () => {
       expect(result[0]).toEqual({
         name: "user",
         type: "object",
-        description:
-          "User object Object with properties: name, email, preferences",
+        description: "User object Object with properties: name, email, preferences",
         required: true,
       });
     });
@@ -294,9 +292,7 @@ describe("MCP Tools Utils", () => {
       expect(result).toContain(
         "- items* (array<object>) - Array of items Array of objects with properties: name, value",
       );
-      expect(result).toContain(
-        "- status (string) - Status Allowed values: active | inactive",
-      );
+      expect(result).toContain("- status (string) - Status Allowed values: active | inactive");
     });
 
     it("should fallback to schema.properties for backward compatibility", () => {
@@ -315,9 +311,7 @@ describe("MCP Tools Utils", () => {
       };
 
       const result = generateMcpToolInstructions(toolsMap);
-      expect(result).toContain(
-        "backwardCompatTool: A backward compatible tool",
-      );
+      expect(result).toContain("backwardCompatTool: A backward compatible tool");
       expect(result).toContain("- name* (string) - The name parameter");
     });
 

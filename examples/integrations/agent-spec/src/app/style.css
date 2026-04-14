@@ -26,14 +26,10 @@
   --backdrop: rgba(0, 0, 0, 0.4);
 
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.04);
-  --shadow-card-hover:
-    0 2px 6px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04);
-  --shadow-compact:
-    0 1px 3px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.03);
-  --shadow-compact-hover:
-    0 2px 6px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04);
-  --shadow-canvas-card:
-    0 1px 3px rgba(0, 0, 0, 0.08), 0 8px 20px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 2px 6px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04);
+  --shadow-compact: 0 1px 3px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.03);
+  --shadow-compact-hover: 0 2px 6px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.04);
+  --shadow-canvas-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 8px 20px rgba(0, 0, 0, 0.06);
   --shadow-dialog: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
@@ -116,10 +112,8 @@
     --copilot-kit-error-border: #dc2626;
     --copilot-kit-error-text: #fca5a5;
     --copilot-kit-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-    --copilot-kit-shadow-md:
-      0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
-    --copilot-kit-shadow-lg:
-      0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+    --copilot-kit-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+    --copilot-kit-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
     --copilot-kit-dev-console-bg: #1a1a1a;
     --copilot-kit-dev-console-text: white;
   }
@@ -205,12 +199,8 @@
 
 /* Use the system font for A2UI surfaces to match the rest of the UI. */
 .a2ui-chat-container .a2ui-surface {
-  --font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif;
-  --font-family-flex:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif;
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-family-flex: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 /* A2UI activity messages — clean card matching inbox/calendar components. */
@@ -424,10 +414,7 @@
   grid-row: 1 !important;
 }
 
-[data-sidebar-chat]
-  [data-testid="copilot-chat-input"]
-  > div
-  > div:nth-child(2) {
+[data-sidebar-chat] [data-testid="copilot-chat-input"] > div > div:nth-child(2) {
   grid-column: 2 / 3 !important;
   grid-row: 1 !important;
 }

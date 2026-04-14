@@ -1,12 +1,4 @@
-import {
-  AbstractAgent,
-  AgentSubscriber,
-  HttpAgent,
-  Message,
-  RunAgentResult,
-  Tool,
-  ToolCall,
-} from "@ag-ui/client";
+import { AbstractAgent, AgentSubscriber, HttpAgent, Message, RunAgentResult, Tool, ToolCall } from "@ag-ui/client";
 import { randomUUID, logger, schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
@@ -127,18 +119,12 @@ export class RunHandler {
   /**
    * Add a tool to the registry
    */
-  addTool<T extends Record<string, unknown> = Record<string, unknown>>(
-    tool: FrontendTool<T>,
-  ): void {
+  addTool<T extends Record<string, unknown> = Record<string, unknown>>(tool: FrontendTool<T>): void {
     // Check if a tool with the same name and agentId already exists
-    const existingToolIndex = this._tools.findIndex(
-      (t) => t.name === tool.name && t.agentId === tool.agentId,
-    );
+    const existingToolIndex = this._tools.findIndex((t) => t.name === tool.name && t.agentId === tool.agentId);
 
     if (existingToolIndex !== -1) {
-      logger.warn(
-        `Tool already exists: '${tool.name}' for agent '${tool.agentId || "global"}', skipping.`,
-      );
+      logger.warn(`Tool already exists: '${tool.name}' for agent '${tool.agentId || "global"}', skipping.`);
       return;
     }
 
@@ -169,9 +155,7 @@ export class RunHandler {
 
     // If agentId is provided, first look for agent-specific tool
     if (agentId) {
-      const agentTool = this._tools.find(
-        (tool) => tool.name === toolName && tool.agentId === agentId,
-      );
+      const agentTool = this._tools.find((tool) => tool.name === toolName && tool.agentId === agentId);
       if (agentTool) {
         return agentTool;
       }
@@ -191,9 +175,7 @@ export class RunHandler {
   /**
    * Connect an agent (establish initial connection)
    */
-  async connectAgent({
-    agent,
-  }: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult> {
+  async connectAgent({ agent }: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult> {
     try {
       // Detach any active run before connecting to avoid previous runs interfering
       await agent.detachActiveRun();
@@ -229,8 +211,7 @@ export class RunHandler {
 
       return this.processAgentResult({ runAgentResult, agent });
     } catch (error) {
-      const connectError =
-        error instanceof Error ? error : new Error(String(error));
+      const connectError = error instanceof Error ? error : new Error(String(error));
       // Silently ignore abort errors (e.g. from navigation during active requests)
       const isAbort =
         connectError.name === "AbortError" ||
@@ -255,10 +236,7 @@ export class RunHandler {
   /**
    * Run an agent
    */
-  async runAgent({
-    agent,
-    forwardedProps,
-  }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
+  async runAgent({ agent, forwardedProps }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
       void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
@@ -342,8 +320,7 @@ export class RunHandler {
       );
       return await this.processAgentResult({ runAgentResult, agent });
     } catch (error) {
-      const runError =
-        error instanceof Error ? error : new Error(String(error));
+      const runError = error instanceof Error ? error : new Error(String(error));
       const context: Record<string, any> = {};
       if (agent.agentId) {
         context.agentId = agent.agentId;
@@ -383,23 +360,13 @@ export class RunHandler {
     for (const message of newMessages) {
       if (message.role === "assistant") {
         for (const toolCall of message.toolCalls || []) {
-          if (
-            newMessages.findIndex(
-              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-            ) === -1
-          ) {
+          if (newMessages.findIndex((m) => m.role === "tool" && m.toolCallId === toolCall.id) === -1) {
             const tool = this.getTool({
               toolName: toolCall.function.name,
               agentId: agent.agentId,
             });
             if (tool) {
-              const followUp = await this.executeSpecificTool(
-                tool,
-                toolCall,
-                message,
-                agent,
-                agentId,
-              );
+              const followUp = await this.executeSpecificTool(tool, toolCall, message, agent, agentId);
               if (followUp) {
                 needsFollowUp = true;
               }
@@ -410,13 +377,7 @@ export class RunHandler {
                 agentId: agent.agentId,
               });
               if (wildcardTool) {
-                const followUp = await this.executeWildcardTool(
-                  wildcardTool,
-                  toolCall,
-                  message,
-                  agent,
-                  agentId,
-                );
+                const followUp = await this.executeWildcardTool(wildcardTool, toolCall, message, agent, agentId);
                 if (followUp) {
                   needsFollowUp = true;
                 }
@@ -471,8 +432,7 @@ export class RunHandler {
     try {
       parsedArgs = parseToolArguments(handlerArgs, toolCall.function.name);
     } catch (error) {
-      const parseError =
-        error instanceof Error ? error : new Error(String(error));
+      const parseError = error instanceof Error ? error : new Error(String(error));
       errorMessage = parseError.message;
       isArgumentError = true;
       await this._internal.emitError({
@@ -516,8 +476,7 @@ export class RunHandler {
           toolCallResult = JSON.stringify(result);
         }
       } catch (error) {
-        const handlerError =
-          error instanceof Error ? error : new Error(String(error));
+        const handlerError = error instanceof Error ? error : new Error(String(error));
         errorMessage = handlerError.message;
         await this._internal.emitError({
           error: handlerError,
@@ -638,13 +597,9 @@ export class RunHandler {
     if (wildcardTool?.handler) {
       let parsedArgs: unknown;
       try {
-        parsedArgs = parseToolArguments(
-          toolCall.function.arguments,
-          toolCall.function.name,
-        );
+        parsedArgs = parseToolArguments(toolCall.function.arguments, toolCall.function.name);
       } catch (error) {
-        const parseError =
-          error instanceof Error ? error : new Error(String(error));
+        const parseError = error instanceof Error ? error : new Error(String(error));
         errorMessage = parseError.message;
         isArgumentError = true;
         await this._internal.emitError({
@@ -692,8 +647,7 @@ export class RunHandler {
             toolCallResult = JSON.stringify(result);
           }
         } catch (error) {
-          const handlerError =
-            error instanceof Error ? error : new Error(String(error));
+          const handlerError = error instanceof Error ? error : new Error(String(error));
           errorMessage = handlerError.message;
           await this._internal.emitError({
             error: handlerError,
@@ -757,9 +711,7 @@ export class RunHandler {
    * The handler runs, render components show up in the UI, and both the tool call and
    * result messages are added to `agent.messages`.
    */
-  async runTool(
-    params: CopilotKitCoreRunToolParams,
-  ): Promise<CopilotKitCoreRunToolResult> {
+  async runTool(params: CopilotKitCoreRunToolParams): Promise<CopilotKitCoreRunToolResult> {
     const { name, agentId, parameters = {}, followUp = false } = params;
 
     // 1. Look up the tool
@@ -834,9 +786,7 @@ export class RunHandler {
       content: handlerResult.result,
     };
 
-    const assistantIndex = agent.messages.findIndex(
-      (m) => m.id === assistantMessage.id,
-    );
+    const assistantIndex = agent.messages.findIndex((m) => m.id === assistantMessage.id);
     if (assistantIndex !== -1) {
       agent.messages.splice(assistantIndex + 1, 0, toolResultMessage);
     } else {
@@ -876,11 +826,7 @@ export class RunHandler {
    */
   buildFrontendTools(agentId?: string): Tool[] {
     return this._tools
-      .filter(
-        (tool) =>
-          tool.available !== false &&
-          (!tool.agentId || tool.agentId === agentId),
-      )
+      .filter((tool) => tool.available !== false && (!tool.agentId || tool.agentId === agentId))
       .map((tool) => ({
         name: tool.name,
         description: tool.description ?? "",
@@ -927,9 +873,7 @@ export class RunHandler {
               : undefined;
 
         const errorMessage =
-          typeof event?.rawEvent?.error === "string"
-            ? event.rawEvent.error
-            : (event?.message ?? "Agent run error");
+          typeof event?.rawEvent?.error === "string" ? event.rawEvent.error : (event?.message ?? "Agent run error");
 
         const rawError = eventError ?? new Error(errorMessage);
 
@@ -937,15 +881,11 @@ export class RunHandler {
           (rawError as any).code = event.code;
         }
 
-        await emitAgentError(
-          rawError,
-          CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT,
-          {
-            source: "onRunErrorEvent",
-            event,
-            runtimeErrorCode: event?.code,
-          },
-        );
+        await emitAgentError(rawError, CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT, {
+          source: "onRunErrorEvent",
+          event,
+          runtimeErrorCode: event?.code,
+        });
       },
     };
   }
@@ -1014,16 +954,11 @@ function stripAdditionalProperties(schema: unknown): void {
  *
  * @internal Exported for testing only.
  */
-export function ensureObjectArgs(
-  parsed: unknown,
-  toolName: string,
-): Record<string, unknown> {
+export function ensureObjectArgs(parsed: unknown, toolName: string): Record<string, unknown> {
   if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
     return parsed as Record<string, unknown>;
   }
-  throw new Error(
-    `Tool arguments for ${toolName} parsed to non-object (${typeof parsed})`,
-  );
+  throw new Error(`Tool arguments for ${toolName} parsed to non-object (${typeof parsed})`);
 }
 
 /**
@@ -1038,14 +973,9 @@ export function ensureObjectArgs(
  *
  * @internal Exported for testing only.
  */
-export function parseToolArguments(
-  rawArgs: unknown,
-  toolName: string,
-): Record<string, unknown> {
+export function parseToolArguments(rawArgs: unknown, toolName: string): Record<string, unknown> {
   if (rawArgs === "" || rawArgs === null || rawArgs === undefined) {
-    logger.debug(
-      `[parseToolArguments] Tool "${toolName}" received empty/null/undefined arguments — defaulting to {}`,
-    );
+    logger.debug(`[parseToolArguments] Tool "${toolName}" received empty/null/undefined arguments — defaulting to {}`);
     return {};
   }
   const parsed = typeof rawArgs === "string" ? JSON.parse(rawArgs) : rawArgs;

@@ -17,34 +17,20 @@ test.describe("Sub-Agents", () => {
     });
   });
 
-  test("agent indicators are visible with supervisor active by default", async ({
-    page,
-  }) => {
+  test("agent indicators are visible with supervisor active by default", async ({ page }) => {
     // All four agent indicators should be visible
-    await expect(
-      page.locator('[data-testid="supervisor-indicator"]'),
-    ).toBeVisible();
-    await expect(
-      page.locator('[data-testid="flights-indicator"]'),
-    ).toBeVisible();
-    await expect(
-      page.locator('[data-testid="hotels-indicator"]'),
-    ).toBeVisible();
-    await expect(
-      page.locator('[data-testid="experiences-indicator"]'),
-    ).toBeVisible();
+    await expect(page.locator('[data-testid="supervisor-indicator"]')).toBeVisible();
+    await expect(page.locator('[data-testid="flights-indicator"]')).toBeVisible();
+    await expect(page.locator('[data-testid="hotels-indicator"]')).toBeVisible();
+    await expect(page.locator('[data-testid="experiences-indicator"]')).toBeVisible();
 
     // Supervisor should be the active agent (has blue/active styling)
-    const supervisorIndicator = page.locator(
-      '[data-testid="supervisor-indicator"]',
-    );
+    const supervisorIndicator = page.locator('[data-testid="supervisor-indicator"]');
     await expect(supervisorIndicator).toHaveClass(/bg-blue-100/);
   });
 
   test("itinerary starts empty with placeholder text", async ({ page }) => {
-    await expect(page.getByText("No items yet -- start planning!")).toBeVisible(
-      { timeout: 10000 },
-    );
+    await expect(page.getByText("No items yet -- start planning!")).toBeVisible({ timeout: 10000 });
   });
 
   test("travel sections show empty state initially", async ({ page }) => {
@@ -59,9 +45,7 @@ test.describe("Sub-Agents", () => {
     });
   });
 
-  test("section headings for travel categories are visible", async ({
-    page,
-  }) => {
+  test("section headings for travel categories are visible", async ({ page }) => {
     await expect(page.getByText("Flight Options")).toBeVisible({
       timeout: 10000,
     });
@@ -74,9 +58,7 @@ test.describe("Sub-Agents", () => {
   });
 
   test("sidebar has chat input for travel planning", async ({ page }) => {
-    await expect(
-      page.locator('textarea, [placeholder*="message"]').first(),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('textarea, [placeholder*="message"]').first()).toBeVisible({ timeout: 10000 });
   });
 
   test("can send message and get assistant response", async ({ page }) => {
@@ -89,13 +71,9 @@ test.describe("Sub-Agents", () => {
     });
   });
 
-  test("travel planning request populates flight or hotel options", async ({
-    page,
-  }) => {
+  test("travel planning request populates flight or hotel options", async ({ page }) => {
     const input = page.locator('textarea, [placeholder*="message"]').first();
-    await input.fill(
-      "Plan a 5-day trip to Paris with flights and hotel recommendations",
-    );
+    await input.fill("Plan a 5-day trip to Paris with flights and hotel recommendations");
     await input.press("Enter");
 
     // Wait for agent to process -- should populate at least one section

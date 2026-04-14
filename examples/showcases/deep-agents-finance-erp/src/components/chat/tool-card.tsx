@@ -39,10 +39,7 @@ const TOOL_CONFIG: Record<
   {
     icon: LucideIcon;
     getDisplayText: (args: Record<string, unknown>) => string;
-    getResultSummary?: (
-      result: unknown,
-      args: Record<string, unknown>,
-    ) => string | null;
+    getResultSummary?: (result: unknown, args: Record<string, unknown>) => string | null;
   }
 > = {
   do_research: {
@@ -73,8 +70,7 @@ const TOOL_CONFIG: Record<
   },
   navigate_and_filter: {
     icon: ArrowRight,
-    getDisplayText: (args) =>
-      `Navigating to ${args.page || "page"}${args.filter ? ` (${args.filter})` : ""}`,
+    getDisplayText: (args) => `Navigating to ${args.page || "page"}${args.filter ? ` (${args.filter})` : ""}`,
   },
   update_dashboard: {
     icon: LayoutDashboard,
@@ -86,27 +82,22 @@ const TOOL_CONFIG: Record<
       }
       return "Updating dashboard...";
     },
-    getResultSummary: (result) =>
-      typeof result === "string" ? result : "Dashboard updated",
+    getResultSummary: (result) => (typeof result === "string" ? result : "Dashboard updated"),
   },
   manage_dashboard: {
     icon: Settings,
     getDisplayText: (args) => {
       if (args.action === "reset") return "Resetting dashboard to defaults";
-      if (args.action === "remove")
-        return `Removing widget ${args.widgetId || ""}`;
+      if (args.action === "remove") return `Removing widget ${args.widgetId || ""}`;
       if (args.action === "reorder") return "Reordering dashboard layout";
       return `Dashboard: ${args.action || "managing"}`;
     },
-    getResultSummary: (result) =>
-      typeof result === "string" ? result : "Layout updated",
+    getResultSummary: (result) => (typeof result === "string" ? result : "Layout updated"),
   },
   render_chat_visual: {
     icon: BarChart3,
     getDisplayText: (args) =>
-      args.type === "cash_position"
-        ? "Showing cash position"
-        : `Chart: ${(args.title as string) || "..."}`,
+      args.type === "cash_position" ? "Showing cash position" : `Chart: ${(args.title as string) || "..."}`,
   },
   request_approval: {
     icon: ShieldCheck,
@@ -124,19 +115,9 @@ const TOOL_CONFIG: Record<
 export function ToolCard({ name, status, args, result }: ToolCardProps) {
   const config = TOOL_CONFIG[name];
   if (config) {
-    return (
-      <SpecializedToolCard
-        name={name}
-        status={status}
-        args={args}
-        result={result}
-        config={config}
-      />
-    );
+    return <SpecializedToolCard name={name} status={status} args={args} result={result} config={config} />;
   }
-  return (
-    <DefaultToolCard name={name} status={status} args={args} result={result} />
-  );
+  return <DefaultToolCard name={name} status={status} args={args} result={result} />;
 }
 
 /**
@@ -163,25 +144,15 @@ interface SpecializedToolCardProps extends ToolCardProps {
   config: (typeof TOOL_CONFIG)[string];
 }
 
-function SpecializedToolCard({
-  name,
-  status,
-  args,
-  result,
-  config,
-}: SpecializedToolCardProps) {
+function SpecializedToolCard({ name, status, args, result, config }: SpecializedToolCardProps) {
   const [expanded, setExpanded] = useState(false);
   const isComplete = status === "complete";
   const isExecuting = status === "inProgress" || status === "executing";
 
-  const resultSummary =
-    isComplete && config.getResultSummary
-      ? config.getResultSummary(result, args)
-      : null;
+  const resultSummary = isComplete && config.getResultSummary ? config.getResultSummary(result, args) : null;
 
   // Only do_research and do_projections have expandable content
-  const hasExpandableContent =
-    isComplete && (name === "do_research" || name === "do_projections");
+  const hasExpandableContent = isComplete && (name === "do_research" || name === "do_projections");
 
   return (
     <div
@@ -200,42 +171,29 @@ function SpecializedToolCard({
           {isComplete ? (
             <Check size={16} strokeWidth={2} className="text-green-600" />
           ) : (
-            <config.icon
-              size={16}
-              strokeWidth={2}
-              className={`text-amber-600 ${isExecuting ? "animate-spin" : ""}`}
-            />
+            <config.icon size={16} strokeWidth={2} className={`text-amber-600 ${isExecuting ? "animate-spin" : ""}`} />
           )}
         </div>
 
         {/* Text */}
         <div className="min-w-0 flex-1">
-          <p
-            className={`text-sm font-medium ${
-              isComplete ? "text-muted-foreground" : "text-foreground"
-            }`}
-          >
+          <p className={`text-sm font-medium ${isComplete ? "text-muted-foreground" : "text-foreground"}`}>
             {config.getDisplayText(args)}
           </p>
-          {resultSummary && (
-            <p className="mt-0.5 text-xs text-green-600">{resultSummary}</p>
-          )}
+          {resultSummary && <p className="mt-0.5 text-xs text-green-600">{resultSummary}</p>}
         </div>
 
         {/* Expand chevron */}
         {hasExpandableContent && (
           <ChevronDown
-            className={`h-4 w-4 text-muted-foreground transition-transform ${
-              expanded ? "rotate-180" : ""
-            }`}
+            className={`h-4 w-4 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`}
           />
         )}
 
         {/* Spinner for long-running tools */}
-        {isExecuting &&
-          (name === "do_research" || name === "do_projections") && (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          )}
+        {isExecuting && (name === "do_research" || name === "do_projections") && (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        )}
       </div>
 
       {/* Expanded details */}
@@ -252,28 +210,15 @@ function SpecializedToolCard({
 // ExpandedDetails
 // ---------------------------------------------------------------------------
 
-function ExpandedDetails({
-  name,
-  result,
-  args,
-}: {
-  name: string;
-  result: unknown;
-  args: Record<string, unknown>;
-}) {
+function ExpandedDetails({ name, result, args }: { name: string; result: unknown; args: Record<string, unknown> }) {
   if (name === "do_research" || name === "do_projections") {
     const text = typeof result === "string" ? result : "";
-    if (!text)
-      return <p className="text-xs text-muted-foreground">No findings</p>;
+    if (!text) return <p className="text-xs text-muted-foreground">No findings</p>;
     return (
       <div className="space-y-2">
         <p className="text-xs font-medium text-muted-foreground">Query:</p>
-        <p className="text-xs text-foreground/70">
-          {(args.query as string) || "..."}
-        </p>
-        <p className="mt-2 text-xs font-medium text-muted-foreground">
-          Findings:
-        </p>
+        <p className="text-xs text-foreground/70">{(args.query as string) || "..."}</p>
+        <p className="mt-2 text-xs font-medium text-muted-foreground">Findings:</p>
         <p className="whitespace-pre-wrap text-sm text-foreground">{text}</p>
       </div>
     );
@@ -314,9 +259,7 @@ function DefaultToolCard({ name, status, args, result }: ToolCardProps) {
             <code className="text-sm text-foreground">{name}</code>
             <span
               className={`rounded-full px-2 py-0.5 text-xs ${
-                isComplete
-                  ? "bg-green-500/10 text-green-700"
-                  : "bg-purple-500/10 text-purple-700"
+                isComplete ? "bg-green-500/10 text-green-700" : "bg-purple-500/10 text-purple-700"
               }`}
             >
               {status}
@@ -327,9 +270,7 @@ function DefaultToolCard({ name, status, args, result }: ToolCardProps) {
           onClick={() => setExpanded(!expanded)}
           className="text-muted-foreground transition-colors hover:text-foreground"
         >
-          <ChevronDown
-            className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`}
-          />
+          <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
         </button>
       </div>
       {expanded && (
@@ -344,9 +285,7 @@ function DefaultToolCard({ name, status, args, result }: ToolCardProps) {
             <div>
               <p className="mb-1 text-xs text-muted-foreground">Result:</p>
               <pre className="max-h-32 overflow-auto rounded-md bg-muted p-2 text-xs">
-                {typeof result === "string"
-                  ? result
-                  : JSON.stringify(result, null, 2)}
+                {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
               </pre>
             </div>
           )}

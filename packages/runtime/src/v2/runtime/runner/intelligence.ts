@@ -7,17 +7,8 @@ import {
 } from "./agent-runner";
 import { EMPTY, Observable, from } from "rxjs";
 import { catchError, finalize } from "rxjs/operators";
-import {
-  AbstractAgent,
-  BaseEvent,
-  EventType,
-  RunStartedEvent,
-} from "@ag-ui/client";
-import {
-  finalizeRunEvents,
-  AG_UI_CHANNEL_EVENT,
-  phoenixExponentialBackoff,
-} from "@copilotkit/shared";
+import { AbstractAgent, BaseEvent, EventType, RunStartedEvent } from "@ag-ui/client";
+import { finalizeRunEvents, AG_UI_CHANNEL_EVENT, phoenixExponentialBackoff } from "@copilotkit/shared";
 import { Socket, Channel } from "phoenix";
 import { randomUUID } from "node:crypto";
 
@@ -77,14 +68,8 @@ export class IntelligenceAgentRunner extends AgentRunner {
   private createSocket(): Socket {
     const socket = new Socket(this.options.url, {
       ...(this.options.authToken ? { authToken: this.options.authToken } : {}),
-      reconnectAfterMs: phoenixExponentialBackoff(
-        100,
-        this.options.maxReconnectMs ?? 10_000,
-      ),
-      rejoinAfterMs: phoenixExponentialBackoff(
-        1_000,
-        this.options.maxRejoinMs ?? 30_000,
-      ),
+      reconnectAfterMs: phoenixExponentialBackoff(100, this.options.maxReconnectMs ?? 10_000),
+      rejoinAfterMs: phoenixExponentialBackoff(1_000, this.options.maxRejoinMs ?? 30_000),
     });
     socket.connect();
     return socket;
@@ -133,9 +118,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       metadata: {
         ...existingMetadata,
         cpki_event_id:
-          typeof existingMetadata.cpki_event_id === "string"
-            ? existingMetadata.cpki_event_id
-            : randomUUID(),
+          typeof existingMetadata.cpki_event_id === "string" ? existingMetadata.cpki_event_id : randomUUID(),
         cpki_event_seq: eventSeq,
       },
     };
@@ -207,10 +190,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       // The client sends the stop event before leaving the channel, so the
       // runner is guaranteed to receive it while still joined.
       channel.on(AG_UI_CHANNEL_EVENT, (payload: BaseEvent) => {
-        if (
-          payload.type === EventType.CUSTOM &&
-          (payload as BaseEvent & { name?: string }).name === "stop"
-        ) {
+        if (payload.type === EventType.CUSTOM && (payload as BaseEvent & { name?: string }).name === "stop") {
           this.stop({ threadId });
         }
       });
@@ -262,10 +242,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       channel.on("ag_ui_event", (payload: BaseEvent) => {
         observer.next(payload);
 
-        if (
-          payload.type === EventType.RUN_FINISHED ||
-          payload.type === EventType.RUN_ERROR
-        ) {
+        if (payload.type === EventType.RUN_FINISHED || payload.type === EventType.RUN_ERROR) {
           observer.complete();
         }
       });
@@ -279,9 +256,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
         .join()
         .receive("ok", () => undefined)
         .receive("error", (resp) => {
-          observer.error(
-            new Error(`Failed to join channel: ${JSON.stringify(resp)}`),
-          );
+          observer.error(new Error(`Failed to join channel: ${JSON.stringify(resp)}`));
           cleanup();
         })
         .receive("timeout", () => {
@@ -320,11 +295,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
     return Promise.resolve(true);
   }
 
-  private executeAgentRun(
-    request: AgentRunnerRunRequest,
-    state: ThreadState,
-    threadId: string,
-  ): Observable<void> {
+  private executeAgentRun(request: AgentRunnerRunRequest, state: ThreadState, threadId: string): Observable<void> {
     const { currentEvents, channel } = state;
     const pushCanonicalEvent = (event: BaseEvent): void => {
       const canonicalEvent = this.stampRunnerMetadata(event, state);
@@ -334,18 +305,12 @@ export class IntelligenceAgentRunner extends AgentRunner {
         state.hasRunStarted = true;
       }
 
-      channel.push(
-        "event",
-        this.createRunnerEventPayload(canonicalEvent, request, state),
-      );
+      channel.push("event", this.createRunnerEventPayload(canonicalEvent, request, state));
     };
 
-    const getPersistedInputMessages = () =>
-      request.persistedInputMessages ?? request.input.messages;
+    const getPersistedInputMessages = () => request.persistedInputMessages ?? request.input.messages;
 
-    const buildRunStartedEvent = (
-      source?: RunStartedEvent,
-    ): RunStartedEvent => {
+    const buildRunStartedEvent = (source?: RunStartedEvent): RunStartedEvent => {
       const baseInput = source?.input ?? request.input;
       const persistedInputMessages = getPersistedInputMessages();
 
@@ -357,9 +322,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
         }),
         input: {
           ...baseInput,
-          ...(persistedInputMessages !== undefined
-            ? { messages: persistedInputMessages }
-            : {}),
+          ...(persistedInputMessages !== undefined ? { messages: persistedInputMessages } : {}),
         },
       } as RunStartedEvent;
     };
@@ -399,10 +362,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
           stopRequested: state.stopRequested,
         });
         for (const event of appended) {
-          channel.push(
-            "event",
-            this.createRunnerEventPayload(event, request, state),
-          );
+          channel.push("event", this.createRunnerEventPayload(event, request, state));
         }
         this.removeThread(threadId);
       }),

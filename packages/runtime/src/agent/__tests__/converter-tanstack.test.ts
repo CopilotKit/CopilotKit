@@ -24,20 +24,14 @@ describe("TanStack AI converter (via Agent)", () => {
 
       expectLifecycleWrapped(events);
 
-      const textEvents = events.filter(
-        (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      );
+      const textEvents = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CHUNK);
       expect(textEvents).toHaveLength(1);
 
       expect(eventField<string>(textEvents[0], "role")).toBe("assistant");
       expect(eventField<string>(textEvents[0], "delta")).toBe("Hello world");
       expect(eventField<string>(textEvents[0], "messageId")).toBeDefined();
-      expect(typeof eventField<string>(textEvents[0], "messageId")).toBe(
-        "string",
-      );
-      expect(
-        eventField<string>(textEvents[0], "messageId").length,
-      ).toBeGreaterThan(0);
+      expect(typeof eventField<string>(textEvents[0], "messageId")).toBe("string");
+      expect(eventField<string>(textEvents[0], "messageId").length).toBeGreaterThan(0);
     });
 
     it("multiple text chunks share the same messageId", async () => {
@@ -50,14 +44,10 @@ describe("TanStack AI converter (via Agent)", () => {
 
       expectLifecycleWrapped(events);
 
-      const textEvents = events.filter(
-        (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      );
+      const textEvents = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CHUNK);
       expect(textEvents).toHaveLength(3);
 
-      const messageIds = new Set(
-        textEvents.map((e) => eventField<string>(e, "messageId")),
-      );
+      const messageIds = new Set(textEvents.map((e) => eventField<string>(e, "messageId")));
       expect(messageIds.size).toBe(1);
     });
 
@@ -65,10 +55,7 @@ describe("TanStack AI converter (via Agent)", () => {
       const agent = createAgent("tanstack", []);
       const events = await collectEvents(agent.run(createDefaultInput()));
 
-      expectEventSequence(events, [
-        EventType.RUN_STARTED,
-        EventType.RUN_FINISHED,
-      ]);
+      expectEventSequence(events, [EventType.RUN_STARTED, EventType.RUN_FINISHED]);
     });
   });
 
@@ -115,19 +102,11 @@ describe("TanStack AI converter (via Agent)", () => {
       ]);
       const events = await collectEvents(agent.run(createDefaultInput()));
 
-      const textEvent = events.find(
-        (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      )!;
-      const toolStartEvent = events.find(
-        (e) => e.type === EventType.TOOL_CALL_START,
-      )!;
+      const textEvent = events.find((e) => e.type === EventType.TEXT_MESSAGE_CHUNK)!;
+      const toolStartEvent = events.find((e) => e.type === EventType.TOOL_CALL_START)!;
 
-      expect(
-        eventField<string>(toolStartEvent, "parentMessageId"),
-      ).toBeDefined();
-      expect(eventField<string>(toolStartEvent, "parentMessageId")).toBe(
-        eventField<string>(textEvent, "messageId"),
-      );
+      expect(eventField<string>(toolStartEvent, "parentMessageId")).toBeDefined();
+      expect(eventField<string>(toolStartEvent, "parentMessageId")).toBe(eventField<string>(textEvent, "messageId"));
     });
 
     it("multiple tool calls in sequence each get correct events", async () => {
@@ -171,10 +150,7 @@ describe("TanStack AI converter (via Agent)", () => {
     });
 
     it("tool call with no ARGS chunks produces only START + END", async () => {
-      const agent = createAgent("tanstack", [
-        tanstackToolCallStart("tc-1", "noArgsTool"),
-        tanstackToolCallEnd("tc-1"),
-      ]);
+      const agent = createAgent("tanstack", [tanstackToolCallStart("tc-1", "noArgsTool"), tanstackToolCallEnd("tc-1")]);
       const events = await collectEvents(agent.run(createDefaultInput()));
 
       expectLifecycleWrapped(events);
@@ -206,15 +182,11 @@ describe("TanStack AI converter (via Agent)", () => {
 
       expectLifecycleWrapped(events);
 
-      const resultEvents = events.filter(
-        (e) => e.type === EventType.TOOL_CALL_RESULT,
-      );
+      const resultEvents = events.filter((e) => e.type === EventType.TOOL_CALL_RESULT);
       expect(resultEvents).toHaveLength(1);
       expect(eventField<string>(resultEvents[0], "toolCallId")).toBe("tc-1");
       expect(eventField<string>(resultEvents[0], "role")).toBe("tool");
-      expect(
-        JSON.parse(eventField<string>(resultEvents[0], "content")),
-      ).toEqual({ result: "ok" });
+      expect(JSON.parse(eventField<string>(resultEvents[0], "content"))).toEqual({ result: "ok" });
     });
 
     it("TOOL_CALL_RESULT with object content serializes to JSON", async () => {
@@ -229,13 +201,9 @@ describe("TanStack AI converter (via Agent)", () => {
       ]);
       const events = await collectEvents(agent.run(createDefaultInput()));
 
-      const resultEvents = events.filter(
-        (e) => e.type === EventType.TOOL_CALL_RESULT,
-      );
+      const resultEvents = events.filter((e) => e.type === EventType.TOOL_CALL_RESULT);
       expect(resultEvents).toHaveLength(1);
-      expect(
-        JSON.parse(eventField<string>(resultEvents[0], "content")),
-      ).toEqual({ data: 42 });
+      expect(JSON.parse(eventField<string>(resultEvents[0], "content"))).toEqual({ data: 42 });
     });
   });
 
@@ -265,13 +233,9 @@ describe("TanStack AI converter (via Agent)", () => {
       ]);
 
       // Verify content of text events
-      const textEvents = events.filter(
-        (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      );
+      const textEvents = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CHUNK);
       expect(eventField<string>(textEvents[0], "delta")).toBe("Let me help. ");
-      expect(eventField<string>(textEvents[1], "delta")).toBe(
-        "Here are the results.",
-      );
+      expect(eventField<string>(textEvents[1], "delta")).toBe("Here are the results.");
     });
   });
 
@@ -304,9 +268,7 @@ describe("TanStack AI converter (via Agent)", () => {
 
       expectLifecycleWrapped(events);
 
-      const textEvent = events.find(
-        (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      )!;
+      const textEvent = events.find((e) => e.type === EventType.TEXT_MESSAGE_CHUNK)!;
       expect(eventField<string>(textEvent, "delta")).toBe(largeDelta);
       expect(eventField<string>(textEvent, "delta").length).toBe(100_000);
     });

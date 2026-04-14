@@ -4,9 +4,10 @@ import type { ReactFrontendTool } from "../types/frontend-tool";
 
 const EMPTY_DEPS: ReadonlyArray<unknown> = [];
 
-export function useFrontendTool<
-  T extends Record<string, unknown> = Record<string, unknown>,
->(tool: ReactFrontendTool<T>, deps?: ReadonlyArray<unknown>) {
+export function useFrontendTool<T extends Record<string, unknown> = Record<string, unknown>>(
+  tool: ReactFrontendTool<T>,
+  deps?: ReadonlyArray<unknown>,
+) {
   const { copilotkit } = useCopilotKit();
   const extraDeps = deps ?? EMPTY_DEPS;
 

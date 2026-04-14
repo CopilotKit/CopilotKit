@@ -15,9 +15,7 @@ const SR_API = `${BASE_URL}/table/sc_request`;
 const headers = {
   Accept: "application/json",
   "Content-Type": "application/json",
-  Authorization: Buffer.from(
-    `atai@copilotkit.ai:C6%rN,6W?Fr;-ub;^bPTf#<eU5c+?yhMi3oTam*(`,
-  ).toString("base64"),
+  Authorization: Buffer.from(`atai@copilotkit.ai:C6%rN,6W?Fr;-ub;^bPTf#<eU5c+?yhMi3oTam*(`).toString("base64"),
 };
 
 type Entity = "incident" | "service request";
@@ -37,8 +35,7 @@ const getSharedParameters = (entity: Entity): Parameter[] => [
 ];
 
 const getDescriptionPrompt = (entity: Entity): string => {
-  const request =
-    entity === "incident" ? "report an incident" : "create a service request";
+  const request = entity === "incident" ? "report an incident" : "create a service request";
   return `
         ${request}.
         Collect each parameter at a time. Ask for one detail, get answered, ask for the other etc.
@@ -81,8 +78,7 @@ export const useServiceNow = async (currentUserEmail: string) => {
 
   useCopilotAction({
     name: "getIncidents",
-    description:
-      "Fetch all incidents for a user ordered by creation, desc. The default limit is last 5 incidents",
+    description: "Fetch all incidents for a user ordered by creation, desc. The default limit is last 5 incidents",
     parameters: [
       {
         name: "limit",

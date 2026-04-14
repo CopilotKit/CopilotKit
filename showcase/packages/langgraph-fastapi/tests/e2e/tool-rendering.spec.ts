@@ -19,9 +19,7 @@ test.describe("Tool Rendering", () => {
     });
   });
 
-  test("weather query renders WeatherCard with stats grid", async ({
-    page,
-  }) => {
+  test("weather query renders WeatherCard with stats grid", async ({ page }) => {
     const input = page.getByPlaceholder("Type a message");
     await input.fill("What's the weather in London?");
     await input.press("Enter");
@@ -40,9 +38,7 @@ test.describe("Tool Rendering", () => {
     });
   });
 
-  test("completed weather card shows Current Weather label", async ({
-    page,
-  }) => {
+  test("completed weather card shows Current Weather label", async ({ page }) => {
     const input = page.getByPlaceholder("Type a message");
     await input.fill("Tell me the weather in Paris");
     await input.press("Enter");

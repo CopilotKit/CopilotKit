@@ -20,17 +20,16 @@ describe("RenderToolProps type inference", () => {
     }>;
 
     it("RenderToolInProgressProps has Partial parameters", () => {
-      expectTypeOf<
-        RenderToolInProgressProps<ZodSchema>["parameters"]
-      >().toEqualTypeOf<
+      expectTypeOf<RenderToolInProgressProps<ZodSchema>["parameters"]>().toEqualTypeOf<
         Partial<{ query: string; limit?: number | undefined }>
       >();
     });
 
     it("RenderToolExecutingProps has full parameters", () => {
-      expectTypeOf<
-        RenderToolExecutingProps<ZodSchema>["parameters"]
-      >().toEqualTypeOf<{ query: string; limit?: number | undefined }>();
+      expectTypeOf<RenderToolExecutingProps<ZodSchema>["parameters"]>().toEqualTypeOf<{
+        query: string;
+        limit?: number | undefined;
+      }>();
     });
 
     it("RenderToolCompleteProps has full parameters and string result", () => {
@@ -104,27 +103,21 @@ describe("RenderToolProps type inference", () => {
 
 describe("ReactToolCallRenderer type inference", () => {
   it("args field accepts a StandardSchemaV1", () => {
-    expectTypeOf<ReactToolCallRenderer<{ x: number }>["args"]>().toMatchTypeOf<
-      StandardSchemaV1<any, { x: number }>
-    >();
+    expectTypeOf<ReactToolCallRenderer<{ x: number }>["args"]>().toMatchTypeOf<StandardSchemaV1<any, { x: number }>>();
   });
 
   it("render component receives typed args", () => {
     type Renderer = ReactToolCallRenderer<{ city: string }>;
 
     // The render component should be a ComponentType
-    expectTypeOf<Renderer["render"]>().toMatchTypeOf<
-      React.ComponentType<any>
-    >();
+    expectTypeOf<Renderer["render"]>().toMatchTypeOf<React.ComponentType<any>>();
   });
 });
 
 describe("useComponent type inference", () => {
   it("InferRenderProps extracts output from StandardSchemaV1", () => {
     // This tests the type utility used inside useComponent
-    type InferRenderProps<T> = T extends StandardSchemaV1
-      ? InferSchemaOutput<T>
-      : any;
+    type InferRenderProps<T> = T extends StandardSchemaV1 ? InferSchemaOutput<T> : any;
 
     const zodSchema = z.object({ city: z.string() });
     expectTypeOf<InferRenderProps<typeof zodSchema>>().toEqualTypeOf<{
@@ -143,9 +136,7 @@ describe("useComponent type inference", () => {
   });
 
   it("InferRenderProps returns any for undefined", () => {
-    type InferRenderProps<T> = T extends StandardSchemaV1
-      ? InferSchemaOutput<T>
-      : any;
+    type InferRenderProps<T> = T extends StandardSchemaV1 ? InferSchemaOutput<T> : any;
 
     expectTypeOf<InferRenderProps<undefined>>().toBeAny();
   });

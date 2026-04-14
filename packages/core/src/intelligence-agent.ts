@@ -142,10 +142,7 @@ export class IntelligenceAgent extends AbstractAgent {
    * TODO: Remove this override once AG-UI's AbstractAgent supports opting out
    * of verifyEvents for transports with different connection life-cycles.
    */
-  override async connectAgent(
-    parameters?: RunAgentParameters,
-    subscriber?: AgentSubscriber,
-  ): Promise<RunAgentResult> {
+  override async connectAgent(parameters?: RunAgentParameters, subscriber?: AgentSubscriber): Promise<RunAgentResult> {
     // Access private fields through a type escape hatch — these are set/read
     // by the base class and must be managed identically to the original.
     // Using `any` because these fields are private in AbstractAgent, and
@@ -206,9 +203,7 @@ export class IntelligenceAgent extends AbstractAgent {
         { defaultValue: undefined },
       );
 
-      const newMessages = structuredClone_(this.messages).filter(
-        (m) => !previousMessageIds.has(m.id),
-      );
+      const newMessages = structuredClone_(this.messages).filter((m) => !previousMessageIds.has(m.id));
       return { result, newMessages };
     } finally {
       this.isRunning = false;
@@ -313,10 +308,7 @@ export class IntelligenceAgent extends AbstractAgent {
    * Only nulls instance references when they still point to the owned resource,
    * so a concurrent pipeline's resources are never clobbered.
    */
-  private cleanupOwned(
-    ownChannel: Channel | null,
-    ownSocket: Socket | null,
-  ): void {
+  private cleanupOwned(ownChannel: Channel | null, ownSocket: Socket | null): void {
     if (ownChannel) {
       ownChannel.leave();
       if (this.activeChannel === ownChannel) {
@@ -339,10 +331,7 @@ export class IntelligenceAgent extends AbstractAgent {
     this.cleanupOwned(this.activeChannel, this.socket);
   }
 
-  private requestJoinCredentials$(
-    mode: "run",
-    input: RunAgentInput,
-  ): Observable<ThreadJoinCredentials> {
+  private requestJoinCredentials$(mode: "run", input: RunAgentInput): Observable<ThreadJoinCredentials> {
     return defer(async () => {
       try {
         const response = await fetch(this.buildRuntimeUrl(mode), {
@@ -360,9 +349,7 @@ export class IntelligenceAgent extends AbstractAgent {
             state: input.state,
             forwardedProps: input.forwardedProps,
           }),
-          ...(this.config.credentials
-            ? { credentials: this.config.credentials }
-            : {}),
+          ...(this.config.credentials ? { credentials: this.config.credentials } : {}),
         });
 
         if (response.status === 409) {
@@ -371,13 +358,10 @@ export class IntelligenceAgent extends AbstractAgent {
 
         if (!response.ok) {
           const text = await response.text().catch(() => "");
-          throw new Error(
-            text || response.statusText || String(response.status),
-          );
+          throw new Error(text || response.statusText || String(response.status));
         }
 
-        const payload =
-          (await response.json()) as Partial<ThreadJoinCredentials>;
+        const payload = (await response.json()) as Partial<ThreadJoinCredentials>;
         if (!payload.joinToken) {
           throw new Error("missing joinToken");
         }
@@ -387,17 +371,14 @@ export class IntelligenceAgent extends AbstractAgent {
         if (error instanceof AgentThreadLockedError) {
           throw error;
         }
-        throw new Error(
-          `REST ${mode} request failed: ${error instanceof Error ? error.message : String(error)}`,
-          { cause: error },
-        );
+        throw new Error(`REST ${mode} request failed: ${error instanceof Error ? error.message : String(error)}`, {
+          cause: error,
+        });
       }
     });
   }
 
-  private requestConnectPlan$(
-    input: RunAgentInput,
-  ): Observable<NormalizedConnectPlan | null> {
+  private requestConnectPlan$(input: RunAgentInput): Observable<NormalizedConnectPlan | null> {
     return defer(async () => {
       try {
         const response = await fetch(this.buildRuntimeUrl("connect"), {
@@ -416,9 +397,7 @@ export class IntelligenceAgent extends AbstractAgent {
             forwardedProps: input.forwardedProps,
             lastSeenEventId: this.getReconnectCursor(input),
           }),
-          ...(this.config.credentials
-            ? { credentials: this.config.credentials }
-            : {}),
+          ...(this.config.credentials ? { credentials: this.config.credentials } : {}),
         });
 
         if (response.status === 204) {
@@ -427,58 +406,39 @@ export class IntelligenceAgent extends AbstractAgent {
 
         if (!response.ok) {
           const text = await response.text().catch(() => "");
-          throw new Error(
-            text || response.statusText || String(response.status),
-          );
+          throw new Error(text || response.statusText || String(response.status));
         }
 
         return this.normalizeConnectPlan(await response.json());
       } catch (error) {
-        throw new Error(
-          `REST connect request failed: ${error instanceof Error ? error.message : String(error)}`,
-          { cause: error },
-        );
+        throw new Error(`REST connect request failed: ${error instanceof Error ? error.message : String(error)}`, {
+          cause: error,
+        });
       }
     });
   }
 
   private normalizeConnectPlan(payload: unknown): NormalizedConnectPlan {
-    const envelope =
-      payload && typeof payload === "object"
-        ? (payload as Record<string, unknown>)
-        : null;
+    const envelope = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : null;
 
     if (envelope?.mode === "bootstrap") {
       return {
         mode: "bootstrap",
-        latestEventId:
-          typeof envelope.latestEventId === "string"
-            ? envelope.latestEventId
-            : null,
-        events: Array.isArray(envelope.events)
-          ? (envelope.events as BaseEvent[])
-          : [],
+        latestEventId: typeof envelope.latestEventId === "string" ? envelope.latestEventId : null,
+        events: Array.isArray(envelope.events) ? (envelope.events as BaseEvent[]) : [],
       };
     }
 
     if (envelope?.mode === "live") {
-      if (
-        typeof envelope.joinToken !== "string" ||
-        envelope.joinToken.length === 0
-      ) {
+      if (typeof envelope.joinToken !== "string" || envelope.joinToken.length === 0) {
         throw new Error("missing joinToken");
       }
 
       return {
         mode: "live",
         joinToken: envelope.joinToken,
-        joinFromEventId:
-          typeof envelope.joinFromEventId === "string"
-            ? envelope.joinFromEventId
-            : null,
-        events: Array.isArray(envelope.events)
-          ? (envelope.events as BaseEvent[])
-          : [],
+        joinFromEventId: typeof envelope.joinFromEventId === "string" ? envelope.joinFromEventId : null,
+        events: Array.isArray(envelope.events) ? (envelope.events as BaseEvent[]) : [],
       };
     }
 
@@ -522,11 +482,7 @@ export class IntelligenceAgent extends AbstractAgent {
         }),
         shareReplay({ bufferSize: 1, refCount: true }),
       );
-      const { topic, params } = this.createThreadChannelDescriptor(
-        input,
-        options.streamMode,
-        options.replayCursor,
-      );
+      const { topic, params } = this.createThreadChannelDescriptor(input, options.streamMode, options.replayCursor);
       const channel$ = ɵphoenixChannel$({
         socket$,
         topic,
@@ -538,16 +494,8 @@ export class IntelligenceAgent extends AbstractAgent {
         }),
         shareReplay({ bufferSize: 1, refCount: true }),
       );
-      const threadEvents$ = this.observeThreadEvents$(
-        input.threadId,
-        channel$,
-        options,
-      ).pipe(share());
-      const threadCompleted$ = threadEvents$.pipe(
-        ignoreElements(),
-        endWith(null),
-        take(1),
-      );
+      const threadEvents$ = this.observeThreadEvents$(input.threadId, channel$, options).pipe(share());
+      const threadCompleted$ = threadEvents$.pipe(ignoreElements(), endWith(null), take(1));
 
       return merge(
         this.joinThreadChannel$(channel$),
@@ -557,19 +505,12 @@ export class IntelligenceAgent extends AbstractAgent {
     });
   }
 
-  private joinThreadChannel$(
-    channel$: Observable<ɵPhoenixChannelSession>,
-  ): Observable<never> {
+  private joinThreadChannel$(channel$: Observable<ɵPhoenixChannelSession>): Observable<never> {
     return ɵjoinPhoenixChannel$(channel$);
   }
 
-  private observeSocketHealth$(
-    socket$: Observable<ɵPhoenixSocketSession>,
-  ): Observable<never> {
-    return ɵobservePhoenixSocketHealth$(
-      ɵobservePhoenixSocketSignals$(socket$),
-      5,
-    );
+  private observeSocketHealth$(socket$: Observable<ɵPhoenixSocketSession>): Observable<never> {
+    return ɵobservePhoenixSocketHealth$(ɵobservePhoenixSocketSignals$(socket$), 5);
   }
 
   private observeThreadEvents$(
@@ -578,47 +519,31 @@ export class IntelligenceAgent extends AbstractAgent {
     options: { completeOnRunError: boolean },
   ): Observable<BaseEvent> {
     return channel$.pipe(
-      switchMapOperator(({ channel }) =>
-        this.observeChannelEvent$<BaseEvent>(channel, CLIENT_AG_UI_EVENT),
-      ),
+      switchMapOperator(({ channel }) => this.observeChannelEvent$<BaseEvent>(channel, CLIENT_AG_UI_EVENT)),
       tap((payload) => {
         this.updateLastSeenEventId(threadId, payload);
         this.updateRunIdFromEvent(payload);
       }),
-      mergeMap((payload) =>
-        from(
-          this.createThreadNotifications(payload, options.completeOnRunError),
-        ),
-      ),
+      mergeMap((payload) => from(this.createThreadNotifications(payload, options.completeOnRunError))),
       dematerialize(),
     );
   }
 
-  private observeChannelEvent$<T>(
-    channel: Channel,
-    eventName: string,
-  ): Observable<T> {
+  private observeChannelEvent$<T>(channel: Channel, eventName: string): Observable<T> {
     return ɵobservePhoenixEvent$<T>(channel, eventName);
   }
 
-  private createThreadNotifications(
-    payload: BaseEvent,
-    completeOnRunError: boolean,
-  ): Array<Notification<BaseEvent>> {
+  private createThreadNotifications(payload: BaseEvent, completeOnRunError: boolean): Array<Notification<BaseEvent>> {
     if (payload.type === EventType.RUN_FINISHED) {
       return [Notification.createNext(payload), Notification.createComplete()];
     }
 
     if (payload.type === EventType.RUN_ERROR) {
-      const errorMessage =
-        (payload as BaseEvent & { message?: string }).message ?? "Run error";
+      const errorMessage = (payload as BaseEvent & { message?: string }).message ?? "Run error";
 
       return completeOnRunError
         ? [Notification.createNext(payload), Notification.createComplete()]
-        : [
-            Notification.createNext(payload),
-            Notification.createError(new Error(errorMessage)),
-          ];
+        : [Notification.createNext(payload), Notification.createError(new Error(errorMessage))];
     }
 
     return [Notification.createNext(payload)];
@@ -626,10 +551,7 @@ export class IntelligenceAgent extends AbstractAgent {
 
   private buildRuntimeUrl(mode: "run" | "connect"): string {
     const path = `${this.config.runtimeUrl}/agent/${encodeURIComponent(this.config.agentId)}/${mode}`;
-    const origin =
-      typeof window !== "undefined" && window.location
-        ? window.location.origin
-        : "http://localhost";
+    const origin = typeof window !== "undefined" && window.location ? window.location.origin : "http://localhost";
 
     return new URL(path, new URL(this.config.runtimeUrl, origin)).toString();
   }
@@ -647,10 +569,7 @@ export class IntelligenceAgent extends AbstractAgent {
           }
         : {
             stream_mode: "connect",
-            last_seen_event_id:
-              replayCursor === undefined
-                ? this.getReconnectCursor(input)
-                : replayCursor,
+            last_seen_event_id: replayCursor === undefined ? this.getReconnectCursor(input) : replayCursor,
           };
 
     return {
@@ -664,9 +583,7 @@ export class IntelligenceAgent extends AbstractAgent {
   }
 
   private getReconnectCursor(input: RunAgentInput): string | null {
-    return this.hasLocalThreadMessages(input)
-      ? this.getLastSeenEventId(input.threadId)
-      : null;
+    return this.hasLocalThreadMessages(input) ? this.getLastSeenEventId(input.threadId) : null;
   }
 
   private hasLocalThreadMessages(input: RunAgentInput): boolean {
@@ -719,8 +636,7 @@ export class IntelligenceAgent extends AbstractAgent {
       return null;
     }
 
-    const runnerEventId = (metadata as { cpki_event_id?: unknown })
-      .cpki_event_id;
+    const runnerEventId = (metadata as { cpki_event_id?: unknown }).cpki_event_id;
     return typeof runnerEventId === "string" ? runnerEventId : null;
   }
 }

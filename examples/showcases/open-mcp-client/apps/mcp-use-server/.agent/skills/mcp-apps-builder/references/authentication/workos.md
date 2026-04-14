@@ -17,14 +17,12 @@ const server = new MCPServer({
   oauth: oauthWorkOSProvider(),
 });
 
-server.tool(
-  { name: "whoami", description: "Get authenticated user info" },
-  async (_args, ctx) =>
-    object({
-      userId: ctx.auth.user.userId,
-      email: ctx.auth.user.email,
-      name: ctx.auth.user.name,
-    }),
+server.tool({ name: "whoami", description: "Get authenticated user info" }, async (_args, ctx) =>
+  object({
+    userId: ctx.auth.user.userId,
+    email: ctx.auth.user.email,
+    name: ctx.auth.user.name,
+  }),
 );
 
 server.listen();
@@ -128,17 +126,14 @@ WorkOS populates these fields on `ctx.auth.user`:
 ### Role-Based Access
 
 ```typescript
-server.tool(
-  { name: "admin-action", description: "Admin-only operation" },
-  async (_args, ctx) => {
-    if (!ctx.auth.user.roles?.includes("admin")) {
-      return error("Forbidden: admin role required");
-    }
+server.tool({ name: "admin-action", description: "Admin-only operation" }, async (_args, ctx) => {
+  if (!ctx.auth.user.roles?.includes("admin")) {
+    return error("Forbidden: admin role required");
+  }
 
-    // ... admin logic
-    return text("Done");
-  },
-);
+  // ... admin logic
+  return text("Done");
+});
 ```
 
 ---
@@ -150,30 +145,24 @@ Use the WorkOS API key (not the user's access token) for WorkOS management API c
 ```typescript
 const WORKOS_API_KEY = process.env.MCP_USE_OAUTH_WORKOS_API_KEY;
 
-server.tool(
-  { name: "get-workos-user", description: "Fetch user profile from WorkOS" },
-  async (_args, ctx) => {
-    if (!WORKOS_API_KEY) {
-      return error("WorkOS API key not configured");
-    }
+server.tool({ name: "get-workos-user", description: "Fetch user profile from WorkOS" }, async (_args, ctx) => {
+  if (!WORKOS_API_KEY) {
+    return error("WorkOS API key not configured");
+  }
 
-    const res = await fetch(
-      `https://api.workos.com/user_management/users/${ctx.auth.user.userId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${WORKOS_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-      },
-    );
+  const res = await fetch(`https://api.workos.com/user_management/users/${ctx.auth.user.userId}`, {
+    headers: {
+      Authorization: `Bearer ${WORKOS_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+  });
 
-    if (!res.ok) {
-      return error(`WorkOS API failed: ${res.status} ${res.statusText}`);
-    }
+  if (!res.ok) {
+    return error(`WorkOS API failed: ${res.status} ${res.statusText}`);
+  }
 
-    return object(await res.json());
-  },
-);
+  return object(await res.json());
+});
 ```
 
 ---

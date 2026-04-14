@@ -1,12 +1,6 @@
 import { z } from "zod";
 import { CHART_COLORS } from "./config";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 
 export const PieChartProps = z.object({
   title: z.string().describe("Chart title"),
@@ -63,14 +57,7 @@ function DonutChart({
       style={{ maxWidth: size, transform: "scaleX(-1)" }}
     >
       {/* Background ring */}
-      <circle
-        cx={center}
-        cy={center}
-        r={radius}
-        fill="none"
-        stroke="var(--secondary)"
-        strokeWidth={strokeWidth}
-      />
+      <circle cx={center} cy={center} r={radius} fill="none" stroke="var(--secondary)" strokeWidth={strokeWidth} />
       {/* Data slices */}
       {slices.map((slice, i) => (
         <circle
@@ -100,9 +87,7 @@ export function PieChart({ title, description, data }: PieChartProps) {
           <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-[var(--muted-foreground)] text-center py-8 text-sm">
-            No data available
-          </p>
+          <p className="text-[var(--muted-foreground)] text-center py-8 text-sm">No data available</p>
         </CardContent>
       </Card>
     );
@@ -136,15 +121,9 @@ export function PieChart({ title, description, data }: PieChartProps) {
                     backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
                   }}
                 />
-                <span className="flex-1 text-[var(--foreground)] truncate">
-                  {item.label}
-                </span>
-                <span className="text-[var(--muted-foreground)] tabular-nums">
-                  {val.toLocaleString()}
-                </span>
-                <span className="text-[var(--muted-foreground)] text-sm w-10 text-right tabular-nums">
-                  {pct}%
-                </span>
+                <span className="flex-1 text-[var(--foreground)] truncate">{item.label}</span>
+                <span className="text-[var(--muted-foreground)] tabular-nums">{val.toLocaleString()}</span>
+                <span className="text-[var(--muted-foreground)] text-sm w-10 text-right tabular-nums">{pct}%</span>
               </div>
             );
           })}

@@ -35,24 +35,14 @@ export function TransactionsList({
 
   if (loading) {
     return (
-      <div
-        className={cn(
-          "border rounded-lg overflow-hidden p-4",
-          compact ? "text-sm" : "text-base",
-        )}
-      >
+      <div className={cn("border rounded-lg overflow-hidden p-4", compact ? "text-sm" : "text-base")}>
         Fetching data...
       </div>
     );
   }
 
   return (
-    <div
-      className={cn(
-        "border rounded-lg overflow-hidden",
-        compact ? "text-sm" : "text-base",
-      )}
-    >
+    <div className={cn("border rounded-lg overflow-hidden", compact ? "text-sm" : "text-base")}>
       {transactions.map((transaction, index) => (
         <div key={transaction.id}>
           <div className={cn("flex items-center p-4", compact ? "p-3" : "p-4")}>
@@ -64,29 +54,15 @@ export function TransactionsList({
               )}
             >
               {transaction.amount > 0 ? (
-                <PlusCircle
-                  className={cn("text-white", compact ? "h-3 w-3" : "h-4 w-4")}
-                />
+                <PlusCircle className={cn("text-white", compact ? "h-3 w-3" : "h-4 w-4")} />
               ) : (
-                <Send
-                  className={cn("text-white", compact ? "h-3 w-3" : "h-4 w-4")}
-                />
+                <Send className={cn("text-white", compact ? "h-3 w-3" : "h-4 w-4")} />
               )}
             </div>
             <div className="flex-1 space-y-1">
+              <p className={cn("font-medium leading-tight", compact ? "text-xs" : "text-sm")}>{transaction.title}</p>
               <p
-                className={cn(
-                  "font-medium leading-tight",
-                  compact ? "text-xs" : "text-sm",
-                )}
-              >
-                {transaction.title}
-              </p>
-              <p
-                className={cn(
-                  "text-neutral-500 dark:text-neutral-400 leading-tight",
-                  compact ? "text-xs" : "text-sm",
-                )}
+                className={cn("text-neutral-500 dark:text-neutral-400 leading-tight", compact ? "text-xs" : "text-sm")}
               >
                 {transaction.date}
               </p>
@@ -102,12 +78,7 @@ export function TransactionsList({
             </div>
           </div>
           {transaction.note && (
-            <div
-              className={cn(
-                "bg-neutral-100 dark:bg-neutral-800 p-3 flex items-start",
-                compact ? "p-2" : "p-3",
-              )}
-            >
+            <div className={cn("bg-neutral-100 dark:bg-neutral-800 p-3 flex items-start", compact ? "p-2" : "p-3")}>
               <MessageSquare
                 className={cn(
                   "text-neutral-500 dark:text-neutral-400 mr-2 flex-shrink-0",
@@ -115,20 +86,10 @@ export function TransactionsList({
                 )}
               />
               <div className="flex-1">
-                <p
-                  className={cn(
-                    "text-neutral-700 dark:text-neutral-300",
-                    compact ? "text-xs" : "text-sm",
-                  )}
-                >
+                <p className={cn("text-neutral-700 dark:text-neutral-300", compact ? "text-xs" : "text-sm")}>
                   {transaction.note.content}
                 </p>
-                <p
-                  className={cn(
-                    "text-neutral-500 dark:text-neutral-400 mt-1",
-                    compact ? "text-xs" : "text-sm",
-                  )}
-                >
+                <p className={cn("text-neutral-500 dark:text-neutral-400 mt-1", compact ? "text-xs" : "text-sm")}>
                   {transaction.note.date}
                 </p>
               </div>
@@ -139,9 +100,7 @@ export function TransactionsList({
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() =>
-                  approvalInterfaceProps?.onApprove?.(transaction.id)
-                }
+                onClick={() => approvalInterfaceProps?.onApprove?.(transaction.id)}
                 aria-label="Approve"
                 className="h-12 w-12 rounded-full bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30 dark:hover:text-green-300"
               >

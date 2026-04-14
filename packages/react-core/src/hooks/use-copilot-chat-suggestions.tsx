@@ -58,22 +58,13 @@
  * The hook registers the configuration with the chat context upon component mount and
  * removes it on unmount, ensuring a clean and efficient lifecycle management.
  */
-import {
-  useConfigureSuggestions,
-  useCopilotChatConfiguration,
-  useCopilotKit,
-  useSuggestions,
-} from "../v2";
+import { useConfigureSuggestions, useCopilotChatConfiguration, useCopilotKit, useSuggestions } from "../v2";
 import { useEffect } from "react";
 import { StaticSuggestionsConfig, Suggestion } from "@copilotkit/core";
 
-type StaticSuggestionInput = Omit<Suggestion, "isLoading"> &
-  Partial<Pick<Suggestion, "isLoading">>;
+type StaticSuggestionInput = Omit<Suggestion, "isLoading"> & Partial<Pick<Suggestion, "isLoading">>;
 
-type StaticSuggestionsConfigInput = Omit<
-  StaticSuggestionsConfig,
-  "suggestions"
-> & {
+type StaticSuggestionsConfigInput = Omit<StaticSuggestionsConfig, "suggestions"> & {
   suggestions: StaticSuggestionInput[];
 };
 
@@ -97,12 +88,7 @@ type DynamicSuggestionsConfigInput = {
    * Whether the suggestions are available. Defaults to `enabled`.
    * @default enabled
    */
-  available?:
-    | "enabled"
-    | "disabled"
-    | "always"
-    | "before-first-message"
-    | "after-first-message";
+  available?: "enabled" | "disabled" | "always" | "before-first-message" | "after-first-message";
 
   /**
    * An optional class name to apply to the suggestions.
@@ -110,20 +96,13 @@ type DynamicSuggestionsConfigInput = {
   className?: string;
 };
 
-export type UseCopilotChatSuggestionsConfiguration =
-  | DynamicSuggestionsConfigInput
-  | StaticSuggestionsConfigInput;
+export type UseCopilotChatSuggestionsConfiguration = DynamicSuggestionsConfigInput | StaticSuggestionsConfigInput;
 
-export function useCopilotChatSuggestions(
-  config: UseCopilotChatSuggestionsConfiguration,
-  dependencies: any[] = [],
-) {
+export function useCopilotChatSuggestions(config: UseCopilotChatSuggestionsConfiguration, dependencies: any[] = []) {
   const existingConfig = useCopilotChatConfiguration();
   const resolvedAgentId = existingConfig?.agentId ?? "default";
 
-  const available =
-    (config.available === "enabled" ? "always" : config.available) ??
-    "before-first-message";
+  const available = (config.available === "enabled" ? "always" : config.available) ?? "before-first-message";
 
   const finalSuggestionConfig = {
     ...config,

@@ -1,12 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { CopilotKitCore } from "../core";
-import {
-  MockAgent,
-  createMessage,
-  createAssistantMessage,
-  createToolCallMessage,
-  createTool,
-} from "./test-utils";
+import { MockAgent, createMessage, createAssistantMessage, createToolCallMessage, createTool } from "./test-utils";
 
 describe("CopilotKitCore.runAgent - Basic Functionality", () => {
   let copilotKitCore: CopilotKitCore;
@@ -21,10 +15,7 @@ describe("CopilotKitCore.runAgent - Basic Functionality", () => {
   });
 
   it("should run agent without tools", async () => {
-    const messages = [
-      createMessage({ content: "Hello" }),
-      createAssistantMessage({ content: "Hi there!" }),
-    ];
+    const messages = [createMessage({ content: "Hello" }), createAssistantMessage({ content: "Hi there!" })];
     const agent = new MockAgent({ newMessages: messages });
     copilotKitCore.addAgent__unsafe_dev_only({
       id: "test",

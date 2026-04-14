@@ -1,10 +1,4 @@
-export function ProjectHeader({
-  name,
-  description,
-}: {
-  name: string;
-  description: string;
-}) {
+export function ProjectHeader({ name, description }: { name: string; description: string }) {
   return (
     <div className="flex justify-between items-center p-8 border-b border-white/10">
       <div>

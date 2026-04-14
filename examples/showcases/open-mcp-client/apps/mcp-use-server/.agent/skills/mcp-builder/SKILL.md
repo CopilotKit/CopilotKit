@@ -31,16 +31,7 @@ Read [design-and-architecture.md](references/design-and-architecture.md): when p
 ## Quick Reference
 
 ```typescript
-import {
-  MCPServer,
-  text,
-  object,
-  markdown,
-  html,
-  image,
-  widget,
-  error,
-} from "mcp-use/server";
+import { MCPServer, text, object, markdown, html, image, widget, error } from "mcp-use/server";
 import { z } from "zod";
 
 const server = new MCPServer({ name: "my-server", version: "1.0.0" });
@@ -56,9 +47,8 @@ server.tool(
 );
 
 // Resource
-server.resource(
-  { uri: "config://settings", name: "Settings", mimeType: "application/json" },
-  async () => object({ key: "value" }),
+server.resource({ uri: "config://settings", name: "Settings", mimeType: "application/json" }, async () =>
+  object({ key: "value" }),
 );
 
 // Prompt

@@ -2,12 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { BuiltInAgent } from "../index";
 import { EventType, type RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
-import {
-  mockStreamTextResponse,
-  textDelta,
-  finish,
-  collectEvents,
-} from "./test-helpers";
+import { mockStreamTextResponse, textDelta, finish, collectEvents } from "./test-helpers";
 
 // Mock the ai module
 vi.mock("ai", () => ({
@@ -72,12 +67,7 @@ describe("AI SDK v6 Compatibility", () => {
       model: v3Model,
     });
 
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([
-        textDelta("Hello from V3 model"),
-        finish(),
-      ]) as any,
-    );
+    vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([textDelta("Hello from V3 model"), finish()]) as any);
 
     const input: RunAgentInput = {
       threadId: "thread-v3",
@@ -101,9 +91,7 @@ describe("AI SDK v6 Compatibility", () => {
       runId: "run-v3",
     });
 
-    const textEvents = events.filter(
-      (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-    );
+    const textEvents = events.filter((e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK);
     expect(textEvents).toHaveLength(1);
     expect(textEvents[0]).toMatchObject({
       delta: "Hello from V3 model",

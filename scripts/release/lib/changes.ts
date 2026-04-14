@@ -2,11 +2,7 @@ import { spawnSync } from "child_process";
 import { ROOT } from "./config.js";
 
 export function getLastReleaseTag(): string | null {
-  const result = spawnSync(
-    "git",
-    ["tag", "--list", "v*", "--sort=-v:refname"],
-    { cwd: ROOT, encoding: "utf8" },
-  );
+  const result = spawnSync("git", ["tag", "--list", "v*", "--sort=-v:refname"], { cwd: ROOT, encoding: "utf8" });
   const tags = result.stdout.trim().split("\n").filter(Boolean);
 
   for (const tag of tags) {
@@ -27,11 +23,10 @@ export function getCommitsSinceLastRelease(): Commit[] {
   const lastTag = getLastReleaseTag();
   const range = lastTag ? `${lastTag}..HEAD` : "HEAD";
 
-  const result = spawnSync(
-    "git",
-    ["log", range, "--oneline", "--no-merges", "--format=%H %s"],
-    { cwd: ROOT, encoding: "utf8" },
-  );
+  const result = spawnSync("git", ["log", range, "--oneline", "--no-merges", "--format=%H %s"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  });
 
   return result.stdout
     .trim()

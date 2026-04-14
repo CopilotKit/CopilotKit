@@ -6,13 +6,7 @@ import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import Link from "next/link";
-import {
-  Callout,
-  Cards,
-  Card,
-  Accordions,
-  Accordion,
-} from "@/components/mdx-components";
+import { Callout, Cards, Card, Accordions, Accordion } from "@/components/mdx-components";
 import { PropertyReference } from "@/components/property-reference";
 import { getRegistry } from "@/lib/registry";
 import { SidebarNav } from "@/components/sidebar-nav";
@@ -42,9 +36,7 @@ function readTitle(filePath: string): string | null {
 }
 
 /** Read a meta.json from a directory, returning null if missing/invalid. */
-function readMeta(
-  dir: string,
-): { title?: string; pages?: string[]; root?: boolean } | null {
+function readMeta(dir: string): { title?: string; pages?: string[]; root?: boolean } | null {
   const metaPath = path.join(dir, "meta.json");
   if (!fs.existsSync(metaPath)) return null;
   try {
@@ -93,9 +85,7 @@ function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
         const subMeta = readMeta(subDir);
         const subChildren = buildNavTree(subDir, subPrefix);
         if (subChildren.length > 0) {
-          const groupTitle =
-            subMeta?.title ||
-            spreadMatch[1].replace(/[()-]/g, " ").replace(/\s+/g, " ").trim();
+          const groupTitle = subMeta?.title || spreadMatch[1].replace(/[()-]/g, " ").replace(/\s+/g, " ").trim();
           nodes.push({
             type: "group",
             title: groupTitle.charAt(0).toUpperCase() + groupTitle.slice(1),
@@ -115,8 +105,7 @@ function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
     const subDir = path.join(dir, entry);
 
     if (fs.existsSync(mdxFile)) {
-      const title =
-        readTitle(mdxFile) || entry.split("/").pop()!.replace(/-/g, " ");
+      const title = readTitle(mdxFile) || entry.split("/").pop()!.replace(/-/g, " ");
       nodes.push({ type: "page", title, slug });
     } else if (fs.existsSync(subDir) && fs.statSync(subDir).isDirectory()) {
       // Directory — check if it has its own meta.json with pages
@@ -135,8 +124,7 @@ function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
         });
       } else if (fs.existsSync(indexFile)) {
         // Has index.mdx but no pages — treat as a page link
-        const title =
-          readTitle(indexFile) || subMeta?.title || entry.replace(/-/g, " ");
+        const title = readTitle(indexFile) || subMeta?.title || entry.replace(/-/g, " ");
         nodes.push({ type: "page", title, slug: subPrefix });
       } else {
         // Directory with no meta pages and no index — build from filesystem
@@ -168,9 +156,7 @@ function buildNavTreeFromFilesystem(dir: string, prefix: string): NavNode[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.name.startsWith(".") || entry.name === "meta.json") continue;
     if (entry.name.startsWith("(")) continue; // skip route groups
-    const slug = prefix
-      ? `${prefix}/${entry.name.replace(".mdx", "")}`
-      : entry.name.replace(".mdx", "");
+    const slug = prefix ? `${prefix}/${entry.name.replace(".mdx", "")}` : entry.name.replace(".mdx", "");
     if (entry.isDirectory()) {
       const subChildren = buildNavTree(path.join(dir, entry.name), slug);
       const subMeta = readMeta(path.join(dir, entry.name));
@@ -184,9 +170,7 @@ function buildNavTreeFromFilesystem(dir: string, prefix: string): NavNode[] {
         });
       }
     } else if (entry.name.endsWith(".mdx") && entry.name !== "index.mdx") {
-      const title =
-        readTitle(path.join(dir, entry.name)) ||
-        entry.name.replace(".mdx", "").replace(/-/g, " ");
+      const title = readTitle(path.join(dir, entry.name)) || entry.name.replace(".mdx", "").replace(/-/g, " ");
       nodes.push({ type: "page", title, slug });
     }
   }
@@ -222,9 +206,7 @@ function buildBreadcrumbs(slugPath: string): Breadcrumb[] {
       label = readTitle(indexFile);
     }
     if (!label) {
-      label = parts[i]
-        .replace(/-/g, " ")
-        .replace(/\b\w/g, (c) => c.toUpperCase());
+      label = parts[i].replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     }
 
     crumbs.push({ label, href: isLast ? null : href });
@@ -257,13 +239,11 @@ const SNIPPET_MAP: Record<string, string> = {
   MigrateTo182: "shared/troubleshooting/migrate-to-1.8.2.mdx",
   MigrateToV2: "shared/troubleshooting/migrate-to-v2.mdx",
   Observability: "shared/premium/observability.mdx",
-  ObservabilityConnectors:
-    "shared/troubleshooting/observability-connectors.mdx",
+  ObservabilityConnectors: "shared/troubleshooting/observability-connectors.mdx",
   Overview: "shared/premium/overview.mdx",
   PrebuiltComponents: "shared/basics/prebuilt-components.mdx",
   ProgrammaticControl: "shared/basics/programmatic-control.mdx",
-  ReasoningMessages:
-    "shared/guides/custom-look-and-feel/reasoning-messages.mdx",
+  ReasoningMessages: "shared/guides/custom-look-and-feel/reasoning-messages.mdx",
   Slots: "shared/basics/slots.mdx",
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
   DefaultToolRendering: "shared/guides/default-tool-rendering.mdx",
@@ -329,8 +309,7 @@ function convertMarkdownTableToHtml(tableLines: string[]): string {
 
   const headerHtml = headers
     .map(
-      (h) =>
-        `<th style="padding:6px 12px;border:1px solid var(--border);text-align:left;font-size:0.875rem">${h}</th>`,
+      (h) => `<th style="padding:6px 12px;border:1px solid var(--border);text-align:left;font-size:0.875rem">${h}</th>`,
     )
     .join("");
   const bodyHtml = bodyRows
@@ -338,10 +317,7 @@ function convertMarkdownTableToHtml(tableLines: string[]): string {
       (row) =>
         "<tr>" +
         row
-          .map(
-            (cell) =>
-              `<td style="padding:6px 12px;border:1px solid var(--border);font-size:0.875rem">${cell}</td>`,
-          )
+          .map((cell) => `<td style="padding:6px 12px;border:1px solid var(--border);font-size:0.875rem">${cell}</td>`)
           .join("") +
         "</tr>",
     )
@@ -354,47 +330,38 @@ function convertTablesInJSX(content: string): string {
   // Build a regex that matches content between opening and closing container tags
   const tagPattern = JSX_CONTAINER_TAGS.join("|");
   // Match: <Tag ...>content</Tag> — non-greedy, handles nested content line by line
-  const regex = new RegExp(
-    `(<(?:${tagPattern})[^>]*>)([\\s\\S]*?)(<\\/(?:${tagPattern})>)`,
-    "g",
-  );
+  const regex = new RegExp(`(<(?:${tagPattern})[^>]*>)([\\s\\S]*?)(<\\/(?:${tagPattern})>)`, "g");
 
-  return content.replace(
-    regex,
-    (match, openTag: string, inner: string, closeTag: string) => {
-      // Find markdown table patterns within this region
-      const lines = inner.split("\n");
-      const result: string[] = [];
-      let i = 0;
+  return content.replace(regex, (match, openTag: string, inner: string, closeTag: string) => {
+    // Find markdown table patterns within this region
+    const lines = inner.split("\n");
+    const result: string[] = [];
+    let i = 0;
 
-      while (i < lines.length) {
-        const line = lines[i];
-        // Check if this line looks like a table row: starts with optional whitespace then |
-        if (/^\s*\|.+\|/.test(line)) {
-          // Collect consecutive table lines
-          const tableLines: string[] = [];
-          while (i < lines.length && /^\s*\|.+\|/.test(lines[i])) {
-            tableLines.push(lines[i].trim());
-            i++;
-          }
-          // Need at least header + separator (2 lines) to be a table
-          if (
-            tableLines.length >= 2 &&
-            /^\s*\|[\s:|-]+\|\s*$/.test(tableLines[1])
-          ) {
-            result.push(convertMarkdownTableToHtml(tableLines));
-          } else {
-            result.push(...tableLines);
-          }
-        } else {
-          result.push(line);
+    while (i < lines.length) {
+      const line = lines[i];
+      // Check if this line looks like a table row: starts with optional whitespace then |
+      if (/^\s*\|.+\|/.test(line)) {
+        // Collect consecutive table lines
+        const tableLines: string[] = [];
+        while (i < lines.length && /^\s*\|.+\|/.test(lines[i])) {
+          tableLines.push(lines[i].trim());
           i++;
         }
+        // Need at least header + separator (2 lines) to be a table
+        if (tableLines.length >= 2 && /^\s*\|[\s:|-]+\|\s*$/.test(tableLines[1])) {
+          result.push(convertMarkdownTableToHtml(tableLines));
+        } else {
+          result.push(...tableLines);
+        }
+      } else {
+        result.push(line);
+        i++;
       }
+    }
 
-      return openTag + result.join("\n") + closeTag;
-    },
-  );
+    return openTag + result.join("\n") + closeTag;
+  });
 }
 
 // Replace component tags (e.g. <CopilotRuntime />) with their snippet content.
@@ -406,36 +373,33 @@ function inlineSnippets(content: string, slugPath: string = ""): string {
 
   // Replace all self-closing component tags that have snippet mappings
   // Matches: <ComponentName /> or <ComponentName components={props.components} />
-  result = result.replace(
-    /<([A-Z]\w*)\s*(?:components=\{[^}]*\}\s*)?\/>/g,
-    (match, componentName) => {
-      let snippetRel = SNIPPET_MAP[componentName];
+  result = result.replace(/<([A-Z]\w*)\s*(?:components=\{[^}]*\}\s*)?\/>/g, (match, componentName) => {
+    let snippetRel = SNIPPET_MAP[componentName];
 
-      // For <SharedContent />, resolve based on the page's sub-path
-      if (!snippetRel && componentName === "SharedContent" && slugPath) {
-        // Extract sub-path: integrations/<framework>/<subpath> → <subpath>
-        const subPathMatch = slugPath.match(/^integrations\/[^/]+\/(.+)$/);
-        if (subPathMatch) {
-          const resolvedComponent = SUBPATH_TO_COMPONENT[subPathMatch[1]];
-          if (resolvedComponent) {
-            snippetRel = SNIPPET_MAP[resolvedComponent];
-          }
+    // For <SharedContent />, resolve based on the page's sub-path
+    if (!snippetRel && componentName === "SharedContent" && slugPath) {
+      // Extract sub-path: integrations/<framework>/<subpath> → <subpath>
+      const subPathMatch = slugPath.match(/^integrations\/[^/]+\/(.+)$/);
+      if (subPathMatch) {
+        const resolvedComponent = SUBPATH_TO_COMPONENT[subPathMatch[1]];
+        if (resolvedComponent) {
+          snippetRel = SNIPPET_MAP[resolvedComponent];
         }
       }
+    }
 
-      if (!snippetRel) return match; // Keep unknown components as-is
-      const snippetPath = path.join(SNIPPETS_DIR, snippetRel);
-      if (!fs.existsSync(snippetPath)) {
-        console.warn(`[docs] Snippet file not found: ${snippetPath}`);
-        return match;
-      }
-      let snippetContent = fs.readFileSync(snippetPath, "utf-8");
-      snippetContent = snippetContent.replace(/^---[\s\S]*?---\n?/, "");
-      snippetContent = snippetContent.replace(/^import\s+.+$/gm, "");
-      // Recursively inline nested component delegates
-      return inlineSnippets(snippetContent, slugPath);
-    },
-  );
+    if (!snippetRel) return match; // Keep unknown components as-is
+    const snippetPath = path.join(SNIPPETS_DIR, snippetRel);
+    if (!fs.existsSync(snippetPath)) {
+      console.warn(`[docs] Snippet file not found: ${snippetPath}`);
+      return match;
+    }
+    let snippetContent = fs.readFileSync(snippetPath, "utf-8");
+    snippetContent = snippetContent.replace(/^---[\s\S]*?---\n?/, "");
+    snippetContent = snippetContent.replace(/^import\s+.+$/gm, "");
+    // Recursively inline nested component delegates
+    return inlineSnippets(snippetContent, slugPath);
+  });
 
   return result;
 }
@@ -452,15 +416,11 @@ const components = {
   FeatureIntegrations: ({ feature }: { feature?: string }) => {
     if (!feature) return null;
     const reg = getRegistry();
-    const supporting = reg.integrations.filter(
-      (i) => i.deployed && i.features?.includes(feature),
-    );
+    const supporting = reg.integrations.filter((i) => i.deployed && i.features?.includes(feature));
     if (supporting.length === 0) return null;
     return (
       <div className="my-6">
-        <div className="text-xs font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
-          Supported by
-        </div>
+        <div className="text-xs font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">Supported by</div>
         <div className="flex flex-wrap gap-2">
           {supporting.map((i) => (
             <Link
@@ -475,13 +435,7 @@ const components = {
       </div>
     );
   },
-  InlineDemo: ({
-    integration,
-    demo,
-  }: {
-    integration?: string;
-    demo?: string;
-  }) => {
+  InlineDemo: ({ integration, demo }: { integration?: string; demo?: string }) => {
     if (!integration || !demo) return null;
     const reg = getRegistry();
     const int = reg.integrations.find((i) => i.slug === integration);
@@ -511,24 +465,12 @@ const components = {
     );
   },
   Note: Callout,
-  Warning: ({ children }: { children: React.ReactNode }) => (
-    <Callout type="warn">{children}</Callout>
-  ),
-  Tip: ({ children }: { children: React.ReactNode }) => (
-    <Callout type="info">{children}</Callout>
-  ),
+  Warning: ({ children }: { children: React.ReactNode }) => <Callout type="warn">{children}</Callout>,
+  Tip: ({ children }: { children: React.ReactNode }) => <Callout type="info">{children}</Callout>,
   Steps: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Step: ({
-    children,
-    title,
-  }: {
-    children: React.ReactNode;
-    title?: string;
-  }) => (
+  Step: ({ children, title }: { children: React.ReactNode; title?: string }) => (
     <div style={{ marginBottom: "1rem" }}>
-      {title && (
-        <h4 style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{title}</h4>
-      )}
+      {title && <h4 style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{title}</h4>}
       {children}
     </div>
   ),
@@ -593,13 +535,7 @@ const components = {
       {children}
     </div>
   ),
-  Feature: ({
-    children,
-    title,
-  }: {
-    children?: React.ReactNode;
-    title?: string;
-  }) => (
+  Feature: ({ children, title }: { children?: React.ReactNode; title?: string }) => (
     <div
       style={{
         border: "1px solid var(--border)",
@@ -607,53 +543,25 @@ const components = {
         padding: "1rem",
       }}
     >
-      {title && (
-        <h4 style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{title}</h4>
-      )}
+      {title && <h4 style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{title}</h4>}
       {children}
     </div>
   ),
   video: (props: Record<string, unknown>) => (
-    <video
-      {...props}
-      className={undefined}
-      style={{ borderRadius: "0.5rem", width: "100%", marginBottom: "1rem" }}
-    />
+    <video {...props} className={undefined} style={{ borderRadius: "0.5rem", width: "100%", marginBottom: "1rem" }} />
   ),
   img: (props: Record<string, unknown>) => (
-    <img
-      {...props}
-      className={undefined}
-      style={{ borderRadius: "0.5rem", maxWidth: "100%", marginBottom: "1rem" }}
-    />
+    <img {...props} className={undefined} style={{ borderRadius: "0.5rem", maxWidth: "100%", marginBottom: "1rem" }} />
   ),
-  CodeGroup: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Snippet: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  CodeGroup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Snippet: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   Info: Callout,
-  Caution: ({ children }: { children: React.ReactNode }) => (
-    <Callout type="warn">{children}</Callout>
-  ),
+  Caution: ({ children }: { children: React.ReactNode }) => <Callout type="warn">{children}</Callout>,
   // Passthrough components — render children as-is
-  TailoredContent: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  TailoredContentOption: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SharedContent: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  IframeSwitcher: ({
-    children,
-    src,
-  }: {
-    children?: React.ReactNode;
-    src?: string;
-  }) =>
+  TailoredContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  TailoredContentOption: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SharedContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  IframeSwitcher: ({ children, src }: { children?: React.ReactNode; src?: string }) =>
     src ? (
       <div
         style={{
@@ -663,32 +571,17 @@ const components = {
           marginBottom: "1rem",
         }}
       >
-        <iframe
-          src={src}
-          style={{ width: "100%", height: "400px", border: "none" }}
-        />
+        <iframe src={src} style={{ width: "100%", height: "400px", border: "none" }} />
       </div>
     ) : (
       <div>{children}</div>
     ),
-  IframeSwitcherGroup: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  RunAndConnect: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  RunAndConnectSnippet: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  MigrateTo: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  MigrateToV: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  HeadlessUI: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  IframeSwitcherGroup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  RunAndConnect: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  RunAndConnectSnippet: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  MigrateTo: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  MigrateToV: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  HeadlessUI: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   ImageZoom: ({ src, alt }: { src?: string; alt?: string }) => (
     <img
       src={src}
@@ -701,72 +594,28 @@ const components = {
       }}
     />
   ),
-  InstallSDKSnippet: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  MCPApps: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  MCPSetup: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Overview: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  FrameworkOverview: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CommonIssues: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ErrorDebugging: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Observability: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ObservabilityConnectors: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Inspector: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  DefaultToolRendering: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  DisplayOnly: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Interactive: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  PrebuiltComponents: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ProgrammaticControl: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CodingAgents: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Slots: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  FrontendTools: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  FrontEndToolsImpl: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ToolRendering: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ToolRenderer: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ReasoningMessages: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  InstallSDKSnippet: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  MCPApps: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  MCPSetup: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  Overview: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  FrameworkOverview: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  CommonIssues: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  ErrorDebugging: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  Observability: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  ObservabilityConnectors: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  Inspector: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  DefaultToolRendering: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  DisplayOnly: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  Interactive: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  PrebuiltComponents: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  ProgrammaticControl: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  CodingAgents: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  Slots: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  FrontendTools: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  FrontEndToolsImpl: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  ToolRendering: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  ToolRenderer: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  ReasoningMessages: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   // Styled components
   YouTubeVideo: ({ id }: { id?: string }) =>
     id ? (
@@ -816,13 +665,7 @@ const components = {
       {children}
     </div>
   ),
-  PatternCard: ({
-    children,
-    title,
-  }: {
-    children?: React.ReactNode;
-    title?: string;
-  }) => (
+  PatternCard: ({ children, title }: { children?: React.ReactNode; title?: string }) => (
     <div
       style={{
         border: "1px solid var(--border)",
@@ -831,9 +674,7 @@ const components = {
         marginBottom: "0.75rem",
       }}
     >
-      {title && (
-        <h4 style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{title}</h4>
-      )}
+      {title && <h4 style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{title}</h4>}
       {children}
     </div>
   ),
@@ -849,9 +690,7 @@ const components = {
       {children}
     </div>
   ),
-  EcosystemTable: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  EcosystemTable: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   FeatureMatrix: () => (
     <div
       style={{
@@ -868,9 +707,7 @@ const components = {
       for a full comparison.
     </div>
   ),
-  IntegrationsGrid: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  IntegrationsGrid: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   IntegrationButtonGroup: ({ children }: { children?: React.ReactNode }) => (
     <div
       style={{
@@ -884,12 +721,8 @@ const components = {
     </div>
   ),
   // Misc
-  AGUI: ({ children }: { children?: React.ReactNode }) => (
-    <span>{children}</span>
-  ),
-  AgUI: ({ children }: { children?: React.ReactNode }) => (
-    <span>{children}</span>
-  ),
+  AGUI: ({ children }: { children?: React.ReactNode }) => <span>{children}</span>,
+  AgUI: ({ children }: { children?: React.ReactNode }) => <span>{children}</span>,
   SignUpSection: () => (
     <div
       style={{
@@ -909,46 +742,20 @@ const components = {
       CopilotKit Cloud
     </a>
   ),
-  LandingCodeShowcase: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  UseAgentSnippet: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  InstallPythonSDK: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  LandingCodeShowcase: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  UseAgentSnippet: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  InstallPythonSDK: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   ActionButtons: ({ children }: { children?: React.ReactNode }) => (
-    <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-      {children}
-    </div>
+    <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>{children}</div>
   ),
-  ApproveComponent: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  AskComponent: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CopilotCloudConfigureCopilotKitProvider: ({
-    children,
-  }: {
-    children?: React.ReactNode;
-  }) => <div>{children}</div>,
-  GenerativeUISpecsOverview: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  IOptions: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  JsonOptions: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  MessageActionRenderProps: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CopilotRuntime: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  ApproveComponent: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  AskComponent: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  CopilotCloudConfigureCopilotKitProvider: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  GenerativeUISpecsOverview: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  IOptions: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  JsonOptions: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  MessageActionRenderProps: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  CopilotRuntime: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   // HTML/React elements that MDX tries to resolve as components
   Image: ({ src, alt, ...props }: Record<string, unknown>) => (
     <img
@@ -957,14 +764,7 @@ const components = {
       style={{ borderRadius: "0.5rem", maxWidth: "100%", marginBottom: "1rem" }}
     />
   ),
-  A: ({
-    children,
-    href,
-    ...props
-  }: {
-    children?: React.ReactNode;
-    href?: string;
-  }) => (
+  A: ({ children, href, ...props }: { children?: React.ReactNode; href?: string }) => (
     <a href={href} style={{ color: "var(--accent)" }}>
       {children}
     </a>
@@ -987,12 +787,8 @@ const components = {
       {children}
     </a>
   ),
-  Code: ({ children }: { children?: React.ReactNode }) => (
-    <code>{children}</code>
-  ),
-  Progress: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  Code: ({ children }: { children?: React.ReactNode }) => <code>{children}</code>,
+  Progress: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   // Lucide icons — render as empty spans (they're decorative)
   Wrench: () => <span>🔧</span>,
   WrenchIcon: () => <span>🔧</span>,
@@ -1040,160 +836,67 @@ const components = {
   FaServer: () => <span>🖥️</span>,
   FaWrench: () => <span>🔧</span>,
   // Code example components (render children or nothing)
-  CopilotKit: ({ children }: { children?: React.ReactNode }) => (
+  CopilotKit: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  CopilotChat: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  CopilotSidebar: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  CopilotPopup: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  CopilotTextarea: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  CopilotKitProvider: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  CopilotUI: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  CloudCopilotKitProvider: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  SelfHostingCopilotRuntimeCreateEndpoint: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  SelfHostingCopilotRuntimeConfigureCopilotKitProvider: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  CopilotChat: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CopilotSidebar: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CopilotPopup: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CopilotTextarea: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CopilotKitProvider: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CopilotUI: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  CloudCopilotKitProvider: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SelfHostingCopilotRuntimeCreateEndpoint: ({
-    children,
-  }: {
-    children?: React.ReactNode;
-  }) => <div>{children}</div>,
-  SelfHostingCopilotRuntimeConfigureCopilotKitProvider: ({
-    children,
-  }: {
-    children?: React.ReactNode;
-  }) => <div>{children}</div>,
-  AgentState: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  AgentStateSnapshot: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  AgentRunResponseUpdate: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  AgentState: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  AgentStateSnapshot: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  AgentRunResponseUpdate: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   // Chart components
   Bar: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
-  BarChart: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  BarChart: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   XAxis: () => null,
   YAxis: () => null,
-  ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Tooltip: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  TooltipProvider: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Markdown: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  Tooltip: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  TooltipProvider: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  Markdown: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   // App-specific components from code examples
   Chat: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   Task: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
-  TasksList: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  TasksProvider: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  MapCanvas: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Email: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  EmailsProvider: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  EmailThread: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ChatMessage: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  MessageFromA: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  MessageToA: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Reply: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  PlaceCard: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  Proposal: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ProposalViewer: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  TripsProvider: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ResearchProvider: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ResearchContext: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ResearchContextType: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  ResearchState: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SearchInfo: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SearchProgress: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  YourApp: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  YourMainContent: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  MCPClient: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  McpServerManager: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  McpToolCall: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  GoServer: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  TasksList: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  TasksProvider: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  MapCanvas: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  Email: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  EmailsProvider: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  EmailThread: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  ChatMessage: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  MessageFromA: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  MessageToA: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  Reply: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  PlaceCard: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  Proposal: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  ProposalViewer: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  TripsProvider: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  ResearchProvider: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  ResearchContext: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  ResearchContextType: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  ResearchState: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  SearchInfo: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  SearchProgress: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  YourApp: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  YourMainContent: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  MCPClient: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  McpServerManager: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  McpToolCall: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  GoServer: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 };
 
 function DocsOverview() {
   return (
     <div className="mx-auto max-w-3xl px-6 py-16 text-center">
-      <h1 className="text-3xl font-semibold text-[var(--text)] tracking-tight mb-3">
-        CopilotKit Documentation
-      </h1>
+      <h1 className="text-3xl font-semibold text-[var(--text)] tracking-tight mb-3">CopilotKit Documentation</h1>
       <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-10">
-        Guides, tutorials, and integration documentation for building AI-powered
-        applications with CopilotKit.
+        Guides, tutorials, and integration documentation for building AI-powered applications with CopilotKit.
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left mb-10">
@@ -1204,9 +907,7 @@ function DocsOverview() {
           <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
             Agentic Chat UI
           </h3>
-          <p className="text-xs text-[var(--text-muted)]">
-            Build chat interfaces with CopilotKit components
-          </p>
+          <p className="text-xs text-[var(--text-muted)]">Build chat interfaces with CopilotKit components</p>
         </Link>
         <Link
           href="/docs/frontend-tools"
@@ -1215,9 +916,7 @@ function DocsOverview() {
           <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
             Frontend Tools
           </h3>
-          <p className="text-xs text-[var(--text-muted)]">
-            Define tools your agent can call on the frontend
-          </p>
+          <p className="text-xs text-[var(--text-muted)]">Define tools your agent can call on the frontend</p>
         </Link>
         <Link
           href="/docs/generative-ui"
@@ -1226,9 +925,7 @@ function DocsOverview() {
           <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
             Generative UI
           </h3>
-          <p className="text-xs text-[var(--text-muted)]">
-            Let your agent generate interactive UI components
-          </p>
+          <p className="text-xs text-[var(--text-muted)]">Let your agent generate interactive UI components</p>
         </Link>
         <Link
           href="/docs/backend/copilot-runtime"
@@ -1237,9 +934,7 @@ function DocsOverview() {
           <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
             Copilot Runtime
           </h3>
-          <p className="text-xs text-[var(--text-muted)]">
-            Server-side runtime for connecting agents
-          </p>
+          <p className="text-xs text-[var(--text-muted)]">Server-side runtime for connecting agents</p>
         </Link>
         <Link
           href="/docs/integrations"
@@ -1248,20 +943,14 @@ function DocsOverview() {
           <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
             Integrations
           </h3>
-          <p className="text-xs text-[var(--text-muted)]">
-            LangGraph, Mastra, CrewAI, and more
-          </p>
+          <p className="text-xs text-[var(--text-muted)]">LangGraph, Mastra, CrewAI, and more</p>
         </Link>
         <Link
           href="/docs/learn"
           className="group p-5 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-all"
         >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
-            Learn
-          </h3>
-          <p className="text-xs text-[var(--text-muted)]">
-            Tutorials and learning resources
-          </p>
+          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">Learn</h3>
+          <p className="text-xs text-[var(--text-muted)]">Tutorials and learning resources</p>
         </Link>
       </div>
 
@@ -1272,11 +961,7 @@ function DocsOverview() {
   );
 }
 
-export default async function DocsPage({
-  params,
-}: {
-  params: Promise<{ slug?: string[] }>;
-}) {
+export default async function DocsPage({ params }: { params: Promise<{ slug?: string[] }> }) {
   const { slug } = await params;
 
   // Overview page when no slug
@@ -1301,11 +986,8 @@ export default async function DocsPage({
   const rawContent = source.replace(/^---[\s\S]*?---\n?/, "");
   const inlined = inlineSnippets(rawContent, slugPath);
   const content = convertTablesInJSX(inlined);
-  const titleMatch =
-    source.match(/title:\s*["']?(.+?)["']?\s*$/m) ||
-    content.match(/^#\s+(.+)$/m);
-  const title =
-    titleMatch?.[1] || slugPath.split("/").pop()?.replace(/-/g, " ") || "Docs";
+  const titleMatch = source.match(/title:\s*["']?(.+?)["']?\s*$/m) || content.match(/^#\s+(.+)$/m);
+  const title = titleMatch?.[1] || slugPath.split("/").pop()?.replace(/-/g, " ") || "Docs";
 
   // Integration-scoped sidebar: if under integrations/<framework>, scope to that framework
   let navTree: NavNode[];
@@ -1317,9 +999,7 @@ export default async function DocsPage({
     const framework = integrationMatch[1];
     const frameworkDir = path.join(CONTENT_DIR, "integrations", framework);
     const frameworkMeta = readMeta(frameworkDir);
-    sidebarTitle =
-      frameworkMeta?.title ||
-      framework.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    sidebarTitle = frameworkMeta?.title || framework.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     navTree = buildNavTree(frameworkDir, `integrations/${framework}`);
     backLink = { label: "\u2190 Back to Docs", href: "/docs" };
   } else {
@@ -1386,10 +1066,7 @@ export default async function DocsPage({
             {backLink.label}
           </Link>
         )}
-        <Link
-          href="/docs"
-          className="block text-xs font-mono uppercase tracking-widest text-[var(--accent)] mb-4"
-        >
+        <Link href="/docs" className="block text-xs font-mono uppercase tracking-widest text-[var(--accent)] mb-4">
           {sidebarTitle}
         </Link>
         {navTree.map((node) => renderNavItem(node))}
@@ -1403,10 +1080,7 @@ export default async function DocsPage({
             <React.Fragment key={i}>
               {i > 0 && <span className="text-[var(--text-faint)]">&gt;</span>}
               {crumb.href ? (
-                <Link
-                  href={crumb.href}
-                  className="hover:text-[var(--text-secondary)] transition-colors"
-                >
+                <Link href={crumb.href} className="hover:text-[var(--text-secondary)] transition-colors">
                   {crumb.label}
                 </Link>
               ) : (
@@ -1416,9 +1090,7 @@ export default async function DocsPage({
           ))}
         </nav>
 
-        <h1 className="text-2xl font-semibold text-[var(--text)] tracking-tight mb-6">
-          {title}
-        </h1>
+        <h1 className="text-2xl font-semibold text-[var(--text)] tracking-tight mb-6">{title}</h1>
         <div className="reference-content">
           <MDXRemote
             source={content}

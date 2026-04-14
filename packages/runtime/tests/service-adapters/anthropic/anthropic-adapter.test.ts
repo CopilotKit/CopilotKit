@@ -1,9 +1,5 @@
 import { AnthropicAdapter } from "../../../src/service-adapters/anthropic/anthropic-adapter";
-import {
-  TextMessage,
-  ActionExecutionMessage,
-  ResultMessage,
-} from "../../../src/graphql/types/converted";
+import { TextMessage, ActionExecutionMessage, ResultMessage } from "../../../src/graphql/types/converted";
 
 // Mock only the Anthropic SDK, not our adapter
 vi.mock("@anthropic-ai/sdk", () => {
@@ -174,14 +170,7 @@ describe("AnthropicAdapter", () => {
       await adapter.process({
         threadId: "test-thread",
         model: "claude-3-5-sonnet-latest",
-        messages: [
-          systemMessage,
-          userMessage,
-          toolExecution,
-          result1,
-          result2,
-          result3,
-        ],
+        messages: [systemMessage, userMessage, toolExecution, result1, result2, result3],
         actions: [],
         eventSource: mockEventSource,
         forwardedParameters: {},
@@ -225,9 +214,7 @@ describe("AnthropicAdapter", () => {
 
       // Count tool_result messages - should be only 1
       const toolResults = sentMessages.filter(
-        (msg: any) =>
-          msg.role === "user" &&
-          msg.content.some((c: any) => c.type === "tool_result"),
+        (msg: any) => msg.role === "user" && msg.content.some((c: any) => c.type === "tool_result"),
       );
       expect(toolResults).toHaveLength(1);
     });
@@ -268,9 +255,7 @@ describe("AnthropicAdapter", () => {
 
       // Should only include the valid tool result
       const toolResults = sentMessages.filter(
-        (msg: any) =>
-          msg.role === "user" &&
-          msg.content.some((c: any) => c.type === "tool_result"),
+        (msg: any) => msg.role === "user" && msg.content.some((c: any) => c.type === "tool_result"),
       );
       expect(toolResults).toHaveLength(1);
       expect(toolResults[0].content[0].tool_use_id).toBe("valid-tool");

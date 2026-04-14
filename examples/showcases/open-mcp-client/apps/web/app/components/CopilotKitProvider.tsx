@@ -1,21 +1,13 @@
 "use client";
 
 import { CopilotKit } from "@copilotkit/react-core";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { DEFAULT_SERVERS, type McpServerEntry } from "../constants/mcpServers";
 import { TOOL_CALL_RENDERERS } from "./ToolCallRenderer";
 
 // ─── Shared context ───────────────────────────────────────────────────────────
 
-type ServersUpdater =
-  | McpServerEntry[]
-  | ((prev: McpServerEntry[]) => McpServerEntry[]);
+type ServersUpdater = McpServerEntry[] | ((prev: McpServerEntry[]) => McpServerEntry[]);
 
 interface McpServersContextValue {
   servers: McpServerEntry[];
@@ -43,13 +35,8 @@ export function useMcpServers(): McpServersContextValue {
  * - Passes the list to CopilotKit as `x-mcp-servers` HTTP header so
  *   MCPAppsMiddleware always uses the up-to-date list.
  */
-export function DynamicCopilotKitProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [servers, setServersState] =
-    useState<McpServerEntry[]>(DEFAULT_SERVERS);
+export function DynamicCopilotKitProvider({ children }: { children: React.ReactNode }) {
+  const [servers, setServersState] = useState<McpServerEntry[]>(DEFAULT_SERVERS);
 
   const setServers = useCallback((update: ServersUpdater) => {
     setServersState((prev) => {

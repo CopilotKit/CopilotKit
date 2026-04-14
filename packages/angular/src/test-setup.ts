@@ -5,10 +5,7 @@ import "@analogjs/vitest-angular/setup-zone";
 import { getTestBed } from "@angular/core/testing";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Injector } from "@angular/core";
-import {
-  BrowserDynamicTestingModule,
-  platformBrowserDynamicTesting,
-} from "@angular/platform-browser-dynamic/testing";
+import { BrowserDynamicTestingModule, platformBrowserDynamicTesting } from "@angular/platform-browser-dynamic/testing";
 
 // JSDOM polyfills commonly needed by Angular/CDK/components
 // ResizeObserver

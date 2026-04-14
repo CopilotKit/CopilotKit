@@ -15,8 +15,7 @@ vi.mock("../providers", () => ({
 
 describe("A2UIMessageRenderer rendering integration", () => {
   it("should render A2UI surface content via React renderer", async () => {
-    const { createA2UIMessageRenderer } =
-      await import("../a2ui/A2UIMessageRenderer.js");
+    const { createA2UIMessageRenderer } = await import("../a2ui/A2UIMessageRenderer.js");
     const renderer = createA2UIMessageRenderer({
       theme: {} as Theme,
     });
@@ -48,9 +47,7 @@ describe("A2UIMessageRenderer rendering integration", () => {
     };
 
     const RenderComponent = renderer.render as React.FC<any>;
-    const TestWrapper = () => (
-      <RenderComponent content={content} agent={null} />
-    );
+    const TestWrapper = () => <RenderComponent content={content} agent={null} />;
 
     let container: HTMLElement;
     await act(async () => {
@@ -58,15 +55,12 @@ describe("A2UIMessageRenderer rendering integration", () => {
       container = result.container;
     });
 
-    const surfaceElement = container!.querySelector(
-      "[data-surface-id='test-surface']",
-    );
+    const surfaceElement = container!.querySelector("[data-surface-id='test-surface']");
     expect(surfaceElement).not.toBeNull();
   });
 
   it("should update surface when operations change", async () => {
-    const { createA2UIMessageRenderer } =
-      await import("../a2ui/A2UIMessageRenderer.js");
+    const { createA2UIMessageRenderer } = await import("../a2ui/A2UIMessageRenderer.js");
     const renderer = createA2UIMessageRenderer({
       theme: {} as Theme,
     });
@@ -80,8 +74,7 @@ describe("A2UIMessageRenderer rendering integration", () => {
             version: "v0.9",
             createSurface: {
               surfaceId: "test",
-              catalogId:
-                "https://a2ui.org/specification/v0_9/basic_catalog.json",
+              catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json",
             },
           },
           {
@@ -120,8 +113,7 @@ describe("A2UIMessageRenderer rendering integration", () => {
             version: "v0.9",
             createSurface: {
               surfaceId: "test",
-              catalogId:
-                "https://a2ui.org/specification/v0_9/basic_catalog.json",
+              catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json",
             },
           },
           {
@@ -147,16 +139,13 @@ describe("A2UIMessageRenderer rendering integration", () => {
   });
 
   it("should return null when no operations are provided", async () => {
-    const { createA2UIMessageRenderer } =
-      await import("../a2ui/A2UIMessageRenderer.js");
+    const { createA2UIMessageRenderer } = await import("../a2ui/A2UIMessageRenderer.js");
     const renderer = createA2UIMessageRenderer({
       theme: {} as Theme,
     });
     const RenderComponent = renderer.render as React.FC<any>;
 
-    const TestWrapper = () => (
-      <RenderComponent content={{ a2ui_operations: [] }} agent={null} />
-    );
+    const TestWrapper = () => <RenderComponent content={{ a2ui_operations: [] }} agent={null} />;
 
     let container: HTMLElement;
     await act(async () => {
@@ -168,8 +157,7 @@ describe("A2UIMessageRenderer rendering integration", () => {
   });
 
   it("should render multiple surfaces independently", async () => {
-    const { createA2UIMessageRenderer } =
-      await import("../a2ui/A2UIMessageRenderer.js");
+    const { createA2UIMessageRenderer } = await import("../a2ui/A2UIMessageRenderer.js");
     const renderer = createA2UIMessageRenderer({
       theme: {} as Theme,
     });
@@ -222,9 +210,7 @@ describe("A2UIMessageRenderer rendering integration", () => {
       ],
     };
 
-    const TestWrapper = () => (
-      <RenderComponent content={content} agent={null} />
-    );
+    const TestWrapper = () => <RenderComponent content={content} agent={null} />;
 
     let container: HTMLElement;
     await act(async () => {

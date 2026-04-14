@@ -1,8 +1,4 @@
-import {
-  CopilotRuntime,
-  createCopilotEndpoint,
-  InMemoryAgentRunner,
-} from "@copilotkitnext/runtime";
+import { CopilotRuntime, createCopilotEndpoint, InMemoryAgentRunner } from "@copilotkitnext/runtime";
 import { BuiltInAgent } from "@copilotkitnext/agent";
 import { handle } from "hono/vercel";
 

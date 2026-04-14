@@ -3,10 +3,7 @@ import Footer from "@/components/document-footer";
 import React, { useMemo } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import {
-  DocumentEditor,
-  DocumentEditorProps,
-} from "@/components/documents-editor";
+import { DocumentEditor, DocumentEditorProps } from "@/components/documents-editor";
 
 interface DocumentViewerProps {
   section?: TSection;
@@ -51,22 +48,14 @@ export function DocumentViewer({
   }, [compact, zoomLevel]);
 
   if (editMode) {
-    return (
-      <DocumentEditor
-        section={section!}
-        zoomLevel={zoomLevel}
-        onSectionEdit={onSectionEdit}
-      />
-    );
+    return <DocumentEditor section={section!} zoomLevel={zoomLevel} onSectionEdit={onSectionEdit} />;
   }
 
   return (
     <div
       key={id}
       className={`bg-white shadow-sm p-6 overflow-auto border border-black/10 transition-all duration-200 ${
-        compact
-          ? `shadow hover:scale-105 ${highlight ? "border-[var(--primary)]" : ""}`
-          : "shadow-lg z-10 flex-1"
+        compact ? `shadow hover:scale-105 ${highlight ? "border-[var(--primary)]" : ""}` : "shadow-lg z-10 flex-1"
       }`}
       style={scalingStyle}
       {...(compact
@@ -78,17 +67,11 @@ export function DocumentViewer({
         : {})}
     >
       {placeholder ? (
-        <h1 className="text-xl font-noto text-center py-5 px-10">
-          {placeholder}
-        </h1>
+        <h1 className="text-xl font-noto text-center py-5 px-10">{placeholder}</h1>
       ) : (
         <div
           id={`${id}`}
-          className={
-            compact
-              ? "max-h-full h-full overflow-hidden relative flex flex-col justify-center"
-              : ""
-          }
+          className={compact ? "max-h-full h-full overflow-hidden relative flex flex-col justify-center" : ""}
         >
           {compact ? (
             <h4 className="text-[10px] w-full text-center">{title}</h4>

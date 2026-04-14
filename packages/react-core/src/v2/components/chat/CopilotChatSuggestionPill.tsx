@@ -14,45 +14,38 @@ const baseClasses =
 
 const labelClasses = "cpk:whitespace-nowrap cpk:font-medium cpk:leading-none";
 
-export const CopilotChatSuggestionPill = React.forwardRef<
-  HTMLButtonElement,
-  CopilotChatSuggestionPillProps
->(function CopilotChatSuggestionPill(
-  { className, children, icon, isLoading, type, ...props },
-  ref,
-) {
-  const showIcon = !isLoading && icon;
+export const CopilotChatSuggestionPill = React.forwardRef<HTMLButtonElement, CopilotChatSuggestionPillProps>(
+  function CopilotChatSuggestionPill({ className, children, icon, isLoading, type, ...props }, ref) {
+    const showIcon = !isLoading && icon;
 
-  return (
-    <button
-      ref={ref}
-      data-copilotkit
-      data-testid="copilot-suggestion"
-      data-slot="suggestion-pill"
-      className={cn(baseClasses, className)}
-      type={type ?? "button"}
-      aria-busy={isLoading || undefined}
-      disabled={isLoading || props.disabled}
-      {...props}
-    >
-      {isLoading ? (
-        <span className="cpk:flex cpk:h-3.5 cpk:sm:h-4 cpk:w-3.5 cpk:sm:w-4 cpk:items-center cpk:justify-center cpk:text-muted-foreground">
-          <Loader2
-            className="cpk:h-3.5 cpk:sm:h-4 cpk:w-3.5 cpk:sm:w-4 cpk:animate-spin"
-            aria-hidden="true"
-          />
-        </span>
-      ) : (
-        showIcon && (
+    return (
+      <button
+        ref={ref}
+        data-copilotkit
+        data-testid="copilot-suggestion"
+        data-slot="suggestion-pill"
+        className={cn(baseClasses, className)}
+        type={type ?? "button"}
+        aria-busy={isLoading || undefined}
+        disabled={isLoading || props.disabled}
+        {...props}
+      >
+        {isLoading ? (
           <span className="cpk:flex cpk:h-3.5 cpk:sm:h-4 cpk:w-3.5 cpk:sm:w-4 cpk:items-center cpk:justify-center cpk:text-muted-foreground">
-            {icon}
+            <Loader2 className="cpk:h-3.5 cpk:sm:h-4 cpk:w-3.5 cpk:sm:w-4 cpk:animate-spin" aria-hidden="true" />
           </span>
-        )
-      )}
-      <span className={labelClasses}>{children}</span>
-    </button>
-  );
-});
+        ) : (
+          showIcon && (
+            <span className="cpk:flex cpk:h-3.5 cpk:sm:h-4 cpk:w-3.5 cpk:sm:w-4 cpk:items-center cpk:justify-center cpk:text-muted-foreground">
+              {icon}
+            </span>
+          )
+        )}
+        <span className={labelClasses}>{children}</span>
+      </button>
+    );
+  },
+);
 
 CopilotChatSuggestionPill.displayName = "CopilotChatSuggestionPill";
 

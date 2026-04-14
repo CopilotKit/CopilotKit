@@ -22,12 +22,7 @@ export function FindingsPanel({ findings }: FindingsPanelProps) {
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col h-full min-h-0">
       <div className="flex items-center gap-2 mb-4 flex-shrink-0">
         <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-          <svg
-            className="w-4 h-4 text-blue-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -40,21 +35,14 @@ export function FindingsPanel({ findings }: FindingsPanelProps) {
       </div>
 
       {items.length === 0 ? (
-        <p className="text-slate-400 italic text-sm">
-          Nothing to see here... yet. Move along.
-        </p>
+        <p className="text-slate-400 italic text-sm">Nothing to see here... yet. Move along.</p>
       ) : (
         <div className="space-y-3 overflow-y-auto flex-1">
           {items.map((finding, index) => (
-            <div
-              key={finding.id || `finding-${index}`}
-              className="border border-slate-100 rounded-lg p-3"
-            >
+            <div key={finding.id || `finding-${index}`} className="border border-slate-100 rounded-lg p-3">
               <div className="flex items-start justify-between gap-2 mb-1">
                 <h3 className="font-medium text-slate-900">{finding.title}</h3>
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full border ${SEVERITY_COLORS[finding.severity]}`}
-                >
+                <span className={`text-xs px-2 py-0.5 rounded-full border ${SEVERITY_COLORS[finding.severity]}`}>
                   {finding.severity}
                 </span>
               </div>
@@ -78,12 +66,7 @@ export function RedactedPanel({ redactedItems }: RedactedPanelProps) {
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col h-full min-h-0">
       <div className="flex items-center gap-2 mb-4 flex-shrink-0">
         <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center">
-          <svg
-            className="w-4 h-4 text-white"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -92,9 +75,7 @@ export function RedactedPanel({ redactedItems }: RedactedPanelProps) {
             />
           </svg>
         </div>
-        <h2 className="text-lg font-semibold text-slate-900">
-          Redacted Content
-        </h2>
+        <h2 className="text-lg font-semibold text-slate-900">Redacted Content</h2>
       </div>
 
       {items.length === 0 ? (
@@ -104,21 +85,14 @@ export function RedactedPanel({ redactedItems }: RedactedPanelProps) {
       ) : (
         <div className="space-y-3 overflow-y-auto flex-1">
           {items.map((item, index) => (
-            <div
-              key={item.id || `redacted-${index}`}
-              className="bg-slate-50 rounded-lg p-3 border border-slate-200"
-            >
+            <div key={item.id || `redacted-${index}`} className="bg-slate-50 rounded-lg p-3 border border-slate-200">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-medium text-slate-500 bg-slate-200 px-2 py-0.5 rounded">
                   {item.location}
                 </span>
-                <span className="text-xs text-slate-400">
-                  {item.confidence}% confident
-                </span>
+                <span className="text-xs text-slate-400">{item.confidence}% confident</span>
               </div>
-              <p className="text-sm text-slate-700 italic">
-                &quot;{item.speculation}&quot;
-              </p>
+              <p className="text-sm text-slate-700 italic">&quot;{item.speculation}&quot;</p>
             </div>
           ))}
         </div>
@@ -135,12 +109,7 @@ interface TweetsPanelProps {
   onEdit: (id: string, newContent: string) => void;
 }
 
-export function TweetsPanel({
-  tweets,
-  onCopy,
-  onPost,
-  onEdit,
-}: TweetsPanelProps) {
+export function TweetsPanel({ tweets, onCopy, onPost, onEdit }: TweetsPanelProps) {
   const items = tweets ?? [];
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
@@ -164,30 +133,19 @@ export function TweetsPanel({
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col h-full min-h-0">
       <div className="flex items-center gap-2 mb-4 flex-shrink-0">
         <div className="w-8 h-8 bg-sky-100 rounded-lg flex items-center justify-center">
-          <svg
-            className="w-4 h-4 text-sky-500"
-            fill="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-4 h-4 text-sky-500" fill="currentColor" viewBox="0 0 24 24">
             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
           </svg>
         </div>
-        <h2 className="text-lg font-semibold text-slate-900">
-          Generated Tweets
-        </h2>
+        <h2 className="text-lg font-semibold text-slate-900">Generated Tweets</h2>
       </div>
 
       {items.length === 0 ? (
-        <p className="text-slate-400 italic text-sm">
-          No tweets yet. The truth wants to be shared...
-        </p>
+        <p className="text-slate-400 italic text-sm">No tweets yet. The truth wants to be shared...</p>
       ) : (
         <div className="space-y-3 overflow-y-auto flex-1">
           {items.map((tweet, index) => (
-            <div
-              key={tweet.id || `tweet-${index}`}
-              className="border border-slate-100 rounded-lg p-3"
-            >
+            <div key={tweet.id || `tweet-${index}`} className="border border-slate-100 rounded-lg p-3">
               {editingId === tweet.id ? (
                 <div className="space-y-2">
                   <textarea
@@ -198,14 +156,9 @@ export function TweetsPanel({
                     maxLength={280}
                   />
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-slate-400">
-                      {editContent.length}/280
-                    </span>
+                    <span className="text-xs text-slate-400">{editContent.length}/280</span>
                     <div className="flex gap-2">
-                      <button
-                        onClick={cancelEdit}
-                        className="text-xs text-slate-500 hover:text-slate-700"
-                      >
+                      <button onClick={cancelEdit} className="text-xs text-slate-500 hover:text-slate-700">
                         Cancel
                       </button>
                       <button
@@ -225,12 +178,7 @@ export function TweetsPanel({
                       onClick={() => startEdit(tweet)}
                       className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1"
                     >
-                      <svg
-                        className="w-3.5 h-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -244,12 +192,7 @@ export function TweetsPanel({
                       onClick={() => onCopy(tweet.content)}
                       className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1"
                     >
-                      <svg
-                        className="w-3.5 h-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -262,36 +205,19 @@ export function TweetsPanel({
                     <button
                       onClick={() => onPost(tweet.id)}
                       className={`text-xs flex items-center gap-1 ${
-                        tweet.posted
-                          ? "text-green-600"
-                          : "text-sky-500 hover:text-sky-600"
+                        tweet.posted ? "text-green-600" : "text-sky-500 hover:text-sky-600"
                       }`}
                     >
                       {tweet.posted ? (
                         <>
-                          <svg
-                            className="w-3.5 h-3.5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 13l4 4L19 7"
-                            />
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
                           Posted
                         </>
                       ) : (
                         <>
-                          <svg
-                            className="w-3.5 h-3.5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path
                               strokeLinecap="round"
                               strokeLinejoin="round"
@@ -324,12 +250,7 @@ export function SummaryPanel({ summary }: SummaryPanelProps) {
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col h-full min-h-0">
       <div className="flex items-center gap-2 mb-4 flex-shrink-0">
         <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-          <svg
-            className="w-4 h-4 text-purple-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -338,15 +259,11 @@ export function SummaryPanel({ summary }: SummaryPanelProps) {
             />
           </svg>
         </div>
-        <h2 className="text-lg font-semibold text-slate-900">
-          Executive Summary
-        </h2>
+        <h2 className="text-lg font-semibold text-slate-900">Executive Summary</h2>
       </div>
 
       {!summary ? (
-        <p className="text-slate-400 italic text-sm">
-          Summary pending. File secured. Unlike some other files...
-        </p>
+        <p className="text-slate-400 italic text-sm">Summary pending. File secured. Unlike some other files...</p>
       ) : (
         <div className="text-sm text-slate-700 leading-relaxed overflow-y-auto flex-1 prose prose-sm prose-slate max-w-none">
           <ReactMarkdown>{summary}</ReactMarkdown>

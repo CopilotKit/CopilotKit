@@ -1,9 +1,5 @@
 "use client";
-import {
-  CopilotKit,
-  useCopilotAction,
-  useCopilotReadable,
-} from "@copilotkit/react-core";
+import { CopilotKit, useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
 import { CopilotTextarea } from "@copilotkit/react-textarea";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
@@ -35,11 +31,7 @@ function InsideHome() {
     },
     [],
   );
-  return (
-    <div className="h-screen w-full flex items-center justify-center text-2xl">
-      {message}
-    </div>
-  );
+  return <div className="h-screen w-full flex items-center justify-center text-2xl">{message}</div>;
 }
 export default function Home() {
   return (

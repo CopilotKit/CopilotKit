@@ -51,11 +51,8 @@
 
         /* Shadows */
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-        --shadow-md:
-          0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-        --shadow-lg:
-          0 10px 25px -3px rgba(0, 0, 0, 0.08),
-          0 4px 6px -2px rgba(0, 0, 0, 0.03);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+        --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
         --shadow-glass: 0 4px 30px rgba(0, 0, 0, 0.1);
 
         /* Spacing */
@@ -75,8 +72,7 @@
         --radius-full: 9999px;
 
         /* Typography */
-        --font-family:
-          "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+        --font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
         --font-size-xs: 11px;
         --font-size-sm: 13px;
         --font-size-base: 15px;
@@ -92,11 +88,7 @@
     ========================================================================== */
       body {
         font-family: var(--font-family);
-        background: linear-gradient(
-          135deg,
-          var(--color-surface-light) 0%,
-          var(--color-surface) 100%
-        );
+        background: linear-gradient(135deg, var(--color-surface-light) 0%, var(--color-surface) 100%);
         color: var(--color-text-primary);
         line-height: 1.5;
         min-height: 100vh;
@@ -205,11 +197,7 @@
       .calc-icon {
         width: 40px;
         height: 40px;
-        background: linear-gradient(
-          135deg,
-          var(--color-lilac),
-          var(--color-mint)
-        );
+        background: linear-gradient(135deg, var(--color-lilac), var(--color-mint));
         border-radius: var(--radius-lg);
         display: flex;
         align-items: center;
@@ -347,11 +335,7 @@
 
       /* Equals button */
       .btn-equals {
-        background: linear-gradient(
-          135deg,
-          var(--color-lilac),
-          var(--color-mint)
-        );
+        background: linear-gradient(135deg, var(--color-lilac), var(--color-mint));
         color: white;
         grid-column: span 2;
       }
@@ -626,10 +610,7 @@
           const id = requestId++;
           return new Promise((resolve, reject) => {
             pendingRequests.set(id, { resolve, reject });
-            window.parent.postMessage(
-              { jsonrpc: "2.0", id, method, params },
-              "*",
-            );
+            window.parent.postMessage({ jsonrpc: "2.0", id, method, params }, "*");
           });
         }
 
@@ -707,8 +688,7 @@
       function renderHistory() {
         const history = calculator?.history || [];
         if (!history.length) {
-          el.historyList.innerHTML =
-            '<div class="history-empty">No calculations yet</div>';
+          el.historyList.innerHTML = '<div class="history-empty">No calculations yet</div>';
           return;
         }
 
@@ -814,9 +794,7 @@
             appCapabilities: {},
           });
           mcpApp.sendNotification("ui/notifications/initialized", {});
-          new ResizeObserver(() => mcpApp.reportSize()).observe(
-            document.getElementById("app"),
-          );
+          new ResizeObserver(() => mcpApp.reportSize()).observe(document.getElementById("app"));
         } catch (e) {
           console.error("Init failed:", e);
         }

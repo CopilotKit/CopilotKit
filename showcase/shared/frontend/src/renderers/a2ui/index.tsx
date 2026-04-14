@@ -31,11 +31,7 @@ function DashboardContent({ agentId }: A2UIDashboardProps) {
 
 export function A2UIDashboard({ agentId }: A2UIDashboardProps) {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      agent={agentId}
-      a2ui={{ catalog: demonstrationCatalog }}
-    >
+    <CopilotKit runtimeUrl="/api/copilotkit" agent={agentId} a2ui={{ catalog: demonstrationCatalog }}>
       <DashboardContent agentId={agentId} />
     </CopilotKit>
   );

@@ -21,16 +21,10 @@ export const metadata: Metadata = {
   description: "Collaborative finance for 21st century teams",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AuthContextProvider>
           <CopilotKitWrapper>{children}</CopilotKitWrapper>
         </AuthContextProvider>

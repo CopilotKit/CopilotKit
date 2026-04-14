@@ -2,11 +2,7 @@ import type { Config } from "tailwindcss";
 
 const config = {
   darkMode: "class",
-  content: [
-    "./pages/**/*.{ts,tsx}",
-    "./components/**/*.{ts,tsx}",
-    "./app/**/*.{ts,tsx}",
-  ],
+  content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
@@ -46,12 +42,7 @@ const config = {
       },
       fontFamily: {
         sans: ["Plus Jakarta Sans", "ui-sans-serif", "system-ui", "sans-serif"],
-        mono: [
-          "Spline Sans Mono",
-          "ui-monospace",
-          "SFMono-Regular",
-          "monospace",
-        ],
+        mono: ["Spline Sans Mono", "ui-monospace", "SFMono-Regular", "monospace"],
       },
       boxShadow: {
         "elevation-sm": "var(--shadow-sm)",

@@ -1,18 +1,5 @@
-import {
-  Type,
-  TemplateRef,
-  ViewContainerRef,
-  ComponentRef,
-  EmbeddedViewRef,
-  Injector,
-  inject,
-} from "@angular/core";
-import {
-  SlotValue,
-  RenderSlotOptions,
-  SlotRegistryEntry,
-  SLOT_CONFIG,
-} from "./slot.types";
+import { Type, TemplateRef, ViewContainerRef, ComponentRef, EmbeddedViewRef, Injector, inject } from "@angular/core";
+import { SlotValue, RenderSlotOptions, SlotRegistryEntry, SLOT_CONFIG } from "./slot.types";
 
 /**
  * Renders a slot value into a ViewContainerRef.
@@ -58,13 +45,7 @@ export function renderSlot<T = any>(
   } else if (isComponentType(effectiveSlot)) {
     // Component type - wrap in try/catch for safety
     try {
-      return createComponent(
-        viewContainer,
-        effectiveSlot as Type<T>,
-        props,
-        effectiveInjector,
-        outputs,
-      );
+      return createComponent(viewContainer, effectiveSlot as Type<T>, props, effectiveInjector, outputs);
     } catch (error) {
       console.warn("Failed to create component:", effectiveSlot, error);
       // Fall through to default component
@@ -72,15 +53,7 @@ export function renderSlot<T = any>(
   }
 
   // Default: render default component if provided
-  return defaultComponent
-    ? createComponent(
-        viewContainer,
-        defaultComponent,
-        props,
-        effectiveInjector,
-        outputs,
-      )
-    : null;
+  return defaultComponent ? createComponent(viewContainer, defaultComponent, props, effectiveInjector, outputs) : null;
 }
 
 /**
@@ -274,10 +247,7 @@ export function getSlotConfig(): ReadonlyMap<string, SlotRegistryEntry> | null {
  * renderSendButton(this.viewContainer, this.sendButtonOverride);
  * ```
  */
-export function createSlotRenderer<T>(
-  defaultComponent: Type<T>,
-  slotName?: string,
-) {
+export function createSlotRenderer<T>(defaultComponent: Type<T>, slotName?: string) {
   // Get config in the injection context when the renderer is created
   const config = slotName ? getSlotConfig() : null;
 

@@ -12,19 +12,13 @@ const SharedContext = createContext<SharedContextType | undefined>(undefined);
 export function SharedTestsProvider({ children }: { children: ReactNode }) {
   const [testsData, setTestsData] = useState<TestsData[]>([]);
 
-  return (
-    <SharedContext.Provider value={{ testsData, setTestsData }}>
-      {children}
-    </SharedContext.Provider>
-  );
+  return <SharedContext.Provider value={{ testsData, setTestsData }}>{children}</SharedContext.Provider>;
 }
 
 export function useSharedTestsContext() {
   const context = useContext(SharedContext);
   if (context === undefined) {
-    throw new Error(
-      "useSharedTestsContext must be used within a SharedProvider",
-    );
+    throw new Error("useSharedTestsContext must be used within a SharedProvider");
   }
   return context;
 }

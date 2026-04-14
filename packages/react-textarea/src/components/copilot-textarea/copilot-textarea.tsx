@@ -90,10 +90,7 @@ import React from "react";
 import { useMakeStandardAutosuggestionFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-autosuggestions-function";
 import { HTMLCopilotTextAreaElement } from "../../types";
 import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
-import {
-  AutosuggestionsConfig,
-  defaultAutosuggestionsConfig,
-} from "../../types/autosuggestions-config";
+import { AutosuggestionsConfig, defaultAutosuggestionsConfig } from "../../types/autosuggestions-config";
 import { BaseCopilotTextarea } from "../base-copilot-textarea/base-copilot-textarea";
 import { useMakeStandardInsertionOrEditingFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-insertion-function";
 import merge from "lodash.merge";
@@ -101,10 +98,7 @@ import { AutosuggestionsConfigUserSpecified } from "../../types/autosuggestions-
 
 // Like the base copilot textarea props,
 // but with baseAutosuggestionsConfig replaced with autosuggestionsConfig.
-export interface CopilotTextareaProps extends Omit<
-  BaseCopilotTextareaProps,
-  "baseAutosuggestionsConfig"
-> {
+export interface CopilotTextareaProps extends Omit<BaseCopilotTextareaProps, "baseAutosuggestionsConfig"> {
   /**
    * Configuration settings for the autosuggestions feature.
    * For full reference, [check the interface on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/packages/react-textarea/src/types/base/base-copilot-textarea-props.tsx#L8).
@@ -173,10 +167,7 @@ export interface CopilotTextareaProps extends Omit<
 export const CopilotTextarea = React.forwardRef(
   (props: CopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>) => {
     // separate the AutosuggestionsConfigUserSpecified from the rest of the props
-    const {
-      autosuggestionsConfig: autosuggestionsConfigUserSpecified,
-      ...forwardedProps
-    } = props;
+    const { autosuggestionsConfig: autosuggestionsConfigUserSpecified, ...forwardedProps } = props;
 
     const autosuggestionsConfig: AutosuggestionsConfig = merge(
       defaultAutosuggestionsConfig,
@@ -189,13 +180,12 @@ export const CopilotTextarea = React.forwardRef(
       autosuggestionsConfig.chatApiConfigs.suggestionsApiConfig,
     );
 
-    const insertionOrEditingFunction =
-      useMakeStandardInsertionOrEditingFunction(
-        autosuggestionsConfig.textareaPurpose,
-        autosuggestionsConfig.contextCategories,
-        autosuggestionsConfig.chatApiConfigs.insertionApiConfig,
-        autosuggestionsConfig.chatApiConfigs.editingApiConfig,
-      );
+    const insertionOrEditingFunction = useMakeStandardInsertionOrEditingFunction(
+      autosuggestionsConfig.textareaPurpose,
+      autosuggestionsConfig.contextCategories,
+      autosuggestionsConfig.chatApiConfigs.insertionApiConfig,
+      autosuggestionsConfig.chatApiConfigs.editingApiConfig,
+    );
 
     return (
       <>

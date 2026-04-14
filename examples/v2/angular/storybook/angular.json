@@ -18,10 +18,7 @@
             "polyfills": [],
             "tsConfig": "tsconfig.json",
             "assets": [],
-            "styles": [
-              "../../../../packages/angular/dist/styles.css",
-              ".storybook/preview.css"
-            ],
+            "styles": ["../../../../packages/angular/dist/styles.css", ".storybook/preview.css"],
             "scripts": []
           },
           "configurations": {
@@ -55,10 +52,7 @@
             "configDir": ".storybook",
             "port": 6007,
             "compodoc": false,
-            "styles": [
-              "../../../../packages/angular/dist/styles.css",
-              ".storybook/preview.css"
-            ]
+            "styles": ["../../../../packages/angular/dist/styles.css", ".storybook/preview.css"]
           }
         },
         "build-storybook": {
@@ -67,10 +61,7 @@
             "configDir": ".storybook",
             "outputDir": "storybook-static",
             "compodoc": false,
-            "styles": [
-              "../../../../packages/angular/dist/styles.css",
-              ".storybook/preview.css"
-            ]
+            "styles": ["../../../../packages/angular/dist/styles.css", ".storybook/preview.css"]
           }
         }
       }

@@ -15,10 +15,8 @@ export default function PreviewPage() {
     window.parent.postMessage({ type: "PREVIEW_READY" }, "*");
 
     // important: fill the iframe and avoid body growing
-    document.documentElement.style.cssText =
-      "margin:0; padding:0; overflow:scroll; height:100%;";
-    document.body.style.cssText =
-      "margin:0; padding:0; overflow:scroll; height:100%;";
+    document.documentElement.style.cssText = "margin:0; padding:0; overflow:scroll; height:100%;";
+    document.body.style.cssText = "margin:0; padding:0; overflow:scroll; height:100%;";
 
     return () => window.removeEventListener("message", onMsg);
   }, []);
@@ -28,12 +26,7 @@ export default function PreviewPage() {
   useEffect(() => {
     const send = () => {
       const h = Math.min(
-        Math.ceil(
-          Math.max(
-            document.documentElement.scrollHeight,
-            document.documentElement.clientHeight,
-          ),
-        ),
+        Math.ceil(Math.max(document.documentElement.scrollHeight, document.documentElement.clientHeight)),
         window.innerHeight,
       );
       window.parent.postMessage({ type: "IFRAME_HEIGHT", height: h }, "*");
@@ -57,9 +50,7 @@ export default function PreviewPage() {
           gap: "12px",
         }}
       >
-        <div style={{ fontSize: "14px", color: "#6b7280" }}>
-          Loading preview...
-        </div>
+        <div style={{ fontSize: "14px", color: "#6b7280" }}>Loading preview...</div>
         <div
           style={{
             fontSize: "12px",

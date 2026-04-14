@@ -24,8 +24,7 @@ import { kpis } from "@/lib/data";
 const demoSuggestions = [
   {
     title: "Cash Position",
-    message:
-      "What's our current cash position and how does it compare to our liabilities?",
+    message: "What's our current cash position and how does it compare to our liabilities?",
   },
   {
     title: "Overdue Invoices",
@@ -41,8 +40,7 @@ const demoSuggestions = [
   },
   {
     title: "Reorder Inventory",
-    message:
-      "Check inventory levels and reorder anything that needs restocking",
+    message: "Check inventory levels and reorder anything that needs restocking",
   },
   {
     title: "Cash Flow Dashboard",
@@ -76,10 +74,7 @@ function FinanceSidebarWelcomeScreen({
   };
 
   return (
-    <div
-      className={cn("cpk:h-full cpk:flex cpk:flex-col", className)}
-      {...props}
-    >
+    <div className={cn("cpk:h-full cpk:flex cpk:flex-col", className)} {...props}>
       <div className="cpk:flex-1" />
 
       <div className="cpk:px-8 cpk:pb-4">
@@ -145,16 +140,8 @@ function ShellInner({ children }: { children: React.ReactNode }) {
     {
       name: "*",
       render: ({ name, status, args, result }) => {
-        const mappedStatus =
-          status === ToolCallStatus.Complete ? "complete" : "inProgress";
-        return (
-          <ToolCard
-            name={name}
-            status={mappedStatus}
-            args={args ?? {}}
-            result={result}
-          />
-        );
+        const mappedStatus = status === ToolCallStatus.Complete ? "complete" : "inProgress";
+        return <ToolCard name={name} status={mappedStatus} args={args ?? {}} result={result} />;
       },
     },
     [],

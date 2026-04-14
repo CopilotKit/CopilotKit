@@ -65,9 +65,7 @@ describe("CopilotKitProvider license (server-driven)", () => {
       </CopilotKitProvider>,
     );
     await waitFor(() => {
-      expect(
-        screen.getByText(/Invalid CopilotKit license token/i),
-      ).toBeTruthy();
+      expect(screen.getByText(/Invalid CopilotKit license token/i)).toBeTruthy();
     });
   });
 

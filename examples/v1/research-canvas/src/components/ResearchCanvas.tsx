@@ -3,11 +3,7 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  useCoAgent,
-  useCoAgentStateRender,
-  useCopilotAction,
-} from "@copilotkit/react-core";
+import { useCoAgent, useCoAgentStateRender, useCopilotAction } from "@copilotkit/react-core";
 import { Progress } from "./Progress";
 import { EditResourceDialog } from "./EditResourceDialog";
 import { AddResourceDialog } from "./AddResourceDialog";
@@ -37,8 +33,7 @@ export function ResearchCanvas() {
 
   useCopilotAction({
     name: "DeleteResources",
-    description:
-      "Prompt the user for resource delete confirmation, and then perform resource deletion",
+    description: "Prompt the user for resource delete confirmation, and then perform resource deletion",
     available: "remote",
     parameters: [
       {
@@ -48,17 +43,10 @@ export function ResearchCanvas() {
     ],
     renderAndWait: ({ args, status, handler }) => {
       return (
-        <div
-          className=""
-          data-test-id="delete-resource-generative-ui-container"
-        >
-          <div className="font-bold text-base mb-2">
-            Delete these resources?
-          </div>
+        <div className="" data-test-id="delete-resource-generative-ui-container">
+          <div className="font-bold text-base mb-2">Delete these resources?</div>
           <Resources
-            resources={resources.filter((resource) =>
-              (args.urls || []).includes(resource.url),
-            )}
+            resources={resources.filter((resource) => (args.urls || []).includes(resource.url))}
             customWidth={200}
           />
           {status === "executing" && (
@@ -105,9 +93,7 @@ export function ResearchCanvas() {
   };
 
   const removeResource = (url: string) => {
-    setResources(
-      resources.filter((resource: Resource) => resource.url !== url),
-    );
+    setResources(resources.filter((resource: Resource) => resource.url !== url));
   };
 
   const [editResource, setEditResource] = useState<Resource | null>(null);
@@ -122,11 +108,7 @@ export function ResearchCanvas() {
 
   const updateResource = () => {
     if (editResource && originalUrl) {
-      setResources(
-        resources.map((resource) =>
-          resource.url === originalUrl ? { ...editResource } : resource,
-        ),
-      );
+      setResources(resources.map((resource) => (resource.url === originalUrl ? { ...editResource } : resource)));
       setEditResource(null);
       setOriginalUrl(null);
       setIsEditResourceOpen(false);
@@ -137,15 +119,11 @@ export function ResearchCanvas() {
     <div className="w-full h-full overflow-y-auto p-10 bg-[#F5F8FF]">
       <div className="space-y-8 pb-10">
         <div>
-          <h2 className="text-lg font-medium mb-3 text-primary">
-            Research Question
-          </h2>
+          <h2 className="text-lg font-medium mb-3 text-primary">Research Question</h2>
           <Input
             placeholder="Enter your research question"
             value={state.research_question || ""}
-            onChange={(e) =>
-              setState({ ...state, research_question: e.target.value })
-            }
+            onChange={(e) => setState({ ...state, research_question: e.target.value })}
             aria-label="Research question"
             className="bg-background px-6 py-8 border-0 shadow-none rounded-xl text-md font-extralight focus-visible:ring-0 placeholder:text-slate-400"
           />
@@ -170,24 +148,16 @@ export function ResearchCanvas() {
             />
           </div>
           {resources.length === 0 && (
-            <div className="text-sm text-slate-400">
-              Click the button above to add resources.
-            </div>
+            <div className="text-sm text-slate-400">Click the button above to add resources.</div>
           )}
 
           {resources.length !== 0 && (
-            <Resources
-              resources={resources}
-              handleCardClick={handleCardClick}
-              removeResource={removeResource}
-            />
+            <Resources resources={resources} handleCardClick={handleCardClick} removeResource={removeResource} />
           )}
         </div>
 
         <div className="flex flex-col h-full">
-          <h2 className="text-lg font-medium mb-3 text-primary">
-            Research Draft
-          </h2>
+          <h2 className="text-lg font-medium mb-3 text-primary">Research Draft</h2>
           <Textarea
             data-test-id="research-draft"
             placeholder="Write your research draft here"

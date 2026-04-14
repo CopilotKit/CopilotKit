@@ -68,9 +68,7 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       beforeRequestMiddleware: before,
       afterRequestMiddleware: after,
     });
-    const logSpy = vi
-      .spyOn(logger, "error")
-      .mockImplementation(() => undefined as unknown as void);
+    const logSpy = vi.spyOn(logger, "error").mockImplementation(() => undefined as unknown as void);
 
     const endpoint = createCopilotEndpointSingleRoute({
       runtime,
@@ -98,9 +96,7 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       beforeRequestMiddleware: before,
       afterRequestMiddleware: after,
     });
-    const logSpy = vi
-      .spyOn(logger, "error")
-      .mockImplementation(() => undefined as unknown as void);
+    const logSpy = vi.spyOn(logger, "error").mockImplementation(() => undefined as unknown as void);
 
     const endpoint = createCopilotEndpointSingleRoute({
       runtime,
@@ -135,9 +131,7 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       agents: { agent: errorAgent },
     });
 
-    const logSpy = vi
-      .spyOn(logger, "error")
-      .mockImplementation(() => undefined as unknown as void);
+    const logSpy = vi.spyOn(logger, "error").mockImplementation(() => undefined as unknown as void);
 
     const endpoint = createCopilotEndpointSingleRoute({
       runtime,
@@ -191,9 +185,7 @@ describe("CopilotEndpointSingleRoute middleware", () => {
       beforeRequestMiddleware: before,
       afterRequestMiddleware: after,
     });
-    const logSpy = vi
-      .spyOn(logger, "error")
-      .mockImplementation(() => undefined as unknown as void);
+    const logSpy = vi.spyOn(logger, "error").mockImplementation(() => undefined as unknown as void);
 
     const endpoint = createCopilotEndpointSingleRoute({
       runtime,

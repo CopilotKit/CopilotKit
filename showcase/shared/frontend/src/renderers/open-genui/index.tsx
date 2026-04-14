@@ -31,10 +31,9 @@ function DashboardContent() {
       />
       <div style={{ padding: "48px 80px", width: "100%", maxWidth: "56rem" }}>
         <div className="text-center text-gray-400 text-lg">
-          Ask the agent to build a sales dashboard. It will generate complete
-          HTML, CSS, and JavaScript rendered in a secure sandbox. Try
-          &ldquo;Build me a sales dashboard with revenue charts, pipeline
-          metrics, and a deal table.&rdquo;
+          Ask the agent to build a sales dashboard. It will generate complete HTML, CSS, and JavaScript rendered in a
+          secure sandbox. Try &ldquo;Build me a sales dashboard with revenue charts, pipeline metrics, and a deal
+          table.&rdquo;
         </div>
       </div>
     </div>

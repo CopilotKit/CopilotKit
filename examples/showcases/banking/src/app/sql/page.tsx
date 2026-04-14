@@ -103,9 +103,7 @@ export default function Page() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-auto p-6">
           <h1 className="text-2xl font-bold mb-4">SQL Query</h1>
-          <h4 className="text-2xl font-bold mb-4">
-            Ask a question, receive a query
-          </h4>
+          <h4 className="text-2xl font-bold mb-4">Ask a question, receive a query</h4>
           <CopilotChat
             className="h-[calc(100vh-200px)]"
             instructions={SQL_AGENT_INSTRUCTIONS}
@@ -116,24 +114,11 @@ export default function Page() {
           />
         </div>
       </div>
-      <div
-        className={cn(
-          "border-l transition-all duration-300 ease-in-out",
-          isSidebarOpen ? "w-80" : "w-0",
-        )}
-      >
+      <div className={cn("border-l transition-all duration-300 ease-in-out", isSidebarOpen ? "w-80" : "w-0")}>
         <div className="flex items-center justify-between p-4 bg-secondary">
           <h2 className="text-lg font-semibold">Table Structure</h2>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          >
-            {isSidebarOpen ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
+          <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+            {isSidebarOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
         </div>
         <ScrollArea className="h-[calc(100vh-64px)] p-4">

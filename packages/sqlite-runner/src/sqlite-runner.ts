@@ -7,14 +7,7 @@ import {
   type AgentRunnerStopRequest,
 } from "@copilotkit/runtime/v2";
 import { Observable, ReplaySubject } from "rxjs";
-import {
-  AbstractAgent,
-  BaseEvent,
-  RunAgentInput,
-  EventType,
-  RunStartedEvent,
-  compactEvents,
-} from "@ag-ui/client";
+import { AbstractAgent, BaseEvent, RunAgentInput, EventType, RunStartedEvent, compactEvents } from "@ag-ui/client";
 import Database from "better-sqlite3";
 
 const SCHEMA_VERSION = 1;
@@ -109,17 +102,13 @@ export class SqliteAgentRunner extends AgentRunner {
     `);
 
     // Check and set schema version
-    const currentVersion = this.db
-      .prepare(
-        "SELECT version FROM schema_version ORDER BY version DESC LIMIT 1",
-      )
-      .get() as { version: number } | undefined;
+    const currentVersion = this.db.prepare("SELECT version FROM schema_version ORDER BY version DESC LIMIT 1").get() as
+      | { version: number }
+      | undefined;
 
     if (!currentVersion || currentVersion.version < SCHEMA_VERSION) {
       this.db
-        .prepare(
-          "INSERT OR REPLACE INTO schema_version (version, applied_at) VALUES (?, ?)",
-        )
+        .prepare("INSERT OR REPLACE INTO schema_version (version, applied_at) VALUES (?, ?)")
         .run(SCHEMA_VERSION, Date.now());
     }
   }
@@ -194,11 +183,7 @@ export class SqliteAgentRunner extends AgentRunner {
     return result?.run_id ?? null;
   }
 
-  private setRunState(
-    threadId: string,
-    isRunning: boolean,
-    runId?: string,
-  ): void {
+  private setRunState(threadId: string, isRunning: boolean, runId?: string): void {
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO run_state (thread_id, is_running, current_run_id, updated_at)
       VALUES (?, ?, ?, ?)
@@ -213,9 +198,7 @@ export class SqliteAgentRunner extends AgentRunner {
     const stmt = this.db.prepare(`
       SELECT is_running, current_run_id FROM run_state WHERE thread_id = ?
     `);
-    const result = stmt.get(threadId) as
-      | { is_running: number; current_run_id: string | null }
-      | undefined;
+    const result = stmt.get(threadId) as { is_running: number; current_run_id: string | null } | undefined;
 
     return {
       isRunning: result?.is_running === 1,
@@ -285,15 +268,11 @@ export class SqliteAgentRunner extends AgentRunner {
               const runStartedEvent = event as RunStartedEvent;
               if (!runStartedEvent.input) {
                 const sanitizedMessages = request.input.messages
-                  ? request.input.messages.filter(
-                      (message) => !historicMessageIds.has(message.id),
-                    )
+                  ? request.input.messages.filter((message) => !historicMessageIds.has(message.id))
                   : undefined;
                 const updatedInput = {
                   ...request.input,
-                  ...(sanitizedMessages !== undefined
-                    ? { messages: sanitizedMessages }
-                    : {}),
+                  ...(sanitizedMessages !== undefined ? { messages: sanitizedMessages } : {}),
                 };
                 processedEvent = {
                   ...runStartedEvent,
@@ -334,13 +313,7 @@ export class SqliteAgentRunner extends AgentRunner {
         }
 
         // Store the run in database
-        this.storeRun(
-          request.threadId,
-          request.input.runId,
-          currentRunEvents,
-          request.input,
-          parentRunId,
-        );
+        this.storeRun(request.threadId, request.input.runId, currentRunEvents, request.input, parentRunId);
 
         // Mark run as complete in database
         this.setRunState(request.threadId, false);
@@ -369,13 +342,7 @@ export class SqliteAgentRunner extends AgentRunner {
 
         // Store the run even if it failed (partial events)
         if (currentRunEvents.length > 0) {
-          this.storeRun(
-            request.threadId,
-            request.input.runId,
-            currentRunEvents,
-            request.input,
-            parentRunId,
-          );
+          this.storeRun(request.threadId, request.input.runId, currentRunEvents, request.input, parentRunId);
         }
 
         // Mark run as complete in database
@@ -443,18 +410,11 @@ export class SqliteAgentRunner extends AgentRunner {
     const activeConnection = ACTIVE_CONNECTIONS.get(request.threadId);
     const runState = this.getRunState(request.threadId);
 
-    if (
-      activeConnection &&
-      (runState.isRunning || activeConnection.stopRequested)
-    ) {
+    if (activeConnection && (runState.isRunning || activeConnection.stopRequested)) {
       activeConnection.subject.subscribe({
         next: (event) => {
           // Skip message events that we've already emitted from historic
-          if (
-            "messageId" in event &&
-            typeof event.messageId === "string" &&
-            emittedMessageIds.has(event.messageId)
-          ) {
+          if ("messageId" in event && typeof event.messageId === "string" && emittedMessageIds.has(event.messageId)) {
             return;
           }
           connectionSubject.next(event);

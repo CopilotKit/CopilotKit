@@ -8,9 +8,7 @@ export const maxDuration = 30;
 export async function GET() {
   const start = Date.now();
   // Hit our own /api/copilotkit endpoint — tests the full deployed stack
-  const baseUrl =
-    process.env.NEXT_PUBLIC_BASE_URL ||
-    `http://localhost:${process.env.PORT || 3000}`;
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
 
   try {
     const res = await fetch(`${baseUrl}/api/copilotkit`, {
@@ -82,13 +80,8 @@ export async function GET() {
     const latency = Date.now() - start;
 
     let stage = "unknown";
-    if (err.name === "AbortError" || err.message.includes("timeout"))
-      stage = "timeout";
-    else if (
-      err.message.includes("fetch") ||
-      err.message.includes("ECONNREFUSED")
-    )
-      stage = "agent_unreachable";
+    if (err.name === "AbortError" || err.message.includes("timeout")) stage = "timeout";
+    else if (err.message.includes("fetch") || err.message.includes("ECONNREFUSED")) stage = "agent_unreachable";
     else stage = "pipeline_error";
 
     return NextResponse.json(

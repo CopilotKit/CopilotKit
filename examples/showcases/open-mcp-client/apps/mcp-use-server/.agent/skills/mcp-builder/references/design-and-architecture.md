@@ -153,10 +153,7 @@ When the user doesn't specify a real API, use realistic mock data:
 
 ```typescript
 // Mock data - replace with real API
-const mockWeather: Record<
-  string,
-  { temp: number; conditions: string; humidity: number }
-> = {
+const mockWeather: Record<string, { temp: number; conditions: string; humidity: number }> = {
   "New York": { temp: 22, conditions: "Partly Cloudy", humidity: 65 },
   London: { temp: 15, conditions: "Overcast", humidity: 80 },
   Tokyo: { temp: 28, conditions: "Sunny", humidity: 55 },

@@ -1,10 +1,7 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
-import {
-  MockStepwiseAgent,
-  renderWithCopilotKit,
-} from "../../../__tests__/utils/test-helpers";
+import { MockStepwiseAgent, renderWithCopilotKit } from "../../../__tests__/utils/test-helpers";
 import { CopilotChat } from "../CopilotChat";
 import type { AttachmentUploadError } from "@copilotkit/shared";
 import { type BaseEvent, type RunAgentInput } from "@ag-ui/client";
@@ -134,11 +131,7 @@ describe("CopilotChat attachments", () => {
       });
 
       const pdf = createFile("a.pdf", 100, "application/pdf");
-      const doc = createFile(
-        "b.docx",
-        100,
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      );
+      const doc = createFile("b.docx", 100, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
       await dropFiles(container, [pdf, doc]);
 
       await waitFor(() => {

@@ -4,30 +4,21 @@ import { describe, it, expect, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
-import {
-  createCopilotEndpoint,
-  createCopilotEndpointSingleRoute,
-} from "../endpoints";
+import { createCopilotEndpoint, createCopilotEndpointSingleRoute } from "../endpoints";
 import { createCopilotEndpointExpress } from "../express";
 import { createCopilotEndpointSingleRouteExpress } from "../endpoints/express-single";
 import { CopilotRuntime } from "../core/runtime";
 
 vi.mock("../handlers/handle-run", () => ({
-  handleRunAgent: vi
-    .fn()
-    .mockResolvedValue(new Response(null, { status: 200 })),
+  handleRunAgent: vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
 }));
 
 vi.mock("../handlers/handle-connect", () => ({
-  handleConnectAgent: vi
-    .fn()
-    .mockResolvedValue(new Response(null, { status: 200 })),
+  handleConnectAgent: vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
 }));
 
 vi.mock("../handlers/handle-stop", () => ({
-  handleStopAgent: vi
-    .fn()
-    .mockResolvedValue(new Response(null, { status: 200 })),
+  handleStopAgent: vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
 }));
 
 describe("Backward compatibility", () => {
@@ -70,9 +61,7 @@ describe("Backward compatibility", () => {
       const runtime = createMockRuntime();
       const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
 
-      const response = await endpoint.fetch(
-        new Request("https://example.com/info"),
-      );
+      const response = await endpoint.fetch(new Request("https://example.com/info"));
 
       expect(response.status).toBe(200);
       const body = await response.json();
@@ -120,10 +109,7 @@ describe("Backward compatibility", () => {
         }),
       );
 
-      const response = await request(app)
-        .post("/rpc")
-        .set("Content-Type", "application/json")
-        .send({ method: "info" });
+      const response = await request(app).post("/rpc").set("Content-Type", "application/json").send({ method: "info" });
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty("version");
@@ -144,9 +130,7 @@ describe("Backward compatibility", () => {
         hooks: { onRequest },
       });
 
-      const response = await endpoint.fetch(
-        new Request("https://example.com/info"),
-      );
+      const response = await endpoint.fetch(new Request("https://example.com/info"));
 
       expect(response.status).toBe(200);
       const body = await response.json();

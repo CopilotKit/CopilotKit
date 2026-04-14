@@ -14,8 +14,7 @@ export function ExampleLayout({ chatContent, appContent }: ExampleLayoutProps) {
 
   useFrontendTool({
     name: "enableAppMode",
-    description:
-      "Enable app mode, make sure its open when interacting with todos.",
+    description: "Enable app mode, make sure its open when interacting with todos.",
     handler: async () => {
       setMode("app");
     },
@@ -42,11 +41,7 @@ export function ExampleLayout({ chatContent, appContent }: ExampleLayoutProps) {
         }`}
       >
         <div className="shrink-0 pt-6 pl-6 pb-2 max-lg:pl-4 max-lg:pt-4">
-          <img
-            src="/copilotkit-logo.svg"
-            alt="CopilotKit"
-            className="h-7 dark:invert"
-          />
+          <img src="/copilotkit-logo.svg" alt="CopilotKit" className="h-7 dark:invert" />
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto">{chatContent}</div>
       </div>

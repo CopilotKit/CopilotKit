@@ -11,12 +11,7 @@ Build widgets that adapt to themes, look professional, and provide great user ex
 Widgets should adapt to the user's theme (light/dark mode):
 
 ```tsx
-import {
-  McpUseProvider,
-  useWidget,
-  useWidgetTheme,
-  type WidgetMetadata,
-} from "mcp-use/react";
+import { McpUseProvider, useWidget, useWidgetTheme, type WidgetMetadata } from "mcp-use/react";
 import { z } from "zod";
 
 export const widgetMetadata: WidgetMetadata = {
@@ -233,13 +228,7 @@ const [hovered, setHovered] = useState(false);
 <button
   style={{
     padding: "8px 16px",
-    backgroundColor: hovered
-      ? theme === "dark"
-        ? "#5aa8ff"
-        : "#0052a3"
-      : theme === "dark"
-        ? "#4a9eff"
-        : "#0066cc",
+    backgroundColor: hovered ? (theme === "dark" ? "#5aa8ff" : "#0052a3") : theme === "dark" ? "#4a9eff" : "#0066cc",
     color: "#ffffff",
     border: "none",
     borderRadius: 4,
@@ -280,11 +269,7 @@ return (
           }}
         >
           <h3 style={{ margin: "0 0 8px 0" }}>{item.title}</h3>
-          <p
-            style={{ margin: 0, color: theme === "dark" ? "#b0b0b0" : "#666" }}
-          >
-            {item.description}
-          </p>
+          <p style={{ margin: 0, color: theme === "dark" ? "#b0b0b0" : "#666" }}>{item.description}</p>
         </div>
       ))}
     </div>
@@ -379,9 +364,7 @@ const inputStyle: React.CSSProperties = {
   </label>
   <input type="text" style={inputStyle} placeholder="Enter name..." />
 
-  <label style={{ display: "block", marginTop: 12, marginBottom: 4 }}>
-    Description
-  </label>
+  <label style={{ display: "block", marginTop: 12, marginBottom: 4 }}>Description</label>
   <textarea
     style={{
       ...inputStyle,
@@ -418,8 +401,7 @@ const theme = useWidgetTheme();
         transition: "background-color 0.15s",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.backgroundColor =
-          theme === "dark" ? "#2a2a2a" : "#f5f5f5";
+        e.currentTarget.style.backgroundColor = theme === "dark" ? "#2a2a2a" : "#f5f5f5";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.backgroundColor = "transparent";
@@ -692,12 +674,7 @@ const spacing = {
 
 ```tsx
 import { useState } from "react";
-import {
-  McpUseProvider,
-  useWidget,
-  useWidgetTheme,
-  type WidgetMetadata,
-} from "mcp-use/react";
+import { McpUseProvider, useWidget, useWidgetTheme, type WidgetMetadata } from "mcp-use/react";
 import { z } from "zod";
 
 function useColors() {
@@ -751,9 +728,7 @@ export default function ThemedProductList() {
 
   const categories = ["all", ...new Set(props.products.map((p) => p.category))];
   const filtered =
-    selectedCategory === "all"
-      ? props.products
-      : props.products.filter((p) => p.category === selectedCategory);
+    selectedCategory === "all" ? props.products : props.products.filter((p) => p.category === selectedCategory);
 
   return (
     <McpUseProvider autoSize>
@@ -776,8 +751,7 @@ export default function ThemedProductList() {
                 padding: "8px 16px",
                 borderRadius: 4,
                 cursor: "pointer",
-                backgroundColor:
-                  selectedCategory === cat ? colors.primary : "transparent",
+                backgroundColor: selectedCategory === cat ? colors.primary : "transparent",
                 color: selectedCategory === cat ? "#fff" : colors.text,
                 border: `1px solid ${selectedCategory === cat ? colors.primary : colors.border}`,
               }}
@@ -805,9 +779,7 @@ export default function ThemedProductList() {
                 backgroundColor: colors.background,
               }}
             >
-              <h3 style={{ margin: "0 0 4px 0", fontSize: 16 }}>
-                {product.name}
-              </h3>
+              <h3 style={{ margin: "0 0 4px 0", fontSize: 16 }}>{product.name}</h3>
               <p
                 style={{
                   margin: "0 0 8px 0",

@@ -12,10 +12,7 @@
  *   npx tsx showcase/scripts/validate-redirects.ts --id P1  # filter by spec ID prefix
  */
 
-import {
-  seoRedirects,
-  type RedirectEntry,
-} from "../shell/src/lib/seo-redirects";
+import { seoRedirects, type RedirectEntry } from "../shell/src/lib/seo-redirects";
 
 const DEFAULT_BASE = "http://localhost:3000";
 
@@ -41,9 +38,7 @@ function parseArgs(): { baseUrl: string; idFilter?: string } {
   return { baseUrl, idFilter };
 }
 
-function expandWildcard(
-  entry: RedirectEntry,
-): { source: string; destination: string } | null {
+function expandWildcard(entry: RedirectEntry): { source: string; destination: string } | null {
   // For wildcard entries, generate a test URL by appending "test-path"
   if (entry.source.includes(":path*")) {
     const testSource = entry.source.replace(":path*", "test-path");
@@ -58,10 +53,7 @@ function expandWildcard(
   return { source: entry.source, destination: entry.destination };
 }
 
-async function validateEntry(
-  entry: RedirectEntry,
-  baseUrl: string,
-): Promise<ValidationResult> {
+async function validateEntry(entry: RedirectEntry, baseUrl: string): Promise<ValidationResult> {
   const expanded = expandWildcard(entry);
   if (!expanded) {
     return {
@@ -93,9 +85,7 @@ async function validateEntry(
 
     const location = res.headers.get("location") || "";
     // Location may be absolute or relative — normalize
-    const actualPath = location.startsWith("http")
-      ? new URL(location).pathname
-      : location;
+    const actualPath = location.startsWith("http") ? new URL(location).pathname : location;
 
     if (actualPath !== destination) {
       return {
@@ -164,8 +154,7 @@ async function main() {
   for (const entry of entries) {
     const result = await validateEntry(entry, baseUrl);
     results.push(result);
-    const icon =
-      result.status === "pass" ? "✓" : result.status === "skip" ? "⊘" : "✗";
+    const icon = result.status === "pass" ? "✓" : result.status === "skip" ? "⊘" : "✗";
     console.log(
       `  ${icon} ${result.id}: ${result.source} → ${result.expectedDestination}${result.error ? ` (${result.error})` : ""}`,
     );

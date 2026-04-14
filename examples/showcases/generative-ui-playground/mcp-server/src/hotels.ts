@@ -101,10 +101,7 @@ const AMENITIES: Amenity[] = [
 ];
 
 // Room templates
-const ROOM_TYPES: Record<
-  RoomType,
-  { name: string; description: string; bedType: string; amenities: string[] }
-> = {
+const ROOM_TYPES: Record<RoomType, { name: string; description: string; bedType: string; amenities: string[] }> = {
   standard: {
     name: "Standard Room",
     description: "Comfortable room with city views",
@@ -156,50 +153,31 @@ function generateConfirmationNumber(): string {
 
 // Generate mock hotels for a city
 function generateHotelsForCity(city: City): Hotel[] {
-  const hotelNames = [
-    `Grand ${city.name} Hotel`,
-    `${city.name} Plaza`,
-    `The ${city.name} Residences`,
-  ];
+  const hotelNames = [`Grand ${city.name} Hotel`, `${city.name} Plaza`, `The ${city.name} Residences`];
 
   return hotelNames.map((name, index) => {
     const basePrice = 150 + Math.floor(Math.random() * 200);
     const rating = 4 + Math.random() * 1;
 
-    const rooms: Room[] = (
-      ["standard", "deluxe", "suite", "penthouse", "family"] as RoomType[]
-    ).map((type, roomIndex) => {
-      const template = ROOM_TYPES[type];
-      const multiplier =
-        type === "penthouse"
-          ? 4
-          : type === "suite"
-            ? 2.5
-            : type === "deluxe"
-              ? 1.5
-              : type === "family"
-                ? 1.3
-                : 1;
+    const rooms: Room[] = (["standard", "deluxe", "suite", "penthouse", "family"] as RoomType[]).map(
+      (type, roomIndex) => {
+        const template = ROOM_TYPES[type];
+        const multiplier =
+          type === "penthouse" ? 4 : type === "suite" ? 2.5 : type === "deluxe" ? 1.5 : type === "family" ? 1.3 : 1;
 
-      return {
-        id: generateId("room"),
-        type,
-        name: template.name,
-        description: template.description,
-        maxGuests:
-          type === "family"
-            ? 4
-            : type === "penthouse"
-              ? 4
-              : type === "suite"
-                ? 3
-                : 2,
-        bedType: template.bedType,
-        pricePerNight: Math.round(basePrice * multiplier),
-        amenities: template.amenities,
-        available: 2 + Math.floor(Math.random() * 5),
-      };
-    });
+        return {
+          id: generateId("room"),
+          type,
+          name: template.name,
+          description: template.description,
+          maxGuests: type === "family" ? 4 : type === "penthouse" ? 4 : type === "suite" ? 3 : 2,
+          bedType: template.bedType,
+          pricePerNight: Math.round(basePrice * multiplier),
+          amenities: template.amenities,
+          available: 2 + Math.floor(Math.random() * 5),
+        };
+      },
+    );
 
     return {
       id: generateId("hotel"),
@@ -232,9 +210,7 @@ export function searchHotels(params: {
   const { city, checkIn, checkOut, guests, rooms = 1 } = params;
 
   const matchedCity = CITIES.find(
-    (c) =>
-      c.name.toLowerCase().includes(city.toLowerCase()) ||
-      c.code.toLowerCase() === city.toLowerCase(),
+    (c) => c.name.toLowerCase().includes(city.toLowerCase()) || c.code.toLowerCase() === city.toLowerCase(),
   );
 
   if (!matchedCity) {
@@ -258,10 +234,7 @@ export function getHotelSearch(searchId: string): HotelSearch | undefined {
   return hotelSearches.get(searchId);
 }
 
-export function selectHotel(
-  searchId: string,
-  hotelId: string,
-): { hotel: Hotel; rooms: Room[] } | undefined {
+export function selectHotel(searchId: string, hotelId: string): { hotel: Hotel; rooms: Room[] } | undefined {
   const search = hotelSearches.get(searchId);
   if (!search) return undefined;
 
@@ -296,9 +269,7 @@ export function selectRoom(
   // Calculate nights
   const checkIn = new Date(search.searchParams.checkIn);
   const checkOut = new Date(search.searchParams.checkOut);
-  const nights = Math.ceil(
-    (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24),
-  );
+  const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
 
   return {
     room,
@@ -316,10 +287,8 @@ export function createHotelBooking(
 ): { success: boolean; message: string; booking?: HotelBooking } {
   const search = hotelSearches.get(searchId);
   if (!search) return { success: false, message: "Search session not found" };
-  if (!search.selectedHotelId)
-    return { success: false, message: "No hotel selected" };
-  if (!search.selectedRoomId)
-    return { success: false, message: "No room selected" };
+  if (!search.selectedHotelId) return { success: false, message: "No hotel selected" };
+  if (!search.selectedRoomId) return { success: false, message: "No room selected" };
 
   const hotel = search.hotels.find((h) => h.id === search.selectedHotelId);
   if (!hotel) return { success: false, message: "Hotel not found" };
@@ -329,9 +298,7 @@ export function createHotelBooking(
 
   const checkIn = new Date(search.searchParams.checkIn);
   const checkOut = new Date(search.searchParams.checkOut);
-  const nights = Math.ceil(
-    (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24),
-  );
+  const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
   const totalPrice = room.pricePerNight * nights * search.searchParams.rooms;
 
   const confirmationNumber = generateConfirmationNumber();
@@ -358,8 +325,6 @@ export function createHotelBooking(
   };
 }
 
-export function getHotelBooking(
-  confirmationNumber: string,
-): HotelBooking | undefined {
+export function getHotelBooking(confirmationNumber: string): HotelBooking | undefined {
   return hotelBookings.get(confirmationNumber);
 }

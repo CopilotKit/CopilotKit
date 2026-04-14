@@ -10,12 +10,7 @@
  */
 
 import { test, expect } from "@playwright/test";
-import {
-  checkHealth,
-  checkAgentEndpoint,
-  sendChatMessage,
-  setupConsoleErrorCollector,
-} from "./helpers";
+import { checkHealth, checkAgentEndpoint, sendChatMessage, setupConsoleErrorCollector } from "./helpers";
 
 // ---------------------------------------------------------------------------
 // Starter registry
@@ -70,41 +65,25 @@ test.describe(`starter-smoke: ${STARTER_SLUG}`, () => {
   test.skip(!activeStarter, `Unknown starter slug: ${STARTER_SLUG}`);
   const starter = activeStarter!;
 
-  test(`@health ${STARTER_SLUG} — health endpoint responds`, async ({
-    request,
-  }) => {
+  test(`@health ${STARTER_SLUG} — health endpoint responds`, async ({ request }) => {
     const result = await checkHealth(request, STARTER_URL, starter.healthPaths);
     expect(result.ok, `Health check failed: ${result.body}`).toBe(true);
   });
 
-  test(`@agent ${STARTER_SLUG} — agent endpoint is reachable`, async ({
-    request,
-  }) => {
-    const result = await checkAgentEndpoint(
-      request,
-      STARTER_URL,
-      starter.agentPath,
-    );
+  test(`@agent ${STARTER_SLUG} — agent endpoint is reachable`, async ({ request }) => {
+    const result = await checkAgentEndpoint(request, STARTER_URL, starter.agentPath);
     expect(result.status, "Agent endpoint returned 404").not.toBe(404);
     expect(result.ok, `Agent check failed: ${result.body}`).toBe(true);
   });
 
-  test(`@chat ${STARTER_SLUG} — chat round-trip via aimock`, async ({
-    page,
-  }) => {
+  test(`@chat ${STARTER_SLUG} — chat round-trip via aimock`, async ({ page }) => {
     test.slow();
-    const result = await sendChatMessage(
-      page,
-      STARTER_URL,
-      starter.chatMessage,
-    );
+    const result = await sendChatMessage(page, STARTER_URL, starter.chatMessage);
     expect(result.gotResponse, "No assistant response received").toBe(true);
     expect(result.responseText.length).toBeGreaterThan(0);
   });
 
-  test(`@interaction ${STARTER_SLUG} — UI interactions work`, async ({
-    page,
-  }) => {
+  test(`@interaction ${STARTER_SLUG} — UI interactions work`, async ({ page }) => {
     test.slow();
     const { getErrors } = setupConsoleErrorCollector(page);
 
@@ -115,9 +94,7 @@ test.describe(`starter-smoke: ${STARTER_SLUG}`, () => {
 
     // Remove CopilotKit web inspector overlay (blocks pointer events in dev)
     await page.evaluate(() => {
-      document
-        .querySelectorAll("cpk-web-inspector")
-        .forEach((el) => el.remove());
+      document.querySelectorAll("cpk-web-inspector").forEach((el) => el.remove());
     });
 
     if (starter.hasAppMode !== false) {
@@ -150,10 +127,7 @@ test.describe(`starter-smoke: ${STARTER_SLUG}`, () => {
     }
 
     // Verify no JS errors throughout
-    const errors = getErrors().filter(
-      (e) =>
-        !e.includes("favicon.ico") && !e.includes("net::ERR_BLOCKED_BY_CLIENT"),
-    );
+    const errors = getErrors().filter((e) => !e.includes("favicon.ico") && !e.includes("net::ERR_BLOCKED_BY_CLIENT"));
     expect(errors, `JS console errors:\n${errors.join("\n")}`).toHaveLength(0);
   });
 });

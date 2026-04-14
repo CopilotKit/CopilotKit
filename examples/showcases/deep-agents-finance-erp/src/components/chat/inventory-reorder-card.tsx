@@ -73,14 +73,8 @@ export function InventoryReorderCard(props: Props) {
           <Package className="h-4 w-4 text-primary" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-foreground">
-            Purchase Order Review
-          </p>
-          {supplier && (
-            <p className="text-xs text-muted-foreground">
-              Supplier: {supplier}
-            </p>
-          )}
+          <p className="text-sm font-semibold text-foreground">Purchase Order Review</p>
+          {supplier && <p className="text-xs text-muted-foreground">Supplier: {supplier}</p>}
         </div>
       </div>
 
@@ -99,18 +93,14 @@ export function InventoryReorderCard(props: Props) {
           <tbody>
             {items.map((item) => (
               <tr key={item.sku} className="border-b border-border/30">
-                <td className="px-3 py-2 font-mono text-muted-foreground">
-                  {item.sku}
-                </td>
+                <td className="px-3 py-2 font-mono text-muted-foreground">{item.sku}</td>
                 <td className="px-3 py-2 text-foreground">{item.name}</td>
                 <td
                   className={`px-3 py-2 text-right font-medium ${item.currentQty === 0 ? "text-red-600" : "text-amber-600"}`}
                 >
                   {item.currentQty}
                 </td>
-                <td className="px-3 py-2 text-right text-foreground">
-                  {item.reorderQty}
-                </td>
+                <td className="px-3 py-2 text-right text-foreground">{item.reorderQty}</td>
                 <td className="px-3 py-2 text-right font-medium text-foreground">
                   {formatCurrency(item.reorderQty * item.unitCost)}
                 </td>
@@ -119,12 +109,8 @@ export function InventoryReorderCard(props: Props) {
           </tbody>
         </table>
         <div className="flex items-center justify-between border-t border-border px-3 py-2">
-          <span className="text-xs font-medium text-muted-foreground">
-            Estimated PO Total
-          </span>
-          <span className="text-sm font-bold text-foreground">
-            {formatCurrency(estimatedTotal)}
-          </span>
+          <span className="text-xs font-medium text-muted-foreground">Estimated PO Total</span>
+          <span className="text-sm font-bold text-foreground">{formatCurrency(estimatedTotal)}</span>
         </div>
       </div>
 
@@ -133,11 +119,7 @@ export function InventoryReorderCard(props: Props) {
         <div
           className={`mb-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium ${wasApproved ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
         >
-          {wasApproved ? (
-            <Check className="h-3.5 w-3.5" />
-          ) : (
-            <SkipForward className="h-3.5 w-3.5" />
-          )}
+          {wasApproved ? <Check className="h-3.5 w-3.5" /> : <SkipForward className="h-3.5 w-3.5" />}
           {wasApproved ? "PO Approved" : "Reorder Skipped"}
         </div>
       )}

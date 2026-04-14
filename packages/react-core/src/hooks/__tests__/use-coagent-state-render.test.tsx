@@ -3,11 +3,7 @@ import React, { type ReactNode } from "react";
 import { render, renderHook, waitFor } from "@testing-library/react";
 import { useCoAgentStateRender } from "../use-coagent-state-render";
 import type { CoAgentStateRender } from "../../types/coagent-action";
-import {
-  CoAgentStateRendersProvider,
-  CopilotContext,
-  useCoAgentStateRenders,
-} from "../../context";
+import { CoAgentStateRendersProvider, CopilotContext, useCoAgentStateRenders } from "../../context";
 import { CopilotKitAgentDiscoveryError, randomId } from "@copilotkit/shared";
 import { createTestCopilotContext } from "../../test-helpers/copilot-context";
 
@@ -21,9 +17,7 @@ vi.mock("../../components/toast/toast-provider", () => ({
   }),
 }));
 
-function createWrapper(
-  copilotContextValue: ReturnType<typeof createTestCopilotContext>,
-) {
+function createWrapper(copilotContextValue: ReturnType<typeof createTestCopilotContext>) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
       <CopilotContext.Provider value={copilotContextValue}>
@@ -33,21 +27,12 @@ function createWrapper(
   };
 }
 
-function useHarness<T>(
-  action: Parameters<typeof useCoAgentStateRender<T>>[0],
-  deps?: unknown[],
-) {
+function useHarness<T>(action: Parameters<typeof useCoAgentStateRender<T>>[0], deps?: unknown[]) {
   useCoAgentStateRender(action, deps);
   return useCoAgentStateRenders();
 }
 
-function HookUser<T>({
-  action,
-  deps,
-}: {
-  action: CoAgentStateRender<T>;
-  deps?: unknown[];
-}) {
+function HookUser<T>({ action, deps }: { action: CoAgentStateRender<T>; deps?: unknown[] }) {
   useCoAgentStateRender(action, deps);
   return null;
 }
@@ -64,9 +49,7 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     idCounter = 0;
-    (randomId as Mock).mockImplementation(
-      () => `test-random-id-${++idCounter}`,
-    );
+    (randomId as Mock).mockImplementation(() => `test-random-id-${++idCounter}`);
   });
 
   it("registers state render and writes to the render cache", async () => {
@@ -95,9 +78,7 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
       expect(Object.keys(result.current.coAgentStateRenders)).toHaveLength(1);
     });
 
-    expect(
-      chatComponentsCache.current.coAgentStateRenders["agent-a-node-1"],
-    ).toBe(renderFn);
+    expect(chatComponentsCache.current.coAgentStateRenders["agent-a-node-1"]).toBe(renderFn);
   });
 
   it("mutates handler + cache in place when dependencies are omitted", async () => {
@@ -136,17 +117,13 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
     const [id, initialRender] = getSingleEntry(initialRenders);
 
     expect(initialRender.handler).toBe(handlerOne);
-    expect(
-      chatComponentsCache.current.coAgentStateRenders["agent-b-global"],
-    ).toBe(renderOne);
+    expect(chatComponentsCache.current.coAgentStateRenders["agent-b-global"]).toBe(renderOne);
 
     rerender({ handler: handlerTwo, renderFn: renderTwo });
 
     expect(result.current.coAgentStateRenders).toBe(initialRenders);
     expect(result.current.coAgentStateRenders[id].handler).toBe(handlerTwo);
-    expect(
-      chatComponentsCache.current.coAgentStateRenders["agent-b-global"],
-    ).toBe(renderTwo);
+    expect(chatComponentsCache.current.coAgentStateRenders["agent-b-global"]).toBe(renderTwo);
   });
 
   it("re-registers when dependencies change", async () => {
@@ -219,9 +196,7 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
       expect(result.current.coAgentStateRenders).not.toBe(initialRenders);
     });
 
-    expect(
-      chatComponentsCache.current.coAgentStateRenders["agent-d-global"],
-    ).toBe("Step 2");
+    expect(chatComponentsCache.current.coAgentStateRenders["agent-d-global"]).toBe("Step 2");
   });
 
   it("warns when duplicate registrations target the same agent + node", async () => {
@@ -263,8 +238,7 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
     expect(addToast).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "warning",
-        message:
-          "Found multiple state renders for agent agent-dup and node node-x. State renders might get overridden",
+        message: "Found multiple state renders for agent agent-dup and node node-x. State renders might get overridden",
       }),
     );
   });

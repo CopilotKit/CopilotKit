@@ -1,10 +1,4 @@
-import {
-  AbstractAgent,
-  RunAgentInput,
-  EventType,
-  BaseEvent,
-  ToolCallResultEvent,
-} from "@ag-ui/client";
+import { AbstractAgent, RunAgentInput, EventType, BaseEvent, ToolCallResultEvent } from "@ag-ui/client";
 import { Observable } from "rxjs";
 
 export class SlowToolCallStreamingAgent extends AbstractAgent {
@@ -41,8 +35,7 @@ export class SlowToolCallStreamingAgent extends AbstractAgent {
           } as BaseEvent);
 
           // Stream the initial text message
-          const textMessage =
-            "I'll check the weather for you. Let me fetch that information ok?.";
+          const textMessage = "I'll check the weather for you. Let me fetch that information ok?.";
           const chunks = textMessage.split(" ");
 
           for (let i = 0; i < chunks.length; i++) {
@@ -116,10 +109,7 @@ export class SlowToolCallStreamingAgent extends AbstractAgent {
           if (!cancelled) {
             observer.next({
               type: EventType.RUN_ERROR,
-              message:
-                error instanceof Error
-                  ? error.message
-                  : "Unknown error occurred",
+              message: error instanceof Error ? error.message : "Unknown error occurred",
             } as BaseEvent);
             observer.error(error);
           }

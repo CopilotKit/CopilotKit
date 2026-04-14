@@ -1,10 +1,5 @@
 import { ActionInputAvailability } from "@copilotkit/runtime-client-gql";
-import {
-  Action,
-  Parameter,
-  MappedParameterTypes,
-  actionParametersToJsonSchema,
-} from "@copilotkit/shared";
+import { Action, Parameter, MappedParameterTypes, actionParametersToJsonSchema } from "@copilotkit/shared";
 import React from "react";
 
 interface InProgressState<T extends Parameter[] | [] = []> {
@@ -127,16 +122,9 @@ export type CatchAllActionRenderProps<T extends Parameter[] | [] = []> =
       name: string;
     });
 
-export type FrontendActionAvailability =
-  | "disabled"
-  | "enabled"
-  | "remote"
-  | "frontend";
+export type FrontendActionAvailability = "disabled" | "enabled" | "remote" | "frontend";
 
-export type FrontendAction<
-  T extends Parameter[] | [] = [],
-  N extends string = string,
-> = Action<T> & {
+export type FrontendAction<T extends Parameter[] | [] = [], N extends string = string> = Action<T> & {
   name: Exclude<N, "*">;
   /**
    * @deprecated Use `available` instead.
@@ -150,9 +138,7 @@ export type FrontendAction<
         render?:
           | string
           | (T extends []
-              ? (
-                  props: ActionRenderPropsNoArgs<T>,
-                ) => string | React.ReactElement
+              ? (props: ActionRenderPropsNoArgs<T>) => string | React.ReactElement
               : (props: ActionRenderProps<T>) => string | React.ReactElement);
         /** @deprecated use renderAndWaitForResponse instead */
         renderAndWait?: never;
@@ -178,9 +164,7 @@ export type CatchAllFrontendAction = {
 
 export type RenderFunctionStatus = ActionRenderProps<any>["status"];
 
-export function processActionsForRuntimeRequest(
-  actions: FrontendAction<any>[],
-) {
+export function processActionsForRuntimeRequest(actions: FrontendAction<any>[]) {
   const filteredActions = actions
     .filter(
       (action) =>
@@ -191,8 +175,7 @@ export function processActionsForRuntimeRequest(
         !action.pairedAction,
     )
     .map((action) => {
-      let available: ActionInputAvailability | undefined =
-        ActionInputAvailability.Enabled;
+      let available: ActionInputAvailability | undefined = ActionInputAvailability.Enabled;
       if (action.disabled) {
         available = ActionInputAvailability.Disabled;
       } else if (action.available === "disabled") {
@@ -203,9 +186,7 @@ export function processActionsForRuntimeRequest(
       return {
         name: action.name,
         description: action.description || "",
-        jsonSchema: JSON.stringify(
-          actionParametersToJsonSchema(action.parameters || []),
-        ),
+        jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
         available,
       };
     });

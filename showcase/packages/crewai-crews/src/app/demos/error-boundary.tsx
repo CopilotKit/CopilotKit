@@ -21,11 +21,7 @@ export class DemoErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error(
-      `[DemoErrorBoundary] ${this.props.demoName} crashed:`,
-      error,
-      errorInfo,
-    );
+    console.error(`[DemoErrorBoundary] ${this.props.demoName} crashed:`, error, errorInfo);
   }
 
   render() {
@@ -56,8 +52,8 @@ export class DemoErrorBoundary extends React.Component<
             {this.props.demoName} — Demo Error
           </h2>
           <p style={{ fontSize: "14px", maxWidth: "400px", lineHeight: 1.5 }}>
-            The demo encountered an error. This usually means the agent backend
-            is not responding. Check the server logs and /api/health endpoint.
+            The demo encountered an error. This usually means the agent backend is not responding. Check the server logs
+            and /api/health endpoint.
           </p>
           <pre
             style={{

@@ -57,10 +57,7 @@ Create `apps/your-app.html`:
           const id = requestId++;
           return new Promise((resolve, reject) => {
             pendingRequests.set(id, { resolve, reject });
-            window.parent.postMessage(
-              { jsonrpc: "2.0", id, method, params },
-              "*",
-            );
+            window.parent.postMessage({ jsonrpc: "2.0", id, method, params }, "*");
           });
         }
 
@@ -113,22 +110,12 @@ import fs from "fs";
 import path from "path";
 
 // Load HTML
-const yourAppHtml = fs.readFileSync(
-  path.join(__dirname, "apps/your-app.html"),
-  "utf-8",
-);
+const yourAppHtml = fs.readFileSync(path.join(__dirname, "apps/your-app.html"), "utf-8");
 
 // Register resource
-server.resource(
-  "your-app-ui",
-  "your://app",
-  { mimeType: "text/html+mcp" },
-  async () => ({
-    contents: [
-      { uri: "your://app", mimeType: "text/html+mcp", text: yourAppHtml },
-    ],
-  }),
-);
+server.resource("your-app-ui", "your://app", { mimeType: "text/html+mcp" }, async () => ({
+  contents: [{ uri: "your://app", mimeType: "text/html+mcp", text: yourAppHtml }],
+}));
 
 // Register tool linking to resource
 server.tool("open_your_app", "Opens the app", {}, async () => ({

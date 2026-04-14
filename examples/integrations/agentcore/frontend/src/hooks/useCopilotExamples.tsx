@@ -1,18 +1,7 @@
 import { z } from "zod";
-import {
-  useComponent,
-  useFrontendTool,
-  useHumanInTheLoop,
-  useDefaultRenderTool,
-} from "@copilotkit/react-core/v2";
-import {
-  PieChart,
-  PieChartPropsSchema,
-} from "@/components/generative-ui/PieChart";
-import {
-  BarChart,
-  BarChartPropsSchema,
-} from "@/components/generative-ui/BarChart";
+import { useComponent, useFrontendTool, useHumanInTheLoop, useDefaultRenderTool } from "@copilotkit/react-core/v2";
+import { PieChart, PieChartPropsSchema } from "@/components/generative-ui/PieChart";
+import { BarChart, BarChartPropsSchema } from "@/components/generative-ui/BarChart";
 import { ToolReasoning } from "@/components/generative-ui/ToolReasoning";
 import { MeetingTimePicker } from "@/components/generative-ui/MeetingTimePicker";
 import { useTheme } from "@/hooks/useTheme";
@@ -51,9 +40,7 @@ export const useCopilotExamples = () => {
 
   // Default renderer for all backend tool calls
   useDefaultRenderTool({
-    render: ({ name, status, parameters }) => (
-      <ToolReasoning name={name} status={status} args={parameters} />
-    ),
+    render: ({ name, status, parameters }) => <ToolReasoning name={name} status={status} args={parameters} />,
   });
 
   // Human-in-the-loop: meeting scheduler
@@ -61,15 +48,9 @@ export const useCopilotExamples = () => {
     name: "scheduleTime",
     description: "Use human-in-the-loop to schedule a meeting with the user.",
     parameters: z.object({
-      reasonForScheduling: z
-        .string()
-        .describe("Reason for scheduling, very brief - 5 words."),
-      meetingDuration: z
-        .number()
-        .describe("Duration of the meeting in minutes"),
+      reasonForScheduling: z.string().describe("Reason for scheduling, very brief - 5 words."),
+      meetingDuration: z.number().describe("Duration of the meeting in minutes"),
     }),
-    render: ({ respond, status, args }) => (
-      <MeetingTimePicker status={status} respond={respond} {...args} />
-    ),
+    render: ({ respond, status, args }) => <MeetingTimePicker status={status} respond={respond} {...args} />,
   });
 };

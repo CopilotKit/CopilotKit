@@ -3,11 +3,7 @@ import { moduleMetadata } from "@storybook/angular";
 import { CommonModule } from "@angular/common";
 import { Component, EventEmitter, Input, Output } from "@angular/core";
 import { fn } from "@storybook/test";
-import {
-  CopilotChatInput,
-  provideCopilotChatLabels,
-  type ToolsMenuItem,
-} from "@copilotkit/angular";
+import { CopilotChatInput, provideCopilotChatLabels, type ToolsMenuItem } from "@copilotkit/angular";
 import { CustomSendButtonComponent } from "../components/custom-send-button.component";
 
 // Additional custom button components for slot demonstrations

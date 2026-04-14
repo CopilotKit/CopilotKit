@@ -78,8 +78,8 @@
   --font-sans: var(--font-manrope);
   --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono:
-    var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Monaco,
-    Consolas, "Liberation Mono", "Courier New", monospace;
+    var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

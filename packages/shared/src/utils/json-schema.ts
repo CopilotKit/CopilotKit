@@ -30,16 +30,9 @@ export type JSONSchemaArray = {
   description?: string;
 };
 
-export type JSONSchema =
-  | JSONSchemaString
-  | JSONSchemaNumber
-  | JSONSchemaBoolean
-  | JSONSchemaObject
-  | JSONSchemaArray;
+export type JSONSchema = JSONSchemaString | JSONSchemaNumber | JSONSchemaBoolean | JSONSchemaObject | JSONSchemaArray;
 
-export function actionParametersToJsonSchema(
-  actionParameters: Parameter[],
-): JSONSchema {
+export function actionParametersToJsonSchema(actionParameters: Parameter[]): JSONSchema {
   // Create the parameters object based on the argumentAnnotations
   let parameters: { [key: string]: any } = {};
   for (let parameter of actionParameters || []) {
@@ -62,9 +55,7 @@ export function actionParametersToJsonSchema(
 }
 
 // Convert JSONSchema to Parameter[]
-export function jsonSchemaToActionParameters(
-  jsonSchema: JSONSchema,
-): Parameter[] {
+export function jsonSchemaToActionParameters(jsonSchema: JSONSchema): Parameter[] {
   if (jsonSchema.type !== "object" || !jsonSchema.properties) {
     return [];
   }
@@ -73,11 +64,7 @@ export function jsonSchemaToActionParameters(
   const requiredFields = jsonSchema.required || [];
 
   for (const [name, schema] of Object.entries(jsonSchema.properties)) {
-    const parameter = convertJsonSchemaToParameter(
-      name,
-      schema,
-      requiredFields.includes(name),
-    );
+    const parameter = convertJsonSchemaToParameter(name, schema, requiredFields.includes(name));
     parameters.push(parameter);
   }
 
@@ -85,11 +72,7 @@ export function jsonSchemaToActionParameters(
 }
 
 // Convert JSONSchema property to Parameter
-function convertJsonSchemaToParameter(
-  name: string,
-  schema: JSONSchema,
-  isRequired: boolean,
-): Parameter {
+function convertJsonSchemaToParameter(name: string, schema: JSONSchema, isRequired: boolean): Parameter {
   const baseParameter: Parameter = {
     name,
     description: schema.description,
@@ -117,16 +100,8 @@ function convertJsonSchemaToParameter(
         const attributes: Parameter[] = [];
         const requiredFields = schema.required || [];
 
-        for (const [propName, propSchema] of Object.entries(
-          schema.properties,
-        )) {
-          attributes.push(
-            convertJsonSchemaToParameter(
-              propName,
-              propSchema,
-              requiredFields.includes(propName),
-            ),
-          );
+        for (const [propName, propSchema] of Object.entries(schema.properties)) {
+          attributes.push(convertJsonSchemaToParameter(propName, propSchema, requiredFields.includes(propName)));
         }
 
         return {
@@ -144,16 +119,8 @@ function convertJsonSchemaToParameter(
         const attributes: Parameter[] = [];
         const requiredFields = schema.items.required || [];
 
-        for (const [propName, propSchema] of Object.entries(
-          schema.items.properties || {},
-        )) {
-          attributes.push(
-            convertJsonSchemaToParameter(
-              propName,
-              propSchema,
-              requiredFields.includes(propName),
-            ),
-          );
+        for (const [propName, propSchema] of Object.entries(schema.items.properties || {})) {
+          attributes.push(convertJsonSchemaToParameter(propName, propSchema, requiredFields.includes(propName)));
         }
 
         return {
@@ -200,9 +167,7 @@ function convertAttribute(attribute: Parameter): JSONSchema {
         },
         {} as Record<string, any>,
       );
-      const required = attribute.attributes
-        ?.filter((attr) => attr.required !== false)
-        .map((attr) => attr.name);
+      const required = attribute.attributes?.filter((attr) => attr.required !== false).map((attr) => attr.name);
       if (attribute.type === "object[]") {
         return {
           type: "array",
@@ -238,10 +203,7 @@ function convertAttribute(attribute: Parameter): JSONSchema {
   }
 }
 
-export function convertJsonSchemaToZodSchema(
-  jsonSchema: any,
-  required: boolean,
-): z.ZodSchema {
+export function convertJsonSchemaToZodSchema(jsonSchema: any, required: boolean): z.ZodSchema {
   if (jsonSchema.type === "object") {
     const spec: { [key: string]: z.ZodSchema } = {};
 
@@ -250,18 +212,13 @@ export function convertJsonSchemaToZodSchema(
     }
 
     for (const [key, value] of Object.entries(jsonSchema.properties)) {
-      spec[key] = convertJsonSchemaToZodSchema(
-        value,
-        jsonSchema.required ? jsonSchema.required.includes(key) : false,
-      );
+      spec[key] = convertJsonSchemaToZodSchema(value, jsonSchema.required ? jsonSchema.required.includes(key) : false);
     }
     let schema = z.object(spec).describe(jsonSchema.description);
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "string") {
     if (jsonSchema.enum && jsonSchema.enum.length > 0) {
-      let schema = z
-        .enum(jsonSchema.enum as [string, ...string[]])
-        .describe(jsonSchema.description);
+      let schema = z.enum(jsonSchema.enum as [string, ...string[]]).describe(jsonSchema.description);
       return required ? schema : schema.optional();
     }
     let schema = z.string().describe(jsonSchema.description);
@@ -280,9 +237,7 @@ export function convertJsonSchemaToZodSchema(
   throw new Error("Invalid JSON schema");
 }
 
-export function getZodParameters<T extends [] | Parameter[] | undefined>(
-  parameters: T,
-): any {
+export function getZodParameters<T extends [] | Parameter[] | undefined>(parameters: T): any {
   if (!parameters) return z.object({});
   const jsonParams = actionParametersToJsonSchema(parameters);
   return convertJsonSchemaToZodSchema(jsonParams, true);

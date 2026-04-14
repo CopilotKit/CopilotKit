@@ -36,8 +36,7 @@ const Wrapper: FC<WrapperProps> = ({ children }: WrapperProps) => {
   });
 
   useCopilotReadable({
-    description:
-      "A list of ids and quantites of items added to the cart. Ids reference the ids in the items list",
+    description: "A list of ids and quantites of items added to the cart. Ids reference the ids in the items list",
     value: JSON.stringify(cartItems),
   });
 
@@ -80,10 +79,7 @@ const Wrapper: FC<WrapperProps> = ({ children }: WrapperProps) => {
       },
     ],
     handler: async ({ itemId, quantity = 1 }) => {
-      return fetcher.submit(
-        { itemId, quantity },
-        { method: "post", action: `/items/${itemId}` },
-      );
+      return fetcher.submit({ itemId, quantity }, { method: "post", action: `/items/${itemId}` });
     },
   });
 
@@ -99,10 +95,7 @@ const Wrapper: FC<WrapperProps> = ({ children }: WrapperProps) => {
       },
     ],
     handler: async ({ address }) => {
-      return fetcher.submit(
-        { address },
-        { method: "post", action: "/settings" },
-      );
+      return fetcher.submit({ address }, { method: "post", action: "/settings" });
     },
   });
 

@@ -12,9 +12,7 @@ function getDefaultServersFromEnv(): McpServerEntry[] | null {
     if (!Array.isArray(parsed)) return null;
     return parsed.filter(
       (s): s is McpServerEntry =>
-        s != null &&
-        typeof s === "object" &&
-        typeof (s as McpServerEntry).endpoint === "string",
+        s != null && typeof s === "object" && typeof (s as McpServerEntry).endpoint === "string",
     );
   } catch {
     return null;
@@ -24,9 +22,6 @@ function getDefaultServersFromEnv(): McpServerEntry[] | null {
 const envDefaults = getDefaultServersFromEnv();
 
 /** Built-in default: Excalidraw MCP server (public, no auth). Override with NEXT_PUBLIC_DEFAULT_MCP_SERVERS. */
-const BUILTIN_DEFAULTS: McpServerEntry[] = [
-  { endpoint: "https://mcp.excalidraw.com", serverId: "excalidraw" },
-];
+const BUILTIN_DEFAULTS: McpServerEntry[] = [{ endpoint: "https://mcp.excalidraw.com", serverId: "excalidraw" }];
 
-export const DEFAULT_SERVERS: McpServerEntry[] =
-  envDefaults ?? BUILTIN_DEFAULTS;
+export const DEFAULT_SERVERS: McpServerEntry[] = envDefaults ?? BUILTIN_DEFAULTS;

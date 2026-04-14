@@ -2,9 +2,7 @@ import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import type { ComponentType } from "react";
 import { useFrontendTool } from "./use-frontend-tool";
 
-type InferRenderProps<T> = T extends StandardSchemaV1
-  ? InferSchemaOutput<T>
-  : any;
+type InferRenderProps<T> = T extends StandardSchemaV1 ? InferSchemaOutput<T> : any;
 
 /**
  * Registers a React component as a frontend tool renderer in chat.
@@ -56,9 +54,7 @@ type InferRenderProps<T> = T extends StandardSchemaV1
  * );
  * ```
  */
-export function useComponent<
-  TSchema extends StandardSchemaV1 | undefined = undefined,
->(
+export function useComponent<TSchema extends StandardSchemaV1 | undefined = undefined>(
   config: {
     name: string;
     description?: string;
@@ -69,9 +65,7 @@ export function useComponent<
   deps?: ReadonlyArray<unknown>,
 ): void {
   const prefix = `Use this tool to display the "${config.name}" component in the chat. This tool renders a visual UI component for the user.`;
-  const fullDescription = config.description
-    ? `${prefix}\n\n${config.description}`
-    : prefix;
+  const fullDescription = config.description ? `${prefix}\n\n${config.description}` : prefix;
 
   useFrontendTool(
     {

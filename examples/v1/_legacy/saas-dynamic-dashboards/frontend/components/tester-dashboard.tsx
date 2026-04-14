@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table-results";
 import { DataTable as DataTableTests } from "@/components/data-table-tests";
 import { DataChart } from "@/components/data-chart";
@@ -116,9 +110,7 @@ const chartData = [
 ];
 
 export function TesterDashboard() {
-  const [viewMode, setViewMode] = useState<"results" | "tests" | "code">(
-    "results",
-  );
+  const [viewMode, setViewMode] = useState<"results" | "tests" | "code">("results");
   const { testsData, setTestsData } = useSharedTestsContext();
   const [testSuites, setTestSuites] = useState<any>([]);
   const [loading, setLoading] = useState(true);
@@ -164,15 +156,9 @@ export function TesterDashboard() {
     <div className="space-y-6">
       {loading && <Loader />}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Tester Dashboard
-        </h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Tester Dashboard</h1>
         <div className="flex items-center gap-2">
-          <Button
-            variant={viewMode === "code" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("code")}
-          >
+          <Button variant={viewMode === "code" ? "default" : "outline"} size="sm" onClick={() => setViewMode("code")}>
             <Code2 className=" h-4 w-4" />
             Code
           </Button>
@@ -184,11 +170,7 @@ export function TesterDashboard() {
             <Table2 className="mr-2 h-4 w-4" />
             Results
           </Button>
-          <Button
-            variant={viewMode === "tests" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("tests")}
-          >
+          <Button variant={viewMode === "tests" ? "default" : "outline"} size="sm" onClick={() => setViewMode("tests")}>
             <Table2 className="mr-2 h-4 w-4" />
             Tests
           </Button>
@@ -203,9 +185,7 @@ export function TesterDashboard() {
         <CardHeader>
           {viewMode != "code" && (
             <>
-              <CardTitle>
-                {viewMode === "results" ? "Test Results" : "Testing Grounds"}
-              </CardTitle>
+              <CardTitle>{viewMode === "results" ? "Test Results" : "Testing Grounds"}</CardTitle>
               <CardDescription>
                 {viewMode === "results"
                   ? "Monitor test results and performance metrics"

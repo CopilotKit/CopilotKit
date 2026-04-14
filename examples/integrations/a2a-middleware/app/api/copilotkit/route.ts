@@ -10,22 +10,15 @@
  * to understand A2A Protocol directly.
  */
 
-import {
-  CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 import { A2AMiddlewareAgent } from "@ag-ui/a2a-middleware";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
-  const researchAgentUrl =
-    process.env.RESEARCH_AGENT_URL || "http://localhost:9001";
-  const analysisAgentUrl =
-    process.env.ANALYSIS_AGENT_URL || "http://localhost:9002";
-  const orchestratorUrl =
-    process.env.ORCHESTRATOR_URL || "http://localhost:9000";
+  const researchAgentUrl = process.env.RESEARCH_AGENT_URL || "http://localhost:9001";
+  const analysisAgentUrl = process.env.ANALYSIS_AGENT_URL || "http://localhost:9002";
+  const orchestratorUrl = process.env.ORCHESTRATOR_URL || "http://localhost:9000";
 
   // Connect to orchestrator via AG-UI Protocol
   const orchestrationAgent = new HttpAgent({
@@ -35,8 +28,7 @@ export async function POST(request: NextRequest) {
   // A2A Middleware: Wraps orchestrator and injects send_message_to_a2a_agent tool
   // This allows orchestrator to communicate with A2A agents transparently
   const a2aMiddlewareAgent = new A2AMiddlewareAgent({
-    description:
-      "Research assistant with 2 specialized agents: Research (LangGraph) and Analysis (ADK)",
+    description: "Research assistant with 2 specialized agents: Research (LangGraph) and Analysis (ADK)",
     agentUrls: [researchAgentUrl, analysisAgentUrl],
     orchestrationAgent,
     instructions: `

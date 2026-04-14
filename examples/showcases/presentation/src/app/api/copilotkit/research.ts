@@ -23,9 +23,7 @@ function model() {
   });
 }
 
-async function search(state: {
-  agentState: AgentState;
-}): Promise<{ agentState: AgentState }> {
+async function search(state: { agentState: AgentState }): Promise<{ agentState: AgentState }> {
   const retriever = new TavilySearchAPIRetriever({
     k: 10,
   });
@@ -45,9 +43,7 @@ async function search(state: {
   };
 }
 
-async function curate(state: {
-  agentState: AgentState;
-}): Promise<{ agentState: AgentState }> {
+async function curate(state: { agentState: AgentState }): Promise<{ agentState: AgentState }> {
   console.log("curating search results");
   const response = await model().invoke(
     [
@@ -88,9 +84,7 @@ async function curate(state: {
   };
 }
 
-async function critique(state: {
-  agentState: AgentState;
-}): Promise<{ agentState: AgentState }> {
+async function critique(state: { agentState: AgentState }): Promise<{ agentState: AgentState }> {
   console.log("critiquing article");
   let feedbackInstructions = "";
   if (state.agentState.critique) {
@@ -126,17 +120,12 @@ async function critique(state: {
   };
 }
 
-async function write(state: {
-  agentState: AgentState;
-}): Promise<{ agentState: AgentState }> {
+async function write(state: { agentState: AgentState }): Promise<{ agentState: AgentState }> {
   console.log("writing article");
   const response = await model().invoke([
     new SystemMessage(
       `You are a personal newspaper writer. Your sole purpose is to write a well-written article about a 
-      topic using a list of articles. Write 5 paragraphs in markdown.`.replace(
-        /\s+/g,
-        " ",
-      ),
+      topic using a list of articles. Write 5 paragraphs in markdown.`.replace(/\s+/g, " "),
     ),
     new HumanMessage(
       `Today's date is ${new Date().toLocaleDateString("en-GB")}.
@@ -144,10 +133,7 @@ async function write(state: {
       topic based on the sources. 
       Here is a list of articles: ${state.agentState.searchResults}
       This is the topic: ${state.agentState.topic}
-      Please return a well-written article based on the provided information.`.replace(
-        /\s+/g,
-        " ",
-      ),
+      Please return a well-written article based on the provided information.`.replace(/\s+/g, " "),
     ),
   ]);
   const content = response.content as string;
@@ -160,9 +146,7 @@ async function write(state: {
   };
 }
 
-async function revise(state: {
-  agentState: AgentState;
-}): Promise<{ agentState: AgentState }> {
+async function revise(state: { agentState: AgentState }): Promise<{ agentState: AgentState }> {
   console.log("revising article");
   const response = await model().invoke([
     new SystemMessage(

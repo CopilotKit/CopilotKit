@@ -1,9 +1,6 @@
 import { ContactInfo } from "@/components/generative-ui/contact-info";
 import { useGlobalState } from "@/lib/stages";
-import {
-  useCopilotAction,
-  useCopilotAdditionalInstructions,
-} from "@copilotkit/react-core";
+import { useCopilotAction, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
 
 export interface UseGetContactInfoStateOptions {
   enabled: boolean;
@@ -22,8 +19,7 @@ export function useStageGetContactInfo() {
   // Conditionally add additional instructions for the agent's prompt.
   useCopilotAdditionalInstructions(
     {
-      instructions:
-        "CURRENT STATE: You are now getting the contact information of the user.",
+      instructions: "CURRENT STATE: You are now getting the contact information of the user.",
       available: stage === "getContactInfo" ? "enabled" : "disabled",
     },
     [stage],

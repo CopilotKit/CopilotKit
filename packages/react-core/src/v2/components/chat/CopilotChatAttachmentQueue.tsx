@@ -1,11 +1,7 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import type { Attachment } from "@copilotkit/shared";
-import {
-  formatFileSize,
-  getSourceUrl,
-  getDocumentIcon,
-} from "@copilotkit/shared";
+import { formatFileSize, getSourceUrl, getDocumentIcon } from "@copilotkit/shared";
 import { Play, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -15,16 +11,17 @@ interface CopilotChatAttachmentQueueProps {
   className?: string;
 }
 
-export const CopilotChatAttachmentQueue: React.FC<
-  CopilotChatAttachmentQueueProps
-> = ({ attachments, onRemoveAttachment, className }) => {
+export const CopilotChatAttachmentQueue: React.FC<CopilotChatAttachmentQueueProps> = ({
+  attachments,
+  onRemoveAttachment,
+  className,
+}) => {
   if (attachments.length === 0) return null;
 
   return (
     <div className={cn("cpk:flex cpk:flex-wrap cpk:gap-2 cpk:p-2", className)}>
       {attachments.map((attachment) => {
-        const isMedia =
-          attachment.type === "image" || attachment.type === "video";
+        const isMedia = attachment.type === "image" || attachment.type === "video";
         return (
           <div
             key={attachment.id}
@@ -201,8 +198,7 @@ function useLightbox() {
 
 function ImagePreview({ attachment }: { attachment: Attachment }) {
   const src = getSourceUrl(attachment.source);
-  const { thumbnailRef, vtName, open, openLightbox, closeLightbox } =
-    useLightbox();
+  const { thumbnailRef, vtName, open, openLightbox, closeLightbox } = useLightbox();
 
   return (
     <>
@@ -235,12 +231,7 @@ function AudioPreview({ attachment }: { attachment: Attachment }) {
   const src = getSourceUrl(attachment.source);
   return (
     <div className="cpk:flex cpk:flex-col cpk:gap-1 cpk:w-full">
-      <audio
-        src={src}
-        controls
-        preload="metadata"
-        className="cpk:w-full cpk:h-8"
-      />
+      <audio src={src} controls preload="metadata" className="cpk:w-full cpk:h-8" />
       {attachment.filename && (
         <span className="cpk:text-xs cpk:font-medium cpk:overflow-hidden cpk:text-ellipsis cpk:whitespace-nowrap">
           {attachment.filename}
@@ -256,15 +247,11 @@ function AudioPreview({ attachment }: { attachment: Attachment }) {
 
 function VideoPreview({ attachment }: { attachment: Attachment }) {
   const src = getSourceUrl(attachment.source);
-  const { thumbnailRef, vtName, open, openLightbox, closeLightbox } =
-    useLightbox();
+  const { thumbnailRef, vtName, open, openLightbox, closeLightbox } = useLightbox();
 
   return (
     <>
-      <div
-        ref={thumbnailRef as React.Ref<HTMLDivElement>}
-        className="cpk:w-full cpk:h-full"
-      >
+      <div ref={thumbnailRef as React.Ref<HTMLDivElement>} className="cpk:w-full cpk:h-full">
         {attachment.thumbnail ? (
           <img
             src={attachment.thumbnail}
@@ -272,12 +259,7 @@ function VideoPreview({ attachment }: { attachment: Attachment }) {
             className="cpk:w-full cpk:h-full cpk:object-cover"
           />
         ) : (
-          <video
-            src={src}
-            preload="metadata"
-            muted
-            className="cpk:w-full cpk:h-full cpk:object-cover"
-          />
+          <video src={src} preload="metadata" muted className="cpk:w-full cpk:h-full cpk:object-cover" />
         )}
       </div>
       <button
@@ -345,23 +327,13 @@ function useBlobUrl(attachment: Attachment): string | null {
       console.error("[CopilotKit] Failed to decode attachment data:", error);
       setUrl(null);
     }
-  }, [
-    attachment.source.type,
-    attachment.source.value,
-    attachment.source.mimeType,
-  ]);
+  }, [attachment.source.type, attachment.source.value, attachment.source.mimeType]);
 
   if (attachment.source.type === "url") return attachment.source.value;
   return url;
 }
 
-function DocumentLightboxContent({
-  attachment,
-  vtName,
-}: {
-  attachment: Attachment;
-  vtName: string;
-}) {
+function DocumentLightboxContent({ attachment, vtName }: { attachment: Attachment; vtName: string }) {
   const mimeType = attachment.source.mimeType;
   const blobUrl = useBlobUrl(attachment);
 
@@ -441,8 +413,7 @@ function DocumentLightboxContent({
 }
 
 function DocumentPreview({ attachment }: { attachment: Attachment }) {
-  const { thumbnailRef, vtName, open, openLightbox, closeLightbox } =
-    useLightbox();
+  const { thumbnailRef, vtName, open, openLightbox, closeLightbox } = useLightbox();
 
   const mimeType = attachment.source.mimeType;
   const previewable = canPreviewInBrowser(mimeType);
@@ -451,10 +422,7 @@ function DocumentPreview({ attachment }: { attachment: Attachment }) {
     <>
       <div
         ref={thumbnailRef as React.Ref<HTMLDivElement>}
-        className={cn(
-          "cpk:flex cpk:items-center cpk:gap-2",
-          previewable && "cpk:cursor-pointer",
-        )}
+        className={cn("cpk:flex cpk:items-center cpk:gap-2", previewable && "cpk:cursor-pointer")}
         onClick={previewable ? openLightbox : undefined}
       >
         <div className="cpk:w-8 cpk:h-8 cpk:rounded-md cpk:bg-primary cpk:text-primary-foreground cpk:flex cpk:items-center cpk:justify-center cpk:text-[10px] cpk:font-semibold cpk:shrink-0">
@@ -465,9 +433,7 @@ function DocumentPreview({ attachment }: { attachment: Attachment }) {
             {attachment.filename || "Document"}
           </span>
           {attachment.size != null && (
-            <span className="cpk:text-[11px] cpk:text-muted-foreground">
-              {formatFileSize(attachment.size)}
-            </span>
+            <span className="cpk:text-[11px] cpk:text-muted-foreground">{formatFileSize(attachment.size)}</span>
           )}
         </div>
       </div>

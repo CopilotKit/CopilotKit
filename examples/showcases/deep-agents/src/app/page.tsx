@@ -18,9 +18,7 @@ export default function Page() {
       // Prevent duplicate processing on re-renders
       if (status === "complete") {
         const resultStr = result ? JSON.stringify(result) : "";
-        const resultHash = resultStr
-          ? `${resultStr.length}-${resultStr.slice(0, 100)}`
-          : "";
+        const resultHash = resultStr ? `${resultStr.length}-${resultStr.slice(0, 100)}` : "";
         const key = `${name}-${JSON.stringify(args)}-${resultHash}`;
         if (processedKeysRef.current.has(key)) {
           return <ToolCard {...props} />;
@@ -50,22 +48,18 @@ export default function Page() {
           );
         }
 
-        console.log(
-          `[UI] Research completed: ${researchResult.sources?.length || 0} sources found`,
-        );
+        console.log(`[UI] Research completed: ${researchResult.sources?.length || 0} sources found`);
       }
 
       // Handle write_todos tool
       if (name === "write_todos" && status === "complete" && args?.todos) {
-        const todosWithIds = (
-          args.todos as Array<{ id?: string; content: string; status: string }>
-        ).map((todo, index) => ({
-          ...todo,
-          id: todo.id || `todo-${Date.now()}-${index}`,
-        }));
-        queueMicrotask(() =>
-          setState((prev) => ({ ...prev, todos: todosWithIds as Todo[] })),
+        const todosWithIds = (args.todos as Array<{ id?: string; content: string; status: string }>).map(
+          (todo, index) => ({
+            ...todo,
+            id: todo.id || `todo-${Date.now()}-${index}`,
+          }),
         );
+        queueMicrotask(() => setState((prev) => ({ ...prev, todos: todosWithIds as Todo[] })));
       }
 
       // Handle write_file tool
@@ -103,10 +97,7 @@ export default function Page() {
         <div className="w-[38%] h-full border-r border-[var(--color-border-glass)] bg-[var(--color-glass-dark)] backdrop-blur-xl overflow-hidden">
           <div className="h-full flex flex-col">
             {/* Header */}
-            <header
-              style={{ padding: "var(--space-8)" }}
-              className="border-b border-[var(--color-border-glass)]"
-            >
+            <header style={{ padding: "var(--space-8)" }} className="border-b border-[var(--color-border-glass)]">
               <h1
                 style={{
                   fontSize: "var(--text-3xl)",

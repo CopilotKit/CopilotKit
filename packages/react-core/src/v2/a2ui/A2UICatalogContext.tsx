@@ -5,10 +5,7 @@ import {
   A2UI_SCHEMA_CONTEXT_DESCRIPTION,
   extractCatalogComponentSchemas,
 } from "@copilotkit/a2ui-renderer";
-import {
-  A2UI_DEFAULT_GENERATION_GUIDELINES,
-  A2UI_DEFAULT_DESIGN_GUIDELINES,
-} from "@copilotkit/shared";
+import { A2UI_DEFAULT_GENERATION_GUIDELINES, A2UI_DEFAULT_DESIGN_GUIDELINES } from "@copilotkit/shared";
 import { useAgentContext } from "../hooks/use-agent-context";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import { useLayoutEffect, useMemo } from "react";
@@ -21,13 +18,7 @@ import { useLayoutEffect, useMemo } from "react";
  * sent as context using the same description key as the A2UI middleware, so the
  * middleware can optionally overwrite it with a server-side schema.
  */
-export function A2UICatalogContext({
-  catalog,
-  includeSchema,
-}: {
-  catalog?: any;
-  includeSchema?: boolean;
-}) {
+export function A2UICatalogContext({ catalog, includeSchema }: { catalog?: any; includeSchema?: boolean }) {
   const contextValue = buildCatalogContextValue(catalog);
 
   useAgentContext({
@@ -40,10 +31,7 @@ export function A2UICatalogContext({
   // as the A2UI middleware so it can overwrite with a server-side schema if needed.
   const { copilotkit } = useCopilotKit();
   const schemaValue = useMemo(
-    () =>
-      includeSchema !== false
-        ? JSON.stringify(extractCatalogComponentSchemas(catalog))
-        : null,
+    () => (includeSchema !== false ? JSON.stringify(extractCatalogComponentSchemas(catalog)) : null),
     [catalog, includeSchema],
   );
 

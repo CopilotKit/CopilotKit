@@ -9,18 +9,13 @@ interface ArtifactPanelProps {
   scenes: Scene[];
 }
 
-export function ArtifactPanel({
-  characters,
-  backgrounds,
-  scenes,
-}: ArtifactPanelProps) {
+export function ArtifactPanel({ characters, backgrounds, scenes }: ArtifactPanelProps) {
   const { setInputValue } = useChatInput();
 
   const handleEdit = (type: string, id: string) => {
     setInputValue(`[EDIT ${type} ${id}]: `);
   };
-  const hasArtifacts =
-    characters.length > 0 || backgrounds.length > 0 || scenes.length > 0;
+  const hasArtifacts = characters.length > 0 || backgrounds.length > 0 || scenes.length > 0;
 
   return (
     <div className="flex-1 p-8 overflow-auto bg-grid-pattern">
@@ -120,35 +115,20 @@ function EmptyState() {
       <div className="w-24 h-24 mb-6 border-4 border-black flex items-center justify-center bg-[var(--accent-yellow)] shadow-[8px_8px_0px_0px_black]">
         <span className="text-4xl">?</span>
       </div>
-      <h2 className="text-3xl font-bold uppercase tracking-tighter mb-4">
-        No Data Found
-      </h2>
+      <h2 className="text-3xl font-bold uppercase tracking-tighter mb-4">No Data Found</h2>
       <p className="text-black max-w-md bg-white p-4 border-2 border-black shadow-[4px_4px_0px_0px_black]">
-        Initiate sequence by requesting a character or background generation
-        from the terminal.
+        Initiate sequence by requesting a character or background generation from the terminal.
       </p>
     </div>
   );
 }
 
-function ArtifactSection({
-  title,
-  count,
-  children,
-}: {
-  title: string;
-  count: number;
-  children: React.ReactNode;
-}) {
+function ArtifactSection({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
   return (
     <section>
       <div className="flex items-end gap-4 mb-6 border-b-4 border-black pb-2">
-        <h2 className="text-4xl font-bold uppercase tracking-tighter leading-none">
-          {title}
-        </h2>
-        <span className="text-lg font-bold text-[var(--accent-red)] mb-1">
-          [{count.toString().padStart(2, "0")}]
-        </span>
+        <h2 className="text-4xl font-bold uppercase tracking-tighter leading-none">{title}</h2>
+        <span className="text-lg font-bold text-[var(--accent-red)] mb-1">[{count.toString().padStart(2, "0")}]</span>
       </div>
       {children}
     </section>
@@ -168,15 +148,10 @@ function ArtifactCard({
 }) {
   return (
     <div className="brutalist-card group relative bg-white">
-      <div className="absolute top-2 left-2 z-10 bg-black text-white text-xs font-bold px-2 py-1">
-        {type}
-      </div>
+      <div className="absolute top-2 left-2 z-10 bg-black text-white text-xs font-bold px-2 py-1">{type}</div>
       {children}
       <div className="p-4 flex items-center justify-between gap-4">
-        <p
-          className="font-bold truncate uppercase tracking-tight flex-1"
-          title={title}
-        >
+        <p className="font-bold truncate uppercase tracking-tight flex-1" title={title}>
           {title}
         </p>
         {onEdit && (

@@ -5,10 +5,7 @@
  * CI can load test files in the main process before jsdom is available in workers.
  */
 export default function globalSetup() {
-  if (
-    typeof globalThis !== "undefined" &&
-    typeof (globalThis as any).window === "undefined"
-  ) {
+  if (typeof globalThis !== "undefined" && typeof (globalThis as any).window === "undefined") {
     (globalThis as any).window = globalThis as any;
   }
 }

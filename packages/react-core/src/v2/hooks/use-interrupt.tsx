@@ -1,50 +1,31 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import { useAgent } from "./use-agent";
-import type {
-  InterruptEvent,
-  InterruptRenderProps,
-  InterruptHandlerProps,
-} from "../types/interrupt";
+import type { InterruptEvent, InterruptRenderProps, InterruptHandlerProps } from "../types/interrupt";
 
 export type { InterruptEvent, InterruptRenderProps, InterruptHandlerProps };
 
 const INTERRUPT_EVENT_NAME = "on_interrupt";
 
-type InterruptHandlerFn<TValue, TResult> = (
-  props: InterruptHandlerProps<TValue>,
-) => TResult | PromiseLike<TResult>;
+type InterruptHandlerFn<TValue, TResult> = (props: InterruptHandlerProps<TValue>) => TResult | PromiseLike<TResult>;
 
-type InterruptResultFromHandler<THandler> = THandler extends (
-  ...args: never[]
-) => infer TResult
+type InterruptResultFromHandler<THandler> = THandler extends (...args: never[]) => infer TResult
   ? TResult extends PromiseLike<infer TResolved>
     ? TResolved | null
     : TResult | null
   : null;
 
-type InterruptResult<TValue, TResult> = InterruptResultFromHandler<
-  InterruptHandlerFn<TValue, TResult>
->;
+type InterruptResult<TValue, TResult> = InterruptResultFromHandler<InterruptHandlerFn<TValue, TResult>>;
 
 type InterruptRenderInChat = boolean | undefined;
 
-type UseInterruptReturn<TRenderInChat extends InterruptRenderInChat> =
-  TRenderInChat extends false
-    ? React.ReactElement | null
-    : TRenderInChat extends true | undefined
-      ? void
-      : React.ReactElement | null | void;
+type UseInterruptReturn<TRenderInChat extends InterruptRenderInChat> = TRenderInChat extends false
+  ? React.ReactElement | null
+  : TRenderInChat extends true | undefined
+    ? void
+    : React.ReactElement | null | void;
 
-export function isPromiseLike<TValue>(
-  value: TValue | PromiseLike<TValue>,
-): value is PromiseLike<TValue> {
+export function isPromiseLike<TValue>(value: TValue | PromiseLike<TValue>): value is PromiseLike<TValue> {
   return (
     (typeof value === "object" || typeof value === "function") &&
     value !== null &&
@@ -62,9 +43,7 @@ interface UseInterruptConfigBase<TValue = unknown, TResult = never> {
    * This is called once an interrupt is finalized and accepted by `enabled` (if provided).
    * Use `resolve` from render props to resume the agent run with user input.
    */
-  render: (
-    props: InterruptRenderProps<TValue, InterruptResult<TValue, TResult>>,
-  ) => React.ReactElement;
+  render: (props: InterruptRenderProps<TValue, InterruptResult<TValue, TResult>>) => React.ReactElement;
   /**
    * Optional pre-render handler invoked when an interrupt is received.
    *
@@ -81,26 +60,26 @@ interface UseInterruptConfigBase<TValue = unknown, TResult = never> {
   agentId?: string;
 }
 
-export interface UseInterruptInChatConfig<
-  TValue = unknown,
-  TResult = never,
-> extends UseInterruptConfigBase<TValue, TResult> {
+export interface UseInterruptInChatConfig<TValue = unknown, TResult = never> extends UseInterruptConfigBase<
+  TValue,
+  TResult
+> {
   /** When true (default), the interrupt UI renders inside `<CopilotChat>` automatically. Set to false to render it yourself. */
   renderInChat?: true;
 }
 
-export interface UseInterruptExternalConfig<
-  TValue = unknown,
-  TResult = never,
-> extends UseInterruptConfigBase<TValue, TResult> {
+export interface UseInterruptExternalConfig<TValue = unknown, TResult = never> extends UseInterruptConfigBase<
+  TValue,
+  TResult
+> {
   /** When true (default), the interrupt UI renders inside `<CopilotChat>` automatically. Set to false to render it yourself. */
   renderInChat: false;
 }
 
-export interface UseInterruptDynamicConfig<
-  TValue = unknown,
-  TResult = never,
-> extends UseInterruptConfigBase<TValue, TResult> {
+export interface UseInterruptDynamicConfig<TValue = unknown, TResult = never> extends UseInterruptConfigBase<
+  TValue,
+  TResult
+> {
   /** Dynamic boolean mode. When non-literal, return type is a union. */
   renderInChat: boolean;
 }
@@ -175,10 +154,7 @@ export type UseInterruptConfig<
  * ```
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export function useInterrupt<
-  TResult = never,
-  TRenderInChat extends InterruptRenderInChat = undefined,
->(
+export function useInterrupt<TResult = never, TRenderInChat extends InterruptRenderInChat = undefined>(
   config: UseInterruptConfig<any, TResult, TRenderInChat>,
 ): UseInterruptReturn<TRenderInChat> {
   /* eslint-enable @typescript-eslint/no-explicit-any */

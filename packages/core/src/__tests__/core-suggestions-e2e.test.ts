@@ -1,12 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CopilotKitCore } from "../core";
 import { Suggestion } from "../types";
-import {
-  MockAgent,
-  createSuggestionsConfig,
-  createMessage,
-  createAssistantMessage,
-} from "./test-utils";
+import { MockAgent, createSuggestionsConfig, createMessage, createAssistantMessage } from "./test-utils";
 
 describe("CopilotKitCore - Suggestions E2E", () => {
   let copilotKitCore: CopilotKitCore;
@@ -128,9 +123,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],
@@ -180,9 +173,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],
@@ -237,9 +228,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],
@@ -295,9 +284,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],
@@ -314,9 +301,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
 
       copilotKitCore.reloadSuggestions("agent2");
       await vi.waitFor(() => {
-        expect(providerAgent.runAgentCalls.length).toBeGreaterThan(
-          callCountAfterFirst,
-        );
+        expect(providerAgent.runAgentCalls.length).toBeGreaterThan(callCountAfterFirst);
       });
     });
 
@@ -347,9 +332,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],
@@ -399,9 +382,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
             function: {
               name: "copilotkitSuggest",
               // Incomplete JSON - missing closing bracket
-              arguments: [
-                '{"suggestions":[{"title":"First","message":"First action"}',
-              ] as any,
+              arguments: ['{"suggestions":[{"title":"First","message":"First action"}'] as any,
             },
           },
         ],
@@ -415,9 +396,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       });
 
       // Find the update with suggestions (skip empty initial updates)
-      const streamingUpdate = suggestionUpdates.find(
-        (update) => update.length > 0 && update[0].isLoading === true,
-      );
+      const streamingUpdate = suggestionUpdates.find((update) => update.length > 0 && update[0].isLoading === true);
       expect(streamingUpdate).toBeDefined();
       expect(streamingUpdate![0]).toMatchObject({
         title: "First",
@@ -532,9 +511,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
             type: "function",
             function: {
               name: "copilotkitSuggest",
-              arguments: [
-                '{"suggestions":[{"title":"Action","message":"Do action"}]}',
-              ] as any,
+              arguments: ['{"suggestions":[{"title":"Action","message":"Do action"}]}'] as any,
             },
           },
         ],
@@ -581,9 +558,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
             type: "function",
             function: {
               name: "copilotkitSuggest",
-              arguments: [
-                '{"suggestions":[{"title":"Test","message":"Test msg"}]}',
-              ] as any,
+              arguments: ['{"suggestions":[{"title":"Test","message":"Test msg"}]}'] as any,
             },
           },
         ],
@@ -632,9 +607,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Suggestion 1","message":"msg1"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Suggestion 1","message":"msg1"}]}'] as any,
               },
             },
           ],
@@ -688,9 +661,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],
@@ -744,9 +715,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],
@@ -801,9 +770,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],
@@ -970,8 +937,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       });
 
       // Grab the cloned suggestion agent instance to assert abort
-      const clonedSuggestionAgent = (providerAgent.clone as any).mock.results[0]
-        ?.value;
+      const clonedSuggestionAgent = (providerAgent.clone as any).mock.results[0]?.value;
       expect(clonedSuggestionAgent).toBeDefined();
 
       // Ensure loading state is on before user submits new message
@@ -1026,9 +992,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],
@@ -1076,9 +1040,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],
@@ -1129,9 +1091,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],
@@ -1149,8 +1109,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
 
       await vi.waitFor(() => {
         const clearCall = onSuggestionsChanged.mock.calls.find(
-          (call) =>
-            call[0].suggestions.length === 0 && call[0].agentId === "consumer",
+          (call) => call[0].suggestions.length === 0 && call[0].agentId === "consumer",
         );
         expect(clearCall).toBeDefined();
       });
@@ -1263,9 +1222,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],
@@ -1329,9 +1286,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],
@@ -1380,9 +1335,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],
@@ -1466,9 +1419,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Start","message":"Get started"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Start","message":"Get started"}]}'] as any,
               },
             },
           ],
@@ -1526,9 +1477,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Continue","message":"Keep going"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Continue","message":"Keep going"}]}'] as any,
               },
             },
           ],
@@ -1586,9 +1535,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Always","message":"Always available"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Always","message":"Always available"}]}'] as any,
               },
             },
           ],
@@ -1703,9 +1650,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       });
 
       copilotKitCore.addSuggestionsConfig({
-        suggestions: [
-          { title: "Next Step", message: "Continue", isLoading: false },
-        ],
+        suggestions: [{ title: "Next Step", message: "Continue", isLoading: false }],
         consumerAgentId: "consumer",
         available: "after-first-message",
       });
@@ -1734,9 +1679,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       });
 
       copilotKitCore.addSuggestionsConfig({
-        suggestions: [
-          { title: "Persistent", message: "Always here", isLoading: false },
-        ],
+        suggestions: [{ title: "Persistent", message: "Always here", isLoading: false }],
         consumerAgentId: "consumer",
         available: "always",
       });
@@ -1764,9 +1707,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       });
 
       copilotKitCore.addSuggestionsConfig({
-        suggestions: [
-          { title: "Hidden", message: "Should not appear", isLoading: false },
-        ],
+        suggestions: [{ title: "Hidden", message: "Should not appear", isLoading: false }],
         consumerAgentId: "consumer",
         available: "disabled",
       });

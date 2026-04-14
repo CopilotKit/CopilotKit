@@ -43,11 +43,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         <div style={{ padding: 20, color: "#c62828" }}>
           <h3>Something went wrong</h3>
           <p>{this.state.error?.message}</p>
-          <button
-            onClick={() => this.setState({ hasError: false, error: null })}
-          >
-            Try Again
-          </button>
+          <button onClick={() => this.setState({ hasError: false, error: null })}>Try Again</button>
         </div>
       );
     }
@@ -108,10 +104,7 @@ export default function OptimizedWidget() {
     return {
       items: result,
       total: result.length,
-      avgScore:
-        result.length > 0
-          ? result.reduce((sum, item) => sum + item.score, 0) / result.length
-          : 0,
+      avgScore: result.length > 0 ? result.reduce((sum, item) => sum + item.score, 0) / result.length : 0,
     };
   }, [props.items]);
 
@@ -178,12 +171,7 @@ export default function CallbackWidget() {
     <McpUseProvider autoSize>
       <div>
         {props.items.map((item) => (
-          <ItemRow
-            key={item.id}
-            item={item}
-            onAction={handleAction}
-            loading={loadingId === item.id}
-          />
+          <ItemRow key={item.id} item={item} onAction={handleAction} loading={loadingId === item.id} />
         ))}
       </div>
     </McpUseProvider>
@@ -366,9 +354,7 @@ export default function ComplexWidget() {
           placeholder="Search..."
         />
 
-        <button onClick={() => dispatch({ type: "RESET" })}>
-          Reset Filters
-        </button>
+        <button onClick={() => dispatch({ type: "RESET" })}>Reset Filters</button>
 
         {/* ... render items with state */}
       </div>
@@ -404,14 +390,8 @@ export default function VirtualizedList() {
     );
   }
 
-  const visibleStart = Math.max(
-    0,
-    Math.floor(scrollTop / itemHeight) - overscan,
-  );
-  const visibleEnd = Math.min(
-    props.items.length,
-    Math.ceil((scrollTop + containerHeight) / itemHeight) + overscan,
-  );
+  const visibleStart = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan);
+  const visibleEnd = Math.min(props.items.length, Math.ceil((scrollTop + containerHeight) / itemHeight) + overscan);
 
   const visibleItems = props.items.slice(visibleStart, visibleEnd);
 
@@ -616,10 +596,7 @@ export default function InfiniteScrollWidget() {
     <McpUseProvider autoSize>
       <div style={{ padding: 20 }}>
         {items.map((item) => (
-          <div
-            key={item.id}
-            style={{ padding: 12, borderBottom: "1px solid #eee" }}
-          >
+          <div key={item.id} style={{ padding: 12, borderBottom: "1px solid #eee" }}>
             {item.name}
           </div>
         ))}
@@ -644,10 +621,7 @@ Persist widget state across sessions:
 import { useState, useEffect } from "react";
 import { McpUseProvider, useWidget } from "mcp-use/react";
 
-function useLocalStorage<T>(
-  key: string,
-  initialValue: T,
-): [T, (value: T) => void] {
+function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => void] {
   const [storedValue, setStoredValue] = useState<T>(() => {
     try {
       const item = window.localStorage.getItem(key);
@@ -675,9 +649,7 @@ export default function PersistentWidget() {
   const [favorites, setFavorites] = useLocalStorage<string[]>("favorites", []);
 
   const toggleFavorite = (id: string) => {
-    setFavorites((prev) =>
-      prev.includes(id) ? prev.filter((fav) => fav !== id) : [...prev, id],
-    );
+    setFavorites((prev) => (prev.includes(id) ? prev.filter((fav) => fav !== id) : [...prev, id]));
   };
 
   if (isPending) {
@@ -693,9 +665,7 @@ export default function PersistentWidget() {
       <div>
         {props.items.map((item) => (
           <div key={item.id}>
-            <button onClick={() => toggleFavorite(item.id)}>
-              {favorites.includes(item.id) ? "⭐" : "☆"}
-            </button>
+            <button onClick={() => toggleFavorite(item.id)}>{favorites.includes(item.id) ? "⭐" : "☆"}</button>
             {item.name}
           </div>
         ))}

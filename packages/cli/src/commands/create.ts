@@ -10,10 +10,7 @@ import { extract } from "tar";
 import ora, { Ora } from "ora";
 
 import { BaseCommand } from "./base-command.js";
-import {
-  cloneGitHubSubdirectory,
-  isValidGitHubUrl,
-} from "../lib/init/scaffold/github.js";
+import { cloneGitHubSubdirectory, isValidGitHubUrl } from "../lib/init/scaffold/github.js";
 
 const streamPipeline = promisify(pipeline);
 
@@ -55,42 +52,30 @@ type AgentFramework =
   | "opengenui";
 
 const TEMPLATE_REPOS: Record<AgentFramework, string> = {
-  "langgraph-py":
-    "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-python",
-  "langgraph-js":
-    "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-js",
-  mastra:
-    "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra",
-  flows:
-    "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/crewai-flows",
-  llamaindex:
-    "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/llamaindex",
+  "langgraph-py": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-python",
+  "langgraph-js": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-js",
+  mastra: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra",
+  flows: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/crewai-flows",
+  llamaindex: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/llamaindex",
   agno: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agno",
-  "pydantic-ai":
-    "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/pydantic-ai",
+  "pydantic-ai": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/pydantic-ai",
   ag2: "ag2ai/ag2-copilotkit-starter",
   adk: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/adk",
-  "aws-strands-py":
-    "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/strands-python",
+  "aws-strands-py": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/strands-python",
   a2a: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/a2a-middleware",
   "microsoft-agent-framework-dotnet":
     "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/ms-agent-framework-dotnet",
   "microsoft-agent-framework-py":
     "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/ms-agent-framework-python",
-  "mcp-apps":
-    "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mcp-apps",
-  "agentcore-langgraph":
-    "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agentcore",
-  "agentcore-strands":
-    "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agentcore",
+  "mcp-apps": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mcp-apps",
+  "agentcore-langgraph": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agentcore",
+  "agentcore-strands": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agentcore",
   a2ui: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-python",
-  opengenui:
-    "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-python",
+  opengenui: "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-python",
 };
 
 const FRAMEWORK_DOCUMENTATION: Record<AgentFramework, string> = {
-  "langgraph-py":
-    "https://langchain-ai.github.io/langgraph/concepts/why-langgraph",
+  "langgraph-py": "https://langchain-ai.github.io/langgraph/concepts/why-langgraph",
   "langgraph-js": "https://langchain-ai.github.io/langgraphjs",
   flows: "https://docs.crewai.com/guides/flows/first-flow",
   mastra: "https://mastra.ai/en/docs",
@@ -101,10 +86,8 @@ const FRAMEWORK_DOCUMENTATION: Record<AgentFramework, string> = {
   adk: "https://google.github.io/adk-docs/",
   "aws-strands-py": "https://strandsagents.com/latest/documentation/docs/",
   a2a: "https://a2a-protocol.org/latest/",
-  "microsoft-agent-framework-dotnet":
-    "https://learn.microsoft.com/en-us/agent-framework/",
-  "microsoft-agent-framework-py":
-    "https://learn.microsoft.com/en-us/agent-framework/",
+  "microsoft-agent-framework-dotnet": "https://learn.microsoft.com/en-us/agent-framework/",
+  "microsoft-agent-framework-py": "https://learn.microsoft.com/en-us/agent-framework/",
   "mcp-apps": "https://modelcontextprotocol.github.io/ext-apps",
   "agentcore-langgraph": "https://docs.copilotkit.ai/agentcore/quickstart",
   "agentcore-strands": "https://docs.copilotkit.ai/agentcore/quickstart",
@@ -204,48 +187,32 @@ export default class Create extends BaseCommand {
       this.log(theme.divider);
 
       if (!flags.name && !args.projectName && !flags.framework) {
-        this.log(
-          "\n" + theme.secondary("Just a few questions to get started!\n"),
-        );
+        this.log("\n" + theme.secondary("Just a few questions to get started!\n"));
       }
     }
 
-    const projectNameInput =
-      flags.name || args.projectName || (await this.promptProjectName());
+    const projectNameInput = flags.name || args.projectName || (await this.promptProjectName());
     const projectName = projectNameInput.trim();
     const usingCurrentDir = projectName === "." || projectName === "./";
-    const agentFramework =
-      flags.framework || (await this.promptAgentFramework());
+    const agentFramework = flags.framework || (await this.promptAgentFramework());
 
-    const projectDir = usingCurrentDir
-      ? process.cwd()
-      : path.resolve(process.cwd(), projectName);
+    const projectDir = usingCurrentDir ? process.cwd() : path.resolve(process.cwd(), projectName);
 
     if (usingCurrentDir) {
       const allowedEntries = new Set([".git", ".gitignore", ".DS_Store"]);
       const existingEntries = await fs.readdir(projectDir);
-      const blockingEntries = existingEntries.filter(
-        (entry) => !allowedEntries.has(entry),
-      );
+      const blockingEntries = existingEntries.filter((entry) => !allowedEntries.has(entry));
 
       if (blockingEntries.length > 0) {
         this.log(theme.error("\nCurrent directory is not empty."));
-        this.log(
-          theme.secondary(
-            "\nPlease run create in an empty directory or specify a new project name.",
-          ),
-        );
+        this.log(theme.secondary("\nPlease run create in an empty directory or specify a new project name."));
         this.exit(1);
       }
     } else if (await fs.pathExists(projectDir)) {
       this.log(theme.error(`\nDirectory "${projectName}" already exists.`));
       this.log(theme.secondary("\nYou can:"));
       this.log(theme.secondary("  1. Choose a different project name"));
-      this.log(
-        theme.secondary(
-          "  2. Remove the existing directory manually if you want to use this name\n",
-        ),
-      );
+      this.log(theme.secondary("  2. Remove the existing directory manually if you want to use this name\n"));
       this.exit(1);
     }
 
@@ -267,20 +234,13 @@ export default class Create extends BaseCommand {
       await this.downloadTemplate(projectDir, options.agentFramework, spinner);
       await this.applyShowcaseConfig(projectDir, options.agentFramework);
 
-      if (
-        options.agentFramework === "agentcore-langgraph" ||
-        options.agentFramework === "agentcore-strands"
-      ) {
+      if (options.agentFramework === "agentcore-langgraph" || options.agentFramework === "agentcore-strands") {
         spinner.text = theme.secondary.bold("Configuring AgentCore...");
         await this.configureAgentCore(projectDir, options.agentFramework);
       }
 
-      const displayName = usingCurrentDir
-        ? "current directory"
-        : `"${projectName}"`;
-      spinner.succeed(
-        theme.secondary.bold(`Project ${displayName} created successfully!`),
-      );
+      const displayName = usingCurrentDir ? "current directory" : `"${projectName}"`;
+      spinner.succeed(theme.secondary.bold(`Project ${displayName} created successfully!`));
     } catch (error: any) {
       spinner.fail(theme.error(`Failed to create project: ${error.message}`));
       this.exit(1);
@@ -295,25 +255,14 @@ export default class Create extends BaseCommand {
     );
     this.log("\n" + theme.secondary("Next steps:"));
     if (usingCurrentDir) {
-      this.log(
-        theme.secondary(
-          "  • You are already inside your new project directory",
-        ),
-      );
+      this.log(theme.secondary("  • You are already inside your new project directory"));
     } else {
       this.log(theme.secondary(`  • ${theme.command(`cd ${projectName}`)}`));
     }
-    this.log(
-      theme.secondary("  • Follow the setup instructions in the README.md"),
-    );
+    this.log(theme.secondary("  • Follow the setup instructions in the README.md"));
     this.log("\n" + theme.secondary("Documentation:"));
-    this.log(
-      theme.secondary("  • ") + theme.command("https://docs.copilotkit.ai"),
-    );
-    this.log(
-      theme.secondary("  • ") +
-        theme.command(FRAMEWORK_DOCUMENTATION[options.agentFramework]),
-    );
+    this.log(theme.secondary("  • ") + theme.command("https://docs.copilotkit.ai"));
+    this.log(theme.secondary("  • ") + theme.command(FRAMEWORK_DOCUMENTATION[options.agentFramework]));
     this.log(theme.bottomPadding);
   }
 
@@ -326,9 +275,7 @@ export default class Create extends BaseCommand {
         validate: (input: string) => {
           if (!input) return theme.error("Project name is required");
           if (!/^[a-z0-9-]+$/.test(input)) {
-            return theme.error(
-              "Project name can only contain lowercase letters, numbers, and hyphens",
-            );
+            return theme.error("Project name can only contain lowercase letters, numbers, and hyphens");
           }
           if (input.length > 30) {
             return theme.error("Project name must be less than 30 characters");
@@ -345,9 +292,7 @@ export default class Create extends BaseCommand {
       {
         type: "list",
         name: "framework",
-        message: theme.secondary(
-          "Which agent framework would you like to use?",
-        ),
+        message: theme.secondary("Which agent framework would you like to use?"),
         choices: [
           {
             name: `${FRAMEWORK_EMOJI["langgraph-py"]} LangGraph (Python)`,
@@ -410,10 +355,7 @@ export default class Create extends BaseCommand {
     projectDir: string,
     framework: "agentcore-langgraph" | "agentcore-strands",
   ): Promise<void> {
-    const pattern =
-      framework === "agentcore-langgraph"
-        ? "langgraph-single-agent"
-        : "strands-single-agent";
+    const pattern = framework === "agentcore-langgraph" ? "langgraph-single-agent" : "strands-single-agent";
     const suffix = framework === "agentcore-langgraph" ? "-lg" : "-st";
 
     const examplePath = path.join(projectDir, "config.yaml.example");
@@ -440,23 +382,14 @@ export default class Create extends BaseCommand {
     }
 
     content = content.replace(patternRegex, `$1${pattern}$2`);
-    content = content.replace(
-      stackRegex,
-      `$1my-copilotkit-agentcore${suffix}$2`,
-    );
+    content = content.replace(stackRegex, `$1my-copilotkit-agentcore${suffix}$2`);
     await fs.writeFile(configPath, content, "utf-8");
 
     // Remove the other agent, the other deploy script, and terraform
     const isLanggraph = framework === "agentcore-langgraph";
-    const removeAgent = isLanggraph
-      ? "strands-single-agent"
-      : "langgraph-single-agent";
-    const removeScript = isLanggraph
-      ? "deploy-strands.sh"
-      : "deploy-langgraph.sh";
-    const keepScript = isLanggraph
-      ? "deploy-langgraph.sh"
-      : "deploy-strands.sh";
+    const removeAgent = isLanggraph ? "strands-single-agent" : "langgraph-single-agent";
+    const removeScript = isLanggraph ? "deploy-strands.sh" : "deploy-langgraph.sh";
+    const keepScript = isLanggraph ? "deploy-langgraph.sh" : "deploy-strands.sh";
 
     await Promise.all([
       fs.remove(path.join(projectDir, "agents", removeAgent)),
@@ -499,14 +432,8 @@ export default class Create extends BaseCommand {
       const filePath = path.join(projectDir, relPath);
       if (await fs.pathExists(filePath)) {
         let fileContent = await fs.readFile(filePath, "utf-8");
-        fileContent = fileContent.replaceAll(
-          `AGENT:-${otherShortName}`,
-          `AGENT:-${agentShortName}`,
-        );
-        fileContent = fileContent.replaceAll(
-          `echo "${otherShortName}"`,
-          `echo "${agentShortName}"`,
-        );
+        fileContent = fileContent.replaceAll(`AGENT:-${otherShortName}`, `AGENT:-${agentShortName}`);
+        fileContent = fileContent.replaceAll(`echo "${otherShortName}"`, `echo "${agentShortName}"`);
         await fs.writeFile(filePath, fileContent, "utf-8");
       }
     }
@@ -525,9 +452,7 @@ export default class Create extends BaseCommand {
     // Write a clean framework-specific README
     const frameworkLabel = isLanggraph ? "LangGraph" : "Strands";
     const stackSuffix = isLanggraph ? "lg" : "st";
-    const agentFolder = isLanggraph
-      ? "langgraph-single-agent"
-      : "strands-single-agent";
+    const agentFolder = isLanggraph ? "langgraph-single-agent" : "strands-single-agent";
     const readme = `# CopilotKit + AWS AgentCore (${frameworkLabel})
 
 Chat UI with generative charts, shared-state todo canvas, and inline tool rendering — deployed on AWS Bedrock AgentCore.
@@ -594,38 +519,21 @@ cd infra-cdk && npx cdk@latest destroy --all --output ../cdk.out-${stackSuffix}
     await fs.writeFile(path.join(projectDir, "README.md"), readme, "utf-8");
   }
 
-  private async downloadTemplate(
-    projectDir: string,
-    framework: AgentFramework,
-    spinner: Ora,
-  ): Promise<void> {
+  private async downloadTemplate(projectDir: string, framework: AgentFramework, spinner: Ora): Promise<void> {
     const templateRef = TEMPLATE_REPOS[framework];
 
     // Local path — copy directly from filesystem (excluding heavy generated dirs)
     if (templateRef.startsWith("/")) {
-      const EXCLUDE = [
-        "node_modules",
-        "cdk.out",
-        ".git",
-        "__pycache__",
-        ".venv",
-      ];
+      const EXCLUDE = ["node_modules", "cdk.out", ".git", "__pycache__", ".venv"];
       await fs.copy(templateRef, projectDir, {
-        filter: (src: string) =>
-          !EXCLUDE.some(
-            (ex) => src.split("/").includes(ex) || src.includes(`/${ex}`),
-          ),
+        filter: (src: string) => !EXCLUDE.some((ex) => src.split("/").includes(ex) || src.includes(`/${ex}`)),
       });
       return;
     }
 
     // Monorepo subdirectory URLs use sparse checkout; standalone repos use tarball download
     if (isValidGitHubUrl(templateRef)) {
-      const success = await cloneGitHubSubdirectory(
-        templateRef,
-        projectDir,
-        spinner,
-      );
+      const success = await cloneGitHubSubdirectory(templateRef, projectDir, spinner);
       if (!success) {
         throw new Error(`Failed to clone template from ${templateRef}`);
       }
@@ -637,8 +545,7 @@ cd infra-cdk && npx cdk@latest destroy --all --output ../cdk.out-${stackSuffix}
 
     try {
       const response = await fetch(url);
-      if (!response.ok)
-        throw new Error(`Failed to download template: ${response.statusText}`);
+      if (!response.ok) throw new Error(`Failed to download template: ${response.statusText}`);
 
       const tempFile = path.join(projectDir, "template.tar.gz");
       const fileStream = createWriteStream(tempFile);
@@ -660,17 +567,12 @@ cd infra-cdk && npx cdk@latest destroy --all --output ../cdk.out-${stackSuffix}
     }
   }
 
-  private static readonly SHOWCASE_FRAMEWORKS: Partial<
-    Record<AgentFramework, string>
-  > = {
+  private static readonly SHOWCASE_FRAMEWORKS: Partial<Record<AgentFramework, string>> = {
     a2ui: "a2ui",
     opengenui: "opengenui",
   };
 
-  private async applyShowcaseConfig(
-    projectDir: string,
-    framework: AgentFramework,
-  ): Promise<void> {
+  private async applyShowcaseConfig(projectDir: string, framework: AgentFramework): Promise<void> {
     const showcase = Create.SHOWCASE_FRAMEWORKS[framework];
     if (!showcase) return;
     const configPath = path.join(projectDir, "showcase.json");

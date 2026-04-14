@@ -51,25 +51,14 @@
 
         /* Column Colors */
         --column-backlog: linear-gradient(135deg, #94a3b8, #64748b);
-        --column-todo: linear-gradient(
-          135deg,
-          var(--color-lilac),
-          var(--color-lilac-dark)
-        );
+        --column-todo: linear-gradient(135deg, var(--color-lilac), var(--color-lilac-dark));
         --column-progress: linear-gradient(135deg, #f59e0b, #d97706);
-        --column-done: linear-gradient(
-          135deg,
-          var(--color-mint),
-          var(--color-mint-dark)
-        );
+        --column-done: linear-gradient(135deg, var(--color-mint), var(--color-mint-dark));
 
         /* Shadows */
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-        --shadow-md:
-          0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-        --shadow-lg:
-          0 10px 25px -3px rgba(0, 0, 0, 0.08),
-          0 4px 6px -2px rgba(0, 0, 0, 0.03);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+        --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
         --shadow-glass: 0 4px 30px rgba(0, 0, 0, 0.1);
 
         /* Spacing */
@@ -90,8 +79,7 @@
         --radius-full: 9999px;
 
         /* Typography */
-        --font-family:
-          "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+        --font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
         --font-size-xs: 11px;
         --font-size-sm: 13px;
         --font-size-base: 15px;
@@ -111,11 +99,7 @@
 
       body {
         font-family: var(--font-family);
-        background: linear-gradient(
-          135deg,
-          var(--color-surface-light) 0%,
-          var(--color-surface) 100%
-        );
+        background: linear-gradient(135deg, var(--color-surface-light) 0%, var(--color-surface) 100%);
         color: var(--color-text-primary);
         line-height: 1.5;
         min-height: 100vh;
@@ -232,11 +216,7 @@
       .board-icon {
         width: 40px;
         height: 40px;
-        background: linear-gradient(
-          135deg,
-          var(--color-lilac),
-          var(--color-mint)
-        );
+        background: linear-gradient(135deg, var(--color-lilac), var(--color-mint));
         border-radius: var(--radius-lg);
         display: flex;
         align-items: center;
@@ -624,11 +604,7 @@
       }
 
       .btn-primary {
-        background: linear-gradient(
-          135deg,
-          var(--color-lilac),
-          var(--color-mint)
-        );
+        background: linear-gradient(135deg, var(--color-lilac), var(--color-mint));
         color: white;
         box-shadow: 0 2px 8px rgba(190, 194, 255, 0.4);
       }
@@ -850,11 +826,7 @@
       .loading-icon {
         width: 64px;
         height: 64px;
-        background: linear-gradient(
-          135deg,
-          var(--color-lilac),
-          var(--color-mint)
-        );
+        background: linear-gradient(135deg, var(--color-lilac), var(--color-mint));
         border-radius: var(--radius-xl);
         display: flex;
         align-items: center;
@@ -980,10 +952,7 @@
         </div>
         <div class="modal-field">
           <label>Description</label>
-          <textarea
-            id="modal-desc"
-            placeholder="Add a description..."
-          ></textarea>
+          <textarea id="modal-desc" placeholder="Add a description..."></textarea>
         </div>
         <div class="modal-field">
           <label>Priority</label>
@@ -1013,12 +982,8 @@
             </svg>
             Delete
           </button>
-          <button class="btn btn-secondary" onclick="closeModal()">
-            Cancel
-          </button>
-          <button class="btn btn-primary" onclick="saveCard()">
-            Save Changes
-          </button>
+          <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveCard()">Save Changes</button>
         </div>
       </div>
     </div>
@@ -1044,16 +1009,10 @@
             </svg>
           </div>
           <h3 class="delete-title">Delete Card?</h3>
-          <p class="delete-message">
-            This action cannot be undone. The card will be permanently removed.
-          </p>
+          <p class="delete-message">This action cannot be undone. The card will be permanently removed.</p>
           <div class="delete-actions">
-            <button class="btn btn-secondary" onclick="cancelDelete()">
-              Cancel
-            </button>
-            <button class="btn btn-danger" onclick="confirmDelete()">
-              Delete Card
-            </button>
+            <button class="btn btn-secondary" onclick="cancelDelete()">Cancel</button>
+            <button class="btn btn-danger" onclick="confirmDelete()">Delete Card</button>
           </div>
         </div>
       </div>
@@ -1099,10 +1058,7 @@
           const id = requestId++;
           return new Promise((resolve, reject) => {
             pendingRequests.set(id, { resolve, reject });
-            window.parent.postMessage(
-              { jsonrpc: "2.0", id, method, params },
-              "*",
-            );
+            window.parent.postMessage({ jsonrpc: "2.0", id, method, params }, "*");
           });
         }
 
@@ -1155,12 +1111,9 @@
         // Try partial match
         const nameLower = colName.toLowerCase();
         if (nameLower.includes("backlog")) return columnStyles["Backlog"];
-        if (nameLower.includes("done") || nameLower.includes("complete"))
-          return columnStyles["Done"];
-        if (nameLower.includes("progress") || nameLower.includes("doing"))
-          return columnStyles["In Progress"];
-        if (nameLower.includes("todo") || nameLower.includes("to do"))
-          return columnStyles["To Do"];
+        if (nameLower.includes("done") || nameLower.includes("complete")) return columnStyles["Done"];
+        if (nameLower.includes("progress") || nameLower.includes("doing")) return columnStyles["In Progress"];
+        if (nameLower.includes("todo") || nameLower.includes("to do")) return columnStyles["To Do"];
 
         // Default
         return { icon: icons.circle, gradient: "var(--column-todo)" };
@@ -1169,10 +1122,7 @@
       // Render board
       function renderBoard() {
         if (!board) return;
-        const totalCards = board.columns.reduce(
-          (sum, c) => sum + c.cards.length,
-          0,
-        );
+        const totalCards = board.columns.reduce((sum, c) => sum + c.cards.length, 0);
 
         const html = `
         <div class="board-header">
@@ -1345,8 +1295,7 @@
           if (card) {
             currentCard = card;
             document.getElementById("modal-title").value = card.title;
-            document.getElementById("modal-desc").value =
-              card.description || "";
+            document.getElementById("modal-desc").value = card.description || "";
             document.getElementById("modal-priority").value = card.priority;
             document.getElementById("modal").classList.add("show");
             return;

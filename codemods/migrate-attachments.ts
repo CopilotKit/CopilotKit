@@ -17,21 +17,10 @@
  *   npx jscodeshift -t ./codemods/migrate-attachments.ts --extensions=tsx,ts ./src
  */
 
-import type {
-  API,
-  FileInfo,
-  JSXElement,
-  JSXAttribute,
-  JSXExpressionContainer,
-  ImportSpecifier,
-} from "jscodeshift";
+import type { API, FileInfo, JSXElement, JSXAttribute, JSXExpressionContainer, ImportSpecifier } from "jscodeshift";
 
 const COPILOTKIT_PACKAGE = "@copilotkit/react-ui";
-const TARGET_COMPONENTS = new Set([
-  "CopilotChat",
-  "CopilotSidebar",
-  "CopilotPopup",
-]);
+const TARGET_COMPONENTS = new Set(["CopilotChat", "CopilotSidebar", "CopilotPopup"]);
 
 const IMPORT_RENAMES: Record<string, string> = {
   ImageUploadQueue: "AttachmentQueue",
@@ -46,128 +35,95 @@ export default function transform(file: FileInfo, api: API) {
   // -----------------------------------------------------------------------
   // 1. Rename imports from @copilotkit/react-ui
   // -----------------------------------------------------------------------
-  root
-    .find(j.ImportDeclaration, { source: { value: COPILOTKIT_PACKAGE } })
-    .forEach((path) => {
-      const specifiers = path.node.specifiers;
-      if (!specifiers) return;
+  root.find(j.ImportDeclaration, { source: { value: COPILOTKIT_PACKAGE } }).forEach((path) => {
+    const specifiers = path.node.specifiers;
+    if (!specifiers) return;
 
-      for (const spec of specifiers) {
-        if (spec.type !== "ImportSpecifier") continue;
-        const imported = (spec as ImportSpecifier).imported;
-        if (imported.type !== "Identifier") continue;
+    for (const spec of specifiers) {
+      if (spec.type !== "ImportSpecifier") continue;
+      const imported = (spec as ImportSpecifier).imported;
+      if (imported.type !== "Identifier") continue;
 
-        const newName = IMPORT_RENAMES[imported.name];
-        if (!newName) continue;
+      const newName = IMPORT_RENAMES[imported.name];
+      if (!newName) continue;
 
-        const localName = spec.local?.name ?? imported.name;
-        const isAliased = localName !== imported.name;
+      const localName = spec.local?.name ?? imported.name;
+      const isAliased = localName !== imported.name;
 
-        // Rename the imported identifier
-        imported.name = newName;
+      // Rename the imported identifier
+      imported.name = newName;
 
-        // If the local name matched the old imported name (not aliased),
-        // update references in the file to use the new name.
-        //
-        // To avoid corrupting unrelated code, we check if any local
-        // declaration (variable, function, class) shadows the imported
-        // name. If so, we only rename type-position references (which
-        // unambiguously refer to the type import) and leave value-position
-        // references alone since they may refer to the local binding.
-        if (!isAliased) {
-          const hasShadow =
-            root.find(j.VariableDeclarator, {
-              id: { type: "Identifier", name: localName },
-            }).length > 0 ||
-            root.find(j.FunctionDeclaration, {
-              id: { type: "Identifier", name: localName },
-            }).length > 0 ||
-            root.find(j.ClassDeclaration, {
-              id: { type: "Identifier", name: localName },
-            }).length > 0;
+      // If the local name matched the old imported name (not aliased),
+      // update references in the file to use the new name.
+      //
+      // To avoid corrupting unrelated code, we check if any local
+      // declaration (variable, function, class) shadows the imported
+      // name. If so, we only rename type-position references (which
+      // unambiguously refer to the type import) and leave value-position
+      // references alone since they may refer to the local binding.
+      if (!isAliased) {
+        const hasShadow =
+          root.find(j.VariableDeclarator, {
+            id: { type: "Identifier", name: localName },
+          }).length > 0 ||
+          root.find(j.FunctionDeclaration, {
+            id: { type: "Identifier", name: localName },
+          }).length > 0 ||
+          root.find(j.ClassDeclaration, {
+            id: { type: "Identifier", name: localName },
+          }).length > 0;
 
-          root.find(j.Identifier, { name: localName }).forEach((idPath) => {
-            // Skip the import specifier itself — already renamed above
-            if (idPath.parent.node === spec) return;
+        root.find(j.Identifier, { name: localName }).forEach((idPath) => {
+          // Skip the import specifier itself — already renamed above
+          if (idPath.parent.node === spec) return;
 
-            const parent = idPath.parent.node;
+          const parent = idPath.parent.node;
 
-            // Skip declaration positions — these define new bindings
-            if (
-              parent.type === "VariableDeclarator" &&
-              parent.id === idPath.node
-            )
-              return;
-            if (
-              parent.type === "FunctionDeclaration" &&
-              parent.id === idPath.node
-            )
-              return;
-            if (parent.type === "ClassDeclaration" && parent.id === idPath.node)
-              return;
-            if (
-              parent.type === "TSTypeAliasDeclaration" &&
-              parent.id === idPath.node
-            )
-              return;
-            if (
-              parent.type === "TSInterfaceDeclaration" &&
-              parent.id === idPath.node
-            )
-              return;
+          // Skip declaration positions — these define new bindings
+          if (parent.type === "VariableDeclarator" && parent.id === idPath.node) return;
+          if (parent.type === "FunctionDeclaration" && parent.id === idPath.node) return;
+          if (parent.type === "ClassDeclaration" && parent.id === idPath.node) return;
+          if (parent.type === "TSTypeAliasDeclaration" && parent.id === idPath.node) return;
+          if (parent.type === "TSInterfaceDeclaration" && parent.id === idPath.node) return;
 
-            // Skip non-computed object property keys and member expression properties
-            if (
-              (parent.type === "Property" ||
-                parent.type === "ObjectProperty") &&
-              parent.key === idPath.node &&
-              !parent.computed
-            )
-              return;
-            if (
-              parent.type === "MemberExpression" &&
-              parent.property === idPath.node &&
-              !parent.computed
-            )
-              return;
+          // Skip non-computed object property keys and member expression properties
+          if (
+            (parent.type === "Property" || parent.type === "ObjectProperty") &&
+            parent.key === idPath.node &&
+            !parent.computed
+          )
+            return;
+          if (parent.type === "MemberExpression" && parent.property === idPath.node && !parent.computed) return;
 
-            // Skip import specifiers from other packages
-            if (
-              parent.type === "ImportSpecifier" &&
-              idPath.parent.parent?.node !== path.node
-            )
-              return;
+          // Skip import specifiers from other packages
+          if (parent.type === "ImportSpecifier" && idPath.parent.parent?.node !== path.node) return;
 
-            // If a local declaration shadows this name, only rename
-            // unambiguous type-position references (e.g. type annotations)
-            if (hasShadow) {
-              const isTypePosition =
-                parent.type === "TSTypeReference" ||
-                parent.type === "TSTypeAnnotation" ||
-                parent.type === "TSTypeQuery";
-              if (!isTypePosition) return;
-            }
+          // If a local declaration shadows this name, only rename
+          // unambiguous type-position references (e.g. type annotations)
+          if (hasShadow) {
+            const isTypePosition =
+              parent.type === "TSTypeReference" || parent.type === "TSTypeAnnotation" || parent.type === "TSTypeQuery";
+            if (!isTypePosition) return;
+          }
 
+          idPath.node.name = newName;
+        });
+
+        // Only rename JSX identifiers if there's no shadow
+        if (!hasShadow) {
+          root.find(j.JSXIdentifier, { name: localName }).forEach((idPath) => {
             idPath.node.name = newName;
           });
-
-          // Only rename JSX identifiers if there's no shadow
-          if (!hasShadow) {
-            root
-              .find(j.JSXIdentifier, { name: localName })
-              .forEach((idPath) => {
-                idPath.node.name = newName;
-              });
-          }
-
-          if (spec.local) {
-            spec.local.name = newName;
-          }
         }
 
-        changed = true;
+        if (spec.local) {
+          spec.local.name = newName;
+        }
       }
-    });
+
+      changed = true;
+    }
+  });
 
   // -----------------------------------------------------------------------
   // 2. Transform JSX props on CopilotChat / CopilotSidebar / CopilotPopup
@@ -186,12 +142,7 @@ export default function transform(file: FileInfo, api: API) {
     let existingAttachmentsAttr: JSXAttribute | null = null;
 
     for (const attr of attrs) {
-      if (
-        attr.type !== "JSXAttribute" ||
-        !attr.name ||
-        attr.name.type !== "JSXIdentifier"
-      )
-        continue;
+      if (attr.type !== "JSXAttribute" || !attr.name || attr.name.type !== "JSXIdentifier") continue;
       if (attr.name.name === "imageUploadsEnabled") imageUploadsAttr = attr;
       if (attr.name.name === "inputFileAccept") inputFileAcceptAttr = attr;
       if (attr.name.name === "attachments") existingAttachmentsAttr = attr;
@@ -211,10 +162,7 @@ export default function transform(file: FileInfo, api: API) {
       if (!val) {
         // Shorthand: <CopilotChat imageUploadsEnabled /> means true
         enabledExpr = j.booleanLiteral(true);
-      } else if (
-        val.type === "JSXExpressionContainer" &&
-        val.expression.type === "BooleanLiteral"
-      ) {
+      } else if (val.type === "JSXExpressionContainer" && val.expression.type === "BooleanLiteral") {
         enabledExpr = j.booleanLiteral(val.expression.value);
       } else if (val.type === "JSXExpressionContainer") {
         // Dynamic expression — preserve as-is
@@ -229,27 +177,12 @@ export default function transform(file: FileInfo, api: API) {
       const val = inputFileAcceptAttr.value;
       if (val) {
         if (val.type === "StringLiteral") {
-          properties.push(
-            j.objectProperty(
-              j.identifier("accept"),
-              j.stringLiteral(val.value),
-            ),
-          );
-        } else if (
-          val.type === "JSXExpressionContainer" &&
-          val.expression.type === "StringLiteral"
-        ) {
-          properties.push(
-            j.objectProperty(
-              j.identifier("accept"),
-              j.stringLiteral(val.expression.value),
-            ),
-          );
+          properties.push(j.objectProperty(j.identifier("accept"), j.stringLiteral(val.value)));
+        } else if (val.type === "JSXExpressionContainer" && val.expression.type === "StringLiteral") {
+          properties.push(j.objectProperty(j.identifier("accept"), j.stringLiteral(val.expression.value)));
         } else if (val.type === "JSXExpressionContainer") {
           // Dynamic expression — preserve as-is
-          properties.push(
-            j.objectProperty(j.identifier("accept"), val.expression),
-          );
+          properties.push(j.objectProperty(j.identifier("accept"), val.expression));
         }
       }
     }
@@ -263,9 +196,7 @@ export default function transform(file: FileInfo, api: API) {
     );
 
     // Remove old props, add new one
-    path.node.attributes = attrs.filter(
-      (attr) => attr !== imageUploadsAttr && attr !== inputFileAcceptAttr,
-    );
+    path.node.attributes = attrs.filter((attr) => attr !== imageUploadsAttr && attr !== inputFileAcceptAttr);
     path.node.attributes.push(attachmentsAttr);
 
     changed = true;

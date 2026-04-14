@@ -12,14 +12,7 @@
     "component": {
       "Column": {
         "children": {
-          "explicitList": [
-            "from-row",
-            "to-row",
-            "subject-row",
-            "divider",
-            "message",
-            "actions"
-          ]
+          "explicitList": ["from-row", "to-row", "subject-row", "divider", "message", "actions"]
         },
         "gap": "small"
       }

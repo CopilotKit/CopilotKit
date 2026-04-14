@@ -11,51 +11,27 @@ import { CustomEditor } from "../../types/base/custom-editor";
 const shouldSave: ShouldSaveToHistory = (op, prev) => {
   const excludedNodeType = "suggestion";
   // Check if the operation involves the suggestion inline node type
-  if (
-    op.type === "insert_node" &&
-    Element.isElement(op.node) &&
-    op.node.type === excludedNodeType
-  ) {
+  if (op.type === "insert_node" && Element.isElement(op.node) && op.node.type === excludedNodeType) {
     return false;
   }
 
-  if (
-    op.type === "remove_node" &&
-    Element.isElement(op.node) &&
-    op.node.type === excludedNodeType
-  ) {
+  if (op.type === "remove_node" && Element.isElement(op.node) && op.node.type === excludedNodeType) {
     return false;
   }
 
-  if (
-    op.type === "set_node" &&
-    "type" in op.newProperties &&
-    op.newProperties.type === excludedNodeType
-  ) {
+  if (op.type === "set_node" && "type" in op.newProperties && op.newProperties.type === excludedNodeType) {
     return false;
   }
 
-  if (
-    op.type == "set_node" &&
-    "type" in op.properties &&
-    op.properties.type === excludedNodeType
-  ) {
+  if (op.type == "set_node" && "type" in op.properties && op.properties.type === excludedNodeType) {
     return false;
   }
 
-  if (
-    op.type === "merge_node" &&
-    "type" in op.properties &&
-    op.properties.type === excludedNodeType
-  ) {
+  if (op.type === "merge_node" && "type" in op.properties && op.properties.type === excludedNodeType) {
     return false;
   }
 
-  if (
-    op.type === "split_node" &&
-    "type" in op.properties &&
-    op.properties.type === excludedNodeType
-  ) {
+  if (op.type === "split_node" && "type" in op.properties && op.properties.type === excludedNodeType) {
     return false;
   }
 

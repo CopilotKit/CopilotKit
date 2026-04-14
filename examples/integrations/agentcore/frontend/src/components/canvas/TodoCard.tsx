@@ -20,18 +20,14 @@ export function TodoCard({
   onUpdateDescription,
   onUpdateEmoji,
 }: TodoCardProps) {
-  const [editingField, setEditingField] = useState<
-    "title" | "description" | null
-  >(null);
+  const [editingField, setEditingField] = useState<"title" | "description" | null>(null);
   const [editValue, setEditValue] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isCompleted = todo.status === "completed";
   const truncatedDescription =
-    todo.description.length > 120
-      ? todo.description.slice(0, 120) + "..."
-      : todo.description;
+    todo.description.length > 120 ? todo.description.slice(0, 120) + "..." : todo.description;
 
   const startEdit = (field: "title" | "description") => {
     setEditingField(field);
@@ -57,8 +53,7 @@ export function TodoCard({
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height =
-        textareaRef.current.scrollHeight + "px";
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
     }
   }, [editValue]);
 
@@ -95,9 +90,7 @@ export function TodoCard({
         <button
           onClick={() => setShowEmojiPicker(!showEmojiPicker)}
           className={`block text-3xl leading-none cursor-pointer rounded-xl p-2 transition-colors duration-100 ${
-            isCompleted
-              ? "bg-neutral-200 dark:bg-neutral-700"
-              : "bg-neutral-100 dark:bg-neutral-700/50"
+            isCompleted ? "bg-neutral-200 dark:bg-neutral-700" : "bg-neutral-100 dark:bg-neutral-700/50"
           }`}
           aria-label="Change emoji"
         >
@@ -130,14 +123,7 @@ export function TodoCard({
         >
           {isCompleted ? (
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <rect
-                x="1"
-                y="1"
-                width="18"
-                height="18"
-                rx="6"
-                className="fill-neutral-900 dark:fill-neutral-100"
-              />
+              <rect x="1" y="1" width="18" height="18" rx="6" className="fill-neutral-900 dark:fill-neutral-100" />
               <path
                 d="M6 10.5L8.5 13L14 7"
                 className="stroke-white dark:stroke-neutral-900"

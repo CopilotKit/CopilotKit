@@ -33,9 +33,7 @@ export default function DemoViewerPage() {
   useEffect(() => {
     import("@/data/registry.json").then((mod) => {
       const registry = mod.default as any;
-      const integ = registry.integrations.find(
-        (i: any) => i.slug === params.slug,
-      );
+      const integ = registry.integrations.find((i: any) => i.slug === params.slug);
       if (integ) {
         setIntegration(integ);
         setDemo(integ.demos.find((d: any) => d.id === params.demo));
@@ -53,9 +51,7 @@ export default function DemoViewerPage() {
 
   if (!integration || !demo) {
     return (
-      <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center text-[var(--text-muted)]">
-        Loading...
-      </div>
+      <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center text-[var(--text-muted)]">Loading...</div>
     );
   }
 
@@ -79,9 +75,7 @@ export default function DemoViewerPage() {
             ← {integration.name}
           </Link>
           <span className="text-[var(--text-muted)]">/</span>
-          <span className="text-sm font-medium text-[var(--text)]">
-            {demo.name}
-          </span>
+          <span className="text-sm font-medium text-[var(--text)]">{demo.name}</span>
         </div>
         <div className="flex gap-1 rounded-lg bg-[var(--bg)] p-1">
           {tabs.map((tab) => (
@@ -116,9 +110,7 @@ export default function DemoViewerPage() {
           <div className="flex h-full">
             {/* File tabs */}
             <div className="flex h-full flex-col border-r border-[var(--border)] bg-[var(--bg-surface)]">
-              <div className="p-3 text-[10px] font-mono uppercase tracking-widest text-[var(--text-muted)]">
-                Files
-              </div>
+              <div className="p-3 text-[10px] font-mono uppercase tracking-widest text-[var(--text-muted)]">Files</div>
               {demoContent?.files.map((file, idx) => (
                 <button
                   key={file.filename}
@@ -179,9 +171,7 @@ export default function DemoViewerPage() {
           <div className="h-full overflow-auto p-8">
             {demoContent?.readme ? (
               <div className="mx-auto max-w-3xl [&_h1]:text-2xl [&_h1]:font-light [&_h1]:text-[var(--text)] [&_h1]:mb-4 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-[var(--text)] [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-[var(--text)] [&_h3]:mt-6 [&_h3]:mb-2 [&_p]:text-sm [&_p]:text-[var(--text-secondary)] [&_p]:leading-relaxed [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:mb-4 [&_li]:text-sm [&_li]:text-[var(--text-secondary)] [&_li]:mb-1 [&_strong]:text-[var(--text)] [&_code]:text-[var(--accent)] [&_code]:bg-[var(--bg-elevated)] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono [&_pre]:bg-[var(--bg-surface)] [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:mb-4 [&_pre]:overflow-x-auto [&_hr]:border-[var(--border)] [&_hr]:my-6">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {demoContent.readme}
-                </ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{demoContent.readme}</ReactMarkdown>
               </div>
             ) : (
               <div className="flex h-full items-center justify-center text-[var(--text-muted)]">

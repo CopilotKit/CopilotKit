@@ -58,13 +58,9 @@ export const Role = MessageRole;
 // when constructing any message, the base fields are optional
 type MessageConstructorOptions = Partial<Message>;
 
-type TextMessageConstructorOptions = MessageConstructorOptions &
-  TextMessageInput;
+type TextMessageConstructorOptions = MessageConstructorOptions & TextMessageInput;
 
-export class TextMessage
-  extends Message
-  implements TextMessageConstructorOptions
-{
+export class TextMessage extends Message implements TextMessageConstructorOptions {
   content: TextMessageInput["content"];
   parentMessageId: TextMessageInput["parentMessageId"];
   role: TextMessageInput["role"];
@@ -92,10 +88,7 @@ export class ResultMessage extends Message implements ResultMessageInput {
   actionName: string;
   result: string;
 
-  static encodeResult(
-    result: any,
-    error?: { code: string; message: string } | string | Error,
-  ): string {
+  static encodeResult(result: any, error?: { code: string; message: string } | string | Error): string {
     const errorObj = error
       ? typeof error === "string"
         ? { code: "ERROR", message: error }
@@ -159,10 +152,7 @@ export class ResultMessage extends Message implements ResultMessageInput {
   }
 }
 
-export class AgentStateMessage
-  extends Message
-  implements Omit<AgentStateMessageInput, "state">
-{
+export class AgentStateMessage extends Message implements Omit<AgentStateMessageInput, "state"> {
   type: MessageType = "AgentStateMessage";
   threadId: string;
   agentName: string;

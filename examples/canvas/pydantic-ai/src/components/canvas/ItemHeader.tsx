@@ -13,8 +13,7 @@ export function ItemHeader(props: {
   onNameCommit?: (value: string) => void;
   onDescriptionCommit?: (value: string) => void;
 }) {
-  const { id, name, subtitle, onNameChange, onSubtitleChange, onNameCommit } =
-    props;
+  const { id, name, subtitle, onNameChange, onSubtitleChange, onNameCommit } = props;
   return (
     <div className="mb-4">
       <div className="mb-2">
@@ -26,20 +25,14 @@ export function ItemHeader(props: {
       </div>
       <input
         value={name}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-          onNameChange(e.target.value)
-        }
-        onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
-          onNameCommit?.(e.target.value)
-        }
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onNameChange(e.target.value)}
+        onBlur={(e: React.FocusEvent<HTMLInputElement>) => onNameCommit?.(e.target.value)}
         placeholder="Item title"
         className="w-full appearance-none text-2xl font-semibold outline-none placeholder:text-gray-400 transition-colors focus:text-accent focus:placeholder:text-accent/65"
       />
       <TextareaAutosize
         value={subtitle}
-        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-          onSubtitleChange(e.target.value)
-        }
+        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onSubtitleChange(e.target.value)}
         placeholder="Optional subtitle or short description"
         className="mt-2 w-full bg-transparent text-sm leading-6 resize-none outline-none placeholder:text-gray-400 transition-colors focus:text-accent focus:placeholder:text-accent/65"
         minRows={1}

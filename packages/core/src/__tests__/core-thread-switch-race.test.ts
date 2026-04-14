@@ -1,12 +1,7 @@
 import type { AbstractAgent } from "@ag-ui/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CopilotKitCore } from "../core";
-import {
-  MockAgent,
-  createMessage,
-  createTool,
-  createToolCallMessage,
-} from "./test-utils";
+import { MockAgent, createMessage, createTool, createToolCallMessage } from "./test-utils";
 
 describe("CopilotKitCore.runAgent - Thread switch race condition", () => {
   let copilotKitCore: CopilotKitCore;
@@ -32,9 +27,7 @@ describe("CopilotKitCore.runAgent - Thread switch race condition", () => {
       name: "slowTool",
       handler: vi.fn(async () => {
         // Simulate thread switch: connectAgent clears messages and loads new thread
-        agent.messages = [
-          createMessage({ id: "thread-b-msg", content: "Thread B message" }),
-        ];
+        agent.messages = [createMessage({ id: "thread-b-msg", content: "Thread B message" })];
         return "result-from-old-thread";
       }),
       followUp: false,
@@ -66,9 +59,7 @@ describe("CopilotKitCore.runAgent - Thread switch race condition", () => {
       name: "*",
       handler: vi.fn(async () => {
         // Simulate thread switch: connectAgent clears messages and loads new thread
-        agent.messages = [
-          createMessage({ id: "thread-b-msg", content: "Thread B message" }),
-        ];
+        agent.messages = [createMessage({ id: "thread-b-msg", content: "Thread B message" })];
         return "result-from-old-thread";
       }),
       followUp: false,

@@ -10,14 +10,7 @@ interface StarsProps {
   className?: string;
 }
 
-export function Stars({
-  rating,
-  showNumber = true,
-  interactive = false,
-  onHover,
-  onRate,
-  className,
-}: StarsProps) {
+export function Stars({ rating, showNumber = true, interactive = false, onHover, onRate, className }: StarsProps) {
   return (
     <div className={cn("flex items-center", className)}>
       {[1, 2, 3, 4, 5].map((star) => (
@@ -30,14 +23,7 @@ export function Stars({
               onMouseLeave={() => onHover?.(0)}
               onClick={() => onRate?.(star)}
             >
-              <Star
-                className={cn(
-                  "w-5 h-5",
-                  rating >= star
-                    ? "text-yellow-400 fill-yellow-400"
-                    : "text-gray-300",
-                )}
-              />
+              <Star className={cn("w-5 h-5", rating >= star ? "text-yellow-400 fill-yellow-400" : "text-gray-300")} />
             </button>
           ) : (
             <div className="relative">
@@ -48,20 +34,13 @@ export function Stars({
                   width: `${Math.min(100, Math.max(0, (rating - (star - 1)) * 100))}%`,
                 }}
               >
-                <Star
-                  className="w-5 h-5 text-yellow-400 fill-yellow-400"
-                  aria-hidden="true"
-                />
+                <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" aria-hidden="true" />
               </div>
             </div>
           )}
         </div>
       ))}
-      {showNumber && rating && (
-        <p className="text-sm text-muted-foreground ml-2">
-          {rating.toFixed(1)}
-        </p>
-      )}
+      {showNumber && rating && <p className="text-sm text-muted-foreground ml-2">{rating.toFixed(1)}</p>}
     </div>
   );
 }

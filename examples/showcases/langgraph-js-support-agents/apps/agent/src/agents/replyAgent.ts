@@ -14,23 +14,17 @@ export async function replyAgentNode(
   console.log("Reply Agent: Generating response...");
 
   const messages = state.messages || [];
-  const lastUserMessage = messages
-    .filter((m) => m._getType() === "human")
-    .pop();
+  const lastUserMessage = messages.filter((m) => m._getType() === "human").pop();
 
   if (!lastUserMessage) {
     return {};
   }
 
   const userMessage =
-    typeof lastUserMessage.content === "string"
-      ? lastUserMessage.content
-      : JSON.stringify(lastUserMessage.content);
+    typeof lastUserMessage.content === "string" ? lastUserMessage.content : JSON.stringify(lastUserMessage.content);
 
   const intent = state.intent?.category || "general_inquiry";
-  const customerId = state.currentCustomer?.found
-    ? state.currentCustomer.id
-    : undefined;
+  const customerId = state.currentCustomer?.found ? state.currentCustomer.id : undefined;
 
   try {
     const replyResult = await replyGeneratorTool.invoke({
@@ -59,8 +53,7 @@ export async function replyAgentNode(
 
     // Fallback reply
     const fallbackMessage = new AIMessage({
-      content:
-        "I'm here to help! Could you please provide more details about your issue?",
+      content: "I'm here to help! Could you please provide more details about your issue?",
     });
 
     // Return complete state including customers

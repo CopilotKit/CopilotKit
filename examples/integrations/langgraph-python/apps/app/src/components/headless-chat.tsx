@@ -26,11 +26,7 @@ export const HeadlessChat = () => {
           <p>{JSON.stringify(message.content)}</p>
         </div>
       ))}
-      <input
-        type="text"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-      />
+      <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} />
       <button onClick={() => sendMessage(message)}>Send</button>
     </div>
   );

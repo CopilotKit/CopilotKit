@@ -13,15 +13,11 @@ import {
 
 describe("normalizeGeneratedTitle", () => {
   it("extracts title from valid JSON response", () => {
-    expect(normalizeGeneratedTitle('{"title":"Budget Review"}')).toBe(
-      "Budget Review",
-    );
+    expect(normalizeGeneratedTitle('{"title":"Budget Review"}')).toBe("Budget Review");
   });
 
   it("extracts title from JSON wrapped in code fences", () => {
-    expect(
-      normalizeGeneratedTitle('```json\n{"title":"Budget Review"}\n```'),
-    ).toBe("Budget Review");
+    expect(normalizeGeneratedTitle('```json\n{"title":"Budget Review"}\n```')).toBe("Budget Review");
   });
 
   it("strips surrounding quotes from plain text", () => {
@@ -31,9 +27,7 @@ describe("normalizeGeneratedTitle", () => {
   });
 
   it("strips markdown characters", () => {
-    expect(normalizeGeneratedTitle("**Budget** _Review_")).toBe(
-      "Budget Review",
-    );
+    expect(normalizeGeneratedTitle("**Budget** _Review_")).toBe("Budget Review");
     expect(normalizeGeneratedTitle("# Budget Review")).toBe("Budget Review");
     expect(normalizeGeneratedTitle("[Budget](Review)")).toBe("BudgetReview");
   });
@@ -68,15 +62,13 @@ describe("normalizeGeneratedTitle", () => {
   });
 
   it("returns null when title has more than 8 words", () => {
-    expect(
-      normalizeGeneratedTitle("one two three four five six seven eight nine"),
-    ).toBeNull();
+    expect(normalizeGeneratedTitle("one two three four five six seven eight nine")).toBeNull();
   });
 
   it("accepts title with exactly 8 words", () => {
-    expect(
-      normalizeGeneratedTitle("one two three four five six seven eight"),
-    ).toBe("one two three four five six seven eight");
+    expect(normalizeGeneratedTitle("one two three four five six seven eight")).toBe(
+      "one two three four five six seven eight",
+    );
   });
 
   it("handles JSON with non-string title gracefully", () => {
@@ -94,21 +86,15 @@ describe("normalizeGeneratedTitle", () => {
 // ---------------------------------------------------------------------------
 
 describe("buildThreadTitlePrompt", () => {
-  const msg = (role: string, content: string): Message =>
-    ({ id: `msg-${role}`, role, content }) as Message;
+  const msg = (role: string, content: string): Message => ({ id: `msg-${role}`, role, content }) as Message;
 
   it("returns null for empty messages", () => {
     expect(buildThreadTitlePrompt([])).toBeNull();
-    expect(
-      buildThreadTitlePrompt(undefined as unknown as Message[]),
-    ).toBeNull();
+    expect(buildThreadTitlePrompt(undefined as unknown as Message[])).toBeNull();
   });
 
   it("builds a prompt from user and assistant messages", () => {
-    const messages = [
-      msg("user", "What is the weather?"),
-      msg("assistant", "It is sunny today."),
-    ];
+    const messages = [msg("user", "What is the weather?"), msg("assistant", "It is sunny today.")];
 
     const result = buildThreadTitlePrompt(messages);
     expect(result).toContain("Generate a short title");
@@ -130,11 +116,7 @@ describe("buildThreadTitlePrompt", () => {
   });
 
   it("includes system and developer messages", () => {
-    const messages = [
-      msg("system", "You are helpful."),
-      msg("developer", "Be concise."),
-      msg("user", "Hello"),
-    ];
+    const messages = [msg("system", "You are helpful."), msg("developer", "Be concise."), msg("user", "Hello")];
 
     const result = buildThreadTitlePrompt(messages);
     expect(result).toContain("system: You are helpful.");
@@ -142,9 +124,7 @@ describe("buildThreadTitlePrompt", () => {
   });
 
   it("takes only the last 8 messages", () => {
-    const messages = Array.from({ length: 12 }, (_, i) =>
-      msg("user", `Message ${i}`),
-    );
+    const messages = Array.from({ length: 12 }, (_, i) => msg("user", `Message ${i}`));
 
     const result = buildThreadTitlePrompt(messages)!;
     // Should contain messages 4-11 (last 8) but not 0-3

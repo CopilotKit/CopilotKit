@@ -60,11 +60,8 @@
 
         /* Shadows */
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-        --shadow-md:
-          0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-        --shadow-lg:
-          0 10px 25px -3px rgba(0, 0, 0, 0.08),
-          0 4px 6px -2px rgba(0, 0, 0, 0.03);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+        --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
         --shadow-glass: 0 4px 30px rgba(0, 0, 0, 0.1);
 
         /* Spacing */
@@ -84,8 +81,7 @@
         --radius-full: 9999px;
 
         /* Typography */
-        --font-family:
-          "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+        --font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
         --font-size-xs: 11px;
         --font-size-sm: 13px;
         --font-size-base: 15px;
@@ -100,11 +96,7 @@
     ========================================================================== */
       body {
         font-family: var(--font-family);
-        background: linear-gradient(
-          135deg,
-          var(--color-surface-light) 0%,
-          var(--color-surface) 100%
-        );
+        background: linear-gradient(135deg, var(--color-surface-light) 0%, var(--color-surface) 100%);
         color: var(--color-text-primary);
         line-height: 1.5;
         min-height: 100vh;
@@ -268,11 +260,7 @@
       }
 
       .btn-primary {
-        background: linear-gradient(
-          135deg,
-          var(--color-lilac),
-          var(--color-mint)
-        );
+        background: linear-gradient(135deg, var(--color-lilac), var(--color-mint));
         color: var(--color-text-primary);
         box-shadow: var(--shadow-sm);
       }
@@ -283,11 +271,7 @@
       }
 
       .btn-success {
-        background: linear-gradient(
-          135deg,
-          var(--color-mint),
-          var(--color-mint-dark)
-        );
+        background: linear-gradient(135deg, var(--color-mint), var(--color-mint-dark));
         color: white;
       }
 
@@ -297,11 +281,7 @@
       }
 
       .btn-danger {
-        background: linear-gradient(
-          135deg,
-          var(--color-danger),
-          var(--color-danger-dark)
-        );
+        background: linear-gradient(135deg, var(--color-danger), var(--color-danger-dark));
         color: white;
       }
 
@@ -372,11 +352,7 @@
        PORTFOLIO HEADER
     ========================================================================== */
       .portfolio-header {
-        background: linear-gradient(
-          135deg,
-          var(--color-lilac-light),
-          var(--color-mint-light)
-        );
+        background: linear-gradient(135deg, var(--color-lilac-light), var(--color-mint-light));
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         border: 1px solid var(--color-border-glass);
@@ -470,22 +446,14 @@
 
       .bar {
         flex: 1;
-        background: linear-gradient(
-          to top,
-          var(--color-lilac-dark),
-          var(--color-lilac)
-        );
+        background: linear-gradient(to top, var(--color-lilac-dark), var(--color-lilac));
         border-radius: 3px 3px 0 0;
         transition: height 0.3s ease;
         min-width: 6px;
       }
 
       .bar.current {
-        background: linear-gradient(
-          to top,
-          var(--color-mint-dark),
-          var(--color-mint)
-        );
+        background: linear-gradient(to top, var(--color-mint-dark), var(--color-mint));
       }
 
       .pie-chart-container {
@@ -522,11 +490,7 @@
       }
 
       .legend-dot.stocks {
-        background: linear-gradient(
-          135deg,
-          var(--color-lilac),
-          var(--color-lilac-dark)
-        );
+        background: linear-gradient(135deg, var(--color-lilac), var(--color-lilac-dark));
       }
 
       .legend-dot.cash {
@@ -695,19 +659,11 @@
       }
 
       .modal-icon.buy {
-        background: linear-gradient(
-          135deg,
-          var(--color-mint),
-          var(--color-mint-dark)
-        );
+        background: linear-gradient(135deg, var(--color-mint), var(--color-mint-dark));
       }
 
       .modal-icon.sell {
-        background: linear-gradient(
-          135deg,
-          var(--color-danger),
-          var(--color-danger-dark)
-        );
+        background: linear-gradient(135deg, var(--color-danger), var(--color-danger-dark));
       }
 
       .modal-icon .icon {
@@ -860,24 +816,13 @@
         <div class="portfolio-header">
           <div class="portfolio-label">Total Portfolio Value</div>
           <div id="total-value" class="total-value">$0.00</div>
-          <div
-            class="flex items-center gap-2"
-            style="margin-top: var(--space-2)"
-          >
+          <div class="flex items-center gap-2" style="margin-top: var(--space-2)">
             <span id="total-pl" class="profit-loss positive">+$0.00</span>
-            <span
-              id="total-pl-percent"
-              style="
-                font-size: var(--font-size-sm);
-                color: var(--color-text-secondary);
-              "
+            <span id="total-pl-percent" style="font-size: var(--font-size-sm); color: var(--color-text-secondary)"
               >(+0.00%)</span
             >
           </div>
-          <div
-            class="flex items-center justify-between"
-            style="margin-top: var(--space-3)"
-          >
+          <div class="flex items-center justify-between" style="margin-top: var(--space-3)">
             <div class="cash-display">
               <svg
                 class="icon"
@@ -915,10 +860,7 @@
         </div>
 
         <!-- Charts Grid -->
-        <div
-          class="grid grid-cols-2 gap-3"
-          style="margin-bottom: var(--space-3)"
-        >
+        <div class="grid grid-cols-2 gap-3" style="margin-bottom: var(--space-3)">
           <!-- Performance Chart -->
           <div class="card">
             <div class="section-header">
@@ -1007,9 +949,7 @@
             >
               <circle cx="8" cy="21" r="1" />
               <circle cx="19" cy="21" r="1" />
-              <path
-                d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"
-              />
+              <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
             </svg>
             <span class="section-title">Buy Stocks</span>
           </div>
@@ -1040,9 +980,7 @@
                 <span id="modal-action">Buy</span>
                 <span id="modal-symbol">AAPL</span>
               </div>
-              <div class="modal-subtitle">
-                Price: <span id="modal-price">$0.00</span>
-              </div>
+              <div class="modal-subtitle">Price: <span id="modal-price">$0.00</span></div>
             </div>
           </div>
 
@@ -1064,12 +1002,8 @@
           </div>
 
           <div class="modal-actions">
-            <button id="cancel-trade-btn" class="btn btn-outline">
-              Cancel
-            </button>
-            <button id="confirm-trade-btn" class="btn btn-success">
-              Confirm
-            </button>
+            <button id="cancel-trade-btn" class="btn btn-outline">Cancel</button>
+            <button id="confirm-trade-btn" class="btn btn-success">Confirm</button>
           </div>
         </div>
       </div>
@@ -1095,10 +1029,7 @@
           const id = requestId++;
           return new Promise((resolve, reject) => {
             pendingRequests.set(id, { resolve, reject });
-            window.parent.postMessage(
-              { jsonrpc: "2.0", id, method, params },
-              "*",
-            );
+            window.parent.postMessage({ jsonrpc: "2.0", id, method, params }, "*");
           });
         }
 
@@ -1181,9 +1112,7 @@
             appCapabilities: {},
           });
           mcpApp.sendNotification("ui/notifications/initialized", {});
-          new ResizeObserver(() => mcpApp.reportSize()).observe(
-            document.getElementById("app"),
-          );
+          new ResizeObserver(() => mcpApp.reportSize()).observe(document.getElementById("app"));
         } catch (e) {
           console.error("Init failed:", e);
         }
@@ -1207,8 +1136,7 @@
           style: "currency",
           currency: "USD",
         }).format(v);
-      const fmtPct = (v, sign = true) =>
-        `${sign && v > 0 ? "+" : ""}${v.toFixed(2)}%`;
+      const fmtPct = (v, sign = true) => `${sign && v > 0 ? "+" : ""}${v.toFixed(2)}%`;
 
       // ==========================================================================
       // RENDER FUNCTIONS
@@ -1224,8 +1152,7 @@
         el.cashAmount.textContent = fmt(portfolio.cash);
 
         // Profit/loss styling
-        const plClass =
-          portfolio.totalProfitLoss >= 0 ? "positive" : "negative";
+        const plClass = portfolio.totalProfitLoss >= 0 ? "positive" : "negative";
         el.totalPl.textContent = `${portfolio.totalProfitLoss >= 0 ? "+" : ""}${fmt(portfolio.totalProfitLoss)}`;
         el.totalPl.className = `profit-loss ${plClass}`;
 
@@ -1270,8 +1197,7 @@
         el.holdingsCount.textContent = `${h.length} stock${h.length !== 1 ? "s" : ""}`;
 
         if (!h.length) {
-          el.holdingsList.innerHTML =
-            '<p class="empty-state">No holdings yet</p>';
+          el.holdingsList.innerHTML = '<p class="empty-state">No holdings yet</p>';
           return;
         }
 
@@ -1279,8 +1205,7 @@
           .map((x) => {
             const cls = x.profitLoss >= 0 ? "positive" : "negative";
             const sign = x.profitLoss >= 0 ? "+" : "";
-            const icon =
-              x.profitLoss >= 0 ? icons.trendingUp : icons.trendingDown;
+            const icon = x.profitLoss >= 0 ? icons.trendingUp : icons.trendingDown;
 
             return `
           <div class="holding-row">
@@ -1300,20 +1225,14 @@
 
         document.querySelectorAll('[data-action="sell"]').forEach((btn) => {
           btn.addEventListener("click", () =>
-            openModal(
-              "sell",
-              btn.dataset.symbol,
-              +btn.dataset.price,
-              +btn.dataset.max,
-            ),
+            openModal("sell", btn.dataset.symbol, +btn.dataset.price, +btn.dataset.max),
           );
         });
       }
 
       function renderStocks() {
         if (!availableStocks.length) {
-          el.availableStocks.innerHTML =
-            '<p class="empty-state">No stocks available</p>';
+          el.availableStocks.innerHTML = '<p class="empty-state">No stocks available</p>';
           return;
         }
 
@@ -1339,9 +1258,7 @@
           .join("");
 
         document.querySelectorAll('[data-action="buy"]').forEach((btn) => {
-          btn.addEventListener("click", () =>
-            openModal("buy", btn.dataset.symbol, +btn.dataset.price),
-          );
+          btn.addEventListener("click", () => openModal("buy", btn.dataset.symbol, +btn.dataset.price));
         });
       }
 
@@ -1359,8 +1276,7 @@
 
         // Update modal icon and button style
         el.modalIcon.className = `modal-icon ${action}`;
-        el.confirmTradeBtn.className =
-          action === "buy" ? "btn btn-success" : "btn btn-danger";
+        el.confirmTradeBtn.className = action === "buy" ? "btn btn-success" : "btn btn-danger";
 
         updateTotal();
         el.tradeModal.classList.remove("hidden");
@@ -1384,11 +1300,7 @@
         const qty = parseInt(el.quantityInput.value, 10);
         if (qty <= 0) return;
 
-        if (
-          currentTrade.action === "sell" &&
-          currentTrade.maxShares &&
-          qty > currentTrade.maxShares
-        ) {
+        if (currentTrade.action === "sell" && currentTrade.maxShares && qty > currentTrade.maxShares) {
           alert(`Maximum ${currentTrade.maxShares} shares available`);
           return;
         }
@@ -1445,8 +1357,7 @@
           });
           if (res?.structuredContent?.portfolio) {
             portfolio = res.structuredContent.portfolio;
-            availableStocks =
-              res.structuredContent.availableStocks || availableStocks;
+            availableStocks = res.structuredContent.availableStocks || availableStocks;
             render();
           }
         } catch (e) {

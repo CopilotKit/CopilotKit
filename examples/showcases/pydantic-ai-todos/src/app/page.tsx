@@ -3,11 +3,7 @@
 import { TodoBoard } from "@/components/todo-board";
 import { FullSendCard } from "@/components/full-send";
 import { AgentState } from "@/lib/types";
-import {
-  CatchAllActionRenderProps,
-  useCoAgent,
-  useCopilotAction,
-} from "@copilotkit/react-core";
+import { CatchAllActionRenderProps, useCoAgent, useCopilotAction } from "@copilotkit/react-core";
 import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
 import { BackendToolsCard } from "@/components/backend-tools";
@@ -49,12 +45,7 @@ export default function Home() {
       name: "full_send",
       description: "Mark all todos as complete. Requires user confirmation.",
       renderAndWaitForResponse: (props) => (
-        <FullSendCard
-          themeColor={themeColor}
-          {...props}
-          state={state}
-          setState={setState}
-        />
+        <FullSendCard themeColor={themeColor} {...props} state={state} setState={setState} />
       ),
     },
     [themeColor, state, setState],
@@ -66,19 +57,13 @@ export default function Home() {
   useCopilotAction(
     {
       name: "*",
-      render: (props: CatchAllActionRenderProps) => (
-        <BackendToolsCard themeColor={themeColor} {...props} />
-      ),
+      render: (props: CatchAllActionRenderProps) => <BackendToolsCard themeColor={themeColor} {...props} />,
     },
     [themeColor],
   );
 
   return (
-    <main
-      style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
-      }
-    >
+    <main style={{ "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties}>
       {/*
         🪁 Agent Chat UI
       */}
@@ -101,10 +86,7 @@ export default function Home() {
           { title: "Read State", message: "What todos do I have?" },
         ]}
       >
-        <div
-          style={{ backgroundColor: themeColor }}
-          className="h-screen w-full transition-colors duration-300"
-        >
+        <div style={{ backgroundColor: themeColor }} className="h-screen w-full transition-colors duration-300">
           <TodoBoard state={state} setState={setState} />
         </div>
       </CopilotSidebar>

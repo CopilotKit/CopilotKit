@@ -19,27 +19,20 @@ import { RowApi } from "@a2ui/web_core/v0_9/basic_catalog";
 import { ChildList } from "./ChildList";
 import { mapJustify, mapAlign } from "../utils";
 
-export const Row = createReactComponent(
-  RowApi,
-  ({ props, buildChild, context }) => {
-    return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          justifyContent: mapJustify(props.justify),
-          alignItems: mapAlign(props.align),
-          width: "100%",
-          margin: 0,
-          padding: 0,
-        }}
-      >
-        <ChildList
-          childList={props.children}
-          buildChild={buildChild}
-          context={context}
-        />
-      </div>
-    );
-  },
-);
+export const Row = createReactComponent(RowApi, ({ props, buildChild, context }) => {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "row",
+        justifyContent: mapJustify(props.justify),
+        alignItems: mapAlign(props.align),
+        width: "100%",
+        margin: 0,
+        padding: 0,
+      }}
+    >
+      <ChildList childList={props.children} buildChild={buildChild} context={context} />
+    </div>
+  );
+});

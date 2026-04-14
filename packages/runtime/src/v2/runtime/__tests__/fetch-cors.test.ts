@@ -29,12 +29,8 @@ describe("fetch-cors", () => {
       });
       const response = handleCors(request, {})!;
       expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
-      expect(response.headers.get("Access-Control-Allow-Methods")).toContain(
-        "GET",
-      );
-      expect(response.headers.get("Access-Control-Allow-Methods")).toContain(
-        "POST",
-      );
+      expect(response.headers.get("Access-Control-Allow-Methods")).toContain("GET");
+      expect(response.headers.get("Access-Control-Allow-Methods")).toContain("POST");
       expect(response.headers.get("Access-Control-Allow-Headers")).toBe("*");
     });
 
@@ -45,9 +41,7 @@ describe("fetch-cors", () => {
       });
       const config: CopilotCorsConfig = { origin: "https://myapp.com" };
       const response = handleCors(request, config)!;
-      expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
-        "https://myapp.com",
-      );
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://myapp.com");
     });
 
     it("reflects request origin when in allowed array", () => {
@@ -59,9 +53,7 @@ describe("fetch-cors", () => {
         origin: ["https://a.com", "https://b.com"],
       };
       const response = handleCors(request, config)!;
-      expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
-        "https://b.com",
-      );
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://b.com");
     });
 
     it("does not set origin when request origin is not in allowed array", () => {
@@ -85,9 +77,7 @@ describe("fetch-cors", () => {
         origin: (origin: string) => (origin.endsWith(".com") ? origin : null),
       };
       const response = handleCors(request, config)!;
-      expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
-        "https://dynamic.com",
-      );
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://dynamic.com");
     });
 
     it("sets credentials header when configured", () => {
@@ -100,9 +90,7 @@ describe("fetch-cors", () => {
         credentials: true,
       };
       const response = handleCors(request, config)!;
-      expect(response.headers.get("Access-Control-Allow-Credentials")).toBe(
-        "true",
-      );
+      expect(response.headers.get("Access-Control-Allow-Credentials")).toBe("true");
     });
 
     it("sets custom allowMethods", () => {
@@ -111,9 +99,7 @@ describe("fetch-cors", () => {
       });
       const config: CopilotCorsConfig = { allowMethods: ["GET", "POST"] };
       const response = handleCors(request, config)!;
-      expect(response.headers.get("Access-Control-Allow-Methods")).toBe(
-        "GET, POST",
-      );
+      expect(response.headers.get("Access-Control-Allow-Methods")).toBe("GET, POST");
     });
 
     it("sets custom allowHeaders", () => {
@@ -124,9 +110,7 @@ describe("fetch-cors", () => {
         allowHeaders: ["Content-Type", "Authorization"],
       };
       const response = handleCors(request, config)!;
-      expect(response.headers.get("Access-Control-Allow-Headers")).toBe(
-        "Content-Type, Authorization",
-      );
+      expect(response.headers.get("Access-Control-Allow-Headers")).toBe("Content-Type, Authorization");
     });
 
     it("sets maxAge header", () => {
@@ -147,12 +131,8 @@ describe("fetch-cors", () => {
       const response = handleCors(request, config)!;
       // Per Fetch spec, wildcard + credentials is invalid. We auto-resolve
       // the wildcard to the actual request origin when credentials are enabled.
-      expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
-        "https://example.com",
-      );
-      expect(response.headers.get("Access-Control-Allow-Credentials")).toBe(
-        "true",
-      );
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://example.com");
+      expect(response.headers.get("Access-Control-Allow-Credentials")).toBe("true");
     });
   });
 
@@ -183,9 +163,7 @@ describe("fetch-cors", () => {
         exposeHeaders: ["X-Request-Id", "X-Custom"],
       };
       const result = addCorsHeaders(response, config, null);
-      expect(result.headers.get("Access-Control-Expose-Headers")).toBe(
-        "X-Request-Id, X-Custom",
-      );
+      expect(result.headers.get("Access-Control-Expose-Headers")).toBe("X-Request-Id, X-Custom");
     });
 
     it("adds Vary: Origin when origin is not wildcard", () => {

@@ -44,9 +44,7 @@ export function WidgetRenderer({ widget }: { widget: DashboardWidget }) {
     case "outstanding-invoices":
       return <OutstandingInvoicesSection config={widget.config} />;
     case "custom-chart":
-      return (
-        <DashboardCustomChart config={widget.config} colSpan={widget.colSpan} />
-      );
+      return <DashboardCustomChart config={widget.config} colSpan={widget.colSpan} />;
     case "cash-waterfall":
       return <CashWaterfallChart config={widget.config} />;
     case "ar-aging-gauge":
@@ -65,9 +63,7 @@ export function WidgetRenderer({ widget }: { widget: DashboardWidget }) {
 }
 
 function KpiCardsSection({ config }: { config: { metrics?: string[] } }) {
-  const filtered = config.metrics
-    ? kpis.filter((k) => config.metrics!.includes(k.label))
-    : kpis;
+  const filtered = config.metrics ? kpis.filter((k) => config.metrics!.includes(k.label)) : kpis;
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -86,10 +82,7 @@ function RecentTransactionsSection({ config }: { config: { limit?: number } }) {
       <CardHeader className="border-b">
         <div className="flex items-center justify-between">
           <CardTitle>Recent Transactions</CardTitle>
-          <Link
-            href="/accounts"
-            className="flex items-center gap-1 text-xs text-primary hover:text-primary/80"
-          >
+          <Link href="/accounts" className="flex items-center gap-1 text-xs text-primary hover:text-primary/80">
             View all <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
@@ -106,13 +99,7 @@ function RecentTransactionsSection({ config }: { config: { limit?: number } }) {
             {
               header: "Amount",
               accessor: (row) => (
-                <span
-                  className={
-                    row.type === "credit"
-                      ? "text-emerald-600"
-                      : "text-foreground"
-                  }
-                >
+                <span className={row.type === "credit" ? "text-emerald-600" : "text-foreground"}>
                   {row.type === "credit" ? "+" : "-"}
                   {formatCurrency(row.amount)}
                 </span>
@@ -130,25 +117,16 @@ function RecentTransactionsSection({ config }: { config: { limit?: number } }) {
   );
 }
 
-function OutstandingInvoicesSection({
-  config,
-}: {
-  config: { statuses?: ("pending" | "overdue")[] };
-}) {
+function OutstandingInvoicesSection({ config }: { config: { statuses?: ("pending" | "overdue")[] } }) {
   const statuses = config.statuses ?? ["pending", "overdue"];
-  const filtered = invoices.filter((inv) =>
-    statuses.includes(inv.status as "pending" | "overdue"),
-  );
+  const filtered = invoices.filter((inv) => statuses.includes(inv.status as "pending" | "overdue"));
 
   return (
     <Card>
       <CardHeader className="border-b">
         <div className="flex items-center justify-between">
           <CardTitle>Outstanding Invoices</CardTitle>
-          <Link
-            href="/invoices"
-            className="flex items-center gap-1 text-xs text-primary hover:text-primary/80"
-          >
+          <Link href="/invoices" className="flex items-center gap-1 text-xs text-primary hover:text-primary/80">
             View all <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
@@ -168,11 +146,7 @@ function OutstandingInvoicesSection({
             },
             {
               header: "Amount",
-              accessor: (row) => (
-                <span className="text-foreground">
-                  {formatCurrency(row.amount)}
-                </span>
-              ),
+              accessor: (row) => <span className="text-foreground">{formatCurrency(row.amount)}</span>,
             },
             {
               header: "Due",

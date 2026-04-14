@@ -1,18 +1,9 @@
-import {
-  AIMessage,
-  Message,
-  UserMessage,
-  CopilotErrorEvent,
-} from "@copilotkit/shared";
+import { AIMessage, Message, UserMessage, CopilotErrorEvent } from "@copilotkit/shared";
 import { CopilotChatSuggestion } from "../../types/suggestions";
 import { ReactNode } from "react";
 import { ImageData } from "@copilotkit/shared";
 import type { InputContentSource } from "@copilotkit/shared";
-import type {
-  AttachmentsConfig,
-  Attachment,
-  AttachmentModality,
-} from "@copilotkit/shared";
+import type { AttachmentsConfig, Attachment, AttachmentModality } from "@copilotkit/shared";
 
 // Re-export for backward compat
 export type { AttachmentsConfig, Attachment, AttachmentModality };
@@ -50,10 +41,7 @@ export interface CopilotObservabilityHooks {
   /**
    * Called when feedback is given (thumbs up/down)
    */
-  onFeedbackGiven?: (
-    messageId: string,
-    type: "thumbsUp" | "thumbsDown",
-  ) => void;
+  onFeedbackGiven?: (messageId: string, type: "thumbsUp" | "thumbsDown") => void;
 
   /**
    * Called when chat generation starts
@@ -91,9 +79,7 @@ export interface SuggestionsProps {
   onClick: (message: string) => void;
 }
 
-export type ComponentsMap<
-  T extends Record<string, object> = Record<string, object>,
-> = {
+export type ComponentsMap<T extends Record<string, object> = Record<string, object>> = {
   [K in keyof T]: React.FC<{ children?: ReactNode } & T[K]>;
 };
 

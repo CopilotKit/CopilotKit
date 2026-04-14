@@ -11,9 +11,4 @@ export function getProvider(): WorkspaceProvider {
   return _provider;
 }
 
-export type {
-  WorkspaceProvider,
-  WorkspaceInfo,
-  ExecOpts,
-  ExecResult,
-} from "./types";
+export type { WorkspaceProvider, WorkspaceInfo, ExecOpts, ExecResult } from "./types";

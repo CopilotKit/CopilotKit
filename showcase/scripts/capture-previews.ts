@@ -35,13 +35,7 @@ const RESPONSE_TIMEOUT = 45_000;
 const POST_RESPONSE_WAIT = 3_000;
 
 const PACKAGES_DIR = path.resolve(__dirname, "..", "packages");
-const PREVIEWS_DIR = path.resolve(
-  __dirname,
-  "..",
-  "shell",
-  "public",
-  "previews",
-);
+const PREVIEWS_DIR = path.resolve(__dirname, "..", "shell", "public", "previews");
 const VIDEO_DIR = path.resolve(PREVIEWS_DIR, "_videos");
 
 // ---------------------------------------------------------------------------
@@ -97,9 +91,7 @@ const DEMO_CONFIGS: Record<string, DemoConfig> = {
           { timeout: 10_000 },
         );
       } catch {
-        console.log(
-          "    [WARN] Could not detect todo list update for shared-state-write",
-        );
+        console.log("    [WARN] Could not detect todo list update for shared-state-write");
       }
     },
     extraWait: 2_000,
@@ -195,11 +187,7 @@ function readAllManifests(): Manifest[] {
   return manifests;
 }
 
-function buildTargets(
-  manifests: Manifest[],
-  filterSlug?: string,
-  filterDemo?: string,
-): CaptureTarget[] {
+function buildTargets(manifests: Manifest[], filterSlug?: string, filterDemo?: string): CaptureTarget[] {
   const targets: CaptureTarget[] = [];
 
   for (const m of manifests) {
@@ -241,19 +229,13 @@ interface CaptureResult {
   gifSize?: number;
 }
 
-async function captureDemo(
-  browser: Browser,
-  target: CaptureTarget,
-): Promise<CaptureResult> {
+async function captureDemo(browser: Browser, target: CaptureTarget): Promise<CaptureResult> {
   const demoUrl = `${target.backendUrl}${target.demoRoute}`;
   const label = `${target.integrationSlug}/${target.demoId}`;
   console.log(`\n--- Capturing ${label} (${demoUrl}) ---`);
 
   // Per-integration video subdir to avoid collisions in parallel
-  const videoSubDir = path.join(
-    VIDEO_DIR,
-    `${target.integrationSlug}_${target.demoId}_${Date.now()}`,
-  );
+  const videoSubDir = path.join(VIDEO_DIR, `${target.integrationSlug}_${target.demoId}_${Date.now()}`);
   fs.mkdirSync(videoSubDir, { recursive: true });
 
   let context: BrowserContext | null = null;
@@ -279,9 +261,7 @@ async function captureDemo(
     await page.waitForTimeout(1_000);
 
     // Count existing assistant messages
-    const messagesBefore = await page
-      .locator('[data-testid="copilot-assistant-message"]')
-      .count();
+    const messagesBefore = await page.locator('[data-testid="copilot-assistant-message"]').count();
 
     // Get demo-specific config
     const config = DEMO_CONFIGS[target.demoId] ?? DEFAULT_CONFIG;
@@ -306,9 +286,7 @@ async function captureDemo(
         { timeout: RESPONSE_TIMEOUT },
       );
     } catch {
-      console.log(
-        `  [WARN] ${label}: No assistant message within ${RESPONSE_TIMEOUT / 1000}s, using fallback wait`,
-      );
+      console.log(`  [WARN] ${label}: No assistant message within ${RESPONSE_TIMEOUT / 1000}s, using fallback wait`);
       await page.waitForTimeout(5_000);
     }
 
@@ -371,9 +349,7 @@ async function captureDemo(
     }
 
     const stat = fs.statSync(gifPath);
-    console.log(
-      `  [OK] ${label} -> ${gifPath} (${(stat.size / 1024).toFixed(0)} KB)`,
-    );
+    console.log(`  [OK] ${label} -> ${gifPath} (${(stat.size / 1024).toFixed(0)} KB)`);
 
     return {
       integrationSlug: target.integrationSlug,
@@ -407,11 +383,7 @@ async function captureDemo(
   }
 }
 
-function convertToGif(
-  videoPath: string,
-  gifPath: string,
-  label: string,
-): boolean {
+function convertToGif(videoPath: string, gifPath: string, label: string): boolean {
   console.log(`  Converting ${label} to GIF ...`);
 
   try {
@@ -511,10 +483,7 @@ async function main() {
   }
 
   const manifestJsonPath = path.join(PREVIEWS_DIR, "manifest.json");
-  fs.writeFileSync(
-    manifestJsonPath,
-    JSON.stringify(manifestJson, null, 2) + "\n",
-  );
+  fs.writeFileSync(manifestJsonPath, JSON.stringify(manifestJson, null, 2) + "\n");
   console.log(`\nWrote ${manifestJsonPath}`);
 
   // Clean up video directory

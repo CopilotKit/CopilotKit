@@ -16,22 +16,14 @@ export async function addCrewInputs(url: string, token: string) {
     try {
       await fs.access(filePath);
     } catch {
-      filePath = path.join(
-        process.cwd(),
-        "src",
-        "app",
-        "copilotkit",
-        "page.tsx",
-      );
+      filePath = path.join(process.cwd(), "src", "app", "copilotkit", "page.tsx");
     }
 
     // check if src file exists
     try {
       await fs.access(filePath);
     } catch {
-      throw new Error(
-        "app/copilotkit/page.tsx and src/app/copilotkit/page.tsx not found",
-      );
+      throw new Error("app/copilotkit/page.tsx and src/app/copilotkit/page.tsx not found");
     }
 
     // Read the file content
@@ -39,17 +31,12 @@ export async function addCrewInputs(url: string, token: string) {
 
     // Replace all instances of "YOUR_INPUTS_HERE" with the inputs array as a string
     const inputsString = JSON.stringify(inputs);
-    fileContent = fileContent.replace(
-      /\[["']YOUR_INPUTS_HERE["']\]/g,
-      inputsString,
-    );
+    fileContent = fileContent.replace(/\[["']YOUR_INPUTS_HERE["']\]/g, inputsString);
 
     // Write the updated content back to the file
     await fs.writeFile(filePath, fileContent, "utf8");
 
-    spinner.succeed(
-      "Successfully added crew inputs to app/copilotkit/page.tsx",
-    );
+    spinner.succeed("Successfully added crew inputs to app/copilotkit/page.tsx");
   } catch (error) {
     console.error("Error updating crew inputs:", error);
     throw error;

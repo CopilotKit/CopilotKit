@@ -7,11 +7,7 @@ export interface DocumentEditorProps {
   onSectionEdit: (section: TSection) => void;
 }
 
-export function DocumentEditor({
-  section,
-  zoomLevel,
-  onSectionEdit,
-}: DocumentEditorProps) {
+export function DocumentEditor({ section, zoomLevel, onSectionEdit }: DocumentEditorProps) {
   const { id } = section ?? {};
 
   const scalingStyle = {
@@ -34,9 +30,7 @@ export function DocumentEditor({
         />
         <textarea
           value={section.content}
-          onChange={(e) =>
-            onSectionEdit({ ...section, content: e.target.value })
-          }
+          onChange={(e) => onSectionEdit({ ...section, content: e.target.value })}
           className="flex-1 w-full font-mono p-4 border border-black/10 rounded bg-white/50 focus:outline-none focus:ring-1 focus:ring-black/10 resize-none"
         />
         {section.footer?.length ? <Footer footer={section.footer} /> : null}

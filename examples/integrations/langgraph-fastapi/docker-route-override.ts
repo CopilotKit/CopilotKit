@@ -4,11 +4,7 @@
  * because langgraph-cli dev requires Docker-in-Docker.
  * The original route.ts (using LangGraphHttpAgent) is preserved unchanged.
  */
-import {
-  CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 import { NextRequest } from "next/server";
 

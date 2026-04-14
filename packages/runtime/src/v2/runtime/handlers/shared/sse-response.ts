@@ -5,15 +5,10 @@ import { telemetry } from "../../telemetry";
 
 interface CreateSseEventResponseParams {
   request: Request;
-  observableFactory: () =>
-    | Promise<Observable<BaseEvent>>
-    | Observable<BaseEvent>;
+  observableFactory: () => Promise<Observable<BaseEvent>> | Observable<BaseEvent>;
 }
 
-export function createSseEventResponse({
-  request,
-  observableFactory,
-}: CreateSseEventResponseParams): Response {
+export function createSseEventResponse({ request, observableFactory }: CreateSseEventResponseParams): Response {
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
   const encoder = new EventEncoder();
@@ -32,10 +27,7 @@ export function createSseEventResponse({
 
   const logError = (error: unknown) => {
     console.error("Error running agent:", error);
-    console.error(
-      "Error stack:",
-      error instanceof Error ? error.stack : "No stack trace",
-    );
+    console.error("Error stack:", error instanceof Error ? error.stack : "No stack trace");
     console.error("Error details:", {
       name: error instanceof Error ? error.name : "Unknown",
       message: error instanceof Error ? error.message : String(error),

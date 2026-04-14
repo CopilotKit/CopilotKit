@@ -4,9 +4,8 @@ description: "useRenderToolCall Hook API Reference"
 ---
 
 <Warning>
-  You would use this hook if you use the headless functionality of CopilotKit,
-  rendering your own chat UI instead of the default `CopilotChat`. If you are
-  using `CopilotChat`, you don't need to use this hook.
+  You would use this hook if you use the headless functionality of CopilotKit, rendering your own chat UI instead of the
+  default `CopilotChat`. If you are using `CopilotChat`, you don't need to use this hook.
 </Warning>
 
 `useRenderToolCall` is a React hook that provides a function to render visual representations of tool calls in the chat
@@ -32,11 +31,7 @@ import { ToolCall } from "@ag-ui/core";
 function ToolCallDisplay({ toolCall, toolMessage }) {
   const renderToolCall = useRenderToolCall();
 
-  return (
-    <div className="tool-call-container">
-      {renderToolCall({ toolCall, toolMessage })}
-    </div>
-  );
+  return <div className="tool-call-container">{renderToolCall({ toolCall, toolMessage })}</div>;
 }
 ```
 
@@ -111,13 +106,7 @@ function ChatMessage({ message }: { message: AssistantMessage }) {
 import { useRenderToolCall } from "@copilotkit/react-core";
 import { Message, ToolMessage } from "@ag-ui/core";
 
-function ChatWithResults({
-  message,
-  allMessages,
-}: {
-  message: AssistantMessage;
-  allMessages: Message[];
-}) {
+function ChatWithResults({ message, allMessages }: { message: AssistantMessage; allMessages: Message[] }) {
   const renderToolCall = useRenderToolCall();
 
   return (
@@ -125,8 +114,7 @@ function ChatWithResults({
       {message.toolCalls?.map((toolCall) => {
         // Find the corresponding result message
         const toolMessage = allMessages.find(
-          (m): m is ToolMessage =>
-            m.role === "tool" && m.toolCallId === toolCall.id,
+          (m): m is ToolMessage => m.role === "tool" && m.toolCallId === toolCall.id,
         );
 
         return (
@@ -152,10 +140,7 @@ The hook works with tool renderers defined at various levels:
 Renderers defined in `CopilotKitProvider`:
 
 ```tsx
-import {
-  CopilotKitProvider,
-  defineToolCallRenderer,
-} from "@copilotkit/react-core";
+import { CopilotKitProvider, defineToolCallRenderer } from "@copilotkit/react-core";
 
 const searchRenderer = defineToolCallRenderer({
   name: "search",

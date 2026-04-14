@@ -1,9 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
-import {
-  MockStepwiseAgent,
-  renderWithCopilotKit,
-} from "../../../__tests__/utils/test-helpers";
+import { MockStepwiseAgent, renderWithCopilotKit } from "../../../__tests__/utils/test-helpers";
 import { CopilotChat } from "../CopilotChat";
 import { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import { type BaseEvent, type RunAgentInput } from "@ag-ui/client";

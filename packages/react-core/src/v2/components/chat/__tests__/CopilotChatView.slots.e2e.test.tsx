@@ -31,17 +31,12 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       it("should apply tailwind class string to messageView", () => {
         render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              messageView="bg-red-500 text-white p-4"
-            />
+            <CopilotChatView messages={sampleMessages} messageView="bg-red-500 text-white p-4" />
           </TestWrapper>,
         );
 
         // The messageView should have the custom tailwind classes
-        const messageContainer = document.querySelector(
-          '[class*="bg-red-500"]',
-        );
+        const messageContainer = document.querySelector('[class*="bg-red-500"]');
         expect(messageContainer).toBeDefined();
         expect(messageContainer?.classList.contains("text-white")).toBe(true);
         expect(messageContainer?.classList.contains("p-4")).toBe(true);
@@ -50,16 +45,11 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       it("should override default className with tailwind string", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              messageView="custom-override-class"
-            />
+            <CopilotChatView messages={sampleMessages} messageView="custom-override-class" />
           </TestWrapper>,
         );
 
-        const messageContainer = container.querySelector(
-          ".custom-override-class",
-        );
+        const messageContainer = container.querySelector(".custom-override-class");
         expect(messageContainer).toBeDefined();
       });
     });
@@ -68,10 +58,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       it("should apply tailwind class string to scrollView", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              scrollView="overflow-y-auto bg-gray-100"
-            />
+            <CopilotChatView messages={sampleMessages} scrollView="overflow-y-auto bg-gray-100" />
           </TestWrapper>,
         );
 
@@ -104,10 +91,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       it("should apply tailwind class string to input", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input="border-2 border-purple-500"
-            />
+            <CopilotChatView messages={sampleMessages} input="border-2 border-purple-500" />
           </TestWrapper>,
         );
 
@@ -120,10 +104,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       it("should apply tailwind class string to feather via scrollView", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              scrollView={{ feather: "text-green-500 font-bold" }}
-            />
+            <CopilotChatView messages={sampleMessages} scrollView={{ feather: "text-green-500 font-bold" }} />
           </TestWrapper>,
         );
 
@@ -136,9 +117,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
 
     describe("suggestionView slot", () => {
       it("should apply tailwind class string to suggestionView", () => {
-        const suggestions = [
-          { title: "Test", message: "Test message", isLoading: false },
-        ];
+        const suggestions = [{ title: "Test", message: "Test message", isLoading: false }];
 
         const { container } = render(
           <TestWrapper>
@@ -159,10 +138,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       it("tailwind string should completely replace className (not merge)", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input="only-this-class"
-            />
+            <CopilotChatView messages={sampleMessages} input="only-this-class" />
           </TestWrapper>,
         );
 
@@ -174,18 +150,16 @@ describe("CopilotChatView Slot System E2E Tests", () => {
 
     describe("non-tailwind inline styles should still work", () => {
       it("should accept style prop alongside className override", () => {
-        const CustomInput = React.forwardRef<HTMLDivElement, any>(
-          (props, ref) => (
-            <div
-              ref={ref}
-              className={props.className}
-              style={{ backgroundColor: "rgb(255, 0, 0)" }}
-              data-testid="custom-input"
-            >
-              {props.children}
-            </div>
-          ),
-        );
+        const CustomInput = React.forwardRef<HTMLDivElement, any>((props, ref) => (
+          <div
+            ref={ref}
+            className={props.className}
+            style={{ backgroundColor: "rgb(255, 0, 0)" }}
+            data-testid="custom-input"
+          >
+            {props.children}
+          </div>
+        ));
         CustomInput.displayName = "CustomInput";
 
         render(
@@ -232,10 +206,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       it("should pass disabled prop to scrollToBottomButton via scrollView", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              scrollView={{ scrollToBottomButton: { disabled: true } }}
-            />
+            <CopilotChatView messages={sampleMessages} scrollView={{ scrollToBottomButton: { disabled: true } }} />
           </TestWrapper>,
         );
 
@@ -251,10 +222,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
 
         render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input={{ onFocus: handleFocus }}
-            />
+            <CopilotChatView messages={sampleMessages} input={{ onFocus: handleFocus }} />
           </TestWrapper>,
         );
 
@@ -266,10 +234,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       it("should pass autoFocus prop to input", () => {
         render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input={{ autoFocus: true }}
-            />
+            <CopilotChatView messages={sampleMessages} input={{ autoFocus: true }} />
           </TestWrapper>,
         );
 
@@ -304,17 +269,12 @@ describe("CopilotChatView Slot System E2E Tests", () => {
     describe("messageView custom component", () => {
       it("should render custom messageView component", () => {
         const CustomMessageView: React.FC<any> = ({ messages }) => (
-          <div data-testid="custom-message-view">
-            Custom: {messages?.length || 0} messages
-          </div>
+          <div data-testid="custom-message-view">Custom: {messages?.length || 0} messages</div>
         );
 
         render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              messageView={CustomMessageView}
-            />
+            <CopilotChatView messages={sampleMessages} messageView={CustomMessageView} />
           </TestWrapper>,
         );
 
@@ -332,11 +292,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
 
         render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              isRunning={true}
-              messageView={CustomMessageView}
-            />
+            <CopilotChatView messages={sampleMessages} isRunning={true} messageView={CustomMessageView} />
           </TestWrapper>,
         );
 
@@ -350,14 +306,8 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       it("should render custom input component", () => {
         const CustomInput: React.FC<any> = (props) => (
           <div data-testid="custom-input">
-            <input
-              type="text"
-              placeholder="Custom input"
-              onChange={(e) => props.onChange?.(e.target.value)}
-            />
-            <button onClick={() => props.onSubmitMessage?.("test")}>
-              Send
-            </button>
+            <input type="text" placeholder="Custom input" onChange={(e) => props.onChange?.(e.target.value)} />
+            <button onClick={() => props.onSubmitMessage?.("test")}>Send</button>
           </div>
         );
 
@@ -375,21 +325,14 @@ describe("CopilotChatView Slot System E2E Tests", () => {
         const submitHandler = vi.fn();
 
         const CustomInput: React.FC<any> = ({ onSubmitMessage }) => (
-          <button
-            data-testid="custom-submit"
-            onClick={() => onSubmitMessage?.("test message")}
-          >
+          <button data-testid="custom-submit" onClick={() => onSubmitMessage?.("test message")}>
             Submit
           </button>
         );
 
         render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input={CustomInput}
-              onSubmitMessage={submitHandler}
-            />
+            <CopilotChatView messages={sampleMessages} input={CustomInput} onSubmitMessage={submitHandler} />
           </TestWrapper>,
         );
 
@@ -401,20 +344,14 @@ describe("CopilotChatView Slot System E2E Tests", () => {
     describe("scrollView custom component", () => {
       it("should render custom scrollView component", () => {
         const CustomScrollView: React.FC<any> = ({ children }) => (
-          <div
-            data-testid="custom-scroll"
-            style={{ maxHeight: 300, overflow: "auto" }}
-          >
+          <div data-testid="custom-scroll" style={{ maxHeight: 300, overflow: "auto" }}>
             {children}
           </div>
         );
 
         render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              scrollView={CustomScrollView}
-            />
+            <CopilotChatView messages={sampleMessages} scrollView={CustomScrollView} />
           </TestWrapper>,
         );
 
@@ -429,10 +366,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           { title: "Option B", message: "Do B", isLoading: false },
         ];
 
-        const CustomSuggestionView: React.FC<any> = ({
-          suggestions,
-          onSelectSuggestion,
-        }) => (
+        const CustomSuggestionView: React.FC<any> = ({ suggestions, onSelectSuggestion }) => (
           <div data-testid="custom-suggestions">
             {suggestions.map((s: any, i: number) => (
               <button key={i} onClick={() => onSelectSuggestion?.(s, i)}>
@@ -460,16 +394,11 @@ describe("CopilotChatView Slot System E2E Tests", () => {
 
     describe("feather custom component (via scrollView)", () => {
       it("should render custom feather component via scrollView", () => {
-        const CustomFeather: React.FC<any> = () => (
-          <div data-testid="custom-feather">Custom Feather</div>
-        );
+        const CustomFeather: React.FC<any> = () => <div data-testid="custom-feather">Custom Feather</div>;
 
         render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              scrollView={{ feather: CustomFeather }}
-            />
+            <CopilotChatView messages={sampleMessages} scrollView={{ feather: CustomFeather }} />
           </TestWrapper>,
         );
 
@@ -490,10 +419,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
 
         render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              scrollView={{ scrollToBottomButton: CustomScrollButton }}
-            />
+            <CopilotChatView messages={sampleMessages} scrollView={{ scrollToBottomButton: CustomScrollButton }} />
           </TestWrapper>,
         );
 
@@ -513,9 +439,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
     describe("messageView -> assistantMessage drill-down", () => {
       it("should allow customizing assistantMessage within messageView", () => {
         const CustomAssistantMessage: React.FC<any> = ({ message }) => (
-          <div data-testid="custom-assistant-msg">
-            Custom Assistant: {message?.content}
-          </div>
+          <div data-testid="custom-assistant-msg">Custom Assistant: {message?.content}</div>
         );
 
         render(
@@ -558,9 +482,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
 
     describe("messageView -> cursor drill-down", () => {
       it("should allow customizing cursor within messageView", () => {
-        const CustomCursor: React.FC<any> = () => (
-          <span data-testid="custom-cursor">|</span>
-        );
+        const CustomCursor: React.FC<any> = () => <span data-testid="custom-cursor">|</span>;
 
         render(
           <TestWrapper>
@@ -584,19 +506,18 @@ describe("CopilotChatView Slot System E2E Tests", () => {
 
     describe("input -> textArea drill-down", () => {
       it("should allow customizing textArea within input", () => {
-        const CustomTextArea: React.FC<any> = React.forwardRef<
-          HTMLTextAreaElement,
-          any
-        >(({ value, onChange, ...props }, ref) => (
-          <textarea
-            ref={ref}
-            data-testid="custom-textarea"
-            value={value}
-            onChange={(e) => onChange?.(e.target.value)}
-            placeholder="Type here..."
-            {...props}
-          />
-        ));
+        const CustomTextArea: React.FC<any> = React.forwardRef<HTMLTextAreaElement, any>(
+          ({ value, onChange, ...props }, ref) => (
+            <textarea
+              ref={ref}
+              data-testid="custom-textarea"
+              value={value}
+              onChange={(e) => onChange?.(e.target.value)}
+              placeholder="Type here..."
+              {...props}
+            />
+          ),
+        );
 
         render(
           <TestWrapper>
@@ -619,11 +540,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
     describe("input -> sendButton drill-down", () => {
       it("should allow customizing sendButton within input", () => {
         const CustomSendButton: React.FC<any> = ({ onClick, disabled }) => (
-          <button
-            data-testid="custom-send-btn"
-            onClick={onClick}
-            disabled={disabled}
-          >
+          <button data-testid="custom-send-btn" onClick={onClick} disabled={disabled}>
             🚀 Send
           </button>
         );
@@ -648,9 +565,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
 
     describe("input -> addMenuButton drill-down", () => {
       it("should allow customizing addMenuButton within input", () => {
-        const CustomAddMenu: React.FC<any> = () => (
-          <button data-testid="custom-add-menu">+ Add</button>
-        );
+        const CustomAddMenu: React.FC<any> = () => <button data-testid="custom-add-menu">+ Add</button>;
 
         render(
           <TestWrapper>
@@ -672,20 +587,11 @@ describe("CopilotChatView Slot System E2E Tests", () => {
 
     describe("suggestionView -> suggestion drill-down", () => {
       it("should allow customizing suggestion pill within suggestionView", () => {
-        const suggestions = [
-          { title: "Suggestion 1", message: "Do 1", isLoading: false },
-        ];
+        const suggestions = [{ title: "Suggestion 1", message: "Do 1", isLoading: false }];
 
         // Custom suggestion component that handles the props passed by the slot system
-        const CustomSuggestionPill: React.FC<any> = ({
-          suggestion,
-          onClick,
-          title,
-        }) => (
-          <button
-            data-testid="custom-suggestion-pill"
-            onClick={() => onClick?.(suggestion)}
-          >
+        const CustomSuggestionPill: React.FC<any> = ({ suggestion, onClick, title }) => (
+          <button data-testid="custom-suggestion-pill" onClick={() => onClick?.(suggestion)}>
             💡 {suggestion?.title ?? title ?? "Suggestion"}
           </button>
         );
@@ -711,14 +617,9 @@ describe("CopilotChatView Slot System E2E Tests", () => {
 
     describe("suggestionView -> container drill-down", () => {
       it("should allow customizing container within suggestionView", () => {
-        const suggestions = [
-          { title: "Test", message: "Test msg", isLoading: false },
-        ];
+        const suggestions = [{ title: "Test", message: "Test msg", isLoading: false }];
 
-        const CustomContainer: React.FC<any> = React.forwardRef<
-          HTMLDivElement,
-          any
-        >(({ children, ...props }, ref) => (
+        const CustomContainer: React.FC<any> = React.forwardRef<HTMLDivElement, any>(({ children, ...props }, ref) => (
           <div ref={ref} data-testid="custom-suggestion-container" {...props}>
             <span>Suggestions:</span>
             {children}
@@ -750,15 +651,11 @@ describe("CopilotChatView Slot System E2E Tests", () => {
           <div data-testid="nested-assistant">A: {message?.content}</div>
         );
 
-        const CustomUser: React.FC<any> = ({ message }) => (
-          <div data-testid="nested-user">U: {message?.content}</div>
-        );
+        const CustomUser: React.FC<any> = ({ message }) => <div data-testid="nested-user">U: {message?.content}</div>;
 
-        const CustomTextArea: React.FC<any> = React.forwardRef<any, any>(
-          (props, ref) => (
-            <textarea ref={ref} data-testid="nested-textarea" {...props} />
-          ),
-        );
+        const CustomTextArea: React.FC<any> = React.forwardRef<any, any>((props, ref) => (
+          <textarea ref={ref} data-testid="nested-textarea" {...props} />
+        ));
 
         render(
           <TestWrapper>
@@ -871,10 +768,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       it("should allow className prop in object slot to override defaults", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              messageView={{ className: "my-custom-class" }}
-            />
+            <CopilotChatView messages={sampleMessages} messageView={{ className: "my-custom-class" }} />
           </TestWrapper>,
         );
 
@@ -909,20 +803,14 @@ describe("CopilotChatView Slot System E2E Tests", () => {
         // String slot version
         const { container: container1 } = render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input="test-class-string"
-            />
+            <CopilotChatView messages={sampleMessages} input="test-class-string" />
           </TestWrapper>,
         );
 
         // className prop version
         const { container: container2 } = render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input={{ className: "test-class-object" }}
-            />
+            <CopilotChatView messages={sampleMessages} input={{ className: "test-class-object" }} />
           </TestWrapper>,
         );
 
@@ -935,10 +823,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       it("should properly apply tailwind utilities like flex, grid, etc.", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input="flex items-center justify-between gap-4"
-            />
+            <CopilotChatView messages={sampleMessages} input="flex items-center justify-between gap-4" />
           </TestWrapper>,
         );
 
@@ -954,10 +839,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       it("should apply responsive tailwind classes", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              messageView="p-2 md:p-4 lg:p-6"
-            />
+            <CopilotChatView messages={sampleMessages} messageView="p-2 md:p-4 lg:p-6" />
           </TestWrapper>,
         );
 
@@ -971,10 +853,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       it("should apply dark mode tailwind classes", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              scrollView="bg-white dark:bg-gray-900"
-            />
+            <CopilotChatView messages={sampleMessages} scrollView="bg-white dark:bg-gray-900" />
           </TestWrapper>,
         );
 
@@ -991,10 +870,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
         // it should override/replace the default className
         const { container } = render(
           <TestWrapper>
-            <CopilotChatView
-              messages={sampleMessages}
-              input={{ className: "user-override-class" }}
-            />
+            <CopilotChatView messages={sampleMessages} input={{ className: "user-override-class" }} />
           </TestWrapper>,
         );
 
@@ -1042,9 +918,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       );
 
       // Should receive at least messageView, input, scrollView, etc.
-      expect(
-        receivedSlots.includes("messageView") || receivedSlots.length > 0,
-      ).toBe(true);
+      expect(receivedSlots.includes("messageView") || receivedSlots.length > 0).toBe(true);
     });
   });
 });

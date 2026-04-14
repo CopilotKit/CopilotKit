@@ -21,11 +21,7 @@ const TYPE_COLORS: Record<string, string> = {
  * Tiny 4-column grid preview of a dashboard layout.
  * Used in gallery cards and the toolbar dropdown.
  */
-export function DashboardMiniPreview({
-  widgets,
-}: {
-  widgets: DashboardWidget[];
-}) {
+export function DashboardMiniPreview({ widgets }: { widgets: DashboardWidget[] }) {
   const sorted = [...widgets].sort((a, b) => a.order - b.order);
 
   return (

@@ -138,9 +138,7 @@ describe("ToolDefinition type inference", () => {
     it("default generic parameter is StandardSchemaV1", () => {
       type DefaultTool = ToolDefinition;
 
-      expectTypeOf<
-        DefaultTool["parameters"]
-      >().toMatchTypeOf<StandardSchemaV1>();
+      expectTypeOf<DefaultTool["parameters"]>().toMatchTypeOf<StandardSchemaV1>();
     });
 
     it("preserves schema type through defineTool return", () => {

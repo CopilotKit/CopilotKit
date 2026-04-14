@@ -72,10 +72,7 @@ const LANG_MAP: Record<string, string> = {
   java: "java",
 };
 
-function scoreIntegration(
-  integration: Integration,
-  answers: GuidedAnswers,
-): ScoredIntegration {
+function scoreIntegration(integration: Integration, answers: GuidedAnswers): ScoredIntegration {
   let matches = 0;
   let total = 0;
 
@@ -96,21 +93,11 @@ function scoreIntegration(
   // Step 3: constraints
   for (const constraint of answers.constraints) {
     total++;
-    if (constraint === "aws" && ["strands", "agno"].includes(integration.slug))
-      matches++;
+    if (constraint === "aws" && ["strands", "agno"].includes(integration.slug)) matches++;
     if (constraint === "google" && integration.slug === "google-adk") matches++;
-    if (constraint === "azure" && integration.slug.includes("ms-agent"))
-      matches++;
-    if (
-      constraint === "multi-agent" &&
-      ["crewai-crews", "ag2"].includes(integration.slug)
-    )
-      matches++;
-    if (
-      constraint === "simple" &&
-      ["mastra", "langgraph-typescript"].includes(integration.slug)
-    )
-      matches++;
+    if (constraint === "azure" && integration.slug.includes("ms-agent")) matches++;
+    if (constraint === "multi-agent" && ["crewai-crews", "ag2"].includes(integration.slug)) matches++;
+    if (constraint === "simple" && ["mastra", "langgraph-typescript"].includes(integration.slug)) matches++;
   }
 
   return {
@@ -142,11 +129,7 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
         const parsed = JSON.parse(saved) as GuidedAnswers;
         setAnswers(parsed);
         // If they have previous results, jump to results
-        if (
-          parsed.features.length > 0 ||
-          parsed.language ||
-          parsed.constraints.length > 0
-        ) {
+        if (parsed.features.length > 0 || parsed.language || parsed.constraints.length > 0) {
           setStep(3);
         }
       }
@@ -164,33 +147,24 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
     }
   }, [answers]);
 
-  const deployed = useMemo(
-    () => integrations.filter((i) => i.deployed),
-    [integrations],
-  );
+  const deployed = useMemo(() => integrations.filter((i) => i.deployed), [integrations]);
 
   const results = useMemo(() => {
     const scored = deployed.map((i) => scoreIntegration(i, answers));
-    return scored
-      .filter((s) => s.score > 0)
-      .sort((a, b) => b.score - a.score || b.matches - a.matches);
+    return scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score || b.matches - a.matches);
   }, [deployed, answers]);
 
   const toggleFeature = useCallback((id: string) => {
     setAnswers((prev) => ({
       ...prev,
-      features: prev.features.includes(id)
-        ? prev.features.filter((f) => f !== id)
-        : [...prev.features, id],
+      features: prev.features.includes(id) ? prev.features.filter((f) => f !== id) : [...prev.features, id],
     }));
   }, []);
 
   const toggleConstraint = useCallback((id: string) => {
     setAnswers((prev) => ({
       ...prev,
-      constraints: prev.constraints.includes(id)
-        ? prev.constraints.filter((c) => c !== id)
-        : [...prev.constraints, id],
+      constraints: prev.constraints.includes(id) ? prev.constraints.filter((c) => c !== id) : [...prev.constraints, id],
     }));
   }, []);
 
@@ -211,12 +185,7 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
     }
   }, []);
 
-  const canAdvance =
-    step === 0
-      ? answers.features.length > 0
-      : step === 1
-        ? answers.language !== null
-        : true; // step 2 (constraints) is optional
+  const canAdvance = step === 0 ? answers.features.length > 0 : step === 1 ? answers.language !== null : true; // step 2 (constraints) is optional
 
   if (!open) {
     return (
@@ -225,12 +194,7 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
         onClick={() => setOpen(true)}
         className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-[var(--accent)] text-[var(--accent)] text-sm font-medium hover:bg-[var(--accent)] hover:text-white transition-colors"
       >
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -246,35 +210,20 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/40 z-40"
-        onClick={() => setOpen(false)}
-      />
+      <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setOpen(false)} />
 
       {/* Panel */}
       <div className="fixed inset-y-0 right-0 w-full max-w-lg bg-[var(--bg)] border-l border-[var(--border)] shadow-2xl z-50 flex flex-col guided-animate-slide-in">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)]">
-          <h2 className="text-lg font-semibold text-[var(--text)]">
-            {step < 3 ? "Help me choose" : "Your matches"}
-          </h2>
+          <h2 className="text-lg font-semibold text-[var(--text)]">{step < 3 ? "Help me choose" : "Your matches"}</h2>
           <button
             type="button"
             onClick={() => setOpen(false)}
             className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -292,9 +241,7 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
                 />
               ))}
             </div>
-            <p className="text-xs text-[var(--text-muted)] mt-2">
-              Step {step + 1} of 3
-            </p>
+            <p className="text-xs text-[var(--text-muted)] mt-2">Step {step + 1} of 3</p>
           </div>
         )}
 
@@ -302,12 +249,7 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
         <div className="flex-1 overflow-y-auto px-6 py-6">
           {step === 0 && (
             <StepContent title="What are you building?">
-              <PillGrid
-                options={FEATURE_OPTIONS}
-                selected={answers.features}
-                onToggle={toggleFeature}
-                multi
-              />
+              <PillGrid options={FEATURE_OPTIONS} selected={answers.features} onToggle={toggleFeature} multi />
             </StepContent>
           )}
 
@@ -322,16 +264,8 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
           )}
 
           {step === 2 && (
-            <StepContent
-              title="Any constraints?"
-              subtitle="Optional -- skip if none apply."
-            >
-              <PillGrid
-                options={CONSTRAINT_OPTIONS}
-                selected={answers.constraints}
-                onToggle={toggleConstraint}
-                multi
-              />
+            <StepContent title="Any constraints?" subtitle="Optional -- skip if none apply.">
+              <PillGrid options={CONSTRAINT_OPTIONS} selected={answers.constraints} onToggle={toggleConstraint} multi />
             </StepContent>
           )}
 
@@ -339,8 +273,7 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
             <div>
               {results.length === 0 ? (
                 <p className="text-sm text-[var(--text-muted)] text-center py-8">
-                  No integrations match your criteria. Try adjusting your
-                  answers.
+                  No integrations match your criteria. Try adjusting your answers.
                 </p>
               ) : (
                 <div className="flex flex-col gap-3">
@@ -360,18 +293,13 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
                                 alt=""
                                 className="w-5 h-5 rounded"
                                 onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display =
-                                    "none";
+                                  (e.target as HTMLImageElement).style.display = "none";
                                 }}
                               />
                             )}
-                            <span className="text-sm font-semibold text-[var(--text)]">
-                              {integration.name}
-                            </span>
+                            <span className="text-sm font-semibold text-[var(--text)]">{integration.name}</span>
                           </div>
-                          <p className="text-xs text-[var(--text-secondary)] line-clamp-2">
-                            {integration.description}
-                          </p>
+                          <p className="text-xs text-[var(--text-secondary)] line-clamp-2">{integration.description}</p>
                         </div>
                         <span
                           className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
@@ -471,23 +399,11 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
 // StepContent
 // ---------------------------------------------------------------------------
 
-function StepContent({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-}) {
+function StepContent({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <div>
-      <h3 className="text-base font-semibold text-[var(--text)] mb-1">
-        {title}
-      </h3>
-      {subtitle && (
-        <p className="text-xs text-[var(--text-muted)] mb-4">{subtitle}</p>
-      )}
+      <h3 className="text-base font-semibold text-[var(--text)] mb-1">{title}</h3>
+      {subtitle && <p className="text-xs text-[var(--text-muted)] mb-4">{subtitle}</p>}
       {!subtitle && <div className="mb-4" />}
       {children}
     </div>
@@ -525,18 +441,8 @@ function PillGrid({
             }`}
           >
             {active && multi && (
-              <svg
-                className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2.5}
-                  d="M5 13l4 4L19 7"
-                />
+              <svg className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
               </svg>
             )}
             {label}

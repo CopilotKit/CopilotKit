@@ -22,20 +22,14 @@ const LOCAL_PACKAGES = {
   "@copilotkit/react-ui": path.join(COPILOTKIT_ROOT, "packages/react-ui"),
   "@copilotkit/runtime": path.join(COPILOTKIT_ROOT, "packages/runtime"),
   "@copilotkit/shared": path.join(COPILOTKIT_ROOT, "packages/shared"),
-  "@copilotkit/a2ui-renderer": path.join(
-    COPILOTKIT_ROOT,
-    "packages/a2ui-renderer",
-  ),
+  "@copilotkit/a2ui-renderer": path.join(COPILOTKIT_ROOT, "packages/a2ui-renderer"),
   // AG-UI
   "@ag-ui/client": path.join(AGUI_ROOT, "sdks/typescript/packages/client"),
   "@ag-ui/core": path.join(AGUI_ROOT, "sdks/typescript/packages/core"),
   "@ag-ui/encoder": path.join(AGUI_ROOT, "sdks/typescript/packages/encoder"),
   "@ag-ui/proto": path.join(AGUI_ROOT, "sdks/typescript/packages/proto"),
   "@ag-ui/a2ui-middleware": path.join(AGUI_ROOT, "middlewares/a2ui-middleware"),
-  "@ag-ui/mcp-apps-middleware": path.join(
-    AGUI_ROOT,
-    "middlewares/mcp-apps-middleware",
-  ),
+  "@ag-ui/mcp-apps-middleware": path.join(AGUI_ROOT, "middlewares/mcp-apps-middleware"),
 };
 
 function readPackage(pkg) {

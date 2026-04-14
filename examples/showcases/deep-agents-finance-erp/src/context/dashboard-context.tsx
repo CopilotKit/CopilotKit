@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useRef,
-  useEffect,
-} from "react";
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
 import type { DashboardWidget, SavedDashboard } from "@/types/dashboard";
 import {
   getSavedDashboards,
@@ -81,15 +74,12 @@ interface DashboardContextValue {
 const DashboardContext = createContext<DashboardContextValue | null>(null);
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
-  const [widgets, setWidgetsState] =
-    useState<DashboardWidget[]>(DEFAULT_WIDGETS);
+  const [widgets, setWidgetsState] = useState<DashboardWidget[]>(DEFAULT_WIDGETS);
   const widgetsRef = useRef(widgets);
   widgetsRef.current = widgets;
 
   const [savedDashboards, setSavedDashboards] = useState<SavedDashboard[]>([]);
-  const [currentDashboardName, setCurrentDashboardName] = useState<
-    string | null
-  >(null);
+  const [currentDashboardName, setCurrentDashboardName] = useState<string | null>(null);
 
   // Load saved dashboards from API on mount
   useEffect(() => {
@@ -113,32 +103,17 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     setCurrentDashboardName(null);
   }, []);
 
-  const updateWidget = useCallback(
-    (widgetId: string, updates: Partial<DashboardWidget>) => {
-      setWidgetsState((prev) =>
-        prev.map((w) =>
-          w.id === widgetId ? ({ ...w, ...updates } as DashboardWidget) : w,
-        ),
-      );
-    },
-    [],
-  );
+  const updateWidget = useCallback((widgetId: string, updates: Partial<DashboardWidget>) => {
+    setWidgetsState((prev) => prev.map((w) => (w.id === widgetId ? ({ ...w, ...updates } as DashboardWidget) : w)));
+  }, []);
 
   const upsertWidget = useCallback(
-    (
-      type: DashboardWidget["type"],
-      create: (order: number) => DashboardWidget,
-      updates: Partial<DashboardWidget>,
-    ) => {
+    (type: DashboardWidget["type"], create: (order: number) => DashboardWidget, updates: Partial<DashboardWidget>) => {
       const current = widgetsRef.current;
       const existing = current.find((w) => w.type === type);
       if (existing) {
         setWidgetsState((prev) =>
-          prev.map((w) =>
-            w.id === existing.id
-              ? ({ ...w, ...updates } as DashboardWidget)
-              : w,
-          ),
+          prev.map((w) => (w.id === existing.id ? ({ ...w, ...updates } as DashboardWidget) : w)),
         );
         return { existed: true, id: existing.id };
       }

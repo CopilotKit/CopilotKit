@@ -21,17 +21,13 @@ export function PRReviewBarData({ args }: any) {
     console.log(args);
 
     let buffer = prData.filter(
-      (pr: PRData) =>
-        (pr.status === "needs_revision" || pr.status === "in_review") &&
-        pr.userId === args?.userId,
+      (pr: PRData) => (pr.status === "needs_revision" || pr.status === "in_review") && pr.userId === args?.userId,
     );
     const uniqueReviewers = getUniqueReviewers(buffer);
     let buffer2 = uniqueReviewers.map((reviewer: string) => {
       return {
         name: reviewer.split("@")[0].split(".").join(" "),
-        "PR Count": buffer.filter(
-          (pr: PRData) => pr.assignedReviewer === reviewer,
-        ).length,
+        "PR Count": buffer.filter((pr: PRData) => pr.assignedReviewer === reviewer).length,
       };
     });
     setData(buffer2);
@@ -51,9 +47,7 @@ export function PRReviewBarData({ args }: any) {
     <>
       {/* Bar Chart Section */}
       <div className="flex-1 p-4 rounded-2xl shadow-lg flex flex-col items-center min-w-[250px] max-w-[350px]">
-        <h2 className="text-xl font-semibold mb-2 text-gray-700 text-center">
-          PR Under Review
-        </h2>
+        <h2 className="text-xl font-semibold mb-2 text-gray-700 text-center">PR Under Review</h2>
         <div className="h-[180px] flex items-center justify-center">
           <BarChart width={260} height={180} data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#94a3b855" />
@@ -62,8 +56,7 @@ export function PRReviewBarData({ args }: any) {
               stroke="#cbd5e1"
               className="text-black"
               tickFormatter={(value: string) =>
-                value.split(" ")[0][0].toUpperCase() +
-                value.split(" ")[1][0].toUpperCase()
+                value.split(" ")[0][0].toUpperCase() + value.split(" ")[1][0].toUpperCase()
               }
             />
             <YAxis stroke="#cbd5e1" />

@@ -23,11 +23,7 @@ import { ROOT } from "./lib/config.js";
 import { createReleaseDraft } from "./lib/notion.js";
 
 function getRecentCommits(count = 50): string {
-  const result = spawnSync(
-    "git",
-    ["log", "--oneline", `-${count}`, "--no-merges"],
-    { cwd: ROOT, encoding: "utf8" },
-  );
+  const result = spawnSync("git", ["log", "--oneline", `-${count}`, "--no-merges"], { cwd: ROOT, encoding: "utf8" });
   return result.stdout.trim();
 }
 
@@ -126,9 +122,7 @@ Output ONLY the release notes content, nothing else.`;
       console.log("Falling back to raw changelog.");
     }
   } else {
-    console.log(
-      "No ANTHROPIC_API_KEY found. Using raw changelog as release notes.",
-    );
+    console.log("No ANTHROPIC_API_KEY found. Using raw changelog as release notes.");
   }
 
   // Step 2: Create a Notion draft page for human editing
@@ -157,9 +151,7 @@ Output ONLY the release notes content, nothing else.`;
       console.log("Continuing without Notion draft.");
     }
   } else {
-    console.log(
-      "No NOTION_API_KEY/NOTION_RELEASE_NOTES_PAGE found. Skipping Notion draft.",
-    );
+    console.log("No NOTION_API_KEY/NOTION_RELEASE_NOTES_PAGE found. Skipping Notion draft.");
   }
 }
 

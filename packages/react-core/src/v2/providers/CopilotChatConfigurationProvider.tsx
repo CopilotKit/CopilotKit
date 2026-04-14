@@ -1,13 +1,4 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  ReactNode,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { createContext, useCallback, useContext, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
 import { useShallowStableRef } from "../lib/slots";
 
@@ -28,8 +19,7 @@ export const CopilotChatDefaultLabels = {
   assistantMessageToolbarRegenerateLabel: "Regenerate",
   userMessageToolbarCopyMessageLabel: "Copy",
   userMessageToolbarEditMessageLabel: "Edit",
-  chatDisclaimerText:
-    "AI can make mistakes. Please verify important information.",
+  chatDisclaimerText: "AI can make mistakes. Please verify important information.",
   chatToggleOpenLabel: "Open chat",
   chatToggleCloseLabel: "Close chat",
   modalHeaderTitle: "CopilotKit Chat",
@@ -48,8 +38,7 @@ export interface CopilotChatConfigurationValue {
 }
 
 // Create the configuration context
-const CopilotChatConfiguration =
-  createContext<CopilotChatConfigurationValue | null>(null);
+const CopilotChatConfiguration = createContext<CopilotChatConfigurationValue | null>(null);
 
 // Provider props interface
 export interface CopilotChatConfigurationProviderProps {
@@ -61,9 +50,13 @@ export interface CopilotChatConfigurationProviderProps {
 }
 
 // Provider component
-export const CopilotChatConfigurationProvider: React.FC<
-  CopilotChatConfigurationProviderProps
-> = ({ children, labels, agentId, threadId, isModalDefaultOpen }) => {
+export const CopilotChatConfigurationProvider: React.FC<CopilotChatConfigurationProviderProps> = ({
+  children,
+  labels,
+  agentId,
+  threadId,
+  isModalDefaultOpen,
+}) => {
   const parentConfig = useContext(CopilotChatConfiguration);
 
   // Stabilize labels references so that inline objects (new reference on every
@@ -94,8 +87,7 @@ export const CopilotChatConfigurationProvider: React.FC<
 
   const resolvedDefaultOpen = isModalDefaultOpen ?? true;
 
-  const [internalModalOpen, setInternalModalOpen] =
-    useState<boolean>(resolvedDefaultOpen);
+  const [internalModalOpen, setInternalModalOpen] = useState<boolean>(resolvedDefaultOpen);
 
   const hasExplicitDefault = isModalDefaultOpen !== undefined;
 
@@ -129,12 +121,8 @@ export const CopilotChatConfigurationProvider: React.FC<
     setInternalModalOpen(parentConfig.isModalOpen);
   }, [parentConfig?.isModalOpen, hasExplicitDefault]);
 
-  const resolvedIsModalOpen = hasExplicitDefault
-    ? internalModalOpen
-    : (parentConfig?.isModalOpen ?? internalModalOpen);
-  const resolvedSetModalOpen = hasExplicitDefault
-    ? setAndSync
-    : (parentConfig?.setModalOpen ?? setInternalModalOpen);
+  const resolvedIsModalOpen = hasExplicitDefault ? internalModalOpen : (parentConfig?.isModalOpen ?? internalModalOpen);
+  const resolvedSetModalOpen = hasExplicitDefault ? setAndSync : (parentConfig?.setModalOpen ?? setInternalModalOpen);
 
   const configurationValue: CopilotChatConfigurationValue = useMemo(
     () => ({
@@ -144,25 +132,14 @@ export const CopilotChatConfigurationProvider: React.FC<
       isModalOpen: resolvedIsModalOpen,
       setModalOpen: resolvedSetModalOpen,
     }),
-    [
-      mergedLabels,
-      resolvedAgentId,
-      resolvedThreadId,
-      resolvedIsModalOpen,
-      resolvedSetModalOpen,
-    ],
+    [mergedLabels, resolvedAgentId, resolvedThreadId, resolvedIsModalOpen, resolvedSetModalOpen],
   );
 
-  return (
-    <CopilotChatConfiguration.Provider value={configurationValue}>
-      {children}
-    </CopilotChatConfiguration.Provider>
-  );
+  return <CopilotChatConfiguration.Provider value={configurationValue}>{children}</CopilotChatConfiguration.Provider>;
 };
 
 // Hook to use the full configuration
-export const useCopilotChatConfiguration =
-  (): CopilotChatConfigurationValue | null => {
-    const configuration = useContext(CopilotChatConfiguration);
-    return configuration;
-  };
+export const useCopilotChatConfiguration = (): CopilotChatConfigurationValue | null => {
+  const configuration = useContext(CopilotChatConfiguration);
+  return configuration;
+};

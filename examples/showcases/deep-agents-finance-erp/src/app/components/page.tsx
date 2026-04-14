@@ -186,22 +186,19 @@ const TOOL_REGISTRY: ToolMeta[] = [
         name: "type",
         type: '"area" | "bar" | "line"',
         required: true,
-        description:
-          "Chart type: area for trends, bar for comparisons, line for trajectories",
+        description: "Chart type: area for trends, bar for comparisons, line for trajectories",
       },
       {
         name: "data",
         type: "{ label: string; value: number; value2?: number }[]",
         required: true,
-        description:
-          "Chart data points. Each point has a label (x-axis) and one or two values.",
+        description: "Chart data points. Each point has a label (x-axis) and one or two values.",
       },
       {
         name: "series",
         type: "{ key: string; color: string; label: string }[]",
         required: true,
-        description:
-          'Series config. key is "value" or "value2", color is a hex string, label is the legend text.',
+        description: 'Series config. key is "value" or "value2", color is a hex string, label is the legend text.',
       },
     ],
   },
@@ -269,8 +266,7 @@ const TOOL_REGISTRY: ToolMeta[] = [
         name: "action",
         type: "string",
         required: true,
-        description:
-          "Description of the action, e.g. 'Mark 3 invoices as paid'",
+        description: "Description of the action, e.g. 'Mark 3 invoices as paid'",
       },
     ],
   },
@@ -461,8 +457,7 @@ const TOOL_REGISTRY: ToolMeta[] = [
         name: "chartType",
         type: '"area" | "bar" | "line"',
         required: true,
-        description:
-          "Chart type: area for trends, bar for comparisons, line for trajectories",
+        description: "Chart type: area for trends, bar for comparisons, line for trajectories",
       },
       {
         name: "data",
@@ -520,8 +515,7 @@ const TOOL_REGISTRY: ToolMeta[] = [
         name: "updates",
         type: "{ widgetId: string; colSpan?: 1|2|3|4; order?: number }[]",
         required: true,
-        description:
-          "Array of widget updates — each specifies a widgetId and optional new colSpan or order",
+        description: "Array of widget updates — each specifies a widgetId and optional new colSpan or order",
       },
     ],
   },
@@ -673,21 +667,15 @@ function FullPreview({ toolId }: { toolId: string }) {
       return (
         <div className="space-y-6">
           <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Area variant
-            </p>
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Area variant</p>
             <InlineChatChart args={chartAreaArgs} status="complete" />
           </div>
           <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Bar variant
-            </p>
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Bar variant</p>
             <InlineChatChart args={chartBarArgs} status="complete" />
           </div>
           <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Line variant
-            </p>
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Line variant</p>
             <InlineChatChart args={chartLineArgs} status="complete" />
           </div>
         </div>
@@ -696,9 +684,7 @@ function FullPreview({ toolId }: { toolId: string }) {
       return (
         <div className="space-y-4">
           <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Executing state (awaiting user decision)
-            </p>
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Executing state (awaiting user decision)</p>
             <InvoiceApprovalCard
               status={ToolCallStatus.Executing}
               args={invoiceApprovalArgs}
@@ -707,9 +693,7 @@ function FullPreview({ toolId }: { toolId: string }) {
             />
           </div>
           <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Completed state (approved)
-            </p>
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Completed state (approved)</p>
             <InvoiceApprovalCard
               status={ToolCallStatus.Complete}
               args={invoiceApprovalArgs}
@@ -723,9 +707,7 @@ function FullPreview({ toolId }: { toolId: string }) {
       return (
         <div className="space-y-4">
           <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Executing state (awaiting user decision)
-            </p>
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Executing state (awaiting user decision)</p>
             <InventoryReorderCard
               status={ToolCallStatus.Executing}
               args={inventoryReorderArgs}
@@ -734,9 +716,7 @@ function FullPreview({ toolId }: { toolId: string }) {
             />
           </div>
           <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Completed state (approved)
-            </p>
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Completed state (approved)</p>
             <InventoryReorderCard
               status={ToolCallStatus.Complete}
               args={inventoryReorderArgs}
@@ -781,12 +761,8 @@ function BentoCard({ tool, onClick }: { tool: ToolMeta; onClick: () => void }) {
       {/* Header */}
       <div className="flex items-start justify-between gap-2 p-4 pb-2">
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-foreground">
-            {tool.label}
-          </h3>
-          <code className="text-[11px] text-muted-foreground">
-            {tool.toolName}
-          </code>
+          <h3 className="text-sm font-semibold text-foreground">{tool.label}</h3>
+          <code className="text-[11px] text-muted-foreground">{tool.toolName}</code>
         </div>
         <div className="flex shrink-0 gap-1.5">
           <Badge variant="secondary" className="text-[10px]">
@@ -799,9 +775,7 @@ function BentoCard({ tool, onClick }: { tool: ToolMeta; onClick: () => void }) {
       </div>
 
       {/* Description */}
-      <p className="px-4 text-xs leading-relaxed text-muted-foreground line-clamp-2">
-        {tool.description}
-      </p>
+      <p className="px-4 text-xs leading-relaxed text-muted-foreground line-clamp-2">{tool.description}</p>
 
       {/* Preview or param summary */}
       {tool.hasVisual ? (
@@ -814,16 +788,12 @@ function BentoCard({ tool, onClick }: { tool: ToolMeta; onClick: () => void }) {
         <div className="mt-3 flex-1 px-4 pb-4">
           <div className="space-y-1.5">
             {tool.parameters.length === 0 ? (
-              <p className="text-xs italic text-muted-foreground">
-                No parameters
-              </p>
+              <p className="text-xs italic text-muted-foreground">No parameters</p>
             ) : (
               tool.parameters.map((p) => (
                 <div key={p.name} className="flex items-center gap-2">
                   <code className="text-[11px] text-foreground">{p.name}</code>
-                  <span className="text-[10px] text-muted-foreground">
-                    {p.type}
-                  </span>
+                  <span className="text-[10px] text-muted-foreground">{p.type}</span>
                   {p.required && (
                     <Badge variant="default" className="text-[9px] px-1 py-0">
                       req
@@ -859,13 +829,7 @@ function DetailView({ tool, onBack }: { tool: ToolMeta; onBack: () => void }) {
           onClick={onBack}
           className="mb-4 inline-flex items-center gap-1.5 rounded-lg bg-card border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="none"
-            className="shrink-0"
-          >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0">
             <path
               d="M10 12L6 8L10 4"
               stroke="currentColor"
@@ -886,9 +850,7 @@ function DetailView({ tool, onBack }: { tool: ToolMeta; onBack: () => void }) {
       {/* Preview */}
       {tool.hasVisual && (
         <div className="rounded-xl border border-border bg-card p-6">
-          <h3 className="mb-4 text-sm font-semibold text-foreground">
-            Preview
-          </h3>
+          <h3 className="mb-4 text-sm font-semibold text-foreground">Preview</h3>
           <FullPreview toolId={tool.id} />
         </div>
       )}
@@ -900,15 +862,11 @@ function DetailView({ tool, onBack }: { tool: ToolMeta; onBack: () => void }) {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <p className="text-xs text-muted-foreground">Tool name</p>
-            <p className="mt-1 font-mono text-sm text-foreground">
-              {tool.toolName}
-            </p>
+            <p className="mt-1 font-mono text-sm text-foreground">{tool.toolName}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Registered via</p>
-            <p className="mt-1 font-mono text-sm text-foreground">
-              {tool.hook}
-            </p>
+            <p className="mt-1 font-mono text-sm text-foreground">{tool.hook}</p>
           </div>
         </div>
 
@@ -922,9 +880,7 @@ function DetailView({ tool, onBack }: { tool: ToolMeta; onBack: () => void }) {
         <div>
           <p className="text-xs text-muted-foreground">Parameters</p>
           {tool.parameters.length === 0 ? (
-            <p className="mt-2 text-sm italic text-muted-foreground">
-              No parameters
-            </p>
+            <p className="mt-2 text-sm italic text-muted-foreground">No parameters</p>
           ) : (
             <div className="mt-2 overflow-x-auto">
               <table className="w-full text-sm">
@@ -938,27 +894,15 @@ function DetailView({ tool, onBack }: { tool: ToolMeta; onBack: () => void }) {
                 </thead>
                 <tbody>
                   {tool.parameters.map((p) => (
-                    <tr
-                      key={p.name}
-                      className="border-b border-border last:border-0"
-                    >
-                      <td className="py-2 pr-4 font-mono text-foreground">
-                        {p.name}
-                      </td>
-                      <td className="py-2 pr-4 font-mono text-muted-foreground">
-                        {p.type}
-                      </td>
+                    <tr key={p.name} className="border-b border-border last:border-0">
+                      <td className="py-2 pr-4 font-mono text-foreground">{p.name}</td>
+                      <td className="py-2 pr-4 font-mono text-muted-foreground">{p.type}</td>
                       <td className="py-2 pr-4">
-                        <Badge
-                          variant={p.required ? "default" : "outline"}
-                          className="text-[10px]"
-                        >
+                        <Badge variant={p.required ? "default" : "outline"} className="text-[10px]">
                           {p.required ? "required" : "optional"}
                         </Badge>
                       </td>
-                      <td className="py-2 text-muted-foreground">
-                        {p.description}
-                      </td>
+                      <td className="py-2 text-muted-foreground">{p.description}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -968,12 +912,8 @@ function DetailView({ tool, onBack }: { tool: ToolMeta; onBack: () => void }) {
         </div>
 
         <div>
-          <p className="text-xs text-muted-foreground">
-            How CopilotKit calls this tool
-          </p>
-          <p className="mt-1 text-sm leading-relaxed text-foreground/80">
-            {howItWorks(tool)}
-          </p>
+          <p className="text-xs text-muted-foreground">How CopilotKit calls this tool</p>
+          <p className="mt-1 text-sm leading-relaxed text-foreground/80">{howItWorks(tool)}</p>
         </div>
       </div>
     </div>
@@ -995,9 +935,7 @@ export default function ComponentsPage() {
       <div className="mx-auto w-full">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="font-heading text-2xl font-bold text-foreground sm:text-3xl">
-            Frontend Tool Components
-          </h1>
+          <h1 className="font-heading text-2xl font-bold text-foreground sm:text-3xl">Frontend Tool Components</h1>
           <p className="mt-2 text-muted-foreground">
             {selectedTool
               ? "Detailed usage guide and preview."
@@ -1018,11 +956,7 @@ export default function ComponentsPage() {
                   </h2>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     {tools.map((tool) => (
-                      <BentoCard
-                        key={tool.id}
-                        tool={tool}
-                        onClick={() => setSelectedId(tool.id)}
-                      />
+                      <BentoCard key={tool.id} tool={tool} onClick={() => setSelectedId(tool.id)} />
                     ))}
                   </div>
                 </div>

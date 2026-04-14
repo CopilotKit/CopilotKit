@@ -25,8 +25,8 @@ const DefaultView = () => (
       <strong>Powered by CopilotKit 🪁</strong>
       <br />
       <br />
-      Start a conversation in the chat to begin planning your trip, researching
-      topics, or use the MCP agent for other tasks!
+      Start a conversation in the chat to begin planning your trip, researching topics, or use the MCP agent for other
+      tasks!
     </p>
   </div>
 );
@@ -82,8 +82,7 @@ export default function Canvas() {
         <div className="absolute top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-full shadow-lg animate-pulse z-[9999]">
           <span className="font-bold">
             <Loader2 className="inline-block w-4 h-4 mr-2 animate-spin" />
-            {currentlyRunningAgent.name} agent executing{" "}
-            {currentlyRunningAgent.nodeName} node
+            {currentlyRunningAgent.name} agent executing {currentlyRunningAgent.nodeName} node
           </span>{" "}
         </div>
       ) : (
@@ -120,10 +119,7 @@ export default function Canvas() {
       </div>
 
       {/* MCP Config Modal */}
-      <MCPConfigModal
-        isOpen={showMCPConfigModal}
-        onClose={() => setShowMCPConfigModal(false)}
-      />
+      <MCPConfigModal isOpen={showMCPConfigModal} onClose={() => setShowMCPConfigModal(false)} />
     </div>
   );
 }

@@ -22,10 +22,7 @@ export function calculateMonthlyCharges(customer: any): {
   total: number;
   breakdown: string[];
 } {
-  const base =
-    BASE_INTERNET_COST[
-      customer.InternetService as keyof typeof BASE_INTERNET_COST
-    ] || 0;
+  const base = BASE_INTERNET_COST[customer.InternetService as keyof typeof BASE_INTERNET_COST] || 0;
   const services: Record<string, number> = {};
   const breakdown: string[] = [];
 
@@ -81,8 +78,7 @@ export function calculateMonthlyCharges(customer: any): {
     breakdown.push(`Streaming Movies: $${cost.toFixed(2)}`);
   }
 
-  const total =
-    base + Object.values(services).reduce((sum, cost) => sum + cost, 0);
+  const total = base + Object.values(services).reduce((sum, cost) => sum + cost, 0);
 
   return { baseInternet: base, services, total, breakdown };
 }

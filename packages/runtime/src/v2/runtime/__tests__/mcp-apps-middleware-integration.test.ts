@@ -1,10 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import {
-  AbstractAgent,
-  RunAgentInput,
-  BaseEvent,
-  EventType,
-} from "@ag-ui/client";
+import { AbstractAgent, RunAgentInput, BaseEvent, EventType } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { LLMock, MCPMock } from "@copilotkit/aimock";
 import { MCPAppsMiddleware, getServerHash } from "@ag-ui/mcp-apps-middleware";
@@ -52,9 +47,7 @@ function createRunInput(overrides: Partial<RunAgentInput> = {}): RunAgentInput {
   };
 }
 
-async function collectEvents(
-  observable: Observable<BaseEvent>,
-): Promise<BaseEvent[]> {
+async function collectEvents(observable: Observable<BaseEvent>): Promise<BaseEvent[]> {
   const events: BaseEvent[] = [];
   await new Promise<void>((resolve, reject) => {
     observable.subscribe({
@@ -147,9 +140,7 @@ describe("MCPAppsMiddleware integration", () => {
     expect(types).toContain(EventType.RUN_FINISHED);
 
     // RUN_FINISHED should contain the MCP tool result
-    const runFinished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as BaseEvent & { result?: unknown };
+    const runFinished = events.find((e) => e.type === EventType.RUN_FINISHED) as BaseEvent & { result?: unknown };
     expect(runFinished).toBeDefined();
     expect(runFinished.result).toBeDefined();
 
@@ -158,9 +149,7 @@ describe("MCPAppsMiddleware integration", () => {
     expect(result.content).toBeDefined();
     expect(Array.isArray(result.content)).toBe(true);
 
-    const textContent = (
-      result.content as Array<{ type: string; text?: string }>
-    ).find((c) => c.type === "text");
+    const textContent = (result.content as Array<{ type: string; text?: string }>).find((c) => c.type === "text");
     expect(textContent).toBeDefined();
     expect(textContent!.text).toContain("sunny");
   });
@@ -216,9 +205,7 @@ describe("MCPAppsMiddleware integration", () => {
     expect(types).toContain(EventType.RUN_FINISHED);
 
     // RUN_FINISHED should contain an error about unknown server
-    const runFinished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as BaseEvent & { result?: unknown };
+    const runFinished = events.find((e) => e.type === EventType.RUN_FINISHED) as BaseEvent & { result?: unknown };
     expect(runFinished).toBeDefined();
     const result = runFinished.result as { error?: string };
     expect(result.error).toBeDefined();
@@ -254,9 +241,7 @@ describe("MCPAppsMiddleware integration", () => {
     expect(types).toContain(EventType.RUN_FINISHED);
 
     // RUN_FINISHED should contain the resource content
-    const runFinished = events.find(
-      (e) => e.type === EventType.RUN_FINISHED,
-    ) as BaseEvent & { result?: unknown };
+    const runFinished = events.find((e) => e.type === EventType.RUN_FINISHED) as BaseEvent & { result?: unknown };
     expect(runFinished).toBeDefined();
     expect(runFinished.result).toBeDefined();
 
@@ -265,9 +250,7 @@ describe("MCPAppsMiddleware integration", () => {
     expect(result.contents).toBeDefined();
     expect(Array.isArray(result.contents)).toBe(true);
 
-    const resource = (
-      result.contents as Array<{ uri: string; text?: string }>
-    )[0];
+    const resource = (result.contents as Array<{ uri: string; text?: string }>)[0];
     expect(resource).toBeDefined();
     expect(resource.uri).toBe("app://dashboard");
     expect(resource.text).toContain("Dashboard content here");

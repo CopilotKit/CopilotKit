@@ -57,13 +57,7 @@ export function InlineChatChart({ args, status }: Props) {
             <Tooltip />
             <Legend />
             {series.map((s) => (
-              <Bar
-                key={s.key}
-                dataKey={s.key}
-                fill={s.color}
-                name={s.label}
-                radius={[4, 4, 0, 0]}
-              />
+              <Bar key={s.key} dataKey={s.key} fill={s.color} name={s.label} radius={[4, 4, 0, 0]} />
             ))}
           </BarChart>
         );

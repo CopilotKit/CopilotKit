@@ -1,9 +1,4 @@
-import {
-  EnvironmentInjector,
-  Injectable,
-  runInInjectionContext,
-  signal,
-} from "@angular/core";
+import { EnvironmentInjector, Injectable, runInInjectionContext, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CopilotChatInput } from "../copilot-chat-input";
@@ -74,9 +69,7 @@ describe("CopilotChatInput", () => {
   });
 
   it("exposes tools menu through computed signal", () => {
-    (component as any).toolsMenu = () => [
-      { label: "Example", onSelect: vi.fn() },
-    ];
+    (component as any).toolsMenu = () => [{ label: "Example", onSelect: vi.fn() }];
     expect(component.computedToolsMenu()).toHaveLength(1);
   });
 });

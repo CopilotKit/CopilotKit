@@ -14,19 +14,9 @@
  * limitations under the License.
  */
 
-import React, {
-  useRef,
-  useSyncExternalStore,
-  useCallback,
-  memo,
-  useEffect,
-} from "react";
+import React, { useRef, useSyncExternalStore, useCallback, memo, useEffect } from "react";
 import { type ComponentContext, GenericBinder } from "@a2ui/web_core/v0_9";
-import type {
-  ComponentApi,
-  InferredComponentApiSchemaType,
-  ResolveA2uiProps,
-} from "@a2ui/web_core/v0_9";
+import type { ComponentApi, InferredComponentApiSchemaType, ResolveA2uiProps } from "@a2ui/web_core/v0_9";
 
 export interface ReactComponentImplementation extends ComponentApi {
   /** The framework-specific rendering wrapper. */
@@ -49,20 +39,14 @@ export type ReactA2uiComponentProps<T> = {
  */
 export function createReactComponent<Api extends ComponentApi>(
   api: Api,
-  RenderComponent: React.FC<
-    ReactA2uiComponentProps<
-      ResolveA2uiProps<InferredComponentApiSchemaType<Api>>
-    >
-  >,
+  RenderComponent: React.FC<ReactA2uiComponentProps<ResolveA2uiProps<InferredComponentApiSchemaType<Api>>>>,
 ): ReactComponentImplementation {
   type Props = ResolveA2uiProps<InferredComponentApiSchemaType<Api>>;
 
   const MemoizedRender = memo(RenderComponent, (prev, next) => {
     if (prev.props !== next.props) return false;
-    if (prev.context.componentModel.id !== next.context.componentModel.id)
-      return false;
-    if (prev.context.dataContext.path !== next.context.dataContext.path)
-      return false;
+    if (prev.context.componentModel.id !== next.context.componentModel.id) return false;
+    if (prev.context.dataContext.path !== next.context.dataContext.path) return false;
     return true;
   });
 
@@ -77,10 +61,7 @@ export function createReactComponent<Api extends ComponentApi>(
     // to ComponentModel updates (like type changes) or Base Path adjustments.
     if (!bindingRef.current) {
       bindingRef.current = new GenericBinder<Props>(context, api.schema);
-    } else if (
-      (bindingRef.current as unknown as { context: ComponentContext })
-        .context !== context
-    ) {
+    } else if ((bindingRef.current as unknown as { context: ComponentContext }).context !== context) {
       bindingRef.current.dispose();
       bindingRef.current = new GenericBinder<Props>(context, api.schema);
     }
@@ -102,13 +83,7 @@ export function createReactComponent<Api extends ComponentApi>(
       return () => binding.dispose();
     }, [binding]);
 
-    return (
-      <MemoizedRender
-        props={props || ({} as Props)}
-        buildChild={buildChild}
-        context={context}
-      />
-    );
+    return <MemoizedRender props={props || ({} as Props)} buildChild={buildChild} context={context} />;
   };
 
   return {

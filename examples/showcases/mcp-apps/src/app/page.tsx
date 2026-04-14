@@ -110,8 +110,7 @@ const apps = [
   {
     id: "flights",
     name: "Airline Booking",
-    description:
-      "Search flights, select seats, and complete bookings with a full wizard experience",
+    description: "Search flights, select seats, and complete bookings with a full wizard experience",
     icon: Icons.plane,
     iconClass: "flights",
     prompts: [
@@ -122,38 +121,26 @@ const apps = [
   {
     id: "hotels",
     name: "Hotel Booking",
-    description:
-      "Browse hotels, compare rooms, and book accommodations in cities worldwide",
+    description: "Browse hotels, compare rooms, and book accommodations in cities worldwide",
     icon: Icons.building,
     iconClass: "hotels",
-    prompts: [
-      "Find a hotel in Paris from January 15 to 18 for 2 guests",
-      "Search for hotels in Tokyo for 3 nights",
-    ],
+    prompts: ["Find a hotel in Paris from January 15 to 18 for 2 guests", "Search for hotels in Tokyo for 3 nights"],
   },
   {
     id: "trading",
     name: "Investment Simulator",
-    description:
-      "Build portfolios, execute trades, and track performance with live charts",
+    description: "Build portfolios, execute trades, and track performance with live charts",
     icon: Icons.trendingUp,
     iconClass: "trading",
-    prompts: [
-      "Create a $10,000 tech-focused portfolio",
-      "Build a conservative dividend portfolio",
-    ],
+    prompts: ["Create a $10,000 tech-focused portfolio", "Build a conservative dividend portfolio"],
   },
   {
     id: "kanban",
     name: "Kanban Board",
-    description:
-      "Manage projects with drag-drop cards, columns, and task tracking",
+    description: "Manage projects with drag-drop cards, columns, and task tracking",
     icon: Icons.layoutGrid,
     iconClass: "kanban",
-    prompts: [
-      "Create a kanban board for my software project",
-      "Set up a marketing campaign board",
-    ],
+    prompts: ["Create a kanban board for my software project", "Set up a marketing campaign board"],
   },
 ];
 
@@ -208,9 +195,8 @@ function AppLayout() {
             Interactive AI Apps in Chat
           </h1>
           <p className="max-w-2xl mx-auto text-lg text-[var(--color-text-secondary)]">
-            Rich UI components that render directly in the chat sidebar. Powered
-            by the MCP Apps Extension (SEP-1865) with bidirectional
-            communication.
+            Rich UI components that render directly in the chat sidebar. Powered by the MCP Apps Extension (SEP-1865)
+            with bidirectional communication.
           </p>
 
           {/* Docs buttons */}
@@ -265,12 +251,8 @@ function AppLayout() {
           {apps.map((app) => (
             <div key={app.id} className="app-card">
               <div className={`app-card-icon ${app.iconClass}`}>{app.icon}</div>
-              <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">
-                {app.name}
-              </h3>
-              <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-                {app.description}
-              </p>
+              <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">{app.name}</h3>
+              <p className="text-sm text-[var(--color-text-secondary)] mb-4">{app.description}</p>
               <div className="flex flex-wrap gap-2">
                 {app.prompts.map((prompt, i) => (
                   <button
@@ -306,14 +288,11 @@ function AppLayout() {
               </svg>
             </div>
             <div>
-              <h4 className="font-semibold text-[var(--color-text-primary)] mb-1">
-                How It Works
-              </h4>
+              <h4 className="font-semibold text-[var(--color-text-primary)] mb-1">How It Works</h4>
               <p className="text-sm text-[var(--color-text-secondary)]">
-                Each app renders in a sandboxed iframe within the chat. The UI
-                communicates with the MCP server via JSON-RPC over postMessage,
-                enabling real-time interactions like selecting flight seats,
-                booking hotel rooms, or executing trades.
+                Each app renders in a sandboxed iframe within the chat. The UI communicates with the MCP server via
+                JSON-RPC over postMessage, enabling real-time interactions like selecting flight seats, booking hotel
+                rooms, or executing trades.
               </p>
               <p className="mt-3 text-xs text-[var(--color-text-tertiary)]">
                 MCP Server:{" "}

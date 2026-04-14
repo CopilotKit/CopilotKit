@@ -1,14 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Editor, Location, Transforms } from "slate";
 import { ReactEditor, useSlate, useSlateSelection } from "slate-react";
-import {
-  getFullEditorTextWithNewlines,
-  getTextAroundSelection,
-} from "../../lib/get-text-around-cursor";
-import {
-  EditingEditorState,
-  InsertionEditorApiConfig,
-} from "../../types/base/autosuggestions-bare-function";
+import { getFullEditorTextWithNewlines, getTextAroundSelection } from "../../lib/get-text-around-cursor";
+import { EditingEditorState, InsertionEditorApiConfig } from "../../types/base/autosuggestions-bare-function";
 import { useHoveringEditorContext } from "./hovering-editor-provider";
 import { Menu, Portal } from "./hovering-toolbar-components";
 import { HoveringInsertionPromptBox } from "./text-insertion-prompt-box";
@@ -58,12 +52,7 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
     // but inside the hovering window.
     //
     // in such case, we simply do nothing.
-    if (
-      rect.top === 0 &&
-      rect.left === 0 &&
-      rect.width === 0 &&
-      rect.height === 0
-    ) {
+    if (rect.top === 0 && rect.left === 0 && rect.width === 0 && rect.height === 0) {
       return;
     }
 
@@ -74,31 +63,19 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
     let top = rect.bottom + window.scrollY + verticalOffsetFromCorner;
 
     // no space left at bottom, move up
-    if (
-      rect.bottom + el.offsetHeight >
-      window.innerHeight - verticalOffsetFromCorner
-    ) {
-      top =
-        rect.top + window.scrollY - el.offsetHeight - verticalOffsetFromCorner;
+    if (rect.bottom + el.offsetHeight > window.innerHeight - verticalOffsetFromCorner) {
+      top = rect.top + window.scrollY - el.offsetHeight - verticalOffsetFromCorner;
     }
 
     // position the toolbar in the center of the selection
-    let left =
-      rect.left +
-      window.scrollX -
-      el.offsetWidth / 2 +
-      rect.width / 2 +
-      horizontalOffsetFromCorner;
+    let left = rect.left + window.scrollX - el.offsetWidth / 2 + rect.width / 2 + horizontalOffsetFromCorner;
 
     // no space left at left, move right
     if (left < horizontalOffsetFromCorner) {
       left = horizontalOffsetFromCorner;
     }
     // no space left at right, move left
-    else if (
-      left + el.offsetWidth >
-      window.innerWidth - horizontalOffsetFromCorner
-    ) {
+    else if (left + el.offsetWidth > window.innerWidth - horizontalOffsetFromCorner) {
       left = window.innerWidth - el.offsetWidth - horizontalOffsetFromCorner;
     }
 

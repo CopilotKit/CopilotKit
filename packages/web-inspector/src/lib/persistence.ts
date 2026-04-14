@@ -36,9 +36,7 @@ export function loadInspectorState(storageKey: string): PersistedState | null {
   // Backwards compatibility: try to read the legacy cookie and migrate it
   if (typeof document !== "undefined") {
     const prefix = `${storageKey}=`;
-    const entry = document.cookie
-      .split("; ")
-      .find((cookie) => cookie.startsWith(prefix));
+    const entry = document.cookie.split("; ").find((cookie) => cookie.startsWith(prefix));
     if (entry) {
       const legacyRaw = entry.substring(prefix.length);
       try {
@@ -55,10 +53,7 @@ export function loadInspectorState(storageKey: string): PersistedState | null {
   return null;
 }
 
-export function saveInspectorState(
-  storageKey: string,
-  state: PersistedState,
-): void {
+export function saveInspectorState(storageKey: string, state: PersistedState): void {
   if (typeof window === "undefined") {
     return;
   }

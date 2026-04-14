@@ -262,10 +262,7 @@ const TEMPLATES: Record<BoardTemplate, () => Column[]> = {
   ],
 };
 
-export function createBoard(
-  name: string,
-  template: BoardTemplate = "blank",
-): Board {
+export function createBoard(name: string, template: BoardTemplate = "blank"): Board {
   const id = generateId("board");
   const board: Board = { id, name, columns: TEMPLATES[template]() };
   boards.set(id, board);
@@ -276,11 +273,7 @@ export function getBoard(boardId: string): Board | undefined {
   return boards.get(boardId);
 }
 
-export function addCard(
-  boardId: string,
-  columnId: string,
-  card: Omit<Card, "id" | "createdAt">,
-): CardOperationResult {
+export function addCard(boardId: string, columnId: string, card: Omit<Card, "id" | "createdAt">): CardOperationResult {
   const board = boards.get(boardId);
   if (!board) return { success: false, message: "Board not found" };
   const column = board.columns.find((c) => c.id === columnId);
@@ -317,10 +310,7 @@ export function updateCard(
   return { success: false, message: "Card not found" };
 }
 
-export function deleteCard(
-  boardId: string,
-  cardId: string,
-): CardOperationResult {
+export function deleteCard(boardId: string, cardId: string): CardOperationResult {
   const board = boards.get(boardId);
   if (!board) return { success: false, message: "Board not found" };
   for (const column of board.columns) {
@@ -347,8 +337,7 @@ export function moveCard(
   const board = boards.get(boardId);
   if (!board) return { success: false, message: "Board not found" };
   const targetColumn = board.columns.find((c) => c.id === targetColumnId);
-  if (!targetColumn)
-    return { success: false, message: "Target column not found" };
+  if (!targetColumn) return { success: false, message: "Target column not found" };
 
   let card: Card | undefined;
   for (const column of board.columns) {
@@ -360,10 +349,7 @@ export function moveCard(
   }
   if (!card) return { success: false, message: "Card not found" };
 
-  const pos =
-    position !== undefined
-      ? Math.min(position, targetColumn.cards.length)
-      : targetColumn.cards.length;
+  const pos = position !== undefined ? Math.min(position, targetColumn.cards.length) : targetColumn.cards.length;
   targetColumn.cards.splice(pos, 0, card);
   return {
     success: true,

@@ -75,13 +75,9 @@ import { CopilotModal, CopilotModalProps } from "./Modal";
 export function CopilotSidebar(props: CopilotModalProps) {
   props = {
     ...props,
-    className: props.className
-      ? props.className + " copilotKitSidebar"
-      : "copilotKitSidebar",
+    className: props.className ? props.className + " copilotKitSidebar" : "copilotKitSidebar",
   };
-  const [expandedClassName, setExpandedClassName] = useState(
-    props.defaultOpen ? "sidebarExpanded" : "",
-  );
+  const [expandedClassName, setExpandedClassName] = useState(props.defaultOpen ? "sidebarExpanded" : "");
 
   const onSetOpen = (open: boolean) => {
     props.onSetOpen?.(open);

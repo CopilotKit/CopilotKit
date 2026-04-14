@@ -38,27 +38,15 @@ function Navigator({
 
     queueMicrotask(() => {
       const base = routes[page] ?? "/";
-      const url = filter
-        ? `${base}?filter=${encodeURIComponent(filter)}`
-        : base;
+      const url = filter ? `${base}?filter=${encodeURIComponent(filter)}` : base;
       router.push(url);
     });
   }, [status, page, filter, router]);
 
   if (status === ToolCallStatus.Complete) {
-    return (
-      <CompletedToolCard
-        name="navigate_and_filter"
-        args={{ page, filter }}
-        result={result}
-      />
-    );
+    return <CompletedToolCard name="navigate_and_filter" args={{ page, filter }} result={result} />;
   }
-  return (
-    <p className="text-sm text-muted-foreground animate-pulse py-1">
-      Navigating to {page}...
-    </p>
-  );
+  return <p className="text-sm text-muted-foreground animate-pulse py-1">Navigating to {page}...</p>;
 }
 
 export function useNavigateAndFilter() {
@@ -66,12 +54,7 @@ export function useNavigateAndFilter() {
     {
       name: "navigate_and_filter",
       render: ({ args, status, result }) => (
-        <Navigator
-          page={args?.page ?? ""}
-          filter={args?.filter}
-          status={status}
-          result={result}
-        />
+        <Navigator page={args?.page ?? ""} filter={args?.filter} status={status} result={result} />
       ),
     },
     [],

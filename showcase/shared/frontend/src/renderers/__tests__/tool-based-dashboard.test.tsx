@@ -10,11 +10,7 @@ let capturedSidebarProps: Record<string, unknown> = {};
 vi.mock("@copilotkit/react-core", () => ({
   CopilotKit: (props: Record<string, unknown>) => {
     capturedCopilotKitProps = props;
-    return (
-      <div data-testid="copilotkit-provider">
-        {props.children as React.ReactNode}
-      </div>
-    );
+    return <div data-testid="copilotkit-provider">{props.children as React.ReactNode}</div>;
   },
 }));
 
@@ -74,9 +70,7 @@ describe("ToolBasedDashboard", () => {
   it("sets sidebar to default open with correct title", () => {
     render(<ToolBasedDashboard agentId="test-agent" />);
     expect(capturedSidebarProps.defaultOpen).toBe(true);
-    expect(
-      (capturedSidebarProps.labels as Record<string, string>).modalHeaderTitle,
-    ).toBe("Sales Dashboard Assistant");
+    expect((capturedSidebarProps.labels as Record<string, string>).modalHeaderTitle).toBe("Sales Dashboard Assistant");
   });
 
   it("passes different agentId correctly", () => {

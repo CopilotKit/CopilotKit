@@ -2,14 +2,7 @@
  * Minimal clsx shim for Vitest so "clsx" resolves when pnpm has not linked it
  * in the package's node_modules. Only used in test config alias.
  */
-export type ClassValue =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | Record<string, unknown>
-  | ClassValue[];
+export type ClassValue = string | number | boolean | null | undefined | Record<string, unknown> | ClassValue[];
 
 function clsx(...inputs: ClassValue[]): string {
   const out: string[] = [];

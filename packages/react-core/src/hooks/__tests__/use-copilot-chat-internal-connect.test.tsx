@@ -124,8 +124,7 @@ function createWrapper() {
 describe("useCopilotChatInternal – connectAgent guard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRuntimeConnectionStatus =
-      CopilotKitCoreRuntimeConnectionStatus.Disconnected;
+    mockRuntimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     mockConnectAgent.mockResolvedValue(undefined);
     mockAgent.threadId = undefined;
     mockAgent.messages = [];
@@ -135,8 +134,7 @@ describe("useCopilotChatInternal – connectAgent guard", () => {
   });
 
   it("does not call connectAgent when status is Disconnected", () => {
-    mockRuntimeConnectionStatus =
-      CopilotKitCoreRuntimeConnectionStatus.Disconnected;
+    mockRuntimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     applyMocks();
 
     renderHook(() => useCopilotChatInternal(), { wrapper: createWrapper() });
@@ -145,8 +143,7 @@ describe("useCopilotChatInternal – connectAgent guard", () => {
   });
 
   it("does not call connectAgent when status is Connecting", () => {
-    mockRuntimeConnectionStatus =
-      CopilotKitCoreRuntimeConnectionStatus.Connecting;
+    mockRuntimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Connecting;
     applyMocks();
 
     renderHook(() => useCopilotChatInternal(), { wrapper: createWrapper() });
@@ -155,8 +152,7 @@ describe("useCopilotChatInternal – connectAgent guard", () => {
   });
 
   it("calls connectAgent once when status transitions to Connected", async () => {
-    mockRuntimeConnectionStatus =
-      CopilotKitCoreRuntimeConnectionStatus.Disconnected;
+    mockRuntimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     applyMocks();
 
     const { rerender } = renderHook(() => useCopilotChatInternal(), {
@@ -166,8 +162,7 @@ describe("useCopilotChatInternal – connectAgent guard", () => {
     expect(mockConnectAgent).not.toHaveBeenCalled();
 
     // Transition to Connected
-    mockRuntimeConnectionStatus =
-      CopilotKitCoreRuntimeConnectionStatus.Connected;
+    mockRuntimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Connected;
     applyMocks();
 
     rerender();
@@ -183,8 +178,7 @@ describe("useCopilotChatInternal – connectAgent guard", () => {
     // lastConnectedAgentRef: connect fires once per agent instance, not once
     // per render. After the first connect, further re-renders with the same
     // agent do not trigger another connect.
-    mockRuntimeConnectionStatus =
-      CopilotKitCoreRuntimeConnectionStatus.Connected;
+    mockRuntimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Connected;
     mockAgent.threadId = "config-thread-id";
     applyMocks();
 
@@ -204,8 +198,7 @@ describe("useCopilotChatInternal – connectAgent guard", () => {
   });
 
   it("calls connectAgent when config threadId is missing", async () => {
-    mockRuntimeConnectionStatus =
-      CopilotKitCoreRuntimeConnectionStatus.Connected;
+    mockRuntimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Connected;
     mockConfigThreadId = undefined;
     applyMocks();
 
@@ -217,8 +210,7 @@ describe("useCopilotChatInternal – connectAgent guard", () => {
   });
 
   it("calls connectAgent when status is Connected and threadIds differ", async () => {
-    mockRuntimeConnectionStatus =
-      CopilotKitCoreRuntimeConnectionStatus.Connected;
+    mockRuntimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Connected;
     mockAgent.threadId = "old-thread-id"; // differs from config
     applyMocks();
 
@@ -235,8 +227,6 @@ describe("useCopilotChatInternal – connectAgent guard", () => {
 
     renderHook(() => useCopilotChatInternal(), { wrapper: createWrapper() });
 
-    expect(vi.mocked(useAgent)).toHaveBeenCalledWith(
-      expect.objectContaining({ threadId: "config-thread-id" }),
-    );
+    expect(vi.mocked(useAgent)).toHaveBeenCalledWith(expect.objectContaining({ threadId: "config-thread-id" }));
   });
 });

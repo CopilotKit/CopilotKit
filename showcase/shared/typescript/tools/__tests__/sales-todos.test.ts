@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  manageSalesTodosImpl,
-  getSalesTodosImpl,
-  INITIAL_SALES_TODOS,
-} from "../sales-todos";
+import { manageSalesTodosImpl, getSalesTodosImpl, INITIAL_SALES_TODOS } from "../sales-todos";
 
 describe("INITIAL_SALES_TODOS", () => {
   it("has 3 items", () => {
@@ -62,11 +58,7 @@ describe("manageSalesTodosImpl", () => {
   });
 
   it("handles multiple todos", () => {
-    const result = manageSalesTodosImpl([
-      { title: "A" },
-      { title: "B" },
-      { title: "C" },
-    ]);
+    const result = manageSalesTodosImpl([{ title: "A" }, { title: "B" }, { title: "C" }]);
     expect(result).toHaveLength(3);
     // Each should get a unique ID
     const ids = new Set(result.map((r) => r.id));

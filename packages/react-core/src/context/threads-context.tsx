@@ -1,10 +1,4 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  ReactNode,
-  SetStateAction,
-} from "react";
+import React, { createContext, useContext, useState, ReactNode, SetStateAction } from "react";
 import { randomUUID } from "@copilotkit/shared";
 
 export interface ThreadsContextValue {
@@ -12,19 +6,14 @@ export interface ThreadsContextValue {
   setThreadId: (value: SetStateAction<string>) => void;
 }
 
-const ThreadsContext = createContext<ThreadsContextValue | undefined>(
-  undefined,
-);
+const ThreadsContext = createContext<ThreadsContextValue | undefined>(undefined);
 
 export interface ThreadsProviderProps {
   children: ReactNode;
   threadId?: string;
 }
 
-export function ThreadsProvider({
-  children,
-  threadId: explicitThreadId,
-}: ThreadsProviderProps) {
+export function ThreadsProvider({ children, threadId: explicitThreadId }: ThreadsProviderProps) {
   const [internalThreadId, setThreadId] = useState<string>(() => randomUUID());
 
   const threadId = explicitThreadId ?? internalThreadId;

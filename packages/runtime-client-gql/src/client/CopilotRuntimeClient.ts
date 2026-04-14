@@ -7,10 +7,7 @@ import {
   LoadAgentStateQuery,
 } from "../graphql/@generated/graphql";
 import { generateCopilotResponseMutation } from "../graphql/definitions/mutations";
-import {
-  getAvailableAgentsQuery,
-  loadAgentStateQuery,
-} from "../graphql/definitions/queries";
+import { getAvailableAgentsQuery, loadAgentStateQuery } from "../graphql/definitions/queries";
 import { OperationResultSource, OperationResult } from "urql";
 import {
   ResolvedCopilotKitError,
@@ -119,10 +116,7 @@ export class CopilotRuntimeClient {
     signal?: AbortSignal;
   }) {
     const fetchFn = createFetchFn(signal, this.handleGQLWarning);
-    const result = this.client.mutation<
-      GenerateCopilotResponseMutation,
-      GenerateCopilotResponseMutationVariables
-    >(
+    const result = this.client.mutation<GenerateCopilotResponseMutation, GenerateCopilotResponseMutationVariables>(
       generateCopilotResponseMutation,
       { data, properties },
       { fetch: fetchFn },
@@ -131,9 +125,7 @@ export class CopilotRuntimeClient {
     return result;
   }
 
-  public asStream<S, T>(
-    source: OperationResultSource<OperationResult<S, { data: T }>>,
-  ) {
+  public asStream<S, T>(source: OperationResultSource<OperationResult<S, { data: T }>>) {
     const handleGQLErrors = this.handleGQLErrors;
     return new ReadableStream<S>({
       start(controller) {
@@ -187,20 +179,12 @@ export class CopilotRuntimeClient {
 
   availableAgents() {
     const fetchFn = createFetchFn();
-    return this.client.query<AvailableAgentsQuery>(
-      getAvailableAgentsQuery,
-      {},
-      { fetch: fetchFn },
-    );
+    return this.client.query<AvailableAgentsQuery>(getAvailableAgentsQuery, {}, { fetch: fetchFn });
   }
 
   loadAgentState(data: { threadId: string; agentName: string }) {
     const fetchFn = createFetchFn();
-    const result = this.client.query<LoadAgentStateQuery>(
-      loadAgentStateQuery,
-      { data },
-      { fetch: fetchFn },
-    );
+    const result = this.client.query<LoadAgentStateQuery>(loadAgentStateQuery, { data }, { fetch: fetchFn });
 
     // Add error handling for GraphQL errors - similar to generateCopilotResponse
     result

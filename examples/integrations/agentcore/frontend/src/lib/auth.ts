@@ -64,27 +64,19 @@ export async function createCognitoAuthConfig(): Promise<AwsExportsConfig> {
   const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID;
   const region = import.meta.env.VITE_COGNITO_REGION;
   const redirectUri = import.meta.env.VITE_COGNITO_REDIRECT_URI;
-  const postLogoutRedirectUri = import.meta.env
-    .VITE_COGNITO_POST_LOGOUT_REDIRECT_URI;
+  const postLogoutRedirectUri = import.meta.env.VITE_COGNITO_POST_LOGOUT_REDIRECT_URI;
   const responseType = import.meta.env.VITE_COGNITO_RESPONSE_TYPE;
   const scope = import.meta.env.VITE_COGNITO_SCOPE;
-  const automaticSilentRenew = import.meta.env
-    .VITE_COGNITO_AUTOMATIC_SILENT_RENEW;
+  const automaticSilentRenew = import.meta.env.VITE_COGNITO_AUTOMATIC_SILENT_RENEW;
 
   // Build authority from environment variables if region and userPoolId are provided
-  const envAuthority =
-    region && userPoolId
-      ? `https://cognito-idp.${region}.amazonaws.com/${userPoolId}`
-      : undefined;
+  const envAuthority = region && userPoolId ? `https://cognito-idp.${region}.amazonaws.com/${userPoolId}` : undefined;
 
   return {
     authority: envAuthority || awsConfig.authority,
     client_id: clientId || awsConfig.client_id,
     redirect_uri: redirectUri || awsConfig.redirect_uri,
-    post_logout_redirect_uri:
-      postLogoutRedirectUri ||
-      redirectUri ||
-      awsConfig.post_logout_redirect_uri,
+    post_logout_redirect_uri: postLogoutRedirectUri || redirectUri || awsConfig.post_logout_redirect_uri,
     response_type: responseType || awsConfig.response_type || "code",
     scope: scope || awsConfig.scope || "email openid profile",
     automaticSilentRenew:
@@ -93,10 +85,7 @@ export async function createCognitoAuthConfig(): Promise<AwsExportsConfig> {
         : automaticSilentRenew === "true"
           ? true
           : (awsConfig.automaticSilentRenew ?? true),
-    userStore:
-      typeof window !== "undefined"
-        ? new WebStorageStateStore({ store: window.localStorage })
-        : undefined,
+    userStore: typeof window !== "undefined" ? new WebStorageStateStore({ store: window.localStorage }) : undefined,
   };
 }
 
@@ -109,8 +98,5 @@ export const cognitoAuthConfig = {
   response_type: "code",
   scope: "email openid profile",
   automaticSilentRenew: true,
-  userStore:
-    typeof window !== "undefined"
-      ? new WebStorageStateStore({ store: window.localStorage })
-      : undefined,
+  userStore: typeof window !== "undefined" ? new WebStorageStateStore({ store: window.localStorage }) : undefined,
 };

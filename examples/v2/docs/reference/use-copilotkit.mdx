@@ -30,9 +30,7 @@ function MyComponent() {
   // Get an agent
   const agent = copilotkit.getAgent("assistant");
 
-  return (
-    <div>Connected: {copilotkit.runtimeConnectionStatus === "Connected"}</div>
-  );
+  return <div>Connected: {copilotkit.runtimeConnectionStatus === "Connected"}</div>;
 }
 ```
 
@@ -97,11 +95,7 @@ function AgentRunner() {
 
   return (
     <div>
-      <input
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        placeholder="Type a message..."
-      />
+      <input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Type a message..." />
       <button onClick={handleSubmit}>Send</button>
     </div>
   );

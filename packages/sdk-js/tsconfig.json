@@ -7,12 +7,5 @@
     "strict": false
   },
   "include": ["./src/**/*.ts"],
-  "exclude": [
-    "dist",
-    "build",
-    "node_modules",
-    "**/*.test.ts",
-    "**/*.test.tsx",
-    "**/__tests__/*"
-  ]
+  "exclude": ["dist", "build", "node_modules", "**/*.test.ts", "**/*.test.tsx", "**/__tests__/*"]
 }

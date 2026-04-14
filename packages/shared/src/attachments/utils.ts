@@ -25,10 +25,7 @@ export function formatFileSize(bytes: number): string {
 /**
  * Check if a file exceeds the maximum allowed size.
  */
-export function exceedsMaxSize(
-  file: File,
-  maxSize: number = DEFAULT_MAX_SIZE,
-): boolean {
+export function exceedsMaxSize(file: File, maxSize: number = DEFAULT_MAX_SIZE): boolean {
   return file.size > maxSize;
 }
 
@@ -56,9 +53,7 @@ export function readFileAsBase64(file: File): Promise<string> {
  * Generate a thumbnail data URL from a video file by capturing a frame near the start (at 0.1s).
  * Returns undefined if thumbnail generation fails or if called outside a browser environment.
  */
-export function generateVideoThumbnail(
-  file: File,
-): Promise<string | undefined> {
+export function generateVideoThumbnail(file: File): Promise<string | undefined> {
   if (typeof document === "undefined") {
     return Promise.resolve(undefined);
   }
@@ -76,9 +71,7 @@ export function generateVideoThumbnail(
     };
 
     const timeout = setTimeout(() => {
-      console.warn(
-        `[CopilotKit] generateVideoThumbnail: timed out for file "${file.name}"`,
-      );
+      console.warn(`[CopilotKit] generateVideoThumbnail: timed out for file "${file.name}"`);
       cleanup(undefined);
     }, 10000);
 
@@ -100,18 +93,14 @@ export function generateVideoThumbnail(
         const thumbnail = canvas.toDataURL("image/jpeg", 0.7);
         cleanup(thumbnail);
       } else {
-        console.warn(
-          "[CopilotKit] generateVideoThumbnail: could not get 2d canvas context",
-        );
+        console.warn("[CopilotKit] generateVideoThumbnail: could not get 2d canvas context");
         cleanup(undefined);
       }
     };
 
     video.onerror = () => {
       clearTimeout(timeout);
-      console.warn(
-        `[CopilotKit] generateVideoThumbnail: video element error for file "${file.name}"`,
-      );
+      console.warn(`[CopilotKit] generateVideoThumbnail: video element error for file "${file.name}"`);
       cleanup(undefined);
     };
 
@@ -156,8 +145,7 @@ export function getSourceUrl(source: InputContentSource): string {
 export function getDocumentIcon(mimeType: string): string {
   if (mimeType.includes("pdf")) return "PDF";
   if (mimeType.includes("sheet") || mimeType.includes("excel")) return "XLS";
-  if (mimeType.includes("presentation") || mimeType.includes("powerpoint"))
-    return "PPT";
+  if (mimeType.includes("presentation") || mimeType.includes("powerpoint")) return "PPT";
   if (mimeType.includes("word") || mimeType.includes("document")) return "DOC";
   if (mimeType.includes("text/")) return "TXT";
   return "FILE";

@@ -1,10 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { HttpAgent } from "@ag-ui/client";
-import {
-  resolveAgents,
-  type AgentsConfig,
-  type AgentFactoryContext,
-} from "../core/runtime";
+import { resolveAgents, type AgentsConfig, type AgentFactoryContext } from "../core/runtime";
 import { handleRunAgent } from "../handlers/handle-run";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { CopilotRuntime } from "../core/runtime";
@@ -70,9 +66,7 @@ describe("resolveAgents", () => {
   it("throws when factory is used without a request", async () => {
     const factory = vi.fn().mockReturnValue({ default: createMockAgent() });
 
-    await expect(resolveAgents(factory)).rejects.toThrow(
-      "Agent factory function requires a request context",
-    );
+    await expect(resolveAgents(factory)).rejects.toThrow("Agent factory function requires a request context");
     expect(factory).not.toHaveBeenCalled();
   });
 

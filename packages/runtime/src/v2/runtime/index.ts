@@ -21,10 +21,7 @@ export {
 
 // Export framework-agnostic fetch handler
 export { createCopilotRuntimeHandler } from "./core/fetch-handler";
-export type {
-  CopilotRuntimeHandlerOptions,
-  CopilotRuntimeFetchHandler,
-} from "./core/fetch-handler";
+export type { CopilotRuntimeHandlerOptions, CopilotRuntimeFetchHandler } from "./core/fetch-handler";
 
 // Export hook types
 export type {
@@ -41,6 +38,4 @@ export type { CopilotCorsConfig } from "./core/fetch-cors";
 
 // Deprecated type aliases for backward compatibility
 /** @deprecated Use `CopilotRuntimeFetchHandler` instead. Note: the new type takes `Request` directly, not `{ request: Request }`. */
-export type CopilotKitRequestHandler = (params: {
-  request: Request;
-}) => Promise<Response>;
+export type CopilotKitRequestHandler = (params: { request: Request }) => Promise<Response>;

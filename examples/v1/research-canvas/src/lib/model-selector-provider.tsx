@@ -12,20 +12,13 @@ type ModelSelectorContextType = {
   setHidden: (hidden: boolean) => void;
 };
 
-const ModelSelectorContext = createContext<
-  ModelSelectorContextType | undefined
->(undefined);
+const ModelSelectorContext = createContext<ModelSelectorContextType | undefined>(undefined);
 
-export const ModelSelectorProvider = ({
-  children,
-}: {
-  children: ReactNode;
-}) => {
+export const ModelSelectorProvider = ({ children }: { children: ReactNode }) => {
   const model =
     globalThis.window === undefined
       ? "openai"
-      : (new URL(window.location.href).searchParams.get("coAgentsModel") ??
-        "openai");
+      : (new URL(window.location.href).searchParams.get("coAgentsModel") ?? "openai");
   const [hidden, setHidden] = useState<boolean>(false);
 
   const setModel = (model: string) => {
@@ -35,9 +28,7 @@ export const ModelSelectorProvider = ({
   };
 
   const lgcDeploymentUrl =
-    globalThis.window === undefined
-      ? null
-      : new URL(window.location.href).searchParams.get("lgcDeploymentUrl");
+    globalThis.window === undefined ? null : new URL(window.location.href).searchParams.get("lgcDeploymentUrl");
 
   let agent = "research_agent";
   if (model === "google_genai") {
@@ -65,9 +56,7 @@ export const ModelSelectorProvider = ({
 export const useModelSelectorContext = () => {
   const context = useContext(ModelSelectorContext);
   if (context === undefined) {
-    throw new Error(
-      "useModelSelectorContext must be used within a ModelSelectorProvider",
-    );
+    throw new Error("useModelSelectorContext must be used within a ModelSelectorProvider");
   }
   return context;
 };

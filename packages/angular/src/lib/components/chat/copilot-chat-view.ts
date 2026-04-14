@@ -54,10 +54,7 @@ import { takeUntil } from "rxjs/operators";
   template: `
     <!-- Custom layout template support (render prop pattern) -->
     @if (customLayoutTemplate) {
-      <ng-container
-        [ngTemplateOutlet]="customLayoutTemplate"
-        [ngTemplateOutletContext]="layoutContext()"
-      ></ng-container>
+      <ng-container [ngTemplateOutlet]="customLayoutTemplate" [ngTemplateOutletContext]="layoutContext()"></ng-container>
     } @else {
       <!-- Default layout - exact React DOM structure -->
       <div [class]="computedClass()">
@@ -101,9 +98,7 @@ import { takeUntil } from "rxjs/operators";
     }
   `,
 })
-export class CopilotChatView
-  implements OnInit, OnChanges, AfterViewInit, OnDestroy
-{
+export class CopilotChatView implements OnInit, OnChanges, AfterViewInit, OnDestroy {
   // Core inputs matching React props
   messages = input<Message[]>([]);
   autoScroll = input<boolean>(true);
@@ -175,10 +170,8 @@ export class CopilotChatView
 
   // Default components for slots
   protected readonly defaultScrollViewComponent = CopilotChatViewScrollView;
-  protected readonly defaultScrollToBottomButtonComponent =
-    CopilotChatViewScrollToBottomButton;
-  protected readonly defaultInputContainerComponent =
-    CopilotChatViewInputContainer;
+  protected readonly defaultScrollToBottomButtonComponent = CopilotChatViewScrollToBottomButton;
+  protected readonly defaultInputContainerComponent = CopilotChatViewInputContainer;
   protected readonly defaultFeatherComponent = CopilotChatViewFeather;
   protected readonly defaultDisclaimerComponent = CopilotChatViewDisclaimer;
 
@@ -190,43 +183,27 @@ export class CopilotChatView
   protected disclaimerClassSignal = computed(() => this.disclaimerClass());
   protected inputContainerHeight = signal<number>(0);
   protected isResizing = signal<boolean>(false);
-  protected contentPaddingBottom = computed(
-    () => this.inputContainerHeight() + 32,
-  );
+  protected contentPaddingBottom = computed(() => this.inputContainerHeight() + 32);
 
   // Computed signals
   protected computedClass = computed(() => cn("relative h-full"));
 
   // Slot resolution computed signals
-  protected messageViewSlot = computed(
-    () => this.messageViewTemplate() || this.messageViewComponent(),
-  );
+  protected messageViewSlot = computed(() => this.messageViewTemplate() || this.messageViewComponent());
 
-  protected scrollViewSlot = computed(
-    () => this.scrollViewTemplate() || this.scrollViewComponent(),
-  );
+  protected scrollViewSlot = computed(() => this.scrollViewTemplate() || this.scrollViewComponent());
 
   protected scrollToBottomButtonSlot = computed(
-    () =>
-      this.scrollToBottomButtonTemplate() ||
-      this.scrollToBottomButtonComponent(),
+    () => this.scrollToBottomButtonTemplate() || this.scrollToBottomButtonComponent(),
   );
 
-  protected inputSlot = computed(
-    () => this.inputTemplate() || this.inputComponent(),
-  );
+  protected inputSlot = computed(() => this.inputTemplate() || this.inputComponent());
 
-  protected inputContainerSlot = computed(
-    () => this.inputContainerTemplate() || this.inputContainerComponent(),
-  );
+  protected inputContainerSlot = computed(() => this.inputContainerTemplate() || this.inputContainerComponent());
 
-  protected featherSlot = computed(
-    () => this.featherTemplate() || this.featherComponent(),
-  );
+  protected featherSlot = computed(() => this.featherTemplate() || this.featherComponent());
 
-  protected disclaimerSlot = computed(
-    () => this.disclaimerTemplate() || this.disclaimerComponent(),
-  );
+  protected disclaimerSlot = computed(() => this.disclaimerTemplate() || this.disclaimerComponent());
 
   // Context objects for slots
   protected scrollViewContext = computed(() => ({
@@ -300,28 +277,21 @@ export class CopilotChatView
 
     // Set up input container height monitoring
     const measureAndObserve = () => {
-      if (
-        !this.inputContainerSlotRef ||
-        !this.inputContainerSlotRef.nativeElement
-      ) {
+      if (!this.inputContainerSlotRef || !this.inputContainerSlotRef.nativeElement) {
         return false;
       }
 
       // The slot ref points to the copilot-slot element
       // We need to find the actual input container component inside it
       const slotElement = this.inputContainerSlotRef.nativeElement;
-      const componentElement = slotElement.querySelector(
-        "copilot-chat-view-input-container",
-      );
+      const componentElement = slotElement.querySelector("copilot-chat-view-input-container");
 
       if (!componentElement) {
         return false;
       }
 
       // Look for the absolute positioned div that contains the input
-      let innerDiv = componentElement.querySelector(
-        "div.absolute",
-      ) as HTMLElement;
+      let innerDiv = componentElement.querySelector("div.absolute") as HTMLElement;
 
       // If not found by class, try first child
       if (!innerDiv) {

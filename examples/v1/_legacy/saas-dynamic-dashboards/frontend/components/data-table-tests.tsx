@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { PRData, TestsData } from "@/app/Interfaces/interface";
@@ -15,10 +8,7 @@ import React, { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import { codeSnippets } from "@/public/snippets";
 import { Checkbox } from "./ui/checkbox";
-import {
-  useCopilotAction,
-  ActionRenderPropsWait,
-} from "@copilotkit/react-core";
+import { useCopilotAction, ActionRenderPropsWait } from "@copilotkit/react-core";
 import { PlayCircle, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { ChatGrid } from "./data-chat-grid";
 
@@ -33,13 +23,7 @@ interface DataTableProps {
   testsData: TestsData[];
 }
 
-export function DataTable({
-  columns,
-  data,
-  onToggle,
-  setTestsData,
-  testsData,
-}: DataTableProps) {
+export function DataTable({ columns, data, onToggle, setTestsData, testsData }: DataTableProps) {
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [testSuite, setTestSuite] = useState<TestsData[]>(data || []);
@@ -84,9 +68,7 @@ export function DataTable({
       }));
       setTestCaseStatus((prev) => ({
         ...prev,
-        [rowIndex]: testSuite[rowIndex]?.testCases.map(() =>
-          isPassed ? "passed" : "failed",
-        ),
+        [rowIndex]: testSuite[rowIndex]?.testCases.map(() => (isPassed ? "passed" : "failed")),
       }));
 
       const suiteToMove = testSuite[rowIndex];
@@ -140,10 +122,7 @@ export function DataTable({
         <TableBody>
           {testSuite.length == 0 ? (
             <TableRow>
-              <TableCell
-                colSpan={columns.length}
-                className="text-center text-gray-400 py-8"
-              >
+              <TableCell colSpan={columns.length} className="text-center text-gray-400 py-8">
                 No test data available.
               </TableCell>
             </TableRow>
@@ -185,11 +164,7 @@ export function DataTable({
                               className="w-5 h-5 text-blue-600 hover:text-blue-700 cursor-pointer"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (
-                                  !Object.values(testStatus).some(
-                                    (status) => status === "running",
-                                  )
-                                ) {
+                                if (!Object.values(testStatus).some((status) => status === "running")) {
                                   runTest(rowIndex, row);
                                 }
                               }}
@@ -204,39 +179,21 @@ export function DataTable({
                 </TableRow>
                 {expandedRow === rowIndex && (
                   <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="!p-0 border-t-0"
-                      style={{ background: "none" }}
-                    >
+                    <TableCell colSpan={columns.length} className="!p-0 border-t-0" style={{ background: "none" }}>
                       <div className="relative bg-gray-50 dark:bg-[#f5f7fa]/10 rounded-b-lg shadow-sm mx-2 my-2 p-6 border-2 border-dotted border-gray-300 dark:border-gray-600">
-                        <div className="font-semibold mb-2 text-gray-800 dark:text-gray-100">
-                          Description:
-                        </div>
+                        <div className="font-semibold mb-2 text-gray-800 dark:text-gray-100">Description:</div>
                         <div className="mb-4 text-sm text-gray-600 dark:text-gray-300">
                           {row.shortDescription || "No description available."}
                         </div>
-                        <div className="font-semibold mb-2 text-gray-800 dark:text-gray-100">
-                          Code Snippet:
-                        </div>
+                        <div className="font-semibold mb-2 text-gray-800 dark:text-gray-100">Code Snippet:</div>
                         <pre className="bg-gray-100 dark:bg-[#181f2a] rounded p-3 mb-4 overflow-x-auto text-xs border border-gray-200 dark:border-gray-700">
-                          {
-                            codeSnippets[
-                              Math.floor(Math.random() * codeSnippets.length)
-                            ]
-                          }
+                          {codeSnippets[Math.floor(Math.random() * codeSnippets.length)]}
                         </pre>
-                        <div className="font-semibold mb-2 text-gray-800 dark:text-gray-100">
-                          Test Cases:
-                        </div>
+                        <div className="font-semibold mb-2 text-gray-800 dark:text-gray-100">Test Cases:</div>
                         <ul className="space-y-1">
                           {row.testCases.map((tc, idx) => (
                             <li key={tc.id} className="flex items-center gap-2">
-                              <StatusBadge
-                                status={
-                                  testCaseStatus[rowIndex]?.[idx] || tc.status
-                                }
-                              />
+                              <StatusBadge status={testCaseStatus[rowIndex]?.[idx] || tc.status} />
                               <span>{tc.name}</span>
                             </li>
                           ))}
@@ -256,9 +213,7 @@ export function DataTable({
           className="mt-4"
           disabled={
             Object.values(testStatus).length == 0 ||
-            Object.values(testStatus).some(
-              (status) => status === "idle" || status === "running",
-            )
+            Object.values(testStatus).some((status) => status === "idle" || status === "running")
           }
           onClick={() => {
             onToggle([]);

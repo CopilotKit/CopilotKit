@@ -47,9 +47,7 @@ describe("useAttachments", () => {
     });
 
     it("refs are stable across re-renders", () => {
-      const { result, rerender } = renderHook(() =>
-        useAttachments({ config: undefined }),
-      );
+      const { result, rerender } = renderHook(() => useAttachments({ config: undefined }));
 
       const first = result.current;
       rerender();
@@ -109,9 +107,7 @@ describe("useAttachments", () => {
 
   describe("initial state", () => {
     it("returns empty attachments and disabled by default", () => {
-      const { result } = renderHook(() =>
-        useAttachments({ config: undefined }),
-      );
+      const { result } = renderHook(() => useAttachments({ config: undefined }));
 
       expect(result.current.attachments).toEqual([]);
       expect(result.current.enabled).toBe(false);
@@ -119,9 +115,7 @@ describe("useAttachments", () => {
     });
 
     it("returns enabled when config.enabled is true", () => {
-      const { result } = renderHook(() =>
-        useAttachments({ config: { enabled: true } }),
-      );
+      const { result } = renderHook(() => useAttachments({ config: { enabled: true } }));
 
       expect(result.current.enabled).toBe(true);
     });
@@ -133,9 +127,7 @@ describe("useAttachments", () => {
 
   describe("consumeAttachments", () => {
     it("returns empty array when no attachments", () => {
-      const { result } = renderHook(() =>
-        useAttachments({ config: undefined }),
-      );
+      const { result } = renderHook(() => useAttachments({ config: undefined }));
 
       let consumed: any[];
       act(() => {
@@ -152,9 +144,7 @@ describe("useAttachments", () => {
 
   describe("removeAttachment", () => {
     it("is a no-op when id does not exist", () => {
-      const { result } = renderHook(() =>
-        useAttachments({ config: undefined }),
-      );
+      const { result } = renderHook(() => useAttachments({ config: undefined }));
 
       const before = result.current.attachments;
 

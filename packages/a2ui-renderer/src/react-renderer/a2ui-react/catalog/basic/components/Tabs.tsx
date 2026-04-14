@@ -54,25 +54,17 @@ export const Tabs = createReactComponent(TabsApi, ({ props, buildChild }) => {
               padding: "8px 16px",
               border: "none",
               background: "none",
-              borderBottom:
-                selectedIndex === i
-                  ? "2px solid var(--a2ui-primary-color, #007bff)"
-                  : "none",
+              borderBottom: selectedIndex === i ? "2px solid var(--a2ui-primary-color, #007bff)" : "none",
               fontWeight: selectedIndex === i ? "bold" : "normal",
               cursor: "pointer",
-              color:
-                selectedIndex === i
-                  ? "var(--a2ui-primary-color, #007bff)"
-                  : "inherit",
+              color: selectedIndex === i ? "var(--a2ui-primary-color, #007bff)" : "inherit",
             }}
           >
             {tab.title}
           </button>
         ))}
       </div>
-      <div style={{ flex: 1 }}>
-        {activeTab ? buildChild(activeTab.child) : null}
-      </div>
+      <div style={{ flex: 1 }}>{activeTab ? buildChild(activeTab.child) : null}</div>
     </div>
   );
 });

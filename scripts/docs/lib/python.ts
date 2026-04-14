@@ -80,10 +80,7 @@ function parseParameters(rawParameters: string) {
  * @param fileContent - The entire Python file content
  * @returns A record where each key is a function name, and the value is the parsed doc info
  */
-export function parsePythonDocstrings(
-  functionNames: string[],
-  fileContent: string,
-): Record<string, ParsedFunctionDoc> {
+export function parsePythonDocstrings(functionNames: string[], fileContent: string): Record<string, ParsedFunctionDoc> {
   const results: Record<string, ParsedFunctionDoc> = {};
 
   // Regex to capture:
@@ -101,8 +98,7 @@ export function parsePythonDocstrings(
   // We also add a lookbehind for ) or : to ensure we match the pattern of a function signature,
   // but you can tweak as needed.
   // Updated regex to handle multiline signatures
-  const functionRegex =
-    /\b(?:async\s+)?(def|class)\s+([A-Za-z_]\w*)[\s\S]*?"""([\s\S]*?)"""/gm;
+  const functionRegex = /\b(?:async\s+)?(def|class)\s+([A-Za-z_]\w*)[\s\S]*?"""([\s\S]*?)"""/gm;
   let match: RegExpExecArray | null;
   while ((match = functionRegex.exec(fileContent)) !== null) {
     const fnName = match[2];
@@ -143,9 +139,7 @@ export function parsePythonDocstrings(
     let rawReturns = "";
 
     // Check if there's a "Returns" block in the "maybeParamsAndBeyond" chunk
-    const returnsSplit = maybeParamsAndBeyond.split(
-      /\n\s*Returns\s*[-=]+\s*\n/,
-    );
+    const returnsSplit = maybeParamsAndBeyond.split(/\n\s*Returns\s*[-=]+\s*\n/);
     if (returnsSplit.length === 2) {
       // [ paramsBlock, returnsBlock ]
       rawParameters = returnsSplit[0];
@@ -182,9 +176,7 @@ export function parsePythonDocstrings(
     results[fnName] = {
       description,
       parameters,
-      returns: returnType
-        ? { type: returnType, description: returnDescription.trim() }
-        : null,
+      returns: returnType ? { type: returnType, description: returnDescription.trim() } : null,
     };
   }
 

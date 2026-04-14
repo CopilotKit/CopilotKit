@@ -35,9 +35,7 @@ export interface ServerIntrospection {
  *
  * Re-fetches automatically whenever `servers` changes.
  */
-export function useMcpIntrospect(
-  servers: { endpoint: string; serverId?: string }[],
-) {
+export function useMcpIntrospect(servers: { endpoint: string; serverId?: string }[]) {
   const [data, setData] = useState<ServerIntrospection[]>([]);
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -83,18 +81,12 @@ export function useMcpIntrospect(
             signal: controller.signal,
           });
 
-          console.log(
-            `[useMcpIntrospect] Response from ${server.endpoint}: ${res.status}`,
-          );
+          console.log(`[useMcpIntrospect] Response from ${server.endpoint}: ${res.status}`);
 
           if (!res.ok) {
             const body = await res.json().catch(() => ({}));
-            entry.error =
-              (body as Record<string, string>).error ?? `HTTP ${res.status}`;
-            console.error(
-              `[useMcpIntrospect] Error for ${server.endpoint}:`,
-              entry.error,
-            );
+            entry.error = (body as Record<string, string>).error ?? `HTTP ${res.status}`;
+            console.error(`[useMcpIntrospect] Error for ${server.endpoint}:`, entry.error);
           } else {
             const body = await res.json();
             entry.tools = body.tools ?? [];
@@ -106,10 +98,7 @@ export function useMcpIntrospect(
         } catch (err) {
           if ((err as Error).name !== "AbortError") {
             entry.error = (err as Error).message ?? String(err);
-            console.error(
-              `[useMcpIntrospect] Fetch failed for ${server.endpoint}:`,
-              entry.error,
-            );
+            console.error(`[useMcpIntrospect] Fetch failed for ${server.endpoint}:`, entry.error);
           }
         }
 

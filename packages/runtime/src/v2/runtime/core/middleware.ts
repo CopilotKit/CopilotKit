@@ -39,12 +39,8 @@ export interface AfterRequestMiddlewareParameters {
   runId?: string;
 }
 
-export type BeforeRequestMiddlewareFn = (
-  params: BeforeRequestMiddlewareParameters,
-) => MaybePromise<Request | void>;
-export type AfterRequestMiddlewareFn = (
-  params: AfterRequestMiddlewareParameters,
-) => MaybePromise<void>;
+export type BeforeRequestMiddlewareFn = (params: BeforeRequestMiddlewareParameters) => MaybePromise<Request | void>;
+export type AfterRequestMiddlewareFn = (params: AfterRequestMiddlewareParameters) => MaybePromise<void>;
 
 /**
  * A middleware value can be either a callback function or a webhook URL.

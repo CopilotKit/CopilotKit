@@ -21,10 +21,7 @@ const ROOT = path.resolve(__dirname, "../..");
 const MAIN_DOCS = path.join(ROOT, "docs/content/docs");
 const MAIN_SNIPPETS = path.join(ROOT, "docs/snippets");
 const SHOWCASE_DOCS = path.join(ROOT, "showcase/shell/src/content/docs");
-const SHOWCASE_SNIPPETS = path.join(
-  ROOT,
-  "showcase/shell/src/content/snippets",
-);
+const SHOWCASE_SNIPPETS = path.join(ROOT, "showcase/shell/src/content/snippets");
 const SYNC_MARKER = path.join(ROOT, "showcase/shell/.docs-sync-sha");
 
 // LangChain -> LangGraph exclusions (these intentionally keep "LangChain")
@@ -95,16 +92,9 @@ function stripMdxImports(content: string): string {
         continue;
       }
 
-      if (
-        line.trim().startsWith("import ") ||
-        line.trim().startsWith("import{")
-      ) {
+      if (line.trim().startsWith("import ") || line.trim().startsWith("import{")) {
         // Check if this is a multi-line import (no `from` on same line)
-        if (
-          !line.includes(" from ") &&
-          !line.includes(' from"') &&
-          !line.includes(" from'")
-        ) {
+        if (!line.includes(" from ") && !line.includes(' from"') && !line.includes(" from'")) {
           inMultiLineImport = true;
         }
         // Skip this import line
@@ -137,10 +127,7 @@ function stripComponentsProps(content: string): string {
  * Code blocks may contain legitimate `langchain` package references
  * that must not be renamed (validated by executable doc tests on main).
  */
-function replaceLangChainWithLangGraph(
-  content: string,
-  filePath: string,
-): string {
+function replaceLangChainWithLangGraph(content: string, filePath: string): string {
   // Only apply in langgraph integration directory
   if (!filePath.includes("integrations/langgraph")) {
     return content;
@@ -217,11 +204,7 @@ function mainSnippetToShowcasePath(mainPath: string): string {
  * Check if a showcase file has been locally modified beyond standard transforms.
  * Compares the current showcase file against a "clean transform" of the previous main version.
  */
-function hasShowcaseLocalModifications(
-  showcasePath: string,
-  mainPath: string,
-  lastSyncSha: string,
-): boolean {
+function hasShowcaseLocalModifications(showcasePath: string, mainPath: string, lastSyncSha: string): boolean {
   if (!fs.existsSync(showcasePath)) {
     return false; // New file, no local mods
   }
@@ -229,10 +212,7 @@ function hasShowcaseLocalModifications(
   // Get the main file content at the last sync point
   try {
     const mainRelative = path.relative(ROOT, mainPath);
-    const previousMainContent = execSync(
-      `git show ${lastSyncSha}:${mainRelative}`,
-      { encoding: "utf-8", cwd: ROOT },
-    );
+    const previousMainContent = execSync(`git show ${lastSyncSha}:${mainRelative}`, { encoding: "utf-8", cwd: ROOT });
     const cleanTransform = transformContent(previousMainContent, showcasePath);
     const currentShowcase = fs.readFileSync(showcasePath, "utf-8");
 
@@ -243,9 +223,7 @@ function hasShowcaseLocalModifications(
       return false;
     }
     // Unexpected error — be conservative, flag for review
-    console.warn(
-      `[WARN] hasShowcaseLocalModifications failed for ${showcasePath}: ${err}`,
-    );
+    console.warn(`[WARN] hasShowcaseLocalModifications failed for ${showcasePath}: ${err}`);
     return true;
   }
 }
@@ -273,10 +251,10 @@ function getLastSyncSha(): string {
 }
 
 function getChangedFiles(sinceSha: string): string[] {
-  const output = execSync(
-    `git diff --name-only ${sinceSha}..HEAD -- docs/content/docs/ docs/snippets/`,
-    { encoding: "utf-8", cwd: ROOT },
-  );
+  const output = execSync(`git diff --name-only ${sinceSha}..HEAD -- docs/content/docs/ docs/snippets/`, {
+    encoding: "utf-8",
+    cwd: ROOT,
+  });
   return output.split("\n").filter((f) => f.trim() && f.endsWith(".mdx"));
 }
 
@@ -346,25 +324,19 @@ function main(): SyncResult {
   for (const relPath of changedRelPaths) {
     const mainAbsolute = path.join(ROOT, relPath);
     const isSnippet = relPath.startsWith("docs/snippets/");
-    const showcaseAbsolute = isSnippet
-      ? mainSnippetToShowcasePath(mainAbsolute)
-      : mainToShowcasePath(mainAbsolute);
+    const showcaseAbsolute = isSnippet ? mainSnippetToShowcasePath(mainAbsolute) : mainToShowcasePath(mainAbsolute);
 
     // File deleted on main
     if (!fs.existsSync(mainAbsolute)) {
       if (fs.existsSync(showcaseAbsolute)) {
         result.deleted.push(relPath);
-        console.log(
-          `  [DELETE?] ${relPath} (removed on main, exists in showcase)`,
-        );
+        console.log(`  [DELETE?] ${relPath} (removed on main, exists in showcase)`);
       }
       continue;
     }
 
     // Check for showcase-local modifications
-    if (
-      hasShowcaseLocalModifications(showcaseAbsolute, mainAbsolute, lastSyncSha)
-    ) {
+    if (hasShowcaseLocalModifications(showcaseAbsolute, mainAbsolute, lastSyncSha)) {
       result.needsReview.push(relPath);
       console.log(`  [REVIEW] ${relPath} (showcase has local modifications)`);
       continue;
@@ -437,10 +409,8 @@ const result = main();
 //   0 = changes auto-applied (clean transforms only, safe to push directly)
 //   2 = nothing changed (CI does nothing)
 //   3 = has review items (CI should open a PR for the needsReview/deleted files)
-const hasAutoApplied =
-  result.copied.length > 0 || result.transformed.length > 0;
-const hasReviewItems =
-  result.needsReview.length > 0 || result.deleted.length > 0;
+const hasAutoApplied = result.copied.length > 0 || result.transformed.length > 0;
+const hasReviewItems = result.needsReview.length > 0 || result.deleted.length > 0;
 
 if (!hasAutoApplied && !hasReviewItems) {
   process.exit(2);
@@ -448,21 +418,14 @@ if (!hasAutoApplied && !hasReviewItems) {
   // Write review items to a file for CI to include in PR body
   const reviewLines: string[] = [];
   if (result.needsReview.length > 0) {
-    reviewLines.push(
-      "Files with showcase-local modifications (need manual merge):",
-    );
+    reviewLines.push("Files with showcase-local modifications (need manual merge):");
     for (const f of result.needsReview) reviewLines.push(`  - ${f}`);
   }
   if (result.deleted.length > 0) {
-    reviewLines.push(
-      "Files deleted on main (review whether to delete in showcase):",
-    );
+    reviewLines.push("Files deleted on main (review whether to delete in showcase):");
     for (const f of result.deleted) reviewLines.push(`  - ${f}`);
   }
-  fs.writeFileSync(
-    path.join(ROOT, "review-items.txt"),
-    reviewLines.join("\n") + "\n",
-  );
+  fs.writeFileSync(path.join(ROOT, "review-items.txt"), reviewLines.join("\n") + "\n");
   process.exit(3);
 } else {
   process.exit(0);

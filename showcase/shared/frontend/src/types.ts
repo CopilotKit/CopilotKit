@@ -1,27 +1,14 @@
 export interface SalesTodo {
   id: string;
   title: string;
-  stage:
-    | "prospect"
-    | "qualified"
-    | "proposal"
-    | "negotiation"
-    | "closed-won"
-    | "closed-lost";
+  stage: "prospect" | "qualified" | "proposal" | "negotiation" | "closed-won" | "closed-lost";
   value: number;
   dueDate: string;
   assignee: string;
   completed: boolean;
 }
 
-export const SALES_STAGES = [
-  "prospect",
-  "qualified",
-  "proposal",
-  "negotiation",
-  "closed-won",
-  "closed-lost",
-] as const;
+export const SALES_STAGES = ["prospect", "qualified", "proposal", "negotiation", "closed-won", "closed-lost"] as const;
 
 export const INITIAL_SALES_TODOS: SalesTodo[] = [
   {

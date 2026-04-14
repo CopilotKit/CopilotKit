@@ -97,9 +97,7 @@ export function looksLikeModelName(s: string): boolean {
  * Extract code blocks (fenced and inline) from MDX content, preserving
  * line numbers so violations can be reported accurately.
  */
-function extractCodeRegions(
-  content: string,
-): Array<{ text: string; lineOffset: number }> {
+function extractCodeRegions(content: string): Array<{ text: string; lineOffset: number }> {
   const regions: Array<{ text: string; lineOffset: number }> = [];
   const lines = content.split("\n");
 
@@ -152,17 +150,14 @@ function extractCodeRegions(
  *   ChatOpenAI(model="gpt-5.4")
  *   openai/gpt-5.4-mini  (bare provider-prefixed)
  */
-const MODEL_ATTR_REGEX =
-  /(?:model\s*[=:]\s*["']|"model"\s*:\s*["'])([\w./-]+)["']/g;
+const MODEL_ATTR_REGEX = /(?:model\s*[=:]\s*["']|"model"\s*:\s*["'])([\w./-]+)["']/g;
 
 const BARE_PROVIDER_REGEX = new RegExp(
   `(?:${PROVIDER_PREFIXES.map((p) => p.replace("/", "\\/")).join("|")})([\\w.-]+)`,
   "g",
 );
 
-export function extractModelNames(
-  content: string,
-): Array<{ model: string; line: number }> {
+export function extractModelNames(content: string): Array<{ model: string; line: number }> {
   const results: Array<{ model: string; line: number }> = [];
   const seen = new Set<string>();
 
@@ -221,8 +216,7 @@ function findMdxFiles(dir: string): string[] {
       const full = path.join(current, entry.name);
       if (entry.isDirectory()) {
         // Skip node_modules and hidden dirs
-        if (entry.name.startsWith(".") || entry.name === "node_modules")
-          continue;
+        if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
         walk(full);
       } else if (entry.name.endsWith(".mdx")) {
         results.push(full);
@@ -234,10 +228,7 @@ function findMdxFiles(dir: string): string[] {
   return results.sort();
 }
 
-export function validateFiles(
-  docsDir: string,
-  allowlistPath: string,
-): Violation[] {
+export function validateFiles(docsDir: string, allowlistPath: string): Violation[] {
   const allowed = loadAllowlist(allowlistPath);
   const files = findMdxFiles(docsDir);
   const violations: Violation[] = [];
@@ -280,17 +271,13 @@ function main() {
     process.exit(0);
   }
 
-  console.log(
-    `Found ${violations.length} model name${violations.length === 1 ? "" : "s"} not in allowlist:\n`,
-  );
+  console.log(`Found ${violations.length} model name${violations.length === 1 ? "" : "s"} not in allowlist:\n`);
 
   for (const v of violations) {
     console.log(`  ${v.file}:${v.line}  ${v.model}`);
   }
 
-  console.log(
-    `\nTo fix: add valid names to docs/model-allowlist.json, or update the docs.`,
-  );
+  console.log(`\nTo fix: add valid names to docs/model-allowlist.json, or update the docs.`);
 
   if (fixMode) {
     // --fix mode: report but don't fail (for local dev)

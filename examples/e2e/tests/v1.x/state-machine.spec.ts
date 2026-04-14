@@ -8,8 +8,6 @@ test.describe("state-machine", () => {
   test("loads", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("button", { name: "Orders" })).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "State Visualizer" }),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "State Visualizer" })).toBeVisible();
   });
 });

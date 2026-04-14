@@ -23,26 +23,23 @@ export function DocumentsView({
 }: DocumentsViewProps) {
   const { state, setResearchState } = useResearch();
   const { isLoading: running } = useCopilotChat();
-  const [documentOptionsState, setDocumentOptionsState] =
-    useState<DocumentOptionsState>({ mode: "full", editMode: false });
+  const [documentOptionsState, setDocumentOptionsState] = useState<DocumentOptionsState>({
+    mode: "full",
+    editMode: false,
+  });
 
   const handleSectionEdit = useCallback(
     (editedSection: Section) => {
       setResearchState({
         ...state,
-        sections: state.sections.map((section) =>
-          section.id === editedSection.id ? editedSection : section,
-        ),
+        sections: state.sections.map((section) => (section.id === editedSection.id ? editedSection : section)),
       });
     },
     [setResearchState, state],
   );
 
   const currentSection = useMemo(() => {
-    if (
-      streamingSection?.id &&
-      streamingSection.id !== (selectedSection as Section | undefined)?.id
-    ) {
+    if (streamingSection?.id && streamingSection.id !== (selectedSection as Section | undefined)?.id) {
       return streamingSection;
     }
     return selectedSection;
@@ -50,48 +47,29 @@ export function DocumentsView({
 
   const sections = useMemo(() => {
     if (!streamingSection?.id) return sectionsArg;
-    if (sectionsArg.some((s) => s.id === streamingSection.id))
-      return sectionsArg;
+    if (sectionsArg.some((s) => s.id === streamingSection.id)) return sectionsArg;
     return [...sectionsArg, streamingSection];
   }, [sectionsArg, streamingSection]);
 
   const emptyState = useMemo(() => {
     let placeholder = "Start by asking a research question in the chat";
     if (running && !sections.length) {
-      placeholder =
-        "The agent is running. As research is created, it will show up here";
+      placeholder = "The agent is running. As research is created, it will show up here";
     }
     if (sections.length) {
-      placeholder =
-        "Pick a section from the sections tab to the right, to view and edit";
+      placeholder = "Pick a section from the sections tab to the right, to view and edit";
     }
     return (
-      <DocumentViewer
-        editMode={false}
-        onSectionEdit={handleSectionEdit}
-        zoomLevel={100}
-        placeholder={placeholder}
-      />
+      <DocumentViewer editMode={false} onSectionEdit={handleSectionEdit} zoomLevel={100} placeholder={placeholder} />
     );
   }, [sections.length, running, handleSectionEdit]);
 
   return (
-    <div
-      className={cn(
-        "flex flex-col flex-1 overflow-y-hidden h-full p-4",
-        !sections.length ? "pr-0" : "",
-      )}
-    >
+    <div className={cn("flex flex-col flex-1 overflow-y-hidden h-full p-4", !sections.length ? "pr-0" : "")}>
       <DocumentOptions
-        onChange={(change) =>
-          setDocumentOptionsState((prev) => ({ ...prev, ...change }))
-        }
+        onChange={(change) => setDocumentOptionsState((prev) => ({ ...prev, ...change }))}
         state={documentOptionsState}
-        canEdit={Boolean(
-          !running &&
-          sections.length &&
-          (currentSection || documentOptionsState.mode === "full"),
-        )}
+        canEdit={Boolean(!running && sections.length && (currentSection || documentOptionsState.mode === "full"))}
       />
 
       <div className="flex flex-1 overflow-hidden">

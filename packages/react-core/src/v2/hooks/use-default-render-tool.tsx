@@ -63,20 +63,11 @@ export function useDefaultRenderTool(
   );
 }
 
-function DefaultToolCallRenderer({
-  name,
-  parameters,
-  status,
-  result,
-}: DefaultRenderProps): React.ReactElement {
+function DefaultToolCallRenderer({ name, parameters, status, result }: DefaultRenderProps): React.ReactElement {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const statusString = String(status) as
-    | "inProgress"
-    | "executing"
-    | "complete";
-  const isActive =
-    statusString === "inProgress" || statusString === "executing";
+  const statusString = String(status) as "inProgress" | "executing" | "complete";
+  const isActive = statusString === "inProgress" || statusString === "executing";
   const isComplete = statusString === "complete";
 
   const statusLabel = isActive ? "Running" : isComplete ? "Done" : status;
@@ -133,11 +124,7 @@ function DefaultToolCallRenderer({
               strokeWidth={2}
               stroke="currentColor"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M8.25 4.5l7.5 7.5-7.5 7.5"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
             </svg>
             <span
               style={{
@@ -240,9 +227,7 @@ function DefaultToolCallRenderer({
                     wordBreak: "break-word",
                   }}
                 >
-                  {typeof result === "string"
-                    ? result
-                    : JSON.stringify(result, null, 2)}
+                  {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
                 </pre>
               </div>
             )}
