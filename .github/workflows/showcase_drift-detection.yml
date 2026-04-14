@@ -72,14 +72,21 @@ jobs:
             echo "EOFEOF"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Build Slack payload
+        if: failure()
+        run: |
+          SUMMARY=$(echo "${{ steps.failures.outputs.details }}" | head -3 | sed 's/\x1b\[[0-9;]*m//g' | cut -c1-200)
+          URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          jq -n --arg text ":x: *Showcase E2E suite failed*\n<$URL|View run>\n\`\`\`$SUMMARY\`\`\`" \
+            '{text: $text}' > /tmp/slack-payload.json
+
       - name: Post failure to Slack
         if: failure()
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
-          payload: |
-            { "text": ":x: *Showcase E2E suite failed*\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>\n\n```\n${{ steps.failures.outputs.details }}\n```" }
+          payload-file-path: /tmp/slack-payload.json
 
       - name: Create issue on failure
         if: failure()
