@@ -9,6 +9,7 @@ COPY apps/app/package.json ./apps/app/
 RUN pnpm install --no-frozen-lockfile
 
 COPY apps/app/ ./apps/app/
+COPY showcase.json ./showcase.json
 
 # Docker override: use AG-UI HttpAgent instead of LangGraphAgent
 # (LangGraphAgent needs Docker-in-Docker which Railway doesn't provide)
