@@ -455,10 +455,12 @@ export function CopilotChatInput({
 
     onSubmitMessage(trimmed);
 
+    // Always clear the input after sending, including controlled mode.
+    // In controlled mode, onChange("") notifies the parent to reset its state.
     if (!isControlled) {
       setInternalValue("");
-      onChange?.("");
     }
+    onChange?.("");
 
     if (inputRef.current) {
       inputRef.current.focus();
