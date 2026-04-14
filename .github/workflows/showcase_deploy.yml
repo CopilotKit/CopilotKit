@@ -315,13 +315,32 @@ jobs:
           echo "services=$SERVICES" >> $GITHUB_OUTPUT
           echo "count=$COUNT" >> $GITHUB_OUTPUT
 
-      - name: Collect results and notify Slack
+      - name: Build Slack payload
+        if: "${{ secrets.SLACK_WEBHOOK_OSS_ALERTS != '' }}"
+        run: |
+          URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          DETECT="${{ needs.detect-changes.result }}"
+          LOCKFILE="${{ needs.check-lockfile.result }}"
+          BUILD="${{ needs.build.result }}"
+          COUNT="${{ steps.summary.outputs.count }}"
+          SERVICES=$(echo "${{ steps.summary.outputs.services }}" | cut -c1-200)
+
+          if [ "$DETECT" = "failure" ] || [ "$LOCKFILE" = "failure" ]; then
+            MSG=":x: *Showcase deploy*: FAILED (pre-build check)"
+          elif [ "$BUILD" = "success" ]; then
+            MSG=":white_check_mark: *Showcase deploy*: ${COUNT} service(s) deployed to Railway (${SERVICES})"
+          elif [ "$BUILD" = "skipped" ] && [ "$DETECT" = "success" ]; then
+            MSG=":white_check_mark: *Showcase deploy*: no changes detected, nothing to deploy"
+          else
+            MSG=":x: *Showcase deploy*: FAILED — ${COUNT} service(s) targeted (${SERVICES})"
+          fi
+
+          jq -n --arg text "$MSG | <$URL|View run>" '{text: $text}' > /tmp/slack-payload.json
+
+      - name: Post to Slack
         if: "${{ secrets.SLACK_WEBHOOK_OSS_ALERTS != '' }}"
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
-          payload: |
-            {
-              "text": "${{ (needs.detect-changes.result == 'failure' || needs.check-lockfile.result == 'failure') && format(':x: *Showcase deploy*: FAILED (pre-build check)') || needs.build.result == 'success' && format(':white_check_mark: *Showcase deploy*: {0} service(s) deployed to Railway ({1})', steps.summary.outputs.count, steps.summary.outputs.services) || (needs.build.result == 'skipped' && needs.detect-changes.result == 'success') && ':white_check_mark: *Showcase deploy*: no changes detected, nothing to deploy' || format(':x: *Showcase deploy*: FAILED — {0} service(s) targeted ({1})', steps.summary.outputs.count, steps.summary.outputs.services) }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
-            }
+          payload-file-path: /tmp/slack-payload.json
