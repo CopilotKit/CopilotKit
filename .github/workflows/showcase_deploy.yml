@@ -68,8 +68,6 @@ jobs:
               - 'showcase/shared/**'
               - 'showcase/scripts/**'
               - 'showcase/packages/*/manifest.yaml'
-            test_integration_tmp:
-              - 'showcase/packages/test-integration-tmp/**'
             langgraph: 'showcase/packages/langgraph-python/**'
             mastra: 'showcase/packages/mastra/**'
             crewai_crews: 'showcase/packages/crewai-crews/**'
