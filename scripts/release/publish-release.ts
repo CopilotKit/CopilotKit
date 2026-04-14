@@ -47,12 +47,15 @@ function getPublishedVersion(packageName: string): string | null {
     return result.stdout.trim() || null;
   }
   // E404 means package doesn't exist on registry — genuinely not published
-  if (result.stderr?.includes("E404") || result.stderr?.includes("is not in this registry")) {
+  if (
+    result.stderr?.includes("E404") ||
+    result.stderr?.includes("is not in this registry")
+  ) {
     return null;
   }
   // Any other error (network, auth, rate limit) should stop the release
   throw new Error(
-    `npm registry check failed for ${packageName}: ${result.stderr?.trim() || "unknown error"}`
+    `npm registry check failed for ${packageName}: ${result.stderr?.trim() || "unknown error"}`,
   );
 }
 
@@ -100,7 +103,9 @@ async function main() {
   try {
     published = getPublishedVersion(scopeConfig.versionSource);
   } catch (err: any) {
-    console.error(`Registry check failed — aborting release to avoid publishing over an existing version.`);
+    console.error(
+      `Registry check failed — aborting release to avoid publishing over an existing version.`,
+    );
     console.error(err.message);
     process.exit(1);
   }
