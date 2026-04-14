@@ -15,6 +15,8 @@
     "@copilotkit/a2ui-renderer": "next",
     "@copilotkit/react-core": "next",
     "@copilotkit/runtime": "next",
+    "@hashbrownai/core": "0.5.0-beta.4",
+    "@hashbrownai/react": "0.5.0-beta.4",
     "@libsql/client": "^0.15.15",
     "@mastra/client-js": "beta",
     "@mastra/core": "beta",

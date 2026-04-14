@@ -14,6 +14,8 @@
     "@copilotkit/react-core": "next",
     "@copilotkit/runtime": "next",
     "@copilotkit/sdk-js": "1.51.4",
+    "@hashbrownai/core": "0.5.0-beta.4",
+    "@hashbrownai/react": "0.5.0-beta.4",
     "@langchain/core": "^1.0.1",
     "@langchain/langgraph": "1.0.2",
     "@langchain/langgraph-checkpoint": "1.0.0",
