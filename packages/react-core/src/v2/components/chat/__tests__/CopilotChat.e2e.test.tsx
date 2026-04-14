@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { screen, fireEvent, waitFor } from "@testing-library/react";
+import { screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { z } from "zod";
 import { defineToolCallRenderer, ReactToolCallRenderer } from "../../../types";
 import {
@@ -1094,12 +1094,16 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         expect(button?.getAttribute("aria-expanded")).toBe("false");
       });
 
-      // Click to expand
+      // Click to expand — wrap in act() so React 18 flushes the state
+      // update synchronously instead of deferring it through the scheduler,
+      // which can race with waitFor polling on slow CI runners.
       const header = screen.getByText(/Thought for/);
       const button = header.closest("button");
-      if (button) {
-        fireEvent.click(button);
-      }
+      act(() => {
+        if (button) {
+          fireEvent.click(button);
+        }
+      });
 
       // Should now be expanded
       await waitFor(() => {
