@@ -105,7 +105,10 @@ export function createSseEventResponse({
       complete: async () => {
         telemetry.capture("oss.runtime.agent_execution_stream_ended", {});
         if (debug?.lifecycle) {
-          debugLogger!.debug({ eventCount, loggedEventCount }, "SSE stream completed");
+          debugLogger!.debug(
+            { eventCount, loggedEventCount },
+            "SSE stream completed",
+          );
         }
         await closeStream();
       },
