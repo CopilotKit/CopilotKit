@@ -54,6 +54,7 @@ jobs:
     outputs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
       has_changes: ${{ steps.build-matrix.outputs.has_changes }}
+      test_integration_tmp: ${{ steps.changes.outputs.test_integration_tmp }}
     steps:
       - uses: actions/checkout@v4
 
@@ -67,6 +68,8 @@ jobs:
               - 'showcase/shared/**'
               - 'showcase/scripts/**'
               - 'showcase/packages/*/manifest.yaml'
+            test_integration_tmp:
+              - 'showcase/packages/test-integration-tmp/**'
             langgraph: 'showcase/packages/langgraph-python/**'
             mastra: 'showcase/packages/mastra/**'
             crewai_crews: 'showcase/packages/crewai-crews/**'
@@ -206,12 +209,12 @@ jobs:
             cp -r showcase/shared/python "$CONTEXT/shared_python"
           fi
           if [ -d "showcase/shared/frontend/src" ] && [ -d "$CONTEXT" ]; then
-            mkdir -p "$CONTEXT/shared_frontend/src"
-            cp -r showcase/shared/frontend/src/ "$CONTEXT/shared_frontend/src/"
+            mkdir -p "$CONTEXT/shared_frontend"
+            cp -r showcase/shared/frontend/src "$CONTEXT/shared_frontend/src"
           fi
           if [ -d "showcase/shared/typescript/tools" ] && [ -d "$CONTEXT" ]; then
-            mkdir -p "$CONTEXT/shared_typescript/tools"
-            cp -r showcase/shared/typescript/tools/ "$CONTEXT/shared_typescript/tools/"
+            mkdir -p "$CONTEXT/shared_typescript"
+            cp -r showcase/shared/typescript/tools "$CONTEXT/shared_typescript/tools"
           fi
 
       - name: Build and push
@@ -251,3 +254,46 @@ jobs:
             {
               "text": "${{ (needs.detect-changes.result == 'failure' || needs.check-lockfile.result == 'failure') && format(':x: *Showcase deploy*: FAILED (pre-build check)') || needs.build.result == 'success' && ':white_check_mark: *Showcase deploy*: all services deployed to Railway' || (needs.build.result == 'skipped' && needs.detect-changes.result == 'success') && ':white_check_mark: *Showcase deploy*: no changes detected, nothing to deploy' || format(':x: *Showcase deploy*: FAILED (result: {0})', needs.build.result) }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
             }
+
+  build-test_integration_tmp:
+    name: Build & Push Test Integration
+    needs: [detect-changes, check-lockfile]
+    if: |
+      needs.detect-changes.outputs.test_integration_tmp == 'true' ||
+      github.event.inputs.service == 'test-integration-tmp' ||
+      github.event.inputs.service == 'all'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: showcase/packages/test-integration-tmp
+          push: true
+          tags: |
+            ghcr.io/copilotkit/showcase-test-integration-tmp:latest
+            ghcr.io/copilotkit/showcase-test-integration-tmp:${{ github.sha }}
+          cache-from: type=gha,scope=test_integration_tmp
+          cache-to: type=gha,scope=test_integration_tmp,mode=max
+
+      - name: Trigger Railway deploy
+        run: |
+          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"RAILWAY_SERVICE_ID\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
+            && echo "test-integration-tmp deploy triggered"
