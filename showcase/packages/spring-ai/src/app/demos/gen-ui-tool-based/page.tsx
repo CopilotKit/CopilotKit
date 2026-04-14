@@ -8,6 +8,7 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+import { DemoErrorBoundary, useShowcaseHooks } from "@copilotkit/showcase-shared";
 
 interface Haiku {
   japanese: string[];
@@ -26,15 +27,19 @@ export default function GenUiToolBasedDemo() {
         position: "relative",
       }}
     >
-      <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
-        <SidebarWithSuggestions />
-        <HaikuDisplay />
-      </CopilotKit>
+      <DemoErrorBoundary demoName="Tool-Based Generative UI">
+        <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
+          <SidebarWithSuggestions />
+          <HaikuDisplay />
+        </CopilotKit>
+      </DemoErrorBoundary>
     </div>
   );
 }
 
 function SidebarWithSuggestions() {
+  useShowcaseHooks();
+
   useConfigureSuggestions({
     suggestions: [
       { title: "Nature Haiku", message: "Write me a haiku about nature." },
@@ -70,7 +75,11 @@ const VALID_IMAGE_NAMES = [
 function HaikuDisplay() {
   const [haikus, setHaikus] = useState<Haiku[]>([
     {
-      japanese: ["仮の句よ", "まっさらながら", "花を呼ぶ"],
+      japanese: [
+        "\u4eee\u306e\u53e5\u3088",
+        "\u307e\u3063\u3055\u3089\u306a\u304c\u3089",
+        "\u82b1\u3092\u547c\u3076",
+      ],
       english: [
         "A placeholder verse--",
         "even in a blank canvas,",

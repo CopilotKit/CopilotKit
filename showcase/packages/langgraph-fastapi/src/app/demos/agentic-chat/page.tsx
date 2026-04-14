@@ -5,12 +5,17 @@ import {
   useFrontendTool,
   useRenderTool,
   useAgentContext,
-  useConfigureSuggestions,
   CopilotChat,
 } from "@copilotkit/react-core/v2";
 import { CopilotKit } from "@copilotkit/react-core";
 import { z } from "zod";
-import { DemoErrorBoundary } from "../error-boundary";
+import { DemoErrorBoundary } from "@copilotkit/showcase-shared";
+import {
+  WeatherCard,
+  useShowcaseHooks,
+  useShowcaseSuggestions,
+  demonstrationCatalog,
+} from "@copilotkit/showcase-shared";
 
 export default function AgenticChatDemo() {
   useEffect(() => {
@@ -22,6 +27,7 @@ export default function AgenticChatDemo() {
       <CopilotKit
         runtimeUrl="/api/copilotkit"
         agent="agentic_chat"
+        a2ui={{ catalog: demonstrationCatalog }}
         onError={(error) => {
           console.error("[agentic-chat] CopilotKit error:", error);
         }}
@@ -34,6 +40,9 @@ export default function AgenticChatDemo() {
 
 function Chat() {
   const [background, setBackground] = useState<string>("#fafaf9");
+
+  useShowcaseHooks();
+  useShowcaseSuggestions();
 
   useAgentContext({
     description: "Name of the user",
@@ -65,96 +74,21 @@ function Chat() {
     }),
     render: ({ args, result, status }: any) => {
       if (status !== "complete") {
-        return (
-          <div
-            className="flex items-center gap-3 px-5 py-4 rounded-2xl max-w-sm"
-            style={{
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            }}
-          >
-            <div className="animate-pulse text-2xl">🌤️</div>
-            <div>
-              <p className="text-white font-medium text-sm">
-                Checking weather...
-              </p>
-              <p className="text-white/60 text-xs">{args.location}</p>
-            </div>
-          </div>
-        );
+        return <WeatherCard location={args.location} loading />;
       }
 
-      const location = args.location || "Unknown";
-
       return (
-        <div
-          className="rounded-2xl overflow-hidden shadow-xl my-3"
-          style={{
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            width: "320px",
-          }}
-        >
-          <div className="px-5 pt-4 pb-3">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-base font-bold text-white capitalize tracking-tight">
-                  {location}
-                </h3>
-                <p className="text-white/50 text-[10px] font-medium uppercase tracking-wider">
-                  Current Weather
-                </p>
-              </div>
-              <span className="text-4xl leading-none">☀️</span>
-            </div>
-            <div className="mt-3 flex items-baseline gap-1.5">
-              <span className="text-4xl font-extralight text-white tracking-tighter">
-                70°
-              </span>
-              <span className="text-white/40 text-xs">F</span>
-            </div>
-            <p className="text-white/70 text-xs font-medium capitalize mt-0.5">
-              Clear skies
-            </p>
-          </div>
-          <div
-            className="grid grid-cols-3 text-center py-2.5 px-5"
-            style={{ background: "rgba(0,0,0,0.15)" }}
-          >
-            <div>
-              <p className="text-white/40 text-[9px] font-medium uppercase tracking-wider">
-                Humidity
-              </p>
-              <p className="text-white text-xs font-semibold mt-0.5">45%</p>
-            </div>
-            <div className="border-x border-white/10">
-              <p className="text-white/40 text-[9px] font-medium uppercase tracking-wider">
-                Wind
-              </p>
-              <p className="text-white text-xs font-semibold mt-0.5">5 mph</p>
-            </div>
-            <div>
-              <p className="text-white/40 text-[9px] font-medium uppercase tracking-wider">
-                Feels Like
-              </p>
-              <p className="text-white text-xs font-semibold mt-0.5">72°</p>
-            </div>
-          </div>
-        </div>
+        <WeatherCard
+          location={args.location}
+          temperature={result?.temperature}
+          conditions={result?.conditions}
+          humidity={result?.humidity}
+          windSpeed={result?.wind_speed}
+          feelsLike={result?.feels_like}
+          city={result?.city}
+        />
       );
     },
-  });
-
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Add a proverb",
-        message: "Add a proverb about AI.",
-      },
-      {
-        title: "Weather check",
-        message: "What's the weather like in Tokyo?",
-      },
-    ],
-    available: "always",
   });
 
   return (

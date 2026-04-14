@@ -1,9 +1,11 @@
 # Stage 1: Build Next.js frontend
 FROM node:20.20-slim AS frontend
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json ./
+RUN npm install --legacy-peer-deps
 COPY . .
+COPY shared_frontend/src/ ./shared_frontend/src/
+COPY shared_typescript/tools/ ./shared_typescript/tools/
 RUN npx next build
 
 # Stage 2: Production image

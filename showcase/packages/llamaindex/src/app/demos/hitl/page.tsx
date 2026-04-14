@@ -8,6 +8,10 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+import {
+  useShowcaseHooks,
+  DemoErrorBoundary,
+} from "@copilotkit/showcase-shared";
 
 interface Step {
   description: string;
@@ -16,15 +20,24 @@ interface Step {
 
 export default function HitlDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="human_in_the_loop">
-      <DemoContent />
-    </CopilotKit>
+    <DemoErrorBoundary demoName="Human in the Loop">
+      <CopilotKit runtimeUrl="/api/copilotkit" agent="human_in_the_loop">
+        <DemoContent />
+      </CopilotKit>
+    </DemoErrorBoundary>
   );
 }
 
 function DemoContent() {
+  useShowcaseHooks();
+
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Schedule Meeting (HITL)",
+        message:
+          "I'd like to schedule a 30-minute meeting to learn about CopilotKit. Please use the scheduleTime tool to let me pick a time.",
+      },
       {
         title: "Simple plan",
         message: "Please plan a trip to mars in 5 steps.",

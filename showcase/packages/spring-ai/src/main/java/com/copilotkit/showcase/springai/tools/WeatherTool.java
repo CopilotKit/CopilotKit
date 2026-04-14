@@ -1,5 +1,6 @@
 package com.copilotkit.showcase.springai.tools;
 
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -32,29 +33,41 @@ public class WeatherTool implements Function<WeatherRequest, String> {
 
     @Override
     public String apply(WeatherRequest request) {
-        // Geocode the location
-        String geoUrl = UriComponentsBuilder
-                .fromHttpUrl("https://geocoding-api.open-meteo.com/v1/search")
-                .queryParam("name", request.getLocation())
-                .queryParam("count", 1)
-                .toUriString();
+        WeatherResponse.GeocodingResponse geo;
+        try {
+            // Geocode the location
+            String geoUrl = UriComponentsBuilder
+                    .fromHttpUrl("https://geocoding-api.open-meteo.com/v1/search")
+                    .queryParam("name", request.getLocation())
+                    .queryParam("count", 1)
+                    .toUriString();
 
-        WeatherResponse.GeocodingResponse geo = restTemplate.getForObject(geoUrl, WeatherResponse.GeocodingResponse.class);
+            geo = restTemplate.getForObject(geoUrl, WeatherResponse.GeocodingResponse.class);
+        } catch (RestClientException e) {
+            return "Failed to geocode location '" + request.getLocation() + "': " + e.getMessage();
+        }
+
         if (geo == null || geo.getResults() == null || geo.getResults().isEmpty()) {
             return "Location not found: " + request.getLocation();
         }
 
         WeatherResponse.GeocodingResult loc = geo.getResults().get(0);
 
-        // Get weather
-        String weatherUrl = UriComponentsBuilder
-                .fromHttpUrl("https://api.open-meteo.com/v1/forecast")
-                .queryParam("latitude", loc.getLatitude())
-                .queryParam("longitude", loc.getLongitude())
-                .queryParam("current", "temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code")
-                .toUriString();
+        WeatherResponse weather;
+        try {
+            // Get weather
+            String weatherUrl = UriComponentsBuilder
+                    .fromHttpUrl("https://api.open-meteo.com/v1/forecast")
+                    .queryParam("latitude", loc.getLatitude())
+                    .queryParam("longitude", loc.getLongitude())
+                    .queryParam("current", "temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code")
+                    .toUriString();
 
-        WeatherResponse weather = restTemplate.getForObject(weatherUrl, WeatherResponse.class);
+            weather = restTemplate.getForObject(weatherUrl, WeatherResponse.class);
+        } catch (RestClientException e) {
+            return "Failed to fetch weather for " + loc.getName() + ": " + e.getMessage();
+        }
+
         if (weather == null || weather.getCurrent() == null) {
             return "Could not fetch weather for " + loc.getName();
         }

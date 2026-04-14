@@ -7,7 +7,10 @@ import {
   useHumanInTheLoop,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
-import { DemoErrorBoundary } from "../error-boundary";
+import {
+  DemoErrorBoundary,
+  useShowcaseHooks,
+} from "@copilotkit/showcase-shared";
 
 export default function HitlDemo() {
   return (
@@ -20,6 +23,8 @@ export default function HitlDemo() {
 }
 
 function DemoContent() {
+  useShowcaseHooks();
+
   useConfigureSuggestions({
     suggestions: [
       {
@@ -88,7 +93,9 @@ function MoonCard({
     >
       {decision === "launched" ? (
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>🌕</div>
+          <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>
+            {"\uD83C\uDF15"}
+          </div>
           <h2
             style={{
               color: "white",
@@ -105,7 +112,9 @@ function MoonCard({
         </div>
       ) : decision === "aborted" ? (
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>✋</div>
+          <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>
+            {"\u270B"}
+          </div>
           <h2
             style={{
               color: "white",
@@ -116,12 +125,16 @@ function MoonCard({
           >
             Mission Aborted
           </h2>
-          <p style={{ color: "rgba(255,255,255,0.7)" }}>Staying on Earth 🌍</p>
+          <p style={{ color: "rgba(255,255,255,0.7)" }}>
+            Staying on Earth {"\uD83C\uDF0D"}
+          </p>
         </div>
       ) : (
         <>
           <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
-            <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>🚀</div>
+            <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>
+              {"\uD83D\uDE80"}
+            </div>
             <h2
               style={{
                 color: "white",
@@ -133,7 +146,7 @@ function MoonCard({
               Ready for Launch?
             </h2>
             <p style={{ color: "rgba(255,255,255,0.7)" }}>
-              Mission to the Moon 🌕
+              Mission to the Moon {"\uD83C\uDF15"}
             </p>
           </div>
           {status === "executing" && (
@@ -153,7 +166,7 @@ function MoonCard({
                   fontSize: "1rem",
                 }}
               >
-                🚀 Launch!
+                {"\uD83D\uDE80"} Launch!
               </button>
               <button
                 data-testid="abort-button"
@@ -170,7 +183,7 @@ function MoonCard({
                   fontSize: "1rem",
                 }}
               >
-                ✋ Abort
+                {"\u270B"} Abort
               </button>
             </div>
           )}

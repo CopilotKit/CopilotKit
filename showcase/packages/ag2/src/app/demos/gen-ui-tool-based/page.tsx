@@ -8,6 +8,10 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+import {
+  useShowcaseHooks,
+  DemoErrorBoundary,
+} from "@copilotkit/showcase-shared";
 
 interface Haiku {
   japanese: string[];
@@ -16,25 +20,42 @@ interface Haiku {
   gradient: string;
 }
 
+const VALID_IMAGE_NAMES = [
+  "Osaka_Castle_Turret_Stone_Wall_Pine_Trees_Daytime.jpg",
+  "Tokyo_Skyline_Night_Tokyo_Tower_Mount_Fuji_View.jpg",
+  "Itsukushima_Shrine_Miyajima_Floating_Torii_Gate_Sunset_Long_Exposure.jpg",
+  "Takachiho_Gorge_Waterfall_River_Lush_Greenery_Japan.jpg",
+  "Bonsai_Tree_Potted_Japanese_Art_Green_Foliage.jpeg",
+  "Shirakawa-go_Gassho-zukuri_Thatched_Roof_Village_Aerial_View.jpg",
+  "Ginkaku-ji_Silver_Pavilion_Kyoto_Japanese_Garden_Pond_Reflection.jpg",
+  "Senso-ji_Temple_Asakusa_Cherry_Blossoms_Kimono_Umbrella.jpg",
+  "Cherry_Blossoms_Sakura_Night_View_City_Lights_Japan.jpg",
+  "Mount_Fuji_Lake_Reflection_Cherry_Blossoms_Sakura_Spring.jpg",
+];
+
 export default function GenUiToolBasedDemo() {
   return (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        overflow: "hidden",
-        position: "relative",
-      }}
-    >
-      <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
-        <SidebarWithSuggestions />
-        <HaikuDisplay />
-      </CopilotKit>
-    </div>
+    <DemoErrorBoundary demoName="Tool-Based Generative UI">
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          overflow: "hidden",
+          position: "relative",
+        }}
+      >
+        <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
+          <SidebarWithSuggestions />
+          <HaikuDisplay />
+        </CopilotKit>
+      </div>
+    </DemoErrorBoundary>
   );
 }
 
 function SidebarWithSuggestions() {
+  useShowcaseHooks();
+
   useConfigureSuggestions({
     suggestions: [
       { title: "Nature Haiku", message: "Write me a haiku about nature." },
@@ -53,19 +74,6 @@ function SidebarWithSuggestions() {
     />
   );
 }
-
-const VALID_IMAGE_NAMES = [
-  "Osaka_Castle_Turret_Stone_Wall_Pine_Trees_Daytime.jpg",
-  "Tokyo_Skyline_Night_Tokyo_Tower_Mount_Fuji_View.jpg",
-  "Itsukushima_Shrine_Miyajima_Floating_Torii_Gate_Sunset_Long_Exposure.jpg",
-  "Takachiho_Gorge_Waterfall_River_Lush_Greenery_Japan.jpg",
-  "Bonsai_Tree_Potted_Japanese_Art_Green_Foliage.jpeg",
-  "Shirakawa-go_Gassho-zukuri_Thatched_Roof_Village_Aerial_View.jpg",
-  "Ginkaku-ji_Silver_Pavilion_Kyoto_Japanese_Garden_Pond_Reflection.jpg",
-  "Senso-ji_Temple_Asakusa_Cherry_Blossoms_Kimono_Umbrella.jpg",
-  "Cherry_Blossoms_Sakura_Night_View_City_Lights_Japan.jpg",
-  "Mount_Fuji_Lake_Reflection_Cherry_Blossoms_Sakura_Spring.jpg",
-];
 
 function HaikuDisplay() {
   const [haikus, setHaikus] = useState<Haiku[]>([

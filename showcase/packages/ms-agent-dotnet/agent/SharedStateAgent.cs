@@ -4,7 +4,7 @@ using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
-[SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes", Justification = "Instantiated by ProverbsAgentFactory")]
+[SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes", Justification = "Instantiated by SalesAgentFactory")]
 internal sealed class SharedStateAgent : DelegatingAIAgent
 {
     private readonly JsonSerializerOptions _jsonSerializerOptions;
@@ -45,9 +45,9 @@ internal sealed class SharedStateAgent : DelegatingAIAgent
         };
 
         // Configure JSON schema response format for structured state output
-        firstRunOptions.ChatOptions.ResponseFormat = ChatResponseFormat.ForJsonSchema<ProverbsStateSnapshot>(
-            schemaName: "ProverbsStateSnapshot",
-            schemaDescription: "A response containing the current list of proverbs");
+        firstRunOptions.ChatOptions.ResponseFormat = ChatResponseFormat.ForJsonSchema<SalesStateSnapshot>(
+            schemaName: "SalesStateSnapshot",
+            schemaDescription: "A response containing the current sales pipeline state");
 
         ChatMessage stateUpdateMessage = new(
             ChatRole.System,

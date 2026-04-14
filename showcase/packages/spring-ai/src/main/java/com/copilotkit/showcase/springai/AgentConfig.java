@@ -3,6 +3,8 @@ package com.copilotkit.showcase.springai;
 import com.agui.spring.ai.SpringAIAgent;
 import com.copilotkit.showcase.springai.tools.WeatherRequest;
 import com.copilotkit.showcase.springai.tools.WeatherTool;
+import com.copilotkit.showcase.springai.tools.QueryDataTool;
+import com.copilotkit.showcase.springai.tools.ScheduleMeetingTool;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
@@ -32,16 +34,33 @@ public class AgentConfig {
                     .systemMessage("""
                         You are a helpful assistant for the CopilotKit showcase.
                         You can check the weather using the get_weather tool.
-                        For other tools (change_background, generate_haiku, generate_task_steps, update_proverbs),
+                        You can query financial/business data using the query_data tool.
+                        You can schedule meetings using the schedule_meeting tool.
+                        For other tools (change_background, generate_haiku, generate_task_steps,
+                        pieChart, barChart, scheduleTime, toggleTheme),
                         these are provided by the frontend — use them when relevant to the user's request.
                         When asked to plan or create steps, use the generate_task_steps tool.
                         When asked about weather, use the get_weather tool.
+                        When asked about data, charts, or analytics, use the query_data tool.
+                        When asked to schedule a meeting, use the schedule_meeting tool.
                         Keep responses concise and helpful.
                         """)
                     .toolCallback(
                         FunctionToolCallback.builder("get_weather", new WeatherTool())
                             .description("Get current weather for a location")
                             .inputType(WeatherRequest.class)
+                            .build()
+                    )
+                    .toolCallback(
+                        FunctionToolCallback.builder("query_data", new QueryDataTool())
+                            .description("Query financial data for charts and analytics")
+                            .inputType(QueryDataTool.Request.class)
+                            .build()
+                    )
+                    .toolCallback(
+                        FunctionToolCallback.builder("schedule_meeting", new ScheduleMeetingTool())
+                            .description("Schedule a meeting with a given reason and duration")
+                            .inputType(ScheduleMeetingTool.Request.class)
                             .build()
                     )
                     .build();

@@ -16,8 +16,8 @@ interaction_modalities:
   - chat
 starter:
   path: examples/integrations/ms-agent-framework-dotnet
-  name: Proverbs Manager (.NET)
-  description: Proverb management agent using Microsoft Agent Framework for .NET
+  name: Sales Pipeline Manager (.NET)
+  description: Sales pipeline management agent using Microsoft Agent Framework for .NET
   github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/ms-agent-framework-dotnet
   demo_url: https://showcase-starter-ms-agent-dotnet-production.up.railway.app
 features:
@@ -25,6 +25,10 @@ features:
   - tool-rendering
   - hitl
   - gen-ui-tool-based
+  - controlled-gen-ui
+  - frontend-tools
+  - shared-state-read
+  - shared-state-write
 demos:
   - id: agentic-chat
     name: Agentic Chat

@@ -25,6 +25,9 @@ features:
   - tool-rendering
   - hitl
   - gen-ui-tool-based
+  - shared-state
+  - controlled-gen-ui
+  - a2ui
 demos:
   - id: agentic-chat
     name: Agentic Chat

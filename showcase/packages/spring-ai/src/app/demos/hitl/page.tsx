@@ -8,6 +8,7 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+import { DemoErrorBoundary, useShowcaseHooks } from "@copilotkit/showcase-shared";
 
 interface Step {
   description: string;
@@ -16,13 +17,17 @@ interface Step {
 
 export default function HitlDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="human_in_the_loop">
-      <DemoContent />
-    </CopilotKit>
+    <DemoErrorBoundary demoName="Human in the Loop">
+      <CopilotKit runtimeUrl="/api/copilotkit" agent="human_in_the_loop">
+        <DemoContent />
+      </CopilotKit>
+    </DemoErrorBoundary>
   );
 }
 
 function DemoContent() {
+  useShowcaseHooks();
+
   useConfigureSuggestions({
     suggestions: [
       {

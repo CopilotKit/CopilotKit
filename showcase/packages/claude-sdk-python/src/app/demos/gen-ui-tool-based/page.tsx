@@ -8,7 +8,10 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { DemoErrorBoundary } from "../error-boundary";
+import {
+  useShowcaseHooks,
+  DemoErrorBoundary,
+} from "@copilotkit/showcase-shared";
 
 interface Haiku {
   japanese: string[];
@@ -51,6 +54,8 @@ export default function GenUiToolBasedDemo() {
 }
 
 function SidebarWithSuggestions() {
+  useShowcaseHooks();
+
   useConfigureSuggestions({
     suggestions: [
       {

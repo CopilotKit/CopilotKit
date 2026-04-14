@@ -6,8 +6,12 @@ import {
   CopilotSidebar,
   useAgent,
   UseAgentUpdate,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
+import {
+  useShowcaseHooks,
+  useShowcaseSuggestions,
+  demonstrationCatalog,
+} from "@copilotkit/showcase-shared";
 
 // Travel planning data types
 interface Flight {
@@ -75,7 +79,11 @@ interface InterruptEvent<TAgent extends AvailableAgents> {
 
 export default function SubagentsDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="subagents">
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      agent="subagents"
+      a2ui={{ catalog: demonstrationCatalog }}
+    >
       <div className="min-h-screen w-full flex">
         <TravelPlanner />
         <CopilotSidebar
@@ -194,23 +202,8 @@ function TravelPlanner() {
 
   const agentState = agent.state as TravelAgentState | undefined;
 
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Plan a trip",
-        message: "Plan a trip to Paris for 5 days.",
-      },
-      {
-        title: "Find flights",
-        message: "Find me flights to Tokyo.",
-      },
-      {
-        title: "Explore experiences",
-        message: "What are the best experiences in Barcelona?",
-      },
-    ],
-    available: "always",
-  });
+  useShowcaseHooks();
+  useShowcaseSuggestions();
 
   useEffect(() => {
     if (!agentState) {
@@ -239,7 +232,7 @@ function TravelPlanner() {
               data-testid="selected-flight"
               className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm text-sm"
             >
-              <span>✈</span>
+              <span>{"✈"}</span>
               <span>
                 {agentState.itinerary.flight.airline} -{" "}
                 {agentState.itinerary.flight.price}
@@ -251,13 +244,13 @@ function TravelPlanner() {
               data-testid="selected-hotel"
               className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm text-sm"
             >
-              <span>🏨</span>
+              <span>{"🏨"}</span>
               <span>{agentState.itinerary.hotel.name}</span>
             </div>
           )}
           {(agentState?.experiences?.length ?? 0) > 0 && (
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm text-sm">
-              <span>🎯</span>
+              <span>{"🎯"}</span>
               <span>
                 {agentState?.experiences?.length ?? 0} experiences planned
               </span>
@@ -313,9 +306,8 @@ function TravelPlanner() {
 
       {/* Travel Details */}
       <div className="space-y-6">
-        {/* Flights */}
         <div>
-          <h4 className="text-md font-semibold mb-2">✈ Flight Options</h4>
+          <h4 className="text-md font-semibold mb-2">{"✈"} Flight Options</h4>
           {(agentState?.flights?.length ?? 0) > 0 ? (
             <div className="space-y-2">
               {agentState!.flights.map((flight, index) => (
@@ -337,9 +329,8 @@ function TravelPlanner() {
           )}
         </div>
 
-        {/* Hotels */}
         <div>
-          <h4 className="text-md font-semibold mb-2">🏨 Hotel Options</h4>
+          <h4 className="text-md font-semibold mb-2">{"🏨"} Hotel Options</h4>
           {(agentState?.hotels?.length ?? 0) > 0 ? (
             <div className="space-y-2">
               {agentState!.hotels.map((hotel, index) => (
@@ -360,9 +351,8 @@ function TravelPlanner() {
           )}
         </div>
 
-        {/* Experiences */}
         <div>
-          <h4 className="text-md font-semibold mb-2">🎯 Experiences</h4>
+          <h4 className="text-md font-semibold mb-2">{"🎯"} Experiences</h4>
           {(agentState?.experiences?.length ?? 0) > 0 ? (
             <div className="space-y-2">
               {agentState!.experiences.map((experience, index) => (

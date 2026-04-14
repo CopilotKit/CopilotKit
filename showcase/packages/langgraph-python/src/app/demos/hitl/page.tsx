@@ -2,12 +2,13 @@
 
 import React, { useState } from "react";
 import { CopilotKit, useLangGraphInterrupt } from "@copilotkit/react-core";
-import {
-  CopilotChat,
-  useHumanInTheLoop,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotChat, useHumanInTheLoop } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+import {
+  useShowcaseHooks,
+  useShowcaseSuggestions,
+  demonstrationCatalog,
+} from "@copilotkit/showcase-shared";
 
 interface Step {
   description: string;
@@ -16,26 +17,19 @@ interface Step {
 
 export default function HitlDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="human_in_the_loop">
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      agent="human_in_the_loop"
+      a2ui={{ catalog: demonstrationCatalog }}
+    >
       <DemoContent />
     </CopilotKit>
   );
 }
 
 function DemoContent() {
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Simple plan",
-        message: "Please plan a trip to mars in 5 steps.",
-      },
-      {
-        title: "Complex plan",
-        message: "Please plan a pasta dish in 10 steps.",
-      },
-    ],
-    available: "always",
-  });
+  useShowcaseHooks();
+  useShowcaseSuggestions();
 
   useLangGraphInterrupt({
     render: ({ event, resolve }) => (

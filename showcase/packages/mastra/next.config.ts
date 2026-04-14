@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  transpilePackages: ["@copilotkit/showcase-shared"],
   serverExternalPackages: ["@copilotkit/runtime"],
   typescript: {
     // Mastra beta packages have unstable types

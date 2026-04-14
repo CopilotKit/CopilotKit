@@ -9,7 +9,7 @@ using System.Text.Json.Serialization;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Add(ProverbsAgentSerializerContext.Default));
+builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Add(SalesAgentSerializerContext.Default));
 builder.Services.AddAGUI();
 
 WebApplication app = builder.Build();
@@ -17,8 +17,8 @@ WebApplication app = builder.Build();
 // Create the agent factory and map the AG-UI agent endpoint
 var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
-var agentFactory = new ProverbsAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
-app.MapAGUI("/", agentFactory.CreateProverbsAgent());
+var agentFactory = new SalesAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
+app.MapAGUI("/", agentFactory.CreateSalesAgent());
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 await app.RunAsync();
@@ -26,27 +26,52 @@ await app.RunAsync();
 // =================
 // State Management
 // =================
-public class ProverbsState
+public record SalesTodo
 {
-    public List<string> Proverbs { get; set; } = [];
+    [JsonPropertyName("id")]
+    public string Id { get; init; } = "";
+
+    [JsonPropertyName("title")]
+    public string Title { get; init; } = "";
+
+    [JsonPropertyName("stage")]
+    public string Stage { get; init; } = "prospect";
+
+    [JsonPropertyName("value")]
+    public int Value { get; init; }
+
+    [JsonPropertyName("dueDate")]
+    public string DueDate { get; init; } = "";
+
+    [JsonPropertyName("assignee")]
+    public string Assignee { get; init; } = "";
+
+    [JsonPropertyName("completed")]
+    public bool Completed { get; init; }
+}
+
+public class SalesState
+{
+    public List<SalesTodo> Todos { get; set; } = [];
 }
 
 // =================
 // Agent Factory
 // =================
-public class ProverbsAgentFactory
+public class SalesAgentFactory
 {
     private readonly IConfiguration _configuration;
-    private readonly ProverbsState _state;
+    private readonly SalesState _state;
+    private readonly object _stateLock = new();
     private readonly OpenAIClient _openAiClient;
     private readonly ILogger _logger;
     private readonly System.Text.Json.JsonSerializerOptions _jsonSerializerOptions;
 
-    public ProverbsAgentFactory(IConfiguration configuration, ILoggerFactory loggerFactory, System.Text.Json.JsonSerializerOptions jsonSerializerOptions)
+    public SalesAgentFactory(IConfiguration configuration, ILoggerFactory loggerFactory, System.Text.Json.JsonSerializerOptions jsonSerializerOptions)
     {
         _configuration = configuration;
         _state = new();
-        _logger = loggerFactory.CreateLogger<ProverbsAgentFactory>();
+        _logger = loggerFactory.CreateLogger<SalesAgentFactory>();
         _jsonSerializerOptions = jsonSerializerOptions;
 
         // Get the GitHub token from configuration
@@ -64,20 +89,20 @@ public class ProverbsAgentFactory
             });
     }
 
-    public AIAgent CreateProverbsAgent()
+    public AIAgent CreateSalesAgent()
     {
         var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
 
         var chatClientAgent = new ChatClientAgent(
             chatClient,
-            name: "ProverbsAgent",
-            description: @"A helpful assistant that helps manage and discuss proverbs.
-            You have tools available to add, set, or retrieve proverbs from the list.
-            When discussing proverbs, ALWAYS use the get_proverbs tool to see the current list before mentioning, updating, or discussing proverbs with the user.",
+            name: "SalesAgent",
+            description: @"A helpful assistant that helps manage a sales pipeline.
+            You have tools available to get, update, and query sales data.
+            When discussing deals or the pipeline, ALWAYS use the get_sales_todos tool to see the current state before mentioning, updating, or discussing deals with the user.",
             tools: [
-                AIFunctionFactory.Create(GetProverbs, options: new() { Name = "get_proverbs", SerializerOptions = _jsonSerializerOptions }),
-                AIFunctionFactory.Create(AddProverbs, options: new() { Name = "add_proverbs", SerializerOptions = _jsonSerializerOptions }),
-                AIFunctionFactory.Create(SetProverbs, options: new() { Name = "set_proverbs", SerializerOptions = _jsonSerializerOptions }),
+                AIFunctionFactory.Create(GetSalesTodos, options: new() { Name = "get_sales_todos", SerializerOptions = _jsonSerializerOptions }),
+                AIFunctionFactory.Create(ManageSalesTodos, options: new() { Name = "manage_sales_todos", SerializerOptions = _jsonSerializerOptions }),
+                AIFunctionFactory.Create(QueryData, options: new() { Name = "query_data", SerializerOptions = _jsonSerializerOptions }),
                 AIFunctionFactory.Create(GetWeather, options: new() { Name = "get_weather", SerializerOptions = _jsonSerializerOptions })
             ]);
 
@@ -88,33 +113,47 @@ public class ProverbsAgentFactory
     // Tools
     // =================
 
-    [Description("Get the current list of proverbs.")]
-    private List<string> GetProverbs()
+    [Description("Get the current sales pipeline")]
+    private List<SalesTodo> GetSalesTodos()
     {
-        _logger.LogInformation("📖 Getting proverbs: {Proverbs}", string.Join(", ", _state.Proverbs));
-        return _state.Proverbs;
+        lock (_stateLock)
+        {
+            _logger.LogInformation("Getting sales todos: {Count} items", _state.Todos.Count);
+            return _state.Todos.ToList();
+        }
     }
 
-    [Description("Add new proverbs to the list.")]
-    private void AddProverbs([Description("The proverbs to add")] List<string> proverbs)
+    [Description("Update the sales pipeline")]
+    private string ManageSalesTodos([Description("The updated list of sales todos")] List<SalesTodo> todos)
     {
-        _logger.LogInformation("➕ Adding proverbs: {Proverbs}", string.Join(", ", proverbs));
-        _state.Proverbs.AddRange(proverbs);
+        _logger.LogInformation("Updating sales todos: {Count} items", todos.Count);
+        lock (_stateLock)
+        {
+            _state.Todos = todos.Select(t => t with
+            {
+                Id = string.IsNullOrEmpty(t.Id) ? Guid.NewGuid().ToString()[..8] : t.Id
+            }).ToList();
+        }
+        return "Pipeline updated";
     }
 
-    [Description("Replace the entire list of proverbs.")]
-    private void SetProverbs([Description("The new list of proverbs")] List<string> proverbs)
+    [Description("Query financial data for charts")]
+    private string QueryData([Description("The query to run")] string query)
     {
-        _logger.LogInformation("📝 Setting proverbs: {Proverbs}", string.Join(", ", proverbs));
-        _state.Proverbs = [.. proverbs];
+        _logger.LogInformation("Querying data: {Query}", query);
+        var categories = new[] { "Engineering", "Marketing", "Sales", "Support", "Design" };
+        var random = new Random();
+        var results = categories.Select(c => new { category = c, value = random.Next(10000, 100000), quarter = "Q1 2026" });
+        return System.Text.Json.JsonSerializer.Serialize(results);
     }
 
     [Description("Get the weather for a given location. Ensure location is fully spelled out.")]
     private WeatherInfo GetWeather([Description("The location to get the weather for")] string location)
     {
-        _logger.LogInformation("🌤️  Getting weather for: {Location}", location);
+        _logger.LogInformation("Getting weather for: {Location}", location);
         return new()
         {
+            City = location,
             Temperature = 20,
             Conditions = "sunny",
             Humidity = 50,
@@ -128,10 +167,10 @@ public class ProverbsAgentFactory
 // Data Models
 // =================
 
-public class ProverbsStateSnapshot
+public class SalesStateSnapshot
 {
-    [JsonPropertyName("proverbs")]
-    public List<string> Proverbs { get; set; } = [];
+    [JsonPropertyName("todos")]
+    public List<SalesTodo> Todos { get; set; } = [];
 }
 
 public class WeatherInfo
@@ -148,8 +187,11 @@ public class WeatherInfo
     [JsonPropertyName("wind_speed")]
     public int WindSpeed { get; init; }
 
-    [JsonPropertyName("feelsLike")]
+    [JsonPropertyName("feels_like")]
     public int FeelsLike { get; init; }
+
+    [JsonPropertyName("city")]
+    public string City { get; init; } = "";
 }
 
 public partial class Program { }
@@ -157,6 +199,8 @@ public partial class Program { }
 // =================
 // Serializer Context
 // =================
-[JsonSerializable(typeof(ProverbsStateSnapshot))]
+[JsonSerializable(typeof(SalesStateSnapshot))]
+[JsonSerializable(typeof(SalesTodo))]
+[JsonSerializable(typeof(List<SalesTodo>))]
 [JsonSerializable(typeof(WeatherInfo))]
-internal sealed partial class ProverbsAgentSerializerContext : JsonSerializerContext;
+internal sealed partial class SalesAgentSerializerContext : JsonSerializerContext;

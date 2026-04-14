@@ -1,9 +1,20 @@
-"""Agno Proverbs Agent with weather tool for showcase demos."""
+"""Agno Sales Pipeline Agent with shared tools for showcase demos."""
+
+import json
 
 from agno.agent.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools import tool
 from dotenv import load_dotenv
+
+import sys
+import os
+
+sys.path.insert(
+    0,
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"),
+)
+from tools import get_weather_impl, query_data_impl, schedule_meeting_impl
 
 load_dotenv()
 
@@ -17,20 +28,48 @@ def get_weather(location: str):
         location (str): The location to get the weather for.
 
     Returns:
-        str: The weather for the given location.
+        str: Weather data as JSON.
     """
-    return f"The weather in {location} is sunny."
+    return json.dumps(get_weather_impl(location))
+
+
+@tool
+def query_data(query: str):
+    """
+    Query financial database for chart data. Returns data suitable for pie or bar charts.
+
+    Args:
+        query (str): The query to run against the financial database.
+
+    Returns:
+        str: Query results as JSON.
+    """
+    return json.dumps(query_data_impl(query))
 
 
 @tool(external_execution=True)
-def set_proverbs(new_proverbs: list[str]):
+def manage_sales_todos(todos: list[dict]):
     """
-    Set the list of proverbs using the provided new list.
-    Always pass the COMPLETE list of proverbs.
+    Manage the sales pipeline. Pass the complete list of sales todos.
+    Always pass the COMPLETE list of todos.
 
     Args:
-        new_proverbs (list[str]): The new list of proverbs to maintain.
+        todos (list[dict]): The complete list of sales todos to maintain.
     """
+
+
+@tool
+def schedule_meeting(reason: str):
+    """
+    Schedule a meeting with user approval. Returns available time slots.
+
+    Args:
+        reason (str): Reason for scheduling the meeting.
+
+    Returns:
+        str: Meeting scheduling data as JSON.
+    """
+    return json.dumps(schedule_meeting_impl(reason))
 
 
 @tool(external_execution=True)
@@ -43,18 +82,6 @@ def change_background(background: str):
 
     Args:
         background (str): The CSS background value. Prefer gradients.
-    """
-
-
-@tool(external_execution=True)
-def generate_proverb(text: str, gradient: str):
-    """
-    Generate a proverb and display it as a card.
-    Use this tool when asked to create or generate a proverb.
-
-    Args:
-        text (str): The proverb text.
-        gradient (str): CSS Gradient color for the background.
     """
 
 
@@ -74,29 +101,32 @@ agent = Agent(
     model=OpenAIChat(id="gpt-4o"),
     tools=[
         get_weather,
-        set_proverbs,
+        query_data,
+        manage_sales_todos,
+        schedule_meeting,
         change_background,
-        generate_proverb,
         generate_task_steps,
     ],
-    description="You are a helpful assistant for the CopilotKit showcase demos.",
+    description="You are a helpful sales assistant for the CopilotKit showcase demos.",
     instructions="""
-        PROVERBS:
-        When a user asks you to do anything regarding proverbs, use the set_proverbs tool.
-        Always pass the COMPLETE LIST of proverbs to the set_proverbs tool.
-        Be creative and helpful in generating complete, practical proverbs.
+        SALES PIPELINE:
+        When a user asks you to do anything regarding sales todos or the pipeline,
+        use the manage_sales_todos tool. Always pass the COMPLETE LIST of todos.
+        Be helpful in managing sales pipeline items.
         After using the tool, provide a brief summary of what you created, removed, or changed.
 
         WEATHER:
         Only call the get_weather tool if the user asks about the weather.
         If the user does not specify a location, use "Everywhere ever in the whole wide world".
 
+        QUERY DATA:
+        Use the query_data tool when the user asks for financial data, charts, or analytics.
+
+        SCHEDULE MEETING:
+        Use the schedule_meeting tool when the user wants to schedule a meeting.
+
         BACKGROUND:
         Only call change_background when the user explicitly asks to change colors/background.
-
-        PROVERB GENERATION (gen-ui):
-        When asked to create or generate a proverb, use the generate_proverb tool.
-        Always provide a creative proverb text and a beautiful CSS gradient.
 
         TASK STEPS (HITL):
         When asked to plan something, use the generate_task_steps tool with a list of steps.

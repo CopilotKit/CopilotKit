@@ -8,7 +8,11 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { DemoErrorBoundary } from "../error-boundary";
+import {
+  DemoErrorBoundary,
+  WeatherCard,
+  useShowcaseHooks,
+} from "@copilotkit/showcase-shared";
 
 interface WeatherResult {
   location: string;
@@ -41,6 +45,8 @@ export default function GenUiToolBasedDemo() {
 function WeatherDisplay() {
   const [themeColor, setThemeColor] = useState("#6366f1");
   const [weatherResults, setWeatherResults] = useState<WeatherResult[]>([]);
+
+  useShowcaseHooks();
 
   // The agent calls setThemeColor as a frontend tool to update UI state
   useFrontendTool({
@@ -118,7 +124,7 @@ function WeatherDisplay() {
 
         {weatherResults.length === 0 && (
           <div className="bg-white/10 rounded-2xl p-8 max-w-sm text-center">
-            <div className="text-5xl mb-4">🌤️</div>
+            <div className="text-5xl mb-4">{"\uD83C\uDF24\uFE0F"}</div>
             <p className="text-white/80">
               Ask the assistant to get the weather for a city!
             </p>
@@ -127,191 +133,18 @@ function WeatherDisplay() {
 
         <div className="flex flex-col gap-4 w-full max-w-md">
           {weatherResults.map((w, i) => (
-            <WeatherCard key={i} data={w} themeColor={themeColor} />
+            <WeatherCard
+              key={i}
+              location={w.location}
+              temperature={w.temperature}
+              conditions={w.conditions}
+              humidity={w.humidity}
+              windSpeed={w.wind_speed}
+              feelsLike={w.feelsLike}
+            />
           ))}
         </div>
       </div>
     </>
   );
-}
-
-function WeatherCard({
-  data,
-  themeColor,
-}: {
-  data: WeatherResult;
-  themeColor: string;
-}) {
-  const icon = getIcon(data.conditions);
-
-  return (
-    <div
-      data-testid="weather-card"
-      style={{
-        borderRadius: "16px",
-        background: "rgba(255,255,255,0.15)",
-        backdropFilter: "blur(10px)",
-        padding: "20px",
-        border: "1px solid rgba(255,255,255,0.25)",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-        }}
-      >
-        <div>
-          <h3
-            data-testid="weather-city"
-            style={{
-              color: "white",
-              fontWeight: "bold",
-              fontSize: "1.25rem",
-              textTransform: "capitalize",
-            }}
-          >
-            {data.location}
-          </h3>
-          <p
-            style={{
-              color: "rgba(255,255,255,0.6)",
-              fontSize: "0.75rem",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            Current Weather
-          </p>
-        </div>
-        <span style={{ fontSize: "2.5rem", lineHeight: 1 }}>{icon}</span>
-      </div>
-
-      <div
-        style={{
-          marginTop: "12px",
-          display: "flex",
-          alignItems: "baseline",
-          gap: "6px",
-        }}
-      >
-        <span style={{ fontSize: "3rem", fontWeight: 300, color: "white" }}>
-          {data.temperature}°
-        </span>
-        <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.875rem" }}>
-          C / {((data.temperature * 9) / 5 + 32).toFixed(0)}°F
-        </span>
-      </div>
-
-      <p
-        style={{
-          color: "rgba(255,255,255,0.75)",
-          fontSize: "0.875rem",
-          textTransform: "capitalize",
-          marginTop: "4px",
-        }}
-      >
-        {data.conditions}
-      </p>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: "8px",
-          marginTop: "16px",
-          padding: "12px",
-          borderRadius: "12px",
-          background: "rgba(0,0,0,0.15)",
-          textAlign: "center",
-        }}
-      >
-        <div data-testid="weather-humidity">
-          <p
-            style={{
-              color: "rgba(255,255,255,0.5)",
-              fontSize: "0.65rem",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            Humidity
-          </p>
-          <p
-            style={{
-              color: "white",
-              fontWeight: 600,
-              fontSize: "0.875rem",
-              marginTop: "2px",
-            }}
-          >
-            {data.humidity}%
-          </p>
-        </div>
-        <div
-          data-testid="weather-wind"
-          style={{
-            borderLeft: "1px solid rgba(255,255,255,0.1)",
-            borderRight: "1px solid rgba(255,255,255,0.1)",
-          }}
-        >
-          <p
-            style={{
-              color: "rgba(255,255,255,0.5)",
-              fontSize: "0.65rem",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            Wind
-          </p>
-          <p
-            style={{
-              color: "white",
-              fontWeight: 600,
-              fontSize: "0.875rem",
-              marginTop: "2px",
-            }}
-          >
-            {data.wind_speed} mph
-          </p>
-        </div>
-        <div data-testid="weather-feels-like">
-          <p
-            style={{
-              color: "rgba(255,255,255,0.5)",
-              fontSize: "0.65rem",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            Feels Like
-          </p>
-          <p
-            style={{
-              color: "white",
-              fontWeight: 600,
-              fontSize: "0.875rem",
-              marginTop: "2px",
-            }}
-          >
-            {data.feelsLike}°
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function getIcon(conditions: string): string {
-  const c = conditions.toLowerCase();
-  if (c.includes("clear") || c.includes("sunny")) return "☀️";
-  if (c.includes("rain") || c.includes("drizzle")) return "🌧️";
-  if (c.includes("snow")) return "❄️";
-  if (c.includes("thunderstorm")) return "⛈️";
-  if (c.includes("cloud") || c.includes("overcast")) return "☁️";
-  if (c.includes("fog")) return "🌫️";
-  return "🌤️";
 }

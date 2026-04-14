@@ -7,9 +7,13 @@ import {
   useAgent,
   UseAgentUpdate,
   useHumanInTheLoop,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+import {
+  useShowcaseHooks,
+  useShowcaseSuggestions,
+  demonstrationCatalog,
+} from "@copilotkit/showcase-shared";
 
 interface AgentState {
   document: string;
@@ -17,7 +21,11 @@ interface AgentState {
 
 export default function SharedStateStreamingDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-streaming">
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      agent="shared-state-streaming"
+      a2ui={{ catalog: demonstrationCatalog }}
+    >
       <div className="min-h-screen w-full">
         <CopilotSidebar
           defaultOpen={true}
@@ -37,23 +45,8 @@ function DocumentEditor() {
   const [currentDocument, setCurrentDocument] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Write a pirate story",
-        message: "Please write a story about a pirate named Candy Beard.",
-      },
-      {
-        title: "Write a mermaid story",
-        message: "Please write a story about a mermaid named Luna.",
-      },
-      {
-        title: "Add character",
-        message: "Please add a character named Courage.",
-      },
-    ],
-    available: "always",
-  });
+  useShowcaseHooks();
+  useShowcaseSuggestions();
 
   const { agent } = useAgent({
     agentId: "shared-state-streaming",
@@ -72,7 +65,6 @@ function DocumentEditor() {
     }
   }, [isLoading]);
 
-  // When run finishes, apply final state
   useEffect(() => {
     if (wasRunning.current && !isLoading) {
       if (agentState?.document) {
@@ -83,14 +75,12 @@ function DocumentEditor() {
     wasRunning.current = isLoading;
   }, [isLoading]);
 
-  // Stream updates while loading
   useEffect(() => {
     if (isLoading && agentState?.document) {
       setDocument(agentState.document);
     }
   }, [agentState?.document]);
 
-  // Sync local edits to agent state
   useEffect(() => {
     setPlaceholderVisible(document.length === 0);
     if (!isLoading) {
@@ -99,7 +89,6 @@ function DocumentEditor() {
     }
   }, [document]);
 
-  // Human-in-the-loop for confirming changes
   useHumanInTheLoop(
     {
       agentId: "shared-state-streaming",

@@ -2,9 +2,10 @@
 # Cache bust: 2026-04-07 smoke route
 FROM node:20.20-slim AS frontend
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json ./
+RUN npm install --legacy-peer-deps
 COPY . .
+COPY shared_frontend/src/ ./shared_frontend/src/
 RUN npm run build
 
 # Stage 2: Production image with Node.js + Python
@@ -30,6 +31,10 @@ COPY --from=frontend /app/public ./public
 # Agent code
 COPY src/agent_server.py ./
 COPY src/agents/ ./agents/
+
+# Shared Python tools (copied into build context by CI)
+COPY shared_python/ /app/shared/python/
+ENV PYTHONPATH=/app/shared/python
 
 # Entrypoint
 COPY entrypoint.sh ./

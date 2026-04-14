@@ -12,6 +12,7 @@
   "dependencies": {
     "@ag-ui/mastra": "beta",
     "@ai-sdk/openai": "^2.0.42",
+    "@copilotkit/a2ui-renderer": "next",
     "@copilotkit/react-core": "next",
     "@copilotkit/runtime": "next",
     "@libsql/client": "^0.15.15",
@@ -24,6 +25,7 @@
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "recharts": "^2.15.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 """
-AG2 agent with weather tool for CopilotKit showcase.
+AG2 agent with weather and sales tools for CopilotKit showcase.
 
 Uses AG2's ConversableAgent with AGUIStream to expose
 the agent via the AG-UI protocol.
@@ -7,6 +7,8 @@ the agent via the AG-UI protocol.
 
 from __future__ import annotations
 
+import os
+import sys
 from typing import Annotated
 
 import httpx
@@ -15,6 +17,10 @@ from autogen.ag_ui import AGUIStream
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Import shared tool implementations
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"))
+from tools import query_data_impl, manage_sales_todos_impl, get_sales_todos_impl, schedule_meeting_impl
 
 
 # =====
@@ -89,20 +95,48 @@ def _wmo_code_to_text(code: int) -> str:
     return mapping.get(code, f"Unknown ({code})")
 
 
+async def query_data(
+    query: Annotated[str, "Natural language query for financial data"],
+) -> list:
+    """Query financial database for chart data."""
+    return query_data_impl(query)
+
+
+async def manage_sales_todos(
+    todos: Annotated[list, "Complete list of sales todos"],
+) -> dict:
+    """Manage the sales pipeline."""
+    return {"todos": manage_sales_todos_impl(todos)}
+
+
+async def get_sales_todos() -> list:
+    """Get the current sales pipeline."""
+    return get_sales_todos_impl(None)
+
+
+async def schedule_meeting(
+    reason: Annotated[str, "Reason for the meeting"],
+) -> dict:
+    """Schedule a meeting with user approval."""
+    return schedule_meeting_impl(reason)
+
+
 # =====
 # Agent
 # =====
 agent = ConversableAgent(
     name="assistant",
     system_message=(
-        "You are a helpful assistant. You can look up current weather "
-        "for any city using the get_weather tool. When asked about the "
-        "weather, always use the tool rather than guessing. Be concise "
-        "and friendly in your responses."
+        "You are a helpful sales assistant. You can look up current weather "
+        "for any city using the get_weather tool, query financial data with "
+        "query_data, manage the sales pipeline with manage_sales_todos and "
+        "get_sales_todos, and schedule meetings with schedule_meeting. "
+        "When asked about the weather, always use the tool rather than guessing. "
+        "Be concise and friendly in your responses."
     ),
     llm_config=LLMConfig({"model": "gpt-4o-mini", "stream": True}),
     human_input_mode="NEVER",
-    functions=[get_weather],
+    functions=[get_weather, query_data, manage_sales_todos, get_sales_todos, schedule_meeting],
 )
 
 # AG-UI stream wrapper

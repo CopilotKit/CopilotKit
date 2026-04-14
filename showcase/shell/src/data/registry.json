@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-09T04:13:36.116Z",
+  "generated_at": "2026-04-13T22:51:16.917Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
@@ -334,6 +334,30 @@
         "name": "vNext Chat",
         "category": "platform",
         "description": "Experimental next-generation chat using CopilotKit vNext runtime"
+      },
+      {
+        "id": "shared-state",
+        "name": "Shared State",
+        "category": "agent-state",
+        "description": "Bidirectional state sharing between agent and UI"
+      },
+      {
+        "id": "controlled-gen-ui",
+        "name": "Controlled Generative UI",
+        "category": "generative-ui",
+        "description": "Controlled generative UI rendering from agent"
+      },
+      {
+        "id": "a2ui",
+        "name": "A2UI",
+        "category": "a2ui",
+        "description": "Agent-to-UI protocol rendering"
+      },
+      {
+        "id": "frontend-tools",
+        "name": "Frontend Tools",
+        "category": "interactivity",
+        "description": "Frontend tool execution triggered by the agent"
       }
     ]
   },
@@ -351,8 +375,16 @@
       "backend_url": "https://showcase-langgraph-python-production.up.railway.app",
       "deployed": true,
       "sort_order": 10,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "managed_platform": {
         "name": "LangGraph Platform",
         "url": "https://langsmith.com"
@@ -380,7 +412,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -388,7 +422,9 @@
           "id": "hitl",
           "name": "Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -396,7 +432,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -404,7 +442,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         },
@@ -412,7 +452,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Long-running agent tasks with generated UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null
         },
@@ -420,7 +462,9 @@
           "id": "shared-state-read",
           "name": "Shared State (Reading)",
           "description": "Reading agent state from UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read",
           "animated_preview_url": null
         },
@@ -428,7 +472,9 @@
           "id": "shared-state-write",
           "name": "Shared State (Writing)",
           "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-write",
           "animated_preview_url": null
         },
@@ -436,7 +482,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null
         },
@@ -444,7 +492,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null
         }
@@ -463,8 +513,13 @@
       "backend_url": "https://showcase-langgraph-typescript-production.up.railway.app",
       "deployed": true,
       "sort_order": 11,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["sidebar", "chat"],
+      "generative_ui": [
+        "constrained-explicit"
+      ],
+      "interaction_modalities": [
+        "sidebar",
+        "chat"
+      ],
       "managed_platform": {
         "name": "LangGraph Platform",
         "url": "https://langsmith.com"
@@ -487,7 +542,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -495,7 +552,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -503,7 +562,9 @@
           "id": "hitl",
           "name": "Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -511,7 +572,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         }
@@ -530,8 +593,16 @@
       "backend_url": "https://showcase-langgraph-fastapi-production.up.railway.app",
       "deployed": true,
       "sort_order": 12,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "managed_platform": {
         "name": "LangGraph Platform",
         "url": "https://langsmith.com"
@@ -547,14 +618,21 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read",
+        "shared-state-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -562,7 +640,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -570,7 +650,9 @@
           "id": "hitl",
           "name": "Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -578,8 +660,60 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
+          "animated_preview_url": null
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": [
+            "generative-ui"
+          ],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": null
+        },
+        {
+          "id": "shared-state-read",
+          "name": "Shared State (Reading)",
+          "description": "Reading agent state from UI",
+          "tags": [
+            "agent-state"
+          ],
+          "route": "/demos/shared-state-read",
+          "animated_preview_url": null
+        },
+        {
+          "id": "shared-state-write",
+          "name": "Shared State (Writing)",
+          "description": "Writing to agent state from UI",
+          "tags": [
+            "agent-state"
+          ],
+          "route": "/demos/shared-state-write",
+          "animated_preview_url": null
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": [
+            "agent-state"
+          ],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": null
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": [
+            "multi-agent"
+          ],
+          "route": "/demos/subagents",
           "animated_preview_url": null
         }
       ]
@@ -597,8 +731,12 @@
       "backend_url": "https://showcase-google-adk-production.up.railway.app",
       "deployed": true,
       "sort_order": 15,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit"
+      ],
+      "interaction_modalities": [
+        "chat"
+      ],
       "starter": {
         "path": "examples/integrations/adk",
         "name": "Investment Analyst (ADK)",
@@ -610,14 +748,19 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "shared-state",
+        "controlled-gen-ui",
+        "a2ui"
       ],
       "demos": [
         {
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -625,7 +768,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -633,7 +778,9 @@
           "id": "hitl",
           "name": "Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -641,7 +788,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         }
@@ -660,8 +809,13 @@
       "backend_url": "https://showcase-mastra-production.up.railway.app",
       "deployed": true,
       "sort_order": 20,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["sidebar", "chat"],
+      "generative_ui": [
+        "constrained-explicit"
+      ],
+      "interaction_modalities": [
+        "sidebar",
+        "chat"
+      ],
       "managed_platform": {
         "name": "Mastra Cloud",
         "url": "https://mastra.ai/cloud"
@@ -684,7 +838,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -692,7 +848,9 @@
           "id": "hitl",
           "name": "Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -700,7 +858,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -708,7 +868,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         }
@@ -727,8 +889,12 @@
       "backend_url": "https://showcase-crewai-crews-production.up.railway.app",
       "deployed": true,
       "sort_order": 40,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit"
+      ],
+      "interaction_modalities": [
+        "chat"
+      ],
       "starter": {
         "path": "examples/integrations/crewai-crews",
         "name": "Multi-Agent Crew",
@@ -740,14 +906,19 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "shared-state",
+        "controlled-gen-ui",
+        "a2ui"
       ],
       "demos": [
         {
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -755,7 +926,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -763,7 +936,9 @@
           "id": "hitl",
           "name": "Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -771,7 +946,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         }
@@ -794,8 +971,12 @@
       "backend_url": "https://showcase-pydantic-ai-production.up.railway.app",
       "deployed": true,
       "sort_order": 50,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit"
+      ],
+      "interaction_modalities": [
+        "chat"
+      ],
       "starter": {
         "path": "examples/integrations/pydantic-ai",
         "name": "Investment Analyst (PydanticAI)",
@@ -807,14 +988,19 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "shared-state",
+        "controlled-gen-ui",
+        "a2ui"
       ],
       "demos": [
         {
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -822,7 +1008,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -830,7 +1018,9 @@
           "id": "hitl",
           "name": "Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -838,7 +1028,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         }
@@ -857,20 +1049,27 @@
       "backend_url": "https://showcase-claude-sdk-python-production.up.railway.app",
       "deployed": true,
       "sort_order": 70,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit"
+      ],
+      "interaction_modalities": [
+        "chat"
+      ],
       "features": [
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "shared-state"
       ],
       "demos": [
         {
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -878,7 +1077,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -886,7 +1087,9 @@
           "id": "hitl",
           "name": "Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -894,7 +1097,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         }
@@ -913,8 +1118,12 @@
       "backend_url": "https://showcase-claude-sdk-typescript-production.up.railway.app",
       "deployed": true,
       "sort_order": 80,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit"
+      ],
+      "interaction_modalities": [
+        "chat"
+      ],
       "features": [
         "agentic-chat",
         "tool-rendering",
@@ -926,7 +1135,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -934,7 +1145,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -942,7 +1155,9 @@
           "id": "hitl",
           "name": "Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -950,7 +1165,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         }
@@ -969,8 +1186,12 @@
       "backend_url": "https://showcase-agno-production.up.railway.app",
       "deployed": true,
       "sort_order": 90,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit"
+      ],
+      "interaction_modalities": [
+        "chat"
+      ],
       "starter": {
         "path": "examples/integrations/agno",
         "name": "Investment Analyst (Agno)",
@@ -982,14 +1203,19 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "shared-state",
+        "controlled-gen-ui",
+        "a2ui"
       ],
       "demos": [
         {
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -997,7 +1223,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -1005,7 +1233,9 @@
           "id": "hitl",
           "name": "Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -1013,7 +1243,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         }
@@ -1036,20 +1268,27 @@
       "backend_url": "https://showcase-ag2-production.up.railway.app",
       "deployed": true,
       "sort_order": 100,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit"
+      ],
+      "interaction_modalities": [
+        "chat"
+      ],
       "features": [
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "shared-state"
       ],
       "demos": [
         {
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -1057,7 +1296,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -1065,7 +1306,9 @@
           "id": "hitl",
           "name": "Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -1073,7 +1316,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         }
@@ -1096,8 +1341,12 @@
       "backend_url": "https://showcase-llamaindex-production.up.railway.app",
       "deployed": true,
       "sort_order": 110,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit"
+      ],
+      "interaction_modalities": [
+        "chat"
+      ],
       "starter": {
         "path": "examples/integrations/llamaindex",
         "name": "Investment Analyst (LlamaIndex)",
@@ -1109,14 +1358,17 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "shared-state"
       ],
       "demos": [
         {
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -1124,7 +1376,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -1132,7 +1386,9 @@
           "id": "hitl",
           "name": "Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -1140,7 +1396,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         }
@@ -1163,8 +1421,12 @@
       "backend_url": "https://showcase-strands-production.up.railway.app",
       "deployed": true,
       "sort_order": 130,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit"
+      ],
+      "interaction_modalities": [
+        "chat"
+      ],
       "starter": {
         "path": "examples/integrations/strands-python",
         "name": "Investment Analyst (Strands)",
@@ -1176,14 +1438,17 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "shared-state"
       ],
       "demos": [
         {
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -1191,7 +1456,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -1199,7 +1466,9 @@
           "id": "hitl",
           "name": "Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -1207,7 +1476,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         }
@@ -1226,8 +1497,12 @@
       "backend_url": "https://showcase-langroid-production.up.railway.app",
       "deployed": true,
       "sort_order": 140,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit"
+      ],
+      "interaction_modalities": [
+        "chat"
+      ],
       "features": [
         "agentic-chat",
         "tool-rendering",
@@ -1239,7 +1514,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -1247,7 +1524,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -1255,7 +1534,9 @@
           "id": "hitl",
           "name": "Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -1263,7 +1544,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         }
@@ -1282,12 +1565,16 @@
       "backend_url": "https://showcase-ms-agent-python-production.up.railway.app",
       "deployed": true,
       "sort_order": 150,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit"
+      ],
+      "interaction_modalities": [
+        "chat"
+      ],
       "starter": {
         "path": "examples/integrations/ms-agent-framework-python",
-        "name": "Proverbs Manager",
-        "description": "Proverb management agent using Microsoft Agent Framework for Python",
+        "name": "Sales Pipeline Manager",
+        "description": "Sales pipeline management agent using Microsoft Agent Framework for Python",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/ms-agent-framework-python",
         "demo_url": "https://showcase-starter-ms-agent-python-production.up.railway.app"
       },
@@ -1302,7 +1589,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -1310,7 +1599,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -1318,7 +1609,9 @@
           "id": "hitl",
           "name": "Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -1326,7 +1619,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         }
@@ -1345,12 +1640,16 @@
       "backend_url": "https://showcase-ms-agent-dotnet-production.up.railway.app",
       "deployed": true,
       "sort_order": 160,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit"
+      ],
+      "interaction_modalities": [
+        "chat"
+      ],
       "starter": {
         "path": "examples/integrations/ms-agent-framework-dotnet",
-        "name": "Proverbs Manager (.NET)",
-        "description": "Proverb management agent using Microsoft Agent Framework for .NET",
+        "name": "Sales Pipeline Manager (.NET)",
+        "description": "Sales pipeline management agent using Microsoft Agent Framework for .NET",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/ms-agent-framework-dotnet",
         "demo_url": "https://showcase-starter-ms-agent-dotnet-production.up.railway.app"
       },
@@ -1358,14 +1657,20 @@
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "controlled-gen-ui",
+        "frontend-tools",
+        "shared-state-read",
+        "shared-state-write"
       ],
       "demos": [
         {
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -1373,7 +1678,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -1381,7 +1688,9 @@
           "id": "hitl",
           "name": "Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -1389,7 +1698,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         }
@@ -1408,20 +1719,28 @@
       "backend_url": "https://showcase-spring-ai-production.up.railway.app",
       "deployed": true,
       "sort_order": 170,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit"
+      ],
+      "interaction_modalities": [
+        "chat"
+      ],
       "features": [
         "agentic-chat",
         "tool-rendering",
         "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "controlled-gen-ui",
+        "frontend-tools"
       ],
       "demos": [
         {
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -1429,7 +1748,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -1437,7 +1758,9 @@
           "id": "hitl",
           "name": "Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -1445,7 +1768,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         }

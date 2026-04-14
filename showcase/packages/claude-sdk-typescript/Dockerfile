@@ -1,8 +1,9 @@
 FROM node:20.20-slim AS builder
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json ./
+RUN npm install --legacy-peer-deps
 COPY . .
+COPY shared_frontend/src/ ./shared_frontend/src/
 # Build Next.js frontend
 RUN npm run build
 # Compile TypeScript agent server
