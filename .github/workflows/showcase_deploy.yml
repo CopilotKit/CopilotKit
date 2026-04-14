@@ -280,12 +280,29 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Collect results and notify Slack
+      - name: Build Slack payload
+        run: |
+          DETECT_RESULT="${{ needs.detect-changes.result }}"
+          LOCKFILE_RESULT="${{ needs.check-lockfile.result }}"
+          BUILD_RESULT="${{ needs.build.result }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if [ "$DETECT_RESULT" = "failure" ] || [ "$LOCKFILE_RESULT" = "failure" ]; then
+            MSG=":x: *Showcase deploy*: FAILED (pre-build check)"
+          elif [ "$BUILD_RESULT" = "success" ]; then
+            MSG=":white_check_mark: *Showcase deploy*: all services deployed to Railway"
+          elif [ "$BUILD_RESULT" = "skipped" ] && [ "$DETECT_RESULT" = "success" ]; then
+            MSG=":white_check_mark: *Showcase deploy*: no changes detected, nothing to deploy"
+          else
+            MSG=":x: *Showcase deploy*: FAILED (build result: ${BUILD_RESULT})"
+          fi
+
+          jq -n --arg msg "$MSG" --arg url "$RUN_URL" \
+            '{"text": "\($msg) | <\($url)|View run>"}' > /tmp/slack-payload.json
+
+      - name: Notify Slack
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
-          payload: |
-            {
-              "text": "${{ (needs.detect-changes.result == 'failure' || needs.check-lockfile.result == 'failure') && format(':x: *Showcase deploy*: FAILED (pre-build check)') || needs.build.result == 'success' && ':white_check_mark: *Showcase deploy*: all services deployed to Railway' || (needs.build.result == 'skipped' && needs.detect-changes.result == 'success') && ':white_check_mark: *Showcase deploy*: no changes detected, nothing to deploy' || format(':x: *Showcase deploy*: FAILED (result: {0})', needs.build.result) }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
-            }
+          payload-file-path: /tmp/slack-payload.json

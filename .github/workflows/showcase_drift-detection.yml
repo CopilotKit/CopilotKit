@@ -62,9 +62,14 @@ jobs:
         id: failures
         if: failure()
         run: |
-          # Extract failed test names and error messages from playwright output
-          DETAILS=$(grep -E "^\s+\d+\)|Error:" /tmp/e2e-output.log 2>/dev/null | head -15 | sed 's/"/\\"/g' || echo "See CI logs for details")
-          DETAILS="${DETAILS:0:1200}"
+          # Extract failed test names and first error line (max 3 lines, no paths/ANSI)
+          DETAILS=$(grep -E "^\s+\d+\)|Error:|✘|FAIL" /tmp/e2e-output.log 2>/dev/null \
+            | head -3 \
+            | sed 's/\x1b\[[0-9;]*m//g' \
+            | sed 's|/[^ ]*/||g' \
+            | sed 's/%0A/\n/g' \
+            || echo "See CI logs for details")
+          DETAILS="${DETAILS:0:300}"
 
           {
             echo "details<<EOFEOF"
@@ -72,14 +77,28 @@ jobs:
             echo "EOFEOF"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Build Slack payload
+        if: failure()
+        run: |
+          DETAILS=$(cat <<'DETAILS_EOF'
+          ${{ steps.failures.outputs.details }}
+          DETAILS_EOF
+          )
+          # Trim leading whitespace from heredoc indentation
+          DETAILS=$(echo "$DETAILS" | sed 's/^[[:space:]]*//')
+          jq -n \
+            --arg details "$DETAILS" \
+            --arg run_url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{"text": ":x: *Showcase E2E suite failed*\n<\($run_url)|View run>\n```\n\($details)\n```"}' \
+            > /tmp/slack-payload.json
+
       - name: Post failure to Slack
         if: failure()
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
-          payload: |
-            { "text": ":x: *Showcase E2E suite failed*\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>\n\n```\n${{ steps.failures.outputs.details }}\n```" }
+          payload-file-path: /tmp/slack-payload.json
 
       - name: Create issue on failure
         if: failure()
