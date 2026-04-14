@@ -32,7 +32,7 @@
     "flowtoken": "^1.0.40",
     "geist": "^1.5.1",
     "lucide-react": "^0.544.0",
-    "next": "15.3.2",
+    "next": "15.5.15",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.4",
