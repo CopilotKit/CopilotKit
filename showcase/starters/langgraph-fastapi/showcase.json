@@ -2,7 +2,7 @@
   "slug": "langgraph-fastapi",
   "name": "LangGraph FastAPI",
   "language": "python",
-  "agentDir": "agent",
+  "agentDir": "src/agents",
   "agentPort": 8123,
   "generated": true
 }

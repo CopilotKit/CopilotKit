@@ -55,9 +55,10 @@ const FRAMEWORKS: FrameworkDef[] = [
     name: "LangGraph FastAPI",
     language: "python",
     agentSourceDir: "src/agents",
-    agentDir: "agent",
+    agentDir: "src/agents",
     devScript:
-      'concurrently "next dev --turbopack" "python -m uvicorn agent.main:app --host 0.0.0.0 --port 8123 --reload"',
+      'concurrently "next dev --turbopack" "python -m langgraph_cli dev --config langgraph.json --host 0.0.0.0 --port 8123 --no-browser"',
+    extraFiles: { "langgraph.json": "langgraph.json" },
   },
   {
     slug: "langgraph-typescript",
@@ -75,7 +76,7 @@ const FRAMEWORKS: FrameworkDef[] = [
     agentSourceDir: "src/agents",
     agentDir: "agent",
     devScript:
-      'concurrently "next dev --turbopack" "python -m uvicorn agent.agent:app --host 0.0.0.0 --port 8123 --reload"',
+      'concurrently "next dev --turbopack" "python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 --reload"',
   },
   {
     slug: "crewai-crews",
@@ -84,7 +85,7 @@ const FRAMEWORKS: FrameworkDef[] = [
     agentSourceDir: "src/agents",
     agentDir: "agent",
     devScript:
-      'concurrently "next dev --turbopack" "python -m uvicorn agent.crew:app --host 0.0.0.0 --port 8123 --reload"',
+      'concurrently "next dev --turbopack" "python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 --reload"',
   },
   {
     slug: "ag2",
@@ -93,7 +94,7 @@ const FRAMEWORKS: FrameworkDef[] = [
     agentSourceDir: "src/agents",
     agentDir: "agent",
     devScript:
-      'concurrently "next dev --turbopack" "python -m uvicorn agent.agent:app --host 0.0.0.0 --port 8123 --reload"',
+      'concurrently "next dev --turbopack" "python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 --reload"',
   },
   {
     slug: "agno",
@@ -102,7 +103,7 @@ const FRAMEWORKS: FrameworkDef[] = [
     agentSourceDir: "src/agents",
     agentDir: "agent",
     devScript:
-      'concurrently "next dev --turbopack" "python -m uvicorn agent.main:app --host 0.0.0.0 --port 8123 --reload"',
+      'concurrently "next dev --turbopack" "python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 --reload"',
   },
   {
     slug: "google-adk",
@@ -111,7 +112,7 @@ const FRAMEWORKS: FrameworkDef[] = [
     agentSourceDir: "src/agents",
     agentDir: "agent",
     devScript:
-      'concurrently "next dev --turbopack" "python -m uvicorn agent.main:app --host 0.0.0.0 --port 8123 --reload"',
+      'concurrently "next dev --turbopack" "python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 --reload"',
   },
   {
     slug: "langroid",
@@ -120,7 +121,7 @@ const FRAMEWORKS: FrameworkDef[] = [
     agentSourceDir: "src/agents",
     agentDir: "agent",
     devScript:
-      'concurrently "next dev --turbopack" "python -m uvicorn agent.agent:app --host 0.0.0.0 --port 8123 --reload"',
+      'concurrently "next dev --turbopack" "python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 --reload"',
   },
   {
     slug: "llamaindex",
@@ -129,7 +130,7 @@ const FRAMEWORKS: FrameworkDef[] = [
     agentSourceDir: "src/agents",
     agentDir: "agent",
     devScript:
-      'concurrently "next dev --turbopack" "python -m uvicorn agent.agent:app --host 0.0.0.0 --port 8123 --reload"',
+      'concurrently "next dev --turbopack" "python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 --reload"',
   },
   {
     slug: "strands",
@@ -138,7 +139,7 @@ const FRAMEWORKS: FrameworkDef[] = [
     agentSourceDir: "src/agents",
     agentDir: "agent",
     devScript:
-      'concurrently "next dev --turbopack" "python -m uvicorn agent.agent:app --host 0.0.0.0 --port 8123 --reload"',
+      'concurrently "next dev --turbopack" "python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 --reload"',
   },
   {
     slug: "mastra",
@@ -156,7 +157,7 @@ const FRAMEWORKS: FrameworkDef[] = [
     agentSourceDir: "src/agents",
     agentDir: "agent",
     devScript:
-      'concurrently "next dev --turbopack" "python -m uvicorn agent.agent:app --host 0.0.0.0 --port 8123 --reload"',
+      'concurrently "next dev --turbopack" "python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 --reload"',
   },
   {
     slug: "claude-sdk-typescript",
@@ -173,7 +174,7 @@ const FRAMEWORKS: FrameworkDef[] = [
     agentSourceDir: "src/agents",
     agentDir: "agent",
     devScript:
-      'concurrently "next dev --turbopack" "python -m uvicorn agent.agent:app --host 0.0.0.0 --port 8123 --reload"',
+      'concurrently "next dev --turbopack" "python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 --reload"',
   },
   {
     slug: "ms-agent-dotnet",
@@ -367,7 +368,7 @@ fi`;
 function getEntrypointBlock(fw: FrameworkDef): string {
   switch (fw.language) {
     case "python":
-      if (fw.slug === "langgraph-python") {
+      if (fw.slug === "langgraph-python" || fw.slug === "langgraph-fastapi") {
         return `echo "[entrypoint] Starting LangGraph agent server on port 8123..."
 python -m langgraph_cli dev \\
   --config langgraph.json \\
@@ -379,7 +380,7 @@ sleep 3
 ${AGENT_HEALTH_CHECK}`;
       }
       return `echo "[entrypoint] Starting Python agent server on port 8123..."
-cd /app && python -m uvicorn ${extractUvicornModule(fw)} --host 0.0.0.0 --port 8123 2>&1 | sed 's/^/[agent] /' &
+cd /app && python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 2>&1 | sed 's/^/[agent] /' &
 AGENT_PID=$!
 sleep 2
 ${AGENT_HEALTH_CHECK}`;
@@ -494,7 +495,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
   fs.mkdirSync(outDir, { recursive: true });
 
   // Extra Dockerfile COPY lines for frameworks that need root-level config files
-  const dockerExtraCopy =
+  let dockerExtraCopy =
     fw.extraFiles &&
     Object.keys(fw.extraFiles).some((dest) => !dest.includes("/"))
       ? Object.keys(fw.extraFiles)
@@ -502,6 +503,16 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
           .map((dest) => `\n# Framework config\nCOPY ${dest} ./`)
           .join("")
       : "";
+
+  // Non-langgraph Python starters need agent_server.py at the root
+  if (
+    fw.language === "python" &&
+    fw.slug !== "langgraph-python" &&
+    fw.slug !== "langgraph-fastapi"
+  ) {
+    dockerExtraCopy +=
+      "\n# FastAPI agent server entrypoint\nCOPY agent_server.py ./";
+  }
 
   const vars: Record<string, string> = {
     SLUG: fw.slug,
@@ -592,6 +603,24 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     const initPath = path.join(agentDest, "__init__.py");
     if (!fs.existsSync(initPath)) {
       fs.writeFileSync(initPath, "");
+    }
+
+    // Copy agent_server.py from demo package into starter root for non-langgraph starters
+    if (fw.slug !== "langgraph-python" && fw.slug !== "langgraph-fastapi") {
+      const agentServerSrc = path.join(pkgDir, "src", "agent_server.py");
+      if (fs.existsSync(agentServerSrc)) {
+        let serverContent = fs.readFileSync(agentServerSrc, "utf-8");
+        // Rewrite imports: demo packages use "agents/" dir, starters use "agent/"
+        serverContent = serverContent.replace(
+          /^from agents\./gm,
+          "from agent.",
+        );
+        fs.writeFileSync(path.join(outDir, "agent_server.py"), serverContent);
+      } else {
+        console.warn(
+          `  [warn] agent_server.py missing for ${fw.slug}: ${agentServerSrc} — skipping`,
+        );
+      }
     }
   }
 
