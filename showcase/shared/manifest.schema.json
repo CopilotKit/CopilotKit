@@ -135,7 +135,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "enum": ["constrained-declarative", "constrained-explicit", "open"]
+        "enum": ["constrained-declarative", "constrained-explicit", "open", "a2ui-fixed-schema", "a2ui-dynamic-schema"]
       },
       "minItems": 1,
       "description": "Generative UI patterns supported by this integration"
