@@ -20,6 +20,7 @@ import {
 import { CopilotTooltip } from "../../directives/tooltip";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
+import { copyToClipboard } from "@copilotkit/shared";
 
 // Base toolbar button component
 @Component({
@@ -121,21 +122,13 @@ export class CopilotChatAssistantMessageCopyButton {
     event?.stopPropagation();
     if (!this.content()) return;
 
-    if (!navigator.clipboard?.writeText) {
-      console.error("Clipboard API is not available");
-      return;
-    }
-
-    navigator.clipboard.writeText(this.content()!).then(
-      () => {
+    copyToClipboard(this.content()!).then((success) => {
+      if (success) {
         this.copied.set(true);
         this.clicked.emit();
         setTimeout(() => this.copied.set(false), 2000);
-      },
-      (err) => {
-        console.error("Failed to copy message:", err);
-      },
-    );
+      }
+    });
   }
 }
 

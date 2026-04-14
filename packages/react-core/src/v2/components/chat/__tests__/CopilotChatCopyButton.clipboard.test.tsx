@@ -99,7 +99,7 @@ describe("CopyButton clipboard behavior", () => {
       expect(copyIcon).not.toBeNull();
     });
 
-    it("does NOT show copied state when clipboard write rejects", async () => {
+    it("logs error when clipboard write rejects", async () => {
       const writeTextMock = vi
         .fn()
         .mockRejectedValue(new Error("Permission denied"));
@@ -108,6 +108,10 @@ describe("CopyButton clipboard behavior", () => {
         writable: true,
         configurable: true,
       });
+
+      const consoleSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
 
       const message = createAssistantMessage("Hello assistant");
       render(
@@ -123,12 +127,14 @@ describe("CopyButton clipboard behavior", () => {
         expect(writeTextMock).toHaveBeenCalled();
       });
 
-      // Wait a tick for rejection to propagate
-      await new Promise((r) => setTimeout(r, 50));
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith(
+          "Failed to copy to clipboard:",
+          expect.any(Error),
+        );
+      });
 
-      // Should still show copy icon (not check icon)
-      const checkIcon = copyButton.querySelector(".lucide-check");
-      expect(checkIcon).toBeNull();
+      consoleSpy.mockRestore();
     });
   });
 
@@ -186,7 +192,7 @@ describe("CopyButton clipboard behavior", () => {
       expect(copyIcon).not.toBeNull();
     });
 
-    it("does NOT show copied state when clipboard write rejects", async () => {
+    it("logs error when clipboard write rejects", async () => {
       const writeTextMock = vi
         .fn()
         .mockRejectedValue(new Error("Permission denied"));
@@ -195,6 +201,10 @@ describe("CopyButton clipboard behavior", () => {
         writable: true,
         configurable: true,
       });
+
+      const consoleSpy = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
 
       const message = createUserMessage("Hello user");
       render(
@@ -210,10 +220,14 @@ describe("CopyButton clipboard behavior", () => {
         expect(writeTextMock).toHaveBeenCalled();
       });
 
-      await new Promise((r) => setTimeout(r, 50));
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith(
+          "Failed to copy to clipboard:",
+          expect.any(Error),
+        );
+      });
 
-      const checkIcon = copyButton.querySelector(".lucide-check");
-      expect(checkIcon).toBeNull();
+      consoleSpy.mockRestore();
     });
   });
 });

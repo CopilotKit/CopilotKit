@@ -2,6 +2,7 @@ import { ErrorMessageProps } from "../props";
 import { useChatContext } from "../ChatContext";
 import { Markdown } from "../Markdown";
 import { useState } from "react";
+import { copyToClipboard } from "@copilotkit/shared";
 
 export const ErrorMessage = (props: ErrorMessageProps) => {
   const { icons, labels } = useChatContext();
@@ -12,17 +13,11 @@ export const ErrorMessage = (props: ErrorMessageProps) => {
     const content = error.message;
     if (!content) return;
 
-    try {
-      if (!navigator.clipboard?.writeText) {
-        console.error("Clipboard API is not available");
-        return;
-      }
-      await navigator.clipboard.writeText(content);
+    const success = await copyToClipboard(content);
+    if (success) {
       setCopied(true);
       if (onCopy) onCopy(content);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy message:", err);
     }
   };
 

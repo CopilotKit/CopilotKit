@@ -18,6 +18,7 @@ import {
   type AudioInputPart,
   type VideoInputPart,
   type DocumentInputPart,
+  copyToClipboard,
 } from "@copilotkit/shared";
 import { CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer";
 
@@ -147,11 +148,7 @@ export function CopilotChatUserMessage({
     {
       onClick: async () => {
         if (flattenedContent) {
-          if (!navigator.clipboard?.writeText) {
-            console.error("Clipboard API is not available");
-            return;
-          }
-          await navigator.clipboard.writeText(flattenedContent);
+          await copyToClipboard(flattenedContent);
         }
       },
     },
@@ -315,23 +312,19 @@ export namespace CopilotChatUserMessage {
     const [copied, setCopied] = useState(false);
 
     const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
-      const clipboardAvailable = !!navigator.clipboard?.writeText;
+      if (onClick) {
+        await (
+          onClick as (
+            event: React.MouseEvent<HTMLButtonElement>,
+          ) => Promise<void>
+        )(event);
+      }
 
-      try {
-        if (onClick) {
-          await (
-            onClick as (
-              event: React.MouseEvent<HTMLButtonElement>,
-            ) => Promise<void>
-          )(event);
-        }
-
-        if (clipboardAvailable) {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        }
-      } catch (err) {
-        console.error("Failed to copy message:", err);
+      // Only show copied state if the clipboard API is available.
+      // The actual copy is performed by the onClick handler via copyToClipboard.
+      if (navigator.clipboard?.writeText) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
       }
     };
 
