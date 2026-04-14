@@ -113,16 +113,21 @@ jobs:
           path: showcase/tests/test-results/
           retention-days: 7
 
+      - name: Build Slack payload
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
+        run: |
+          SUMMARY=$(echo "${{ steps.failure-cause.outputs.summary }}" | head -3 | sed 's/\x1b\[[0-9;]*m//g' | cut -c1-200)
+          URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          jq -n --arg text ":x: *Starter smoke test failing: ${{ matrix.starter }}*\n<$URL|View run>\n\`\`\`$SUMMARY\`\`\`" \
+            '{text: $text}' > /tmp/slack-payload.json
+
       - name: Alert Slack on failure
         if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
-          payload: |
-            {
-              "text": ${{ toJSON(format('Starter smoke test failing: *{0}*\n```{1}```\nRun: {2}/{3}/actions/runs/{4}', matrix.starter, steps.failure-cause.outputs.summary, github.server_url, github.repository, github.run_id)) }}
-            }
+          payload-file-path: /tmp/slack-payload.json
 
       - name: Create GitHub issue on failure
         if: failure() && github.event_name == 'schedule'
