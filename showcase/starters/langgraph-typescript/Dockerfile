@@ -4,8 +4,9 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --legacy-peer-deps
 COPY src/ ./src/
-COPY agent/ ./agent/
 COPY next.config.ts tsconfig.json postcss.config.mjs ./
+# Copy agent code (location varies by framework, e.g. agent/ or src/mastra/)
+COPY agent/ ./agent/
 RUN npm run build
 
 # Stage 2: Production image
@@ -24,7 +25,7 @@ COPY agent/ ./agent/
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
-RUN addgroup --system --gid 1001 app && adduser --system --uid 1001 --gid 1001 app
+RUN groupadd --system --gid 1001 app && useradd --system --uid 1001 --gid 1001 --no-create-home app
 USER app
 
 EXPOSE 10000

@@ -8,10 +8,10 @@ COPY next.config.ts tsconfig.json postcss.config.mjs ./
 RUN npm run build
 
 # Stage 2: Build Java agent
-FROM eclipse-temurin:21-jdk AS java-builder
+FROM maven:3-eclipse-temurin-21 AS java-builder
 WORKDIR /agent
 COPY agent/ ./
-RUN ./mvnw -B package -DskipTests
+RUN mvn -B package -DskipTests
 
 # Stage 3: Production image with Node.js + Java
 FROM eclipse-temurin:21-jre AS runner
@@ -35,7 +35,7 @@ COPY --from=java-builder /agent/target/*.jar ./agent/app.jar
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
-RUN addgroup --system --gid 1001 app && adduser --system --uid 1001 --gid 1001 app
+RUN groupadd --system --gid 1001 app && useradd --system --uid 1001 --gid 1001 --no-create-home app
 USER app
 
 EXPOSE 10000
