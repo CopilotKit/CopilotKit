@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import path from "path";
+
 
 const nextConfig: NextConfig = {
   // Allow iframe embedding from the showcase shell
@@ -23,7 +23,7 @@ const nextConfig: NextConfig = {
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
-      "@copilotkit/showcase-shared": path.resolve(process.cwd(), "shared_frontend/src"),
+      "@copilotkit/showcase-shared": "./shared_frontend/src",
     };
     return config;
   },
