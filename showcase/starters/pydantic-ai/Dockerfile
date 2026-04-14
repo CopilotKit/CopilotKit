@@ -37,6 +37,7 @@ COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
 RUN (groupadd --system --gid 1001 app 2>/dev/null || true) && (useradd --system --uid 1001 --gid 1001 --no-create-home app 2>/dev/null || true)
+RUN mkdir -p /app/.langgraph_api && chown -R app:app /app
 USER app
 
 EXPOSE 10000

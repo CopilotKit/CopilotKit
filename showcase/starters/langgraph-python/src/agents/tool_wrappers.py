@@ -4,7 +4,7 @@ Tools for the showcase LangGraph agent.
 Wraps shared implementations with LangGraph @tool decorators.
 """
 
-from .tools import get_weather_impl, query_data_impl, schedule_meeting_impl
+from src.agents.tools import get_weather_impl, query_data_impl, schedule_meeting_impl
 
 from langchain_core.tools import tool
 
