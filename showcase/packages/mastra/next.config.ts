@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@copilotkit/showcase-shared"],
   serverExternalPackages: ["@copilotkit/runtime"],
   typescript: {
     // Mastra beta packages have unstable types
@@ -24,6 +24,13 @@ const nextConfig: NextConfig = {
         ],
       },
     ];
+  },
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@copilotkit/showcase-shared": path.resolve(__dirname, "shared_frontend/src"),
+    };
+    return config;
   },
 };
 
