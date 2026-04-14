@@ -92,7 +92,7 @@ export default function Home() {
 
   return (
     <div className="h-screen flex flex-col">
-      <header className="border-b border-[var(--border)] bg-[var(--card)] px-6 py-3 flex items-center justify-between shrink-0">
+      <header className="sticky top-0 z-[60] border-b border-[var(--border)] bg-[var(--card)] px-6 py-3 flex items-center justify-between shrink-0">
         <h1 className="text-sm font-bold text-[var(--foreground)]">
           CopilotKit Sales Dashboard
         </h1>
