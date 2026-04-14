@@ -6,8 +6,8 @@ Schema is loaded from the shared frontend package's flight-schema.json.
 
 from __future__ import annotations
 
-from .tools import search_flights_impl
-from .tools.types import Flight
+from src.agents.tool_wrappers import search_flights_impl
+from src.agents.tools.types import Flight
 
 from langchain_core.tools import tool
 

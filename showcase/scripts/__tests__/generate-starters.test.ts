@@ -181,16 +181,18 @@ describe("generate-starters", () => {
           }
         });
 
-        it("uses relative imports for tools (from .tools import)", () => {
+        it("uses local imports for tools (relative or absolute)", () => {
           const pyFiles = findFiles(agentDir, [".py"]);
           const filesWithToolImport = pyFiles.filter((f) => {
             const content = fs.readFileSync(f, "utf-8");
             return (
               content.includes("from .tools import") ||
-              content.includes("from .tools.")
+              content.includes("from .tools.") ||
+              content.includes("from .tool_wrappers import") ||
+              content.includes(".tools import") // absolute like src.agents.tools
             );
           });
-          // At least one file should have relative tool imports
+          // At least one file should have tool imports
           expect(filesWithToolImport.length).toBeGreaterThan(0);
         });
 

@@ -593,7 +593,54 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
   // For Python: make self-contained by copying shared tools + rewriting imports
   if (fw.language === "python") {
     copySharedPythonTools(agentDest);
+
+    // Always rewrite: remove sys.path.insert and convert shared tool imports
     rewritePythonImportsInDir(agentDest, fw.agentDir);
+
+    // Handle tools.py / tools/ naming collision:
+    // If both tools.py (wrapper) and tools/ (shared tools dir) exist,
+    // rename tools.py to tool_wrappers.py and update imports
+    const toolsPy = path.join(agentDest, "tools.py");
+    const toolsDir = path.join(agentDest, "tools");
+    if (fs.existsSync(toolsPy) && fs.existsSync(toolsDir)) {
+      const newName = path.join(agentDest, "tool_wrappers.py");
+      fs.renameSync(toolsPy, newName);
+      // Update imports in OTHER .py files (not tool_wrappers.py itself)
+      // to reference tool_wrappers instead of tools (the wrapper file, not the dir)
+      for (const pyFile of fs.readdirSync(agentDest).filter(f => f.endsWith(".py") && f !== "tool_wrappers.py")) {
+        const fp = path.join(agentDest, pyFile);
+        let content = fs.readFileSync(fp, "utf-8");
+        const agentMod = fw.agentDir.replace(/\//g, ".");
+        // from <agentMod>.tools import X -> from <agentMod>.tool_wrappers import X
+        content = content.replace(
+          new RegExp(`from ${agentMod}\\.tools import`, "g"),
+          `from ${agentMod}.tool_wrappers import`,
+        );
+        // from .tools import X -> from .tool_wrappers import X
+        // (but NOT from .tools.submodule — those reference the tools/ dir)
+        content = content.replace(
+          /^from \.tools import/gm,
+          "from .tool_wrappers import",
+        );
+        fs.writeFileSync(fp, content);
+      }
+    }
+
+    // For langgraph starters: convert relative imports to absolute
+    // because langgraph_cli loads modules standalone, not as packages
+    if (fw.slug.startsWith("langgraph-")) {
+      const agentMod = fw.agentDir.replace(/\//g, ".");
+      for (const pyFile of fs.readdirSync(agentDest).filter(f => f.endsWith(".py"))) {
+        const fp = path.join(agentDest, pyFile);
+        let content = fs.readFileSync(fp, "utf-8");
+        // from .X import -> from <agentMod>.X import
+        content = content.replace(
+          /^from \.([\w.]+) import/gm,
+          `from ${agentMod}.$1 import`,
+        );
+        fs.writeFileSync(fp, content);
+      }
+    }
 
     const reqSrc = path.join(pkgDir, "requirements.txt");
     if (fs.existsSync(reqSrc)) {

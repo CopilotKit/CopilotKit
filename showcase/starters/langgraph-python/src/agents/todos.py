@@ -4,8 +4,8 @@ Sales todo tools for the showcase LangGraph agent.
 Uses Command + ToolMessage for state updates, wrapping shared implementations.
 """
 
-from .tools import manage_sales_todos_impl, get_sales_todos_impl
-from .tools.types import SalesTodo
+from src.agents.tool_wrappers import manage_sales_todos_impl, get_sales_todos_impl
+from src.agents.tools.types import SalesTodo
 
 from langchain.agents import AgentState as BaseAgentState
 from langchain.tools import ToolRuntime, tool
