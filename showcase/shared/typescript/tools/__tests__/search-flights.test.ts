@@ -42,10 +42,7 @@ describe("searchFlightsImpl", () => {
   });
 
   it("handles multiple flights", () => {
-    const result = searchFlightsImpl([
-      mockFlight,
-      { ...mockFlight, flightNumber: "TA200" },
-    ]);
+    const result = searchFlightsImpl([mockFlight, { ...mockFlight, flightNumber: "TA200" }]);
     expect(result.flights).toHaveLength(2);
     expect(result.flights[1].flightNumber).toBe("TA200");
   });

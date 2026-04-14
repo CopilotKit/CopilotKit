@@ -37,7 +37,13 @@ describe("PieChart", () => {
   });
 
   it("shows legend with labels and percentages", () => {
-    render(<PieChart title="Budget" description="test" data={sampleData} />);
+    render(
+      <PieChart
+        title="Budget"
+        description="test"
+        data={sampleData}
+      />,
+    );
     expect(screen.getByText("Engineering")).toBeTruthy();
     expect(screen.getByText("Marketing")).toBeTruthy();
     expect(screen.getByText("Sales")).toBeTruthy();
@@ -49,12 +55,16 @@ describe("PieChart", () => {
 
   it("shows legend values as formatted numbers", () => {
     const bigData = [{ label: "Revenue", value: 1500 }];
-    render(<PieChart title="Revenue" description="desc" data={bigData} />);
+    render(
+      <PieChart title="Revenue" description="desc" data={bigData} />,
+    );
     expect(screen.getByText("1,500")).toBeTruthy();
   });
 
   it("handles empty data gracefully", () => {
-    render(<PieChart title="Empty Chart" description="no data" data={[]} />);
+    render(
+      <PieChart title="Empty Chart" description="no data" data={[]} />,
+    );
     expect(screen.getByText("Empty Chart")).toBeTruthy();
     expect(screen.getByText("No data available")).toBeTruthy();
   });
