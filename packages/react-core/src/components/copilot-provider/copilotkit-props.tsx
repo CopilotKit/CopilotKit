@@ -197,7 +197,11 @@ export interface CopilotKitProps extends Omit<
   enableInspector?: boolean;
 
   /**
-   * Enable debug logging for the client-side event pipeline.
+   * Enable debug logging. On the server (`CopilotRuntime`), this enables
+   * structured Pino logging of the AG-UI event pipeline. On the client,
+   * this configuration is forwarded to the AG-UI transport layer
+   * (`transformChunks`) for transport-level debug output.
+   *
    * Pass `true` for full output, or an object for granular control:
    *
    * ```tsx

@@ -106,7 +106,7 @@ debug: {
 
 **Runtime:** Agent run started, SSE stream opened/completed/errored, every AG-UI event emitted (with Pino structured logger).
 
-**Client:** SSE events received, event validation, chunk transformation, event verification, subscriber dispatch, run lifecycle. Uses `console.debug` via a centralized `DebugLogger`.
+**Client:** The debug configuration is forwarded to the AG-UI transport layer (`transformChunks`). CopilotKit itself does not currently emit client-side `console.debug` calls — the flag configures the underlying AG-UI event pipeline for transport-level debug output.
 
 ### Architecture
 
