@@ -222,7 +222,7 @@ export class RunHandler {
         {
           forwardedProps: this._internal.properties,
           tools: this.buildFrontendTools(agent.agentId),
-          context: Object.values(this._internal.context),
+          context: this.buildContext(agent.agentId),
         },
         this.createAgentErrorSubscriber(agent),
       );
@@ -336,7 +336,7 @@ export class RunHandler {
             ...forwardedProps,
           },
           tools: this.buildFrontendTools(agent.agentId),
-          context: Object.values(this._internal.context),
+          context: this.buildContext(agent.agentId),
         },
         this.createAgentErrorSubscriber(agent),
       );
@@ -869,6 +869,18 @@ export class RunHandler {
       result: handlerResult.result,
       error: handlerResult.error,
     };
+  }
+
+  /**
+   * Build context entries for an agent, filtering by agentId.
+   * Includes global context (no agentId) and context scoped to this agent.
+   */
+  private buildContext(
+    agentId?: string,
+  ): { description: string; value: string }[] {
+    return Object.values(this._internal.context)
+      .filter((ctx) => !ctx.agentId || ctx.agentId === agentId)
+      .map(({ description, value }) => ({ description, value }));
   }
 
   /**

@@ -1,4 +1,4 @@
-import { AbstractAgent, Context, State } from "@ag-ui/client";
+import { AbstractAgent, State } from "@ag-ui/client";
 import {
   FrontendTool,
   SuggestionsConfig,
@@ -9,7 +9,7 @@ import {
   IntelligenceRuntimeInfo,
 } from "../types";
 import { AgentRegistry, CopilotKitCoreAddAgentParams } from "./agent-registry";
-import { ContextStore } from "./context-store";
+import { ContextStore, FrontendContext } from "./context-store";
 import { SuggestionEngine } from "./suggestion-engine";
 import {
   RunHandler,
@@ -120,7 +120,7 @@ export interface CopilotKitCoreSubscriber {
   }) => void | Promise<void>;
   onContextChanged?: (event: {
     copilotkit: CopilotKitCore;
-    context: Readonly<Record<string, Context>>;
+    context: Readonly<Record<string, FrontendContext>>;
   }) => void | Promise<void>;
   onSuggestionsConfigChanged?: (event: {
     copilotkit: CopilotKitCore;
@@ -197,7 +197,7 @@ export interface CopilotKitCoreFriendsAccess {
   readonly headers: Readonly<Record<string, string>>;
   readonly credentials: RequestCredentials | undefined;
   readonly properties: Readonly<Record<string, unknown>>;
-  readonly context: Readonly<Record<string, Context>>;
+  readonly context: Readonly<Record<string, FrontendContext>>;
 
   // Internal methods
   buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[];
@@ -325,7 +325,7 @@ export class CopilotKitCore {
   /**
    * Snapshot accessors
    */
-  get context(): Readonly<Record<string, Context>> {
+  get context(): Readonly<Record<string, FrontendContext>> {
     return this.contextStore.context;
   }
 
@@ -474,7 +474,7 @@ export class CopilotKitCore {
   /**
    * Context management (delegated to ContextStore)
    */
-  addContext(context: Context): string {
+  addContext(context: FrontendContext): string {
     return this.contextStore.addContext(context);
   }
 
