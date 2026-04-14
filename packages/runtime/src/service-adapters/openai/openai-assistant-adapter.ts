@@ -43,7 +43,8 @@ import {
   convertActionInputToOpenAITool,
   convertMessageToOpenAIMessage,
   convertSystemMessageToAssistantAPI,
-  isOpenAIV5,
+  retrieveThreadRun,
+  submitToolOutputsStream,
 } from "./utils";
 import { RuntimeEventSource } from "../events";
 import { ActionInput } from "../../graphql/inputs/action.input";
@@ -187,13 +188,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     eventSource: RuntimeEventSource,
   ) {
     const openai = this.ensureOpenAI();
-    // v5 uses named path params: retrieve(runId, { thread_id })
-    // v4 uses positional: retrieve(threadId, runId)
-    let run = isOpenAIV5(openai)
-      ? await (openai.beta.threads.runs.retrieve as Function)(runId, {
-          thread_id: threadId,
-        })
-      : await openai.beta.threads.runs.retrieve(threadId, runId);
+    let run = await retrieveThreadRun(openai, threadId, runId);
 
     if (!run.required_action) {
       throw new Error("No tool outputs required");
@@ -226,22 +221,10 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
         };
       });
 
-    // v5 uses named path params: submitToolOutputsStream(runId, { thread_id, ...body })
-    // v4 uses positional: submitToolOutputsStream(threadId, runId, body)
-    const toolOutputBody = {
+    const stream = submitToolOutputsStream(openai, threadId, runId, {
       tool_outputs: toolOutputs,
       ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
-    };
-    const stream = isOpenAIV5(openai)
-      ? (openai.beta.threads.runs.submitToolOutputsStream as Function)(runId, {
-          thread_id: threadId,
-          ...toolOutputBody,
-        })
-      : openai.beta.threads.runs.submitToolOutputsStream(
-          threadId,
-          runId,
-          toolOutputBody,
-        );
+    });
 
     await this.streamResponse(stream, eventSource);
     return runId;

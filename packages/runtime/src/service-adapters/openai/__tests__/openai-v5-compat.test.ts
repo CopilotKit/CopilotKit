@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { isOpenAIV5, getChatCompletionsForStreaming } from "../utils";
+import {
+  isOpenAIV5,
+  getChatCompletionsForStreaming,
+  retrieveThreadRun,
+  submitToolOutputsStream,
+} from "../utils";
 import type OpenAI from "openai";
 
 /**
@@ -21,7 +26,7 @@ function createMockV4Client() {
         threads: {
           create: vi.fn(),
           runs: {
-            retrieve: vi.fn(),
+            retrieve: vi.fn().mockResolvedValue({ id: "run_xyz" }),
             stream: vi.fn(),
             submitToolOutputsStream: vi.fn(),
           },
@@ -49,7 +54,7 @@ function createMockV5Client() {
         threads: {
           create: vi.fn(),
           runs: {
-            retrieve: vi.fn(),
+            retrieve: vi.fn().mockResolvedValue({ id: "run_xyz" }),
             stream: vi.fn(),
             submitToolOutputsStream: vi.fn(),
           },
@@ -90,9 +95,7 @@ describe("getChatCompletionsForStreaming", () => {
     const { client } = createMockV4Client();
     const completions = getChatCompletionsForStreaming(client);
     // Should be the beta version, not the top-level one
-    expect(completions).toBe(
-      (client as unknown as Record<string, any>).beta.chat.completions,
-    );
+    expect(completions).not.toBe(client.chat.completions);
   });
 
   it("returns chat.completions for a v5 client", () => {
@@ -104,72 +107,67 @@ describe("getChatCompletionsForStreaming", () => {
   it("stream() on v4 calls beta.chat.completions.stream", () => {
     const { client, streamFn } = createMockV4Client();
     const completions = getChatCompletionsForStreaming(client);
-    (completions as any).stream({ model: "gpt-4o", messages: [] });
+    completions.stream({ model: "gpt-4o", messages: [] });
     expect(streamFn).toHaveBeenCalledWith({ model: "gpt-4o", messages: [] });
   });
 
   it("stream() on v5 calls chat.completions.stream", () => {
     const { client, streamFn } = createMockV5Client();
     const completions = getChatCompletionsForStreaming(client);
-    (completions as any).stream({ model: "gpt-4o", messages: [] });
+    completions.stream({ model: "gpt-4o", messages: [] });
     expect(streamFn).toHaveBeenCalledWith({ model: "gpt-4o", messages: [] });
   });
 });
 
-describe("OpenAI Assistant Adapter v5 named path params", () => {
-  /**
-   * These tests verify that the assistant adapter correctly dispatches
-   * to the right calling convention based on SDK version.
-   * v4: runs.retrieve(threadId, runId)
-   * v5: runs.retrieve(runId, { thread_id: threadId })
-   */
-
-  it("v4 runs.retrieve is called with positional args (threadId, runId)", () => {
+describe("retrieveThreadRun", () => {
+  it("v4: calls retrieve with positional args (threadId, runId)", async () => {
     const { client } = createMockV4Client();
-    const retrieveFn = (client as any).beta.threads.runs.retrieve;
+    const retrieveFn = client.beta.threads.runs.retrieve as ReturnType<
+      typeof vi.fn
+    >;
 
-    // Simulate the v4 call pattern from the adapter
-    if (!isOpenAIV5(client)) {
-      retrieveFn("thread_abc", "run_xyz");
-    }
+    await retrieveThreadRun(client, "thread_abc", "run_xyz");
 
     expect(retrieveFn).toHaveBeenCalledWith("thread_abc", "run_xyz");
   });
 
-  it("v5 runs.retrieve is called with named path params (runId, { thread_id })", () => {
+  it("v5: calls retrieve with named path params (runId, { thread_id })", async () => {
     const { client } = createMockV5Client();
-    const retrieveFn = (client as any).beta.threads.runs.retrieve;
+    const retrieveFn = client.beta.threads.runs.retrieve as ReturnType<
+      typeof vi.fn
+    >;
 
-    // Simulate the v5 call pattern from the adapter
-    if (isOpenAIV5(client)) {
-      retrieveFn("run_xyz", { thread_id: "thread_abc" });
-    }
+    await retrieveThreadRun(client, "thread_abc", "run_xyz");
 
     expect(retrieveFn).toHaveBeenCalledWith("run_xyz", {
       thread_id: "thread_abc",
     });
   });
+});
 
-  it("v4 submitToolOutputsStream is called with positional args", () => {
+describe("submitToolOutputsStream", () => {
+  it("v4: calls with positional args (threadId, runId, body)", () => {
     const { client } = createMockV4Client();
-    const submitFn = (client as any).beta.threads.runs.submitToolOutputsStream;
-    const body = { tool_outputs: [{ tool_call_id: "tc_1", output: "result" }] };
+    const submitFn = client.beta.threads.runs
+      .submitToolOutputsStream as ReturnType<typeof vi.fn>;
+    const body = {
+      tool_outputs: [{ tool_call_id: "tc_1", output: "result" }],
+    };
 
-    if (!isOpenAIV5(client)) {
-      submitFn("thread_abc", "run_xyz", body);
-    }
+    submitToolOutputsStream(client, "thread_abc", "run_xyz", body);
 
     expect(submitFn).toHaveBeenCalledWith("thread_abc", "run_xyz", body);
   });
 
-  it("v5 submitToolOutputsStream is called with named path params", () => {
+  it("v5: calls with named path params (runId, { thread_id, ...body })", () => {
     const { client } = createMockV5Client();
-    const submitFn = (client as any).beta.threads.runs.submitToolOutputsStream;
-    const body = { tool_outputs: [{ tool_call_id: "tc_1", output: "result" }] };
+    const submitFn = client.beta.threads.runs
+      .submitToolOutputsStream as ReturnType<typeof vi.fn>;
+    const body = {
+      tool_outputs: [{ tool_call_id: "tc_1", output: "result" }],
+    };
 
-    if (isOpenAIV5(client)) {
-      submitFn("run_xyz", { thread_id: "thread_abc", ...body });
-    }
+    submitToolOutputsStream(client, "thread_abc", "run_xyz", body);
 
     expect(submitFn).toHaveBeenCalledWith("run_xyz", {
       thread_id: "thread_abc",
