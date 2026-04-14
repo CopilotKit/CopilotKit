@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"next dev --turbopack\" \"python -m uvicorn agent.main:app --host 0.0.0.0 --port 8123 --reload\"",
+    "dev": "concurrently \"next dev --turbopack\" \"python -m langgraph_cli dev --config langgraph.json --host 0.0.0.0 --port 8123 --no-browser\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
