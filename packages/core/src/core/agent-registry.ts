@@ -8,6 +8,7 @@ import {
   IntelligenceRuntimeInfo,
   RUNTIME_MODE_SSE,
   RUNTIME_MODE_INTELLIGENCE,
+  resolveDebugConfig,
 } from "@copilotkit/shared";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
 import type { CopilotKitCore } from "./core";
@@ -288,7 +289,7 @@ export class AgentRegistry {
               runtimeMode: runtimeInfoResponse.mode ?? RUNTIME_MODE_SSE,
               intelligence: runtimeInfoResponse.intelligence,
               capabilities,
-              debug: rawDebug,
+              debug: rawDebug ? resolveDebugConfig(rawDebug) : undefined,
             });
             this.applyHeadersToAgent(agent);
             return [id, agent];
