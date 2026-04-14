@@ -40,11 +40,7 @@ export default function Index() {
             className="h-full w-full"
             attachments={{ enabled: true }}
             onError={(event) => {
-              console.error(
-                "[CopilotChat] Error:",
-                event.code,
-                event.error.message,
-              );
+              console.error("[CopilotChat] Error:", event);
             }}
           />
         </div>
