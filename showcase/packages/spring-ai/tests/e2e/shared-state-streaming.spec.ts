@@ -25,9 +25,9 @@ test.describe("State Streaming", () => {
   test("document editor placeholder is visible when empty", async ({
     page,
   }) => {
-    await expect(
-      page.getByText("Write whatever you want here..."),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Write whatever you want here...")).toBeVisible(
+      { timeout: 10000 },
+    );
   });
 
   test("user can type in the document editor", async ({ page }) => {
@@ -40,9 +40,7 @@ test.describe("State Streaming", () => {
     );
   });
 
-  test("asking agent to edit shows confirm changes modal", async ({
-    page,
-  }) => {
+  test("asking agent to edit shows confirm changes modal", async ({ page }) => {
     // Add some content to the editor
     const editorTextarea = page.locator("textarea.w-full").first();
     await editorTextarea.fill("Draft proposal for Q2 project.");
@@ -56,21 +54,15 @@ test.describe("State Streaming", () => {
     await chatInput.press("Enter");
 
     // The ConfirmChanges modal should appear with accept/reject buttons
-    const confirmModal = page.locator(
-      '[data-testid="confirm-changes-modal"]',
-    );
+    const confirmModal = page.locator('[data-testid="confirm-changes-modal"]');
     await expect(confirmModal).toBeVisible({ timeout: 60000 });
 
     // Should show the "Confirm Changes" heading
     await expect(confirmModal.getByText("Confirm Changes")).toBeVisible();
 
     // Should have Reject and Confirm buttons
-    await expect(
-      page.locator('[data-testid="reject-button"]'),
-    ).toBeVisible();
-    await expect(
-      page.locator('[data-testid="confirm-button"]'),
-    ).toBeVisible();
+    await expect(page.locator('[data-testid="reject-button"]')).toBeVisible();
+    await expect(page.locator('[data-testid="confirm-button"]')).toBeVisible();
   });
 
   test("accepting changes updates status display", async ({ page }) => {
@@ -133,9 +125,7 @@ test.describe("State Streaming", () => {
     await chatInput.press("Enter");
 
     // Wait for confirm modal
-    const confirmModal = page.locator(
-      '[data-testid="confirm-changes-modal"]',
-    );
+    const confirmModal = page.locator('[data-testid="confirm-changes-modal"]');
     await expect(confirmModal).toBeVisible({ timeout: 60000 });
 
     // Modal should contain the proposed new content (not empty)
@@ -144,11 +134,7 @@ test.describe("State Streaming", () => {
     expect(modalText!.length).toBeGreaterThan(20);
 
     // Both action buttons should be present
-    await expect(
-      page.locator('[data-testid="reject-button"]'),
-    ).toBeVisible();
-    await expect(
-      page.locator('[data-testid="confirm-button"]'),
-    ).toBeVisible();
+    await expect(page.locator('[data-testid="reject-button"]')).toBeVisible();
+    await expect(page.locator('[data-testid="confirm-button"]')).toBeVisible();
   });
 });

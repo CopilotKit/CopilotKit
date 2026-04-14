@@ -49,8 +49,16 @@ describe("getWeatherImpl", () => {
 
   it("conditions is one of the known values", () => {
     const known = [
-      "Sunny", "Partly Cloudy", "Cloudy", "Overcast",
-      "Light Rain", "Heavy Rain", "Thunderstorm", "Snow", "Foggy", "Windy",
+      "Sunny",
+      "Partly Cloudy",
+      "Cloudy",
+      "Overcast",
+      "Light Rain",
+      "Heavy Rain",
+      "Thunderstorm",
+      "Snow",
+      "Foggy",
+      "Windy",
     ];
     const result = getWeatherImpl("Miami");
     expect(known).toContain(result.conditions);
@@ -64,6 +72,8 @@ describe("getWeatherImpl", () => {
 
   it("feels_like is within ±5 of temperature", () => {
     const result = getWeatherImpl("Berlin");
-    expect(Math.abs(result.feels_like - result.temperature)).toBeLessThanOrEqual(5);
+    expect(
+      Math.abs(result.feels_like - result.temperature),
+    ).toBeLessThanOrEqual(5);
   });
 });

@@ -32,19 +32,13 @@ describe("BarChart", () => {
 
   it("renders with data without crashing", () => {
     const { container } = render(
-      <BarChart
-        title="Sales"
-        description="test"
-        data={sampleData}
-      />,
+      <BarChart title="Sales" description="test" data={sampleData} />,
     );
     expect(container.firstChild).toBeTruthy();
   });
 
   it("shows empty state for no data", () => {
-    render(
-      <BarChart title="Empty" description="nothing here" data={[]} />,
-    );
+    render(<BarChart title="Empty" description="nothing here" data={[]} />);
     expect(screen.getByText("No data available")).toBeTruthy();
   });
 

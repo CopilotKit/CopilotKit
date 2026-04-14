@@ -42,9 +42,9 @@ test.describe("Sub-Agents", () => {
   });
 
   test("itinerary starts empty with placeholder text", async ({ page }) => {
-    await expect(
-      page.getByText("No items yet -- start planning!"),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("No items yet -- start planning!")).toBeVisible(
+      { timeout: 10000 },
+    );
   });
 
   test("travel sections show empty state initially", async ({ page }) => {
@@ -104,8 +104,8 @@ test.describe("Sub-Agents", () => {
     const interruptCard = page.locator(".bg-blue-50.rounded-lg").first();
     const assistantMsg = page.locator('[data-role="assistant"]').first();
 
-    await expect(
-      flightOption.or(interruptCard).or(assistantMsg),
-    ).toBeVisible({ timeout: 60000 });
+    await expect(flightOption.or(interruptCard).or(assistantMsg)).toBeVisible({
+      timeout: 60000,
+    });
   });
 });

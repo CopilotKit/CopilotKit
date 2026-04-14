@@ -59,9 +59,7 @@ export function getSalesTodosImpl(
   currentTodos?: Partial<SalesTodo>[] | null,
 ): SalesTodo[] {
   if (currentTodos != null) {
-    return currentTodos.length > 0
-      ? manageSalesTodosImpl(currentTodos)
-      : [];
+    return currentTodos.length > 0 ? manageSalesTodosImpl(currentTodos) : [];
   }
   return [...INITIAL_SALES_TODOS];
 }

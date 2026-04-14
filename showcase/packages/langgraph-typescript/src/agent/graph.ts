@@ -76,15 +76,19 @@ const manageSalesTodos = tool(
     name: "manage_sales_todos",
     description: "Create or update the sales todo list",
     schema: z.object({
-      todos: z.array(z.object({
-        id: z.string().optional(),
-        title: z.string(),
-        stage: z.string().optional(),
-        value: z.number().optional(),
-        dueDate: z.string().optional(),
-        assignee: z.string().optional(),
-        completed: z.boolean().optional(),
-      })).describe("Array of sales todo items"),
+      todos: z
+        .array(
+          z.object({
+            id: z.string().optional(),
+            title: z.string(),
+            stage: z.string().optional(),
+            value: z.number().optional(),
+            dueDate: z.string().optional(),
+            assignee: z.string().optional(),
+            completed: z.boolean().optional(),
+          }),
+        )
+        .describe("Array of sales todo items"),
     }),
   },
 );
@@ -95,15 +99,21 @@ const getSalesTodos = tool(
     name: "get_sales_todos",
     description: "Get the current sales todo list",
     schema: z.object({
-      currentTodos: z.array(z.object({
-        id: z.string().optional(),
-        title: z.string().optional(),
-        stage: z.string().optional(),
-        value: z.number().optional(),
-        dueDate: z.string().optional(),
-        assignee: z.string().optional(),
-        completed: z.boolean().optional(),
-      })).optional().nullable().describe("Current todos if any"),
+      currentTodos: z
+        .array(
+          z.object({
+            id: z.string().optional(),
+            title: z.string().optional(),
+            stage: z.string().optional(),
+            value: z.number().optional(),
+            dueDate: z.string().optional(),
+            assignee: z.string().optional(),
+            completed: z.boolean().optional(),
+          }),
+        )
+        .optional()
+        .nullable()
+        .describe("Current todos if any"),
     }),
   },
 );
@@ -127,21 +137,25 @@ const searchFlights = tool(
     name: "search_flights",
     description: "Search for available flights",
     schema: z.object({
-      flights: z.array(z.object({
-        airline: z.string(),
-        airlineLogo: z.string().optional(),
-        flightNumber: z.string(),
-        origin: z.string(),
-        destination: z.string(),
-        date: z.string(),
-        departureTime: z.string(),
-        arrivalTime: z.string(),
-        duration: z.string(),
-        status: z.string(),
-        statusColor: z.string().optional(),
-        price: z.string(),
-        currency: z.string().optional(),
-      })).describe("Array of flight results"),
+      flights: z
+        .array(
+          z.object({
+            airline: z.string(),
+            airlineLogo: z.string().optional(),
+            flightNumber: z.string(),
+            origin: z.string(),
+            destination: z.string(),
+            date: z.string(),
+            departureTime: z.string(),
+            arrivalTime: z.string(),
+            duration: z.string(),
+            status: z.string(),
+            statusColor: z.string().optional(),
+            price: z.string(),
+            currency: z.string().optional(),
+          }),
+        )
+        .describe("Array of flight results"),
     }),
   },
 );
@@ -151,19 +165,21 @@ const generateA2ui = tool(
     const prep = generateA2uiImpl({ messages, contextEntries });
 
     const secondaryModel = new ChatOpenAI({ temperature: 0, model: "gpt-4.1" });
-    const renderTool = tool(
-      async () => "rendered",
-      {
-        name: "render_a2ui",
-        description: "Render a dynamic A2UI v0.9 surface.",
-        schema: z.object({
-          surfaceId: z.string().describe("Unique surface identifier."),
-          catalogId: z.string().describe("The catalog ID."),
-          components: z.array(z.record(z.unknown())).describe("A2UI v0.9 component array."),
-          data: z.record(z.unknown()).optional().describe("Optional initial data model."),
-        }),
-      },
-    );
+    const renderTool = tool(async () => "rendered", {
+      name: "render_a2ui",
+      description: "Render a dynamic A2UI v0.9 surface.",
+      schema: z.object({
+        surfaceId: z.string().describe("Unique surface identifier."),
+        catalogId: z.string().describe("The catalog ID."),
+        components: z
+          .array(z.record(z.unknown()))
+          .describe("A2UI v0.9 component array."),
+        data: z
+          .record(z.unknown())
+          .optional()
+          .describe("Optional initial data model."),
+      }),
+    });
 
     const modelWithTool = secondaryModel.bindTools!([renderTool], {
       tool_choice: { type: "function", function: { name: "render_a2ui" } },
@@ -187,7 +203,10 @@ const generateA2ui = tool(
     description: "Generate dynamic A2UI surface components",
     schema: z.object({
       messages: z.array(z.record(z.unknown())).describe("Chat messages"),
-      contextEntries: z.array(z.record(z.unknown())).optional().describe("Context entries"),
+      contextEntries: z
+        .array(z.record(z.unknown()))
+        .optional()
+        .describe("Context entries"),
     }),
   },
 );

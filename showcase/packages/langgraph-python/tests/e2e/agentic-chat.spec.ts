@@ -58,7 +58,9 @@ test.describe("Agentic Chat", () => {
     // Turn 1: establish context
     await input.fill("My name is Alice and I live in Tokyo");
     await input.press("Enter");
-    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 30000,
+    });
 
     // Turn 2: reference prior context
     await input.fill("What city did I say I live in?");

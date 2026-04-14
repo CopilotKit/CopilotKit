@@ -59,13 +59,7 @@ describe("TodoList", () => {
 
   it("empty state shows placeholder", () => {
     const onUpdate = vi.fn();
-    render(
-      <TodoList
-        todos={[]}
-        onUpdate={onUpdate}
-        isAgentRunning={false}
-      />,
-    );
+    render(<TodoList todos={[]} onUpdate={onUpdate} isAgentRunning={false} />);
     expect(screen.getByText("No deals yet")).toBeTruthy();
     expect(
       screen.getByText("Create your first deal to get started"),
@@ -74,13 +68,7 @@ describe("TodoList", () => {
 
   it("empty state has add button", () => {
     const onUpdate = vi.fn();
-    render(
-      <TodoList
-        todos={[]}
-        onUpdate={onUpdate}
-        isAgentRunning={false}
-      />,
-    );
+    render(<TodoList todos={[]} onUpdate={onUpdate} isAgentRunning={false} />);
     const addBtn = screen.getByText("Add a deal");
     expect(addBtn).toBeTruthy();
     fireEvent.click(addBtn);
@@ -89,13 +77,7 @@ describe("TodoList", () => {
 
   it("disables add button when agent is running", () => {
     const onUpdate = vi.fn();
-    render(
-      <TodoList
-        todos={[]}
-        onUpdate={onUpdate}
-        isAgentRunning={true}
-      />,
-    );
+    render(<TodoList todos={[]} onUpdate={onUpdate} isAgentRunning={true} />);
     const addBtn = screen.getByText("Add a deal") as HTMLButtonElement;
     expect(addBtn.disabled).toBe(true);
   });
