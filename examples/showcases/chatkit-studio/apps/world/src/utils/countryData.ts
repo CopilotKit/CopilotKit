@@ -66,9 +66,7 @@ export const getPolygonColor = (
   visitedCountries: VisitedCountry[],
 ) => {
   const countryName = polygon.properties?.name;
-  const isVisited = visitedCountries.some(
-    (country) => country.name === countryName,
-  );
+  const isVisited = visitedCountries.some((country) => country.name === countryName);
 
   if (selectedId && polygon.id?.toString() === selectedId) {
     return "rgba(96, 165, 250, 0.85)"; // blue - selected

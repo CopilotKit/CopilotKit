@@ -3,14 +3,7 @@ import { BasicAgent } from "../index";
 import { EventType } from "@ag-ui/client";
 import { streamText } from "ai";
 import { LLMock, MCPMock } from "@copilotkit/aimock";
-import {
-  mockStreamTextResponse,
-  textDelta,
-  finish,
-  collectEvents,
-  toolCall,
-  toolResult,
-} from "./test-helpers";
+import { mockStreamTextResponse, textDelta, finish, collectEvents, toolCall, toolResult } from "./test-helpers";
 
 // Mock the ai module — we don't want real LLM calls
 vi.mock("ai", () => ({
@@ -88,9 +81,7 @@ describe("mcpServers — real MCP server integration", () => {
   }
 
   it("HTTP transport fetches tools from MCPMock", async () => {
-    const result = await startMcpServer([
-      { name: "get_weather", description: "Get the weather" },
-    ]);
+    const result = await startMcpServer([{ name: "get_weather", description: "Get the weather" }]);
     llm = result.llm;
     mcpMock = result.mcpMock;
 
@@ -99,9 +90,7 @@ describe("mcpServers — real MCP server integration", () => {
       mcpServers: [{ type: "http", url: result.mcpUrl }],
     });
 
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([textDelta("Hello"), finish()]) as any,
-    );
+    vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([textDelta("Hello"), finish()]) as any);
 
     await collectEvents(agent["run"](baseInput));
 
@@ -112,9 +101,7 @@ describe("mcpServers — real MCP server integration", () => {
   it("SSE transport against MCPMock emits RUN_ERROR or completes without crash", async () => {
     // MCPMock only supports Streamable HTTP, not SSE.
     // The agent should emit RUN_ERROR when SSE connection fails.
-    const result = await startMcpServer([
-      { name: "get_weather", description: "Get the weather" },
-    ]);
+    const result = await startMcpServer([{ name: "get_weather", description: "Get the weather" }]);
     llm = result.llm;
     mcpMock = result.mcpMock;
 
@@ -123,9 +110,7 @@ describe("mcpServers — real MCP server integration", () => {
       mcpServers: [{ type: "sse", url: result.mcpUrl }],
     });
 
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
-    );
+    vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
     // Collect events manually — the Observable may error after emitting RUN_ERROR
     const events: any[] = [];
@@ -148,9 +133,7 @@ describe("mcpServers — real MCP server integration", () => {
   });
 
   it("tool call round-trip emits TOOL_CALL_START, TOOL_CALL_RESULT, and TEXT_MESSAGE_CHUNK", async () => {
-    const result = await startMcpServer([
-      { name: "get_weather", description: "Get the weather" },
-    ]);
+    const result = await startMcpServer([{ name: "get_weather", description: "Get the weather" }]);
     llm = result.llm;
     mcpMock = result.mcpMock;
 
@@ -176,17 +159,13 @@ describe("mcpServers — real MCP server integration", () => {
     expect(types).toContain(EventType.TEXT_MESSAGE_CHUNK);
 
     // Verify the tool call result content
-    const resultEvent = events.find(
-      (e: any) => e.type === EventType.TOOL_CALL_RESULT,
-    ) as any;
+    const resultEvent = events.find((e: any) => e.type === EventType.TOOL_CALL_RESULT) as any;
     expect(resultEvent.toolCallId).toBe("tc1");
     expect(resultEvent.content).toContain("Sunny 72F");
   });
 
   it("MCP clients are cleaned up after completion — second run creates fresh connections", async () => {
-    const result = await startMcpServer([
-      { name: "get_weather", description: "Get the weather" },
-    ]);
+    const result = await startMcpServer([{ name: "get_weather", description: "Get the weather" }]);
     llm = result.llm;
     mcpMock = result.mcpMock;
 
@@ -196,31 +175,19 @@ describe("mcpServers — real MCP server integration", () => {
     });
 
     // First run
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([textDelta("Run 1"), finish()]) as any,
-    );
+    vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([textDelta("Run 1"), finish()]) as any);
     const events1 = await collectEvents(agent["run"](baseInput));
-    expect(events1.some((e: any) => e.type === EventType.RUN_FINISHED)).toBe(
-      true,
-    );
+    expect(events1.some((e: any) => e.type === EventType.RUN_FINISHED)).toBe(true);
 
     // Second run — should succeed with fresh MCP client connections
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([textDelta("Run 2"), finish()]) as any,
-    );
+    vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([textDelta("Run 2"), finish()]) as any);
     const events2 = await collectEvents(agent["run"](baseInput));
-    expect(events2.some((e: any) => e.type === EventType.RUN_FINISHED)).toBe(
-      true,
-    );
+    expect(events2.some((e: any) => e.type === EventType.RUN_FINISHED)).toBe(true);
 
     // streamText was called twice (once per run), each time with MCP tools
     expect(vi.mocked(streamText).mock.calls).toHaveLength(2);
-    expect(vi.mocked(streamText).mock.calls[0][0].tools).toHaveProperty(
-      "get_weather",
-    );
-    expect(vi.mocked(streamText).mock.calls[1][0].tools).toHaveProperty(
-      "get_weather",
-    );
+    expect(vi.mocked(streamText).mock.calls[0][0].tools).toHaveProperty("get_weather");
+    expect(vi.mocked(streamText).mock.calls[1][0].tools).toHaveProperty("get_weather");
   });
 
   it("unreachable MCP server emits RUN_ERROR", async () => {
@@ -229,9 +196,7 @@ describe("mcpServers — real MCP server integration", () => {
       mcpServers: [{ type: "http", url: "http://localhost:59999" }],
     });
 
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
-    );
+    vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
     const events: any[] = [];
     try {
@@ -252,9 +217,7 @@ describe("mcpServers — real MCP server integration", () => {
   });
 
   it("MCP clients are cleaned up after streamText error — subsequent run still works", async () => {
-    const result = await startMcpServer([
-      { name: "get_weather", description: "Get the weather" },
-    ]);
+    const result = await startMcpServer([{ name: "get_weather", description: "Get the weather" }]);
     llm = result.llm;
     mcpMock = result.mcpMock;
 
@@ -285,13 +248,9 @@ describe("mcpServers — real MCP server integration", () => {
     expect(events1.some((e) => e.type === EventType.RUN_ERROR)).toBe(true);
 
     // Second run — streamText works normally, proving MCP cleanup happened
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([textDelta("Recovery"), finish()]) as any,
-    );
+    vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([textDelta("Recovery"), finish()]) as any);
     const events2 = await collectEvents(agent["run"](baseInput));
-    expect(events2.some((e: any) => e.type === EventType.RUN_FINISHED)).toBe(
-      true,
-    );
+    expect(events2.some((e: any) => e.type === EventType.RUN_FINISHED)).toBe(true);
 
     // The second run should have MCP tools available
     const secondCallArgs = vi.mocked(streamText).mock.calls[1][0];
@@ -299,9 +258,7 @@ describe("mcpServers — real MCP server integration", () => {
   });
 
   it("MCP tool descriptions are passed to streamText tools config", async () => {
-    const result = await startMcpServer([
-      { name: "get_weather", description: "Get the weather" },
-    ]);
+    const result = await startMcpServer([{ name: "get_weather", description: "Get the weather" }]);
     llm = result.llm;
     mcpMock = result.mcpMock;
 
@@ -310,9 +267,7 @@ describe("mcpServers — real MCP server integration", () => {
       mcpServers: [{ type: "http", url: result.mcpUrl }],
     });
 
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([textDelta("Hello"), finish()]) as any,
-    );
+    vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([textDelta("Hello"), finish()]) as any);
 
     await collectEvents(agent["run"](baseInput));
 
@@ -324,9 +279,7 @@ describe("mcpServers — real MCP server integration", () => {
 
   it("multiple MCP servers merge tools from both", async () => {
     // First server with get_weather
-    const result1 = await startMcpServer([
-      { name: "get_weather", description: "Get the weather" },
-    ]);
+    const result1 = await startMcpServer([{ name: "get_weather", description: "Get the weather" }]);
     llm = result1.llm;
 
     // Second server with search_docs
@@ -355,10 +308,7 @@ describe("mcpServers — real MCP server integration", () => {
       });
 
       vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([
-          textDelta("Both tools available"),
-          finish(),
-        ]) as any,
+        mockStreamTextResponse([textDelta("Both tools available"), finish()]) as any,
       );
 
       await collectEvents(agent["run"](baseInput));

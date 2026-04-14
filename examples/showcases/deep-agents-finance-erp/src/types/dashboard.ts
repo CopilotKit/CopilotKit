@@ -92,14 +92,7 @@ export interface SpendHeatmapWidget extends BaseWidget {
   config: {
     title?: string;
     subtitle?: string;
-    categories?: (
-      | "payroll"
-      | "operations"
-      | "marketing"
-      | "infrastructure"
-      | "rnd"
-      | "other"
-    )[];
+    categories?: ("payroll" | "operations" | "marketing" | "infrastructure" | "rnd" | "other")[];
     colorScale?: "purple" | "blue" | "red";
   };
 }

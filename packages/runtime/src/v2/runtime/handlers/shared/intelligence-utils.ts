@@ -12,10 +12,5 @@ const SAFE_ID_PATTERN = /^[\w.@:=-]+$/;
  * Returns `true` if valid, `false` otherwise.
  */
 export function isValidIdentifier(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= MAX_ID_LENGTH &&
-    SAFE_ID_PATTERN.test(value)
-  );
+  return typeof value === "string" && value.length > 0 && value.length <= MAX_ID_LENGTH && SAFE_ID_PATTERN.test(value);
 }

@@ -69,9 +69,7 @@ describe("convertInputToTanStackAI — multimodal", () => {
   });
 
   it("converts AudioInputPart", () => {
-    const result = convertUserContent([
-      { type: "audio", source: dataSource("base64audiodata", "audio/mp3") },
-    ]);
+    const result = convertUserContent([{ type: "audio", source: dataSource("base64audiodata", "audio/mp3") }]);
     expect(result.content).toEqual([
       {
         type: "audio",
@@ -159,10 +157,7 @@ describe("convertInputToTanStackAI — multimodal", () => {
   });
 
   it("skips parts with missing source without crashing", () => {
-    const result = convertUserContent([
-      { type: "text", text: "check this" },
-      { type: "image" } as any,
-    ]);
+    const result = convertUserContent([{ type: "text", text: "check this" }, { type: "image" } as any]);
     expect(result.content).toEqual([{ type: "text", content: "check this" }]);
   });
 
@@ -184,8 +179,7 @@ describe("convertInputToTanStackAI — multimodal", () => {
     const undefinedInput = createDefaultInput({
       messages: [{ role: "user", content: undefined } as unknown as Message],
     });
-    const { messages: undefinedMessages } =
-      convertInputToTanStackAI(undefinedInput);
+    const { messages: undefinedMessages } = convertInputToTanStackAI(undefinedInput);
     expect(undefinedMessages[0].content).toBeNull();
   });
 

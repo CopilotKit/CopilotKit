@@ -14,12 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface CodeExporterProps {
   config: PlaygroundConfig;
@@ -51,21 +46,14 @@ export function CodeExporter({ config, isOpen, onClose }: CodeExporterProps) {
         <DialogOverlay className="bg-black/20" />
         <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 gap-0 bg-white/50 backdrop-blur-sm border-2 border-white">
           <DialogHeader className="px-6 pt-6 pb-3 border-b border-palette-border-container">
-            <DialogTitle className="text-xl text-palette-text-primary">
-              Export Code
-            </DialogTitle>
+            <DialogTitle className="text-xl text-palette-text-primary">Export Code</DialogTitle>
             <DialogDescription className="text-xs text-palette-text-secondary">
-              Copy the generated code to integrate the chat component into your
-              application
+              Copy the generated code to integrate the chat component into your application
             </DialogDescription>
           </DialogHeader>
 
           {/* Collapsible Instructions */}
-          <Accordion
-            type="multiple"
-            defaultValue={["install"]}
-            className="mx-6 mt-4"
-          >
+          <Accordion type="multiple" defaultValue={["install"]} className="mx-6 mt-4">
             {/* Installation */}
             <AccordionItem
               value="install"
@@ -75,14 +63,11 @@ export function CodeExporter({ config, isOpen, onClose }: CodeExporterProps) {
                 📦 Installation
               </AccordionTrigger>
               <AccordionContent className="pb-3">
-                <p className="text-xs text-palette-text-secondary mb-2">
-                  Install required dependencies:
-                </p>
+                <p className="text-xs text-palette-text-secondary mb-2">Install required dependencies:</p>
                 <div className="relative">
                   <pre className="bg-white/50 border border-palette-border-container px-3 py-2 rounded-lg text-xs font-mono overflow-x-auto pr-16">
                     <code>
-                      npm install @ag-ui/langgraph@0.0.7
-                      @copilotkit/react-core@1.9.3 @copilotkit/react-ui@1.9.3
+                      npm install @ag-ui/langgraph@0.0.7 @copilotkit/react-core@1.9.3 @copilotkit/react-ui@1.9.3
                       @copilotkit/runtime@1.9.3
                     </code>
                   </pre>
@@ -115,28 +100,18 @@ export function CodeExporter({ config, isOpen, onClose }: CodeExporterProps) {
                 <ol className="text-xs space-y-1.5 text-palette-text-secondary leading-relaxed">
                   <li>
                     1. Create{" "}
-                    <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
-                      components/MyChat.tsx
-                    </code>{" "}
+                    <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">components/MyChat.tsx</code>{" "}
                     and paste the component code
                   </li>
                   <li className="flex items-start gap-1">
                     <span>2.</span>
                     <span>
-                      <span className="font-semibold text-primary">
-                        🔧 Important:
-                      </span>{" "}
-                      Wrap your app with CopilotKit in{" "}
-                      <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
-                        app/layout.tsx
-                      </code>
+                      <span className="font-semibold text-primary">🔧 Important:</span> Wrap your app with CopilotKit in{" "}
+                      <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">app/layout.tsx</code>
                     </span>
                   </li>
                   <li>
-                    3.{" "}
-                    <span className="font-semibold text-destructive">
-                      ⚠️ Replace or Create
-                    </span>{" "}
+                    3. <span className="font-semibold text-destructive">⚠️ Replace or Create</span>{" "}
                     <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
                       app/api/copilotkit/route.ts
                     </code>{" "}
@@ -144,9 +119,7 @@ export function CodeExporter({ config, isOpen, onClose }: CodeExporterProps) {
                   </li>
                   <li>
                     4. Add environment variables to{" "}
-                    <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">
-                      .env.local
-                    </code>
+                    <code className="bg-white/50 px-1.5 py-0.5 rounded text-xs font-mono">.env.local</code>
                   </li>
                 </ol>
               </AccordionContent>
@@ -163,26 +136,17 @@ export function CodeExporter({ config, isOpen, onClose }: CodeExporterProps) {
               <AccordionContent className="pb-3">
                 <p className="text-xs text-palette-text-secondary leading-relaxed mb-2">
                   After completing setup, you can import and use{" "}
-                  <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">
-                    &lt;MyChat /&gt;
-                  </code>{" "}
-                  anywhere in your application.
+                  <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">&lt;MyChat /&gt;</code> anywhere in
+                  your application.
                 </p>
                 <div className="relative">
                   <pre className="mt-2 bg-white/50 border border-palette-border-container px-2 py-1.5 rounded-lg text-xs font-mono pr-14">
-                    <code>
-                      import MyChat from &apos;@/components/MyChat&apos;
-                    </code>
+                    <code>import MyChat from &apos;@/components/MyChat&apos;</code>
                   </pre>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() =>
-                      handleCopy(
-                        "import MyChat from '@/components/MyChat'",
-                        "import",
-                      )
-                    }
+                    onClick={() => handleCopy("import MyChat from '@/components/MyChat'", "import")}
                     className="absolute top-1/2 -translate-y-1/2 right-1 h-5 text-[10px] px-1.5"
                   >
                     {copiedItems.has("import") ? "✓" : "Copy"}
@@ -197,12 +161,7 @@ export function CodeExporter({ config, isOpen, onClose }: CodeExporterProps) {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() =>
-                      handleCopy(
-                        `<div className="w-1/2 max-h-[400px]">\n  <MyChat />\n</div>`,
-                        "usage",
-                      )
-                    }
+                    onClick={() => handleCopy(`<div className="w-1/2 max-h-[400px]">\n  <MyChat />\n</div>`, "usage")}
                     className="absolute top-1/2 -translate-y-1/2 right-1 h-5 text-[10px] px-1.5"
                   >
                     {copiedItems.has("usage") ? "✓" : "Copy"}
@@ -233,10 +192,7 @@ export function CodeExporter({ config, isOpen, onClose }: CodeExporterProps) {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent
-              value="component"
-              className="flex-1 mt-3 overflow-auto"
-            >
+            <TabsContent value="component" className="flex-1 mt-3 overflow-auto">
               <div className="relative">
                 <pre className="bg-white/50 border border-palette-border-container text-palette-text-primary p-4 rounded-lg overflow-x-auto text-xs font-mono leading-relaxed">
                   <code>{files.component}</code>

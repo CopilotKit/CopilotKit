@@ -1,9 +1,5 @@
 import type { CopilotRuntimeLike } from "../core/runtime";
-import {
-  TranscriptionErrorCode,
-  TranscriptionErrors,
-  type TranscriptionErrorResponse,
-} from "@copilotkit/shared";
+import { TranscriptionErrorCode, TranscriptionErrors, type TranscriptionErrorResponse } from "@copilotkit/shared";
 
 /**
  * HTTP status codes for transcription error codes
@@ -45,16 +41,10 @@ const VALID_AUDIO_TYPES = [
 function isValidAudioType(type: string): boolean {
   // Extract base MIME type (before semicolon) to handle types like "audio/webm; codecs=opus"
   const baseType = type.split(";")[0]?.trim() ?? "";
-  return (
-    VALID_AUDIO_TYPES.includes(baseType) ||
-    baseType === "" ||
-    baseType === "application/octet-stream"
-  );
+  return VALID_AUDIO_TYPES.includes(baseType) || baseType === "" || baseType === "application/octet-stream";
 }
 
-function createErrorResponse(
-  errorResponse: TranscriptionErrorResponse,
-): Response {
+function createErrorResponse(errorResponse: TranscriptionErrorResponse): Response {
   const status = ERROR_STATUS_CODES[errorResponse.error] ?? 500;
   return new Response(JSON.stringify(errorResponse), {
     status,
@@ -62,15 +52,9 @@ function createErrorResponse(
   });
 }
 
-function base64ToFile(
-  base64: string,
-  mimeType: string,
-  filename: string,
-): File {
+function base64ToFile(base64: string, mimeType: string, filename: string): File {
   // Remove data URL prefix if present (e.g., "data:audio/webm;base64,")
-  const base64Data = base64.includes(",")
-    ? (base64.split(",")[1] ?? base64)
-    : base64;
+  const base64Data = base64.includes(",") ? (base64.split(",")[1] ?? base64) : base64;
 
   // Decode base64 to binary
   const binaryString = atob(base64Data);
@@ -83,9 +67,7 @@ function base64ToFile(
   return new File([bytes], filename, { type: mimeType });
 }
 
-async function extractAudioFromFormData(
-  request: Request,
-): Promise<{ file: File } | { error: Response }> {
+async function extractAudioFromFormData(request: Request): Promise<{ file: File } | { error: Response }> {
   const formData = await request.formData();
   const audioFile = formData.get("audio") as File | null;
 
@@ -97,49 +79,35 @@ async function extractAudioFromFormData(
   }
 
   if (!isValidAudioType(audioFile.type)) {
-    const err = TranscriptionErrors.invalidAudioFormat(
-      audioFile.type,
-      VALID_AUDIO_TYPES,
-    );
+    const err = TranscriptionErrors.invalidAudioFormat(audioFile.type, VALID_AUDIO_TYPES);
     return { error: createErrorResponse(err) };
   }
 
   return { file: audioFile };
 }
 
-async function extractAudioFromJson(
-  request: Request,
-): Promise<{ file: File } | { error: Response }> {
+async function extractAudioFromJson(request: Request): Promise<{ file: File } | { error: Response }> {
   let body: Base64AudioInput;
 
   try {
     body = await request.json();
   } catch {
-    const err = TranscriptionErrors.invalidRequest(
-      "Request body must be valid JSON",
-    );
+    const err = TranscriptionErrors.invalidRequest("Request body must be valid JSON");
     return { error: createErrorResponse(err) };
   }
 
   if (!body.audio || typeof body.audio !== "string") {
-    const err = TranscriptionErrors.invalidRequest(
-      "Request must include 'audio' field with base64-encoded audio data",
-    );
+    const err = TranscriptionErrors.invalidRequest("Request must include 'audio' field with base64-encoded audio data");
     return { error: createErrorResponse(err) };
   }
 
   if (!body.mimeType || typeof body.mimeType !== "string") {
-    const err = TranscriptionErrors.invalidRequest(
-      "Request must include 'mimeType' field (e.g., 'audio/webm')",
-    );
+    const err = TranscriptionErrors.invalidRequest("Request must include 'mimeType' field (e.g., 'audio/webm')");
     return { error: createErrorResponse(err) };
   }
 
   if (!isValidAudioType(body.mimeType)) {
-    const err = TranscriptionErrors.invalidAudioFormat(
-      body.mimeType,
-      VALID_AUDIO_TYPES,
-    );
+    const err = TranscriptionErrors.invalidAudioFormat(body.mimeType, VALID_AUDIO_TYPES);
     return { error: createErrorResponse(err) };
   }
 
@@ -148,9 +116,7 @@ async function extractAudioFromJson(
     const file = base64ToFile(body.audio, body.mimeType, filename);
     return { file };
   } catch {
-    const err = TranscriptionErrors.invalidRequest(
-      "Failed to decode base64 audio data",
-    );
+    const err = TranscriptionErrors.invalidRequest("Failed to decode base64 audio data");
     return { error: createErrorResponse(err) };
   }
 }
@@ -159,16 +125,11 @@ async function extractAudioFromJson(
  * Categorize provider errors into appropriate transcription error responses.
  */
 function categorizeProviderError(error: unknown): TranscriptionErrorResponse {
-  const message =
-    error instanceof Error ? error.message : "Unknown error occurred";
+  const message = error instanceof Error ? error.message : "Unknown error occurred";
   const errorStr = String(error).toLowerCase();
 
   // Check for rate limiting
-  if (
-    errorStr.includes("rate") ||
-    errorStr.includes("429") ||
-    errorStr.includes("too many")
-  ) {
+  if (errorStr.includes("rate") || errorStr.includes("429") || errorStr.includes("too many")) {
     return TranscriptionErrors.rateLimited();
   }
 
@@ -183,11 +144,7 @@ function categorizeProviderError(error: unknown): TranscriptionErrorResponse {
   }
 
   // Check for audio too long
-  if (
-    errorStr.includes("too long") ||
-    errorStr.includes("duration") ||
-    errorStr.includes("length")
-  ) {
+  if (errorStr.includes("too long") || errorStr.includes("duration") || errorStr.includes("length")) {
     return TranscriptionErrors.audioTooLong();
   }
 
@@ -195,10 +152,7 @@ function categorizeProviderError(error: unknown): TranscriptionErrorResponse {
   return TranscriptionErrors.providerError(message);
 }
 
-export async function handleTranscribe({
-  runtime,
-  request,
-}: HandleTranscribeParameters) {
+export async function handleTranscribe({ runtime, request }: HandleTranscribeParameters) {
   try {
     // Check if transcription service is configured
     if (!runtime.transcriptionService) {

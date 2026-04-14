@@ -122,10 +122,7 @@ const modifiedConfig = copilotKitCustomizeConfig(config, {
     },
   ],
 });
-const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(
-  messages,
-  modifiedConfig,
-);
+const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(messages, modifiedConfig);
 ```
 
 ## 🏆 Featured Examples

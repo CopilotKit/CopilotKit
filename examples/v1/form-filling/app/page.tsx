@@ -19,17 +19,13 @@ export default function Home() {
         defaultOpen
         labels={{
           title: "✨ Incident Report Assistant",
-          initial: [
-            "I'm an AI assistant built for guiding you through filing incident reports. How can I help?",
-          ],
+          initial: ["I'm an AI assistant built for guiding you through filing incident reports. How can I help?"],
         }}
       />
       <div className="max-w-5xl mx-auto">
         <header className="mb-12 text-center">
           <h1 className="text-3xl font-bold mb-2">Security Incident Report</h1>
-          <p className="text-muted-foreground">
-            Please fill out the form below to report an incident
-          </p>
+          <p className="text-muted-foreground">Please fill out the form below to report an incident</p>
         </header>
 
         <main>

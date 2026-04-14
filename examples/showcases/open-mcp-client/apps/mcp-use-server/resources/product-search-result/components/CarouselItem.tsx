@@ -11,18 +11,9 @@ export interface CarouselItemProps {
   onToggleFavorite?: () => void;
 }
 
-export const CarouselItem: React.FC<CarouselItemProps> = ({
-  fruit,
-  color,
-  isFavorite,
-  onClick,
-  onToggleFavorite,
-}) => {
+export const CarouselItem: React.FC<CarouselItemProps> = ({ fruit, color, isFavorite, onClick, onToggleFavorite }) => {
   return (
-    <div
-      className={`carousel-item size-52 rounded-xl border border-subtle ${color} cursor-pointer`}
-      onClick={onClick}
-    >
+    <div className={`carousel-item size-52 rounded-xl border border-subtle ${color} cursor-pointer`} onClick={onClick}>
       {onToggleFavorite && (
         <Button
           color="secondary"
@@ -43,11 +34,7 @@ export const CarouselItem: React.FC<CarouselItemProps> = ({
         <Image src={"/fruits/" + fruit + ".png"} alt={fruit} />
       </div>
       <div className="carousel-item-content">
-        <Image
-          src={"/fruits/" + fruit + ".png"}
-          alt={fruit}
-          className="w-24 h-24 object-contain"
-        />
+        <Image src={"/fruits/" + fruit + ".png"} alt={fruit} className="w-24 h-24 object-contain" />
       </div>
     </div>
   );

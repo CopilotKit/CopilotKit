@@ -160,12 +160,8 @@ describe("TelemetryClient", () => {
   });
 
   it("throws when sample rate is out of range", () => {
-    expect(() => new TelemetryClient({ sampleRate: 1.5 })).toThrow(
-      "Sample rate must be between 0 and 1",
-    );
-    expect(() => new TelemetryClient({ sampleRate: -0.1 })).toThrow(
-      "Sample rate must be between 0 and 1",
-    );
+    expect(() => new TelemetryClient({ sampleRate: 1.5 })).toThrow("Sample rate must be between 0 and 1");
+    expect(() => new TelemetryClient({ sampleRate: -0.1 })).toThrow("Sample rate must be between 0 and 1");
   });
 });
 
@@ -197,18 +193,14 @@ describe("ScarfClient", () => {
     fetchMock.mockRejectedValue(new Error("Network error"));
 
     // Should not throw
-    await expect(
-      scarfClient.logEvent({ event: "oss.runtime.instance_created" }),
-    ).resolves.toBeUndefined();
+    await expect(scarfClient.logEvent({ event: "oss.runtime.instance_created" })).resolves.toBeUndefined();
   });
 
   it("silently fails on non-ok response", async () => {
     fetchMock.mockResolvedValue(new Response("", { status: 500 }));
 
     // Should not throw
-    await expect(
-      scarfClient.logEvent({ event: "oss.runtime.instance_created" }),
-    ).resolves.toBeUndefined();
+    await expect(scarfClient.logEvent({ event: "oss.runtime.instance_created" })).resolves.toBeUndefined();
   });
 
   it("skips null and undefined values in query params", async () => {

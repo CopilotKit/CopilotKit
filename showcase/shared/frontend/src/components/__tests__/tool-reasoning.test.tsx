@@ -9,23 +9,17 @@ describe("ToolReasoning", () => {
   });
 
   it("shows spinner when status is executing", () => {
-    const { container } = render(
-      <ToolReasoning name="fetchData" status="executing" />,
-    );
+    const { container } = render(<ToolReasoning name="fetchData" status="executing" />);
     expect(container.querySelector(".animate-spin")).toBeTruthy();
   });
 
   it("shows spinner when status is inProgress", () => {
-    const { container } = render(
-      <ToolReasoning name="fetchData" status="inProgress" />,
-    );
+    const { container } = render(<ToolReasoning name="fetchData" status="inProgress" />);
     expect(container.querySelector(".animate-spin")).toBeTruthy();
   });
 
   it("shows checkmark SVG when status is complete", () => {
-    const { container } = render(
-      <ToolReasoning name="fetchData" status="complete" />,
-    );
+    const { container } = render(<ToolReasoning name="fetchData" status="complete" />);
     expect(container.querySelector(".animate-spin")).toBeNull();
     // Check for the emerald-500 checkmark svg
     const checkSvg = container.querySelector("svg.text-emerald-500");
@@ -43,16 +37,12 @@ describe("ToolReasoning", () => {
 
   it("renders details element when args are present", () => {
     const args = { url: "https://example.com" };
-    const { container } = render(
-      <ToolReasoning name="fetch" args={args} status="executing" />,
-    );
+    const { container } = render(<ToolReasoning name="fetch" args={args} status="executing" />);
     expect(container.querySelector("details")).toBeTruthy();
   });
 
   it("does not render details element when no args", () => {
-    const { container } = render(
-      <ToolReasoning name="noArgs" status="complete" />,
-    );
+    const { container } = render(<ToolReasoning name="noArgs" status="complete" />);
     expect(container.querySelector("details")).toBeNull();
   });
 

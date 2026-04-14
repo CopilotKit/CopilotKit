@@ -27,11 +27,7 @@ const ItemCard: FunctionComponent<{ item: InventoryRecord }> = ({ item }) => {
   return (
     <Link to={`${item.id}`} className="itemCard">
       <div>
-        <img
-          alt={`${item.displayName} avatar`}
-          key={item.avatar}
-          src={item.avatar}
-        />
+        <img alt={`${item.displayName} avatar`} key={item.avatar} src={item.avatar} />
       </div>
 
       <div>

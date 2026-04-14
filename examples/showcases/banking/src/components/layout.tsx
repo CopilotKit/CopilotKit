@@ -5,18 +5,9 @@ import { CreditCard, LayoutDashboard, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Member, MemberRole } from "@/app/api/v1/data";
 import { useAuthContext } from "@/components/auth-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -58,12 +49,8 @@ function UserNavigation({
           <div className="grid gap-4">
             <div className="space-y-2">
               <h4 className="font-medium leading-none">Current User</h4>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                {currentUser.name}
-              </p>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                {currentUser.email}
-              </p>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400">{currentUser.name}</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">{currentUser.email}</p>
             </div>
             <div className="grid gap-2">
               <h4 className="font-medium leading-none">Switch User</h4>
@@ -120,11 +107,7 @@ export function LayoutComponent({ children }: LayoutProps) {
         </nav>
         <div className="flex flex-col items-center space-y-4">
           <ThemeToggle />
-          <UserNavigation
-            availableUsers={users}
-            currentUser={currentUser}
-            onChangeUser={setCurrentUser}
-          />
+          <UserNavigation availableUsers={users} currentUser={currentUser} onChangeUser={setCurrentUser} />
         </div>
       </aside>
       <div className="flex flex-1 flex-col overflow-hidden">

@@ -8,20 +8,9 @@ interface TodoItemProps {
   hasBorder?: boolean;
 }
 
-export const TodoItem: React.FC<TodoItemProps> = ({
-  todo,
-  toggleComplete,
-  deleteTodo,
-  assignPerson,
-  hasBorder,
-}) => {
+export const TodoItem: React.FC<TodoItemProps> = ({ todo, toggleComplete, deleteTodo, assignPerson, hasBorder }) => {
   return (
-    <div
-      className={
-        "flex items-center justify-between px-4 py-2 group" +
-        (hasBorder ? " border-b" : "")
-      }
-    >
+    <div className={"flex items-center justify-between px-4 py-2 group" + (hasBorder ? " border-b" : "")}>
       <div className="flex items-center">
         <input
           className="h-5 w-5 text-blue-500"
@@ -29,11 +18,7 @@ export const TodoItem: React.FC<TodoItemProps> = ({
           checked={todo.isCompleted}
           onChange={() => toggleComplete(todo.id)}
         />
-        <span
-          className={`ml-2 text-sm ${
-            todo.isCompleted ? "text-gray-500 line-through" : "text-gray-900"
-          }`}
-        >
+        <span className={`ml-2 text-sm ${todo.isCompleted ? "text-gray-500 line-through" : "text-gray-900"}`}>
           {todo.assignedTo && (
             <span className="border rounded-md text-xs py-[2px] px-1 mr-2  border-purple-700 uppercase bg-purple-400 text-black font-medium">
               {todo.assignedTo}

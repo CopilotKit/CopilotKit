@@ -20,9 +20,7 @@ import type { NodeFetchHandler } from "./node-fetch-handler";
  * createServer(listener).listen(3000);
  * ```
  */
-export function createCopilotNodeListener(
-  options: CopilotRuntimeHandlerOptions,
-): NodeFetchHandler {
+export function createCopilotNodeListener(options: CopilotRuntimeHandlerOptions): NodeFetchHandler {
   const handler = createCopilotRuntimeHandler(options);
   return createCopilotNodeHandler(handler);
 }

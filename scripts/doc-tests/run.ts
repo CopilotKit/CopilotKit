@@ -66,11 +66,7 @@ function mergeEnv(extra?: Record<string, string>): Record<string, string> {
   return { ...process.env, ...DEFAULT_ENV, ...extra } as Record<string, string>;
 }
 
-async function waitForPort(
-  port: number,
-  timeoutMs: number,
-  pollMs: number,
-): Promise<boolean> {
+async function waitForPort(port: number, timeoutMs: number, pollMs: number): Promise<boolean> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
@@ -94,11 +90,7 @@ function detectPort(code: string): number {
 // Runners
 // ---------------------------------------------------------------------------
 
-async function runPythonServer(
-  snippetDir: string,
-  entryFile: string,
-  config: DoctestConfig,
-): Promise<Result> {
+async function runPythonServer(snippetDir: string, entryFile: string, config: DoctestConfig): Promise<Result> {
   const id = path.basename(snippetDir);
   const venvDir = path.join(snippetDir, ".venv");
 
@@ -158,11 +150,7 @@ async function runPythonServer(
   }
 }
 
-async function runTypeScriptServer(
-  snippetDir: string,
-  entryFile: string,
-  config: DoctestConfig,
-): Promise<Result> {
+async function runTypeScriptServer(snippetDir: string, entryFile: string, config: DoctestConfig): Promise<Result> {
   const id = path.basename(snippetDir);
 
   try {
@@ -184,15 +172,11 @@ async function runTypeScriptServer(
 
     // Determine runner
     const runner = entryFile.endsWith(".ts") ? "npx tsx" : "node";
-    const proc = spawn(
-      runner.split(" ")[0],
-      [...runner.split(" ").slice(1), entryFile],
-      {
-        cwd: snippetDir,
-        env: mergeEnv(),
-        stdio: "pipe",
-      },
-    );
+    const proc = spawn(runner.split(" ")[0], [...runner.split(" ").slice(1), entryFile], {
+      cwd: snippetDir,
+      env: mergeEnv(),
+      stdio: "pipe",
+    });
 
     try {
       const ready = await waitForPort(port, SERVER_TIMEOUT_MS, SERVER_POLL_MS);
@@ -222,12 +206,7 @@ async function runTypeScriptServer(
   }
 }
 
-async function runScript(
-  snippetDir: string,
-  entryFile: string,
-  lang: string,
-  config: DoctestConfig,
-): Promise<Result> {
+async function runScript(snippetDir: string, entryFile: string, lang: string, config: DoctestConfig): Promise<Result> {
   const id = path.basename(snippetDir);
 
   try {
@@ -288,11 +267,7 @@ async function runScript(
   }
 }
 
-async function runComponent(
-  snippetDir: string,
-  entryFile: string,
-  config: DoctestConfig,
-): Promise<Result> {
+async function runComponent(snippetDir: string, entryFile: string, config: DoctestConfig): Promise<Result> {
   const id = path.basename(snippetDir);
 
   try {
@@ -358,15 +333,11 @@ async function runComponent(
 
 async function main() {
   if (!fs.existsSync(MANIFEST_PATH)) {
-    console.error(
-      `Manifest not found at ${MANIFEST_PATH}. Run extract.ts first.`,
-    );
+    console.error(`Manifest not found at ${MANIFEST_PATH}. Run extract.ts first.`);
     process.exit(1);
   }
 
-  const manifest: ManifestEntry[] = JSON.parse(
-    fs.readFileSync(MANIFEST_PATH, "utf-8"),
-  );
+  const manifest: ManifestEntry[] = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf-8"));
 
   if (manifest.length === 0) {
     console.log("No doctest snippets found in manifest.");
@@ -408,9 +379,7 @@ async function main() {
     results.push(result);
 
     const icon = result.status === "pass" ? "PASS" : "FAIL";
-    console.log(
-      `  ${icon}: ${entry.id}${result.error ? ` — ${result.error}` : ""}\n`,
-    );
+    console.log(`  ${icon}: ${entry.id}${result.error ? ` — ${result.error}` : ""}\n`);
   }
 
   // Summary
@@ -418,9 +387,7 @@ async function main() {
   const failed = results.filter((r) => r.status === "fail").length;
 
   console.log("─".repeat(60));
-  console.log(
-    `Results: ${passed} passed, ${failed} failed, ${results.length} total`,
-  );
+  console.log(`Results: ${passed} passed, ${failed} failed, ${results.length} total`);
   console.log("─".repeat(60));
 
   if (failed > 0) {

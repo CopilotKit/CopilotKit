@@ -30,10 +30,8 @@ export interface CopilotKitCoreReactSubscriber extends CopilotKitCoreSubscriber 
 
 export class CopilotKitCoreReact extends CopilotKitCore {
   private _renderToolCalls: ReactToolCallRenderer<any>[] = [];
-  private _hookRenderToolCalls: Map<string, ReactToolCallRenderer<any>> =
-    new Map();
-  private _cachedMergedRenderToolCalls: ReactToolCallRenderer<any>[] | null =
-    null;
+  private _hookRenderToolCalls: Map<string, ReactToolCallRenderer<any>> = new Map();
+  private _cachedMergedRenderToolCalls: ReactToolCallRenderer<any>[] | null = null;
   private _renderCustomMessages: ReactCustomMessageRenderer[] = [];
   private _renderActivityMessages: ReactActivityMessageRenderer<any>[] = [];
   private _interruptElement: React.ReactElement | null = null;
@@ -72,9 +70,7 @@ export class CopilotKitCoreReact extends CopilotKitCore {
     return this._cachedMergedRenderToolCalls;
   }
 
-  setRenderActivityMessages(
-    renderers: ReactActivityMessageRenderer<any>[],
-  ): void {
+  setRenderActivityMessages(renderers: ReactActivityMessageRenderer<any>[]): void {
     this._renderActivityMessages = renderers;
   }
 
@@ -131,9 +127,7 @@ export class CopilotKitCoreReact extends CopilotKitCore {
   }
 
   // Override to accept React-specific subscriber type
-  subscribe(
-    subscriber: CopilotKitCoreReactSubscriber,
-  ): CopilotKitCoreSubscription {
+  subscribe(subscriber: CopilotKitCoreReactSubscriber): CopilotKitCoreSubscription {
     return super.subscribe(subscriber);
   }
 

@@ -21,7 +21,5 @@ const PORT = parseInt(process.env.PORT ?? "3001");
 const app = buildApp();
 
 serve({ fetch: app.fetch, port: PORT }, () => {
-  console.log(
-    `[local] CopilotKit bridge on :${PORT}  →  ${process.env.AGENTCORE_AG_UI_URL ?? "???"}`,
-  );
+  console.log(`[local] CopilotKit bridge on :${PORT}  →  ${process.env.AGENTCORE_AG_UI_URL ?? "???"}`);
 });

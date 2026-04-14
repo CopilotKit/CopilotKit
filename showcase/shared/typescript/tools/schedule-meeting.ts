@@ -11,10 +11,7 @@ export interface ScheduleMeetingResult {
   message: string;
 }
 
-export function scheduleMeetingImpl(
-  reason: string,
-  durationMinutes: number = 30,
-): ScheduleMeetingResult {
+export function scheduleMeetingImpl(reason: string, durationMinutes: number = 30): ScheduleMeetingResult {
   return {
     status: "pending_approval",
     reason,

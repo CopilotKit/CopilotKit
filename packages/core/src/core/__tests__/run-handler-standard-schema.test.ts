@@ -76,10 +76,7 @@ describe("RunHandler Standard Schema support", () => {
       const [tool] = runHandler.buildFrontendTools();
       expect(tool.parameters).toHaveProperty("type", "object");
       expect(tool.parameters).toHaveProperty("properties.user");
-      expect(tool.parameters).toHaveProperty(
-        "properties.user.properties.name.type",
-        "string",
-      );
+      expect(tool.parameters).toHaveProperty("properties.user.properties.name.type", "string");
     });
   });
 
@@ -159,22 +156,13 @@ describe("RunHandler Standard Schema support", () => {
 
       // Verify specific tools have their expected properties
       const zodTool = tools.find((t) => t.name === "zodTool");
-      expect(zodTool?.parameters).toHaveProperty(
-        "properties.city.type",
-        "string",
-      );
+      expect(zodTool?.parameters).toHaveProperty("properties.city.type", "string");
 
       const valibotTool = tools.find((t) => t.name === "valibotTool");
-      expect(valibotTool?.parameters).toHaveProperty(
-        "properties.query.type",
-        "string",
-      );
+      expect(valibotTool?.parameters).toHaveProperty("properties.query.type", "string");
 
       const arktypeTool = tools.find((t) => t.name === "arktypeTool");
-      expect(arktypeTool?.parameters).toHaveProperty(
-        "properties.id.type",
-        "string",
-      );
+      expect(arktypeTool?.parameters).toHaveProperty("properties.id.type", "string");
     });
   });
 });

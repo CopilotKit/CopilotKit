@@ -2,11 +2,7 @@
  * @filePath server.ts
  */
 import express from "express";
-import {
-  CopilotRuntime,
-  OpenAIAdapter,
-  copilotRuntimeNodeHttpEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
 import OpenAI from "openai";
 
 const openai = new OpenAI();

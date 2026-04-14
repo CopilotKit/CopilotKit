@@ -191,11 +191,7 @@ import { CopilotChatView } from "@copilotkit/react-core";
 function CustomChatView(props) {
   return (
     <div className="custom-chat-layout">
-      <CopilotChatView
-        {...props}
-        messageView="custom-message-from-wrapper"
-        input="custom-input-from-wrapper"
-      />
+      <CopilotChatView {...props} messageView="custom-message-from-wrapper" input="custom-input-from-wrapper" />
     </div>
   );
 }
@@ -313,10 +309,7 @@ You can customize suggestions through the `suggestionView` slot, which has two s
 CopilotChat supports voice input through transcription. To enable it, configure your CopilotKitProvider with transcription settings:
 
 ```tsx
-<CopilotKitProvider
-  runtimeUrl="/api/copilotkit"
-  transcribeAudioUrl="/api/transcribe"
->
+<CopilotKitProvider runtimeUrl="/api/copilotkit" transcribeAudioUrl="/api/transcribe">
   <CopilotChat />
 </CopilotKitProvider>
 ```
@@ -349,9 +342,7 @@ function CustomWelcomeScreen() {
     <div className="flex flex-col items-center justify-center h-full p-8">
       <img src="/logo.svg" alt="Logo" className="w-16 h-16 mb-4" />
       <h2 className="text-2xl font-bold mb-2">Welcome to AI Assistant</h2>
-      <p className="text-muted-foreground text-center">
-        Ask me anything about your data, documents, or tasks.
-      </p>
+      <p className="text-muted-foreground text-center">Ask me anything about your data, documents, or tasks.</p>
     </div>
   );
 }

@@ -32,9 +32,7 @@ export function TodoColumn({
     <section aria-label={`${title} column`} className="flex-1 min-w-0">
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <h2 className="text-[18px] font-bold tracking-tight text-neutral-900 dark:text-neutral-100">
-            {title}
-          </h2>
+          <h2 className="text-[18px] font-bold tracking-tight text-neutral-900 dark:text-neutral-100">{title}</h2>
           <span className="text-[12px] font-semibold rounded-full px-2 py-0.5 text-neutral-500 bg-neutral-200 dark:text-neutral-400 dark:bg-neutral-700">
             {todos.length}
           </span>

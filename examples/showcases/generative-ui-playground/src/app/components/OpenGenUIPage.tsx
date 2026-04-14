@@ -7,11 +7,7 @@
  * Uses a dedicated API route with OpenGenerativeUIMiddleware enabled.
  */
 
-import {
-  CopilotKitProvider,
-  CopilotSidebar,
-  CopilotPopup,
-} from "@copilotkitnext/react";
+import { CopilotKitProvider, CopilotSidebar, CopilotPopup } from "@copilotkitnext/react";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
 interface OpenGenUIPageProps {
@@ -22,10 +18,7 @@ export function OpenGenUIPage({ children }: OpenGenUIPageProps) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit-opengenui"
-      showDevConsole={false}
-    >
+    <CopilotKitProvider runtimeUrl="/api/copilotkit-opengenui" showDevConsole={false}>
       {isDesktop ? (
         <>
           {children}
@@ -33,8 +26,7 @@ export function OpenGenUIPage({ children }: OpenGenUIPageProps) {
             defaultOpen={true}
             labels={{
               modalHeaderTitle: "Open Generative UI",
-              chatInputPlaceholder:
-                "Ask me to build any UI — charts, apps, dashboards, and more!",
+              chatInputPlaceholder: "Ask me to build any UI — charts, apps, dashboards, and more!",
             }}
           />
         </>
@@ -45,8 +37,7 @@ export function OpenGenUIPage({ children }: OpenGenUIPageProps) {
             defaultOpen={false}
             labels={{
               modalHeaderTitle: "Open Generative UI",
-              chatInputPlaceholder:
-                "Ask me to build any UI — charts, apps, dashboards, and more!",
+              chatInputPlaceholder: "Ask me to build any UI — charts, apps, dashboards, and more!",
             }}
           />
         </>

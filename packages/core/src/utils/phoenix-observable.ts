@@ -1,14 +1,6 @@
 import { Socket } from "phoenix";
 import { EMPTY, NEVER, Observable, concat, defer, of, throwError } from "rxjs";
-import {
-  filter,
-  finalize,
-  mergeMap,
-  scan,
-  shareReplay,
-  switchMap,
-  take,
-} from "rxjs/operators";
+import { filter, finalize, mergeMap, scan, shareReplay, switchMap, take } from "rxjs/operators";
 
 /**
  * Minimal Phoenix push contract used by the observable adapters.
@@ -43,17 +35,12 @@ export interface ɵPhoenixSocketLike {
 /**
  * Socket lifecycle notifications exposed by {@link ɵphoenixSocket$}.
  */
-export type ɵPhoenixSocketSignal =
-  | { type: "open" }
-  | { type: "error"; error?: unknown };
+export type ɵPhoenixSocketSignal = { type: "open" } | { type: "error"; error?: unknown };
 
 /**
  * Terminal outcomes of a Phoenix channel join attempt.
  */
-export type ɵPhoenixJoinOutcome =
-  | { type: "joined" }
-  | { type: "error"; response?: unknown }
-  | { type: "timeout" };
+export type ɵPhoenixJoinOutcome = { type: "joined" } | { type: "error"; response?: unknown } | { type: "timeout" };
 
 /**
  * Active Phoenix socket session plus its derived lifecycle stream.
@@ -95,9 +82,7 @@ export interface ɵPhoenixChannelOptions {
  * The returned observable is shared and replayable by the caller when needed,
  * but this helper itself does not own socket connection teardown.
  */
-function ɵcreatePhoenixSocketSignals$(
-  socket: ɵPhoenixSocketLike,
-): Observable<ɵPhoenixSocketSignal> {
+function ɵcreatePhoenixSocketSignals$(socket: ɵPhoenixSocketLike): Observable<ɵPhoenixSocketSignal> {
   return new Observable<ɵPhoenixSocketSignal>((observer) => {
     socket.onOpen(() => observer.next({ type: "open" }));
     socket.onError((error) => observer.next({ type: "error", error }));
@@ -107,9 +92,7 @@ function ɵcreatePhoenixSocketSignals$(
 /**
  * Adapt a Phoenix channel join attempt into a single-outcome observable.
  */
-function ɵcreatePhoenixJoinOutcome$(
-  channel: ɵPhoenixChannelLike,
-): Observable<ɵPhoenixJoinOutcome> {
+function ɵcreatePhoenixJoinOutcome$(channel: ɵPhoenixChannelLike): Observable<ɵPhoenixJoinOutcome> {
   return new Observable<ɵPhoenixJoinOutcome>((observer) => {
     channel
       .join()
@@ -134,17 +117,13 @@ function ɵcreatePhoenixJoinOutcome$(
  * The socket is constructed and connected on subscription, and disconnected on
  * teardown. Each subscription creates an isolated socket instance.
  */
-export function ɵphoenixSocket$(
-  options: ɵPhoenixSocketOptions,
-): Observable<ɵPhoenixSocketSession> {
+export function ɵphoenixSocket$(options: ɵPhoenixSocketOptions): Observable<ɵPhoenixSocketSession> {
   return defer(() => {
     const socket = new Socket(
       options.url,
       options.options as ConstructorParameters<typeof Socket>[1],
     ) as ɵPhoenixSocketLike;
-    const signals$ = ɵcreatePhoenixSocketSignals$(socket).pipe(
-      shareReplay({ bufferSize: 1, refCount: true }),
-    );
+    const signals$ = ɵcreatePhoenixSocketSignals$(socket).pipe(shareReplay({ bufferSize: 1, refCount: true }));
 
     socket.connect();
 
@@ -165,16 +144,12 @@ export function ɵphoenixSocket$(
  * upstream socket session changes, the previous channel is left before the
  * next one becomes active.
  */
-export function ɵphoenixChannel$(
-  options: ɵPhoenixChannelOptions,
-): Observable<ɵPhoenixChannelSession> {
+export function ɵphoenixChannel$(options: ɵPhoenixChannelOptions): Observable<ɵPhoenixChannelSession> {
   return options.socket$.pipe(
     switchMap(({ socket }) =>
       defer(() => {
         const channel = socket.channel(options.topic, options.params);
-        const joinOutcome$ = ɵcreatePhoenixJoinOutcome$(channel).pipe(
-          shareReplay({ bufferSize: 1, refCount: true }),
-        );
+        const joinOutcome$ = ɵcreatePhoenixJoinOutcome$(channel).pipe(shareReplay({ bufferSize: 1, refCount: true }));
 
         return concat(
           of({
@@ -197,10 +172,7 @@ export function ɵphoenixChannel$(
 /**
  * Observe a named Phoenix channel event as an observable payload stream.
  */
-export function ɵobservePhoenixEvent$<T>(
-  channel: ɵPhoenixChannelLike,
-  eventName: string,
-): Observable<T> {
+export function ɵobservePhoenixEvent$<T>(channel: ɵPhoenixChannelLike, eventName: string): Observable<T> {
   return new Observable<T>((observer) => {
     const ref = channel.on(eventName, (payload) => observer.next(payload as T));
 
@@ -222,9 +194,7 @@ export function ɵobservePhoenixJoinOutcome$(
 /**
  * Complete when a channel joins successfully, or error if the join fails.
  */
-export function ɵjoinPhoenixChannel$(
-  channel$: Observable<ɵPhoenixChannelSession>,
-): Observable<never> {
+export function ɵjoinPhoenixChannel$(channel$: Observable<ɵPhoenixChannelSession>): Observable<never> {
   return ɵobservePhoenixJoinOutcome$(channel$).pipe(
     take(1),
     mergeMap((outcome) => {
@@ -234,9 +204,7 @@ export function ɵjoinPhoenixChannel$(
 
       throw outcome.type === "timeout"
         ? new Error("Timed out joining channel")
-        : new Error(
-            `Failed to join channel: ${JSON.stringify(outcome.response)}`,
-          );
+        : new Error(`Failed to join channel: ${JSON.stringify(outcome.response)}`);
     }),
   );
 }
@@ -259,20 +227,11 @@ export function ɵobservePhoenixSocketHealth$(
   maxConsecutiveErrors: number,
 ): Observable<never> {
   return socketSignals$.pipe(
-    scan(
-      (consecutiveErrors, signal) =>
-        signal.type === "open" ? 0 : consecutiveErrors + 1,
-      0,
-    ),
+    scan((consecutiveErrors, signal) => (signal.type === "open" ? 0 : consecutiveErrors + 1), 0),
     filter((consecutiveErrors) => consecutiveErrors >= maxConsecutiveErrors),
     take(1),
     mergeMap((consecutiveErrors) =>
-      throwError(
-        () =>
-          new Error(
-            `WebSocket connection failed after ${consecutiveErrors} consecutive errors`,
-          ),
-      ),
+      throwError(() => new Error(`WebSocket connection failed after ${consecutiveErrors} consecutive errors`)),
     ),
   );
 }

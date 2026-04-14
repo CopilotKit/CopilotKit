@@ -6,12 +6,8 @@ export const WildcardToolCallRender = defineToolCallRenderer({
   render: ({ args, result, name, status }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
-    const statusString = String(status) as
-      | "inProgress"
-      | "executing"
-      | "complete";
-    const isActive =
-      statusString === "inProgress" || statusString === "executing";
+    const statusString = String(status) as "inProgress" | "executing" | "complete";
+    const isActive = statusString === "inProgress" || statusString === "executing";
     const isComplete = statusString === "complete";
     const statusStyles = isActive
       ? "cpk:bg-amber-100 cpk:text-amber-800 cpk:dark:bg-amber-500/15 cpk:dark:text-amber-400"
@@ -36,11 +32,7 @@ export const WildcardToolCallRender = defineToolCallRenderer({
                 strokeWidth={2}
                 stroke="currentColor"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
               </svg>
               <span className="cpk:inline-block cpk:h-2 cpk:w-2 cpk:rounded-full cpk:bg-blue-500" />
               <span className="cpk:truncate cpk:text-sm cpk:font-medium cpk:text-zinc-900 cpk:dark:text-zinc-100">
@@ -71,9 +63,7 @@ export const WildcardToolCallRender = defineToolCallRenderer({
                     Result
                   </div>
                   <pre className="cpk:mt-2 cpk:max-h-64 cpk:overflow-auto cpk:rounded-md cpk:bg-zinc-50 cpk:dark:bg-zinc-800/60 cpk:p-3 cpk:text-xs cpk:leading-relaxed cpk:text-zinc-800 cpk:dark:text-zinc-200 cpk:whitespace-pre-wrap cpk:break-words">
-                    {typeof result === "string"
-                      ? result
-                      : JSON.stringify(result, null, 2)}
+                    {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
                   </pre>
                 </div>
               )}

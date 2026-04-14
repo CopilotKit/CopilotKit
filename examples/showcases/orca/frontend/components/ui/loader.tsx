@@ -12,11 +12,7 @@ const sizeClasses = {
   lg: "w-12 h-12",
 };
 
-export const Loader: React.FC<LoaderProps> = ({
-  size = "lg",
-  className = "",
-  fullScreen = true,
-}) => {
+export const Loader: React.FC<LoaderProps> = ({ size = "lg", className = "", fullScreen = true }) => {
   if (fullScreen) {
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">

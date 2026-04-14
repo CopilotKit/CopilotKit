@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { PRData } from "@/app/Interfaces/interface";
@@ -48,10 +41,7 @@ export function DataTable({ columns, data }: DataTableProps) {
         <TableBody>
           {data?.map((row, rowIndex) => (
             <React.Fragment key={rowIndex}>
-              <TableRow
-                className="cursor-pointer hover:bg-gray-50 transition"
-                onClick={() => handleRowClick(rowIndex)}
-              >
+              <TableRow className="cursor-pointer hover:bg-gray-50 transition" onClick={() => handleRowClick(rowIndex)}>
                 {columns.map((column) => (
                   <TableCell key={column.accessorKey} className="w-2">
                     {column.accessorKey === "status" ? (
@@ -64,69 +54,48 @@ export function DataTable({ columns, data }: DataTableProps) {
               </TableRow>
               {expandedRow === rowIndex && (
                 <TableRow>
-                  <TableCell
-                    colSpan={columns.length}
-                    className="bg-gray-50 dark:bg-[#181f2a] p-0 border-t-0"
-                  >
+                  <TableCell colSpan={columns.length} className="bg-gray-50 dark:bg-[#181f2a] p-0 border-t-0">
                     <div
                       className={`overflow-hidden transition-all duration-300 ease-in-out ${expandedRow === rowIndex ? "max-h-96 opacity-100 scale-y-100" : "max-h-0 opacity-0 scale-y-95"}`}
                     >
                       <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">
-                            Branch:
-                          </span>
+                          <span className="text-gray-500 dark:text-gray-400 mr-1">Branch:</span>
                           <span className="font-semibold">{row.branch}</span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">
-                            Days in Status:
-                          </span>
-                          <span className="font-semibold">
-                            {row.daysSinceStatusChange} days
-                          </span>
+                          <span className="text-gray-500 dark:text-gray-400 mr-1">Days in Status:</span>
+                          <span className="font-semibold">{row.daysSinceStatusChange} days</span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">
-                            Created:
-                          </span>
+                          <span className="text-gray-500 dark:text-gray-400 mr-1">Created:</span>
                           <span className="font-semibold">
                             {row.createdAt
-                              ? new Date(row.createdAt).toLocaleString(
-                                  undefined,
-                                  { dateStyle: "medium", timeStyle: "short" },
-                                )
+                              ? new Date(row.createdAt).toLocaleString(undefined, {
+                                  dateStyle: "medium",
+                                  timeStyle: "short",
+                                })
                               : ""}
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">
-                            Updated:
-                          </span>
+                          <span className="text-gray-500 dark:text-gray-400 mr-1">Updated:</span>
                           <span className="font-semibold">
                             {row.updatedAt
-                              ? new Date(row.updatedAt).toLocaleString(
-                                  undefined,
-                                  { dateStyle: "medium", timeStyle: "short" },
-                                )
+                              ? new Date(row.updatedAt).toLocaleString(undefined, {
+                                  dateStyle: "medium",
+                                  timeStyle: "short",
+                                })
                               : ""}
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">
-                            Reviewer:
-                          </span>
-                          <span className="font-semibold">
-                            {row.assignedReviewer}
-                          </span>
+                          <span className="text-gray-500 dark:text-gray-400 mr-1">Reviewer:</span>
+                          <span className="font-semibold">{row.assignedReviewer}</span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">
-                            Tester:
-                          </span>
-                          <span className="font-semibold">
-                            {row.assignedTester}
-                          </span>
+                          <span className="text-gray-500 dark:text-gray-400 mr-1">Tester:</span>
+                          <span className="font-semibold">{row.assignedTester}</span>
                         </div>
                       </div>
                     </div>

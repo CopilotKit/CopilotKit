@@ -12,10 +12,7 @@ interface PresentationProps {
   setPerformResearch: (fn: (b: boolean) => boolean) => void;
 }
 
-export const Presentation = ({
-  performResearch,
-  setPerformResearch,
-}: PresentationProps) => {
+export const Presentation = ({ performResearch, setPerformResearch }: PresentationProps) => {
   // // Load messages from local storage
 
   // const { messages, setMessages } = useCopilotMessagesContext();
@@ -66,17 +63,13 @@ export const Presentation = ({
   const [slides, setSlides] = useState<SlideModel[]>([
     {
       content: "This is the first slide.",
-      backgroundImageUrl:
-        "https://loremflickr.com/cache/resized/65535_53415810728_d1db6e2660_h_800_600_nofilter.jpg",
+      backgroundImageUrl: "https://loremflickr.com/cache/resized/65535_53415810728_d1db6e2660_h_800_600_nofilter.jpg",
       spokenNarration: "This is the first slide. Welcome to our presentation!",
       backgroundImageDescription: "A default image placeholder",
     },
   ]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-  const currentSlide = useMemo(
-    () => slides[currentSlideIndex],
-    [slides, currentSlideIndex],
-  );
+  const currentSlide = useMemo(() => slides[currentSlideIndex], [slides, currentSlideIndex]);
 
   /**
    * This makes all slides available to the Copilot.
@@ -152,14 +145,8 @@ export const Presentation = ({
         performResearch={performResearch}
         setPerformResearch={setPerformResearch}
       />
-      <div
-        className="flex items-center justify-center flex-1"
-        style={{ backgroundColor: "#414247", overflow: "auto" }}
-      >
-        <div
-          className="aspect-ratio-box bg-white flex shadow-2xl"
-          style={{ margin: "5rem", maxHeight: "70vh" }}
-        >
+      <div className="flex items-center justify-center flex-1" style={{ backgroundColor: "#414247", overflow: "auto" }}>
+        <div className="aspect-ratio-box bg-white flex shadow-2xl" style={{ margin: "5rem", maxHeight: "70vh" }}>
           <Slide slide={currentSlide} partialUpdateSlide={updateCurrentSlide} />
         </div>
       </div>

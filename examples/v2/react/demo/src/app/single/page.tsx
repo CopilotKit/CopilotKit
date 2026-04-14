@@ -42,9 +42,7 @@ export default function SingleEndpointDemo() {
       renderToolCalls={[wildcardRenderer]}
       showDevConsole="auto"
     >
-      <div
-        style={{ height: "100vh", margin: 0, padding: 0, overflow: "hidden" }}
-      >
+      <div style={{ height: "100vh", margin: 0, padding: 0, overflow: "hidden" }}>
         <Chat />
       </div>
     </CopilotKitProvider>
@@ -72,15 +70,12 @@ function Chat() {
       {
         label: "Say hi to CopilotKit",
         action: () => {
-          const textarea = document.querySelector<HTMLTextAreaElement>(
-            "textarea[placeholder='Type a message...']",
-          );
+          const textarea = document.querySelector<HTMLTextAreaElement>("textarea[placeholder='Type a message...']");
           if (!textarea) {
             return;
           }
 
-          const greeting =
-            "Hello Copilot! 👋 Could you help me with something?";
+          const greeting = "Hello Copilot! 👋 Could you help me with something?";
 
           const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
             window.HTMLTextAreaElement.prototype,
@@ -95,11 +90,7 @@ function Chat() {
       {
         label: "Open CopilotKit Docs",
         action: () => {
-          window.open(
-            "https://docs.copilotkit.ai",
-            "_blank",
-            "noopener,noreferrer",
-          );
+          window.open("https://docs.copilotkit.ai", "_blank", "noopener,noreferrer");
         },
       },
     ],

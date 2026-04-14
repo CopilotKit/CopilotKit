@@ -129,9 +129,7 @@ export function completePartialMarkdown(input: string): string {
 
       // This is a standalone bracket, treat as markdown
       if (!isCompleteLink) {
-        const existingIndex = openElements.findIndex(
-          (el) => el.type === "bracket",
-        );
+        const existingIndex = openElements.findIndex((el) => el.type === "bracket");
         if (existingIndex !== -1) {
           openElements.splice(existingIndex, 1);
         } else {
@@ -142,9 +140,7 @@ export function completePartialMarkdown(input: string): string {
 
     // Handle double emphasis first (**, __, ~~) - these take precedence
     else if (char === "*" && nextChar === "*") {
-      const existingIndex = openElements.findIndex(
-        (el) => el.type === "bold_star",
-      );
+      const existingIndex = openElements.findIndex((el) => el.type === "bold_star");
       if (existingIndex !== -1) {
         openElements.splice(existingIndex, 1);
       } else {
@@ -152,9 +148,7 @@ export function completePartialMarkdown(input: string): string {
       }
       i++; // Skip next character
     } else if (char === "_" && nextChar === "_") {
-      const existingIndex = openElements.findIndex(
-        (el) => el.type === "bold_underscore",
-      );
+      const existingIndex = openElements.findIndex((el) => el.type === "bold_underscore");
       if (existingIndex !== -1) {
         openElements.splice(existingIndex, 1);
       } else {
@@ -166,9 +160,7 @@ export function completePartialMarkdown(input: string): string {
       }
       i++; // Skip next character
     } else if (char === "~" && nextChar === "~") {
-      const existingIndex = openElements.findIndex(
-        (el) => el.type === "strike",
-      );
+      const existingIndex = openElements.findIndex((el) => el.type === "strike");
       if (existingIndex !== -1) {
         openElements.splice(existingIndex, 1);
       } else {
@@ -179,18 +171,14 @@ export function completePartialMarkdown(input: string): string {
 
     // Handle single emphasis (*, _) - only if not part of double
     else if (char === "*" && prevChar !== "*" && nextChar !== "*") {
-      const existingIndex = openElements.findIndex(
-        (el) => el.type === "italic_star",
-      );
+      const existingIndex = openElements.findIndex((el) => el.type === "italic_star");
       if (existingIndex !== -1) {
         openElements.splice(existingIndex, 1);
       } else {
         openElements.push({ type: "italic_star", marker: "*", position: i });
       }
     } else if (char === "_" && prevChar !== "_" && nextChar !== "_") {
-      const existingIndex = openElements.findIndex(
-        (el) => el.type === "italic_underscore",
-      );
+      const existingIndex = openElements.findIndex((el) => el.type === "italic_underscore");
       if (existingIndex !== -1) {
         openElements.splice(existingIndex, 1);
       } else {
@@ -239,9 +227,7 @@ export function completePartialMarkdown(input: string): string {
   let result = s + closers.join("");
 
   // Handle parentheses ONLY if not inside code
-  const finalFenceMatches = Array.from(
-    result.matchAll(/^(\s*)(`{3,}|~{3,})/gm),
-  );
+  const finalFenceMatches = Array.from(result.matchAll(/^(\s*)(`{3,}|~{3,})/gm));
   const hasUnclosedBacktick = (result.match(/`/g) || []).length % 2 === 1;
   const hasUnclosedCodeFence = finalFenceMatches.length % 2 === 1;
 

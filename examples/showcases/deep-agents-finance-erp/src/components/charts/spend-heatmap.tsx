@@ -1,24 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { monthlyExpenseByCategory } from "@/lib/data";
 import { formatCurrency } from "@/lib/utils";
 import type { SpendHeatmapWidget } from "@/types/dashboard";
 
-type CategoryKey =
-  | "payroll"
-  | "operations"
-  | "marketing"
-  | "infrastructure"
-  | "rnd"
-  | "other";
+type CategoryKey = "payroll" | "operations" | "marketing" | "infrastructure" | "rnd" | "other";
 
 const CATEGORY_LABELS: Record<CategoryKey, string> = {
   payroll: "Payroll",
@@ -35,15 +23,10 @@ const COLOR_SCALES: Record<string, { bg: string; hue: string }> = {
   red: { bg: "rgb(239, 68, 68)", hue: "red" },
 };
 
-export function SpendHeatmap({
-  config,
-}: {
-  config: SpendHeatmapWidget["config"];
-}) {
+export function SpendHeatmap({ config }: { config: SpendHeatmapWidget["config"] }) {
   const title = config.title ?? "Expense Heatmap";
   const subtitle = config.subtitle ?? "Monthly spend intensity by category";
-  const scale =
-    COLOR_SCALES[config.colorScale ?? "purple"] ?? COLOR_SCALES.purple;
+  const scale = COLOR_SCALES[config.colorScale ?? "purple"] ?? COLOR_SCALES.purple;
 
   const categories: CategoryKey[] = config.categories ?? [
     "payroll",
@@ -56,12 +39,10 @@ export function SpendHeatmap({
   const months = monthlyExpenseByCategory.map((d) => d.month);
 
   // Build matrix: row = category, col = month
-  const matrix: { category: CategoryKey; values: number[] }[] = categories.map(
-    (cat) => ({
-      category: cat,
-      values: monthlyExpenseByCategory.map((d) => d[cat]),
-    }),
-  );
+  const matrix: { category: CategoryKey; values: number[] }[] = categories.map((cat) => ({
+    category: cat,
+    values: monthlyExpenseByCategory.map((d) => d[cat]),
+  }));
 
   // Find global min/max for normalization
   const allValues = matrix.flatMap((r) => r.values);
@@ -85,9 +66,7 @@ export function SpendHeatmap({
   // Row totals
   const rowTotals = matrix.map((row) => row.values.reduce((s, v) => s + v, 0));
   // Column totals
-  const colTotals = months.map((_, mi) =>
-    matrix.reduce((s, row) => s + row.values[mi], 0),
-  );
+  const colTotals = months.map((_, mi) => matrix.reduce((s, row) => s + row.values[mi], 0));
 
   const [hoveredCell, setHoveredCell] = useState<{
     row: number;
@@ -125,16 +104,11 @@ export function SpendHeatmap({
             {/* Header row: empty + months + "Total" */}
             <div />
             {months.map((m) => (
-              <div
-                key={m}
-                className="text-center font-medium text-muted-foreground py-1"
-              >
+              <div key={m} className="text-center font-medium text-muted-foreground py-1">
                 {m}
               </div>
             ))}
-            <div className="text-center font-medium text-muted-foreground py-1">
-              Total
-            </div>
+            <div className="text-center font-medium text-muted-foreground py-1">Total</div>
 
             {/* Data rows */}
             {matrix.map((row, ri) => (
@@ -146,8 +120,7 @@ export function SpendHeatmap({
                 {/* Cells */}
                 {row.values.map((val, ci) => {
                   const intensity = normalize(val);
-                  const isHovered =
-                    hoveredCell?.row === ri && hoveredCell?.col === ci;
+                  const isHovered = hoveredCell?.row === ri && hoveredCell?.col === ci;
                   return (
                     <div
                       key={ci}
@@ -178,14 +151,9 @@ export function SpendHeatmap({
             ))}
 
             {/* Footer: column totals */}
-            <div className="flex items-center text-[10px] font-medium text-muted-foreground pt-1">
-              Monthly
-            </div>
+            <div className="flex items-center text-[10px] font-medium text-muted-foreground pt-1">Monthly</div>
             {colTotals.map((total, ci) => (
-              <div
-                key={ci}
-                className="text-center text-[10px] font-medium text-muted-foreground pt-1"
-              >
+              <div key={ci} className="text-center text-[10px] font-medium text-muted-foreground pt-1">
                 {total >= 1000 ? `${(total / 1000).toFixed(0)}K` : total}
               </div>
             ))}
@@ -198,11 +166,7 @@ export function SpendHeatmap({
           <span>Low</span>
           <div className="flex gap-[2px]">
             {[0.15, 0.3, 0.5, 0.7, 0.85, 1.0].map((o) => (
-              <div
-                key={o}
-                className="h-2.5 w-5 rounded-[2px]"
-                style={{ backgroundColor: scale.bg, opacity: o }}
-              />
+              <div key={o} className="h-2.5 w-5 rounded-[2px]" style={{ backgroundColor: scale.bg, opacity: o }} />
             ))}
           </div>
           <span>High</span>

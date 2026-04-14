@@ -6,8 +6,7 @@ import "@copilotkit/react-ui/v2/styles.css";
 
 export const metadata: Metadata = {
   title: "MCP App builder · Powered by CopilotKit",
-  description:
-    "Build, edit, and test MCP tool widgets in a live sandbox. Powered by CopilotKit.",
+  description: "Build, edit, and test MCP tool widgets in a live sandbox. Powered by CopilotKit.",
 };
 
 export default function RootLayout({

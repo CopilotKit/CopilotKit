@@ -9,12 +9,7 @@ interface StatsPanelProps {
   onClick: () => void;
 }
 
-export default function StatsPanel({
-  currentLevel,
-  visitedCount,
-  progress,
-  onClick,
-}: StatsPanelProps) {
+export default function StatsPanel({ currentLevel, visitedCount, progress, onClick }: StatsPanelProps) {
   return (
     <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-40">
       <button
@@ -28,12 +23,9 @@ export default function StatsPanel({
 
         {/* Level Info */}
         <div className="text-left">
-          <h3 className="text-lg font-bold text-gray-900">
-            {currentLevel.name}
-          </h3>
+          <h3 className="text-lg font-bold text-gray-900">{currentLevel.name}</h3>
           <p className="text-sm text-gray-500">
-            {visitedCount} {visitedCount === 1 ? "country" : "countries"}{" "}
-            visited
+            {visitedCount} {visitedCount === 1 ? "country" : "countries"} visited
           </p>
         </div>
 

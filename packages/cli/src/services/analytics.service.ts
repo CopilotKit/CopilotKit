@@ -23,8 +23,7 @@ export class AnalyticsService {
       return;
     }
 
-    const segmentWriteKey =
-      process.env.SEGMENT_WRITE_KEY || "9Pv6QyExYef2P4hPz4gks6QAvNMi2AOf";
+    const segmentWriteKey = process.env.SEGMENT_WRITE_KEY || "9Pv6QyExYef2P4hPz4gks6QAvNMi2AOf";
 
     this.globalProperties = {
       service: "cli",
@@ -50,11 +49,8 @@ export class AnalyticsService {
 
     // Initialize PostHog for feature flags
     if (process.env.POSTHOG_DISABLED !== "true") {
-      const posthogKey =
-        process.env.POSTHOG_KEY ||
-        "phc_XZdymVYjrph9Mi0xZYGNyCKexxgblXRR1jMENCtdz5Q"; // Default key
-      const posthogHost =
-        process.env.POSTHOG_HOST || "https://eu.i.posthog.com";
+      const posthogKey = process.env.POSTHOG_KEY || "phc_XZdymVYjrph9Mi0xZYGNyCKexxgblXRR1jMENCtdz5Q"; // Default key
+      const posthogHost = process.env.POSTHOG_HOST || "https://eu.i.posthog.com";
 
       this.posthog = new PostHog(posthogKey, {
         host: posthogHost,
@@ -151,10 +147,7 @@ export class AnalyticsService {
     try {
       // Use authenticated user ID if available, otherwise use anonymous ID
       const distinctId = this.userId || this.getAnonymousId();
-      const payload = await this.posthog.getFeatureFlagPayload(
-        flagKey,
-        distinctId,
-      );
+      const payload = await this.posthog.getFeatureFlagPayload(flagKey, distinctId);
       return payload;
     } catch (error) {
       // If there's an error getting the payload, return null

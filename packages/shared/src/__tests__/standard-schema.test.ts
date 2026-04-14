@@ -59,9 +59,7 @@ describe("schemaToJsonSchema", () => {
 
     it("raw valibot schema throws (no ~standard.jsonSchema)", () => {
       const schema = v.object({ name: v.string() });
-      expect(() => schemaToJsonSchema(schema)).toThrow(
-        /Cannot convert schema to JSON Schema/,
-      );
+      expect(() => schemaToJsonSchema(schema)).toThrow(/Cannot convert schema to JSON Schema/);
     });
 
     it("converts a valibot schema wrapped with toStandardJsonSchema", () => {
@@ -220,9 +218,7 @@ describe("schemaToJsonSchema", () => {
         },
       };
 
-      expect(() => schemaToJsonSchema(mockSchema)).toThrow(
-        /Cannot convert schema to JSON Schema/,
-      );
+      expect(() => schemaToJsonSchema(mockSchema)).toThrow(/Cannot convert schema to JSON Schema/);
       expect(() => schemaToJsonSchema(mockSchema)).toThrow(/unknown-lib/);
     });
 
@@ -235,9 +231,7 @@ describe("schemaToJsonSchema", () => {
         },
       };
 
-      expect(() => schemaToJsonSchema(mockSchema)).toThrow(
-        /no zodToJsonSchema fallback/,
-      );
+      expect(() => schemaToJsonSchema(mockSchema)).toThrow(/no zodToJsonSchema fallback/);
     });
 
     it("uses zodToJsonSchema fallback for zod vendor schemas", () => {

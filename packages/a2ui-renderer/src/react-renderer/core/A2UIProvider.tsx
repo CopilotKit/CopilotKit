@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useRef,
-  useState,
-  useMemo,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useRef, useState, useMemo, type ReactNode } from "react";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
 import { basicCatalog } from "../a2ui-react";
 import type { A2UIContextValue, A2UIActions } from "./store";
@@ -46,12 +39,7 @@ export interface A2UIProviderProps {
  * - A2UIActionsContext: Stable actions that never change (no re-renders)
  * - A2UIStateContext: Reactive state that triggers re-renders when needed
  */
-export function A2UIProvider({
-  onAction,
-  theme,
-  catalog,
-  children,
-}: A2UIProviderProps) {
+export function A2UIProvider({ onAction, theme, catalog, children }: A2UIProviderProps) {
   // Store onAction in a ref so callbacks always have the latest value
   const onActionRef = useRef<OnActionCallback | null>(onAction ?? null);
   onActionRef.current = onAction ?? null;
@@ -116,9 +104,7 @@ export function A2UIProvider({
         // Process a deleteSurface for all known surfaces
         const surfaces = processor.model.surfacesMap;
         for (const [id] of surfaces) {
-          processor.processMessages([
-            { version: "v0.9", deleteSurface: { surfaceId: id } } as any,
-          ]);
+          processor.processMessages([{ version: "v0.9", deleteSurface: { surfaceId: id } } as any]);
         }
         setVersion((v) => v + 1);
       },
@@ -189,9 +175,7 @@ export function useA2UIError(): string | null {
 }
 
 /** @deprecated Use useA2UIContext() or useA2UI() directly instead. */
-export function useA2UIStoreSelector<T>(
-  selector: (state: A2UIContextValue) => T,
-): T {
+export function useA2UIStoreSelector<T>(selector: (state: A2UIContextValue) => T): T {
   const context = useA2UIContext();
   return selector(context);
 }

@@ -1,12 +1,5 @@
 export interface CopilotErrorEvent {
-  type:
-    | "error"
-    | "request"
-    | "response"
-    | "agent_state"
-    | "action"
-    | "message"
-    | "performance";
+  type: "error" | "request" | "response" | "agent_state" | "action" | "message" | "performance";
   timestamp: number;
   context: CopilotRequestContext;
   error?: any; // Present when type is 'error'
@@ -74,6 +67,4 @@ export interface CopilotRequestContext {
   metadata?: Record<string, any>;
 }
 
-export type CopilotErrorHandler = (
-  errorEvent: CopilotErrorEvent,
-) => void | Promise<void>;
+export type CopilotErrorHandler = (errorEvent: CopilotErrorEvent) => void | Promise<void>;

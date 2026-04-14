@@ -45,19 +45,11 @@ export function TodoColumn({
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold tracking-tight text-[var(--foreground)]">
-            {title}
-          </h2>
+          <h2 className="text-lg font-bold tracking-tight text-[var(--foreground)]">{title}</h2>
           <Badge variant="secondary">{todos.length}</Badge>
         </div>
         {showAddButton && onAddTodo && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onAddTodo}
-            disabled={isAgentRunning}
-            aria-label="Add new todo"
-          >
+          <Button variant="ghost" size="icon" onClick={onAddTodo} disabled={isAgentRunning} aria-label="Add new todo">
             <Plus className="h-4 w-4" />
           </Button>
         )}

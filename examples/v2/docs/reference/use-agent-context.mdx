@@ -251,10 +251,7 @@ function ReactiveContext() {
 
   return (
     <div>
-      <select
-        value={filters.category}
-        onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-      >
+      <select value={filters.category} onChange={(e) => setFilters({ ...filters, category: e.target.value })}>
         <option value="all">All</option>
         <option value="electronics">Electronics</option>
         <option value="clothing">Clothing</option>
@@ -345,11 +342,7 @@ function OptimizedContext({ items }) {
 Context provided through this hook is available to agents during execution:
 
 ```tsx
-import {
-  useAgentContext,
-  useAgent,
-  useCopilotKit,
-} from "@copilotkit/react-core";
+import { useAgentContext, useAgent, useCopilotKit } from "@copilotkit/react-core";
 
 function IntegratedExample() {
   const { agent } = useAgent();

@@ -26,22 +26,15 @@ function InvoicesContent() {
   const searchParams = useSearchParams();
   const activeFilter = searchParams.get("filter") || "all";
 
-  const filtered =
-    activeFilter === "all"
-      ? invoices
-      : invoices.filter((inv) => inv.status === activeFilter);
+  const filtered = activeFilter === "all" ? invoices : invoices.filter((inv) => inv.status === activeFilter);
 
   const totalOutstanding = invoices
     .filter((inv) => inv.status === "pending" || inv.status === "overdue")
     .reduce((sum, inv) => sum + inv.amount, 0);
 
-  const totalPaid = invoices
-    .filter((inv) => inv.status === "paid")
-    .reduce((sum, inv) => sum + inv.amount, 0);
+  const totalPaid = invoices.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + inv.amount, 0);
 
-  const overdueCount = invoices.filter(
-    (inv) => inv.status === "overdue",
-  ).length;
+  const overdueCount = invoices.filter((inv) => inv.status === "overdue").length;
 
   return (
     <Shell>
@@ -52,29 +45,19 @@ function InvoicesContent() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Card size="sm">
             <CardContent>
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Outstanding
-              </p>
-              <p className="mt-2 text-2xl font-bold text-amber-600">
-                {formatCurrency(totalOutstanding)}
-              </p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Outstanding</p>
+              <p className="mt-2 text-2xl font-bold text-amber-600">{formatCurrency(totalOutstanding)}</p>
             </CardContent>
           </Card>
           <Card size="sm">
             <CardContent>
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Collected YTD
-              </p>
-              <p className="mt-2 text-2xl font-bold text-emerald-600">
-                {formatCurrency(totalPaid)}
-              </p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Collected YTD</p>
+              <p className="mt-2 text-2xl font-bold text-emerald-600">{formatCurrency(totalPaid)}</p>
             </CardContent>
           </Card>
           <Card size="sm">
             <CardContent>
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Overdue
-              </p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Overdue</p>
               <p className="mt-2 text-2xl font-bold text-red-600">
                 {overdueCount} invoice{overdueCount !== 1 && "s"}
               </p>
@@ -116,9 +99,7 @@ function InvoicesContent() {
                   header: "Invoice",
                   accessor: (row) => (
                     <div>
-                      <p className="font-medium text-foreground">
-                        {row.number}
-                      </p>
+                      <p className="font-medium text-foreground">{row.number}</p>
                     </div>
                   ),
                 },
@@ -129,11 +110,7 @@ function InvoicesContent() {
                 },
                 {
                   header: "Amount",
-                  accessor: (row) => (
-                    <span className="font-medium text-foreground">
-                      {formatCurrency(row.amount)}
-                    </span>
-                  ),
+                  accessor: (row) => <span className="font-medium text-foreground">{formatCurrency(row.amount)}</span>,
                 },
                 {
                   header: "Issued",
@@ -147,11 +124,7 @@ function InvoicesContent() {
                 },
                 {
                   header: "Items",
-                  accessor: (row) => (
-                    <span className="text-muted-foreground">
-                      {row.items.length}
-                    </span>
-                  ),
+                  accessor: (row) => <span className="text-muted-foreground">{row.items.length}</span>,
                 },
                 {
                   header: "Status",

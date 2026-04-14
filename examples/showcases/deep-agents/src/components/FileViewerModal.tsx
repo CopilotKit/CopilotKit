@@ -65,11 +65,7 @@ export function FileViewerModal({ file, onClose }: FileViewerModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop with blur */}
-      <div
-        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
       {/* Modal container */}
       <div
@@ -90,16 +86,14 @@ export function FileViewerModal({ file, onClose }: FileViewerModalProps) {
         {/* Header */}
         <div
           style={{
-            padding:
-              "var(--space-6) var(--space-6) var(--space-4) var(--space-6)",
+            padding: "var(--space-6) var(--space-6) var(--space-4) var(--space-6)",
           }}
           className="flex items-center justify-between border-b border-[var(--color-border-glass)]"
         >
           <div className="flex items-center gap-3">
             <div
               style={{
-                background:
-                  "linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%)",
+                background: "linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%)",
                 padding: "var(--space-3)",
                 borderRadius: "var(--radius-md)",
                 display: "flex",
@@ -107,9 +101,7 @@ export function FileViewerModal({ file, onClose }: FileViewerModalProps) {
                 justifyContent: "center",
               }}
             >
-              <FileText
-                style={{ width: "20px", height: "20px", color: "white" }}
-              />
+              <FileText style={{ width: "20px", height: "20px", color: "white" }} />
             </div>
             <h2
               id="file-viewer-title"
@@ -145,10 +137,7 @@ export function FileViewerModal({ file, onClose }: FileViewerModalProps) {
         </div>
 
         {/* Scrollable content with markdown rendering */}
-        <div
-          className="flex-1 overflow-y-auto"
-          style={{ padding: "var(--space-8)" }}
-        >
+        <div className="flex-1 overflow-y-auto" style={{ padding: "var(--space-8)" }}>
           <div className="prose prose-sm prose-slate max-w-none">
             <ReactMarkdown>{file.content}</ReactMarkdown>
           </div>

@@ -10,13 +10,7 @@ describe("PieChart", () => {
   ];
 
   it("renders SVG with correct number of data segments", () => {
-    const { container } = render(
-      <PieChart
-        title="Department Budget"
-        description="Q1 allocation"
-        data={sampleData}
-      />,
-    );
+    const { container } = render(<PieChart title="Department Budget" description="Q1 allocation" data={sampleData} />);
     const svg = container.querySelector("svg");
     expect(svg).toBeTruthy();
     // 1 background circle + 3 data circles
@@ -25,13 +19,7 @@ describe("PieChart", () => {
   });
 
   it("shows title and description", () => {
-    render(
-      <PieChart
-        title="Department Budget"
-        description="Q1 allocation"
-        data={sampleData}
-      />,
-    );
+    render(<PieChart title="Department Budget" description="Q1 allocation" data={sampleData} />);
     expect(screen.getByText("Department Budget")).toBeTruthy();
     expect(screen.getByText("Q1 allocation")).toBeTruthy();
   });

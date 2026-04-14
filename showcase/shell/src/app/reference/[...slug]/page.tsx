@@ -5,13 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { PropertyReference } from "@/components/property-reference";
-import {
-  Callout,
-  Cards,
-  Card,
-  Accordions,
-  Accordion,
-} from "@/components/mdx-components";
+import { Callout, Cards, Card, Accordions, Accordion } from "@/components/mdx-components";
 import { SidebarNav } from "@/components/sidebar-nav";
 
 const CONTENT_DIR = path.join(process.cwd(), "src/content/reference");
@@ -63,11 +57,7 @@ export function generateStaticParams() {
   return params;
 }
 
-export default async function ReferenceSlugPage({
-  params,
-}: {
-  params: Promise<{ slug: string[] }>;
-}) {
+export default async function ReferenceSlugPage({ params }: { params: Promise<{ slug: string[] }> }) {
   const { slug } = await params;
   const slugPath = slug.join("/");
   const filePath = path.join(CONTENT_DIR, `${slugPath}.mdx`);
@@ -138,21 +128,14 @@ export default async function ReferenceSlugPage({
       <article className="flex-1 min-w-0 max-w-3xl mx-auto px-6 py-10">
         <div className="mb-8">
           <div className="text-xs text-[var(--text-muted)] mb-2">
-            <Link
-              href="/reference"
-              className="hover:text-[var(--text-secondary)]"
-            >
+            <Link href="/reference" className="hover:text-[var(--text-secondary)]">
               Reference
             </Link>
             {" / "}
             <span className="capitalize">{slug[0]}</span>
           </div>
           <h1 className="text-2xl font-bold text-[var(--text)]">{title}</h1>
-          {description && (
-            <p className="text-sm text-[var(--text-muted)] mt-1">
-              {description}
-            </p>
-          )}
+          {description && <p className="text-sm text-[var(--text-muted)] mt-1">{description}</p>}
         </div>
 
         <div className="reference-content prose-sm">

@@ -42,9 +42,7 @@ export function PRReviewBarData({ args }: any) {
     <>
       {/* Bar Chart Section */}
       <div className="flex-1 p-4 rounded-2xl shadow-lg flex flex-col items-center min-w-[250px] max-w-[350px]">
-        <h2 className="text-xl font-semibold mb-2 text-gray-700 text-center">
-          Data Distribution
-        </h2>
+        <h2 className="text-xl font-semibold mb-2 text-gray-700 text-center">Data Distribution</h2>
         <div className="h-[180px] flex items-center justify-center">
           <BarChart width={260} height={180} data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#94a3b855" />

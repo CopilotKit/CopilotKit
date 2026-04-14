@@ -130,38 +130,32 @@ const DEEP_COAGENTS: RedirectEntry[] = [
   {
     id: "D2",
     source: "/coagents/chat-ui/hitl/json-hitl",
-    destination:
-      "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
+    destination: "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
   },
   {
     id: "D3",
     source: "/coagents/react-ui/frontend-functions",
-    destination:
-      "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
+    destination: "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
   },
   {
     id: "D4",
     source: "/coagents/chat-ui/render-agent-state",
-    destination:
-      "/docs/integrations/langgraph/generative-ui/your-components/display-only",
+    destination: "/docs/integrations/langgraph/generative-ui/your-components/display-only",
   },
   {
     id: "D5",
     source: "/coagents/chat-ui/hitl",
-    destination:
-      "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
+    destination: "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
   },
   {
     id: "D6",
     source: "/coagents/chat-ui/hitl/interrupt-flow",
-    destination:
-      "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
+    destination: "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
   },
   {
     id: "D7",
     source: "/coagents/chat-ui/loading-message-history",
-    destination:
-      "/docs/integrations/langgraph/advanced/persistence/loading-message-history",
+    destination: "/docs/integrations/langgraph/advanced/persistence/loading-message-history",
   },
   {
     id: "D8",
@@ -176,8 +170,7 @@ const DEEP_COAGENTS: RedirectEntry[] = [
   {
     id: "D10",
     source: "/coagents/react-ui/hitl",
-    destination:
-      "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
+    destination: "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
   },
   {
     id: "D11",
@@ -187,14 +180,12 @@ const DEEP_COAGENTS: RedirectEntry[] = [
   {
     id: "D12",
     source: "/coagents/advanced/intermediate-state-streaming",
-    destination:
-      "/docs/integrations/langgraph/shared-state/predictive-state-updates",
+    destination: "/docs/integrations/langgraph/shared-state/predictive-state-updates",
   },
   {
     id: "D13",
     source: "/coagents/shared-state/intermediate-state-streaming",
-    destination:
-      "/docs/integrations/langgraph/shared-state/predictive-state-updates",
+    destination: "/docs/integrations/langgraph/shared-state/predictive-state-updates",
   },
   {
     id: "D14",
@@ -209,20 +200,17 @@ const DEEP_COAGENTS: RedirectEntry[] = [
   {
     id: "D16",
     source: "/coagents/advanced/message-persistence",
-    destination:
-      "/docs/integrations/langgraph/advanced/persistence/message-persistence",
+    destination: "/docs/integrations/langgraph/advanced/persistence/message-persistence",
   },
   {
     id: "D17",
     source: "/coagents/advanced/loading-message-history",
-    destination:
-      "/docs/integrations/langgraph/advanced/persistence/loading-message-history",
+    destination: "/docs/integrations/langgraph/advanced/persistence/loading-message-history",
   },
   {
     id: "D18",
     source: "/coagents/advanced/loading-agent-state",
-    destination:
-      "/docs/integrations/langgraph/advanced/persistence/loading-agent-state",
+    destination: "/docs/integrations/langgraph/advanced/persistence/loading-agent-state",
   },
   {
     id: "D19",
@@ -299,26 +287,22 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
   {
     id: "F8",
     source: "/langgraph/generative-ui/display",
-    destination:
-      "/docs/integrations/langgraph/generative-ui/your-components/display-only",
+    destination: "/docs/integrations/langgraph/generative-ui/your-components/display-only",
   },
   {
     id: "F9",
     source: "/langgraph/generative-ui/interactive/interrupt-based",
-    destination:
-      "/docs/integrations/langgraph/generative-ui/your-components/interrupt-based",
+    destination: "/docs/integrations/langgraph/generative-ui/your-components/interrupt-based",
   },
   {
     id: "F10",
     source: "/langgraph/generative-ui/interactive/client-side",
-    destination:
-      "/docs/integrations/langgraph/generative-ui/your-components/interactive",
+    destination: "/docs/integrations/langgraph/generative-ui/your-components/interactive",
   },
   {
     id: "F11",
     source: "/langgraph/human-in-the-loop/node-flow",
-    destination:
-      "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
+    destination: "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow",
   },
   {
     id: "F12",
@@ -343,8 +327,7 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
   {
     id: "F16",
     source: "/llamaindex/shared-state/state-inputs-outputs",
-    destination:
-      "/docs/integrations/llamaindex/shared-state/workflow-execution",
+    destination: "/docs/integrations/llamaindex/shared-state/workflow-execution",
   },
   {
     id: "F20",

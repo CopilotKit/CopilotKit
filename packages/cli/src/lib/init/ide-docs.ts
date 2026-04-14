@@ -122,10 +122,7 @@ export async function detectInstalledIDEs(): Promise<SupportedIDE[]> {
 /**
  * Setup IDE documentation rules for the selected IDE
  */
-export async function setupIDEDocs(
-  ide: SupportedIDE,
-  projectDir: string,
-): Promise<void> {
+export async function setupIDEDocs(ide: SupportedIDE, projectDir: string): Promise<void> {
   const config = IDE_DOCS_CONFIGS[ide];
   const rulesDir = path.join(projectDir, config.rulesDir);
   const ruleFilePath = path.join(rulesDir, config.ruleFileName);
@@ -135,11 +132,7 @@ export async function setupIDEDocs(
 
   // Check if rule file already exists
   if (await pathExists(ruleFilePath)) {
-    console.log(
-      chalk.yellow(
-        `⚠️  CopilotKit documentation rule already exists for ${config.displayName}`,
-      ),
-    );
+    console.log(chalk.yellow(`⚠️  CopilotKit documentation rule already exists for ${config.displayName}`));
     return;
   }
 
@@ -155,9 +148,7 @@ function getIDEInstructions(ide: SupportedIDE): string[] {
   const config = IDE_DOCS_CONFIGS[ide];
 
   const instructions = [
-    chalk.cyan(
-      `📚 CopilotKit documentation configured for ${config.displayName}!`,
-    ),
+    chalk.cyan(`📚 CopilotKit documentation configured for ${config.displayName}!`),
     "",
     chalk.bold("What this does:"),
     "  • Adds CopilotKit documentation context to your IDE AI assistant",
@@ -197,11 +188,7 @@ function getIDEInstructions(ide: SupportedIDE): string[] {
 /**
  * Main function to handle IDE documentation setup with user interaction
  */
-export async function handleIDEDocsSetup(
-  selectedIDE: SupportedIDE,
-  projectDir: string,
-  spinner: Ora,
-): Promise<void> {
+export async function handleIDEDocsSetup(selectedIDE: SupportedIDE, projectDir: string, spinner: Ora): Promise<void> {
   try {
     spinner.text = chalk.cyan(
       `Setting up CopilotKit documentation for ${IDE_DOCS_CONFIGS[selectedIDE].displayName}...`,
@@ -211,9 +198,7 @@ export async function handleIDEDocsSetup(
     await setupIDEDocs(selectedIDE, projectDir);
 
     spinner.succeed(
-      chalk.green(
-        `CopilotKit documentation configured for ${IDE_DOCS_CONFIGS[selectedIDE].displayName}`,
-      ),
+      chalk.green(`CopilotKit documentation configured for ${IDE_DOCS_CONFIGS[selectedIDE].displayName}`),
     );
 
     // Show instructions
@@ -221,9 +206,7 @@ export async function handleIDEDocsSetup(
     console.log("\n" + instructions.join("\n"));
   } catch (error) {
     spinner.fail(
-      chalk.red(
-        `Failed to setup IDE documentation: ${error instanceof Error ? error.message : "Unknown error"}`,
-      ),
+      chalk.red(`Failed to setup IDE documentation: ${error instanceof Error ? error.message : "Unknown error"}`),
     );
     throw error;
   }

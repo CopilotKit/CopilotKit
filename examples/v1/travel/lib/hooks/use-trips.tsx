@@ -1,9 +1,5 @@
 import { SearchProgress } from "@/components/SearchProgress";
-import {
-  useCoAgent,
-  useCoAgentStateRender,
-  useCopilotAction,
-} from "@copilotkit/react-core";
+import { useCoAgent, useCoAgentStateRender, useCopilotAction } from "@copilotkit/react-core";
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { createContext, useContext, ReactNode, useMemo } from "react";
 import { AddTrips, EditTrips, DeleteTrips } from "@/components/humanInTheLoop";
@@ -129,20 +125,14 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
   /*
    * Helper functions for places
    */
-  const updatePlace = (
-    tripId: string,
-    placeId: string,
-    updatedPlace: Place,
-  ) => {
+  const updatePlace = (tripId: string, placeId: string, updatedPlace: Place) => {
     setState({
       ...state,
       trips: state.trips.map((trip) =>
         trip.id === tripId
           ? {
               ...trip,
-              places: trip.places.map((place) =>
-                place.id === placeId ? updatedPlace : place,
-              ),
+              places: trip.places.map((place) => (place.id === placeId ? updatedPlace : place)),
             }
           : trip,
       ),
@@ -152,11 +142,7 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
   const addPlace = (tripId: string, place: Place) => {
     setState({
       ...state,
-      trips: state.trips.map((trip) =>
-        trip.id === tripId
-          ? { ...trip, places: [...trip.places, place] }
-          : trip,
-      ),
+      trips: state.trips.map((trip) => (trip.id === tripId ? { ...trip, places: [...trip.places, place] } : trip)),
     });
   };
 

@@ -70,33 +70,21 @@ const UPPERCASE_WORDS = new Set(["ui", "io", "a2ui", "hitl", "mcp", "api"]);
 function prettifyTag(tag: string): string {
   return tag
     .split("-")
-    .map((w) =>
-      UPPERCASE_WORDS.has(w)
-        ? w.toUpperCase()
-        : w.charAt(0).toUpperCase() + w.slice(1),
-    )
+    .map((w) => (UPPERCASE_WORDS.has(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
     .join(" ");
 }
 
 export default function DojoPage() {
-  const integrations = useMemo(
-    () => getIntegrations().filter((i) => i.deployed),
-    [],
-  );
+  const integrations = useMemo(() => getIntegrations().filter((i) => i.deployed), []);
   const categories = useMemo(() => getFeatureCategories(), []);
 
   const [selectedSlug, setSelectedSlug] = useState(integrations[0]?.slug || "");
-  const [selectedDemoId, setSelectedDemoId] = useState(
-    integrations[0]?.demos[0]?.id || "",
-  );
+  const [selectedDemoId, setSelectedDemoId] = useState(integrations[0]?.demos[0]?.id || "");
   const [viewMode, setViewMode] = useState<ViewMode>("preview");
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  const integration = useMemo(
-    () => integrations.find((i) => i.slug === selectedSlug),
-    [integrations, selectedSlug],
-  );
+  const integration = useMemo(() => integrations.find((i) => i.slug === selectedSlug), [integrations, selectedSlug]);
 
   const groupedDemos = useMemo(
     () => (integration ? groupDemosByCategory(integration, categories) : []),
@@ -108,10 +96,7 @@ export default function DojoPage() {
     [integration, selectedDemoId],
   );
 
-  const contentKey =
-    integration && selectedDemo
-      ? `${integration.slug}::${selectedDemo.id}`
-      : null;
+  const contentKey = integration && selectedDemo ? `${integration.slug}::${selectedDemo.id}` : null;
   const content = contentKey ? demoContent.demos[contentKey] : null;
   const allFiles = useMemo(() => {
     if (!content) return [];
@@ -125,9 +110,7 @@ export default function DojoPage() {
       setDropdownOpen(false);
       const newIntegration = integrations.find((i) => i.slug === slug);
       if (newIntegration) {
-        const hasDemo = newIntegration.demos.find(
-          (d) => d.id === selectedDemoId,
-        );
+        const hasDemo = newIntegration.demos.find((d) => d.id === selectedDemoId);
         if (!hasDemo && newIntegration.demos.length > 0) {
           setSelectedDemoId(newIntegration.demos[0].id);
         }
@@ -141,10 +124,7 @@ export default function DojoPage() {
     setSelectedFileIndex(0);
   }, []);
 
-  const previewUrl =
-    integration && selectedDemo
-      ? `${integration.backend_url}${selectedDemo.route}`
-      : null;
+  const previewUrl = integration && selectedDemo ? `${integration.backend_url}${selectedDemo.route}` : null;
 
   return (
     <div
@@ -298,8 +278,7 @@ export default function DojoPage() {
                 if (!dropdownOpen) e.currentTarget.style.background = "#fafcfa";
               }}
               onMouseLeave={(e) => {
-                if (!dropdownOpen)
-                  e.currentTarget.style.background = "transparent";
+                if (!dropdownOpen) e.currentTarget.style.background = "transparent";
               }}
             >
               <span
@@ -357,19 +336,11 @@ export default function DojoPage() {
                       cursor: "pointer",
                       borderRadius: 4,
                       color: "var(--text-primary)",
-                      background:
-                        i.slug === selectedSlug
-                          ? "rgba(0,0,0,0.03)"
-                          : "transparent",
+                      background: i.slug === selectedSlug ? "rgba(0,0,0,0.03)" : "transparent",
                     }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = "#f0f0f4")
-                    }
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#f0f0f4")}
                     onMouseLeave={(e) =>
-                      (e.currentTarget.style.background =
-                        i.slug === selectedSlug
-                          ? "rgba(0,0,0,0.03)"
-                          : "transparent")
+                      (e.currentTarget.style.background = i.slug === selectedSlug ? "rgba(0,0,0,0.03)" : "transparent")
                     }
                   >
                     {i.name}
@@ -416,24 +387,14 @@ export default function DojoPage() {
                   >
                     {mode === "preview" ? (
                       <>
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 256 256"
-                          fill="currentColor"
-                        >
+                        <svg width="12" height="12" viewBox="0 0 256 256" fill="currentColor">
                           <path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.29A169.47,169.47,0,0,1,24.4,128,169.47,169.47,0,0,1,48.07,97.29C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.29A169.47,169.47,0,0,1,231.6,128,169.47,169.47,0,0,1,207.93,158.71C185.67,180.81,158.78,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z" />
                         </svg>
                         Preview
                       </>
                     ) : (
                       <>
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 256 256"
-                          fill="currentColor"
-                        >
+                        <svg width="12" height="12" viewBox="0 0 256 256" fill="currentColor">
                           <path d="M69.12,94.15,28.5,128l40.62,33.85a8,8,0,1,1-10.24,12.29l-48-40a8,8,0,0,1,0-12.29l48-40a8,8,0,0,1,10.24,12.3Zm176,27.7-48-40a8,8,0,1,0-10.24,12.3L227.5,128l-40.62,33.85a8,8,0,1,0,10.24,12.29l48-40a8,8,0,0,0,0-12.29ZM162.73,32.48a8,8,0,0,0-10.25,4.79l-64,176a8,8,0,0,0,4.79,10.26A8.14,8.14,0,0,0,96,224a8,8,0,0,0,7.52-5.27l64-176A8,8,0,0,0,162.73,32.48Z" />
                         </svg>
                         Code
@@ -489,20 +450,15 @@ export default function DojoPage() {
                         padding: "8px 12px",
                         border: "none",
                         cursor: "pointer",
-                        background: isSelected
-                          ? "rgba(255, 255, 255, 0.7)"
-                          : "transparent",
+                        background: isSelected ? "rgba(255, 255, 255, 0.7)" : "transparent",
                         borderRadius: 4,
                         transition: "background 0.15s",
                       }}
                       onMouseEnter={(e) => {
-                        if (!isSelected)
-                          e.currentTarget.style.background =
-                            "rgba(255, 255, 255, 0.5)";
+                        if (!isSelected) e.currentTarget.style.background = "rgba(255, 255, 255, 0.5)";
                       }}
                       onMouseLeave={(e) => {
-                        if (!isSelected)
-                          e.currentTarget.style.background = "transparent";
+                        if (!isSelected) e.currentTarget.style.background = "transparent";
                       }}
                     >
                       {/* dojo: text-sm font-medium leading-tight */}
@@ -547,12 +503,8 @@ export default function DojoPage() {
                                 fontSize: 12,
                                 padding: "2px 6px",
                                 borderRadius: 9999,
-                                background: isSelected
-                                  ? "var(--text-primary)"
-                                  : "rgba(255, 255, 255, 0.65)",
-                                color: isSelected
-                                  ? "var(--text-invert)"
-                                  : "var(--text-primary)",
+                                background: isSelected ? "var(--text-primary)" : "rgba(255, 255, 255, 0.65)",
+                                color: isSelected ? "var(--text-invert)" : "var(--text-primary)",
                                 fontWeight: 400,
                                 lineHeight: 1.4,
                               }}
@@ -637,21 +589,13 @@ export default function DojoPage() {
                     padding: "10px 18px",
                     fontSize: 13,
                     border: "none",
-                    borderBottom:
-                      idx === selectedFileIndex
-                        ? "2px solid var(--text-primary)"
-                        : "2px solid transparent",
+                    borderBottom: idx === selectedFileIndex ? "2px solid var(--text-primary)" : "2px solid transparent",
                     cursor: "pointer",
-                    background:
-                      idx === selectedFileIndex ? "#ffffff" : "transparent",
-                    color:
-                      idx === selectedFileIndex
-                        ? "var(--text-primary)"
-                        : "var(--text-disabled)",
+                    background: idx === selectedFileIndex ? "#ffffff" : "transparent",
+                    color: idx === selectedFileIndex ? "var(--text-primary)" : "var(--text-disabled)",
                     fontWeight: idx === selectedFileIndex ? 500 : 400,
                     whiteSpace: "nowrap",
-                    fontFamily:
-                      "'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace",
+                    fontFamily: "'Spline Sans Mono', ui-monospace, SFMono-Regular, monospace",
                   }}
                 >
                   {file.filename}
@@ -659,10 +603,7 @@ export default function DojoPage() {
               ))}
             </div>
             {allFiles[selectedFileIndex] && (
-              <CodeBlock
-                code={allFiles[selectedFileIndex].content}
-                language={allFiles[selectedFileIndex].language}
-              />
+              <CodeBlock code={allFiles[selectedFileIndex].content} language={allFiles[selectedFileIndex].language} />
             )}
           </div>
         ) : (
@@ -676,9 +617,7 @@ export default function DojoPage() {
               fontSize: 15,
             }}
           >
-            {viewMode === "code"
-              ? "No code available for this demo."
-              : "Select a demo to preview."}
+            {viewMode === "code" ? "No code available for this demo." : "Select a demo to preview."}
           </div>
         )}
       </main>

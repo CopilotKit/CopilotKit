@@ -68,10 +68,7 @@
     },
     "build:css": {
       "cache": true,
-      "outputs": [
-        "{projectRoot}/dist/styles.css",
-        "{projectRoot}/src/styles/generated.css"
-      ]
+      "outputs": ["{projectRoot}/dist/styles.css", "{projectRoot}/src/styles/generated.css"]
     },
     "storybook:build": {
       "dependsOn": ["^build"],

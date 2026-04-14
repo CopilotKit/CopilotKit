@@ -1,24 +1,7 @@
-import {
-  Directive,
-  Input,
-  ElementRef,
-  HostListener,
-  OnDestroy,
-  inject,
-  ViewContainerRef,
-} from "@angular/core";
-import {
-  Overlay,
-  OverlayRef,
-  OverlayPositionBuilder,
-  ConnectedPosition,
-} from "@angular/cdk/overlay";
+import { Directive, Input, ElementRef, HostListener, OnDestroy, inject, ViewContainerRef } from "@angular/core";
+import { Overlay, OverlayRef, OverlayPositionBuilder, ConnectedPosition } from "@angular/cdk/overlay";
 import { ComponentPortal } from "@angular/cdk/portal";
-import {
-  Component,
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
-} from "@angular/core";
+import { Component, ChangeDetectionStrategy, ChangeDetectorRef } from "@angular/core";
 
 @Component({
   selector: "copilot-tooltip-content",
@@ -207,10 +190,8 @@ export class CopilotTooltip implements OnDestroy {
     // Detect actual position after overlay is positioned
     setTimeout(() => {
       if (this.overlayRef && this.elementRef.nativeElement) {
-        const tooltipRect =
-          this.overlayRef.overlayElement.getBoundingClientRect();
-        const elementRect =
-          this.elementRef.nativeElement.getBoundingClientRect();
+        const tooltipRect = this.overlayRef.overlayElement.getBoundingClientRect();
+        const elementRect = this.elementRef.nativeElement.getBoundingClientRect();
 
         let actualPosition: "above" | "below" | "left" | "right" = "below";
 
@@ -282,11 +263,7 @@ export class CopilotTooltip implements OnDestroy {
     // For below position, add above as first fallback
     const fallbacks =
       this.tooltipPosition === "below"
-        ? [
-            ...(positions.above || []),
-            ...(positions.left || []),
-            ...(positions.right || []),
-          ]
+        ? [...(positions.above || []), ...(positions.left || []), ...(positions.right || [])]
         : Object.values(positions)
             .filter((p) => p !== primary)
             .flat();

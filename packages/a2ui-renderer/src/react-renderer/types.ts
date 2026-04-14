@@ -39,9 +39,7 @@ export interface ComponentRegistration<T = any> {
 /**
  * Callback for when a user action is dispatched.
  */
-export type OnActionCallback = (
-  message: A2UIClientEventMessage,
-) => void | Promise<void>;
+export type OnActionCallback = (message: A2UIClientEventMessage) => void | Promise<void>;
 
 /**
  * Configuration options for the A2UI provider.

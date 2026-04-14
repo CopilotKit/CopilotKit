@@ -1,21 +1,7 @@
 import { Injectable, ElementRef, NgZone, OnDestroy } from "@angular/core";
 import { ScrollDispatcher, ViewportRuler } from "@angular/cdk/scrolling";
-import {
-  Observable,
-  Subject,
-  BehaviorSubject,
-  fromEvent,
-  merge,
-  animationFrameScheduler,
-} from "rxjs";
-import {
-  takeUntil,
-  debounceTime,
-  throttleTime,
-  distinctUntilChanged,
-  map,
-  startWith,
-} from "rxjs/operators";
+import { Observable, Subject, BehaviorSubject, fromEvent, merge, animationFrameScheduler } from "rxjs";
+import { takeUntil, debounceTime, throttleTime, distinctUntilChanged, map, startWith } from "rxjs/operators";
 
 export interface ScrollState {
   isAtBottom: boolean;
@@ -64,10 +50,7 @@ export class ScrollPosition implements OnDestroy {
       throttleTime(16, animationFrameScheduler, { trailing: true }), // ~60fps
       map(() => this.getScrollState(el, threshold)),
       distinctUntilChanged(
-        (a, b) =>
-          a.isAtBottom === b.isAtBottom &&
-          a.scrollTop === b.scrollTop &&
-          a.scrollHeight === b.scrollHeight,
+        (a, b) => a.isAtBottom === b.isAtBottom && a.scrollTop === b.scrollTop && a.scrollHeight === b.scrollHeight,
       ),
       takeUntil(this.destroy$),
     );
@@ -85,10 +68,7 @@ export class ScrollPosition implements OnDestroy {
    * @param element The element to scroll
    * @param smooth Whether to use smooth scrolling
    */
-  scrollToBottom(
-    element: ElementRef<HTMLElement> | HTMLElement,
-    smooth: boolean = true,
-  ): void {
+  scrollToBottom(element: ElementRef<HTMLElement> | HTMLElement, smooth: boolean = true): void {
     const el = element instanceof ElementRef ? element.nativeElement : element;
 
     this.ngZone.runOutsideAngular(() => {
@@ -108,10 +88,7 @@ export class ScrollPosition implements OnDestroy {
    * @param element The element to check
    * @param threshold Pixels from bottom to consider "at bottom"
    */
-  isAtBottom(
-    element: ElementRef<HTMLElement> | HTMLElement,
-    threshold: number = 10,
-  ): boolean {
+  isAtBottom(element: ElementRef<HTMLElement> | HTMLElement, threshold: number = 10): boolean {
     const el = element instanceof ElementRef ? element.nativeElement : element;
     return this.getScrollState(el, threshold).isAtBottom;
   }

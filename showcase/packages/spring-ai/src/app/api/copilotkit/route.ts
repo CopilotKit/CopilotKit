@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 
 // The Spring AI agent backend runs as a separate Java process.
@@ -62,10 +58,7 @@ export const POST = async (req: NextRequest) => {
     const err = error as Error;
     console.error(`[copilotkit/route] ERROR: ${err.message}`);
     console.error(`[copilotkit/route] Stack: ${err.stack}`);
-    return NextResponse.json(
-      { error: err.message, stack: err.stack },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: err.message, stack: err.stack }, { status: 500 });
   }
 };
 

@@ -31,11 +31,7 @@ export {
 } from "./test-helpers";
 
 // Re-export for test files that need to construct agents directly
-export {
-  BuiltInAgent,
-  type AgentFactoryContext,
-  type BuiltInAgentFactoryConfig,
-};
+export { BuiltInAgent, type AgentFactoryContext, type BuiltInAgentFactoryConfig };
 
 // ---------------------------------------------------------------------------
 // Default input factory
@@ -68,10 +64,7 @@ export function tanstackTextChunk(delta: string) {
 }
 
 /** TanStack tool call start chunk */
-export function tanstackToolCallStart(
-  toolCallId: string,
-  toolCallName: string,
-) {
+export function tanstackToolCallStart(toolCallId: string, toolCallName: string) {
   return { type: "TOOL_CALL_START", toolCallId, toolCallName } as const;
 }
 
@@ -105,9 +98,7 @@ export function mockTanStackStream(chunks: Record<string, unknown>[]) {
 /**
  * Creates an `AsyncIterable<BaseEvent>` from an array of AG-UI events.
  */
-export function mockCustomStream(
-  events: BaseEvent[],
-): AsyncIterable<BaseEvent> {
+export function mockCustomStream(events: BaseEvent[]): AsyncIterable<BaseEvent> {
   return {
     [Symbol.asyncIterator]: async function* () {
       for (const event of events) {
@@ -131,18 +122,9 @@ export type AgentType = "aisdk" | "tanstack" | "custom";
  * - `"tanstack"` expects `Record<string, unknown>[]` (TanStack chunks)
  * - `"custom"` expects `BaseEvent[]` (AG-UI events directly)
  */
-export function createAgent(
-  type: "aisdk",
-  streamData: MockStreamEvent[],
-): BuiltInAgent;
-export function createAgent(
-  type: "tanstack",
-  streamData: Record<string, unknown>[],
-): BuiltInAgent;
-export function createAgent(
-  type: "custom",
-  streamData: BaseEvent[],
-): BuiltInAgent;
+export function createAgent(type: "aisdk", streamData: MockStreamEvent[]): BuiltInAgent;
+export function createAgent(type: "tanstack", streamData: Record<string, unknown>[]): BuiltInAgent;
+export function createAgent(type: "custom", streamData: BaseEvent[]): BuiltInAgent;
 export function createAgent(
   type: AgentType,
   streamData: MockStreamEvent[] | Record<string, unknown>[] | BaseEvent[],
@@ -193,10 +175,7 @@ export function createAgent(
 /**
  * Creates a BuiltInAgent whose factory immediately throws.
  */
-export function createThrowingAgent(
-  type: AgentType,
-  errorMessage: string,
-): BuiltInAgent {
+export function createThrowingAgent(type: AgentType, errorMessage: string): BuiltInAgent {
   // All three factory signatures accept (ctx) and can throw before returning.
   // Since the factory throws, the return type is irrelevant — TypeScript's
   // `never` return satisfies all three config shapes.
@@ -221,10 +200,7 @@ export function createThrowingAgent(
  * - `"tanstack"`: yields `{ type: "TEXT_MESSAGE_CONTENT", delta: "partial" }` then throws
  * - `"custom"`: yields a `TEXT_MESSAGE_CHUNK` BaseEvent then throws
  */
-export function createMidStreamErrorAgent(
-  type: AgentType,
-  errorMessage: string,
-): BuiltInAgent {
+export function createMidStreamErrorAgent(type: AgentType, errorMessage: string): BuiltInAgent {
   switch (type) {
     case "aisdk": {
       return new BuiltInAgent({
@@ -289,9 +265,7 @@ export interface CollectedEventsResult {
  * observable errors. Returns the events collected up to and including
  * the error point, along with whether it errored or completed normally.
  */
-export async function collectEventsIncludingErrors(
-  observable: Observable<BaseEvent>,
-): Promise<CollectedEventsResult> {
+export async function collectEventsIncludingErrors(observable: Observable<BaseEvent>): Promise<CollectedEventsResult> {
   return new Promise((resolve) => {
     const events: BaseEvent[] = [];
     const timeoutId = setTimeout(() => {
@@ -333,24 +307,16 @@ export function eventField<T = unknown>(event: BaseEvent, field: string): T {
  * Asserts that the events are wrapped with RUN_STARTED as the first event
  * and RUN_FINISHED as the last event. Optionally checks threadId and runId.
  */
-export function expectLifecycleWrapped(
-  events: BaseEvent[],
-  threadId?: string,
-  runId?: string,
-): void {
+export function expectLifecycleWrapped(events: BaseEvent[], threadId?: string, runId?: string): void {
   if (events.length < 2) {
-    throw new Error(
-      `Expected at least 2 events (RUN_STARTED + RUN_FINISHED), got ${events.length}`,
-    );
+    throw new Error(`Expected at least 2 events (RUN_STARTED + RUN_FINISHED), got ${events.length}`);
   }
 
   const first = events[0];
   const last = events[events.length - 1];
 
   if (first.type !== EventType.RUN_STARTED) {
-    throw new Error(
-      `Expected first event to be RUN_STARTED, got ${first.type}`,
-    );
+    throw new Error(`Expected first event to be RUN_STARTED, got ${first.type}`);
   }
 
   if (last.type !== EventType.RUN_FINISHED) {
@@ -359,27 +325,19 @@ export function expectLifecycleWrapped(
 
   if (threadId !== undefined) {
     if (eventField<string>(first, "threadId") !== threadId) {
-      throw new Error(
-        `Expected RUN_STARTED threadId to be "${threadId}", got "${eventField(first, "threadId")}"`,
-      );
+      throw new Error(`Expected RUN_STARTED threadId to be "${threadId}", got "${eventField(first, "threadId")}"`);
     }
     if (eventField<string>(last, "threadId") !== threadId) {
-      throw new Error(
-        `Expected RUN_FINISHED threadId to be "${threadId}", got "${eventField(last, "threadId")}"`,
-      );
+      throw new Error(`Expected RUN_FINISHED threadId to be "${threadId}", got "${eventField(last, "threadId")}"`);
     }
   }
 
   if (runId !== undefined) {
     if (eventField<string>(first, "runId") !== runId) {
-      throw new Error(
-        `Expected RUN_STARTED runId to be "${runId}", got "${eventField(first, "runId")}"`,
-      );
+      throw new Error(`Expected RUN_STARTED runId to be "${runId}", got "${eventField(first, "runId")}"`);
     }
     if (eventField<string>(last, "runId") !== runId) {
-      throw new Error(
-        `Expected RUN_FINISHED runId to be "${runId}", got "${eventField(last, "runId")}"`,
-      );
+      throw new Error(`Expected RUN_FINISHED runId to be "${runId}", got "${eventField(last, "runId")}"`);
     }
   }
 }
@@ -387,10 +345,7 @@ export function expectLifecycleWrapped(
 /**
  * Asserts that the event types match the expected sequence exactly.
  */
-export function expectEventSequence(
-  events: BaseEvent[],
-  expectedTypes: EventType[],
-): void {
+export function expectEventSequence(events: BaseEvent[], expectedTypes: EventType[]): void {
   const actualTypes = events.map((e) => e.type);
 
   if (actualTypes.length !== expectedTypes.length) {
@@ -417,25 +372,16 @@ export function expectEventSequence(
  *
  * "Content events" are everything except RUN_STARTED, RUN_FINISHED, and RUN_ERROR.
  */
-export function expectNoEventAfter(
-  events: BaseEvent[],
-  terminalType: EventType,
-): void {
+export function expectNoEventAfter(events: BaseEvent[], terminalType: EventType): void {
   const terminalIndex = events.findIndex((e) => e.type === terminalType);
   if (terminalIndex === -1) {
     throw new Error(`Terminal event type ${terminalType} not found in events`);
   }
 
-  const lifecycleTypes = new Set([
-    EventType.RUN_STARTED,
-    EventType.RUN_FINISHED,
-    EventType.RUN_ERROR,
-  ]);
+  const lifecycleTypes = new Set([EventType.RUN_STARTED, EventType.RUN_FINISHED, EventType.RUN_ERROR]);
 
   const eventsAfter = events.slice(terminalIndex + 1);
-  const contentEventsAfter = eventsAfter.filter(
-    (e) => !lifecycleTypes.has(e.type),
-  );
+  const contentEventsAfter = eventsAfter.filter((e) => !lifecycleTypes.has(e.type));
 
   if (contentEventsAfter.length > 0) {
     throw new Error(

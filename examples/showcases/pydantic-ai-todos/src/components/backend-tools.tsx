@@ -5,13 +5,7 @@ export type BackendToolsProps = CatchAllActionRenderProps & {
   themeColor: string;
 };
 
-export function BackendToolsCard({
-  name,
-  args,
-  status,
-  result,
-  themeColor,
-}: BackendToolsProps) {
+export function BackendToolsCard({ name, args, status, result, themeColor }: BackendToolsProps) {
   const [showArgs, setShowArgs] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const getStatusColor = () => {
@@ -32,14 +26,7 @@ export function BackendToolsCard({
       case "inProgress":
         return (
           <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            ></circle>
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path
               className="opacity-75"
               fill="currentColor"
@@ -49,18 +36,8 @@ export function BackendToolsCard({
         );
       case "complete":
         return (
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         );
       default:
@@ -97,12 +74,7 @@ export function BackendToolsCard({
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
             Arguments
           </button>
@@ -111,9 +83,7 @@ export function BackendToolsCard({
               {Object.entries(args).map(([key, value]) => (
                 <div key={key} className="flex gap-2">
                   <span className="text-white/50 text-xs">{key}:</span>
-                  <span className="text-white/80 text-xs font-mono">
-                    {JSON.stringify(value)}
-                  </span>
+                  <span className="text-white/80 text-xs font-mono">{JSON.stringify(value)}</span>
                 </div>
               ))}
             </div>
@@ -134,21 +104,14 @@ export function BackendToolsCard({
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
             Result
           </button>
           {showResult && (
             <div className="bg-black/20 rounded p-2">
               <pre className="text-white/80 text-xs font-mono whitespace-pre-wrap break-words">
-                {typeof result === "string"
-                  ? result
-                  : JSON.stringify(result, null, 2)}
+                {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
               </pre>
             </div>
           )}

@@ -13,13 +13,7 @@ interface ChartCardProps {
   actionButtonText?: string;
 }
 
-export const ChartCard = ({
-  spec,
-  onHumanInput,
-  status,
-  chartData,
-  actionButtonText = "Add",
-}: ChartCardProps) => {
+export const ChartCard = ({ spec, onHumanInput, status, chartData, actionButtonText = "Add" }: ChartCardProps) => {
   const title = "title" in spec ? spec.title : undefined;
   const data = (title && chartData?.[title]) || [];
 

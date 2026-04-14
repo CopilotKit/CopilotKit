@@ -8,9 +8,7 @@ import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChat
 // Wrapper to provide required context
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <CopilotKitProvider>
-    <CopilotChatConfigurationProvider threadId="test-thread">
-      {children}
-    </CopilotChatConfigurationProvider>
+    <CopilotChatConfigurationProvider threadId="test-thread">{children}</CopilotChatConfigurationProvider>
   </CopilotKitProvider>
 );
 
@@ -45,10 +43,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
       it("should override default header border with custom styles", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              header="border-b-2 border-blue-500"
-            />
+            <CopilotSidebarView messages={sampleMessages} header="border-b-2 border-blue-500" />
           </TestWrapper>,
         );
 
@@ -66,10 +61,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
       it("should pass custom props to header", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              header={{ "data-testid": "custom-sidebar-header" }}
-            />
+            <CopilotSidebarView messages={sampleMessages} header={{ "data-testid": "custom-sidebar-header" }} />
           </TestWrapper>,
         );
 
@@ -80,10 +72,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
       it("should pass title prop through to header", () => {
         render(
           <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              header={{ title: "My Sidebar Chat" }}
-            />
+            <CopilotSidebarView messages={sampleMessages} header={{ title: "My Sidebar Chat" }} />
           </TestWrapper>,
         );
 
@@ -99,10 +88,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
   describe("3. Custom Component - Header Slot", () => {
     it("should allow custom component for header", () => {
       const CustomHeader: React.FC = () => (
-        <header
-          data-testid="custom-header-component"
-          className="custom-sidebar-header"
-        >
+        <header data-testid="custom-header-component" className="custom-sidebar-header">
           <span>Custom Sidebar Header</span>
           <button>Custom Close</button>
         </header>
@@ -110,10 +96,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
 
       render(
         <TestWrapper>
-          <CopilotSidebarView
-            messages={sampleMessages}
-            header={CustomHeader as any}
-          />
+          <CopilotSidebarView messages={sampleMessages} header={CustomHeader as any} />
         </TestWrapper>,
       );
 
@@ -149,10 +132,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
       it("should apply tailwind class string to inherited messageView", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              messageView="bg-gray-50 rounded-lg"
-            />
+            <CopilotSidebarView messages={sampleMessages} messageView="bg-gray-50 rounded-lg" />
           </TestWrapper>,
         );
 
@@ -165,10 +145,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
       it("should apply tailwind class string to inherited input", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              input="border-2 border-blue-400"
-            />
+            <CopilotSidebarView messages={sampleMessages} input="border-2 border-blue-400" />
           </TestWrapper>,
         );
 
@@ -181,10 +158,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
       it("should apply tailwind class string to inherited scrollView", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              scrollView="overflow-y-scroll bg-white"
-            />
+            <CopilotSidebarView messages={sampleMessages} scrollView="overflow-y-scroll bg-white" />
           </TestWrapper>,
         );
 
@@ -195,17 +169,11 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
 
     describe("suggestionView slot (inherited)", () => {
       it("should apply tailwind class string to inherited suggestionView", () => {
-        const suggestions = [
-          { title: "Test", message: "Test message", isLoading: false },
-        ];
+        const suggestions = [{ title: "Test", message: "Test message", isLoading: false }];
 
         const { container } = render(
           <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              suggestions={suggestions}
-              suggestionView="gap-4 p-2"
-            />
+            <CopilotSidebarView messages={sampleMessages} suggestions={suggestions} suggestionView="gap-4 p-2" />
           </TestWrapper>,
         );
 
@@ -266,10 +234,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
 
       render(
         <TestWrapper>
-          <CopilotSidebarView
-            messages={sampleMessages}
-            header={CustomHeader as any}
-          />
+          <CopilotSidebarView messages={sampleMessages} header={CustomHeader as any} />
         </TestWrapper>,
       );
 
@@ -360,9 +325,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
       const sidebar = container.querySelector("[data-copilot-sidebar]");
       expect(sidebar).toBeDefined();
       // Should have header
-      expect(
-        container.querySelector('[data-slot="copilot-modal-header"]'),
-      ).toBeDefined();
+      expect(container.querySelector('[data-slot="copilot-modal-header"]')).toBeDefined();
     });
 
     it("should render messages in sidebar", () => {
@@ -420,10 +383,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
       it("should apply tailwind class string to toggle button", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              toggleButton="bg-red-500 hover:bg-red-600"
-            />
+            <CopilotSidebarView messages={sampleMessages} toggleButton="bg-red-500 hover:bg-red-600" />
           </TestWrapper>,
         );
 
@@ -437,10 +397,7 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
       it("should pass custom props to toggle button", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              toggleButton={{ "data-testid": "custom-toggle-button" }}
-            />
+            <CopilotSidebarView messages={sampleMessages} toggleButton={{ "data-testid": "custom-toggle-button" }} />
           </TestWrapper>,
         );
 
@@ -462,12 +419,8 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
         );
 
         // The icons should have custom classes applied
-        const openIconSlot = container.querySelector(
-          '[data-slot="chat-toggle-button-open-icon"]',
-        );
-        const closeIconSlot = container.querySelector(
-          '[data-slot="chat-toggle-button-close-icon"]',
-        );
+        const openIconSlot = container.querySelector('[data-slot="chat-toggle-button-open-icon"]');
+        const closeIconSlot = container.querySelector('[data-slot="chat-toggle-button-close-icon"]');
         expect(openIconSlot).toBeDefined();
         expect(closeIconSlot).toBeDefined();
       });
@@ -476,20 +429,14 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
     describe("toggleButton slot - Custom component", () => {
       it("should allow custom component for toggle button", () => {
         const CustomToggleButton: React.FC = () => (
-          <button
-            data-testid="custom-toggle-component"
-            className="custom-toggle"
-          >
+          <button data-testid="custom-toggle-component" className="custom-toggle">
             Toggle Chat
           </button>
         );
 
         render(
           <TestWrapper>
-            <CopilotSidebarView
-              messages={sampleMessages}
-              toggleButton={CustomToggleButton as any}
-            />
+            <CopilotSidebarView messages={sampleMessages} toggleButton={CustomToggleButton as any} />
           </TestWrapper>,
         );
 

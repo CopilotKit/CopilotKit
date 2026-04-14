@@ -3,12 +3,7 @@
 import { useState, useEffect, useRef, useContext } from "react";
 import { useCoAgent, useCopilotChat } from "@copilotkit/react-core";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import {
-  ConnectionType,
-  ServerConfig,
-  MCP_STORAGE_KEY,
-  MCPConfig,
-} from "@/lib/mcp-config-types";
+import { ConnectionType, ServerConfig, MCP_STORAGE_KEY, MCPConfig } from "@/lib/mcp-config-types";
 import { X, Plus, Server, Globe, Trash2 } from "lucide-react";
 import { ServerConfigsContext } from "@/providers/Providers";
 // External link icon component
@@ -43,9 +38,7 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
   const configsRef = useRef<Record<string, ServerConfig>>({});
 
   // Use localStorage hook for persistent storage
-  const [savedConfigs, setSavedConfigs] = useLocalStorage<
-    Record<string, ServerConfig>
-  >(MCP_STORAGE_KEY, {});
+  const [savedConfigs, setSavedConfigs] = useLocalStorage<Record<string, ServerConfig>>(MCP_STORAGE_KEY, {});
   // console.log(savedConfigs, "savedConfigs");
   // Set the ref value once we have the saved configs
   useEffect(() => {
@@ -148,22 +141,15 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
               <Server className="h-6 w-6 mr-2 text-gray-700" />
-              <h1 className="text-2xl font-semibold">
-                MCP Server Configuration
-              </h1>
+              <h1 className="text-2xl font-semibold">MCP Server Configuration</h1>
             </div>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700"
-            >
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
               <X className="h-5 w-5" />
             </button>
           </div>
 
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-4 gap-4">
-            <p className="text-sm text-gray-600">
-              Manage and configure your MCP servers
-            </p>
+            <p className="text-sm text-gray-600">Manage and configure your MCP servers</p>
             <button
               onClick={() => setShowAddServerForm(true)}
               className="w-full sm:w-auto px-3 py-1.5 bg-gray-800 text-white rounded-md text-sm font-medium hover:bg-gray-700 flex items-center gap-1 justify-center"
@@ -196,16 +182,12 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
 
           {totalServers === 0 ? (
             <div className="text-gray-500 text-center py-10">
-              No servers configured. Click &quot;Add Server&quot; to get
-              started.
+              No servers configured. Click &quot;Add Server&quot; to get started.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {configs.map((config, index) => (
-                <div
-                  key={index}
-                  className="border rounded-md overflow-hidden bg-white shadow-sm"
-                >
+                <div key={index} className="border rounded-md overflow-hidden bg-white shadow-sm">
                   <div className="p-4">
                     <div className="flex justify-between items-start">
                       <div>
@@ -221,10 +203,7 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
                           SSE
                         </div>
                       </div>
-                      <button
-                        onClick={() => removeConfig(index)}
-                        className="text-gray-400 hover:text-red-500"
-                      >
+                      <button onClick={() => removeConfig(index)} className="text-gray-400 hover:text-red-500">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -280,19 +259,14 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
                   <Plus className="w-5 h-5 mr-2" />
                   Add New Server
                 </h2>
-                <button
-                  onClick={() => setShowAddServerForm(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
+                <button onClick={() => setShowAddServerForm(false)} className="text-gray-500 hover:text-gray-700">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Server Name
-                  </label>
+                  <label className="block text-sm font-medium mb-1">Server Name</label>
                   <input
                     type="text"
                     value={serverName}
@@ -305,9 +279,7 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
                 {connectionType === "stdio" ? (
                   <>
                     <div>
-                      <label className="block text-sm font-medium mb-1">
-                        Command
-                      </label>
+                      <label className="block text-sm font-medium mb-1">Command</label>
                       <input
                         type="text"
                         value={command}
@@ -317,9 +289,7 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1">
-                        Arguments
-                      </label>
+                      <label className="block text-sm font-medium mb-1">Arguments</label>
                       <input
                         type="text"
                         value={args}
@@ -331,9 +301,7 @@ export function MCPConfigModal({ isOpen, onClose }: MCPConfigModalProps) {
                   </>
                 ) : (
                   <div>
-                    <label className="block text-sm font-medium mb-1">
-                      SSE URL
-                    </label>
+                    <label className="block text-sm font-medium mb-1">SSE URL</label>
                     <input
                       type="text"
                       value={url}

@@ -39,9 +39,7 @@ export interface MergedToolConfig {
 // Mock data generator
 // ---------------------------------------------------------------------------
 
-export function generatePreviewData(
-  inputSchema: Record<string, unknown>,
-): Record<string, unknown> {
+export function generatePreviewData(inputSchema: Record<string, unknown>): Record<string, unknown> {
   const props = inputSchema?.properties as
     | Record<
         string,
@@ -63,9 +61,7 @@ export function generatePreviewData(
     } else {
       switch (schema.type) {
         case "string":
-          mock[key] = schema.description
-            ? schema.description.slice(0, 80)
-            : `sample_${key}`;
+          mock[key] = schema.description ? schema.description.slice(0, 80) : `sample_${key}`;
           break;
         case "number":
         case "integer":
@@ -113,10 +109,7 @@ export function validateToolConfig(config: MergedToolConfig): {
       passed: false,
       message: "Schema is not a valid object",
     });
-  } else if (
-    !(schema as Record<string, unknown>).properties &&
-    !(schema as Record<string, unknown>).type
-  ) {
+  } else if (!(schema as Record<string, unknown>).properties && !(schema as Record<string, unknown>).type) {
     results.push({
       test: "Schema structure",
       passed: false,
@@ -131,8 +124,7 @@ export function validateToolConfig(config: MergedToolConfig): {
   }
 
   // 2. Mock data completeness
-  const required =
-    ((schema as Record<string, unknown>)?.required as string[]) ?? [];
+  const required = ((schema as Record<string, unknown>)?.required as string[]) ?? [];
   const mockKeys = Object.keys(config.previewData);
   const missingRequired = required.filter((r) => !mockKeys.includes(r));
   if (missingRequired.length > 0) {
@@ -150,18 +142,13 @@ export function validateToolConfig(config: MergedToolConfig): {
   }
 
   // 3. Mock data type matching
-  const props =
-    ((schema as Record<string, unknown>)?.properties as Record<
-      string,
-      { type?: string }
-    >) ?? {};
+  const props = ((schema as Record<string, unknown>)?.properties as Record<string, { type?: string }>) ?? {};
   let typeErrors = 0;
   for (const [key, value] of Object.entries(config.previewData)) {
     const propSchema = props[key];
     if (propSchema?.type) {
       const actualType = Array.isArray(value) ? "array" : typeof value;
-      const expectedType =
-        propSchema.type === "integer" ? "number" : propSchema.type;
+      const expectedType = propSchema.type === "integer" ? "number" : propSchema.type;
       if (actualType !== expectedType) {
         typeErrors++;
       }
@@ -170,10 +157,7 @@ export function validateToolConfig(config: MergedToolConfig): {
   results.push({
     test: "Mock data types",
     passed: typeErrors === 0,
-    message:
-      typeErrors === 0
-        ? "All types match schema"
-        : `${typeErrors} type mismatch(es)`,
+    message: typeErrors === 0 ? "All types match schema" : `${typeErrors} type mismatch(es)`,
   });
 
   // 4. HTML check
@@ -229,9 +213,7 @@ export function validateToolConfig(config: MergedToolConfig): {
 const TOOL_CONFIGS_KEY = "mcp-builder-configs";
 
 export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
-  const [configs, setConfigs] = useLocalStorage<
-    Record<string, LocalToolConfig>
-  >(TOOL_CONFIGS_KEY, {});
+  const [configs, setConfigs] = useLocalStorage<Record<string, LocalToolConfig>>(TOOL_CONFIGS_KEY, {});
 
   // Auto-populate configs for newly introspected tools AND prune stale ones
   useEffect(() => {
@@ -243,10 +225,7 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
 
       // --- Prune: remove introspected tools no longer present in any connected server ---
       for (const key of Object.keys(next)) {
-        if (
-          next[key].source === "introspected" &&
-          !introspectedNames.has(key)
-        ) {
+        if (next[key].source === "introspected" && !introspectedNames.has(key)) {
           console.log(
             `[useToolConfigStore] Pruning stale introspected tool "${key}" (no longer in any connected server)`,
           );
@@ -258,18 +237,14 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
       // --- Upsert: add or sync tools currently returned by introspection ---
       for (const tool of introspectedTools) {
         if (!next[tool.name]) {
-          console.log(
-            `[useToolConfigStore] Adding new introspected tool "${tool.name}"`,
-          );
+          console.log(`[useToolConfigStore] Adding new introspected tool "${tool.name}"`);
           next[tool.name] = {
             toolName: tool.name,
             source: "introspected",
             description: tool.description,
             inputSchema: tool.inputSchema,
             htmlSource: tool.uiHtml,
-            previewData: tool.hasUI
-              ? (tool.uiPreviewData ?? {})
-              : generatePreviewData(tool.inputSchema),
+            previewData: tool.hasUI ? (tool.uiPreviewData ?? {}) : generatePreviewData(tool.inputSchema),
             createdAt: Date.now(),
             updatedAt: Date.now(),
           };
@@ -280,13 +255,10 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
           if (raw.mockData !== undefined && raw.previewData === undefined) {
             next[tool.name] = {
               ...next[tool.name],
-              previewData: tool.hasUI
-                ? {}
-                : (raw.mockData as Record<string, unknown>),
+              previewData: tool.hasUI ? {} : (raw.mockData as Record<string, unknown>),
               updatedAt: Date.now(),
             };
-            delete (next[tool.name] as unknown as Record<string, unknown>)
-              .mockData;
+            delete (next[tool.name] as unknown as Record<string, unknown>).mockData;
             changed = true;
           }
           // Keep HTML in sync from server for non-locally-modified tools
@@ -304,8 +276,7 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
           if (
             next[tool.name].source === "introspected" &&
             tool.uiPreviewData &&
-            JSON.stringify(next[tool.name].previewData) !==
-              JSON.stringify(tool.uiPreviewData)
+            JSON.stringify(next[tool.name].previewData) !== JSON.stringify(tool.uiPreviewData)
           ) {
             next[tool.name] = {
               ...next[tool.name],
@@ -318,15 +289,9 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
       }
 
       if (!changed) {
-        console.log(
-          `[useToolConfigStore] Configs in sync — ${Object.keys(next).length} tool(s):`,
-          Object.keys(next),
-        );
+        console.log(`[useToolConfigStore] Configs in sync — ${Object.keys(next).length} tool(s):`, Object.keys(next));
       } else {
-        console.log(
-          `[useToolConfigStore] Configs updated — ${Object.keys(next).length} tool(s):`,
-          Object.keys(next),
-        );
+        console.log(`[useToolConfigStore] Configs updated — ${Object.keys(next).length} tool(s):`, Object.keys(next));
       }
 
       return changed ? next : prev;
@@ -340,10 +305,7 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
 
     const introspectedNames = introspectedTools.map((t) => t.name);
     const configKeys = Object.keys(configs);
-    const staleKeys = configKeys.filter(
-      (k) =>
-        configs[k].source === "introspected" && !introspectedNames.includes(k),
-    );
+    const staleKeys = configKeys.filter((k) => configs[k].source === "introspected" && !introspectedNames.includes(k));
     console.log("[useToolConfigStore] mergedTools recompute", {
       configsCount: configKeys.length,
       configKeys,
@@ -354,9 +316,7 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
 
     for (const config of Object.values(configs)) {
       seen.add(config.toolName);
-      const introspected = introspectedTools.find(
-        (t) => t.name === config.toolName,
-      );
+      const introspected = introspectedTools.find((t) => t.name === config.toolName);
       result.push({
         toolName: config.toolName,
         source: config.source,
@@ -372,8 +332,7 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
           !!(
             introspected &&
             (config.description !== introspected.description ||
-              JSON.stringify(config.inputSchema) !==
-                JSON.stringify(introspected.inputSchema))
+              JSON.stringify(config.inputSchema) !== JSON.stringify(introspected.inputSchema))
           ),
       });
     }
@@ -399,22 +358,15 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
     return result;
   }, [configs, introspectedTools]);
 
-  const getConfig = useCallback(
-    (toolName: string): LocalToolConfig | null => configs[toolName] ?? null,
-    [configs],
-  );
+  const getConfig = useCallback((toolName: string): LocalToolConfig | null => configs[toolName] ?? null, [configs]);
 
   const getMockData = useCallback(
-    (toolName: string): Record<string, unknown> =>
-      configs[toolName]?.previewData ?? {},
+    (toolName: string): Record<string, unknown> => configs[toolName]?.previewData ?? {},
     [configs],
   );
 
   const updateConfig = useCallback(
-    (
-      toolName: string,
-      updates: Partial<Omit<LocalToolConfig, "toolName" | "createdAt">>,
-    ) => {
+    (toolName: string, updates: Partial<Omit<LocalToolConfig, "toolName" | "createdAt">>) => {
       setConfigs((prev) => {
         if (!prev[toolName]) return prev;
         return {
@@ -427,11 +379,7 @@ export function useToolConfigStore(introspectedTools: IntrospectedTool[]) {
   );
 
   const createTool = useCallback(
-    (
-      toolName: string,
-      description: string,
-      inputSchema: Record<string, unknown>,
-    ): LocalToolConfig => {
+    (toolName: string, description: string, inputSchema: Record<string, unknown>): LocalToolConfig => {
       const config: LocalToolConfig = {
         toolName,
         source: "local",

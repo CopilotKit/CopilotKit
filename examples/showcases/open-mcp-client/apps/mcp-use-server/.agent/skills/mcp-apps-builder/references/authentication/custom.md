@@ -10,9 +10,7 @@ Setting up OAuth with any identity provider (GitHub, Okta, Azure AD, Google, etc
 import { MCPServer, oauthCustomProvider, object } from "mcp-use/server";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
-const JWKS = createRemoteJWKSet(
-  new URL("https://login.example.com/.well-known/jwks.json"),
-);
+const JWKS = createRemoteJWKSet(new URL("https://login.example.com/.well-known/jwks.json"));
 
 const server = new MCPServer({
   name: "my-server",
@@ -31,13 +29,11 @@ const server = new MCPServer({
   }),
 });
 
-server.tool(
-  { name: "whoami", description: "Get authenticated user info" },
-  async (_args, ctx) =>
-    object({
-      userId: ctx.auth.user.userId,
-      email: ctx.auth.user.email,
-    }),
+server.tool({ name: "whoami", description: "Get authenticated user info" }, async (_args, ctx) =>
+  object({
+    userId: ctx.auth.user.userId,
+    email: ctx.auth.user.email,
+  }),
 );
 
 server.listen();
@@ -80,9 +76,7 @@ You must provide a `verifyToken` function that validates the JWT and returns `{ 
 ```typescript
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
-const JWKS = createRemoteJWKSet(
-  new URL("https://login.example.com/.well-known/jwks.json"),
-);
+const JWKS = createRemoteJWKSet(new URL("https://login.example.com/.well-known/jwks.json"));
 
 verifyToken: async (token) => {
   const result = await jwtVerify(token, JWKS, {
@@ -161,9 +155,7 @@ oauth: oauthCustomProvider({
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const OKTA_DOMAIN = process.env.OKTA_DOMAIN; // e.g., "dev-123456.okta.com"
-const JWKS = createRemoteJWKSet(
-  new URL(`https://${OKTA_DOMAIN}/oauth2/default/v1/keys`),
-);
+const JWKS = createRemoteJWKSet(new URL(`https://${OKTA_DOMAIN}/oauth2/default/v1/keys`));
 
 oauth: oauthCustomProvider({
   issuer: `https://${OKTA_DOMAIN}/oauth2/default`,
@@ -183,9 +175,7 @@ oauth: oauthCustomProvider({
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const TENANT_ID = process.env.AZURE_TENANT_ID;
-const JWKS = createRemoteJWKSet(
-  new URL(`https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`),
-);
+const JWKS = createRemoteJWKSet(new URL(`https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`));
 
 oauth: oauthCustomProvider({
   issuer: `https://login.microsoftonline.com/${TENANT_ID}/v2.0`,

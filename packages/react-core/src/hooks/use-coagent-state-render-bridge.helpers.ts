@@ -75,17 +75,9 @@ function getStateWithoutConstantKeys(state: any) {
 export function areStatesEquals(a: any, b: any) {
   if ((a && !b) || (!a && b)) return false;
   const { messages, tools, copilotkit, ...aWithoutConstantKeys } = a;
-  const {
-    messages: bMessages,
-    tools: bTools,
-    copilotkit: bCopilotkit,
-    ...bWithoutConstantKeys
-  } = b;
+  const { messages: bMessages, tools: bTools, copilotkit: bCopilotkit, ...bWithoutConstantKeys } = b;
 
-  return (
-    JSON.stringify(aWithoutConstantKeys) ===
-    JSON.stringify(bWithoutConstantKeys)
-  );
+  return JSON.stringify(aWithoutConstantKeys) === JSON.stringify(bWithoutConstantKeys);
 }
 
 export function isPlaceholderMessageId(messageId: string | undefined) {
@@ -138,8 +130,7 @@ export function resolveClaim({
 
   if (existing) {
     const canRender = existing.stateRenderId === stateRenderId;
-    const shouldUpdateRunId =
-      canRender && runId && (!existing.runId || existing.runId === "pending");
+    const shouldUpdateRunId = canRender && runId && (!existing.runId || existing.runId === "pending");
     return {
       canRender,
       action: canRender ? ClaimAction.Existing : ClaimAction.Block,
@@ -169,17 +160,11 @@ export function resolveClaim({
         canRender: true,
         action: ClaimAction.Override,
         nextClaim: { stateRenderId, runId, messageIndex },
-        lockOthers:
-          runId === renderClaimedByOtherMessage.runId ||
-          isPlaceholderMessageId(claimedMessageId),
+        lockOthers: runId === renderClaimedByOtherMessage.runId || isPlaceholderMessageId(claimedMessageId),
       };
     }
 
-    if (
-      runId &&
-      renderClaimedByOtherMessage.runId &&
-      runId !== renderClaimedByOtherMessage.runId
-    ) {
+    if (runId && renderClaimedByOtherMessage.runId && runId !== renderClaimedByOtherMessage.runId) {
       return {
         canRender: true,
         action: ClaimAction.Override,
@@ -246,20 +231,12 @@ export function selectSnapshot({
   caches,
 }: SnapshotSelectionInput): SnapshotSelectionResult {
   const lastAssistantId = agentMessages
-    ? [...agentMessages].toReversed().find((msg) => msg.role === "assistant")
-        ?.id
+    ? [...agentMessages].toReversed().find((msg) => msg.role === "assistant")?.id
     : undefined;
   const latestSnapshot =
-    stateRenderId !== undefined
-      ? caches.byStateRenderAndRun[`${stateRenderId}::latest`]
-      : undefined;
-  const messageIndex = agentMessages
-    ? agentMessages.findIndex((msg) => msg.id === messageId)
-    : -1;
-  const messageRole =
-    messageIndex >= 0 && agentMessages
-      ? agentMessages[messageIndex]?.role
-      : undefined;
+    stateRenderId !== undefined ? caches.byStateRenderAndRun[`${stateRenderId}::latest`] : undefined;
+  const messageIndex = agentMessages ? agentMessages.findIndex((msg) => msg.id === messageId) : -1;
+  const messageRole = messageIndex >= 0 && agentMessages ? agentMessages[messageIndex]?.role : undefined;
   let previousUserMessageId: string | undefined;
   if (messageIndex > 0 && agentMessages) {
     for (let i = messageIndex - 1; i >= 0; i -= 1) {
@@ -275,10 +252,7 @@ export function selectSnapshot({
     agentState !== undefined &&
     areStatesEquals(latestSnapshot, agentState);
   const shouldUseLiveState =
-    (Boolean(allowLiveState) ||
-      !lastAssistantId ||
-      messageId === lastAssistantId) &&
-    !liveStateIsStale;
+    (Boolean(allowLiveState) || !lastAssistantId || messageId === lastAssistantId) && !liveStateIsStale;
   const snapshot = stateSnapshotProp
     ? parseJson(stateSnapshotProp, stateSnapshotProp)
     : shouldUseLiveState
@@ -286,45 +260,29 @@ export function selectSnapshot({
       : undefined;
   const hasSnapshotKeys = !!(snapshot && Object.keys(snapshot).length > 0);
   const allowEmptySnapshot =
-    snapshot !== undefined &&
-    !hasSnapshotKeys &&
-    (stateSnapshotProp !== undefined || shouldUseLiveState);
+    snapshot !== undefined && !hasSnapshotKeys && (stateSnapshotProp !== undefined || shouldUseLiveState);
 
   const messageCacheEntry = caches.byMessageId[messageId];
-  const cachedMessageSnapshot =
-    readCachedMessageEntry(messageCacheEntry).snapshot;
-  const cacheKey =
-    stateRenderId !== undefined
-      ? `${stateRenderId}::${effectiveRunId}`
-      : undefined;
+  const cachedMessageSnapshot = readCachedMessageEntry(messageCacheEntry).snapshot;
+  const cacheKey = stateRenderId !== undefined ? `${stateRenderId}::${effectiveRunId}` : undefined;
   let cachedSnapshot = cachedMessageSnapshot ?? caches.byMessageId[messageId];
-  if (
-    cachedSnapshot === undefined &&
-    cacheKey &&
-    caches.byStateRenderAndRun[cacheKey] !== undefined
-  ) {
+  if (cachedSnapshot === undefined && cacheKey && caches.byStateRenderAndRun[cacheKey] !== undefined) {
     cachedSnapshot = caches.byStateRenderAndRun[cacheKey];
   }
   if (
     cachedSnapshot === undefined &&
     stateRenderId &&
     previousUserMessageId &&
-    caches.byStateRenderAndRun[
-      `${stateRenderId}::pending:${previousUserMessageId}`
-    ] !== undefined
+    caches.byStateRenderAndRun[`${stateRenderId}::pending:${previousUserMessageId}`] !== undefined
   ) {
-    cachedSnapshot =
-      caches.byStateRenderAndRun[
-        `${stateRenderId}::pending:${previousUserMessageId}`
-      ];
+    cachedSnapshot = caches.byStateRenderAndRun[`${stateRenderId}::pending:${previousUserMessageId}`];
   }
   if (
     cachedSnapshot === undefined &&
     !skipLatestCache &&
     stateRenderId &&
     messageRole !== "assistant" &&
-    (stateSnapshotProp !== undefined ||
-      (agentState && Object.keys(agentState).length > 0))
+    (stateSnapshotProp !== undefined || (agentState && Object.keys(agentState).length > 0))
   ) {
     cachedSnapshot = caches.byStateRenderAndRun[`${stateRenderId}::latest`];
   }

@@ -56,19 +56,13 @@
       // Create inner iframe
       const inner = document.createElement("iframe");
       inner.style = "width:100%; height:100%; border:none;";
-      inner.setAttribute(
-        "sandbox",
-        "allow-scripts allow-same-origin allow-forms",
-      );
+      inner.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms");
       document.body.appendChild(inner);
 
       // Relay messages between parent and inner
       window.addEventListener("message", async (event) => {
         if (event.source === window.parent) {
-          if (
-            event.data &&
-            event.data.method === "ui/notifications/sandbox-resource-ready"
-          ) {
+          if (event.data && event.data.method === "ui/notifications/sandbox-resource-ready") {
             const { html, sandbox } = event.data.params;
             if (typeof sandbox === "string") {
               inner.setAttribute("sandbox", sandbox);

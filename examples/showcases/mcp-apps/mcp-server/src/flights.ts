@@ -220,10 +220,7 @@ function generateConfirmationNumber(): string {
  * Calculate approximate flight duration based on airport codes.
  * Uses simple distance estimation.
  */
-function calculateDuration(
-  origin: string,
-  destination: string,
-): { duration: string; hours: number } {
+function calculateDuration(origin: string, destination: string): { duration: string; hours: number } {
   // Simplified distance matrix (hours of flight time)
   const distances: Record<string, Record<string, number>> = {
     JFK: {
@@ -309,8 +306,7 @@ function calculateDuration(
   };
 
   // Get hours, default to 5 if not found
-  const hours =
-    distances[origin]?.[destination] || distances[destination]?.[origin] || 5;
+  const hours = distances[origin]?.[destination] || distances[destination]?.[origin] || 5;
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
 
@@ -332,9 +328,7 @@ function generateDepartureTimes(count: number): string[] {
   for (let i = 0; i < count; i++) {
     const hour = Math.floor(startHour + i * interval);
     const minute = Math.floor(Math.random() * 4) * 15; // 0, 15, 30, or 45
-    times.push(
-      `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`,
-    );
+    times.push(`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`);
   }
 
   return times;
@@ -343,10 +337,7 @@ function generateDepartureTimes(count: number): string[] {
 /**
  * Calculate arrival time given departure and duration.
  */
-function calculateArrivalTime(
-  departure: string,
-  durationHours: number,
-): string {
+function calculateArrivalTime(departure: string, durationHours: number): string {
   const [depHour, depMinute] = departure.split(":").map(Number);
   const totalMinutes = depHour * 60 + depMinute + durationHours * 60;
   const arrHour = Math.floor(totalMinutes / 60) % 24;
@@ -365,8 +356,7 @@ function generatePrice(durationHours: number, cabinClass: CabinClass): number {
   basePrice *= 0.8 + Math.random() * 0.4;
 
   // Multiply by class
-  const classMultiplier =
-    cabinClass === "first" ? 4 : cabinClass === "business" ? 2.5 : 1;
+  const classMultiplier = cabinClass === "first" ? 4 : cabinClass === "business" ? 2.5 : 1;
 
   return Math.round(basePrice * classMultiplier);
 }
@@ -381,21 +371,13 @@ export function searchFlights(params: {
   passengers: number;
   cabinClass?: CabinClass;
 }): FlightSearch {
-  const {
-    origin,
-    destination,
-    departureDate,
-    passengers,
-    cabinClass = "economy",
-  } = params;
+  const { origin, destination, departureDate, passengers, cabinClass = "economy" } = params;
 
   const originAirport = getAirportByCode(origin);
   const destAirport = getAirportByCode(destination);
 
   if (!originAirport || !destAirport) {
-    throw new Error(
-      `Invalid airport code: ${!originAirport ? origin : destination}`,
-    );
+    throw new Error(`Invalid airport code: ${!originAirport ? origin : destination}`);
   }
 
   const searchId = generateSearchId();
@@ -421,12 +403,9 @@ export function searchFlights(params: {
       departureTime: depTime,
       arrivalTime: calculateArrivalTime(depTime, hours + stops * 1.5),
       duration:
-        stops > 0
-          ? `${Math.floor(hours + stops * 1.5)}h ${Math.round(((hours + stops * 1.5) % 1) * 60)}m`
-          : duration,
+        stops > 0 ? `${Math.floor(hours + stops * 1.5)}h ${Math.round(((hours + stops * 1.5) % 1) * 60)}m` : duration,
       stops,
-      aircraft:
-        AIRCRAFT_TYPES[Math.floor(Math.random() * AIRCRAFT_TYPES.length)],
+      aircraft: AIRCRAFT_TYPES[Math.floor(Math.random() * AIRCRAFT_TYPES.length)],
       price,
       cabinClass,
       seatsAvailable,
@@ -464,10 +443,7 @@ export function getFlightSearch(searchId: string): FlightSearch | undefined {
 /**
  * Select a flight from search results.
  */
-export function selectFlight(
-  searchId: string,
-  flightId: string,
-): { flight: Flight; seatMap: Seat[][] } | undefined {
+export function selectFlight(searchId: string, flightId: string): { flight: Flight; seatMap: Seat[][] } | undefined {
   const search = flightSearches.get(searchId);
   if (!search) return undefined;
 

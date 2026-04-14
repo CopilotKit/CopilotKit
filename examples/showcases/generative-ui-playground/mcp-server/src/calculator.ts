@@ -54,9 +54,7 @@ export function createCalculator(): CalculatorState {
 /**
  * Get calculator state by ID.
  */
-export function getCalculator(
-  calculatorId: string,
-): CalculatorState | undefined {
+export function getCalculator(calculatorId: string): CalculatorState | undefined {
   return calculators.get(calculatorId);
 }
 
@@ -91,10 +89,7 @@ function safeEvaluate(expression: string): number {
 /**
  * Input a character or operation to the calculator.
  */
-export function inputCalculator(
-  calculatorId: string,
-  input: string,
-): CalculatorResult {
+export function inputCalculator(calculatorId: string, input: string): CalculatorResult {
   const state = calculators.get(calculatorId);
   if (!state) {
     return { success: false, message: "Calculator not found" };
@@ -123,9 +118,7 @@ export function inputCalculator(
       if (state.expression) {
         try {
           const result = safeEvaluate(state.expression);
-          const resultStr = Number.isInteger(result)
-            ? result.toString()
-            : result.toFixed(8).replace(/\.?0+$/, "");
+          const resultStr = Number.isInteger(result) ? result.toString() : result.toFixed(8).replace(/\.?0+$/, "");
 
           // Add to history
           state.history.push({
@@ -152,8 +145,7 @@ export function inputCalculator(
           state.display = "Error";
           return {
             success: false,
-            message:
-              error instanceof Error ? error.message : "Calculation error",
+            message: error instanceof Error ? error.message : "Calculation error",
             state,
           };
         }
@@ -263,10 +255,7 @@ export function inputCalculator(
 /**
  * Evaluate a full expression directly.
  */
-export function evaluateExpression(
-  calculatorId: string,
-  expression: string,
-): CalculatorResult {
+export function evaluateExpression(calculatorId: string, expression: string): CalculatorResult {
   const state = calculators.get(calculatorId);
   if (!state) {
     return { success: false, message: "Calculator not found" };
@@ -274,9 +263,7 @@ export function evaluateExpression(
 
   try {
     const result = safeEvaluate(expression);
-    const resultStr = Number.isInteger(result)
-      ? result.toString()
-      : result.toFixed(8).replace(/\.?0+$/, "");
+    const resultStr = Number.isInteger(result) ? result.toString() : result.toFixed(8).replace(/\.?0+$/, "");
 
     state.history.push({
       expression,

@@ -17,11 +17,7 @@ export { useA2UI } from "./hooks/useA2UI";
 export type { UseA2UIResult } from "./hooks/useA2UI";
 
 // Theme
-export {
-  ThemeProvider,
-  useTheme,
-  useThemeOptional,
-} from "./theme/ThemeContext";
+export { ThemeProvider, useTheme, useThemeOptional } from "./theme/ThemeContext";
 
 // Utilities
 export { cn } from "./lib/utils";
@@ -48,10 +44,7 @@ export type {
 
 // Catalog creation — deprecated API (combined definitions + renderers)
 export { createA2UICatalog, extractA2UISchema } from "./create-catalog";
-export type {
-  A2UIComponentDefinition,
-  A2UIComponentMap,
-} from "./create-catalog";
+export type { A2UIComponentDefinition, A2UIComponentMap } from "./create-catalog";
 
 // Styles
 export { injectStyles, removeStyles } from "./styles";

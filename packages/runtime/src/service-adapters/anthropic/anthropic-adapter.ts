@@ -137,9 +137,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     const originalTextLength = system.length;
 
     if (debug) {
-      console.log(
-        `[ANTHROPIC CACHE DEBUG] Added cache control to system prompt (${originalTextLength} chars).`,
-      );
+      console.log(`[ANTHROPIC CACHE DEBUG] Added cache control to system prompt (${originalTextLength} chars).`);
     }
 
     return [
@@ -154,10 +152,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
   /**
    * Adds cache control to the final message
    */
-  private addIncrementalMessageCaching(
-    messages: Anthropic.Messages.MessageParam[],
-    debug: boolean = false,
-  ): any[] {
+  private addIncrementalMessageCaching(messages: Anthropic.Messages.MessageParam[], debug: boolean = false): any[] {
     if (!this.promptCaching.enabled || messages.length === 0) {
       return messages;
     }
@@ -165,10 +160,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     const finalMessage = messages[messages.length - 1];
     const messageNumber = messages.length;
 
-    if (
-      Array.isArray(finalMessage.content) &&
-      finalMessage.content.length > 0
-    ) {
+    if (Array.isArray(finalMessage.content) && finalMessage.content.length > 0) {
       const finalBlock = finalMessage.content[finalMessage.content.length - 1];
 
       const updatedMessages = [
@@ -183,9 +175,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
       ];
 
       if (debug) {
-        console.log(
-          `[ANTHROPIC CACHE DEBUG] Added cache control to final message (message ${messageNumber}).`,
-        );
+        console.log(`[ANTHROPIC CACHE DEBUG] Added cache control to final message (message ${messageNumber}).`);
       }
 
       return updatedMessages;
@@ -194,9 +184,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     return messages;
   }
 
-  private shouldGenerateFallbackResponse(
-    messages: Anthropic.Messages.MessageParam[],
-  ): boolean {
+  private shouldGenerateFallbackResponse(messages: Anthropic.Messages.MessageParam[]): boolean {
     if (messages.length === 0) return false;
 
     const lastMessage = messages[messages.length - 1];
@@ -205,9 +193,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     const endsWithToolResult =
       lastMessage.role === "user" &&
       Array.isArray(lastMessage.content) &&
-      lastMessage.content.some(
-        (content: any) => content.type === "tool_result",
-      );
+      lastMessage.content.some((content: any) => content.type === "tool_result");
 
     // Also check if we have a recent pattern of user message -> assistant tool use -> user tool result
     // This indicates a completed action that might not need a response
@@ -217,14 +203,10 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         lastThree[0]?.role === "user" && // Initial user message
         lastThree[1]?.role === "assistant" && // Assistant tool use
         Array.isArray(lastThree[1].content) &&
-        lastThree[1].content.some(
-          (content: any) => content.type === "tool_use",
-        ) &&
+        lastThree[1].content.some((content: any) => content.type === "tool_use") &&
         lastThree[2]?.role === "user" && // Tool result
         Array.isArray(lastThree[2].content) &&
-        lastThree[2].content.some(
-          (content: any) => content.type === "tool_result",
-        );
+        lastThree[2].content.some((content: any) => content.type === "tool_result");
 
       return hasRecentToolPattern;
     }
@@ -232,26 +214,15 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     return endsWithToolResult;
   }
 
-  async process(
-    request: CopilotRuntimeChatCompletionRequest,
-  ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const {
-      threadId,
-      model = this.model,
-      messages: rawMessages,
-      actions,
-      eventSource,
-      forwardedParameters,
-    } = request;
+  async process(request: CopilotRuntimeChatCompletionRequest): Promise<CopilotRuntimeChatCompletionResponse> {
+    const { threadId, model = this.model, messages: rawMessages, actions, eventSource, forwardedParameters } = request;
     const tools = actions.map(convertActionInputToAnthropicTool);
 
     const messages = [...rawMessages];
 
     // get the instruction message
     const instructionsMessage = messages.shift();
-    const instructions = instructionsMessage.isTextMessage()
-      ? instructionsMessage.content
-      : "";
+    const instructions = instructionsMessage.isTextMessage() ? instructionsMessage.content : "";
 
     // ALLOWLIST APPROACH:
     // 1. First, identify all valid tool_use calls (from assistant)
@@ -308,8 +279,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
           const hasEmptyTextOnly =
             msg.content.length === 1 &&
             msg.content[0].type === "text" &&
-            (!(msg.content[0] as any).text ||
-              (msg.content[0] as any).text.trim() === "");
+            (!(msg.content[0] as any).text || (msg.content[0] as any).text.trim() === "");
 
           // Keep messages that have tool_use or non-empty text
           return !hasEmptyTextOnly;
@@ -318,21 +288,11 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
       }) as Anthropic.Messages.MessageParam[];
 
     // Apply token limits
-    const limitedMessages = limitMessagesToTokenCount(
-      anthropicMessages,
-      tools,
-      model,
-    );
+    const limitedMessages = limitMessagesToTokenCount(anthropicMessages, tools, model);
 
     // Apply prompt caching if enabled
-    const cachedSystemPrompt = this.addSystemPromptCaching(
-      instructions,
-      this.promptCaching.debug,
-    );
-    const cachedMessages = this.addIncrementalMessageCaching(
-      limitedMessages,
-      this.promptCaching.debug,
-    );
+    const cachedSystemPrompt = this.addSystemPromptCaching(instructions, this.promptCaching.debug);
+    const cachedMessages = this.addIncrementalMessageCaching(limitedMessages, this.promptCaching.debug);
 
     // We'll check if we need a fallback response after seeing what Anthropic returns
     // We skip grouping by role since we've already ensured uniqueness of tool_results
@@ -351,9 +311,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         model: this.model,
         messages: cachedMessages,
         max_tokens: forwardedParameters?.maxTokens || 1024,
-        ...(forwardedParameters?.temperature
-          ? { temperature: forwardedParameters.temperature }
-          : {}),
+        ...(forwardedParameters?.temperature ? { temperature: forwardedParameters.temperature } : {}),
         ...(tools.length > 0 && { tools }),
         ...(toolChoice && { tool_choice: toolChoice }),
         stream: true,
@@ -391,9 +349,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
               }
             } else if (chunk.type === "content_block_delta") {
               if (chunk.delta.type === "text_delta") {
-                const text = filterThinkingTextBuffer.onTextChunk(
-                  chunk.delta.text,
-                );
+                const text = filterThinkingTextBuffer.onTextChunk(chunk.delta.text);
                 if (text.length > 0) {
                   if (!didOutputText) {
                     eventStream$.sendTextMessageStart({
@@ -431,24 +387,13 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
         }
 
         // Generate fallback response only if Anthropic produced no content
-        if (
-          !hasReceivedContent &&
-          this.shouldGenerateFallbackResponse(cachedMessages)
-        ) {
+        if (!hasReceivedContent && this.shouldGenerateFallbackResponse(cachedMessages)) {
           // Extract the tool result content for a more contextual response
           let fallbackContent = "Task completed successfully.";
           const lastMessage = cachedMessages[cachedMessages.length - 1];
-          if (
-            lastMessage?.role === "user" &&
-            Array.isArray(lastMessage.content)
-          ) {
-            const toolResult = lastMessage.content.find(
-              (c: any) => c.type === "tool_result",
-            );
-            if (
-              toolResult?.content &&
-              toolResult.content !== "Action completed successfully"
-            ) {
+          if (lastMessage?.role === "user" && Array.isArray(lastMessage.content)) {
+            const toolResult = lastMessage.content.find((c: any) => c.type === "tool_result");
+            if (toolResult?.content && toolResult.content !== "Action completed successfully") {
               fallbackContent = toolResult.content;
             }
           }

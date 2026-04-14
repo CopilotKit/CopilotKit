@@ -62,12 +62,7 @@
  * For more information about how to customize the styles, check out the [Customize Look & Feel](/guides/custom-look-and-feel/customize-built-in-ui-components) guide.
  */
 
-import {
-  ChatContext,
-  ChatContextProvider,
-  CopilotChatIcons,
-  CopilotChatLabels,
-} from "./ChatContext";
+import { ChatContext, ChatContextProvider, CopilotChatIcons, CopilotChatLabels } from "./ChatContext";
 import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
 import { RenderMessage as DefaultRenderMessage } from "./messages/RenderMessage";
@@ -457,18 +452,12 @@ export function CopilotChat({
   const attachmentsAccept = resolvedAttachments?.accept ?? "*/*";
   const attachmentsMaxSize = resolvedAttachments?.maxSize ?? 20 * 1024 * 1024;
 
-  const [selectedAttachments, setSelectedAttachments] = useState<Attachment[]>(
-    [],
-  );
+  const [selectedAttachments, setSelectedAttachments] = useState<Attachment[]>([]);
   const [dragOver, setDragOver] = useState(false);
-  const processFilesRef = useRef<(files: File[]) => Promise<void>>(
-    async () => {},
-  );
+  const processFilesRef = useRef<(files: File[]) => Promise<void>>(async () => {});
 
   const [chatError, setChatError] = useState<ChatError | null>(null);
-  const [messageFeedback, setMessageFeedback] = useState<
-    Record<string, "thumbsUp" | "thumbsDown">
-  >({});
+  const [messageFeedback, setMessageFeedback] = useState<Record<string, "thumbsUp" | "thumbsDown">>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Helper function to trigger event hooks only if publicApiKey is provided
@@ -495,14 +484,9 @@ export function CopilotChat({
   // Helper function to trigger chat error and render error UI
   const triggerChatError = useCallback(
     (error: any, operation: string, originalError?: any) => {
-      const errorMessage =
-        error?.message || error?.toString() || "An error occurred";
+      const errorMessage = error?.message || error?.toString() || "An error occurred";
 
-      console.error(
-        `[CopilotKit] ${operation} error:`,
-        errorMessage,
-        originalError ?? error,
-      );
+      console.error(`[CopilotKit] ${operation} error:`, errorMessage, originalError ?? error);
 
       // Set chat error state for rendering
       setChatError({
@@ -523,12 +507,8 @@ export function CopilotChat({
           },
           technical: {
             environment: "browser",
-            userAgent:
-              typeof navigator !== "undefined"
-                ? navigator.userAgent
-                : undefined,
-            stackTrace:
-              originalError instanceof Error ? originalError.stack : undefined,
+            userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+            stackTrace: originalError instanceof Error ? originalError.stack : undefined,
           },
         },
         error,
@@ -547,8 +527,7 @@ export function CopilotChat({
       if (observabilityHooks?.onError && !publicApiKey) {
         setBannerError(
           new CopilotKitError({
-            message:
-              "observabilityHooks.onError requires a publicApiKey to function.",
+            message: "observabilityHooks.onError requires a publicApiKey to function.",
             code: CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
             severity: Severity.CRITICAL,
             visibility: ErrorVisibility.BANNER,
@@ -593,9 +572,7 @@ export function CopilotChat({
       if (fileItems.length === 0) return;
       e.preventDefault();
 
-      const files = fileItems
-        .map((item) => item.getAsFile())
-        .filter((f): f is File => f !== null);
+      const files = fileItems.map((item) => item.getAsFile()).filter((f): f is File => f !== null);
 
       try {
         await processFilesRef.current(files);
@@ -606,12 +583,7 @@ export function CopilotChat({
 
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-  }, [
-    attachmentsEnabled,
-    attachmentsAccept,
-    attachmentsMaxSize,
-    triggerChatError,
-  ]);
+  }, [attachmentsEnabled, attachmentsAccept, attachmentsMaxSize, triggerChatError]);
 
   useEffect(() => {
     if (!additionalInstructions?.length) {
@@ -670,14 +642,9 @@ export function CopilotChat({
 
   // Wrapper for sendMessage to clear selected attachments and build multimodal content
   const handleSendMessage = (text: string) => {
-    const hasUploading = selectedAttachments.some(
-      (a) => a.status === "uploading",
-    );
+    const hasUploading = selectedAttachments.some((a) => a.status === "uploading");
     if (hasUploading) {
-      triggerChatError(
-        new Error("Attachment(s) still uploading. Please wait."),
-        "sendMessage",
-      );
+      triggerChatError(new Error("Attachment(s) still uploading. Please wait."), "sendMessage");
       // Return a promise that resolves to a dummy message to satisfy the return type
       return Promise.resolve({
         id: randomUUID(),
@@ -686,9 +653,7 @@ export function CopilotChat({
       } as Message);
     }
 
-    const currentAttachments = selectedAttachments.filter(
-      (a) => a.status === "ready",
-    );
+    const currentAttachments = selectedAttachments.filter((a) => a.status === "ready");
     setSelectedAttachments([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -755,12 +720,8 @@ export function CopilotChat({
   };
 
   const processFiles = async (files: File[]) => {
-    const validFiles = files.filter((file) =>
-      matchesAcceptFilter(file, attachmentsAccept),
-    );
-    const rejectedFiles = files.filter(
-      (file) => !matchesAcceptFilter(file, attachmentsAccept),
-    );
+    const validFiles = files.filter((file) => matchesAcceptFilter(file, attachmentsAccept));
+    const rejectedFiles = files.filter((file) => !matchesAcceptFilter(file, attachmentsAccept));
     for (const file of rejectedFiles) {
       const message = `File "${file.name}" is not accepted. Supported types: ${attachmentsAccept}`;
       triggerChatError(new Error(message), "fileUpload");
@@ -803,8 +764,7 @@ export function CopilotChat({
         let uploadMetadata: Record<string, unknown> | undefined;
 
         if (resolvedAttachments?.onUpload) {
-          const { metadata: meta, ...uploadSource } =
-            await resolvedAttachments.onUpload(file);
+          const { metadata: meta, ...uploadSource } = await resolvedAttachments.onUpload(file);
           source = uploadSource;
           uploadMetadata = meta;
         } else {
@@ -833,15 +793,9 @@ export function CopilotChat({
         );
       } catch (error) {
         // Remove the failed placeholder
-        setSelectedAttachments((prev) =>
-          prev.filter((att) => att.id !== placeholderId),
-        );
+        setSelectedAttachments((prev) => prev.filter((att) => att.id !== placeholderId));
         const message = error instanceof Error ? error.message : String(error);
-        triggerChatError(
-          new Error(`Failed to upload "${file.name}": ${message}`),
-          "fileUpload",
-          error,
-        );
+        triggerChatError(new Error(`Failed to upload "${file.name}": ${message}`), "fileUpload", error);
         resolvedAttachments?.onUploadFailed?.({
           reason: "upload-failed",
           file,
@@ -852,9 +806,7 @@ export function CopilotChat({
   };
   processFilesRef.current = processFiles;
 
-  const handleFileUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files || event.target.files.length === 0) return;
     try {
       await processFiles(Array.from(event.target.files));
@@ -979,11 +931,7 @@ export function CopilotChat({
           <>
             <AttachmentQueue
               attachments={selectedAttachments}
-              onRemoveAttachment={(id) =>
-                setSelectedAttachments((prev) =>
-                  prev.filter((att) => att.id !== id),
-                )
-              }
+              onRemoveAttachment={(id) => setSelectedAttachments((prev) => prev.filter((att) => att.id !== id))}
             />
             <input
               type="file"
@@ -1002,9 +950,7 @@ export function CopilotChat({
           onSend={handleSendMessage}
           isVisible={isVisible}
           onStop={stopGeneration}
-          onUpload={
-            attachmentsEnabled ? () => fileInputRef.current?.click() : undefined
-          }
+          onUpload={attachmentsEnabled ? () => fileInputRef.current?.click() : undefined}
           hideStopButton={hideStopButton}
         />
       </div>
@@ -1026,12 +972,7 @@ export function WrappedCopilotChat({
   const chatContext = React.useContext(ChatContext);
   if (!chatContext) {
     return (
-      <ChatContextProvider
-        icons={icons}
-        labels={labels}
-        open={true}
-        setOpen={() => {}}
-      >
+      <ChatContextProvider icons={icons} labels={labels} open={true} setOpen={() => {}}>
         <div className={`copilotKitChat ${className ?? ""}`}>{children}</div>
       </ChatContextProvider>
     );

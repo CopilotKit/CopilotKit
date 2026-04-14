@@ -44,18 +44,12 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setSize(width, height);
 renderer.shadowMap.enabled = true;
 
-const cube = new THREE.Mesh(
-  new THREE.BoxGeometry(),
-  new THREE.MeshStandardMaterial({ color: 0x00ff88 }),
-);
+const cube = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ color: 0x00ff88 }));
 cube.castShadow = true;
 cube.position.y = 0.5;
 scene.add(cube);
 
-const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(5, 5),
-  new THREE.MeshStandardMaterial({ color: 0x222233 }),
-);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), new THREE.MeshStandardMaterial({ color: 0x222233 }));
 floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);

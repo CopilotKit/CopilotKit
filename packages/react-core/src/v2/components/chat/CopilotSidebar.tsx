@@ -4,10 +4,7 @@ import { InlineFeatureWarning } from "../license-warning-banner";
 
 import { CopilotChat, CopilotChatProps } from "./CopilotChat";
 import CopilotChatView, { CopilotChatViewProps } from "./CopilotChatView";
-import {
-  CopilotSidebarView,
-  CopilotSidebarViewProps,
-} from "./CopilotSidebarView";
+import { CopilotSidebarView, CopilotSidebarViewProps } from "./CopilotSidebarView";
 
 export type CopilotSidebarProps = Omit<CopilotChatProps, "chatView"> & {
   header?: CopilotSidebarViewProps["header"];
@@ -16,21 +13,13 @@ export type CopilotSidebarProps = Omit<CopilotChatProps, "chatView"> & {
   width?: number | string;
 };
 
-export function CopilotSidebar({
-  header,
-  toggleButton,
-  defaultOpen,
-  width,
-  ...chatProps
-}: CopilotSidebarProps) {
+export function CopilotSidebar({ header, toggleButton, defaultOpen, width, ...chatProps }: CopilotSidebarProps) {
   const { checkFeature } = useLicenseContext();
   const isSidebarLicensed = checkFeature("sidebar");
 
   useEffect(() => {
     if (!isSidebarLicensed) {
-      console.warn(
-        '[CopilotKit] Warning: "sidebar" feature is not licensed. Visit copilotkit.ai/pricing',
-      );
+      console.warn('[CopilotKit] Warning: "sidebar" feature is not licensed. Visit copilotkit.ai/pricing');
     }
   }, [isSidebarLicensed]);
 

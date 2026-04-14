@@ -12,14 +12,8 @@ import { ToolDetailModal } from "./components/ToolDetail";
 import { ChatSuggestions } from "./components/ChatSuggestions";
 import { LoadingSpinner, EmptyState } from "./components/shared";
 import { useMcpServers } from "./components/CopilotKitProvider";
-import {
-  useMcpIntrospect,
-  type ServerIntrospection,
-} from "./hooks/useMcpIntrospect";
-import {
-  useToolConfigStore,
-  type MergedToolConfig,
-} from "./hooks/useToolConfigStore";
+import { useMcpIntrospect, type ServerIntrospection } from "./hooks/useMcpIntrospect";
+import { useToolConfigStore, type MergedToolConfig } from "./hooks/useToolConfigStore";
 import {
   getHeaderDocsUrl,
   getHeaderLogoUrl,
@@ -34,8 +28,7 @@ import copilotKitLogo from "./image.png";
 
 const CHAT_LABELS = {
   chatInputPlaceholder: "Ask me to build a widget or add an MCP server…",
-  welcomeMessageText:
-    "Hi! I'm the MCP App builder. Add an MCP server in the sidebar, or ask me to build a widget.",
+  welcomeMessageText: "Hi! I'm the MCP App builder. Add an MCP server in the sidebar, or ask me to build a widget.",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -47,18 +40,10 @@ export default function CopilotKitPage() {
   const { appendMessage } = useCopilotChat();
 
   const { servers } = useMcpServers();
-  const {
-    allTools,
-    data: serverData,
-    loading,
-    refresh,
-  } = useMcpIntrospect(servers);
+  const { allTools, data: serverData, loading, refresh } = useMcpIntrospect(servers);
   const toolStore = useToolConfigStore(allTools);
 
-  const activeTool =
-    toolStore.mergedTools.find((t) => t.toolName === selectedTool) ??
-    toolStore.mergedTools[0] ??
-    null;
+  const activeTool = toolStore.mergedTools.find((t) => t.toolName === selectedTool) ?? toolStore.mergedTools[0] ?? null;
 
   const handleTryPrompt = (prompt: string) => {
     appendMessage(new TextMessage({ content: prompt, role: Role.User }));
@@ -91,12 +76,7 @@ export default function CopilotKitPage() {
 
 function GitHubIcon({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden
-    >
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
     </svg>
   );
@@ -114,14 +94,9 @@ function TopBar() {
         <span className="shrink-0 text-sm font-semibold leading-none tracking-tight text-slate-900 sm:text-base">
           MCP App builder
         </span>
-        <span
-          className="hidden h-4 w-px shrink-0 bg-slate-200 sm:block"
-          aria-hidden
-        />
+        <span className="hidden h-4 w-px shrink-0 bg-slate-200 sm:block" aria-hidden />
         <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
-          <span className="shrink-0 text-[10px] font-medium text-slate-500 sm:text-xs">
-            Powered by
-          </span>
+          <span className="shrink-0 text-[10px] font-medium text-slate-500 sm:text-xs">Powered by</span>
           <a
             href={logoUrl}
             target="_blank"
@@ -194,9 +169,7 @@ function StudioView({
 }) {
   const { servers, setServers } = useMcpServers();
   const [mobileTab, setMobileTab] = useState<"chat" | "tools">("chat");
-  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceInfo | null>(
-    null,
-  );
+  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceInfo | null>(null);
   /** Tool open in the detail modal (sidebar list stays compact). */
   const [detailTool, setDetailTool] = useState<MergedToolConfig | null>(null);
 
@@ -243,10 +216,7 @@ function StudioView({
           });
           setServers((prev) => {
             if (prev.some((s) => s.endpoint === liveEndpoint)) return prev;
-            return [
-              ...prev,
-              { endpoint: liveEndpoint, serverId: serverId ?? "workspace" },
-            ];
+            return [...prev, { endpoint: liveEndpoint, serverId: serverId ?? "workspace" }];
           });
         })
         .catch(() => localStorage.removeItem("mcp_active_workspace"));
@@ -269,9 +239,7 @@ function StudioView({
 
       {/* Tool list — compact rows; full detail in modal */}
       <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <h3 className="mb-2 shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Tools
-        </h3>
+        <h3 className="mb-2 shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-500">Tools</h3>
 
         {loading && mergedTools.length === 0 && <LoadingSpinner />}
 
@@ -295,9 +263,7 @@ function StudioView({
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="block truncate text-sm font-medium text-slate-900">
-                        {t.toolName}
-                      </span>
+                      <span className="block truncate text-sm font-medium text-slate-900">{t.toolName}</span>
                       {t.hasUI && (
                         <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold bg-emerald-100 text-emerald-700">
                           UI
@@ -314,9 +280,7 @@ function StudioView({
                         </span>
                       )}
                     </div>
-                    <span className="block truncate text-[11px] text-slate-500">
-                      {t.description}
-                    </span>
+                    <span className="block truncate text-[11px] text-slate-500">{t.description}</span>
                   </div>
                   <svg
                     className="h-4 w-4 shrink-0 text-slate-400"
@@ -325,12 +289,7 @@ function StudioView({
                     stroke="currentColor"
                     aria-hidden
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
               </li>
@@ -383,9 +342,7 @@ function StudioView({
       <BuilderAgentProvider
         activeTool={activeTool}
         allToolNames={mergedTools.map((t) => t.toolName)}
-        onAddServer={(endpoint, serverId) =>
-          setServers((prev) => [...prev, { endpoint, serverId }])
-        }
+        onAddServer={(endpoint, serverId) => setServers((prev) => [...prev, { endpoint, serverId }])}
         onRefreshServers={onRefresh}
         connectedServers={servers.map((s) => s.endpoint)}
         activeWorkspace={activeWorkspace}

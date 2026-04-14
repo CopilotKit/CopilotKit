@@ -10,10 +10,7 @@ import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { AIMessage, SystemMessage } from "@langchain/core/messages";
 import { MemorySaver, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
-import {
-  convertActionsToDynamicStructuredTools,
-  CopilotKitStateAnnotation,
-} from "@copilotkit/sdk-js/langgraph";
+import { convertActionsToDynamicStructuredTools, CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 import { Annotation } from "@langchain/langgraph";
 
 // 1. Define our agent state, which includes CopilotKit state to
@@ -62,10 +59,7 @@ async function chat_node(state: AgentState, config: RunnableConfig) {
   });
 
   // 5.4 Invoke the model with the system message and the messages in the state
-  const response = await modelWithTools.invoke(
-    [systemMessage, ...state.messages],
-    config,
-  );
+  const response = await modelWithTools.invoke([systemMessage, ...state.messages], config);
 
   // 5.5 Return the response, which will be added to the state
   return {

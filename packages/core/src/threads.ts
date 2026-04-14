@@ -99,9 +99,7 @@ interface MutationRequest {
   body: Record<string, unknown>;
 }
 
-type MutationOutcome =
-  | { requestId: string; ok: true }
-  | { requestId: string; ok: false; error: Error };
+type MutationOutcome = { requestId: string; ok: true } | { requestId: string; ok: false; error: Error };
 
 interface ThreadEnvironment {
   fetch: typeof fetch;
@@ -186,15 +184,10 @@ const threadDomainEvents = createActionGroup("Thread Domain", {
 });
 
 function sortThreadsByUpdatedAt(threads: ThreadRecord[]): ThreadRecord[] {
-  return [...threads].sort((left, right) =>
-    right.updatedAt.localeCompare(left.updatedAt),
-  );
+  return [...threads].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
 
-function upsertThread(
-  threads: ThreadRecord[],
-  thread: ThreadRecord,
-): ThreadRecord[] {
+function upsertThread(threads: ThreadRecord[], thread: ThreadRecord): ThreadRecord[] {
   const existingIndex = threads.findIndex((item) => item.id === thread.id);
   if (existingIndex === -1) {
     return sortThreadsByUpdatedAt([...threads, thread]);
@@ -240,23 +233,20 @@ const threadReducer = createReducer<ThreadState>(
       error: null,
     };
   }),
-  on(
-    threadRestEvents.listSucceeded,
-    (state, { sessionId, threads, joinCode, nextCursor }) => {
-      if (sessionId !== state.sessionId) {
-        return state;
-      }
+  on(threadRestEvents.listSucceeded, (state, { sessionId, threads, joinCode, nextCursor }) => {
+    if (sessionId !== state.sessionId) {
+      return state;
+    }
 
-      return {
-        ...state,
-        threads: sortThreadsByUpdatedAt(threads),
-        isLoading: false,
-        error: null,
-        metadataJoinCode: joinCode,
-        nextCursor,
-      };
-    },
-  ),
+    return {
+      ...state,
+      threads: sortThreadsByUpdatedAt(threads),
+      isLoading: false,
+      error: null,
+      metadataJoinCode: joinCode,
+      nextCursor,
+    };
+  }),
   on(threadRestEvents.listFailed, (state, { sessionId, error }) => {
     if (sessionId !== state.sessionId) {
       return state;
@@ -268,26 +258,23 @@ const threadReducer = createReducer<ThreadState>(
       error,
     };
   }),
-  on(
-    threadRestEvents.nextPageSucceeded,
-    (state, { sessionId, threads, nextCursor }) => {
-      if (sessionId !== state.sessionId) {
-        return state;
-      }
+  on(threadRestEvents.nextPageSucceeded, (state, { sessionId, threads, nextCursor }) => {
+    if (sessionId !== state.sessionId) {
+      return state;
+    }
 
-      let merged = state.threads;
-      for (const thread of threads) {
-        merged = upsertThread(merged, thread);
-      }
+    let merged = state.threads;
+    for (const thread of threads) {
+      merged = upsertThread(merged, thread);
+    }
 
-      return {
-        ...state,
-        threads: merged,
-        isFetchingNextPage: false,
-        nextCursor,
-      };
-    },
-  ),
+    return {
+      ...state,
+      threads: merged,
+      isFetchingNextPage: false,
+      nextCursor,
+    };
+  }),
   on(threadRestEvents.nextPageFailed, (state, { sessionId, error }) => {
     if (sessionId !== state.sessionId) {
       return state;
@@ -299,19 +286,16 @@ const threadReducer = createReducer<ThreadState>(
       error,
     };
   }),
-  on(
-    threadRestEvents.metadataCredentialsFailed,
-    (state, { sessionId, error }) => {
-      if (sessionId !== state.sessionId) {
-        return state;
-      }
+  on(threadRestEvents.metadataCredentialsFailed, (state, { sessionId, error }) => {
+    if (sessionId !== state.sessionId) {
+      return state;
+    }
 
-      return {
-        ...state,
-        error,
-      };
-    },
-  ),
+    return {
+      ...state,
+      error,
+    };
+  }),
   on(threadRestEvents.metadataCredentialsRequested, (state, { sessionId }) => {
     if (sessionId !== state.sessionId) {
       return state;
@@ -359,16 +343,10 @@ const threadReducer = createReducer<ThreadState>(
 );
 
 const selectThreads = createSelector((state: ThreadState) => state.threads);
-const selectThreadsIsLoading = createSelector(
-  (state: ThreadState) => state.isLoading,
-);
+const selectThreadsIsLoading = createSelector((state: ThreadState) => state.isLoading);
 const selectThreadsError = createSelector((state: ThreadState) => state.error);
-const selectHasNextPage = createSelector(
-  (state: ThreadState) => state.nextCursor != null,
-);
-const selectIsFetchingNextPage = createSelector(
-  (state: ThreadState) => state.isFetchingNextPage,
-);
+const selectHasNextPage = createSelector((state: ThreadState) => state.nextCursor != null);
+const selectIsFetchingNextPage = createSelector((state: ThreadState) => state.isFetchingNextPage);
 
 interface ThreadStore {
   start(): void;
@@ -393,10 +371,7 @@ function createThreadFetchObservable(
   environment: ThreadEnvironment,
   context: ThreadRuntimeContext,
   sessionId: number,
-): Observable<
-  | ReturnType<typeof threadRestEvents.listSucceeded>
-  | ReturnType<typeof threadRestEvents.listFailed>
-> {
+): Observable<ReturnType<typeof threadRestEvents.listSucceeded> | ReturnType<typeof threadRestEvents.listFailed>> {
   return defer(() => {
     const params: Record<string, string> = {
       agentId: context.agentId,
@@ -427,10 +402,7 @@ function createThreadFetchObservable(
         threadRestEvents.listSucceeded({
           sessionId,
           threads: data.threads,
-          joinCode:
-            typeof data.joinCode === "string" && data.joinCode.length > 0
-              ? data.joinCode
-              : null,
+          joinCode: typeof data.joinCode === "string" && data.joinCode.length > 0 ? data.joinCode : null,
           nextCursor: data.nextCursor ?? null,
         }),
       ),
@@ -458,9 +430,7 @@ function createThreadMetadataCredentialsObservable(
     return fromFetch(`${context.runtimeUrl}${THREAD_SUBSCRIBE_PATH}`, {
       selector: async (response) => {
         if (!response.ok) {
-          throw new Error(
-            `Failed to fetch thread metadata credentials: ${response.status}`,
-          );
+          throw new Error(`Failed to fetch thread metadata credentials: ${response.status}`);
         }
 
         return response.json() as Promise<ThreadMetadataCredentialsResponse>;
@@ -548,17 +518,12 @@ function createThreadMutationObservable(
 
 function createThreadStore(environment: ThreadEnvironment): ThreadStore {
   const bootstrapEffect = createEffect(
-    (
-      actions$,
-      state$,
-    ): Observable<ReturnType<typeof threadRestEvents.listRequested>> =>
+    (actions$, state$): Observable<ReturnType<typeof threadRestEvents.listRequested>> =>
       actions$.pipe(
         ofType(threadAdapterEvents.contextChanged),
         withLatestFrom(state$),
         filter(([, state]) => Boolean(state.context)),
-        map(([, state]) =>
-          threadRestEvents.listRequested({ sessionId: state.sessionId }),
-        ),
+        map(([, state]) => threadRestEvents.listRequested({ sessionId: state.sessionId })),
       ),
   );
 
@@ -568,25 +533,12 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       switchMap((action) =>
         state$.pipe(
           map((state) => state.context),
-          filter((context): context is ThreadRuntimeContext =>
-            Boolean(context),
-          ),
+          filter((context): context is ThreadRuntimeContext => Boolean(context)),
           take(1),
           map((context) => ({ action, context })),
-          takeUntil(
-            actions$.pipe(
-              ofType(
-                threadAdapterEvents.contextChanged,
-                threadAdapterEvents.stopped,
-              ),
-            ),
-          ),
+          takeUntil(actions$.pipe(ofType(threadAdapterEvents.contextChanged, threadAdapterEvents.stopped))),
           switchMap(({ action: currentAction, context }) =>
-            createThreadFetchObservable(
-              environment,
-              context,
-              currentAction.sessionId,
-            ),
+            createThreadFetchObservable(environment, context, currentAction.sessionId),
           ),
         ),
       ),
@@ -619,25 +571,12 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       switchMap((action) =>
         state$.pipe(
           map((state) => state.context),
-          filter((context): context is ThreadRuntimeContext =>
-            Boolean(context),
-          ),
+          filter((context): context is ThreadRuntimeContext => Boolean(context)),
           take(1),
           map((context) => ({ action, context })),
-          takeUntil(
-            actions$.pipe(
-              ofType(
-                threadAdapterEvents.contextChanged,
-                threadAdapterEvents.stopped,
-              ),
-            ),
-          ),
+          takeUntil(actions$.pipe(ofType(threadAdapterEvents.contextChanged, threadAdapterEvents.stopped))),
           switchMap(({ action: currentAction, context }) =>
-            createThreadMetadataCredentialsObservable(
-              environment,
-              context,
-              currentAction.sessionId,
-            ),
+            createThreadMetadataCredentialsObservable(environment, context, currentAction.sessionId),
           ),
         ),
       ),
@@ -649,20 +588,13 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       ofType(threadRestEvents.metadataCredentialsSucceeded),
       withLatestFrom(state$),
       filter(([action, state]) => {
-        return (
-          action.sessionId === state.sessionId && Boolean(state.context?.wsUrl)
-        );
+        return action.sessionId === state.sessionId && Boolean(state.context?.wsUrl);
       }),
       switchMap(([action, state]) => {
         const context = state.context as ThreadRuntimeContext;
         const joinToken = action.joinToken as string;
         const joinCode = state.metadataJoinCode as string;
-        const shutdown$ = actions$.pipe(
-          ofType(
-            threadAdapterEvents.contextChanged,
-            threadAdapterEvents.stopped,
-          ),
-        );
+        const shutdown$ = actions$.pipe(ofType(threadAdapterEvents.contextChanged, threadAdapterEvents.stopped));
 
         return defer(() => {
           const socket$ = ɵphoenixSocket$({
@@ -677,16 +609,10 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
             socket$,
             topic: `user_meta:${joinCode}`,
           }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
-          const socketSignals$ =
-            ɵobservePhoenixSocketSignals$(socket$).pipe(share());
-          const fatalSocketShutdown$ = ɵobservePhoenixSocketHealth$(
-            socketSignals$,
-            MAX_SOCKET_RETRIES,
-          ).pipe(
+          const socketSignals$ = ɵobservePhoenixSocketSignals$(socket$).pipe(share());
+          const fatalSocketShutdown$ = ɵobservePhoenixSocketHealth$(socketSignals$, MAX_SOCKET_RETRIES).pipe(
             catchError(() => {
-              console.warn(
-                `[threads] WebSocket failed after ${MAX_SOCKET_RETRIES} attempts, giving up`,
-              );
+              console.warn(`[threads] WebSocket failed after ${MAX_SOCKET_RETRIES} attempts, giving up`);
               return of(undefined);
             }),
             share(),
@@ -700,10 +626,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
           );
           const metadata$ = channel$.pipe(
             switchMap(({ channel }: ɵPhoenixChannelSession) =>
-              ɵobservePhoenixEvent$<ThreadMetadataEvent>(
-                channel,
-                THREADS_CHANNEL_EVENT,
-              ),
+              ɵobservePhoenixEvent$<ThreadMetadataEvent>(channel, THREADS_CHANNEL_EVENT),
             ),
             map((payload) =>
               threadSocketEvents.metadataReceived({
@@ -748,10 +671,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
 
         // When includeArchived is false, an "archived" event should remove
         // the thread from the local list rather than upserting it.
-        if (
-          action.payload.operation === "archived" &&
-          !state.context?.includeArchived
-        ) {
+        if (action.payload.operation === "archived" && !state.context?.includeArchived) {
           return threadDomainEvents.threadDeleted({
             sessionId: action.sessionId,
             threadId: action.payload.threadId,
@@ -770,9 +690,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
     actions$.pipe(
       ofType(threadAdapterEvents.fetchNextPageRequested),
       withLatestFrom(state$),
-      filter(
-        ([, state]) => Boolean(state.context) && Boolean(state.nextCursor),
-      ),
+      filter(([, state]) => Boolean(state.context) && Boolean(state.nextCursor)),
       switchMap(([, state]) => {
         const context = state.context as ThreadRuntimeContext;
         const params: Record<string, string> = {
@@ -782,23 +700,18 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
         if (context.includeArchived) params.includeArchived = "true";
         if (context.limit != null) params.limit = String(context.limit);
 
-        return fromFetch(
-          `${context.runtimeUrl}/threads?${new URLSearchParams(params).toString()}`,
-          {
-            selector: (response) => {
-              if (!response.ok) {
-                throw new Error(
-                  `Failed to fetch next page: ${response.status}`,
-                );
-              }
+        return fromFetch(`${context.runtimeUrl}/threads?${new URLSearchParams(params).toString()}`, {
+          selector: (response) => {
+            if (!response.ok) {
+              throw new Error(`Failed to fetch next page: ${response.status}`);
+            }
 
-              return response.json() as Promise<ThreadListResponse>;
-            },
-            fetch: environment.fetch,
-            method: "GET",
-            headers: { ...context.headers },
+            return response.json() as Promise<ThreadListResponse>;
           },
-        ).pipe(
+          fetch: environment.fetch,
+          method: "GET",
+          headers: { ...context.headers },
+        }).pipe(
           timeout({
             first: REQUEST_TIMEOUT_MS,
             with: () => {
@@ -816,19 +729,11 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
             of(
               threadRestEvents.nextPageFailed({
                 sessionId: state.sessionId,
-                error:
-                  error instanceof Error ? error : new Error(String(error)),
+                error: error instanceof Error ? error : new Error(String(error)),
               }),
             ),
           ),
-          takeUntil(
-            actions$.pipe(
-              ofType(
-                threadAdapterEvents.contextChanged,
-                threadAdapterEvents.stopped,
-              ),
-            ),
-          ),
+          takeUntil(actions$.pipe(ofType(threadAdapterEvents.contextChanged, threadAdapterEvents.stopped))),
         );
       }),
     ),
@@ -915,9 +820,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
     const completion$ = merge(
       store.actions$.pipe(
         ofType(threadRestEvents.mutationFinished),
-        filter(
-          (action) => action.outcome.requestId === dispatchAction.requestId,
-        ),
+        filter((action) => action.outcome.requestId === dispatchAction.requestId),
         map((action) => action.outcome),
       ),
       store.actions$.pipe(
@@ -927,9 +830,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
             ({
               requestId: dispatchAction.requestId,
               ok: false,
-              error: new Error(
-                "Thread store stopped before mutation completed",
-              ),
+              error: new Error("Thread store stopped before mutation completed"),
             }) satisfies MutationOutcome,
         ),
       ),

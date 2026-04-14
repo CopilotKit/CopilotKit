@@ -4,9 +4,7 @@ import { InMemoryAgentRunner } from "../../../runner/in-memory";
  * Creates a fake agent that emits a deterministic sequence of AG-UI events.
  * Requires no API keys — purely in-memory.
  */
-export function createFakeAgent(
-  opts: { capturedHeaders?: Record<string, string>[] } = {},
-) {
+export function createFakeAgent(opts: { capturedHeaders?: Record<string, string>[] } = {}) {
   return {
     clone: () => {
       const instance = {
@@ -14,10 +12,7 @@ export function createFakeAgent(
         setState: () => undefined,
         threadId: "thread",
         headers: {},
-        runAgent: async (
-          input: { runId: string },
-          { onEvent }: { onEvent: (payload: { event: unknown }) => void },
-        ) => {
+        runAgent: async (input: { runId: string }, { onEvent }: { onEvent: (payload: { event: unknown }) => void }) => {
           // Capture headers if requested
           if (opts.capturedHeaders) {
             opts.capturedHeaders.push({ ...instance.headers });

@@ -1,10 +1,4 @@
-import {
-  Component,
-  input,
-  output,
-  ChangeDetectionStrategy,
-  ViewEncapsulation,
-} from "@angular/core";
+import { Component, input, output, ChangeDetectionStrategy, ViewEncapsulation } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { LucideAngularModule, ChevronDown } from "lucide-angular";
 import { cn } from "../../utils";
@@ -20,17 +14,8 @@ import { cn } from "../../utils";
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
-    <button
-      type="button"
-      [class]="computedClass"
-      [disabled]="disabled()"
-      (click)="handleClick()"
-    >
-      <lucide-angular
-        [img]="ChevronDown"
-        class="w-4 h-4 text-gray-600 dark:text-white"
-      >
-      </lucide-angular>
+    <button type="button" [class]="computedClass" [disabled]="disabled()" (click)="handleClick()">
+      <lucide-angular [img]="ChevronDown" class="w-4 h-4 text-gray-600 dark:text-white"> </lucide-angular>
     </button>
   `,
 })

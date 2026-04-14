@@ -74,9 +74,7 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
         const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
         if (transport === "rest") {
-          expect(url).toBe(
-            `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/run`,
-          );
+          expect(url).toBe(`${runtimeUrl}/agent/${encodeURIComponent(agentId)}/run`);
         } else {
           expect(url).toBe(runtimeUrl);
           const body = JSON.parse(init.body as string);
@@ -112,9 +110,7 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
         const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
         if (transport === "rest") {
-          expect(url).toBe(
-            `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/connect`,
-          );
+          expect(url).toBe(`${runtimeUrl}/agent/${encodeURIComponent(agentId)}/connect`);
         } else {
           expect(url).toBe(runtimeUrl);
           const body = JSON.parse(init.body as string);
@@ -152,9 +148,7 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
         const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
         if (transport === "rest") {
-          expect(url).toBe(
-            `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/stop/${encodeURIComponent(threadId)}`,
-          );
+          expect(url).toBe(`${runtimeUrl}/agent/${encodeURIComponent(agentId)}/stop/${encodeURIComponent(threadId)}`);
         } else {
           expect(url).toBe(runtimeUrl);
           const body = JSON.parse(init.body as string);
@@ -290,9 +284,7 @@ function createSseResponse(): Response {
           result: { newMessages: [] },
         },
       ];
-      const payload = events
-        .map((event) => `data: ${JSON.stringify(event)}\n\n`)
-        .join("");
+      const payload = events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("");
       controller.enqueue(encoder.encode(payload));
       controller.close();
     },
@@ -368,28 +360,22 @@ describe("Auto-detect transport from runtime info response", () => {
 
   it("auto-detects single-endpoint transport when GET /info fails", async () => {
     const runtimeUrl = "https://runtime.example/single-auto";
-    const fetchMock = vi
-      .fn()
-      .mockImplementation((url: string, init?: RequestInit) => {
-        // REST attempt: GET /info → 404
-        if (
-          typeof url === "string" &&
-          url.endsWith("/info") &&
-          (!init?.method || init.method === "GET")
-        ) {
-          return Promise.resolve(new Response("Not Found", { status: 404 }));
-        }
-        // Single-endpoint attempt: POST with { method: "info" }
-        if (init?.method === "POST") {
-          return Promise.resolve(
-            new Response(JSON.stringify(infoResponse), {
-              status: 200,
-              headers: { "content-type": "application/json" },
-            }),
-          );
-        }
-        return Promise.reject(new Error("Unexpected fetch call"));
-      });
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      // REST attempt: GET /info → 404
+      if (typeof url === "string" && url.endsWith("/info") && (!init?.method || init.method === "GET")) {
+        return Promise.resolve(new Response("Not Found", { status: 404 }));
+      }
+      // Single-endpoint attempt: POST with { method: "info" }
+      if (init?.method === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify(infoResponse), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+        );
+      }
+      return Promise.reject(new Error("Unexpected fetch call"));
+    });
     // @ts-expect-error - override in test environment
     global.fetch = fetchMock;
 
@@ -527,35 +513,29 @@ describe("Auto-detect transport edge cases (AgentRegistry)", () => {
 
   it("falls back to single-endpoint when REST probe returns 500 with JSON body", async () => {
     const runtimeUrl = "https://runtime.example/auto-500";
-    const fetchMock = vi
-      .fn()
-      .mockImplementation((url: string, init?: RequestInit) => {
-        // REST attempt: GET /info → 500 with a JSON error body.
-        // The bug: without the fix, the code treats any non-404/405 as REST
-        // and parses this JSON as RuntimeInfo, corrupting the agent list.
-        if (
-          typeof url === "string" &&
-          url.endsWith("/info") &&
-          (!init?.method || init.method === "GET")
-        ) {
-          return Promise.resolve(
-            new Response(JSON.stringify({ error: "Internal Server Error" }), {
-              status: 500,
-              headers: { "content-type": "application/json" },
-            }),
-          );
-        }
-        // Single-endpoint attempt: POST with { method: "info" }
-        if (init?.method === "POST") {
-          return Promise.resolve(
-            new Response(JSON.stringify(infoResponse), {
-              status: 200,
-              headers: { "content-type": "application/json" },
-            }),
-          );
-        }
-        return Promise.reject(new Error("Unexpected fetch call"));
-      });
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      // REST attempt: GET /info → 500 with a JSON error body.
+      // The bug: without the fix, the code treats any non-404/405 as REST
+      // and parses this JSON as RuntimeInfo, corrupting the agent list.
+      if (typeof url === "string" && url.endsWith("/info") && (!init?.method || init.method === "GET")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: "Internal Server Error" }), {
+            status: 500,
+            headers: { "content-type": "application/json" },
+          }),
+        );
+      }
+      // Single-endpoint attempt: POST with { method: "info" }
+      if (init?.method === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify(infoResponse), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+        );
+      }
+      return Promise.reject(new Error("Unexpected fetch call"));
+    });
     // @ts-expect-error - override in test environment
     global.fetch = fetchMock;
 
@@ -581,26 +561,20 @@ describe("Auto-detect transport edge cases (AgentRegistry)", () => {
 
   it("falls back to single-endpoint when REST probe returns 403", async () => {
     const runtimeUrl = "https://runtime.example/auto-403";
-    const fetchMock = vi
-      .fn()
-      .mockImplementation((url: string, init?: RequestInit) => {
-        if (
-          typeof url === "string" &&
-          url.endsWith("/info") &&
-          (!init?.method || init.method === "GET")
-        ) {
-          return Promise.resolve(new Response("Forbidden", { status: 403 }));
-        }
-        if (init?.method === "POST") {
-          return Promise.resolve(
-            new Response(JSON.stringify(infoResponse), {
-              status: 200,
-              headers: { "content-type": "application/json" },
-            }),
-          );
-        }
-        return Promise.reject(new Error("Unexpected fetch call"));
-      });
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (typeof url === "string" && url.endsWith("/info") && (!init?.method || init.method === "GET")) {
+        return Promise.resolve(new Response("Forbidden", { status: 403 }));
+      }
+      if (init?.method === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify(infoResponse), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+        );
+      }
+      return Promise.reject(new Error("Unexpected fetch call"));
+    });
     // @ts-expect-error - override in test environment
     global.fetch = fetchMock;
 
@@ -616,26 +590,20 @@ describe("Auto-detect transport edge cases (AgentRegistry)", () => {
 
   it("falls back to single-endpoint when REST probe throws a network error", async () => {
     const runtimeUrl = "https://runtime.example/auto-net-err";
-    const fetchMock = vi
-      .fn()
-      .mockImplementation((url: string, init?: RequestInit) => {
-        if (
-          typeof url === "string" &&
-          url.endsWith("/info") &&
-          (!init?.method || init.method === "GET")
-        ) {
-          return Promise.reject(new TypeError("Failed to fetch"));
-        }
-        if (init?.method === "POST") {
-          return Promise.resolve(
-            new Response(JSON.stringify(infoResponse), {
-              status: 200,
-              headers: { "content-type": "application/json" },
-            }),
-          );
-        }
-        return Promise.reject(new Error("Unexpected fetch call"));
-      });
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (typeof url === "string" && url.endsWith("/info") && (!init?.method || init.method === "GET")) {
+        return Promise.reject(new TypeError("Failed to fetch"));
+      }
+      if (init?.method === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify(infoResponse), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+        );
+      }
+      return Promise.reject(new Error("Unexpected fetch call"));
+    });
     // @ts-expect-error - override in test environment
     global.fetch = fetchMock;
 
@@ -651,23 +619,15 @@ describe("Auto-detect transport edge cases (AgentRegistry)", () => {
 
   it("reports error when both REST and single-endpoint probes fail", async () => {
     const runtimeUrl = "https://runtime.example/auto-both-fail";
-    const fetchMock = vi
-      .fn()
-      .mockImplementation((url: string, init?: RequestInit) => {
-        if (
-          typeof url === "string" &&
-          url.endsWith("/info") &&
-          (!init?.method || init.method === "GET")
-        ) {
-          return Promise.resolve(new Response("Not Found", { status: 404 }));
-        }
-        if (init?.method === "POST") {
-          return Promise.resolve(
-            new Response("Internal Server Error", { status: 500 }),
-          );
-        }
-        return Promise.reject(new Error("Unexpected fetch call"));
-      });
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (typeof url === "string" && url.endsWith("/info") && (!init?.method || init.method === "GET")) {
+        return Promise.resolve(new Response("Not Found", { status: 404 }));
+      }
+      if (init?.method === "POST") {
+        return Promise.resolve(new Response("Internal Server Error", { status: 500 }));
+      }
+      return Promise.reject(new Error("Unexpected fetch call"));
+    });
     // @ts-expect-error - override in test environment
     global.fetch = fetchMock;
 
@@ -690,28 +650,20 @@ describe("Auto-detect transport edge cases (AgentRegistry)", () => {
 
   it("falls back to single-endpoint when REST probe returns 405", async () => {
     const runtimeUrl = "https://runtime.example/auto-405";
-    const fetchMock = vi
-      .fn()
-      .mockImplementation((url: string, init?: RequestInit) => {
-        if (
-          typeof url === "string" &&
-          url.endsWith("/info") &&
-          (!init?.method || init.method === "GET")
-        ) {
-          return Promise.resolve(
-            new Response("Method Not Allowed", { status: 405 }),
-          );
-        }
-        if (init?.method === "POST") {
-          return Promise.resolve(
-            new Response(JSON.stringify(infoResponse), {
-              status: 200,
-              headers: { "content-type": "application/json" },
-            }),
-          );
-        }
-        return Promise.reject(new Error("Unexpected fetch call"));
-      });
+    const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (typeof url === "string" && url.endsWith("/info") && (!init?.method || init.method === "GET")) {
+        return Promise.resolve(new Response("Method Not Allowed", { status: 405 }));
+      }
+      if (init?.method === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify(infoResponse), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+        );
+      }
+      return Promise.reject(new Error("Unexpected fetch call"));
+    });
     // @ts-expect-error - override in test environment
     global.fetch = fetchMock;
 

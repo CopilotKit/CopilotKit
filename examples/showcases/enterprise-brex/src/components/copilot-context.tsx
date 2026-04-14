@@ -38,8 +38,7 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
   });
 
   useCopilotReadable({
-    description:
-      "The available pages and operations, as well as the current page",
+    description: "The available pages and operations, as well as the current page",
     value: {
       pages: Object.values(Page),
       operations: AVAILABLE_OPERATIONS_PER_PAGE,
@@ -102,9 +101,7 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
             size="icon"
             onClick={() => {
               const operationParams = `?operation=${operation}`;
-              window.location.href = `${page!.toLowerCase()}${
-                operationAvailable ? operationParams : ""
-              }`;
+              window.location.href = `${page!.toLowerCase()}${operationAvailable ? operationParams : ""}`;
               handler?.(page!);
             }}
             aria-label="Confirm Navigation"

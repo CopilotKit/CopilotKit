@@ -38,10 +38,8 @@
 
   /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md:
-    0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-  --shadow-lg:
-    0 10px 25px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
   --shadow-glass: 0 4px 30px rgba(0, 0, 0, 0.1);
 
   /* Spacing */
@@ -104,11 +102,7 @@ body {
   inset: 0;
   overflow: hidden;
   z-index: 0;
-  background: linear-gradient(
-    135deg,
-    var(--color-surface-light) 0%,
-    var(--color-surface) 100%
-  );
+  background: linear-gradient(135deg, var(--color-surface-light) 0%, var(--color-surface) 100%);
 }
 
 .abstract-bg::before,
@@ -142,11 +136,7 @@ body {
   position: absolute;
   width: 400px;
   height: 400px;
-  background: linear-gradient(
-    135deg,
-    var(--color-lilac-light),
-    var(--color-mint-light)
-  );
+  background: linear-gradient(135deg, var(--color-lilac-light), var(--color-mint-light));
   border-radius: 50%;
   filter: blur(100px);
   opacity: 0.4;
@@ -439,11 +429,7 @@ div[data-sidebar-chat] > div > div {
 ============================================================================= */
 
 .text-gradient {
-  background: linear-gradient(
-    135deg,
-    var(--color-lilac-dark),
-    var(--color-mint-dark)
-  );
+  background: linear-gradient(135deg, var(--color-lilac-dark), var(--color-mint-dark));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

@@ -2,11 +2,7 @@
 
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import {
-  CopilotChat,
-  useAgent,
-  UseAgentUpdate,
-} from "@copilotkit/react-core/v2";
+import { CopilotChat, useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
 import {
   useShowcaseHooks,
   useShowcaseSuggestions,
@@ -28,11 +24,7 @@ interface AgentState {
 
 export default function GenUiAgentDemo() {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      agent="gen-ui-agent"
-      a2ui={{ catalog: demonstrationCatalog }}
-    >
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-agent" a2ui={{ catalog: demonstrationCatalog }}>
       <Chat />
     </CopilotKit>
   );
@@ -61,10 +53,7 @@ function Chat() {
             className="h-full rounded-2xl max-w-6xl mx-auto"
             messageView={{
               children: ({ messageElements, interruptElement }) => (
-                <div
-                  data-testid="copilot-message-list"
-                  className="flex flex-col"
-                >
+                <div data-testid="copilot-message-list" className="flex flex-col">
                   {messageElements}
                   {steps && steps.length > 0 && (
                     <div className="my-4">
@@ -100,9 +89,7 @@ function DashboardWithRenderer({ agentId }: { agentId: string }) {
 }
 
 function TaskProgress({ steps }: { steps: AgentState["steps"] }) {
-  const completedCount = steps.filter(
-    (step) => step.status === "completed",
-  ).length;
+  const completedCount = steps.filter((step) => step.status === "completed").length;
   const progressPercentage = (completedCount / steps.length) * 100;
 
   return (
@@ -131,8 +118,7 @@ function TaskProgress({ steps }: { steps: AgentState["steps"] }) {
           {steps.map((step, index) => {
             const isCompleted = step.status === "completed";
             const isCurrentPending =
-              step.status === "pending" &&
-              index === steps.findIndex((s) => s.status === "pending");
+              step.status === "pending" && index === steps.findIndex((s) => s.status === "pending");
             return (
               <div
                 key={index}
@@ -157,18 +143,8 @@ function TaskProgress({ steps }: { steps: AgentState["steps"] }) {
                   }`}
                 >
                   {isCompleted ? (
-                    <svg
-                      className="w-4 h-4 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={3}
-                        d="M5 13l4 4L19 7"
-                      />
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                     </svg>
                   ) : isCurrentPending ? (
                     <svg
@@ -177,14 +153,7 @@ function TaskProgress({ steps }: { steps: AgentState["steps"] }) {
                       fill="none"
                       viewBox="0 0 24 24"
                     >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path
                         className="opacity-75"
                         fill="currentColor"
@@ -192,12 +161,7 @@ function TaskProgress({ steps }: { steps: AgentState["steps"] }) {
                       />
                     </svg>
                   ) : (
-                    <svg
-                      className="w-3 h-3 text-gray-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
+                    <svg className="w-3 h-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <circle cx="12" cy="12" r="10" strokeWidth="2" />
                       <polyline points="12,6 12,12 16,14" strokeWidth="2" />
                     </svg>
@@ -207,20 +171,12 @@ function TaskProgress({ steps }: { steps: AgentState["steps"] }) {
                   <div
                     data-testid="task-step-text"
                     className={`font-semibold transition-all duration-300 text-sm ${
-                      isCompleted
-                        ? "text-green-700"
-                        : isCurrentPending
-                          ? "text-blue-700 text-base"
-                          : "text-gray-500"
+                      isCompleted ? "text-green-700" : isCurrentPending ? "text-blue-700 text-base" : "text-gray-500"
                     }`}
                   >
                     {step.description}
                   </div>
-                  {isCurrentPending && (
-                    <div className="text-sm mt-1 animate-pulse text-blue-600">
-                      Processing...
-                    </div>
-                  )}
+                  {isCurrentPending && <div className="text-sm mt-1 animate-pulse text-blue-600">Processing...</div>}
                 </div>
                 {isCurrentPending && (
                   <div className="absolute inset-0 rounded-lg bg-gradient-to-r animate-pulse from-blue-100/50 to-purple-100/50" />

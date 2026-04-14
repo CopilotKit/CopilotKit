@@ -34,11 +34,7 @@ export const AudioPlayer = createReactComponent(AudioPlayerApi, ({ props }) => {
         width: "100%",
       }}
     >
-      {props.description && (
-        <span style={{ fontSize: "12px", color: "#666" }}>
-          {props.description}
-        </span>
-      )}
+      {props.description && <span style={{ fontSize: "12px", color: "#666" }}>{props.description}</span>}
       <audio src={props.url} controls style={style} />
     </div>
   );

@@ -2,10 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useDashboard } from "@/context/dashboard-context";
-import {
-  WidgetRenderer,
-  colSpanClass,
-} from "@/components/dashboard/widget-renderer";
+import { WidgetRenderer, colSpanClass } from "@/components/dashboard/widget-renderer";
 import { DashboardToolbar } from "@/components/dashboard/dashboard-toolbar";
 import type { DashboardWidget } from "@/types/dashboard";
 
@@ -63,11 +60,7 @@ export function DashboardGrid() {
     if (entering.length > 0) {
       const timer = setTimeout(
         () => {
-          setDisplayed((prev) =>
-            prev.map((w) =>
-              w.phase === "entering" ? { ...w, phase: "visible" } : w,
-            ),
-          );
+          setDisplayed((prev) => prev.map((w) => (w.phase === "entering" ? { ...w, phase: "visible" } : w)));
           exitTimersRef.current.delete(timer);
         },
         350 + entering.length * 80,
@@ -99,11 +92,7 @@ export function DashboardGrid() {
             <div
               key={widget.id}
               className={`${colSpanClass(widget.colSpan)} ${
-                widget.phase === "entering"
-                  ? "widget-enter"
-                  : widget.phase === "exiting"
-                    ? "widget-exit"
-                    : ""
+                widget.phase === "entering" ? "widget-enter" : widget.phase === "exiting" ? "widget-exit" : ""
               }`}
               style={
                 widget.phase === "entering" && widget.enterIndex !== undefined

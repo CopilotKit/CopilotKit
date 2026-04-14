@@ -12,9 +12,7 @@ export function A2UIStatus() {
 
   useEffect(() => {
     try {
-      const hasCustomElement =
-        typeof customElements !== "undefined" &&
-        !!customElements.get(TARGET_TAG);
+      const hasCustomElement = typeof customElements !== "undefined" && !!customElements.get(TARGET_TAG);
 
       const hasExport = typeof UI?.Root === "function";
 

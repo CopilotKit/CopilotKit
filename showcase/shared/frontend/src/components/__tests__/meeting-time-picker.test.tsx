@@ -10,9 +10,7 @@ const defaultSlots = [
 
 describe("MeetingTimePicker", () => {
   it("renders spinner in inProgress status", () => {
-    const { container } = render(
-      <MeetingTimePicker status="inProgress" timeSlots={defaultSlots} />,
-    );
+    const { container } = render(<MeetingTimePicker status="inProgress" timeSlots={defaultSlots} />);
     expect(screen.getByText("Finding available times...")).toBeTruthy();
     expect(container.querySelector(".animate-spin")).toBeTruthy();
   });
@@ -34,29 +32,15 @@ describe("MeetingTimePicker", () => {
 
   it("clicking a time slot calls respond", () => {
     const respond = vi.fn();
-    render(
-      <MeetingTimePicker
-        status="executing"
-        respond={respond}
-        timeSlots={defaultSlots}
-      />,
-    );
+    render(<MeetingTimePicker status="executing" respond={respond} timeSlots={defaultSlots} />);
     fireEvent.click(screen.getByText("Tomorrow").closest("button")!);
     expect(respond).toHaveBeenCalledOnce();
-    expect(respond).toHaveBeenCalledWith(
-      "Meeting scheduled for Tomorrow at 2:00 PM (30 min).",
-    );
+    expect(respond).toHaveBeenCalledWith("Meeting scheduled for Tomorrow at 2:00 PM (30 min).");
   });
 
   it("clicking decline calls respond with decline message", () => {
     const respond = vi.fn();
-    render(
-      <MeetingTimePicker
-        status="executing"
-        respond={respond}
-        timeSlots={defaultSlots}
-      />,
-    );
+    render(<MeetingTimePicker status="executing" respond={respond} timeSlots={defaultSlots} />);
     fireEvent.click(screen.getByText("None of these work"));
     expect(respond).toHaveBeenCalledOnce();
     expect(respond).toHaveBeenCalledWith(
@@ -66,13 +50,7 @@ describe("MeetingTimePicker", () => {
 
   it("shows confirmed state after selection", () => {
     const respond = vi.fn();
-    render(
-      <MeetingTimePicker
-        status="executing"
-        respond={respond}
-        timeSlots={defaultSlots}
-      />,
-    );
+    render(<MeetingTimePicker status="executing" respond={respond} timeSlots={defaultSlots} />);
     fireEvent.click(screen.getByText("Tomorrow").closest("button")!);
     expect(screen.getByText("Meeting Scheduled")).toBeTruthy();
     expect(screen.getByText("Tomorrow at 2:00 PM")).toBeTruthy();
@@ -80,28 +58,14 @@ describe("MeetingTimePicker", () => {
 
   it("shows declined state after decline", () => {
     const respond = vi.fn();
-    render(
-      <MeetingTimePicker
-        status="executing"
-        respond={respond}
-        timeSlots={defaultSlots}
-      />,
-    );
+    render(<MeetingTimePicker status="executing" respond={respond} timeSlots={defaultSlots} />);
     fireEvent.click(screen.getByText("None of these work"));
     expect(screen.getByText("No Time Selected")).toBeTruthy();
-    expect(
-      screen.getByText("Looking for a better time that works for you"),
-    ).toBeTruthy();
+    expect(screen.getByText("Looking for a better time that works for you")).toBeTruthy();
   });
 
   it("displays custom title via reasonForScheduling", () => {
-    render(
-      <MeetingTimePicker
-        status="executing"
-        reasonForScheduling="Sprint Planning"
-        timeSlots={defaultSlots}
-      />,
-    );
+    render(<MeetingTimePicker status="executing" reasonForScheduling="Sprint Planning" timeSlots={defaultSlots} />);
     expect(screen.getByText("Sprint Planning")).toBeTruthy();
   });
 

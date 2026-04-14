@@ -38,47 +38,28 @@ export default function KanbanBoard({
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 h-full">
       {columns.map((col) => {
-        const tasks = activeBoard.tasks.filter(
-          (t: KanbanTask) => t.status === col.status,
-        );
+        const tasks = activeBoard.tasks.filter((t: KanbanTask) => t.status === col.status);
 
         return (
           <div key={col.status} className="flex flex-col space-y-3">
             <h3 className="font-semibold text-base px-2">
-              {col.label}{" "}
-              <span className="text-muted-foreground">({tasks.length})</span>
+              {col.label} <span className="text-muted-foreground">({tasks.length})</span>
             </h3>
 
             <div className="flex flex-col space-y-2 overflow-auto">
               {tasks.length === 0 ? (
-                <p className="text-muted-foreground text-sm px-2 py-4">
-                  No tasks
-                </p>
+                <p className="text-muted-foreground text-sm px-2 py-4">No tasks</p>
               ) : (
                 tasks.map((task: KanbanTask) => (
                   <TaskCard
                     key={task.id}
                     task={task}
-                    onUpdateTitle={
-                      onUpdateTaskTitle
-                        ? (title) => onUpdateTaskTitle(task.id, title)
-                        : undefined
-                    }
+                    onUpdateTitle={onUpdateTaskTitle ? (title) => onUpdateTaskTitle(task.id, title) : undefined}
                     onUpdateSubtitle={
-                      onUpdateTaskSubtitle
-                        ? (subtitle) => onUpdateTaskSubtitle(task.id, subtitle)
-                        : undefined
+                      onUpdateTaskSubtitle ? (subtitle) => onUpdateTaskSubtitle(task.id, subtitle) : undefined
                     }
-                    onAddTag={
-                      onAddTaskTag
-                        ? (tag) => onAddTaskTag(task.id, tag)
-                        : undefined
-                    }
-                    onRemoveTag={
-                      onRemoveTaskTag
-                        ? (tag) => onRemoveTaskTag(task.id, tag)
-                        : undefined
-                    }
+                    onAddTag={onAddTaskTag ? (tag) => onAddTaskTag(task.id, tag) : undefined}
+                    onRemoveTag={onRemoveTaskTag ? (tag) => onRemoveTaskTag(task.id, tag) : undefined}
                   />
                 ))
               )}

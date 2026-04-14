@@ -4,11 +4,7 @@
  */
 import { EventType, HttpAgent, type BaseEvent } from "@ag-ui/client";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
-import {
-  CopilotRuntime,
-  createCopilotEndpoint,
-  InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+import { CopilotRuntime, createCopilotEndpoint, InMemoryAgentRunner } from "@copilotkit/runtime/v2";
 import { concatMap, of } from "rxjs";
 import { randomUUID } from "node:crypto";
 
@@ -21,15 +17,12 @@ function requireEnv(name: string): string {
 export function buildAgents(): Record<string, HttpAgent> {
   const agentUrl = requireEnv("AGENTCORE_AG_UI_URL");
   const agentName = process.env.COPILOTKIT_AGENT_NAME ?? "default";
-  const mcpServerUrl =
-    process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com";
+  const mcpServerUrl = process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com";
 
   const agent = new HttpAgent({ url: agentUrl, headers: {} });
   agent.use(
     new MCPAppsMiddleware({
-      mcpServers: [
-        { type: "http", url: mcpServerUrl, serverId: "example_mcp_app" },
-      ],
+      mcpServers: [{ type: "http", url: mcpServerUrl, serverId: "example_mcp_app" }],
     }),
   );
 
@@ -54,16 +47,12 @@ export function buildAgents(): Record<string, HttpAgent> {
 export class AgentCoreRunner extends InMemoryAgentRunner {
   private readonly knownThreadIds = new Set<string>();
 
-  override run(
-    request: Parameters<InMemoryAgentRunner["run"]>[0],
-  ): ReturnType<InMemoryAgentRunner["run"]> {
+  override run(request: Parameters<InMemoryAgentRunner["run"]>[0]): ReturnType<InMemoryAgentRunner["run"]> {
     if (request.threadId) this.knownThreadIds.add(request.threadId);
     return super.run(request);
   }
 
-  override connect(
-    request: Parameters<InMemoryAgentRunner["connect"]>[0],
-  ): ReturnType<InMemoryAgentRunner["connect"]> {
+  override connect(request: Parameters<InMemoryAgentRunner["connect"]>[0]): ReturnType<InMemoryAgentRunner["connect"]> {
     if (!request.threadId || !this.knownThreadIds.has(request.threadId)) {
       // Unknown thread — return an empty snapshot instead of erroring.
       const runId =
@@ -90,14 +79,9 @@ export class AgentCoreRunner extends InMemoryAgentRunner {
     // CopilotKit can reconcile its message state correctly.
     return (super.connect(request) as any).pipe(
       concatMap((event: any) => {
-        if (
-          event.type !== EventType.MESSAGES_SNAPSHOT ||
-          !("messages" in event)
-        )
-          return of(event);
+        if (event.type !== EventType.MESSAGES_SNAPSHOT || !("messages" in event)) return of(event);
         const replayedResults = event.messages.flatMap((message: any) => {
-          if (message.role !== "assistant" || !message.toolCalls?.length)
-            return [];
+          if (message.role !== "assistant" || !message.toolCalls?.length) return [];
           return message.toolCalls.map(
             (toolCall: any) =>
               ({
@@ -118,11 +102,9 @@ export class AgentCoreRunner extends InMemoryAgentRunner {
 export function buildApp() {
   const agents = buildAgents();
   const agentName = process.env.COPILOTKIT_AGENT_NAME ?? "default";
-  const defaultAgent =
-    agents[agentName] ?? agents.default ?? Object.values(agents)[0];
+  const defaultAgent = agents[agentName] ?? agents.default ?? Object.values(agents)[0];
 
-  if (!defaultAgent)
-    throw new Error("At least one CopilotKit agent URL must be configured");
+  if (!defaultAgent) throw new Error("At least one CopilotKit agent URL must be configured");
 
   const runtime = new CopilotRuntime({
     agents: { ...agents, default: defaultAgent },

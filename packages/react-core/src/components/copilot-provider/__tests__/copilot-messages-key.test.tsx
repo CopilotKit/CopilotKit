@@ -23,18 +23,12 @@ describe("CopilotMessages children keys", () => {
 
   beforeEach(() => {
     keyWarnings.length = 0;
-    consoleErrorSpy = vi
-      .spyOn(console, "error")
-      .mockImplementation((...args: any[]) => {
-        const msg = args.map(String).join(" ");
-        if (
-          msg.includes('unique "key" prop') ||
-          msg.includes("unique 'key' prop") ||
-          msg.includes("unique key")
-        ) {
-          keyWarnings.push(msg);
-        }
-      });
+    consoleErrorSpy = vi.spyOn(console, "error").mockImplementation((...args: any[]) => {
+      const msg = args.map(String).join(" ");
+      if (msg.includes('unique "key" prop') || msg.includes("unique 'key' prop") || msg.includes("unique key")) {
+        keyWarnings.push(msg);
+      }
+    });
   });
 
   afterEach(() => {

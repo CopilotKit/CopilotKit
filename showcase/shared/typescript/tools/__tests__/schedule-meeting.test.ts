@@ -3,14 +3,10 @@ import { scheduleMeetingImpl } from "../schedule-meeting";
 
 describe("scheduleMeetingImpl", () => {
   it("returns pending_approval status", () => {
-    expect(scheduleMeetingImpl("discuss roadmap").status).toBe(
-      "pending_approval",
-    );
+    expect(scheduleMeetingImpl("discuss roadmap").status).toBe("pending_approval");
   });
   it("includes the reason", () => {
-    expect(scheduleMeetingImpl("quarterly review").reason).toBe(
-      "quarterly review",
-    );
+    expect(scheduleMeetingImpl("quarterly review").reason).toBe("quarterly review");
   });
   it("uses default 30-minute duration", () => {
     expect(scheduleMeetingImpl("sync").duration_minutes).toBe(30);

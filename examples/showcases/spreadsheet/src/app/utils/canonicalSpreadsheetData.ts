@@ -8,9 +8,7 @@ export interface CellLike {
   value: string;
 }
 
-export function canonicalSpreadsheetData(
-  rows: RowLike[] | undefined,
-): SpreadsheetRow[] {
+export function canonicalSpreadsheetData(rows: RowLike[] | undefined): SpreadsheetRow[] {
   const canonicalRows: SpreadsheetRow[] = [];
 
   for (const row of rows || []) {

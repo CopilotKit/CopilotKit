@@ -9,11 +9,7 @@ interface DocumentsScrollbarProps {
   selectedSectionId?: string;
 }
 
-export function DocumentsScrollbar({
-  sections,
-  onSelectSection,
-  selectedSectionId,
-}: DocumentsScrollbarProps) {
+export function DocumentsScrollbar({ sections, onSelectSection, selectedSectionId }: DocumentsScrollbarProps) {
   return (
     <div className="group h-full">
       <div className="p-2 overflow-y-auto space-y-2 flex flex-col overflow-x-hidden border border-black/10 bg-[#FAF9F6] h-full relative">

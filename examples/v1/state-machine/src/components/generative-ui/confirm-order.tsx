@@ -11,13 +11,8 @@ interface ConfirmOrderProps {
   status: RenderFunctionStatus;
 }
 
-export const ConfirmOrder = ({
-  onConfirm,
-  onCancel,
-  status,
-}: ConfirmOrderProps) => {
-  const { selectedCar, contactInfo, cardInfo, financingInfo } =
-    useGlobalState();
+export const ConfirmOrder = ({ onConfirm, onCancel, status }: ConfirmOrderProps) => {
+  const { selectedCar, contactInfo, cardInfo, financingInfo } = useGlobalState();
 
   return (
     <AnimatedCard className="w-[500px]" status={status}>
@@ -33,9 +28,7 @@ export const ConfirmOrder = ({
 
         <div className="flex justify-between items-center border-b border-blue-100 pb-2">
           <span className="font-medium">Price</span>
-          <span className="text-gray-600">
-            ${selectedCar?.price?.toLocaleString()}
-          </span>
+          <span className="text-gray-600">${selectedCar?.price?.toLocaleString()}</span>
         </div>
 
         <div className="flex justify-between items-center border-b border-blue-100 pb-2">
@@ -52,9 +45,7 @@ export const ConfirmOrder = ({
 
         <div className="flex justify-between items-center">
           <span className="font-medium">Financing</span>
-          <span className="text-gray-600">
-            {financingInfo?.loanTerm} months
-          </span>
+          <span className="text-gray-600">{financingInfo?.loanTerm} months</span>
         </div>
       </div>
 
@@ -76,13 +67,7 @@ export const ConfirmOrder = ({
   );
 };
 
-const ActionButtons = ({
-  onConfirm,
-  onCancel,
-}: {
-  onConfirm: () => void;
-  onCancel: () => void;
-}) => (
+const ActionButtons = ({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) => (
   <div className="flex justify-end gap-4 mt-6">
     <button
       onClick={onCancel}

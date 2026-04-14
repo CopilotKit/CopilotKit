@@ -33,10 +33,7 @@ export function PlaygroundContainer() {
             onUpdateColorScheme={updateColorScheme}
             onReset={resetConfig}
           />
-          <PreviewPanel
-            config={config}
-            onExport={() => setIsExportOpen(true)}
-          />
+          <PreviewPanel config={config} onExport={() => setIsExportOpen(true)} />
         </div>
 
         {/* Background blur circles - Dojo exact specs */}
@@ -86,11 +83,7 @@ export function PlaygroundContainer() {
         />
       </div>
 
-      <CodeExporter
-        config={config}
-        isOpen={isExportOpen}
-        onClose={() => setIsExportOpen(false)}
-      />
+      <CodeExporter config={config} isOpen={isExportOpen} onClose={() => setIsExportOpen(false)} />
     </>
   );
 }

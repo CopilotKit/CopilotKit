@@ -42,10 +42,7 @@ function loadManifest(slug: string): Manifest {
   return yaml.parse(raw) as Manifest;
 }
 
-export function validateManifestConstraints(
-  manifest: Manifest,
-  constraints: Constraints,
-): string[] {
+export function validateManifestConstraints(manifest: Manifest, constraints: Constraints): string[] {
   const errors: string[] = [];
 
   // Skip if manifest doesn't declare these optional fields
@@ -104,9 +101,7 @@ function main() {
     slugs = fs
       .readdirSync(PACKAGES_DIR, { withFileTypes: true })
       .filter((d) => d.isDirectory())
-      .filter((d) =>
-        fs.existsSync(path.join(PACKAGES_DIR, d.name, "manifest.yaml")),
-      )
+      .filter((d) => fs.existsSync(path.join(PACKAGES_DIR, d.name, "manifest.yaml")))
       .map((d) => d.name);
   } else {
     slugs = [args[0]];

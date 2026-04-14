@@ -302,9 +302,7 @@ if __name__ == "__main__":
         <span className="text-sm text-gray-500">Python</span>
       </div>
       <pre className="overflow-x-auto">
-        <code className="text-sm text-gray-700 font-mono whitespace-pre-wrap break-words">
-          {pythonCode}
-        </code>
+        <code className="text-sm text-gray-700 font-mono whitespace-pre-wrap break-words">{pythonCode}</code>
       </pre>
     </div>
   );

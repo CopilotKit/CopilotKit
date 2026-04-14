@@ -1,25 +1,11 @@
-import React, {
-  useContext,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useReducer,
-  useState,
-} from "react";
+import React, { useContext, useEffect, useLayoutEffect, useMemo, useReducer, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ScrollElementContext } from "./scroll-element-context";
 import { WithSlots, renderSlot, isReactComponentType } from "../../lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage";
-import {
-  ActivityMessage,
-  AssistantMessage,
-  Message,
-  ReasoningMessage,
-  ToolMessage,
-  UserMessage,
-} from "@ag-ui/core";
+import { ActivityMessage, AssistantMessage, Message, ReasoningMessage, ToolMessage, UserMessage } from "@ag-ui/core";
 import { twMerge } from "tailwind-merge";
 import { useRenderActivityMessage, useRenderCustomMessages } from "../../hooks";
 import { getThreadClone } from "../../hooks/use-agent";
@@ -40,9 +26,7 @@ function resolveSlotComponent<T extends React.ComponentType<any>>(
   if (typeof slot === "string") {
     return {
       Component: DefaultComponent,
-      slotProps: { className: slot } as unknown as Partial<
-        React.ComponentProps<T>
-      >,
+      slotProps: { className: slot } as unknown as Partial<React.ComponentProps<T>>,
     };
   }
   if (slot && typeof slot === "object") {
@@ -69,18 +53,9 @@ const MemoizedAssistantMessage = React.memo(
     messages: Message[];
     isRunning: boolean;
     AssistantMessageComponent: typeof CopilotChatAssistantMessage;
-    slotProps?: Partial<
-      React.ComponentProps<typeof CopilotChatAssistantMessage>
-    >;
+    slotProps?: Partial<React.ComponentProps<typeof CopilotChatAssistantMessage>>;
   }) {
-    return (
-      <AssistantMessageComponent
-        message={message}
-        messages={messages}
-        isRunning={isRunning}
-        {...slotProps}
-      />
-    );
+    return <AssistantMessageComponent message={message} messages={messages} isRunning={isRunning} {...slotProps} />;
   },
   (prevProps, nextProps) => {
     // Only re-render if this specific message changed
@@ -96,8 +71,7 @@ const MemoizedAssistantMessage = React.memo(
         const prevTc = prevToolCalls[i]!;
         const nextTc = nextToolCalls[i]!;
         if (prevTc.id !== nextTc.id) return false;
-        if (prevTc.function.arguments !== nextTc.function.arguments)
-          return false;
+        if (prevTc.function.arguments !== nextTc.function.arguments) return false;
       }
     }
 
@@ -107,36 +81,26 @@ const MemoizedAssistantMessage = React.memo(
       const toolCallIds = new Set(prevToolCalls.map((tc) => tc.id));
 
       const prevToolResults = prevProps.messages.filter(
-        (m): m is ToolMessage =>
-          m.role === "tool" && toolCallIds.has(m.toolCallId),
+        (m): m is ToolMessage => m.role === "tool" && toolCallIds.has(m.toolCallId),
       );
       const nextToolResults = nextProps.messages.filter(
-        (m): m is ToolMessage =>
-          m.role === "tool" && toolCallIds.has(m.toolCallId),
+        (m): m is ToolMessage => m.role === "tool" && toolCallIds.has(m.toolCallId),
       );
 
       if (prevToolResults.length !== nextToolResults.length) return false;
 
       for (let i = 0; i < prevToolResults.length; i++) {
-        if (prevToolResults[i]!.content !== nextToolResults[i]!.content)
-          return false;
+        if (prevToolResults[i]!.content !== nextToolResults[i]!.content) return false;
       }
     }
 
     // Only care about isRunning if this message is CURRENTLY the latest
     // (we don't need to re-render just because a message stopped being the latest)
-    const nextIsLatest =
-      nextProps.messages[nextProps.messages.length - 1]?.id ===
-      nextProps.message.id;
-    if (nextIsLatest && prevProps.isRunning !== nextProps.isRunning)
-      return false;
+    const nextIsLatest = nextProps.messages[nextProps.messages.length - 1]?.id === nextProps.message.id;
+    if (nextIsLatest && prevProps.isRunning !== nextProps.isRunning) return false;
 
     // Check if component reference changed
-    if (
-      prevProps.AssistantMessageComponent !==
-      nextProps.AssistantMessageComponent
-    )
-      return false;
+    if (prevProps.AssistantMessageComponent !== nextProps.AssistantMessageComponent) return false;
 
     // Check if slot props changed
     if (prevProps.slotProps !== nextProps.slotProps) return false;
@@ -164,8 +128,7 @@ const MemoizedUserMessage = React.memo(
     // Only re-render if this specific message changed
     if (prevProps.message.id !== nextProps.message.id) return false;
     if (prevProps.message.content !== nextProps.message.content) return false;
-    if (prevProps.UserMessageComponent !== nextProps.UserMessageComponent)
-      return false;
+    if (prevProps.UserMessageComponent !== nextProps.UserMessageComponent) return false;
     // Check if slot props changed
     if (prevProps.slotProps !== nextProps.slotProps) return false;
     return true;
@@ -181,9 +144,7 @@ const MemoizedActivityMessage = React.memo(
     renderActivityMessage,
   }: {
     message: ActivityMessage;
-    renderActivityMessage: (
-      message: ActivityMessage,
-    ) => React.ReactElement | null;
+    renderActivityMessage: (message: ActivityMessage) => React.ReactElement | null;
   }) {
     return renderActivityMessage(message);
   },
@@ -192,15 +153,10 @@ const MemoizedActivityMessage = React.memo(
     if (prevProps.message.id !== nextProps.message.id) return false;
 
     // Activity type changed = must re-render
-    if (prevProps.message.activityType !== nextProps.message.activityType)
-      return false;
+    if (prevProps.message.activityType !== nextProps.message.activityType) return false;
 
     // Compare content using JSON.stringify (native code, handles deep comparison)
-    if (
-      JSON.stringify(prevProps.message.content) !==
-      JSON.stringify(nextProps.message.content)
-    )
-      return false;
+    if (JSON.stringify(prevProps.message.content) !== JSON.stringify(nextProps.message.content)) return false;
 
     return true;
   },
@@ -221,18 +177,9 @@ const MemoizedReasoningMessage = React.memo(
     messages: Message[];
     isRunning: boolean;
     ReasoningMessageComponent: typeof CopilotChatReasoningMessage;
-    slotProps?: Partial<
-      React.ComponentProps<typeof CopilotChatReasoningMessage>
-    >;
+    slotProps?: Partial<React.ComponentProps<typeof CopilotChatReasoningMessage>>;
   }) {
-    return (
-      <ReasoningMessageComponent
-        message={message}
-        messages={messages}
-        isRunning={isRunning}
-        {...slotProps}
-      />
-    );
+    return <ReasoningMessageComponent message={message} messages={messages} isRunning={isRunning} {...slotProps} />;
   },
   (prevProps, nextProps) => {
     // Only re-render if this specific message changed
@@ -241,24 +188,15 @@ const MemoizedReasoningMessage = React.memo(
 
     // Re-render when "latest" status changes (e.g. reasoning message is no longer the last message
     // because a text message was added after it — this transitions isStreaming from true to false)
-    const prevIsLatest =
-      prevProps.messages[prevProps.messages.length - 1]?.id ===
-      prevProps.message.id;
-    const nextIsLatest =
-      nextProps.messages[nextProps.messages.length - 1]?.id ===
-      nextProps.message.id;
+    const prevIsLatest = prevProps.messages[prevProps.messages.length - 1]?.id === prevProps.message.id;
+    const nextIsLatest = nextProps.messages[nextProps.messages.length - 1]?.id === nextProps.message.id;
     if (prevIsLatest !== nextIsLatest) return false;
 
     // Only care about isRunning if this message is CURRENTLY the latest
-    if (nextIsLatest && prevProps.isRunning !== nextProps.isRunning)
-      return false;
+    if (nextIsLatest && prevProps.isRunning !== nextProps.isRunning) return false;
 
     // Check if component reference changed
-    if (
-      prevProps.ReasoningMessageComponent !==
-      nextProps.ReasoningMessageComponent
-    )
-      return false;
+    if (prevProps.ReasoningMessageComponent !== nextProps.ReasoningMessageComponent) return false;
 
     // Check if slot props changed
     if (prevProps.slotProps !== nextProps.slotProps) return false;
@@ -278,10 +216,7 @@ const MemoizedCustomMessage = React.memo(
   }: {
     message: Message;
     position: "before" | "after";
-    renderCustomMessage: (params: {
-      message: Message;
-      position: "before" | "after";
-    }) => React.ReactElement | null;
+    renderCustomMessage: (params: { message: Message; position: "before" | "after" }) => React.ReactElement | null;
     stateSnapshot?: unknown;
   }) {
     return renderCustomMessage({ message, position });
@@ -294,11 +229,7 @@ const MemoizedCustomMessage = React.memo(
     if (prevProps.message.content !== nextProps.message.content) return false;
     if (prevProps.message.role !== nextProps.message.role) return false;
     // Compare state snapshot - custom renderers may depend on state
-    if (
-      JSON.stringify(prevProps.stateSnapshot) !==
-      JSON.stringify(nextProps.stateSnapshot)
-    )
-      return false;
+    if (JSON.stringify(prevProps.stateSnapshot) !== JSON.stringify(nextProps.stateSnapshot)) return false;
     // Note: We don't compare renderCustomMessage function reference because it changes
     // frequently. The message and state comparison is sufficient to determine if a re-render is needed.
     return true;
@@ -319,11 +250,7 @@ export function deduplicateMessages(messages: Message[]): Message[] {
   const acc = new Map<string, Message>();
   for (const message of messages) {
     const existing = acc.get(message.id);
-    if (
-      existing &&
-      message.role === "assistant" &&
-      existing.role === "assistant"
-    ) {
+    if (existing && message.role === "assistant" && existing.role === "assistant") {
       // Empty string means the streaming update cleared the field — fall back to
       // any non-empty content seen earlier. Use { ...existing, ...message } so
       // fields present only in an earlier occurrence are not silently dropped.
@@ -395,8 +322,7 @@ export function CopilotChatMessageView({
     const registryAgent = copilotkit.getAgent(config.agentId);
     // Prefer the per-thread clone so that state changes from the running agent
     // (which is the clone, not the registry) trigger re-renders.
-    const agent =
-      getThreadClone(registryAgent, config.threadId) ?? registryAgent;
+    const agent = getThreadClone(registryAgent, config.threadId) ?? registryAgent;
     if (!agent) return;
 
     const subscription = agent.subscribe({
@@ -406,8 +332,7 @@ export function CopilotChatMessageView({
   }, [config?.agentId, config?.threadId, copilotkit, forceUpdate]);
 
   // Subscribe to interrupt element changes for in-chat rendering.
-  const [interruptElement, setInterruptElement] =
-    useState<React.ReactElement | null>(null);
+  const [interruptElement, setInterruptElement] = useState<React.ReactElement | null>(null);
   useEffect(() => {
     setInterruptElement(copilotkit.interruptElement);
     const subscription = copilotkit.subscribe({
@@ -422,31 +347,15 @@ export function CopilotChatMessageView({
   const getStateSnapshotForMessage = (messageId: string): unknown => {
     if (!config) return undefined;
     const resolvedRunId =
-      copilotkit.getRunIdForMessage(
-        config.agentId,
-        config.threadId,
-        messageId,
-      ) ??
-      copilotkit
-        .getRunIdsForThread(config.agentId, config.threadId)
-        .slice(-1)[0];
+      copilotkit.getRunIdForMessage(config.agentId, config.threadId, messageId) ??
+      copilotkit.getRunIdsForThread(config.agentId, config.threadId).slice(-1)[0];
     if (!resolvedRunId) return undefined;
-    return copilotkit.getStateByRun(
-      config.agentId,
-      config.threadId,
-      resolvedRunId,
-    );
+    return copilotkit.getStateByRun(config.agentId, config.threadId, resolvedRunId);
   };
 
-  const deduplicatedMessages = useMemo(
-    () => deduplicateMessages(messages),
-    [messages],
-  );
+  const deduplicatedMessages = useMemo(() => deduplicateMessages(messages), [messages]);
 
-  if (
-    process.env.NODE_ENV === "development" &&
-    deduplicatedMessages.length < messages.length
-  ) {
+  if (process.env.NODE_ENV === "development" && deduplicatedMessages.length < messages.length) {
     console.warn(
       `CopilotChatMessageView: Merged ${messages.length - deduplicatedMessages.length} message(s) with duplicate IDs.`,
     );
@@ -456,20 +365,18 @@ export function CopilotChatMessageView({
   // resolveSlotComponent returns a new object every call when the slot is a CSS
   // class string, which would defeat MemoizedAssistantMessage's slotProps
   // reference-equality check and cause all completed messages to re-render.
-  const { Component: AssistantComponent, slotProps: assistantSlotProps } =
-    useMemo(
-      () => resolveSlotComponent(assistantMessage, CopilotChatAssistantMessage),
-      [assistantMessage],
-    );
+  const { Component: AssistantComponent, slotProps: assistantSlotProps } = useMemo(
+    () => resolveSlotComponent(assistantMessage, CopilotChatAssistantMessage),
+    [assistantMessage],
+  );
   const { Component: UserComponent, slotProps: userSlotProps } = useMemo(
     () => resolveSlotComponent(userMessage, CopilotChatUserMessage),
     [userMessage],
   );
-  const { Component: ReasoningComponent, slotProps: reasoningSlotProps } =
-    useMemo(
-      () => resolveSlotComponent(reasoningMessage, CopilotChatReasoningMessage),
-      [reasoningMessage],
-    );
+  const { Component: ReasoningComponent, slotProps: reasoningSlotProps } = useMemo(
+    () => resolveSlotComponent(reasoningMessage, CopilotChatReasoningMessage),
+    [reasoningMessage],
+  );
 
   // ---------------------------------------------------------------------------
   // Virtualization
@@ -479,19 +386,12 @@ export function CopilotChatMessageView({
   // container first mounts. clientHeight === 0 means no real layout (jsdom) —
   // skip virtualization so tests run the flat path.
   const scrollElementFromCtx = useContext(ScrollElementContext);
-  const scrollElement =
-    scrollElementFromCtx && scrollElementFromCtx.clientHeight > 0
-      ? scrollElementFromCtx
-      : null;
+  const scrollElement = scrollElementFromCtx && scrollElementFromCtx.clientHeight > 0 ? scrollElementFromCtx : null;
 
   // Warn once in dev when a scroll element is provided but has no height —
   // this silently disables virtualization (e.g. chat inside display:none tab).
   useEffect(() => {
-    if (
-      process.env.NODE_ENV !== "production" &&
-      scrollElementFromCtx &&
-      scrollElementFromCtx.clientHeight === 0
-    ) {
+    if (process.env.NODE_ENV !== "production" && scrollElementFromCtx && scrollElementFromCtx.clientHeight === 0) {
       console.warn(
         "[CopilotKit] Chat scroll container has clientHeight=0 — virtualization disabled. " +
           "Ensure the chat is rendered in a visible container with a non-zero height.",
@@ -502,10 +402,7 @@ export function CopilotChatMessageView({
   // Virtualize only when we have a scroll element and enough messages. The
   // `children` render prop delegates layout to the caller, so we keep
   // messageElements flat for that case.
-  const shouldVirtualize =
-    !!scrollElement &&
-    !children &&
-    deduplicatedMessages.length > VIRTUALIZE_THRESHOLD;
+  const shouldVirtualize = !!scrollElement && !children && deduplicatedMessages.length > VIRTUALIZE_THRESHOLD;
 
   const virtualizer = useVirtualizer({
     // count=0 disables the virtualizer without changing hook call order.
@@ -646,9 +543,7 @@ export function CopilotChatMessageView({
       {shouldVirtualize ? (
         // Virtual path: only visible items are in the DOM; outer div maintains
         // total scroll height so the scrollbar reflects the full list size.
-        <div
-          style={{ height: virtualizer.getTotalSize(), position: "relative" }}
-        >
+        <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
           {virtualizer.getVirtualItems().map((virtualItem) => {
             const message = deduplicatedMessages[virtualItem.index]!;
             return (
@@ -673,19 +568,12 @@ export function CopilotChatMessageView({
         messageElements
       )}
       {interruptElement}
-      {showCursor && (
-        <div className="cpk:mt-2">
-          {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
-        </div>
-      )}
+      {showCursor && <div className="cpk:mt-2">{renderSlot(cursor, CopilotChatMessageView.Cursor, {})}</div>}
     </div>
   );
 }
 
-CopilotChatMessageView.Cursor = function Cursor({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+CopilotChatMessageView.Cursor = function Cursor({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       data-testid="copilot-loading-cursor"

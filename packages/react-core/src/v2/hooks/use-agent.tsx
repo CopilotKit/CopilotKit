@@ -3,10 +3,7 @@ import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurati
 import { useMemo, useEffect, useReducer, useRef } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { AbstractAgent, HttpAgent } from "@ag-ui/client";
-import {
-  ProxiedCopilotRuntimeAgent,
-  CopilotKitCoreRuntimeConnectionStatus,
-} from "@copilotkit/core";
+import { ProxiedCopilotRuntimeAgent, CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 
 export enum UseAgentUpdate {
   OnMessagesChanged = "OnMessagesChanged",
@@ -51,11 +48,7 @@ export interface UseAgentProps {
  * Copies agent configuration (transport, headers, etc.) but resets conversation
  * state (messages, threadId, state) so each thread starts fresh.
  */
-function cloneForThread(
-  source: AbstractAgent,
-  threadId: string,
-  headers: Record<string, string>,
-): AbstractAgent {
+function cloneForThread(source: AbstractAgent, threadId: string, headers: Record<string, string>): AbstractAgent {
   const clone = source.clone();
   if (clone === source) {
     throw new Error(
@@ -79,10 +72,7 @@ function cloneForThread(
  * ensures the clone map is garbage-collected when the registry agent is
  * replaced (e.g. after reconnect or hot-reload).
  */
-export const globalThreadCloneMap = new WeakMap<
-  AbstractAgent,
-  Map<string, AbstractAgent>
->();
+export const globalThreadCloneMap = new WeakMap<AbstractAgent, Map<string, AbstractAgent>>();
 
 /**
  * Look up an existing per-thread clone without creating one.
@@ -114,12 +104,7 @@ function getOrCreateThreadClone(
   return clone;
 }
 
-export function useAgent({
-  agentId,
-  threadId,
-  updates,
-  throttleMs,
-}: UseAgentProps = {}) {
+export function useAgent({ agentId, threadId, updates, throttleMs }: UseAgentProps = {}) {
   agentId ??= DEFAULT_AGENT_ID;
 
   const { copilotkit } = useCopilotKit();
@@ -136,10 +121,7 @@ export function useAgent({
     if (!Number.isFinite(resolved) || resolved < 0) {
       // When both throttleMs and providerThrottleMs are undefined, resolved
       // is 0 which passes validation — so one of them must be defined here.
-      const source =
-        throttleMs !== undefined
-          ? "hook-level throttleMs"
-          : "provider-level defaultThrottleMs";
+      const source = throttleMs !== undefined ? "hook-level throttleMs" : "provider-level defaultThrottleMs";
       console.error(
         `useAgent: ${source} must be a non-negative finite number, got ${resolved}. Falling back to unthrottled.`,
       );
@@ -150,17 +132,12 @@ export function useAgent({
 
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
-  const updateFlags = useMemo(
-    () => updates ?? ALL_UPDATES,
-    [JSON.stringify(updates)],
-  );
+  const updateFlags = useMemo(() => updates ?? ALL_UPDATES, [JSON.stringify(updates)]);
 
   // Cache provisional agents to avoid creating new references on every render
   // while the runtime is still connecting. A new reference would cascade into
   // CopilotChat's connectAgent effect, causing unnecessary HTTP calls.
-  const provisionalAgentCache = useRef<Map<string, ProxiedCopilotRuntimeAgent>>(
-    new Map(),
-  );
+  const provisionalAgentCache = useRef<Map<string, ProxiedCopilotRuntimeAgent>>(new Map());
 
   const agent: AbstractAgent = useMemo(() => {
     // Use a composite key when threadId is provided so that different threads
@@ -225,10 +202,7 @@ export function useAgent({
     // (RUNTIME_INFO_FETCH_FAILED). Throwing here would crash the React tree;
     // returning a provisional agent lets onError handlers fire while keeping
     // the app alive.
-    if (
-      isRuntimeConfigured &&
-      status === CopilotKitCoreRuntimeConnectionStatus.Error
-    ) {
+    if (isRuntimeConfigured && status === CopilotKitCoreRuntimeConnectionStatus.Error) {
       // Cache the provisional so that dep changes while in Error state (e.g.
       // headers update) return the same agent reference, matching the
       // Disconnected/Connecting path and preventing spurious re-subscriptions.
@@ -253,14 +227,10 @@ export function useAgent({
 
     // No runtime configured and agent doesn't exist — this is a configuration error.
     const knownAgents = Object.keys(copilotkit.agents ?? {});
-    const runtimePart = isRuntimeConfigured
-      ? `runtimeUrl=${copilotkit.runtimeUrl}`
-      : "no runtimeUrl";
+    const runtimePart = isRuntimeConfigured ? `runtimeUrl=${copilotkit.runtimeUrl}` : "no runtimeUrl";
     throw new Error(
       `useAgent: Agent '${agentId}' not found after runtime sync (${runtimePart}). ` +
-        (knownAgents.length
-          ? `Known agents: [${knownAgents.join(", ")}]`
-          : "No agents registered.") +
+        (knownAgents.length ? `Known agents: [${knownAgents.join(", ")}]` : "No agents registered.") +
         " Verify your runtime /info and/or agents__unsafe_dev_only.",
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps

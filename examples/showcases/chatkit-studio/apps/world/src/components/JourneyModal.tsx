@@ -39,10 +39,7 @@ export default function JourneyModal({
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         {/* Backdrop */}
-        <div
-          className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-          onClick={onClose}
-        />
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
 
         {/* Modal */}
         <div className="relative bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col">
@@ -62,11 +59,7 @@ export default function JourneyModal({
                   onClick={() => setShowMenu(!showMenu)}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
-                  <svg
-                    className="w-6 h-6 text-gray-600"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
+                  <svg className="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
                     <circle cx="12" cy="6" r="2" />
                     <circle cx="12" cy="12" r="2" />
                     <circle cx="12" cy="18" r="2" />
@@ -90,22 +83,9 @@ export default function JourneyModal({
               </div>
 
               {/* Close Button */}
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <svg
-                  className="w-6 h-6 text-gray-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
+              <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
@@ -115,9 +95,7 @@ export default function JourneyModal({
           <div className="flex-1 overflow-y-auto p-6">
             {/* Current Level Section */}
             <div className="bg-gray-50 rounded-2xl p-5 mb-6">
-              <h3 className="text-sm font-medium text-gray-600 mb-3">
-                Current Level
-              </h3>
+              <h3 className="text-sm font-medium text-gray-600 mb-3">Current Level</h3>
               <div className="flex items-center gap-4">
                 <div
                   className={`${currentLevel.color} text-white w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold`}
@@ -125,13 +103,9 @@ export default function JourneyModal({
                   {currentLevel.level}
                 </div>
                 <div>
-                  <h4 className="text-xl font-bold text-gray-900">
-                    {currentLevel.name}
-                  </h4>
+                  <h4 className="text-xl font-bold text-gray-900">{currentLevel.name}</h4>
                   <p className="text-sm text-gray-500">
-                    {countriesToNextLevel > 0
-                      ? `${countriesToNextLevel} to next level`
-                      : "Max level reached!"}
+                    {countriesToNextLevel > 0 ? `${countriesToNextLevel} to next level` : "Max level reached!"}
                   </p>
                 </div>
               </div>
@@ -149,24 +123,16 @@ export default function JourneyModal({
                       key={country.name}
                       className="flex items-center gap-3 bg-gray-50 rounded-2xl p-4 hover:bg-gray-100 transition-colors"
                     >
-                      {country.flagEmoji && (
-                        <span className="text-3xl">{country.flagEmoji}</span>
-                      )}
-                      <span className="text-sm font-medium text-gray-900 truncate">
-                        {country.name}
-                      </span>
+                      {country.flagEmoji && <span className="text-3xl">{country.flagEmoji}</span>}
+                      <span className="text-sm font-medium text-gray-900 truncate">{country.name}</span>
                     </div>
                   ))}
                 </div>
               </div>
             ) : (
               <div className="text-center py-12">
-                <p className="text-gray-400 text-lg mb-2">
-                  No countries visited yet
-                </p>
-                <p className="text-gray-400 text-sm">
-                  Click on a country to start your journey!
-                </p>
+                <p className="text-gray-400 text-lg mb-2">No countries visited yet</p>
+                <p className="text-gray-400 text-sm">Click on a country to start your journey!</p>
               </div>
             )}
           </div>
@@ -174,11 +140,7 @@ export default function JourneyModal({
       </div>
 
       {/* Reset Confirmation Dialog */}
-      <ResetConfirmDialog
-        isOpen={showResetDialog}
-        onCancel={() => setShowResetDialog(false)}
-        onConfirm={handleReset}
-      />
+      <ResetConfirmDialog isOpen={showResetDialog} onCancel={() => setShowResetDialog(false)} onConfirm={handleReset} />
     </>
   );
 }

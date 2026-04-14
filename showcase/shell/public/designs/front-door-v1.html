@@ -147,11 +147,7 @@
         transform: translateX(-50%);
         width: 800px;
         height: 800px;
-        background: radial-gradient(
-          circle,
-          rgba(77, 124, 255, 0.08) 0%,
-          transparent 70%
-        );
+        background: radial-gradient(circle, rgba(77, 124, 255, 0.08) 0%, transparent 70%);
         pointer-events: none;
       }
 
@@ -538,25 +534,13 @@
         background: var(--gradient-warm);
       }
       .feature-card:nth-child(6n + 4)::before {
-        background: linear-gradient(
-          135deg,
-          var(--accent-amber),
-          var(--accent-emerald)
-        );
+        background: linear-gradient(135deg, var(--accent-amber), var(--accent-emerald));
       }
       .feature-card:nth-child(6n + 5)::before {
-        background: linear-gradient(
-          135deg,
-          var(--accent-violet),
-          var(--accent-rose)
-        );
+        background: linear-gradient(135deg, var(--accent-violet), var(--accent-rose));
       }
       .feature-card:nth-child(6n + 6)::before {
-        background: linear-gradient(
-          135deg,
-          var(--accent-cyan),
-          var(--accent-blue)
-        );
+        background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
       }
 
       .feature-card .fc-icon {
@@ -750,11 +734,7 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: radial-gradient(
-          ellipse at 30% 20%,
-          rgba(139, 92, 246, 0.04) 0%,
-          transparent 60%
-        );
+        background: radial-gradient(ellipse at 30% 20%, rgba(139, 92, 246, 0.04) 0%, transparent 60%);
         pointer-events: none;
       }
 
@@ -917,13 +897,8 @@
       <div class="wizard-container">
         <div class="wizard-card">
           <div class="wizard-header">
-            <h1>
-              Find your <span class="highlight">perfect</span> integration
-            </h1>
-            <p>
-              Answer a few quick questions and we'll recommend the right
-              starting point for your project.
-            </p>
+            <h1>Find your <span class="highlight">perfect</span> integration</h1>
+            <p>Answer a few quick questions and we'll recommend the right starting point for your project.</p>
           </div>
 
           <!-- Step 1 -->
@@ -1047,9 +1022,8 @@
               <div class="result-badge">Best match</div>
               <h2>LangGraph + CopilotKit</h2>
               <p class="result-desc">
-                Full-featured integration with generative UI, shared state,
-                HITL, streaming, and sub-agents. The most complete package we
-                offer.
+                Full-featured integration with generative UI, shared state, HITL, streaming, and sub-agents. The most
+                complete package we offer.
               </p>
               <div class="result-cards">
                 <div class="result-card">
@@ -1069,9 +1043,7 @@
                   <p>Explore every feature</p>
                 </div>
               </div>
-              <button class="wizard-restart" onclick="wizardRestart()">
-                ← Start over
-              </button>
+              <button class="wizard-restart" onclick="wizardRestart()">← Start over</button>
             </div>
           </div>
 
@@ -1090,16 +1062,10 @@
         <div class="feature-hero">
           <div class="eyebrow">CopilotKit Showcase</div>
           <h1>What do you want<br />your agent to do?</h1>
-          <p>
-            Browse capabilities, see which frameworks support them, and try live
-            demos instantly.
-          </p>
+          <p>Browse capabilities, see which frameworks support them, and try live demos instantly.</p>
           <div class="feature-search">
             <span class="search-icon">⌕</span>
-            <input
-              type="text"
-              placeholder="Search features, frameworks, or capabilities..."
-            />
+            <input type="text" placeholder="Search features, frameworks, or capabilities..." />
           </div>
         </div>
 
@@ -1118,8 +1084,7 @@
             <div class="fc-icon">💬</div>
             <h3>Agentic Chat</h3>
             <p class="fc-desc">
-              Natural conversation with frontend tool execution. The agent calls
-              your UI functions directly.
+              Natural conversation with frontend tool execution. The agent calls your UI functions directly.
             </p>
             <div class="fc-integrations">
               <span class="fc-int-badge">LangGraph</span>
@@ -1133,8 +1098,7 @@
             <div class="fc-icon">🎨</div>
             <h3>Generative UI</h3>
             <p class="fc-desc">
-              Agent generates interactive React components on the fly.
-              Tool-based, controlled, or fully agent-driven.
+              Agent generates interactive React components on the fly. Tool-based, controlled, or fully agent-driven.
             </p>
             <div class="fc-integrations">
               <span class="fc-int-badge">LangGraph</span>
@@ -1148,8 +1112,7 @@
             <div class="fc-icon">✋</div>
             <h3>Human in the Loop</h3>
             <p class="fc-desc">
-              Agent proposes actions, user approves or rejects before execution.
-              Plan-and-confirm workflows.
+              Agent proposes actions, user approves or rejects before execution. Plan-and-confirm workflows.
             </p>
             <div class="fc-integrations">
               <span class="fc-int-badge">LangGraph</span>
@@ -1163,8 +1126,7 @@
             <div class="fc-icon">🔄</div>
             <h3>Shared State</h3>
             <p class="fc-desc">
-              Agent and UI read and write the same state. Real-time
-              collaboration between human and agent.
+              Agent and UI read and write the same state. Real-time collaboration between human and agent.
             </p>
             <div class="fc-integrations">
               <span class="fc-int-badge">LangGraph</span>
@@ -1177,8 +1139,7 @@
             <div class="fc-icon">⚡</div>
             <h3>State Streaming</h3>
             <p class="fc-desc">
-              Per-token state delta streaming from agent to UI. Live-updating
-              previews and predictive rendering.
+              Per-token state delta streaming from agent to UI. Live-updating previews and predictive rendering.
             </p>
             <div class="fc-integrations">
               <span class="fc-int-badge">LangGraph</span>
@@ -1191,8 +1152,7 @@
             <div class="fc-icon">🧩</div>
             <h3>Sub-Agents</h3>
             <p class="fc-desc">
-              Multiple agents working together with visible task delegation.
-              Each sub-agent streams independently.
+              Multiple agents working together with visible task delegation. Each sub-agent streams independently.
             </p>
             <div class="fc-integrations">
               <span class="fc-int-badge">LangGraph</span>
@@ -1205,8 +1165,7 @@
             <div class="fc-icon">🔧</div>
             <h3>Tool Rendering</h3>
             <p class="fc-desc">
-              Backend agent tools rendered as UI components. Visualize what the
-              agent is doing as it works.
+              Backend agent tools rendered as UI components. Visualize what the agent is doing as it works.
             </p>
             <div class="fc-integrations">
               <span class="fc-int-badge">LangGraph</span>
@@ -1220,8 +1179,7 @@
             <div class="fc-icon">🔌</div>
             <h3>MCP Apps</h3>
             <p class="fc-desc">
-              Connect MCP servers to your agent. Tools discovered and executed
-              with full UI display.
+              Connect MCP servers to your agent. Tools discovered and executed with full UI display.
             </p>
             <div class="fc-integrations">
               <span class="fc-int-badge">LangGraph</span>
@@ -1235,8 +1193,7 @@
             <div class="fc-icon">🗣️</div>
             <h3>Voice</h3>
             <p class="fc-desc">
-              Real-time voice interaction with your agent. Talk instead of type,
-              hear instead of read.
+              Real-time voice interaction with your agent. Talk instead of type, hear instead of read.
             </p>
             <div class="fc-integrations">
               <span class="fc-int-badge" style="opacity: 0.4">Coming soon</span>
@@ -1251,33 +1208,21 @@
       <div class="config-container">
         <div class="config-panel">
           <h2>Build your stack</h2>
-          <p class="subtitle">
-            Toggle the features you need. We'll show you which integrations
-            match and how well.
-          </p>
+          <p class="subtitle">Toggle the features you need. We'll show you which integrations match and how well.</p>
 
           <div class="config-section">
             <div class="config-section-label">Language</div>
             <div class="config-toggles">
               <div class="config-toggle on" onclick="toggleConfig(this)">
-                <div class="ct-info">
-                  <span class="ct-icon">🐍</span
-                  ><span class="ct-name">Python</span>
-                </div>
+                <div class="ct-info"><span class="ct-icon">🐍</span><span class="ct-name">Python</span></div>
                 <div class="ct-switch"></div>
               </div>
               <div class="config-toggle" onclick="toggleConfig(this)">
-                <div class="ct-info">
-                  <span class="ct-icon">📘</span
-                  ><span class="ct-name">TypeScript</span>
-                </div>
+                <div class="ct-info"><span class="ct-icon">📘</span><span class="ct-name">TypeScript</span></div>
                 <div class="ct-switch"></div>
               </div>
               <div class="config-toggle" onclick="toggleConfig(this)">
-                <div class="ct-info">
-                  <span class="ct-icon">🔷</span
-                  ><span class="ct-name">.NET</span>
-                </div>
+                <div class="ct-info"><span class="ct-icon">🔷</span><span class="ct-name">.NET</span></div>
                 <div class="ct-switch"></div>
               </div>
             </div>
@@ -1287,38 +1232,23 @@
             <div class="config-section-label">Core Features</div>
             <div class="config-toggles">
               <div class="config-toggle on" onclick="toggleConfig(this)">
-                <div class="ct-info">
-                  <span class="ct-icon">💬</span
-                  ><span class="ct-name">Chat</span>
-                </div>
+                <div class="ct-info"><span class="ct-icon">💬</span><span class="ct-name">Chat</span></div>
                 <div class="ct-switch"></div>
               </div>
               <div class="config-toggle on" onclick="toggleConfig(this)">
-                <div class="ct-info">
-                  <span class="ct-icon">🎨</span
-                  ><span class="ct-name">Generative UI</span>
-                </div>
+                <div class="ct-info"><span class="ct-icon">🎨</span><span class="ct-name">Generative UI</span></div>
                 <div class="ct-switch"></div>
               </div>
               <div class="config-toggle" onclick="toggleConfig(this)">
-                <div class="ct-info">
-                  <span class="ct-icon">✋</span
-                  ><span class="ct-name">Human in the Loop</span>
-                </div>
+                <div class="ct-info"><span class="ct-icon">✋</span><span class="ct-name">Human in the Loop</span></div>
                 <div class="ct-switch"></div>
               </div>
               <div class="config-toggle" onclick="toggleConfig(this)">
-                <div class="ct-info">
-                  <span class="ct-icon">🔄</span
-                  ><span class="ct-name">Shared State</span>
-                </div>
+                <div class="ct-info"><span class="ct-icon">🔄</span><span class="ct-name">Shared State</span></div>
                 <div class="ct-switch"></div>
               </div>
               <div class="config-toggle" onclick="toggleConfig(this)">
-                <div class="ct-info">
-                  <span class="ct-icon">⚡</span
-                  ><span class="ct-name">State Streaming</span>
-                </div>
+                <div class="ct-info"><span class="ct-icon">⚡</span><span class="ct-name">State Streaming</span></div>
                 <div class="ct-switch"></div>
               </div>
             </div>
@@ -1328,38 +1258,23 @@
             <div class="config-section-label">Advanced</div>
             <div class="config-toggles">
               <div class="config-toggle" onclick="toggleConfig(this)">
-                <div class="ct-info">
-                  <span class="ct-icon">🧩</span
-                  ><span class="ct-name">Sub-Agents</span>
-                </div>
+                <div class="ct-info"><span class="ct-icon">🧩</span><span class="ct-name">Sub-Agents</span></div>
                 <div class="ct-switch"></div>
               </div>
               <div class="config-toggle" onclick="toggleConfig(this)">
-                <div class="ct-info">
-                  <span class="ct-icon">🔌</span
-                  ><span class="ct-name">MCP Apps</span>
-                </div>
+                <div class="ct-info"><span class="ct-icon">🔌</span><span class="ct-name">MCP Apps</span></div>
                 <div class="ct-switch"></div>
               </div>
               <div class="config-toggle" onclick="toggleConfig(this)">
-                <div class="ct-info">
-                  <span class="ct-icon">🗣️</span
-                  ><span class="ct-name">Voice</span>
-                </div>
+                <div class="ct-info"><span class="ct-icon">🗣️</span><span class="ct-name">Voice</span></div>
                 <div class="ct-switch"></div>
               </div>
               <div class="config-toggle" onclick="toggleConfig(this)">
-                <div class="ct-info">
-                  <span class="ct-icon">📱</span
-                  ><span class="ct-name">Mobile</span>
-                </div>
+                <div class="ct-info"><span class="ct-icon">📱</span><span class="ct-name">Mobile</span></div>
                 <div class="ct-switch"></div>
               </div>
               <div class="config-toggle" onclick="toggleConfig(this)">
-                <div class="ct-info">
-                  <span class="ct-icon">🔐</span
-                  ><span class="ct-name">Authentication</span>
-                </div>
+                <div class="ct-info"><span class="ct-icon">🔐</span><span class="ct-name">Authentication</span></div>
                 <div class="ct-switch"></div>
               </div>
             </div>
@@ -1423,12 +1338,8 @@
 
     <script>
       function showConcept(id) {
-        document
-          .querySelectorAll(".concept")
-          .forEach((c) => c.classList.remove("active"));
-        document
-          .querySelectorAll(".concept-tab")
-          .forEach((t) => t.classList.remove("active"));
+        document.querySelectorAll(".concept").forEach((c) => c.classList.remove("active"));
+        document.querySelectorAll(".concept-tab").forEach((t) => t.classList.remove("active"));
         document.getElementById("concept-" + id).classList.add("active");
         event.currentTarget.classList.add("active");
       }
@@ -1437,12 +1348,8 @@
       let currentStep = 1;
 
       function wizardNext(step) {
-        document
-          .querySelectorAll(".wizard-step")
-          .forEach((s) => s.classList.remove("active"));
-        document
-          .querySelector(`.wizard-step[data-step="${step}"]`)
-          .classList.add("active");
+        document.querySelectorAll(".wizard-step").forEach((s) => s.classList.remove("active"));
+        document.querySelector(`.wizard-step[data-step="${step}"]`).classList.add("active");
 
         for (let i = 1; i <= 3; i++) {
           const dot = document.getElementById("dot-" + i);
@@ -1454,28 +1361,16 @@
       }
 
       function wizardFinish() {
-        document
-          .querySelectorAll(".wizard-step")
-          .forEach((s) => s.classList.remove("active"));
-        document
-          .querySelector('.wizard-step[data-step="result"]')
-          .classList.add("active");
-        document
-          .querySelectorAll(".wizard-dot")
-          .forEach((d) => d.classList.add("done"));
-        document
-          .querySelectorAll(".wizard-dot")
-          .forEach((d) => d.classList.remove("active"));
+        document.querySelectorAll(".wizard-step").forEach((s) => s.classList.remove("active"));
+        document.querySelector('.wizard-step[data-step="result"]').classList.add("active");
+        document.querySelectorAll(".wizard-dot").forEach((d) => d.classList.add("done"));
+        document.querySelectorAll(".wizard-dot").forEach((d) => d.classList.remove("active"));
       }
 
       function wizardRestart() {
         currentStep = 1;
-        document
-          .querySelectorAll(".wizard-step")
-          .forEach((s) => s.classList.remove("active"));
-        document
-          .querySelector('.wizard-step[data-step="1"]')
-          .classList.add("active");
+        document.querySelectorAll(".wizard-step").forEach((s) => s.classList.remove("active"));
+        document.querySelector('.wizard-step[data-step="1"]').classList.add("active");
         document.querySelectorAll(".wizard-dot").forEach((d) => {
           d.classList.remove("done", "active");
         });
@@ -1490,9 +1385,7 @@
       // Category pills
       document.querySelectorAll(".feature-cat-pill").forEach((pill) => {
         pill.addEventListener("click", () => {
-          document
-            .querySelectorAll(".feature-cat-pill")
-            .forEach((p) => p.classList.remove("active"));
+          document.querySelectorAll(".feature-cat-pill").forEach((p) => p.classList.remove("active"));
           pill.classList.add("active");
         });
       });

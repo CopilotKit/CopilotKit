@@ -16,10 +16,7 @@ export class HumanInTheLoop {
   onResult(toolCallId: string, toolName: string): Promise<unknown> {
     return lastValueFrom(
       this.results.pipe(
-        filter(
-          (result) =>
-            result.toolCallId === toolCallId && result.toolName === toolName,
-        ),
+        filter((result) => result.toolCallId === toolCallId && result.toolName === toolName),
         take(1),
       ),
     );

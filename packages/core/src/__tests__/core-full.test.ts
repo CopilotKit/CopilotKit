@@ -25,10 +25,7 @@ describe("CopilotKitCore.runAgent - Full Test Suite", () => {
 
   describe("Tests that should pass", () => {
     it("TEST 1: should run agent without tools", async () => {
-      const messages = [
-        createMessage({ content: "Hello" }),
-        createAssistantMessage({ content: "Hi there!" }),
-      ];
+      const messages = [createMessage({ content: "Hello" }), createAssistantMessage({ content: "Hi there!" })];
       const agent = new MockAgent({ newMessages: messages });
       copilotKitCore.addAgent__unsafe_dev_only({
         id: "test",
@@ -141,10 +138,7 @@ describe("CopilotKitCore.runAgent - Full Test Suite", () => {
       copilotKitCore.addTool(tool1);
       copilotKitCore.addTool(tool2);
 
-      const message = createMultipleToolCallsMessage([
-        { name: "tool1" },
-        { name: "tool2" },
-      ]);
+      const message = createMultipleToolCallsMessage([{ name: "tool1" }, { name: "tool2" }]);
 
       const agent = new MockAgent({ newMessages: [message] });
       copilotKitCore.addAgent__unsafe_dev_only({
@@ -256,9 +250,7 @@ describe("CopilotKitCore.runAgent - Full Test Suite", () => {
 
       tools.forEach((tool) => copilotKitCore.addTool(tool));
 
-      const message = createMultipleToolCallsMessage(
-        delays.map((_, i) => ({ name: `concurrentTool${i}` })),
-      );
+      const message = createMultipleToolCallsMessage(delays.map((_, i) => ({ name: `concurrentTool${i}` })));
       const agent = new MockAgent({ newMessages: [message] });
       copilotKitCore.addAgent__unsafe_dev_only({
         id: "test",

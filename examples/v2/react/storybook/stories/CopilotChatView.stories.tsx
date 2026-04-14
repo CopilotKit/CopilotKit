@@ -1,9 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import {
-  CopilotChatConfigurationProvider,
-  CopilotChatView,
-  CopilotKitProvider,
-} from "@copilotkit/react-core/v2";
+import { CopilotChatConfigurationProvider, CopilotChatView, CopilotKitProvider } from "@copilotkit/react-core/v2";
 import { Suggestion } from "@copilotkit/core";
 
 const meta = {
@@ -11,8 +7,7 @@ const meta = {
   parameters: {
     docs: {
       description: {
-        component:
-          "A complete chat interface with message feed and input components.",
+        component: "A complete chat interface with message feed and input components.",
       },
     },
   },
@@ -27,9 +22,7 @@ export const Default: Story = {
   },
   decorators: [
     (Story) => (
-      <div
-        style={{ height: "100vh", margin: 0, padding: 0, overflow: "hidden" }}
-      >
+      <div style={{ height: "100vh", margin: 0, padding: 0, overflow: "hidden" }}>
         <Story />
       </div>
     ),
@@ -74,9 +67,7 @@ export const WithSuggestions: Story = {
           <CopilotChatView
             messages={storyMessages}
             suggestions={suggestionSamples}
-            onSelectSuggestion={(suggestion) =>
-              alert(`Selected suggestion: ${suggestion.title}`)
-            }
+            onSelectSuggestion={(suggestion) => alert(`Selected suggestion: ${suggestion.title}`)}
             onSubmitMessage={(value) => {
               alert(`Message submitted: ${value}`);
             }}

@@ -28,10 +28,7 @@ export function Header({
   performResearch,
   setPerformResearch,
 }: HeaderProps) {
-  const currentSlide = useMemo(
-    () => slides[currentSlideIndex],
-    [slides, currentSlideIndex],
-  );
+  const currentSlide = useMemo(() => slides[currentSlideIndex], [slides, currentSlideIndex]);
 
   /**
    * We need to get the context here to run a Copilot task for generating a slide
@@ -42,46 +39,29 @@ export function Header({
     <header className={clsx("text-white items-center flex p-4")}>
       <div className="flex-0 flex space-x-1">
         {/* Back */}
-        <NavButton
-          disabled={currentSlideIndex == 0}
-          onClick={() => setCurrentSlideIndex((i) => i - 1)}
-        >
+        <NavButton disabled={currentSlideIndex == 0} onClick={() => setCurrentSlideIndex((i) => i - 1)}>
           <ChevronLeftIcon className="h-6 w-6" />
         </NavButton>
 
         {/* Forward */}
-        <NavButton
-          disabled={currentSlideIndex == slides.length - 1}
-          onClick={() => setCurrentSlideIndex((i) => i + 1)}
-        >
+        <NavButton disabled={currentSlideIndex == slides.length - 1} onClick={() => setCurrentSlideIndex((i) => i + 1)}>
           <ChevronRightIcon className="h-6 w-6" />
         </NavButton>
 
         {/* Perform Research */}
-        <PerformResearchSwitch
-          isEnabled={performResearch}
-          setIsEnabled={setPerformResearch}
-        />
+        <PerformResearchSwitch isEnabled={performResearch} setIsEnabled={setPerformResearch} />
       </div>
 
-      <SlideNumberIndicator
-        {...{ currentSlideIndex, totalSlides: slides.length }}
-      />
+      <SlideNumberIndicator {...{ currentSlideIndex, totalSlides: slides.length }} />
 
       <div className="flex-0 flex space-x-1">
-        <AddSlideButton
-          {...{ currentSlideIndex, setCurrentSlideIndex, setSlides }}
-        />
+        <AddSlideButton {...{ currentSlideIndex, setCurrentSlideIndex, setSlides }} />
 
         <GenerateSlideButton context={context} />
 
-        <SpeakCurrentSlideButton
-          spokenNarration={currentSlide.spokenNarration}
-        />
+        <SpeakCurrentSlideButton spokenNarration={currentSlide.spokenNarration} />
 
-        <DeleteSlideButton
-          {...{ currentSlideIndex, setCurrentSlideIndex, slides, setSlides }}
-        />
+        <DeleteSlideButton {...{ currentSlideIndex, setCurrentSlideIndex, slides, setSlides }} />
       </div>
     </header>
   );

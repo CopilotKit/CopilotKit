@@ -60,13 +60,7 @@ function A2UIProgressIndicator({ parameters }: A2UIProgressProps) {
             <Dot />
             <Dot />
           </div>
-          <Bar
-            w={64}
-            h={6}
-            bg="#e4e4e7"
-            opacity={phase >= 1 ? 1 : 0.4}
-            transition="opacity 0.5s"
-          />
+          <Bar w={64} h={6} bg="#e4e4e7" opacity={phase >= 1 ? 1 : 0.4} transition="opacity 0.5s" />
         </div>
 
         {/* Skeleton lines */}
@@ -212,9 +206,7 @@ function Bar({
         height: h,
         borderRadius: 9999,
         backgroundColor: bg,
-        ...(anim !== undefined
-          ? { animation: `cpk-a2ui-fade 2.4s ease-in-out ${anim}s infinite` }
-          : {}),
+        ...(anim !== undefined ? { animation: `cpk-a2ui-fade 2.4s ease-in-out ${anim}s infinite` } : {}),
         ...(opacity !== undefined ? { opacity } : {}),
         ...(transition ? { transition } : {}),
       }}
@@ -222,15 +214,7 @@ function Bar({
   );
 }
 
-function Row({
-  children,
-  show,
-  delay = 0,
-}: {
-  children: React.ReactNode;
-  show: boolean;
-  delay?: number;
-}) {
+function Row({ children, show, delay = 0 }: { children: React.ReactNode; show: boolean; delay?: number }) {
   return (
     <div
       style={{
@@ -280,10 +264,7 @@ export function A2UIBuiltInToolCallRenderer(): null {
 
     // Register via props-based mechanism so useRenderTool hooks take priority
     const existing = (copilotkit as any)._renderToolCalls ?? [];
-    copilotkit.setRenderToolCalls([
-      ...existing.filter((rc: any) => rc.name !== RENDER_A2UI_TOOL_NAME),
-      renderer,
-    ]);
+    copilotkit.setRenderToolCalls([...existing.filter((rc: any) => rc.name !== RENDER_A2UI_TOOL_NAME), renderer]);
   }, [copilotkit]);
 
   return null;

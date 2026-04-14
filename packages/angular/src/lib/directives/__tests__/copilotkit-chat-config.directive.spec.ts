@@ -1,11 +1,7 @@
 import { Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { describe, expect, it } from "vitest";
-import {
-  COPILOT_CHAT_DEFAULT_LABELS,
-  injectChatLabels,
-  provideCopilotChatLabels,
-} from "../../chat-config";
+import { COPILOT_CHAT_DEFAULT_LABELS, injectChatLabels, provideCopilotChatLabels } from "../../chat-config";
 
 describe("Copilot chat labels", () => {
   it("returns default labels when no provider is registered", () => {
@@ -17,9 +13,7 @@ describe("Copilot chat labels", () => {
     TestBed.configureTestingModule({});
     const fixture = TestBed.createComponent(HostComponent);
 
-    expect(fixture.componentInstance.labels).toEqual(
-      COPILOT_CHAT_DEFAULT_LABELS,
-    );
+    expect(fixture.componentInstance.labels).toEqual(COPILOT_CHAT_DEFAULT_LABELS);
   });
 
   it("merges provided labels with defaults", () => {
@@ -37,11 +31,9 @@ describe("Copilot chat labels", () => {
     });
 
     const fixture = TestBed.createComponent(HostComponent);
-    expect(fixture.componentInstance.labels.chatInputPlaceholder).toBe(
-      "Override",
+    expect(fixture.componentInstance.labels.chatInputPlaceholder).toBe("Override");
+    expect(fixture.componentInstance.labels.assistantMessageToolbarCopyCodeLabel).toBe(
+      COPILOT_CHAT_DEFAULT_LABELS.assistantMessageToolbarCopyCodeLabel,
     );
-    expect(
-      fixture.componentInstance.labels.assistantMessageToolbarCopyCodeLabel,
-    ).toBe(COPILOT_CHAT_DEFAULT_LABELS.assistantMessageToolbarCopyCodeLabel);
   });
 });

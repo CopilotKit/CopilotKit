@@ -7,18 +7,14 @@ const DEFAULT_SECONDARY_LABEL = "GitHub";
 /** Header docs pill link — CopilotKit docs. */
 export function getHeaderDocsUrl(): string {
   const fromEnv =
-    typeof process.env.NEXT_PUBLIC_HEADER_DOCS_URL === "string"
-      ? process.env.NEXT_PUBLIC_HEADER_DOCS_URL.trim()
-      : "";
+    typeof process.env.NEXT_PUBLIC_HEADER_DOCS_URL === "string" ? process.env.NEXT_PUBLIC_HEADER_DOCS_URL.trim() : "";
   return fromEnv || DEFAULT_DOCS_URL;
 }
 
 /** Header logo link — CopilotKit GitHub repo. */
 export function getHeaderLogoUrl(): string {
   const fromEnv =
-    typeof process.env.NEXT_PUBLIC_HEADER_LOGO_URL === "string"
-      ? process.env.NEXT_PUBLIC_HEADER_LOGO_URL.trim()
-      : "";
+    typeof process.env.NEXT_PUBLIC_HEADER_LOGO_URL === "string" ? process.env.NEXT_PUBLIC_HEADER_LOGO_URL.trim() : "";
   return fromEnv || DEFAULT_LOGO_URL;
 }
 
@@ -30,9 +26,7 @@ export function getHeaderSecondaryCtaUrl(): string {
       : "";
   if (primary) return primary;
   const legacyGithub =
-    typeof process.env.NEXT_PUBLIC_GITHUB_REPO_URL === "string"
-      ? process.env.NEXT_PUBLIC_GITHUB_REPO_URL.trim()
-      : "";
+    typeof process.env.NEXT_PUBLIC_GITHUB_REPO_URL === "string" ? process.env.NEXT_PUBLIC_GITHUB_REPO_URL.trim() : "";
   return legacyGithub || DEFAULT_SECONDARY_URL;
 }
 

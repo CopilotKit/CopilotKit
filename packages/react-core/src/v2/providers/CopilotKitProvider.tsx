@@ -18,10 +18,7 @@ import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import type { Anchor } from "@copilotkit/web-inspector";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
-import {
-  createLicenseContextValue,
-  type LicenseContextValue,
-} from "@copilotkit/shared";
+import { createLicenseContextValue, type LicenseContextValue } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
@@ -41,10 +38,7 @@ import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
 import { viewerTheme } from "@copilotkit/a2ui-renderer";
 import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 import { CopilotKitCoreReact } from "../lib/react-core";
-import type {
-  ReactActivityMessageRenderer,
-  ReactToolCallRenderer,
-} from "../types";
+import type { ReactActivityMessageRenderer, ReactToolCallRenderer } from "../types";
 import type { ReactFrontendTool } from "../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import type { ReactCustomMessageRenderer } from "../types/react-custom-message-renderer";
@@ -101,12 +95,9 @@ const CopilotKitContext = createContext<CopilotKitContextValue>({
   executingToolCallIds: EMPTY_SET,
 });
 
-const LicenseContext = createContext<LicenseContextValue>(
-  createLicenseContextValue(null),
-);
+const LicenseContext = createContext<LicenseContextValue>(createLicenseContextValue(null));
 
-export const useLicenseContext = (): LicenseContextValue =>
-  useContext(LicenseContext);
+export const useLicenseContext = (): LicenseContextValue => useContext(LicenseContext);
 
 // Provider props interface
 export interface CopilotKitProviderProps {
@@ -288,9 +279,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
   const [runtimeOpenGenUIEnabled, setRuntimeOpenGenUIEnabled] = useState(false);
   const openGenUIActive = runtimeOpenGenUIEnabled || !!openGenerativeUI;
-  const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
-    string | undefined
-  >(undefined);
+  const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -321,10 +310,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     (initial, next) => {
       // Only warn if the shape (names+agentId) changed. Allow identity changes
       // to support updated closures from parents (e.g., Storybook state).
-      const key = (rc?: ReactToolCallRenderer<unknown>) =>
-        `${rc?.agentId ?? ""}:${rc?.name ?? ""}`;
-      const setFrom = (arr: ReactToolCallRenderer<unknown>[]) =>
-        new Set(arr.map(key));
+      const key = (rc?: ReactToolCallRenderer<unknown>) => `${rc?.agentId ?? ""}:${rc?.name ?? ""}`;
+      const setFrom = (arr: ReactToolCallRenderer<unknown>[]) => new Set(arr.map(key));
       const a = setFrom(initial);
       const b = setFrom(next);
       if (a.size !== b.size) return true;
@@ -333,20 +320,18 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     },
   );
 
-  const renderCustomMessagesList =
-    useStableArrayProp<ReactCustomMessageRenderer>(
-      renderCustomMessages,
-      "renderCustomMessages must be a stable array.",
-    );
+  const renderCustomMessagesList = useStableArrayProp<ReactCustomMessageRenderer>(
+    renderCustomMessages,
+    "renderCustomMessages must be a stable array.",
+  );
 
-  const renderActivityMessagesList = useStableArrayProp<
-    ReactActivityMessageRenderer<any>
-  >(renderActivityMessages, "renderActivityMessages must be a stable array.");
+  const renderActivityMessagesList = useStableArrayProp<ReactActivityMessageRenderer<any>>(
+    renderActivityMessages,
+    "renderActivityMessages must be a stable array.",
+  );
 
   // Built-in activity renderers that are always included
-  const builtInActivityRenderers = useMemo<
-    ReactActivityMessageRenderer<any>[]
-  >(() => {
+  const builtInActivityRenderers = useMemo<ReactActivityMessageRenderer<any>[]>(() => {
     const renderers: ReactActivityMessageRenderer<any>[] = [
       {
         activityType: MCPAppsActivityType,
@@ -383,15 +368,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [renderActivityMessagesList, builtInActivityRenderers]);
 
   const resolvedPublicKey = publicApiKey ?? publicLicenseKey;
-  const mergedAgents = useMemo(
-    () => ({ ...agents, ...selfManagedAgents }),
-    [agents, selfManagedAgents],
-  );
+  const mergedAgents = useMemo(() => ({ ...agents, ...selfManagedAgents }), [agents, selfManagedAgents]);
   const hasLocalAgents = mergedAgents && Object.keys(mergedAgents).length > 0;
 
   // Resolve headers from function or static object
-  const headers =
-    typeof headersProp === "function" ? headersProp() : headersProp;
+  const headers = typeof headersProp === "function" ? headersProp() : headersProp;
 
   // Merge a provided publicApiKey into headers (without overwriting an explicit header).
   const mergedHeaders = useMemo(() => {
@@ -404,8 +385,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [headers, resolvedPublicKey]);
 
   if (!runtimeUrl && !resolvedPublicKey && !hasLocalAgents) {
-    const message =
-      "Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'";
+    const message = "Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'";
     if (process.env.NODE_ENV === "production") {
       throw new Error(message);
     } else {
@@ -414,8 +394,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }
 
-  const chatApiEndpoint =
-    runtimeUrl ?? (resolvedPublicKey ? COPILOT_CLOUD_CHAT_URL : undefined);
+  const chatApiEndpoint = runtimeUrl ?? (resolvedPublicKey ? COPILOT_CLOUD_CHAT_URL : undefined);
 
   const frontendToolsList = useStableArrayProp<ReactFrontendTool>(
     frontendTools,
@@ -451,9 +430,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           return new Promise((resolve) => {
             // The actual implementation will be handled by the render component
             // This is a placeholder that the hook will override
-            console.warn(
-              `Human-in-the-loop tool '${tool.name}' called but no interactive handler is set up.`,
-            );
+            console.warn(`Human-in-the-loop tool '${tool.name}' called but no interactive handler is set up.`);
             resolve(undefined);
           });
         },
@@ -511,8 +488,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     [...frontendToolsList, ...builtInFrontendTools].forEach((tool) => {
       if (tool.render) {
         // For wildcard tools without parameters, default to z.any()
-        const args =
-          tool.parameters || (tool.name === "*" ? z.any() : undefined);
+        const args = tool.parameters || (tool.name === "*" ? z.any() : undefined);
         if (args) {
           combined.push({
             name: tool.name,
@@ -527,12 +503,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     combined.push(...processedHumanInTheLoopTools.renderToolCalls);
 
     return combined;
-  }, [
-    renderToolCallsList,
-    frontendToolsList,
-    builtInFrontendTools,
-    processedHumanInTheLoopTools,
-  ]);
+  }, [renderToolCallsList, frontendToolsList, builtInFrontendTools, processedHumanInTheLoopTools]);
 
   // Stable instance: created once for the provider lifetime.
   // Updates are applied via setter effects below rather than recreating the instance.
@@ -540,12 +511,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   if (copilotkitRef.current === null) {
     copilotkitRef.current = new CopilotKitCoreReact({
       runtimeUrl: chatApiEndpoint,
-      runtimeTransport:
-        useSingleEndpoint === true
-          ? "single"
-          : useSingleEndpoint === false
-            ? "rest"
-            : "auto",
+      runtimeTransport: useSingleEndpoint === true ? "single" : useSingleEndpoint === false ? "rest" : "auto",
       headers: mergedHeaders,
       credentials,
       properties,
@@ -599,9 +565,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // pending tool calls, the onToolExecutionStart event fires before child components
   // (like CopilotChatToolCallsView) mount. By tracking at the provider level,
   // we ensure the executing state is captured and available when children mount.
-  const [executingToolCallIds, setExecutingToolCallIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
+  const [executingToolCallIds, setExecutingToolCallIds] = useState<ReadonlySet<string>>(() => new Set());
 
   useEffect(() => {
     const subscription = copilotkit.subscribe({
@@ -655,25 +619,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useEffect(() => {
     copilotkit.setRuntimeUrl(chatApiEndpoint);
     copilotkit.setRuntimeTransport(
-      useSingleEndpoint === true
-        ? "single"
-        : useSingleEndpoint === false
-          ? "rest"
-          : "auto",
+      useSingleEndpoint === true ? "single" : useSingleEndpoint === false ? "rest" : "auto",
     );
     copilotkit.setHeaders(mergedHeaders);
     copilotkit.setCredentials(credentials);
     copilotkit.setProperties(properties);
     copilotkit.setAgents__unsafe_dev_only(mergedAgents);
-  }, [
-    copilotkit,
-    chatApiEndpoint,
-    mergedHeaders,
-    credentials,
-    properties,
-    mergedAgents,
-    useSingleEndpoint,
-  ]);
+  }, [copilotkit, chatApiEndpoint, mergedHeaders, credentials, properties, mergedAgents, useSingleEndpoint]);
 
   // Sync render/tool arrays to the stable instance via setters.
   // On mount, the constructor already receives the correct initial values,
@@ -715,10 +667,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // ref init) so child hooks see the correct value on their first render.
   // This effect handles subsequent updates when the prop changes.
   useEffect(() => {
-    if (
-      defaultThrottleMs !== undefined &&
-      (!Number.isFinite(defaultThrottleMs) || defaultThrottleMs < 0)
-    ) {
+    if (defaultThrottleMs !== undefined && (!Number.isFinite(defaultThrottleMs) || defaultThrottleMs < 0)) {
       console.error(
         `CopilotKitProvider: defaultThrottleMs must be a non-negative finite number, got ${defaultThrottleMs}. ` +
           `useAgent hooks without an explicit throttleMs will fall back to unthrottled.`,
@@ -734,8 +683,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     if (!copilotkit || !openGenUIActive) return;
 
     const id = copilotkit.addContext({
-      description:
-        "Design guidelines for the generateSandboxedUi tool. Follow these when building UI.",
+      description: "Design guidelines for the generateSandboxedUi tool. Follow these when building UI.",
       value: designSkill,
     });
     return () => {
@@ -774,42 +722,23 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   );
 
   // License context — driven by server-reported status via /info endpoint
-  const licenseContextValue = useMemo(
-    () => createLicenseContextValue(null),
-    [],
-  );
+  const licenseContextValue = useMemo(() => createLicenseContextValue(null), []);
 
   return (
     <SandboxFunctionsContext.Provider value={sandboxFunctionsList}>
       <CopilotKitContext.Provider value={contextValue}>
         <LicenseContext.Provider value={licenseContextValue}>
           {runtimeA2UIEnabled && <A2UIBuiltInToolCallRenderer />}
-          {runtimeA2UIEnabled && (
-            <A2UICatalogContext
-              catalog={a2ui?.catalog}
-              includeSchema={a2ui?.includeSchema}
-            />
-          )}
+          {runtimeA2UIEnabled && <A2UICatalogContext catalog={a2ui?.catalog} includeSchema={a2ui?.includeSchema} />}
           {children}
           {shouldRenderInspector ? (
-            <CopilotKitInspector
-              core={copilotkit}
-              defaultAnchor={inspectorDefaultAnchor}
-            />
+            <CopilotKitInspector core={copilotkit} defaultAnchor={inspectorDefaultAnchor} />
           ) : null}
           {/* License warnings — driven by server-reported status */}
-          {runtimeLicenseStatus === "none" && !resolvedPublicKey && (
-            <LicenseWarningBanner type="no_license" />
-          )}
-          {runtimeLicenseStatus === "expired" && (
-            <LicenseWarningBanner type="expired" />
-          )}
-          {runtimeLicenseStatus === "invalid" && (
-            <LicenseWarningBanner type="invalid" />
-          )}
-          {runtimeLicenseStatus === "expiring" && (
-            <LicenseWarningBanner type="expiring" />
-          )}
+          {runtimeLicenseStatus === "none" && !resolvedPublicKey && <LicenseWarningBanner type="no_license" />}
+          {runtimeLicenseStatus === "expired" && <LicenseWarningBanner type="expired" />}
+          {runtimeLicenseStatus === "invalid" && <LicenseWarningBanner type="invalid" />}
+          {runtimeLicenseStatus === "expiring" && <LicenseWarningBanner type="expiring" />}
         </LicenseContext.Provider>
       </CopilotKitContext.Provider>
     </SandboxFunctionsContext.Provider>

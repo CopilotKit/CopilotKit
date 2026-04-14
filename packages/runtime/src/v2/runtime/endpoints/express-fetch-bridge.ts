@@ -20,10 +20,7 @@ import { logger } from "@copilotkit/shared";
 
 const METHODS_WITHOUT_BODY = new Set(["GET", "HEAD", "OPTIONS"]);
 
-export type ExpressNodeHandler = (
-  req: IncomingMessage,
-  res: ServerResponse,
-) => Promise<void>;
+export type ExpressNodeHandler = (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 
 /**
  * Creates a Node HTTP handler from a fetch handler, with Express body-parser
@@ -33,9 +30,7 @@ export type ExpressNodeHandler = (
  * `createCopilotNodeHandler`. Only intercepts when Express middleware has
  * pre-parsed the body.
  */
-export function createExpressNodeHandler(
-  handler: CopilotRuntimeFetchHandler,
-): ExpressNodeHandler {
+export function createExpressNodeHandler(handler: CopilotRuntimeFetchHandler): ExpressNodeHandler {
   const nodeHandler = createCopilotNodeHandler(handler);
 
   return async (req: IncomingMessage, res: ServerResponse) => {
@@ -65,10 +60,7 @@ export function createExpressNodeHandler(
  * Build a Fetch Request from a Node IncomingMessage whose body stream has
  * already been consumed by an Express body parser.
  */
-function buildPreParsedRequest(
-  req: IncomingMessage,
-  res: ServerResponse,
-): Request {
+function buildPreParsedRequest(req: IncomingMessage, res: ServerResponse): Request {
   const expressReq = req as IncomingMessage & { body?: unknown };
   const method = (req.method ?? "GET").toUpperCase();
 
@@ -115,9 +107,7 @@ function hasPreParsedBody(req: IncomingMessage & { body?: unknown }): boolean {
 
   // Check if the stream has already been consumed.
   const state = (req as any)._readableState;
-  return Boolean(
-    req.readableEnded || req.complete || state?.ended || state?.endEmitted,
-  );
+  return Boolean(req.readableEnded || req.complete || state?.ended || state?.endEmitted);
 }
 
 function synthesizeBody(body: unknown): {

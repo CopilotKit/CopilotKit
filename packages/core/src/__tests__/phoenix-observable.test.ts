@@ -23,8 +23,7 @@ const {
   ɵphoenixSocket$,
 } = await import("../utils/phoenix-observable");
 
-type PhoenixSocketSession =
-  import("../utils/phoenix-observable").ɵPhoenixSocketSession;
+type PhoenixSocketSession = import("../utils/phoenix-observable").ɵPhoenixSocketSession;
 
 describe("phoenix observable utilities", () => {
   it("connects on subscribe and disconnects on teardown", () => {
@@ -98,10 +97,7 @@ describe("phoenix observable utilities", () => {
     const channel = phoenix.sockets[0].channels[0];
     channel.triggerJoin("ok");
 
-    const eventSubscription = ɵobservePhoenixEvent$<{ value: string }>(
-      channel,
-      "message",
-    ).subscribe((payload) => {
+    const eventSubscription = ɵobservePhoenixEvent$<{ value: string }>(channel, "message").subscribe((payload) => {
       payloads.push(payload.value);
     });
 
@@ -151,10 +147,7 @@ describe("phoenix observable utilities", () => {
     });
 
     let error: Error | null = null;
-    const subscription = ɵobservePhoenixSocketHealth$(
-      ɵobservePhoenixSocketSignals$(socket$),
-      2,
-    ).subscribe({
+    const subscription = ɵobservePhoenixSocketHealth$(ɵobservePhoenixSocketSignals$(socket$), 2).subscribe({
       error: (value) => {
         error = value;
       },

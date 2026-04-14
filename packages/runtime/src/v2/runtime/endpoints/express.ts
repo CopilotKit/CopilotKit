@@ -1,10 +1,5 @@
 import express from "express";
-import type {
-  Request as ExpressRequest,
-  Response as ExpressResponse,
-  NextFunction,
-  Router,
-} from "express";
+import type { Request as ExpressRequest, Response as ExpressResponse, NextFunction, Router } from "express";
 import cors from "cors";
 import type { CorsOptions } from "cors";
 import type { CopilotRuntimeLike } from "../core/runtime";
@@ -107,11 +102,7 @@ export function createCopilotExpressHandler({
 
   const nodeHandler = createExpressNodeHandler(handler);
 
-  const expressHandler = async (
-    req: ExpressRequest,
-    res: ExpressResponse,
-    next: NextFunction,
-  ) => {
+  const expressHandler = async (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
     try {
       await nodeHandler(req, res);
     } catch (err) {
@@ -127,15 +118,7 @@ export function createCopilotExpressHandler({
       corsOption === true
         ? {
             origin: "*",
-            methods: [
-              "GET",
-              "HEAD",
-              "PUT",
-              "POST",
-              "DELETE",
-              "PATCH",
-              "OPTIONS",
-            ],
+            methods: ["GET", "HEAD", "PUT", "POST", "DELETE", "PATCH", "OPTIONS"],
             allowedHeaders: ["*"],
           }
         : corsOption;

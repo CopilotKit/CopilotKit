@@ -72,9 +72,7 @@ export function InvoiceApprovalCard(props: Props) {
           <DollarSign className="h-4 w-4 text-warning" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-foreground">
-            Payment Approval Required
-          </p>
+          <p className="text-sm font-semibold text-foreground">Payment Approval Required</p>
           <p className="text-xs text-muted-foreground">{action}</p>
         </div>
       </div>
@@ -93,27 +91,17 @@ export function InvoiceApprovalCard(props: Props) {
           <tbody>
             {invoices.map((inv) => (
               <tr key={inv.number} className="border-b border-border/30">
-                <td className="px-3 py-2 font-mono text-foreground">
-                  {inv.number}
-                </td>
+                <td className="px-3 py-2 font-mono text-foreground">{inv.number}</td>
                 <td className="px-3 py-2 text-foreground">{inv.client}</td>
-                <td className="px-3 py-2 text-right font-medium text-foreground">
-                  {formatCurrency(inv.amount)}
-                </td>
-                <td className="px-3 py-2 text-right text-muted-foreground">
-                  {inv.dueDate}
-                </td>
+                <td className="px-3 py-2 text-right font-medium text-foreground">{formatCurrency(inv.amount)}</td>
+                <td className="px-3 py-2 text-right text-muted-foreground">{inv.dueDate}</td>
               </tr>
             ))}
           </tbody>
         </table>
         <div className="flex items-center justify-between border-t border-border px-3 py-2">
-          <span className="text-xs font-medium text-muted-foreground">
-            Total
-          </span>
-          <span className="text-sm font-bold text-foreground">
-            {formatCurrency(totalAmount)}
-          </span>
+          <span className="text-xs font-medium text-muted-foreground">Total</span>
+          <span className="text-sm font-bold text-foreground">{formatCurrency(totalAmount)}</span>
         </div>
       </div>
 
@@ -122,11 +110,7 @@ export function InvoiceApprovalCard(props: Props) {
         <div
           className={`mb-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium ${wasApproved ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}
         >
-          {wasApproved ? (
-            <Check className="h-3.5 w-3.5" />
-          ) : (
-            <X className="h-3.5 w-3.5" />
-          )}
+          {wasApproved ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
           {wasApproved ? "Payment Approved" : "Payment Rejected"}
         </div>
       )}

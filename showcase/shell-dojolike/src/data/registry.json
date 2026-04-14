@@ -476,12 +476,7 @@
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-js",
         "demo_url": "https://showcase-starter-langgraph-typescript-production.up.railway.app"
       },
-      "features": [
-        "agentic-chat",
-        "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
-      ],
+      "features": ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
       "demos": [
         {
           "id": "agentic-chat",
@@ -543,12 +538,7 @@
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-fastapi",
         "demo_url": "https://showcase-starter-langgraph-fastapi-production.up.railway.app"
       },
-      "features": [
-        "agentic-chat",
-        "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
-      ],
+      "features": ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
       "demos": [
         {
           "id": "agentic-chat",
@@ -606,12 +596,7 @@
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/adk",
         "demo_url": "https://showcase-starter-google-adk-production.up.railway.app"
       },
-      "features": [
-        "agentic-chat",
-        "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
-      ],
+      "features": ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
       "demos": [
         {
           "id": "agentic-chat",
@@ -673,12 +658,7 @@
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra",
         "demo_url": "https://showcase-starter-mastra-production.up.railway.app"
       },
-      "features": [
-        "agentic-chat",
-        "hitl",
-        "tool-rendering",
-        "gen-ui-tool-based"
-      ],
+      "features": ["agentic-chat", "hitl", "tool-rendering", "gen-ui-tool-based"],
       "demos": [
         {
           "id": "agentic-chat",
@@ -736,12 +716,7 @@
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/crewai-crews",
         "demo_url": "https://showcase-starter-crewai-crews-production.up.railway.app"
       },
-      "features": [
-        "agentic-chat",
-        "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
-      ],
+      "features": ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
       "demos": [
         {
           "id": "agentic-chat",
@@ -803,12 +778,7 @@
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/pydantic-ai",
         "demo_url": "https://showcase-starter-pydantic-ai-production.up.railway.app"
       },
-      "features": [
-        "agentic-chat",
-        "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
-      ],
+      "features": ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
       "demos": [
         {
           "id": "agentic-chat",
@@ -859,12 +829,7 @@
       "sort_order": 70,
       "generative_ui": ["constrained-explicit"],
       "interaction_modalities": ["chat"],
-      "features": [
-        "agentic-chat",
-        "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
-      ],
+      "features": ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
       "demos": [
         {
           "id": "agentic-chat",
@@ -911,12 +876,7 @@
       "sort_order": 80,
       "generative_ui": ["constrained-explicit"],
       "interaction_modalities": ["chat"],
-      "features": [
-        "agentic-chat",
-        "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
-      ],
+      "features": ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
       "demos": [
         {
           "id": "agentic-chat",
@@ -970,12 +930,7 @@
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agno",
         "demo_url": "https://showcase-starter-agno-production.up.railway.app"
       },
-      "features": [
-        "agentic-chat",
-        "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
-      ],
+      "features": ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
       "demos": [
         {
           "id": "agentic-chat",
@@ -1030,12 +985,7 @@
       "sort_order": 100,
       "generative_ui": ["constrained-explicit"],
       "interaction_modalities": ["chat"],
-      "features": [
-        "agentic-chat",
-        "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
-      ],
+      "features": ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
       "demos": [
         {
           "id": "agentic-chat",
@@ -1097,12 +1047,7 @@
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/llamaindex",
         "demo_url": "https://showcase-starter-llamaindex-production.up.railway.app"
       },
-      "features": [
-        "agentic-chat",
-        "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
-      ],
+      "features": ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
       "demos": [
         {
           "id": "agentic-chat",
@@ -1164,12 +1109,7 @@
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/strands-python",
         "demo_url": "https://showcase-starter-strands-production.up.railway.app"
       },
-      "features": [
-        "agentic-chat",
-        "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
-      ],
+      "features": ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
       "demos": [
         {
           "id": "agentic-chat",
@@ -1220,12 +1160,7 @@
       "sort_order": 140,
       "generative_ui": ["constrained-explicit"],
       "interaction_modalities": ["chat"],
-      "features": [
-        "agentic-chat",
-        "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
-      ],
+      "features": ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
       "demos": [
         {
           "id": "agentic-chat",
@@ -1279,12 +1214,7 @@
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/ms-agent-framework-python",
         "demo_url": "https://showcase-starter-ms-agent-python-production.up.railway.app"
       },
-      "features": [
-        "agentic-chat",
-        "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
-      ],
+      "features": ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
       "demos": [
         {
           "id": "agentic-chat",
@@ -1342,12 +1272,7 @@
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/ms-agent-framework-dotnet",
         "demo_url": "https://showcase-starter-ms-agent-dotnet-production.up.railway.app"
       },
-      "features": [
-        "agentic-chat",
-        "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
-      ],
+      "features": ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
       "demos": [
         {
           "id": "agentic-chat",
@@ -1398,12 +1323,7 @@
       "sort_order": 170,
       "generative_ui": ["constrained-explicit"],
       "interaction_modalities": ["chat"],
-      "features": [
-        "agentic-chat",
-        "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
-      ],
+      "features": ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
       "demos": [
         {
           "id": "agentic-chat",

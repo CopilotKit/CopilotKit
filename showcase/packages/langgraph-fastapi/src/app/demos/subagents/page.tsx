@@ -2,16 +2,8 @@
 
 import React, { useEffect } from "react";
 import { CopilotKit, useLangGraphInterrupt } from "@copilotkit/react-core";
-import {
-  CopilotSidebar,
-  useAgent,
-  UseAgentUpdate,
-} from "@copilotkit/react-core/v2";
-import {
-  useShowcaseHooks,
-  useShowcaseSuggestions,
-  demonstrationCatalog,
-} from "@copilotkit/showcase-shared";
+import { CopilotSidebar, useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
+import { useShowcaseHooks, useShowcaseSuggestions, demonstrationCatalog } from "@copilotkit/showcase-shared";
 
 interface Flight {
   airline: string;
@@ -63,26 +55,14 @@ const INITIAL_STATE: TravelAgentState = {
 
 interface InterruptEvent<TAgent extends AvailableAgents> {
   message: string;
-  options: TAgent extends "flights"
-    ? Flight[]
-    : TAgent extends "hotels"
-      ? Hotel[]
-      : never;
-  recommendation: TAgent extends "flights"
-    ? Flight
-    : TAgent extends "hotels"
-      ? Hotel
-      : never;
+  options: TAgent extends "flights" ? Flight[] : TAgent extends "hotels" ? Hotel[] : never;
+  recommendation: TAgent extends "flights" ? Flight : TAgent extends "hotels" ? Hotel : never;
   agent: TAgent;
 }
 
 export default function SubagentsDemo() {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      agent="subagents"
-      a2ui={{ catalog: demonstrationCatalog }}
-    >
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="subagents" a2ui={{ catalog: demonstrationCatalog }}>
       <div className="min-h-screen w-full flex">
         <TravelPlanner />
         <CopilotSidebar
@@ -131,8 +111,7 @@ function InterruptHumanInTheLoop<TAgent extends AvailableAgents>({
       <div className="space-y-2">
         {options.map((opt, idx) => {
           if ("airline" in opt) {
-            const isRecommended =
-              (recommendation as Flight).airline === opt.airline;
+            const isRecommended = (recommendation as Flight).airline === opt.airline;
             return (
               <button
                 key={idx}
@@ -143,16 +122,10 @@ function InterruptHumanInTheLoop<TAgent extends AvailableAgents>({
                 }`}
                 onClick={() => handleOptionSelect(opt)}
               >
-                {isRecommended && (
-                  <span className="text-xs font-semibold text-yellow-600 mb-1 block">
-                    Recommended
-                  </span>
-                )}
+                {isRecommended && <span className="text-xs font-semibold text-yellow-600 mb-1 block">Recommended</span>}
                 <div className="flex justify-between items-center">
                   <span className="font-medium">{opt.airline}</span>
-                  <span className="text-green-600 font-semibold">
-                    {opt.price}
-                  </span>
+                  <span className="text-green-600 font-semibold">{opt.price}</span>
                 </div>
                 <div className="text-sm text-gray-600 mt-1">
                   {opt.departure} &rarr; {opt.arrival}
@@ -173,11 +146,7 @@ function InterruptHumanInTheLoop<TAgent extends AvailableAgents>({
               }`}
               onClick={() => handleOptionSelect(opt)}
             >
-              {isRecommended && (
-                <span className="text-xs font-semibold text-yellow-600 mb-1 block">
-                  Recommended
-                </span>
-              )}
+              {isRecommended && <span className="text-xs font-semibold text-yellow-600 mb-1 block">Recommended</span>}
               <div className="flex justify-between items-center">
                 <span className="font-medium">{opt.name}</span>
                 <span className="text-sm">{opt.rating}</span>
@@ -210,9 +179,7 @@ function TravelPlanner() {
   }, []);
 
   useLangGraphInterrupt({
-    render: ({ event, resolve }) => (
-      <InterruptHumanInTheLoop event={event} resolve={resolve} />
-    ),
+    render: ({ event, resolve }) => <InterruptHumanInTheLoop event={event} resolve={resolve} />,
   });
 
   const activeAgent = agentState?.active_agent || "supervisor";
@@ -220,9 +187,7 @@ function TravelPlanner() {
   return (
     <div className="flex-1 p-6 overflow-y-auto">
       <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
-        <div className="text-sm font-semibold text-gray-500 mb-2">
-          Current Itinerary
-        </div>
+        <div className="text-sm font-semibold text-gray-500 mb-2">Current Itinerary</div>
         <div className="flex flex-wrap gap-3">
           {agentState?.itinerary?.flight && (
             <div
@@ -231,8 +196,7 @@ function TravelPlanner() {
             >
               <span>{"✈"}</span>
               <span>
-                {agentState.itinerary.flight.airline} -{" "}
-                {agentState.itinerary.flight.price}
+                {agentState.itinerary.flight.airline} - {agentState.itinerary.flight.price}
               </span>
             </div>
           )}
@@ -248,25 +212,19 @@ function TravelPlanner() {
           {(agentState?.experiences?.length ?? 0) > 0 && (
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm text-sm">
               <span>{"🎯"}</span>
-              <span>
-                {agentState?.experiences?.length ?? 0} experiences planned
-              </span>
+              <span>{agentState?.experiences?.length ?? 0} experiences planned</span>
             </div>
           )}
           {!agentState?.itinerary?.flight &&
             !agentState?.itinerary?.hotel &&
             (agentState?.experiences?.length ?? 0) === 0 && (
-              <span className="text-sm text-gray-400">
-                No items yet -- start planning!
-              </span>
+              <span className="text-sm text-gray-400">No items yet -- start planning!</span>
             )}
         </div>
       </div>
 
       <div className="mb-6">
-        <div className="text-sm font-semibold text-gray-500 mb-2">
-          Active Agent
-        </div>
+        <div className="text-sm font-semibold text-gray-500 mb-2">Active Agent</div>
         <div className="flex gap-2">
           {(
             [
@@ -299,8 +257,8 @@ function TravelPlanner() {
             <div className="space-y-2">
               {agentState!.flights.map((flight, index) => (
                 <div key={index} className="p-3 bg-gray-50 rounded-lg text-sm">
-                  <strong>{flight.airline}:</strong> {flight.departure} &rarr;{" "}
-                  {flight.arrival} ({flight.duration}) - {flight.price}
+                  <strong>{flight.airline}:</strong> {flight.departure} &rarr; {flight.arrival} ({flight.duration}) -{" "}
+                  {flight.price}
                 </div>
               ))}
             </div>
@@ -315,8 +273,7 @@ function TravelPlanner() {
             <div className="space-y-2">
               {agentState!.hotels.map((hotel, index) => (
                 <div key={index} className="p-3 bg-gray-50 rounded-lg text-sm">
-                  <strong>{hotel.name}:</strong> {hotel.location} -{" "}
-                  {hotel.price_per_night} ({hotel.rating})
+                  <strong>{hotel.name}:</strong> {hotel.location} - {hotel.price_per_night} ({hotel.rating})
                 </div>
               ))}
             </div>
@@ -335,9 +292,7 @@ function TravelPlanner() {
                   <div className="text-xs text-gray-500 mt-1">
                     {experience.type} -- {experience.location}
                   </div>
-                  <div className="text-sm text-gray-600 mt-1">
-                    {experience.description}
-                  </div>
+                  <div className="text-sm text-gray-600 mt-1">{experience.description}</div>
                 </div>
               ))}
             </div>

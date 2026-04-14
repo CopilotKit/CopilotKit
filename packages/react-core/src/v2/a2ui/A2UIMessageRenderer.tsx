@@ -49,9 +49,7 @@ export type A2UIMessageRendererOptions = {
   loadingComponent?: React.ComponentType;
 };
 
-export function createA2UIMessageRenderer(
-  options: A2UIMessageRendererOptions,
-): ReactActivityMessageRenderer<any> {
+export function createA2UIMessageRenderer(options: A2UIMessageRendererOptions): ReactActivityMessageRenderer<any> {
   const { theme, catalog, loadingComponent } = options;
 
   return {
@@ -83,8 +81,7 @@ export function createA2UIMessageRenderer(
         const groups = new Map<string, any[]>();
 
         for (const operation of operations) {
-          const surfaceId =
-            getOperationSurfaceId(operation) ?? DEFAULT_SURFACE_ID;
+          const surfaceId = getOperationSurfaceId(operation) ?? DEFAULT_SURFACE_ID;
 
           if (!groups.has(surfaceId)) {
             groups.set(surfaceId, []);
@@ -134,14 +131,7 @@ type ReactSurfaceHostProps = {
  * Renders a single A2UI surface using the React renderer.
  * Wraps A2UIProvider + A2UIRenderer and bridges actions back to CopilotKit.
  */
-function ReactSurfaceHost({
-  surfaceId,
-  operations,
-  theme,
-  agent,
-  copilotkit,
-  catalog,
-}: ReactSurfaceHostProps) {
+function ReactSurfaceHost({ surfaceId, operations, theme, agent, copilotkit, catalog }: ReactSurfaceHostProps) {
   // Bridge: when the React renderer dispatches an action, forward to CopilotKit
   const handleAction = useCallback(
     async (message: A2UIClientEventMessage) => {
@@ -169,10 +159,7 @@ function ReactSurfaceHost({
   return (
     <div className="cpk:flex cpk:w-full cpk:flex-none cpk:flex-col cpk:gap-4">
       <A2UIProvider onAction={handleAction} theme={theme} catalog={catalog}>
-        <SurfaceMessageProcessor
-          surfaceId={surfaceId}
-          operations={operations}
-        />
+        <SurfaceMessageProcessor surfaceId={surfaceId} operations={operations} />
         <A2UISurfaceOrError surfaceId={surfaceId} />
       </A2UIProvider>
     </div>
@@ -199,13 +186,7 @@ function A2UISurfaceOrError({ surfaceId }: { surfaceId: string }) {
  * Processes A2UI operations into the provider's message processor.
  * Must be a child of A2UIProvider to access the actions context.
  */
-function SurfaceMessageProcessor({
-  surfaceId,
-  operations,
-}: {
-  surfaceId: string;
-  operations: any[];
-}) {
+function SurfaceMessageProcessor({ surfaceId, operations }: { surfaceId: string; operations: any[] }) {
   const { processMessages, getSurface } = useA2UIActions();
   const lastHashRef = useRef<string>("");
   useEffect(() => {
@@ -220,9 +201,7 @@ function SurfaceMessageProcessor({
     // MessageProcessor throws on duplicate createSurface, but content
     // snapshots always include the full operation list.
     const existing = getSurface(surfaceId);
-    const ops = existing
-      ? operations.filter((op) => !op?.createSurface)
-      : operations;
+    const ops = existing ? operations.filter((op) => !op?.createSurface) : operations;
 
     // Error handling is done inside A2UIProvider.processMessages
     processMessages(ops);
@@ -248,9 +227,7 @@ function DefaultA2UILoading() {
             animation: "cpk-a2ui-pulse 1.5s ease-in-out infinite",
           }}
         />
-        <span className="cpk:text-xs cpk:font-medium cpk:text-gray-400">
-          Generating UI...
-        </span>
+        <span className="cpk:text-xs cpk:font-medium cpk:text-gray-400">Generating UI...</span>
       </div>
       <div className="cpk:flex cpk:flex-col cpk:gap-2">
         {[0.8, 0.6, 0.4].map((width, i) => (

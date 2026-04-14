@@ -31,8 +31,7 @@ export function ensureLicenseWatermark(headers?: Record<string, string>): void {
   watermark.style.borderRadius = "8px";
   watermark.style.background = "rgba(17, 24, 39, 0.88)";
   watermark.style.color = "#ffffff";
-  watermark.style.fontFamily =
-    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+  watermark.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
   watermark.style.fontSize = "11px";
   watermark.style.fontWeight = "600";
   watermark.style.letterSpacing = "0.02em";

@@ -11,30 +11,22 @@ test.describe("Shared State (Reading)", () => {
     });
   });
 
-  test("dashboard shows pipeline summary with Total Pipeline metric", async ({
-    page,
-  }) => {
+  test("dashboard shows pipeline summary with Total Pipeline metric", async ({ page }) => {
     await expect(page.getByText("Total Pipeline")).toBeVisible({
       timeout: 10000,
     });
   });
 
-  test("sidebar is open with Sales Pipeline Assistant title", async ({
-    page,
-  }) => {
+  test("sidebar is open with Sales Pipeline Assistant title", async ({ page }) => {
     await expect(page.getByText("Sales Pipeline Assistant")).toBeVisible({
       timeout: 10000,
     });
 
     // Sidebar should have a chat input
-    await expect(
-      page.locator('textarea, [placeholder*="message"]').first(),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('textarea, [placeholder*="message"]').first()).toBeVisible({ timeout: 10000 });
   });
 
-  test("can send message through sidebar and get response", async ({
-    page,
-  }) => {
+  test("can send message through sidebar and get response", async ({ page }) => {
     const input = page.locator('textarea, [placeholder*="message"]').first();
     await input.fill("Summarize the current sales pipeline");
     await input.press("Enter");

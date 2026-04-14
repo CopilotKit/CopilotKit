@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
-const LANGGRAPH_URL =
-  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
+const LANGGRAPH_URL = process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
 
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] LANGGRAPH_URL: ${LANGGRAPH_URL}`);
-console.log(
-  `[copilotkit/route] LANGSMITH_API_KEY: ${process.env.LANGSMITH_API_KEY ? "set" : "not set"}`,
-);
+console.log(`[copilotkit/route] LANGSMITH_API_KEY: ${process.env.LANGSMITH_API_KEY ? "set" : "not set"}`);
 
 function createAgent(graphId: string = "sample_agent") {
   return new LangGraphAgent({
@@ -69,10 +62,7 @@ export const POST = async (req: NextRequest) => {
   } catch (error: any) {
     console.error(`[copilotkit/route] ERROR: ${error.message}`);
     console.error(`[copilotkit/route] Stack: ${error.stack}`);
-    return NextResponse.json(
-      { error: error.message, stack: error.stack },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: error.message, stack: error.stack }, { status: 500 });
   }
 };
 

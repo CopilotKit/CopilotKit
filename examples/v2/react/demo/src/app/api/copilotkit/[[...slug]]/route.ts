@@ -1,18 +1,8 @@
-import {
-  CopilotRuntime,
-  createCopilotEndpoint,
-  InMemoryAgentRunner,
-  BuiltInAgent,
-} from "@copilotkit/runtime/v2";
+import { CopilotRuntime, createCopilotEndpoint, InMemoryAgentRunner, BuiltInAgent } from "@copilotkit/runtime/v2";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import { handle } from "hono/vercel";
 import OpenAI from "openai";
-import {
-  AbstractAgent,
-  EventType,
-  type RunAgentInput,
-  type BaseEvent,
-} from "@ag-ui/client";
+import { AbstractAgent, EventType, type RunAgentInput, type BaseEvent } from "@ag-ui/client";
 import { Observable } from "rxjs";
 
 const determineModel = () => {
@@ -64,8 +54,7 @@ class DemoButtonAgent extends AbstractAgent {
         runId: input.runId,
       } as BaseEvent);
 
-      const a2uiAction = (input.forwardedProps as Record<string, any>)
-        ?.a2uiAction;
+      const a2uiAction = (input.forwardedProps as Record<string, any>)?.a2uiAction;
 
       if (a2uiAction) {
         // Button was clicked — respond with a text message.
@@ -120,8 +109,7 @@ class DemoButtonAgent extends AbstractAgent {
                       component: {
                         Text: {
                           text: {
-                            literalString:
-                              "Click the button to trigger a response:",
+                            literalString: "Click the button to trigger a response:",
                           },
                         },
                       },
@@ -158,8 +146,7 @@ class DemoButtonAgent extends AbstractAgent {
         emit({
           type: EventType.TEXT_MESSAGE_CONTENT,
           messageId: msgId,
-          delta:
-            "Click the button above. Without the fix, the confirmation message won't appear here.",
+          delta: "Click the button above. Without the fix, the confirmation message won't appear here.",
         } as BaseEvent);
         emit({
           type: EventType.TEXT_MESSAGE_END,

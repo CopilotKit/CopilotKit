@@ -15,11 +15,7 @@ import { CommonModule } from "@angular/common";
 import { CopilotChatView } from "./copilot-chat-view";
 
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
-import {
-  Message,
-  AbstractAgent,
-  AGUIConnectNotImplementedError,
-} from "@ag-ui/client";
+import { Message, AbstractAgent, AGUIConnectNotImplementedError } from "@ag-ui/client";
 import { injectAgentStore } from "../../agent";
 import { CopilotKit } from "../../copilotkit";
 import { ChatState } from "../../chat-state";
@@ -62,9 +58,7 @@ export class CopilotChat implements ChatState {
   readonly agentId = input<string | undefined>();
   readonly threadId = input<string | undefined>();
   readonly inputComponent = input<Type<any> | undefined>();
-  private readonly resolvedAgentId = computed(
-    () => this.agentId() ?? DEFAULT_AGENT_ID,
-  );
+  private readonly resolvedAgentId = computed(() => this.agentId() ?? DEFAULT_AGENT_ID);
   readonly agentStore = injectAgentStore(this.resolvedAgentId);
   private readonly copilotKit = inject(CopilotKit);
   // readonly chatConfig = injectChatConfig();

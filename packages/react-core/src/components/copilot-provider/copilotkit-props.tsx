@@ -13,10 +13,7 @@ import { CopilotKitProviderProps } from "../../v2";
  *
  * TODO: Remove this `Omit` once this is resolved.
  */
-export interface CopilotKitProps extends Omit<
-  CopilotKitProviderProps,
-  "children"
-> {
+export interface CopilotKitProps extends Omit<CopilotKitProviderProps, "children"> {
   /**
    * Your Copilot Cloud API key.
    *

@@ -1,8 +1,4 @@
-import {
-  CopilotRuntime,
-  LangChainAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, LangChainAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 
 import { ChatOpenAI } from "@langchain/openai";
 
@@ -28,9 +24,7 @@ const runtime = new CopilotRuntime({
 
 const serviceAdapter = new LangChainAdapter({
   chainFn: async ({ messages, tools }) => {
-    const model = new ChatOpenAI({ modelName: "gpt-4-1106-preview" }).bind(
-      tools as any,
-    );
+    const model = new ChatOpenAI({ modelName: "gpt-4-1106-preview" }).bind(tools as any);
     return model.stream(messages);
   },
 });

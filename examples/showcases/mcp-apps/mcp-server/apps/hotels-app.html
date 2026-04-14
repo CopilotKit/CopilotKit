@@ -44,11 +44,8 @@
 
         /* Shadows */
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-        --shadow-md:
-          0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-        --shadow-lg:
-          0 10px 25px -3px rgba(0, 0, 0, 0.08),
-          0 4px 6px -2px rgba(0, 0, 0, 0.03);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+        --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
         --shadow-glass: 0 4px 30px rgba(0, 0, 0, 0.1);
 
         /* Status Colors */
@@ -75,8 +72,7 @@
         --radius-full: 9999px;
 
         /* Typography */
-        --font-family:
-          "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+        --font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
       }
 
       * {
@@ -87,11 +83,7 @@
 
       body {
         font-family: var(--font-family);
-        background: linear-gradient(
-          135deg,
-          var(--color-surface-light) 0%,
-          var(--color-surface) 100%
-        );
+        background: linear-gradient(135deg, var(--color-surface-light) 0%, var(--color-surface) 100%);
         color: var(--color-text-primary);
         line-height: 1.5;
         -webkit-font-smoothing: antialiased;
@@ -211,11 +203,7 @@
       }
 
       .step-dot.active {
-        background: linear-gradient(
-          135deg,
-          var(--color-lilac),
-          var(--color-mint)
-        );
+        background: linear-gradient(135deg, var(--color-lilac), var(--color-mint));
         border-color: transparent;
         color: white;
         box-shadow: 0 4px 12px rgba(190, 194, 255, 0.4);
@@ -235,11 +223,7 @@
       }
 
       .step-line.active {
-        background: linear-gradient(
-          90deg,
-          var(--color-lilac),
-          var(--color-mint)
-        );
+        background: linear-gradient(90deg, var(--color-lilac), var(--color-mint));
       }
 
       /* =============================================================================
@@ -361,11 +345,7 @@
       }
 
       .btn-primary {
-        background: linear-gradient(
-          135deg,
-          var(--color-lilac),
-          var(--color-mint)
-        );
+        background: linear-gradient(135deg, var(--color-lilac), var(--color-mint));
         color: var(--color-text-primary);
         box-shadow: 0 4px 12px rgba(190, 194, 255, 0.3);
       }
@@ -423,11 +403,7 @@
         font-size: 24px;
         font-weight: 700;
         margin-bottom: var(--space-2);
-        background: linear-gradient(
-          135deg,
-          var(--color-text-primary),
-          var(--color-text-secondary)
-        );
+        background: linear-gradient(135deg, var(--color-text-primary), var(--color-text-secondary));
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -651,11 +627,7 @@
         width: 32px;
         height: 32px;
         border-radius: var(--radius-full);
-        background: linear-gradient(
-          135deg,
-          var(--color-lilac),
-          var(--color-mint)
-        );
+        background: linear-gradient(135deg, var(--color-lilac), var(--color-mint));
         color: white;
         display: flex;
         align-items: center;
@@ -698,11 +670,7 @@
         width: 64px;
         height: 64px;
         border-radius: var(--radius-full);
-        background: linear-gradient(
-          135deg,
-          var(--color-mint),
-          var(--color-mint-dark)
-        );
+        background: linear-gradient(135deg, var(--color-mint), var(--color-mint-dark));
         margin: 0 auto var(--space-4);
         display: flex;
         align-items: center;
@@ -940,9 +908,7 @@
 
         <div class="nav-buttons">
           <button class="btn btn-secondary" id="backToSearch">Back</button>
-          <button class="btn btn-primary" id="selectHotelBtn" disabled>
-            View Rooms
-          </button>
+          <button class="btn btn-primary" id="selectHotelBtn" disabled>View Rooms</button>
         </div>
       </div>
 
@@ -951,18 +917,13 @@
         <h2 class="step-title">Choose Your Room</h2>
         <p class="step-subtitle" id="roomSubtitle">Select a room type</p>
 
-        <div
-          class="selected-hotel-summary glass-subtle"
-          id="selectedHotelSummary"
-        ></div>
+        <div class="selected-hotel-summary glass-subtle" id="selectedHotelSummary"></div>
 
         <div class="rooms-list" id="roomsList"></div>
 
         <div class="nav-buttons">
           <button class="btn btn-secondary" id="backToHotels">Back</button>
-          <button class="btn btn-primary" id="selectRoomBtn" disabled>
-            Continue
-          </button>
+          <button class="btn btn-primary" id="selectRoomBtn" disabled>Continue</button>
         </div>
       </div>
 
@@ -970,9 +931,7 @@
       <div id="step-4" class="step-container">
         <div id="guestFormContainer">
           <h2 class="step-title">Guest Details</h2>
-          <p class="step-subtitle">
-            Enter your information to complete the booking
-          </p>
+          <p class="step-subtitle">Enter your information to complete the booking</p>
 
           <div class="guests-form glass">
             <div class="guest-section-title">
@@ -997,34 +956,17 @@
 
             <div class="form-group">
               <label class="form-label">Full Name</label>
-              <input
-                type="text"
-                class="form-input"
-                id="guestName"
-                placeholder="As shown on ID"
-                required
-              />
+              <input type="text" class="form-input" id="guestName" placeholder="As shown on ID" required />
             </div>
 
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">Email</label>
-                <input
-                  type="email"
-                  class="form-input"
-                  id="guestEmail"
-                  placeholder="email@example.com"
-                  required
-                />
+                <input type="email" class="form-input" id="guestEmail" placeholder="email@example.com" required />
               </div>
               <div class="form-group">
                 <label class="form-label">Phone</label>
-                <input
-                  type="tel"
-                  class="form-input"
-                  id="guestPhone"
-                  placeholder="+1 (555) 000-0000"
-                />
+                <input type="tel" class="form-input" id="guestPhone" placeholder="+1 (555) 000-0000" />
               </div>
             </div>
 
@@ -1040,9 +982,7 @@
 
           <div class="nav-buttons">
             <button class="btn btn-secondary" id="backToRooms">Back</button>
-            <button class="btn btn-primary" id="confirmBookingBtn">
-              Complete Booking
-            </button>
+            <button class="btn btn-primary" id="confirmBookingBtn">Complete Booking</button>
           </div>
         </div>
 
@@ -1065,9 +1005,7 @@
               </svg>
             </div>
             <h2 class="confirmation-title">Booking Confirmed!</h2>
-            <p class="confirmation-ref">
-              Confirmation: <strong id="confirmationCode">XYZ789</strong>
-            </p>
+            <p class="confirmation-ref">Confirmation: <strong id="confirmationCode">XYZ789</strong></p>
 
             <div class="booking-summary" id="bookingSummary"></div>
 
@@ -1131,10 +1069,7 @@
             const id = requestId++;
             return new Promise((resolve, reject) => {
               pendingRequests.set(id, { resolve, reject });
-              window.parent.postMessage(
-                { jsonrpc: "2.0", id, method, params },
-                "*",
-              );
+              window.parent.postMessage({ jsonrpc: "2.0", id, method, params }, "*");
             });
           },
 
@@ -1241,9 +1176,7 @@
       function showLoading(text = "Loading...") {
         $("loading").style.display = "flex";
         $("loading").querySelector(".loading-text").textContent = text;
-        document
-          .querySelectorAll(".step-container")
-          .forEach((el) => el.classList.remove("active"));
+        document.querySelectorAll(".step-container").forEach((el) => el.classList.remove("active"));
       }
 
       function hideLoading() {
@@ -1258,9 +1191,7 @@
         const citySelect = $("city");
 
         CITIES.forEach((city) => {
-          citySelect.add(
-            new Option(`${city.name}, ${city.country}`, city.name),
-          );
+          citySelect.add(new Option(`${city.name}, ${city.country}`, city.name));
         });
 
         // Set default dates
@@ -1381,8 +1312,7 @@
         const list = $("hotelsList");
         list.innerHTML = "";
 
-        $("resultsSubtitle").textContent =
-          `${state.hotels.length} hotels in ${state.searchParams.city}`;
+        $("resultsSubtitle").textContent = `${state.hotels.length} hotels in ${state.searchParams.city}`;
 
         state.hotels.forEach((hotel) => {
           const card = document.createElement("div");
@@ -1488,8 +1418,7 @@
       `;
 
         // Room subtitle
-        $("roomSubtitle").textContent =
-          `${hotel.rooms.length} room types available`;
+        $("roomSubtitle").textContent = `${hotel.rooms.length} room types available`;
 
         // Room cards
         const list = $("roomsList");
@@ -1534,9 +1463,7 @@
 
       function selectRoom(roomId) {
         state.selectedRoomId = roomId;
-        state.selectedRoom = state.selectedHotel.rooms.find(
-          (r) => r.id === roomId,
-        );
+        state.selectedRoom = state.selectedHotel.rooms.find((r) => r.id === roomId);
 
         document.querySelectorAll(".room-card").forEach((card) => {
           card.classList.toggle("selected", card.dataset.roomId === roomId);
@@ -1702,9 +1629,7 @@
         $("addToCalendarBtn").addEventListener("click", () => {
           mcpApp.sendRequest("ui/message", {
             role: "user",
-            content: [
-              { type: "text", text: "Add this hotel booking to my calendar" },
-            ],
+            content: [{ type: "text", text: "Add this hotel booking to my calendar" }],
           });
         });
 

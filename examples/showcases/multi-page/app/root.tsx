@@ -45,25 +45,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     cartItems,
     address,
     q,
-    PUBLIC_COPILOT_KIT_PUBLIC_API_KEY:
-      process.env.PUBLIC_COPILOT_KIT_PUBLIC_API_KEY,
+    PUBLIC_COPILOT_KIT_PUBLIC_API_KEY: process.env.PUBLIC_COPILOT_KIT_PUBLIC_API_KEY,
   };
 };
 
 export default function App() {
-  const { cartItems, items, address, q, PUBLIC_COPILOT_KIT_PUBLIC_API_KEY } =
-    useLoaderData<typeof loader>();
+  const { cartItems, items, address, q, PUBLIC_COPILOT_KIT_PUBLIC_API_KEY } = useLoaderData<typeof loader>();
 
-  const cartQuantity = Object.values(cartItems as CartRecord[]).reduce(
-    (acc, { quantity }) => acc + quantity,
-    0,
-  );
+  const cartQuantity = Object.values(cartItems as CartRecord[]).reduce((acc, { quantity }) => acc + quantity, 0);
 
   const navigation = useNavigation();
   const submit = useSubmit();
-  const searching =
-    navigation.location &&
-    new URLSearchParams(navigation.location.search).has("q");
+  const searching = navigation.location && new URLSearchParams(navigation.location.search).has("q");
 
   useEffect(() => {
     const searchField = document.getElementById("q");
@@ -81,9 +74,7 @@ export default function App() {
         <Links />
         <script
           dangerouslySetInnerHTML={{
-            __html: `window.CPKK = ${JSON.stringify(
-              PUBLIC_COPILOT_KIT_PUBLIC_API_KEY,
-            )};`,
+            __html: `window.CPKK = ${JSON.stringify(PUBLIC_COPILOT_KIT_PUBLIC_API_KEY)};`,
           }}
         />
       </head>
@@ -127,10 +118,7 @@ export default function App() {
               </div>
               <div id="cartButton">
                 <Link to={`/cart`}>
-                  <button type="button">
-                    {"Cart" +
-                      (cartQuantity ? ` (${cartQuantity} items)` : "")}{" "}
-                  </button>
+                  <button type="button">{"Cart" + (cartQuantity ? ` (${cartQuantity} items)` : "")} </button>
                 </Link>
               </div>
             </div>

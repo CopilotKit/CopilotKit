@@ -11,10 +11,7 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
-import {
-  AudioRecorderState,
-  AudioRecorderError,
-} from "./copilot-chat-input.types";
+import { AudioRecorderState, AudioRecorderError } from "./copilot-chat-input.types";
 
 @Component({
   selector: "copilot-chat-audio-recorder",
@@ -23,11 +20,7 @@ import {
   encapsulation: ViewEncapsulation.None,
   template: `
     <div [class]="computedClass()">
-      <canvas
-        #canvasRef
-        class="w-full h-full"
-        [style.imageRendering]="'pixelated'"
-      ></canvas>
+      <canvas #canvasRef class="w-full h-full" [style.imageRendering]="'pixelated'"></canvas>
     </div>
   `,
   styles: [],
@@ -100,9 +93,7 @@ export class CopilotChatAudioRecorder implements AfterViewInit, OnDestroy {
       // In a real implementation, this would start actual audio recording
       // For now, we just simulate the recording state
     } catch (err) {
-      const error = new AudioRecorderError(
-        err instanceof Error ? err.message : "Failed to start recording",
-      );
+      const error = new AudioRecorderError(err instanceof Error ? err.message : "Failed to start recording");
       this.error.emit(error);
       this.setState("idle");
       throw error;
@@ -119,9 +110,7 @@ export class CopilotChatAudioRecorder implements AfterViewInit, OnDestroy {
       const emptyBlob = new Blob([], { type: "audio/webm" });
       return emptyBlob;
     } catch (err) {
-      const error = new AudioRecorderError(
-        err instanceof Error ? err.message : "Failed to stop recording",
-      );
+      const error = new AudioRecorderError(err instanceof Error ? err.message : "Failed to stop recording");
       this.error.emit(error);
       this.setState("idle");
       throw error;
@@ -159,10 +148,7 @@ export class CopilotChatAudioRecorder implements AfterViewInit, OnDestroy {
       const dpr = window.devicePixelRatio || 1;
 
       // Update canvas dimensions if container resized
-      if (
-        canvas.width !== rect.width * dpr ||
-        canvas.height !== rect.height * dpr
-      ) {
+      if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
         canvas.width = rect.width * dpr;
         canvas.height = rect.height * dpr;
         ctx.scale(dpr, dpr);
@@ -192,9 +178,7 @@ export class CopilotChatAudioRecorder implements AfterViewInit, OnDestroy {
 
       for (let i = 0; i < loudnessData.length; i++) {
         const sample = loudnessData[i] ?? 0;
-        const barHeight = Math.round(
-          sample * (maxHeight - minHeight) + minHeight,
-        );
+        const barHeight = Math.round(sample * (maxHeight - minHeight) + minHeight);
         const x = Math.round(i * (barWidth + gap));
         const y = Math.round(centerY - barHeight / 2);
 

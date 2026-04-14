@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { PRData, TestsData } from "@/app/Interfaces/interface";
@@ -57,10 +50,7 @@ export function DataTable({ columns, data }: DataTableProps) {
         <TableBody>
           {data.length === 0 ? (
             <TableRow>
-              <TableCell
-                colSpan={columns.length}
-                className="text-center text-gray-400 py-8"
-              >
+              <TableCell colSpan={columns.length} className="text-center text-gray-400 py-8">
                 No test data available.
               </TableCell>
             </TableRow>
@@ -84,11 +74,7 @@ export function DataTable({ columns, data }: DataTableProps) {
                   {columns.map((column) => (
                     <TableCell key={column.accessorKey} className="w-2">
                       {column.accessorKey === "status" ? (
-                        <StatusBadge
-                          status={
-                            row[column.accessorKey as keyof TestsData] as string
-                          }
-                        />
+                        <StatusBadge status={row[column.accessorKey as keyof TestsData] as string} />
                       ) : column.accessorKey === "testCases" ? (
                         `${row.testCases.length} cases`
                       ) : (
@@ -99,40 +85,24 @@ export function DataTable({ columns, data }: DataTableProps) {
                 </TableRow>
                 {expandedRow === rowIndex && extraKeys.length > 0 && (
                   <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="bg-gray-50 dark:bg-[#181f2a] p-0 border-t-0"
-                    >
+                    <TableCell colSpan={columns.length} className="bg-gray-50 dark:bg-[#181f2a] p-0 border-t-0">
                       <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">
-                            Coverage:
-                          </span>
+                          <span className="text-gray-500 dark:text-gray-400 mr-1">Coverage:</span>
                           <span className="font-semibold">{row.coverage}%</span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">
-                            Created:
-                          </span>
-                          <span className="font-semibold">
-                            {new Date(row.createdAt).toLocaleString()}
-                          </span>
+                          <span className="text-gray-500 dark:text-gray-400 mr-1">Created:</span>
+                          <span className="font-semibold">{new Date(row.createdAt).toLocaleString()}</span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">
-                            Updated:
-                          </span>
-                          <span className="font-semibold">
-                            {new Date(row.updatedAt).toLocaleString()}
-                          </span>
+                          <span className="text-gray-500 dark:text-gray-400 mr-1">Updated:</span>
+                          <span className="font-semibold">{new Date(row.updatedAt).toLocaleString()}</span>
                         </div>
                         <div>
-                          <span className="text-gray-500 dark:text-gray-400 mr-1">
-                            Test Cases:
-                          </span>
+                          <span className="text-gray-500 dark:text-gray-400 mr-1">Test Cases:</span>
                           <span className="font-semibold">
-                            {row.passedTestCases} Passed, {row.failedTestCases}{" "}
-                            Failed, {row.skippedTestCases} Skipped
+                            {row.passedTestCases} Passed, {row.failedTestCases} Failed, {row.skippedTestCases} Skipped
                           </span>
                         </div>
                       </div>

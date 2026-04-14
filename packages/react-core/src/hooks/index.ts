@@ -27,7 +27,4 @@ export { useHumanInTheLoop } from "./use-human-in-the-loop";
 export { useRenderToolCall } from "./use-render-tool-call";
 export { useDefaultTool } from "./use-default-tool";
 export { useLazyToolRenderer } from "./use-lazy-tool-renderer";
-export {
-  useCopilotChatSuggestions,
-  type UseCopilotChatSuggestionsConfiguration,
-} from "./use-copilot-chat-suggestions";
+export { useCopilotChatSuggestions, type UseCopilotChatSuggestionsConfiguration } from "./use-copilot-chat-suggestions";

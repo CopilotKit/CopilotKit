@@ -11,9 +11,7 @@ export interface ToolCall {
   status: ToolCallStatus;
 }
 
-export type MessageSegment =
-  | { type: "text"; content: string }
-  | { type: "tool"; toolCall: ToolCall };
+export type MessageSegment = { type: "text"; content: string } | { type: "tool"; toolCall: ToolCall };
 
 export interface Message {
   role: MessageRole;

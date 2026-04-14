@@ -12,10 +12,7 @@ import type { CopilotRuntimeFetchHandler } from "../core/fetch-handler";
  * Creates an Express app that optionally runs express.json() before our handler,
  * simulating the "pre-parsed body" scenario.
  */
-function createApp(
-  fetchHandler: CopilotRuntimeFetchHandler,
-  opts: { bodyParserFirst?: boolean } = {},
-) {
+function createApp(fetchHandler: CopilotRuntimeFetchHandler, opts: { bodyParserFirst?: boolean } = {}) {
   const app = express();
   const nodeHandler = createExpressNodeHandler(fetchHandler);
 
@@ -43,10 +40,7 @@ describe("express-fetch-bridge — pre-parsed body", () => {
 
     const app = createApp(fetchHandler, { bodyParserFirst: true });
 
-    const res = await request(app)
-      .post("/test")
-      .set("Content-Type", "application/json")
-      .send({ hello: "world" });
+    const res = await request(app).post("/test").set("Content-Type", "application/json").send({ hello: "world" });
 
     expect(res.status).toBe(200);
     expect(res.body.received).toEqual({ hello: "world" });
@@ -63,10 +57,7 @@ describe("express-fetch-bridge — pre-parsed body", () => {
 
     const app = createApp(fetchHandler, { bodyParserFirst: false });
 
-    const res = await request(app)
-      .post("/test")
-      .set("Content-Type", "application/json")
-      .send({ hello: "world" });
+    const res = await request(app).post("/test").set("Content-Type", "application/json").send({ hello: "world" });
 
     expect(res.status).toBe(200);
     expect(res.body.received).toEqual({ hello: "world" });
@@ -89,10 +80,7 @@ describe("express-fetch-bridge — pre-parsed body", () => {
       threadId: "t-123",
     };
 
-    const res = await request(app)
-      .post("/agent/default/run")
-      .set("Content-Type", "application/json")
-      .send(payload);
+    const res = await request(app).post("/agent/default/run").set("Content-Type", "application/json").send(payload);
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual(payload);
@@ -109,10 +97,7 @@ describe("express-fetch-bridge — pre-parsed body", () => {
 
     const app = createApp(fetchHandler, { bodyParserFirst: true });
 
-    const res = await request(app)
-      .post("/test")
-      .set("Content-Type", "application/json")
-      .send([1, 2, 3]);
+    const res = await request(app).post("/test").set("Content-Type", "application/json").send([1, 2, 3]);
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual([1, 2, 3]);
@@ -129,10 +114,7 @@ describe("express-fetch-bridge — pre-parsed body", () => {
 
     const app = createApp(fetchHandler, { bodyParserFirst: true });
 
-    const res = await request(app)
-      .post("/test")
-      .set("Content-Type", "application/json")
-      .send({});
+    const res = await request(app).post("/test").set("Content-Type", "application/json").send({});
 
     expect(res.status).toBe(200);
     expect(res.body.received).toEqual({});
@@ -178,10 +160,7 @@ describe("express-fetch-bridge — URL reconstruction", () => {
 
     const app = createApp(fetchHandler, { bodyParserFirst: true });
 
-    const res = await request(app)
-      .post("/test?foo=bar")
-      .set("Content-Type", "application/json")
-      .send({ data: true });
+    const res = await request(app).post("/test?foo=bar").set("Content-Type", "application/json").send({ data: true });
 
     expect(res.status).toBe(200);
     expect(res.body.param).toBe("bar");
@@ -220,18 +199,15 @@ describe("express-fetch-bridge — header preservation", () => {
 
   it("sets content-type to application/json for object bodies", async () => {
     const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
-      return new Response(
-        JSON.stringify({ contentType: req.headers.get("content-type") }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      );
+      return new Response(JSON.stringify({ contentType: req.headers.get("content-type") }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     };
 
     const app = createApp(fetchHandler, { bodyParserFirst: true });
 
-    const res = await request(app)
-      .post("/test")
-      .set("Content-Type", "application/json")
-      .send({ data: true });
+    const res = await request(app).post("/test").set("Content-Type", "application/json").send({ data: true });
 
     expect(res.status).toBe(200);
     expect(res.body.contentType).toBe("application/json");
@@ -284,10 +260,7 @@ describe("express-fetch-bridge — error handling", () => {
 
     const app = createApp(fetchHandler, { bodyParserFirst: true });
 
-    const res = await request(app)
-      .post("/test")
-      .set("Content-Type", "application/json")
-      .send({ data: true });
+    const res = await request(app).post("/test").set("Content-Type", "application/json").send({ data: true });
 
     expect(res.status).toBe(500);
     expect(res.text).toBe("Internal Server Error");
@@ -300,10 +273,7 @@ describe("express-fetch-bridge — error handling", () => {
 
     const app = createApp(fetchHandler, { bodyParserFirst: false });
 
-    const res = await request(app)
-      .post("/test")
-      .set("Content-Type", "application/json")
-      .send({ data: true });
+    const res = await request(app).post("/test").set("Content-Type", "application/json").send({ data: true });
 
     expect(res.status).toBe(500);
     expect(res.text).toBe("Internal Server Error");
@@ -332,10 +302,7 @@ describe("express-fetch-bridge — streaming responses", () => {
 
     const app = createApp(fetchHandler, { bodyParserFirst: true });
 
-    const res = await request(app)
-      .post("/test")
-      .set("Content-Type", "application/json")
-      .send({ data: true });
+    const res = await request(app).post("/test").set("Content-Type", "application/json").send({ data: true });
 
     expect(res.status).toBe(200);
     expect(res.text).toContain("data: event1");

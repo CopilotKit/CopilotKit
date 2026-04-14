@@ -12,13 +12,7 @@ import {
 } from "recharts";
 import { z } from "zod";
 import { CHART_COLORS, CHART_CONFIG } from "./config";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { BarChart3 } from "lucide-react";
 
 export const BarChartProps = z.object({
@@ -78,9 +72,7 @@ export function BarChart({ title, description, data }: BarChartProps) {
           <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-[var(--muted-foreground)] text-center py-8 text-sm">
-            No data available
-          </p>
+          <p className="text-[var(--muted-foreground)] text-center py-8 text-sm">No data available</p>
         </CardContent>
       </Card>
     );
@@ -107,15 +99,8 @@ export function BarChart({ title, description, data }: BarChartProps) {
       </CardHeader>
       <CardContent className="pt-2">
         <ResponsiveContainer width="100%" height={280}>
-          <RechartsBarChart
-            data={data}
-            margin={{ top: 12, right: 12, bottom: 4, left: -8 }}
-          >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="var(--border)"
-              vertical={false}
-            />
+          <RechartsBarChart data={data} margin={{ top: 12, right: 12, bottom: 4, left: -8 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
             <XAxis
               dataKey="label"
               tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
@@ -129,10 +114,7 @@ export function BarChart({ title, description, data }: BarChartProps) {
               tickLine={false}
               axisLine={false}
             />
-            <Tooltip
-              contentStyle={CHART_CONFIG.tooltipStyle}
-              cursor={{ fill: "var(--secondary)", opacity: 0.5 }}
-            />
+            <Tooltip contentStyle={CHART_CONFIG.tooltipStyle} cursor={{ fill: "var(--secondary)", opacity: 0.5 }} />
             <Bar
               isAnimationActive={false}
               dataKey="value"
@@ -143,10 +125,7 @@ export function BarChart({ title, description, data }: BarChartProps) {
               )}
             >
               {data.map((_, index) => (
-                <Cell
-                  key={index}
-                  fill={CHART_COLORS[index % CHART_COLORS.length]}
-                />
+                <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
               ))}
             </Bar>
           </RechartsBarChart>

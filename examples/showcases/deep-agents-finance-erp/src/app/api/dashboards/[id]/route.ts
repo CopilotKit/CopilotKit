@@ -29,10 +29,7 @@ function findTemplate(id: string): SavedDashboard | null {
 }
 
 // GET /api/dashboards/:id
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   await init();
   const { id } = await params;
 
@@ -62,18 +59,12 @@ export async function GET(
 }
 
 // PUT /api/dashboards/:id — update (custom only)
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   await init();
   const { id } = await params;
 
   if (!sql) {
-    return NextResponse.json(
-      { error: "No database configured" },
-      { status: 501 },
-    );
+    return NextResponse.json({ error: "No database configured" }, { status: 501 });
   }
 
   const [existing] = await sql`
@@ -83,10 +74,7 @@ export async function PUT(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   if (existing.category === "template") {
-    return NextResponse.json(
-      { error: "Cannot modify templates" },
-      { status: 403 },
-    );
+    return NextResponse.json({ error: "Cannot modify templates" }, { status: 403 });
   }
 
   const body = await request.json();
@@ -115,10 +103,7 @@ export async function PUT(
 }
 
 // DELETE /api/dashboards/:id — delete (custom only)
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   await init();
   const { id } = await params;
 
@@ -134,10 +119,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   if (existing.category === "template") {
-    return NextResponse.json(
-      { error: "Cannot delete templates" },
-      { status: 403 },
-    );
+    return NextResponse.json({ error: "Cannot delete templates" }, { status: 403 });
   }
 
   await sql`DELETE FROM dashboards WHERE id = ${id}`;

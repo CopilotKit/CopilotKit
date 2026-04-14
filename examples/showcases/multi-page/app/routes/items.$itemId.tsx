@@ -39,11 +39,7 @@ export default function Item() {
   return (
     <div id="item">
       <div>
-        <img
-          alt={`${item.displayName} avatar`}
-          key={item.avatar}
-          src={item.avatar}
-        />
+        <img alt={`${item.displayName} avatar`} key={item.avatar} src={item.avatar} />
       </div>
 
       <div>
@@ -60,18 +56,12 @@ export default function Item() {
               value={quantity}
               type="number"
               onChange={(event) => {
-                console.log(
-                  quantity,
-                  event.target.value,
-                  event.target.value.replace(/\D/, ""),
-                );
+                console.log(quantity, event.target.value, event.target.value.replace(/\D/, ""));
                 const clean = event.target.value.replace(/\D/, "").trim();
                 if (!clean) {
                   setQuantity(() => quantity);
                 } else {
-                  setQuantity(() =>
-                    parseInt(event.target.value.replace(/\D/, ""), 10),
-                  );
+                  setQuantity(() => parseInt(event.target.value.replace(/\D/, ""), 10));
                 }
               }}
             />

@@ -22,29 +22,15 @@ import {
   ChevronDown,
   Check,
 } from "lucide-react";
-import {
-  useCoAgent,
-  useCoAgentStateRender,
-  useCopilotAction,
-  useCopilotChat,
-} from "@copilotkit/react-core";
+import { useCoAgent, useCoAgentStateRender, useCopilotAction, useCopilotChat } from "@copilotkit/react-core";
 import { ToolLogs } from "@/components/ui/tool-logs";
 import { XPost, XPostPreview, XPostCompact } from "@/components/ui/x-post";
-import {
-  LinkedInPost,
-  LinkedInPostPreview,
-  LinkedInPostCompact,
-} from "@/components/ui/linkedin-post";
+import { LinkedInPost, LinkedInPostPreview, LinkedInPostCompact } from "@/components/ui/linkedin-post";
 import { Button } from "@/components/ui/button";
 import { initialPrompt1, suggestionPrompt1 } from "../prompts/prompts";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import {
-  useParams,
-  useRouter,
-  usePathname,
-  useSearchParams,
-} from "next/navigation";
+import { useParams, useRouter, usePathname, useSearchParams } from "next/navigation";
 import { StackAnalysisCards } from "@/components/ui/stack-analysis-cards";
 import { useLayout } from "../contexts/LayoutContext";
 
@@ -52,8 +38,7 @@ const agents = [
   {
     id: "post_generation_agent",
     name: "Post Generator",
-    description:
-      "Generate posts for Linkedin and X with Gemini and Google web search",
+    description: "Generate posts for Linkedin and X with Gemini and Google web search",
     icon: Search,
     gradient: "from-blue-500 to-purple-600",
     active: true,
@@ -79,22 +64,19 @@ const quickActions = [
     label: "Vim-airline",
     icon: FileText,
     color: "text-green-600",
-    prompt:
-      "Analyze https://github.com/vim-airline/vim-airline Github Repository",
+    prompt: "Analyze https://github.com/vim-airline/vim-airline Github Repository",
   },
   {
     label: "Llama Index x AG-UI",
     icon: FileText,
     color: "text-purple-600",
-    prompt:
-      "Analyze https://github.com/copilotkit-support/open-ag-ui-demo-llamaindex Github Repository",
+    prompt: "Analyze https://github.com/copilotkit-support/open-ag-ui-demo-llamaindex Github Repository",
   },
   {
     label: "Mastra x AG-UI",
     icon: FileText,
     color: "text-orange-600",
-    prompt:
-      "Analyze https://github.com/copilotkit-support/open-ag-ui-demo-mastra Github Repository",
+    prompt: "Analyze https://github.com/copilotkit-support/open-ag-ui-demo-mastra Github Repository",
   },
 ];
 
@@ -184,9 +166,7 @@ export default function StackAnalyzer() {
 
           {/* Enhanced Agent Selector */}
           <div className="space-y-3">
-            <label className="text-sm font-semibold text-gray-700">
-              Active Agent
-            </label>
+            <label className="text-sm font-semibold text-gray-700">Active Agent</label>
             <div className="relative dropdown-container">
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -198,9 +178,7 @@ export default function StackAnalyzer() {
                   >
                     <selectedAgent.icon className="w-4 h-4 text-white" />
                   </div>
-                  <span className="font-medium text-gray-900">
-                    {selectedAgent.name}
-                  </span>
+                  <span className="font-medium text-gray-900">{selectedAgent.name}</span>
                 </div>
                 <ChevronDown
                   className={cn(
@@ -248,9 +226,7 @@ export default function StackAnalyzer() {
                           <span className="font-medium text-gray-900 group-hover:text-blue-700 transition-colors duration-200">
                             {agent.name}
                           </span>
-                          {selectedAgent.id === agent.id && (
-                            <Check className="w-4 h-4 text-blue-600" />
-                          )}
+                          {selectedAgent.id === agent.id && <Check className="w-4 h-4 text-blue-600" />}
                         </div>
                         <p className="text-xs text-gray-500 mt-1 group-hover:text-gray-600 transition-colors duration-200">
                           {agent.description}
@@ -336,9 +312,7 @@ export default function StackAnalyzer() {
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">
                   Analyze Github Repositories
                 </h2>
-                <p className="text-sm text-gray-600">
-                  Powered by Gemini AI & Google Web Search
-                </p>
+                <p className="text-sm text-gray-600">Powered by Gemini AI & Google Web Search</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -370,8 +344,7 @@ export default function StackAnalyzer() {
                 Ready to Explore
               </h3>
               <p className="text-gray-600 mb-8 max-w-md mx-auto leading-relaxed">
-                Harness the power of Google's most advanced AI models for
-                analyzing the stack of GitHub projects.
+                Harness the power of Google's most advanced AI models for analyzing the stack of GitHub projects.
               </p>
               <div className="grid grid-cols-2 gap-4 max-w-lg mx-auto">
                 {quickActions.slice(0, 4).map((action, index) => (

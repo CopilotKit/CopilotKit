@@ -12,12 +12,7 @@ export type DestinationRowProps = {
   parentCopilotPointer?: string;
 };
 
-export function DestinationRow({
-  destination,
-  isChecked,
-  onCheckChange,
-  parentCopilotPointer,
-}: DestinationRowProps) {
+export function DestinationRow({ destination, isChecked, onCheckChange, parentCopilotPointer }: DestinationRowProps) {
   useCopilotReadable({
     description: "A row in the destination list",
     value: {
@@ -35,11 +30,7 @@ export function DestinationRow({
       <td className="whitespace-nowrap py-5 pl-4 px-3 text-sm">
         <div className="flex items-center">
           <div className="h-20 w-20 flex-shrink-0">
-            <img
-              className="h-full w-full rounded-full"
-              src={destination.image}
-              alt=""
-            />
+            <img className="h-full w-full rounded-full" src={destination.image} alt="" />
           </div>
           <div className="ml-4">
             <div className="font-medium text-gray-900">{destination.name}</div>
@@ -62,9 +53,7 @@ export function DestinationRow({
       <td className="whitespace-nowrap px-3 py-5 text-sm text-gray-500">
         <div className="text-gray-900">{destination.description}</div>
       </td>
-      <td className="whitespace-nowrap px-3 py-5 text-sm text-gray-500">
-        {destination.activities}
-      </td>
+      <td className="whitespace-nowrap px-3 py-5 text-sm text-gray-500">{destination.activities}</td>
     </tr>
   );
 }

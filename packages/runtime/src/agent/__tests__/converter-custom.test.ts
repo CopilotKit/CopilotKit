@@ -28,11 +28,7 @@ describe("Custom Converter (passthrough)", () => {
       const events = await collectEvents(agent.run(input));
 
       expectLifecycleWrapped(events, "test-thread", "test-run");
-      expectEventSequence(events, [
-        EventType.RUN_STARTED,
-        EventType.TEXT_MESSAGE_CHUNK,
-        EventType.RUN_FINISHED,
-      ]);
+      expectEventSequence(events, [EventType.RUN_STARTED, EventType.TEXT_MESSAGE_CHUNK, EventType.RUN_FINISHED]);
 
       expect(eventField<string>(events[1], "delta")).toBe("Hello world");
       expect(eventField<string>(events[1], "role")).toBe("assistant");
@@ -108,15 +104,9 @@ describe("Custom Converter (passthrough)", () => {
       const agent = createAgent("custom", [snapshot]);
       const events = await collectEvents(agent.run(createDefaultInput()));
 
-      expectEventSequence(events, [
-        EventType.RUN_STARTED,
-        EventType.STATE_SNAPSHOT,
-        EventType.RUN_FINISHED,
-      ]);
+      expectEventSequence(events, [EventType.RUN_STARTED, EventType.STATE_SNAPSHOT, EventType.RUN_FINISHED]);
 
-      expect(
-        eventField<Record<string, unknown>>(events[1], "snapshot"),
-      ).toEqual({ counter: 42, items: ["a", "b"] });
+      expect(eventField<Record<string, unknown>>(events[1], "snapshot")).toEqual({ counter: 42, items: ["a", "b"] });
     });
 
     it("should forward a STATE_DELTA event", async () => {
@@ -128,15 +118,9 @@ describe("Custom Converter (passthrough)", () => {
       const agent = createAgent("custom", [delta]);
       const events = await collectEvents(agent.run(createDefaultInput()));
 
-      expectEventSequence(events, [
-        EventType.RUN_STARTED,
-        EventType.STATE_DELTA,
-        EventType.RUN_FINISHED,
-      ]);
+      expectEventSequence(events, [EventType.RUN_STARTED, EventType.STATE_DELTA, EventType.RUN_FINISHED]);
 
-      expect(eventField<unknown[]>(events[1], "delta")).toEqual([
-        { op: "replace", path: "/counter", value: 43 },
-      ]);
+      expect(eventField<unknown[]>(events[1], "delta")).toEqual([{ op: "replace", path: "/counter", value: 43 }]);
     });
 
     it("should forward reasoning events in order", async () => {
@@ -196,9 +180,7 @@ describe("Custom Converter (passthrough)", () => {
       const events = await collectEvents(agent.run(createDefaultInput()));
 
       // Agent emits its own RUN_STARTED, then the user's RUN_STARTED is forwarded
-      const runStartedEvents = events.filter(
-        (e) => e.type === EventType.RUN_STARTED,
-      );
+      const runStartedEvents = events.filter((e) => e.type === EventType.RUN_STARTED);
       expect(runStartedEvents).toHaveLength(2);
 
       // First is from the Agent lifecycle
@@ -209,9 +191,7 @@ describe("Custom Converter (passthrough)", () => {
       });
 
       // Second is the user-emitted one, forwarded as-is
-      expect(eventField<string>(runStartedEvents[1], "threadId")).toBe(
-        "user-thread",
-      );
+      expect(eventField<string>(runStartedEvents[1], "threadId")).toBe("user-thread");
       expect(eventField<string>(runStartedEvents[1], "runId")).toBe("user-run");
     });
   });
@@ -224,10 +204,7 @@ describe("Custom Converter (passthrough)", () => {
       const agent = createAgent("custom", []);
       const events = await collectEvents(agent.run(createDefaultInput()));
 
-      expectEventSequence(events, [
-        EventType.RUN_STARTED,
-        EventType.RUN_FINISHED,
-      ]);
+      expectEventSequence(events, [EventType.RUN_STARTED, EventType.RUN_FINISHED]);
       expectLifecycleWrapped(events, "test-thread", "test-run");
     });
 
@@ -272,16 +249,10 @@ describe("Custom Converter (passthrough)", () => {
       const agent = createAgent("custom", [eventWithExtras]);
       const events = await collectEvents(agent.run(createDefaultInput()));
 
-      expectEventSequence(events, [
-        EventType.RUN_STARTED,
-        EventType.CUSTOM,
-        EventType.RUN_FINISHED,
-      ]);
+      expectEventSequence(events, [EventType.RUN_STARTED, EventType.CUSTOM, EventType.RUN_FINISHED]);
 
       expect(eventField<string>(events[1], "customField")).toBe("custom-value");
-      expect(
-        eventField<{ deep: { value: number } }>(events[1], "nestedData"),
-      ).toEqual({ deep: { value: 123 } });
+      expect(eventField<{ deep: { value: number } }>(events[1], "nestedData")).toEqual({ deep: { value: 123 } });
       expect(eventField<number[]>(events[1], "arrayField")).toEqual([1, 2, 3]);
     });
 
@@ -310,9 +281,7 @@ describe("Custom Converter (passthrough)", () => {
       // Verify order preservation
       for (let i = 0; i < count; i++) {
         expect(contentEvents[i].type).toBe(EventType.TEXT_MESSAGE_CHUNK);
-        expect(eventField<string>(contentEvents[i], "delta")).toBe(
-          `chunk-${i}`,
-        );
+        expect(eventField<string>(contentEvents[i], "delta")).toBe(`chunk-${i}`);
       }
     });
   });

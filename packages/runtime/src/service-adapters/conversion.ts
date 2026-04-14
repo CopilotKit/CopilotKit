@@ -10,9 +10,7 @@ import { MessageInput } from "../graphql/inputs/message.input";
 import { plainToInstance } from "class-transformer";
 import { tryMap, safeParseToolArgs } from "@copilotkit/shared";
 
-export function convertGqlInputToMessages(
-  inputMessages: MessageInput[],
-): Message[] {
+export function convertGqlInputToMessages(inputMessages: MessageInput[]): Message[] {
   const messages = tryMap(inputMessages, (message) => {
     if (message.textMessage) {
       return plainToInstance(TextMessage, {

@@ -32,8 +32,7 @@ interface GoogleGenerativeAIAdapterOptions {
 }
 
 const DEFAULT_MODEL = "gemini-2.5-flash";
-const DEFAULT_API_VERSION: GoogleGenerativeAIAdapterOptions["apiVersion"] =
-  "v1";
+const DEFAULT_API_VERSION: GoogleGenerativeAIAdapterOptions["apiVersion"] = "v1";
 let hasWarnedDefaultGoogleModel = false;
 
 export class GoogleGenerativeAIAdapter extends LangChainAdapter {
@@ -41,11 +40,7 @@ export class GoogleGenerativeAIAdapter extends LangChainAdapter {
   public model: string = DEFAULT_MODEL;
 
   constructor(options?: GoogleGenerativeAIAdapterOptions) {
-    if (
-      !hasWarnedDefaultGoogleModel &&
-      !options?.model &&
-      !options?.apiVersion
-    ) {
+    if (!hasWarnedDefaultGoogleModel && !options?.model && !options?.apiVersion) {
       console.warn(
         `You are using the GoogleGenerativeAIAdapter without explicitly setting a model or apiVersion. ` +
           `CopilotKit will default to apiVersion="v1" and model="${DEFAULT_MODEL}". ` +

@@ -13,9 +13,7 @@ export default class CloudInit extends BaseCommand {
   }
 
   public async run(): Promise<void> {
-    this.log(
-      "`copilotkit init` is deprecated. Redirecting to `copilotkit create`...",
-    );
+    this.log("`copilotkit init` is deprecated. Redirecting to `copilotkit create`...");
 
     const createCommand = new Create(this.argv, this.config);
     await createCommand.run();

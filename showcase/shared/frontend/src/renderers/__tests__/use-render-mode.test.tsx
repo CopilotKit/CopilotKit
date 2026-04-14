@@ -80,8 +80,7 @@ describe("useRenderMode", () => {
     });
 
     // The last call should reflect the new mode
-    const lastCall =
-      mockUseAgentContext.mock.calls[mockUseAgentContext.mock.calls.length - 1];
+    const lastCall = mockUseAgentContext.mock.calls[mockUseAgentContext.mock.calls.length - 1];
     expect(lastCall[0]).toEqual({
       description: "render_mode",
       value: "a2ui",
@@ -122,13 +121,7 @@ describe("useRenderMode", () => {
   it("handles multiple sequential mode changes", () => {
     const { result } = renderHook(() => useRenderMode());
 
-    const modes: RenderMode[] = [
-      "a2ui",
-      "hashbrown",
-      "json-render",
-      "open-genui",
-      "tool-based",
-    ];
+    const modes: RenderMode[] = ["a2ui", "hashbrown", "json-render", "open-genui", "tool-based"];
     for (const m of modes) {
       act(() => {
         result.current.setMode(m);
@@ -155,8 +148,7 @@ describe("useRenderMode", () => {
     });
 
     // Last call: json-render
-    const lastCall =
-      mockUseAgentContext.mock.calls[mockUseAgentContext.mock.calls.length - 1];
+    const lastCall = mockUseAgentContext.mock.calls[mockUseAgentContext.mock.calls.length - 1];
     expect(lastCall[0]).toEqual({
       description: "render_mode",
       value: "json-render",

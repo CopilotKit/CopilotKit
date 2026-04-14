@@ -12,9 +12,7 @@ export const ChatWindow: FC = () => {
     <CopilotChat
       className="h-full flex flex-col"
       instructions={`Always use the MCP server to complete the task. You will be provided with a list of MCP servers. Use the appropriate MCP server to complete the task.
-      To perform any actions over the todo task use the following data for manipulation ${JSON.stringify(
-        todos,
-      )}`}
+      To perform any actions over the todo task use the following data for manipulation ${JSON.stringify(todos)}`}
       labels={{
         title: "To-do Assistant",
         initial:
@@ -23,25 +21,11 @@ export const ChatWindow: FC = () => {
         regenerateResponse: "Try another response",
       }}
       icons={{
-        sendIcon: (
-          <SendIcon className="w-4 h-4 hover:scale-110 transition-transform" />
-        ),
-        activityIcon: (
-          <Loader
-            texts={[
-              "Thinking...",
-              "Analyzing Your Query...",
-              "Taking Action...",
-            ]}
-          />
-        ),
+        sendIcon: <SendIcon className="w-4 h-4 hover:scale-110 transition-transform" />,
+        activityIcon: <Loader texts={["Thinking...", "Analyzing Your Query...", "Taking Action..."]} />,
         spinnerIcon: <Loader2 className="w-4 h-4 animate-spin" />,
-        stopIcon: (
-          <Square className="w-4 h-4 hover:text-red-500 transition-colors" />
-        ),
-        regenerateIcon: (
-          <RotateCw className="w-4 h-4 hover:rotate-180 transition-transform duration-300" />
-        ),
+        stopIcon: <Square className="w-4 h-4 hover:text-red-500 transition-colors" />,
+        regenerateIcon: <RotateCw className="w-4 h-4 hover:rotate-180 transition-transform duration-300" />,
       }}
     />
   );

@@ -12,19 +12,8 @@
  * reference instability, not wall-clock timing.
  */
 import React from "react";
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-  act,
-} from "@testing-library/react";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { AbstractAgent, EventType, type BaseEvent, type RunAgentInput } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChat } from "../CopilotChat";
@@ -40,10 +29,7 @@ class MockStepwiseAgent extends AbstractAgent {
   emit(event: BaseEvent) {
     if (event.type === EventType.RUN_STARTED) {
       this.isRunning = true;
-    } else if (
-      event.type === EventType.RUN_FINISHED ||
-      event.type === EventType.RUN_ERROR
-    ) {
+    } else if (event.type === EventType.RUN_FINISHED || event.type === EventType.RUN_ERROR) {
       this.isRunning = false;
     }
     act(() => {
@@ -59,8 +45,7 @@ class MockStepwiseAgent extends AbstractAgent {
   clone(): MockStepwiseAgent {
     const cloned = new MockStepwiseAgent();
     cloned.agentId = this.agentId;
-    (cloned as unknown as { subject: Subject<BaseEvent> }).subject =
-      this.subject;
+    (cloned as unknown as { subject: Subject<BaseEvent> }).subject = this.subject;
     return cloned;
   }
 
@@ -78,10 +63,7 @@ class MockStepwiseAgent extends AbstractAgent {
 // Uses data-testid rather than text content to avoid false positives from
 // components that render fixed strings regardless of the message payload.
 // ---------------------------------------------------------------------------
-async function submitAndReceiveAssistantMessage(
-  agent: MockStepwiseAgent,
-  messageId: string,
-) {
+async function submitAndReceiveAssistantMessage(agent: MockStepwiseAgent, messageId: string) {
   const input = await screen.findByRole("textbox");
   fireEvent.change(input, { target: { value: "hello" } });
   fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
@@ -115,9 +97,7 @@ async function submitAndReceiveAssistantMessage(
 // which is what triggers the bug.
 // ---------------------------------------------------------------------------
 let assistantRenderCount = 0;
-function CountingAssistantMessage(
-  _props: React.ComponentProps<typeof CopilotChatAssistantMessage>,
-) {
+function CountingAssistantMessage(_props: React.ComponentProps<typeof CopilotChatAssistantMessage>) {
   assistantRenderCount++;
   return <div data-testid="counting-assistant" />;
 }
@@ -132,9 +112,7 @@ function CountingAssistantMessage(
 // is a genuine guard for the labels stabilization fix.
 // ---------------------------------------------------------------------------
 let labelConsumerRenderCount = 0;
-function LabelConsumerMessage(
-  _props: React.ComponentProps<typeof CopilotChatAssistantMessage>,
-) {
+function LabelConsumerMessage(_props: React.ComponentProps<typeof CopilotChatAssistantMessage>) {
   useCopilotChatConfiguration(); // subscribe to CopilotChatConfiguration context
   labelConsumerRenderCount++;
   return <div data-testid="counting-assistant" />;
@@ -171,8 +149,7 @@ describe("FOR-75: messageView / labels props — no re-renders on input change",
         <div style={{ height: 400 }}>
           <CopilotChat
             messageView={{
-              assistantMessage:
-                CountingAssistantMessage as unknown as typeof CopilotChatAssistantMessage,
+              assistantMessage: CountingAssistantMessage as unknown as typeof CopilotChatAssistantMessage,
             }}
           />
         </div>
@@ -221,8 +198,7 @@ describe("FOR-75: messageView / labels props — no re-renders on input change",
         <div style={{ height: 400 }}>
           <CopilotChat
             messageView={{
-              assistantMessage:
-                LabelConsumerMessage as unknown as typeof CopilotChatAssistantMessage,
+              assistantMessage: LabelConsumerMessage as unknown as typeof CopilotChatAssistantMessage,
             }}
             // Inline labels object — new reference on every render of the
             // parent. Without the fix, this churns the context value.

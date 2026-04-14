@@ -32,14 +32,7 @@ function getWeatherIcon(conditions: string, icon?: string): string {
   return "🌤️";
 }
 
-export function WeatherCard({
-  location,
-  temperature,
-  conditions,
-  humidity,
-  windSpeed,
-  icon,
-}: WeatherCardProps) {
+export function WeatherCard({ location, temperature, conditions, humidity, windSpeed, icon }: WeatherCardProps) {
   const weatherIcon = getWeatherIcon(conditions, icon);
 
   return (
@@ -47,30 +40,20 @@ export function WeatherCard({
       {/* Header with location */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
-            {location}
-          </h3>
-          <p className="text-sm text-[var(--color-text-secondary)]">
-            Current Weather
-          </p>
+          <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{location}</h3>
+          <p className="text-sm text-[var(--color-text-secondary)]">Current Weather</p>
         </div>
         <div className="text-4xl">{weatherIcon}</div>
       </div>
 
       {/* Temperature display */}
       <div className="mb-4">
-        <span className="text-5xl font-bold text-gradient">
-          {Math.round(temperature)}°
-        </span>
-        <span className="text-xl text-[var(--color-text-secondary)] ml-1">
-          F
-        </span>
+        <span className="text-5xl font-bold text-gradient">{Math.round(temperature)}°</span>
+        <span className="text-xl text-[var(--color-text-secondary)] ml-1">F</span>
       </div>
 
       {/* Conditions */}
-      <p className="text-[var(--color-text-primary)] font-medium mb-4">
-        {conditions}
-      </p>
+      <p className="text-[var(--color-text-primary)] font-medium mb-4">{conditions}</p>
 
       {/* Additional details */}
       <div className="flex gap-6 pt-4 border-t border-[var(--color-border-glass)]">
@@ -78,12 +61,8 @@ export function WeatherCard({
           <div className="flex items-center gap-2">
             <span className="text-lg">💧</span>
             <div>
-              <p className="text-xs text-[var(--color-text-tertiary)]">
-                Humidity
-              </p>
-              <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                {humidity}%
-              </p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">Humidity</p>
+              <p className="text-sm font-medium text-[var(--color-text-primary)]">{humidity}%</p>
             </div>
           </div>
         )}
@@ -92,9 +71,7 @@ export function WeatherCard({
             <span className="text-lg">💨</span>
             <div>
               <p className="text-xs text-[var(--color-text-tertiary)]">Wind</p>
-              <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                {windSpeed} mph
-              </p>
+              <p className="text-sm font-medium text-[var(--color-text-primary)]">{windSpeed} mph</p>
             </div>
           </div>
         )}
@@ -133,11 +110,7 @@ export function WeatherLoadingState({ location }: { location?: string }) {
         </div>
       </div>
 
-      {location && (
-        <p className="text-xs text-[var(--color-text-tertiary)] mt-3">
-          Loading weather for {location}...
-        </p>
-      )}
+      {location && <p className="text-xs text-[var(--color-text-tertiary)] mt-3">Loading weather for {location}...</p>}
     </div>
   );
 }

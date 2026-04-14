@@ -1,10 +1,4 @@
-import {
-  Component,
-  input,
-  computed,
-  ChangeDetectionStrategy,
-  ViewEncapsulation,
-} from "@angular/core";
+import { Component, input, computed, ChangeDetectionStrategy, ViewEncapsulation } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { CdkMenuModule } from "@angular/cdk/menu";
 import { OverlayModule } from "@angular/cdk/overlay";
@@ -21,12 +15,7 @@ import { injectChatLabels } from "../../chat-config";
   encapsulation: ViewEncapsulation.None,
   template: `
     @if (hasItems()) {
-      <button
-        type="button"
-        [disabled]="disabled()"
-        [class]="buttonClass()"
-        [cdkMenuTriggerFor]="menu"
-      >
+      <button type="button" [disabled]="disabled()" [class]="buttonClass()" [cdkMenuTriggerFor]="menu">
         <lucide-angular [img]="Settings2Icon" [size]="18"></lucide-angular>
         <span class="text-sm font-normal">{{ label }}</span>
       </button>
@@ -49,11 +38,7 @@ import { injectChatLabels } from "../../chat-config";
                   cdkMenuItem
                 >
                   {{ item.label }}
-                  <lucide-angular
-                    [img]="ChevronRightIcon"
-                    [size]="12"
-                    class="ml-auto"
-                  ></lucide-angular>
+                  <lucide-angular [img]="ChevronRightIcon" [size]="12" class="ml-auto"></lucide-angular>
                 </button>
 
                 <!-- Submenu template -->

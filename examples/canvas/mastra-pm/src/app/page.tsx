@@ -28,9 +28,7 @@ export default function CopilotKitPage() {
   return (
     <main
       className="h-screen w-screen"
-      style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
-      }
+      style={{ "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties}
     >
       <CopilotSidebar
         defaultOpen={true}
@@ -53,8 +51,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
     name: "weatherAgent",
     initialState: {
       projectName: "My Project",
-      projectDescription:
-        "This is your new project, you can change the name and description at any time.",
+      projectDescription: "This is your new project, you can change the name and description at any time.",
       users: users,
       tasks: tasks,
     },
@@ -76,10 +73,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
     available: "frontend",
     render: ({ args }) => {
       return (
-        <div
-          style={{ backgroundColor: themeColor }}
-          className="rounded-2xl max-w-md w-full text-white p-4"
-        >
+        <div style={{ backgroundColor: themeColor }} className="rounded-2xl max-w-md w-full text-white p-4">
           <p>✨ Memory updated</p>
           <details className="mt-2">
             <summary className="cursor-pointer text-white">See updates</summary>
@@ -126,24 +120,13 @@ function SunIcon() {
 
 // Weather card component where the location and themeColor are based on what the agent
 // sets via tool calls.
-function WeatherCard({
-  location,
-  themeColor,
-}: {
-  location?: string;
-  themeColor: string;
-}) {
+function WeatherCard({ location, themeColor }: { location?: string; themeColor: string }) {
   return (
-    <div
-      style={{ backgroundColor: themeColor }}
-      className="rounded-xl shadow-xl mt-6 mb-4 max-w-md w-full"
-    >
+    <div style={{ backgroundColor: themeColor }} className="rounded-xl shadow-xl mt-6 mb-4 max-w-md w-full">
       <div className="bg-white/20 p-4 w-full">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-xl font-bold text-white capitalize">
-              {location}
-            </h3>
+            <h3 className="text-xl font-bold text-white capitalize">{location}</h3>
             <p className="text-white">Current Weather</p>
           </div>
           <SunIcon />

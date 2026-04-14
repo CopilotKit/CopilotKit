@@ -19,11 +19,7 @@ const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, "..");
 const PACKAGES_DIR = path.join(ROOT, "packages");
 const SCHEMA_PATH = path.join(ROOT, "shared", "manifest.schema.json");
-const FEATURE_REGISTRY_PATH = path.join(
-  ROOT,
-  "shared",
-  "feature-registry.json",
-);
+const FEATURE_REGISTRY_PATH = path.join(ROOT, "shared", "feature-registry.json");
 const OUTPUT_DIR = path.join(ROOT, "shell", "src", "data");
 const OUTPUT_PATH = path.join(OUTPUT_DIR, "registry.json");
 const CONSTRAINTS_PATH = path.join(ROOT, "shared", "constraints.yaml");
@@ -69,9 +65,7 @@ function validateManifest(
 
   if (!validate(manifest)) {
     for (const err of validate.errors || []) {
-      errors.push(
-        `${filePath}: Schema error at ${err.instancePath}: ${err.message}`,
-      );
+      errors.push(`${filePath}: Schema error at ${err.instancePath}: ${err.message}`);
     }
   }
 
@@ -79,9 +73,7 @@ function validateManifest(
   const features = (manifest.features as string[]) || [];
   for (const featureId of features) {
     if (!featureIds.has(featureId)) {
-      errors.push(
-        `${filePath}: Unknown feature ID "${featureId}" not in feature registry`,
-      );
+      errors.push(`${filePath}: Unknown feature ID "${featureId}" not in feature registry`);
     }
   }
 
@@ -89,9 +81,7 @@ function validateManifest(
   const demos = (manifest.demos as Array<{ id: string }>) || [];
   for (const demo of demos) {
     if (!featureIds.has(demo.id)) {
-      errors.push(
-        `${filePath}: Demo "${demo.id}" references unknown feature ID not in feature registry`,
-      );
+      errors.push(`${filePath}: Demo "${demo.id}" references unknown feature ID not in feature registry`);
     }
   }
 
@@ -103,9 +93,7 @@ function main() {
 
   const schema = loadSchema();
   const featureRegistry = loadFeatureRegistry();
-  const featureIds = new Set<string>(
-    featureRegistry.features.map((f: { id: string }) => f.id),
-  );
+  const featureIds = new Set<string>(featureRegistry.features.map((f: { id: string }) => f.id));
 
   const ajv = new Ajv({ allErrors: true });
   addFormats(ajv);
@@ -131,12 +119,7 @@ function main() {
       continue;
     }
 
-    const errors = validateManifest(
-      manifest,
-      validate,
-      featureIds,
-      manifestPath,
-    );
+    const errors = validateManifest(manifest, validate, featureIds, manifestPath);
     if (errors.length > 0) {
       allErrors.push(...errors);
       continue;
@@ -190,15 +173,10 @@ function main() {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   fs.writeFileSync(OUTPUT_PATH, JSON.stringify(registry, null, 2) + "\n");
 
-  console.log(
-    `\nRegistry generated: ${OUTPUT_PATH} (${integrations.length} integrations)\n`,
-  );
+  console.log(`\nRegistry generated: ${OUTPUT_PATH} (${integrations.length} integrations)\n`);
 
   // Write constraints.json for the shell's client-side filtering
-  fs.writeFileSync(
-    CONSTRAINTS_OUTPUT_PATH,
-    JSON.stringify(constraints, null, 2) + "\n",
-  );
+  fs.writeFileSync(CONSTRAINTS_OUTPUT_PATH, JSON.stringify(constraints, null, 2) + "\n");
   console.log(`Constraints written: ${CONSTRAINTS_OUTPUT_PATH}`);
 }
 

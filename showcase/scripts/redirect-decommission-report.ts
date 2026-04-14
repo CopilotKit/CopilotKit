@@ -29,10 +29,7 @@ function parseArgs(): { slackFormat: boolean } {
   return { slackFormat: process.argv.includes("--slack") };
 }
 
-async function queryPostHog(
-  apiKey: string,
-  projectId: string,
-): Promise<EventCount[]> {
+async function queryPostHog(apiKey: string, projectId: string): Promise<EventCount[]> {
   const now = new Date();
   const from = new Date(now.getTime() - DAYS * 24 * 60 * 60 * 1000);
 
@@ -73,10 +70,7 @@ async function queryPostHog(
   return results;
 }
 
-function buildReport(
-  events: EventCount[],
-  slackFormat: boolean,
-): { text: string; hasCandidates: boolean } {
+function buildReport(events: EventCount[], slackFormat: boolean): { text: string; hasCandidates: boolean } {
   const eventMap = new Map(events.map((e) => [e.redirect_id, e.count]));
   const totalHits = events.reduce((sum, e) => sum + e.count, 0);
 
@@ -88,17 +82,13 @@ function buildReport(
 
   if (slackFormat) {
     const lines: string[] = [];
-    lines.push(
-      `:bar_chart: *SEO Redirect Decommission Report* (last ${DAYS} days)`,
-    );
+    lines.push(`:bar_chart: *SEO Redirect Decommission Report* (last ${DAYS} days)`);
     lines.push(`Total redirects defined: ${allIds.size}`);
     lines.push(`Total hits: ${totalHits.toLocaleString()}`);
     lines.push("");
 
     if (zerohit.length > 0) {
-      lines.push(
-        `:warning: *${zerohit.length} redirect(s) with zero hits — decommission candidates:*`,
-      );
+      lines.push(`:warning: *${zerohit.length} redirect(s) with zero hits — decommission candidates:*`);
       // Group by prefix for readability
       const grouped = new Map<string, string[]>();
       for (const id of zerohit) {
@@ -110,19 +100,13 @@ function buildReport(
         if (ids.length <= 3) {
           lines.push(`  • ${ids.join(", ")}`);
         } else {
-          lines.push(
-            `  • ${prefix}: ${ids.length} entries (${ids.slice(0, 3).join(", ")}, ...)`,
-          );
+          lines.push(`  • ${prefix}: ${ids.length} entries (${ids.slice(0, 3).join(", ")}, ...)`);
         }
       }
       lines.push("");
-      lines.push(
-        `Cross-reference: <https://www.notion.so/33c3aa38185281d7b243c5cf0a7c14cb|SEO Redirect Inventory>`,
-      );
+      lines.push(`Cross-reference: <https://www.notion.so/33c3aa38185281d7b243c5cf0a7c14cb|SEO Redirect Inventory>`);
     } else {
-      lines.push(
-        `:white_check_mark: All redirects received traffic — no decommission candidates.`,
-      );
+      lines.push(`:white_check_mark: All redirects received traffic — no decommission candidates.`);
     }
 
     if (top10.length > 0) {
@@ -148,9 +132,7 @@ function buildReport(
   if (top10.length > 0) {
     lines.push("Top 10 most-hit redirects:");
     for (const e of top10) {
-      lines.push(
-        `  ${e.redirect_id.padEnd(25)} ${e.count.toLocaleString()} hits`,
-      );
+      lines.push(`  ${e.redirect_id.padEnd(25)} ${e.count.toLocaleString()} hits`);
     }
     lines.push("");
   }
@@ -159,9 +141,7 @@ function buildReport(
     lines.push("Decommission candidates (zero hits):");
     for (const id of zerohit) {
       const entry = seoRedirects.find((r) => r.id === id);
-      lines.push(
-        `  ${id.padEnd(25)} ${entry?.source ?? "?"} → ${entry?.destination ?? "?"}`,
-      );
+      lines.push(`  ${id.padEnd(25)} ${entry?.source ?? "?"} → ${entry?.destination ?? "?"}`);
     }
   }
 

@@ -2,12 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { BasicAgent, type MCPClientProvider } from "../index";
 import { EventType, type RunAgentInput } from "@ag-ui/client";
 import { streamText, type ToolSet } from "ai";
-import {
-  mockStreamTextResponse,
-  textDelta,
-  finish,
-  collectEvents,
-} from "./test-helpers";
+import { mockStreamTextResponse, textDelta, finish, collectEvents } from "./test-helpers";
 
 // Mock the ai module
 vi.mock("ai", () => ({
@@ -60,9 +55,7 @@ describe("mcpClients — user-managed MCP clients", () => {
     state: {},
   };
 
-  function makeMockProvider(
-    tools: Record<string, any>,
-  ): MCPClientProvider & { close: ReturnType<typeof vi.fn> } {
+  function makeMockProvider(tools: Record<string, any>): MCPClientProvider & { close: ReturnType<typeof vi.fn> } {
     return {
       tools: vi.fn().mockResolvedValue(tools),
       close: vi.fn(),
@@ -80,9 +73,7 @@ describe("mcpClients — user-managed MCP clients", () => {
       mcpClients: [provider],
     });
 
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([textDelta("Hello"), finish()]) as any,
-    );
+    vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([textDelta("Hello"), finish()]) as any);
 
     await collectEvents(agent["run"](baseInput));
 
@@ -102,9 +93,7 @@ describe("mcpClients — user-managed MCP clients", () => {
       mcpClients: [provider],
     });
 
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
-    );
+    vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
     await collectEvents(agent["run"](baseInput));
 
@@ -134,9 +123,7 @@ describe("mcpClients — user-managed MCP clients", () => {
       mcpServers: [{ type: "http", url: "http://localhost:9999" }],
     });
 
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
-    );
+    vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
     await collectEvents(agent["run"](baseInput));
 
@@ -160,9 +147,7 @@ describe("mcpClients — user-managed MCP clients", () => {
       mcpClients: [provider1, provider2],
     });
 
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
-    );
+    vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
     await collectEvents(agent["run"](baseInput));
 
@@ -178,16 +163,12 @@ describe("mcpClients — user-managed MCP clients", () => {
       mcpClients: [],
     });
 
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([textDelta("Hi"), finish()]) as any,
-    );
+    vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([textDelta("Hi"), finish()]) as any);
 
     const events = await collectEvents(agent["run"](baseInput));
 
     // Should still work normally
-    const textEvents = events.filter(
-      (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-    );
+    const textEvents = events.filter((e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK);
     expect(textEvents.length).toBeGreaterThan(0);
   });
 
@@ -201,9 +182,7 @@ describe("mcpClients — user-managed MCP clients", () => {
       mcpClients: [failingProvider],
     });
 
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
-    );
+    vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
     // Collect events manually so we can capture RUN_ERROR before the rejection
     const events: any[] = [];
@@ -247,9 +226,7 @@ describe("mcpClients — user-managed MCP clients", () => {
     // We use a dynamic import + type assertion rather than a static import because
     // @ai-sdk/mcp is mocked in this test file. The type check happens at compile time
     // regardless.
-    type MCPClient = Awaited<
-      ReturnType<typeof import("@ai-sdk/mcp").experimental_createMCPClient>
-    >;
+    type MCPClient = Awaited<ReturnType<typeof import("@ai-sdk/mcp").experimental_createMCPClient>>;
 
     // If this line causes a type error, MCPClientProvider needs to be widened
     const _assignable: MCPClientProvider = {} as MCPClient;

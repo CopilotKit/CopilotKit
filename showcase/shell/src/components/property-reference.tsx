@@ -23,15 +23,10 @@ export function PropertyReference({
   default: defaultValue,
   collapsable = false,
 }: Props) {
-  const [isCollapsed, setIsCollapsed] = React.useState(
-    collapsable ? true : false,
-  );
+  const [isCollapsed, setIsCollapsed] = React.useState(collapsable ? true : false);
 
   const enhancedChildren = React.Children.map(children, (child) => {
-    if (
-      React.isValidElement(child) &&
-      (child.type as any).name === "PropertyReference"
-    ) {
+    if (React.isValidElement(child) && (child.type as any).name === "PropertyReference") {
       return React.cloneElement(child, { collapsable: true } as Props);
     }
     return child;
@@ -42,9 +37,7 @@ export function PropertyReference({
   const renderChips = () => {
     return (
       <>
-        <span className="font-mono bg-blue-500/10 text-blue-400 py-0.5 px-2 rounded text-xs font-semibold">
-          {type}
-        </span>
+        <span className="font-mono bg-blue-500/10 text-blue-400 py-0.5 px-2 rounded text-xs font-semibold">{type}</span>
         {required && (
           <span className="font-mono bg-red-500/10 text-red-400 py-0.5 px-2 rounded text-xs font-semibold">
             required
@@ -68,9 +61,7 @@ export function PropertyReference({
               onClick={() => setIsCollapsed(!isCollapsed)}
               className="flex gap-x-2 items-center font-mono font-semibold text-[var(--accent)]"
             >
-              <span className="text-xs">
-                {isCollapsed ? "\u25B6" : "\u25BC"}
-              </span>
+              <span className="text-xs">{isCollapsed ? "\u25B6" : "\u25BC"}</span>
               {name}
               {renderChips()}
             </button>
@@ -93,13 +84,9 @@ export function PropertyReference({
       <div className={`space-y-1 pl-4 ${collapseClassName}`}>
         {defaultValue !== undefined && (
           <div>
-            <span className="font-semibold text-[var(--text-secondary)]">
-              Default:
-            </span>{" "}
+            <span className="font-semibold text-[var(--text-secondary)]">Default:</span>{" "}
             <span className="font-mono text-[var(--text-muted)]">
-              {typeof defaultValue === "string"
-                ? `"${defaultValue}"`
-                : `${defaultValue}`}
+              {typeof defaultValue === "string" ? `"${defaultValue}"` : `${defaultValue}`}
             </span>
           </div>
         )}

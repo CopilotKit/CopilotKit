@@ -14,18 +14,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const useAuthContext = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error(
-      "useAuthContext must be used within an AuthContextProvider",
-    );
+    throw new Error("useAuthContext must be used within an AuthContextProvider");
   }
   return context;
 };
 
-export const AuthContextProvider = ({
-  children,
-}: {
-  children: React.ReactNode;
-}) => {
+export const AuthContextProvider = ({ children }: { children: React.ReactNode }) => {
   const { team } = useTeam();
   const [currentUser, setCurrentUser] = useState<Member>(team[0]);
 
@@ -36,9 +30,5 @@ export const AuthContextProvider = ({
 
   if (!currentUser) return null;
 
-  return (
-    <AuthContext.Provider value={{ users: team, currentUser, setCurrentUser }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{ users: team, currentUser, setCurrentUser }}>{children}</AuthContext.Provider>;
 };

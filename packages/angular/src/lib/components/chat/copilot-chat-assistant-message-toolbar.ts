@@ -12,9 +12,6 @@ export class CopilotChatAssistantMessageToolbar {
   readonly inputClass = input<string | undefined>();
 
   readonly computedClass = computed(() => {
-    return cn(
-      "w-full bg-transparent flex items-center -ml-[5px] -mt-[0px]",
-      this.inputClass(),
-    );
+    return cn("w-full bg-transparent flex items-center -ml-[5px] -mt-[0px]", this.inputClass());
   });
 }

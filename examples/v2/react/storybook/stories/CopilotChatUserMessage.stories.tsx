@@ -227,11 +227,7 @@ export const CustomAppearance: Story = {
         {content}
       </div>
     ),
-    toolbar: ({
-      children,
-      className,
-      ...props
-    }: React.HTMLAttributes<HTMLDivElement>) => (
+    toolbar: ({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
       <div
         className="w-full bg-transparent flex items-center justify-end -mr-[5px] mt-[8px] invisible group-hover:visible"
         {...props}
@@ -239,11 +235,7 @@ export const CustomAppearance: Story = {
         {children}
       </div>
     ),
-    copyButton: ({
-      children,
-      className,
-      ...props
-    }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    copyButton: ({ children, className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
       <button
         className="h-8 w-8 p-0 rounded-md text-blue-600 hover:bg-blue-100 flex items-center justify-center"
         {...props}
@@ -251,11 +243,7 @@ export const CustomAppearance: Story = {
         {children}
       </button>
     ),
-    editButton: ({
-      children,
-      className,
-      ...props
-    }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    editButton: ({ children, className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
       <button
         className="h-8 w-8 p-0 rounded-md text-blue-600 hover:bg-blue-100 flex items-center justify-center"
         {...props}
@@ -270,12 +258,9 @@ export const CustomComponents: Story = {
   args: {
     message: simpleMessage,
     onEditMessage: () => console.log("Edit clicked!"),
-    className:
-      "bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl p-4 shadow-sm",
+    className: "bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl p-4 shadow-sm",
     messageRenderer: ({ content }: { content: string; className?: string }) => (
-      <div className="font-mono text-purple-800 bg-white/50 rounded-lg px-3 py-2 inline-block">
-        💬 {content}
-      </div>
+      <div className="font-mono text-purple-800 bg-white/50 rounded-lg px-3 py-2 inline-block">💬 {content}</div>
     ),
   },
 };
@@ -308,9 +293,7 @@ export const UsingChildrenRenderProp: Story = {
             {editButton}
           </div>
         </div>
-        <div className="mt-2 text-xs text-yellow-700">
-          Custom layout using children render prop
-        </div>
+        <div className="mt-2 text-xs text-yellow-700">Custom layout using children render prop</div>
       </div>
     ),
   },
@@ -320,15 +303,13 @@ export const WithBranchNavigation: Story = {
   args: {
     message: {
       id: "branch-message",
-      content:
-        "This message has multiple branches. You can navigate between them using the branch controls.",
+      content: "This message has multiple branches. You can navigate between them using the branch controls.",
       role: "user" as const,
     },
     onEditMessage: () => console.log("Edit clicked!"),
     branchIndex: 2,
     numberOfBranches: 3,
-    onSwitchToBranch: ({ branchIndex }) =>
-      console.log(`Switching to branch ${branchIndex + 1}`),
+    onSwitchToBranch: ({ branchIndex }) => console.log(`Switching to branch ${branchIndex + 1}`),
   },
 };
 
@@ -336,14 +317,12 @@ export const WithManyBranches: Story = {
   args: {
     message: {
       id: "many-branches-message",
-      content:
-        "This is branch 5 of 10. Use the navigation arrows to explore different variations of this message.",
+      content: "This is branch 5 of 10. Use the navigation arrows to explore different variations of this message.",
       role: "user" as const,
     },
     onEditMessage: () => console.log("Edit clicked!"),
     branchIndex: 4,
     numberOfBranches: 10,
-    onSwitchToBranch: ({ branchIndex }) =>
-      alert(`Would switch to branch ${branchIndex + 1} of 10`),
+    onSwitchToBranch: ({ branchIndex }) => alert(`Would switch to branch ${branchIndex + 1} of 10`),
   },
 };

@@ -15,10 +15,7 @@ export interface CopilotEndpointCorsConfig {
   /**
    * Allowed origin(s). Can be a string, array of strings, or a function that returns the origin.
    */
-  origin:
-    | string
-    | string[]
-    | ((origin: string, c: any) => string | undefined | null);
+  origin: string | string[] | ((origin: string, c: any) => string | undefined | null);
   /**
    * Whether to include credentials (cookies, authorization headers) in CORS requests.
    * When true, origin cannot be "*" - must be an explicit origin.
@@ -29,10 +26,7 @@ export interface CopilotEndpointCorsConfig {
 const logger = createLogger();
 
 type AnyPrimitive = string | boolean | number | null;
-export type CopilotRequestContextProperties = Record<
-  string,
-  AnyPrimitive | Record<string, AnyPrimitive>
->;
+export type CopilotRequestContextProperties = Record<string, AnyPrimitive | Record<string, AnyPrimitive>>;
 
 export type GraphQLContext = YogaInitialContext & {
   _copilotkit: CreateCopilotRuntimeServerOptions;
@@ -73,13 +67,8 @@ export type CommonConfig = {
   logging: typeof logger;
 };
 
-export function getCommonConfig(
-  options: CreateCopilotRuntimeServerOptions,
-): CommonConfig {
-  const logLevel =
-    (process.env.LOG_LEVEL as LogLevel) ||
-    (options.logLevel as LogLevel) ||
-    "error";
+export function getCommonConfig(options: CreateCopilotRuntimeServerOptions): CommonConfig {
+  const logLevel = (process.env.LOG_LEVEL as LogLevel) || (options.logLevel as LogLevel) || "error";
   const logger = createLogger({
     level: logLevel,
     component: "getCommonConfig",

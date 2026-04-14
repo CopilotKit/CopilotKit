@@ -10,15 +10,7 @@ import { WidgetRenderer } from "@/components/dashboard/widget-renderer";
 import { colSpanClass } from "@/components/dashboard/widget-renderer";
 import { useDashboard } from "@/context/dashboard-context";
 import type { SavedDashboard } from "@/types/dashboard";
-import {
-  ArrowLeft,
-  Play,
-  Trash2,
-  Copy,
-  LayoutGrid,
-  Clock,
-  Layers,
-} from "lucide-react";
+import { ArrowLeft, Play, Trash2, Copy, LayoutGrid, Clock, Layers } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // List row
@@ -51,9 +43,7 @@ function DashboardRow({
         }
       }}
       className={`group relative flex cursor-pointer items-center gap-5 rounded-xl border px-5 py-4 transition-all hover:border-foreground/20 hover:shadow-sm ${
-        isActive
-          ? "border-primary/40 bg-primary/[0.03]"
-          : "border-border bg-card"
+        isActive ? "border-primary/40 bg-primary/[0.03]" : "border-border bg-card"
       }`}
     >
       {/* Mini preview */}
@@ -64,9 +54,7 @@ function DashboardRow({
       {/* Info */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <h3 className="truncate text-sm font-semibold text-foreground">
-            {dashboard.name}
-          </h3>
+          <h3 className="truncate text-sm font-semibold text-foreground">{dashboard.name}</h3>
           {isActive && (
             <Badge variant="default" className="text-[10px]">
               Active
@@ -74,9 +62,7 @@ function DashboardRow({
           )}
         </div>
         {dashboard.description && (
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            {dashboard.description}
-          </p>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">{dashboard.description}</p>
         )}
         <div className="mt-1.5 flex items-center gap-3 text-[11px] text-muted-foreground">
           <span className="inline-flex items-center gap-1">
@@ -96,12 +82,7 @@ function DashboardRow({
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
-        <Button
-          size="sm"
-          variant={isActive ? "outline" : "default"}
-          onClick={onLoad}
-          disabled={isActive}
-        >
+        <Button size="sm" variant={isActive ? "outline" : "default"} onClick={onLoad} disabled={isActive}>
           <Play className="h-3.5 w-3.5" />
           {isActive ? "Active" : "Load"}
         </Button>
@@ -152,26 +133,15 @@ function DetailView({
         </button>
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">
-              {dashboard.name}
-            </h2>
-            {dashboard.description && (
-              <p className="mt-1 text-sm text-muted-foreground">
-                {dashboard.description}
-              </p>
-            )}
+            <h2 className="text-2xl font-bold text-foreground">{dashboard.name}</h2>
+            {dashboard.description && <p className="mt-1 text-sm text-muted-foreground">{dashboard.description}</p>}
             <div className="mt-2 flex gap-2">
-              <Badge
-                variant={
-                  dashboard.category === "template" ? "secondary" : "outline"
-                }
-              >
+              <Badge variant={dashboard.category === "template" ? "secondary" : "outline"}>
                 {dashboard.category === "template" ? "Template" : "Custom"}
               </Badge>
               {isActive && <Badge variant="default">Active</Badge>}
               <span className="text-xs text-muted-foreground self-center">
-                {dashboard.widgets.length} widgets &middot; Updated{" "}
-                {new Date(dashboard.updatedAt).toLocaleDateString()}
+                {dashboard.widgets.length} widgets &middot; Updated {new Date(dashboard.updatedAt).toLocaleDateString()}
               </span>
             </div>
           </div>
@@ -203,9 +173,7 @@ function DetailView({
 
       {/* Widget preview */}
       <div className="rounded-xl border border-border bg-card p-6">
-        <h3 className="mb-4 text-sm font-semibold text-foreground">
-          Layout Preview
-        </h3>
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Layout Preview</h3>
         <div className="pointer-events-none origin-top-left">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             {[...dashboard.widgets]
@@ -236,14 +204,7 @@ export default function DashboardsPage() {
 
 function DashboardsContent() {
   const router = useRouter();
-  const {
-    setWidgets,
-    currentDashboardName,
-    savedDashboards,
-    refreshSaved,
-    deleteSaved,
-    saveCurrent,
-  } = useDashboard();
+  const { setWidgets, currentDashboardName, savedDashboards, refreshSaved, deleteSaved, saveCurrent } = useDashboard();
 
   const [dashboards, setDashboards] = useState<SavedDashboard[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -284,9 +245,7 @@ function DashboardsContent() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="animate-pulse text-muted-foreground">
-          Loading dashboards...
-        </p>
+        <p className="animate-pulse text-muted-foreground">Loading dashboards...</p>
       </div>
     );
   }
@@ -298,14 +257,10 @@ function DashboardsContent() {
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-1">
             <LayoutGrid className="h-5 w-5 text-muted-foreground" />
-            <h1 className="font-heading text-2xl font-bold text-foreground sm:text-3xl">
-              Dashboard Gallery
-            </h1>
+            <h1 className="font-heading text-2xl font-bold text-foreground sm:text-3xl">Dashboard Gallery</h1>
           </div>
           <p className="text-sm text-muted-foreground">
-            {selected
-              ? "Dashboard details and preview."
-              : "Browse templates and saved layouts."}
+            {selected ? "Dashboard details and preview." : "Browse templates and saved layouts."}
           </p>
         </div>
 
@@ -323,9 +278,7 @@ function DashboardsContent() {
             {/* Templates */}
             {templates.length > 0 && (
               <div>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Templates
-                </h2>
+                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Templates</h2>
                 <div className="space-y-2">
                   {templates.map((d) => (
                     <DashboardRow
@@ -350,8 +303,7 @@ function DashboardsContent() {
                 <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/50 py-10">
                   <LayoutGrid className="mb-2 h-7 w-7 text-muted-foreground/40" />
                   <p className="text-sm text-muted-foreground">
-                    No saved dashboards yet. Ask the AI to build one, then save
-                    it.
+                    No saved dashboards yet. Ask the AI to build one, then save it.
                   </p>
                 </div>
               ) : (

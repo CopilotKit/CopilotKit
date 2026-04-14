@@ -21,17 +21,7 @@ import { ChildList } from "./ChildList";
 
 export const ColumnSchema = z.object({
   children: CommonSchemas.ChildList,
-  justify: z
-    .enum([
-      "start",
-      "center",
-      "end",
-      "spaceBetween",
-      "spaceAround",
-      "spaceEvenly",
-      "stretch",
-    ])
-    .optional(),
+  justify: z.enum(["start", "center", "end", "spaceBetween", "spaceAround", "spaceEvenly", "stretch"]).optional(),
   align: z.enum(["center", "end", "start", "stretch"]).optional(),
 });
 
@@ -76,21 +66,18 @@ export const ColumnApiDef = {
   schema: ColumnSchema,
 };
 
-export const Column = createReactComponent(
-  ColumnApiDef,
-  ({ props, buildChild }) => {
-    return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: mapJustify(props.justify),
-          alignItems: mapAlign(props.align),
-          gap: "8px",
-        }}
-      >
-        <ChildList childList={props.children} buildChild={buildChild} />
-      </div>
-    );
-  },
-);
+export const Column = createReactComponent(ColumnApiDef, ({ props, buildChild }) => {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: mapJustify(props.justify),
+        alignItems: mapAlign(props.align),
+        gap: "8px",
+      }}
+    >
+      <ChildList childList={props.children} buildChild={buildChild} />
+    </div>
+  );
+});

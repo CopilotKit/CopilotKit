@@ -2,16 +2,8 @@
 
 import React, { useEffect } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import {
-  CopilotSidebar,
-  useAgent,
-  UseAgentUpdate,
-} from "@copilotkit/react-core/v2";
-import {
-  useShowcaseHooks,
-  useShowcaseSuggestions,
-  demonstrationCatalog,
-} from "@copilotkit/showcase-shared";
+import { CopilotSidebar, useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
+import { useShowcaseHooks, useShowcaseSuggestions, demonstrationCatalog } from "@copilotkit/showcase-shared";
 
 // Travel planning data types
 interface Flight {
@@ -64,11 +56,7 @@ const INITIAL_STATE: TravelAgentState = {
 
 export default function SubagentsDemo() {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      agent="subagents"
-      a2ui={{ catalog: demonstrationCatalog }}
-    >
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="subagents" a2ui={{ catalog: demonstrationCatalog }}>
       <div className="min-h-screen w-full flex">
         <TravelPlanner />
         <CopilotSidebar
@@ -106,9 +94,7 @@ function TravelPlanner() {
     <div className="flex-1 p-6 overflow-y-auto">
       {/* Itinerary Strip */}
       <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
-        <div className="text-sm font-semibold text-gray-500 mb-2">
-          Current Itinerary
-        </div>
+        <div className="text-sm font-semibold text-gray-500 mb-2">Current Itinerary</div>
         <div className="flex flex-wrap gap-3">
           {agentState?.itinerary?.flight && (
             <div
@@ -117,8 +103,7 @@ function TravelPlanner() {
             >
               <span>{"✈"}</span>
               <span>
-                {agentState.itinerary.flight.airline} -{" "}
-                {agentState.itinerary.flight.price}
+                {agentState.itinerary.flight.airline} - {agentState.itinerary.flight.price}
               </span>
             </div>
           )}
@@ -134,26 +119,20 @@ function TravelPlanner() {
           {(agentState?.experiences?.length ?? 0) > 0 && (
             <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm text-sm">
               <span>{"🎯"}</span>
-              <span>
-                {agentState?.experiences?.length ?? 0} experiences planned
-              </span>
+              <span>{agentState?.experiences?.length ?? 0} experiences planned</span>
             </div>
           )}
           {!agentState?.itinerary?.flight &&
             !agentState?.itinerary?.hotel &&
             (agentState?.experiences?.length ?? 0) === 0 && (
-              <span className="text-sm text-gray-400">
-                No items yet -- start planning!
-              </span>
+              <span className="text-sm text-gray-400">No items yet -- start planning!</span>
             )}
         </div>
       </div>
 
       {/* Agent Status */}
       <div className="mb-6">
-        <div className="text-sm font-semibold text-gray-500 mb-2">
-          Active Agent
-        </div>
+        <div className="text-sm font-semibold text-gray-500 mb-2">Active Agent</div>
         <div className="flex gap-2">
           {(
             [
@@ -195,15 +174,13 @@ function TravelPlanner() {
             <div className="space-y-2">
               {agentState!.flights.map((flight, index) => (
                 <div key={index} className="p-3 bg-gray-50 rounded-lg text-sm">
-                  <strong>{flight.airline}:</strong> {flight.departure} &rarr;{" "}
-                  {flight.arrival} ({flight.duration}) - {flight.price}
+                  <strong>{flight.airline}:</strong> {flight.departure} &rarr; {flight.arrival} ({flight.duration}) -{" "}
+                  {flight.price}
                 </div>
               ))}
               {agentState?.itinerary?.flight && (
                 <div className="p-2 bg-green-50 rounded-lg text-sm text-green-700">
-                  <strong>Selected:</strong>{" "}
-                  {agentState.itinerary.flight.airline} -{" "}
-                  {agentState.itinerary.flight.price}
+                  <strong>Selected:</strong> {agentState.itinerary.flight.airline} - {agentState.itinerary.flight.price}
                 </div>
               )}
             </div>
@@ -218,8 +195,7 @@ function TravelPlanner() {
             <div className="space-y-2">
               {agentState!.hotels.map((hotel, index) => (
                 <div key={index} className="p-3 bg-gray-50 rounded-lg text-sm">
-                  <strong>{hotel.name}:</strong> {hotel.location} -{" "}
-                  {hotel.price_per_night} ({hotel.rating})
+                  <strong>{hotel.name}:</strong> {hotel.location} - {hotel.price_per_night} ({hotel.rating})
                 </div>
               ))}
               {agentState?.itinerary?.hotel && (
@@ -244,9 +220,7 @@ function TravelPlanner() {
                   <div className="text-xs text-gray-500 mt-1">
                     {experience.type} -- {experience.location}
                   </div>
-                  <div className="text-sm text-gray-600 mt-1">
-                    {experience.description}
-                  </div>
+                  <div className="text-sm text-gray-600 mt-1">{experience.description}</div>
                 </div>
               ))}
             </div>

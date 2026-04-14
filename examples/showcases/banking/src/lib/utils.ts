@@ -21,18 +21,10 @@ export function filterTransactionsByCardLast4(
   return transactions.filter((transaction) => transaction.cardId === card?.id);
 }
 
-export function filterTransactionsByPolicyId(
-  transactions: Transaction[],
-  policyId: string,
-): Transaction[] {
-  return transactions.filter(
-    (transaction) => transaction.policyId === policyId,
-  );
+export function filterTransactionsByPolicyId(transactions: Transaction[], policyId: string): Transaction[] {
+  return transactions.filter((transaction) => transaction.policyId === policyId);
 }
 
-export function filterTransactionByTitle(
-  transactions: Transaction[],
-  title: string,
-): Transaction[] {
+export function filterTransactionByTitle(transactions: Transaction[], title: string): Transaction[] {
   return transactions.filter((transaction) => transaction.title === title);
 }

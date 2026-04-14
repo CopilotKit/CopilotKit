@@ -23,18 +23,14 @@ const createAppContextBeforeAgent = (state, runtime) => {
   }
 
   // Create the context content
-  const contextContent =
-    typeof appContext === "string"
-      ? appContext
-      : JSON.stringify(appContext, null, 2);
+  const contextContent = typeof appContext === "string" ? appContext : JSON.stringify(appContext, null, 2);
   const contextMessageContent = `App Context:\n${contextContent}`;
   const contextMessagePrefix = "App Context:\n";
 
   // Helper to get message content as string
   const getContentString = (msg: any): string | null => {
     if (typeof msg.content === "string") return msg.content;
-    if (Array.isArray(msg.content) && msg.content[0]?.text)
-      return msg.content[0].text;
+    if (Array.isArray(msg.content) && msg.content[0]?.text) return msg.content[0].text;
     return null;
   };
 
@@ -82,11 +78,7 @@ const createAppContextBeforeAgent = (state, runtime) => {
   } else {
     // Insert after the first system message, or at position 0 if no system message
     const insertIndex = firstSystemIndex !== -1 ? firstSystemIndex + 1 : 0;
-    updatedMessages = [
-      ...messages.slice(0, insertIndex),
-      contextMessage,
-      ...messages.slice(insertIndex),
-    ];
+    updatedMessages = [...messages.slice(0, insertIndex), contextMessage, ...messages.slice(insertIndex)];
   }
 
   return {
@@ -176,9 +168,7 @@ const middlewareInput = {
 
     // Only clear intercepted state if we successfully restored the tool calls
     if (!messageFound) {
-      console.warn(
-        `CopilotKit: Could not find message with id ${originalMessageId} to restore tool calls`,
-      );
+      console.warn(`CopilotKit: Could not find message with id ${originalMessageId} to restore tool calls`);
       return;
     }
 
@@ -197,9 +187,7 @@ const middlewareInput = {
     const frontendTools = state["copilotkit"]?.actions ?? [];
     if (frontendTools.length === 0) return;
 
-    const frontendToolNames = new Set(
-      frontendTools.map((t: any) => t.function?.name || t.name),
-    );
+    const frontendToolNames = new Set(frontendTools.map((t: any) => t.function?.name || t.name));
 
     const lastMessage = state.messages[state.messages.length - 1];
     if (!AIMessage.isInstance(lastMessage) || !lastMessage.tool_calls?.length) {

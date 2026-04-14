@@ -1,10 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
-import {
-  createCopilotEndpoint,
-  createCopilotEndpointSingleRoute,
-} from "../endpoints";
+import { createCopilotEndpoint, createCopilotEndpointSingleRoute } from "../endpoints";
 import { CopilotRuntime } from "../core/runtime";
 
 describe("Hono adapter with hooks", () => {
@@ -42,9 +39,7 @@ describe("Hono adapter with hooks", () => {
 
     it("routes GET /info correctly", async () => {
       const { endpoint } = createEndpoint();
-      const response = await endpoint.fetch(
-        new Request("https://example.com/info"),
-      );
+      const response = await endpoint.fetch(new Request("https://example.com/info"));
 
       expect(response.status).toBe(200);
       const body = await response.json();
@@ -96,9 +91,7 @@ describe("Hono adapter with hooks", () => {
         },
       });
 
-      const response = await endpoint.fetch(
-        new Request("https://example.com/info"),
-      );
+      const response = await endpoint.fetch(new Request("https://example.com/info"));
 
       expect(response.status).toBe(200);
       expect(response.headers.get("x-custom-header")).toBe("hello-from-hook");

@@ -1,8 +1,4 @@
-import {
-  CopilotRuntime,
-  OpenAIAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { ChatOpenAI } from "@langchain/openai";
 
@@ -65,14 +61,12 @@ const runtime = new CopilotRuntime({
     {
       chainUrl: "http://localhost:8000/retriever",
       name: "askAboutAnimals",
-      description:
-        "Always call this function if the users asks about a certain animal.",
+      description: "Always call this function if the users asks about a certain animal.",
     },
     {
       chainUrl: "http://localhost:8000/agent",
       name: "askAboutEugeneThoughts",
-      description:
-        "Always call this function if the users asks about Eugene's thoughts on a certain topic.",
+      description: "Always call this function if the users asks about Eugene's thoughts on a certain topic.",
     },
   ],
 });

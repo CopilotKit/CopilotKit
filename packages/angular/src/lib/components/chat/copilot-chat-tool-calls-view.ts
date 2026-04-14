@@ -9,11 +9,7 @@ import { RenderToolCalls } from "../../render-tool-calls";
   imports: [CommonModule, RenderToolCalls],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <copilot-render-tool-calls
-      [message]="message()"
-      [messages]="messages()"
-      [isLoading]="isLoading()"
-    >
+    <copilot-render-tool-calls [message]="message()" [messages]="messages()" [isLoading]="isLoading()">
     </copilot-render-tool-calls>
   `,
 })

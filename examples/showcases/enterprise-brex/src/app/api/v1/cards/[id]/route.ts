@@ -1,17 +1,12 @@
 import { NextRequest } from "next/server";
 import { data } from "../../data";
 
-export const PUT = async (
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) => {
+export const PUT = async (req: NextRequest, { params }: { params: { id: string } }) => {
   try {
     const cardId = params.id;
     // Handle pin or card limit change
     const body = await req.json();
-    console.info(
-      `${req.method}: ${req.url} called with: ${JSON.stringify(body)}`,
-    );
+    console.info(`${req.method}: ${req.url} called with: ${JSON.stringify(body)}`);
     const { pin } = body;
     const cardIndex = data.cards.findIndex((card) => card.id === cardId);
     if (cardIndex !== -1) {

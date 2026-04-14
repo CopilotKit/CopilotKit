@@ -1,10 +1,7 @@
 import type { CodegenConfig } from "@graphql-codegen/cli";
 import path from "node:path";
 
-const schema = path.resolve(
-  __dirname,
-  "../runtime/__snapshots__/schema/schema.graphql",
-);
+const schema = path.resolve(__dirname, "../runtime/__snapshots__/schema/schema.graphql");
 
 const config: CodegenConfig = {
   schema,

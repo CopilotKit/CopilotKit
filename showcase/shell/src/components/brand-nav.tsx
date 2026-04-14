@@ -7,55 +7,21 @@ import { SearchTrigger } from "./search-trigger";
 
 function CopilotKitIcon({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="111 0 25 26"
-      width="18"
-      height="20"
-      className={className}
-      aria-hidden="true"
-    >
+    <svg viewBox="111 0 25 26" width="18" height="20" className={className} aria-hidden="true">
       <defs>
-        <linearGradient
-          id="cpk_g0"
-          x1="129.301"
-          y1="2.339"
-          x2="125.623"
-          y2="12.452"
-          gradientUnits="userSpaceOnUse"
-        >
+        <linearGradient id="cpk_g0" x1="129.301" y1="2.339" x2="125.623" y2="12.452" gradientUnits="userSpaceOnUse">
           <stop stopColor="#6430AB" />
           <stop offset="1" stopColor="#AA89D8" />
         </linearGradient>
-        <linearGradient
-          id="cpk_g1"
-          x1="126.451"
-          y1="8.039"
-          x2="121.717"
-          y2="17.187"
-          gradientUnits="userSpaceOnUse"
-        >
+        <linearGradient id="cpk_g1" x1="126.451" y1="8.039" x2="121.717" y2="17.187" gradientUnits="userSpaceOnUse">
           <stop stopColor="#005DBB" />
           <stop offset="1" stopColor="#3D92E8" />
         </linearGradient>
-        <linearGradient
-          id="cpk_g2"
-          x1="128.565"
-          y1="2.339"
-          x2="127.139"
-          y2="6.798"
-          gradientUnits="userSpaceOnUse"
-        >
+        <linearGradient id="cpk_g2" x1="128.565" y1="2.339" x2="127.139" y2="6.798" gradientUnits="userSpaceOnUse">
           <stop stopColor="#1B70C4" />
           <stop offset="1" stopColor="#54A4F2" />
         </linearGradient>
-        <linearGradient
-          id="cpk_g3"
-          x1="117.94"
-          y1="22.784"
-          x2="132.981"
-          y2="22.784"
-          gradientUnits="userSpaceOnUse"
-        >
+        <linearGradient id="cpk_g3" x1="117.94" y1="22.784" x2="132.981" y2="22.784" gradientUnits="userSpaceOnUse">
           <stop stopColor="#4497EA" />
           <stop offset="0.2548" stopColor="#1463B2" />
           <stop offset="0.4987" stopColor="#0A437D" />
@@ -91,19 +57,8 @@ function CopilotKitIcon({ className }: { className?: string }) {
 
 function AgUiIcon({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 57 66"
-      width="14"
-      height="16"
-      className={className}
-      aria-hidden="true"
-    >
-      <g
-        transform="translate(2, -2)"
-        stroke="currentColor"
-        strokeWidth="3.3125"
-        fill="none"
-      >
+    <svg viewBox="0 0 57 66" width="14" height="16" className={className} aria-hidden="true">
+      <g transform="translate(2, -2)" stroke="currentColor" strokeWidth="3.3125" fill="none">
         <g transform="translate(0, 4)">
           <path
             d="M0,25.9335975 L16.5448881,6.52325783e-15 C40.848296,5.37332138 53,8.05998207 53,8.05998207 L43.1229639,62 L0,25.9335975 Z"
@@ -136,9 +91,7 @@ const AG_UI_LINKS = [
 ];
 
 function activeBrandFromPath(pathname: string): Brand {
-  return AG_UI_PREFIXES.some((p) => pathname.startsWith(p))
-    ? "ag-ui"
-    : "copilotkit";
+  return AG_UI_PREFIXES.some((p) => pathname.startsWith(p)) ? "ag-ui" : "copilotkit";
 }
 
 export function BrandNav() {
@@ -156,8 +109,7 @@ export function BrandNav() {
             href="/"
             className="relative flex items-center gap-1.5 px-1 pb-1 text-sm font-bold tracking-tight transition-colors"
             style={{
-              color:
-                active === "copilotkit" ? "var(--accent)" : "var(--text-faint)",
+              color: active === "copilotkit" ? "var(--accent)" : "var(--text-faint)",
             }}
           >
             <CopilotKitIcon />
@@ -214,18 +166,8 @@ export function BrandNav() {
             className="flex items-center justify-center w-8 h-8 rounded-md text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"
             aria-label="Open menu"
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
         </div>
@@ -235,10 +177,7 @@ export function BrandNav() {
       {mobileMenuOpen && (
         <>
           {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
-            onClick={() => setMobileMenuOpen(false)}
-          />
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
           {/* Panel */}
           <div
             className="fixed top-0 right-0 bottom-0 z-50 w-[280px] bg-[var(--bg-surface)] border-l border-[var(--border)] flex flex-col"
@@ -254,18 +193,8 @@ export function BrandNav() {
                 className="flex items-center justify-center w-8 h-8 rounded-md text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"
                 aria-label="Close menu"
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>

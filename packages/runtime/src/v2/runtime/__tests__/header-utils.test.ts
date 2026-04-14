@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  shouldForwardHeader,
-  extractForwardableHeaders,
-} from "../handlers/header-utils";
+import { shouldForwardHeader, extractForwardableHeaders } from "../handlers/header-utils";
 
 describe("header-utils", () => {
   describe("shouldForwardHeader", () => {
@@ -77,12 +74,8 @@ describe("header-utils", () => {
 
       const result = extractForwardableHeaders(request);
 
-      expect(result.authorization).toBe(
-        "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
-      );
-      expect(result["x-complex-value"]).toBe(
-        "value with spaces and special=chars&more",
-      );
+      expect(result.authorization).toBe("Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9");
+      expect(result["x-complex-value"]).toBe("value with spaces and special=chars&more");
     });
   });
 });

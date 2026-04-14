@@ -26,14 +26,7 @@ export async function cloneGitHubSubdirectory(
     spinner.text = chalk.cyan(`Cloning from ${owner}/${repo}...`);
 
     // Method 1: Use sparse checkout (more efficient than full clone)
-    return await sparseCheckout(
-      owner,
-      repo,
-      branch,
-      subdirectoryPath,
-      destinationPath,
-      spinner,
-    );
+    return await sparseCheckout(owner, repo, branch, subdirectoryPath, destinationPath, spinner);
   } catch (error) {
     spinner.text = chalk.red(`Failed to clone from GitHub: ${error}`);
     return false;
@@ -74,10 +67,7 @@ async function sparseCheckout(
     });
 
     // Specify which subdirectory to checkout
-    fs.writeFileSync(
-      path.join(tempDir, ".git/info/sparse-checkout"),
-      subdirectoryPath,
-    );
+    fs.writeFileSync(path.join(tempDir, ".git/info/sparse-checkout"), subdirectoryPath);
 
     spinner.text = chalk.cyan("Downloading agent files...");
 
@@ -90,9 +80,7 @@ async function sparseCheckout(
     // Copy the subdirectory to the destination
     const sourcePath = path.join(tempDir, subdirectoryPath);
     if (!fs.existsSync(sourcePath)) {
-      throw new Error(
-        `Subdirectory '${subdirectoryPath}' not found in the repository.`,
-      );
+      throw new Error(`Subdirectory '${subdirectoryPath}' not found in the repository.`);
     }
 
     // Ensure destination directory exists
@@ -117,10 +105,7 @@ async function sparseCheckout(
 /**
  * Recursively copies a directory with async pauses
  */
-async function copyDirectoryAsync(
-  source: string,
-  destination: string,
-): Promise<void> {
+async function copyDirectoryAsync(source: string, destination: string): Promise<void> {
   // Create destination directory if it doesn't exist
   if (!fs.existsSync(destination)) {
     fs.mkdirSync(destination, { recursive: true });
@@ -174,10 +159,7 @@ function parseGitHubUrl(githubUrl: string): {
   let branch = "main"; // Default branch
   let subdirectoryPath = "";
 
-  if (
-    pathParts.length > 3 &&
-    (pathParts[2] === "tree" || pathParts[2] === "blob")
-  ) {
+  if (pathParts.length > 3 && (pathParts[2] === "tree" || pathParts[2] === "blob")) {
     branch = pathParts[3];
     subdirectoryPath = pathParts.slice(4).join("/");
   }
@@ -191,10 +173,7 @@ function parseGitHubUrl(githubUrl: string): {
 export function isValidGitHubUrl(url: string): boolean {
   try {
     const parsedUrl = new URL(url);
-    return (
-      parsedUrl.hostname === "github.com" &&
-      parsedUrl.pathname.split("/").filter(Boolean).length >= 2
-    );
+    return parsedUrl.hostname === "github.com" && parsedUrl.pathname.split("/").filter(Boolean).length >= 2;
   } catch {
     return false;
   }

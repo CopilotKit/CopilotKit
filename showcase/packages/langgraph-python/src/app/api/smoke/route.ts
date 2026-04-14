@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 
 const INTEGRATION_SLUG = "langgraph-python";
-const LANGGRAPH_URL =
-  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
+const LANGGRAPH_URL = process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -40,8 +39,7 @@ export async function GET() {
     const err = e instanceof Error ? e : new Error(String(e));
     const latency = Date.now() - start;
     let stage = "unknown";
-    if (err.name === "AbortError" || err.message.includes("timeout"))
-      stage = "timeout";
+    if (err.name === "AbortError" || err.message.includes("timeout")) stage = "timeout";
     else if (err.message.includes("ECONNREFUSED")) stage = "agent_unreachable";
     else stage = "pipeline_error";
 

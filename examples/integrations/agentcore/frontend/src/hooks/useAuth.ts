@@ -50,12 +50,9 @@ export function useAuth() {
     user: auth.user,
     signIn: auth.signinRedirect,
     signOut: () => {
-      const clientId =
-        authConfig?.client_id || import.meta.env.VITE_COGNITO_CLIENT_ID || "";
+      const clientId = authConfig?.client_id || import.meta.env.VITE_COGNITO_CLIENT_ID || "";
       const logoutUri =
-        authConfig?.redirect_uri ||
-        import.meta.env.VITE_COGNITO_REDIRECT_URI ||
-        "http://localhost:3000";
+        authConfig?.redirect_uri || import.meta.env.VITE_COGNITO_REDIRECT_URI || "http://localhost:3000";
 
       auth.signoutRedirect({
         extraQueryParams: {

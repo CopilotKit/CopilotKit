@@ -7,10 +7,7 @@ export interface EditingApiConfig {
   forwardedParams: { [key: string]: any } | undefined;
 }
 
-export const defaultEditingMakeSystemPrompt: MakeSystemPrompt = (
-  textareaPurpose,
-  contextString,
-) => {
+export const defaultEditingMakeSystemPrompt: MakeSystemPrompt = (textareaPurpose, contextString) => {
   return `You are a versatile writing assistant helping the user edit a portion of their text.
   
 The user is writing some text.
@@ -40,13 +37,11 @@ The conversation will be structured as follows:
 export const defaultEditingFewShotMessages: Message[] = [
   new TextMessage({
     role: Role.User,
-    content:
-      "<TextBeforeCursor>This morning I woke up and went straight to the grocery store. </TextBeforeCursor>",
+    content: "<TextBeforeCursor>This morning I woke up and went straight to the grocery store. </TextBeforeCursor>",
   }),
   new TextMessage({
     role: Role.User,
-    content:
-      "<TextToEdit>While I was there I picked up some apples, oranges, and bananas. </TextToEdit>",
+    content: "<TextToEdit>While I was there I picked up some apples, oranges, and bananas. </TextToEdit>",
   }),
   new TextMessage({
     role: Role.User,
@@ -59,29 +54,24 @@ export const defaultEditingFewShotMessages: Message[] = [
   }),
   new TextMessage({
     role: Role.Assistant,
-    content:
-      "While I was there I picked up some apples, oranges, and bananas, and a big watermelon.",
+    content: "While I was there I picked up some apples, oranges, and bananas, and a big watermelon.",
   }),
 
   new TextMessage({
     role: Role.User,
-    content:
-      "<TextBeforeCursor>Yesterday, I spent the afternoon working on my new project.</TextBeforeCursor>",
+    content: "<TextBeforeCursor>Yesterday, I spent the afternoon working on my new project.</TextBeforeCursor>",
   }),
   new TextMessage({
     role: Role.User,
-    content:
-      "<TextToEdit>It's quite challenging and requires a lot of focus.</TextToEdit>",
+    content: "<TextToEdit>It's quite challenging and requires a lot of focus.</TextToEdit>",
   }),
   new TextMessage({
     role: Role.User,
-    content:
-      "<TextAfterCursor>I'm really excited about the potential outcomes of this project.</TextAfterCursor>",
+    content: "<TextAfterCursor>I'm really excited about the potential outcomes of this project.</TextAfterCursor>",
   }),
   new TextMessage({
     role: Role.User,
-    content:
-      "<EditingPrompt>emphasize the complexity and my enthusiasm for the project</EditingPrompt>",
+    content: "<EditingPrompt>emphasize the complexity and my enthusiasm for the project</EditingPrompt>",
   }),
   new TextMessage({
     role: Role.Assistant,

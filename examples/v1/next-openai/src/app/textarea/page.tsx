@@ -6,10 +6,7 @@ import {
   useCopilotReadable,
   useMakeCopilotDocumentReadable,
 } from "@copilotkit/react-core";
-import {
-  CopilotTextarea,
-  HTMLCopilotTextAreaElement,
-} from "@copilotkit/react-textarea";
+import { CopilotTextarea, HTMLCopilotTextAreaElement } from "@copilotkit/react-textarea";
 import { useRef } from "react";
 import { useStateWithLocalStorage } from "../utils";
 import { useSearchParams } from "next/navigation";
@@ -17,9 +14,7 @@ import { useSearchParams } from "next/navigation";
 export default function CopilotTextareaDemo() {
   const searchParams = useSearchParams();
   const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
-  const runtimeUrl =
-    searchParams.get("runtimeUrl") ||
-    `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
+  const runtimeUrl = searchParams.get("runtimeUrl") || `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
   const publicApiKey = searchParams.get("publicApiKey");
 
   const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
@@ -38,22 +33,15 @@ const clientTranscriptSummaryDocument: DocumentPointer = {
   id: "clientTranscriptSummary",
   name: "Client Call Gong Transcript",
   sourceApplication: "Gong",
-  iconImageUri:
-    "https://asset.brandfetch.io/idHyhmcKvT/idRu6db2HA.jpeg?updated=1690987844207",
+  iconImageUri: "https://asset.brandfetch.io/idHyhmcKvT/idRu6db2HA.jpeg?updated=1690987844207",
   getContents: () => {
     return "This is the client transcript summary";
   },
 };
 
 function TextAreas() {
-  const [detailsText, setDetailsText] = useStateWithLocalStorage(
-    "",
-    "cacheKey_detailsText",
-  );
-  const [copilotText, setCopilotText] = useStateWithLocalStorage(
-    "",
-    "cacheKey_copilotText",
-  );
+  const [detailsText, setDetailsText] = useStateWithLocalStorage("", "cacheKey_detailsText");
+  const [copilotText, setCopilotText] = useStateWithLocalStorage("", "cacheKey_copilotText");
 
   const [textareaPurpose, setTextareaPurpose] = useStateWithLocalStorage(
     "A COOL & SMOOTH announcement post about CopilotTextarea. No pomp, no fluff, no BS. Just the facts. Be brief, be clear, be concise. Be cool.",
@@ -69,18 +57,12 @@ function TextAreas() {
 
   const copilotTextareaRef = useRef<HTMLCopilotTextAreaElement>(null);
 
-  useMakeCopilotDocumentReadable(
-    clientTranscriptSummaryDocument,
-    [salesReplyCategoryId],
-    [],
-  );
+  useMakeCopilotDocumentReadable(clientTranscriptSummaryDocument, [salesReplyCategoryId], []);
 
   return (
     <div className="w-full h-full gap-10 flex flex-col items-center p-10">
       <div className="flex w-1/2 items-start gap-3">
-        <span className="text-3xl text-white whitespace-nowrap">
-          Textarea Purpose:
-        </span>
+        <span className="text-3xl text-white whitespace-nowrap">Textarea Purpose:</span>
         <textarea
           className="p-2 h-12 rounded-lg flex-grow overflow-x-auto overflow-y-hidden whitespace-nowrap"
           value={textareaPurpose}

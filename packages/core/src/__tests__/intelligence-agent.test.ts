@@ -44,10 +44,7 @@ async function flushAsyncWork() {
   await Promise.resolve();
 }
 
-async function waitForConnection(
-  agent: InstanceType<typeof IntelligenceAgent>,
-  attempts = 5,
-) {
+async function waitForConnection(agent: InstanceType<typeof IntelligenceAgent>, attempts = 5) {
   for (let index = 0; index < attempts; index += 1) {
     await flushAsyncWork();
     if (getSocket(agent) && getChannel(agent)) {
@@ -86,10 +83,7 @@ const defaultInput = {
 } as any;
 
 /** Collect events from the observable until it completes or errors. */
-function collectEvents(
-  agent: InstanceType<typeof IntelligenceAgent>,
-  input = defaultInput,
-) {
+function collectEvents(agent: InstanceType<typeof IntelligenceAgent>, input = defaultInput) {
   const events: BaseEvent[] = [];
   let completed = false;
   let error: Error | null = null;
@@ -127,15 +121,11 @@ function collectEvents(
   });
 }
 
-function getSocket(
-  agent: InstanceType<typeof IntelligenceAgent>,
-): MockSocket | null {
+function getSocket(agent: InstanceType<typeof IntelligenceAgent>): MockSocket | null {
   return ((agent as any).socket as MockSocket | null) ?? null;
 }
 
-function getChannel(
-  agent: InstanceType<typeof IntelligenceAgent>,
-): MockChannel | null {
+function getChannel(agent: InstanceType<typeof IntelligenceAgent>): MockChannel | null {
   return ((agent as any).activeChannel as MockChannel | null) ?? null;
 }
 
@@ -267,9 +257,7 @@ describe("IntelligenceAgent", () => {
     it("forwards AG-UI events from the server to the subscriber", async () => {
       const agent = createAgent();
       const events: BaseEvent[] = [];
-      agent
-        .run(defaultInput)
-        .subscribe({ next: (e) => events.push(e), error: () => {} });
+      agent.run(defaultInput).subscribe({ next: (e) => events.push(e), error: () => {} });
       await flushAsyncWork();
 
       const channel = getChannel(agent)!;
@@ -580,9 +568,7 @@ describe("IntelligenceAgent", () => {
   describe("unsubscribe cleanup", () => {
     it("leaves the channel and disconnects the socket on unsubscribe", async () => {
       const agent = createAgent();
-      const subscription = agent
-        .run(defaultInput)
-        .subscribe({ next: () => {}, error: () => {} });
+      const subscription = agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
       await flushAsyncWork();
 
       const socket = getSocket(agent)!;
@@ -622,10 +608,7 @@ describe("IntelligenceAgent", () => {
   });
 
   describe("connect", () => {
-    function connectAgent(
-      agent: InstanceType<typeof IntelligenceAgent>,
-      input = defaultInput,
-    ) {
+    function connectAgent(agent: InstanceType<typeof IntelligenceAgent>, input = defaultInput) {
       const events: BaseEvent[] = [];
       let completed = false;
       let error: Error | null = null;

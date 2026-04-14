@@ -1,8 +1,4 @@
-import {
-  CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 import { MastraAgent } from "@ag-ui/mastra";
 import { Agent } from "@mastra/core/agent";
 import { MCPClient } from "@mastra/mcp";
@@ -37,9 +33,7 @@ function readMcpServersFromHeader(req: NextRequest): McpServerConfig[] {
     );
     return parsed;
   } catch {
-    console.warn(
-      "[mastra-agent] Failed to parse x-mcp-servers header, using defaults",
-    );
+    console.warn("[mastra-agent] Failed to parse x-mcp-servers header, using defaults");
     return getDefaultMcpServers();
   }
 }
@@ -58,9 +52,7 @@ function getServerHash(cfg: McpServerConfig): string {
   return crypto.createHash("md5").update(raw).digest("hex");
 }
 
-async function fetchUIToolMetadata(
-  servers: McpServerConfig[],
-): Promise<Map<string, McpUIToolInfo>> {
+async function fetchUIToolMetadata(servers: McpServerConfig[]): Promise<Map<string, McpUIToolInfo>> {
   const uiTools = new Map<string, McpUIToolInfo>();
 
   for (const server of servers) {
@@ -70,10 +62,7 @@ async function fetchUIToolMetadata(
           ? new SSEClientTransport(new URL(server.url))
           : new StreamableHTTPClientTransport(new URL(server.url));
 
-      const client = new Client(
-        { name: "mastra-ui-metadata", version: "1.0.0" },
-        { capabilities: {} },
-      );
+      const client = new Client({ name: "mastra-ui-metadata", version: "1.0.0" }, { capabilities: {} });
 
       await client.connect(transport);
       const { tools } = await client.listTools();
@@ -97,10 +86,7 @@ async function fetchUIToolMetadata(
         }
       }
     } catch (err) {
-      console.warn(
-        `[mastra-agent] Failed to fetch UI metadata from ${server.url}:`,
-        err,
-      );
+      console.warn(`[mastra-agent] Failed to fetch UI metadata from ${server.url}:`, err);
     }
   }
 
@@ -137,9 +123,7 @@ async function executeProxiedMcpRequest(
     await client.connect(transport);
     switch (method) {
       case "tools/call":
-        return await client.callTool(
-          params as { name: string; arguments?: Record<string, unknown> },
-        );
+        return await client.callTool(params as { name: string; arguments?: Record<string, unknown> });
       case "resources/read": {
         const result = await client.readResource(params as { uri: string });
         // Fix widget HTML for CSP-safe rendering in sandboxed iframes:
@@ -192,10 +176,7 @@ async function executeProxiedMcpRequest(
 // Operates at the AG-UI Observable layer (not SSE), so events properly flow
 // through the CopilotKit v2 pipeline and trigger MCPAppsActivityRenderer.
 
-function createMcpUIMiddleware(
-  mcpServers: McpServerConfig[],
-  uiTools: Map<string, McpUIToolInfo>,
-) {
+function createMcpUIMiddleware(mcpServers: McpServerConfig[], uiTools: Map<string, McpUIToolInfo>) {
   // Build server lookup maps for proxied requests
   const serverById = new Map<string, McpServerConfig>();
   const serverByHash = new Map<string, McpServerConfig>();
@@ -216,8 +197,7 @@ function createMcpUIMiddleware(
         // Find the server config
         let server: McpServerConfig | undefined;
         if (proxiedReq.serverId) server = serverById.get(proxiedReq.serverId);
-        if (!server && proxiedReq.serverHash)
-          server = serverByHash.get(proxiedReq.serverHash);
+        if (!server && proxiedReq.serverHash) server = serverByHash.get(proxiedReq.serverHash);
 
         const runId = input.runId;
 
@@ -322,24 +302,15 @@ function createMcpUIMiddleware(
 
           // Record ids we've emitted so we can avoid reusing them
           if (event.messageId) emittedMessageIds.add(event.messageId);
-          if (event.parentMessageId)
-            emittedMessageIds.add(event.parentMessageId);
+          if (event.parentMessageId) emittedMessageIds.add(event.parentMessageId);
 
           // Track tool call names
-          if (
-            event.type === "TOOL_CALL_START" &&
-            event.toolCallId &&
-            event.toolCallName
-          ) {
+          if (event.type === "TOOL_CALL_START" && event.toolCallId && event.toolCallName) {
             toolNameByCallId.set(event.toolCallId, event.toolCallName);
           }
 
           // Accumulate tool call args
-          if (
-            event.type === "TOOL_CALL_ARGS" &&
-            event.toolCallId &&
-            event.delta
-          ) {
+          if (event.type === "TOOL_CALL_ARGS" && event.toolCallId && event.delta) {
             const prev = toolArgsByCallId.get(event.toolCallId) || "";
             toolArgsByCallId.set(event.toolCallId, prev + event.delta);
           }
@@ -352,9 +323,7 @@ function createMcpUIMiddleware(
 
               let toolInput: Record<string, unknown> = {};
               try {
-                toolInput = JSON.parse(
-                  toolArgsByCallId.get(event.toolCallId) || "{}",
-                );
+                toolInput = JSON.parse(toolArgsByCallId.get(event.toolCallId) || "{}");
               } catch {
                 /* ignore parse errors */
               }
@@ -367,18 +336,13 @@ function createMcpUIMiddleware(
               } catch {
                 rawResult = event.content || "";
               }
-              const resultText =
-                typeof rawResult === "string"
-                  ? rawResult
-                  : JSON.stringify(rawResult);
+              const resultText = typeof rawResult === "string" ? rawResult : JSON.stringify(rawResult);
               const result = {
                 content: [{ type: "text" as const, text: resultText }],
                 structuredContent: rawResult,
               };
 
-              mastraLog(
-                `[mastra-agent] Emitting ACTIVITY_SNAPSHOT for: ${toolName}`,
-              );
+              mastraLog(`[mastra-agent] Emitting ACTIVITY_SNAPSHOT for: ${toolName}`);
               subscriber.next({
                 type: "ACTIVITY_SNAPSHOT",
                 messageId: crypto.randomUUID(),
@@ -417,9 +381,7 @@ const workspaceTools: Record<string, unknown> = {
       "After success, ALWAYS call add_mcp_server(endpoint, serverId) " +
       "and set_active_workspace(workspaceId, endpoint) so the UI updates.",
     parameters: z.object({
-      name: z
-        .string()
-        .describe("Short identifier for this workspace, e.g. 'weather-widget'"),
+      name: z.string().describe("Short identifier for this workspace, e.g. 'weather-widget'"),
     }),
     execute: async ({ name }: { name: string }) => {
       const info = await workspaceProvider.provision(name);
@@ -433,16 +395,13 @@ const workspaceTools: Record<string, unknown> = {
         let idx = await sandbox.files.read(`${WS}/index.ts`);
         const hadDefault = idx.includes("registerProductSearch");
         if (hadDefault) {
-          idx = idx.replace(
-            'import { register as registerProductSearch } from "./tools/product-search";\n',
-            "",
-          );
+          idx = idx.replace('import { register as registerProductSearch } from "./tools/product-search";\n', "");
           idx = idx.replace("registerProductSearch(server);\n", "");
           await sandbox.files.write(`${WS}/index.ts`, idx);
-          await sandbox.commands.run(
-            "rm -rf resources/product-search-result tools/product-search.ts",
-            { cwd: WS, timeoutMs: 5000 },
-          );
+          await sandbox.commands.run("rm -rf resources/product-search-result tools/product-search.ts", {
+            cwd: WS,
+            timeoutMs: 5000,
+          });
           // Restart so the running server drops the old tools before mcp-introspect queries it
           await sandbox.commands.run(
             "kill $(ss -tlnp 'sport = :3109' | grep -oP 'pid=\\K[0-9]+' | head -1) 2>/dev/null; sleep 1",
@@ -453,15 +412,10 @@ const workspaceTools: Record<string, unknown> = {
             timeoutMs: 5000,
             background: true,
           });
-          mastraLog(
-            "[provision_workspace] Cleaned up default template tool + restarted server",
-          );
+          mastraLog("[provision_workspace] Cleaned up default template tool + restarted server");
         }
       } catch (cleanupErr) {
-        console.warn(
-          "[provision_workspace] Template cleanup warning:",
-          cleanupErr,
-        );
+        console.warn("[provision_workspace] Template cleanup warning:", cleanupErr);
       }
 
       return JSON.stringify({
@@ -481,20 +435,10 @@ const workspaceTools: Record<string, unknown> = {
       "Read a file from the active E2B workspace. Path is relative to workspace root " +
       "(/home/user/workspace). Use this to inspect existing code before editing.",
     parameters: z.object({
-      workspaceId: z
-        .string()
-        .describe("Sandbox ID returned by provision_workspace"),
-      path: z
-        .string()
-        .describe("Relative file path, e.g. 'index.ts' or 'tools/my-tool.ts'"),
+      workspaceId: z.string().describe("Sandbox ID returned by provision_workspace"),
+      path: z.string().describe("Relative file path, e.g. 'index.ts' or 'tools/my-tool.ts'"),
     }),
-    execute: async ({
-      workspaceId,
-      path,
-    }: {
-      workspaceId: string;
-      path: string;
-    }) => {
+    execute: async ({ workspaceId, path }: { workspaceId: string; path: string }) => {
       return await workspaceProvider.readFile(workspaceId, path);
     },
   },
@@ -505,22 +449,10 @@ const workspaceTools: Record<string, unknown> = {
       "Parent directories are created automatically. Path is relative to workspace root.",
     parameters: z.object({
       workspaceId: z.string().describe("Sandbox ID"),
-      path: z
-        .string()
-        .describe(
-          "Relative file path, e.g. 'resources/price-chart/widget.tsx'",
-        ),
+      path: z.string().describe("Relative file path, e.g. 'resources/price-chart/widget.tsx'"),
       content: z.string().describe("Full file content to write"),
     }),
-    execute: async ({
-      workspaceId,
-      path,
-      content,
-    }: {
-      workspaceId: string;
-      path: string;
-      content: string;
-    }) => {
+    execute: async ({ workspaceId, path, content }: { workspaceId: string; path: string; content: string }) => {
       await workspaceProvider.writeFile(workspaceId, path, content);
       return `Wrote ${content.length} chars to "${path}"`;
     },
@@ -580,15 +512,8 @@ const workspaceTools: Record<string, unknown> = {
       background: z
         .boolean()
         .optional()
-        .describe(
-          "Run in background and return immediately (for servers). Default: false.",
-        ),
-      timeoutMs: z
-        .number()
-        .optional()
-        .describe(
-          "Timeout in milliseconds for foreground commands. Default: 60000.",
-        ),
+        .describe("Run in background and return immediately (for servers). Default: false."),
+      timeoutMs: z.number().optional().describe("Timeout in milliseconds for foreground commands. Default: 60000."),
     }),
     execute: async ({
       workspaceId,
@@ -684,8 +609,7 @@ const workspaceTools: Record<string, unknown> = {
       workspaceId: z.string().describe("Sandbox ID"),
     }),
     execute: async ({ workspaceId }: { workspaceId: string }) => {
-      const { downloadUrl } =
-        await workspaceProvider.prepareDownload(workspaceId);
+      const { downloadUrl } = await workspaceProvider.prepareDownload(workspaceId);
       return `Workspace packaged. Download URL (valid ~1 hour): ${downloadUrl}`;
     },
   },
@@ -796,12 +720,7 @@ export const POST = async (req: NextRequest) => {
 
   try {
     const mcpServers = readMcpServersFromHeader(req);
-    mastraLog(
-      "[mastra-agent] === NEW REQUEST ===",
-      requestId,
-      "model:",
-      OPENAI_MODEL,
-    );
+    mastraLog("[mastra-agent] === NEW REQUEST ===", requestId, "model:", OPENAI_MODEL);
 
     // 1. Fetch UI tool metadata (which tools have UI + their resource URIs)
     const uiTools = await fetchUIToolMetadata(mcpServers);
@@ -873,12 +792,7 @@ export const POST = async (req: NextRequest) => {
       return cloned;
     };
 
-    mastraLog(
-      "[mastra-agent] Agent ready. UI tools:",
-      uiTools.size,
-      "MCP tools:",
-      Object.keys(mcpTools).length,
-    );
+    mastraLog("[mastra-agent] Agent ready. UI tools:", uiTools.size, "MCP tools:", Object.keys(mcpTools).length);
 
     // 6. CopilotKit runtime
     const serviceAdapter = new ExperimentalEmptyAdapter();

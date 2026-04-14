@@ -1,10 +1,5 @@
 import { Form, Link, useLoaderData } from "@remix-run/react";
-import {
-  checkout,
-  getCart,
-  removeItem,
-  type CartRecord,
-} from "~/data/cartData";
+import { checkout, getCart, removeItem, type CartRecord } from "~/data/cartData";
 import { getAll, type InventoryRecord } from "~/data/inventoryData";
 
 import type { FunctionComponent } from "react";
@@ -14,11 +9,7 @@ import { getAddress } from "~/data/settingsData";
 import { useCopilotReadable } from "@copilotkit/react-core";
 
 export const loader = async () => {
-  const [cartItems, allInventory, address] = await Promise.all([
-    getCart(),
-    getAll(),
-    getAddress(),
-  ]);
+  const [cartItems, allInventory, address] = await Promise.all([getCart(), getAll(), getAddress()]);
 
   return { cartItems, allInventory, address };
 };

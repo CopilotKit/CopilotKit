@@ -32,10 +32,7 @@ export function DashboardToolbar() {
     <div className="flex items-center gap-2 px-8 pt-6">
       {currentDashboardName && (
         <span className="text-xs text-muted-foreground">
-          Current:{" "}
-          <span className="font-medium text-foreground">
-            {currentDashboardName}
-          </span>
+          Current: <span className="font-medium text-foreground">{currentDashboardName}</span>
         </span>
       )}
 
@@ -63,20 +60,12 @@ export function DashboardToolbar() {
             >
               <Check className="h-4 w-4" />
             </Button>
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              onClick={() => setShowSaveInput(false)}
-            >
+            <Button size="icon-sm" variant="ghost" onClick={() => setShowSaveInput(false)}>
               <X className="h-4 w-4" />
             </Button>
           </div>
         ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setShowSaveInput(true)}
-          >
+          <Button size="sm" variant="outline" onClick={() => setShowSaveInput(true)}>
             <Bookmark className="h-3.5 w-3.5" />
             Save
           </Button>

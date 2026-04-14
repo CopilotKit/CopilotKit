@@ -71,11 +71,7 @@
 
       body {
         font-family: var(--font-family);
-        background: linear-gradient(
-          135deg,
-          var(--color-surface-light),
-          var(--color-surface)
-        );
+        background: linear-gradient(135deg, var(--color-surface-light), var(--color-surface));
         color: var(--color-text-primary);
         line-height: 1.5;
         min-height: 100vh;
@@ -182,11 +178,7 @@
       .todo-icon {
         width: 40px;
         height: 40px;
-        background: linear-gradient(
-          135deg,
-          var(--color-lilac),
-          var(--color-mint)
-        );
+        background: linear-gradient(135deg, var(--color-lilac), var(--color-mint));
         border-radius: var(--radius-lg);
         display: flex;
         align-items: center;
@@ -260,11 +252,7 @@
 
       .add-btn {
         padding: var(--space-3) var(--space-4);
-        background: linear-gradient(
-          135deg,
-          var(--color-lilac),
-          var(--color-mint)
-        );
+        background: linear-gradient(135deg, var(--color-lilac), var(--color-mint));
         color: white;
         border: none;
         border-radius: var(--radius-lg);
@@ -373,11 +361,7 @@
       }
 
       .todo-checkbox.checked {
-        background: linear-gradient(
-          135deg,
-          var(--color-mint),
-          var(--color-mint-dark)
-        );
+        background: linear-gradient(135deg, var(--color-mint), var(--color-mint-dark));
         border-color: var(--color-mint);
       }
 
@@ -541,13 +525,7 @@
     <div id="app">
       <!-- Loading -->
       <div id="loading" class="loading-container">
-        <svg
-          class="loading-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
+        <svg class="loading-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
           <polyline points="22 4 12 14.01 9 11.01" />
         </svg>
@@ -560,12 +538,7 @@
         <div class="todo-container">
           <div class="todo-header">
             <div class="todo-icon">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
@@ -576,19 +549,9 @@
           <div id="stats" class="stats"></div>
 
           <div class="add-form">
-            <input
-              type="text"
-              id="add-input"
-              class="add-input"
-              placeholder="Add a new task..."
-            />
+            <input type="text" id="add-input" class="add-input" placeholder="Add a new task..." />
             <button id="add-btn" class="add-btn">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 5v14M5 12h14" />
               </svg>
               Add
@@ -598,23 +561,15 @@
           <div class="filters">
             <button class="filter-btn active" data-filter="all">All</button>
             <button class="filter-btn" data-filter="pending">Pending</button>
-            <button class="filter-btn" data-filter="in_progress">
-              In Progress
-            </button>
-            <button class="filter-btn" data-filter="completed">
-              Completed
-            </button>
+            <button class="filter-btn" data-filter="in_progress">In Progress</button>
+            <button class="filter-btn" data-filter="completed">Completed</button>
           </div>
 
           <div id="todo-list" class="todo-list"></div>
 
           <div id="footer" class="todo-footer">
-            <span class="footer-text"
-              ><span id="items-left">0</span> items remaining</span
-            >
-            <button id="clear-completed" class="clear-btn">
-              Clear completed
-            </button>
+            <span class="footer-text"><span id="items-left">0</span> items remaining</span>
+            <button id="clear-completed" class="clear-btn">Clear completed</button>
           </div>
         </div>
       </div>
@@ -631,10 +586,7 @@
           const id = requestId++;
           return new Promise((resolve, reject) => {
             pendingRequests.set(id, { resolve, reject });
-            window.parent.postMessage(
-              { jsonrpc: "2.0", id, method, params },
-              "*",
-            );
+            window.parent.postMessage({ jsonrpc: "2.0", id, method, params }, "*");
           });
         }
 
@@ -754,11 +706,9 @@
         el.todoList.querySelectorAll('[data-action="toggle"]').forEach((cb) => {
           cb.addEventListener("click", () => toggleItem(cb.dataset.id));
         });
-        el.todoList
-          .querySelectorAll('[data-action="delete"]')
-          .forEach((btn) => {
-            btn.addEventListener("click", () => deleteItem(btn.dataset.id));
-          });
+        el.todoList.querySelectorAll('[data-action="delete"]').forEach((btn) => {
+          btn.addEventListener("click", () => deleteItem(btn.dataset.id));
+        });
 
         mcpApp.reportSize();
       }
@@ -771,12 +721,7 @@
           pending: items.filter((i) => i.status === "pending").length,
           inProgress: items.filter((i) => i.status === "in_progress").length,
           completed: items.filter((i) => i.status === "completed").length,
-          overdue: items.filter(
-            (i) =>
-              i.status !== "completed" &&
-              i.dueDate &&
-              new Date(i.dueDate) < now,
-          ).length,
+          overdue: items.filter((i) => i.status !== "completed" && i.dueDate && new Date(i.dueDate) < now).length,
         };
       }
 
@@ -814,10 +759,7 @@
         const newStatus = item.status === "completed" ? "pending" : "completed";
         try {
           const res = await mcpApp.sendRequest("tools/call", {
-            name:
-              newStatus === "completed"
-                ? "complete-todo-item"
-                : "reopen-todo-item",
+            name: newStatus === "completed" ? "complete-todo-item" : "reopen-todo-item",
             arguments: { listId: todoList.id, itemId },
           });
           if (res?.structuredContent?.list) {
@@ -870,9 +812,7 @@
 
       document.querySelectorAll(".filter-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
-          document
-            .querySelectorAll(".filter-btn")
-            .forEach((b) => b.classList.remove("active"));
+          document.querySelectorAll(".filter-btn").forEach((b) => b.classList.remove("active"));
           btn.classList.add("active");
           currentFilter = btn.dataset.filter;
           render();
@@ -888,9 +828,7 @@
             appCapabilities: {},
           });
           mcpApp.sendNotification("ui/notifications/initialized", {});
-          new ResizeObserver(() => mcpApp.reportSize()).observe(
-            document.getElementById("app"),
-          );
+          new ResizeObserver(() => mcpApp.reportSize()).observe(document.getElementById("app"));
         } catch (e) {
           console.error("Init failed:", e);
         }

@@ -28,61 +28,29 @@ interface ToolCallRendererProps {
  * but the tool call data hasn't changed.
  */
 const ToolCallRenderer = React.memo(
-  function ToolCallRenderer({
-    toolCall,
-    toolMessage,
-    RenderComponent,
-    isExecuting,
-  }: ToolCallRendererProps) {
+  function ToolCallRenderer({ toolCall, toolMessage, RenderComponent, isExecuting }: ToolCallRendererProps) {
     // Memoize args based on the arguments string to maintain stable reference
-    const args = useMemo(
-      () => partialJSONParse(toolCall.function.arguments),
-      [toolCall.function.arguments],
-    );
+    const args = useMemo(() => partialJSONParse(toolCall.function.arguments), [toolCall.function.arguments]);
 
     const toolName = toolCall.function.name;
 
     // Render based on status to preserve discriminated union type inference
     if (toolMessage) {
       return (
-        <RenderComponent
-          name={toolName}
-          args={args}
-          status={ToolCallStatus.Complete}
-          result={toolMessage.content}
-        />
+        <RenderComponent name={toolName} args={args} status={ToolCallStatus.Complete} result={toolMessage.content} />
       );
     } else if (isExecuting) {
-      return (
-        <RenderComponent
-          name={toolName}
-          args={args}
-          status={ToolCallStatus.Executing}
-          result={undefined}
-        />
-      );
+      return <RenderComponent name={toolName} args={args} status={ToolCallStatus.Executing} result={undefined} />;
     } else {
-      return (
-        <RenderComponent
-          name={toolName}
-          args={args}
-          status={ToolCallStatus.InProgress}
-          result={undefined}
-        />
-      );
+      return <RenderComponent name={toolName} args={args} status={ToolCallStatus.InProgress} result={undefined} />;
     }
   },
   // Custom comparison function to prevent re-renders when tool call data hasn't changed
   (prevProps, nextProps) => {
     // Compare tool call identity and content
     if (prevProps.toolCall.id !== nextProps.toolCall.id) return false;
-    if (prevProps.toolCall.function.name !== nextProps.toolCall.function.name)
-      return false;
-    if (
-      prevProps.toolCall.function.arguments !==
-      nextProps.toolCall.function.arguments
-    )
-      return false;
+    if (prevProps.toolCall.function.name !== nextProps.toolCall.function.name) return false;
+    if (prevProps.toolCall.function.arguments !== nextProps.toolCall.function.arguments) return false;
 
     // Compare tool message (result)
     const prevResult = prevProps.toolMessage?.content;
@@ -129,19 +97,14 @@ export function useRenderToolCall() {
   // available when this hook first runs.
 
   const renderToolCall = useCallback(
-    ({
-      toolCall,
-      toolMessage,
-    }: UseRenderToolCallProps): React.ReactElement | null => {
+    ({ toolCall, toolMessage }: UseRenderToolCallProps): React.ReactElement | null => {
       // Find the render config for this tool call by name
       // For rendering, we show all tool calls regardless of agentId
       // The agentId scoping only affects handler execution (in core)
       // Priority order:
       // 1. Exact match by name (prefer agent-specific if multiple exist)
       // 2. Wildcard (*) renderer
-      const exactMatches = renderToolCalls.filter(
-        (rc) => rc.name === toolCall.function.name,
-      );
+      const exactMatches = renderToolCalls.filter((rc) => rc.name === toolCall.function.name);
 
       // If multiple renderers with same name exist, prefer the one matching our agentId
       const renderConfig =

@@ -1,29 +1,19 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useState,
-  ReactNode,
-  useEffect,
-} from "react";
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import type { ResearchState } from "@/lib/types";
 import { useCoAgent } from "@copilotkit/react-core";
 import useLocalStorage from "@/lib/hooks/useLocalStorage";
 
 interface ResearchContextType {
   state: ResearchState;
-  setResearchState: (
-    newState: ResearchState | ((prevState: ResearchState) => ResearchState),
-  ) => void;
+  setResearchState: (newState: ResearchState | ((prevState: ResearchState) => ResearchState)) => void;
   sourcesModalOpen: boolean;
   setSourcesModalOpen: (open: boolean) => void;
   runAgent: () => void;
 }
 
-const ResearchContext = createContext<ResearchContextType | undefined>(
-  undefined,
-);
+const ResearchContext = createContext<ResearchContextType | undefined>(undefined);
 
 export function ResearchProvider({ children }: { children: ReactNode }) {
   const [sourcesModalOpen, setSourcesModalOpen] = useState<boolean>(false);
@@ -36,13 +26,11 @@ export function ResearchProvider({ children }: { children: ReactNode }) {
     initialState: {},
   });
   // @ts-expect-error -- force null
-  const [localStorageState, setLocalStorageState] =
-    useLocalStorage<ResearchState>("research", null);
+  const [localStorageState, setLocalStorageState] = useLocalStorage<ResearchState>("research", null);
 
   useEffect(() => {
     const coAgentsStateEmpty = Object.keys(coAgentState).length < 1;
-    const localStorageStateEmpty =
-      localStorageState == null || Object.keys(localStorageState).length < 1;
+    const localStorageStateEmpty = localStorageState == null || Object.keys(localStorageState).length < 1;
     if (!localStorageStateEmpty && coAgentsStateEmpty) {
       setCoAgentsState(localStorageState);
       return;
@@ -65,8 +53,7 @@ export function ResearchProvider({ children }: { children: ReactNode }) {
     <ResearchContext.Provider
       value={{
         state: coAgentState,
-        setResearchState:
-          setCoAgentsState as ResearchContextType["setResearchState"],
+        setResearchState: setCoAgentsState as ResearchContextType["setResearchState"],
         setSourcesModalOpen,
         sourcesModalOpen,
         runAgent: run,

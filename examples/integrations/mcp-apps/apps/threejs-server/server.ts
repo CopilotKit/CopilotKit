@@ -3,11 +3,7 @@
  *
  * Provides tools for rendering interactive 3D scenes using Three.js.
  */
-import {
-  RESOURCE_MIME_TYPE,
-  registerAppResource,
-  registerAppTool,
-} from "@modelcontextprotocol/ext-apps/server";
+import { RESOURCE_MIME_TYPE, registerAppResource, registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { ReadResourceResult } from "@modelcontextprotocol/sdk/types.js";
@@ -162,16 +158,8 @@ export function createServer(): McpServer {
       description:
         "Render an interactive 3D scene with custom Three.js code. Available globals: THREE, OrbitControls, EffectComposer, RenderPass, UnrealBloomPass, canvas, width, height.",
       inputSchema: {
-        code: z
-          .string()
-          .default(DEFAULT_THREEJS_CODE)
-          .describe("JavaScript code to render the 3D scene"),
-        height: z
-          .number()
-          .int()
-          .positive()
-          .default(400)
-          .describe("Height in pixels"),
+        code: z.string().default(DEFAULT_THREEJS_CODE).describe("JavaScript code to render the 3D scene"),
+        height: z.number().int().positive().default(400).describe("Height in pixels"),
       },
       outputSchema: z.object({
         code: z.string(),
@@ -193,8 +181,7 @@ export function createServer(): McpServer {
     "learn_threejs",
     {
       title: "Learn Three.js",
-      description:
-        "Get documentation and examples for using the Three.js widget",
+      description: "Get documentation and examples for using the Three.js widget",
       inputSchema: {},
     },
     async () => {
@@ -211,10 +198,7 @@ export function createServer(): McpServer {
     resourceUri,
     { mimeType: RESOURCE_MIME_TYPE, description: "Three.js Widget UI" },
     async (): Promise<ReadResourceResult> => {
-      const html = await fs.readFile(
-        path.join(DIST_DIR, "mcp-app.html"),
-        "utf-8",
-      );
+      const html = await fs.readFile(path.join(DIST_DIR, "mcp-app.html"), "utf-8");
 
       return {
         contents: [

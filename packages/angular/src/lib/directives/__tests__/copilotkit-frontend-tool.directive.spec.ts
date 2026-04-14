@@ -1,11 +1,7 @@
 import { Component, signal, Type } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  registerRenderToolCall,
-  registerFrontendTool,
-  registerHumanInTheLoop,
-} from "../../tools";
+import { registerRenderToolCall, registerFrontendTool, registerHumanInTheLoop } from "../../tools";
 import { CopilotKit } from "../../copilotkit";
 import { z } from "zod";
 
@@ -43,9 +39,7 @@ describe("tool registration helpers", () => {
     }
 
     const fixture = TestBed.createComponent(HostComponent);
-    expect(copilotKitStub.addRenderToolCall).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "tool" }),
-    );
+    expect(copilotKitStub.addRenderToolCall).toHaveBeenCalledWith(expect.objectContaining({ name: "tool" }));
 
     fixture.destroy();
     expect(copilotKitStub.removeTool).toHaveBeenCalledWith("tool", undefined);
@@ -68,19 +62,14 @@ describe("tool registration helpers", () => {
     }
 
     const fixture = TestBed.createComponent(HostComponent);
-    expect(copilotKitStub.addFrontendTool).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "client-tool" }),
-    );
+    expect(copilotKitStub.addFrontendTool).toHaveBeenCalledWith(expect.objectContaining({ name: "client-tool" }));
 
     const added = copilotKitStub.addFrontendTool.mock.calls.at(-1)![0];
     await added.handler({});
     expect(handler).toHaveBeenCalled();
 
     fixture.destroy();
-    expect(copilotKitStub.removeTool).toHaveBeenCalledWith(
-      "client-tool",
-      undefined,
-    );
+    expect(copilotKitStub.removeTool).toHaveBeenCalledWith("client-tool", undefined);
   });
 
   it("registers human-in-the-loop tools and removes them on destroy", () => {
@@ -101,14 +90,9 @@ describe("tool registration helpers", () => {
     }
 
     const fixture = TestBed.createComponent(HostComponent);
-    expect(copilotKitStub.addHumanInTheLoop).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "approval" }),
-    );
+    expect(copilotKitStub.addHumanInTheLoop).toHaveBeenCalledWith(expect.objectContaining({ name: "approval" }));
 
     fixture.destroy();
-    expect(copilotKitStub.removeTool).toHaveBeenCalledWith(
-      "approval",
-      undefined,
-    );
+    expect(copilotKitStub.removeTool).toHaveBeenCalledWith("approval", undefined);
   });
 });

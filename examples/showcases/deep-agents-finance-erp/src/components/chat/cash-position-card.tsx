@@ -49,9 +49,7 @@ export function CashPositionCard({ args, status }: Props) {
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
           <DollarSign className="h-4 w-4 text-primary" />
         </div>
-        <p className="text-sm font-semibold text-foreground">
-          Cash Position Summary
-        </p>
+        <p className="text-sm font-semibold text-foreground">Cash Position Summary</p>
       </div>
 
       {/* Accounts table */}
@@ -67,9 +65,7 @@ export function CashPositionCard({ args, status }: Props) {
             {accounts.map((account) => (
               <tr key={account.name} className="border-b border-border/30">
                 <td className="px-3 py-2 text-foreground">{account.name}</td>
-                <td className="px-3 py-2 text-right font-medium text-foreground">
-                  {formatCurrency(account.balance)}
-                </td>
+                <td className="px-3 py-2 text-right font-medium text-foreground">{formatCurrency(account.balance)}</td>
               </tr>
             ))}
           </tbody>
@@ -80,30 +76,18 @@ export function CashPositionCard({ args, status }: Props) {
       <div className="space-y-2 rounded-xl border border-border/50 bg-muted/50 px-3 py-2 text-xs">
         <div className="flex items-center justify-between">
           <span className="font-medium text-muted-foreground">Total Cash</span>
-          <span className="font-semibold text-foreground">
-            {formatCurrency(totalCash)}
-          </span>
+          <span className="font-semibold text-foreground">{formatCurrency(totalCash)}</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="font-medium text-muted-foreground">
-            Total Liabilities
-          </span>
-          <span className="font-semibold text-foreground">
-            {formatCurrency(totalLiabilities)}
-          </span>
+          <span className="font-medium text-muted-foreground">Total Liabilities</span>
+          <span className="font-semibold text-foreground">{formatCurrency(totalLiabilities)}</span>
         </div>
         <div className="flex items-center justify-between border-t border-border pt-2">
-          <span className="font-medium text-muted-foreground">
-            Net Position
-          </span>
+          <span className="font-medium text-muted-foreground">Net Position</span>
           <span
             className={`flex items-center gap-1 text-sm font-bold ${isPositive ? "text-emerald-600" : "text-red-600"}`}
           >
-            {isPositive ? (
-              <TrendingUp className="h-3.5 w-3.5" />
-            ) : (
-              <TrendingDown className="h-3.5 w-3.5" />
-            )}
+            {isPositive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
             {formatCurrency(netPosition)}
           </span>
         </div>

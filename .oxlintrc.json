@@ -13,10 +13,7 @@
     "copilotkit/require-cpk-prefix": "off",
     "no-restricted-imports": "off",
 
-    "typescript/consistent-type-imports": [
-      "warn",
-      { "prefer": "type-imports", "fixStyle": "separate-type-imports" }
-    ],
+    "typescript/consistent-type-imports": ["warn", { "prefer": "type-imports", "fixStyle": "separate-type-imports" }],
     "typescript/no-import-type-side-effects": "warn",
     "import/consistent-type-specifier-style": ["warn", "prefer-top-level"],
     "typescript/no-unnecessary-type-assertion": "error",
@@ -29,7 +26,7 @@
   },
   "overrides": [
     {
-      "files": ["packages/**/*.{ts,tsx}", "examples/**/*.{ts,tsx}"],
+      "files": ["packages/**/*.{ts,tsx}"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -58,10 +55,7 @@
       }
     },
     {
-      "files": [
-        "packages/angular/**/*.ts",
-        "packages/runtime/src/graphql/**/*.ts"
-      ],
+      "files": ["packages/angular/**/*.ts", "packages/runtime/src/graphql/**/*.ts"],
       "rules": {
         "typescript/consistent-type-imports": "off",
         "typescript/no-import-type-side-effects": "off",
@@ -77,6 +71,7 @@
     "coverage/**",
     "storybook-static/**",
     "**/@generated/**",
-    "docs/**"
+    "docs/**",
+    "examples/**"
   ]
 }

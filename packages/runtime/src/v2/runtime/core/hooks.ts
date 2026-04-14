@@ -120,10 +120,7 @@ export interface CopilotRuntimeHooks {
  * Internal hook runners
  * --------------------------------------------------------------------------------------------- */
 
-export async function runOnRequest(
-  hooks: CopilotRuntimeHooks | undefined,
-  ctx: HookContext,
-): Promise<Request> {
+export async function runOnRequest(hooks: CopilotRuntimeHooks | undefined, ctx: HookContext): Promise<Request> {
   if (!hooks?.onRequest) return ctx.request;
   const result = await hooks.onRequest(ctx);
   return result instanceof Request ? result : ctx.request;

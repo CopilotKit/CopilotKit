@@ -8,13 +8,7 @@ interface FullSendCardProps {
   setState: (state: AgentState) => void;
 }
 
-export function FullSendCard({
-  themeColor,
-  status,
-  respond,
-  state,
-  setState,
-}: FullSendCardProps) {
+export function FullSendCard({ themeColor, status, respond, state, setState }: FullSendCardProps) {
   const handleConfirm = () => {
     setState({
       todos: state.todos.map((todo) => ({ ...todo, status: "done" as const })),
@@ -32,18 +26,8 @@ export function FullSendCard({
       >
         <div className="flex items-center gap-3">
           <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-            <svg
-              className="w-5 h-5 text-green-300"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
+            <svg className="w-5 h-5 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
           <p className="text-white/90 text-sm">All todos marked as complete</p>
@@ -59,24 +43,12 @@ export function FullSendCard({
     >
       <div className="flex items-start gap-3">
         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mt-0.5">
-          <svg
-            className="w-5 h-5 text-white"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
+          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
         <div className="flex-1 space-y-4">
-          <p className="text-white text-sm leading-relaxed">
-            Would you like to mark all todos as complete?
-          </p>
+          <p className="text-white text-sm leading-relaxed">Would you like to mark all todos as complete?</p>
 
           <div className="flex gap-2 justify-end">
             <button

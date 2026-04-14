@@ -1,8 +1,5 @@
 import { NextRequest } from "next/server";
-import {
-  CopilotRuntime,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 import { getServiceAdapter } from "../../../../lib/dynamic-service-adapter";
 
 const UNSPLASH_ACCESS_KEY_ENV = "UNSPLASH_ACCESS_KEY";
@@ -36,11 +33,7 @@ const runtime = new CopilotRuntime({
             return data.results[randomIndex].urls.regular;
           }
         }
-        return (
-          'url("https://loremflickr.com/800/600/' +
-          encodeURIComponent(topic) +
-          '")'
-        );
+        return 'url("https://loremflickr.com/800/600/' + encodeURIComponent(topic) + '")';
       },
     },
   ],
@@ -48,8 +41,7 @@ const runtime = new CopilotRuntime({
 
 export const POST = async (req: NextRequest) => {
   const { searchParams } = req.nextUrl;
-  const serviceAdapterQueryParam =
-    searchParams.get("serviceAdapter") || "openai";
+  const serviceAdapterQueryParam = searchParams.get("serviceAdapter") || "openai";
   const serviceAdapter = await getServiceAdapter(serviceAdapterQueryParam);
 
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({

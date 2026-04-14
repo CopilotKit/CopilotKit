@@ -30,11 +30,7 @@ export default function useTeam() {
     }
   };
 
-  const inviteMember = async (
-    email: string,
-    role: MemberRole,
-    team: ExpenseRole,
-  ) => {
+  const inviteMember = async (email: string, role: MemberRole, team: ExpenseRole) => {
     try {
       const response = await fetch(`/api/v1/users`, {
         method: "POST",

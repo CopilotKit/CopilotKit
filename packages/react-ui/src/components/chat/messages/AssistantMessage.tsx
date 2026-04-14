@@ -58,19 +58,13 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
 
   return (
     <>
-      {renderBefore ? (
-        <div style={{ marginBottom: "0.5rem" }}>{subComponent}</div>
-      ) : null}
+      {renderBefore ? <div style={{ marginBottom: "0.5rem" }}>{subComponent}</div> : null}
       {content && (
         <div className="copilotKitMessage copilotKitAssistantMessage">
-          {content && (
-            <Markdown content={content} components={markdownTagRenderers} />
-          )}
+          {content && <Markdown content={content} components={markdownTagRenderers} />}
 
           {content && !isLoading && (
-            <div
-              className={`copilotKitMessageControls ${isCurrentMessage ? "currentMessage" : ""}`}
-            >
+            <div className={`copilotKitMessageControls ${isCurrentMessage ? "currentMessage" : ""}`}>
               <button
                 className="copilotKitMessageControlButton"
                 onClick={handleRegenerate}
@@ -85,19 +79,11 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
                 aria-label={labels.copyToClipboard}
                 title={labels.copyToClipboard}
               >
-                {copied ? (
-                  <span style={{ fontSize: "10px", fontWeight: "bold" }}>
-                    ✓
-                  </span>
-                ) : (
-                  icons.copyIcon
-                )}
+                {copied ? <span style={{ fontSize: "10px", fontWeight: "bold" }}>✓</span> : icons.copyIcon}
               </button>
               {onThumbsUp && (
                 <button
-                  className={`copilotKitMessageControlButton ${
-                    feedback === "thumbsUp" ? "active" : ""
-                  }`}
+                  className={`copilotKitMessageControlButton ${feedback === "thumbsUp" ? "active" : ""}`}
                   onClick={handleThumbsUp}
                   aria-label={labels.thumbsUp}
                   title={labels.thumbsUp}
@@ -107,9 +93,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
               )}
               {onThumbsDown && (
                 <button
-                  className={`copilotKitMessageControlButton ${
-                    feedback === "thumbsDown" ? "active" : ""
-                  }`}
+                  className={`copilotKitMessageControlButton ${feedback === "thumbsDown" ? "active" : ""}`}
                   onClick={handleThumbsDown}
                   aria-label={labels.thumbsDown}
                   title={labels.thumbsDown}
@@ -121,9 +105,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
           )}
         </div>
       )}
-      {renderAfter ? (
-        <div style={{ marginBottom: "0.5rem" }}>{subComponent}</div>
-      ) : null}
+      {renderAfter ? <div style={{ marginBottom: "0.5rem" }}>{subComponent}</div> : null}
       {isLoading && <LoadingIcon />}
     </>
   );

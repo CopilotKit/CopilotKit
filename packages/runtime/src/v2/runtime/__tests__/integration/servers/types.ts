@@ -7,9 +7,7 @@ export interface ServerHandle {
   close: () => Promise<void>;
 }
 
-export type ServerFactory = (opts?: {
-  capturedHeaders?: Record<string, string>[];
-}) => Promise<ServerHandle>;
+export type ServerFactory = (opts?: { capturedHeaders?: Record<string, string>[] }) => Promise<ServerHandle>;
 
 /**
  * A request function compatible with both real HTTP and direct fetch handler invocation.

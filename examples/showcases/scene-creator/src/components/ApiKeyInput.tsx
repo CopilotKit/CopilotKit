@@ -31,21 +31,13 @@ export function ApiKeyInput({ currentKey, onSave, onClear }: ApiKeyInputProps) {
       <div className="brutalist-card p-3 bg-[var(--accent-blue)] max-w-xs">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-lg">🔑</span>
-          <div className="text-xs font-mono opacity-70">
-            {currentKey.substring(0, 8)}...
-          </div>
+          <div className="text-xs font-mono opacity-70">{currentKey.substring(0, 8)}...</div>
         </div>
         <div className="flex gap-1">
-          <button
-            onClick={() => setIsEditing(true)}
-            className="brutalist-btn bg-white px-2 py-1 text-xs"
-          >
+          <button onClick={() => setIsEditing(true)} className="brutalist-btn bg-white px-2 py-1 text-xs">
             CHANGE
           </button>
-          <button
-            onClick={handleClear}
-            className="brutalist-btn bg-[var(--accent-red)] text-black px-2 py-1 text-xs"
-          >
+          <button onClick={handleClear} className="brutalist-btn bg-[var(--accent-red)] text-black px-2 py-1 text-xs">
             CLEAR
           </button>
         </div>
@@ -59,9 +51,7 @@ export function ApiKeyInput({ currentKey, onSave, onClear }: ApiKeyInputProps) {
         <span className="text-lg">🔑</span>
         <div className="font-bold uppercase text-xs">API KEY</div>
       </div>
-      <div className="mb-2 text-xs opacity-80">
-        Enter your Google AI API key
-      </div>
+      <div className="mb-2 text-xs opacity-80">Enter your Google AI API key</div>
       <div className="space-y-2">
         <input
           type="password"
@@ -81,10 +71,7 @@ export function ApiKeyInput({ currentKey, onSave, onClear }: ApiKeyInputProps) {
             SAVE
           </button>
           {currentKey && (
-            <button
-              onClick={() => setIsEditing(false)}
-              className="brutalist-btn bg-white px-2 py-1 text-xs"
-            >
+            <button onClick={() => setIsEditing(false)} className="brutalist-btn bg-white px-2 py-1 text-xs">
               CANCEL
             </button>
           )}

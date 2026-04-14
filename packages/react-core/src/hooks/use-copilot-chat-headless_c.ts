@@ -168,13 +168,7 @@ import {
   MCPServerConfig,
 } from "./use-copilot-chat_internal";
 
-import {
-  ErrorVisibility,
-  Severity,
-  CopilotKitError,
-  CopilotKitErrorCode,
-  styledConsole,
-} from "@copilotkit/shared";
+import { ErrorVisibility, Severity, CopilotKitError, CopilotKitErrorCode, styledConsole } from "@copilotkit/shared";
 
 // Non-functional fallback implementation
 const createNonFunctionalReturn = (): UseCopilotChatReturn_c => ({
@@ -213,9 +207,7 @@ const createNonFunctionalReturn = (): UseCopilotChatReturn_c => ({
  * const { messages, sendMessage, suggestions, interrupt } = useCopilotChatHeadless_c();
  * ```
  */
-function useCopilotChatHeadless_c(
-  options: UseCopilotChatOptions_c = {},
-): UseCopilotChatReturn_c {
+function useCopilotChatHeadless_c(options: UseCopilotChatOptions_c = {}): UseCopilotChatReturn_c {
   const { copilotApiConfig, setBannerError } = useCopilotContext();
 
   // Check if publicApiKey is available
@@ -253,11 +245,7 @@ function useCopilotChatHeadless_c(
 }
 
 export { defaultSystemMessage, useCopilotChatHeadless_c };
-export type {
-  UseCopilotChatOptions_c,
-  UseCopilotChatReturn_c,
-  MCPServerConfig,
-};
+export type { UseCopilotChatOptions_c, UseCopilotChatReturn_c, MCPServerConfig };
 
 const noKeyWarning = () => {
   styledConsole.logCopilotKitPlatformMessage();

@@ -25,10 +25,7 @@ describe("HumanInTheLoop service", () => {
 
     service.addResult("call-2", "other", "nope");
 
-    const race = Promise.race([
-      promise,
-      new Promise((resolve) => setTimeout(() => resolve("pending"), 20)),
-    ]);
+    const race = Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve("pending"), 20))]);
 
     await expect(race).resolves.toBe("pending");
 

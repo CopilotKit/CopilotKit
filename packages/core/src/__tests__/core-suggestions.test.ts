@@ -1,11 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CopilotKitCore } from "../core";
 import { DynamicSuggestionsConfig, StaticSuggestionsConfig } from "../types";
-import {
-  MockAgent,
-  createSuggestionsConfig,
-  createAssistantMessage,
-} from "./test-utils";
+import { MockAgent, createSuggestionsConfig, createAssistantMessage } from "./test-utils";
 
 describe("CopilotKitCore - Suggestions Config Management", () => {
   let copilotKitCore: CopilotKitCore;
@@ -312,9 +308,7 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],
@@ -359,9 +353,7 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],
@@ -408,9 +400,7 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],
@@ -457,9 +447,7 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
               type: "function",
               function: {
                 name: "copilotkitSuggest",
-                arguments: [
-                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
-                ] as any,
+                arguments: ['{"suggestions":[{"title":"Test","message":"Test"}]}'] as any,
               },
             },
           ],

@@ -94,9 +94,7 @@ describe("Zod regression — schemaToJsonSchema produces identical output to dir
 
   describe("enums and literals", () => {
     it("z.enum", () => {
-      expectIdenticalOutput(
-        z.object({ status: z.enum(["active", "inactive", "pending"]) }),
-      );
+      expectIdenticalOutput(z.object({ status: z.enum(["active", "inactive", "pending"]) }));
     });
 
     it("z.literal string", () => {
@@ -119,9 +117,7 @@ describe("Zod regression — schemaToJsonSchema produces identical output to dir
 
   describe("unions and discriminated unions", () => {
     it("z.union of primitives", () => {
-      expectIdenticalOutput(
-        z.object({ value: z.union([z.string(), z.number()]) }),
-      );
+      expectIdenticalOutput(z.object({ value: z.union([z.string(), z.number()]) }));
     });
 
     it("z.union of objects", () => {
@@ -163,26 +159,17 @@ describe("Zod regression — schemaToJsonSchema produces identical output to dir
 
   describe("records and tuples", () => {
     it("z.record", () => {
-      expectIdenticalOutput(
-        z.object({ metadata: z.record(z.string(), z.unknown()) }),
-      );
+      expectIdenticalOutput(z.object({ metadata: z.record(z.string(), z.unknown()) }));
     });
 
     it("z.tuple", () => {
-      expectIdenticalOutput(
-        z.object({ point: z.tuple([z.number(), z.number()]) }),
-      );
+      expectIdenticalOutput(z.object({ point: z.tuple([z.number(), z.number()]) }));
     });
   });
 
   describe("intersections", () => {
     it("z.intersection", () => {
-      expectIdenticalOutput(
-        z.intersection(
-          z.object({ id: z.number() }),
-          z.object({ name: z.string() }),
-        ),
-      );
+      expectIdenticalOutput(z.intersection(z.object({ id: z.number() }), z.object({ name: z.string() })));
     });
   });
 
@@ -200,9 +187,7 @@ describe("Zod regression — schemaToJsonSchema produces identical output to dir
     });
 
     it("z.string with regex", () => {
-      expectIdenticalOutput(
-        z.object({ code: z.string().regex(/^[A-Z]{3}-\d{4}$/) }),
-      );
+      expectIdenticalOutput(z.object({ code: z.string().regex(/^[A-Z]{3}-\d{4}$/) }));
     });
   });
 
@@ -271,10 +256,7 @@ describe("Zod regression — schemaToJsonSchema produces identical output to dir
       expectIdenticalOutput(
         z.object({
           city: z.string().describe("The city to get weather for"),
-          units: z
-            .enum(["celsius", "fahrenheit"])
-            .optional()
-            .describe("Temperature units"),
+          units: z.enum(["celsius", "fahrenheit"]).optional().describe("Temperature units"),
         }),
       );
     });

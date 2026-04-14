@@ -1,13 +1,6 @@
 import { useEffect, useState } from "react";
 import { TestsData } from "@/app/Interfaces/interface";
-import {
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableCell,
-  TableBody,
-  Table,
-} from "./ui/table";
+import { TableHead, TableHeader, TableRow, TableCell, TableBody, Table } from "./ui/table";
 import { Checkbox } from "./ui/checkbox";
 import { codeSnippets } from "@/public/snippets";
 import { Button } from "@/components/ui/button";
@@ -57,10 +50,7 @@ export function ChatGrid({
     // if (respond) {
     console.log("Selected rows:", selectedRows);
     // onToggle([...testSuite, ...newScriptsData.filter((_, index) => selectedRows.includes(index))])
-    setTestSuite([
-      ...testSuite,
-      ...newScriptsData.filter((_, index) => selectedRows.includes(index)),
-    ]);
+    setTestSuite([...testSuite, ...newScriptsData.filter((_, index) => selectedRows.includes(index))]);
     setSelectedRows([]);
     setDisabled(true);
     // respond("The selected test suites have been added successfully")
@@ -98,10 +88,7 @@ export function ChatGrid({
             <TableBody>
               {newScriptsData?.map((script, index) => (
                 <React.Fragment key={index}>
-                  <TableRow
-                    className="hover:bg-gray-50 transition"
-                    onClick={() => handleRowClick(index)}
-                  >
+                  <TableRow className="hover:bg-gray-50 transition" onClick={() => handleRowClick(index)}>
                     <TableCell className="w-[50px]">
                       <Checkbox
                         disabled={disabled}
@@ -117,61 +104,33 @@ export function ChatGrid({
                     <TableCell>{script?.title}</TableCell>
                     <TableCell>{script?.testCases?.length}</TableCell>
                   </TableRow>
-                  {expandedRow === index &&
-                    !disabled &&
-                    status === "complete" && (
-                      <TableRow>
-                        <TableCell
-                          colSpan={3}
-                          className="bg-gray-50 dark:bg-[#181f2a] p-0 border-t-0"
-                        >
-                          <div className="p-4">
-                            <div className="font-semibold mb-2">
-                              Test Suite Description:
-                            </div>
-                            <div className="mb-4 text-sm text-gray-600 dark:text-gray-300">
-                              {script.shortDescription ||
-                                "No description available."}
-                            </div>
-                            <div className="font-semibold mb-2">
-                              Code Snippet:
-                            </div>
-                            <pre className="bg-gray-100 dark:bg-[#181f2a] rounded p-2 mb-4 overflow-x-auto text-xs">
-                              {
-                                codeSnippets[
-                                  Math.floor(
-                                    Math.random() * codeSnippets.length,
-                                  )
-                                ]
-                              }
-                            </pre>
-                            <div className="font-semibold mb-2">
-                              Test Cases Details:
-                            </div>
-                            <ul className="space-y-4">
-                              {script.testCases.map((tc, idx) => (
-                                <li
-                                  key={tc.id}
-                                  className="border rounded p-3 bg-white dark:bg-[#232b3b]"
-                                >
-                                  <div className="mb-1 flex items-center gap-2">
-                                    <StatusBadge
-                                      status={
-                                        testCaseStatus[index]?.[idx] ||
-                                        tc.status
-                                      }
-                                    />
-                                    <span className="font-semibold">
-                                      {tc.name}
-                                    </span>
-                                  </div>
-                                </li>
-                              ))}
-                            </ul>
+                  {expandedRow === index && !disabled && status === "complete" && (
+                    <TableRow>
+                      <TableCell colSpan={3} className="bg-gray-50 dark:bg-[#181f2a] p-0 border-t-0">
+                        <div className="p-4">
+                          <div className="font-semibold mb-2">Test Suite Description:</div>
+                          <div className="mb-4 text-sm text-gray-600 dark:text-gray-300">
+                            {script.shortDescription || "No description available."}
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
+                          <div className="font-semibold mb-2">Code Snippet:</div>
+                          <pre className="bg-gray-100 dark:bg-[#181f2a] rounded p-2 mb-4 overflow-x-auto text-xs">
+                            {codeSnippets[Math.floor(Math.random() * codeSnippets.length)]}
+                          </pre>
+                          <div className="font-semibold mb-2">Test Cases Details:</div>
+                          <ul className="space-y-4">
+                            {script.testCases.map((tc, idx) => (
+                              <li key={tc.id} className="border rounded p-3 bg-white dark:bg-[#232b3b]">
+                                <div className="mb-1 flex items-center gap-2">
+                                  <StatusBadge status={testCaseStatus[index]?.[idx] || tc.status} />
+                                  <span className="font-semibold">{tc.name}</span>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </React.Fragment>
               ))}
             </TableBody>
@@ -179,13 +138,9 @@ export function ChatGrid({
           {selectedRows.length > 0 && (
             <div className="p-4 border-t flex justify-between items-center bg-gray-50 dark:bg-[#181f2a]">
               <div className="text-sm text-gray-600 dark:text-gray-300">
-                {selectedRows.length}{" "}
-                {selectedRows.length === 1 ? "row" : "rows"} selected
+                {selectedRows.length} {selectedRows.length === 1 ? "row" : "rows"} selected
               </div>
-              <Button
-                onClick={handleSelectedAction}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
+              <Button onClick={handleSelectedAction} className="bg-blue-600 hover:bg-blue-700 text-white">
                 Add Selected Tests
               </Button>
             </div>

@@ -3,15 +3,7 @@ import { CardContent } from "@/components/ui/card";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { AgentSetState, AgentState, type Metric } from "@/lib/types";
 import { RenderFunctionStatus } from "@copilotkit/react-core";
-import {
-  Pin,
-  TrendingUp,
-  Trash2,
-  TrendingDown,
-  DollarSign,
-  Users,
-  Pencil,
-} from "lucide-react";
+import { Pin, TrendingUp, Trash2, TrendingDown, DollarSign, Users, Pencil } from "lucide-react";
 import { useState } from "react";
 
 function MetricIcon({ name }: { name?: Metric["icon"] }) {
@@ -36,12 +28,7 @@ interface PinnedMetricCardProps {
   status?: RenderFunctionStatus;
 }
 
-export const PinnedMetricCard = ({
-  pinnedMetric,
-  setState,
-  onHumanInput,
-  status,
-}: PinnedMetricCardProps) => {
+export const PinnedMetricCard = ({ pinnedMetric, setState, onHumanInput, status }: PinnedMetricCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   return (
     <>
@@ -61,9 +48,7 @@ export const PinnedMetricCard = ({
                 setState((state) => ({
                   title: state?.title ?? "Dashboard",
                   charts: state?.charts ?? [],
-                  pinnedMetrics: (state?.pinnedMetrics ?? []).filter(
-                    (x: Metric) => x.id !== pinnedMetric.id,
-                  ),
+                  pinnedMetrics: (state?.pinnedMetrics ?? []).filter((x: Metric) => x.id !== pinnedMetric.id),
                 }))
               }
               title="Remove metric"
@@ -79,14 +64,8 @@ export const PinnedMetricCard = ({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-primary truncate">
-            {pinnedMetric.value}
-          </div>
-          {pinnedMetric.hint && (
-            <p className="text-muted-foreground text-sm mt-1">
-              {pinnedMetric.hint}
-            </p>
-          )}
+          <div className="text-3xl font-bold text-primary truncate">{pinnedMetric.value}</div>
+          {pinnedMetric.hint && <p className="text-muted-foreground text-sm mt-1">{pinnedMetric.hint}</p>}
         </CardContent>
       </Card>
       {isEditing && (
@@ -97,9 +76,7 @@ export const PinnedMetricCard = ({
             setState((state) => ({
               title: state?.title ?? "Dashboard",
               charts: state?.charts ?? [],
-              pinnedMetrics: (state?.pinnedMetrics ?? []).map((m: Metric) =>
-                m.id === next.id ? next : m,
-              ),
+              pinnedMetrics: (state?.pinnedMetrics ?? []).map((m: Metric) => (m.id === next.id ? next : m)),
             }));
             setIsEditing(false);
           }}
@@ -133,11 +110,7 @@ function MetricEditModal({
 
   const save = () => {
     const safeIcon =
-      icon === "users" ||
-      icon === "mrr" ||
-      icon === "conversion" ||
-      icon === "churn" ||
-      icon === "custom"
+      icon === "users" || icon === "mrr" || icon === "conversion" || icon === "churn" || icon === "custom"
         ? icon
         : "custom";
     onSave({

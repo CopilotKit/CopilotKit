@@ -15,11 +15,7 @@
  */
 
 import React, { useSyncExternalStore, memo, useMemo, useCallback } from "react";
-import {
-  type SurfaceModel,
-  ComponentContext,
-  type ComponentModel,
-} from "@a2ui/web_core/v0_9";
+import { type SurfaceModel, ComponentContext, type ComponentModel } from "@a2ui/web_core/v0_9";
 import type { ReactComponentImplementation } from "./adapter";
 
 const ResolvedChild = memo(
@@ -49,14 +45,7 @@ const ResolvedChild = memo(
     const buildChild = useCallback(
       (childId: string, specificPath?: string) => {
         const path = specificPath || context.dataContext.path;
-        return (
-          <DeferredChild
-            key={`${childId}-${path}`}
-            surface={surface}
-            id={childId}
-            basePath={path}
-          />
-        );
+        return <DeferredChild key={`${childId}-${path}`} surface={surface} id={childId} basePath={path} />;
       },
       [surface, context.dataContext.path],
     );
@@ -112,8 +101,7 @@ export const DeferredChild: React.FC<{
         style={{
           padding: "12px 16px",
           borderRadius: "8px",
-          background:
-            "linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%)",
+          background: "linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%)",
           backgroundSize: "200% 100%",
           animation: "a2ui-shimmer 1.5s ease-in-out infinite",
           minHeight: "2rem",
@@ -127,21 +115,11 @@ export const DeferredChild: React.FC<{
   const compImpl = surface.catalog.components.get(componentModel.type);
 
   if (!compImpl) {
-    return (
-      <div style={{ color: "red" }}>
-        Unknown component: {componentModel.type}
-      </div>
-    );
+    return <div style={{ color: "red" }}>Unknown component: {componentModel.type}</div>;
   }
 
   return (
-    <ResolvedChild
-      surface={surface}
-      id={id}
-      basePath={basePath}
-      componentModel={componentModel}
-      compImpl={compImpl}
-    />
+    <ResolvedChild surface={surface} id={id} basePath={basePath} componentModel={componentModel} compImpl={compImpl} />
   );
 });
 DeferredChild.displayName = "DeferredChild";

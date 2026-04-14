@@ -27,33 +27,13 @@ export function useRequestApproval() {
     description:
       "Request human approval for a financial action. MANDATORY before processing any payment or reorder. Use type 'invoice_payment' for invoice payments, 'inventory_reorder' for purchase orders.",
     parameters: z.object({
-      type: z
-        .enum(["invoice_payment", "inventory_reorder"])
-        .describe("Approval type"),
-      invoices: z
-        .array(invoiceSchema)
-        .optional()
-        .describe("(invoice_payment) Invoices to approve"),
-      totalAmount: z
-        .number()
-        .optional()
-        .describe("(invoice_payment) Sum of all invoice amounts"),
-      action: z
-        .string()
-        .optional()
-        .describe("(invoice_payment) Action description"),
-      items: z
-        .array(reorderItemSchema)
-        .optional()
-        .describe("(inventory_reorder) Items to reorder"),
-      estimatedTotal: z
-        .number()
-        .optional()
-        .describe("(inventory_reorder) Total estimated cost"),
-      supplier: z
-        .string()
-        .optional()
-        .describe("(inventory_reorder) Supplier name"),
+      type: z.enum(["invoice_payment", "inventory_reorder"]).describe("Approval type"),
+      invoices: z.array(invoiceSchema).optional().describe("(invoice_payment) Invoices to approve"),
+      totalAmount: z.number().optional().describe("(invoice_payment) Sum of all invoice amounts"),
+      action: z.string().optional().describe("(invoice_payment) Action description"),
+      items: z.array(reorderItemSchema).optional().describe("(inventory_reorder) Items to reorder"),
+      estimatedTotal: z.number().optional().describe("(inventory_reorder) Total estimated cost"),
+      supplier: z.string().optional().describe("(inventory_reorder) Supplier name"),
     }),
     render: (props: any) => {
       const { args, status, respond, result } = props;
@@ -66,33 +46,12 @@ export function useRequestApproval() {
         };
 
         if (status === ToolCallStatus.InProgress) {
-          return (
-            <InventoryReorderCard
-              status={status}
-              args={cardArgs}
-              respond={undefined}
-              result={undefined}
-            />
-          );
+          return <InventoryReorderCard status={status} args={cardArgs} respond={undefined} result={undefined} />;
         }
         if (status === ToolCallStatus.Complete) {
-          return (
-            <InventoryReorderCard
-              status={status}
-              args={cardArgs}
-              respond={undefined}
-              result={result}
-            />
-          );
+          return <InventoryReorderCard status={status} args={cardArgs} respond={undefined} result={result} />;
         }
-        return (
-          <InventoryReorderCard
-            status={status}
-            args={cardArgs}
-            respond={respond}
-            result={undefined}
-          />
-        );
+        return <InventoryReorderCard status={status} args={cardArgs} respond={respond} result={undefined} />;
       }
 
       // Default: invoice_payment
@@ -103,33 +62,12 @@ export function useRequestApproval() {
       };
 
       if (status === ToolCallStatus.InProgress) {
-        return (
-          <InvoiceApprovalCard
-            status={status}
-            args={cardArgs}
-            respond={undefined}
-            result={undefined}
-          />
-        );
+        return <InvoiceApprovalCard status={status} args={cardArgs} respond={undefined} result={undefined} />;
       }
       if (status === ToolCallStatus.Complete) {
-        return (
-          <InvoiceApprovalCard
-            status={status}
-            args={cardArgs}
-            respond={undefined}
-            result={result}
-          />
-        );
+        return <InvoiceApprovalCard status={status} args={cardArgs} respond={undefined} result={result} />;
       }
-      return (
-        <InvoiceApprovalCard
-          status={status}
-          args={cardArgs}
-          respond={respond}
-          result={undefined}
-        />
-      );
+      return <InvoiceApprovalCard status={status} args={cardArgs} respond={respond} result={undefined} />;
     },
   });
 }

@@ -7,17 +7,10 @@ export { useShowcaseHooks } from "./hooks/use-showcase-hooks";
 export { useShowcaseSuggestions } from "./hooks/use-showcase-suggestions";
 
 // Components
-export {
-  WeatherCard,
-  getWeatherGradient,
-  getWeatherIcon,
-} from "./components/weather-card";
+export { WeatherCard, getWeatherGradient, getWeatherIcon } from "./components/weather-card";
 export type { WeatherCardProps } from "./components/weather-card";
 export { MeetingTimePicker } from "./components/meeting-time-picker";
-export type {
-  MeetingTimePickerProps,
-  TimeSlot,
-} from "./components/meeting-time-picker";
+export type { MeetingTimePickerProps, TimeSlot } from "./components/meeting-time-picker";
 export { PieChart, PieChartProps } from "./components/pie-chart";
 export { BarChart, BarChartProps } from "./components/bar-chart";
 export { CHART_COLORS, CHART_CONFIG } from "./components/chart-config";
@@ -34,29 +27,14 @@ export { MetricCard } from "./components/sales-dashboard/metric-card";
 export type { MetricCardProps } from "./components/sales-dashboard/metric-card";
 
 // A2UI Catalog
-export {
-  demonstrationCatalogDefinitions,
-  type DemonstrationCatalogDefinitions,
-} from "./a2ui/definitions";
+export { demonstrationCatalogDefinitions, type DemonstrationCatalogDefinitions } from "./a2ui/definitions";
 export { demonstrationCatalog } from "./a2ui/renderers";
 
 // Renderers
-export type {
-  RenderMode,
-  RenderStrategyInfo,
-  RendererSelectorProps,
-} from "./renderers";
-export {
-  RENDER_STRATEGIES,
-  RendererSelector,
-  useRenderMode,
-} from "./renderers";
+export type { RenderMode, RenderStrategyInfo, RendererSelectorProps } from "./renderers";
+export { RENDER_STRATEGIES, RendererSelector, useRenderMode } from "./renderers";
 export { ToolBasedDashboard } from "./renderers/tool-based";
 export { A2UIDashboard } from "./renderers/a2ui";
-export {
-  HashBrownDashboard,
-  useHashBrownMessageRenderer,
-  useSalesDashboardKit,
-} from "./renderers/hashbrown";
+export { HashBrownDashboard, useHashBrownMessageRenderer, useSalesDashboardKit } from "./renderers/hashbrown";
 export type { HashBrownDashboardProps } from "./renderers/hashbrown";
 export { OpenGenUIDashboard } from "./renderers/open-genui";

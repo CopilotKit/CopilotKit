@@ -4,10 +4,7 @@ import path from "node:path";
 
 console.log("Generating schema...");
 
-const outputPath = path.resolve(
-  __dirname,
-  "../__snapshots__/schema/schema.graphql",
-);
+const outputPath = path.resolve(__dirname, "../__snapshots__/schema/schema.graphql");
 
 buildSchema({
   emitSchemaFile: path.resolve(__dirname, outputPath),

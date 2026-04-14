@@ -51,11 +51,7 @@ export const A2UIRenderer = memo(function A2UIRenderer({
   const actualLoadingFallback = loadingFallback ?? <DefaultLoadingFallback />;
 
   return (
-    <div
-      className={cn("a2ui-surface", className)}
-      data-surface-id={surfaceId}
-      data-version={version}
-    >
+    <div className={cn("a2ui-surface", className)} data-surface-id={surfaceId} data-version={version}>
       <Suspense fallback={actualLoadingFallback}>
         <A2uiSurface surface={surface} />
       </Suspense>

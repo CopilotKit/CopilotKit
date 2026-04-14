@@ -1,19 +1,9 @@
-import {
-  DestroyRef,
-  Injectable,
-  inject,
-  signal,
-  computed,
-  Signal,
-} from "@angular/core";
+import { DestroyRef, Injectable, inject, signal, computed, Signal } from "@angular/core";
 import { CopilotKit } from "./copilotkit";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { Message } from "@ag-ui/client";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import {
-  ProxiedCopilotRuntimeAgent,
-  CopilotKitCoreRuntimeConnectionStatus,
-} from "@copilotkit/core";
+import { ProxiedCopilotRuntimeAgent, CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 
 export class AgentStore {
   readonly #subscription?: {
@@ -70,10 +60,7 @@ export class AgentStore {
 export class CopilotkitAgentFactory {
   readonly #copilotkit = inject(CopilotKit);
 
-  createAgentStoreSignal(
-    agentId: Signal<string | undefined>,
-    destroyRef: DestroyRef,
-  ): Signal<AgentStore> {
+  createAgentStoreSignal(agentId: Signal<string | undefined>, destroyRef: DestroyRef): Signal<AgentStore> {
     let lastAgentStore: AgentStore | undefined;
 
     return computed(() => {
@@ -96,10 +83,8 @@ export class CopilotkitAgentFactory {
 
         if (
           isRuntimeConfigured &&
-          (runtimeConnectionStatus ===
-            CopilotKitCoreRuntimeConnectionStatus.Disconnected ||
-            runtimeConnectionStatus ===
-              CopilotKitCoreRuntimeConnectionStatus.Connecting)
+          (runtimeConnectionStatus === CopilotKitCoreRuntimeConnectionStatus.Disconnected ||
+            runtimeConnectionStatus === CopilotKitCoreRuntimeConnectionStatus.Connecting)
         ) {
           const provisional = new ProxiedCopilotRuntimeAgent({
             runtimeUrl,
@@ -114,14 +99,10 @@ export class CopilotkitAgentFactory {
         }
 
         const knownAgents = Object.keys(this.#copilotkit.agents() ?? {});
-        const runtimePart = isRuntimeConfigured
-          ? `runtimeUrl=${runtimeUrl}`
-          : "no runtimeUrl";
+        const runtimePart = isRuntimeConfigured ? `runtimeUrl=${runtimeUrl}` : "no runtimeUrl";
         throw new Error(
           `injectAgentStore: Agent '${resolvedAgentId}' not found after runtime sync (${runtimePart}). ` +
-            (knownAgents.length
-              ? `Known agents: [${knownAgents.join(", ")}]`
-              : "No agents registered.") +
+            (knownAgents.length ? `Known agents: [${knownAgents.join(", ")}]` : "No agents registered.") +
             " Verify your runtime /info and/or agents__unsafe_dev_only.",
         );
       }
@@ -132,13 +113,10 @@ export class CopilotkitAgentFactory {
   }
 }
 
-export function injectAgentStore(
-  agentId: string | Signal<string | undefined>,
-): Signal<AgentStore> {
+export function injectAgentStore(agentId: string | Signal<string | undefined>): Signal<AgentStore> {
   const agentFactory = inject(CopilotkitAgentFactory);
   const destroyRef = inject(DestroyRef);
-  const agentIdSignal =
-    typeof agentId === "function" ? agentId : computed(() => agentId);
+  const agentIdSignal = typeof agentId === "function" ? agentId : computed(() => agentId);
 
   return agentFactory.createAgentStoreSignal(agentIdSignal, destroyRef);
 }

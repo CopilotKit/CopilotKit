@@ -26,14 +26,7 @@ export function MCPAppsCard({ isActive, onPromptClick }: MCPAppsCardProps) {
   return (
     <div className={`protocol-card ${isActive ? "active" : ""}`}>
       <div className="protocol-card-icon mcp">
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <rect x="2" y="3" width="20" height="14" rx="2" />
           <path d="M8 21h8" />
           <path d="M12 17v4" />
@@ -45,11 +38,7 @@ export function MCPAppsCard({ isActive, onPromptClick }: MCPAppsCardProps) {
       </p>
       <div className="flex flex-wrap gap-2">
         {Object.entries(PROMPTS).map(([label, prompt]) => (
-          <button
-            key={label}
-            className="prompt-pill text-xs"
-            onClick={() => onPromptClick?.(prompt)}
-          >
+          <button key={label} className="prompt-pill text-xs" onClick={() => onPromptClick?.(prompt)}>
             {label}
           </button>
         ))}

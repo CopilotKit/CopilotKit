@@ -16,13 +16,9 @@ import { Component, Input } from "@angular/core";
         font-family: &quot;Segoe UI&quot;, Tahoma, Geneva, Verdana, sans-serif;
       "
     >
-      <h3 style="margin: 0 0 10px 0; font-size: 20px">
-        ✨ Custom Disclaimer Component ✨
-      </h3>
+      <h3 style="margin: 0 0 10px 0; font-size: 20px">✨ Custom Disclaimer Component ✨</h3>
       <p style="margin: 0; font-size: 14px; opacity: 0.9">
-        {{
-          text || "This is a custom disclaimer demonstrating component overrides!"
-        }}
+        {{ text || "This is a custom disclaimer demonstrating component overrides!" }}
       </p>
       <div
         style="

@@ -96,9 +96,7 @@ The todo list uses **CopilotKit v2's agent state pattern** where state lives in 
    // User clicks checkbox → frontend calls agent.setState()
    const toggleStatus = (todo) => {
      const updated = todos.map((t) =>
-       t.id === todo.id
-         ? { ...t, status: t.status === "completed" ? "pending" : "completed" }
-         : t,
+       t.id === todo.id ? { ...t, status: t.status === "completed" ? "pending" : "completed" } : t,
      );
      agent.setState({ todos: updated });
    };

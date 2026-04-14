@@ -22,13 +22,7 @@ import {
   testId,
 } from "../../../__tests__/utils/test-helpers";
 import { MCPAppsActivityType } from "../../../components/MCPAppsActivityRenderer";
-import {
-  AbstractAgent,
-  RunAgentInput,
-  RunAgentResult,
-  BaseEvent,
-  EventType,
-} from "@ag-ui/client";
+import { AbstractAgent, RunAgentInput, RunAgentResult, BaseEvent, EventType } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
 
 /**
@@ -52,10 +46,7 @@ class MockMCPProxyAgent extends AbstractAgent {
   emit(event: BaseEvent) {
     if (event.type === EventType.RUN_STARTED) {
       this.isRunning = true;
-    } else if (
-      event.type === EventType.RUN_FINISHED ||
-      event.type === EventType.RUN_ERROR
-    ) {
+    } else if (event.type === EventType.RUN_FINISHED || event.type === EventType.RUN_ERROR) {
       this.isRunning = false;
     }
     act(() => {
@@ -79,18 +70,10 @@ class MockMCPProxyAgent extends AbstractAgent {
       addMessageCalls: Array<{ id: string; role: string; content: string }>;
       runAgentResponses: Map<string, unknown>;
     };
-    (cloned as unknown as Internal).subject = (
-      this as unknown as Internal
-    ).subject;
-    (cloned as unknown as Internal).runAgentCalls = (
-      this as unknown as Internal
-    ).runAgentCalls;
-    (cloned as unknown as Internal).addMessageCalls = (
-      this as unknown as Internal
-    ).addMessageCalls;
-    (cloned as unknown as Internal).runAgentResponses = (
-      this as unknown as Internal
-    ).runAgentResponses;
+    (cloned as unknown as Internal).subject = (this as unknown as Internal).subject;
+    (cloned as unknown as Internal).runAgentCalls = (this as unknown as Internal).runAgentCalls;
+    (cloned as unknown as Internal).addMessageCalls = (this as unknown as Internal).addMessageCalls;
+    (cloned as unknown as Internal).runAgentResponses = (this as unknown as Internal).runAgentResponses;
 
     const registry = this;
     Object.defineProperty(cloned, "isRunning", {
@@ -105,9 +88,7 @@ class MockMCPProxyAgent extends AbstractAgent {
     });
 
     const proto = MockMCPProxyAgent.prototype;
-    cloned.runAgent = async function (
-      input?: Partial<RunAgentInput>,
-    ): Promise<RunAgentResult> {
+    cloned.runAgent = async function (input?: Partial<RunAgentInput>): Promise<RunAgentResult> {
       const proxiedRequest = input?.forwardedProps?.__proxiedMCPRequest;
       if (proxiedRequest) {
         return registry.runAgent(input);
@@ -176,10 +157,7 @@ class MockMCPProxyAgent extends AbstractAgent {
   }
 }
 
-function mcpAppsActivityContent(overrides: {
-  resourceUri?: string;
-  serverHash?: string;
-}) {
+function mcpAppsActivityContent(overrides: { resourceUri?: string; serverHash?: string }) {
   return {
     resourceUri: overrides.resourceUri ?? "ui://test-server/test-resource",
     serverHash: overrides.serverHash ?? "abc123hash",
@@ -309,11 +287,7 @@ describe("MCP Apps ui/message followUp behavior", () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "ui-msg-agent-user";
 
-    const iframe = await setupMCPActivity(
-      agent,
-      "ui-msg-agent-user",
-      "User role test",
-    );
+    const iframe = await setupMCPActivity(agent, "ui-msg-agent-user", "User role test");
 
     const runSpy = vi.spyOn(agent, "run");
 
@@ -323,9 +297,7 @@ describe("MCP Apps ui/message followUp behavior", () => {
     });
 
     // addMessage should have been called
-    const userMsgCalls = agent.addMessageCalls.filter(
-      (c) => c.content === "Hello from MCP app" && c.role === "user",
-    );
+    const userMsgCalls = agent.addMessageCalls.filter((c) => c.content === "Hello from MCP app" && c.role === "user");
     expect(userMsgCalls.length).toBeGreaterThanOrEqual(1);
 
     // runAgent should have been invoked (user role defaults to followUp: true)
@@ -336,11 +308,7 @@ describe("MCP Apps ui/message followUp behavior", () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "ui-msg-agent-assist";
 
-    const iframe = await setupMCPActivity(
-      agent,
-      "ui-msg-agent-assist",
-      "Assist role test",
-    );
+    const iframe = await setupMCPActivity(agent, "ui-msg-agent-assist", "Assist role test");
 
     const runSpy = vi.spyOn(agent, "run");
 
@@ -363,11 +331,7 @@ describe("MCP Apps ui/message followUp behavior", () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "ui-msg-agent-nofollowup";
 
-    const iframe = await setupMCPActivity(
-      agent,
-      "ui-msg-agent-nofollowup",
-      "No followUp test",
-    );
+    const iframe = await setupMCPActivity(agent, "ui-msg-agent-nofollowup", "No followUp test");
 
     const runSpy = vi.spyOn(agent, "run");
 
@@ -378,9 +342,7 @@ describe("MCP Apps ui/message followUp behavior", () => {
     });
 
     // addMessage should have been called
-    const calls = agent.addMessageCalls.filter(
-      (c) => c.content === "Display only message",
-    );
+    const calls = agent.addMessageCalls.filter((c) => c.content === "Display only message");
     expect(calls.length).toBeGreaterThanOrEqual(1);
 
     // run() should NOT have been called
@@ -391,11 +353,7 @@ describe("MCP Apps ui/message followUp behavior", () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "ui-msg-agent-force";
 
-    const iframe = await setupMCPActivity(
-      agent,
-      "ui-msg-agent-force",
-      "Force followUp test",
-    );
+    const iframe = await setupMCPActivity(agent, "ui-msg-agent-force", "Force followUp test");
 
     const runSpy = vi.spyOn(agent, "run");
 
@@ -406,9 +364,7 @@ describe("MCP Apps ui/message followUp behavior", () => {
     });
 
     // addMessage should have been called
-    const calls = agent.addMessageCalls.filter(
-      (c) => c.content === "Assistant with followUp",
-    );
+    const calls = agent.addMessageCalls.filter((c) => c.content === "Assistant with followUp");
     expect(calls.length).toBeGreaterThanOrEqual(1);
 
     // run() should have been called
@@ -419,11 +375,7 @@ describe("MCP Apps ui/message followUp behavior", () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "ui-msg-agent-all";
 
-    const iframe = await setupMCPActivity(
-      agent,
-      "ui-msg-agent-all",
-      "All messages test",
-    );
+    const iframe = await setupMCPActivity(agent, "ui-msg-agent-all", "All messages test");
 
     await sendUiMessage(iframe, {
       role: "user",
@@ -441,15 +393,9 @@ describe("MCP Apps ui/message followUp behavior", () => {
       followUp: false,
     });
 
-    const userCalls = agent.addMessageCalls.filter(
-      (c) => c.content === "User msg",
-    );
-    const assistCalls = agent.addMessageCalls.filter(
-      (c) => c.content === "Assistant msg",
-    );
-    const noFollowCalls = agent.addMessageCalls.filter(
-      (c) => c.content === "No followUp msg",
-    );
+    const userCalls = agent.addMessageCalls.filter((c) => c.content === "User msg");
+    const assistCalls = agent.addMessageCalls.filter((c) => c.content === "Assistant msg");
+    const noFollowCalls = agent.addMessageCalls.filter((c) => c.content === "No followUp msg");
 
     expect(userCalls.length).toBeGreaterThanOrEqual(1);
     expect(assistCalls.length).toBeGreaterThanOrEqual(1);

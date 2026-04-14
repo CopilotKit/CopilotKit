@@ -58,28 +58,20 @@ export const Charts = ({ state, setState }: ChartsProps) => {
         <div className="flex items-center gap-2">
           <CardTitle className="text-xl">Your charts</CardTitle>
         </div>
-        <Button
-          size="sm"
-          variant="suggestion"
-          onClick={handleAddChart}
-          title="Add chart"
-        >
+        <Button size="sm" variant="suggestion" onClick={handleAddChart} title="Add chart">
           <Plus className="size-4 mr-1" /> Add Chart
         </Button>
       </CardHeader>
       <CardContent className="p-0 m-0">
         {!state?.charts?.length && (
           <p className="text-sm italic">
-            No dashboard yet. Describe what you want in chat (eg, &quot;funnel
-            of signups and revenue line chart&quot;).
+            No dashboard yet. Describe what you want in chat (eg, &quot;funnel of signups and revenue line chart&quot;).
           </p>
         )}
         {state?.charts?.length > 0 && (
           <ChartGrid
             charts={state.charts}
-            chartData={
-              (state as AgentState & { chartData?: ChartDataMap }).chartData
-            }
+            chartData={(state as AgentState & { chartData?: ChartDataMap }).chartData}
             onRemoveChart={handleRemoveChart}
             onEditChart={handleEditChart}
           />

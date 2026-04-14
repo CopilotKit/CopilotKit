@@ -75,9 +75,7 @@ export function InboxView({ emails }: InboxViewProps) {
               d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
             />
           </svg>
-          <h2 className="text-base font-semibold text-[var(--text-primary)]">
-            Inbox
-          </h2>
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">Inbox</h2>
         </div>
         <span className="text-xs font-medium text-[var(--text-tertiary)] bg-[var(--surface-quaternary)] px-2 py-0.5 rounded-full">
           {emails.length} message{emails.length !== 1 ? "s" : ""}
@@ -121,18 +119,14 @@ export function InboxView({ emails }: InboxViewProps) {
                     >
                       {getSenderName(email.from)}
                     </p>
-                    <span className="text-[11px] text-[var(--text-tertiary)] shrink-0">
-                      {email.date}
-                    </span>
+                    <span className="text-[11px] text-[var(--text-tertiary)] shrink-0">{email.date}</span>
                   </div>
                   <p
                     className={`text-sm truncate ${email.isRead ? "text-[var(--text-tertiary)]" : "text-[var(--text-primary)] font-medium"}`}
                   >
                     {email.subject}
                   </p>
-                  <p className="text-xs text-[var(--text-tertiary)] truncate mt-0.5">
-                    {email.preview}
-                  </p>
+                  <p className="text-xs text-[var(--text-tertiary)] truncate mt-0.5">{email.preview}</p>
                 </div>
               </div>
             );
@@ -149,20 +143,12 @@ export function InboxView({ emails }: InboxViewProps) {
                 {getInitial(selectedEmail.from)}
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-[var(--text-primary)]">
-                  {getSenderName(selectedEmail.from)}
-                </p>
-                <p className="text-xs text-[var(--text-tertiary)]">
-                  {selectedEmail.from}
-                </p>
+                <p className="text-sm font-semibold text-[var(--text-primary)]">{getSenderName(selectedEmail.from)}</p>
+                <p className="text-xs text-[var(--text-tertiary)]">{selectedEmail.from}</p>
               </div>
-              <span className="text-xs text-[var(--text-tertiary)] ml-auto shrink-0">
-                {selectedEmail.date}
-              </span>
+              <span className="text-xs text-[var(--text-tertiary)] ml-auto shrink-0">{selectedEmail.date}</span>
             </div>
-            <h3 className="text-base font-semibold text-[var(--text-primary)] mb-3">
-              {selectedEmail.subject}
-            </h3>
+            <h3 className="text-base font-semibold text-[var(--text-primary)] mb-3">{selectedEmail.subject}</h3>
             <p className="text-sm text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap flex-1">
               {selectedEmail.body}
             </p>
@@ -170,13 +156,7 @@ export function InboxView({ emails }: InboxViewProps) {
             {/* Reply compose or buttons */}
             {replySent === selectedEmail.id ? (
               <div className="mt-4 pt-3 border-t border-[var(--border-default)] flex items-center gap-2 text-sm text-emerald-600">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={1.5}
-                  stroke="currentColor"
-                >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -190,13 +170,7 @@ export function InboxView({ emails }: InboxViewProps) {
                 <div className="border border-[var(--border-default)] rounded-lg overflow-hidden">
                   <div className="px-3 py-2 border-b border-[var(--border-default)] bg-[var(--surface-tertiary)]">
                     <div className="flex items-center gap-2 text-xs text-[var(--text-tertiary)]">
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                      >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -220,13 +194,7 @@ export function InboxView({ emails }: InboxViewProps) {
                       }}
                       className="flex items-center gap-1.5 px-3 py-1 text-xs text-white bg-blue-500 rounded-full hover:bg-blue-600 transition-colors"
                     >
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                      >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -250,34 +218,14 @@ export function InboxView({ emails }: InboxViewProps) {
                   onClick={() => setReplyingTo(selectedEmail.id)}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--text-secondary)] bg-[var(--surface-primary)] border border-[var(--border-default)] rounded-full hover:bg-[var(--surface-tertiary)] transition-colors"
                 >
-                  <svg
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"
-                    />
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
                   </svg>
                   Reply
                 </button>
                 <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--text-secondary)] bg-[var(--surface-primary)] border border-[var(--border-default)] rounded-full hover:bg-[var(--surface-tertiary)] transition-colors">
-                  <svg
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3"
-                    />
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3" />
                   </svg>
                   Forward
                 </button>
@@ -312,9 +260,7 @@ export function InboxLoadingState() {
           </div>
         ))}
       </div>
-      <div className="px-5 pb-3 text-xs text-[var(--text-tertiary)]">
-        Checking inbox...
-      </div>
+      <div className="px-5 pb-3 text-xs text-[var(--text-tertiary)]">Checking inbox...</div>
     </div>
   );
 }

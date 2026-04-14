@@ -15,9 +15,8 @@ const createMockAgent = () => {
   return agent as AbstractAgent;
 };
 
-const createRuntime = (
-  agents: Record<string, AbstractAgent> = { default: createMockAgent() },
-) => new CopilotRuntime({ agents });
+const createRuntime = (agents: Record<string, AbstractAgent> = { default: createMockAgent() }) =>
+  new CopilotRuntime({ agents });
 
 const post = (url: string, body?: unknown) =>
   new Request(url, {
@@ -54,23 +53,17 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
   });
 
   it("returns 404 for unmatched subpaths", async () => {
-    const response = await handler(
-      get("http://localhost/api/copilotkit/unknown"),
-    );
+    const response = await handler(get("http://localhost/api/copilotkit/unknown"));
     expect(response.status).toBe(404);
   });
 
   it("returns 405 for wrong HTTP method on /info (POST instead of GET)", async () => {
-    const response = await handler(
-      post("http://localhost/api/copilotkit/info"),
-    );
+    const response = await handler(post("http://localhost/api/copilotkit/info"));
     expect(response.status).toBe(405);
   });
 
   it("returns 405 for GET on a POST-only route", async () => {
-    const response = await handler(
-      get("http://localhost/api/copilotkit/agent/myAgent/run"),
-    );
+    const response = await handler(get("http://localhost/api/copilotkit/agent/myAgent/run"));
     expect(response.status).toBe(405);
   });
 
@@ -98,17 +91,13 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
   });
 
   it("routes POST /agent/:agentId/stop/:threadId", async () => {
-    const response = await handler(
-      post("http://localhost/api/copilotkit/agent/default/stop/t1"),
-    );
+    const response = await handler(post("http://localhost/api/copilotkit/agent/default/stop/t1"));
     expect(response.status).not.toBe(404);
     expect(response.status).not.toBe(405);
   });
 
   it("routes POST /transcribe", async () => {
-    const response = await handler(
-      post("http://localhost/api/copilotkit/transcribe"),
-    );
+    const response = await handler(post("http://localhost/api/copilotkit/transcribe"));
     // Transcribe may fail (no service configured) but should match the route
     expect(response.status).not.toBe(404);
     expect(response.status).not.toBe(405);
@@ -120,9 +109,7 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
       basePath: "/api/copilotkit/",
       mode: "multi-route",
     });
-    const response = await trailingSlashHandler(
-      get("http://localhost/api/copilotkit/info"),
-    );
+    const response = await trailingSlashHandler(get("http://localhost/api/copilotkit/info"));
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toHaveProperty("version");
@@ -191,17 +178,13 @@ describe("createCopilotRuntimeHandler — multi-route without basePath", () => {
   });
 
   it("matches /agent/:id/stop/:threadId suffix", async () => {
-    const response = await handler(
-      post("http://localhost/some/prefix/agent/default/stop/t1"),
-    );
+    const response = await handler(post("http://localhost/some/prefix/agent/default/stop/t1"));
     expect(response.status).not.toBe(404);
     expect(response.status).not.toBe(405);
   });
 
   it("matches /transcribe suffix", async () => {
-    const response = await handler(
-      post("http://localhost/some/prefix/transcribe"),
-    );
+    const response = await handler(post("http://localhost/some/prefix/transcribe"));
     expect(response.status).not.toBe(404);
     expect(response.status).not.toBe(405);
   });
@@ -220,9 +203,7 @@ describe("createCopilotRuntimeHandler — single-route mode", () => {
   });
 
   it("dispatches info method", async () => {
-    const response = await handler(
-      post("http://localhost/api/copilotkit", { method: "info" }),
-    );
+    const response = await handler(post("http://localhost/api/copilotkit", { method: "info" }));
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toHaveProperty("version");
@@ -234,9 +215,7 @@ describe("createCopilotRuntimeHandler — single-route mode", () => {
   });
 
   it("returns 400 for invalid method", async () => {
-    const response = await handler(
-      post("http://localhost/api/copilotkit", { method: "nonexistent" }),
-    );
+    const response = await handler(post("http://localhost/api/copilotkit", { method: "nonexistent" }));
     expect(response.status).toBe(400);
   });
 
@@ -270,9 +249,7 @@ describe("createCopilotRuntimeHandler — single-route mode", () => {
   });
 
   it("returns 404 when basePath doesn't match in single-route", async () => {
-    const response = await handler(
-      post("http://localhost/other/path", { method: "info" }),
-    );
+    const response = await handler(post("http://localhost/other/path", { method: "info" }));
     expect(response.status).toBe(404);
   });
 
@@ -314,9 +291,7 @@ describe("createCopilotRuntimeHandler — single-route mode", () => {
       runtime: createRuntime(),
       mode: "single-route",
     });
-    const response = await noBasePathHandler(
-      post("http://localhost/any/path/here", { method: "info" }),
-    );
+    const response = await noBasePathHandler(post("http://localhost/any/path/here", { method: "info" }));
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toHaveProperty("version");
@@ -391,12 +366,8 @@ describe("createCopilotRuntimeHandler — CORS", () => {
         headers: { Origin: "https://specific.com" },
       }),
     );
-    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
-      "https://specific.com",
-    );
-    expect(response.headers.get("Access-Control-Allow-Credentials")).toBe(
-      "true",
-    );
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://specific.com");
+    expect(response.headers.get("Access-Control-Allow-Credentials")).toBe("true");
   });
 
   it("adds CORS headers to error responses", async () => {

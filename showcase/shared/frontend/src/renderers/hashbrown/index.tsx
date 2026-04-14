@@ -2,12 +2,7 @@
 
 import React, { memo } from "react";
 import { s, prompt } from "@hashbrownai/core";
-import {
-  exposeComponent,
-  exposeMarkdown,
-  useUiKit,
-  useJsonParser,
-} from "@hashbrownai/react";
+import { exposeComponent, exposeMarkdown, useUiKit, useJsonParser } from "@hashbrownai/react";
 import type { RenderMessageProps } from "@copilotkit/react-ui";
 import type { AssistantMessage } from "@ag-ui/core";
 
@@ -25,10 +20,8 @@ interface MetricCardProps {
 }
 
 function MetricCard({ label, value, trend }: MetricCardProps) {
-  const isPositive =
-    trend?.startsWith("+") || trend?.toLowerCase().includes("up");
-  const isNegative =
-    trend?.startsWith("-") || trend?.toLowerCase().includes("down");
+  const isPositive = trend?.startsWith("+") || trend?.toLowerCase().includes("up");
+  const isNegative = trend?.startsWith("-") || trend?.toLowerCase().includes("down");
   const trendColor = isPositive
     ? "text-green-600 dark:text-green-400"
     : isNegative
@@ -36,16 +29,9 @@ function MetricCard({ label, value, trend }: MetricCardProps) {
       : "text-[var(--muted-foreground)]";
 
   return (
-    <div
-      data-testid="metric-card"
-      className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4"
-    >
-      <p className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider font-medium">
-        {label}
-      </p>
-      <p className="text-2xl font-bold text-[var(--foreground)] mt-1">
-        {value}
-      </p>
+    <div data-testid="metric-card" className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
+      <p className="text-xs text-[var(--muted-foreground)] uppercase tracking-wider font-medium">{label}</p>
+      <p className="text-2xl font-bold text-[var(--foreground)] mt-1">{value}</p>
       {trend && (
         <p data-testid="metric-trend" className={`text-sm mt-1 ${trendColor}`}>
           {trend}
@@ -69,44 +55,24 @@ interface HashBrownDealCardProps {
 
 const STAGE_COLORS: Record<string, string> = {
   prospect: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  qualified:
-    "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+  qualified: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
   proposal: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
-  negotiation:
-    "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-  "closed-won":
-    "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  negotiation: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+  "closed-won": "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   "closed-lost": "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
-function DealCardComponent({
-  title,
-  stage,
-  value,
-  assignee,
-  dueDate,
-}: HashBrownDealCardProps) {
-  const badgeClass =
-    STAGE_COLORS[stage] ??
-    "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
+function DealCardComponent({ title, stage, value, assignee, dueDate }: HashBrownDealCardProps) {
+  const badgeClass = STAGE_COLORS[stage] ?? "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
 
   return (
-    <div
-      data-testid="hashbrown-deal-card"
-      className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4"
-    >
-      <h3 className="text-sm font-semibold leading-snug text-[var(--foreground)]">
-        {title}
-      </h3>
+    <div data-testid="hashbrown-deal-card" className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
+      <h3 className="text-sm font-semibold leading-snug text-[var(--foreground)]">{title}</h3>
       <div className="mt-2 flex items-center gap-2 flex-wrap">
-        <span
-          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}
-        >
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
           {stage}
         </span>
-        <span className="text-sm font-semibold text-[var(--foreground)]">
-          ${(value ?? 0).toLocaleString()}
-        </span>
+        <span className="text-sm font-semibold text-[var(--foreground)]">${(value ?? 0).toLocaleString()}</span>
       </div>
       <div className="mt-2 flex items-center gap-3 text-xs text-[var(--muted-foreground)]">
         {assignee && <span>{assignee}</span>}
@@ -180,9 +146,7 @@ export function useSalesDashboardKit() {
         description: "A sales deal card showing pipeline stage and value",
         props: {
           title: s.string("Deal title"),
-          stage: s.string(
-            "Pipeline stage: prospect | qualified | proposal | negotiation | closed-won | closed-lost",
-          ),
+          stage: s.string("Pipeline stage: prospect | qualified | proposal | negotiation | closed-won | closed-lost"),
           value: s.number("Deal value in dollars"),
           assignee: s.string("Who owns this deal").optional(),
           dueDate: s.string("Expected close date").optional(),
@@ -234,14 +198,11 @@ export interface HashBrownDashboardProps {
  * components. The kit schema is forwarded to the agent as `output_schema`
  * context, constraining the agent's `response_format` to structured JSON.
  */
-const HashBrownKitContext = React.createContext<ReturnType<
-  typeof useSalesDashboardKit
-> | null>(null);
+const HashBrownKitContext = React.createContext<ReturnType<typeof useSalesDashboardKit> | null>(null);
 
 function useHashBrownKit() {
   const kit = React.useContext(HashBrownKitContext);
-  if (!kit)
-    throw new Error("useHashBrownKit must be used within HashBrownDashboard");
+  if (!kit) throw new Error("useHashBrownKit must be used within HashBrownDashboard");
   return kit;
 }
 
@@ -251,11 +212,7 @@ export function HashBrownDashboard({ children }: HashBrownDashboardProps) {
   // Note: Agent context forwarding (useAgentContext) for output_schema is
   // omitted because the npm-published react-core may not export it yet.
 
-  return (
-    <HashBrownKitContext.Provider value={kit}>
-      {children}
-    </HashBrownKitContext.Provider>
-  );
+  return <HashBrownKitContext.Provider value={kit}>{children}</HashBrownKitContext.Provider>;
 }
 
 /**
@@ -265,12 +222,7 @@ export function HashBrownDashboard({ children }: HashBrownDashboardProps) {
 function HashBrownRenderMessage({ message }: RenderMessageProps) {
   const kit = useHashBrownKit();
   if (message.role === "assistant") {
-    return (
-      <AssistantMessageRenderer
-        message={message as AssistantMessage}
-        kit={kit}
-      />
-    );
+    return <AssistantMessageRenderer message={message as AssistantMessage} kit={kit} />;
   }
   return null;
 }

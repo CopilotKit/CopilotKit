@@ -71,9 +71,7 @@ export default function ProductList() {
 
   // Filter and sort based on state
   const filtered =
-    selectedCategory === "all"
-      ? props.products
-      : props.products.filter((p) => p.category === selectedCategory);
+    selectedCategory === "all" ? props.products : props.products.filter((p) => p.category === selectedCategory);
 
   const sorted = [...filtered].sort((a, b) => {
     if (sortBy === "name") return a.name.localeCompare(b.name);
@@ -94,8 +92,7 @@ export default function ProductList() {
               style={{
                 padding: "8px 16px",
                 margin: "0 4px",
-                backgroundColor:
-                  selectedCategory === cat ? "#007bff" : "#f0f0f0",
+                backgroundColor: selectedCategory === cat ? "#007bff" : "#f0f0f0",
                 color: selectedCategory === cat ? "white" : "black",
                 border: "none",
                 borderRadius: 4,
@@ -111,11 +108,7 @@ export default function ProductList() {
         <div style={{ marginBottom: 16 }}>
           <label>
             Sort by:
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              style={{ marginLeft: 8 }}
-            >
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value as any)} style={{ marginLeft: 8 }}>
               <option value="name">Name</option>
               <option value="price">Price</option>
             </select>
@@ -125,10 +118,7 @@ export default function ProductList() {
         {/* Product list */}
         <div>
           {sorted.map((product) => (
-            <div
-              key={product.id}
-              style={{ padding: 12, border: "1px solid #ddd", marginBottom: 8 }}
-            >
+            <div key={product.id} style={{ padding: 12, border: "1px solid #ddd", marginBottom: 8 }}>
               <h3>{product.name}</h3>
               <p>
                 Category: {product.category} | ${product.price}
@@ -247,9 +237,7 @@ return (
 Manage tabs without additional tool calls:
 
 ```tsx
-const [activeTab, setActiveTab] = useState<"overview" | "details" | "history">(
-  "overview",
-);
+const [activeTab, setActiveTab] = useState<"overview" | "details" | "history">("overview");
 
 return (
   <McpUseProvider autoSize>
@@ -308,10 +296,7 @@ return (
 
       {/* Pagination controls */}
       <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
-        <button
-          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-          disabled={currentPage === 1}
-        >
+        <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>
           Previous
         </button>
 
@@ -353,10 +338,7 @@ const [filters, setFilters] = useState<Filters>({
 });
 
 const filteredItems = props.items.filter((item) => {
-  if (
-    filters.search &&
-    !item.name.toLowerCase().includes(filters.search.toLowerCase())
-  ) {
+  if (filters.search && !item.name.toLowerCase().includes(filters.search.toLowerCase())) {
     return false;
   }
   if (filters.category !== "all" && item.category !== filters.category) {
@@ -393,9 +375,7 @@ return (
         <input
           type="number"
           value={filters.priceMin}
-          onChange={(e) =>
-            setFilters({ ...filters, priceMin: Number(e.target.value) })
-          }
+          onChange={(e) => setFilters({ ...filters, priceMin: Number(e.target.value) })}
           placeholder="Min price"
           style={{ width: 80, padding: 8, marginRight: 8 }}
         />
@@ -403,9 +383,7 @@ return (
         <input
           type="number"
           value={filters.priceMax}
-          onChange={(e) =>
-            setFilters({ ...filters, priceMax: Number(e.target.value) })
-          }
+          onChange={(e) => setFilters({ ...filters, priceMax: Number(e.target.value) })}
           placeholder="Max price"
           style={{ width: 80, padding: 8 }}
         />
@@ -462,11 +440,7 @@ return (
             <span>{expandedIds.has(item.id) ? "▼" : "▶"}</span>
           </div>
 
-          {expandedIds.has(item.id) && (
-            <div style={{ padding: 12, border: "1px solid #ddd" }}>
-              {item.details}
-            </div>
-          )}
+          {expandedIds.has(item.id) && <div style={{ padding: 12, border: "1px solid #ddd" }}>{item.details}</div>}
         </div>
       ))}
     </div>
@@ -559,9 +533,7 @@ let filtered = props.items;
 
 // Apply search
 if (search) {
-  filtered = filtered.filter((item) =>
-    item.name.toLowerCase().includes(search.toLowerCase()),
-  );
+  filtered = filtered.filter((item) => item.name.toLowerCase().includes(search.toLowerCase()));
 }
 
 // Apply category filter
@@ -582,9 +554,7 @@ filtered.sort((a, b) => {
 ```tsx
 const [selectedId, setSelectedId] = useState<string | null>(null);
 
-const selectedItem = selectedId
-  ? props.items.find((item) => item.id === selectedId)
-  : null;
+const selectedItem = selectedId ? props.items.find((item) => item.id === selectedId) : null;
 
 return (
   <div style={{ display: "flex", gap: 16 }}>
@@ -627,12 +597,9 @@ return (
 
 ```typescript
 // ❌ Bad - Tool for UI state
-server.tool(
-  { name: "set-filter", schema: z.object({ category: z.string() }) },
-  async ({ category }) => {
-    // This is wrong! Filters should be widget state
-  },
-);
+server.tool({ name: "set-filter", schema: z.object({ category: z.string() }) }, async ({ category }) => {
+  // This is wrong! Filters should be widget state
+});
 
 // ✅ Good - Widget manages its own filters
 const [filter, setFilter] = useState("all");

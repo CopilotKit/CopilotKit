@@ -106,8 +106,7 @@ function getBaseQuestions(): Question[] {
     {
       type: "input",
       name: "crewUrl",
-      message:
-        "🔗 Enter your Crew's Enterprise URL (more info at https://app.crewai.com):",
+      message: "🔗 Enter your Crew's Enterprise URL (more info at https://app.crewai.com):",
       when: (answers) => answers.mode === "CrewAI",
       validate: validateUrl,
       sanitize: sanitizers.url,
@@ -140,10 +139,8 @@ function getBaseQuestions(): Question[] {
     {
       type: "yes/no",
       name: "langGraphPlatform",
-      message:
-        "🦜🔗 Do you already have a LangGraph Agent URL? (remote or localhost)",
-      when: (answers) =>
-        answers.mode === "LangGraph" && answers.alreadyDeployed === "Yes",
+      message: "🦜🔗 Do you already have a LangGraph Agent URL? (remote or localhost)",
+      when: (answers) => answers.mode === "LangGraph" && answers.alreadyDeployed === "Yes",
       validate: (input) => {
         try {
           YesNoSchema.parse(input);
@@ -158,9 +155,7 @@ function getBaseQuestions(): Question[] {
       name: "langGraphPlatformUrl",
       message: "🦜🔗 Enter your LangGraph Agent URL (remote or localhost)",
       when: (answers) =>
-        answers.mode === "LangGraph" &&
-        answers.alreadyDeployed === "Yes" &&
-        answers.langGraphPlatform === "Yes",
+        answers.mode === "LangGraph" && answers.alreadyDeployed === "Yes" && answers.langGraphPlatform === "Yes",
       validate: validateUrl,
       sanitize: sanitizers.url,
     },
@@ -169,21 +164,16 @@ function getBaseQuestions(): Question[] {
       name: "langGraphAgent",
       message: "📦 Choose a LangGraph starter template:",
       choices: Array.from(LANGGRAPH_AGENTS),
-      when: (answers) =>
-        answers.mode === "LangGraph" && answers.alreadyDeployed === "No",
+      when: (answers) => answers.mode === "LangGraph" && answers.alreadyDeployed === "No",
     },
     {
       type: "input",
       name: "langSmithApiKey",
-      message:
-        "🦜🔗 Enter your LangSmith API key (required by LangGraph Platform) :",
+      message: "🦜🔗 Enter your LangSmith API key (required by LangGraph Platform) :",
       when: (answers) =>
         answers.mode === "LangGraph" &&
         answers.langGraphPlatform === "Yes" &&
-        !(
-          answers.langGraphPlatformUrl &&
-          isLocalhost(answers.langGraphPlatformUrl)
-        ),
+        !(answers.langGraphPlatformUrl && isLocalhost(answers.langGraphPlatformUrl)),
       sensitive: true,
       validate: validateRequired,
       sanitize: sanitizers.apiKey,
@@ -193,14 +183,11 @@ function getBaseQuestions(): Question[] {
     {
       type: "input",
       name: "llmToken",
-      message:
-        "🔑 Enter your OpenAI API key (optional - leave empty to configure your LLM later):",
+      message: "🔑 Enter your OpenAI API key (optional - leave empty to configure your LLM later):",
       when: (answers) =>
         (answers.mode === "LangGraph" && answers.alreadyDeployed === "No") ||
-        (answers.mode === "Standard" &&
-          answers.deploymentChoice === "Self-hosted") ||
-        (answers.mode === "MCP" &&
-          answers.deploymentChoice === "Self-hosted") ||
+        (answers.mode === "Standard" && answers.deploymentChoice === "Self-hosted") ||
+        (answers.mode === "MCP" && answers.deploymentChoice === "Self-hosted") ||
         (answers.mode === "Standard" && answers.useCopilotCloud !== "Yes") ||
         (answers.mode === "MCP" && answers.useCopilotCloud !== "Yes"),
       sensitive: true,
@@ -229,16 +216,13 @@ function getBaseQuestions(): Question[] {
     {
       type: "select",
       name: "selectedIDE",
-      message:
-        "💻 Which IDE would you like to configure with CopilotKit documentation?",
+      message: "💻 Which IDE would you like to configure with CopilotKit documentation?",
       choices: async () => {
         const installedIDEs = await detectInstalledIDEs();
-        const choices: Array<{ name: string; value: string }> =
-          installedIDEs.map((ide: any) => ({
-            name: IDE_DOCS_CONFIGS[ide as keyof typeof IDE_DOCS_CONFIGS]
-              .displayName,
-            value: ide,
-          }));
+        const choices: Array<{ name: string; value: string }> = installedIDEs.map((ide: any) => ({
+          name: IDE_DOCS_CONFIGS[ide as keyof typeof IDE_DOCS_CONFIGS].displayName,
+          value: ide,
+        }));
         choices.push({ name: "Skip", value: "skip" });
         return choices;
       },

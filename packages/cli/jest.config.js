@@ -12,8 +12,5 @@ export default {
   testMatch: ["**/test/**/*.test.ts"],
   collectCoverageFrom: ["src/**/*.ts", "!src/**/*.d.ts"],
   testEnvironment: "node",
-  testPathIgnorePatterns: [
-    "test/commands/dev.test.ts",
-    "test/commands/tunnel.test.ts",
-  ],
+  testPathIgnorePatterns: ["test/commands/dev.test.ts", "test/commands/tunnel.test.ts"],
 };

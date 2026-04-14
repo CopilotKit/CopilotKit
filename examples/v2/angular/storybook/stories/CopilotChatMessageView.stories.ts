@@ -22,18 +22,13 @@ const meta: Meta<CopilotChatMessageView> = {
   parameters: {
     docs: {
       description: {
-        component:
-          "A simple conversation between user and AI using CopilotChatMessageView component.",
+        component: "A simple conversation between user and AI using CopilotChatMessageView component.",
       },
     },
   },
   decorators: [
     moduleMetadata({
-      imports: [
-        CommonModule,
-        CopilotChatMessageView,
-        CopilotChatMessageViewCursor,
-      ],
+      imports: [CommonModule, CopilotChatMessageView, CopilotChatMessageViewCursor],
       providers: [
         provideCopilotChatLabels({
           assistantMessageToolbarCopyMessageLabel: "Copy",
@@ -357,26 +352,15 @@ export class CalculatorCounterService {
   template: `
     <div [style]="containerStyle">
       <div style="font-weight: bold; margin-bottom: 4px">🧮 Calculator</div>
-      <div style="font-size: 14px; color: #666">
-        Expression: {{ args?.expression }}
-      </div>
+      <div style="font-size: 14px; color: #666">Expression: {{ args?.expression }}</div>
       @if (status === ToolCallStatus.InProgress) {
         <div style="margin-top: 8px; color: #cc6600">Calculating...</div>
       }
       @if (status === ToolCallStatus.Complete && result) {
         <div style="margin-top: 8px; color: #006600">Result: {{ result }}</div>
       }
-      <div
-        style="
-          margin-top: 12px;
-          padding: 8px;
-          background-color: #fff8e6;
-          border-radius: 4px;
-        "
-      >
-        <div style="font-size: 13px; color: #666; margin-bottom: 4px">
-          Local counter: {{ counter() }}
-        </div>
+      <div style="margin-top: 12px; padding: 8px; background-color: #fff8e6; border-radius: 4px">
+        <div style="font-size: 13px; color: #666; margin-bottom: 4px">Local counter: {{ counter() }}</div>
         <div style="display: flex; gap: 8px; margin-bottom: 8px">
           <button
             (click)="decrementLocal()"
@@ -407,14 +391,7 @@ export class CalculatorCounterService {
         </div>
 
         <div style="border-top: 1px solid #ffcc66; padding-top: 8px">
-          <div
-            style="
-              font-size: 13px;
-              color: #666;
-              margin-bottom: 4px;
-              font-weight: bold;
-            "
-          >
+          <div style="font-size: 13px; color: #666; margin-bottom: 4px; font-weight: bold">
             Global counter: {{ globalCounter() }}
           </div>
           <div style="display: flex; gap: 8px">
@@ -509,15 +486,7 @@ class CalculatorToolRenderComponent implements ToolRenderer<CalculatorArgs> {
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div
-      style="
-        padding: 12px;
-        margin: 8px 0;
-        background-color: #f5f5f5;
-        border-radius: 8px;
-        border: 1px solid #ddd;
-      "
-    >
+    <div style="padding: 12px; margin: 8px 0; background-color: #f5f5f5; border-radius: 8px; border: 1px solid #ddd">
       <div style="font-weight: bold; margin-bottom: 4px">🔧 Tool Execution</div>
       <div style="font-size: 14px; color: #666">
         <pre>{{ argsJson }}</pre>
@@ -531,12 +500,9 @@ class CalculatorToolRenderComponent implements ToolRenderer<CalculatorArgs> {
     </div>
   `,
 })
-class WildcardToolRenderComponent implements ToolRenderer<
-  Record<string, unknown>
-> {
+class WildcardToolRenderComponent implements ToolRenderer<Record<string, unknown>> {
   readonly ToolCallStatus = ToolCallStatus;
-  readonly toolCall =
-    input.required<AngularToolCall<Record<string, unknown>>>();
+  readonly toolCall = input.required<AngularToolCall<Record<string, unknown>>>();
 
   get call(): AngularToolCall<Record<string, unknown>> {
     return this.toolCall();
@@ -1015,8 +981,7 @@ export class ChatComponent {
         id: "tool-weather-1",
         role: "tool" as const,
         toolCallId: "weather-1",
-        content:
-          "Current weather in San Francisco: 68°F, partly cloudy with a gentle breeze.",
+        content: "Current weather in San Francisco: 68°F, partly cloudy with a gentle breeze.",
       } as Message,
     ];
 

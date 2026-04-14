@@ -21,9 +21,7 @@ test.describe("Human in the Loop", () => {
 
   test("task request shows step selector with checkboxes", async ({ page }) => {
     const input = page.getByPlaceholder("Type a message");
-    await input.fill(
-      "Create a plan with steps to organize a team offsite event",
-    );
+    await input.fill("Create a plan with steps to organize a team offsite event");
     await input.press("Enter");
 
     // Either the LangGraph interrupt StepSelector or the HITL StepsFeedback should appear
@@ -43,9 +41,7 @@ test.describe("Human in the Loop", () => {
     await expect(stepText).not.toBeEmpty();
   });
 
-  test("step selector shows enabled count and has action button", async ({
-    page,
-  }) => {
+  test("step selector shows enabled count and has action button", async ({ page }) => {
     const input = page.getByPlaceholder("Type a message");
     await input.fill("Plan the steps to write a quarterly report");
     await input.press("Enter");
@@ -71,9 +67,7 @@ test.describe("Human in the Loop", () => {
     await expect(selector).toBeVisible({ timeout: 60000 });
 
     // Find and click the action button (Perform Steps / Confirm)
-    const actionBtn = page.locator(
-      'button:has-text("Perform"), button:has-text("Confirm")',
-    );
+    const actionBtn = page.locator('button:has-text("Perform"), button:has-text("Confirm")');
     await expect(actionBtn.first()).toBeVisible({ timeout: 5000 });
     await actionBtn.first().click();
 

@@ -42,8 +42,7 @@ export function BuilderAgentProvider({
       "Active E2B workspace. null = no sandbox provisioned yet — call the backend provision_workspace tool first.",
     value: activeWorkspace ?? {
       status: "not-provisioned",
-      message:
-        "Call provision_workspace(name) backend tool to create an E2B sandbox.",
+      message: "Call provision_workspace(name) backend tool to create an E2B sandbox.",
     },
   });
 
@@ -70,8 +69,7 @@ export function BuilderAgentProvider({
   });
 
   useCopilotReadable({
-    description:
-      "MCP servers currently connected to the studio. Each entry is an endpoint URL.",
+    description: "MCP servers currently connected to the studio. Each entry is an endpoint URL.",
     value: connectedServers,
   });
 
@@ -88,8 +86,7 @@ export function BuilderAgentProvider({
       {
         name: "endpoint",
         type: "string",
-        description:
-          "Full MCP endpoint URL, e.g. https://sandbox-abc.e2b.app/mcp",
+        description: "Full MCP endpoint URL, e.g. https://sandbox-abc.e2b.app/mcp",
         required: true,
       },
       {
@@ -106,13 +103,8 @@ export function BuilderAgentProvider({
       onAddServer(endpoint as string, serverId as string | undefined);
       // Persist serverId for session restoration
       try {
-        const saved = JSON.parse(
-          localStorage.getItem("mcp_active_workspace") ?? "{}",
-        );
-        localStorage.setItem(
-          "mcp_active_workspace",
-          JSON.stringify({ ...saved, serverId: serverId ?? "workspace" }),
-        );
+        const saved = JSON.parse(localStorage.getItem("mcp_active_workspace") ?? "{}");
+        localStorage.setItem("mcp_active_workspace", JSON.stringify({ ...saved, serverId: serverId ?? "workspace" }));
       } catch {}
       return `Connected MCP server at "${endpoint}"${serverId ? ` (${serverId})` : ""}.`;
     },
@@ -146,9 +138,7 @@ export function BuilderAgentProvider({
       });
       // Persist for session restoration — next page load reconnects instead of re-provisioning
       try {
-        const saved = JSON.parse(
-          localStorage.getItem("mcp_active_workspace") ?? "{}",
-        );
+        const saved = JSON.parse(localStorage.getItem("mcp_active_workspace") ?? "{}");
         localStorage.setItem(
           "mcp_active_workspace",
           JSON.stringify({

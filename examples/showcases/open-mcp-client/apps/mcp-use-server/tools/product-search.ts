@@ -36,8 +36,7 @@ export function register(server: MCPServer) {
   server.tool(
     {
       name: "search-tools",
-      description:
-        "Search for fruits and display the results in a visual widget",
+      description: "Search for fruits and display the results in a visual widget",
       schema: z.object({
         query: z.string().optional().describe("Search query to filter fruits"),
       }),
@@ -60,16 +59,12 @@ export function register(server: MCPServer) {
       },
     },
     async ({ query }) => {
-      const results = fruits.filter(
-        (f) => !query || f.fruit.toLowerCase().includes(query.toLowerCase()),
-      );
+      const results = fruits.filter((f) => !query || f.fruit.toLowerCase().includes(query.toLowerCase()));
       // Simulate network delay to demonstrate the loading state in the widget
       await new Promise((resolve) => setTimeout(resolve, 2000));
       return widget({
         props: { query: query ?? "", results },
-        output: text(
-          `Found ${results.length} fruits matching "${query ?? "all"}"`,
-        ),
+        output: text(`Found ${results.length} fruits matching "${query ?? "all"}"`),
       });
     },
   );
@@ -89,16 +84,11 @@ export function register(server: MCPServer) {
       }),
     },
     async ({ fruit }) => {
-      const found = fruits.find(
-        (f) => f.fruit?.toLowerCase() === fruit?.toLowerCase(),
-      );
+      const found = fruits.find((f) => f.fruit?.toLowerCase() === fruit?.toLowerCase());
       return object({
         fruit: found?.fruit ?? fruit,
         color: found?.color ?? "unknown",
-        facts: [
-          `${fruit} is a delicious fruit`,
-          `Color: ${found?.color ?? "unknown"}`,
-        ],
+        facts: [`${fruit} is a delicious fruit`, `Color: ${found?.color ?? "unknown"}`],
       });
     },
   );

@@ -7,10 +7,7 @@ function getOperationSurfaceId(operation: unknown): string | null {
     return null;
   }
 
-  if (
-    "surfaceId" in operation &&
-    typeof (operation as any).surfaceId === "string"
-  ) {
+  if ("surfaceId" in operation && typeof (operation as any).surfaceId === "string") {
     return (operation as any).surfaceId;
   }
 
@@ -43,11 +40,8 @@ export function withA2UIActivityMessage(baseRenderer: any) {
     }, [operations]);
 
     const activityLabel = useMemo(() => {
-      if (!Array.isArray(operations) || operations.length === 0)
-        return "Interactive UI";
-      return surfaceCount > 1
-        ? `Interactive UI \u00B7 ${surfaceCount} surfaces`
-        : "Interactive UI";
+      if (!Array.isArray(operations) || operations.length === 0) return "Interactive UI";
+      return surfaceCount > 1 ? `Interactive UI \u00B7 ${surfaceCount} surfaces` : "Interactive UI";
     }, [operations, surfaceCount]);
 
     const [collapsed, setCollapsed] = useState(false);

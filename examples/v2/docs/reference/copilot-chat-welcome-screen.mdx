@@ -65,8 +65,7 @@ Or style the welcome message component:
 <CopilotChat
   welcomeScreen={{
     welcomeMessage: {
-      className:
-        "text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent",
+      className: "text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent",
     },
   }}
 />
@@ -136,8 +135,8 @@ function CustomWelcomeScreen({ input, suggestionView }) {
       <h1 className="text-3xl font-bold text-gray-900 mb-2">Hi there!</h1>
 
       <p className="text-gray-600 text-center max-w-md mb-8">
-        I'm your AI assistant. I can help you with coding, research, writing,
-        and much more. What would you like to explore?
+        I'm your AI assistant. I can help you with coding, research, writing, and much more. What would you like to
+        explore?
       </p>
 
       <div className="w-full max-w-2xl">{input}</div>
@@ -163,10 +162,7 @@ function CustomWelcomeScreen(props) {
           <div className="lg:w-1/2 bg-indigo-600 text-white p-12 flex items-center justify-center">
             <div className="max-w-md">
               <h1 className="text-4xl font-bold mb-4">AI Assistant</h1>
-              <p className="text-indigo-200">
-                Your intelligent companion for coding, writing, and
-                problem-solving.
-              </p>
+              <p className="text-indigo-200">Your intelligent companion for coding, writing, and problem-solving.</p>
             </div>
           </div>
 
@@ -233,17 +229,13 @@ function CenteredWelcome({ input, suggestionView }) {
         <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full" />
       </div>
 
-      <h1 className="text-2xl font-semibold text-gray-900 mb-1">
-        Ready to help
-      </h1>
+      <h1 className="text-2xl font-semibold text-gray-900 mb-1">Ready to help</h1>
 
       <p className="text-gray-500 mb-8">Start a conversation below</p>
 
       <div className="w-full max-w-xl">{input}</div>
 
-      <div className="mt-4 flex flex-wrap justify-center gap-2">
-        {suggestionView}
-      </div>
+      <div className="mt-4 flex flex-wrap justify-center gap-2">{suggestionView}</div>
     </div>
   );
 }

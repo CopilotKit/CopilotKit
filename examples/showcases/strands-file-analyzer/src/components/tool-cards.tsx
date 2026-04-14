@@ -17,9 +17,7 @@ export function AnalysisProposalCard({
   onApprove,
   onDeny,
 }: Omit<AnalysisProposalCardProps, "status">) {
-  const [responded, setResponded] = useState<"approved" | "denied" | null>(
-    null,
-  );
+  const [responded, setResponded] = useState<"approved" | "denied" | null>(null);
 
   const handleApprove = () => {
     setResponded("approved");
@@ -35,12 +33,7 @@ export function AnalysisProposalCard({
     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-200 my-4 max-w-md">
       <div className="flex items-center gap-2 mb-3">
         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-          <svg
-            className="w-4 h-4 text-white"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -53,20 +46,14 @@ export function AnalysisProposalCard({
       </div>
 
       <p className="text-sm text-slate-600 mb-3">
-        Ready to analyze{" "}
-        <span className="font-medium text-slate-900">{fileName}</span>
+        Ready to analyze <span className="font-medium text-slate-900">{fileName}</span>
       </p>
 
       <div className="bg-white/50 rounded-lg p-3 mb-4">
-        <p className="text-xs font-medium text-slate-500 mb-2">
-          Proposed analyses:
-        </p>
+        <p className="text-xs font-medium text-slate-500 mb-2">Proposed analyses:</p>
         <ul className="space-y-1">
           {proposedAnalyses.map((analysis, i) => (
-            <li
-              key={i}
-              className="text-sm text-slate-700 flex items-center gap-2"
-            >
+            <li key={i} className="text-sm text-slate-700 flex items-center gap-2">
               <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
               {analysis}
             </li>
@@ -76,35 +63,15 @@ export function AnalysisProposalCard({
 
       {responded === "approved" ? (
         <div className="flex items-center gap-2 text-green-600">
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
           <span className="font-medium">Investigation approved</span>
         </div>
       ) : responded === "denied" ? (
         <div className="flex items-center gap-2 text-red-600">
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
           <span className="font-medium">Investigation declined</span>
         </div>
@@ -114,12 +81,7 @@ export function AnalysisProposalCard({
             onClick={handleApprove}
             className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -147,18 +109,13 @@ interface StatusProgressCardProps {
   toolStatus: "inProgress" | "executing" | "complete";
 }
 
-export function StatusProgressCard({
-  message,
-  toolStatus,
-}: StatusProgressCardProps) {
+export function StatusProgressCard({ message, toolStatus }: StatusProgressCardProps) {
   const isComplete = toolStatus === "complete";
 
   return (
     <div
       className={`rounded-xl p-4 my-3 max-w-md border ${
-        isComplete
-          ? "bg-green-50 border-green-200"
-          : "bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200"
+        isComplete ? "bg-green-50 border-green-200" : "bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200"
       }`}
     >
       <div className="flex items-center gap-3">
@@ -168,28 +125,14 @@ export function StatusProgressCard({
           }`}
         >
           {isComplete ? (
-            <svg
-              className="w-4 h-4 text-green-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
+            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           ) : (
             <div className="w-4 h-4 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
           )}
         </div>
-        <p
-          className={`text-sm ${isComplete ? "text-green-600" : "text-slate-600"} font-mono`}
-        >
-          {message}
-        </p>
+        <p className={`text-sm ${isComplete ? "text-green-600" : "text-slate-600"} font-mono`}>{message}</p>
       </div>
     </div>
   );
@@ -202,10 +145,7 @@ interface AnalysisProgressCardProps {
   args: Record<string, unknown>;
 }
 
-const TOOL_CONFIG: Record<
-  string,
-  { icon: string; label: string; loadingText: string }
-> = {
+const TOOL_CONFIG: Record<string, { icon: string; label: string; loadingText: string }> = {
   update_findings: {
     icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
     label: "Populating Findings Panel",
@@ -228,10 +168,7 @@ const TOOL_CONFIG: Record<
   },
 };
 
-export function AnalysisProgressCard({
-  toolName,
-  status,
-}: AnalysisProgressCardProps) {
+export function AnalysisProgressCard({ toolName, status }: AnalysisProgressCardProps) {
   const config = TOOL_CONFIG[toolName] || {
     icon: "M13 10V3L4 14h7v7l9-11h-7z",
     label: toolName,
@@ -243,9 +180,7 @@ export function AnalysisProgressCard({
   return (
     <div
       className={`rounded-xl p-4 my-3 max-w-sm border ${
-        isComplete
-          ? "bg-green-50 border-green-200"
-          : "bg-slate-50 border-slate-200"
+        isComplete ? "bg-green-50 border-green-200" : "bg-slate-50 border-slate-200"
       }`}
     >
       <div className="flex items-center gap-3">
@@ -255,32 +190,16 @@ export function AnalysisProgressCard({
           }`}
         >
           {isComplete ? (
-            <svg
-              className="w-5 h-5 text-green-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
+            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           ) : (
             <div className="w-5 h-5 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" />
           )}
         </div>
         <div className="flex-1">
-          <p
-            className={`font-medium ${isComplete ? "text-green-700" : "text-slate-700"}`}
-          >
-            {config.label}
-          </p>
-          <p className="text-xs text-slate-500">
-            {isComplete ? "Complete" : config.loadingText}
-          </p>
+          <p className={`font-medium ${isComplete ? "text-green-700" : "text-slate-700"}`}>{config.label}</p>
+          <p className="text-xs text-slate-500">{isComplete ? "Complete" : config.loadingText}</p>
         </div>
       </div>
     </div>
@@ -295,12 +214,7 @@ interface DefaultToolCardProps {
   result?: unknown;
 }
 
-export function DefaultToolCard({
-  name,
-  status,
-  args,
-  result,
-}: DefaultToolCardProps) {
+export function DefaultToolCard({ name, status, args, result }: DefaultToolCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -310,30 +224,20 @@ export function DefaultToolCard({
           <span className="font-mono text-sm text-slate-700">{name}</span>
           <span
             className={`text-xs px-2 py-0.5 rounded-full ${
-              status === "complete"
-                ? "bg-green-100 text-green-700"
-                : "bg-blue-100 text-blue-700"
+              status === "complete" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
             }`}
           >
             {status}
           </span>
         </div>
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="text-slate-400 hover:text-slate-600"
-        >
+        <button onClick={() => setExpanded(!expanded)} className="text-slate-400 hover:text-slate-600">
           <svg
             className={`w-4 h-4 transition-transform ${expanded ? "rotate-180" : ""}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </button>
       </div>
@@ -341,16 +245,12 @@ export function DefaultToolCard({
         <div className="mt-3 space-y-2">
           <div>
             <p className="text-xs text-slate-500 mb-1">Arguments:</p>
-            <pre className="text-xs bg-white p-2 rounded overflow-auto">
-              {JSON.stringify(args, null, 2)}
-            </pre>
+            <pre className="text-xs bg-white p-2 rounded overflow-auto">{JSON.stringify(args, null, 2)}</pre>
           </div>
           {result !== undefined && result !== null && (
             <div>
               <p className="text-xs text-slate-500 mb-1">Result:</p>
-              <pre className="text-xs bg-white p-2 rounded overflow-auto">
-                {JSON.stringify(result, null, 2)}
-              </pre>
+              <pre className="text-xs bg-white p-2 rounded overflow-auto">{JSON.stringify(result, null, 2)}</pre>
             </div>
           )}
         </div>

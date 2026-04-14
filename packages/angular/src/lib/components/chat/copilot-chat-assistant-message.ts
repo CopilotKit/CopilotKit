@@ -65,10 +65,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
         >
         </copilot-slot>
       } @else {
-        <copilot-chat-assistant-message-renderer
-          [content]="message().content || ''"
-          [inputClass]="markdownRendererClass()"
-        >
+        <copilot-chat-assistant-message-renderer [content]="message().content || ''" [inputClass]="markdownRendererClass()">
         </copilot-chat-assistant-message-renderer>
       }
 
@@ -81,11 +78,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
         >
         </copilot-slot>
       } @else if (message().toolCalls && message()!.toolCalls!.length > 0) {
-        <copilot-chat-tool-calls-view
-          [message]="message()!"
-          [messages]="messages()"
-          [isLoading]="isLoading()"
-        >
+        <copilot-chat-tool-calls-view [message]="message()!" [messages]="messages()" [isLoading]="isLoading()">
         </copilot-chat-tool-calls-view>
       }
 
@@ -120,11 +113,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
               }
 
               <!-- Thumbs up button - show if custom slot provided OR if handler available at top level -->
-              @if (
-                thumbsUpButtonComponent() ||
-                thumbsUpButtonTemplate ||
-                handlers.hasAssistantThumbsUpHandler()
-              ) {
+              @if (thumbsUpButtonComponent() || thumbsUpButtonTemplate || handlers.hasAssistantThumbsUpHandler()) {
                 <copilot-slot
                   [slot]="thumbsUpButtonTemplate || thumbsUpButtonComponent()"
                   [context]="{}"
@@ -135,11 +124,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
               }
 
               <!-- Thumbs down button - show if custom slot provided OR if handler available at top level -->
-              @if (
-                thumbsDownButtonComponent() ||
-                thumbsDownButtonTemplate ||
-                handlers.hasAssistantThumbsDownHandler()
-              ) {
+              @if (thumbsDownButtonComponent() || thumbsDownButtonTemplate || handlers.hasAssistantThumbsDownHandler()) {
                 <copilot-slot
                   [slot]="thumbsDownButtonTemplate || thumbsDownButtonComponent()"
                   [context]="{}"
@@ -171,9 +156,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
 
               <!-- Additional toolbar items -->
               @if (additionalToolbarItems()) {
-                <ng-container
-                  [ngTemplateOutlet]="additionalToolbarItems() || null"
-                ></ng-container>
+                <ng-container [ngTemplateOutlet]="additionalToolbarItems() || null"></ng-container>
               }
             </div>
           </div>
@@ -396,9 +379,7 @@ export class CopilotChatAssistantMessage {
   readonly message = input.required<AssistantMessage>();
   readonly messages = input<Message[]>([]);
   readonly isLoading = input<boolean>(false);
-  readonly additionalToolbarItems = input<TemplateRef<any> | undefined>(
-    undefined,
-  );
+  readonly additionalToolbarItems = input<TemplateRef<any> | undefined>(undefined);
   readonly toolbarVisible = input<boolean>(true);
   readonly inputClass = input<string | undefined>(undefined);
 
@@ -425,31 +406,21 @@ export class CopilotChatAssistantMessage {
 
   // Computed values
   computedClass = computed(() => {
-    return cn(
-      "prose max-w-full break-words dark:prose-invert",
-      this.customClass(),
-    );
+    return cn("prose max-w-full break-words dark:prose-invert", this.customClass());
   });
 
   // Default components
-  protected readonly defaultThumbsUpButtonComponent =
-    CopilotChatAssistantMessageThumbsUpButton;
-  protected readonly defaultThumbsDownButtonComponent =
-    CopilotChatAssistantMessageThumbsDownButton;
-  protected readonly CopilotChatAssistantMessageRenderer =
-    CopilotChatAssistantMessageRenderer;
-  protected readonly CopilotChatAssistantMessageToolbar =
-    CopilotChatAssistantMessageToolbar;
-  protected readonly CopilotChatAssistantMessageCopyButton =
-    CopilotChatAssistantMessageCopyButton;
+  protected readonly defaultThumbsUpButtonComponent = CopilotChatAssistantMessageThumbsUpButton;
+  protected readonly defaultThumbsDownButtonComponent = CopilotChatAssistantMessageThumbsDownButton;
+  protected readonly CopilotChatAssistantMessageRenderer = CopilotChatAssistantMessageRenderer;
+  protected readonly CopilotChatAssistantMessageToolbar = CopilotChatAssistantMessageToolbar;
+  protected readonly CopilotChatAssistantMessageCopyButton = CopilotChatAssistantMessageCopyButton;
   protected readonly CopilotChatToolCallsView = CopilotChatToolCallsView;
 
   // Context for slots (reactive via signals)
-  markdownRendererContext = computed<AssistantMessageMarkdownRendererContext>(
-    () => ({
-      content: this.message()?.content || "",
-    }),
-  );
+  markdownRendererContext = computed<AssistantMessageMarkdownRendererContext>(() => ({
+    content: this.message()?.content || "",
+  }));
 
   // Output maps for slots
   copyButtonOutputs = { clicked: () => this.handleCopy() };

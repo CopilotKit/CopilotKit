@@ -3,15 +3,8 @@ import "@copilotkit/react-ui/styles.css";
 
 import React, { useState } from "react";
 import SingleSpreadsheet from "./components/SingleSpreadsheet";
-import {
-  CopilotKit,
-  useCopilotAction,
-  useCopilotReadable,
-} from "@copilotkit/react-core";
-import {
-  CopilotSidebar,
-  useCopilotChatSuggestions,
-} from "@copilotkit/react-ui";
+import { CopilotKit, useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
+import { CopilotSidebar, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { INSTRUCTIONS } from "./instructions";
 import { canonicalSpreadsheetData } from "./utils/canonicalSpreadsheetData";
 import { SpreadsheetData } from "./types";
@@ -21,16 +14,11 @@ import { sampleData, sampleData2 } from "./utils/sampleData";
 
 const HomePage = () => {
   return (
-    <CopilotKit
-      runtimeUrl="api/copilotkit"
-      transcribeAudioUrl="/api/transcribe"
-      textToSpeechUrl="/api/tts"
-    >
+    <CopilotKit runtimeUrl="api/copilotkit" transcribeAudioUrl="/api/transcribe" textToSpeechUrl="/api/tts">
       <CopilotSidebar
         instructions={INSTRUCTIONS}
         labels={{
-          initial:
-            "Welcome to the spreadsheet app!  What would you like help with?",
+          initial: "Welcome to the spreadsheet app!  What would you like help with?",
         }}
         defaultOpen={true}
         clickOutsideToClose={false}

@@ -1,11 +1,4 @@
-import {
-  Car,
-  ContactInfo,
-  CardInfo,
-  FinancingInfo,
-  cars,
-  availableCardInfo,
-} from "@/lib/types";
+import { Car, ContactInfo, CardInfo, FinancingInfo, cars, availableCardInfo } from "@/lib/types";
 
 export type Order = {
   car: Car;

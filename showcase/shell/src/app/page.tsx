@@ -1,9 +1,5 @@
 import Link from "next/link";
-import {
-  getIntegrations,
-  getFeatures,
-  getFeatureCategories,
-} from "@/lib/registry";
+import { getIntegrations, getFeatures, getFeatureCategories } from "@/lib/registry";
 import { GuidedFlow } from "@/components/guided-flow";
 
 // Derive framework list from registry sort_order — no hardcoded lists
@@ -39,8 +35,8 @@ export default function HomePage() {
           Build AI-powered apps with any agent framework
         </h1>
         <p className="text-base text-[var(--text-secondary)] leading-relaxed">
-          Explore live integrations, compare features across frameworks, and
-          find the right starting point for your project.
+          Explore live integrations, compare features across frameworks, and find the right starting point for your
+          project.
         </p>
       </div>
 
@@ -60,9 +56,7 @@ export default function HomePage() {
               d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
             />
           </svg>
-          <span className="text-sm text-[var(--text-muted)] flex-1">
-            Search integrations, features, demos...
-          </span>
+          <span className="text-sm text-[var(--text-muted)] flex-1">Search integrations, features, demos...</span>
           <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-[var(--border)] bg-[var(--bg-elevated)] text-[10px] font-mono text-[var(--text-faint)]">
             ⌘K
           </kbd>
@@ -75,26 +69,14 @@ export default function HomePage() {
           href="/docs/quickstart"
           title="Get Started"
           description="Follow the quickstart guide and start building in minutes."
-          icon={
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M13 10V3L4 14h7v7l9-11h-7z"
-            />
-          }
+          icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />}
         />
         <PathCard
           href="/integrations"
           title="Explore Integrations"
           description="Browse all integrations by framework, language, and feature."
           icon={
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M3 10h18M3 14h18M10 3v18M14 3v18"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M3 14h18M10 3v18M14 3v18" />
           }
         />
         <PathCard
@@ -126,9 +108,7 @@ export default function HomePage() {
           {frameworkNames.map((fw) => {
             const isLive = true; // already filtered to deployed
             const match = isLive
-              ? integrations.find(
-                  (i) => i.deployed && (i.name === fw || i.name.startsWith(fw)),
-                )
+              ? integrations.find((i) => i.deployed && (i.name === fw || i.name.startsWith(fw)))
               : undefined;
 
             if (isLive && match) {
@@ -160,31 +140,20 @@ export default function HomePage() {
       {/* Stats bar */}
       <div className="flex flex-wrap justify-center items-center gap-3 text-xs text-[var(--text-muted)]">
         <span className="whitespace-nowrap">
-          <span className="font-medium text-[var(--text-secondary)]">
-            {deployedIntegrations.length}
-          </span>{" "}
-          live integrations
+          <span className="font-medium text-[var(--text-secondary)]">{deployedIntegrations.length}</span> live
+          integrations
         </span>
         <span className="text-[var(--border)]">·</span>
         <span className="whitespace-nowrap">
-          <span className="font-medium text-[var(--text-secondary)]">
-            {totalDemos}
-          </span>{" "}
-          demos
+          <span className="font-medium text-[var(--text-secondary)]">{totalDemos}</span> demos
         </span>
         <span className="text-[var(--border)]">·</span>
         <span className="whitespace-nowrap">
-          <span className="font-medium text-[var(--text-secondary)]">
-            {features.length}
-          </span>{" "}
-          features
+          <span className="font-medium text-[var(--text-secondary)]">{features.length}</span> features
         </span>
         <span className="text-[var(--border)]">·</span>
         <span className="whitespace-nowrap">
-          <span className="font-medium text-[var(--text-secondary)]">
-            {categories.length}
-          </span>{" "}
-          categories
+          <span className="font-medium text-[var(--text-secondary)]">{categories.length}</span> categories
         </span>
       </div>
     </div>
@@ -208,12 +177,7 @@ function PathCard({
       className="group flex flex-col gap-3 p-5 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm transition-all"
     >
       <div className="w-8 h-8 rounded-lg bg-[var(--accent-light)] flex items-center justify-center">
-        <svg
-          className="w-4 h-4 text-[var(--accent)]"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-4 h-4 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           {icon}
         </svg>
       </div>
@@ -221,9 +185,7 @@ function PathCard({
         <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] transition-colors mb-1">
           {title}
         </h3>
-        <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-          {description}
-        </p>
+        <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{description}</p>
       </div>
     </Link>
   );

@@ -196,19 +196,9 @@ const ThemedWidget: React.FC = () => {
 
   return (
     <McpUseProvider autoSize>
-      <div
-        className={`p-4 rounded-lg ${
-          isDark ? "bg-gray-900 text-white" : "bg-white text-gray-900"
-        }`}
-      >
-        <h1
-          className={`text-xl font-bold ${isDark ? "text-blue-400" : "text-blue-600"}`}
-        >
-          {props.title}
-        </h1>
-        <p className={isDark ? "text-gray-300" : "text-gray-700"}>
-          {props.content}
-        </p>
+      <div className={`p-4 rounded-lg ${isDark ? "bg-gray-900 text-white" : "bg-white text-gray-900"}`}>
+        <h1 className={`text-xl font-bold ${isDark ? "text-blue-400" : "text-blue-600"}`}>{props.title}</h1>
+        <p className={isDark ? "text-gray-300" : "text-gray-700"}>{props.content}</p>
       </div>
     </McpUseProvider>
   );

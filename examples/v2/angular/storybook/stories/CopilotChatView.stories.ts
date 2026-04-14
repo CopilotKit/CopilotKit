@@ -15,18 +15,12 @@ const meta: Meta<CopilotChatView> = {
   component: CopilotChatView,
   decorators: [
     moduleMetadata({
-      imports: [
-        CommonModule,
-        CopilotChatView,
-        CopilotChatMessageView,
-        CopilotChatInput,
-      ],
+      imports: [CommonModule, CopilotChatView, CopilotChatMessageView, CopilotChatInput],
       providers: [
         provideCopilotKit({}),
         provideCopilotChatLabels({
           chatInputPlaceholder: "Type a message...",
-          chatDisclaimerText:
-            "AI can make mistakes. Please verify important information.",
+          chatDisclaimerText: "AI can make mistakes. Please verify important information.",
         }),
       ],
     }),

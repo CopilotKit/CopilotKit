@@ -16,18 +16,15 @@ export function MobileChat() {
       suggestions={[
         {
           title: "Pizza sales",
-          message:
-            "Please update the dashboard to help me keep track of the current trends in the Pizza industry.",
+          message: "Please update the dashboard to help me keep track of the current trends in the Pizza industry.",
         },
         {
           title: "AI growth",
-          message:
-            "Please update the dashbaord to help me keep track of the current trends in the AI industry.",
+          message: "Please update the dashbaord to help me keep track of the current trends in the AI industry.",
         },
         {
           title: "Music trends",
-          message:
-            "Please update the dashbaord to help me keep track of the current trends in the Music industry.",
+          message: "Please update the dashbaord to help me keep track of the current trends in the Music industry.",
         },
       ]}
       Input={SidebarInput}

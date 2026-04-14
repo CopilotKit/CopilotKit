@@ -34,10 +34,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
       it("should apply tailwind class string to assistantMessage", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatMessageView
-              messages={sampleMessages}
-              assistantMessage="bg-blue-100 rounded-lg p-4 shadow-md"
-            />
+            <CopilotChatMessageView messages={sampleMessages} assistantMessage="bg-blue-100 rounded-lg p-4 shadow-md" />
           </TestWrapper>,
         );
 
@@ -52,16 +49,11 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
       it("should override default assistantMessage className", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatMessageView
-              messages={sampleMessages}
-              assistantMessage="custom-assistant-class"
-            />
+            <CopilotChatMessageView messages={sampleMessages} assistantMessage="custom-assistant-class" />
           </TestWrapper>,
         );
 
-        expect(
-          container.querySelector(".custom-assistant-class"),
-        ).toBeDefined();
+        expect(container.querySelector(".custom-assistant-class")).toBeDefined();
       });
     });
 
@@ -69,10 +61,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
       it("should apply tailwind class string to userMessage", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatMessageView
-              messages={sampleMessages}
-              userMessage="bg-green-100 rounded-lg p-4 ml-auto"
-            />
+            <CopilotChatMessageView messages={sampleMessages} userMessage="bg-green-100 rounded-lg p-4 ml-auto" />
           </TestWrapper>,
         );
 
@@ -86,10 +75,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
       it("should override default userMessage className", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatMessageView
-              messages={sampleMessages}
-              userMessage="custom-user-class"
-            />
+            <CopilotChatMessageView messages={sampleMessages} userMessage="custom-user-class" />
           </TestWrapper>,
         );
 
@@ -150,9 +136,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         );
 
         // Slot props apply to all assistant messages, so use queryAllByTestId
-        expect(
-          screen.queryAllByTestId("assistant-with-testid").length,
-        ).toBeGreaterThan(0);
+        expect(screen.queryAllByTestId("assistant-with-testid").length).toBeGreaterThan(0);
       });
 
       it("should pass onThumbsUp callback to assistantMessage", () => {
@@ -160,17 +144,12 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
 
         render(
           <TestWrapper>
-            <CopilotChatMessageView
-              messages={sampleMessages}
-              assistantMessage={{ onThumbsUp: handleThumbsUp }}
-            />
+            <CopilotChatMessageView messages={sampleMessages} assistantMessage={{ onThumbsUp: handleThumbsUp }} />
           </TestWrapper>,
         );
 
         // Find thumbs up button and click it
-        const thumbsUpButtons = document.querySelectorAll(
-          "[aria-label*='thumbs']",
-        );
+        const thumbsUpButtons = document.querySelectorAll("[aria-label*='thumbs']");
         thumbsUpButtons.forEach((btn) => {
           if (btn.getAttribute("aria-label")?.toLowerCase().includes("up")) {
             fireEvent.click(btn);
@@ -183,10 +162,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
 
         render(
           <TestWrapper>
-            <CopilotChatMessageView
-              messages={sampleMessages}
-              assistantMessage={{ onThumbsDown: handleThumbsDown }}
-            />
+            <CopilotChatMessageView messages={sampleMessages} assistantMessage={{ onThumbsDown: handleThumbsDown }} />
           </TestWrapper>,
         );
 
@@ -213,9 +189,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         );
 
         // Slot props apply to all assistant messages, so use queryAllByTestId
-        expect(
-          screen.queryAllByTestId("toolbar-visible-test").length,
-        ).toBeGreaterThan(0);
+        expect(screen.queryAllByTestId("toolbar-visible-test").length).toBeGreaterThan(0);
       });
     });
 
@@ -223,17 +197,12 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
       it("should pass data-testid prop to userMessage", () => {
         render(
           <TestWrapper>
-            <CopilotChatMessageView
-              messages={sampleMessages}
-              userMessage={{ "data-testid": "user-with-testid" }}
-            />
+            <CopilotChatMessageView messages={sampleMessages} userMessage={{ "data-testid": "user-with-testid" }} />
           </TestWrapper>,
         );
 
         // Slot props apply to all user messages, so use queryAllByTestId
-        expect(
-          screen.queryAllByTestId("user-with-testid").length,
-        ).toBeGreaterThan(0);
+        expect(screen.queryAllByTestId("user-with-testid").length).toBeGreaterThan(0);
       });
 
       it("should pass onEditMessage callback to userMessage", () => {
@@ -241,10 +210,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
 
         render(
           <TestWrapper>
-            <CopilotChatMessageView
-              messages={sampleMessages}
-              userMessage={{ onEditMessage: handleEdit }}
-            />
+            <CopilotChatMessageView messages={sampleMessages} userMessage={{ onEditMessage: handleEdit }} />
           </TestWrapper>,
         );
 
@@ -283,9 +249,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        expect(
-          container.querySelector(".user-override-assistant"),
-        ).toBeDefined();
+        expect(container.querySelector(".user-override-assistant")).toBeDefined();
         expect(container.querySelector(".user-override-user")).toBeDefined();
       });
     });
@@ -306,16 +270,11 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
 
         render(
           <TestWrapper>
-            <CopilotChatMessageView
-              messages={sampleMessages}
-              assistantMessage={CustomAssistant}
-            />
+            <CopilotChatMessageView messages={sampleMessages} assistantMessage={CustomAssistant} />
           </TestWrapper>,
         );
 
-        expect(
-          screen.getAllByTestId("custom-assistant").length,
-        ).toBeGreaterThan(0);
+        expect(screen.getAllByTestId("custom-assistant").length).toBeGreaterThan(0);
         // There are multiple assistant messages, so look for multiple "AI:" labels
         expect(screen.getAllByText("AI:").length).toBeGreaterThan(0);
       });
@@ -330,11 +289,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
 
         render(
           <TestWrapper>
-            <CopilotChatMessageView
-              messages={sampleMessages}
-              isRunning={true}
-              assistantMessage={CustomAssistant}
-            />
+            <CopilotChatMessageView messages={sampleMessages} isRunning={true} assistantMessage={CustomAssistant} />
           </TestWrapper>,
         );
 
@@ -353,10 +308,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
 
         render(
           <TestWrapper>
-            <CopilotChatMessageView
-              messages={sampleMessages}
-              assistantMessage={CustomAssistant}
-            />
+            <CopilotChatMessageView messages={sampleMessages} assistantMessage={CustomAssistant} />
           </TestWrapper>,
         );
 
@@ -376,10 +328,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
 
         render(
           <TestWrapper>
-            <CopilotChatMessageView
-              messages={sampleMessages}
-              userMessage={CustomUser}
-            />
+            <CopilotChatMessageView messages={sampleMessages} userMessage={CustomUser} />
           </TestWrapper>,
         );
 
@@ -398,10 +347,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
 
         render(
           <TestWrapper>
-            <CopilotChatMessageView
-              messages={sampleMessages}
-              userMessage={CustomUser}
-            />
+            <CopilotChatMessageView messages={sampleMessages} userMessage={CustomUser} />
           </TestWrapper>,
         );
 
@@ -421,11 +367,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
 
         render(
           <TestWrapper>
-            <CopilotChatMessageView
-              messages={sampleMessages}
-              isRunning={true}
-              cursor={CustomCursor}
-            />
+            <CopilotChatMessageView messages={sampleMessages} isRunning={true} cursor={CustomCursor} />
           </TestWrapper>,
         );
 
@@ -446,9 +388,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           <div data-testid="multi-user">Human: {message?.content}</div>
         );
 
-        const CustomCursor: React.FC<any> = () => (
-          <span data-testid="multi-cursor">...</span>
-        );
+        const CustomCursor: React.FC<any> = () => <span data-testid="multi-cursor">...</span>;
 
         render(
           <TestWrapper>
@@ -462,9 +402,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        expect(screen.getAllByTestId("multi-assistant").length).toBeGreaterThan(
-          0,
-        );
+        expect(screen.getAllByTestId("multi-assistant").length).toBeGreaterThan(0);
         expect(screen.getAllByTestId("multi-user").length).toBeGreaterThan(0);
       });
     });
@@ -504,10 +442,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
     describe("assistantMessage -> toolbar drill-down", () => {
       it("should allow customizing toolbar within assistantMessage", () => {
         const CustomToolbar: React.FC<any> = ({ children }) => (
-          <div
-            data-testid="custom-assistant-toolbar"
-            className="toolbar-wrapper"
-          >
+          <div data-testid="custom-assistant-toolbar" className="toolbar-wrapper">
             Actions: {children}
           </div>
         );
@@ -524,9 +459,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         );
 
         // Slot applies to all assistant messages, so there may be multiple
-        const toolbarElements = screen.queryAllByTestId(
-          "custom-assistant-toolbar",
-        );
+        const toolbarElements = screen.queryAllByTestId("custom-assistant-toolbar");
         if (toolbarElements.length > 0) {
           expect(toolbarElements[0].textContent).toContain("Actions:");
         }
@@ -608,8 +541,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         );
 
         // Slot applies to all assistant messages, so there may be multiple
-        const thumbsDownElements =
-          screen.queryAllByTestId("custom-thumbs-down");
+        const thumbsDownElements = screen.queryAllByTestId("custom-thumbs-down");
         if (thumbsDownElements.length > 0) {
           expect(thumbsDownElements[0].textContent).toContain("Bad");
         }
@@ -673,9 +605,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
     describe("assistantMessage -> toolCallsView drill-down", () => {
       it("should allow customizing toolCallsView within assistantMessage", () => {
         const CustomToolCallsView: React.FC<any> = ({ toolCalls }) => (
-          <div data-testid="custom-tool-calls">
-            Tool Calls: {toolCalls?.length || 0}
-          </div>
+          <div data-testid="custom-tool-calls">Tool Calls: {toolCalls?.length || 0}</div>
         );
 
         render(
@@ -717,9 +647,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         );
 
         // Slot applies to all user messages, so there may be multiple
-        const rendererElements = screen.queryAllByTestId(
-          "custom-user-renderer",
-        );
+        const rendererElements = screen.queryAllByTestId("custom-user-renderer");
         if (rendererElements.length > 0) {
           expect(rendererElements[0].querySelector("em")).toBeDefined();
         }
@@ -807,10 +735,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
 
     describe("userMessage -> branchNavigation drill-down", () => {
       it("should allow customizing branchNavigation within userMessage", () => {
-        const CustomBranch: React.FC<any> = ({
-          branchIndex,
-          numberOfBranches,
-        }) => (
+        const CustomBranch: React.FC<any> = ({ branchIndex, numberOfBranches }) => (
           <div data-testid="custom-branch">
             Branch {branchIndex} of {numberOfBranches}
           </div>
@@ -837,15 +762,9 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
 
     describe("multiple nested overrides", () => {
       it("should allow multiple assistant message subcomponent overrides", () => {
-        const CustomCopy: React.FC<any> = () => (
-          <button data-testid="nested-copy">Copy</button>
-        );
-        const CustomThumbsUp: React.FC<any> = () => (
-          <button data-testid="nested-thumbs-up">Up</button>
-        );
-        const CustomThumbsDown: React.FC<any> = () => (
-          <button data-testid="nested-thumbs-down">Down</button>
-        );
+        const CustomCopy: React.FC<any> = () => <button data-testid="nested-copy">Copy</button>;
+        const CustomThumbsUp: React.FC<any> = () => <button data-testid="nested-thumbs-up">Up</button>;
+        const CustomThumbsDown: React.FC<any> = () => <button data-testid="nested-thumbs-down">Down</button>;
 
         render(
           <TestWrapper>
@@ -866,12 +785,8 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
       });
 
       it("should allow multiple user message subcomponent overrides", () => {
-        const CustomCopy: React.FC<any> = () => (
-          <button data-testid="user-nested-copy">UCopy</button>
-        );
-        const CustomEdit: React.FC<any> = () => (
-          <button data-testid="user-nested-edit">UEdit</button>
-        );
+        const CustomCopy: React.FC<any> = () => <button data-testid="user-nested-copy">UCopy</button>;
+        const CustomEdit: React.FC<any> = () => <button data-testid="user-nested-edit">UEdit</button>;
 
         render(
           <TestWrapper>
@@ -886,8 +801,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
         );
 
         // Slot applies to all user messages, so there may be multiple
-        const userNestedCopyElements =
-          screen.queryAllByTestId("user-nested-copy");
+        const userNestedCopyElements = screen.queryAllByTestId("user-nested-copy");
         expect(userNestedCopyElements.length > 0 || true).toBeTruthy();
       });
     });
@@ -908,18 +822,13 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           </TestWrapper>,
         );
 
-        expect(
-          container.querySelector(".assistant-custom-class"),
-        ).toBeDefined();
+        expect(container.querySelector(".assistant-custom-class")).toBeDefined();
       });
 
       it("should allow className prop in userMessage object slot", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatMessageView
-              messages={sampleMessages}
-              userMessage={{ className: "user-custom-class" }}
-            />
+            <CopilotChatMessageView messages={sampleMessages} userMessage={{ className: "user-custom-class" }} />
           </TestWrapper>,
         );
 
@@ -963,10 +872,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
       it("should apply spacing utilities", () => {
         const { container } = render(
           <TestWrapper>
-            <CopilotChatMessageView
-              messages={sampleMessages}
-              assistantMessage="p-4 m-2 space-y-2"
-            />
+            <CopilotChatMessageView messages={sampleMessages} assistantMessage="p-4 m-2 space-y-2" />
           </TestWrapper>,
         );
 

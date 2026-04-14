@@ -20,10 +20,7 @@ export const widgetMetadata: WidgetMetadata = {
   metadata: {
     csp: {
       // APIs your widget needs to call (fetch, WebSocket, XMLHttpRequest)
-      connectDomains: [
-        "https://api.weather.com",
-        "https://backup-api.weather.com",
-      ],
+      connectDomains: ["https://api.weather.com", "https://backup-api.weather.com"],
 
       // Static assets (images, fonts, stylesheets, videos)
       resourceDomains: ["https://cdn.weather.com"],

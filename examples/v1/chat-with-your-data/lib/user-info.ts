@@ -19,10 +19,5 @@ export const getUser = (name: string) => {
 
 export const getUsers = () => {
   // imagine a database call here
-  return [
-    getUser("John Doe"),
-    getUser("Jimmy Johnathan"),
-    getUser("Michael Jersey"),
-    getUser("Ronnie MacDonald"),
-  ];
+  return [getUser("John Doe"), getUser("Jimmy Johnathan"), getUser("Michael Jersey"), getUser("Ronnie MacDonald")];
 };

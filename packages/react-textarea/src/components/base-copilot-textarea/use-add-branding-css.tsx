@@ -1,9 +1,6 @@
 import { useEffect } from "react";
 
-export function useAddBrandingCss(
-  suggestionStyleAugmented: React.CSSProperties,
-  disableBranding: boolean | undefined,
-) {
+export function useAddBrandingCss(suggestionStyleAugmented: React.CSSProperties, disableBranding: boolean | undefined) {
   const cssSelector = ".copilot-textarea.with-branding";
   useEffect(() => {
     if (disableBranding) {
@@ -18,9 +15,7 @@ export function useAddBrandingCss(
     // Build the CSS string dynamically
     let dynamicStyles = Object.entries(suggestionStyleAugmented)
       .map(([key, value]) => {
-        const kebabCaseKey = key
-          .replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, "$1-$2")
-          .toLowerCase();
+        const kebabCaseKey = key.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, "$1-$2").toLowerCase();
         return `${kebabCaseKey}: ${value};`;
       })
       .join(" ");

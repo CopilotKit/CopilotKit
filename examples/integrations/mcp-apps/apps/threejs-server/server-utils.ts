@@ -19,10 +19,7 @@ export interface ServerOptions {
  * @param createServer - Factory function that creates a new McpServer instance per request.
  * @param options - Server configuration options.
  */
-export async function startServer(
-  createServer: () => McpServer,
-  options: ServerOptions,
-): Promise<void> {
+export async function startServer(createServer: () => McpServer, options: ServerOptions): Promise<void> {
   const { port, name = "MCP Server" } = options;
 
   const app = createMcpExpressApp({ host: "0.0.0.0" });

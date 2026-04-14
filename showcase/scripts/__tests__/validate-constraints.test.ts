@@ -4,13 +4,7 @@ import path from "path";
 import yaml from "yaml";
 import { validateManifestConstraints } from "../validate-constraints.js";
 
-const CONSTRAINTS_PATH = path.resolve(
-  __dirname,
-  "..",
-  "..",
-  "shared",
-  "constraints.yaml",
-);
+const CONSTRAINTS_PATH = path.resolve(__dirname, "..", "..", "shared", "constraints.yaml");
 const FIXTURES_DIR = path.resolve(__dirname, "fixtures");
 
 function loadConstraints() {

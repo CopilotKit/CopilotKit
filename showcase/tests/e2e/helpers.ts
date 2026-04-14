@@ -155,9 +155,7 @@ export async function sendChatMessage(
   await textarea.waitFor({ state: "visible", timeout: 15_000 });
 
   // Count existing messages before sending
-  const messagesBefore = await page
-    .locator('[data-testid="copilot-assistant-message"]')
-    .count();
+  const messagesBefore = await page.locator('[data-testid="copilot-assistant-message"]').count();
 
   // Type and send
   await textarea.fill(message);
@@ -183,19 +181,15 @@ export async function sendChatMessage(
   }
 
   // Extract the latest assistant message text, waiting for content to stream in
-  const assistantMessages = page.locator(
-    '[data-testid="copilot-assistant-message"]',
-  );
+  const assistantMessages = page.locator('[data-testid="copilot-assistant-message"]');
   const count = await assistantMessages.count();
   if (count > messagesBefore) {
     const latest = assistantMessages.nth(count - 1);
     // Wait for the message to have non-empty text (streaming may still be in progress)
     try {
-      await page.waitForFunction(
-        (el) => (el?.textContent?.trim().length ?? 0) > 0,
-        await latest.elementHandle(),
-        { timeout: 60_000 },
-      );
+      await page.waitForFunction((el) => (el?.textContent?.trim().length ?? 0) > 0, await latest.elementHandle(), {
+        timeout: 60_000,
+      });
     } catch {
       // Streaming may be slow; continue with whatever we have
     }
@@ -209,9 +203,7 @@ export async function sendChatMessage(
   const pageText = await page.locator("body").textContent();
   const userMsgIndex = pageText?.lastIndexOf(message) ?? -1;
   if (userMsgIndex >= 0) {
-    const afterUserMsg = (pageText ?? "")
-      .slice(userMsgIndex + message.length)
-      .trim();
+    const afterUserMsg = (pageText ?? "").slice(userMsgIndex + message.length).trim();
     // Filter out UI chrome text (buttons, labels) — look for substantial text
     const stripped = afterUserMsg
       .replace(/Regenerate response/g, "")

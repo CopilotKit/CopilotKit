@@ -9,9 +9,7 @@ import { UserMessage } from "@ag-ui/core";
 // Wrapper to provide required context
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <CopilotKitProvider>
-    <CopilotChatConfigurationProvider threadId="test-thread">
-      {children}
-    </CopilotChatConfigurationProvider>
+    <CopilotChatConfigurationProvider threadId="test-thread">{children}</CopilotChatConfigurationProvider>
   </CopilotKitProvider>
 );
 
@@ -31,10 +29,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
         const message = createUserMessage("Hello");
         const { container } = render(
           <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              messageRenderer="bg-blue-500 text-white rounded-xl"
-            />
+            <CopilotChatUserMessage message={message} messageRenderer="bg-blue-500 text-white rounded-xl" />
           </TestWrapper>,
         );
 
@@ -50,10 +45,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
         const message = createUserMessage("Hello");
         const { container } = render(
           <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              toolbar="bg-gray-50 border rounded"
-            />
+            <CopilotChatUserMessage message={message} toolbar="bg-gray-50 border rounded" />
           </TestWrapper>,
         );
 
@@ -68,10 +60,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
         const message = createUserMessage("Hello");
         const { container } = render(
           <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              copyButton="text-indigo-500 hover:text-indigo-700"
-            />
+            <CopilotChatUserMessage message={message} copyButton="text-indigo-500 hover:text-indigo-700" />
           </TestWrapper>,
         );
 
@@ -86,11 +75,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
         const message = createUserMessage("Hello");
         const { container } = render(
           <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              onEditMessage={onEditMessage}
-              editButton="text-yellow-500"
-            />
+            <CopilotChatUserMessage message={message} onEditMessage={onEditMessage} editButton="text-yellow-500" />
           </TestWrapper>,
         );
 
@@ -131,10 +116,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
         const message = createUserMessage("Hello");
         render(
           <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              messageRenderer={{ "data-testid": "custom-message-renderer" }}
-            />
+            <CopilotChatUserMessage message={message} messageRenderer={{ "data-testid": "custom-message-renderer" }} />
           </TestWrapper>,
         );
 
@@ -149,10 +131,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
         const message = createUserMessage("Hello");
         render(
           <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              toolbar={{ onClick, "data-testid": "custom-toolbar" }}
-            />
+            <CopilotChatUserMessage message={message} toolbar={{ onClick, "data-testid": "custom-toolbar" }} />
           </TestWrapper>,
         );
 
@@ -170,10 +149,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
         const message = createUserMessage("Hello");
         const { container } = render(
           <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              copyButton={{ onClick: customOnClick }}
-            />
+            <CopilotChatUserMessage message={message} copyButton={{ onClick: customOnClick }} />
           </TestWrapper>,
         );
 
@@ -188,10 +164,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
         const message = createUserMessage("Hello");
         const { container } = render(
           <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              copyButton={{ disabled: true }}
-            />
+            <CopilotChatUserMessage message={message} copyButton={{ disabled: true }} />
           </TestWrapper>,
         );
 
@@ -229,11 +202,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
         const message = createUserMessage("Hello");
         const { container } = render(
           <TestWrapper>
-            <CopilotChatUserMessage
-              message={message}
-              onEditMessage={onEditMessage}
-              editButton={{ disabled: true }}
-            />
+            <CopilotChatUserMessage message={message} onEditMessage={onEditMessage} editButton={{ disabled: true }} />
           </TestWrapper>,
         );
 
@@ -278,10 +247,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
       const message = createUserMessage("Hello");
       render(
         <TestWrapper>
-          <CopilotChatUserMessage
-            message={message}
-            messageRenderer={CustomRenderer as any}
-          />
+          <CopilotChatUserMessage message={message} messageRenderer={CustomRenderer as any} />
         </TestWrapper>,
       );
 
@@ -291,9 +257,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
     });
 
     it("should allow custom component for toolbar", () => {
-      const CustomToolbar: React.FC<React.PropsWithChildren> = ({
-        children,
-      }) => (
+      const CustomToolbar: React.FC<React.PropsWithChildren> = ({ children }) => (
         <div data-testid="custom-toolbar-component">
           <span>Actions:</span>
           {children}
@@ -303,10 +267,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
       const message = createUserMessage("Hello");
       render(
         <TestWrapper>
-          <CopilotChatUserMessage
-            message={message}
-            toolbar={CustomToolbar as any}
-          />
+          <CopilotChatUserMessage message={message} toolbar={CustomToolbar as any} />
         </TestWrapper>,
       );
 
@@ -316,9 +277,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
     });
 
     it("should allow custom component for copyButton", () => {
-      const CustomCopyButton: React.FC<
-        React.ButtonHTMLAttributes<HTMLButtonElement>
-      > = (props) => (
+      const CustomCopyButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (props) => (
         <button data-testid="custom-copy-btn" {...props}>
           Copy It
         </button>
@@ -327,10 +286,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
       const message = createUserMessage("Hello");
       render(
         <TestWrapper>
-          <CopilotChatUserMessage
-            message={message}
-            copyButton={CustomCopyButton as any}
-          />
+          <CopilotChatUserMessage message={message} copyButton={CustomCopyButton as any} />
         </TestWrapper>,
       );
 
@@ -340,9 +296,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
     });
 
     it("should allow custom component for editButton", () => {
-      const CustomEditButton: React.FC<
-        React.ButtonHTMLAttributes<HTMLButtonElement>
-      > = (props) => (
+      const CustomEditButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (props) => (
         <button data-testid="custom-edit-btn" {...props}>
           Modify
         </button>
@@ -444,11 +398,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
 
       render(
         <TestWrapper>
-          <CopilotChatUserMessage
-            message={message}
-            branchIndex={1}
-            numberOfBranches={3}
-          >
+          <CopilotChatUserMessage message={message} branchIndex={1} numberOfBranches={3}>
             {childrenFn}
           </CopilotChatUserMessage>
         </TestWrapper>,
@@ -466,10 +416,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
 
       const { container } = render(
         <TestWrapper>
-          <CopilotChatUserMessage
-            message={message}
-            onEditMessage={onEditMessage}
-          >
+          <CopilotChatUserMessage message={message} onEditMessage={onEditMessage}>
             {({ messageRenderer, toolbar, copyButton, editButton }) => (
               <div data-testid="custom-layout">
                 <div className="message-area">{messageRenderer}</div>
@@ -500,10 +447,7 @@ describe("CopilotChatUserMessage Slot System E2E Tests", () => {
       const message = createUserMessage("Hello");
       const { container } = render(
         <TestWrapper>
-          <CopilotChatUserMessage
-            message={message}
-            className="custom-root-class bg-purple-50"
-          />
+          <CopilotChatUserMessage message={message} className="custom-root-class bg-purple-50" />
         </TestWrapper>,
       );
 

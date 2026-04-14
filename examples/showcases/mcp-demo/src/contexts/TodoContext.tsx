@@ -33,9 +33,7 @@ interface TodoContextType {
 const TodoContext = createContext<TodoContextType | undefined>(undefined);
 
 // Create a provider component
-export const TodoProvider: React.FC<{ children: ReactNode }> = ({
-  children,
-}) => {
+export const TodoProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [todos, setTodos] = useState<Todo[]>([
     {
       id: Date.now(),
@@ -109,11 +107,7 @@ export const TodoProvider: React.FC<{ children: ReactNode }> = ({
 
   const toggleAccordion = (id: number) => {
     setTodos(
-      todos.map((todo) =>
-        todo.id === id
-          ? { ...todo, expanded: !todo.expanded }
-          : { ...todo, expanded: false },
-      ),
+      todos.map((todo) => (todo.id === id ? { ...todo, expanded: !todo.expanded } : { ...todo, expanded: false })),
     );
   };
 
@@ -163,15 +157,12 @@ export const TodoProvider: React.FC<{ children: ReactNode }> = ({
         if (todo.id === parentId) {
           // First update the specific subtask
           const updatedSubtasks = todo.subtasks.map((subtask) =>
-            subtask.id === subtaskId
-              ? { ...subtask, completed: !subtask.completed }
-              : subtask,
+            subtask.id === subtaskId ? { ...subtask, completed: !subtask.completed } : subtask,
           );
 
           // Then check if all subtasks are completed
           const allSubtasksCompleted =
-            updatedSubtasks.length > 0 &&
-            updatedSubtasks.every((subtask) => subtask.completed);
+            updatedSubtasks.length > 0 && updatedSubtasks.every((subtask) => subtask.completed);
 
           // Update the parent's completed status based on subtasks
           return {
@@ -191,9 +182,7 @@ export const TodoProvider: React.FC<{ children: ReactNode }> = ({
         if (todo.id === parentId) {
           return {
             ...todo,
-            subtasks: todo.subtasks.filter(
-              (subtask) => subtask.id !== subtaskId,
-            ),
+            subtasks: todo.subtasks.filter((subtask) => subtask.id !== subtaskId),
           };
         }
         return todo;

@@ -50,9 +50,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
       // Assistant message should accumulate
       await waitFor(() => {
-        const assistantMessage = screen.getByText(
-          "Hello! How can I help you today?",
-        );
+        const assistantMessage = screen.getByText("Hello! How can I help you today?");
         expect(assistantMessage).toBeDefined();
       });
     });
@@ -90,9 +88,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       agent.emit(textChunkEvent(messageId, " there was a robot."));
 
       await waitFor(() => {
-        expect(
-          screen.getByText(/Once upon a time there was a robot\./),
-        ).toBeDefined();
+        expect(screen.getByText(/Once upon a time there was a robot\./)).toBeDefined();
       });
 
       agent.emit(runFinishedEvent());
@@ -136,9 +132,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
       // Stream: RUN_STARTED → TEXT_MESSAGE_CHUNK → TOOL_CALL_CHUNK → TOOL_CALL_RESULT → RUN_FINISHED
       agent.emit(runStartedEvent());
-      agent.emit(
-        textChunkEvent(messageId, "Let me check the weather for you."),
-      );
+      agent.emit(textChunkEvent(messageId, "Let me check the weather for you."));
 
       // Start tool call with partial args
       agent.emit(
@@ -197,8 +191,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
           args: z.object({ location: z.string() }),
           render: ({ name, args, result }) => (
             <div data-testid={`weather-${args.location}`}>
-              [{name}] Weather for {args.location}:{" "}
-              {result ? JSON.stringify(result) : "Loading..."}
+              [{name}] Weather for {args.location}: {result ? JSON.stringify(result) : "Loading..."}
             </div>
           ),
         }),
@@ -207,8 +200,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
           args: z.object({ timezone: z.string() }),
           render: ({ name, args, result }) => (
             <div data-testid={`time-${args.timezone}`}>
-              [{name}] Time in {args.timezone}:{" "}
-              {result ? JSON.stringify(result) : "Loading..."}
+              [{name}] Time in {args.timezone}: {result ? JSON.stringify(result) : "Loading..."}
             </div>
           ),
         }),
@@ -418,9 +410,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         defineToolCallRenderer({
           name: "testTool",
           args: z.object({ value: z.string() }),
-          render: ({ args }) => (
-            <div data-testid="test-tool">Tool: {args.value}</div>
-          ),
+          render: ({ args }) => <div data-testid="test-tool">Tool: {args.value}</div>,
         }),
       ] as unknown as ReactToolCallRenderer<unknown>[];
 
@@ -461,9 +451,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       // Toolbar should NOT be visible for assistant message since it has no text content
       await waitFor(() => {
         // Find the assistant message container (it should have the tool render)
-        const assistantMessageDiv = screen
-          .getByTestId("test-tool")
-          .closest("[data-message-id]");
+        const assistantMessageDiv = screen.getByTestId("test-tool").closest("[data-message-id]");
 
         if (assistantMessageDiv) {
           // Check that within the assistant message, there's no copy button
@@ -476,25 +464,16 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
       // Now emit a NEW message WITH text content
       const messageWithContentId = testId("msg2");
-      agent.emit(
-        textChunkEvent(
-          messageWithContentId,
-          "Here is some actual text content",
-        ),
-      );
+      agent.emit(textChunkEvent(messageWithContentId, "Here is some actual text content"));
 
       // Toolbar SHOULD be visible now for the message with content
       await waitFor(() => {
-        const allMessages = screen.getAllByText(
-          /Here is some actual text content/,
-        );
+        const allMessages = screen.getAllByText(/Here is some actual text content/);
         expect(allMessages.length).toBeGreaterThan(0);
 
         // Should now have copy button
         const toolbarButtons = screen.getAllByRole("button");
-        const copyButton = toolbarButtons.find((btn) =>
-          btn.getAttribute("aria-label")?.toLowerCase().includes("copy"),
-        );
+        const copyButton = toolbarButtons.find((btn) => btn.getAttribute("aria-label")?.toLowerCase().includes("copy"));
         expect(copyButton).toBeDefined();
       });
 
@@ -508,16 +487,12 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         defineToolCallRenderer({
           name: "specificTool",
           args: z.object({ value: z.string() }),
-          render: ({ args }) => (
-            <div data-testid="specific-renderer">Specific: {args.value}</div>
-          ),
+          render: ({ args }) => <div data-testid="specific-renderer">Specific: {args.value}</div>,
         }),
         defineToolCallRenderer({
           name: "*",
           args: z.any(),
-          render: ({ name }) => (
-            <div data-testid="wildcard-renderer">Wildcard: {name}</div>
-          ),
+          render: ({ name }) => <div data-testid="wildcard-renderer">Wildcard: {name}</div>,
         }),
       ] as unknown as ReactToolCallRenderer<unknown>[];
 
@@ -587,14 +562,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       minSuggestions?: number;
       maxSuggestions?: number;
       onReady?: () => void;
-    }> = ({
-      consumerAgentId,
-      providerAgentId,
-      instructions,
-      minSuggestions,
-      maxSuggestions,
-      onReady,
-    }) => {
+    }> = ({ consumerAgentId, providerAgentId, instructions, minSuggestions, maxSuggestions, onReady }) => {
       useConfigureSuggestions({
         instructions: instructions || "Suggest helpful next actions",
         providerAgentId,
@@ -836,9 +804,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       agent.emit(runStartedEvent());
       agent.emit(reasoningStartEvent(reasoningId));
       agent.emit(reasoningMessageStartEvent(reasoningId));
-      agent.emit(
-        reasoningMessageContentEvent(reasoningId, "Let me analyze..."),
-      );
+      agent.emit(reasoningMessageContentEvent(reasoningId, "Let me analyze..."));
 
       // "Thinking..." label should appear while streaming
       await waitFor(() => {
@@ -939,12 +905,8 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       });
 
       // Reasoning should come before text in the DOM
-      const reasoningEl = screen
-        .getByText(/Thought for/)
-        .closest("[data-message-id]");
-      const textEl = screen
-        .getByText("The answer is 42.")
-        .closest("[data-message-id]");
+      const reasoningEl = screen.getByText(/Thought for/).closest("[data-message-id]");
+      const textEl = screen.getByText("The answer is 42.").closest("[data-message-id]");
 
       if (reasoningEl && textEl) {
         // Use compareDocumentPosition to verify ordering
@@ -996,9 +958,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       agent.emit(runStartedEvent());
       agent.emit(reasoningStartEvent(reasoningId));
       agent.emit(reasoningMessageStartEvent(reasoningId));
-      agent.emit(
-        reasoningMessageContentEvent(reasoningId, "Deep reasoning..."),
-      );
+      agent.emit(reasoningMessageContentEvent(reasoningId, "Deep reasoning..."));
 
       // "Thinking..." should appear (reasoning is streaming)
       await waitFor(() => {
@@ -1050,9 +1010,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       // Chat-level cursor should now be visible since last message is text (not reasoning)
       // Note: The cursor shows while isRunning=true and last message is not reasoning
       await waitFor(() => {
-        const chatLevelCursor = document.querySelector(
-          ".cpk\\:animate-pulse-cursor",
-        );
+        const chatLevelCursor = document.querySelector(".cpk\\:animate-pulse-cursor");
         expect(chatLevelCursor).not.toBeNull();
       });
 
@@ -1076,11 +1034,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       const textId = testId("text");
 
       agent.emit(runStartedEvent());
-      emitReasoningSequence(
-        agent,
-        reasoningId,
-        "This is expandable reasoning content",
-      );
+      emitReasoningSequence(agent, reasoningId, "This is expandable reasoning content");
       agent.emit(textChunkEvent(textId, "Done thinking."));
       agent.emit(runFinishedEvent());
       agent.complete();
@@ -1103,9 +1057,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
       // Should now be expanded
       await waitFor(() => {
-        const expandedButton = screen
-          .getByText(/Thought for/)
-          .closest("button");
+        const expandedButton = screen.getByText(/Thought for/).closest("button");
         expect(expandedButton?.getAttribute("aria-expanded")).toBe("true");
       });
     });

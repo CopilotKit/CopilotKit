@@ -1,22 +1,12 @@
 import { notFound } from "next/navigation";
-import {
-  getIntegration,
-  getIntegrations,
-  getFeature,
-  getCategoryLabel,
-  getLanguageLabel,
-} from "@/lib/registry";
+import { getIntegration, getIntegrations, getFeature, getCategoryLabel, getLanguageLabel } from "@/lib/registry";
 import { ProfileClient } from "./profile-client";
 
 export function generateStaticParams() {
   return getIntegrations().map((i) => ({ slug: i.slug }));
 }
 
-export default async function IntegrationProfilePage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function IntegrationProfilePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const integration = getIntegration(slug);
   if (!integration) notFound();
@@ -31,13 +21,8 @@ export default async function IntegrationProfilePage({
   });
 
   // Other integrations that share demo IDs — for framework switcher
-  const allIntegrations = getIntegrations().filter(
-    (i) => i.deployed && i.slug !== slug,
-  );
-  const demoAlternatives: Record<
-    string,
-    Array<{ slug: string; name: string; backendUrl: string }>
-  > = {};
+  const allIntegrations = getIntegrations().filter((i) => i.deployed && i.slug !== slug);
+  const demoAlternatives: Record<string, Array<{ slug: string; name: string; backendUrl: string }>> = {};
   for (const demo of integration.demos) {
     const alts = allIntegrations
       .filter((i) => i.demos.some((d) => d.id === demo.id))

@@ -11,13 +11,9 @@ interface OriginalError {
 
 export function ErrorToast({ errors }: { errors: (Error | GraphQLError)[] }) {
   const errorsToRender = errors.map((error, idx) => {
-    const originalError =
-      "extensions" in error
-        ? (error.extensions?.originalError as undefined | OriginalError)
-        : {};
+    const originalError = "extensions" in error ? (error.extensions?.originalError as undefined | OriginalError) : {};
     const message = originalError?.message ?? error.message;
-    const code =
-      "extensions" in error ? (error.extensions?.code as string) : null;
+    const code = "extensions" in error ? (error.extensions?.code as string) : null;
 
     return (
       <div
@@ -36,10 +32,7 @@ export function ErrorToast({ errors }: { errors: (Error | GraphQLError)[] }) {
               marginBottom: 4,
             }}
           >
-            Copilot Runtime Error:{" "}
-            <span style={{ fontFamily: "monospace", fontWeight: "normal" }}>
-              {code}
-            </span>
+            Copilot Runtime Error: <span style={{ fontFamily: "monospace", fontWeight: "normal" }}>{code}</span>
           </div>
         )}
         <ReactMarkdown>{message}</ReactMarkdown>
@@ -54,9 +47,7 @@ export function ErrorToast({ errors }: { errors: (Error | GraphQLError)[] }) {
       }}
     >
       {errorsToRender}
-      <div style={{ fontSize: "11px", opacity: 0.75 }}>
-        NOTE: This error only displays during local development.
-      </div>
+      <div style={{ fontSize: "11px", opacity: 0.75 }}>NOTE: This error only displays during local development.</div>
     </div>
   );
 }
@@ -69,9 +60,7 @@ export function useErrorToast() {
       const errorId = errors
         .map((err) => {
           const message =
-            "extensions" in err
-              ? (err.extensions?.originalError as any)?.message || err.message
-              : err.message;
+            "extensions" in err ? (err.extensions?.originalError as any)?.message || err.message : err.message;
           const stack = err.stack || "";
           return btoa(message + stack).slice(0, 32); // Create hash from message + stack
         })

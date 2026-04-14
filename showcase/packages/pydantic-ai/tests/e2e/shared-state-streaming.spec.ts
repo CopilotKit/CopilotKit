@@ -17,17 +17,11 @@ test.describe("State Streaming", () => {
   });
 
   test("sidebar has chat input", async ({ page }) => {
-    await expect(
-      page.locator('textarea, [placeholder*="message"]').first(),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('textarea, [placeholder*="message"]').first()).toBeVisible({ timeout: 10000 });
   });
 
-  test("document editor placeholder is visible when empty", async ({
-    page,
-  }) => {
-    await expect(page.getByText("Write whatever you want here...")).toBeVisible(
-      { timeout: 10000 },
-    );
+  test("document editor placeholder is visible when empty", async ({ page }) => {
+    await expect(page.getByText("Write whatever you want here...")).toBeVisible({ timeout: 10000 });
   });
 
   test("user can type in the document editor", async ({ page }) => {
@@ -35,9 +29,7 @@ test.describe("State Streaming", () => {
     const editorTextarea = page.locator("textarea.w-full").first();
     await editorTextarea.fill("This is my test document content.");
 
-    await expect(editorTextarea).toHaveValue(
-      "This is my test document content.",
-    );
+    await expect(editorTextarea).toHaveValue("This is my test document content.");
   });
 
   test("asking agent to edit shows confirm changes modal", async ({ page }) => {
@@ -46,9 +38,7 @@ test.describe("State Streaming", () => {
     await editorTextarea.fill("Draft proposal for Q2 project.");
 
     // Ask the agent to modify via the sidebar chat
-    const chatInputs = page.locator(
-      'textarea[placeholder], [placeholder*="message"]',
-    );
+    const chatInputs = page.locator('textarea[placeholder], [placeholder*="message"]');
     const chatInput = chatInputs.last();
     await chatInput.fill("Expand this into a full project proposal");
     await chatInput.press("Enter");
@@ -69,9 +59,7 @@ test.describe("State Streaming", () => {
     const editorTextarea = page.locator("textarea.w-full").first();
     await editorTextarea.fill("Meeting notes from today.");
 
-    const chatInputs = page.locator(
-      'textarea[placeholder], [placeholder*="message"]',
-    );
+    const chatInputs = page.locator('textarea[placeholder], [placeholder*="message"]');
     const chatInput = chatInputs.last();
     await chatInput.fill("Rewrite these notes in a more formal tone");
     await chatInput.press("Enter");
@@ -84,18 +72,14 @@ test.describe("State Streaming", () => {
     await confirmButton.click();
 
     // The status should show "Accepted"
-    await expect(page.locator('[data-testid="status-display"]')).toHaveText(
-      "Accepted",
-    );
+    await expect(page.locator('[data-testid="status-display"]')).toHaveText("Accepted");
   });
 
   test("rejecting changes updates status display", async ({ page }) => {
     const editorTextarea = page.locator("textarea.w-full").first();
     await editorTextarea.fill("Budget report for Q3.");
 
-    const chatInputs = page.locator(
-      'textarea[placeholder], [placeholder*="message"]',
-    );
+    const chatInputs = page.locator('textarea[placeholder], [placeholder*="message"]');
     const chatInput = chatInputs.last();
     await chatInput.fill("Make this more detailed with bullet points");
     await chatInput.press("Enter");
@@ -108,18 +92,14 @@ test.describe("State Streaming", () => {
     await rejectButton.click();
 
     // The status should show "Rejected"
-    await expect(page.locator('[data-testid="status-display"]')).toHaveText(
-      "Rejected",
-    );
+    await expect(page.locator('[data-testid="status-display"]')).toHaveText("Rejected");
   });
 
   test("confirm modal shows diff of proposed changes", async ({ page }) => {
     const editorTextarea = page.locator("textarea.w-full").first();
     await editorTextarea.fill("Simple draft text.");
 
-    const chatInputs = page.locator(
-      'textarea[placeholder], [placeholder*="message"]',
-    );
+    const chatInputs = page.locator('textarea[placeholder], [placeholder*="message"]');
     const chatInput = chatInputs.last();
     await chatInput.fill("Rewrite this as a formal letter");
     await chatInput.press("Enter");

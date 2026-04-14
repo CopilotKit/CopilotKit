@@ -54,9 +54,7 @@ server.tool(
         cuisine,
         location,
       },
-      output: text(
-        `Found ${restaurants.length} ${cuisine} restaurants near ${location}`,
-      ),
+      output: text(`Found ${restaurants.length} ${cuisine} restaurants near ${location}`),
     });
   },
 );
@@ -110,9 +108,7 @@ export default function RestaurantList() {
   if (isPending) {
     return (
       <McpUseProvider autoSize>
-        <div style={{ padding: 16, textAlign: "center" }}>
-          Searching restaurants...
-        </div>
+        <div style={{ padding: 16, textAlign: "center" }}>Searching restaurants...</div>
       </McpUseProvider>
     );
   }

@@ -9,13 +9,7 @@ import {
   type ɵThreadRuntimeContext,
   type ɵThreadStore,
 } from "@copilotkit/core";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 /**
  * A conversation thread managed by the Intelligence platform.
@@ -162,11 +156,7 @@ function useThreadStoreSelector<T>(
  * }
  * ```
  */
-export function useThreads({
-  agentId,
-  includeArchived,
-  limit,
-}: UseThreadsInput): UseThreadsResult {
+export function useThreads({ agentId, includeArchived, limit }: UseThreadsInput): UseThreadsResult {
   const { copilotkit } = useCopilotKit();
 
   const [store] = useState(() =>
@@ -178,30 +168,23 @@ export function useThreads({
   const coreThreads = useThreadStoreSelector(store, ɵselectThreads);
   const threads: Thread[] = useMemo(
     () =>
-      coreThreads.map(
-        ({ id, agentId, name, archived, createdAt, updatedAt }) => ({
-          id,
-          agentId,
-          name,
-          archived,
-          createdAt,
-          updatedAt,
-        }),
-      ),
+      coreThreads.map(({ id, agentId, name, archived, createdAt, updatedAt }) => ({
+        id,
+        agentId,
+        name,
+        archived,
+        createdAt,
+        updatedAt,
+      })),
     [coreThreads],
   );
   const storeIsLoading = useThreadStoreSelector(store, ɵselectThreadsIsLoading);
   const storeError = useThreadStoreSelector(store, ɵselectThreadsError);
   const hasMoreThreads = useThreadStoreSelector(store, ɵselectHasNextPage);
-  const isFetchingMoreThreads = useThreadStoreSelector(
-    store,
-    ɵselectIsFetchingNextPage,
-  );
+  const isFetchingMoreThreads = useThreadStoreSelector(store, ɵselectIsFetchingNextPage);
   const headersKey = useMemo(() => {
     return JSON.stringify(
-      Object.entries(copilotkit.headers ?? {}).sort(([left], [right]) =>
-        left.localeCompare(right),
-      ),
+      Object.entries(copilotkit.headers ?? {}).sort(([left], [right]) => left.localeCompare(right)),
     );
   }, [copilotkit.headers]);
   const runtimeError = useMemo(() => {
@@ -245,20 +228,11 @@ export function useThreads({
     limit,
   ]);
 
-  const renameThread = useCallback(
-    (threadId: string, name: string) => store.renameThread(threadId, name),
-    [store],
-  );
+  const renameThread = useCallback((threadId: string, name: string) => store.renameThread(threadId, name), [store]);
 
-  const archiveThread = useCallback(
-    (threadId: string) => store.archiveThread(threadId),
-    [store],
-  );
+  const archiveThread = useCallback((threadId: string) => store.archiveThread(threadId), [store]);
 
-  const deleteThread = useCallback(
-    (threadId: string) => store.deleteThread(threadId),
-    [store],
-  );
+  const deleteThread = useCallback((threadId: string) => store.deleteThread(threadId), [store]);
 
   const fetchMoreThreads = useCallback(() => store.fetchNextPage(), [store]);
 

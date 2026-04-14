@@ -84,11 +84,7 @@ export function CopilotKitHelpModal() {
                 </a>
               </div>
               <div className="copilotKitHelpItemButton">
-                <a
-                  href="https://go.copilotkit.ai/dev-console-support-slack"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+                <a href="https://go.copilotkit.ai/dev-console-support-slack" target="_blank" rel="noopener noreferrer">
                   Apply for Priority Direct Slack Support
                 </a>
               </div>

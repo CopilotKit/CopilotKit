@@ -36,12 +36,7 @@ export function OrderCard({ order, index }: { order: Order; index: number }) {
                 {order.car.year} {order.car.make} {order.car.model}
               </h3>
               <div className="text-sm text-neutral-500 flex items-center">
-                <svg
-                  className="w-4 h-4 mr-1.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
+                <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -53,17 +48,10 @@ export function OrderCard({ order, index }: { order: Order; index: number }) {
               </div>
             </div>
             <div className="text-right shrink-0">
-              <div className="text-lg font-medium text-neutral-900 mb-1">
-                ${order.car.price?.toLocaleString()}
-              </div>
+              <div className="text-lg font-medium text-neutral-900 mb-1">${order.car.price?.toLocaleString()}</div>
               {order.paymentType === "card" ? (
                 <div className="text-sm text-neutral-500 flex items-center justify-end">
-                  <svg
-                    className="w-4 h-4 mr-1.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
+                  <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -75,12 +63,7 @@ export function OrderCard({ order, index }: { order: Order; index: number }) {
                 </div>
               ) : (
                 <div className="text-sm text-neutral-500 flex items-center justify-end">
-                  <svg
-                    className="w-4 h-4 mr-1.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
+                  <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -104,12 +87,7 @@ export function OrderCards({ orders }: OrderCardsProps) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6">
         <div className="w-16 h-16 mb-4 relative">
-          <svg
-            className="w-full h-full text-neutral-200"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
+          <svg className="w-full h-full text-neutral-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -121,12 +99,9 @@ export function OrderCards({ orders }: OrderCardsProps) {
             FIO
           </div>
         </div>
-        <h3 className="text-neutral-900 font-medium mb-1">
-          No Vehicle Orders Yet
-        </h3>
+        <h3 className="text-neutral-900 font-medium mb-1">No Vehicle Orders Yet</h3>
         <p className="text-neutral-500 text-sm text-center max-w-[240px] mb-4">
-          Ready to find your perfect vehicle? Start a conversation with Fio,
-          your personal sales assistant.
+          Ready to find your perfect vehicle? Start a conversation with Fio, your personal sales assistant.
         </p>
         <button
           onClick={() => {
@@ -134,12 +109,7 @@ export function OrderCards({ orders }: OrderCardsProps) {
           }}
           className="inline-flex items-center px-4 py-2 bg-neutral-900 text-white text-sm font-medium rounded-md hover:bg-neutral-800 transition-colors"
         >
-          <svg
-            className="w-4 h-4 mr-2"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
+          <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"

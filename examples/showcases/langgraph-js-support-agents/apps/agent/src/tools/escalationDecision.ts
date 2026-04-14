@@ -92,10 +92,7 @@ Now decide:`;
         new HumanMessage(`Should this case be escalated?`),
       ]);
 
-      const content =
-        typeof response.content === "string"
-          ? response.content
-          : JSON.stringify(response.content);
+      const content = typeof response.content === "string" ? response.content : JSON.stringify(response.content);
 
       // Parse AI decision
       try {
@@ -103,10 +100,7 @@ Now decide:`;
 
         // Generate ticket ID if escalating
         if (parsed.required) {
-          parsed.ticketId = `TKT-${Date.now()}-${Math.random()
-            .toString(36)
-            .substr(2, 5)
-            .toUpperCase()}`;
+          parsed.ticketId = `TKT-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
         }
 
         return JSON.stringify(parsed);
@@ -126,10 +120,7 @@ Now decide:`;
     description:
       "Determine if the customer issue should be escalated to a human agent based on urgency, customer profile, and issue type.",
     schema: z.object({
-      customerId: z
-        .string()
-        .optional()
-        .describe("The customer ID if available"),
+      customerId: z.string().optional().describe("The customer ID if available"),
       intent: z.string().describe("The classified intent category"),
       urgency: z.enum(["low", "medium", "high"]).describe("The urgency level"),
     }),
@@ -137,11 +128,7 @@ Now decide:`;
 );
 
 // Fallback rule-based escalation if AI fails
-function fallbackRuleBasedEscalation(
-  customerId: string | undefined,
-  intent: string,
-  urgency: string,
-) {
+function fallbackRuleBasedEscalation(customerId: string | undefined, intent: string, urgency: string) {
   let shouldEscalate = false;
   let reason = "";
   let assignedTo: "billing" | "tech" | "retention" = "tech";
@@ -160,43 +147,31 @@ function fallbackRuleBasedEscalation(
     if (customer) {
       if (customer.Churn === "Yes") {
         shouldEscalate = true;
-        reason = reason
-          ? `${reason}; Customer at risk of churn`
-          : "Customer at risk of churn - retention priority";
+        reason = reason ? `${reason}; Customer at risk of churn` : "Customer at risk of churn - retention priority";
         assignedTo = "retention";
         priority = 1;
       }
 
       if (customer.SeniorCitizen === "1") {
         shouldEscalate = true;
-        reason = reason
-          ? `${reason}; Senior citizen`
-          : "Senior citizen requiring special assistance";
+        reason = reason ? `${reason}; Senior citizen` : "Senior citizen requiring special assistance";
         if (priority > 2) priority = 2;
       }
 
-      if (
-        parseInt(customer.tenure) > 50 ||
-        parseFloat(customer.MonthlyCharges) > 80
-      ) {
+      if (parseInt(customer.tenure) > 50 || parseFloat(customer.MonthlyCharges) > 80) {
         shouldEscalate = true;
-        reason = reason
-          ? `${reason}; High-value customer`
-          : "High-value customer - priority handling";
+        reason = reason ? `${reason}; High-value customer` : "High-value customer - priority handling";
         if (priority > 2) priority = 2;
       }
 
       if (
         urgency === "high" &&
         customer.Churn === "No" &&
-        (intent === "service_outage" ||
-          intent === "tech_support" ||
-          intent === "internet_issue")
+        (intent === "service_outage" || intent === "tech_support" || intent === "internet_issue")
       ) {
         suggestAiFirst = true;
         shouldEscalate = false; // Don't escalate immediately
-        reason =
-          "High urgency tech issue - offering AI suggestions first before escalation";
+        reason = "High urgency tech issue - offering AI suggestions first before escalation";
         priority = 2;
       }
     }
@@ -207,19 +182,14 @@ function fallbackRuleBasedEscalation(
   } else if (intent === "cancellation") {
     assignedTo = "retention";
     shouldEscalate = true;
-    reason = reason
-      ? `${reason}; Cancellation request`
-      : "Cancellation request - requires retention team";
+    reason = reason ? `${reason}; Cancellation request` : "Cancellation request - requires retention team";
     priority = 1;
   } else if (intent === "service_outage" || intent === "tech_support") {
     assignedTo = "tech";
   }
 
   const ticketId = shouldEscalate
-    ? `TKT-${Date.now()}-${Math.random()
-        .toString(36)
-        .substr(2, 5)
-        .toUpperCase()}`
+    ? `TKT-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`
     : undefined;
 
   return JSON.stringify({

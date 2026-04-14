@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const LANGGRAPH_URL =
-  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
+const LANGGRAPH_URL = process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
 
 export async function GET(req: NextRequest) {
   // Check agent backend reachability
@@ -24,8 +23,7 @@ export async function GET(req: NextRequest) {
   };
 
   // Extended diagnostics: only with debug token
-  const token =
-    req.headers.get("x-debug-token") || req.nextUrl.searchParams.get("debug");
+  const token = req.headers.get("x-debug-token") || req.nextUrl.searchParams.get("debug");
   const expectedToken = process.env.SHOWCASE_DEBUG_TOKEN;
 
   if (token && expectedToken && token === expectedToken) {

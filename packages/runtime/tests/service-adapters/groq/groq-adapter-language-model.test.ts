@@ -11,17 +11,11 @@ type ForwardedGroqKeys = "baseURL" | "apiKey" | "headers" | "fetch";
 type ControlledGroqKeys = "name" | "organization" | "project";
 
 type _exhaustive =
-  Exclude<
-    keyof OpenAIProviderSettings,
-    ForwardedGroqKeys | ControlledGroqKeys
-  > extends never
+  Exclude<keyof OpenAIProviderSettings, ForwardedGroqKeys | ControlledGroqKeys> extends never
     ? true
     : {
         error: "OpenAIProviderSettings has unhandled keys";
-        unhandled: Exclude<
-          keyof OpenAIProviderSettings,
-          ForwardedGroqKeys | ControlledGroqKeys
-        >;
+        unhandled: Exclude<keyof OpenAIProviderSettings, ForwardedGroqKeys | ControlledGroqKeys>;
       };
 const _check: _exhaustive = true;
 

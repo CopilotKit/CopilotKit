@@ -22,10 +22,7 @@ export const templateMapping = {
 
   // LangGraph
   LangGraphGeneric: `${BASE_URL}/generic-lg-starter.json`,
-  LangGraphStarter: [
-    `${BASE_URL}/langgraph-platform-starter.json`,
-    `${BASE_URL}/coagents-starter-ui.json`,
-  ],
+  LangGraphStarter: [`${BASE_URL}/langgraph-platform-starter.json`, `${BASE_URL}/coagents-starter-ui.json`],
 
   // No Agent
   StandardStarter: `${BASE_URL}/standard-starter.json`,

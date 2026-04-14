@@ -1,13 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { InMemoryAgentRunner } from "../runner/in-memory";
-import {
-  AbstractAgent,
-  BaseEvent,
-  EventType,
-  Message,
-  RunAgentInput,
-  RunStartedEvent,
-} from "@ag-ui/client";
+import { AbstractAgent, BaseEvent, EventType, Message, RunAgentInput, RunStartedEvent } from "@ag-ui/client";
 import { EMPTY, Observable, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
 
@@ -29,10 +22,7 @@ class MessageAwareAgent extends AbstractAgent {
     return EMPTY;
   }
 
-  async runAgent(
-    input: RunAgentInput,
-    callbacks: RunAgentCallbacks,
-  ): Promise<void> {
+  async runAgent(input: RunAgentInput, callbacks: RunAgentCallbacks): Promise<void> {
     if (this.emitDefaultRunStarted) {
       const runStarted: RunStartedEvent = {
         type: EventType.RUN_STARTED,
@@ -92,38 +82,24 @@ describe("InMemoryAgentRunner – run started inputs", () => {
       messages,
     };
 
-    const runEvents = await firstValueFrom(
-      runner.run({ threadId, agent, input }).pipe(toArray()),
-    );
+    const runEvents = await firstValueFrom(runner.run({ threadId, agent, input }).pipe(toArray()));
 
     expect(runEvents[0].type).toBe(EventType.RUN_STARTED);
     const runStarted = runEvents[0] as RunStartedEvent;
     expect(runStarted.input?.messages).toEqual(messages);
 
     const terminalTypes = runEvents.slice(1).map((event) => event.type);
-    expect(
-      terminalTypes.every(
-        (type) =>
-          type === EventType.RUN_ERROR || type === EventType.RUN_FINISHED,
-      ),
-    ).toBe(true);
+    expect(terminalTypes.every((type) => type === EventType.RUN_ERROR || type === EventType.RUN_FINISHED)).toBe(true);
 
-    const connectEvents = await firstValueFrom(
-      runner.connect({ threadId }).pipe(toArray()),
-    );
+    const connectEvents = await firstValueFrom(runner.connect({ threadId }).pipe(toArray()));
 
     expect(connectEvents[0].type).toBe(EventType.RUN_STARTED);
     const connectRunStarted = connectEvents[0] as RunStartedEvent;
     expect(connectRunStarted.input?.messages).toEqual(messages);
-    const connectTerminalTypes = connectEvents
-      .slice(1)
-      .map((event) => event.type);
-    expect(
-      connectTerminalTypes.every(
-        (type) =>
-          type === EventType.RUN_ERROR || type === EventType.RUN_FINISHED,
-      ),
-    ).toBe(true);
+    const connectTerminalTypes = connectEvents.slice(1).map((event) => event.type);
+    expect(connectTerminalTypes.every((type) => type === EventType.RUN_ERROR || type === EventType.RUN_FINISHED)).toBe(
+      true,
+    );
   });
 
   it("only includes new messages on subsequent runs", async () => {
@@ -168,19 +144,12 @@ describe("InMemoryAgentRunner – run started inputs", () => {
     expect(secondRunEvents[0].type).toBe(EventType.RUN_STARTED);
     const runStarted = secondRunEvents[0] as RunStartedEvent;
     expect(runStarted.input?.messages).toEqual([newMessage]);
-    const secondTerminalTypes = secondRunEvents
-      .slice(1)
-      .map((event) => event.type);
-    expect(
-      secondTerminalTypes.every(
-        (type) =>
-          type === EventType.RUN_ERROR || type === EventType.RUN_FINISHED,
-      ),
-    ).toBe(true);
-
-    const connectEvents = await firstValueFrom(
-      runner.connect({ threadId }).pipe(toArray()),
+    const secondTerminalTypes = secondRunEvents.slice(1).map((event) => event.type);
+    expect(secondTerminalTypes.every((type) => type === EventType.RUN_ERROR || type === EventType.RUN_FINISHED)).toBe(
+      true,
     );
+
+    const connectEvents = await firstValueFrom(runner.connect({ threadId }).pipe(toArray()));
 
     const latestRunStarted = connectEvents
       .filter((event) => event.type === EventType.RUN_STARTED)

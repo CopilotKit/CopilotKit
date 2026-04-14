@@ -12,17 +12,11 @@ type ControlledAnthropicKeys = "name" | "generateId";
 // Compile-time exhaustiveness check: every key in AnthropicProviderSettings
 // must be accounted for. If this line errors, a new key was added.
 type _exhaustive =
-  Exclude<
-    keyof AnthropicProviderSettings,
-    ForwardedAnthropicKeys | ControlledAnthropicKeys
-  > extends never
+  Exclude<keyof AnthropicProviderSettings, ForwardedAnthropicKeys | ControlledAnthropicKeys> extends never
     ? true
     : {
         error: "AnthropicProviderSettings has unhandled keys";
-        unhandled: Exclude<
-          keyof AnthropicProviderSettings,
-          ForwardedAnthropicKeys | ControlledAnthropicKeys
-        >;
+        unhandled: Exclude<keyof AnthropicProviderSettings, ForwardedAnthropicKeys | ControlledAnthropicKeys>;
       };
 const _check: _exhaustive = true;
 

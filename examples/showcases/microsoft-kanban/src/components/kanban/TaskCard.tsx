@@ -14,13 +14,7 @@ interface TaskCardProps {
   onRemoveTag?: (tag: string) => void;
 }
 
-export default function TaskCard({
-  task,
-  onUpdateTitle,
-  onUpdateSubtitle,
-  onAddTag,
-  onRemoveTag,
-}: TaskCardProps) {
+export default function TaskCard({ task, onUpdateTitle, onUpdateSubtitle, onAddTag, onRemoveTag }: TaskCardProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingSubtitle, setIsEditingSubtitle] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
@@ -53,11 +47,7 @@ export default function TaskCard({
   }, [isAddingTag]);
 
   const handleTitleBlur = () => {
-    if (
-      titleValue.trim() !== "" &&
-      titleValue !== task.title &&
-      onUpdateTitle
-    ) {
+    if (titleValue.trim() !== "" && titleValue !== task.title && onUpdateTitle) {
       onUpdateTitle(titleValue);
     } else {
       setTitleValue(task.title);
@@ -170,10 +160,7 @@ export default function TaskCard({
             >
               {tag}
               {onRemoveTag && (
-                <X
-                  className="h-3 w-3 cursor-pointer hover:text-destructive"
-                  onClick={() => onRemoveTag(tag)}
-                />
+                <X className="h-3 w-3 cursor-pointer hover:text-destructive" onClick={() => onRemoveTag(tag)} />
               )}
             </span>
           ))}
@@ -191,12 +178,7 @@ export default function TaskCard({
           className="text-xs w-full bg-transparent border border-input rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ring"
         />
       ) : (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 text-xs"
-          onClick={() => setIsAddingTag(true)}
-        >
+        <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setIsAddingTag(true)}>
           <Plus className="h-3 w-3 mr-1" /> Tag
         </Button>
       )}

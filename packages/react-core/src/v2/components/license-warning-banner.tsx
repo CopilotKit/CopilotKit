@@ -1,12 +1,7 @@
 import React from "react";
 
 interface LicenseWarningBannerProps {
-  type:
-    | "no_license"
-    | "expired"
-    | "expiring"
-    | "invalid"
-    | "feature_unlicensed";
+  type: "no_license" | "expired" | "expiring" | "invalid" | "feature_unlicensed";
   featureName?: string;
   expiryDate?: string;
   graceRemaining?: number;
@@ -26,8 +21,7 @@ const BANNER_STYLES: Record<string, React.CSSProperties> = {
     whiteSpace: "nowrap",
     padding: "8px 16px",
     fontSize: "13px",
-    fontFamily:
-      "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
     borderRadius: "6px",
     boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
   },
@@ -180,8 +174,7 @@ export function InlineFeatureWarning({ featureName }: { featureName: string }) {
         borderRadius: "6px",
         fontSize: "13px",
         color: "#92400e",
-        fontFamily:
-          "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
       }}
     >
       ⚠ The &quot;{featureName}&quot; feature requires a CopilotKit license.{" "}

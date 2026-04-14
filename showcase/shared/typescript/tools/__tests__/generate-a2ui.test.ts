@@ -10,10 +10,7 @@ describe("generateA2uiImpl", () => {
   it("returns system prompt from context entries", () => {
     const result = generateA2uiImpl({
       messages: [],
-      contextEntries: [
-        { value: "Component catalog info" },
-        { value: "More context" },
-      ],
+      contextEntries: [{ value: "Component catalog info" }, { value: "More context" }],
     });
     expect(result.systemPrompt).toContain("Component catalog info");
     expect(result.systemPrompt).toContain("More context");
@@ -81,10 +78,7 @@ describe("buildA2uiOperationsFromToolCall", () => {
       catalogId: "c1",
       components: [],
     });
-    expect(spy).toHaveBeenCalledWith(
-      expect.stringContaining("empty components"),
-      "s1",
-    );
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("empty components"), "s1");
     spy.mockRestore();
   });
 });

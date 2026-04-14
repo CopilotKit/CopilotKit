@@ -3,27 +3,10 @@ import { Flags } from "@oclif/core";
 import { isLocalhost } from "../utils.js";
 
 // ===== Core Constants =====
-export const MODES = [
-  "LangGraph",
-  "CrewAI",
-  "Mastra",
-  "LlamaIndex",
-  "Agno",
-  "AG2",
-  "MCP",
-  "Standard",
-] as const;
+export const MODES = ["LangGraph", "CrewAI", "Mastra", "LlamaIndex", "Agno", "AG2", "MCP", "Standard"] as const;
 export const CREW_TYPES = ["Crews", "Flows"] as const;
-export const CHAT_COMPONENTS = [
-  "CopilotChat",
-  "CopilotSidebar",
-  "Headless",
-  "CopilotPopup",
-] as const;
-export const LANGGRAPH_AGENTS = [
-  "Python Starter",
-  "TypeScript Starter",
-] as const;
+export const CHAT_COMPONENTS = ["CopilotChat", "CopilotSidebar", "Headless", "CopilotPopup"] as const;
+export const LANGGRAPH_AGENTS = ["Python Starter", "TypeScript Starter"] as const;
 export const CREW_FLOW_TEMPLATES = ["Starter"] as const;
 export const YES_NO = ["Yes", "No"] as const;
 // NEW: Deployment choice options for Branch B
@@ -75,10 +58,7 @@ export const UrlSchema = z.preprocess(
 );
 
 // Token validation schema with preprocessing to trim
-export const TokenSchema = z.preprocess(
-  (val) => sanitizers.trim(String(val)),
-  z.string().min(1, "Token is required"),
-);
+export const TokenSchema = z.preprocess((val) => sanitizers.trim(String(val)), z.string().min(1, "Token is required"));
 
 // API key validation schema with preprocessing to remove whitespace
 export const ApiKeySchema = z.preprocess(
@@ -86,16 +66,10 @@ export const ApiKeySchema = z.preprocess(
   z.string().min(1, "API key is required"),
 );
 
-export const LLMApiKeySchema = z.preprocess(
-  (val) => sanitizers.apiKey(String(val)),
-  z.string().optional(),
-);
+export const LLMApiKeySchema = z.preprocess((val) => sanitizers.apiKey(String(val)), z.string().optional());
 
 // Name validation schema with preprocessing to trim
-export const NameSchema = z.preprocess(
-  (val) => sanitizers.trim(String(val)),
-  z.string().min(1, "Name is required"),
-);
+export const NameSchema = z.preprocess((val) => sanitizers.trim(String(val)), z.string().min(1, "Name is required"));
 
 // Config schema
 export const ConfigSchema = z
@@ -130,9 +104,7 @@ export const ConfigSchema = z
 
     // IDE Documentation setup fields
     setupIDEDocs: YesNoSchema.optional(),
-    selectedIDE: z
-      .union([z.enum(["cursor", "windsurf"]), z.literal("skip")])
-      .optional(),
+    selectedIDE: z.union([z.enum(["cursor", "windsurf"]), z.literal("skip")]).optional(),
 
     // NEW: A/B/C test fields
     deploymentChoice: DeploymentChoiceSchema.optional(), // For branch B only (Cloud vs Self-hosted)
@@ -153,15 +125,8 @@ export const ConfigSchema = z
   .refine(
     (data) => {
       // If LangGraph is selected with LangGraph Platform, require platform URL and LangSmith API key
-      if (
-        data.mode === "LangGraph" &&
-        data.alreadyDeployed === "Yes" &&
-        data.langGraphPlatform === "Yes"
-      ) {
-        return (
-          (!!data.langGraphPlatformUrl && !!data.langSmithApiKey) ||
-          isLocalhost(data.langGraphPlatformUrl || "")
-        );
+      if (data.mode === "LangGraph" && data.alreadyDeployed === "Yes" && data.langGraphPlatform === "Yes") {
+        return (!!data.langGraphPlatformUrl && !!data.langSmithApiKey) || isLocalhost(data.langGraphPlatformUrl || "");
       }
       return true;
     },
@@ -179,9 +144,7 @@ export type Question = {
   type: "input" | "yes/no" | "select";
   name: keyof Config;
   message: string;
-  choices?:
-    | readonly string[]
-    | (() => Promise<{ name: string; value: string }[]>);
+  choices?: readonly string[] | (() => Promise<{ name: string; value: string }[]>);
   default?: string;
   when?: (answers: Partial<Config>) => boolean | Promise<boolean>;
   sensitive?: boolean;

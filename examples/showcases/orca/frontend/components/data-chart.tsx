@@ -76,12 +76,7 @@ export function DataChart({ data }: DataChartProps) {
             labelLine={false}
           >
             {chartData.map((entry, index) => (
-              <Cell
-                key={`cell-${index}`}
-                fill={
-                  status.find((status) => status.name === entry.name)?.value
-                }
-              />
+              <Cell key={`cell-${index}`} fill={status.find((status) => status.name === entry.name)?.value} />
             ))}
           </Pie>
           {/* bg-white p-2 rounded shadow text-black */}
@@ -94,9 +89,7 @@ export function DataChart({ data }: DataChartProps) {
               <span
                 className={`inline-block w-4 h-4 rounded-full ${status.find((status) => status.name === entry.name)?.color}`}
               />
-              <span className="text-sm text-black">
-                {entry.name.split("_").join(" ")}
-              </span>
+              <span className="text-sm text-black">{entry.name.split("_").join(" ")}</span>
             </div>
           ))}
         </div>

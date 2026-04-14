@@ -20,10 +20,7 @@ export function DeleteSlideButton({
       disabled={slides.length == 1}
       onClick={() => {
         // delete the current slide
-        setSlides((slides) => [
-          ...slides.slice(0, currentSlideIndex),
-          ...slides.slice(currentSlideIndex + 1),
-        ]);
+        setSlides((slides) => [...slides.slice(0, currentSlideIndex), ...slides.slice(currentSlideIndex + 1)]);
         setCurrentSlideIndex((i) => 0);
       }}
     >

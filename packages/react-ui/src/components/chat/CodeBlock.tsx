@@ -55,9 +55,7 @@ export const generateRandomString = (length: number, lowercase = false) => {
 
 const CodeBlock: FC<Props> = memo(({ language, value }) => {
   const { isCopied, copyToClipboard } = useCopyToClipboard({ timeout: 2000 });
-  const [SyntaxHighlighter, setSyntaxHighlighter] = useState<
-    typeof Light | typeof Prism
-  >(() => Light);
+  const [SyntaxHighlighter, setSyntaxHighlighter] = useState<typeof Light | typeof Prism>(() => Light);
 
   useEffect(() => {
     try {
@@ -103,10 +101,7 @@ const CodeBlock: FC<Props> = memo(({ language, value }) => {
       <div className="copilotKitCodeBlockToolbar">
         <span className="copilotKitCodeBlockToolbarLanguage">{language}</span>
         <div className="copilotKitCodeBlockToolbarButtons">
-          <button
-            className="copilotKitCodeBlockToolbarButton"
-            onClick={downloadAsFile}
-          >
+          <button className="copilotKitCodeBlockToolbarButton" onClick={downloadAsFile}>
             {DownloadIcon}
           </button>
           <button className="copilotKitCodeBlockToolbarButton" onClick={onCopy}>
@@ -142,8 +137,7 @@ const highlightStyle: any = {
     color: "#d4d4d4",
     fontSize: "13px",
     textShadow: "none",
-    fontFamily:
-      'Menlo, Monaco, Consolas, "Andale Mono", "Ubuntu Mono", "Courier New", monospace',
+    fontFamily: 'Menlo, Monaco, Consolas, "Andale Mono", "Ubuntu Mono", "Courier New", monospace',
     direction: "ltr",
     textAlign: "left",
     whiteSpace: "pre",
@@ -166,8 +160,7 @@ const highlightStyle: any = {
     color: "#d4d4d4",
     fontSize: "13px",
     textShadow: "none",
-    fontFamily:
-      'Menlo, Monaco, Consolas, "Andale Mono", "Ubuntu Mono", "Courier New", monospace',
+    fontFamily: 'Menlo, Monaco, Consolas, "Andale Mono", "Ubuntu Mono", "Courier New", monospace',
     direction: "ltr",
     textAlign: "left",
     whiteSpace: "pre",

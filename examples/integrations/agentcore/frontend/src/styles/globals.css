@@ -88,9 +88,7 @@
   --sidebar-ring: oklch(0.708 0 0);
 
   /* Font variables for Geist fonts */
-  --font-geist-sans:
-    "Geist Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  --font-geist-sans: "Geist Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-geist-mono: "Geist Mono", "Courier New", Consolas, Monaco, monospace;
 }
 

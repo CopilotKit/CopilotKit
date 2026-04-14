@@ -43,11 +43,7 @@ export function PreviewSpreadsheetChanges(props: PreviewSpreadsheetChanges) {
     <div className="flex flex-col">
       <Spreadsheet data={props.newRows} />
 
-      <div className="mt-5">
-        {changesCommitted
-          ? changesCommittedButtonPlaceholder()
-          : commitChangesButton()}
-      </div>
+      <div className="mt-5">{changesCommitted ? changesCommittedButtonPlaceholder() : commitChangesButton()}</div>
     </div>
   );
 }

@@ -14,9 +14,7 @@ export interface MockStreamEvent {
 /**
  * Creates a mock streamText response with controlled events.
  */
-export function mockStreamTextResponse(
-  events: MockStreamEvent[],
-): ReturnType<typeof streamText> {
+export function mockStreamTextResponse(events: MockStreamEvent[]): ReturnType<typeof streamText> {
   return {
     fullStream: (async function* () {
       for (const event of events) {
@@ -52,10 +50,7 @@ export function textDelta(text: string): MockStreamEvent {
 /**
  * Helper to create a tool call streaming start event
  */
-export function toolCallStreamingStart(
-  toolCallId: string,
-  toolName: string,
-): MockStreamEvent {
+export function toolCallStreamingStart(toolCallId: string, toolName: string): MockStreamEvent {
   return {
     type: "tool-input-start",
     id: toolCallId,
@@ -66,10 +61,7 @@ export function toolCallStreamingStart(
 /**
  * Helper to create a tool call delta event
  */
-export function toolCallDelta(
-  toolCallId: string,
-  argsTextDelta: string,
-): MockStreamEvent {
+export function toolCallDelta(toolCallId: string, argsTextDelta: string): MockStreamEvent {
   return {
     type: "tool-input-delta",
     id: toolCallId,
@@ -80,11 +72,7 @@ export function toolCallDelta(
 /**
  * Helper to create a tool call event
  */
-export function toolCall(
-  toolCallId: string,
-  toolName: string,
-  input: unknown = {},
-): MockStreamEvent {
+export function toolCall(toolCallId: string, toolName: string, input: unknown = {}): MockStreamEvent {
   return {
     type: "tool-call",
     toolCallId,
@@ -96,11 +84,7 @@ export function toolCall(
 /**
  * Helper to create a tool result event
  */
-export function toolResult(
-  toolCallId: string,
-  toolName: string,
-  output: unknown,
-): MockStreamEvent {
+export function toolResult(toolCallId: string, toolName: string, output: unknown): MockStreamEvent {
   return {
     type: "tool-result",
     toolCallId,
@@ -173,9 +157,7 @@ export function error(errorMessage: string): MockStreamEvent {
 /**
  * Collects all events from an Observable<BaseEvent> into an array.
  */
-export async function collectEvents(
-  observable: Observable<BaseEvent>,
-): Promise<BaseEvent[]> {
+export async function collectEvents(observable: Observable<BaseEvent>): Promise<BaseEvent[]> {
   return new Promise((resolve, reject) => {
     const events: BaseEvent[] = [];
     const timeoutId = setTimeout(() => {

@@ -123,16 +123,12 @@ describe("DealCard", () => {
   it("applies reduced opacity when completed", () => {
     const completedDeal = { ...baseDeal, completed: true };
     const { container } = render(<DealCard deal={completedDeal} />);
-    expect((container.firstChild as HTMLElement).className).toContain(
-      "opacity-60",
-    );
+    expect((container.firstChild as HTMLElement).className).toContain("opacity-60");
   });
 
   it("does not apply reduced opacity when active", () => {
     const { container } = render(<DealCard deal={baseDeal} />);
-    expect((container.firstChild as HTMLElement).className).not.toContain(
-      "opacity-60",
-    );
+    expect((container.firstChild as HTMLElement).className).not.toContain("opacity-60");
   });
 
   it("shows line-through on title when completed", () => {

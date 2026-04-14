@@ -1,7 +1,5 @@
 import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
-import telemetry, {
-  getRuntimeInstanceTelemetryInfo,
-} from "../../telemetry-client";
+import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
 import { copilotRuntimeNodeHttpEndpoint } from "../node-http";
 
 export const config = {
@@ -16,9 +14,7 @@ export const config = {
 // oxlint-disable-next-line unicorn/require-module-specifiers, typescript/no-useless-empty-export
 export type {} from "@whatwg-node/server";
 
-export function copilotRuntimeNextJSPagesRouterEndpoint(
-  options: CreateCopilotRuntimeServerOptions,
-) {
+export function copilotRuntimeNextJSPagesRouterEndpoint(options: CreateCopilotRuntimeServerOptions) {
   const commonConfig = getCommonConfig(options);
 
   telemetry.setGlobalProperties({
@@ -33,10 +29,7 @@ export function copilotRuntimeNextJSPagesRouterEndpoint(
     });
   }
 
-  telemetry.capture(
-    "oss.runtime.instance_created",
-    getRuntimeInstanceTelemetryInfo(options),
-  );
+  telemetry.capture("oss.runtime.instance_created", getRuntimeInstanceTelemetryInfo(options));
 
   const logger = commonConfig.logging;
   logger.debug("Creating NextJS Pages Router endpoint");

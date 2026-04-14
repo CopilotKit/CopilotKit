@@ -29,37 +29,28 @@ export const MCPAgent: FC = () => {
   const configsRef = useRef<Record<string, ServerConfig>>({});
 
   // Get saved MCP configurations from localStorage
-  const [savedConfigs] = useLocalStorage<Record<string, ServerConfig>>(
-    MCP_STORAGE_KEY,
-    {},
-  );
+  const [savedConfigs] = useLocalStorage<Record<string, ServerConfig>>(MCP_STORAGE_KEY, {});
 
   // Set the ref value once we have the saved configs
-  if (
-    Object.keys(savedConfigs).length > 0 &&
-    Object.keys(configsRef.current).length === 0
-  ) {
+  if (Object.keys(savedConfigs).length > 0 && Object.keys(configsRef.current).length === 0) {
     configsRef.current = savedConfigs;
   }
 
-  const { state: mcpAgentState, stop: stopMcpAgent } =
-    useCoAgent<MCPAgentState>({
-      name: AvailableAgents.MCP_AGENT,
-      initialState: {
-        response: "",
-        logs: [],
-        mcp_config: configsRef.current,
-      },
-    });
+  const { state: mcpAgentState, stop: stopMcpAgent } = useCoAgent<MCPAgentState>({
+    name: AvailableAgents.MCP_AGENT,
+    initialState: {
+      response: "",
+      logs: [],
+      mcp_config: configsRef.current,
+    },
+  });
 
   useEffect(() => {
     if (mcpAgentState.logs) {
       setLogs((prevLogs) => {
         const newLogs = [...prevLogs];
         mcpAgentState.logs.forEach((log) => {
-          const existingLogIndex = newLogs.findIndex(
-            (l) => l.message === log.message,
-          );
+          const existingLogIndex = newLogs.findIndex((l) => l.message === log.message);
           if (existingLogIndex >= 0) {
             if (log.done && !newLogs[existingLogIndex].done) {
               newLogs[existingLogIndex].done = true;
@@ -87,15 +78,11 @@ export const MCPAgent: FC = () => {
         isProcessing.current = true;
         return (
           <div className="p-4 bg-gray-50 rounded-lg">
-            <h3 className="text-lg font-semibold mb-2">
-              Processing your request...
-            </h3>
+            <h3 className="text-lg font-semibold mb-2">Processing your request...</h3>
             <ul className="space-y-2">
               {logs.map((log, idx) => (
                 <li key={idx} className="flex items-start">
-                  <span
-                    className={`mr-2 ${log.done ? "text-green-500" : "text-gray-400"}`}
-                  >
+                  <span className={`mr-2 ${log.done ? "text-green-500" : "text-gray-400"}`}>
                     {log.done ? "✓" : "⟳"}
                   </span>
                   <span>{log.message}</span>
@@ -145,26 +132,12 @@ export const MCPAgent: FC = () => {
         <ReactMarkdown
           className="prose prose-sm md:prose-base lg:prose-lg prose-slate max-w-none bg-gray-50 p-6 rounded-lg border border-gray-200"
           components={{
-            h1: ({ children }) => (
-              <h1 className="text-3xl font-bold mb-6 pb-2 border-b">
-                {children}
-              </h1>
-            ),
-            h2: ({ children }) => (
-              <h2 className="text-2xl font-bold mb-4 mt-8">{children}</h2>
-            ),
-            h3: ({ children }) => (
-              <h3 className="text-xl font-bold mb-3 mt-6">{children}</h3>
-            ),
-            p: ({ children }) => (
-              <p className="mb-4 leading-relaxed">{children}</p>
-            ),
-            ul: ({ children }) => (
-              <ul className="list-disc pl-6 mb-4 space-y-2">{children}</ul>
-            ),
-            ol: ({ children }) => (
-              <ol className="list-decimal pl-6 mb-4 space-y-2">{children}</ol>
-            ),
+            h1: ({ children }) => <h1 className="text-3xl font-bold mb-6 pb-2 border-b">{children}</h1>,
+            h2: ({ children }) => <h2 className="text-2xl font-bold mb-4 mt-8">{children}</h2>,
+            h3: ({ children }) => <h3 className="text-xl font-bold mb-3 mt-6">{children}</h3>,
+            p: ({ children }) => <p className="mb-4 leading-relaxed">{children}</p>,
+            ul: ({ children }) => <ul className="list-disc pl-6 mb-4 space-y-2">{children}</ul>,
+            ol: ({ children }) => <ol className="list-decimal pl-6 mb-4 space-y-2">{children}</ol>,
             blockquote: ({ children }) => (
               <blockquote className="border-l-4 border-gray-300 pl-4 py-2 my-6 bg-gray-50 rounded-r">
                 {children}

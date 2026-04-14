@@ -1,11 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 
-import {
-  CopilotModalHeader,
-  CopilotSidebarView,
-  type CopilotSidebarViewProps,
-} from "@copilotkit/react-core/v2";
+import { CopilotModalHeader, CopilotSidebarView, type CopilotSidebarViewProps } from "@copilotkit/react-core/v2";
 import { CopilotStoryLayout } from "./CopilotStoryLayout";
 
 const meta = {
@@ -36,14 +32,9 @@ export const CustomHeader: Story = {
     header: {
       title: "Workspace Copilot",
       titleContent: (props) => (
-        <CopilotModalHeader.Title
-          {...props}
-          className="text-lg font-semibold tracking-tight text-foreground"
-        >
+        <CopilotModalHeader.Title {...props} className="text-lg font-semibold tracking-tight text-foreground">
           <span>{props.children}</span>
-          <span className="mt-1 block text-xs font-normal text-muted-foreground">
-            Always-on teammate
-          </span>
+          <span className="mt-1 block text-xs font-normal text-muted-foreground">Always-on teammate</span>
         </CopilotModalHeader.Title>
       ),
       closeButton: (props) => (

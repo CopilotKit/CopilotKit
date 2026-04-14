@@ -6,9 +6,7 @@ test.describe("Tool-Based Generative UI", () => {
   });
 
   test("page loads with sidebar open", async ({ page }) => {
-    await expect(
-      page.locator('textarea, [placeholder*="message"]').first(),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('textarea, [placeholder*="message"]').first()).toBeVisible({ timeout: 10000 });
   });
 
   test("sidebar header shows Sales Pipeline title", async ({ page }) => {

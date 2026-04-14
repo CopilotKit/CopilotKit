@@ -12,9 +12,7 @@ export function Header({ title, subtitle }: HeaderProps) {
     <header className="flex h-16 items-center justify-between border-b border-border px-8">
       <div>
         <h1 className="text-lg font-semibold text-foreground">{title}</h1>
-        {subtitle && (
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
-        )}
+        {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
       </div>
 
       <div className="flex items-center gap-3">
@@ -25,9 +23,7 @@ export function Header({ title, subtitle }: HeaderProps) {
             placeholder="Search..."
             className="flex-1 bg-transparent text-sm text-foreground placeholder-muted-foreground outline-none"
           />
-          <kbd className="rounded border border-border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">
-            ⌘K
-          </kbd>
+          <kbd className="rounded border border-border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground">⌘K</kbd>
         </div>
 
         <button className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:text-foreground">

@@ -35,19 +35,12 @@ const meta: Meta<CopilotChatView> = {
   component: CopilotChatView,
   decorators: [
     moduleMetadata({
-      imports: [
-        CommonModule,
-        FormsModule,
-        CopilotChatView,
-        CopilotChatMessageView,
-        CopilotChatInput,
-      ],
+      imports: [CommonModule, FormsModule, CopilotChatView, CopilotChatMessageView, CopilotChatInput],
       providers: [
         provideCopilotKit({}),
         provideCopilotChatLabels({
           chatInputPlaceholder: "Type a message...",
-          chatDisclaimerText:
-            "AI can make mistakes. Please verify important information.",
+          chatDisclaimerText: "AI can make mistakes. Please verify important information.",
         }),
         { provide: ChatState, useClass: StoryChatState },
       ],
@@ -174,14 +167,7 @@ export const CustomDisclaimerTemplate: Story = {
           Send
         </button>
       </div>
-      <div
-        style="
-          text-align: center;
-          margin-top: 8px;
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.8);
-        "
-      >
+      <div style="text-align: center; margin-top: 8px; font-size: 12px; color: rgba(255, 255, 255, 0.8)">
         Press Enter to send • Powered by Templates
       </div>
     </div>
@@ -315,12 +301,7 @@ export const CustomScrollButtonTemplate: Story = {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div
-      style="
-        background: linear-gradient(90deg, #00d2ff 0%, #3a47d5 100%);
-        padding: 20px;
-      "
-    >
+    <div style="background: linear-gradient(90deg, #00d2ff 0%, #3a47d5 100%); padding: 20px">
       <input
         type="text"
         [(ngModel)]="inputValue"
@@ -378,8 +359,7 @@ export const AllTemplatesCombined: Story = {
       },
       {
         id: "assistant-1",
-        content:
-          "Here you can see custom disclaimer, input, and scroll button templates all working in harmony!",
+        content: "Here you can see custom disclaimer, input, and scroll button templates all working in harmony!",
         role: "assistant" as const,
       },
       {

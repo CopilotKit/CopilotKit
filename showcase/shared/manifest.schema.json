@@ -3,16 +3,7 @@
   "title": "Integration Package Manifest",
   "description": "Schema for CopilotKit Showcase integration package manifests",
   "type": "object",
-  "required": [
-    "name",
-    "slug",
-    "category",
-    "language",
-    "description",
-    "backend_url",
-    "features",
-    "demos"
-  ],
+  "required": ["name", "slug", "category", "language", "description", "backend_url", "features", "demos"],
   "properties": {
     "name": {
       "type": "string",
@@ -25,15 +16,7 @@
     },
     "category": {
       "type": "string",
-      "enum": [
-        "popular",
-        "agent-framework",
-        "enterprise-platform",
-        "provider-sdk",
-        "protocol",
-        "emerging",
-        "starter"
-      ],
+      "enum": ["popular", "agent-framework", "enterprise-platform", "provider-sdk", "protocol", "emerging", "starter"],
       "description": "Integration category"
     },
     "language": {
@@ -135,13 +118,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "enum": [
-          "constrained-declarative",
-          "constrained-explicit",
-          "open",
-          "a2ui-fixed-schema",
-          "a2ui-dynamic-schema"
-        ]
+        "enum": ["constrained-declarative", "constrained-explicit", "open", "a2ui-fixed-schema", "a2ui-dynamic-schema"]
       },
       "minItems": 1,
       "description": "Generative UI patterns supported by this integration"

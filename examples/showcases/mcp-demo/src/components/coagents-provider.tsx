@@ -60,10 +60,6 @@ export interface Log {
 /**
  * This provider wraps state from all agents
  */
-export const CoAgentsProvider = ({
-  children,
-}: {
-  children: React.ReactNode;
-}) => {
+export const CoAgentsProvider = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };

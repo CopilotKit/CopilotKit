@@ -663,8 +663,7 @@
       <header class="topbar">
         <div class="brand">CopilotKit</div>
         <nav class="nav">
-          <a href="#">Home</a><a href="#" class="active">Integrations</a
-          ><a href="#">Matrix</a><a href="#">Reference</a>
+          <a href="#">Home</a><a href="#" class="active">Integrations</a><a href="#">Matrix</a><a href="#">Reference</a>
         </nav>
         <input class="search" placeholder="⌕  Search docs, demos, APIs..." />
       </header>
@@ -674,13 +673,9 @@
           <div class="item">Overview</div>
           <div class="item">Quickstart</div>
           <div class="sec">Features</div>
-          <div class="item active">
-            Generative UI <span class="badge">demo</span>
-          </div>
+          <div class="item active">Generative UI <span class="badge">demo</span></div>
           <div class="item">Shared State <span class="badge">demo</span></div>
-          <div class="item">
-            Human in the Loop <span class="badge">demo</span>
-          </div>
+          <div class="item">Human in the Loop <span class="badge">demo</span></div>
           <div class="item">Frontend Tools</div>
           <div class="item">Multi-Agent <span class="badge">demo</span></div>
           <div class="sec">Reference</div>
@@ -689,28 +684,16 @@
         <div class="v1-docs">
           <div class="crumb">LangGraph / Features / Generative UI</div>
           <h1>Generative UI</h1>
-          <p class="desc">
-            Let your agent generate interactive React components on the fly.
-          </p>
+          <p class="desc">Let your agent generate interactive React components on the fly.</p>
           <h2>Tool-Based Approach</h2>
-          <p>
-            Register a frontend tool with <code>useFrontendTool</code> and the
-            agent calls it to render components.
-          </p>
+          <p>Register a frontend tool with <code>useFrontendTool</code> and the agent calls it to render components.</p>
           <div class="codeblock">
-            useFrontendTool({ name: "render_chart", parameters: z.object({...}),
-            handler: async ({ data }) => {...} });
+            useFrontendTool({ name: "render_chart", parameters: z.object({...}), handler: async ({ data }) => {...} });
           </div>
           <h2>Agentic Approach</h2>
-          <p>
-            For long-running tasks, the agent orchestrates multi-step workflows
-            and renders progress UI.
-          </p>
+          <p>For long-running tasks, the agent orchestrates multi-step workflows and renders progress UI.</p>
           <h2>Declarative (BYOC)</h2>
-          <p>
-            Use A2UI, Hashbrown, JSON Render, or other declarative renderers for
-            schema-driven UI generation.
-          </p>
+          <p>Use A2UI, Hashbrown, JSON Render, or other declarative renderers for schema-driven UI generation.</p>
         </div>
         <div class="v1-demo">
           <div class="v1-demo-header">
@@ -725,13 +708,9 @@
           </div>
           <div class="v1-demo-body">
             <div style="text-align: center">
-              <div style="font-size: 36px; opacity: 0.2; margin-bottom: 8px">
-                💬
-              </div>
+              <div style="font-size: 36px; opacity: 0.2; margin-bottom: 8px">💬</div>
               Live demo iframe<br />
-              <span style="font-size: 11px; color: var(--text4)"
-                >Always visible alongside the docs</span
-              >
+              <span style="font-size: 11px; color: var(--text4)">Always visible alongside the docs</span>
             </div>
           </div>
         </div>
@@ -743,8 +722,7 @@
       <header class="topbar">
         <div class="brand">CopilotKit</div>
         <nav class="nav">
-          <a href="#">Home</a><a href="#" class="active">Integrations</a
-          ><a href="#">Matrix</a><a href="#">Reference</a>
+          <a href="#">Home</a><a href="#" class="active">Integrations</a><a href="#">Matrix</a><a href="#">Reference</a>
         </nav>
         <input class="search" placeholder="⌕  Search docs, demos, APIs..." />
       </header>
@@ -754,13 +732,9 @@
           <div class="item">Overview</div>
           <div class="item">Quickstart</div>
           <div class="sec">Features</div>
-          <div class="item active">
-            Generative UI <span class="badge">demo</span>
-          </div>
+          <div class="item active">Generative UI <span class="badge">demo</span></div>
           <div class="item">Shared State <span class="badge">demo</span></div>
-          <div class="item">
-            Human in the Loop <span class="badge">demo</span>
-          </div>
+          <div class="item">Human in the Loop <span class="badge">demo</span></div>
           <div class="item">Frontend Tools</div>
           <div class="sec">Reference</div>
           <div class="item">Hooks & Components →</div>
@@ -768,48 +742,36 @@
         <div class="v2-main">
           <div class="crumb">LangGraph / Features / Generative UI</div>
           <h1>Generative UI</h1>
-          <p class="desc">
-            Let your agent generate interactive React components on the fly.
-          </p>
-          <div class="v2-demo-cta" onclick="toggleDrawer()">
-            ▶ Try Live Demo
-          </div>
+          <p class="desc">Let your agent generate interactive React components on the fly.</p>
+          <div class="v2-demo-cta" onclick="toggleDrawer()">▶ Try Live Demo</div>
           <h2>Tool-Based Approach</h2>
           <p>
-            Register a frontend tool with <code>useFrontendTool</code> and the
-            agent calls it to render components. The agent determines when to
-            invoke the tool based on the user's request.
+            Register a frontend tool with <code>useFrontendTool</code> and the agent calls it to render components. The
+            agent determines when to invoke the tool based on the user's request.
           </p>
           <div class="codeblock">
-            useFrontendTool({ name: "render_chart", parameters: z.object({ data:
-            z.array(...), type: z.enum(["bar", "pie"]) }), handler: async ({
-            data, type }) => { return { rendered: true }; }, });
+            useFrontendTool({ name: "render_chart", parameters: z.object({ data: z.array(...), type: z.enum(["bar",
+            "pie"]) }), handler: async ({ data, type }) => { return { rendered: true }; }, });
           </div>
           <p>
-            When the agent calls this tool, CopilotKit renders the component you
-            defined. The user sees an interactive chart appear in the chat.
+            When the agent calls this tool, CopilotKit renders the component you defined. The user sees an interactive
+            chart appear in the chat.
           </p>
           <h2>Agentic Approach</h2>
           <p>
-            For long-running tasks, the agent orchestrates multi-step workflows
-            and renders progress UI along the way.
+            For long-running tasks, the agent orchestrates multi-step workflows and renders progress UI along the way.
           </p>
           <div
             class="v2-demo-cta"
             onclick="toggleDrawer()"
-            style="
-              background: rgba(139, 92, 246, 0.08);
-              border-color: rgba(139, 92, 246, 0.2);
-              color: var(--violet);
-            "
+            style="background: rgba(139, 92, 246, 0.08); border-color: rgba(139, 92, 246, 0.2); color: var(--violet)"
           >
             ▶ Try Agentic GenUI Demo
           </div>
           <h2>Declarative (BYOC)</h2>
           <p>
-            Use A2UI, Hashbrown, JSON Render, or other declarative renderers for
-            schema-driven UI generation. The agent sends a schema, your renderer
-            turns it into components.
+            Use A2UI, Hashbrown, JSON Render, or other declarative renderers for schema-driven UI generation. The agent
+            sends a schema, your renderer turns it into components.
           </p>
         </div>
         <div class="v2-overlay" id="v2-overlay" onclick="toggleDrawer()"></div>
@@ -827,13 +789,9 @@
           </div>
           <div class="v2-drawer-body">
             <div style="text-align: center">
-              <div style="font-size: 36px; opacity: 0.2; margin-bottom: 8px">
-                💬
-              </div>
+              <div style="font-size: 36px; opacity: 0.2; margin-bottom: 8px">💬</div>
               Live demo iframe<br />
-              <span style="font-size: 11px; color: var(--text4)"
-                >Slides in when you click "Try Demo"</span
-              >
+              <span style="font-size: 11px; color: var(--text4)">Slides in when you click "Try Demo"</span>
             </div>
           </div>
         </div>
@@ -845,8 +803,7 @@
       <header class="topbar">
         <div class="brand">CopilotKit</div>
         <nav class="nav">
-          <a href="#">Home</a><a href="#" class="active">Integrations</a
-          ><a href="#">Matrix</a><a href="#">Reference</a>
+          <a href="#">Home</a><a href="#" class="active">Integrations</a><a href="#">Matrix</a><a href="#">Reference</a>
         </nav>
         <input class="search" placeholder="⌕  Search docs, demos, APIs..." />
       </header>
@@ -866,18 +823,13 @@
         <div class="v3-main">
           <div class="crumb">LangGraph / Features / Generative UI</div>
           <h1>Generative UI</h1>
-          <p class="desc">
-            Let your agent generate interactive React components on the fly.
-          </p>
+          <p class="desc">Let your agent generate interactive React components on the fly.</p>
 
           <h2>Tool-Based Approach</h2>
-          <p>
-            Register a frontend tool with <code>useFrontendTool</code> and the
-            agent calls it to render components.
-          </p>
+          <p>Register a frontend tool with <code>useFrontendTool</code> and the agent calls it to render components.</p>
           <div class="codeblock">
-            useFrontendTool({ name: "render_chart", parameters: z.object({ data:
-            z.array(...) }), handler: async ({ data }) => { ... } });
+            useFrontendTool({ name: "render_chart", parameters: z.object({ data: z.array(...) }), handler: async ({ data
+            }) => { ... } });
           </div>
 
           <!-- Inline demo -->
@@ -891,26 +843,21 @@
             </div>
             <div class="v3-inline-demo-body">
               <div style="text-align: center">
-                <div style="font-size: 36px; opacity: 0.2; margin-bottom: 8px">
-                  💬
-                </div>
+                <div style="font-size: 36px; opacity: 0.2; margin-bottom: 8px">💬</div>
                 Live demo embedded in the doc flow<br />
-                <span style="font-size: 11px"
-                  >Try it right here, then keep reading</span
-                >
+                <span style="font-size: 11px">Try it right here, then keep reading</span>
               </div>
             </div>
           </div>
 
           <p>
-            When the agent calls this tool, CopilotKit renders the component you
-            defined. The user sees an interactive chart appear in the chat.
+            When the agent calls this tool, CopilotKit renders the component you defined. The user sees an interactive
+            chart appear in the chat.
           </p>
 
           <h2>Agentic Approach</h2>
           <p>
-            For long-running tasks, the agent orchestrates multi-step workflows
-            and renders progress UI along the way.
+            For long-running tasks, the agent orchestrates multi-step workflows and renders progress UI along the way.
           </p>
 
           <!-- Another inline demo -->
@@ -924,38 +871,27 @@
             </div>
             <div class="v3-inline-demo-body">
               <div style="text-align: center">
-                <div style="font-size: 36px; opacity: 0.2; margin-bottom: 8px">
-                  ⚡
-                </div>
+                <div style="font-size: 36px; opacity: 0.2; margin-bottom: 8px">⚡</div>
                 Another live demo inline<br />
-                <span style="font-size: 11px"
-                  >Each feature section has its own demo</span
-                >
+                <span style="font-size: 11px">Each feature section has its own demo</span>
               </div>
             </div>
           </div>
 
           <h2>Declarative (BYOC)</h2>
           <p>
-            Use A2UI, Hashbrown, JSON Render, or other declarative renderers.
-            The agent sends a schema, your renderer turns it into components.
+            Use A2UI, Hashbrown, JSON Render, or other declarative renderers. The agent sends a schema, your renderer
+            turns it into components.
           </p>
-          <p>
-            This approach gives you the most flexibility while keeping a
-            structured contract between agent and UI.
-          </p>
+          <p>This approach gives you the most flexibility while keeping a structured contract between agent and UI.</p>
         </div>
       </div>
     </section>
 
     <script>
       function showV(id) {
-        document
-          .querySelectorAll(".variation")
-          .forEach((v) => v.classList.remove("active"));
-        document
-          .querySelectorAll(".vtab")
-          .forEach((t) => t.classList.remove("active"));
+        document.querySelectorAll(".variation").forEach((v) => v.classList.remove("active"));
+        document.querySelectorAll(".vtab").forEach((t) => t.classList.remove("active"));
         document.getElementById(id).classList.add("active");
         event.currentTarget.classList.add("active");
       }

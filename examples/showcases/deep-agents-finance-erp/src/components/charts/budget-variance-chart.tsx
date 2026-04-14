@@ -12,26 +12,14 @@ import {
   Cell,
   LabelList,
 } from "recharts";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { budgetVsActual } from "@/lib/data";
 import { formatCurrency } from "@/lib/utils";
 import type { BudgetVarianceWidget } from "@/types/dashboard";
 
-export function BudgetVarianceChart({
-  config,
-}: {
-  config: BudgetVarianceWidget["config"];
-}) {
+export function BudgetVarianceChart({ config }: { config: BudgetVarianceWidget["config"] }) {
   const title = config.title ?? "Budget vs Actual Variance";
-  const subtitle =
-    config.subtitle ??
-    "Current quarter — green = under budget, red = over budget";
+  const subtitle = config.subtitle ?? "Current quarter — green = under budget, red = over budget";
 
   const filtered = config.categories
     ? budgetVsActual.filter((d) => config.categories!.includes(d.category))
@@ -61,21 +49,15 @@ export function BudgetVarianceChart({
           <div className="flex gap-4 text-xs">
             <div className="text-right">
               <p className="text-muted-foreground">Budget</p>
-              <p className="font-semibold text-foreground">
-                {formatCurrency(totalBudget)}
-              </p>
+              <p className="font-semibold text-foreground">{formatCurrency(totalBudget)}</p>
             </div>
             <div className="text-right">
               <p className="text-muted-foreground">Actual</p>
-              <p className="font-semibold text-foreground">
-                {formatCurrency(totalActual)}
-              </p>
+              <p className="font-semibold text-foreground">{formatCurrency(totalActual)}</p>
             </div>
             <div className="text-right">
               <p className="text-muted-foreground">Variance</p>
-              <p
-                className={`font-semibold ${totalVariance >= 0 ? "text-emerald-600" : "text-red-600"}`}
-              >
+              <p className={`font-semibold ${totalVariance >= 0 ? "text-emerald-600" : "text-red-600"}`}>
                 {totalVariance >= 0 ? "+" : ""}
                 {formatCurrency(totalVariance)}
               </p>
@@ -85,16 +67,8 @@ export function BudgetVarianceChart({
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={280}>
-          <BarChart
-            data={chartData}
-            layout="vertical"
-            margin={{ top: 5, right: 60, left: 10, bottom: 5 }}
-          >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="#e5e7eb"
-              horizontal={false}
-            />
+          <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 60, left: 10, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
             <XAxis
               type="number"
               tick={{ fill: "#6b7280", fontSize: 11 }}
@@ -136,18 +110,12 @@ export function BudgetVarianceChart({
             <ReferenceLine x={0} stroke="#9ca3af" strokeWidth={1.5} />
             <Bar dataKey="variance" radius={[0, 6, 6, 0]} barSize={28}>
               {chartData.map((d, i) => (
-                <Cell
-                  key={i}
-                  fill={d.variance >= 0 ? "#22c55e" : "#ef4444"}
-                  fillOpacity={0.85}
-                />
+                <Cell key={i} fill={d.variance >= 0 ? "#22c55e" : "#ef4444"} fillOpacity={0.85} />
               ))}
               <LabelList
                 dataKey="variance"
                 position="right"
-                formatter={(v: number) =>
-                  `${v >= 0 ? "+" : ""}${formatCurrency(v)}`
-                }
+                formatter={(v: number) => `${v >= 0 ? "+" : ""}${formatCurrency(v)}`}
                 style={{ fill: "#6b7280", fontSize: 11, fontWeight: 500 }}
               />
             </Bar>
@@ -155,12 +123,10 @@ export function BudgetVarianceChart({
         </ResponsiveContainer>
         <div className="mt-2 flex gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Under
-            Budget (savings)
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Under Budget (savings)
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Over Budget
-            (overrun)
+            <span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Over Budget (overrun)
           </span>
         </div>
       </CardContent>

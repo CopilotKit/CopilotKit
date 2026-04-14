@@ -9,12 +9,7 @@ interface CountryCardProps {
   points?: number;
 }
 
-export default function CountryCard({
-  countryName,
-  capital,
-  flagEmoji,
-  points = 1,
-}: CountryCardProps) {
+export default function CountryCard({ countryName, capital, flagEmoji, points = 1 }: CountryCardProps) {
   return (
     <div className="flex items-center justify-between bg-white border border-gray-200 rounded-3xl px-4 py-3 shadow-sm">
       {/* Flag Section */}
@@ -23,9 +18,7 @@ export default function CountryCard({
 
         {/* Country Info */}
         <div className="flex flex-col">
-          <h3 className="text-base font-semibold text-gray-900 leading-tight">
-            {countryName}
-          </h3>
+          <h3 className="text-base font-semibold text-gray-900 leading-tight">{countryName}</h3>
           {capital && <p className="text-sm text-gray-500 mt-0.5">{capital}</p>}
         </div>
       </div>

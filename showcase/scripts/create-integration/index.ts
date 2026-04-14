@@ -23,11 +23,7 @@ const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const PACKAGES_DIR = path.join(ROOT, "packages");
-const FEATURE_REGISTRY_PATH = path.join(
-  ROOT,
-  "shared",
-  "feature-registry.json",
-);
+const FEATURE_REGISTRY_PATH = path.join(ROOT, "shared", "feature-registry.json");
 
 interface Feature {
   id: string;
@@ -60,32 +56,20 @@ function parseArgs(): CLIArgs {
     }
   }
 
-  if (
-    !parsed.name ||
-    !parsed.slug ||
-    !parsed.category ||
-    !parsed.language ||
-    !parsed.features
-  ) {
+  if (!parsed.name || !parsed.slug || !parsed.category || !parsed.language || !parsed.features) {
     console.error(
       "Usage: create-integration --name <name> --slug <slug> --category <category> --language <language> --features <comma-separated> [--deps <comma-separated>]",
     );
     console.error("\nRequired flags:");
-    console.error(
-      "  --name       Display name (e.g. 'Anthropic (Claude Agent SDK)')",
-    );
+    console.error("  --name       Display name (e.g. 'Anthropic (Claude Agent SDK)')");
     console.error("  --slug       URL-safe ID (e.g. 'anthropic-claude-sdk')");
     console.error(
       "  --category   One of: popular, agent-framework, enterprise-platform, provider-sdk, protocol, emerging, starter",
     );
     console.error("  --language   One of: python, typescript, dotnet");
-    console.error(
-      "  --features   Comma-separated feature IDs (e.g. 'agentic-chat,hitl,tool-rendering')",
-    );
+    console.error("  --features   Comma-separated feature IDs (e.g. 'agentic-chat,hitl,tool-rendering')");
     console.error("\nOptional flags:");
-    console.error(
-      "  --deps       Extra npm dependencies (e.g. '@ag-ui/mastra,@mastra/core')",
-    );
+    console.error("  --deps       Extra npm dependencies (e.g. '@ag-ui/mastra,@mastra/core')");
     process.exit(1);
   }
 
@@ -314,11 +298,7 @@ ${demoLinks}
 `;
 }
 
-function generateDemoPage(
-  featureId: string,
-  feature: Feature | undefined,
-  args: CLIArgs,
-): string {
+function generateDemoPage(featureId: string, feature: Feature | undefined, args: CLIArgs): string {
   return `"use client";
 
 import React from "react";
@@ -430,10 +410,7 @@ function getDemoTechnicalDetails(featureId: string): string {
   }
 }
 
-function generateDemoReadme(
-  featureId: string,
-  feature: Feature | undefined,
-): string {
+function generateDemoReadme(featureId: string, feature: Feature | undefined): string {
   return `# ${feature?.name || featureId}
 
 ## What This Demo Shows
@@ -565,11 +542,7 @@ function generateHealthRoute(args: CLIArgs): string {
   const isLangGraph = args.name.startsWith("LangGraph");
   const isInProcess = args.language === "typescript" && !isLangGraph;
 
-  const agentUrl = isInProcess
-    ? "N/A (in-process)"
-    : isLangGraph
-      ? "http://localhost:8123"
-      : "http://localhost:8000";
+  const agentUrl = isInProcess ? "N/A (in-process)" : isLangGraph ? "http://localhost:8123" : "http://localhost:8000";
 
   // LangGraph Platform exposes /ok; our backends expose /health
   const probePath = isLangGraph ? "/ok" : "/health";
@@ -1000,10 +973,7 @@ copilotkit>=0.1.0
 `;
 }
 
-function generateE2ETest(
-  featureId: string,
-  feature: Feature | undefined,
-): string {
+function generateE2ETest(featureId: string, feature: Feature | undefined): string {
   return `import { test, expect } from "@playwright/test";
 
 test.describe("${feature?.name || featureId}", () => {
@@ -1032,11 +1002,7 @@ test.describe("${feature?.name || featureId}", () => {
 `;
 }
 
-function generateQATemplate(
-  featureId: string,
-  feature: Feature | undefined,
-  args: CLIArgs,
-): string {
+function generateQATemplate(featureId: string, feature: Feature | undefined, args: CLIArgs): string {
   return `# QA: ${feature?.name || featureId} — ${args.name}
 
 ## Prerequisites
@@ -1145,12 +1111,7 @@ function generateTsConfig(): string {
           plugins: [{ name: "next" }],
           paths: { "@/*": ["./src/*"] },
         },
-        include: [
-          "next-env.d.ts",
-          "**/*.ts",
-          "**/*.tsx",
-          ".next/types/**/*.ts",
-        ],
+        include: ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
         exclude: ["node_modules"],
       },
       null,
@@ -1257,10 +1218,7 @@ async function main() {
   console.log("");
 
   // Root files
-  writeFile(
-    path.join(packageDir, "manifest.yaml"),
-    generateManifest(args, features),
-  );
+  writeFile(path.join(packageDir, "manifest.yaml"), generateManifest(args, features));
   writeFile(path.join(packageDir, "package.json"), generatePackageJson(args));
   writeFile(path.join(packageDir, "Dockerfile"), generateDockerfile(args));
   writeFile(path.join(packageDir, "entrypoint.sh"), generateEntrypoint(args));
@@ -1268,69 +1226,27 @@ async function main() {
   writeFile(path.join(packageDir, ".gitignore"), generateGitignore());
   writeFile(path.join(packageDir, "next.config.ts"), generateNextConfig());
   writeFile(path.join(packageDir, "tsconfig.json"), generateTsConfig());
-  writeFile(
-    path.join(packageDir, "postcss.config.mjs"),
-    generatePostcssConfig(),
-  );
-  writeFile(
-    path.join(packageDir, "playwright.config.ts"),
-    generatePlaywrightConfig(),
-  );
+  writeFile(path.join(packageDir, "postcss.config.mjs"), generatePostcssConfig());
+  writeFile(path.join(packageDir, "playwright.config.ts"), generatePlaywrightConfig());
 
   // E2E test infrastructure
-  writeFile(
-    path.join(packageDir, "docker-compose.test.yml"),
-    generateDockerComposeTest(),
-  );
-  writeFile(
-    path.join(packageDir, "fixtures", "default.json"),
-    generateDefaultFixtures(args.slug),
-  );
+  writeFile(path.join(packageDir, "docker-compose.test.yml"), generateDockerComposeTest());
+  writeFile(path.join(packageDir, "fixtures", "default.json"), generateDefaultFixtures(args.slug));
 
   if (args.language !== "typescript") {
-    writeFile(
-      path.join(packageDir, "requirements.txt"),
-      generateRequirementsTxt(args),
-    );
-    writeFile(
-      path.join(packageDir, "src", "agent_server.py"),
-      generateAgentServer(args),
-    );
+    writeFile(path.join(packageDir, "requirements.txt"), generateRequirementsTxt(args));
+    writeFile(path.join(packageDir, "src", "agent_server.py"), generateAgentServer(args));
   }
 
   // App source
-  writeFile(
-    path.join(packageDir, "src", "app", "layout.tsx"),
-    generateLayout(),
-  );
-  writeFile(
-    path.join(packageDir, "src", "app", "globals.css"),
-    generateGlobalsCss(),
-  );
-  writeFile(
-    path.join(packageDir, "src", "app", "page.tsx"),
-    generateIndexPage(args, features),
-  );
-  writeFile(
-    path.join(packageDir, "src", "app", "api", "copilotkit", "route.ts"),
-    generateRuntimeRoute(args),
-  );
-  writeFile(
-    path.join(packageDir, "src", "app", "api", "health", "route.ts"),
-    generateHealthRoute(args),
-  );
-  writeFile(
-    path.join(packageDir, "src", "app", "api", "debug", "route.ts"),
-    generateDebugRoute(args),
-  );
-  writeFile(
-    path.join(packageDir, "src", "app", "api", "smoke", "route.ts"),
-    generateSmokeRoute(args),
-  );
-  writeFile(
-    path.join(packageDir, "src", "app", "demos", "error-boundary.tsx"),
-    generateErrorBoundary(),
-  );
+  writeFile(path.join(packageDir, "src", "app", "layout.tsx"), generateLayout());
+  writeFile(path.join(packageDir, "src", "app", "globals.css"), generateGlobalsCss());
+  writeFile(path.join(packageDir, "src", "app", "page.tsx"), generateIndexPage(args, features));
+  writeFile(path.join(packageDir, "src", "app", "api", "copilotkit", "route.ts"), generateRuntimeRoute(args));
+  writeFile(path.join(packageDir, "src", "app", "api", "health", "route.ts"), generateHealthRoute(args));
+  writeFile(path.join(packageDir, "src", "app", "api", "debug", "route.ts"), generateDebugRoute(args));
+  writeFile(path.join(packageDir, "src", "app", "api", "smoke", "route.ts"), generateSmokeRoute(args));
+  writeFile(path.join(packageDir, "src", "app", "demos", "error-boundary.tsx"), generateErrorBoundary());
 
   // Demo stubs
   for (const featureId of args.features) {
@@ -1369,16 +1285,10 @@ See the LangGraph Python reference implementation for patterns.
     }
 
     // E2E test stub
-    writeFile(
-      path.join(packageDir, "tests", "e2e", `${featureId}.spec.ts`),
-      generateE2ETest(featureId, feature),
-    );
+    writeFile(path.join(packageDir, "tests", "e2e", `${featureId}.spec.ts`), generateE2ETest(featureId, feature));
 
     // QA template
-    writeFile(
-      path.join(packageDir, "qa", `${featureId}.md`),
-      generateQATemplate(featureId, feature, args),
-    );
+    writeFile(path.join(packageDir, "qa", `${featureId}.md`), generateQATemplate(featureId, feature, args));
   }
 
   console.log(`\nPackage created at: showcase/packages/${args.slug}/`);
@@ -1386,8 +1296,7 @@ See the LangGraph Python reference implementation for patterns.
   // Auto-migrate agent code from examples/integrations/ if available
   console.log("\n--- Migrating agent code from examples/integrations/ ---\n");
   try {
-    const { migrateForSlug } =
-      await import("../migrate-integration-examples.js");
+    const { migrateForSlug } = await import("../migrate-integration-examples.js");
     const migResult = migrateForSlug(args.slug);
 
     if (migResult.errors.length > 0) {
@@ -1395,9 +1304,7 @@ See the LangGraph Python reference implementation for patterns.
       for (const err of migResult.errors) console.error(`    ${err}`);
       process.exit(1);
     } else if (migResult.files.length > 0) {
-      console.log(
-        `  Migrated ${migResult.files.length} agent files from examples/integrations/`,
-      );
+      console.log(`  Migrated ${migResult.files.length} agent files from examples/integrations/`);
       for (const f of migResult.files) console.log(`    ${f}`);
     } else if (migResult.skipped.length > 0) {
       console.log(`  No migration needed: ${migResult.skipped[0]}`);
@@ -1413,16 +1320,10 @@ See the LangGraph Python reference implementation for patterns.
 
   console.log("\nNext steps:");
   console.log("  1. Write/customize the agent code in src/agents/");
-  console.log(
-    "  2. Pin framework deps to exact versions from the Dojo example",
-  );
+  console.log("  2. Pin framework deps to exact versions from the Dojo example");
   console.log("  3. Fill in E2E test assertions");
-  console.log(
-    `  4. Deploy to Railway: npx tsx showcase/scripts/deploy-to-railway.ts ${args.slug}`,
-  );
-  console.log(
-    `  5. Go live: npx tsx showcase/scripts/deploy-to-railway.ts --go-live ${args.slug}`,
-  );
+  console.log(`  4. Deploy to Railway: npx tsx showcase/scripts/deploy-to-railway.ts ${args.slug}`);
+  console.log(`  5. Go live: npx tsx showcase/scripts/deploy-to-railway.ts --go-live ${args.slug}`);
   console.log("  6. Open a PR to the monorepo\n");
 }
 
@@ -1438,10 +1339,7 @@ function updateWorkflows(args: CLIArgs) {
 
     // Add to workflow_dispatch options if not present
     if (!deploy.includes(`- ${slug}`)) {
-      deploy = deploy.replace(
-        /(\s+options:\n(?:\s+- .+\n)+)/,
-        `$1          - ${slug}\n`,
-      );
+      deploy = deploy.replace(/(\s+options:\n(?:\s+- .+\n)+)/, `$1          - ${slug}\n`);
     }
 
     // Add change detection filter if not present
@@ -1520,10 +1418,7 @@ function updateWorkflows(args: CLIArgs) {
     if (!drift.includes(`slug: ${slug}`)) {
       // Add to matrix includes
       const entry = `          - slug: ${slug}\n            name: "${args.name}"\n            url: https://showcase-${slug}-production.up.railway.app`;
-      drift = drift.replace(
-        /(matrix:\n\s+include:\n(?:\s+- slug:.*\n\s+name:.*\n\s+url:.*\n)+)/,
-        `$1${entry}\n`,
-      );
+      drift = drift.replace(/(matrix:\n\s+include:\n(?:\s+- slug:.*\n\s+name:.*\n\s+url:.*\n)+)/, `$1${entry}\n`);
       fs.writeFileSync(driftPath, drift);
       console.log("  Updated showcase_drift-detection.yml");
     }

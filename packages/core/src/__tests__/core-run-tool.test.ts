@@ -432,8 +432,6 @@ describe("CopilotKitCore.runTool", () => {
 
     // Assistant message should have empty args
     const assistantMsg = agent.messages[0];
-    expect(JSON.parse(assistantMsg.toolCalls![0].function.arguments)).toEqual(
-      {},
-    );
+    expect(JSON.parse(assistantMsg.toolCalls![0].function.arguments)).toEqual({});
   });
 });

@@ -71,9 +71,7 @@ import { CopilotModal, CopilotModalProps } from "./Modal";
 export function CopilotPopup(props: CopilotModalProps) {
   props = {
     ...props,
-    className: props.className
-      ? props.className + " copilotKitPopup"
-      : "copilotKitPopup",
+    className: props.className ? props.className + " copilotKitPopup" : "copilotKitPopup",
   };
   return <CopilotModal {...props}>{props.children}</CopilotModal>;
 }

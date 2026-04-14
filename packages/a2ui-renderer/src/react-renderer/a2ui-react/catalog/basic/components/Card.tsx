@@ -27,7 +27,5 @@ export const Card = createReactComponent(CardApi, ({ props, buildChild }) => {
     width: "100%",
   };
 
-  return (
-    <div style={style}>{props.child ? buildChild(props.child) : null}</div>
-  );
+  return <div style={style}>{props.child ? buildChild(props.child) : null}</div>;
 });

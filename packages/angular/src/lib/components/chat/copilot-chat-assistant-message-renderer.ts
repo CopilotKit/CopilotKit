@@ -25,11 +25,7 @@ import { injectChatLabels } from "../../chat-config";
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
-    <div
-      #markdownContainer
-      [class]="inputClass()"
-      (click)="handleClick($event)"
-    ></div>
+    <div #markdownContainer [class]="inputClass()" (click)="handleClick($event)"></div>
   `,
   styles: [
     `
@@ -44,9 +40,7 @@ import { injectChatLabels } from "../../chat-config";
         background-color: rgb(236, 236, 236);
         border-radius: 0.25rem;
         font-size: 0.875rem;
-        font-family:
-          ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo,
-          monospace;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
         font-weight: 500;
         color: #000000;
       }
@@ -132,9 +126,7 @@ import { injectChatLabels } from "../../chat-config";
         background-color: transparent;
         padding: 0;
         font-size: 0.875rem;
-        font-family:
-          ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo,
-          monospace;
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
       }
 
       /* Highlight.js theme adjustments */
@@ -369,9 +361,7 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
     const target = event.target as HTMLElement;
 
     // Check if clicked on copy button or its children
-    const copyButton = target.closest(
-      ".code-block-copy-button",
-    ) as HTMLButtonElement;
+    const copyButton = target.closest(".code-block-copy-button") as HTMLButtonElement;
     if (copyButton) {
       event.preventDefault();
       const blockId = copyButton.getAttribute("data-code-block-id");
@@ -390,27 +380,19 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
     navigator.clipboard.writeText(code).then(
       () => {
         // Update the button in the DOM
-        const button = this.elementRef.nativeElement.querySelector(
-          `[data-code-block-id="${blockId}"]`,
-        );
+        const button = this.elementRef.nativeElement.querySelector(`[data-code-block-id="${blockId}"]`);
         if (button) {
           const originalHTML = button.innerHTML;
           button.innerHTML = `
             <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
             <span>${this.labels.assistantMessageToolbarCopyCodeCopiedLabel}</span>
           `;
-          button.setAttribute(
-            "aria-label",
-            `${this.labels.assistantMessageToolbarCopyCodeCopiedLabel} code`,
-          );
+          button.setAttribute("aria-label", `${this.labels.assistantMessageToolbarCopyCodeCopiedLabel} code`);
 
           // Reset after 2 seconds
           setTimeout(() => {
             button.innerHTML = originalHTML;
-            button.setAttribute(
-              "aria-label",
-              `${this.labels.assistantMessageToolbarCopyCodeLabel} code`,
-            );
+            button.setAttribute("aria-label", `${this.labels.assistantMessageToolbarCopyCodeLabel} code`);
           }, 2000);
         }
       },

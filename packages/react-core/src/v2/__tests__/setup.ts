@@ -58,27 +58,21 @@ HTMLCanvasElement.prototype.getContext = function (contextId: any) {
 
 // Simplify Radix tooltip behavior to avoid act() noise in jsdom
 vi.mock("@radix-ui/react-tooltip", async () => {
-  const forward = (
-    renderFn: React.ForwardRefRenderFunction<HTMLElement, any>,
-  ) => React.forwardRef(renderFn);
+  const forward = (renderFn: React.ForwardRefRenderFunction<HTMLElement, any>) => React.forwardRef(renderFn);
 
-  const SimpleProvider: React.FC<{ children?: React.ReactNode }> = ({
-    children,
-  }) => React.createElement(React.Fragment, null, children);
+  const SimpleProvider: React.FC<{ children?: React.ReactNode }> = ({ children }) =>
+    React.createElement(React.Fragment, null, children);
 
-  const SimplePortal: React.FC<{ children?: React.ReactNode }> = ({
-    children,
-  }) => React.createElement(React.Fragment, null, children);
+  const SimplePortal: React.FC<{ children?: React.ReactNode }> = ({ children }) =>
+    React.createElement(React.Fragment, null, children);
 
   const createWrapper = () =>
-    forward(
-      ({ children, asChild, sideOffset: _sideOffset, ...rest }: any, ref) => {
-        if (asChild && React.isValidElement(children)) {
-          return React.cloneElement(children, { ref, ...rest });
-        }
-        return React.createElement("div", { ref, ...rest }, children);
-      },
-    );
+    forward(({ children, asChild, sideOffset: _sideOffset, ...rest }: any, ref) => {
+      if (asChild && React.isValidElement(children)) {
+        return React.cloneElement(children, { ref, ...rest });
+      }
+      return React.createElement("div", { ref, ...rest }, children);
+    });
 
   const passthrough = createWrapper();
 

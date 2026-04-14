@@ -61,9 +61,7 @@ function ExpandableWidget() {
       ) : (
         <div>
           {/* Compact layout */}
-          <button onClick={() => requestDisplayMode("fullscreen")}>
-            Expand
-          </button>
+          <button onClick={() => requestDisplayMode("fullscreen")}>Expand</button>
         </div>
       )}
     </McpUseProvider>

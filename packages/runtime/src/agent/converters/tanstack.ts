@@ -61,9 +61,7 @@ export interface TanStackInputResult {
  * Handles plain strings, multimodal parts (image/audio/video/document),
  * and legacy BinaryInputContent for backward compatibility.
  */
-function convertUserContent(
-  content: unknown,
-): string | null | TanStackContentPart[] {
+function convertUserContent(content: unknown): string | null | TanStackContentPart[] {
   if (!content) return null;
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return null;
@@ -87,11 +85,7 @@ function convertUserContent(
       case "document": {
         const source = (part as { source?: any }).source;
         if (!source) break;
-        const partType = (part as { type: string }).type as
-          | "image"
-          | "audio"
-          | "video"
-          | "document";
+        const partType = (part as { type: string }).type as "image" | "audio" | "video" | "document";
         if (source.type === "data") {
           parts.push({
             type: partType,
@@ -153,9 +147,7 @@ function convertUserContent(
  * - Appends context entries and application state to `systemPrompts`
  * - Preserves tool calls on assistant messages and toolCallId on tool messages
  */
-export function convertInputToTanStackAI(
-  input: RunAgentInput,
-): TanStackInputResult {
+export function convertInputToTanStackAI(input: RunAgentInput): TanStackInputResult {
   // Allowlist: only pass user/assistant/tool messages to TanStack.
   // Other roles (system, developer, activity, reasoning) are either
   // extracted into systemPrompts or not applicable.
@@ -165,12 +157,7 @@ export function convertInputToTanStackAI(
     .map((m: Message): TanStackChatMessage => {
       const msg: TanStackChatMessage = {
         role: m.role as "user" | "assistant" | "tool",
-        content:
-          m.role === "user"
-            ? convertUserContent(m.content)
-            : typeof m.content === "string"
-              ? m.content
-              : null,
+        content: m.role === "user" ? convertUserContent(m.content) : typeof m.content === "string" ? m.content : null,
       };
       if (m.role === "assistant" && "toolCalls" in m && m.toolCalls) {
         msg.toolCalls = m.toolCalls.map((tc) => ({
@@ -191,9 +178,7 @@ export function convertInputToTanStackAI(
   const systemPrompts: string[] = [];
   for (const m of input.messages) {
     if ((m.role === "system" || m.role === "developer") && m.content) {
-      systemPrompts.push(
-        typeof m.content === "string" ? m.content : JSON.stringify(m.content),
-      );
+      systemPrompts.push(typeof m.content === "string" ? m.content : JSON.stringify(m.content));
     }
   }
 
@@ -209,9 +194,7 @@ export function convertInputToTanStackAI(
     typeof input.state === "object" &&
     Object.keys(input.state).length > 0
   ) {
-    systemPrompts.push(
-      `Application State:\n\`\`\`json\n${JSON.stringify(input.state, null, 2)}\n\`\`\``,
-    );
+    systemPrompts.push(`Application State:\n\`\`\`json\n${JSON.stringify(input.state, null, 2)}\n\`\`\``);
   }
 
   return { messages, systemPrompts };

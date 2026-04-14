@@ -19,9 +19,7 @@ export function useRenderActivityMessage() {
         return null;
       }
 
-      const matches = renderers.filter(
-        (renderer) => renderer.activityType === activityType,
-      );
+      const matches = renderers.filter((renderer) => renderer.activityType === activityType);
 
       return (
         matches.find((candidate) => candidate.agentId === agentId) ??
@@ -44,10 +42,7 @@ export function useRenderActivityMessage() {
       const parseResult = renderer.content.safeParse(message.content);
 
       if (!parseResult.success) {
-        console.warn(
-          `Failed to parse content for activity message '${message.activityType}':`,
-          parseResult.error,
-        );
+        console.warn(`Failed to parse content for activity message '${message.activityType}':`, parseResult.error);
         return null;
       }
 
@@ -57,8 +52,7 @@ export function useRenderActivityMessage() {
       // Without this, button clicks accumulate messages on the registry agent
       // while CopilotChat displays from the clone — responses appear to vanish.
       const registryAgent = copilotkit.getAgent(agentId);
-      const agent =
-        getThreadClone(registryAgent, config?.threadId) ?? registryAgent;
+      const agent = getThreadClone(registryAgent, config?.threadId) ?? registryAgent;
 
       return (
         <Component
@@ -73,8 +67,5 @@ export function useRenderActivityMessage() {
     [agentId, config?.threadId, copilotkit, findRenderer],
   );
 
-  return useMemo(
-    () => ({ renderActivityMessage, findRenderer }),
-    [renderActivityMessage, findRenderer],
-  );
+  return useMemo(() => ({ renderActivityMessage, findRenderer }), [renderActivityMessage, findRenderer]);
 }

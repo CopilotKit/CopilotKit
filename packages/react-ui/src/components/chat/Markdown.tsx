@@ -8,12 +8,7 @@ import rehypeRaw from "rehype-raw";
 const defaultComponents: Components = {
   a({ children, ...props }) {
     return (
-      <a
-        className="copilotKitMarkdownElement"
-        {...props}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
+      <a className="copilotKitMarkdownElement" {...props} target="_blank" rel="noopener noreferrer">
         {children}
       </a>
     );
@@ -48,10 +43,7 @@ const defaultComponents: Components = {
 
     if (isInline) {
       return (
-        <code
-          className={`copilotKitMarkdownElement copilotKitInlineCode ${className || ""}`}
-          {...props}
-        >
+        <code className={`copilotKitMarkdownElement copilotKitInlineCode ${className || ""}`} {...props}>
           {children}
         </code>
       );
@@ -125,9 +117,7 @@ const defaultComponents: Components = {
 
 const MemoizedReactMarkdown: FC<Options> = memo(
   ReactMarkdown,
-  (prevProps, nextProps) =>
-    prevProps.children === nextProps.children &&
-    prevProps.components === nextProps.components,
+  (prevProps, nextProps) => prevProps.children === nextProps.children && prevProps.components === nextProps.components,
 );
 
 type MarkdownProps = {
@@ -136,18 +126,12 @@ type MarkdownProps = {
 };
 
 export const Markdown = ({ content, components }: MarkdownProps) => {
-  const mergedComponents = useMemo(
-    () => ({ ...defaultComponents, ...components }),
-    [components],
-  );
+  const mergedComponents = useMemo(() => ({ ...defaultComponents, ...components }), [components]);
   return (
     <div className="copilotKitMarkdown">
       <MemoizedReactMarkdown
         components={mergedComponents}
-        remarkPlugins={[
-          remarkGfm,
-          [remarkMath, { singleDollarTextMath: false }],
-        ]}
+        remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }]]}
         rehypePlugins={[rehypeRaw]}
       >
         {content}

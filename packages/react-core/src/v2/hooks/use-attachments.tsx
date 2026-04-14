@@ -50,9 +50,7 @@ export interface UseAttachmentsReturn {
  * and lifecycle. All returned callbacks are referentially stable across
  * renders (via useCallback) to avoid destabilizing downstream memoization.
  */
-export function useAttachments({
-  config,
-}: UseAttachmentsProps): UseAttachmentsReturn {
+export function useAttachments({ config }: UseAttachmentsProps): UseAttachmentsReturn {
   const enabled = config?.enabled ?? false;
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -73,9 +71,7 @@ export function useAttachments({
     const accept = cfg?.accept ?? "*/*";
     const maxSize = cfg?.maxSize ?? 20 * 1024 * 1024;
 
-    const rejectedFiles = files.filter(
-      (file) => !matchesAcceptFilter(file, accept),
-    );
+    const rejectedFiles = files.filter((file) => !matchesAcceptFilter(file, accept));
     for (const file of rejectedFiles) {
       cfg?.onUploadFailed?.({
         reason: "invalid-type",
@@ -84,9 +80,7 @@ export function useAttachments({
       });
     }
 
-    const validFiles = files.filter((file) =>
-      matchesAcceptFilter(file, accept),
-    );
+    const validFiles = files.filter((file) => matchesAcceptFilter(file, accept));
 
     for (const file of validFiles) {
       if (exceedsMaxSize(file, maxSize)) {
@@ -143,17 +137,12 @@ export function useAttachments({
           ),
         );
       } catch (error) {
-        setAttachments((prev) =>
-          prev.filter((att) => att.id !== placeholderId),
-        );
+        setAttachments((prev) => prev.filter((att) => att.id !== placeholderId));
         console.error(`[CopilotKit] Failed to upload "${file.name}":`, error);
         cfg?.onUploadFailed?.({
           reason: "upload-failed",
           file,
-          message:
-            error instanceof Error
-              ? error.message
-              : `Failed to upload "${file.name}"`,
+          message: error instanceof Error ? error.message : `Failed to upload "${file.name}"`,
         });
       }
     }
@@ -214,18 +203,13 @@ export function useAttachments({
       const accept = configRef.current?.accept ?? "*/*";
       const items = Array.from(e.clipboardData?.items || []);
       const fileItems = items.filter(
-        (item) =>
-          item.kind === "file" &&
-          item.getAsFile() !== null &&
-          matchesAcceptFilter(item.getAsFile()!, accept),
+        (item) => item.kind === "file" && item.getAsFile() !== null && matchesAcceptFilter(item.getAsFile()!, accept),
       );
 
       if (fileItems.length === 0) return;
       e.preventDefault();
 
-      const files = fileItems
-        .map((item) => item.getAsFile())
-        .filter((f): f is File => f !== null);
+      const files = fileItems.map((item) => item.getAsFile()).filter((f): f is File => f !== null);
 
       try {
         await processFiles(files);

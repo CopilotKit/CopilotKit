@@ -9,12 +9,7 @@ interface HandleSseRunParams {
   input: RunAgentInput;
 }
 
-export function handleSseRun({
-  runtime,
-  request,
-  agent,
-  input,
-}: HandleSseRunParams): Response {
+export function handleSseRun({ runtime, request, agent, input }: HandleSseRunParams): Response {
   return createSseEventResponse({
     request,
     observableFactory: () =>

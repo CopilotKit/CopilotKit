@@ -27,9 +27,7 @@ function nodeChildrenToTextComponents(
       return false;
     }
 
-    const isNeighbourOfInline =
-      indeciesOfInlineElements.has(index - 1) ||
-      indeciesOfInlineElements.has(index + 1);
+    const isNeighbourOfInline = indeciesOfInlineElements.has(index - 1) || indeciesOfInlineElements.has(index + 1);
     if (isNeighbourOfInline) {
       return (node as any).text !== "";
     }
@@ -53,9 +51,7 @@ function nodeChildrenToTextComponents(
     .reduce((acc, val) => acc.concat(val), []);
 }
 
-export const editorToText = (
-  editor: BaseEditor & ReactEditor & HistoryEditor,
-) => {
+export const editorToText = (editor: BaseEditor & ReactEditor & HistoryEditor) => {
   const flattened = nodeChildrenToTextComponents(editor, editor.children);
 
   const text = flattened.map((textComponent) => textComponent.text).join("\n");

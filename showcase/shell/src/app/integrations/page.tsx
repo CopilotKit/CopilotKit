@@ -6,9 +6,7 @@ interface IntegrationsPageProps {
   searchParams: Promise<{ feature?: string }>;
 }
 
-export default async function IntegrationsPage({
-  searchParams,
-}: IntegrationsPageProps) {
+export default async function IntegrationsPage({ searchParams }: IntegrationsPageProps) {
   const integrations = getIntegrations();
   const params = await searchParams;
 
@@ -17,10 +15,7 @@ export default async function IntegrationsPage({
       <div className="mx-auto max-w-7xl">
         <IntegrationsTabs />
       </div>
-      <IntegrationExplorer
-        integrations={integrations}
-        initialFeatureFilter={params.feature}
-      />
+      <IntegrationExplorer integrations={integrations} initialFeatureFilter={params.feature} />
     </div>
   );
 }

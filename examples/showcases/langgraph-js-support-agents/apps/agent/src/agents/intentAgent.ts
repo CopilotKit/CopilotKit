@@ -21,9 +21,7 @@ export async function intentAgentNode(
   }
 
   const userMessage =
-    typeof lastMessage.content === "string"
-      ? lastMessage.content
-      : JSON.stringify(lastMessage.content);
+    typeof lastMessage.content === "string" ? lastMessage.content : JSON.stringify(lastMessage.content);
 
   console.log("Intent Agent: Classifying message...");
 
@@ -35,9 +33,7 @@ export async function intentAgentNode(
 
     const intent: IntentResult = JSON.parse(intentResult);
 
-    console.log(
-      `Intent classified: ${intent.category} (urgency: ${intent.urgency})`,
-    );
+    console.log(`Intent classified: ${intent.category} (urgency: ${intent.urgency})`);
 
     // Add AI message about classification
     const aiMessage = new AIMessage({

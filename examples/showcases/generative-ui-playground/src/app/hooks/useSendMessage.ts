@@ -8,11 +8,7 @@
  */
 
 import { useCallback } from "react";
-import {
-  useAgent,
-  useCopilotKit,
-  useCopilotChatConfiguration,
-} from "@copilotkit/react-core/v2";
+import { useAgent, useCopilotKit, useCopilotChatConfiguration } from "@copilotkit/react-core/v2";
 import { randomUUID, DEFAULT_AGENT_ID } from "@copilotkit/shared";
 
 export function useSendMessage() {

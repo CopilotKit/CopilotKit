@@ -2,20 +2,13 @@ import { Anthropic } from "@anthropic-ai/sdk";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { Message } from "../../graphql/types/converted";
 
-export function limitMessagesToTokenCount(
-  messages: any[],
-  tools: any[],
-  model: string,
-  maxTokens?: number,
-): any[] {
+export function limitMessagesToTokenCount(messages: any[], tools: any[], model: string, maxTokens?: number): any[] {
   maxTokens ||= MAX_TOKENS;
 
   const result: any[] = [];
   const toolsNumTokens = countToolsTokens(model, tools);
   if (toolsNumTokens > maxTokens) {
-    throw new Error(
-      `Too many tokens in function definitions: ${toolsNumTokens} > ${maxTokens}`,
-    );
+    throw new Error(`Too many tokens in function definitions: ${toolsNumTokens} > ${maxTokens}`);
   }
   maxTokens -= toolsNumTokens;
 
@@ -70,9 +63,7 @@ function countTokens(model: string, text: string): number {
   return text.length / 3;
 }
 
-export function convertActionInputToAnthropicTool(
-  action: ActionInput,
-): Anthropic.Messages.Tool {
+export function convertActionInputToAnthropicTool(action: ActionInput): Anthropic.Messages.Tool {
   return {
     name: action.name,
     description: action.description,
@@ -80,9 +71,7 @@ export function convertActionInputToAnthropicTool(
   };
 }
 
-export function convertMessageToAnthropicMessage(
-  message: Message,
-): Anthropic.Messages.MessageParam {
+export function convertMessageToAnthropicMessage(message: Message): Anthropic.Messages.MessageParam {
   if (message.isTextMessage()) {
     if (message.role === "system") {
       return {
@@ -90,8 +79,7 @@ export function convertMessageToAnthropicMessage(
         content: [
           {
             type: "text",
-            text:
-              "THE FOLLOWING MESSAGE IS A SYSTEM MESSAGE: " + message.content,
+            text: "THE FOLLOWING MESSAGE IS A SYSTEM MESSAGE: " + message.content,
           },
         ],
       };

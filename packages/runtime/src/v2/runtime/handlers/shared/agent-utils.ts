@@ -1,8 +1,4 @@
-import {
-  AbstractAgent,
-  RunAgentInput,
-  RunAgentInputSchema,
-} from "@ag-ui/client";
+import { AbstractAgent, RunAgentInput, RunAgentInputSchema } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { CopilotRuntimeLike, resolveAgents } from "../../core/runtime";
@@ -96,9 +92,7 @@ export function configureAgentForRequest(params: {
   }
 }
 
-export async function parseRunRequest(
-  request: Request,
-): Promise<RunAgentInput | Response> {
+export async function parseRunRequest(request: Request): Promise<RunAgentInput | Response> {
   try {
     const requestBody = await request.json();
     return RunAgentInputSchema.parse(requestBody);
@@ -131,12 +125,10 @@ export async function parseConnectRequest(request: Request): Promise<
 
     if (
       "lastSeenEventId" in (requestBody as Record<string, unknown>) &&
-      (typeof (requestBody as Record<string, unknown>).lastSeenEventId ===
-        "string" ||
+      (typeof (requestBody as Record<string, unknown>).lastSeenEventId === "string" ||
         (requestBody as Record<string, unknown>).lastSeenEventId === null)
     ) {
-      lastSeenEventId =
-        (requestBody as ConnectRequestBody).lastSeenEventId ?? null;
+      lastSeenEventId = (requestBody as ConnectRequestBody).lastSeenEventId ?? null;
     }
 
     return { input, lastSeenEventId };

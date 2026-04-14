@@ -141,8 +141,7 @@ const ROOM_CONFIGS: Record<
 > = {
   standard: {
     name: "Standard Room",
-    description:
-      "Comfortable room with essential amenities for a pleasant stay",
+    description: "Comfortable room with essential amenities for a pleasant stay",
     basePrice: 120,
     maxGuests: 2,
     amenities: ["wifi", "airConditioning"],
@@ -156,8 +155,7 @@ const ROOM_CONFIGS: Record<
   },
   suite: {
     name: "Suite",
-    description:
-      "Luxurious suite with separate living area and premium services",
+    description: "Luxurious suite with separate living area and premium services",
     basePrice: 350,
     maxGuests: 3,
     amenities: ["wifi", "airConditioning", "minibar", "roomService", "balcony"],
@@ -171,8 +169,7 @@ const ROOM_CONFIGS: Record<
   },
   executive: {
     name: "Executive Room",
-    description:
-      "Business-focused room with dedicated workspace and lounge access",
+    description: "Business-focused room with dedicated workspace and lounge access",
     basePrice: 250,
     maxGuests: 2,
     amenities: ["wifi", "airConditioning", "minibar", "roomService"],
@@ -190,15 +187,7 @@ const HOTELS: Record<string, Omit<Hotel, "id">[]> = {
       address: "15 Avenue des Champs-Élysées",
       neighborhood: "8th Arrondissement",
       city: "Paris",
-      amenities: [
-        "wifi",
-        "pool",
-        "gym",
-        "spa",
-        "restaurant",
-        "parking",
-        "roomService",
-      ],
+      amenities: ["wifi", "pool", "gym", "spa", "restaurant", "parking", "roomService"],
       rating: 9.2,
       reviewCount: 2847,
       rooms: [],
@@ -268,15 +257,7 @@ const HOTELS: Record<string, Omit<Hotel, "id">[]> = {
       address: "1-1-1 Marunouchi, Chiyoda",
       neighborhood: "Chiyoda",
       city: "Tokyo",
-      amenities: [
-        "wifi",
-        "pool",
-        "gym",
-        "spa",
-        "restaurant",
-        "parking",
-        "roomService",
-      ],
+      amenities: ["wifi", "pool", "gym", "spa", "restaurant", "parking", "roomService"],
       rating: 9.4,
       reviewCount: 3892,
       rooms: [],
@@ -311,15 +292,7 @@ const HOTELS: Record<string, Omit<Hotel, "id">[]> = {
       address: "100 Kensington High Street",
       neighborhood: "Kensington",
       city: "London",
-      amenities: [
-        "wifi",
-        "pool",
-        "gym",
-        "spa",
-        "restaurant",
-        "parking",
-        "roomService",
-      ],
+      amenities: ["wifi", "pool", "gym", "spa", "restaurant", "parking", "roomService"],
       rating: 9.1,
       reviewCount: 3456,
       rooms: [],
@@ -354,16 +327,7 @@ const HOTELS: Record<string, Omit<Hotel, "id">[]> = {
       address: "Jumeirah Beach Road",
       neighborhood: "Jumeirah",
       city: "Dubai",
-      amenities: [
-        "wifi",
-        "pool",
-        "gym",
-        "spa",
-        "restaurant",
-        "parking",
-        "roomService",
-        "balcony",
-      ],
+      amenities: ["wifi", "pool", "gym", "spa", "restaurant", "parking", "roomService", "balcony"],
       rating: 9.6,
       reviewCount: 5678,
       rooms: [],
@@ -398,15 +362,7 @@ const HOTELS: Record<string, Omit<Hotel, "id">[]> = {
       address: "10 Bayfront Avenue",
       neighborhood: "Marina Bay",
       city: "Singapore",
-      amenities: [
-        "wifi",
-        "pool",
-        "gym",
-        "spa",
-        "restaurant",
-        "parking",
-        "roomService",
-      ],
+      amenities: ["wifi", "pool", "gym", "spa", "restaurant", "parking", "roomService"],
       rating: 9.3,
       reviewCount: 4567,
       rooms: [],
@@ -476,15 +432,7 @@ const HOTELS: Record<string, Omit<Hotel, "id">[]> = {
       address: "1 Circular Quay",
       neighborhood: "The Rocks",
       city: "Sydney",
-      amenities: [
-        "wifi",
-        "pool",
-        "gym",
-        "spa",
-        "restaurant",
-        "parking",
-        "roomService",
-      ],
+      amenities: ["wifi", "pool", "gym", "spa", "restaurant", "parking", "roomService"],
       rating: 9.2,
       reviewCount: 3234,
       rooms: [],
@@ -519,15 +467,7 @@ const HOTELS: Record<string, Omit<Hotel, "id">[]> = {
       address: "Via Veneto 125",
       neighborhood: "Via Veneto",
       city: "Rome",
-      amenities: [
-        "wifi",
-        "pool",
-        "gym",
-        "spa",
-        "restaurant",
-        "parking",
-        "roomService",
-      ],
+      amenities: ["wifi", "pool", "gym", "spa", "restaurant", "parking", "roomService"],
       rating: 9.1,
       reviewCount: 2876,
       rooms: [],
@@ -667,10 +607,7 @@ function generateRooms(stars: number): Room[] {
     type: "standard",
     ...ROOM_CONFIGS.standard,
     bedType: bedTypes[Math.floor(Math.random() * bedTypes.length)],
-    pricePerNight: Math.round(
-      ROOM_CONFIGS.standard.basePrice * (0.8 + stars * 0.1) +
-        Math.random() * 30,
-    ),
+    pricePerNight: Math.round(ROOM_CONFIGS.standard.basePrice * (0.8 + stars * 0.1) + Math.random() * 30),
     available: 5 + Math.floor(Math.random() * 10),
   });
 
@@ -681,10 +618,7 @@ function generateRooms(stars: number): Room[] {
       type: "deluxe",
       ...ROOM_CONFIGS.deluxe,
       bedType: "king",
-      pricePerNight: Math.round(
-        ROOM_CONFIGS.deluxe.basePrice * (0.8 + stars * 0.1) +
-          Math.random() * 50,
-      ),
+      pricePerNight: Math.round(ROOM_CONFIGS.deluxe.basePrice * (0.8 + stars * 0.1) + Math.random() * 50),
       available: 3 + Math.floor(Math.random() * 8),
     });
   }
@@ -696,10 +630,7 @@ function generateRooms(stars: number): Room[] {
       type: "suite",
       ...ROOM_CONFIGS.suite,
       bedType: "king",
-      pricePerNight: Math.round(
-        ROOM_CONFIGS.suite.basePrice * (0.8 + stars * 0.15) +
-          Math.random() * 100,
-      ),
+      pricePerNight: Math.round(ROOM_CONFIGS.suite.basePrice * (0.8 + stars * 0.15) + Math.random() * 100),
       available: 2 + Math.floor(Math.random() * 5),
     });
 
@@ -708,10 +639,7 @@ function generateRooms(stars: number): Room[] {
       type: "executive",
       ...ROOM_CONFIGS.executive,
       bedType: "king",
-      pricePerNight: Math.round(
-        ROOM_CONFIGS.executive.basePrice * (0.8 + stars * 0.12) +
-          Math.random() * 60,
-      ),
+      pricePerNight: Math.round(ROOM_CONFIGS.executive.basePrice * (0.8 + stars * 0.12) + Math.random() * 60),
       available: 2 + Math.floor(Math.random() * 6),
     });
   }
@@ -722,9 +650,7 @@ function generateRooms(stars: number): Room[] {
     type: "family",
     ...ROOM_CONFIGS.family,
     bedType: "double",
-    pricePerNight: Math.round(
-      ROOM_CONFIGS.family.basePrice * (0.8 + stars * 0.1) + Math.random() * 40,
-    ),
+    pricePerNight: Math.round(ROOM_CONFIGS.family.basePrice * (0.8 + stars * 0.1) + Math.random() * 40),
     available: 2 + Math.floor(Math.random() * 5),
   });
 
@@ -769,9 +695,7 @@ export function searchHotels(params: {
     };
 
     // Find lowest room price
-    const lowestPrice = Math.min(
-      ...hotelWithId.rooms.map((r) => r.pricePerNight),
-    );
+    const lowestPrice = Math.min(...hotelWithId.rooms.map((r) => r.pricePerNight));
 
     return {
       ...hotelWithId,
@@ -812,10 +736,7 @@ export function getHotelSearch(searchId: string): HotelSearch | undefined {
 /**
  * Select a hotel from search results.
  */
-export function selectHotel(
-  searchId: string,
-  hotelId: string,
-): { hotel: HotelWithPricing; rooms: Room[] } | undefined {
+export function selectHotel(searchId: string, hotelId: string): { hotel: HotelWithPricing; rooms: Room[] } | undefined {
   const search = hotelSearches.get(searchId);
   if (!search) return undefined;
 
@@ -895,11 +816,7 @@ export function createHotelBooking(
     return { success: false, message: "Search session not found" };
   }
 
-  if (
-    !search.selectedHotelId ||
-    !search.selectedRoomId ||
-    !search.selectedQuantity
-  ) {
+  if (!search.selectedHotelId || !search.selectedRoomId || !search.selectedQuantity) {
     return { success: false, message: "No room selected" };
   }
 
@@ -917,8 +834,7 @@ export function createHotelBooking(
     return { success: false, message: "At least one guest is required" };
   }
 
-  const totalPrice =
-    room.pricePerNight * search.searchParams.nights * search.selectedQuantity;
+  const totalPrice = room.pricePerNight * search.searchParams.nights * search.selectedQuantity;
   const confirmationNumber = generateConfirmationNumber();
 
   const booking: HotelBooking = {
@@ -951,8 +867,6 @@ export function createHotelBooking(
 /**
  * Get booking by confirmation number.
  */
-export function getHotelBooking(
-  confirmationNumber: string,
-): HotelBooking | undefined {
+export function getHotelBooking(confirmationNumber: string): HotelBooking | undefined {
   return hotelBookings.get(confirmationNumber);
 }

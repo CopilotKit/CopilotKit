@@ -8,21 +8,15 @@ import { createCopilotEndpointSingleRouteExpress } from "../express";
 import { CopilotRuntime } from "../core/runtime";
 
 vi.mock("../handlers/handle-run", () => ({
-  handleRunAgent: vi
-    .fn()
-    .mockResolvedValue(new Response(null, { status: 200 })),
+  handleRunAgent: vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
 }));
 
 vi.mock("../handlers/handle-connect", () => ({
-  handleConnectAgent: vi
-    .fn()
-    .mockResolvedValue(new Response(null, { status: 200 })),
+  handleConnectAgent: vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
 }));
 
 vi.mock("../handlers/handle-stop", () => ({
-  handleStopAgent: vi
-    .fn()
-    .mockResolvedValue(new Response(null, { status: 200 })),
+  handleStopAgent: vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
 }));
 
 describe("CopilotEndpointSingleRouteExpress routing", () => {
@@ -65,17 +59,12 @@ describe("CopilotEndpointSingleRouteExpress routing", () => {
   const createApp = () => {
     const runtime = createMockRuntime();
     const app = express();
-    app.use(
-      createCopilotEndpointSingleRouteExpress({ runtime, basePath: "/rpc" }),
-    );
+    app.use(createCopilotEndpointSingleRouteExpress({ runtime, basePath: "/rpc" }));
     return { app, runtime };
   };
 
   const postRpc = (app: express.Express, payload: Record<string, unknown>) => {
-    return request(app)
-      .post("/rpc")
-      .set("Content-Type", "application/json")
-      .send(payload);
+    return request(app).post("/rpc").set("Content-Type", "application/json").send(payload);
   };
 
   describe("agent/run method", () => {
@@ -140,10 +129,7 @@ describe("CopilotEndpointSingleRouteExpress routing", () => {
   describe("invalid inputs", () => {
     it("returns 415 for non-JSON content", async () => {
       const { app } = createApp();
-      const response = await request(app)
-        .post("/rpc")
-        .set("Content-Type", "text/plain")
-        .send("method=info");
+      const response = await request(app).post("/rpc").set("Content-Type", "text/plain").send("method=info");
 
       expect(response.status).toBe(415);
     });

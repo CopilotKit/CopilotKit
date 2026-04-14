@@ -24,14 +24,9 @@ export default function Main() {
 
   return (
     <>
-      <h1 className="flex h-[60px] bg-[#0E103D] text-white items-center px-10 text-2xl font-medium">
-        Research Helper
-      </h1>
+      <h1 className="flex h-[60px] bg-[#0E103D] text-white items-center px-10 text-2xl font-medium">Research Helper</h1>
 
-      <div
-        className="flex flex-1 border"
-        style={{ height: "calc(100vh - 60px)" }}
-      >
+      <div className="flex flex-1 border" style={{ height: "calc(100vh - 60px)" }}>
         <div className="flex-1 overflow-hidden">
           <ResearchCanvas />
         </div>

@@ -1,9 +1,4 @@
-import {
-  AbstractAgent,
-  RunAgentInput,
-  EventType,
-  BaseEvent,
-} from "@ag-ui/client";
+import { AbstractAgent, RunAgentInput, EventType, BaseEvent } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { OpenAI } from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
@@ -40,28 +35,26 @@ export class OpenAIAgent extends AbstractAgent {
               parameters: tool.parameters,
             },
           })),
-          messages: input.messages.map(
-            (message): ChatCompletionMessageParam => {
-              if (message.role === "tool") {
-                return {
-                  role: "tool",
-                  content: message.content ?? "",
-                  tool_call_id: message.toolCallId ?? "",
-                };
-              } else if (message.role === "assistant" && message.toolCalls) {
-                return {
-                  role: "assistant",
-                  content: message.content ?? "",
-                  tool_calls: message.toolCalls,
-                };
-              } else {
-                return {
-                  role: message.role,
-                  content: message.content ?? "",
-                } as ChatCompletionMessageParam;
-              }
-            },
-          ),
+          messages: input.messages.map((message): ChatCompletionMessageParam => {
+            if (message.role === "tool") {
+              return {
+                role: "tool",
+                content: message.content ?? "",
+                tool_call_id: message.toolCallId ?? "",
+              };
+            } else if (message.role === "assistant" && message.toolCalls) {
+              return {
+                role: "assistant",
+                content: message.content ?? "",
+                tool_calls: message.toolCalls,
+              };
+            } else {
+              return {
+                role: message.role,
+                content: message.content ?? "",
+              } as ChatCompletionMessageParam;
+            }
+          }),
         })
         .then(async (response) => {
           const messageId = Date.now().toString();

@@ -33,15 +33,7 @@ interface WidgetSpec {
 // Module-level dedup set — survives component remounts (issue #04)
 const processedKeys = new Set<string>();
 
-function DashboardUpdater({
-  widgets,
-  status,
-  result,
-}: {
-  widgets: WidgetSpec[];
-  status: string;
-  result?: unknown;
-}) {
+function DashboardUpdater({ widgets, status, result }: { widgets: WidgetSpec[]; status: string; result?: unknown }) {
   const { upsertWidget, addWidget, getWidgets } = useDashboard();
 
   useEffect(() => {
@@ -54,11 +46,7 @@ function DashboardUpdater({
     queueMicrotask(() => {
       for (const w of widgets) {
         const internalType = TYPE_MAP[w.type] ?? w.type;
-        const colSpan = (w.colSpan ?? DEFAULT_COLSPAN[internalType] ?? 2) as
-          | 1
-          | 2
-          | 3
-          | 4;
+        const colSpan = (w.colSpan ?? DEFAULT_COLSPAN[internalType] ?? 2) as 1 | 2 | 3 | 4;
         const config = w.config ?? {};
 
         if (internalType === "custom-chart") {
@@ -88,19 +76,9 @@ function DashboardUpdater({
   }, [status, widgets, upsertWidget, addWidget, getWidgets]);
 
   if (status === ToolCallStatus.Complete) {
-    return (
-      <CompletedToolCard
-        name="update_dashboard"
-        args={{ widgets }}
-        result={result}
-      />
-    );
+    return <CompletedToolCard name="update_dashboard" args={{ widgets }} result={result} />;
   }
-  return (
-    <p className="text-sm text-muted-foreground animate-pulse py-1">
-      Updating dashboard...
-    </p>
-  );
+  return <p className="text-sm text-muted-foreground animate-pulse py-1">Updating dashboard...</p>;
 }
 
 export function useUpdateDashboard() {
@@ -108,11 +86,7 @@ export function useUpdateDashboard() {
     {
       name: "update_dashboard",
       render: ({ args, status, result }) => (
-        <DashboardUpdater
-          widgets={args?.widgets ?? []}
-          status={status}
-          result={result}
-        />
+        <DashboardUpdater widgets={args?.widgets ?? []} status={status} result={result} />
       ),
     },
     [],

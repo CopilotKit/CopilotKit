@@ -1,9 +1,4 @@
-import {
-  Field,
-  ObjectType,
-  createUnionType,
-  registerEnumType,
-} from "type-graphql";
+import { Field, ObjectType, createUnionType, registerEnumType } from "type-graphql";
 
 export enum MessageStatusCode {
   Pending = "pending",
@@ -41,8 +36,7 @@ export class FailedMessageStatus extends BaseMessageStatus {
 
 export const MessageStatusUnion = createUnionType({
   name: "MessageStatus",
-  types: () =>
-    [PendingMessageStatus, SuccessMessageStatus, FailedMessageStatus] as const,
+  types: () => [PendingMessageStatus, SuccessMessageStatus, FailedMessageStatus] as const,
 });
 
 export type MessageStatus = typeof MessageStatusUnion;

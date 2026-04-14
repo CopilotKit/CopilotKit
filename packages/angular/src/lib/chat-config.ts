@@ -37,24 +37,16 @@ export const COPILOT_CHAT_DEFAULT_LABELS: CopilotChatLabels = {
   assistantMessageToolbarRegenerateLabel: "Regenerate",
   userMessageToolbarCopyMessageLabel: "Copy",
   userMessageToolbarEditMessageLabel: "Edit",
-  chatDisclaimerText:
-    "AI can make mistakes. Please verify important information.",
+  chatDisclaimerText: "AI can make mistakes. Please verify important information.",
 };
 
-export const COPILOT_CHAT_LABELS = new InjectionToken<CopilotChatLabels>(
-  "COPILOT_CHAT_LABELS",
-);
+export const COPILOT_CHAT_LABELS = new InjectionToken<CopilotChatLabels>("COPILOT_CHAT_LABELS");
 
 export function injectChatLabels(): CopilotChatLabels {
-  return (
-    inject(COPILOT_CHAT_LABELS, { optional: true }) ??
-    COPILOT_CHAT_DEFAULT_LABELS
-  );
+  return inject(COPILOT_CHAT_LABELS, { optional: true }) ?? COPILOT_CHAT_DEFAULT_LABELS;
 }
 
-export function provideCopilotChatLabels(
-  config: Partial<CopilotChatLabels>,
-): Provider {
+export function provideCopilotChatLabels(config: Partial<CopilotChatLabels>): Provider {
   return {
     provide: COPILOT_CHAT_LABELS,
     useValue: {

@@ -91,8 +91,7 @@ function LoadingShimmer({ height, code }: { height: number; code?: string }) {
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        background:
-          "linear-gradient(90deg, #1a1a2e 25%, #2d2d44 50%, #1a1a2e 75%)",
+        background: "linear-gradient(90deg, #1a1a2e 25%, #2d2d44 50%, #1a1a2e 75%)",
         backgroundSize: "200% 100%",
         animation: "shimmer 1.5s ease-in-out infinite",
       }}
@@ -143,12 +142,7 @@ const threeContext = {
   UnrealBloomPass,
 };
 
-async function executeThreeCode(
-  code: string,
-  canvas: HTMLCanvasElement,
-  width: number,
-  height: number,
-): Promise<void> {
+async function executeThreeCode(code: string, canvas: HTMLCanvasElement, width: number, height: number): Promise<void> {
   const fn = new Function(
     "ctx",
     "canvas",
@@ -210,11 +204,7 @@ export default function ThreeJSApp({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="threejs-container"
-      style={containerStyle}
-    >
+    <div ref={containerRef} className="threejs-container" style={containerStyle}>
       <canvas
         id="threejs-canvas"
         ref={canvasRef}

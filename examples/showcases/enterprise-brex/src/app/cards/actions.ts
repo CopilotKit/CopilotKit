@@ -1,11 +1,5 @@
 "use client";
-import {
-  NewCardRequest,
-  Card as ICard,
-  ExpensePolicy,
-  MemberRole,
-  Transaction,
-} from "@/app/api/v1/data";
+import { NewCardRequest, Card as ICard, ExpensePolicy, MemberRole, Transaction } from "@/app/api/v1/data";
 import { randomDigits } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { useAuthContext } from "@/components/auth-context";
@@ -17,13 +11,7 @@ export default function useCreditCards() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const { currentUser } = useAuthContext();
 
-  const changePin = async ({
-    cardId,
-    pin,
-  }: {
-    cardId: string;
-    pin: string;
-  }) => {
+  const changePin = async ({ cardId, pin }: { cardId: string; pin: string }) => {
     try {
       const response = await fetch(`/api/v1/cards/${cardId}`, {
         method: "PUT",
@@ -92,9 +80,7 @@ export default function useCreditCards() {
       last4: randomDigits(4).toString(),
       // 5 years from now in format MM/YY
       expiry:
-        new Date(new Date().setFullYear(new Date().getFullYear() + 5))
-          .toISOString()
-          .split("-")[1] +
+        new Date(new Date().setFullYear(new Date().getFullYear() + 5)).toISOString().split("-")[1] +
         "/" +
         new Date().toISOString().split("-")[0].substring(2),
       type: type,
@@ -119,13 +105,7 @@ export default function useCreditCards() {
     }
   };
 
-  const assignPolicyToCard = async ({
-    policyId,
-    cardId,
-  }: {
-    policyId: string;
-    cardId: string;
-  }) => {
+  const assignPolicyToCard = async ({ policyId, cardId }: { policyId: string; cardId: string }) => {
     try {
       const response = await fetch(`/api/v1/cards/${cardId}/policy`, {
         method: "POST",
@@ -144,13 +124,7 @@ export default function useCreditCards() {
     }
   };
 
-  const addNoteToTransaction = async ({
-    transactionId,
-    content,
-  }: {
-    transactionId: string;
-    content: string;
-  }) => {
+  const addNoteToTransaction = async ({ transactionId, content }: { transactionId: string; content: string }) => {
     const reqBody = {
       content,
       userId: currentUser.id,
@@ -173,13 +147,7 @@ export default function useCreditCards() {
     }
   };
 
-  const changeTransactionStatus = async ({
-    id,
-    status,
-  }: {
-    id: string;
-    status: "pending" | "approved" | "denied";
-  }) => {
+  const changeTransactionStatus = async ({ id, status }: { id: string; status: "pending" | "approved" | "denied" }) => {
     try {
       const response = await fetch(`/api/v1/transactions/${id}`, {
         method: "PUT",
@@ -202,8 +170,7 @@ export default function useCreditCards() {
   // This readable is set up here because the `useCards` hook is also used in the dashboard
   // So the cards information is available in both cards and dashboard pages.
   useCopilotReadable({
-    description:
-      "The available credit cards, possible expense policies and transactions",
+    description: "The available credit cards, possible expense policies and transactions",
     value: { cards, policies, transactions },
   });
 
@@ -212,9 +179,7 @@ export default function useCreditCards() {
       currentUser.role === MemberRole.Admin
         ? cards
         : cards.filter((card) => {
-            const policy = policies.find(
-              (policy) => policy.id === card.expensePolicyId,
-            );
+            const policy = policies.find((policy) => policy.id === card.expensePolicyId);
             return policy?.type === currentUser.team;
           }),
     policies,

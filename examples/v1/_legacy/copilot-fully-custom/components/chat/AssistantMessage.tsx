@@ -14,9 +14,7 @@ export const CustomAssistantMessage = (props: AssistantMessageProps) => {
   return (
     <div className="py-2">
       <div className="flex items-end gap-2">
-        {!subComponent && (
-          <Avatar format={Format.MongoDB} size={AvatarSize.XLarge} />
-        )}
+        {!subComponent && <Avatar format={Format.MongoDB} size={AvatarSize.XLarge} />}
         {subComponent ? (
           subComponent
         ) : (

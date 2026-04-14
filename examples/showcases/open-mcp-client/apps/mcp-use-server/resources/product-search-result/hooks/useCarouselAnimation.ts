@@ -12,8 +12,7 @@ export function useCarouselAnimation(
       const container = carouselContainerRef.current;
       if (!container) return;
 
-      const articles =
-        container.querySelectorAll<HTMLElement>(".carousel-item");
+      const articles = container.querySelectorAll<HTMLElement>(".carousel-item");
 
       articles.forEach((article) => {
         const rect = article.getBoundingClientRect();
@@ -25,9 +24,7 @@ export function useCarouselAnimation(
         const y = relativeY / (rect.height / 2);
 
         // Calculate distance from cursor to center of item
-        const distance = Math.sqrt(
-          relativeX * relativeX + relativeY * relativeY,
-        );
+        const distance = Math.sqrt(relativeX * relativeX + relativeY * relativeY);
         // Use a larger max distance to make the effect work across gaps
         const maxDistance = Math.max(rect.width, rect.height) * 2;
         const normalizedDistance = Math.min(distance / maxDistance, 1);

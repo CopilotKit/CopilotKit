@@ -27,15 +27,11 @@ export default function AIPresentation() {
         defaultOpen={true}
         labels={{
           title: "Presentation Copilot",
-          initial:
-            "Hi you! 👋 I can help you create a presentation on any topic.",
+          initial: "Hi you! 👋 I can help you create a presentation on any topic.",
         }}
         clickOutsideToClose={false}
       >
-        <Presentation
-          performResearch={performResearch}
-          setPerformResearch={setPerformResearch}
-        />
+        <Presentation performResearch={performResearch} setPerformResearch={setPerformResearch} />
       </CopilotSidebar>
     </CopilotKit>
   );

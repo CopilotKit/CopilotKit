@@ -111,11 +111,7 @@
   --color-palette-border-actionEnabled: #bec2ff;
   --color-palette-border-divider: #dbdbe5;
 
-  --color-palette-gradient-primary: linear-gradient(
-    90deg,
-    #85e0ce 0%,
-    #fff388 100%
-  );
+  --color-palette-gradient-primary: linear-gradient(90deg, #85e0ce 0%, #fff388 100%);
 
   /* CopilotCloud Spacing */
   --spacing-spacing-1: 4px;
@@ -148,8 +144,7 @@
 
   /* Font Families */
   --font-family-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-family-mono:
-    "Spline Sans Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-family-mono: "Spline Sans Mono", ui-monospace, SFMono-Regular, monospace;
 
   /* Elevation/Shadows */
   --shadow-sm: 0px 1px 3px 0px rgba(1, 5, 7, 0.08);

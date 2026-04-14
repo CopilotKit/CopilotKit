@@ -48,9 +48,7 @@ describe("CopilotKitIntelligence", () => {
     });
     fetchMock.mockReturnValue(jsonResponse({ threads: [], joinCode: "" }));
     await c.listThreads({ userId: "u", agentId: "a" });
-    expect(fetchMock.mock.calls[0][0]).toMatch(
-      /^https:\/\/api\.example\.com\/api/,
-    );
+    expect(fetchMock.mock.calls[0][0]).toMatch(/^https:\/\/api\.example\.com\/api/);
   });
 
   it("derives runner and client websocket URLs from a single intelligence websocket URL", () => {
@@ -76,9 +74,7 @@ describe("CopilotKitIntelligence", () => {
 
   it("throws on non-ok response", async () => {
     fetchMock.mockReturnValue(jsonResponse({ error: "nope" }, 403));
-    await expect(
-      client.listThreads({ userId: "u", agentId: "a" }),
-    ).rejects.toThrow(/403/);
+    await expect(client.listThreads({ userId: "u", agentId: "a" })).rejects.toThrow(/403/);
   });
 
   describe("listThreads", () => {
@@ -103,9 +99,7 @@ describe("CopilotKitIntelligence", () => {
 
       expect(result).toEqual(payload);
       const [url, opts] = fetchMock.mock.calls[0];
-      expect(url).toBe(
-        "https://api.example.com/api/threads?userId=user-1&agentId=agent-1",
-      );
+      expect(url).toBe("https://api.example.com/api/threads?userId=user-1&agentId=agent-1");
       expect(opts.method).toBe("GET");
     });
   });
@@ -164,9 +158,7 @@ describe("CopilotKitIntelligence", () => {
         agentId: "a",
         updates: {},
       });
-      expect(fetchMock.mock.calls[0][0]).toContain(
-        "/threads/id%2Fwith%20spaces",
-      );
+      expect(fetchMock.mock.calls[0][0]).toContain("/threads/id%2Fwith%20spaces");
     });
 
     it("fires onThreadUpdated with the returned thread", async () => {
@@ -342,8 +334,7 @@ describe("CopilotKitIntelligence", () => {
       expect(url).toBe("https://api.example.com/api/threads/t-1");
       expect(opts.method).toBe("DELETE");
       expect(JSON.parse(opts.body)).toEqual({
-        reason:
-          "Deleted via CopilotKit runtime (userId=user-1, agentId=agent-1)",
+        reason: "Deleted via CopilotKit runtime (userId=user-1, agentId=agent-1)",
       });
     });
 
@@ -395,9 +386,7 @@ describe("CopilotKitIntelligence", () => {
 
   describe("acquireThreadLock", () => {
     it("sends POST to lock endpoint and returns thread connection credentials", async () => {
-      fetchMock.mockReturnValue(
-        jsonResponse({ joinToken: "jt-lock", joinCode: "jc-lock" }),
-      );
+      fetchMock.mockReturnValue(jsonResponse({ joinToken: "jt-lock", joinCode: "jc-lock" }));
 
       const result = await client.ɵacquireThreadLock({
         threadId: "t-1",
@@ -429,9 +418,7 @@ describe("CopilotKitIntelligence", () => {
 
   describe("getActiveJoinCode", () => {
     it("sends GET to join-code endpoint with userId query param and returns thread connection credentials", async () => {
-      fetchMock.mockReturnValue(
-        jsonResponse({ joinToken: "jt-active", joinCode: "jc-active" }),
-      );
+      fetchMock.mockReturnValue(jsonResponse({ joinToken: "jt-active", joinCode: "jc-active" }));
 
       const result = await client.ɵgetActiveJoinCode({
         threadId: "t-1",
@@ -440,18 +427,14 @@ describe("CopilotKitIntelligence", () => {
 
       expect(result).toEqual({ joinToken: "jt-active", joinCode: "jc-active" });
       const [url, opts] = fetchMock.mock.calls[0];
-      expect(url).toBe(
-        "https://api.example.com/api/threads/t-1/join-code?userId=user-1",
-      );
+      expect(url).toBe("https://api.example.com/api/threads/t-1/join-code?userId=user-1");
       expect(opts.method).toBe("GET");
       expect(opts.body).toBeUndefined();
     });
 
     it("throws when no active join code exists", async () => {
       fetchMock.mockReturnValue(jsonResponse("Not found", 404));
-      await expect(
-        client.ɵgetActiveJoinCode({ threadId: "t-1", userId: "user-1" }),
-      ).rejects.toThrow(/404/);
+      await expect(client.ɵgetActiveJoinCode({ threadId: "t-1", userId: "user-1" })).rejects.toThrow(/404/);
     });
   });
 

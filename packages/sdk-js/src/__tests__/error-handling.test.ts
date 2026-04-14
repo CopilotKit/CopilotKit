@@ -19,9 +19,7 @@ describe("SDK-JS Error Handling", () => {
 
       expect(() => {
         copilotKitInterrupt({});
-      }).toThrow(
-        "Either message or action (and optional arguments) must be provided for copilotKitInterrupt",
-      );
+      }).toThrow("Either message or action (and optional arguments) must be provided for copilotKitInterrupt");
     });
 
     it("should throw CopilotKitMisuseError when action is not a string", () => {
@@ -31,9 +29,7 @@ describe("SDK-JS Error Handling", () => {
 
       expect(() => {
         copilotKitInterrupt({ action: 123 as any });
-      }).toThrow(
-        "Action must be a string when provided to copilotKitInterrupt",
-      );
+      }).toThrow("Action must be a string when provided to copilotKitInterrupt");
     });
 
     it("should throw CopilotKitMisuseError when message is not a string", () => {
@@ -43,9 +39,7 @@ describe("SDK-JS Error Handling", () => {
 
       expect(() => {
         copilotKitInterrupt({ message: 123 as any });
-      }).toThrow(
-        "Message must be a string when provided to copilotKitInterrupt",
-      );
+      }).toThrow("Message must be a string when provided to copilotKitInterrupt");
     });
 
     it("should throw CopilotKitMisuseError when args is not an object", () => {
@@ -87,9 +81,7 @@ describe("SDK-JS Error Handling", () => {
 
       expect(() => {
         convertActionToDynamicStructuredTool({ name: "test" });
-      }).toThrow(
-        "Action 'test' must have a valid 'description' property of type string",
-      );
+      }).toThrow("Action 'test' must have a valid 'description' property of type string");
     });
 
     it("should throw CopilotKitMisuseError when parameters is missing", () => {
@@ -144,36 +136,22 @@ describe("SDK-JS Error Handling", () => {
 
     it("should throw CopilotKitMisuseError when emitIntermediateState is not an array", () => {
       expect(() => {
-        copilotkitCustomizeConfig(
-          {},
-          { emitIntermediateState: "invalid" as any },
-        );
+        copilotkitCustomizeConfig({}, { emitIntermediateState: "invalid" as any });
       }).toThrow(CopilotKitMisuseError);
 
       expect(() => {
-        copilotkitCustomizeConfig(
-          {},
-          { emitIntermediateState: "invalid" as any },
-        );
+        copilotkitCustomizeConfig({}, { emitIntermediateState: "invalid" as any });
       }).toThrow("emitIntermediateState must be an array when provided");
     });
 
     it("should throw CopilotKitMisuseError when emitIntermediateState item is invalid", () => {
       expect(() => {
-        copilotkitCustomizeConfig(
-          {},
-          { emitIntermediateState: [{ invalidKey: "value" }] as any },
-        );
+        copilotkitCustomizeConfig({}, { emitIntermediateState: [{ invalidKey: "value" }] as any });
       }).toThrow(CopilotKitMisuseError);
 
       expect(() => {
-        copilotkitCustomizeConfig(
-          {},
-          { emitIntermediateState: [{ invalidKey: "value" }] as any },
-        );
-      }).toThrow(
-        "emitIntermediateState[0] must have a valid 'stateKey' string property",
-      );
+        copilotkitCustomizeConfig({}, { emitIntermediateState: [{ invalidKey: "value" }] as any });
+      }).toThrow("emitIntermediateState[0] must have a valid 'stateKey' string property");
     });
   });
 
@@ -181,59 +159,43 @@ describe("SDK-JS Error Handling", () => {
     const mockConfig = { metadata: {} };
 
     it("should throw CopilotKitMisuseError when config is missing for copilotkitExit", async () => {
-      await expect(copilotkitExit(null as any)).rejects.toThrow(
-        CopilotKitMisuseError,
-      );
+      await expect(copilotkitExit(null as any)).rejects.toThrow(CopilotKitMisuseError);
       await expect(copilotkitExit(null as any)).rejects.toThrow(
         "LangGraph configuration is required for copilotkitExit",
       );
     });
 
     it("should throw CopilotKitMisuseError when config is missing for copilotkitEmitState", async () => {
-      await expect(copilotkitEmitState(null as any, {})).rejects.toThrow(
-        CopilotKitMisuseError,
-      );
+      await expect(copilotkitEmitState(null as any, {})).rejects.toThrow(CopilotKitMisuseError);
       await expect(copilotkitEmitState(null as any, {})).rejects.toThrow(
         "LangGraph configuration is required for copilotkitEmitState",
       );
     });
 
     it("should throw CopilotKitMisuseError when state is undefined for copilotkitEmitState", async () => {
-      await expect(copilotkitEmitState(mockConfig, undefined)).rejects.toThrow(
-        CopilotKitMisuseError,
-      );
+      await expect(copilotkitEmitState(mockConfig, undefined)).rejects.toThrow(CopilotKitMisuseError);
       await expect(copilotkitEmitState(mockConfig, undefined)).rejects.toThrow(
         "State is required for copilotkitEmitState",
       );
     });
 
     it("should throw CopilotKitMisuseError when message is invalid for copilotkitEmitMessage", async () => {
-      await expect(
-        copilotkitEmitMessage(mockConfig, "" as any),
-      ).rejects.toThrow(CopilotKitMisuseError);
-      await expect(
-        copilotkitEmitMessage(mockConfig, "" as any),
-      ).rejects.toThrow(
+      await expect(copilotkitEmitMessage(mockConfig, "" as any)).rejects.toThrow(CopilotKitMisuseError);
+      await expect(copilotkitEmitMessage(mockConfig, "" as any)).rejects.toThrow(
         "Message must be a non-empty string for copilotkitEmitMessage",
       );
     });
 
     it("should throw CopilotKitMisuseError when tool name is invalid for copilotkitEmitToolCall", async () => {
-      await expect(copilotkitEmitToolCall(mockConfig, "", {})).rejects.toThrow(
-        CopilotKitMisuseError,
-      );
+      await expect(copilotkitEmitToolCall(mockConfig, "", {})).rejects.toThrow(CopilotKitMisuseError);
       await expect(copilotkitEmitToolCall(mockConfig, "", {})).rejects.toThrow(
         "Tool name must be a non-empty string for copilotkitEmitToolCall",
       );
     });
 
     it("should throw CopilotKitMisuseError when args is undefined for copilotkitEmitToolCall", async () => {
-      await expect(
-        copilotkitEmitToolCall(mockConfig, "testTool", undefined),
-      ).rejects.toThrow(CopilotKitMisuseError);
-      await expect(
-        copilotkitEmitToolCall(mockConfig, "testTool", undefined),
-      ).rejects.toThrow(
+      await expect(copilotkitEmitToolCall(mockConfig, "testTool", undefined)).rejects.toThrow(CopilotKitMisuseError);
+      await expect(copilotkitEmitToolCall(mockConfig, "testTool", undefined)).rejects.toThrow(
         "Tool arguments are required for copilotkitEmitToolCall",
       );
     });

@@ -66,15 +66,7 @@ export type AnalyticsEvents = {
 
   // Updated mode selection with new properties
   "cli.init.mode_selected": {
-    mode:
-      | "LangGraph"
-      | "CrewAI"
-      | "Standard"
-      | "MCP"
-      | "Mastra"
-      | "LlamaIndex"
-      | "Agno"
-      | "AG2";
+    mode: "LangGraph" | "CrewAI" | "Standard" | "MCP" | "Mastra" | "LlamaIndex" | "Agno" | "AG2";
     cloud_setup_completed?: boolean;
     deployment_choice?: "Copilot Cloud" | "Self-hosted";
   };

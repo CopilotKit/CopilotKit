@@ -2,9 +2,7 @@
 
 import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core/v2";
 
-const runtimeUrl =
-  process.env.NEXT_PUBLIC_COPILOTKIT_RUNTIME_URL ??
-  "http://localhost:4000/api/copilotkit";
+const runtimeUrl = process.env.NEXT_PUBLIC_COPILOTKIT_RUNTIME_URL ?? "http://localhost:4000/api/copilotkit";
 
 export default function Home() {
   return (
@@ -16,9 +14,7 @@ export default function Home() {
             This client connects to the Express runtime at
             <code className="inline-code">{runtimeUrl}</code>.
           </p>
-          <p>
-            Try asking it to "roast my name" to trigger the server-side tool.
-          </p>
+          <p>Try asking it to "roast my name" to trigger the server-side tool.</p>
         </main>
         <CopilotSidebar
           defaultOpen

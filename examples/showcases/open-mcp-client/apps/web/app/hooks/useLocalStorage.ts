@@ -10,10 +10,7 @@ const noop = () => {};
  * Use this only for persistence (page reload). For shared state between
  * components, use React Context instead.
  */
-export function useLocalStorage<T>(
-  key: string,
-  initialValue: T,
-): [T, (value: T | ((prev: T) => T)) => void] {
+export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((prev: T) => T)) => void] {
   const [stored, setStored] = useState<T>(initialValue);
   const [mounted, setMounted] = useState(false);
 
@@ -36,8 +33,7 @@ export function useLocalStorage<T>(
   const setValue = useCallback(
     (value: T | ((prev: T) => T)) => {
       setStored((prev: T) => {
-        const next =
-          typeof value === "function" ? (value as (p: T) => T)(prev) : value;
+        const next = typeof value === "function" ? (value as (p: T) => T)(prev) : value;
         if (typeof window !== "undefined") {
           try {
             window.localStorage.setItem(key, JSON.stringify(next));

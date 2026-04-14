@@ -1,11 +1,6 @@
 import { z } from "zod";
 
-import {
-  useComponent,
-  useFrontendTool,
-  useHumanInTheLoop,
-  useDefaultRenderTool,
-} from "@copilotkit/react-core/v2";
+import { useComponent, useFrontendTool, useHumanInTheLoop, useDefaultRenderTool } from "@copilotkit/react-core/v2";
 
 import { PieChart, PieChartProps } from "../components/pie-chart";
 import { BarChart, BarChartProps } from "../components/bar-chart";
@@ -18,12 +13,8 @@ export const useShowcaseHooks = () => {
     name: "scheduleTime",
     description: "Use human-in-the-loop to schedule a meeting with the user.",
     parameters: z.object({
-      reasonForScheduling: z
-        .string()
-        .describe("Reason for scheduling, very brief - 5 words."),
-      meetingDuration: z
-        .number()
-        .describe("Duration of the meeting in minutes"),
+      reasonForScheduling: z.string().describe("Reason for scheduling, very brief - 5 words."),
+      meetingDuration: z.number().describe("Duration of the meeting in minutes"),
     }),
     render: ({ respond, status, args }) => {
       return <MeetingTimePicker status={status} respond={respond} {...args} />;

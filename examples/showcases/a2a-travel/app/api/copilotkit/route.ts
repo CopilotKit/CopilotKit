@@ -10,29 +10,20 @@
  * - A2A Middleware: Injects send_message_to_a2a_agent tool to bridge AG-UI and A2A
  */
 
-import {
-  CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
 import { A2AMiddlewareAgent } from "@ag-ui/a2a-middleware";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest) {
   // STEP 1: Define A2A agent URLs
-  const itineraryAgentUrl =
-    process.env.ITINERARY_AGENT_URL || "http://localhost:9001";
-  const budgetAgentUrl =
-    process.env.BUDGET_AGENT_URL || "http://localhost:9002";
-  const restaurantAgentUrl =
-    process.env.RESTAURANT_AGENT_URL || "http://localhost:9003";
-  const weatherAgentUrl =
-    process.env.WEATHER_AGENT_URL || "http://localhost:9005";
+  const itineraryAgentUrl = process.env.ITINERARY_AGENT_URL || "http://localhost:9001";
+  const budgetAgentUrl = process.env.BUDGET_AGENT_URL || "http://localhost:9002";
+  const restaurantAgentUrl = process.env.RESTAURANT_AGENT_URL || "http://localhost:9003";
+  const weatherAgentUrl = process.env.WEATHER_AGENT_URL || "http://localhost:9005";
 
   // STEP 2: Define orchestrator URL (speaks AG-UI Protocol)
-  const orchestratorUrl =
-    process.env.ORCHESTRATOR_URL || "http://localhost:9000";
+  const orchestratorUrl = process.env.ORCHESTRATOR_URL || "http://localhost:9000";
 
   // STEP 3: Wrap orchestrator with HttpAgent (AG-UI client)
   const orchestrationAgent = new HttpAgent({

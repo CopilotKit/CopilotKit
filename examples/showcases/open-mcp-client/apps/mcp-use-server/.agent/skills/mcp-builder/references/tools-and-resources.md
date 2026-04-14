@@ -24,22 +24,13 @@ server.tool(
     description: "Translate text between languages",
     schema: z.object({
       text: z.string().describe("Text to translate"),
-      targetLanguage: z
-        .string()
-        .describe("Target language (e.g., 'Spanish', 'French')"),
-      sourceLanguage: z
-        .string()
-        .optional()
-        .describe("Source language (auto-detected if omitted)"),
+      targetLanguage: z.string().describe("Target language (e.g., 'Spanish', 'French')"),
+      sourceLanguage: z.string().optional().describe("Source language (auto-detected if omitted)"),
     }),
   },
   async ({ text: inputText, targetLanguage, sourceLanguage }) => {
     // Your logic here
-    const translated = await translateAPI(
-      inputText,
-      targetLanguage,
-      sourceLanguage,
-    );
+    const translated = await translateAPI(inputText, targetLanguage, sourceLanguage);
     return text(`${translated}`);
   },
 );
@@ -103,25 +94,22 @@ server.tool(
 The second parameter to tool callbacks provides advanced capabilities:
 
 ```typescript
-server.tool(
-  { name: "process-data", schema: z.object({ data: z.string() }) },
-  async ({ data }, ctx) => {
-    // Progress reporting
-    await ctx.reportProgress?.(0, 100, "Starting...");
+server.tool({ name: "process-data", schema: z.object({ data: z.string() }) }, async ({ data }, ctx) => {
+  // Progress reporting
+  await ctx.reportProgress?.(0, 100, "Starting...");
 
-    // Structured logging
-    await ctx.log("info", `Processing ${data.length} chars`);
+  // Structured logging
+  await ctx.log("info", `Processing ${data.length} chars`);
 
-    // Check client capabilities
-    if (ctx.client.can("sampling")) {
-      // Ask the LLM to help process
-      const result = await ctx.sample(`Summarize this: ${data}`);
-    }
+  // Check client capabilities
+  if (ctx.client.can("sampling")) {
+    // Ask the LLM to help process
+    const result = await ctx.sample(`Summarize this: ${data}`);
+  }
 
-    await ctx.reportProgress?.(100, 100, "Done");
-    return text("Processed successfully");
-  },
-);
+  await ctx.reportProgress?.(100, 100, "Done");
+  return text("Processed successfully");
+});
 ```
 
 ### Structured Output
@@ -225,9 +213,7 @@ server.prompt(
   },
   async ({ language, focusArea }) => {
     const focus = focusArea ? ` Focus on ${focusArea}.` : "";
-    return text(
-      `Please review this ${language} code for best practices and potential issues.${focus}`,
-    );
+    return text(`Please review this ${language} code for best practices and potential issues.${focus}`);
   },
 );
 ```
@@ -238,10 +224,7 @@ server.prompt(
 // Good: descriptive, with constraints
 const schema = z.object({
   city: z.string().describe("City name (e.g., 'New York', 'Tokyo')"),
-  units: z
-    .enum(["celsius", "fahrenheit"])
-    .optional()
-    .describe("Temperature units"),
+  units: z.enum(["celsius", "fahrenheit"]).optional().describe("Temperature units"),
   limit: z.number().min(1).max(50).optional().describe("Max results to return"),
 });
 
@@ -265,22 +248,17 @@ const schema = z.object({
 ```typescript
 import { text, error } from "mcp-use/server";
 
-server.tool(
-  { name: "fetch-data", schema: z.object({ id: z.string() }) },
-  async ({ id }) => {
-    try {
-      const data = await fetchFromAPI(id);
-      if (!data) {
-        return error(`No data found for ID: ${id}`);
-      }
-      return object(data);
-    } catch (err) {
-      return error(
-        `Failed to fetch data: ${err instanceof Error ? err.message : "Unknown error"}`,
-      );
+server.tool({ name: "fetch-data", schema: z.object({ id: z.string() }) }, async ({ id }) => {
+  try {
+    const data = await fetchFromAPI(id);
+    if (!data) {
+      return error(`No data found for ID: ${id}`);
     }
-  },
-);
+    return object(data);
+  } catch (err) {
+    return error(`Failed to fetch data: ${err instanceof Error ? err.message : "Unknown error"}`);
+  }
+});
 ```
 
 ## Environment Variables
@@ -291,20 +269,13 @@ When your server needs API keys or configuration:
 // index.ts - read from environment
 const API_KEY = process.env.WEATHER_API_KEY;
 
-server.tool(
-  { name: "get-weather", schema: z.object({ city: z.string() }) },
-  async ({ city }) => {
-    if (!API_KEY) {
-      return error(
-        "WEATHER_API_KEY not configured. Please set it in the Env tab.",
-      );
-    }
-    const data = await fetch(
-      `https://api.weather.com/v1?key=${API_KEY}&city=${city}`,
-    );
-    // ...
-  },
-);
+server.tool({ name: "get-weather", schema: z.object({ city: z.string() }) }, async ({ city }) => {
+  if (!API_KEY) {
+    return error("WEATHER_API_KEY not configured. Please set it in the Env tab.");
+  }
+  const data = await fetch(`https://api.weather.com/v1?key=${API_KEY}&city=${city}`);
+  // ...
+});
 ```
 
 Create a `.env.example` documenting required variables:

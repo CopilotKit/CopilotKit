@@ -28,19 +28,11 @@
 
 import type { CopilotRuntimeLike } from "./runtime";
 import type { CopilotRuntimeHooks, RouteInfo, HookContext } from "./hooks";
-import {
-  runOnRequest,
-  runOnBeforeHandler,
-  runOnResponse,
-  runOnError,
-} from "./hooks";
+import { runOnRequest, runOnBeforeHandler, runOnResponse, runOnError } from "./hooks";
 import type { CopilotCorsConfig } from "./fetch-cors";
 import { handleCors, addCorsHeaders } from "./fetch-cors";
 import { matchRoute } from "./fetch-router";
-import {
-  callBeforeRequestMiddleware,
-  callAfterRequestMiddleware,
-} from "./middleware";
+import { callBeforeRequestMiddleware, callAfterRequestMiddleware } from "./middleware";
 import { handleRunAgent } from "../handlers/handle-run";
 import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
@@ -54,12 +46,7 @@ import {
   handleDeleteThread,
   handleGetThreadMessages,
 } from "../handlers/handle-threads";
-import {
-  parseMethodCall,
-  createJsonRequest,
-  expectString,
-  type MethodCall,
-} from "../endpoints/single-route-helpers";
+import { parseMethodCall, createJsonRequest, expectString, type MethodCall } from "../endpoints/single-route-helpers";
 import { logger } from "@copilotkit/shared";
 
 /* ------------------------------------------------------------------------------------------------
@@ -100,17 +87,13 @@ export interface CopilotRuntimeHandlerOptions {
   hooks?: CopilotRuntimeHooks;
 }
 
-export type CopilotRuntimeFetchHandler = (
-  request: Request,
-) => Promise<Response>;
+export type CopilotRuntimeFetchHandler = (request: Request) => Promise<Response>;
 
 /* ------------------------------------------------------------------------------------------------
  * Handler factory
  * --------------------------------------------------------------------------------------------- */
 
-export function createCopilotRuntimeHandler(
-  options: CopilotRuntimeHandlerOptions,
-): CopilotRuntimeFetchHandler {
+export function createCopilotRuntimeHandler(options: CopilotRuntimeHandlerOptions): CopilotRuntimeFetchHandler {
   const { runtime, basePath, mode = "multi-route", cors, hooks } = options;
 
   const corsConfig = resolveCorsConfig(cors);
@@ -146,10 +129,7 @@ export function createCopilotRuntimeHandler(
           request = maybeModified;
         }
       } catch (mwError: unknown) {
-        logger.error(
-          { err: mwError, url: request.url, path },
-          "Error running before request middleware",
-        );
+        logger.error({ err: mwError, url: request.url, path }, "Error running before request middleware");
         if (mwError instanceof Response) {
           return maybeAddCors(mwError, corsConfig, requestOrigin);
         }
@@ -171,11 +151,7 @@ export function createCopilotRuntimeHandler(
           route,
         });
         // 6. Wrap body for methods that need it, then dispatch
-        if (
-          route.method === "agent/run" ||
-          route.method === "agent/connect" ||
-          route.method === "transcribe"
-        ) {
+        if (route.method === "agent/run" || route.method === "agent/connect" || route.method === "transcribe") {
           request = createJsonRequest(request, methodCall.body);
         }
         response = await dispatchRoute(runtime, request, route);
@@ -227,10 +203,7 @@ export function createCopilotRuntimeHandler(
         response: response.clone(),
         path,
       }).catch((error: unknown) => {
-        logger.error(
-          { err: error, url: request.url, path },
-          "Error running after request middleware",
-        );
+        logger.error({ err: error, url: request.url, path }, "Error running after request middleware");
       });
 
       return response;
@@ -261,22 +234,12 @@ export function createCopilotRuntimeHandler(
           return maybeAddCors(errorResponse, corsConfig, requestOrigin);
         }
       } catch (hookError: unknown) {
-        logger.error(
-          { err: hookError, originalErr: error, url: request.url, path },
-          "onError hook threw",
-        );
+        logger.error({ err: hookError, originalErr: error, url: request.url, path }, "onError hook threw");
       }
 
-      logger.error(
-        { err: error, url: request.url, path },
-        "Unhandled error in CopilotKit runtime handler",
-      );
+      logger.error({ err: error, url: request.url, path }, "Unhandled error in CopilotKit runtime handler");
 
-      return maybeAddCors(
-        jsonResponse({ error: "internal_error" }, 500),
-        corsConfig,
-        requestOrigin,
-      );
+      return maybeAddCors(jsonResponse({ error: "internal_error" }, 500), corsConfig, requestOrigin);
     }
   };
 }
@@ -285,11 +248,7 @@ export function createCopilotRuntimeHandler(
  * Route dispatch
  * --------------------------------------------------------------------------------------------- */
 
-function dispatchRoute(
-  runtime: CopilotRuntimeLike,
-  request: Request,
-  route: RouteInfo,
-): Promise<Response> {
+function dispatchRoute(runtime: CopilotRuntimeLike, request: Request, route: RouteInfo): Promise<Response> {
   switch (route.method) {
     case "agent/run":
       return handleRunAgent({
@@ -353,10 +312,7 @@ async function resolveSingleRoute(
   pathname: string,
 ): Promise<SingleRouteResolution> {
   if (basePath) {
-    const normalizedBase =
-      basePath.length > 1 && basePath.endsWith("/")
-        ? basePath.slice(0, -1)
-        : basePath;
+    const normalizedBase = basePath.length > 1 && basePath.endsWith("/") ? basePath.slice(0, -1) : basePath;
     if (!pathname.startsWith(normalizedBase)) {
       throw jsonResponse({ error: "Not found" }, 404);
     }
@@ -404,10 +360,7 @@ async function resolveSingleRoute(
  * HTTP method validation
  * --------------------------------------------------------------------------------------------- */
 
-function validateHttpMethod(
-  httpMethod: string,
-  route: RouteInfo,
-): Response | null {
+function validateHttpMethod(httpMethod: string, route: RouteInfo): Response | null {
   const method = httpMethod.toUpperCase();
 
   switch (route.method) {
@@ -437,28 +390,18 @@ function validateHttpMethod(
  * Helpers
  * --------------------------------------------------------------------------------------------- */
 
-function resolveCorsConfig(
-  cors: boolean | CopilotCorsConfig | undefined,
-): CopilotCorsConfig | null {
+function resolveCorsConfig(cors: boolean | CopilotCorsConfig | undefined): CopilotCorsConfig | null {
   if (!cors) return null;
   if (cors === true) return {};
   return cors;
 }
 
-function maybeAddCors(
-  response: Response,
-  config: CopilotCorsConfig | null,
-  requestOrigin: string | null,
-): Response {
+function maybeAddCors(response: Response, config: CopilotCorsConfig | null, requestOrigin: string | null): Response {
   if (!config) return response;
   return addCorsHeaders(response, config, requestOrigin);
 }
 
-function jsonResponse(
-  body: unknown,
-  status: number,
-  extraHeaders?: Record<string, string>,
-): Response {
+function jsonResponse(body: unknown, status: number, extraHeaders?: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json", ...extraHeaders },

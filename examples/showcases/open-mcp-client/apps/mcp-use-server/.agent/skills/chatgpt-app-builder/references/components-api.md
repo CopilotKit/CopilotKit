@@ -63,12 +63,7 @@ function MyWidget() {
       <Image src="data:image/png;base64,..." alt="Base64 image" />
 
       {/* With styling */}
-      <Image
-        src="/icons/logo.svg"
-        alt="Logo"
-        className="w-16 h-16"
-        style={{ borderRadius: "8px" }}
-      />
+      <Image src="/icons/logo.svg" alt="Logo" className="w-16 h-16" style={{ borderRadius: "8px" }} />
     </div>
   );
 }
@@ -92,11 +87,7 @@ For non-Image elements or dynamic paths:
 function MyWidget() {
   const bannerUrl = window.__getFile__?.("images/banner.png");
 
-  return (
-    <div style={{ backgroundImage: `url(${bannerUrl})` }}>
-      Content with background
-    </div>
-  );
+  return <div style={{ backgroundImage: `url(${bannerUrl})` }}>Content with background</div>;
 }
 ```
 
@@ -267,11 +258,7 @@ if (displayMode === "fullscreen") {
 const { sendFollowUpMessage } = useWidget();
 
 // Trigger LLM to respond based on widget state
-<button
-  onClick={() =>
-    sendFollowUpMessage("Analyze the selected items and recommend the best one")
-  }
->
+<button onClick={() => sendFollowUpMessage("Analyze the selected items and recommend the best one")}>
   Get AI Recommendation
 </button>;
 ```
@@ -282,9 +269,7 @@ const { sendFollowUpMessage } = useWidget();
 const { openExternal } = useWidget();
 
 // Open external URL (shows confirmation dialog in ChatGPT)
-<button onClick={() => openExternal("https://checkout.example.com/order/123")}>
-  Proceed to Checkout
-</button>;
+<button onClick={() => openExternal("https://checkout.example.com/order/123")}>Proceed to Checkout</button>;
 ```
 
 ## Convenience Hooks
@@ -313,9 +298,7 @@ import { useWidgetTheme } from "mcp-use/react";
 
 function ThemedBox() {
   const theme = useWidgetTheme(); // 'light' | 'dark'
-  return (
-    <div className={theme === "dark" ? "bg-gray-900" : "bg-white"}>Content</div>
-  );
+  return <div className={theme === "dark" ? "bg-gray-900" : "bg-white"}>Content</div>;
 }
 ```
 
@@ -327,11 +310,7 @@ import { useWidgetState } from "mcp-use/react";
 function Counter() {
   const [state, setState] = useWidgetState({ count: 0 });
   return (
-    <button
-      onClick={() => setState((prev) => ({ count: (prev?.count || 0) + 1 }))}
-    >
-      Count: {state?.count || 0}
-    </button>
+    <button onClick={() => setState((prev) => ({ count: (prev?.count || 0) + 1 }))}>Count: {state?.count || 0}</button>
   );
 }
 ```

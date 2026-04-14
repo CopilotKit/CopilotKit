@@ -20,12 +20,7 @@ function reconstructString(obj: Record<string, unknown>): string {
   return Object.values(obj).join("");
 }
 
-export function ToolCallCard({
-  name,
-  args,
-  result,
-  status = "executing",
-}: ToolCallCardProps) {
+export function ToolCallCard({ name, args, result, status = "executing" }: ToolCallCardProps) {
   const isExecuting = status === "executing" || status === "inProgress";
   const isComplete = status === "complete";
 
@@ -41,9 +36,7 @@ export function ToolCallCard({
     displayArgs = reconstructString(args);
   } else {
     // Filter out empty/null values from args for cleaner display
-    displayArgs = Object.fromEntries(
-      Object.entries(args).filter(([, v]) => v != null && v !== ""),
-    );
+    displayArgs = Object.fromEntries(Object.entries(args).filter(([, v]) => v != null && v !== ""));
   }
 
   // Format result for display (truncate if too long)
@@ -64,23 +57,15 @@ export function ToolCallCard({
       <div className="flex items-center gap-2 mb-2">
         <span className="text-base">{isExecuting ? "⏳" : "✅"}</span>
         <span className="font-medium text-gray-700">{displayName}</span>
-        {isExecuting && (
-          <span className="text-xs text-gray-400 animate-pulse">
-            Running...
-          </span>
-        )}
+        {isExecuting && <span className="text-xs text-gray-400 animate-pulse">Running...</span>}
       </div>
 
       {/* Show args (input) */}
-      {(typeof displayArgs === "string"
-        ? displayArgs.length > 0
-        : Object.keys(displayArgs).length > 0) && (
+      {(typeof displayArgs === "string" ? displayArgs.length > 0 : Object.keys(displayArgs).length > 0) && (
         <div className="mb-2">
           <span className="text-xs text-gray-500 font-medium">Input:</span>
           <pre className="text-xs text-gray-600 bg-white rounded p-2 overflow-x-auto mt-1">
-            {typeof displayArgs === "string"
-              ? displayArgs
-              : JSON.stringify(displayArgs, null, 2)}
+            {typeof displayArgs === "string" ? displayArgs : JSON.stringify(displayArgs, null, 2)}
           </pre>
         </div>
       )}

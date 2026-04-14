@@ -59,14 +59,8 @@ describe("CopilotKitCore error handling", () => {
       });
       await core.runAgent({ agent });
 
-      expect(
-        errors.some(
-          (e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT,
-        ),
-      ).toBe(true);
-      const evt = errors.find(
-        (e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT,
-      )!;
+      expect(errors.some((e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT)).toBe(true);
+      const evt = errors.find((e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT)!;
       expect(evt.context.agentId).toBe("agent1");
       expect(evt.context.event).toBeDefined();
 
@@ -106,14 +100,8 @@ describe("CopilotKitCore error handling", () => {
       });
       await core.runAgent({ agent });
 
-      expect(
-        errors.some(
-          (e) => e.code === CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED,
-        ),
-      ).toBe(true);
-      const evt = errors.find(
-        (e) => e.code === CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED,
-      )!;
+      expect(errors.some((e) => e.code === CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED)).toBe(true);
+      const evt = errors.find((e) => e.code === CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED)!;
       expect(evt.context.agentId).toBe("agent-locked");
       expect(evt.context.source).toBe("onRunFailed");
       expect(evt.error).toBeInstanceOf(AgentThreadLockedError);
@@ -152,14 +140,8 @@ describe("CopilotKitCore error handling", () => {
       });
       await core.runAgent({ agent });
 
-      expect(
-        errors.some(
-          (e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT,
-        ),
-      ).toBe(true);
-      const evt = errors.find(
-        (e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT,
-      )!;
+      expect(errors.some((e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT)).toBe(true);
+      const evt = errors.find((e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT)!;
       expect(evt.context.agentId).toBe("agent2");
       expect(evt.context.source).toBe("onRunFailed");
 
@@ -202,11 +184,7 @@ describe("CopilotKitCore error handling", () => {
       const sub = core.subscribe({ onError: (e) => void errors.push(e) });
 
       await vi.waitFor(() => {
-        expect(
-          errors.some(
-            (e) => e.code === CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED,
-          ),
-        ).toBe(true);
+        expect(errors.some((e) => e.code === CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED)).toBe(true);
       });
 
       sub.unsubscribe();
@@ -233,12 +211,8 @@ describe("CopilotKitCore error handling", () => {
 
       await core.runAgent({ agent });
 
-      expect(
-        errors.some((e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_FAILED),
-      ).toBe(true);
-      const evt = errors.find(
-        (e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
-      )!;
+      expect(errors.some((e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_FAILED)).toBe(true);
+      const evt = errors.find((e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_FAILED)!;
       expect(evt.context.agentId).toBe("agent-http");
 
       sub.unsubscribe();
@@ -266,14 +240,8 @@ describe("CopilotKitCore error handling", () => {
       // Should resolve, not reject
       await core.connectAgent({ agent });
 
-      expect(
-        errors.some(
-          (e) => e.code === CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED,
-        ),
-      ).toBe(true);
-      const evt = errors.find(
-        (e) => e.code === CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED,
-      )!;
+      expect(errors.some((e) => e.code === CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED)).toBe(true);
+      const evt = errors.find((e) => e.code === CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED)!;
       expect(evt.context.agentId).toBe("agent-connect");
 
       sub.unsubscribe();
@@ -331,11 +299,7 @@ describe("CopilotKitCore error handling", () => {
       await core.runAgent({ agent });
 
       // Argument parse error captured
-      expect(
-        errors.some(
-          (e) => e.code === CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED,
-        ),
-      ).toBe(true);
+      expect(errors.some((e) => e.code === CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED)).toBe(true);
       // The run rejects; current implementation does not emit AGENT_RUN_FAILED for this path
 
       sub.unsubscribe();
@@ -393,20 +357,13 @@ describe("CopilotKitCore error handling", () => {
       const result = await core.runAgent({ agent });
 
       // Handler error should be reported
-      expect(
-        errors.some(
-          (e) => e.code === CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
-        ),
-      ).toBe(true);
+      expect(errors.some((e) => e.code === CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED)).toBe(true);
       // Run should not fail; tool result message should contain the error string
       expect(Array.isArray(result.newMessages)).toBe(true);
       // After run, the tool result is inserted into agent.messages with "Error: boom"
       expect(
         agent.messages.some(
-          (m: any) =>
-            m.role === "tool" &&
-            typeof m.content === "string" &&
-            m.content.includes("Error: boom"),
+          (m: any) => m.role === "tool" && typeof m.content === "string" && m.content.includes("Error: boom"),
         ),
       ).toBe(true);
 

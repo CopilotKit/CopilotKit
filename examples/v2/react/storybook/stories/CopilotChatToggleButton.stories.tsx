@@ -46,18 +46,12 @@ export const WithCustomIcons: Story = {
     openIcon: (props) => (
       <MessageCirclePlus
         {...props}
-        className={[props.className, "text-emerald-400"]
-          .filter(Boolean)
-          .join(" ")}
+        className={[props.className, "text-emerald-400"].filter(Boolean).join(" ")}
         strokeWidth={1.5}
       />
     ),
     closeIcon: (props) => (
-      <Minus
-        {...props}
-        className={[props.className, "text-rose-400"].filter(Boolean).join(" ")}
-        strokeWidth={2}
-      />
+      <Minus {...props} className={[props.className, "text-rose-400"].filter(Boolean).join(" ")} strokeWidth={2} />
     ),
   },
 };

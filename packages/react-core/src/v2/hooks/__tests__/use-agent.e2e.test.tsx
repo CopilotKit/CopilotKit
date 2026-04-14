@@ -150,9 +150,7 @@ describe("useAgent e2e", () => {
 
       // Assistant response should appear in the chat
       await waitFor(() => {
-        expect(
-          screen.getByText("Hello! I received your message."),
-        ).toBeDefined();
+        expect(screen.getByText("Hello! I received your message.")).toBeDefined();
       });
     });
   });

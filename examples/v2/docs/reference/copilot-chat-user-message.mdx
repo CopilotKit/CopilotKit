@@ -98,8 +98,7 @@ Style the message bubble:
 <CopilotChat
   messageView={{
     userMessage: {
-      messageRenderer:
-        "bg-gradient-to-r from-blue-500 to-purple-500 text-white",
+      messageRenderer: "bg-gradient-to-r from-blue-500 to-purple-500 text-white",
     },
   }}
 />
@@ -178,11 +177,7 @@ function CustomUserMessage({ message, ...props }) {
   return (
     <div className="flex gap-3 items-start justify-end">
       <div className="flex-1">
-        <CopilotChatUserMessage
-          message={message}
-          className="bg-blue-600 text-white"
-          {...props}
-        />
+        <CopilotChatUserMessage message={message} className="bg-blue-600 text-white" {...props} />
       </div>
       <Avatar src="/user-avatar.png" />
     </div>
@@ -208,9 +203,7 @@ function CustomUserMessage(props) {
         <div className="flex flex-col items-end gap-1">
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-400">You</span>
-            <span className="text-xs text-gray-400">
-              {new Date(message.createdAt).toLocaleTimeString()}
-            </span>
+            <span className="text-xs text-gray-400">{new Date(message.createdAt).toLocaleTimeString()}</span>
           </div>
           {messageRenderer}
           {toolbar}
@@ -249,9 +242,7 @@ When users edit messages and regenerate responses, CopilotKit creates conversati
   messageView={{
     userMessage: {
       onSwitchToBranch: ({ message, branchIndex, numberOfBranches }) => {
-        console.log(
-          `Switching to branch ${branchIndex + 1} of ${numberOfBranches}`,
-        );
+        console.log(`Switching to branch ${branchIndex + 1} of ${numberOfBranches}`);
         // Your branch switching logic
       },
     },
@@ -273,8 +264,7 @@ The branch navigation shows:
   messageView={{
     userMessage: {
       className: "items-end",
-      messageRenderer:
-        "bg-blue-600 text-white rounded-2xl px-4 py-2 max-w-[75%]",
+      messageRenderer: "bg-blue-600 text-white rounded-2xl px-4 py-2 max-w-[75%]",
       toolbar: "opacity-0 group-hover:opacity-100 transition-opacity",
     },
   }}
@@ -298,12 +288,7 @@ function ChatWithEdit() {
         }}
       />
 
-      {editingMessage && (
-        <EditMessageModal
-          message={editingMessage}
-          onClose={() => setEditingMessage(null)}
-        />
-      )}
+      {editingMessage && <EditMessageModal message={editingMessage} onClose={() => setEditingMessage(null)} />}
     </>
   );
 }
@@ -335,11 +320,7 @@ function UserMessageWithAvatar(props) {
             {messageRenderer}
             {toolbar}
           </div>
-          <img
-            src="/user-avatar.png"
-            alt="You"
-            className="w-8 h-8 rounded-full"
-          />
+          <img src="/user-avatar.png" alt="You" className="w-8 h-8 rounded-full" />
         </div>
       )}
     </CopilotChatUserMessage>

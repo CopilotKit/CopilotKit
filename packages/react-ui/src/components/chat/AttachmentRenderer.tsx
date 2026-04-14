@@ -9,35 +9,20 @@ interface AttachmentRendererProps {
   className?: string;
 }
 
-const ImageAttachment = memo(function ImageAttachment({
-  src,
-  className,
-}: {
-  src: string;
-  className?: string;
-}) {
+const ImageAttachment = memo(function ImageAttachment({ src, className }: { src: string; className?: string }) {
   const [error, setError] = useState(false);
 
   if (error) {
     return (
-      <div
-        className={`copilotKitImageRendering copilotKitImageRenderingError ${className ?? ""}`}
-      >
-        <div className="copilotKitImageRenderingErrorMessage">
-          Failed to load image
-        </div>
+      <div className={`copilotKitImageRendering copilotKitImageRenderingError ${className ?? ""}`}>
+        <div className="copilotKitImageRenderingErrorMessage">Failed to load image</div>
       </div>
     );
   }
 
   return (
     <div className={`copilotKitImageRendering ${className ?? ""}`}>
-      <img
-        src={src}
-        alt="Image attachment"
-        className="copilotKitImageRenderingImage"
-        onError={() => setError(true)}
-      />
+      <img src={src} alt="Image attachment" className="copilotKitImageRenderingImage" onError={() => setError(true)} />
     </div>
   );
 });
@@ -52,28 +37,16 @@ const AudioAttachment = memo(function AudioAttachment({
   className?: string;
 }) {
   return (
-    <div
-      className={`copilotKitAttachment copilotKitAttachmentAudio ${className ?? ""}`}
-    >
+    <div className={`copilotKitAttachment copilotKitAttachmentAudio ${className ?? ""}`}>
       <audio src={src} controls preload="metadata" />
-      {filename && (
-        <span className="copilotKitAttachmentFilename">{filename}</span>
-      )}
+      {filename && <span className="copilotKitAttachmentFilename">{filename}</span>}
     </div>
   );
 });
 
-const VideoAttachment = memo(function VideoAttachment({
-  src,
-  className,
-}: {
-  src: string;
-  className?: string;
-}) {
+const VideoAttachment = memo(function VideoAttachment({ src, className }: { src: string; className?: string }) {
   return (
-    <div
-      className={`copilotKitAttachment copilotKitAttachmentVideo ${className ?? ""}`}
-    >
+    <div className={`copilotKitAttachment copilotKitAttachmentVideo ${className ?? ""}`}>
       <video src={src} controls preload="metadata" />
     </div>
   );
@@ -89,45 +62,26 @@ const DocumentAttachment = memo(function DocumentAttachment({
   className?: string;
 }) {
   return (
-    <div
-      className={`copilotKitAttachment copilotKitAttachmentDocument ${className ?? ""}`}
-    >
-      <div className="copilotKitAttachmentDocIcon">
-        {getDocumentIcon(source.mimeType ?? "")}
-      </div>
+    <div className={`copilotKitAttachment copilotKitAttachmentDocument ${className ?? ""}`}>
+      <div className="copilotKitAttachmentDocIcon">{getDocumentIcon(source.mimeType ?? "")}</div>
       <div className="copilotKitAttachmentDocInfo">
-        <span className="copilotKitAttachmentDocName">
-          {filename || source.mimeType || "Unknown type"}
-        </span>
+        <span className="copilotKitAttachmentDocName">{filename || source.mimeType || "Unknown type"}</span>
       </div>
     </div>
   );
 });
 
-export const AttachmentRenderer: React.FC<AttachmentRendererProps> = ({
-  type,
-  source,
-  filename,
-  className,
-}) => {
+export const AttachmentRenderer: React.FC<AttachmentRendererProps> = ({ type, source, filename, className }) => {
   const src = getSourceUrl(source);
 
   switch (type) {
     case "image":
       return <ImageAttachment src={src} className={className} />;
     case "audio":
-      return (
-        <AudioAttachment src={src} filename={filename} className={className} />
-      );
+      return <AudioAttachment src={src} filename={filename} className={className} />;
     case "video":
       return <VideoAttachment src={src} className={className} />;
     case "document":
-      return (
-        <DocumentAttachment
-          source={source}
-          filename={filename}
-          className={className}
-        />
-      );
+      return <DocumentAttachment source={source} filename={filename} className={className} />;
   }
 };

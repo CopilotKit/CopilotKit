@@ -1,8 +1,4 @@
-import {
-  CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 import { LlamaIndexAgent } from "@ag-ui/llamaindex";
 
 import { NextRequest } from "next/server";

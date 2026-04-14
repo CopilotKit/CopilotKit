@@ -26,10 +26,7 @@ export async function createExpressSingleServer(
       resolve({
         baseUrl: `http://localhost:${port}`,
         basePath: BASE_PATH,
-        close: () =>
-          new Promise<void>((res, rej) =>
-            server.close((err) => (err ? rej(err) : res())),
-          ),
+        close: () => new Promise<void>((res, rej) => server.close((err) => (err ? rej(err) : res()))),
       });
     });
   });

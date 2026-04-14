@@ -128,11 +128,7 @@
 }
 
 .copilotKitMessageControlButton.active:hover {
-  background-color: color-mix(
-    in srgb,
-    var(--copilot-kit-primary-color) 90%,
-    black
-  );
+  background-color: color-mix(in srgb, var(--copilot-kit-primary-color) 90%, black);
   color: var(--copilot-kit-contrast-color);
 }
 
@@ -143,8 +139,7 @@
   pointer-events: none;
 }
 
-.copilotKitMessage.copilotKitAssistantMessage
-  + .copilotKitMessage.copilotKitUserMessage {
+.copilotKitMessage.copilotKitAssistantMessage + .copilotKitMessage.copilotKitUserMessage {
   margin-top: 1.5rem;
 }
 

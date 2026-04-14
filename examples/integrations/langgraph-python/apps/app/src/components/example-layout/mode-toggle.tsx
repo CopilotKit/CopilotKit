@@ -19,9 +19,7 @@ export function ModeToggle({ mode, onModeChange }: ModeToggleProps) {
       <button
         onClick={() => onModeChange("app")}
         className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-all cursor-pointer ${
-          mode === "app"
-            ? "bg-[var(--card)] text-[var(--card-foreground)] shadow-sm"
-            : "text-[var(--muted-foreground)]"
+          mode === "app" ? "bg-[var(--card)] text-[var(--card-foreground)] shadow-sm" : "text-[var(--muted-foreground)]"
         }`}
       >
         App

@@ -19,21 +19,13 @@ export function MobileTripCard({ className, map }: MobileTripCardProps) {
   const { selectedTrip } = useTrips();
 
   if (selectedTrip && map) {
-    map.setView(
-      [selectedTrip.center_latitude, selectedTrip.center_longitude],
-      selectedTrip.zoom_level || 13,
-    );
+    map.setView([selectedTrip.center_latitude, selectedTrip.center_longitude], selectedTrip.zoom_level || 13);
   }
 
   return (
     <Drawer>
       <DrawerTrigger asChild>
-        <Button
-          className={cn(
-            className,
-            "absolute bottom-20 right-4 w-14 h-14 rounded-full",
-          )}
-        >
+        <Button className={cn(className, "absolute bottom-20 right-4 w-14 h-14 rounded-full")}>
           <Plane className="w-6 h-6" />
         </Button>
       </DrawerTrigger>

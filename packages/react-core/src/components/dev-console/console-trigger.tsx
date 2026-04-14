@@ -12,9 +12,7 @@ interface ConsoleTriggerProps {
   position?: "bottom-left" | "bottom-right";
 }
 
-export function ConsoleTrigger({
-  position = "bottom-right",
-}: ConsoleTriggerProps) {
+export function ConsoleTrigger({ position = "bottom-right" }: ConsoleTriggerProps) {
   const context = useCopilotContext();
   const hasApiKey = Boolean(context.copilotApiConfig.publicApiKey);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -39,10 +37,7 @@ export function ConsoleTrigger({
   useEffect(() => {
     setMounted(true);
     try {
-      const hidden =
-        typeof window !== "undefined"
-          ? localStorage.getItem(INSPECTOR_HIDE_KEY)
-          : null;
+      const hidden = typeof window !== "undefined" ? localStorage.getItem(INSPECTOR_HIDE_KEY) : null;
       if (hidden === "1" || hidden === "true") {
         setIsHidden(true);
       }
@@ -162,11 +157,7 @@ export function ConsoleTrigger({
           zIndex: 2147483647,
           width: "60px",
           height: "60px",
-          background: isDragging
-            ? "#000000"
-            : isHovered
-              ? "#111111"
-              : "#000000",
+          background: isDragging ? "#000000" : isHovered ? "#111111" : "#000000",
           color: "white",
           borderRadius: "50%",
           boxShadow: isDragging
@@ -174,9 +165,7 @@ export function ConsoleTrigger({
             : isHovered
               ? "0 12px 40px rgba(0, 0, 0, 0.7), 0 6px 20px rgba(0, 0, 0, 0.5)"
               : "0 6px 20px rgba(0, 0, 0, 0.5), 0 3px 10px rgba(0, 0, 0, 0.3)",
-          transition: isDragging
-            ? "none"
-            : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          transition: isDragging ? "none" : "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -184,20 +173,12 @@ export function ConsoleTrigger({
           cursor: isDragging ? "grabbing" : "grab",
           opacity: 1,
           userSelect: "none",
-          transform: isDragging
-            ? "scale(1.05)"
-            : isHovered
-              ? "scale(1.1)"
-              : "scale(1)",
+          transform: isDragging ? "scale(1.05)" : isHovered ? "scale(1.1)" : "scale(1)",
           backdropFilter: "blur(10px)",
           pointerEvents: "auto",
           isolation: "isolate",
         }}
-        title={
-          hasApiKey
-            ? "Open Inspector (Drag to move)"
-            : "Inspector (License Key Required, Drag to move)"
-        }
+        title={hasApiKey ? "Open Inspector (Drag to move)" : "Inspector (License Key Required, Drag to move)"}
       >
         {/* Close (hide) control */}
         <div
@@ -264,20 +245,12 @@ export function ConsoleTrigger({
               border: "2px solid white",
             }}
           >
-            <span
-              style={{ fontSize: "10px", color: "white", fontWeight: "bold" }}
-            >
-              !
-            </span>
+            <span style={{ fontSize: "10px", color: "white", fontWeight: "bold" }}>!</span>
           </div>
         )}
       </button>
 
-      <DeveloperConsoleModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        hasApiKey={hasApiKey}
-      />
+      <DeveloperConsoleModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} hasApiKey={hasApiKey} />
     </>
   );
 }

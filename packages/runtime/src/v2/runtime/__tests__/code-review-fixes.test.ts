@@ -22,8 +22,7 @@ const createMockAgent = () => {
   return agent as AbstractAgent;
 };
 
-const createRuntime = () =>
-  new CopilotRuntime({ agents: { default: createMockAgent() } });
+const createRuntime = () => new CopilotRuntime({ agents: { default: createMockAgent() } });
 
 const get = (url: string) => new Request(url, { method: "GET" });
 
@@ -58,9 +57,7 @@ describe("Item 1: methodCall preserved when hooks replace request", () => {
       },
     });
 
-    const response = await handler(
-      post("http://localhost/api", { method: "info" }),
-    );
+    const response = await handler(post("http://localhost/api", { method: "info" }));
     // Should succeed (200) rather than crash with undefined methodCall
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -111,12 +108,8 @@ describe("Item 2: credentials + wildcard CORS", () => {
     const config: CopilotCorsConfig = { credentials: true };
     const response = handleCors(request, config)!;
 
-    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
-      "https://app.example.com",
-    );
-    expect(response.headers.get("Access-Control-Allow-Credentials")).toBe(
-      "true",
-    );
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://app.example.com");
+    expect(response.headers.get("Access-Control-Allow-Credentials")).toBe("true");
   });
 
   it("auto-resolves wildcard to request origin in addCorsHeaders", () => {
@@ -124,9 +117,7 @@ describe("Item 2: credentials + wildcard CORS", () => {
     const config: CopilotCorsConfig = { credentials: true };
     const result = addCorsHeaders(response, config, "https://mysite.com");
 
-    expect(result.headers.get("Access-Control-Allow-Origin")).toBe(
-      "https://mysite.com",
-    );
+    expect(result.headers.get("Access-Control-Allow-Origin")).toBe("https://mysite.com");
     expect(result.headers.get("Access-Control-Allow-Credentials")).toBe("true");
   });
 
@@ -153,9 +144,7 @@ describe("Item 2: credentials + wildcard CORS", () => {
     };
     const response = handleCors(request, config)!;
 
-    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
-      "https://specific.example.com",
-    );
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://specific.example.com");
   });
 
   it("end-to-end: handler CORS with credentials does not produce wildcard + credentials", async () => {
@@ -271,9 +260,7 @@ describe("Item 4: malformed URI encoding handled gracefully", () => {
       basePath: "/api",
     });
 
-    const response = await handler(
-      post("http://localhost/api/agent/%ZZ/run", { threadId: "t1" }),
-    );
+    const response = await handler(post("http://localhost/api/agent/%ZZ/run", { threadId: "t1" }));
     expect(response.status).toBe(404);
   });
 });
@@ -302,9 +289,7 @@ describe("Item 8: Allow header on 405 responses", () => {
       basePath: "/api",
     });
 
-    const response = await handler(
-      get("http://localhost/api/agent/default/run"),
-    );
+    const response = await handler(get("http://localhost/api/agent/default/run"));
     expect(response.status).toBe(405);
     expect(response.headers.get("Allow")).toBe("POST");
   });
@@ -419,8 +404,7 @@ describe("Item 7: synthesizeBody null guard", () => {
   // meaning the generic (stream-based) handler runs instead of trying to
   // serialize null into the string "null".
   it("null req.body is treated as no pre-parsed body (falls through to generic handler)", async () => {
-    const { createExpressNodeHandler } =
-      await import("../endpoints/express-fetch-bridge");
+    const { createExpressNodeHandler } = await import("../endpoints/express-fetch-bridge");
 
     let handlerCalled = false;
     const fetchHandler = async (_req: Request) => {
@@ -490,8 +474,7 @@ describe("Breaking change: CopilotKitRequestHandler type alias exists", () => {
 
 describe("Item 13: node-fetch-handler exports are both available", () => {
   it("both createCopilotNodeHandler and createNodeFetchHandler are exported", async () => {
-    const { createCopilotNodeHandler, createNodeFetchHandler } =
-      await import("../endpoints/node-fetch-handler");
+    const { createCopilotNodeHandler, createNodeFetchHandler } = await import("../endpoints/node-fetch-handler");
     expect(typeof createCopilotNodeHandler).toBe("function");
     expect(typeof createNodeFetchHandler).toBe("function");
     // The deprecated alias should reference the same function

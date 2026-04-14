@@ -1,11 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { CopilotKitCore } from "../core";
-import {
-  MockAgent,
-  createToolCallMessage,
-  createAssistantMessage,
-  createTool,
-} from "./test-utils";
+import { MockAgent, createToolCallMessage, createAssistantMessage, createTool } from "./test-utils";
 
 describe("CopilotKitCore - abort during tool execution", () => {
   let copilotKitCore: CopilotKitCore;
@@ -45,9 +40,7 @@ describe("CopilotKitCore - abort during tool execution", () => {
     agent.runAgentCallback = () => {
       callCount++;
       if (callCount === 2) {
-        agent.setNewMessages([
-          createAssistantMessage({ content: "Follow-up response" }),
-        ]);
+        agent.setNewMessages([createAssistantMessage({ content: "Follow-up response" })]);
       }
     };
 
@@ -146,9 +139,7 @@ describe("CopilotKitCore - abort during tool execution", () => {
     agent.runAgentCallback = () => {
       callCount++;
       if (callCount === 2) {
-        agent.setNewMessages([
-          createAssistantMessage({ content: "Follow-up response" }),
-        ]);
+        agent.setNewMessages([createAssistantMessage({ content: "Follow-up response" })]);
       }
     };
 

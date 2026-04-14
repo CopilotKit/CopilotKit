@@ -28,9 +28,7 @@ const anthropic = new Anthropic({
 
 console.log("[agent_server] Initializing Claude agent server");
 console.log(`[agent_server] Model: ${CLAUDE_MODEL}`);
-console.log(
-  `[agent_server] ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? "set" : "NOT SET"}`,
-);
+console.log(`[agent_server] ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? "set" : "NOT SET"}`);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -88,10 +86,7 @@ function buildAnthropicMessages(messages: Message[]): Anthropic.MessageParam[] {
           {
             type: "tool_result",
             tool_use_id: toolMsg.toolCallId ?? "",
-            content:
-              typeof toolMsg.content === "string"
-                ? toolMsg.content
-                : JSON.stringify(toolMsg.content),
+            content: typeof toolMsg.content === "string" ? toolMsg.content : JSON.stringify(toolMsg.content),
           },
         ],
       });
@@ -112,10 +107,7 @@ function buildTools(tools: RunAgentInput["tools"]): Anthropic.Tool[] {
     };
     if (tool.parameters) {
       try {
-        const parsed =
-          typeof tool.parameters === "string"
-            ? JSON.parse(tool.parameters)
-            : tool.parameters;
+        const parsed = typeof tool.parameters === "string" ? JSON.parse(tool.parameters) : tool.parameters;
         inputSchema = parsed as Anthropic.Tool.InputSchema;
       } catch {
         // use empty schema
@@ -158,12 +150,9 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
     const tools = buildTools(input.tools);
 
     // Build system prompt from context
-    let systemPrompt =
-      "You are a helpful AI assistant powered by Anthropic's Claude.";
+    let systemPrompt = "You are a helpful AI assistant powered by Anthropic's Claude.";
     if (input.context && input.context.length > 0) {
-      const contextStr = input.context
-        .map((c: any) => `${c.description}: ${c.value}`)
-        .join("\n");
+      const contextStr = input.context.map((c: any) => `${c.description}: ${c.value}`).join("\n");
       systemPrompt += `\n\nContext:\n${contextStr}`;
     }
 

@@ -105,16 +105,15 @@ describe("CopilotChat activity message rendering", () => {
     let capturedCopilotkit: any = "not-called";
 
     // Matches real-world pattern: inline arrow function with hooks
-    const activityRenderer: ReactActivityMessageRenderer<{ message: string }> =
-      {
-        activityType: "test-activity",
-        content: z.object({ message: z.string() }),
-        render: ({ content }) => {
-          const { copilotkit } = useCopilotKit();
-          capturedCopilotkit = copilotkit;
-          return <div data-testid="activity-render">{content.message}</div>;
-        },
-      };
+    const activityRenderer: ReactActivityMessageRenderer<{ message: string }> = {
+      activityType: "test-activity",
+      content: z.object({ message: z.string() }),
+      render: ({ content }) => {
+        const { copilotkit } = useCopilotKit();
+        capturedCopilotkit = copilotkit;
+        return <div data-testid="activity-render">{content.message}</div>;
+      },
+    };
 
     renderWithCopilotKit({
       agents: { [agentId]: agent },

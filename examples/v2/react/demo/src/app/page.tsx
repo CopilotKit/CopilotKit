@@ -61,13 +61,10 @@ export default function Home() {
     ),
   });
 
-  const handleSetTheme = useCallback(
-    async (args: { mode: "light" | "dark" }) => {
-      setTheme(args.mode);
-      return `Theme set to ${args.mode}`;
-    },
-    [],
-  );
+  const handleSetTheme = useCallback(async (args: { mode: "light" | "dark" }) => {
+    setTheme(args.mode);
+    return `Theme set to ${args.mode}`;
+  }, []);
 
   const sandboxFunctions = useMemo<SandboxFunction[]>(
     () => [
@@ -103,28 +100,17 @@ export default function Home() {
           transition: "background-color 0.3s, color 0.3s",
         }}
       >
-        <Chat
-          theme={theme}
-          onToggleTheme={() =>
-            setTheme((t) => (t === "light" ? "dark" : "light"))
-          }
-        />
+        <Chat theme={theme} onToggleTheme={() => setTheme((t) => (t === "light" ? "dark" : "light"))} />
       </div>
     </CopilotKitProvider>
   );
 }
 
-function Chat({
-  theme,
-  onToggleTheme,
-}: {
-  theme: Theme;
-  onToggleTheme: () => void;
-}) {
+function Chat({ theme, onToggleTheme }: { theme: Theme; onToggleTheme: () => void }) {
   const colors = themeColors[theme];
-  const [selectedThreadId, setSelectedThreadId] = useState<
-    "thread---a" | "thread---b" | "thread---c" | undefined
-  >(undefined);
+  const [selectedThreadId, setSelectedThreadId] = useState<"thread---a" | "thread---b" | "thread---c" | undefined>(
+    undefined,
+  );
   const threadOptions: Array<{ id: typeof selectedThreadId; label: string }> = [
     { id: undefined, label: "Stateless" },
     { id: "thread---a", label: "Thread A" },
@@ -174,15 +160,12 @@ function Chat({
       {
         label: "Say hi to CopilotKit",
         action: () => {
-          const textarea = document.querySelector<HTMLTextAreaElement>(
-            "textarea[placeholder='Type a message...']",
-          );
+          const textarea = document.querySelector<HTMLTextAreaElement>("textarea[placeholder='Type a message...']");
           if (!textarea) {
             return;
           }
 
-          const greeting =
-            "Hello Copilot! 👋 Could you help me with something?";
+          const greeting = "Hello Copilot! 👋 Could you help me with something?";
 
           const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
             window.HTMLTextAreaElement.prototype,
@@ -197,11 +180,7 @@ function Chat({
       {
         label: "Open CopilotKit Docs",
         action: () => {
-          window.open(
-            "https://docs.copilotkit.ai",
-            "_blank",
-            "noopener,noreferrer",
-          );
+          window.open("https://docs.copilotkit.ai", "_blank", "noopener,noreferrer");
         },
       },
     ],
@@ -292,9 +271,7 @@ function Chat({
                 style={{
                   padding: "6px 14px",
                   borderRadius: "20px",
-                  border: isActive
-                    ? `2px solid ${colors.text}`
-                    : `1px solid ${colors.border}`,
+                  border: isActive ? `2px solid ${colors.text}` : `1px solid ${colors.border}`,
                   backgroundColor: isActive ? colors.text : colors.bg,
                   color: isActive ? colors.bg : colors.text,
                   fontWeight: 600,

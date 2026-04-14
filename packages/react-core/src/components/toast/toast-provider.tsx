@@ -129,13 +129,7 @@ function extractUrl(message: string): { url: string; text: string } | null {
   return null;
 }
 
-function BannerErrorDisplay({
-  bannerError,
-  onDismiss,
-}: {
-  bannerError: CopilotKitError;
-  onDismiss: () => void;
-}) {
+function BannerErrorDisplay({ bannerError, onDismiss }: { bannerError: CopilotKitError; onDismiss: () => void }) {
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const severity = getErrorSeverity(bannerError);
   const colors = getErrorColors(severity);
@@ -230,9 +224,7 @@ function BannerErrorDisplay({
 
             {link && (
               <button
-                onClick={() =>
-                  window.open(link.url, "_blank", "noopener,noreferrer")
-                }
+                onClick={() => window.open(link.url, "_blank", "noopener,noreferrer")}
                 style={{
                   background: colors.border,
                   color: "white",
@@ -343,8 +335,7 @@ function BannerErrorDisplay({
           )}
           {details.context && Object.keys(details.context).length > 0 && (
             <div style={{ marginTop: "4px" }}>
-              <strong>Context:</strong>{" "}
-              {JSON.stringify(details.context, null, 2)}
+              <strong>Context:</strong> {JSON.stringify(details.context, null, 2)}
             </div>
           )}
           {details.stack && (
@@ -360,17 +351,9 @@ function BannerErrorDisplay({
   );
 }
 
-export function ToastProvider({
-  enabled,
-  children,
-}: {
-  enabled: boolean;
-  children: React.ReactNode;
-}) {
+export function ToastProvider({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [bannerError, setBannerErrorState] = useState<CopilotKitError | null>(
-    null,
-  );
+  const [bannerError, setBannerErrorState] = useState<CopilotKitError | null>(null);
 
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
@@ -386,8 +369,7 @@ export function ToastProvider({
       const id = toast.id ?? Math.random().toString(36).substring(2, 9);
 
       setToasts((currentToasts) => {
-        if (currentToasts.find((toast) => toast.id === id))
-          return currentToasts;
+        if (currentToasts.find((toast) => toast.id === id)) return currentToasts;
         return [...currentToasts, { ...toast, id }];
       });
 
@@ -413,9 +395,7 @@ export function ToastProvider({
 
   const addGraphQLErrorsToast = useCallback((errors: GraphQLError[]) => {
     // DEPRECATED: All errors now route to banners for consistency
-    console.warn(
-      "addGraphQLErrorsToast is deprecated. All errors now show as banners.",
-    );
+    console.warn("addGraphQLErrorsToast is deprecated. All errors now show as banners.");
     // Function kept for backward compatibility - does nothing
   }, []);
 
@@ -432,12 +412,7 @@ export function ToastProvider({
   return (
     <ToastContext.Provider value={value}>
       {/* Banner Error Display */}
-      {bannerError && (
-        <BannerErrorDisplay
-          bannerError={bannerError}
-          onDismiss={() => setBannerError(null)}
-        />
-      )}
+      {bannerError && <BannerErrorDisplay bannerError={bannerError} onDismiss={() => setBannerError(null)} />}
 
       {/* Toast Display - Deprecated: All errors now show as banners */}
       {children}

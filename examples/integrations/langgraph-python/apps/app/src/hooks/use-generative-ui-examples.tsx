@@ -1,21 +1,10 @@
 import { z } from "zod";
 import { useTheme } from "@/hooks/use-theme";
 
-import {
-  useComponent,
-  useFrontendTool,
-  useHumanInTheLoop,
-  useDefaultRenderTool,
-} from "@copilotkit/react-core/v2";
+import { useComponent, useFrontendTool, useHumanInTheLoop, useDefaultRenderTool } from "@copilotkit/react-core/v2";
 
-import {
-  PieChart,
-  PieChartProps,
-} from "@/components/generative-ui/charts/pie-chart";
-import {
-  BarChart,
-  BarChartProps,
-} from "@/components/generative-ui/charts/bar-chart";
+import { PieChart, PieChartProps } from "@/components/generative-ui/charts/pie-chart";
+import { BarChart, BarChartProps } from "@/components/generative-ui/charts/bar-chart";
 import { MeetingTimePicker } from "@/components/generative-ui/meeting-time-picker";
 import { ToolReasoning } from "@/components/tool-rendering";
 
@@ -27,12 +16,8 @@ export const useGenerativeUIExamples = () => {
     name: "scheduleTime",
     description: "Use human-in-the-loop to schedule a meeting with the user.",
     parameters: z.object({
-      reasonForScheduling: z
-        .string()
-        .describe("Reason for scheduling, very brief - 5 words."),
-      meetingDuration: z
-        .number()
-        .describe("Duration of the meeting in minutes"),
+      reasonForScheduling: z.string().describe("Reason for scheduling, very brief - 5 words."),
+      meetingDuration: z.number().describe("Duration of the meeting in minutes"),
     }),
     render: ({ respond, status, args }) => {
       return <MeetingTimePicker status={status} respond={respond} {...args} />;

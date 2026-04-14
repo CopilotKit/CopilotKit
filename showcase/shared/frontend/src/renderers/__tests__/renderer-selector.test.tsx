@@ -15,9 +15,7 @@ describe("RendererSelector", () => {
     render(<RendererSelector mode="tool-based" onModeChange={onModeChange} />);
 
     for (const strategy of RENDER_STRATEGIES) {
-      expect(
-        screen.getByRole("radio", { name: new RegExp(strategy.name) }),
-      ).toBeDefined();
+      expect(screen.getByRole("radio", { name: new RegExp(strategy.name) })).toBeDefined();
     }
 
     const pills = screen.getAllByRole("radio");
@@ -45,9 +43,7 @@ describe("RendererSelector", () => {
     render(<RendererSelector mode="tool-based" onModeChange={onModeChange} />);
 
     const pill = screen.getByRole("radio", { name: /json-render/ });
-    expect(pill.getAttribute("title")).toBe(
-      "JSONL patches with built-in state",
-    );
+    expect(pill.getAttribute("title")).toBe("JSONL patches with built-in state");
   });
 
   it("applies highlighted styles to the active pill", () => {
@@ -79,13 +75,7 @@ describe("RendererSelector", () => {
     render(<RendererSelector mode="tool-based" onModeChange={onModeChange} />);
 
     const pills = screen.getAllByRole("radio");
-    const expectedModes: RenderMode[] = [
-      "tool-based",
-      "a2ui",
-      "json-render",
-      "hashbrown",
-      "open-genui",
-    ];
+    const expectedModes: RenderMode[] = ["tool-based", "a2ui", "json-render", "hashbrown", "open-genui"];
 
     pills.forEach((pill, i) => {
       fireEvent.click(pill);
@@ -144,9 +134,7 @@ describe("RendererSelector", () => {
     render(<RendererSelector mode="tool-based" onModeChange={onModeChange} />);
 
     const pills = screen.getAllByRole("radio");
-    const inactive = pills.filter(
-      (p) => p.getAttribute("aria-checked") === "false",
-    );
+    const inactive = pills.filter((p) => p.getAttribute("aria-checked") === "false");
     expect(inactive).toHaveLength(4);
     inactive.forEach((pill) => {
       expect(pill.className).toContain("bg-gray-100");

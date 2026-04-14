@@ -26,10 +26,7 @@ server.tool(
       to: z.string().email().describe("Recipient email address"),
       subject: z.string().describe("Email subject line"),
       body: z.string().describe("Email body content"),
-      priority: z
-        .enum(["low", "normal", "high"])
-        .optional()
-        .describe("Email priority"),
+      priority: z.enum(["low", "normal", "high"]).optional().describe("Email priority"),
     }),
   },
   async ({ to, subject, body, priority = "normal" }) => {
@@ -76,10 +73,7 @@ The AI uses this to decide when to call your tool.
 // ✅ Good
 z.object({
   city: z.string().describe("City name (e.g., 'New York', 'Tokyo')"),
-  units: z
-    .enum(["celsius", "fahrenheit"])
-    .optional()
-    .describe("Temperature units"),
+  units: z.enum(["celsius", "fahrenheit"]).optional().describe("Temperature units"),
   limit: z.number().min(1).max(50).optional().describe("Max results to return"),
 });
 
@@ -154,11 +148,7 @@ server.tool(
     await ctx.log("info", `Processed ${file.size} bytes`);
 
     // Structured logging with additional context (optional third parameter)
-    await ctx.log(
-      "info",
-      "Processing complete",
-      `fileSize: ${file.size} bytes, duration: 2.5s`,
-    );
+    await ctx.log("info", "Processing complete", `fileSize: ${file.size} bytes, duration: 2.5s`);
 
     // Check client capabilities
     if (ctx.client.can("sampling")) {
@@ -189,28 +179,23 @@ server.tool(
 ```typescript
 import { text, error } from "mcp-use/server";
 
-server.tool(
-  { name: "fetch-user", schema: z.object({ id: z.string() }) },
-  async ({ id }) => {
-    try {
-      const user = await fetchUser(id);
+server.tool({ name: "fetch-user", schema: z.object({ id: z.string() }) }, async ({ id }) => {
+  try {
+    const user = await fetchUser(id);
 
-      if (!user) {
-        return error(`User not found: ${id}`);
-      }
-
-      return object(user);
-    } catch (err) {
-      // Log for debugging
-      console.error("Failed to fetch user:", err);
-
-      // Return error to client
-      return error(
-        `Failed to fetch user: ${err instanceof Error ? err.message : "Unknown error"}`,
-      );
+    if (!user) {
+      return error(`User not found: ${id}`);
     }
-  },
-);
+
+    return object(user);
+  } catch (err) {
+    // Log for debugging
+    console.error("Failed to fetch user:", err);
+
+    // Return error to client
+    return error(`Failed to fetch user: ${err instanceof Error ? err.message : "Unknown error"}`);
+  }
+});
 ```
 
 **Error handling rules:**
@@ -323,14 +308,10 @@ server.tool(
   },
   async ({ city }) => {
     if (!WEATHER_API_KEY) {
-      return error(
-        "WEATHER_API_KEY not configured. Please set it in environment variables.",
-      );
+      return error("WEATHER_API_KEY not configured. Please set it in environment variables.");
     }
 
-    const data = await fetch(
-      `https://api.weather.com/v1?key=${WEATHER_API_KEY}&city=${city}`,
-    );
+    const data = await fetch(`https://api.weather.com/v1?key=${WEATHER_API_KEY}&city=${city}`);
 
     // ... rest of logic
   },
@@ -365,29 +346,26 @@ Cache expensive operations:
 ```typescript
 const cache = new Map<string, { data: any; expires: number }>();
 
-server.tool(
-  { name: "fetch-weather", schema: z.object({ city: z.string() }) },
-  async ({ city }) => {
-    const cacheKey = `weather:${city}`;
-    const cached = cache.get(cacheKey);
+server.tool({ name: "fetch-weather", schema: z.object({ city: z.string() }) }, async ({ city }) => {
+  const cacheKey = `weather:${city}`;
+  const cached = cache.get(cacheKey);
 
-    // Return cached data if not expired
-    if (cached && cached.expires > Date.now()) {
-      return object(cached.data);
-    }
+  // Return cached data if not expired
+  if (cached && cached.expires > Date.now()) {
+    return object(cached.data);
+  }
 
-    // Fetch fresh data
-    const data = await fetchWeather(city);
+  // Fetch fresh data
+  const data = await fetchWeather(city);
 
-    // Cache for 5 minutes
-    cache.set(cacheKey, {
-      data,
-      expires: Date.now() + 5 * 60 * 1000,
-    });
+  // Cache for 5 minutes
+  cache.set(cacheKey, {
+    data,
+    expires: Date.now() + 5 * 60 * 1000,
+  });
 
-    return object(data);
-  },
-);
+  return object(data);
+});
 ```
 
 ### Rate Limiting

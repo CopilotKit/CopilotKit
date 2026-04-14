@@ -11,12 +11,8 @@ test.describe("Renderer Selector", () => {
 
     // Verify all strategy names are visible
     await expect(page.getByRole("radio", { name: /Tool-Based/ })).toBeVisible();
-    await expect(
-      page.getByRole("radio", { name: /A2UI Catalog/ }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("radio", { name: /json-render/ }),
-    ).toBeVisible();
+    await expect(page.getByRole("radio", { name: /A2UI Catalog/ })).toBeVisible();
+    await expect(page.getByRole("radio", { name: /json-render/ })).toBeVisible();
     await expect(page.getByRole("radio", { name: /HashBrown/ })).toBeVisible();
     await expect(page.getByRole("radio", { name: /Open GenUI/ })).toBeVisible();
   });
@@ -44,9 +40,7 @@ test.describe("Renderer Selector", () => {
     await expect(toolBasedPill).toHaveAttribute("aria-checked", "false");
   });
 
-  test("dashboard content changes when switching to Open GenUI mode", async ({
-    page,
-  }) => {
+  test("dashboard content changes when switching to Open GenUI mode", async ({ page }) => {
     // Switch to Open GenUI
     const openGenuiPill = page.getByRole("radio", { name: /Open GenUI/ });
     await openGenuiPill.click();
@@ -58,16 +52,8 @@ test.describe("Renderer Selector", () => {
     });
   });
 
-  test("switching between multiple modes updates the active pill each time", async ({
-    page,
-  }) => {
-    const modes = [
-      "A2UI Catalog",
-      "json-render",
-      "HashBrown",
-      "Open GenUI",
-      "Tool-Based",
-    ];
+  test("switching between multiple modes updates the active pill each time", async ({ page }) => {
+    const modes = ["A2UI Catalog", "json-render", "HashBrown", "Open GenUI", "Tool-Based"];
 
     for (const modeName of modes) {
       const pill = page.getByRole("radio", { name: new RegExp(modeName) });

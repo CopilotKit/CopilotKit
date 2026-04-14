@@ -1,8 +1,4 @@
-import {
-  CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 
 import { HttpAgent } from "@ag-ui/client";
 import { NextRequest } from "next/server";
@@ -17,10 +13,7 @@ const runtime = new CopilotRuntime({
   agents: {
     // Our FastAPI endpoint URL
     strands_agent: new HttpAgent({
-      url:
-        process.env.AGENT_URL ||
-        process.env.STRANDS_AGENT_URL ||
-        "http://localhost:8000",
+      url: process.env.AGENT_URL || process.env.STRANDS_AGENT_URL || "http://localhost:8000",
     }),
   },
 });

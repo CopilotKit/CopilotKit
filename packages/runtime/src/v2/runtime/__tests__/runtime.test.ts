@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  CopilotIntelligenceRuntime,
-  CopilotRuntime,
-  CopilotSseRuntime,
-} from "../core/runtime";
+import { CopilotIntelligenceRuntime, CopilotRuntime, CopilotSseRuntime } from "../core/runtime";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
@@ -82,10 +78,7 @@ describe("runtime construction", () => {
 
     expect(runtime.intelligence).toBe(sdk);
     expect(runtime.runner).toBeInstanceOf(IntelligenceAgentRunner);
-    expect(
-      (runtime as CopilotRuntime & { generateThreadNames?: boolean })
-        .generateThreadNames,
-    ).toBe(true);
+    expect((runtime as CopilotRuntime & { generateThreadNames?: boolean }).generateThreadNames).toBe(true);
     expect(
       (
         runtime as CopilotRuntime & {
@@ -106,19 +99,13 @@ describe("runtime construction", () => {
     });
 
     expect(runtime.mode).toBe("intelligence");
-    expect(
-      (runtime as CopilotRuntime & { generateThreadNames?: boolean })
-        .generateThreadNames,
-    ).toBe(false);
+    expect((runtime as CopilotRuntime & { generateThreadNames?: boolean }).generateThreadNames).toBe(false);
   });
 
   it("exposes identifyUser as undefined for SSE runtimes", () => {
     const runtime = new CopilotRuntime({ agents });
 
-    expect(
-      (runtime as CopilotRuntime & { identifyUser?: typeof identifyUser })
-        .identifyUser,
-    ).toBeUndefined();
+    expect((runtime as CopilotRuntime & { identifyUser?: typeof identifyUser }).identifyUser).toBeUndefined();
   });
 
   it("defaults lockTtlSeconds to 20 and lockHeartbeatIntervalSeconds to 15", () => {
@@ -203,30 +190,20 @@ describe("runtime construction", () => {
       lockHeartbeatIntervalSeconds: 20,
     });
 
-    expect(
-      (runtime as CopilotRuntime & { lockTtlSeconds?: number }).lockTtlSeconds,
-    ).toBe(60);
-    expect(
-      (runtime as CopilotRuntime & { lockKeyPrefix?: string }).lockKeyPrefix,
-    ).toBe("agent");
-    expect(
-      (runtime as CopilotRuntime & { lockHeartbeatIntervalSeconds?: number })
-        .lockHeartbeatIntervalSeconds,
-    ).toBe(20);
+    expect((runtime as CopilotRuntime & { lockTtlSeconds?: number }).lockTtlSeconds).toBe(60);
+    expect((runtime as CopilotRuntime & { lockKeyPrefix?: string }).lockKeyPrefix).toBe("agent");
+    expect((runtime as CopilotRuntime & { lockHeartbeatIntervalSeconds?: number }).lockHeartbeatIntervalSeconds).toBe(
+      20,
+    );
   });
 
   it("exposes lock config as undefined for SSE runtimes", () => {
     const runtime = new CopilotRuntime({ agents });
 
+    expect((runtime as CopilotRuntime & { lockTtlSeconds?: number }).lockTtlSeconds).toBeUndefined();
+    expect((runtime as CopilotRuntime & { lockKeyPrefix?: string }).lockKeyPrefix).toBeUndefined();
     expect(
-      (runtime as CopilotRuntime & { lockTtlSeconds?: number }).lockTtlSeconds,
-    ).toBeUndefined();
-    expect(
-      (runtime as CopilotRuntime & { lockKeyPrefix?: string }).lockKeyPrefix,
-    ).toBeUndefined();
-    expect(
-      (runtime as CopilotRuntime & { lockHeartbeatIntervalSeconds?: number })
-        .lockHeartbeatIntervalSeconds,
+      (runtime as CopilotRuntime & { lockHeartbeatIntervalSeconds?: number }).lockHeartbeatIntervalSeconds,
     ).toBeUndefined();
   });
 });

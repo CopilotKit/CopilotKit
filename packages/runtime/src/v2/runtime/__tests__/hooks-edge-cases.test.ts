@@ -37,9 +37,7 @@ const post = (url: string, body?: unknown) =>
 
 describe("hooks edge cases — onRequest errors", () => {
   it("async onRequest throwing Error triggers onError", async () => {
-    const onError = vi
-      .fn()
-      .mockReturnValue(new Response("handled", { status: 503 }));
+    const onError = vi.fn().mockReturnValue(new Response("handled", { status: 503 }));
     const handler = createCopilotRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
@@ -62,9 +60,7 @@ describe("hooks edge cases — onRequest errors", () => {
   });
 
   it("onRequest throwing a string (non-Error) triggers onError", async () => {
-    const onError = vi
-      .fn()
-      .mockReturnValue(new Response("handled", { status: 503 }));
+    const onError = vi.fn().mockReturnValue(new Response("handled", { status: 503 }));
     const handler = createCopilotRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
@@ -78,9 +74,7 @@ describe("hooks edge cases — onRequest errors", () => {
 
     const response = await handler(get("http://localhost/api/info"));
     expect(response.status).toBe(503);
-    expect(onError).toHaveBeenCalledWith(
-      expect.objectContaining({ error: "string error" }),
-    );
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ error: "string error" }));
   });
 
   it("onRequest returning non-Request value is ignored (uses original)", async () => {
@@ -106,9 +100,7 @@ describe("hooks edge cases — onRequest errors", () => {
 
 describe("hooks edge cases — onBeforeHandler errors", () => {
   it("async onBeforeHandler throwing Error triggers onError with route info", async () => {
-    const onError = vi
-      .fn()
-      .mockReturnValue(new Response("handled", { status: 503 }));
+    const onError = vi.fn().mockReturnValue(new Response("handled", { status: 503 }));
     const handler = createCopilotRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
@@ -273,9 +265,7 @@ describe("hooks edge cases — onError", () => {
   });
 
   it("onError receives route info when error happens after routing", async () => {
-    const onError = vi
-      .fn()
-      .mockReturnValue(new Response("handled", { status: 503 }));
+    const onError = vi.fn().mockReturnValue(new Response("handled", { status: 503 }));
     const handler = createCopilotRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",
@@ -307,9 +297,7 @@ describe("hooks edge cases — onError", () => {
   });
 
   it("onError route is undefined when error happens before routing", async () => {
-    const onError = vi
-      .fn()
-      .mockReturnValue(new Response("handled", { status: 503 }));
+    const onError = vi.fn().mockReturnValue(new Response("handled", { status: 503 }));
     const handler = createCopilotRuntimeHandler({
       runtime: createRuntime(),
       basePath: "/api",

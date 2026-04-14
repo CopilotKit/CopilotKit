@@ -2,13 +2,7 @@
 import useCreditCards from "@/app/actions";
 import { useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreditCard, DollarSign } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { TransactionsList } from "@/components/transactions-list";
@@ -56,9 +50,7 @@ export default function HomePage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Balance
-                </CardTitle>
+                <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
                 <DollarSign className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
               </CardHeader>
               <CardContent>
@@ -67,9 +59,7 @@ export default function HomePage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Credit Limit
-                </CardTitle>
+                <CardTitle className="text-sm font-medium">Credit Limit</CardTitle>
                 <CreditCard className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
               </CardHeader>
               <CardContent>
@@ -95,9 +85,7 @@ export default function HomePage() {
             <Card className="col-span-3">
               <CardHeader>
                 <CardTitle>Credit Cards</CardTitle>
-                <CardDescription>
-                  You have 2 active credit cards.
-                </CardDescription>
+                <CardDescription>You have 2 active credit cards.</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-8">
@@ -110,9 +98,7 @@ export default function HomePage() {
                         <p className="text-sm font-medium leading-none">
                           {card.type} ending in {card.last4}
                         </p>
-                        <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                          Expires {card.expiry}
-                        </p>
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400">Expires {card.expiry}</p>
                       </div>
                       <Button variant="outline" asChild>
                         <a href="/">Manage</a>

@@ -40,8 +40,8 @@ export function ChangePinDialog({
         <DialogHeader>
           <DialogTitle>Change PIN</DialogTitle>
           <DialogDescription>
-            Enter your new 4-digit PIN below. Make sure it&#39;s something you
-            can remember but hard for others to guess.
+            Enter your new 4-digit PIN below. Make sure it&#39;s something you can remember but hard for others to
+            guess.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -50,10 +50,7 @@ export function ChangePinDialog({
               <DropdownMenuTrigger asChild>Choose card</DropdownMenuTrigger>
               <DropdownMenuContent>
                 {cards.map((card) => (
-                  <DropdownMenuItem
-                    key={card.id}
-                    onClick={() => setCardId(card.id)}
-                  >
+                  <DropdownMenuItem key={card.id} onClick={() => setCardId(card.id)}>
                     <div className="flex items-center">
                       <div className="bg-blue-500 rounded-full p-1 mr-2">
                         <CreditCard className="h-4 w-4 text-white" />
@@ -81,11 +78,7 @@ export function ChangePinDialog({
         </div>
         <DialogFooter>
           <Button type="submit" onClick={() => onSubmit({ pin, cardId })}>
-            {loading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              "Confirm Change"
-            )}
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Confirm Change"}
           </Button>
         </DialogFooter>
       </DialogContent>

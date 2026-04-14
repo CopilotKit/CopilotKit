@@ -96,10 +96,7 @@ export function getIntegrationsByCategory(): Record<string, Integration[]> {
   return grouped;
 }
 
-export function getDemo(
-  integrationSlug: string,
-  demoId: string,
-): { integration: Integration; demo: Demo } | undefined {
+export function getDemo(integrationSlug: string, demoId: string): { integration: Integration; demo: Demo } | undefined {
   const integration = getIntegration(integrationSlug);
   if (!integration) return undefined;
   const demo = integration.demos.find((d) => d.id === demoId);

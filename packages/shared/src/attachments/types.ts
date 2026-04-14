@@ -1,7 +1,4 @@
-import type {
-  InputContentDataSource,
-  InputContentUrlSource,
-} from "@ag-ui/core";
+import type { InputContentDataSource, InputContentUrlSource } from "@ag-ui/core";
 
 export interface AttachmentUploadDataResult {
   type: "data";
@@ -19,14 +16,9 @@ export interface AttachmentUploadUrlResult {
   metadata?: Record<string, unknown>;
 }
 
-export type AttachmentUploadResult =
-  | AttachmentUploadDataResult
-  | AttachmentUploadUrlResult;
+export type AttachmentUploadResult = AttachmentUploadDataResult | AttachmentUploadUrlResult;
 
-export type AttachmentUploadErrorReason =
-  | "file-too-large"
-  | "invalid-type"
-  | "upload-failed";
+export type AttachmentUploadErrorReason = "file-too-large" | "invalid-type" | "upload-failed";
 
 export interface AttachmentUploadError {
   /** Why the upload failed. */
@@ -45,9 +37,7 @@ export interface AttachmentsConfig {
   /** Maximum file size in bytes, default 20MB (20 * 1024 * 1024) */
   maxSize?: number;
   /** Custom upload handler. Return an InputContentSource with optional metadata. */
-  onUpload?: (
-    file: File,
-  ) => AttachmentUploadResult | Promise<AttachmentUploadResult>;
+  onUpload?: (file: File) => AttachmentUploadResult | Promise<AttachmentUploadResult>;
   /** Called when an attachment fails validation or upload. Use this to show a toast or inline error. */
   onUploadFailed?: (error: AttachmentUploadError) => void;
 }

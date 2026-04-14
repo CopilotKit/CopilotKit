@@ -10,19 +10,18 @@ interface ExtendedDivAttributes extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 // Test components for various scenarios
-const SimpleDiv: React.FC<ExtendedDivAttributes> = ({
-  className,
-  children,
-  ...props
-}) => (
+const SimpleDiv: React.FC<ExtendedDivAttributes> = ({ className, children, ...props }) => (
   <div className={className} {...props}>
     {children}
   </div>
 );
 
-const ButtonWithClick: React.FC<
-  React.ButtonHTMLAttributes<HTMLButtonElement>
-> = ({ onClick, className, children, ...props }) => (
+const ButtonWithClick: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({
+  onClick,
+  className,
+  children,
+  ...props
+}) => (
   <button className={className} onClick={onClick} {...props}>
     {children}
   </button>
@@ -33,12 +32,9 @@ const ComponentWithContent: React.FC<{
   className?: string;
 }> = ({ content, className }) => <div className={className}>{content}</div>;
 
-const ForwardRefComponent = forwardRef<
-  HTMLInputElement,
-  React.InputHTMLAttributes<HTMLInputElement>
->(({ className, ...props }, ref) => (
-  <input ref={ref} className={className} {...props} />
-));
+const ForwardRefComponent = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+  ({ className, ...props }, ref) => <input ref={ref} className={className} {...props} />,
+);
 
 ForwardRefComponent.displayName = "ForwardRefComponent";
 
@@ -47,19 +43,18 @@ interface CustomHandle {
   getValue: () => string;
 }
 
-const ComponentWithImperativeHandle = forwardRef<
-  CustomHandle,
-  { value?: string; className?: string }
->(({ value = "", className }, ref) => {
-  const inputRef = useRef<HTMLInputElement>(null);
+const ComponentWithImperativeHandle = forwardRef<CustomHandle, { value?: string; className?: string }>(
+  ({ value = "", className }, ref) => {
+    const inputRef = useRef<HTMLInputElement>(null);
 
-  useImperativeHandle(ref, () => ({
-    focus: () => inputRef.current?.focus(),
-    getValue: () => inputRef.current?.value || value,
-  }));
+    useImperativeHandle(ref, () => ({
+      focus: () => inputRef.current?.focus(),
+      getValue: () => inputRef.current?.value || value,
+    }));
 
-  return <input ref={inputRef} defaultValue={value} className={className} />;
-});
+    return <input ref={inputRef} defaultValue={value} className={className} />;
+  },
+);
 
 ComponentWithImperativeHandle.displayName = "ComponentWithImperativeHandle";
 
@@ -86,9 +81,9 @@ describe("renderSlot", () => {
     });
 
     test("renders custom component when slot is a function", () => {
-      const CustomComponent: React.FC<{ children: React.ReactNode }> = ({
-        children,
-      }) => <span data-testid="custom">{children}</span>;
+      const CustomComponent: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+        <span data-testid="custom">{children}</span>
+      );
 
       const element = renderSlot(CustomComponent, SimpleDiv, {
         children: "custom content",
@@ -99,11 +94,10 @@ describe("renderSlot", () => {
     });
 
     test("merges object slot props with base props", () => {
-      const element = renderSlot(
-        { className: "slot-class", "data-slot": "true" },
-        SimpleDiv,
-        { children: "merged content", "data-base": "true" },
-      );
+      const element = renderSlot({ className: "slot-class", "data-slot": "true" }, SimpleDiv, {
+        children: "merged content",
+        "data-base": "true",
+      });
       const { container } = render(element);
 
       expect(container.firstChild).toHaveClass("slot-class");
@@ -193,9 +187,9 @@ describe("renderSlot", () => {
 
     test("custom component receives all event handlers", () => {
       const mockClick = vi.fn();
-      const CustomButton: React.FC<
-        React.ButtonHTMLAttributes<HTMLButtonElement>
-      > = (props) => <button {...props} data-testid="custom-button" />;
+      const CustomButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (props) => (
+        <button {...props} data-testid="custom-button" />
+      );
 
       const element = renderSlot(CustomButton, ButtonWithClick, {
         onClick: mockClick,
@@ -221,12 +215,9 @@ describe("renderSlot", () => {
 
     test("forwards refs to custom component", () => {
       const ref = React.createRef<HTMLInputElement>();
-      const CustomInput = forwardRef<
-        HTMLInputElement,
-        React.InputHTMLAttributes<HTMLInputElement>
-      >((props, forwardedRef) => (
-        <input {...props} ref={forwardedRef} data-testid="custom-input" />
-      ));
+      const CustomInput = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+        (props, forwardedRef) => <input {...props} ref={forwardedRef} data-testid="custom-input" />,
+      );
 
       const element = renderSlot(CustomInput, ForwardRefComponent, { ref });
 
@@ -281,9 +272,7 @@ describe("renderSlot", () => {
       );
 
       const { container } = render(element);
-      const configData = JSON.parse(
-        (container.firstChild as Element)?.getAttribute("data-config") || "{}",
-      );
+      const configData = JSON.parse((container.firstChild as Element)?.getAttribute("data-config") || "{}");
 
       expect(configData.theme).toBe("dark"); // slot overrides base
       expect(configData.options.debug).toBe(true); // slot overrides base
@@ -291,11 +280,11 @@ describe("renderSlot", () => {
     });
 
     test("handles undefined and null prop values", () => {
-      const element = renderSlot(
-        { title: undefined, "data-test": null },
-        SimpleDiv,
-        { title: "base-title", "data-base": "value", children: "test" },
-      );
+      const element = renderSlot({ title: undefined, "data-test": null }, SimpleDiv, {
+        title: "base-title",
+        "data-base": "value",
+        children: "test",
+      });
       const { container } = render(element);
 
       expect(container.firstChild).toHaveAttribute("data-base", "value");
@@ -309,10 +298,9 @@ describe("renderSlot", () => {
   describe("Real-world usage patterns", () => {
     test("simulates CopilotChatInput Toolbar usage with twMerge pattern", () => {
       // This simulates the complex pattern in CopilotChatInput
-      const Toolbar: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
-        className,
-        ...props
-      }) => <div className={`base-toolbar ${className || ""}`} {...props} />;
+      const Toolbar: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ...props }) => (
+        <div className={`base-toolbar ${className || ""}`} {...props} />
+      );
 
       const toolbarSlot: SlotValue<typeof Toolbar> = "custom-toolbar-class";
 
@@ -348,11 +336,11 @@ describe("renderSlot", () => {
         </button>
       );
 
-      const element = renderSlot(
-        { disabled: true, className: "override-class" },
-        SubComponent,
-        { label: "Click me", disabled: false, className: "base-class" },
-      );
+      const element = renderSlot({ disabled: true, className: "override-class" }, SubComponent, {
+        label: "Click me",
+        disabled: false,
+        className: "base-class",
+      });
 
       render(element);
       const button = screen.getByRole("button");
@@ -401,9 +389,7 @@ describe("renderSlot", () => {
       const RenderPropComponent: React.FC<{
         children: (data: { count: number }) => React.ReactNode;
         className?: string;
-      }> = ({ children, className }) => (
-        <div className={className}>{children({ count: 5 })}</div>
-      );
+      }> = ({ children, className }) => <div className={className}>{children({ count: 5 })}</div>;
 
       const element = renderSlot(undefined, RenderPropComponent, {
         children: ({ count }: { count: number }) => <span>Count: {count}</span>,
@@ -421,16 +407,14 @@ describe("renderSlot", () => {
         count: number;
         className?: string;
       }> = ({ isVisible, count, className }) => (
-        <div className={className}>
-          {isVisible ? `Visible with count: ${count}` : "Hidden"}
-        </div>
+        <div className={className}>{isVisible ? `Visible with count: ${count}` : "Hidden"}</div>
       );
 
-      const element = renderSlot(
-        { isVisible: false, count: 10 },
-        ComponentWithBooleans,
-        { isVisible: true, count: 5, className: "test-class" },
-      );
+      const element = renderSlot({ isVisible: false, count: 10 }, ComponentWithBooleans, {
+        isVisible: true,
+        count: 5,
+        className: "test-class",
+      });
 
       const { container } = render(element);
       expect(container.firstChild).toHaveTextContent("Hidden"); // slot overrides
@@ -448,11 +432,10 @@ describe("renderSlot", () => {
         </ul>
       );
 
-      const element = renderSlot(
-        { items: ["slot1", "slot2"] },
-        ComponentWithArray,
-        { items: ["base1", "base2"], className: "list-class" },
-      );
+      const element = renderSlot({ items: ["slot1", "slot2"] }, ComponentWithArray, {
+        items: ["base1", "base2"],
+        className: "list-class",
+      });
 
       render(element);
       expect(screen.getByText("slot1")).toBeInTheDocument();
@@ -526,9 +509,9 @@ describe("renderSlot", () => {
 
   describe("Additional bug hunting", () => {
     test("function component slot should override default component", () => {
-      const CustomComponent: React.FC<{ children: React.ReactNode }> = ({
-        children,
-      }) => <span data-testid="definitely-custom">{children}</span>;
+      const CustomComponent: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+        <span data-testid="definitely-custom">{children}</span>
+      );
 
       const element = renderSlot(CustomComponent, SimpleDiv, {
         children: "custom content",
@@ -555,17 +538,12 @@ describe("renderSlot", () => {
       });
       const { container } = render(element);
 
-      expect(container.firstChild).toHaveAttribute(
-        "data-test-prop",
-        "test-value",
-      );
+      expect(container.firstChild).toHaveAttribute("data-test-prop", "test-value");
       expect(container.firstChild).toHaveTextContent("createElement test");
     });
 
     test("nested component slot behavior", () => {
-      const NestedComponent: React.FC<{ children: React.ReactNode }> = ({
-        children,
-      }) => (
+      const NestedComponent: React.FC<{ children: React.ReactNode }> = ({ children }) => (
         <div data-testid="nested-wrapper">
           <span data-testid="nested-inner">{children}</span>
         </div>

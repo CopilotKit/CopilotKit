@@ -24,9 +24,5 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
     document.documentElement.classList.add(theme);
   }, [theme]);
 
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>;
 };

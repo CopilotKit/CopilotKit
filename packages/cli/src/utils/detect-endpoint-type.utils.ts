@@ -29,14 +29,13 @@ export async function detectRemoteEndpointType(url: string): Promise<{
   humanReadableType: string;
 }> {
   // First check base URL
-  const [isLangGraph, isLangGraphFastAPI, isCopilot, isCrewAI, isMCP] =
-    await Promise.all([
-      isLangGraphPlatformEndpoint(url),
-      isLangGraphFastAPIEndpoint(url),
-      isCopilotKitEndpoint(url),
-      isCrewAIEndpoint(url),
-      isMCPEndpoint(url),
-    ]);
+  const [isLangGraph, isLangGraphFastAPI, isCopilot, isCrewAI, isMCP] = await Promise.all([
+    isLangGraphPlatformEndpoint(url),
+    isLangGraphFastAPIEndpoint(url),
+    isCopilotKitEndpoint(url),
+    isCrewAIEndpoint(url),
+    isMCPEndpoint(url),
+  ]);
 
   // Check base endpoints first
   if (isLangGraph || isLangGraphFastAPI) {
@@ -92,10 +91,7 @@ export async function detectRemoteEndpointType(url: string): Promise<{
   };
 }
 
-async function isLangGraphPlatformEndpoint(
-  url: string,
-  retries: number = 0,
-): Promise<boolean> {
+async function isLangGraphPlatformEndpoint(url: string, retries: number = 0): Promise<boolean> {
   let response;
 
   try {
@@ -150,10 +146,7 @@ async function isLangGraphFastAPIEndpoint(url: string): Promise<boolean> {
   return response.ok;
 }
 
-async function isCopilotKitEndpoint(
-  url: string,
-  retries: number = 0,
-): Promise<boolean> {
+async function isCopilotKitEndpoint(url: string, retries: number = 0): Promise<boolean> {
   let response;
 
   try {

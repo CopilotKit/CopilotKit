@@ -33,26 +33,17 @@ const SHOWCASE = {
 function getToken(): string {
   if (process.env.RAILWAY_TOKEN) return process.env.RAILWAY_TOKEN;
 
-  const configPath = path.join(
-    process.env.HOME || "~",
-    ".railway",
-    "config.json",
-  );
+  const configPath = path.join(process.env.HOME || "~", ".railway", "config.json");
   if (fs.existsSync(configPath)) {
     const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
     if (config?.user?.token) return config.user.token;
   }
 
-  console.error(
-    "No Railway token found. Set RAILWAY_TOKEN or run `railway login`.",
-  );
+  console.error("No Railway token found. Set RAILWAY_TOKEN or run `railway login`.");
   process.exit(1);
 }
 
-async function railwayGql<T = unknown>(
-  query: string,
-  variables: Record<string, unknown> = {},
-): Promise<T> {
+async function railwayGql<T = unknown>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
   const token = getToken();
   const res = await fetch(RAILWAY_API, {
     method: "POST",
@@ -73,9 +64,7 @@ async function railwayGql<T = unknown>(
     errors?: Array<{ message: string }>;
   };
   if (json.errors?.length) {
-    throw new Error(
-      `Railway GraphQL errors:\n${json.errors.map((e) => `  - ${e.message}`).join("\n")}`,
-    );
+    throw new Error(`Railway GraphQL errors:\n${json.errors.map((e) => `  - ${e.message}`).join("\n")}`);
   }
   return json.data as T;
 }
@@ -157,9 +146,7 @@ async function createService(slug: string): Promise<void> {
   const existing = await findService(serviceName);
   if (existing) {
     console.log(`Service ${serviceName} already exists: ${existing.id}`);
-    console.log(
-      `Dashboard: https://railway.com/project/${SHOWCASE.projectId}/service/${existing.id}`,
-    );
+    console.log(`Dashboard: https://railway.com/project/${SHOWCASE.projectId}/service/${existing.id}`);
     return;
   }
 
@@ -186,12 +173,8 @@ async function createService(slug: string): Promise<void> {
   // 2. Configure health check, region, and registry credentials
   const githubToken = process.env.GITHUB_TOKEN;
   if (!githubToken) {
-    console.warn(
-      "\n  WARNING: GITHUB_TOKEN not set. Registry credentials will not be configured.",
-    );
-    console.warn(
-      "  Set GITHUB_TOKEN and re-run, or configure manually in the Railway dashboard.\n",
-    );
+    console.warn("\n  WARNING: GITHUB_TOKEN not set. Registry credentials will not be configured.");
+    console.warn("  Set GITHUB_TOKEN and re-run, or configure manually in the Railway dashboard.\n");
   }
 
   const instanceInput: Record<string, unknown> = {
@@ -215,9 +198,7 @@ async function createService(slug: string): Promise<void> {
       input: instanceInput,
     },
   );
-  console.log(
-    `  Configured health check, region${githubToken ? ", registry credentials" : ""}`,
-  );
+  console.log(`  Configured health check, region${githubToken ? ", registry credentials" : ""}`);
 
   // 3. Generate public domain
   const domainResult = await railwayGql<ServiceDomainResult>(
@@ -252,19 +233,10 @@ async function createService(slug: string): Promise<void> {
   console.log(`  Set NODE_ENV=production`);
 
   // 5. Update the CI workflow file with the service ID
-  const workflowPath = path.resolve(
-    ROOT,
-    "..",
-    ".github",
-    "workflows",
-    "showcase_deploy.yml",
-  );
+  const workflowPath = path.resolve(ROOT, "..", ".github", "workflows", "showcase_deploy.yml");
   if (fs.existsSync(workflowPath)) {
     let workflow = fs.readFileSync(workflowPath, "utf-8");
-    const placeholder = new RegExp(
-      `(showcase-${slug}.*?)RAILWAY_SERVICE_ID`,
-      "s",
-    );
+    const placeholder = new RegExp(`(showcase-${slug}.*?)RAILWAY_SERVICE_ID`, "s");
     if (workflow.match(placeholder)) {
       workflow = workflow.replace(placeholder, `$1${svcId}`);
       fs.writeFileSync(workflowPath, workflow);
@@ -276,10 +248,7 @@ async function createService(slug: string): Promise<void> {
   const manifestRaw = fs.readFileSync(manifestPath, "utf-8");
   const manifest = yaml.parse(manifestRaw);
   if (!manifest.backend_url || manifest.backend_url.includes("PLACEHOLDER")) {
-    const updated = manifestRaw.replace(
-      /^backend_url:.*$/m,
-      `backend_url: "${publicUrl}"`,
-    );
+    const updated = manifestRaw.replace(/^backend_url:.*$/m, `backend_url: "${publicUrl}"`);
     fs.writeFileSync(manifestPath, updated);
     console.log(`  Updated manifest.yaml backend_url to ${publicUrl}`);
   }

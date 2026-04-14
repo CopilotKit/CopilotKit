@@ -1,20 +1,7 @@
-import {
-  PieChart as RechartsPieChart,
-  Pie,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { PieChart as RechartsPieChart, Pie, Tooltip, ResponsiveContainer } from "recharts";
 import { z } from "zod";
 
-const CHART_COLORS = [
-  "#3b82f6",
-  "#8b5cf6",
-  "#ec4899",
-  "#f59e0b",
-  "#10b981",
-  "#06b6d4",
-  "#f97316",
-];
+const CHART_COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#06b6d4", "#f97316"];
 const TOOLTIP_STYLE = {
   backgroundColor: "var(--chart-tooltip-bg)",
   border: "1px solid var(--chart-tooltip-border)",
@@ -42,13 +29,9 @@ export function PieChart({ title, description, data }: PieChartProps) {
       <div className="rounded-xl border dark:border-zinc-700 shadow-sm p-6 max-w-lg mx-auto my-6 bg-[var(--background)]">
         <div className="mb-4">
           <h3 className="text-xl font-bold dark:text-white">{title}</h3>
-          <p className="text-sm text-gray-600 dark:text-zinc-400">
-            {description}
-          </p>
+          <p className="text-sm text-gray-600 dark:text-zinc-400">{description}</p>
         </div>
-        <p className="text-gray-500 dark:text-zinc-400 text-center py-8">
-          No data available
-        </p>
+        <p className="text-gray-500 dark:text-zinc-400 text-center py-8">No data available</p>
       </div>
     );
   }
@@ -63,9 +46,7 @@ export function PieChart({ title, description, data }: PieChartProps) {
     <div className="rounded-xl border dark:border-zinc-700 shadow-sm p-6 max-w-lg mx-auto my-6 bg-[var(--background)]">
       <div className="mb-4">
         <h3 className="text-xl font-bold dark:text-white">{title}</h3>
-        <p className="text-sm text-gray-600 dark:text-zinc-400">
-          {description}
-        </p>
+        <p className="text-sm text-gray-600 dark:text-zinc-400">{description}</p>
       </div>
 
       <ResponsiveContainer width="100%" height={300}>

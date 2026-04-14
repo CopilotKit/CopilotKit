@@ -18,9 +18,7 @@ async function main() {
     onBuildLogs: defaultBuildLogger(),
   });
   console.log("\n✓ Template built:", result);
-  console.log(
-    `  Set E2B_TEMPLATE=${result.templateId} in your .env (template name: ${result.name})`,
-  );
+  console.log(`  Set E2B_TEMPLATE=${result.templateId} in your .env (template name: ${result.name})`);
 }
 
 main().catch((err) => {

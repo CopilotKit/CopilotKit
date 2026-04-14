@@ -29,37 +29,25 @@ interface RunnableAgent {
   run(input: RunAgentInput): Observable<BaseEvent>;
 }
 
-function hasHeaders(
-  agent: AbstractAgent,
-): agent is AbstractAgent & { headers?: Record<string, string> } {
+function hasHeaders(agent: AbstractAgent): agent is AbstractAgent & { headers?: Record<string, string> } {
   return "headers" in agent;
 }
 
-function hasCredentials(
-  agent: AbstractAgent,
-): agent is AbstractAgent & { credentials?: RequestCredentials } {
+function hasCredentials(agent: AbstractAgent): agent is AbstractAgent & { credentials?: RequestCredentials } {
   return "credentials" in agent;
 }
 
 function isZodError(error: unknown): boolean {
   return (
-    error !== null &&
-    typeof error === "object" &&
-    "name" in error &&
-    (error as { name: string }).name === "ZodError"
+    error !== null && typeof error === "object" && "name" in error && (error as { name: string }).name === "ZodError"
   );
 }
 
 function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException || error instanceof Error) &&
-    (error as Error).name === "AbortError"
-  );
+  return (error instanceof DOMException || error instanceof Error) && (error as Error).name === "AbortError";
 }
 
-function withAbortErrorHandling(
-  observable: Observable<BaseEvent>,
-): Observable<BaseEvent> {
+function withAbortErrorHandling(observable: Observable<BaseEvent>): Observable<BaseEvent> {
   return observable.pipe(
     catchError((error) => {
       if (isZodError(error) || isAbortError(error)) {
@@ -70,10 +58,7 @@ function withAbortErrorHandling(
   );
 }
 
-export interface ProxiedCopilotRuntimeAgentConfig extends Omit<
-  HttpAgentConfig,
-  "url"
-> {
+export interface ProxiedCopilotRuntimeAgentConfig extends Omit<HttpAgentConfig, "url"> {
   runtimeUrl?: string;
   transport?: CopilotRuntimeTransport;
   credentials?: RequestCredentials;
@@ -92,9 +77,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   private runtimeInfoPromise?: Promise<void>;
 
   constructor(config: ProxiedCopilotRuntimeAgentConfig) {
-    const normalizedRuntimeUrl = config.runtimeUrl
-      ? config.runtimeUrl.replace(/\/$/, "")
-      : undefined;
+    const normalizedRuntimeUrl = config.runtimeUrl ? config.runtimeUrl.replace(/\/$/, "") : undefined;
     const transport = config.transport ?? "auto";
     const runUrl =
       transport === "single"
@@ -102,9 +85,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         : `${normalizedRuntimeUrl ?? config.runtimeUrl}/agent/${encodeURIComponent(config.agentId ?? "")}/run`;
 
     if (!runUrl) {
-      throw new Error(
-        "ProxiedCopilotRuntimeAgent requires a runtimeUrl when transport is set to 'single'.",
-      );
+      throw new Error("ProxiedCopilotRuntimeAgent requires a runtimeUrl when transport is set to 'single'.");
     }
 
     super({
@@ -178,10 +159,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     }
 
     const stopPath = `${this.runtimeUrl}/agent/${encodeURIComponent(this.agentId)}/stop/${encodeURIComponent(this.threadId)}`;
-    const origin =
-      typeof window !== "undefined" && window.location
-        ? window.location.origin
-        : "http://localhost";
+    const origin = typeof window !== "undefined" && window.location ? window.location.origin : "http://localhost";
     const base = new URL(this.runtimeUrl, origin);
     const stopUrl = new URL(stopPath, base);
 
@@ -197,10 +175,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     });
   }
 
-  override async connectAgent(
-    parameters?: RunAgentParameters,
-    subscriber?: AgentSubscriber,
-  ): Promise<RunAgentResult> {
+  override async connectAgent(parameters?: RunAgentParameters, subscriber?: AgentSubscriber): Promise<RunAgentResult> {
     if (this.runtimeMode !== RUNTIME_MODE_INTELLIGENCE) {
       return super.connectAgent(parameters, subscriber);
     }
@@ -304,21 +279,14 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         throw new Error("Single endpoint transport requires a runtimeUrl");
       }
 
-      const requestInit = this.createSingleRouteRequestInit(
-        input,
-        "agent/connect",
-        {
-          agentId: this.agentId!,
-        },
-      );
+      const requestInit = this.createSingleRouteRequestInit(input, "agent/connect", {
+        agentId: this.agentId!,
+      });
       const httpEvents = runHttpRequest(this.singleEndpointUrl, requestInit);
       return withAbortErrorHandling(transformHttpEventStream(httpEvents));
     }
 
-    const httpEvents = runHttpRequest(
-      `${this.runtimeUrl}/agent/${this.agentId}/connect`,
-      this.requestInit(input),
-    );
+    const httpEvents = runHttpRequest(`${this.runtimeUrl}/agent/${this.agentId}/connect`, this.requestInit(input));
     return withAbortErrorHandling(transformHttpEventStream(httpEvents));
   }
 
@@ -334,13 +302,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         throw new Error("Single endpoint transport requires a runtimeUrl");
       }
 
-      const requestInit = this.createSingleRouteRequestInit(
-        input,
-        "agent/run",
-        {
-          agentId: this.agentId!,
-        },
-      );
+      const requestInit = this.createSingleRouteRequestInit(input, "agent/run", {
+        agentId: this.agentId!,
+      });
       const httpEvents = runHttpRequest(this.singleEndpointUrl, requestInit);
       return withAbortErrorHandling(transformHttpEventStream(httpEvents));
     }
@@ -435,16 +399,12 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       ...(this.credentials ? { credentials: this.credentials } : {}),
     });
     if (!response.ok) {
-      throw new Error(
-        `Runtime info request failed with status ${response.status}`,
-      );
+      throw new Error(`Runtime info request failed with status ${response.status}`);
     }
     return (await response.json()) as RuntimeInfo;
   }
 
-  private async fetchRuntimeInfoAutoDetect(
-    headers: Record<string, string>,
-  ): Promise<RuntimeInfo> {
+  private async fetchRuntimeInfoAutoDetect(headers: Record<string, string>): Promise<RuntimeInfo> {
     // Try REST first (GET /info)
     try {
       const response = await fetch(`${this.runtimeUrl}/info`, {
@@ -474,9 +434,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       ...(this.credentials ? { credentials: this.credentials } : {}),
     });
     if (!response.ok) {
-      throw new Error(
-        `Runtime info request failed with status ${response.status}`,
-      );
+      throw new Error(`Runtime info request failed with status ${response.status}`);
     }
     this.transport = "single";
     this.singleEndpointUrl = this.runtimeUrl;
@@ -489,9 +447,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     params?: Record<string, string>,
   ): RequestInit {
     if (!this.agentId) {
-      throw new Error(
-        "ProxiedCopilotRuntimeAgent requires agentId to make runtime requests",
-      );
+      throw new Error("ProxiedCopilotRuntimeAgent requires agentId to make runtime requests");
     }
 
     const baseInit = super.requestInit(input);
@@ -504,10 +460,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       try {
         originalBody = JSON.parse(baseInit.body);
       } catch (error) {
-        console.warn(
-          "ProxiedCopilotRuntimeAgent: failed to parse request body for single route transport",
-          error,
-        );
+        console.warn("ProxiedCopilotRuntimeAgent: failed to parse request body for single route transport", error);
       }
     }
 
@@ -531,9 +484,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
 
   private createIntelligenceDelegate(): AbstractAgent {
     if (!this.runtimeUrl || !this.agentId || !this.intelligence?.wsUrl) {
-      throw new Error(
-        "Intelligence mode requires runtimeUrl, agentId, and intelligence websocket metadata",
-      );
+      throw new Error("Intelligence mode requires runtimeUrl, agentId, and intelligence websocket metadata");
     }
 
     return new IntelligenceAgent({

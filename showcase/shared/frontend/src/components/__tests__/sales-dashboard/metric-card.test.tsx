@@ -21,13 +21,7 @@ describe("MetricCard", () => {
   // --- All 3 trend variants ---
 
   it("shows upward trend indicator with green color", () => {
-    render(
-      <MetricCard
-        label="Revenue"
-        value="$100,000"
-        trend={{ direction: "up", percentage: 12 }}
-      />,
-    );
+    render(<MetricCard label="Revenue" value="$100,000" trend={{ direction: "up", percentage: 12 }} />);
     const trend = screen.getByTestId("trend-indicator");
     expect(trend).toBeTruthy();
     expect(trend.textContent).toContain("12%");
@@ -36,13 +30,7 @@ describe("MetricCard", () => {
   });
 
   it("shows downward trend indicator with red color", () => {
-    render(
-      <MetricCard
-        label="Churn"
-        value="5%"
-        trend={{ direction: "down", percentage: 3 }}
-      />,
-    );
+    render(<MetricCard label="Churn" value="5%" trend={{ direction: "down", percentage: 3 }} />);
     const trend = screen.getByTestId("trend-indicator");
     expect(trend.textContent).toContain("3%");
     expect(trend.textContent).toContain("\u2193");
@@ -50,13 +38,7 @@ describe("MetricCard", () => {
   });
 
   it("shows neutral trend indicator with muted color", () => {
-    render(
-      <MetricCard
-        label="Deals"
-        value="42"
-        trend={{ direction: "neutral", percentage: 0 }}
-      />,
-    );
+    render(<MetricCard label="Deals" value="42" trend={{ direction: "neutral", percentage: 0 }} />);
     const trend = screen.getByTestId("trend-indicator");
     expect(trend.textContent).toContain("0%");
     expect(trend.textContent).toContain("\u2192");
@@ -71,25 +53,13 @@ describe("MetricCard", () => {
   });
 
   it("renders very large percentage in trend", () => {
-    render(
-      <MetricCard
-        label="Growth"
-        value="$500K"
-        trend={{ direction: "up", percentage: 150 }}
-      />,
-    );
+    render(<MetricCard label="Growth" value="$500K" trend={{ direction: "up", percentage: 150 }} />);
     const trend = screen.getByTestId("trend-indicator");
     expect(trend.textContent).toContain("150%");
   });
 
   it("renders decimal percentage in trend", () => {
-    render(
-      <MetricCard
-        label="Conversion"
-        value="3.5%"
-        trend={{ direction: "up", percentage: 0.5 }}
-      />,
-    );
+    render(<MetricCard label="Conversion" value="3.5%" trend={{ direction: "up", percentage: 0.5 }} />);
     const trend = screen.getByTestId("trend-indicator");
     expect(trend.textContent).toContain("0.5%");
   });

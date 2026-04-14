@@ -1,15 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  ChevronDown,
-  Pencil,
-  ClipboardList,
-  Search,
-  Save,
-  BookOpen,
-  Check,
-} from "lucide-react";
+import { ChevronDown, Pencil, ClipboardList, Search, Save, BookOpen, Check } from "lucide-react";
 
 /**
  * ToolCard - Generative UI for tool call rendering in chat.
@@ -43,10 +35,7 @@ const TOOL_CONFIG: Record<
       style?: React.CSSProperties;
     }>;
     getDisplayText: (args: Record<string, unknown>) => string;
-    getResultSummary?: (
-      result: unknown,
-      args: Record<string, unknown>,
-    ) => string | null;
+    getResultSummary?: (result: unknown, args: Record<string, unknown>) => string | null;
   }
 > = {
   write_todos: {
@@ -89,8 +78,7 @@ const TOOL_CONFIG: Record<
     icon: Save,
     getDisplayText: (args) => {
       const path = args.path as string | undefined;
-      const filename =
-        path?.split("/").pop() || (args.filename as string | undefined);
+      const filename = path?.split("/").pop() || (args.filename as string | undefined);
       return `Writing: ${filename || "file"}`;
     },
     // Show first line preview from args (content is in args, not result)
@@ -107,8 +95,7 @@ const TOOL_CONFIG: Record<
     icon: BookOpen,
     getDisplayText: (args) => {
       const path = args.path as string | undefined;
-      const filename =
-        path?.split("/").pop() || (args.filename as string | undefined);
+      const filename = path?.split("/").pop() || (args.filename as string | undefined);
       return `Reading: ${filename || "file"}`;
     },
     getResultSummary: (result) => {
@@ -126,20 +113,10 @@ export function ToolCard({ name, status, args, result }: ToolCardProps) {
   const config = TOOL_CONFIG[name];
 
   if (config) {
-    return (
-      <SpecializedToolCard
-        name={name}
-        status={status}
-        args={args}
-        result={result}
-        config={config}
-      />
-    );
+    return <SpecializedToolCard name={name} status={status} args={args} result={result} config={config} />;
   }
 
-  return (
-    <DefaultToolCard name={name} status={status} args={args} result={result} />
-  );
+  return <DefaultToolCard name={name} status={status} args={args} result={result} />;
 }
 
 interface SpecializedToolCardProps extends ToolCardProps {
@@ -151,33 +128,20 @@ interface SpecializedToolCardProps extends ToolCardProps {
       style?: React.CSSProperties;
     }>;
     getDisplayText: (args: Record<string, unknown>) => string;
-    getResultSummary?: (
-      result: unknown,
-      args: Record<string, unknown>,
-    ) => string | null;
+    getResultSummary?: (result: unknown, args: Record<string, unknown>) => string | null;
   };
 }
 
-function SpecializedToolCard({
-  name,
-  status,
-  args,
-  result,
-  config,
-}: SpecializedToolCardProps) {
+function SpecializedToolCard({ name, status, args, result, config }: SpecializedToolCardProps) {
   const [expanded, setExpanded] = useState(false);
   const isComplete = status === "complete";
   const isExecuting = status === "inProgress" || status === "executing";
 
   // Get result summary for completed tools
-  const resultSummary =
-    isComplete && config.getResultSummary
-      ? config.getResultSummary(result, args)
-      : null;
+  const resultSummary = isComplete && config.getResultSummary ? config.getResultSummary(result, args) : null;
 
   // Determine if this tool has expandable content
-  const hasExpandableContent =
-    isComplete && (name === "research" || name === "write_todos");
+  const hasExpandableContent = isComplete && (name === "research" || name === "write_todos");
 
   return (
     <div
@@ -197,17 +161,11 @@ function SpecializedToolCard({
         <div
           className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
           style={{
-            background: isComplete
-              ? "rgba(21, 128, 61, 0.1)"
-              : "rgba(217, 119, 6, 0.1)",
+            background: isComplete ? "rgba(21, 128, 61, 0.1)" : "rgba(217, 119, 6, 0.1)",
           }}
         >
           {isComplete ? (
-            <Check
-              size={16}
-              strokeWidth={2}
-              style={{ color: "var(--color-success)" }}
-            />
+            <Check size={16} strokeWidth={2} style={{ color: "var(--color-success)" }} />
           ) : (
             <config.icon
               size={16}
@@ -221,21 +179,14 @@ function SpecializedToolCard({
           <p
             className={`
               text-sm font-medium
-              ${
-                isComplete
-                  ? "text-[var(--color-text-tertiary)]"
-                  : "text-[var(--color-text-primary)]"
-              }
+              ${isComplete ? "text-[var(--color-text-tertiary)]" : "text-[var(--color-text-primary)]"}
             `}
           >
             {config.getDisplayText(args)}
           </p>
           {/* Result summary shown below the display text when complete */}
           {resultSummary && (
-            <p
-              className="text-xs mt-0.5"
-              style={{ color: "var(--color-success)" }}
-            >
+            <p className="text-xs mt-0.5" style={{ color: "var(--color-success)" }}>
               {resultSummary}
             </p>
           )}
@@ -265,15 +216,7 @@ function SpecializedToolCard({
  * Renders expanded details based on tool type.
  * Each tool has its own structured view of the result.
  */
-function ExpandedDetails({
-  name,
-  result,
-  args,
-}: {
-  name: string;
-  result: unknown;
-  args: Record<string, unknown>;
-}) {
+function ExpandedDetails({ name, result, args }: { name: string; result: unknown; args: Record<string, unknown> }) {
   // research: show the full prose summary
   if (name === "research") {
     // Extract summary from object or use string directly
@@ -283,37 +226,21 @@ function ExpandedDetails({
         : typeof result === "string"
           ? result
           : "";
-    if (!summary)
-      return (
-        <p className="text-xs text-[var(--color-text-tertiary)]">No findings</p>
-      );
+    if (!summary) return <p className="text-xs text-[var(--color-text-tertiary)]">No findings</p>;
     return (
       <div className="space-y-2">
-        <p className="text-xs font-medium text-[var(--color-text-tertiary)]">
-          Query:
-        </p>
-        <p className="text-xs text-[var(--color-text-secondary)]">
-          {(args.query as string) || "..."}
-        </p>
-        <p className="text-xs font-medium text-[var(--color-text-tertiary)] mt-2">
-          Findings:
-        </p>
-        <p className="text-sm text-[var(--color-text-primary)] whitespace-pre-wrap">
-          {summary}
-        </p>
+        <p className="text-xs font-medium text-[var(--color-text-tertiary)]">Query:</p>
+        <p className="text-xs text-[var(--color-text-secondary)]">{(args.query as string) || "..."}</p>
+        <p className="text-xs font-medium text-[var(--color-text-tertiary)] mt-2">Findings:</p>
+        <p className="text-sm text-[var(--color-text-primary)] whitespace-pre-wrap">{summary}</p>
       </div>
     );
   }
 
   // write_todos: show todo list (from args, not result)
   if (name === "write_todos") {
-    const todos = (
-      args as { todos?: Array<{ id: string; content: string; status: string }> }
-    )?.todos;
-    if (!todos?.length)
-      return (
-        <p className="text-xs text-[var(--color-text-tertiary)]">No todos</p>
-      );
+    const todos = (args as { todos?: Array<{ id: string; content: string; status: string }> })?.todos;
+    if (!todos?.length) return <p className="text-xs text-[var(--color-text-tertiary)]">No todos</p>;
     return (
       <div className="space-y-1 max-h-40 overflow-y-auto">
         {todos.map((todo, i) => (
@@ -329,19 +256,9 @@ function ExpandedDetails({
                       : "var(--color-text-tertiary)",
               }}
             >
-              {todo.status === "completed"
-                ? "✓"
-                : todo.status === "in_progress"
-                  ? "●"
-                  : "○"}
+              {todo.status === "completed" ? "✓" : todo.status === "in_progress" ? "●" : "○"}
             </span>
-            <span
-              className={
-                todo.status === "completed"
-                  ? "line-through text-[var(--color-text-tertiary)]"
-                  : ""
-              }
-            >
+            <span className={todo.status === "completed" ? "line-through text-[var(--color-text-tertiary)]" : ""}>
               {todo.content}
             </span>
           </div>
@@ -370,19 +287,13 @@ function DefaultToolCard({ name, status, args, result }: ToolCardProps) {
             className={`
               w-8 h-8 rounded-lg flex items-center justify-center
               text-lg
-              ${
-                isComplete
-                  ? "bg-[var(--color-mint)]/20"
-                  : "bg-[var(--color-lilac)]/20"
-              }
+              ${isComplete ? "bg-[var(--color-mint)]/20" : "bg-[var(--color-lilac)]/20"}
             `}
           >
             {isComplete ? "✓" : "⚙️"}
           </div>
           <div className="flex items-center gap-2">
-            <code className="text-sm text-[var(--color-text-primary)]">
-              {name}
-            </code>
+            <code className="text-sm text-[var(--color-text-primary)]">{name}</code>
             <span
               className={`
                 text-xs px-2 py-0.5 rounded-full
@@ -401,30 +312,22 @@ function DefaultToolCard({ name, status, args, result }: ToolCardProps) {
           onClick={() => setExpanded(!expanded)}
           className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition-colors"
         >
-          <ChevronDown
-            className={`w-4 h-4 transition-transform ${expanded ? "rotate-180" : ""}`}
-          />
+          <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
         </button>
       </div>
       {expanded && (
         <div className="mt-3 space-y-2">
           <div>
-            <p className="text-xs text-[var(--color-text-tertiary)] mb-1">
-              Arguments:
-            </p>
+            <p className="text-xs text-[var(--color-text-tertiary)] mb-1">Arguments:</p>
             <pre className="text-xs bg-[var(--color-container)] p-2 rounded-md overflow-auto max-h-32 border border-[var(--color-border)]">
               {JSON.stringify(args, null, 2)}
             </pre>
           </div>
           {result !== undefined && result !== null && (
             <div>
-              <p className="text-xs text-[var(--color-text-tertiary)] mb-1">
-                Result:
-              </p>
+              <p className="text-xs text-[var(--color-text-tertiary)] mb-1">Result:</p>
               <pre className="text-xs bg-[var(--color-container)] p-2 rounded-md overflow-auto max-h-32 border border-[var(--color-border)]">
-                {typeof result === "string"
-                  ? result
-                  : JSON.stringify(result, null, 2)}
+                {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
               </pre>
             </div>
           )}

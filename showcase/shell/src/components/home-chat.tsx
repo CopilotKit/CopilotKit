@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  CopilotKitProvider,
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkitnext/react";
+import { CopilotKitProvider, CopilotChat, useConfigureSuggestions } from "@copilotkitnext/react";
 
 export function HomeChat() {
   return (
@@ -19,8 +15,7 @@ function HomeChatInner() {
     suggestions: [
       {
         title: "Get started",
-        message:
-          "I want to get started with CopilotKit. Which agent framework should I use?",
+        message: "I want to get started with CopilotKit. Which agent framework should I use?",
       },
       {
         title: "Generative UI",
@@ -32,8 +27,7 @@ function HomeChatInner() {
       },
       {
         title: "Compare frameworks",
-        message:
-          "Compare the features supported by each agent framework integration.",
+        message: "Compare the features supported by each agent framework integration.",
       },
       {
         title: "Help me choose",
@@ -46,9 +40,7 @@ function HomeChatInner() {
   return (
     <div className="flex-1 flex flex-col border-r border-[var(--border)]">
       <div className="px-8 pt-6 pb-4 border-b border-[var(--border)]">
-        <h1 className="text-xl font-semibold tracking-tight text-[var(--text)]">
-          CopilotKit Docs
-        </h1>
+        <h1 className="text-xl font-semibold tracking-tight text-[var(--text)]">CopilotKit Docs</h1>
         <p className="text-[13px] text-[var(--text-secondary)] mt-1">
           Ask anything, explore the stack, or jump to what you need.
         </p>

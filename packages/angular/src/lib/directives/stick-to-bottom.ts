@@ -1,22 +1,8 @@
-import {
-  Directive,
-  ElementRef,
-  OnInit,
-  OnDestroy,
-  AfterViewInit,
-  inject,
-  input,
-  output,
-} from "@angular/core";
+import { Directive, ElementRef, OnInit, OnDestroy, AfterViewInit, inject, input, output } from "@angular/core";
 import { ScrollPosition } from "../scroll-position";
 import { ResizeObserverService } from "../resize-observer";
 import { Subject } from "rxjs";
-import {
-  takeUntil,
-  debounceTime,
-  filter,
-  distinctUntilChanged,
-} from "rxjs/operators";
+import { takeUntil, debounceTime, filter, distinctUntilChanged } from "rxjs/operators";
 
 export type ScrollBehavior = "smooth" | "instant" | "auto";
 
@@ -69,9 +55,7 @@ export class StickToBottom implements OnInit, AfterViewInit, OnDestroy {
     const element = this.elementRef.nativeElement as HTMLElement;
 
     // Find or create content wrapper
-    this.contentElement = element.querySelector(
-      "[data-stick-to-bottom-content]",
-    ) as HTMLElement;
+    this.contentElement = element.querySelector("[data-stick-to-bottom-content]") as HTMLElement;
     if (!this.contentElement) {
       this.contentElement = element;
     }
@@ -141,9 +125,7 @@ export class StickToBottom implements OnInit, AfterViewInit, OnDestroy {
       .observeElement(element, 0, 250)
       .pipe(
         takeUntil(this.destroy$),
-        filter(
-          () => this.enabled() && !this.userHasScrolled && this.wasAtBottom,
-        ),
+        filter(() => this.enabled() && !this.userHasScrolled && this.wasAtBottom),
       )
       .subscribe(() => {
         // Adjust scroll on container resize
@@ -192,10 +174,7 @@ export class StickToBottom implements OnInit, AfterViewInit, OnDestroy {
    * Check if currently at bottom
    */
   public isAtBottom(): boolean {
-    return this.scrollService.isAtBottom(
-      this.elementRef.nativeElement,
-      this.threshold(),
-    );
+    return this.scrollService.isAtBottom(this.elementRef.nativeElement, this.threshold());
   }
 
   /**

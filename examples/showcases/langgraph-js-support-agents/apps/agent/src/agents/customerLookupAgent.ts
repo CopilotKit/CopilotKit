@@ -21,8 +21,7 @@ export async function customerLookupAgentNode(
   // Extract customer ID from last message
   const messages = state.messages || [];
   const lastMessage = messages[messages.length - 1];
-  const messageText =
-    typeof lastMessage?.content === "string" ? lastMessage.content : "";
+  const messageText = typeof lastMessage?.content === "string" ? lastMessage.content : "";
 
   // Look for customer ID pattern (e.g., "7590-VHVEG")
   const customerIdPattern = /\b\d{4}-[A-Z]{5}\b/;
@@ -35,9 +34,7 @@ export async function customerLookupAgentNode(
     try {
       // Use customers from shared state (synced with frontend)
       const customers = (state as any).customers || [];
-      const customerData = customers.find(
-        (c: any) => c.customerID === customerId,
-      );
+      const customerData = customers.find((c: any) => c.customerID === customerId);
 
       if (customerData) {
         console.log(`Customer found: ${customerId}`);

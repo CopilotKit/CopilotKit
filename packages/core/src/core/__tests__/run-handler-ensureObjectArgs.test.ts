@@ -18,9 +18,7 @@ describe("ensureObjectArgs", () => {
   });
 
   it("throws for a number", () => {
-    expect(() => ensureObjectArgs(42, "testTool")).toThrow(
-      "Tool arguments for testTool parsed to non-object (number)",
-    );
+    expect(() => ensureObjectArgs(42, "testTool")).toThrow("Tool arguments for testTool parsed to non-object (number)");
   });
 
   it("throws for an array", () => {

@@ -21,15 +21,12 @@ const emptyCopilotContext: CopilotMessagesContextParams = {
   setSuggestions: () => [],
 };
 
-export const CopilotMessagesContext =
-  React.createContext<CopilotMessagesContextParams>(emptyCopilotContext);
+export const CopilotMessagesContext = React.createContext<CopilotMessagesContextParams>(emptyCopilotContext);
 
 export function useCopilotMessagesContext(): CopilotMessagesContextParams {
   const context = React.useContext(CopilotMessagesContext);
   if (context === emptyCopilotContext) {
-    throw new Error(
-      "A messages consuming component was not wrapped with `<CopilotMessages> {...} </CopilotMessages>`",
-    );
+    throw new Error("A messages consuming component was not wrapped with `<CopilotMessages> {...} </CopilotMessages>`");
   }
   return context;
 }

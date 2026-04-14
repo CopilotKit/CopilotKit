@@ -45,9 +45,7 @@ function trackRedirect(id: string, fromPath: string, toPath: string): void {
   const apiKey = process.env.POSTHOG_PROJECT_KEY;
   if (!apiKey) {
     if (!posthogKeyWarned) {
-      console.warn(
-        "[middleware] POSTHOG_PROJECT_KEY is not set — redirect tracking disabled",
-      );
+      console.warn("[middleware] POSTHOG_PROJECT_KEY is not set — redirect tracking disabled");
       posthogKeyWarned = true;
     }
     return;

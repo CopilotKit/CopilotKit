@@ -3,10 +3,7 @@
 import type React from "react";
 import { cn } from "@/lib/utils";
 
-export function EmptyState(props: {
-  className?: string;
-  children?: React.ReactNode;
-}) {
+export function EmptyState(props: { className?: string; children?: React.ReactNode }) {
   return (
     <div
       className={cn(

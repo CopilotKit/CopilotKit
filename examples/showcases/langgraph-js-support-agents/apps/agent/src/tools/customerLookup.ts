@@ -20,9 +20,7 @@ export const customerLookupTool = tool(
     description:
       "Look up customer information using their customer ID. Use this when the user provides their customer ID or when you need to fetch customer details.",
     schema: z.object({
-      customerId: z
-        .string()
-        .describe("The customer ID to look up (e.g., '7590-VHVEG')"),
+      customerId: z.string().describe("The customer ID to look up (e.g., '7590-VHVEG')"),
     }),
   },
 );

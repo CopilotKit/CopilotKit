@@ -19,12 +19,8 @@ export function useStreamingContent(state: ResearchState) {
             idx: Number(idx),
             id,
             title,
-            content: (streamType === "content"
-              ? value
-              : null) as Section["content"],
-            footer: (streamType === "footer"
-              ? value
-              : null) as Section["footer"],
+            content: (streamType === "content" ? value : null) as Section["content"],
+            footer: (streamType === "footer" ? value : null) as Section["footer"],
           };
         }
 

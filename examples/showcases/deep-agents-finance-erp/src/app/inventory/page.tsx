@@ -27,14 +27,9 @@ function InventoryContent() {
   const activeFilter = searchParams.get("filter") || "all";
 
   const filtered =
-    activeFilter === "all"
-      ? inventoryItems
-      : inventoryItems.filter((item) => item.status === activeFilter);
+    activeFilter === "all" ? inventoryItems : inventoryItems.filter((item) => item.status === activeFilter);
 
-  const totalValue = inventoryItems.reduce(
-    (sum, item) => sum + item.quantity * item.unitCost,
-    0,
-  );
+  const totalValue = inventoryItems.reduce((sum, item) => sum + item.quantity * item.unitCost, 0);
   const lowStockCount = inventoryItems.filter(
     (item) => item.status === "low-stock" || item.status === "out-of-stock",
   ).length;
@@ -51,36 +46,24 @@ function InventoryContent() {
             <CardContent>
               <div className="flex items-center gap-2">
                 <Package className="h-4 w-4 text-primary" />
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Total SKUs
-                </p>
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total SKUs</p>
               </div>
-              <p className="mt-2 text-2xl font-bold text-foreground">
-                {totalSKUs}
-              </p>
+              <p className="mt-2 text-2xl font-bold text-foreground">{totalSKUs}</p>
             </CardContent>
           </Card>
           <Card size="sm">
             <CardContent>
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Inventory Value
-              </p>
-              <p className="mt-2 text-2xl font-bold text-foreground">
-                {formatCurrency(totalValue)}
-              </p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Inventory Value</p>
+              <p className="mt-2 text-2xl font-bold text-foreground">{formatCurrency(totalValue)}</p>
             </CardContent>
           </Card>
           <Card size="sm">
             <CardContent>
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-amber-500" />
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Low / Out of Stock
-                </p>
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Low / Out of Stock</p>
               </div>
-              <p className="mt-2 text-2xl font-bold text-amber-600">
-                {lowStockCount} items
-              </p>
+              <p className="mt-2 text-2xl font-bold text-amber-600">{lowStockCount} items</p>
             </CardContent>
           </Card>
         </div>
@@ -134,11 +117,7 @@ function InventoryContent() {
                   header: "Qty",
                   accessor: (row) => (
                     <span
-                      className={
-                        row.quantity <= row.reorderLevel
-                          ? "font-medium text-amber-600"
-                          : "text-foreground"
-                      }
+                      className={row.quantity <= row.reorderLevel ? "font-medium text-amber-600" : "text-foreground"}
                     >
                       {row.quantity}
                     </span>
@@ -146,19 +125,11 @@ function InventoryContent() {
                 },
                 {
                   header: "Reorder Lvl",
-                  accessor: (row) => (
-                    <span className="text-muted-foreground">
-                      {row.reorderLevel}
-                    </span>
-                  ),
+                  accessor: (row) => <span className="text-muted-foreground">{row.reorderLevel}</span>,
                 },
                 {
                   header: "Unit Cost",
-                  accessor: (row) => (
-                    <span className="text-foreground">
-                      {formatCurrency(row.unitCost)}
-                    </span>
-                  ),
+                  accessor: (row) => <span className="text-foreground">{formatCurrency(row.unitCost)}</span>,
                 },
                 {
                   header: "Location",

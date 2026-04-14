@@ -15,8 +15,7 @@ export class AmplifyHostingStack extends cdk.NestedStack {
   public readonly stagingBucket: s3.Bucket;
 
   constructor(scope: Construct, id: string, props: AmplifyStackProps) {
-    const description =
-      "Fullstack AgentCore Solution Template - Amplify Hosting Stack";
+    const description = "Fullstack AgentCore Solution Template - Amplify Hosting Stack";
     super(scope, id, { ...props, description });
 
     // Create access logs bucket for staging bucket
@@ -70,10 +69,7 @@ export class AmplifyHostingStack extends cdk.NestedStack {
         effect: iam.Effect.DENY,
         principals: [new iam.AnyPrincipal()],
         actions: ["s3:*"],
-        resources: [
-          this.stagingBucket.bucketArn,
-          this.stagingBucket.arnForObjects("*"),
-        ],
+        resources: [this.stagingBucket.bucketArn, this.stagingBucket.arnForObjects("*")],
         conditions: {
           Bool: {
             "aws:SecureTransport": "false",

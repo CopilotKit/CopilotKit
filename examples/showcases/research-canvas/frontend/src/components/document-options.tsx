@@ -15,11 +15,7 @@ interface DocumentOptionsProps {
   canEdit: boolean;
 }
 
-export default function DocumentOptions({
-  state,
-  onChange,
-  canEdit,
-}: DocumentOptionsProps) {
+export default function DocumentOptions({ state, onChange, canEdit }: DocumentOptionsProps) {
   const getItemClass = (selected = false) =>
     cn("bg-white hover:bg-gray-200 active:bg-gray-300", {
       "bg-blue-50": selected,

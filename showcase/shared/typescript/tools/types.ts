@@ -5,13 +5,7 @@
  * and the frontend types in showcase/shared/frontend/src/types.ts.
  */
 
-export type SalesStage =
-  | "prospect"
-  | "qualified"
-  | "proposal"
-  | "negotiation"
-  | "closed-won"
-  | "closed-lost";
+export type SalesStage = "prospect" | "qualified" | "proposal" | "negotiation" | "closed-won" | "closed-lost";
 
 export interface SalesTodo {
   id: string;

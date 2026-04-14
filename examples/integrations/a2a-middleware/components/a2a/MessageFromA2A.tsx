@@ -13,10 +13,7 @@ type MessageActionRenderProps = {
   };
 };
 
-export const MessageFromA2A: React.FC<MessageActionRenderProps> = ({
-  status,
-  args,
-}) => {
+export const MessageFromA2A: React.FC<MessageActionRenderProps> = ({ status, args }) => {
   switch (status) {
     case "complete":
       break;
@@ -42,19 +39,13 @@ export const MessageFromA2A: React.FC<MessageActionRenderProps> = ({
                 <span>{agentStyle.icon}</span>
                 <span>{args.agentName}</span>
               </span>
-              {agentStyle.framework && (
-                <span className="text-[9px] text-gray-500 mt-0.5">
-                  {agentStyle.framework}
-                </span>
-              )}
+              {agentStyle.framework && <span className="text-[9px] text-gray-500 mt-0.5">{agentStyle.framework}</span>}
             </div>
 
             <span className="text-gray-400 text-sm">→</span>
 
             <div className="flex flex-col items-center">
-              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-700 text-white">
-                Orchestrator
-              </span>
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-700 text-white">Orchestrator</span>
               <span className="text-[9px] text-gray-500 mt-0.5">ADK</span>
             </div>
           </div>

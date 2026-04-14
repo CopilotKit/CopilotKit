@@ -23,11 +23,7 @@ export default function CopilotKitPage() {
   });
 
   return (
-    <main
-      style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
-      }
-    >
+    <main style={{ "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties}>
       <CopilotSidebar
         disableSystemMessage={true}
         clickOutsideToClose={false}
@@ -50,8 +46,7 @@ export default function CopilotKitPage() {
           },
           {
             title: "Update Agent State",
-            message:
-              "Please remove 1 random proverb from the list if there are any.",
+            message: "Please remove 1 random proverb from the list if there are any.",
           },
           {
             title: "Read Agent State",
@@ -75,9 +70,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   const { state, setState } = useCoAgent<AgentState>({
     name: "sample_agent",
     initialState: {
-      proverbs: [
-        "CopilotKit may be new, but its the best thing since sliced bread.",
-      ],
+      proverbs: ["CopilotKit may be new, but its the best thing since sliced bread."],
     },
   });
 
@@ -88,8 +81,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
       {
         name: "proverbs",
         type: "string[]",
-        description:
-          "The proverbs to be committed into state. Make them witty, short and concise.",
+        description: "The proverbs to be committed into state. Make them witty, short and concise.",
         required: true,
       },
     ],
@@ -118,9 +110,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
       className="h-screen flex justify-center items-center flex-col transition-colors duration-300"
     >
       <div className="bg-white/20 backdrop-blur-md p-8 rounded-2xl shadow-xl max-w-2xl w-full">
-        <h1 className="text-4xl font-bold text-white mb-2 text-center">
-          Proverbs
-        </h1>
+        <h1 className="text-4xl font-bold text-white mb-2 text-center">Proverbs</h1>
         <p className="text-gray-200 text-center italic mb-6">
           This is a demonstrative page, but it could be anything you want! 🪁
         </p>
@@ -148,9 +138,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
           ))}
         </div>
         {state.proverbs?.length === 0 && (
-          <p className="text-center text-white/80 italic my-8">
-            No proverbs yet. Ask the assistant to add some!
-          </p>
+          <p className="text-center text-white/80 italic my-8">No proverbs yet. Ask the assistant to add some!</p>
         )}
       </div>
     </div>
@@ -178,24 +166,13 @@ function SunIcon() {
 
 // Weather card component where the location and themeColor are based on what the agent
 // sets via tool calls.
-function WeatherCard({
-  location,
-  themeColor,
-}: {
-  location?: string;
-  themeColor: string;
-}) {
+function WeatherCard({ location, themeColor }: { location?: string; themeColor: string }) {
   return (
-    <div
-      style={{ backgroundColor: themeColor }}
-      className="rounded-xl shadow-xl mt-6 mb-4 max-w-md w-full"
-    >
+    <div style={{ backgroundColor: themeColor }} className="rounded-xl shadow-xl mt-6 mb-4 max-w-md w-full">
       <div className="bg-white/20 p-4 w-full">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-xl font-bold text-white capitalize">
-              {location}
-            </h3>
+            <h3 className="text-xl font-bold text-white capitalize">{location}</h3>
             <p className="text-white">Current Weather</p>
           </div>
           <SunIcon />

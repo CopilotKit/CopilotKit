@@ -8,14 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ExpenseRole, MemberRole } from "@/app/api/v1/data";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
@@ -46,29 +39,18 @@ export interface MemberDialogProps {
   dialogState: DialogState;
 }
 
-export function AddOrEditMemberDialog({
-  onStateChange,
-  onSubmit,
-  dialogState,
-}: MemberDialogProps) {
+export function AddOrEditMemberDialog({ onStateChange, onSubmit, dialogState }: MemberDialogProps) {
   const isEdit = dialogState.action === "edit";
   return (
     <Dialog
-      open={
-        dialogState.dialogOpen &&
-        (isEdit ? !!dialogState.memberId : !dialogState.memberId)
-      }
-      onOpenChange={(open) =>
-        onStateChange(open ? { dialogOpen: open } : defaultDialogState)
-      }
+      open={dialogState.dialogOpen && (isEdit ? !!dialogState.memberId : !dialogState.memberId)}
+      onOpenChange={(open) => onStateChange(open ? { dialogOpen: open } : defaultDialogState)}
     >
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Member" : "Invite Member"}</DialogTitle>
           <DialogDescription>
-            {isEdit
-              ? "Edit the team or role of a member"
-              : "Enter the email, role, and team for the new member."}
+            {isEdit ? "Edit the team or role of a member" : "Enter the email, role, and team for the new member."}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -90,11 +72,7 @@ export function AddOrEditMemberDialog({
             <Label htmlFor="role" className="text-right">
               Role
             </Label>
-            <Select
-              onValueChange={(value) =>
-                onStateChange({ role: value as MemberRole })
-              }
-            >
+            <Select onValueChange={(value) => onStateChange({ role: value as MemberRole })}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
@@ -110,25 +88,15 @@ export function AddOrEditMemberDialog({
             <Label htmlFor="team" className="text-right">
               Team
             </Label>
-            <Select
-              onValueChange={(value) =>
-                onStateChange({ team: value as ExpenseRole })
-              }
-            >
+            <Select onValueChange={(value) => onStateChange({ team: value as ExpenseRole })}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select a team" />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectItem value={ExpenseRole.Marketing}>
-                    Marketing
-                  </SelectItem>
-                  <SelectItem value={ExpenseRole.Engineering}>
-                    Engineering
-                  </SelectItem>
-                  <SelectItem value={ExpenseRole.Executive}>
-                    Executive
-                  </SelectItem>
+                  <SelectItem value={ExpenseRole.Marketing}>Marketing</SelectItem>
+                  <SelectItem value={ExpenseRole.Engineering}>Engineering</SelectItem>
+                  <SelectItem value={ExpenseRole.Executive}>Executive</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>

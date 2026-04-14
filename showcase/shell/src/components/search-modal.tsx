@@ -52,10 +52,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
     }
 
     for (const i of registryData.integrations || []) {
-      if (
-        i.name.toLowerCase().includes(q) ||
-        i.description?.toLowerCase().includes(q)
-      ) {
+      if (i.name.toLowerCase().includes(q) || i.description?.toLowerCase().includes(q)) {
         items.push({
           type: "integration",
           title: i.name,
@@ -80,10 +77,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
     }
 
     for (const f of registryData.feature_registry?.features || []) {
-      if (
-        f.name.toLowerCase().includes(q) ||
-        f.description?.toLowerCase().includes(q)
-      ) {
+      if (f.name.toLowerCase().includes(q) || f.description?.toLowerCase().includes(q)) {
         items.push({
           type: "feature",
           title: f.name,
@@ -112,10 +106,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <div
-        className="fixed inset-0 z-[200] bg-black/20 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 z-[200] bg-black/20 backdrop-blur-sm" onClick={onClose} />
       <div className="fixed top-[20%] left-1/2 -translate-x-1/2 z-[201] w-full max-w-lg px-4">
         <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden">
           <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--border)]">
@@ -143,9 +134,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
                 <button
                   key={`${r.href}-${idx}`}
                   className={`w-full text-left px-5 py-3 flex items-center gap-3 transition-colors ${
-                    idx === selectedIndex
-                      ? "bg-[var(--bg-elevated)]"
-                      : "hover:bg-[var(--bg-hover)]"
+                    idx === selectedIndex ? "bg-[var(--bg-elevated)]" : "hover:bg-[var(--bg-hover)]"
                   }`}
                   onClick={() => {
                     router.push(r.href);
@@ -160,14 +149,10 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
                     <div className="text-[13px] font-medium text-[var(--text)] truncate">
                       {r.title}
                       {r.section && (
-                        <span className="ml-2 text-[11px] font-normal text-[var(--text-faint)]">
-                          {r.section}
-                        </span>
+                        <span className="ml-2 text-[11px] font-normal text-[var(--text-faint)]">{r.section}</span>
                       )}
                     </div>
-                    <div className="text-[11px] text-[var(--text-muted)] truncate">
-                      {r.subtitle}
-                    </div>
+                    <div className="text-[11px] text-[var(--text-muted)] truncate">{r.subtitle}</div>
                   </div>
                 </button>
               ))}

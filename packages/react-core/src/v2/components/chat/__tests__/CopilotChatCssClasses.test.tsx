@@ -16,9 +16,7 @@ const TEST_THREAD_ID = "test-thread";
 const renderWithProvider = (component: React.ReactElement) => {
   return render(
     <CopilotKitProvider>
-      <CopilotChatConfigurationProvider threadId={TEST_THREAD_ID}>
-        {component}
-      </CopilotChatConfigurationProvider>
+      <CopilotChatConfigurationProvider threadId={TEST_THREAD_ID}>{component}</CopilotChatConfigurationProvider>
     </CopilotKitProvider>,
   );
 };
@@ -96,9 +94,7 @@ describe("v2 CopilotChat CSS class compatibility with v1", () => {
 
   describe("CopilotChatView", () => {
     it("includes copilotKitChat class", () => {
-      renderWithProvider(
-        <CopilotChatView messages={[]} welcomeScreen={false} />,
-      );
+      renderWithProvider(<CopilotChatView messages={[]} welcomeScreen={false} />);
 
       const el = screen.getByTestId("copilot-chat");
       expect(el.className).toContain("copilotKitChat");

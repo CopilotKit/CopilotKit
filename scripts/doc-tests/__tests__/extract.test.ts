@@ -157,10 +157,7 @@ describe("writeExtractedBlocks", () => {
     expect(manifest).toHaveLength(1);
     expect(manifest[0].file).toBe("guide/main.py");
 
-    const written = fs.readFileSync(
-      path.join(outputDir, "guide", "main.py"),
-      "utf-8",
-    );
+    const written = fs.readFileSync(path.join(outputDir, "guide", "main.py"), "utf-8");
     expect(written).toContain("# part 1");
     expect(written).toContain("# part 2");
   });
@@ -191,10 +188,7 @@ describe("writeExtractedBlocks", () => {
 
   it("copies doctest.json sidecar when present", () => {
     const sidecar = { python: { deps: ["flask"] } };
-    fs.writeFileSync(
-      path.join(docsDir, "doctest.json"),
-      JSON.stringify(sidecar),
-    );
+    fs.writeFileSync(path.join(docsDir, "doctest.json"), JSON.stringify(sidecar));
 
     const blocks = [
       {
@@ -209,9 +203,7 @@ describe("writeExtractedBlocks", () => {
 
     writeExtractedBlocks(blocks, outputDir, docsDir);
 
-    const copied = JSON.parse(
-      fs.readFileSync(path.join(outputDir, "page", "doctest.json"), "utf-8"),
-    );
+    const copied = JSON.parse(fs.readFileSync(path.join(outputDir, "page", "doctest.json"), "utf-8"));
     expect(copied.python.deps).toContain("flask");
   });
 });

@@ -8,6 +8,4 @@ import React from "react";
  * Carries the element itself (not a ref) so that context consumers re-render
  * reactively when the scroll container is first mounted.
  */
-export const ScrollElementContext = React.createContext<HTMLElement | null>(
-  null,
-);
+export const ScrollElementContext = React.createContext<HTMLElement | null>(null);

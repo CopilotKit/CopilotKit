@@ -15,9 +15,7 @@ export default function Index() {
           <button
             onClick={() => setAgentType("aisdk")}
             className={`px-3 py-1 text-sm rounded-md transition-colors ${
-              agentType === "aisdk"
-                ? "bg-black text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              agentType === "aisdk" ? "bg-black text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
             AI SDK
@@ -25,9 +23,7 @@ export default function Index() {
           <button
             onClick={() => setAgentType("tanstack")}
             className={`px-3 py-1 text-sm rounded-md transition-colors ${
-              agentType === "tanstack"
-                ? "bg-black text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              agentType === "tanstack" ? "bg-black text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
             TanStack AI

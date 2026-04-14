@@ -25,8 +25,7 @@ function DownloadServerCodeLink({ workspaceId }: { workspaceId: string }) {
         throw new Error(data.error || `Download failed (${res.status})`);
       }
       const blob = await res.blob();
-      const safeId =
-        workspaceId.replace(/[^\w-]/g, "").slice(0, 16) || "workspace";
+      const safeId = workspaceId.replace(/[^\w-]/g, "").slice(0, 16) || "workspace";
       const cd = res.headers.get("Content-Disposition");
       const m = cd?.match(/filename="([^"]+)"/);
       const filename = m?.[1] ?? `workspace-${safeId}.tar.gz`;
@@ -40,9 +39,7 @@ function DownloadServerCodeLink({ workspaceId }: { workspaceId: string }) {
 
   return (
     <div className="px-3.5 py-3 border-t border-slate-200/70">
-      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-        Local starter kit
-      </p>
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Local starter kit</p>
       <button
         type="button"
         onClick={handleDownload}
@@ -118,9 +115,7 @@ function ToolCallCard({
 
   // Build a human-readable args string
   const argsEntries =
-    args && typeof args === "object" && !Array.isArray(args)
-      ? Object.entries(args as Record<string, unknown>)
-      : null;
+    args && typeof args === "object" && !Array.isArray(args) ? Object.entries(args as Record<string, unknown>) : null;
   const hasArgs = argsEntries ? argsEntries.length > 0 : args != null;
   const argsDisplay = argsEntries
     ? argsEntries.map(([k, v]) => `${k}: ${safeFormat(v, 300)}`).join("\n")
@@ -137,22 +132,14 @@ function ToolCallCard({
         className="flex w-full items-center gap-2 px-3.5 py-2 bg-slate-100/70 hover:bg-slate-100 transition-colors text-left"
       >
         {done ? (
-          <span className="shrink-0 font-bold text-emerald-600 text-[13px] leading-none">
-            ✓
-          </span>
+          <span className="shrink-0 font-bold text-emerald-600 text-[13px] leading-none">✓</span>
         ) : (
           <span className="h-3 w-3 shrink-0 rounded-full border-2 border-slate-400 border-t-transparent animate-spin" />
         )}
         <code className="font-semibold text-slate-700">{name}</code>
         <span className="ml-auto flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide">
-          {done ? (
-            <span className="text-emerald-600">Done</span>
-          ) : (
-            <span className="text-amber-500">Running…</span>
-          )}
-          <span className="text-slate-400 text-[10px]">
-            {expanded ? "▲" : "▼"}
-          </span>
+          {done ? <span className="text-emerald-600">Done</span> : <span className="text-amber-500">Running…</span>}
+          <span className="text-slate-400 text-[10px]">{expanded ? "▲" : "▼"}</span>
         </span>
       </button>
 
@@ -162,9 +149,7 @@ function ToolCallCard({
           {/* Arguments */}
           {hasArgs && (
             <div className="px-3.5 py-3">
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                Arguments
-              </p>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Arguments</p>
               <pre className="rounded-lg bg-white border border-slate-100 px-3 py-2 font-mono text-[11px] leading-relaxed text-slate-800 whitespace-pre-wrap break-all overflow-x-auto max-h-40 overflow-y-auto">
                 {argsDisplay}
               </pre>
@@ -173,12 +158,8 @@ function ToolCallCard({
 
           {/* Result */}
           {resultDisplay !== null && (
-            <div
-              className={`px-3.5 py-3 ${hasArgs ? "border-t border-slate-200/70" : ""}`}
-            >
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
-                Result
-              </p>
+            <div className={`px-3.5 py-3 ${hasArgs ? "border-t border-slate-200/70" : ""}`}>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600">Result</p>
               <pre className="rounded-lg bg-white border border-slate-100 px-3 py-2 font-mono text-[11px] leading-relaxed text-slate-800 whitespace-pre-wrap break-all overflow-x-auto max-h-48 overflow-y-auto">
                 {resultDisplay}
               </pre>
@@ -205,10 +186,7 @@ function RestartServerCard({
   result: string | undefined;
 }) {
   const workspaceId =
-    args &&
-    typeof args === "object" &&
-    !Array.isArray(args) &&
-    "workspaceId" in args
+    args && typeof args === "object" && !Array.isArray(args) && "workspaceId" in args
       ? String((args as Record<string, unknown>).workspaceId)
       : null;
 
@@ -218,11 +196,7 @@ function RestartServerCard({
       args={args}
       status={status}
       result={result}
-      footer={
-        workspaceId ? (
-          <DownloadServerCodeLink workspaceId={workspaceId} />
-        ) : null
-      }
+      footer={workspaceId ? <DownloadServerCodeLink workspaceId={workspaceId} /> : null}
     />
   );
 }
@@ -235,12 +209,7 @@ export const TOOL_CALL_RENDERERS = [
     name: "restart_server",
     args: z.object({ workspaceId: z.string() }),
     render: ({ name, args, status, result }) => (
-      <RestartServerCard
-        name={name}
-        args={args}
-        status={status}
-        result={result}
-      />
+      <RestartServerCard name={name} args={args} status={status} result={result} />
     ),
   }),
   defineToolCallRenderer({

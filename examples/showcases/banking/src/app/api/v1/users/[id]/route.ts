@@ -1,10 +1,7 @@
 import { NextRequest } from "next/server";
 import { data } from "../../data";
 
-export const PUT = async (
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) => {
+export const PUT = async (req: NextRequest, { params }: { params: { id: string } }) => {
   try {
     // Handle pin or card limit change
     const body = await req.json();
@@ -27,10 +24,7 @@ export const PUT = async (
   }
 };
 
-export const DELETE = async (
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) => {
+export const DELETE = async (req: NextRequest, { params }: { params: { id: string } }) => {
   try {
     const index = data.team.findIndex((user) => user.id === params.id);
     if (index !== -1) {

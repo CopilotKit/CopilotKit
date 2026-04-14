@@ -121,10 +121,7 @@ export function updateTodoItem(
   }
 
   // Handle completion timestamp
-  if (
-    updates.status === "completed" &&
-    list.items[itemIndex].status !== "completed"
-  ) {
+  if (updates.status === "completed" && list.items[itemIndex].status !== "completed") {
     updates.completedAt = new Date().toISOString();
   } else if (updates.status && updates.status !== "completed") {
     updates.completedAt = undefined;
@@ -181,10 +178,7 @@ export function deleteTodoItem(listId: string, itemId: string): TodoResult {
 /**
  * Get items filtered by status.
  */
-export function getItemsByStatus(
-  listId: string,
-  status: TodoStatus,
-): TodoItem[] {
+export function getItemsByStatus(listId: string, status: TodoStatus): TodoItem[] {
   const list = todoLists.get(listId);
   if (!list) return [];
 
@@ -194,10 +188,7 @@ export function getItemsByStatus(
 /**
  * Get items filtered by priority.
  */
-export function getItemsByPriority(
-  listId: string,
-  priority: Priority,
-): TodoItem[] {
+export function getItemsByPriority(listId: string, priority: Priority): TodoItem[] {
   const list = todoLists.get(listId);
   if (!list) return [];
 
@@ -211,9 +202,7 @@ export function getItemsByTag(listId: string, tag: string): TodoItem[] {
   const list = todoLists.get(listId);
   if (!list) return [];
 
-  return list.items.filter((item) =>
-    item.tags.some((t) => t.toLowerCase() === tag.toLowerCase()),
-  );
+  return list.items.filter((item) => item.tags.some((t) => t.toLowerCase() === tag.toLowerCase()));
 }
 
 /**
@@ -233,11 +222,7 @@ export function getOverdueItems(listId: string): TodoItem[] {
 /**
  * Reorder items in the list.
  */
-export function reorderItems(
-  listId: string,
-  itemId: string,
-  newPosition: number,
-): TodoResult {
+export function reorderItems(listId: string, itemId: string, newPosition: number): TodoResult {
   const list = todoLists.get(listId);
   if (!list) {
     return { success: false, message: "Todo list not found" };
@@ -269,9 +254,7 @@ export function clearCompleted(listId: string): TodoResult {
     return { success: false, message: "Todo list not found" };
   }
 
-  const completedCount = list.items.filter(
-    (i) => i.status === "completed",
-  ).length;
+  const completedCount = list.items.filter((i) => i.status === "completed").length;
   list.items = list.items.filter((i) => i.status !== "completed");
 
   return {

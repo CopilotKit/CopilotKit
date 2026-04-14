@@ -49,9 +49,7 @@ class MockAgent extends AbstractAgent {
     }
 
     const hasTerminalEvent = this.events.some(
-      (event) =>
-        event.type === EventType.RUN_FINISHED ||
-        event.type === EventType.RUN_ERROR,
+      (event) => event.type === EventType.RUN_FINISHED || event.type === EventType.RUN_ERROR,
     );
 
     if (!hasTerminalEvent) {
@@ -266,11 +264,7 @@ describe("SqliteAgentRunner", () => {
     expect(runStarted.input?.messages?.map((m) => m.id)).toEqual(["new"]);
 
     const db = new Database(dbPath);
-    const rows = db
-      .prepare(
-        "SELECT events FROM agent_runs WHERE thread_id = ? ORDER BY created_at",
-      )
-      .all(threadId) as {
+    const rows = db.prepare("SELECT events FROM agent_runs WHERE thread_id = ? ORDER BY created_at").all(threadId) as {
       events: string;
     }[];
     db.close();
@@ -279,14 +273,10 @@ describe("SqliteAgentRunner", () => {
     const run1Stored = JSON.parse(rows[0].events) as BaseEvent[];
     const run2Stored = JSON.parse(rows[1].events) as BaseEvent[];
 
-    const run1Started = run1Stored.find(
-      (event) => event.type === EventType.RUN_STARTED,
-    ) as RunStartedEvent;
+    const run1Started = run1Stored.find((event) => event.type === EventType.RUN_STARTED) as RunStartedEvent;
     expect(run1Started.input?.messages?.map((m) => m.id)).toEqual(["existing"]);
 
-    const run2Started = run2Stored.find(
-      (event) => event.type === EventType.RUN_STARTED,
-    ) as RunStartedEvent;
+    const run2Started = run2Stored.find((event) => event.type === EventType.RUN_STARTED) as RunStartedEvent;
     expect(run2Started.input?.messages?.map((m) => m.id)).toEqual(["new"]);
   });
 
@@ -331,10 +321,7 @@ describe("SqliteAgentRunner", () => {
         .pipe(toArray()),
     );
 
-    expect(events.map((event) => event.type)).toEqual([
-      EventType.RUN_STARTED,
-      EventType.RUN_FINISHED,
-    ]);
+    expect(events.map((event) => event.type)).toEqual([EventType.RUN_STARTED, EventType.RUN_FINISHED]);
     const runStarted = events[0] as RunStartedEvent;
     expect(runStarted.input).toBe(providedInput);
   });
@@ -375,9 +362,7 @@ describe("SqliteAgentRunner", () => {
 
     const newRunner = new SqliteAgentRunner({ dbPath });
     try {
-      const replayed = await firstValueFrom(
-        newRunner.connect({ threadId }).pipe(toArray()),
-      );
+      const replayed = await firstValueFrom(newRunner.connect({ threadId }).pipe(toArray()));
 
       expect(replayed[0].type).toBe(EventType.RUN_STARTED);
       expect(replayed.slice(1).map((event) => event.type)).toEqual([
@@ -392,9 +377,7 @@ describe("SqliteAgentRunner", () => {
   });
 
   it("returns false when stopping a thread that is not running", async () => {
-    await expect(runner.stop({ threadId: "sqlite-missing" })).resolves.toBe(
-      false,
-    );
+    await expect(runner.stop({ threadId: "sqlite-missing" })).resolves.toBe(false);
   });
 
   it("stops an active run and completes observables", async () => {

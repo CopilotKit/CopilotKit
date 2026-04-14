@@ -16,8 +16,7 @@ import { AnalyticsService } from "../services/analytics.service.js";
 import { BaseCommand } from "./base-command.js";
 
 const DEFAULT_CLOUD_BASE_URL = "https://cloud.copilotkit.ai";
-const CLOUD_BASE_URL =
-  process.env.COPILOT_CLOUD_BASE_URL ?? DEFAULT_CLOUD_BASE_URL;
+const CLOUD_BASE_URL = process.env.COPILOT_CLOUD_BASE_URL ?? DEFAULT_CLOUD_BASE_URL;
 
 export default class Dev extends BaseCommand {
   static override flags = {
@@ -27,8 +26,7 @@ export default class Dev extends BaseCommand {
     }),
   };
 
-  static override description =
-    "Start local development for a CopilotKit project";
+  static override description = "Start local development for a CopilotKit project";
   static override examples = [
     "<%= config.bin %> <%= command.id %> --port 8000 --project proj_mv3laowus0lz11kklo57bdr6",
   ];
@@ -58,9 +56,7 @@ export default class Dev extends BaseCommand {
       if (error?.data?.code === "NOT_FOUND") {
         this.gracefulError(error.message);
       } else {
-        this.gracefulError(
-          "Failed to ping tunnel. The connection may have been lost.",
-        );
+        this.gracefulError("Failed to ping tunnel. The connection may have been lost.");
       }
     }
 
@@ -72,8 +68,7 @@ export default class Dev extends BaseCommand {
     const { flags } = await this.parse(Dev);
 
     // Check authentication
-    const { cliToken, organization, user } =
-      await this.authService.requireLogin(this, "general");
+    const { cliToken, organization, user } = await this.authService.requireLogin(this, "general");
     const analytics = new AnalyticsService({
       userId: user.id,
       organizationId: organization.id,
@@ -89,9 +84,7 @@ export default class Dev extends BaseCommand {
 
     // Get project ID
     if (flags.project) {
-      if (
-        !availableProjects.some((project: any) => project.id === flags.project)
-      ) {
+      if (!availableProjects.some((project: any) => project.id === flags.project)) {
         this.log(chalk.red(`Project with ID ${flags.project} not found`));
         process.exit(1);
       }
@@ -115,9 +108,7 @@ export default class Dev extends BaseCommand {
     }
 
     // Remote endpoint type detection
-    const { type: remoteEndpointType } = await detectRemoteEndpointType(
-      `http://localhost:${flags.port}`,
-    );
+    const { type: remoteEndpointType } = await detectRemoteEndpointType(`http://localhost:${flags.port}`);
 
     if (remoteEndpointType === RemoteEndpointType.Invalid) {
       return this.gracefulError(
@@ -125,8 +116,7 @@ export default class Dev extends BaseCommand {
       );
     }
 
-    const humanReadableRemoteEndpointType =
-      getHumanReadableEndpointType(remoteEndpointType);
+    const humanReadableRemoteEndpointType = getHumanReadableEndpointType(remoteEndpointType);
 
     await analytics.track({
       event: "cli.dev.initiatied",
@@ -137,9 +127,7 @@ export default class Dev extends BaseCommand {
       },
     });
 
-    this.log(
-      chalk.green(`✅ ${humanReadableRemoteEndpointType} endpoint detected`),
-    );
+    this.log(chalk.green(`✅ ${humanReadableRemoteEndpointType} endpoint detected`));
     const spinner = ora("Creating tunnel...\n").start();
 
     const tunnelId = createId();
@@ -153,9 +141,7 @@ export default class Dev extends BaseCommand {
         // Print tunnel info
         this.log("\nTunnel Information:\n");
         this.log(`${chalk.bold.cyan("• Tunnel URL:\t\t")} ${chalk.white(url)}`);
-        this.log(
-          `${chalk.bold.cyan("• Endpoint Type:\t")} ${chalk.white(humanReadableRemoteEndpointType)}`,
-        );
+        this.log(`${chalk.bold.cyan("• Endpoint Type:\t")} ${chalk.white(humanReadableRemoteEndpointType)}`);
         this.log(
           `${chalk.bold.cyan("• Project:\t\t")} ${chalk.white(`${CLOUD_BASE_URL}/projects/${selectedProjectId!}`)}`,
         );
@@ -165,17 +151,13 @@ export default class Dev extends BaseCommand {
         spinner.text = "Linking local tunnel to Copilot Cloud...";
 
         // Report to Cloud
-        const { localTunnelId } =
-          await this.trpcClient!.reportRemoteEndpointLocalTunnel.mutate({
-            tunnelId: id,
-            projectId: selectedProjectId!,
-            endpointType:
-              remoteEndpointType === RemoteEndpointType.CopilotKit
-                ? "CopilotKit"
-                : "LangGraphCloud",
-            tunnelUrl: url,
-            port: parseInt(flags.port),
-          });
+        const { localTunnelId } = await this.trpcClient!.reportRemoteEndpointLocalTunnel.mutate({
+          tunnelId: id,
+          projectId: selectedProjectId!,
+          endpointType: remoteEndpointType === RemoteEndpointType.CopilotKit ? "CopilotKit" : "LangGraphCloud",
+          tunnelUrl: url,
+          port: parseInt(flags.port),
+        });
 
         this.copilotCloudTunnelId = localTunnelId;
 
@@ -239,12 +221,7 @@ export default class Dev extends BaseCommand {
     try {
       const testResponse = await Promise.race([
         fetch(`http://localhost:${port}`, { method: "HEAD" }),
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Connection timeout")),
-            CONNECTION_TEST_TIMEOUT,
-          ),
-        ),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Connection timeout")), CONNECTION_TEST_TIMEOUT)),
       ]);
     } catch (error) {
       spinner.fail();
@@ -263,18 +240,13 @@ export default class Dev extends BaseCommand {
           subdomain: tunnelId,
         }),
         new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error("Tunnel creation timeout")),
-            TUNNEL_TIMEOUT,
-          ),
+          setTimeout(() => reject(new Error("Tunnel creation timeout")), TUNNEL_TIMEOUT),
         ),
       ]);
 
       // Handle tunnel events
       tunnel.on("request", (info: any) => {
-        this.log(
-          `${chalk.green("➜")} ${chalk.white(new Date().toISOString())} - ${info.method} ${info.path}`,
-        );
+        this.log(`${chalk.green("➜")} ${chalk.white(new Date().toISOString())} - ${info.method} ${info.path}`);
       });
 
       tunnel.on("error", (err: any) => {

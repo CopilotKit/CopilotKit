@@ -6,9 +6,10 @@ import { useCallback, useEffect, useRef } from "react";
 import React from "react";
 import { useFrontendTool } from "./use-frontend-tool";
 
-export function useHumanInTheLoop<
-  T extends Record<string, unknown> = Record<string, unknown>,
->(tool: ReactHumanInTheLoop<T>, deps?: ReadonlyArray<unknown>) {
+export function useHumanInTheLoop<T extends Record<string, unknown> = Record<string, unknown>>(
+  tool: ReactHumanInTheLoop<T>,
+  deps?: ReadonlyArray<unknown>,
+) {
   const { copilotkit } = useCopilotKit();
   const resolvePromiseRef = useRef<((result: unknown) => void) | null>(null);
 

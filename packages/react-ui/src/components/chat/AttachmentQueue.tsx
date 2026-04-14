@@ -1,10 +1,6 @@
 import React from "react";
 import type { Attachment } from "./props";
-import {
-  formatFileSize,
-  getSourceUrl,
-  getDocumentIcon,
-} from "@copilotkit/shared";
+import { formatFileSize, getSourceUrl, getDocumentIcon } from "@copilotkit/shared";
 
 interface AttachmentQueueProps {
   attachments: Attachment[];
@@ -66,11 +62,7 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) {
       return (
         <div className="copilotKitAttachmentQueuePreviewAudio">
           <audio src={src} controls preload="metadata" />
-          {attachment.filename && (
-            <span className="copilotKitAttachmentQueueFilename">
-              {attachment.filename}
-            </span>
-          )}
+          {attachment.filename && <span className="copilotKitAttachmentQueueFilename">{attachment.filename}</span>}
         </div>
       );
 
@@ -84,12 +76,7 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) {
               className="copilotKitAttachmentQueuePreviewImage"
             />
           ) : (
-            <video
-              src={src}
-              preload="metadata"
-              muted
-              className="copilotKitAttachmentQueuePreviewImage"
-            />
+            <video src={src} preload="metadata" muted className="copilotKitAttachmentQueuePreviewImage" />
           )}
         </div>
       );
@@ -97,17 +84,11 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) {
     case "document":
       return (
         <div className="copilotKitAttachmentQueuePreviewDocument">
-          <div className="copilotKitAttachmentQueueDocIcon">
-            {getDocumentIcon(attachment.source.mimeType ?? "")}
-          </div>
+          <div className="copilotKitAttachmentQueueDocIcon">{getDocumentIcon(attachment.source.mimeType ?? "")}</div>
           <div className="copilotKitAttachmentQueueDocInfo">
-            <span className="copilotKitAttachmentQueueFilename">
-              {attachment.filename || "Document"}
-            </span>
+            <span className="copilotKitAttachmentQueueFilename">{attachment.filename || "Document"}</span>
             {attachment.size != null && (
-              <span className="copilotKitAttachmentQueueFileSize">
-                {formatFileSize(attachment.size)}
-              </span>
+              <span className="copilotKitAttachmentQueueFileSize">{formatFileSize(attachment.size)}</span>
             )}
           </div>
         </div>

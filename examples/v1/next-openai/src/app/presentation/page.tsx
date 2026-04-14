@@ -12,9 +12,7 @@ export default function AIPresentation() {
   const searchParams = useSearchParams();
   const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
 
-  const runtimeUrl =
-    searchParams.get("runtimeUrl") ||
-    `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
+  const runtimeUrl = searchParams.get("runtimeUrl") || `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
   const publicApiKey = searchParams.get("publicApiKey");
 
   const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
@@ -44,16 +42,12 @@ export default function AIPresentation() {
           defaultOpen={true}
           labels={{
             title: "Presentation Copilot",
-            initial:
-              "Hi you! 👋 I can help you create a presentation on any topic.",
+            initial: "Hi you! 👋 I can help you create a presentation on any topic.",
           }}
           clickOutsideToClose={false}
         >
           <div className="relative">
-            <Presentation
-              performResearch={performResearch}
-              setPerformResearch={setPerformResearch}
-            />
+            <Presentation performResearch={performResearch} setPerformResearch={setPerformResearch} />
           </div>
         </CopilotSidebar>
       </div>

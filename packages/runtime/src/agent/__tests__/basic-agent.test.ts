@@ -1,12 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { z } from "zod";
 import { BasicAgent, defineTool, type ToolDefinition } from "../index";
-import {
-  EventType,
-  type BaseEvent,
-  type ReasoningStartEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
+import { EventType, type BaseEvent, type ReasoningStartEvent, type RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
 import {
   mockStreamTextResponse,
@@ -74,9 +69,7 @@ describe("BasicAgent", () => {
         model: "openai/gpt-4o",
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([textDelta("Hello"), finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([textDelta("Hello"), finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -108,11 +101,7 @@ describe("BasicAgent", () => {
       });
 
       vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([
-          textDelta("Hello"),
-          textDelta(" world"),
-          finish(),
-        ]) as any,
+        mockStreamTextResponse([textDelta("Hello"), textDelta(" world"), finish()]) as any,
       );
 
       const input: RunAgentInput = {
@@ -126,9 +115,7 @@ describe("BasicAgent", () => {
 
       const events = await collectEvents(agent["run"](input));
 
-      const textEvents = events.filter(
-        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      );
+      const textEvents = events.filter((e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK);
       expect(textEvents).toHaveLength(2);
       expect(textEvents[0]).toMatchObject({
         type: EventType.TEXT_MESSAGE_CHUNK,
@@ -165,16 +152,12 @@ describe("BasicAgent", () => {
 
       const events = await collectEvents(agent["run"](input));
 
-      const textEvents = events.filter(
-        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      );
+      const textEvents = events.filter((e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK);
       expect(textEvents).toHaveLength(1);
 
       // Verify that messageId is NOT "0" - should be a UUID
       expect(textEvents[0].messageId).not.toBe("0");
-      expect(textEvents[0].messageId).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-      );
+      expect(textEvents[0].messageId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     });
 
     it("should use provider-supplied messageId when it's not '0'", async () => {
@@ -202,9 +185,7 @@ describe("BasicAgent", () => {
 
       const events = await collectEvents(agent["run"](input));
 
-      const textEvents = events.filter(
-        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      );
+      const textEvents = events.filter((e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK);
       expect(textEvents).toHaveLength(1);
 
       // Verify that the valid ID from provider is used
@@ -241,9 +222,7 @@ describe("BasicAgent", () => {
       const events = await collectEvents(agent["run"](input));
 
       // Check for TOOL_CALL_START
-      const startEvent = events.find(
-        (e: any) => e.type === EventType.TOOL_CALL_START,
-      );
+      const startEvent = events.find((e: any) => e.type === EventType.TOOL_CALL_START);
       expect(startEvent).toMatchObject({
         type: EventType.TOOL_CALL_START,
         toolCallId: "call1",
@@ -251,24 +230,18 @@ describe("BasicAgent", () => {
       });
 
       // Check for TOOL_CALL_ARGS
-      const argsEvents = events.filter(
-        (e: any) => e.type === EventType.TOOL_CALL_ARGS,
-      );
+      const argsEvents = events.filter((e: any) => e.type === EventType.TOOL_CALL_ARGS);
       expect(argsEvents).toHaveLength(2);
 
       // Check for TOOL_CALL_END
-      const endEvent = events.find(
-        (e: any) => e.type === EventType.TOOL_CALL_END,
-      );
+      const endEvent = events.find((e: any) => e.type === EventType.TOOL_CALL_END);
       expect(endEvent).toMatchObject({
         type: EventType.TOOL_CALL_END,
         toolCallId: "call1",
       });
 
       // Check for TOOL_CALL_RESULT
-      const resultEvent = events.find(
-        (e: any) => e.type === EventType.TOOL_CALL_RESULT,
-      );
+      const resultEvent = events.find((e: any) => e.type === EventType.TOOL_CALL_RESULT);
       expect(resultEvent).toMatchObject({
         type: EventType.TOOL_CALL_RESULT,
         role: "tool",
@@ -283,9 +256,7 @@ describe("BasicAgent", () => {
         model: "openai/gpt-4o",
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -309,9 +280,7 @@ describe("BasicAgent", () => {
         prompt: "You are a helpful assistant.",
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -337,9 +306,7 @@ describe("BasicAgent", () => {
         model: "openai/gpt-4o",
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -370,9 +337,7 @@ describe("BasicAgent", () => {
         model: "openai/gpt-4o",
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -401,9 +366,7 @@ describe("BasicAgent", () => {
         prompt: "You are helpful.",
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -424,9 +387,7 @@ describe("BasicAgent", () => {
 
       // Check order: prompt, then context, then state
       const promptIndex = systemMessage.content.indexOf("You are helpful.");
-      const contextIndex = systemMessage.content.indexOf(
-        "Context from the application",
-      );
+      const contextIndex = systemMessage.content.indexOf("Context from the application");
       const stateIndex = systemMessage.content.indexOf("Application State");
 
       expect(promptIndex).toBeLessThan(contextIndex);
@@ -440,9 +401,7 @@ describe("BasicAgent", () => {
         model: "openai/gpt-4o",
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -469,9 +428,7 @@ describe("BasicAgent", () => {
         model: "openai/gpt-4o",
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -499,9 +456,7 @@ describe("BasicAgent", () => {
         forwardSystemMessages: true,
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -532,9 +487,7 @@ describe("BasicAgent", () => {
         forwardDeveloperMessages: true,
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -567,9 +520,7 @@ describe("BasicAgent", () => {
         forwardDeveloperMessages: true,
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -607,9 +558,7 @@ describe("BasicAgent", () => {
         forwardDeveloperMessages: true,
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -659,9 +608,7 @@ describe("BasicAgent", () => {
         tools: [tool1],
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -691,9 +638,7 @@ describe("BasicAgent", () => {
         tools: [configTool],
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -722,9 +667,7 @@ describe("BasicAgent", () => {
         model: "openai/gpt-4o",
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -751,9 +694,7 @@ describe("BasicAgent", () => {
         overridableProperties: ["temperature"],
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -778,9 +719,7 @@ describe("BasicAgent", () => {
         overridableProperties: [], // No properties can be overridden
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -861,26 +800,20 @@ describe("BasicAgent", () => {
       expect(eventTypes[0]).toBe(EventType.RUN_STARTED);
 
       const reasoningStartIdx = eventTypes.indexOf(EventType.REASONING_START);
-      const reasoningMsgStartIdx = eventTypes.indexOf(
-        EventType.REASONING_MESSAGE_START,
-      );
+      const reasoningMsgStartIdx = eventTypes.indexOf(EventType.REASONING_MESSAGE_START);
       const reasoningContentIndices = eventTypes.reduce(
         (acc: number[], type: string, idx: number) =>
           type === EventType.REASONING_MESSAGE_CONTENT ? [...acc, idx] : acc,
         [],
       );
-      const reasoningMsgEndIdx = eventTypes.indexOf(
-        EventType.REASONING_MESSAGE_END,
-      );
+      const reasoningMsgEndIdx = eventTypes.indexOf(EventType.REASONING_MESSAGE_END);
       const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
 
       expect(reasoningStartIdx).toBeGreaterThan(0);
       expect(reasoningMsgStartIdx).toBeGreaterThan(reasoningStartIdx);
       expect(reasoningContentIndices).toHaveLength(2);
       expect(reasoningContentIndices[0]).toBeGreaterThan(reasoningMsgStartIdx);
-      expect(reasoningMsgEndIdx).toBeGreaterThan(
-        reasoningContentIndices[reasoningContentIndices.length - 1],
-      );
+      expect(reasoningMsgEndIdx).toBeGreaterThan(reasoningContentIndices[reasoningContentIndices.length - 1]);
       expect(reasoningEndIdx).toBeGreaterThan(reasoningMsgEndIdx);
 
       // Verify consistent messageId across all reasoning events
@@ -897,15 +830,11 @@ describe("BasicAgent", () => {
       expect(new Set(messageIds).size).toBe(1);
 
       // Verify REASONING_MESSAGE_START has role "reasoning"
-      const msgStartEvent = events.find(
-        (e: any) => e.type === EventType.REASONING_MESSAGE_START,
-      );
+      const msgStartEvent = events.find((e: any) => e.type === EventType.REASONING_MESSAGE_START);
       expect(msgStartEvent).toMatchObject({ role: "reasoning" });
 
       // Verify content deltas
-      const contentEvents = events.filter(
-        (e: any) => e.type === EventType.REASONING_MESSAGE_CONTENT,
-      );
+      const contentEvents = events.filter((e: any) => e.type === EventType.REASONING_MESSAGE_CONTENT);
       expect(contentEvents[0]).toMatchObject({ delta: "Let me think..." });
       expect(contentEvents[1]).toMatchObject({ delta: " about this." });
 
@@ -946,12 +875,8 @@ describe("BasicAgent", () => {
       expect(reasoningEndIdx).toBeLessThan(textChunkIdx);
 
       // Reasoning messageId should differ from text messageId
-      const reasoningEvent = events.find(
-        (e: any) => e.type === EventType.REASONING_START,
-      );
-      const textEvent = events.find(
-        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      );
+      const reasoningEvent = events.find((e: any) => e.type === EventType.REASONING_START);
+      const textEvent = events.find((e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK);
       expect(reasoningEvent.messageId).not.toBe(textEvent.messageId);
     });
 
@@ -1001,12 +926,7 @@ describe("BasicAgent", () => {
       });
 
       vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([
-          reasoningStart("0"),
-          reasoningDelta("content"),
-          reasoningEnd(),
-          finish(),
-        ]) as any,
+        mockStreamTextResponse([reasoningStart("0"), reasoningDelta("content"), reasoningEnd(), finish()]) as any,
       );
 
       const input: RunAgentInput = {
@@ -1020,13 +940,9 @@ describe("BasicAgent", () => {
 
       const events = await collectEvents(agent["run"](input));
 
-      const reasoningEvent = events.find(
-        (e: any) => e.type === EventType.REASONING_START,
-      );
+      const reasoningEvent = events.find((e: any) => e.type === EventType.REASONING_START);
       expect(reasoningEvent.messageId).not.toBe("0");
-      expect(reasoningEvent.messageId).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-      );
+      expect(reasoningEvent.messageId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     });
 
     it("should handle empty reasoning content", async () => {
@@ -1035,12 +951,7 @@ describe("BasicAgent", () => {
       });
 
       vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([
-          reasoningStart(),
-          reasoningDelta(""),
-          reasoningEnd(),
-          finish(),
-        ]) as any,
+        mockStreamTextResponse([reasoningStart(), reasoningDelta(""), reasoningEnd(), finish()]) as any,
       );
 
       const input: RunAgentInput = {
@@ -1055,9 +966,7 @@ describe("BasicAgent", () => {
       const events = await collectEvents(agent["run"](input));
 
       // Empty delta must NOT be emitted — EventSchemas rejects delta: ""
-      const contentEvents = events.filter(
-        (e: any) => e.type === EventType.REASONING_MESSAGE_CONTENT,
-      );
+      const contentEvents = events.filter((e: any) => e.type === EventType.REASONING_MESSAGE_CONTENT);
       expect(contentEvents).toHaveLength(0);
 
       // Full lifecycle should still complete
@@ -1075,12 +984,7 @@ describe("BasicAgent", () => {
       });
 
       vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([
-          reasoningStart(),
-          reasoningDelta("Deep thought"),
-          reasoningEnd(),
-          finish(),
-        ]),
+        mockStreamTextResponse([reasoningStart(), reasoningDelta("Deep thought"), reasoningEnd(), finish()]),
       );
 
       const input: RunAgentInput = {
@@ -1095,15 +999,11 @@ describe("BasicAgent", () => {
       const events = await collectEvents(agent["run"](input));
 
       // No TEXT_MESSAGE_CHUNK events
-      const textEvents = events.filter(
-        (e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK,
-      );
+      const textEvents = events.filter((e: any) => e.type === EventType.TEXT_MESSAGE_CHUNK);
       expect(textEvents).toHaveLength(0);
 
       // Reasoning events are present
-      const reasoningContentEvents = events.filter(
-        (e: any) => e.type === EventType.REASONING_MESSAGE_CONTENT,
-      );
+      const reasoningContentEvents = events.filter((e: any) => e.type === EventType.REASONING_MESSAGE_CONTENT);
       expect(reasoningContentEvents).toHaveLength(1);
       expect(reasoningContentEvents[0]).toMatchObject({
         delta: "Deep thought",
@@ -1116,12 +1016,7 @@ describe("BasicAgent", () => {
       });
 
       vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([
-          reasoningStart(),
-          reasoningDelta(""),
-          reasoningEnd(),
-          finish(),
-        ]),
+        mockStreamTextResponse([reasoningStart(), reasoningDelta(""), reasoningEnd(), finish()]),
       );
 
       const input: RunAgentInput = {
@@ -1136,9 +1031,7 @@ describe("BasicAgent", () => {
       const events = await collectEvents(agent["run"](input));
 
       // No REASONING_MESSAGE_CONTENT events — empty delta skipped
-      const contentEvents = events.filter(
-        (e) => e.type === EventType.REASONING_MESSAGE_CONTENT,
-      );
+      const contentEvents = events.filter((e) => e.type === EventType.REASONING_MESSAGE_CONTENT);
       expect(contentEvents).toHaveLength(0);
 
       // Stream still completes with RUN_FINISHED
@@ -1177,9 +1070,7 @@ describe("BasicAgent", () => {
       const eventTypes = events.map((e) => e.type);
 
       // REASONING_MESSAGE_END must appear before REASONING_END, which must appear before TOOL_CALL_START
-      const reasoningMsgEndIdx = eventTypes.indexOf(
-        EventType.REASONING_MESSAGE_END,
-      );
+      const reasoningMsgEndIdx = eventTypes.indexOf(EventType.REASONING_MESSAGE_END);
       const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
       const toolCallStartIdx = eventTypes.indexOf(EventType.TOOL_CALL_START);
       expect(reasoningMsgEndIdx).toBeGreaterThan(0);
@@ -1187,12 +1078,8 @@ describe("BasicAgent", () => {
       expect(reasoningEndIdx).toBeLessThan(toolCallStartIdx);
 
       // Each close event must appear exactly once (guard against double-emit)
-      expect(
-        eventTypes.filter((t) => t === EventType.REASONING_MESSAGE_END),
-      ).toHaveLength(1);
-      expect(
-        eventTypes.filter((t) => t === EventType.REASONING_END),
-      ).toHaveLength(1);
+      expect(eventTypes.filter((t) => t === EventType.REASONING_MESSAGE_END)).toHaveLength(1);
+      expect(eventTypes.filter((t) => t === EventType.REASONING_END)).toHaveLength(1);
 
       // Stream still completes with RUN_FINISHED
       expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
@@ -1227,9 +1114,7 @@ describe("BasicAgent", () => {
       const eventTypes = events.map((e) => e.type);
 
       // REASONING_MESSAGE_END must appear before REASONING_END, which must appear before TEXT_MESSAGE_CHUNK
-      const reasoningMsgEndIdx = eventTypes.indexOf(
-        EventType.REASONING_MESSAGE_END,
-      );
+      const reasoningMsgEndIdx = eventTypes.indexOf(EventType.REASONING_MESSAGE_END);
       const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
       const textChunkIdx = eventTypes.indexOf(EventType.TEXT_MESSAGE_CHUNK);
       expect(reasoningMsgEndIdx).toBeGreaterThan(0);
@@ -1237,12 +1122,8 @@ describe("BasicAgent", () => {
       expect(reasoningEndIdx).toBeLessThan(textChunkIdx);
 
       // Each close event must appear exactly once (guard against double-emit)
-      expect(
-        eventTypes.filter((t) => t === EventType.REASONING_MESSAGE_END),
-      ).toHaveLength(1);
-      expect(
-        eventTypes.filter((t) => t === EventType.REASONING_END),
-      ).toHaveLength(1);
+      expect(eventTypes.filter((t) => t === EventType.REASONING_MESSAGE_END)).toHaveLength(1);
+      expect(eventTypes.filter((t) => t === EventType.REASONING_END)).toHaveLength(1);
 
       // Stream still completes with RUN_FINISHED
       expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
@@ -1275,20 +1156,14 @@ describe("BasicAgent", () => {
       const eventTypes = events.map((e) => e.type);
 
       // REASONING_MESSAGE_END must appear before REASONING_END (auto-closed by finish case)
-      const reasoningMsgEndIdx = eventTypes.indexOf(
-        EventType.REASONING_MESSAGE_END,
-      );
+      const reasoningMsgEndIdx = eventTypes.indexOf(EventType.REASONING_MESSAGE_END);
       const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
       expect(reasoningMsgEndIdx).toBeGreaterThan(0);
       expect(reasoningEndIdx).toBeGreaterThan(reasoningMsgEndIdx);
 
       // Each close event must appear exactly once (guard against double-emit)
-      expect(
-        eventTypes.filter((t) => t === EventType.REASONING_MESSAGE_END),
-      ).toHaveLength(1);
-      expect(
-        eventTypes.filter((t) => t === EventType.REASONING_END),
-      ).toHaveLength(1);
+      expect(eventTypes.filter((t) => t === EventType.REASONING_MESSAGE_END)).toHaveLength(1);
+      expect(eventTypes.filter((t) => t === EventType.REASONING_END)).toHaveLength(1);
 
       // Stream still completes with RUN_FINISHED
       expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
@@ -1321,9 +1196,7 @@ describe("BasicAgent", () => {
       const eventTypes = events.map((e) => e.type);
 
       // REASONING_MESSAGE_END must appear before REASONING_END, both before RUN_FINISHED
-      const reasoningMsgEndIdx = eventTypes.indexOf(
-        EventType.REASONING_MESSAGE_END,
-      );
+      const reasoningMsgEndIdx = eventTypes.indexOf(EventType.REASONING_MESSAGE_END);
       const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
       const runFinishedIdx = eventTypes.indexOf(EventType.RUN_FINISHED);
       expect(reasoningMsgEndIdx).toBeGreaterThan(0);
@@ -1331,12 +1204,8 @@ describe("BasicAgent", () => {
       expect(runFinishedIdx).toBeGreaterThan(reasoningEndIdx);
 
       // Each close event must appear exactly once (guard against double-emit)
-      expect(
-        eventTypes.filter((t) => t === EventType.REASONING_MESSAGE_END),
-      ).toHaveLength(1);
-      expect(
-        eventTypes.filter((t) => t === EventType.REASONING_END),
-      ).toHaveLength(1);
+      expect(eventTypes.filter((t) => t === EventType.REASONING_MESSAGE_END)).toHaveLength(1);
+      expect(eventTypes.filter((t) => t === EventType.REASONING_END)).toHaveLength(1);
 
       // Stream still completes with RUN_FINISHED
       expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
@@ -1378,9 +1247,7 @@ describe("BasicAgent", () => {
       const eventTypes = events.map((e) => e.type);
 
       // REASONING_MESSAGE_END must appear before REASONING_END, both before RUN_ERROR
-      const reasoningMsgEndIdx = eventTypes.indexOf(
-        EventType.REASONING_MESSAGE_END,
-      );
+      const reasoningMsgEndIdx = eventTypes.indexOf(EventType.REASONING_MESSAGE_END);
       const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
       const runErrorIdx = eventTypes.indexOf(EventType.RUN_ERROR);
       expect(reasoningMsgEndIdx).toBeGreaterThan(0);
@@ -1388,12 +1255,8 @@ describe("BasicAgent", () => {
       expect(runErrorIdx).toBeGreaterThan(reasoningEndIdx);
 
       // Each close event must appear exactly once (guard against double-emit)
-      expect(
-        eventTypes.filter((t) => t === EventType.REASONING_MESSAGE_END),
-      ).toHaveLength(1);
-      expect(
-        eventTypes.filter((t) => t === EventType.REASONING_END),
-      ).toHaveLength(1);
+      expect(eventTypes.filter((t) => t === EventType.REASONING_MESSAGE_END)).toHaveLength(1);
+      expect(eventTypes.filter((t) => t === EventType.REASONING_END)).toHaveLength(1);
     });
 
     it("should auto-close reasoning for consecutive blocks with no reasoning-end between them", async () => {
@@ -1426,24 +1289,16 @@ describe("BasicAgent", () => {
       const eventTypes = events.map((e) => e.type);
 
       // Both reasoning blocks must be properly closed — two complete lifecycles
-      expect(
-        eventTypes.filter((t) => t === EventType.REASONING_MESSAGE_END),
-      ).toHaveLength(2);
-      expect(
-        eventTypes.filter((t) => t === EventType.REASONING_END),
-      ).toHaveLength(2);
+      expect(eventTypes.filter((t) => t === EventType.REASONING_MESSAGE_END)).toHaveLength(2);
+      expect(eventTypes.filter((t) => t === EventType.REASONING_END)).toHaveLength(2);
 
       // First block's REASONING_END must appear before second block's REASONING_START
       const firstReasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
-      const secondReasoningStartIdx = eventTypes.lastIndexOf(
-        EventType.REASONING_START,
-      );
+      const secondReasoningStartIdx = eventTypes.lastIndexOf(EventType.REASONING_START);
       expect(firstReasoningEndIdx).toBeLessThan(secondReasoningStartIdx);
 
       // The two blocks must use distinct messageIds
-      const startEvents = events.filter(
-        (e): e is ReasoningStartEvent => e.type === EventType.REASONING_START,
-      );
+      const startEvents = events.filter((e): e is ReasoningStartEvent => e.type === EventType.REASONING_START);
       expect(startEvents).toHaveLength(2);
       expect(startEvents[0].messageId).not.toBe(startEvents[1].messageId);
 
@@ -1463,9 +1318,7 @@ describe("BasicAgent", () => {
           throw new Error("unexpected network failure");
         })(),
       };
-      vi.mocked(streamText).mockReturnValue(
-        throwingStream as unknown as ReturnType<typeof streamText>,
-      );
+      vi.mocked(streamText).mockReturnValue(throwingStream as unknown as ReturnType<typeof streamText>);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -1489,21 +1342,15 @@ describe("BasicAgent", () => {
       const eventTypes = events.map((e) => e.type);
 
       // Reasoning must be closed before RUN_ERROR despite the exception path
-      const reasoningMsgEndIdx = eventTypes.indexOf(
-        EventType.REASONING_MESSAGE_END,
-      );
+      const reasoningMsgEndIdx = eventTypes.indexOf(EventType.REASONING_MESSAGE_END);
       const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
       const runErrorIdx = eventTypes.indexOf(EventType.RUN_ERROR);
       expect(reasoningMsgEndIdx).toBeGreaterThan(0);
       expect(reasoningEndIdx).toBeGreaterThan(reasoningMsgEndIdx);
       expect(runErrorIdx).toBeGreaterThan(reasoningEndIdx);
 
-      expect(
-        eventTypes.filter((t) => t === EventType.REASONING_MESSAGE_END),
-      ).toHaveLength(1);
-      expect(
-        eventTypes.filter((t) => t === EventType.REASONING_END),
-      ).toHaveLength(1);
+      expect(eventTypes.filter((t) => t === EventType.REASONING_MESSAGE_END)).toHaveLength(1);
+      expect(eventTypes.filter((t) => t === EventType.REASONING_END)).toHaveLength(1);
     });
 
     it("should close reasoning and emit RUN_FINISHED when stream exhausts without terminal event", async () => {
@@ -1533,21 +1380,15 @@ describe("BasicAgent", () => {
       const eventTypes = events.map((e) => e.type);
 
       // Reasoning must be closed before RUN_FINISHED via fallback
-      const reasoningMsgEndIdx = eventTypes.indexOf(
-        EventType.REASONING_MESSAGE_END,
-      );
+      const reasoningMsgEndIdx = eventTypes.indexOf(EventType.REASONING_MESSAGE_END);
       const reasoningEndIdx = eventTypes.indexOf(EventType.REASONING_END);
       const runFinishedIdx = eventTypes.indexOf(EventType.RUN_FINISHED);
       expect(reasoningMsgEndIdx).toBeGreaterThan(0);
       expect(reasoningEndIdx).toBeGreaterThan(reasoningMsgEndIdx);
       expect(runFinishedIdx).toBeGreaterThan(reasoningEndIdx);
 
-      expect(
-        eventTypes.filter((t) => t === EventType.REASONING_MESSAGE_END),
-      ).toHaveLength(1);
-      expect(
-        eventTypes.filter((t) => t === EventType.REASONING_END),
-      ).toHaveLength(1);
+      expect(eventTypes.filter((t) => t === EventType.REASONING_MESSAGE_END)).toHaveLength(1);
+      expect(eventTypes.filter((t) => t === EventType.REASONING_END)).toHaveLength(1);
 
       expect(eventTypes[eventTypes.length - 1]).toBe(EventType.RUN_FINISHED);
     });
@@ -1604,9 +1445,7 @@ describe("BasicAgent", () => {
         },
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -1634,9 +1473,7 @@ describe("BasicAgent", () => {
         overridableProperties: ["providerOptions"],
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -1669,9 +1506,7 @@ describe("BasicAgent", () => {
         overridableProperties: [],
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",

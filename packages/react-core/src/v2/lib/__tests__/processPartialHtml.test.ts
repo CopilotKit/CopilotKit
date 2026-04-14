@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  processPartialHtml,
-  extractCompleteStyles,
-} from "../processPartialHtml";
+import { processPartialHtml, extractCompleteStyles } from "../processPartialHtml";
 
 describe("processPartialHtml", () => {
   it("returns empty string for empty input", () => {
@@ -14,8 +11,7 @@ describe("processPartialHtml", () => {
   });
 
   it("strips complete <style> blocks", () => {
-    const input =
-      "<div>Hello</div><style>.foo { color: red; }</style><p>World</p>";
+    const input = "<div>Hello</div><style>.foo { color: red; }</style><p>World</p>";
     expect(processPartialHtml(input)).toBe("<div>Hello</div><p>World</p>");
   });
 
@@ -40,14 +36,11 @@ describe("processPartialHtml", () => {
   });
 
   it("preserves complete entities", () => {
-    expect(processPartialHtml("<p>Hello &amp; World</p>")).toBe(
-      "<p>Hello &amp; World</p>",
-    );
+    expect(processPartialHtml("<p>Hello &amp; World</p>")).toBe("<p>Hello &amp; World</p>");
   });
 
   it("extracts body content from full HTML document", () => {
-    const input =
-      "<html><head><title>Test</title></head><body><p>Content</p></body></html>";
+    const input = "<html><head><title>Test</title></head><body><p>Content</p></body></html>";
     expect(processPartialHtml(input)).toBe("<p>Content</p>");
   });
 
@@ -83,18 +76,13 @@ describe("extractCompleteStyles", () => {
   });
 
   it("extracts a single complete style block", () => {
-    const input =
-      "<div>Hello</div><style>.foo { color: red; }</style><p>World</p>";
-    expect(extractCompleteStyles(input)).toBe(
-      "<style>.foo { color: red; }</style>",
-    );
+    const input = "<div>Hello</div><style>.foo { color: red; }</style><p>World</p>";
+    expect(extractCompleteStyles(input)).toBe("<style>.foo { color: red; }</style>");
   });
 
   it("extracts multiple complete style blocks", () => {
     const input = "<style>a{}</style><div>X</div><style>b{}</style>";
-    expect(extractCompleteStyles(input)).toBe(
-      "<style>a{}</style><style>b{}</style>",
-    );
+    expect(extractCompleteStyles(input)).toBe("<style>a{}</style><style>b{}</style>");
   });
 
   it("ignores incomplete style blocks", () => {
@@ -103,10 +91,7 @@ describe("extractCompleteStyles", () => {
   });
 
   it("extracts styles from head", () => {
-    const input =
-      "<head><style>body { margin: 0; }</style></head><body><p>Hi</p></body>";
-    expect(extractCompleteStyles(input)).toBe(
-      "<style>body { margin: 0; }</style>",
-    );
+    const input = "<head><style>body { margin: 0; }</style></head><body><p>Hi</p></body>";
+    expect(extractCompleteStyles(input)).toBe("<style>body { margin: 0; }</style>");
   });
 });

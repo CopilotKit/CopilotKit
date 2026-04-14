@@ -57,9 +57,7 @@ function Section({
       >
         <div className="flex items-center gap-3">
           <Icon className="w-5 h-5 text-[var(--color-text-secondary)]" />
-          <span className="font-semibold text-[var(--color-text-primary)]">
-            {title}
-          </span>
+          <span className="font-semibold text-[var(--color-text-primary)]">{title}</span>
           {badge !== undefined && badge > 0 && (
             <span
               style={{
@@ -150,13 +148,7 @@ function TodoList({ todos }: { todos: Todo[] }) {
 }
 
 // File list component with click-to-view and animations
-function FileList({
-  files,
-  onFileClick,
-}: {
-  files: ResearchFile[];
-  onFileClick: (file: ResearchFile) => void;
-}) {
+function FileList({ files, onFileClick }: { files: ResearchFile[]; onFileClick: (file: ResearchFile) => void }) {
   if (files.length === 0) {
     return (
       <div
@@ -184,22 +176,14 @@ function FileList({
   return (
     <div className="space-y-2">
       {files.map((file, i) => (
-        <div
-          key={`${file.path}-${i}`}
-          className="file-item animate-fadeSlideIn"
-          onClick={() => onFileClick(file)}
-        >
+        <div key={`${file.path}-${i}`} className="file-item animate-fadeSlideIn" onClick={() => onFileClick(file)}>
           <div className="flex items-center gap-3">
             <div className="file-item-icon">
               <FileText className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-sm font-medium text-[var(--color-text-primary)]">
-                {file.path.split("/").pop()}
-              </p>
-              <p className="text-xs text-[var(--color-text-tertiary)]">
-                {file.path}
-              </p>
+              <p className="text-sm font-medium text-[var(--color-text-primary)]">{file.path.split("/").pop()}</p>
+              <p className="text-xs text-[var(--color-text-tertiary)]">{file.path}</p>
             </div>
           </div>
           <button
@@ -251,26 +235,14 @@ function SourceList({ sources }: { sources: Source[] }) {
         <div
           key={`${source.url}-${i}`}
           className={`file-item animate-fadeSlideIn ${source.status === "failed" ? "source-failed" : ""}`}
-          title={
-            source.status === "failed"
-              ? "Failed to scrape this source"
-              : undefined
-          }
+          title={source.status === "failed" ? "Failed to scrape this source" : undefined}
         >
           <div className="flex items-center gap-3">
             <span
               className={`source-indicator ${
-                source.status === "scraped"
-                  ? "status-completed"
-                  : source.status === "failed"
-                    ? ""
-                    : "status-pending"
+                source.status === "scraped" ? "status-completed" : source.status === "failed" ? "" : "status-pending"
               }`}
-              style={
-                source.status === "failed"
-                  ? { color: "var(--color-error)" }
-                  : undefined
-              }
+              style={source.status === "failed" ? { color: "var(--color-error)" } : undefined}
             >
               {source.status === "scraped" ? (
                 <Check size={14} style={{ color: "var(--color-success)" }} />
@@ -320,12 +292,8 @@ export function Workspace({ state }: WorkspaceProps) {
   return (
     <div className="workspace-panel p-6">
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-[var(--color-text-primary)]">
-          Workspace
-        </h2>
-        <p className="text-sm text-[var(--color-text-secondary)]">
-          Research progress and artifacts
-        </p>
+        <h2 className="text-xl font-bold text-[var(--color-text-primary)]">Workspace</h2>
+        <p className="text-sm text-[var(--color-text-secondary)]">Research progress and artifacts</p>
       </div>
 
       <Section title="Research Plan" icon={ListTodo} badge={todoCount}>
@@ -341,10 +309,7 @@ export function Workspace({ state }: WorkspaceProps) {
       </Section>
 
       {/* File Viewer Modal */}
-      <FileViewerModal
-        file={selectedFile}
-        onClose={() => setSelectedFile(null)}
-      />
+      <FileViewerModal file={selectedFile} onClose={() => setSelectedFile(null)} />
     </div>
   );
 }

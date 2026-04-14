@@ -30,22 +30,19 @@ export const ButtonApiDef = {
   schema: ButtonSchema,
 };
 
-export const Button = createReactComponent(
-  ButtonApiDef,
-  ({ props, buildChild }) => {
-    const style: React.CSSProperties = {
-      padding: "8px 16px",
-      cursor: "pointer",
-      border: props.variant === "borderless" ? "none" : "1px solid #ccc",
-      backgroundColor: props.variant === "primary" ? "#007bff" : "transparent",
-      color: props.variant === "primary" ? "#fff" : "inherit",
-      borderRadius: "4px",
-    };
+export const Button = createReactComponent(ButtonApiDef, ({ props, buildChild }) => {
+  const style: React.CSSProperties = {
+    padding: "8px 16px",
+    cursor: "pointer",
+    border: props.variant === "borderless" ? "none" : "1px solid #ccc",
+    backgroundColor: props.variant === "primary" ? "#007bff" : "transparent",
+    color: props.variant === "primary" ? "#fff" : "inherit",
+    borderRadius: "4px",
+  };
 
-    return (
-      <button style={style} onClick={props.action}>
-        {props.child ? buildChild(props.child) : null}
-      </button>
-    );
-  },
-);
+  return (
+    <button style={style} onClick={props.action}>
+      {props.child ? buildChild(props.child) : null}
+    </button>
+  );
+});

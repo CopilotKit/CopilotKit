@@ -36,9 +36,7 @@ export function MeetingTimePicker({
 
   const handleSelectSlot = (slot: TimeSlot) => {
     setSelectedSlot(slot);
-    respond?.(
-      `Meeting scheduled for ${slot.date} at ${slot.time}${slot.duration ? ` (${slot.duration})` : ""}.`,
-    );
+    respond?.(`Meeting scheduled for ${slot.date} at ${slot.time}${slot.duration ? ` (${slot.duration})` : ""}.`);
   };
 
   const handleDecline = () => {
@@ -54,38 +52,26 @@ export function MeetingTimePicker({
         {selectedSlot ? (
           <div className="text-center">
             <div className="text-7xl mb-4">📅</div>
-            <h2 className="text-2xl font-bold mb-2 dark:text-white">
-              Meeting Scheduled
-            </h2>
+            <h2 className="text-2xl font-bold mb-2 dark:text-white">Meeting Scheduled</h2>
             <p className="text-gray-600 dark:text-zinc-400 mb-2">
               {selectedSlot.date} at {selectedSlot.time}
             </p>
             {selectedSlot.duration && (
-              <p className="text-sm text-gray-500 dark:text-zinc-400">
-                Duration: {selectedSlot.duration}
-              </p>
+              <p className="text-sm text-gray-500 dark:text-zinc-400">Duration: {selectedSlot.duration}</p>
             )}
           </div>
         ) : declined ? (
           <div className="text-center">
             <div className="text-7xl mb-4">🔄</div>
-            <h2 className="text-2xl font-bold mb-2 dark:text-white">
-              No Time Selected
-            </h2>
-            <p className="text-gray-600 dark:text-zinc-400">
-              Let me find a better time that works for you
-            </p>
+            <h2 className="text-2xl font-bold mb-2 dark:text-white">No Time Selected</h2>
+            <p className="text-gray-600 dark:text-zinc-400">Let me find a better time that works for you</p>
           </div>
         ) : (
           <>
             <div className="text-center mb-6">
               <div className="text-7xl mb-4">🗓️</div>
-              <h2 className="text-2xl font-bold mb-2 dark:text-white">
-                {displayTitle}
-              </h2>
-              <p className="text-gray-600 dark:text-zinc-400">
-                Select a time that works for you
-              </p>
+              <h2 className="text-2xl font-bold mb-2 dark:text-white">{displayTitle}</h2>
+              <p className="text-gray-600 dark:text-zinc-400">Select a time that works for you</p>
             </div>
 
             {status === "executing" && (
@@ -101,18 +87,10 @@ export function MeetingTimePicker({
                       hover:bg-blue-50 dark:hover:bg-blue-900/30"
                   >
                     <div className="text-left">
-                      <div className="font-bold text-gray-900 dark:text-zinc-100">
-                        {slot.date}
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-zinc-400">
-                        {slot.time}
-                      </div>
+                      <div className="font-bold text-gray-900 dark:text-zinc-100">{slot.date}</div>
+                      <div className="text-sm text-gray-600 dark:text-zinc-400">{slot.time}</div>
                     </div>
-                    {slot.duration && (
-                      <div className="text-sm text-gray-500 dark:text-zinc-400">
-                        {slot.duration}
-                      </div>
-                    )}
+                    {slot.duration && <div className="text-sm text-gray-500 dark:text-zinc-400">{slot.duration}</div>}
                   </button>
                 ))}
 

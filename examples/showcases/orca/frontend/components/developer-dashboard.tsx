@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { DataChart } from "@/components/data-chart";
 import { Button } from "@/components/ui/button";
@@ -19,13 +13,7 @@ import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
 import { PieChart, Pie, Cell, Tooltip } from "recharts";
 import { PRPieData } from "./pr-pie-all-data";
 import { PRReviewBarData } from "./pr-review-bar-data";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { PRPieFilterData } from "./pr-pie-filter-data";
 import { PRLineChartData } from "./pr-line-chart-data";
 import { Loader } from "./ui/loader";
@@ -213,23 +201,13 @@ export function DeveloperDashboard() {
     <div className="space-y-6">
       {isLoading && <Loader />}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Developer Dashboard
-        </h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Developer Dashboard</h1>
         <div className="flex items-center gap-2">
-          <Button
-            variant={viewMode === "table" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("table")}
-          >
+          <Button variant={viewMode === "table" ? "default" : "outline"} size="sm" onClick={() => setViewMode("table")}>
             <Table2 className="mr-2 h-4 w-4" />
             Table
           </Button>
-          <Button
-            variant={viewMode === "chart" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("chart")}
-          >
+          <Button variant={viewMode === "chart" ? "default" : "outline"} size="sm" onClick={() => setViewMode("chart")}>
             <BarChart3 className="mr-2 h-4 w-4" />
             Chart
           </Button>
@@ -254,9 +232,7 @@ export function DeveloperDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">94.3%</div>
-            <p className="text-xs text-muted-foreground">
-              +1.2% from last week
-            </p>
+            <p className="text-xs text-muted-foreground">+1.2% from last week</p>
           </CardContent>
         </Card>
         <Card>
@@ -274,9 +250,7 @@ export function DeveloperDashboard() {
       <Card>
         <CardHeader>
           <CardTitle>Repository Performance</CardTitle>
-          <CardDescription>
-            Monitor build times and test coverage across repositories
-          </CardDescription>
+          <CardDescription>Monitor build times and test coverage across repositories</CardDescription>
           <div className="flex flex-wrap gap-4 mt-4 items-center">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
@@ -302,20 +276,14 @@ export function DeveloperDashboard() {
                   setFilterParams({ ...filterParams, status: e });
                   if (filterParams.author === "b") {
                     setFilteredData(
-                      prData.filter(
-                        (pr: PRData) =>
-                          pr.status.split("_").join(" ").toLowerCase() ===
-                          e?.toLowerCase(),
-                      ),
+                      prData.filter((pr: PRData) => pr.status.split("_").join(" ").toLowerCase() === e?.toLowerCase()),
                     );
                   } else {
                     setFilteredData(
                       prData.filter(
                         (pr: PRData) =>
-                          pr.status.split("_").join(" ").toLowerCase() ===
-                            e?.toLowerCase() &&
-                          pr.author.toLowerCase() ===
-                            filterParams.author?.toLowerCase(),
+                          pr.status.split("_").join(" ").toLowerCase() === e?.toLowerCase() &&
+                          pr.author.toLowerCase() === filterParams.author?.toLowerCase(),
                       ),
                     );
                   }
@@ -338,18 +306,12 @@ export function DeveloperDashboard() {
               onValueChange={(e) => {
                 setFilterParams({ ...filterParams, author: e });
                 if (filterParams.status === "a") {
-                  setFilteredData(
-                    prData.filter(
-                      (pr: PRData) =>
-                        pr.author.toLowerCase() === e?.toLowerCase(),
-                    ),
-                  );
+                  setFilteredData(prData.filter((pr: PRData) => pr.author.toLowerCase() === e?.toLowerCase()));
                 } else {
                   setFilteredData(
                     prData.filter(
                       (pr: PRData) =>
-                        pr.status.split("_").join(" ").toLowerCase() ===
-                          filterParams.status?.toLowerCase() &&
+                        pr.status.split("_").join(" ").toLowerCase() === filterParams.status?.toLowerCase() &&
                         pr.author.toLowerCase() === e?.toLowerCase(),
                     ),
                   );
@@ -362,18 +324,10 @@ export function DeveloperDashboard() {
               </SelectTrigger>
               <SelectContent ref={ref2}>
                 <SelectItem value="b">All Authors</SelectItem>
-                <SelectItem value="Jon.snow@got.com">
-                  Jon.snow@got.com
-                </SelectItem>
-                <SelectItem value="robert.baratheon@got.com">
-                  robert.baratheon@got.com
-                </SelectItem>
-                <SelectItem value="ned.stark@got.com">
-                  ned.stark@got.com
-                </SelectItem>
-                <SelectItem value="cersei.lannister@got.com">
-                  cersei.lannister@got.com
-                </SelectItem>
+                <SelectItem value="Jon.snow@got.com">Jon.snow@got.com</SelectItem>
+                <SelectItem value="robert.baratheon@got.com">robert.baratheon@got.com</SelectItem>
+                <SelectItem value="ned.stark@got.com">ned.stark@got.com</SelectItem>
+                <SelectItem value="cersei.lannister@got.com">cersei.lannister@got.com</SelectItem>
               </SelectContent>
             </Select>
             <Button

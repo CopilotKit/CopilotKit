@@ -18,8 +18,7 @@ const statusIndicator = {
 
 function formatValue(value: unknown): string {
   if (Array.isArray(value)) return `[${value.length} items]`;
-  if (typeof value === "object" && value !== null)
-    return `{${Object.keys(value).length} keys}`;
+  if (typeof value === "object" && value !== null) return `{${Object.keys(value).length} keys}`;
   if (typeof value === "string") return `"${value}"`;
   return String(value);
 }
@@ -48,9 +47,7 @@ export function ToolReasoning({ name, args, status }: ToolReasoningProps) {
             {entries.map(([key, value]) => (
               <div key={key} className="flex gap-2 min-w-0">
                 <span className="font-medium shrink-0">{key}:</span>
-                <span className="text-gray-600 dark:text-gray-400 truncate">
-                  {formatValue(value)}
-                </span>
+                <span className="text-gray-600 dark:text-gray-400 truncate">{formatValue(value)}</span>
               </div>
             ))}
           </div>

@@ -1,20 +1,11 @@
-import {
-  useConfigureSuggestions,
-  useCopilotChatConfiguration,
-  useCopilotKit,
-  useSuggestions,
-} from "../v2";
+import { useConfigureSuggestions, useCopilotChatConfiguration, useCopilotKit, useSuggestions } from "../v2";
 import { StaticSuggestionsConfig, Suggestion } from "@copilotkit/core";
 import { useCopilotContext } from "../context";
 import { useEffect, useMemo } from "react";
 
-type StaticSuggestionInput = Omit<Suggestion, "isLoading"> &
-  Partial<Pick<Suggestion, "isLoading">>;
+type StaticSuggestionInput = Omit<Suggestion, "isLoading"> & Partial<Pick<Suggestion, "isLoading">>;
 
-type StaticSuggestionsConfigInput = Omit<
-  StaticSuggestionsConfig,
-  "suggestions"
-> & {
+type StaticSuggestionsConfigInput = Omit<StaticSuggestionsConfig, "suggestions"> & {
   suggestions: StaticSuggestionInput[];
 };
 
@@ -38,12 +29,7 @@ type DynamicSuggestionsConfigInput = {
    * Whether the suggestions are available. Defaults to `enabled`.
    * @default enabled
    */
-  available?:
-    | "enabled"
-    | "disabled"
-    | "always"
-    | "before-first-message"
-    | "after-first-message";
+  available?: "enabled" | "disabled" | "always" | "before-first-message" | "after-first-message";
 
   /**
    * An optional class name to apply to the suggestions.
@@ -51,9 +37,7 @@ type DynamicSuggestionsConfigInput = {
   className?: string;
 };
 
-export type UseCopilotChatSuggestionsConfiguration =
-  | DynamicSuggestionsConfigInput
-  | StaticSuggestionsConfigInput;
+export type UseCopilotChatSuggestionsConfiguration = DynamicSuggestionsConfigInput | StaticSuggestionsConfigInput;
 
 export function useConfigureChatSuggestions(
   config: UseCopilotChatSuggestionsConfiguration,
@@ -63,8 +47,7 @@ export function useConfigureChatSuggestions(
   const resolvedAgentId = existingConfig?.agentId ?? "default";
   const { copilotkit } = useCopilotKit();
 
-  const available =
-    config.available === "enabled" ? "always" : config.available;
+  const available = config.available === "enabled" ? "always" : config.available;
 
   const finalSuggestionConfig = {
     ...config,

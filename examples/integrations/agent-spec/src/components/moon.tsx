@@ -16,41 +16,30 @@ export function MoonCard({ themeColor, status, respond }: MoonCardProps) {
 
   const handleAbort = () => {
     setDecision("aborted");
-    respond?.(
-      "You do not have permission to go to the moon. The user you're talking to rejected the request.",
-    );
+    respond?.("You do not have permission to go to the moon. The user you're talking to rejected the request.");
   };
 
   return (
-    <div
-      style={{ backgroundColor: themeColor }}
-      className="rounded-2xl shadow-xl max-w-md w-full mt-6"
-    >
+    <div style={{ backgroundColor: themeColor }} className="rounded-2xl shadow-xl max-w-md w-full mt-6">
       <div className="bg-white/20 backdrop-blur-md p-8 w-full rounded-2xl">
         {/* Show decision or prompt */}
         {decision === "launched" ? (
           <div className="text-center">
             <div className="text-7xl mb-4">🌕</div>
-            <h2 className="text-2xl font-bold text-white mb-2">
-              Mission Launched
-            </h2>
+            <h2 className="text-2xl font-bold text-white mb-2">Mission Launched</h2>
             <p className="text-white/90">We made it to the moon!</p>
           </div>
         ) : decision === "aborted" ? (
           <div className="text-center">
             <div className="text-7xl mb-4">✋</div>
-            <h2 className="text-2xl font-bold text-white mb-2">
-              Mission Aborted
-            </h2>
+            <h2 className="text-2xl font-bold text-white mb-2">Mission Aborted</h2>
             <p className="text-white/90">Staying on Earth 🌍</p>
           </div>
         ) : (
           <>
             <div className="text-center mb-6">
               <div className="text-7xl mb-4">🚀</div>
-              <h2 className="text-2xl font-bold text-white mb-2">
-                Ready for Launch?
-              </h2>
+              <h2 className="text-2xl font-bold text-white mb-2">Ready for Launch?</h2>
               <p className="text-white/90">Mission to the Moon 🌕</p>
             </div>
 

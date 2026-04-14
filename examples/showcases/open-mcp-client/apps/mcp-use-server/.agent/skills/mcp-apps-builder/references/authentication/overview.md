@@ -148,22 +148,19 @@ Or pass config explicitly to override env vars. See each provider's guide for av
 Use `ctx.auth.accessToken` to call your provider's API on behalf of the user:
 
 ```typescript
-server.tool(
-  { name: "fetch-data", description: "Fetch user data from API" },
-  async (_args, ctx) => {
-    const res = await fetch("https://api.example.com/me", {
-      headers: {
-        Authorization: `Bearer ${ctx.auth.accessToken}`,
-      },
-    });
+server.tool({ name: "fetch-data", description: "Fetch user data from API" }, async (_args, ctx) => {
+  const res = await fetch("https://api.example.com/me", {
+    headers: {
+      Authorization: `Bearer ${ctx.auth.accessToken}`,
+    },
+  });
 
-    if (!res.ok) {
-      return error(`API call failed: ${res.status}`);
-    }
+  if (!res.ok) {
+    return error(`API call failed: ${res.status}`);
+  }
 
-    return object(await res.json());
-  },
-);
+  return object(await res.json());
+});
 ```
 
 ---

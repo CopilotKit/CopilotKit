@@ -38,15 +38,11 @@ type ClaimsStore = Record<string, Claim> & {
   [LAST_SNAPSHOTS_BY_MESSAGE]?: Record<string, SnapshotByMessageEntry>;
 };
 
-function getClaimsStore(
-  claimsRef: React.MutableRefObject<Record<string, Claim>>,
-): ClaimsStore {
+function getClaimsStore(claimsRef: React.MutableRefObject<Record<string, Claim>>): ClaimsStore {
   return claimsRef.current as ClaimsStore;
 }
 
-function getSnapshotCaches(
-  claimsRef: React.MutableRefObject<Record<string, Claim>>,
-): SnapshotCaches {
+function getSnapshotCaches(claimsRef: React.MutableRefObject<Record<string, Claim>>): SnapshotCaches {
   const store = getClaimsStore(claimsRef);
   return {
     byStateRenderAndRun: store[LAST_SNAPSHOTS_BY_RENDER_AND_RUN] ?? {},
@@ -67,8 +63,7 @@ export function useStateRenderRegistry({
   const store = getClaimsStore(claimsRef);
   const runId = message.runId;
   const cachedMessageEntry = store[LAST_SNAPSHOTS_BY_MESSAGE]?.[message.id];
-  const { runId: cachedMessageRunId } =
-    readCachedMessageEntry(cachedMessageEntry);
+  const { runId: cachedMessageRunId } = readCachedMessageEntry(cachedMessageEntry);
   const existingClaimRunId = claimsRef.current[message.id]?.runId;
   const effectiveRunId = getEffectiveRunId({
     existingClaimRunId,
@@ -79,17 +74,13 @@ export function useStateRenderRegistry({
   useEffect(() => {
     return () => {
       const existingClaim = claimsRef.current[message.id];
-      if (
-        existingClaim?.stateSnapshot &&
-        Object.keys(existingClaim.stateSnapshot).length > 0
-      ) {
+      if (existingClaim?.stateSnapshot && Object.keys(existingClaim.stateSnapshot).length > 0) {
         const snapshotCache = {
           ...store[LAST_SNAPSHOTS_BY_RENDER_AND_RUN],
         };
         const cacheKey = `${existingClaim.stateRenderId}::${existingClaim.runId ?? "pending"}`;
         snapshotCache[cacheKey] = existingClaim.stateSnapshot;
-        snapshotCache[`${existingClaim.stateRenderId}::latest`] =
-          existingClaim.stateSnapshot;
+        snapshotCache[`${existingClaim.stateRenderId}::latest`] = existingClaim.stateSnapshot;
         store[LAST_SNAPSHOTS_BY_RENDER_AND_RUN] = snapshotCache;
 
         const messageCache = {
@@ -112,24 +103,19 @@ export function useStateRenderRegistry({
   const caches = getSnapshotCaches(claimsRef);
   const existingClaim = claimsRef.current[message.id] as Claim | undefined;
 
-  const { snapshot, hasSnapshotKeys, allowEmptySnapshot, snapshotForClaim } =
-    selectSnapshot({
-      messageId: message.id,
-      messageName: message.name,
-      allowLiveState:
-        isPlaceholderMessageName(message.name) ||
-        isPlaceholderMessageId(message.id),
-      skipLatestCache:
-        isPlaceholderMessageName(message.name) ||
-        isPlaceholderMessageId(message.id),
-      stateRenderId,
-      effectiveRunId,
-      stateSnapshotProp: stateSnapshot,
-      agentState,
-      agentMessages,
-      existingClaim,
-      caches,
-    });
+  const { snapshot, hasSnapshotKeys, allowEmptySnapshot, snapshotForClaim } = selectSnapshot({
+    messageId: message.id,
+    messageName: message.name,
+    allowLiveState: isPlaceholderMessageName(message.name) || isPlaceholderMessageId(message.id),
+    skipLatestCache: isPlaceholderMessageName(message.name) || isPlaceholderMessageId(message.id),
+    stateRenderId,
+    effectiveRunId,
+    stateSnapshotProp: stateSnapshot,
+    agentState,
+    agentMessages,
+    existingClaim,
+    caches,
+  });
 
   const resolution = resolveClaim({
     claims: claimsRef.current as ClaimsByMessageId,
@@ -164,22 +150,15 @@ export function useStateRenderRegistry({
   }
 
   if (existingClaim && !existingClaim.locked && agentMessages?.length) {
-    const indexInAgentMessages = agentMessages.findIndex(
-      (msg: any) => msg.id === message.id,
-    );
-    if (
-      indexInAgentMessages >= 0 &&
-      indexInAgentMessages < agentMessages.length - 1
-    ) {
+    const indexInAgentMessages = agentMessages.findIndex((msg: any) => msg.id === message.id);
+    if (indexInAgentMessages >= 0 && indexInAgentMessages < agentMessages.length - 1) {
       existingClaim.locked = true;
     }
   }
 
   const existingSnapshot = claimsRef.current[message.id].stateSnapshot;
   const snapshotChanged =
-    stateSnapshot &&
-    existingSnapshot !== undefined &&
-    !areStatesEquals(existingSnapshot, snapshot);
+    stateSnapshot && existingSnapshot !== undefined && !areStatesEquals(existingSnapshot, snapshot);
 
   if (
     snapshot &&

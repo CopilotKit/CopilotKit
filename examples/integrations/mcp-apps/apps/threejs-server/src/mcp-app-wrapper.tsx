@@ -44,13 +44,8 @@ export interface WidgetProps<TToolInput = Record<string, unknown>> {
 // =============================================================================
 
 function McpAppWrapper() {
-  const [toolInputs, setToolInputs] = useState<Record<string, unknown> | null>(
-    null,
-  );
-  const [toolInputsPartial, setToolInputsPartial] = useState<Record<
-    string,
-    unknown
-  > | null>(null);
+  const [toolInputs, setToolInputs] = useState<Record<string, unknown> | null>(null);
+  const [toolInputsPartial, setToolInputsPartial] = useState<Record<string, unknown> | null>(null);
   const [toolResult, setToolResult] = useState<CallToolResult | null>(null);
   const [hostContext, setHostContext] = useState<McpUiHostContext | null>(null);
 
@@ -93,18 +88,9 @@ function McpAppWrapper() {
     (params, options) => app!.callServerTool(params, options),
     [app],
   );
-  const sendMessage = useCallback<App["sendMessage"]>(
-    (params, options) => app!.sendMessage(params, options),
-    [app],
-  );
-  const openLink = useCallback<App["openLink"]>(
-    (params, options) => app!.openLink(params, options),
-    [app],
-  );
-  const sendLog = useCallback<App["sendLog"]>(
-    (params) => app!.sendLog(params),
-    [app],
-  );
+  const sendMessage = useCallback<App["sendMessage"]>((params, options) => app!.sendMessage(params, options), [app]);
+  const openLink = useCallback<App["openLink"]>((params, options) => app!.openLink(params, options), [app]);
+  const sendLog = useCallback<App["sendLog"]>((params) => app!.sendLog(params), [app]);
 
   if (error) {
     return <div className="error">Error: {error.message}</div>;

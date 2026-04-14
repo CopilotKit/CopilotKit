@@ -10,16 +10,11 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Open Gemini Canvas",
-  description:
-    "Powered by Google's most advanced AI models for generating LinkedIn and X posts",
+  description: "Powered by Google's most advanced AI models for generating LinkedIn and X posts",
   generator: "v0.dev",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <LayoutProvider>

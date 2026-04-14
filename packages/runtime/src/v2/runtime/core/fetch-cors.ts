@@ -15,21 +15,10 @@ export interface CopilotCorsConfig {
   maxAge?: number;
 }
 
-const DEFAULT_METHODS = [
-  "GET",
-  "HEAD",
-  "PUT",
-  "POST",
-  "DELETE",
-  "PATCH",
-  "OPTIONS",
-];
+const DEFAULT_METHODS = ["GET", "HEAD", "PUT", "POST", "DELETE", "PATCH", "OPTIONS"];
 const DEFAULT_HEADERS = ["*"];
 
-function resolveOrigin(
-  config: CopilotCorsConfig,
-  requestOrigin: string | null,
-): string | null {
+function resolveOrigin(config: CopilotCorsConfig, requestOrigin: string | null): string | null {
   const { origin } = config;
   if (!origin) return "*";
 
@@ -47,11 +36,7 @@ function resolveOrigin(
   return "*";
 }
 
-function setCorsHeaders(
-  headers: Headers,
-  config: CopilotCorsConfig,
-  requestOrigin: string | null,
-): void {
+function setCorsHeaders(headers: Headers, config: CopilotCorsConfig, requestOrigin: string | null): void {
   let allowedOrigin = resolveOrigin(config, requestOrigin);
   if (!allowedOrigin) return;
 
@@ -74,10 +59,7 @@ function setCorsHeaders(
   }
 
   if (config.exposeHeaders?.length) {
-    headers.set(
-      "Access-Control-Expose-Headers",
-      config.exposeHeaders.join(", "),
-    );
+    headers.set("Access-Control-Expose-Headers", config.exposeHeaders.join(", "));
   }
 
   // Vary on Origin when it's not a fixed wildcard
@@ -90,10 +72,7 @@ function setCorsHeaders(
  * Handle CORS preflight (OPTIONS) requests.
  * Returns a 204 Response if it's a preflight, or null if not.
  */
-export function handleCors(
-  request: Request,
-  config: CopilotCorsConfig,
-): Response | null {
+export function handleCors(request: Request, config: CopilotCorsConfig): Response | null {
   if (request.method !== "OPTIONS") return null;
 
   const requestOrigin = request.headers.get("origin");
@@ -121,11 +100,7 @@ export function handleCors(
 /**
  * Add CORS headers to an existing response.
  */
-export function addCorsHeaders(
-  response: Response,
-  config: CopilotCorsConfig,
-  requestOrigin: string | null,
-): Response {
+export function addCorsHeaders(response: Response, config: CopilotCorsConfig, requestOrigin: string | null): Response {
   const headers = new Headers(response.headers);
   setCorsHeaders(headers, config, requestOrigin);
   return new Response(response.body, {

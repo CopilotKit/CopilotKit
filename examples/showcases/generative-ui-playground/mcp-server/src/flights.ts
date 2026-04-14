@@ -112,13 +112,7 @@ const AIRLINES: Airline[] = [
   { code: "EK", name: "Emirates", color: "#D71921" },
 ];
 
-const AIRCRAFT_TYPES = [
-  "Boeing 737-800",
-  "Boeing 777-300ER",
-  "Boeing 787-9",
-  "Airbus A320neo",
-  "Airbus A350-900",
-];
+const AIRCRAFT_TYPES = ["Boeing 737-800", "Boeing 777-300ER", "Boeing 787-9", "Airbus A320neo", "Airbus A350-900"];
 
 // In-memory storage
 export const flightSearches: Map<string, FlightSearch> = new Map();
@@ -149,10 +143,7 @@ function generateConfirmationNumber(): string {
   return result;
 }
 
-function calculateDuration(
-  origin: string,
-  destination: string,
-): { duration: string; hours: number } {
+function calculateDuration(origin: string, destination: string): { duration: string; hours: number } {
   const distances: Record<string, Record<string, number>> = {
     JFK: { LAX: 5.5, LHR: 7, CDG: 7.5, NRT: 14, DXB: 12, SIN: 18, SFO: 6 },
     LAX: { JFK: 5.5, LHR: 10, CDG: 11, NRT: 11, DXB: 16, SIN: 17, SFO: 1.5 },
@@ -161,8 +152,7 @@ function calculateDuration(
     SFO: { JFK: 6, LAX: 1.5, LHR: 10.5, CDG: 11, NRT: 10, DXB: 16, SIN: 16 },
   };
 
-  const hours =
-    distances[origin]?.[destination] || distances[destination]?.[origin] || 5;
+  const hours = distances[origin]?.[destination] || distances[destination]?.[origin] || 5;
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
 
@@ -181,18 +171,13 @@ function generateDepartureTimes(count: number): string[] {
   for (let i = 0; i < count; i++) {
     const hour = Math.floor(startHour + i * interval);
     const minute = Math.floor(Math.random() * 4) * 15;
-    times.push(
-      `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`,
-    );
+    times.push(`${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`);
   }
 
   return times;
 }
 
-function calculateArrivalTime(
-  departure: string,
-  durationHours: number,
-): string {
+function calculateArrivalTime(departure: string, durationHours: number): string {
   const [depHour, depMinute] = departure.split(":").map(Number);
   const totalMinutes = depHour * 60 + depMinute + durationHours * 60;
   const arrHour = Math.floor(totalMinutes / 60) % 24;
@@ -203,8 +188,7 @@ function calculateArrivalTime(
 function generatePrice(durationHours: number, cabinClass: CabinClass): number {
   let basePrice = durationHours * 50 + 100;
   basePrice *= 0.8 + Math.random() * 0.4;
-  const classMultiplier =
-    cabinClass === "first" ? 4 : cabinClass === "business" ? 2.5 : 1;
+  const classMultiplier = cabinClass === "first" ? 4 : cabinClass === "business" ? 2.5 : 1;
   return Math.round(basePrice * classMultiplier);
 }
 
@@ -215,21 +199,13 @@ export function searchFlights(params: {
   passengers: number;
   cabinClass?: CabinClass;
 }): FlightSearch {
-  const {
-    origin,
-    destination,
-    departureDate,
-    passengers,
-    cabinClass = "economy",
-  } = params;
+  const { origin, destination, departureDate, passengers, cabinClass = "economy" } = params;
 
   const originAirport = getAirportByCode(origin);
   const destAirport = getAirportByCode(destination);
 
   if (!originAirport || !destAirport) {
-    throw new Error(
-      `Invalid airport code: ${!originAirport ? origin : destination}`,
-    );
+    throw new Error(`Invalid airport code: ${!originAirport ? origin : destination}`);
   }
 
   const searchId = generateSearchId();
@@ -254,12 +230,9 @@ export function searchFlights(params: {
       departureTime: depTime,
       arrivalTime: calculateArrivalTime(depTime, hours + stops * 1.5),
       duration:
-        stops > 0
-          ? `${Math.floor(hours + stops * 1.5)}h ${Math.round(((hours + stops * 1.5) % 1) * 60)}m`
-          : duration,
+        stops > 0 ? `${Math.floor(hours + stops * 1.5)}h ${Math.round(((hours + stops * 1.5) % 1) * 60)}m` : duration,
       stops,
-      aircraft:
-        AIRCRAFT_TYPES[Math.floor(Math.random() * AIRCRAFT_TYPES.length)],
+      aircraft: AIRCRAFT_TYPES[Math.floor(Math.random() * AIRCRAFT_TYPES.length)],
       price,
       cabinClass,
       seatsAvailable,
@@ -288,10 +261,7 @@ export function getFlightSearch(searchId: string): FlightSearch | undefined {
   return flightSearches.get(searchId);
 }
 
-export function selectFlight(
-  searchId: string,
-  flightId: string,
-): { flight: Flight; seatMap: Seat[][] } | undefined {
+export function selectFlight(searchId: string, flightId: string): { flight: Flight; seatMap: Seat[][] } | undefined {
   const search = flightSearches.get(searchId);
   if (!search) return undefined;
 
@@ -364,8 +334,7 @@ export function selectSeats(
 } {
   const search = flightSearches.get(searchId);
   if (!search) return { success: false, message: "Search session not found" };
-  if (search.selectedFlightId !== flightId)
-    return { success: false, message: "Flight not selected" };
+  if (search.selectedFlightId !== flightId) return { success: false, message: "Flight not selected" };
 
   const seatMap = generateSeatMap(flightId);
   const flatSeats = seatMap.flat();
@@ -374,8 +343,7 @@ export function selectSeats(
   for (const seatId of seatIds) {
     const seat = flatSeats.find((s) => s.id === seatId);
     if (!seat) return { success: false, message: `Seat ${seatId} not found` };
-    if (seat.status === "occupied")
-      return { success: false, message: `Seat ${seatId} is already taken` };
+    if (seat.status === "occupied") return { success: false, message: `Seat ${seatId} is already taken` };
     totalFee += seat.price;
   }
 
@@ -395,8 +363,7 @@ export function createBooking(
 ): { success: boolean; message: string; booking?: Booking } {
   const search = flightSearches.get(searchId);
   if (!search) return { success: false, message: "Search session not found" };
-  if (!search.selectedFlightId)
-    return { success: false, message: "No flight selected" };
+  if (!search.selectedFlightId) return { success: false, message: "No flight selected" };
   if (!search.selectedSeats || search.selectedSeats.length === 0)
     return { success: false, message: "No seats selected" };
 

@@ -28,9 +28,7 @@ export function PRPieData({ args }: PieDataProps) {
 
   return (
     <div className="flex-1 p-4 rounded-2xl shadow-lg flex flex-col items-center min-w-[250px] max-w-[350px]">
-      <h2 className="text-xl font-semibold mb-2 text-gray-700 text-center">
-        {args.title || "Data Distribution"}
-      </h2>
+      <h2 className="text-xl font-semibold mb-2 text-gray-700 text-center">{args.title || "Data Distribution"}</h2>
       <div className="h-[180px] flex flex-col items-center justify-center">
         <PieChart width={260} height={180}>
           <Pie
@@ -53,19 +51,10 @@ export function PRPieData({ args }: PieDataProps) {
       </div>
       <div className="flex flex-col items-center mt-4">
         {chunkArray(chartData, 2).map((row, rowIdx) => (
-          <div
-            key={rowIdx}
-            className="flex flex-row justify-center items-center gap-x-6 gap-y-2 w-full"
-          >
+          <div key={rowIdx} className="flex flex-row justify-center items-center gap-x-6 gap-y-2 w-full">
             {row.map((entry: PieDataItem) => (
-              <div
-                key={entry.name}
-                className="flex items-center gap-1 min-w-[110px]"
-              >
-                <span
-                  style={{ backgroundColor: entry.color }}
-                  className={`inline-block w-4 h-4 rounded-full`}
-                />
+              <div key={entry.name} className="flex items-center gap-1 min-w-[110px]">
+                <span style={{ backgroundColor: entry.color }} className={`inline-block w-4 h-4 rounded-full`} />
                 <span style={{ width: "94px" }} className="text-sm text-black">
                   {entry?.shortName}
                 </span>

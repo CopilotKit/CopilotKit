@@ -11,9 +11,7 @@ interface AccordionProps {
 }
 
 export const Accordion: React.FC<AccordionProps> = ({ items }) => {
-  const [openAccordionIndex, setOpenAccordionIndex] = useState<number | null>(
-    null,
-  );
+  const [openAccordionIndex, setOpenAccordionIndex] = useState<number | null>(null);
 
   return (
     <div className="p-8 pt-4 border-t border-subtle mt-4">
@@ -24,9 +22,7 @@ export const Accordion: React.FC<AccordionProps> = ({ items }) => {
             question={item.question}
             answer={item.answer}
             isOpen={openAccordionIndex === index}
-            onToggle={() =>
-              setOpenAccordionIndex(openAccordionIndex === index ? null : index)
-            }
+            onToggle={() => setOpenAccordionIndex(openAccordionIndex === index ? null : index)}
           />
         ))}
       </div>

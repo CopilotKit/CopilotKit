@@ -68,17 +68,7 @@ function findAgentFiles(dir: string): string[] {
       const fullPath = path.join(current, entry.name);
       const relPath = path.join(rel, entry.name);
       if (entry.isDirectory()) {
-        if (
-          [
-            "node_modules",
-            ".next",
-            "__pycache__",
-            ".venv",
-            ".git",
-            "dist",
-          ].includes(entry.name)
-        )
-          continue;
+        if (["node_modules", ".next", "__pycache__", ".venv", ".git", "dist"].includes(entry.name)) continue;
         walk(fullPath, relPath);
       } else if (entry.isFile()) {
         if (
@@ -99,15 +89,11 @@ function findAgentFiles(dir: string): string[] {
 
 function checkAlreadyMigrated(packageDir: string): boolean {
   // Check multiple locations where migrated files could land
-  const dirs = [
-    path.join(packageDir, "src", "agents"),
-    path.join(packageDir, "src", "mastra"),
-  ];
+  const dirs = [path.join(packageDir, "src", "agents"), path.join(packageDir, "src", "mastra")];
   for (const dir of dirs) {
     if (!fs.existsSync(dir)) continue;
     const files = findAgentFiles(dir);
-    if (files.some((f) => !f.endsWith("__init__.py") && !f.includes("TODO")))
-      return true;
+    if (files.some((f) => !f.endsWith("__init__.py") && !f.includes("TODO"))) return true;
   }
   return false;
 }
@@ -122,10 +108,7 @@ function wipeAgents(packageDir: string) {
   }
 }
 
-function migrateIntegration(
-  exampleName: string,
-  opts: { dryRun?: boolean; redo?: boolean } = {},
-): MigrationResult {
+function migrateIntegration(exampleName: string, opts: { dryRun?: boolean; redo?: boolean } = {}): MigrationResult {
   const slug = SLUG_MAP[exampleName];
   const result: MigrationResult = {
     example: exampleName,
@@ -150,9 +133,7 @@ function migrateIntegration(
   }
 
   if (!fs.existsSync(packageDir)) {
-    result.skipped.push(
-      `Package dir doesn't exist: showcase/packages/${slug}/`,
-    );
+    result.skipped.push(`Package dir doesn't exist: showcase/packages/${slug}/`);
     return result;
   }
 
@@ -171,11 +152,7 @@ function migrateIntegration(
   }
 
   // Find agent files
-  const agentDirs = [
-    path.join(exampleDir, "apps", "agent"),
-    path.join(exampleDir, "agent"),
-    exampleDir,
-  ];
+  const agentDirs = [path.join(exampleDir, "apps", "agent"), path.join(exampleDir, "agent"), exampleDir];
 
   const agentFiles: string[] = [];
   let sourceDir = exampleDir;
@@ -230,10 +207,7 @@ function migrateIntegration(
 }
 
 // Public API for use from create-integration
-export function migrateForSlug(
-  slug: string,
-  opts: { dryRun?: boolean; redo?: boolean } = {},
-): MigrationResult {
+export function migrateForSlug(slug: string, opts: { dryRun?: boolean; redo?: boolean } = {}): MigrationResult {
   const exampleNames = REVERSE_MAP[slug];
   if (!exampleNames || exampleNames.length === 0) {
     return {
@@ -292,9 +266,7 @@ function main() {
 
     if (result.errors.length > 0) hasErrors = true;
 
-    console.log(
-      `  [${status}] ${example} → ${result.slug} (${result.files.length} files)`,
-    );
+    console.log(`  [${status}] ${example} → ${result.slug} (${result.files.length} files)`);
     for (const err of result.errors) console.log(`         ERROR: ${err}`);
     for (const skip of result.skipped) console.log(`         SKIP: ${skip}`);
   }
@@ -302,12 +274,8 @@ function main() {
   console.log("\n--- Summary ---");
   console.log(`Total: ${results.length}`);
   console.log(`Migrated: ${results.filter((r) => r.files.length > 0).length}`);
-  console.log(
-    `Already done: ${results.filter((r) => r.alreadyMigrated && r.skipped.length > 0).length}`,
-  );
-  console.log(
-    `Skipped: ${results.filter((r) => !r.alreadyMigrated && r.skipped.length > 0).length}`,
-  );
+  console.log(`Already done: ${results.filter((r) => r.alreadyMigrated && r.skipped.length > 0).length}`);
+  console.log(`Skipped: ${results.filter((r) => !r.alreadyMigrated && r.skipped.length > 0).length}`);
   console.log(`Errors: ${results.filter((r) => r.errors.length > 0).length}`);
 
   process.exit(hasErrors ? 1 : 0);

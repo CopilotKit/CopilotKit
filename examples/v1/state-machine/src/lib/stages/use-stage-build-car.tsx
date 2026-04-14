@@ -1,11 +1,7 @@
 import { ShowCar, ShowCars } from "@/components/generative-ui/show-car";
 import { Car, cars } from "@/lib/types";
 import { useGlobalState } from "@/lib/stages";
-import {
-  useCopilotAction,
-  useCopilotReadable,
-  useCopilotAdditionalInstructions,
-} from "@copilotkit/react-core";
+import { useCopilotAction, useCopilotReadable, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
 
 /**
   useStageBuildCar is a hook that will add this stage to the state machine. It is responsible for:

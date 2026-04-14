@@ -1,14 +1,6 @@
 "use client";
 
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  ReactNode,
-  useEffect,
-  useRef,
-} from "react";
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from "react";
 import { calculateMonthlyCharges } from "@/utils/servicePricing";
 import { useCoAgent, useFrontendTool } from "@copilotkit/react-core";
 import { initialCustomers } from "@/data/ticketsData";
@@ -32,11 +24,7 @@ export interface Customer {
   StreamingMovies: "Yes" | "No";
   Contract: "Month-to-month";
   PaperlessBilling: "Yes" | "No";
-  PaymentMethod:
-    | "Electronic check"
-    | "Mailed check"
-    | "Bank transfer (automatic)"
-    | "Credit card (automatic)";
+  PaymentMethod: "Electronic check" | "Mailed check" | "Bank transfer (automatic)" | "Credit card (automatic)";
   MonthlyCharges: string;
   TotalCharges: string;
   Churn: "No" | "Yes";
@@ -58,11 +46,7 @@ export interface NewCustomerInput {
   StreamingTV: "Yes" | "No";
   StreamingMovies: "Yes" | "No";
   PaperlessBilling: "Yes" | "No";
-  PaymentMethod:
-    | "Electronic check"
-    | "Mailed check"
-    | "Bank transfer (automatic)"
-    | "Credit card (automatic)";
+  PaymentMethod: "Electronic check" | "Mailed check" | "Bank transfer (automatic)" | "Credit card (automatic)";
 }
 
 export type AddonService =
@@ -79,10 +63,7 @@ interface CustomerContextType {
   customers: Customer[];
   addCustomer: (customerData: NewCustomerInput) => Customer;
   deleteCustomer: (customerId: number) => boolean;
-  updateCustomer: (
-    customerId: number,
-    updates: Partial<Customer>,
-  ) => Customer | null;
+  updateCustomer: (customerId: number, updates: Partial<Customer>) => Customer | null;
   addAddon: (customerId: string, addon: AddonService) => Customer | null;
   removeAddon: (customerId: string, addon: AddonService) => Customer | null;
   getCustomerById: (customerId: number) => Customer | undefined;
@@ -97,28 +78,22 @@ type AgentState = {
   customers: Customer[];
 };
 
-const CustomerContext = createContext<CustomerContextType | undefined>(
-  undefined,
-);
+const CustomerContext = createContext<CustomerContextType | undefined>(undefined);
 
 function generateCustomerID(): string {
   const digits = Math.floor(1000 + Math.random() * 9000);
-  const letters = Array.from({ length: 5 }, () =>
-    String.fromCharCode(65 + Math.floor(Math.random() * 26)),
-  ).join("");
+  const letters = Array.from({ length: 5 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join("");
   return `${digits}-${letters}`;
 }
 
 export function CustomerProvider({ children }: { children: ReactNode }) {
   // Use useCoAgent as the single source of truth
-  const { state: agentState, setState: setAgentState } = useCoAgent<AgentState>(
-    {
-      name: "starterAgent",
-      initialState: {
-        customers: initialCustomers,
-      },
+  const { state: agentState, setState: setAgentState } = useCoAgent<AgentState>({
+    name: "starterAgent",
+    initialState: {
+      customers: initialCustomers,
     },
-  );
+  });
 
   // OPTION 1: Optimistic local state + agent sync
   const [localCustomers, setLocalCustomers] = useState<Customer[] | null>(null);
@@ -133,10 +108,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
 
   // Clear local override when agent catches up
   useEffect(() => {
-    if (
-      localCustomers &&
-      JSON.stringify(localCustomers) === JSON.stringify(agentState.customers)
-    ) {
+    if (localCustomers && JSON.stringify(localCustomers) === JSON.stringify(agentState.customers)) {
       setLocalCustomers(null);
     }
   }, [agentState.customers, localCustomers]);
@@ -152,13 +124,11 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
 
   const addCustomer = useCallback(
     (customerData: NewCustomerInput): Customer => {
-      const newId =
-        customers.length > 0 ? Math.max(...customers.map((c) => c.id)) + 1 : 1;
+      const newId = customers.length > 0 ? Math.max(...customers.map((c) => c.id)) + 1 : 1;
 
       // Handle MultipleLines based on PhoneService
       const multipleLines =
-        customerData.MultipleLines ||
-        (customerData.PhoneService === "No" ? "No phone service" : "No");
+        customerData.MultipleLines || (customerData.PhoneService === "No" ? "No phone service" : "No");
 
       // Create customer with temporary charges
       const tempCustomer: Customer = {
@@ -215,10 +185,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
           // Handle MultipleLines dependency on PhoneService
           if (updates.PhoneService === "No") {
             updated.MultipleLines = "No phone service";
-          } else if (
-            updates.PhoneService === "Yes" &&
-            updated.MultipleLines === "No phone service"
-          ) {
+          } else if (updates.PhoneService === "Yes" && updated.MultipleLines === "No phone service") {
             updated.MultipleLines = "No";
           }
 
@@ -279,9 +246,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
         setLocalCustomers(updatedCustomers);
         setAgentState({ customers: updatedCustomers });
       } else {
-        console.warn(
-          `[CustomerContext] Failed to update. Customer ID ${customerId} not found in state.`,
-        );
+        console.warn(`[CustomerContext] Failed to update. Customer ID ${customerId} not found in state.`);
       }
 
       return updatedCustomer;
@@ -289,10 +254,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     [customers, recalculateCharges, setAgentState],
   );
 
-  const removeAddon = (
-    customerId: string,
-    addon: AddonService,
-  ): Customer | null => {
+  const removeAddon = (customerId: string, addon: AddonService): Customer | null => {
     let updatedCustomer: Customer | null = null;
 
     const updatedCustomers = customersRef.current.map((customer) => {
@@ -354,8 +316,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       {
         name: "customerID",
         type: "string",
-        description:
-          "The unique customer ID (e.g., '5575-GNVDE', '7590-VHVEG')",
+        description: "The unique customer ID (e.g., '5575-GNVDE', '7590-VHVEG')",
         required: true,
       },
       {
@@ -369,9 +330,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     handler: async ({ customerID, addonName }) => {
       // Access current state directly from ref to avoid stale closure
       const currentCustomers = customersRef.current;
-      const customer = currentCustomers.find(
-        (c) => c.customerID === customerID,
-      );
+      const customer = currentCustomers.find((c) => c.customerID === customerID);
       if (!customer) {
         return {
           success: false,
@@ -410,8 +369,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       {
         name: "customerID",
         type: "string",
-        description:
-          "The unique customer ID (e.g., '5575-GNVDE', '7590-VHVEG')",
+        description: "The unique customer ID (e.g., '5575-GNVDE', '7590-VHVEG')",
         required: true,
       },
       {
@@ -425,9 +383,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     handler: async ({ customerID, addonName }) => {
       // Access current state directly from ref to avoid stale closure
       const currentCustomers = customersRef.current;
-      const customer = currentCustomers.find(
-        (c) => c.customerID === customerID,
-      );
+      const customer = currentCustomers.find((c) => c.customerID === customerID);
 
       if (!customer) {
         return {
@@ -436,10 +392,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      const result = removeAddon(
-        customer.customerID,
-        addonName as AddonService,
-      );
+      const result = removeAddon(customer.customerID, addonName as AddonService);
 
       if (!result) {
         return {
@@ -470,15 +423,13 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       {
         name: "customerID",
         type: "string",
-        description:
-          "The unique customer ID (e.g., '5575-GNVDE', '7590-VHVEG')",
+        description: "The unique customer ID (e.g., '5575-GNVDE', '7590-VHVEG')",
         required: true,
       },
       {
         name: "setting",
         type: "string",
-        description:
-          "The setting to update. Valid options: 'InternetService', 'PaperlessBilling', 'Partner'",
+        description: "The setting to update. Valid options: 'InternetService', 'PaperlessBilling', 'Partner'",
         required: true,
       },
       {
@@ -492,9 +443,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     handler: async ({ customerID, setting, value }) => {
       // Access current state directly from ref to avoid stale closure
       const currentCustomers = customersRef.current;
-      const customer = currentCustomers.find(
-        (c) => c.customerID === customerID,
-      );
+      const customer = currentCustomers.find((c) => c.customerID === customerID);
 
       if (!customer) {
         return {
@@ -569,11 +518,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     recalculateCharges,
   };
 
-  return (
-    <CustomerContext.Provider value={value}>
-      {children}
-    </CustomerContext.Provider>
-  );
+  return <CustomerContext.Provider value={value}>{children}</CustomerContext.Provider>;
 }
 
 export function useCustomers() {

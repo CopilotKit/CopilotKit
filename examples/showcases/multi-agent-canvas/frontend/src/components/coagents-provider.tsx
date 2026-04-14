@@ -72,32 +72,20 @@ export interface Log {
   done: boolean;
 }
 
-export const AgentsContext = createContext<
-  Array<TravelAgentState | ResearchAgentState | MCPAgentState>
->([]);
+export const AgentsContext = createContext<Array<TravelAgentState | ResearchAgentState | MCPAgentState>>([]);
 
 /**
  * This provider wraps state from all agents
  */
-export const CoAgentsProvider = ({
-  children,
-}: {
-  children: React.ReactNode;
-}) => {
+export const CoAgentsProvider = ({ children }: { children: React.ReactNode }) => {
   // Use ref to avoid re-rendering issues
   const configsRef = useRef<Record<string, ServerConfig>>({});
 
   // Get saved MCP configurations from localStorage
-  const [savedConfigs] = useLocalStorage<Record<string, ServerConfig>>(
-    MCP_STORAGE_KEY,
-    {},
-  );
+  const [savedConfigs] = useLocalStorage<Record<string, ServerConfig>>(MCP_STORAGE_KEY, {});
 
   // Set the ref value once we have the saved configs
-  if (
-    Object.keys(savedConfigs).length > 0 &&
-    Object.keys(configsRef.current).length === 0
-  ) {
+  if (Object.keys(savedConfigs).length > 0 && Object.keys(configsRef.current).length === 0) {
     configsRef.current = savedConfigs;
   }
 

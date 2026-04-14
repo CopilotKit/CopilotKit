@@ -20,9 +20,7 @@ export interface ConfigContextType {
 }
 
 const queryClient = new QueryClient();
-export const ServerConfigsContext = React.createContext<
-  ConfigContextType | undefined
->(undefined);
+export const ServerConfigsContext = React.createContext<ConfigContextType | undefined>(undefined);
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [mcpConfig] = useLocalStorage("mcpConfig", []);
   const [config, setConfig] = React.useState<Config[]>(mcpConfig || []);
@@ -30,10 +28,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ServerConfigsContext.Provider value={{ config, setConfig }}>
       <QueryClientProvider client={queryClient}>
-        <CopilotKit
-          publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
-          showDevConsole={false}
-        >
+        <CopilotKit publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY} showDevConsole={false}>
           <McpServerManager configs={config} />
           <ToolRenderer />
           {/* <MCPToolCall /> */}

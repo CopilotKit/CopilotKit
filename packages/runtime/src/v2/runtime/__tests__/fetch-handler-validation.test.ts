@@ -15,9 +15,8 @@ const createMockAgent = () => {
   return agent as AbstractAgent;
 };
 
-const createRuntime = (
-  agents: Record<string, AbstractAgent> = { default: createMockAgent() },
-) => new CopilotRuntime({ agents });
+const createRuntime = (agents: Record<string, AbstractAgent> = { default: createMockAgent() }) =>
+  new CopilotRuntime({ agents });
 
 const post = (url: string, body?: unknown) =>
   new Request(url, {
@@ -90,30 +89,22 @@ describe("fetch-handler validation — single-route malformed input", () => {
   });
 
   it("returns 400 when method is null", async () => {
-    const response = await handler(
-      post("http://localhost/api", { method: null }),
-    );
+    const response = await handler(post("http://localhost/api", { method: null }));
     expect(response.status).toBe(400);
   });
 
   it("returns 400 when method is a number", async () => {
-    const response = await handler(
-      post("http://localhost/api", { method: 42 }),
-    );
+    const response = await handler(post("http://localhost/api", { method: 42 }));
     expect(response.status).toBe(400);
   });
 
   it("returns 400 when method is wrong case (INFO vs info)", async () => {
-    const response = await handler(
-      post("http://localhost/api", { method: "INFO" }),
-    );
+    const response = await handler(post("http://localhost/api", { method: "INFO" }));
     expect(response.status).toBe(400);
   });
 
   it("returns 400 for typo in method name", async () => {
-    const response = await handler(
-      post("http://localhost/api", { method: "agent/rn" }),
-    );
+    const response = await handler(post("http://localhost/api", { method: "agent/rn" }));
     expect(response.status).toBe(400);
   });
 });
@@ -213,9 +204,7 @@ describe("fetch-handler validation — single-route missing params", () => {
   });
 
   it("returns 400 for agent/stop with no params", async () => {
-    const response = await handler(
-      post("http://localhost/api", { method: "agent/stop" }),
-    );
+    const response = await handler(post("http://localhost/api", { method: "agent/stop" }));
     expect(response.status).toBe(400);
   });
 
@@ -231,18 +220,14 @@ describe("fetch-handler validation — single-route missing params", () => {
   });
 
   it("info method works without params", async () => {
-    const response = await handler(
-      post("http://localhost/api", { method: "info" }),
-    );
+    const response = await handler(post("http://localhost/api", { method: "info" }));
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toHaveProperty("version");
   });
 
   it("transcribe method without body returns 400 (body required for transcribe)", async () => {
-    const response = await handler(
-      post("http://localhost/api", { method: "transcribe" }),
-    );
+    const response = await handler(post("http://localhost/api", { method: "transcribe" }));
     // In single-route mode, transcribe requires a body via createJsonRequest
     expect(response.status).toBe(400);
   });
@@ -287,9 +272,7 @@ describe("fetch-handler validation — multi-route edge cases", () => {
       basePath: "/api",
       cors: true,
     });
-    const response = await handler(
-      new Request("http://localhost/api/unknown", { method: "GET" }),
-    );
+    const response = await handler(new Request("http://localhost/api/unknown", { method: "GET" }));
     expect(response.status).toBe(404);
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
@@ -300,9 +283,7 @@ describe("fetch-handler validation — multi-route edge cases", () => {
       basePath: "/api",
       cors: true,
     });
-    const response = await handler(
-      new Request("http://localhost/api/info", { method: "POST" }),
-    );
+    const response = await handler(new Request("http://localhost/api/info", { method: "POST" }));
     expect(response.status).toBe(405);
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
@@ -340,9 +321,7 @@ describe("fetch-handler validation — multi-route edge cases", () => {
       },
     });
 
-    const response = await handler(
-      new Request("http://localhost/api/info", { method: "GET" }),
-    );
+    const response = await handler(new Request("http://localhost/api/info", { method: "GET" }));
     expect(response.status).toBe(500);
     const body = await response.json();
     expect(body.error).toBe("internal_error");
@@ -361,9 +340,7 @@ describe("fetch-handler validation — multi-route edge cases", () => {
       },
     });
 
-    const response = await handler(
-      new Request("http://localhost/api/info", { method: "GET" }),
-    );
+    const response = await handler(new Request("http://localhost/api/info", { method: "GET" }));
     expect(response.status).toBe(500);
     const body = await response.json();
     expect(body.error).toBe("internal_error");

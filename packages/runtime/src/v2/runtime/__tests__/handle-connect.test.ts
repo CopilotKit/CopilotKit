@@ -9,9 +9,7 @@ import { IntelligenceAgentRunner } from "../runner/intelligence";
 describe("handleConnectAgent", () => {
   const createMockRuntime = (
     agents: Record<string, unknown> = {},
-    connectHandler?: (
-      request: AgentRunnerConnectRequest,
-    ) => Observable<BaseEvent>,
+    connectHandler?: (request: AgentRunnerConnectRequest) => Observable<BaseEvent>,
   ): CopilotRuntime => {
     return {
       agents: Promise.resolve(agents),
@@ -37,22 +35,19 @@ describe("handleConnectAgent", () => {
 
   it("should return 404 when agent does not exist", async () => {
     const runtime = createMockRuntime({});
-    const request = new Request(
-      "https://example.com/agent/nonexistent/connect",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          threadId: "thread-1",
-          runId: "run-1",
-          state: {},
-          messages: [],
-          tools: [],
-          context: [],
-          forwardedProps: {},
-        }),
-      },
-    );
+    const request = new Request("https://example.com/agent/nonexistent/connect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        threadId: "thread-1",
+        runId: "run-1",
+        state: {},
+        messages: [],
+        tools: [],
+        context: [],
+        forwardedProps: {},
+      }),
+    });
 
     const response = await handleConnectAgent({
       runtime,
@@ -97,21 +92,18 @@ describe("handleConnectAgent", () => {
       forwardedProps: {},
     };
 
-    const request = new Request(
-      "https://example.com/agent/test-agent/connect",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Custom": "custom-value",
-          "X-Another-Header": "another-value",
-          Authorization: "Bearer forwarded-token",
-          Origin: "http://localhost:4200",
-          "User-Agent": "test-agent",
-        },
-        body: JSON.stringify(requestBody),
+    const request = new Request("https://example.com/agent/test-agent/connect", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Custom": "custom-value",
+        "X-Another-Header": "another-value",
+        Authorization: "Bearer forwarded-token",
+        Origin: "http://localhost:4200",
+        "User-Agent": "test-agent",
       },
-    );
+      body: JSON.stringify(requestBody),
+    });
 
     const response = await handleConnectAgent({
       runtime,
@@ -161,17 +153,14 @@ describe("handleConnectAgent", () => {
       forwardedProps: {},
     };
 
-    const request = new Request(
-      "https://example.com/agent/test-agent/connect",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Origin: "http://localhost:4200",
-        },
-        body: JSON.stringify(requestBody),
+    const request = new Request("https://example.com/agent/test-agent/connect", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "http://localhost:4200",
       },
-    );
+      body: JSON.stringify(requestBody),
+    });
 
     const response = await handleConnectAgent({
       runtime,
@@ -187,10 +176,7 @@ describe("handleConnectAgent", () => {
   });
 
   describe("IntelligenceAgentRunner connect planning path", () => {
-    const createConnectRequest = (
-      headers?: Record<string, string>,
-      lastSeenEventId?: string | null,
-    ) =>
+    const createConnectRequest = (headers?: Record<string, string>, lastSeenEventId?: string | null) =>
       new Request("https://example.com/agent/my-agent/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...headers },
@@ -316,9 +302,7 @@ describe("handleConnectAgent", () => {
 
     it("returns 404 when connect planning is not available", async () => {
       const platform = {
-        ɵconnectThread: vi
-          .fn()
-          .mockRejectedValue(new Error("No active connect plan")),
+        ɵconnectThread: vi.fn().mockRejectedValue(new Error("No active connect plan")),
       };
       const runtime = createIntelligenceRuntime(platform);
 
@@ -360,10 +344,7 @@ describe("handleConnectAgent", () => {
       const identifyUser = vi.fn().mockResolvedValue({ id: "resolved-user" });
       const runtime = createIntelligenceRuntime(platform);
       runtime.identifyUser = identifyUser;
-      const request = createConnectRequest(
-        { "X-User-Id": "legacy-user" },
-        "event-9",
-      );
+      const request = createConnectRequest({ "X-User-Id": "legacy-user" }, "event-9");
 
       const response = await handleConnectAgent({
         runtime,
@@ -403,9 +384,7 @@ describe("handleConnectAgent", () => {
         ɵconnectThread: vi.fn(),
       };
       const runtime = createIntelligenceRuntime(platform);
-      runtime.identifyUser = vi
-        .fn()
-        .mockRejectedValue(new Error("auth failed"));
+      runtime.identifyUser = vi.fn().mockRejectedValue(new Error("auth failed"));
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
       try {

@@ -66,9 +66,7 @@ describe("Context injection into agent input (#3150)", () => {
 
     expect(agent.connectAgentCalls).toHaveLength(1);
     expect(agent.connectAgentCalls[0].context).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ description: "User name", value: "Bob" }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ description: "User name", value: "Bob" })]),
     );
   });
 

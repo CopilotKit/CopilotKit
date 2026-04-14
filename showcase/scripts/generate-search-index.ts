@@ -57,9 +57,7 @@ function deriveSectionLabel(hrefPrefix: string, href: string): string {
   }
 
   // Fallback: capitalize first directory
-  return (
-    parts[0].charAt(0).toUpperCase() + parts[0].slice(1).replace(/-/g, " ")
-  );
+  return parts[0].charAt(0).toUpperCase() + parts[0].slice(1).replace(/-/g, " ");
 }
 
 function extractTitle(content: string, filename: string): string {
@@ -82,12 +80,7 @@ function extractDescription(content: string): string {
   const lines = stripped
     .split("\n")
     .filter(
-      (l) =>
-        l.trim() &&
-        !l.startsWith("#") &&
-        !l.startsWith("import") &&
-        !l.startsWith("<") &&
-        !l.startsWith("```"),
+      (l) => l.trim() && !l.startsWith("#") && !l.startsWith("import") && !l.startsWith("<") && !l.startsWith("```"),
     );
   const first = lines[0]?.trim() || "";
   return first.slice(0, 120);
@@ -109,10 +102,7 @@ function scanMdxDir(
         walk(path.join(currentDir, item.name), `${pathPrefix}/${item.name}`);
       } else if (item.name.endsWith(".mdx")) {
         const slug = item.name.replace(".mdx", "");
-        const href =
-          slug === "index"
-            ? hrefPrefix + pathPrefix
-            : `${hrefPrefix}${pathPrefix}/${slug}`;
+        const href = slug === "index" ? hrefPrefix + pathPrefix : `${hrefPrefix}${pathPrefix}/${slug}`;
 
         // When an allow list is provided, only include matching slugs.
         // The slug is the href with the prefix stripped and leading slash removed.
@@ -121,10 +111,7 @@ function scanMdxDir(
           if (!allowList.has(relSlug)) continue;
         }
 
-        const content = fs.readFileSync(
-          path.join(currentDir, item.name),
-          "utf-8",
-        );
+        const content = fs.readFileSync(path.join(currentDir, item.name), "utf-8");
         const title = extractTitle(content, item.name);
         const subtitle = extractDescription(content);
 
@@ -239,12 +226,7 @@ function main() {
 
   const aguiDir = path.join(SHELL_DIR, "content", "ag-ui");
   if (fs.existsSync(aguiDir)) {
-    const aguiEntries = scanMdxDir(
-      aguiDir,
-      "/ag-ui",
-      "ag-ui",
-      AGUI_PUBLISHED_SLUGS,
-    );
+    const aguiEntries = scanMdxDir(aguiDir, "/ag-ui", "ag-ui", AGUI_PUBLISHED_SLUGS);
     entries.push(...aguiEntries);
     console.log(`  AG-UI: ${aguiEntries.length} entries`);
   }

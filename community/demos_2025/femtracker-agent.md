@@ -244,14 +244,12 @@ graph TB
 const agents = [
   {
     name: "main_coordinator",
-    description:
-      "Main health coordinator that routes requests to specialized agents",
+    description: "Main health coordinator that routes requests to specialized agents",
     graph_id: "main_coordinator",
   },
   {
     name: "cycle_tracker",
-    description:
-      "Specialized agent for menstrual cycle tracking and predictions",
+    description: "Specialized agent for menstrual cycle tracking and predictions",
     graph_id: "cycle_tracker",
   },
   // Additional specialized agents...

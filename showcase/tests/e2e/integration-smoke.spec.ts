@@ -63,8 +63,7 @@ const INTEGRATIONS: Integration[] = [
   {
     slug: "langgraph-typescript",
     name: "LangGraph (TypeScript)",
-    backendUrl:
-      "https://showcase-langgraph-typescript-production.up.railway.app",
+    backendUrl: "https://showcase-langgraph-typescript-production.up.railway.app",
     backendType: "langgraph",
     deployed: true,
     hasToolRendering: true,
@@ -109,8 +108,7 @@ const INTEGRATIONS: Integration[] = [
   {
     slug: "claude-sdk-typescript",
     name: "Claude Agent SDK (TypeScript)",
-    backendUrl:
-      "https://showcase-claude-sdk-typescript-production.up.railway.app",
+    backendUrl: "https://showcase-claude-sdk-typescript-production.up.railway.app",
     backendType: "ag-ui",
     deployed: false,
     hasToolRendering: true,
@@ -201,9 +199,7 @@ const INTEGRATIONS: Integration[] = [
 
 // Only test deployed integrations unless SMOKE_ALL=true
 const DEPLOYED_ONLY = process.env.SMOKE_ALL !== "true";
-const activeIntegrations = DEPLOYED_ONLY
-  ? INTEGRATIONS.filter((i) => i.deployed)
-  : INTEGRATIONS;
+const activeIntegrations = DEPLOYED_ONLY ? INTEGRATIONS.filter((i) => i.deployed) : INTEGRATIONS;
 
 // ---------------------------------------------------------------------------
 // Level 1: Health checks (@health) — fast, API-only
@@ -211,9 +207,7 @@ const activeIntegrations = DEPLOYED_ONLY
 
 test.describe("Level 1: Backend Health @health", () => {
   for (const integration of activeIntegrations) {
-    test(`[L1: health] ${integration.slug} backend is healthy @health`, async ({
-      request,
-    }) => {
+    test(`[L1: health] ${integration.slug} backend is healthy @health`, async ({ request }) => {
       const result = await checkHealth(request, integration.backendUrl);
       expect(
         result.ok,
@@ -229,9 +223,7 @@ test.describe("Level 1: Backend Health @health", () => {
 
 test.describe("Level 2: Agent Endpoint @agent", () => {
   for (const integration of activeIntegrations) {
-    test(`[L2: agent] ${integration.slug} agent endpoint responds (not 404) @agent`, async ({
-      request,
-    }) => {
+    test(`[L2: agent] ${integration.slug} agent endpoint responds (not 404) @agent`, async ({ request }) => {
       const result = await checkAgentEndpoint(request, integration.backendUrl);
       expect(
         result.status,
@@ -251,9 +243,7 @@ test.describe("Level 2: Agent Endpoint @agent", () => {
 
 test.describe("Level 3: Round-trip Chat @chat", () => {
   for (const integration of activeIntegrations) {
-    test(`[L3: chat] ${integration.slug} responds to a message @chat`, async ({
-      page,
-    }) => {
+    test(`[L3: chat] ${integration.slug} responds to a message @chat`, async ({ page }) => {
       test.slow(); // Allow extra time for cold starts
 
       const result = await sendChatMessage(
@@ -267,10 +257,7 @@ test.describe("Level 3: Round-trip Chat @chat", () => {
         result.gotResponse,
         `${integration.slug} did not produce an assistant response. The agent may be down, misconfigured, or using the wrong agent type.`,
       ).toBe(true);
-      expect(
-        result.responseText.length,
-        `${integration.slug} assistant response was empty`,
-      ).toBeGreaterThan(0);
+      expect(result.responseText.length, `${integration.slug} assistant response was empty`).toBeGreaterThan(0);
     });
   }
 });
@@ -280,14 +267,10 @@ test.describe("Level 3: Round-trip Chat @chat", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Level 4: Tool Rendering @tools", () => {
-  const toolIntegrations = activeIntegrations.filter(
-    (i) => i.hasToolRendering && i.demos.includes("tool-rendering"),
-  );
+  const toolIntegrations = activeIntegrations.filter((i) => i.hasToolRendering && i.demos.includes("tool-rendering"));
 
   for (const integration of toolIntegrations) {
-    test(`[L4: tools] ${integration.slug} renders tool results @tools`, async ({
-      page,
-    }) => {
+    test(`[L4: tools] ${integration.slug} renders tool results @tools`, async ({ page }) => {
       test.slow();
 
       const result = await sendChatMessage(
@@ -298,10 +281,7 @@ test.describe("Level 4: Tool Rendering @tools", () => {
       );
 
       // Tool rendering should produce an assistant response
-      expect(
-        result.gotResponse,
-        `${integration.slug} did not render a tool result`,
-      ).toBe(true);
+      expect(result.gotResponse, `${integration.slug} did not render a tool result`).toBe(true);
 
       // The response should contain weather-related content
       const responseLC = result.responseText.toLowerCase();

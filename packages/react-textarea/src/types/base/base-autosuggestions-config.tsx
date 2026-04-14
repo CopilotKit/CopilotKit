@@ -67,32 +67,20 @@ export interface BaseAutosuggestionsConfig {
   disabled: boolean;
   temporarilyDisableWhenMovingCursorWithoutChangingText: boolean;
   temporarilyDisableNotTrustedEvents: boolean;
-  shouldAcceptAutosuggestionOnKeyPress: (
-    event: React.KeyboardEvent<HTMLDivElement>,
-  ) => boolean;
-  shouldAcceptAutosuggestionOnTouch: (
-    event: React.TouchEvent<HTMLDivElement>,
-  ) => boolean;
-  shouldToggleHoveringEditorOnKeyPress: (
-    event: React.KeyboardEvent<HTMLDivElement>,
-    shortcut: string,
-  ) => boolean;
+  shouldAcceptAutosuggestionOnKeyPress: (event: React.KeyboardEvent<HTMLDivElement>) => boolean;
+  shouldAcceptAutosuggestionOnTouch: (event: React.TouchEvent<HTMLDivElement>) => boolean;
+  shouldToggleHoveringEditorOnKeyPress: (event: React.KeyboardEvent<HTMLDivElement>, shortcut: string) => boolean;
 }
 
 // by default, command-k toggles the hovering editor
-const defaultShouldToggleHoveringEditorOnKeyPress = (
-  event: React.KeyboardEvent<HTMLDivElement>,
-  shortcut: string,
-) => {
+const defaultShouldToggleHoveringEditorOnKeyPress = (event: React.KeyboardEvent<HTMLDivElement>, shortcut: string) => {
   const isMetaKey = isMacOS() ? event.metaKey : event.ctrlKey;
 
   // if command-k, toggle the hovering editor
   return event.key === shortcut && isMetaKey;
 };
 
-const defaultShouldAcceptAutosuggestionOnKeyPress = (
-  event: React.KeyboardEvent<HTMLDivElement>,
-) => {
+const defaultShouldAcceptAutosuggestionOnKeyPress = (event: React.KeyboardEvent<HTMLDivElement>) => {
   // if tab, accept the autosuggestion
   if (event.key === "Tab") {
     return true;
@@ -116,19 +104,14 @@ const defaultShouldAcceptAutosuggestionOnTouch = () => false;
  * @property {() => boolean} defaultShouldAcceptAutosuggestionOnTouch - A function that determines whether to accept the autosuggestion based on a mobile touch event.
  */
 
-export const defaultBaseAutosuggestionsConfig: Omit<
-  BaseAutosuggestionsConfig,
-  "textareaPurpose" | "apiConfig"
-> = {
+export const defaultBaseAutosuggestionsConfig: Omit<BaseAutosuggestionsConfig, "textareaPurpose" | "apiConfig"> = {
   debounceTime: 250,
   contextCategories: defaultCopilotContextCategories,
   disableWhenEmpty: true,
   disabled: false,
   temporarilyDisableWhenMovingCursorWithoutChangingText: true,
   temporarilyDisableNotTrustedEvents: true,
-  shouldToggleHoveringEditorOnKeyPress:
-    defaultShouldToggleHoveringEditorOnKeyPress,
-  shouldAcceptAutosuggestionOnKeyPress:
-    defaultShouldAcceptAutosuggestionOnKeyPress,
+  shouldToggleHoveringEditorOnKeyPress: defaultShouldToggleHoveringEditorOnKeyPress,
+  shouldAcceptAutosuggestionOnKeyPress: defaultShouldAcceptAutosuggestionOnKeyPress,
   shouldAcceptAutosuggestionOnTouch: defaultShouldAcceptAutosuggestionOnTouch,
 };

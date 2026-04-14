@@ -33,11 +33,7 @@ export default function CopilotKitPage() {
   });
 
   return (
-    <main
-      style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
-      }
-    >
+    <main style={{ "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties}>
       <CopilotSidebar
         disableSystemMessage={true}
         clickOutsideToClose={false}
@@ -64,8 +60,7 @@ export default function CopilotKitPage() {
           },
           {
             title: "Update Agent State",
-            message:
-              "Please remove 1 random proverb from the list if there are any.",
+            message: "Please remove 1 random proverb from the list if there are any.",
           },
           {
             title: "Read Agent State",
@@ -84,9 +79,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   const { state, setState } = useCoAgent<AgentState>({
     name: "my_agent",
     initialState: {
-      proverbs: [
-        "CopilotKit may be new, but its the best thing since sliced bread.",
-      ],
+      proverbs: ["CopilotKit may be new, but its the best thing since sliced bread."],
     },
   });
 
@@ -109,9 +102,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
       name: "go_to_moon",
       description: "Go to the moon on request.",
       render: ({ respond, status }) => {
-        return (
-          <MoonCard themeColor={themeColor} status={status} respond={respond} />
-        );
+        return <MoonCard themeColor={themeColor} status={status} respond={respond} />;
       },
     },
     [themeColor],

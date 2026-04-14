@@ -1,16 +1,10 @@
-import {
-  CopilotKitLowLevelError,
-  CopilotKitErrorCode,
-} from "@copilotkit/shared";
+import { CopilotKitLowLevelError, CopilotKitErrorCode } from "@copilotkit/shared";
 
 /**
  * Converts service adapter errors to structured CopilotKitError format using HTTP status codes.
  * This provides consistent error classification across all service adapters.
  */
-export function convertServiceAdapterError(
-  error: any,
-  adapterName: string,
-): CopilotKitLowLevelError {
+export function convertServiceAdapterError(error: any, adapterName: string): CopilotKitLowLevelError {
   const errorName = error?.constructor?.name || error.name;
   const errorMessage = error?.message || String(error);
   const statusCode = error.status || error.statusCode || error.response?.status;

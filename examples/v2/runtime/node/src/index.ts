@@ -1,9 +1,5 @@
 import { createServer } from "node:http";
-import {
-  CopilotRuntime,
-  createCopilotRuntimeHandler,
-  BuiltInAgent,
-} from "@copilotkit/runtime/v2";
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
 import { createCopilotNodeHandler } from "@copilotkit/runtime/v2/node";
 
 const runtime = new CopilotRuntime({
@@ -31,9 +27,7 @@ const server = createServer(async (req, res) => {
   // Root
   if (url.pathname === "/") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(
-      JSON.stringify({ status: "ok", message: "CopilotKit Node runtime" }),
-    );
+    res.end(JSON.stringify({ status: "ok", message: "CopilotKit Node runtime" }));
     return;
   }
 

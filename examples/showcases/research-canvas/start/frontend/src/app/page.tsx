@@ -35,11 +35,8 @@ export default function HomePage() {
     const onDrag = (e: MouseEvent) => {
       if (!isDragging) return;
       const containerRect = container!.getBoundingClientRect();
-      const newChatWidth =
-        ((e.clientX - containerRect.left) / containerRect.width) * 100;
-      setChatWidth(
-        Math.max(CHAT_MIN_WIDTH, Math.min(CHAT_MAX_WIDTH, newChatWidth)),
-      ); // Limit chat width between 20% and 80%
+      const newChatWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+      setChatWidth(Math.max(CHAT_MIN_WIDTH, Math.min(CHAT_MAX_WIDTH, newChatWidth))); // Limit chat width between 20% and 80%
     };
 
     const stopDragging = () => {
@@ -58,9 +55,7 @@ export default function HomePage() {
   }, []);
   const { sections } = researchState;
 
-  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(
-    null,
-  );
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
 
   return (
     <div className="h-screen bg-[#FAF9F6] text-[#3D2B1F] font-lato px-8 2xl:px-[8vw]">

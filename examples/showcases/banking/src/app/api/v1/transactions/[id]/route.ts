@@ -2,14 +2,9 @@ import { data } from "../../data";
 import { NextRequest } from "next/server";
 
 // Add note to transaction
-export const PUT = async (
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) => {
+export const PUT = async (req: NextRequest, { params }: { params: { id: string } }) => {
   try {
-    const transaction = data.transactions.find(
-      (transaction) => transaction.id === params.id,
-    );
+    const transaction = data.transactions.find((transaction) => transaction.id === params.id);
     if (!transaction) {
       return new Response(JSON.stringify({ error: "Transaction not found" }), {
         status: 404,

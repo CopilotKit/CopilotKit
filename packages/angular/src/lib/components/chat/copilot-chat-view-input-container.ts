@@ -1,11 +1,4 @@
-import {
-  Component,
-  input,
-  ChangeDetectionStrategy,
-  ViewEncapsulation,
-  forwardRef,
-  ElementRef,
-} from "@angular/core";
+import { Component, input, ChangeDetectionStrategy, ViewEncapsulation, forwardRef, ElementRef } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { CopilotChatInput } from "./copilot-chat-input";
@@ -33,11 +26,7 @@ import { cn } from "../../utils";
     <div [class]="computedClass">
       <!-- Input component -->
       <div class="max-w-3xl mx-auto py-0 px-4 sm:px-0">
-        <copilot-slot
-          [slot]="input()"
-          [context]="{ inputClass: inputClass() }"
-          [defaultComponent]="defaultInputComponent"
-        >
+        <copilot-slot [slot]="input()" [context]="{ inputClass: inputClass() }" [defaultComponent]="defaultInputComponent">
         </copilot-slot>
       </div>
 
@@ -72,9 +61,6 @@ export class CopilotChatViewInputContainer extends ElementRef {
   }
 
   get computedClass(): string {
-    return cn(
-      "absolute bottom-0 left-0 right-0 z-20",
-      this.inputContainerClass(),
-    );
+    return cn("absolute bottom-0 left-0 right-0 z-20", this.inputContainerClass());
   }
 }

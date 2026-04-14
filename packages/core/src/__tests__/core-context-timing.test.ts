@@ -17,11 +17,7 @@
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { CopilotKitCore } from "../core";
-import {
-  MockAgent,
-  createAssistantMessage,
-  createToolCallMessage,
-} from "./test-utils";
+import { MockAgent, createAssistantMessage, createToolCallMessage } from "./test-utils";
 
 /**
  * Subclass that simulates the React adapter's behavior:

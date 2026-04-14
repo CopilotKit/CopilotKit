@@ -4,13 +4,7 @@ import { renderWithCopilotKit } from "../../__tests__/utils/test-helpers";
 import { useSuggestions } from "../use-suggestions";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
-import {
-  AbstractAgent,
-  AgentSubscriber,
-  Message,
-  RunAgentParameters,
-  RunAgentResult,
-} from "@ag-ui/client";
+import { AbstractAgent, AgentSubscriber, Message, RunAgentParameters, RunAgentResult } from "@ag-ui/client";
 import { Suggestion } from "@copilotkit/core";
 
 class SuggestionsProviderAgent extends AbstractAgent {
@@ -31,10 +25,7 @@ class SuggestionsProviderAgent extends AbstractAgent {
     return cloned;
   }
 
-  override async runAgent(
-    parameters: RunAgentParameters = {},
-    subscriber?: AgentSubscriber,
-  ): Promise<RunAgentResult> {
+  override async runAgent(parameters: RunAgentParameters = {}, subscriber?: AgentSubscriber): Promise<RunAgentResult> {
     const input = this.prepareRunAgentInput(parameters);
     this.isRunning = true;
 
@@ -95,8 +86,7 @@ class SuggestionsProviderAgent extends AbstractAgent {
 }
 
 const TestHarness: React.FC = () => {
-  const { suggestions, isLoading, reloadSuggestions, clearSuggestions } =
-    useSuggestions();
+  const { suggestions, isLoading, reloadSuggestions, clearSuggestions } = useSuggestions();
   const { copilotkit } = useCopilotKit();
 
   useEffect(() => {
@@ -124,9 +114,7 @@ const TestHarness: React.FC = () => {
     <div>
       <div data-testid="suggestions-count">{suggestions.length}</div>
       <div data-testid="suggestions-json">{JSON.stringify(suggestions)}</div>
-      <div data-testid="suggestions-loading">
-        {isLoading ? "loading" : "idle"}
-      </div>
+      <div data-testid="suggestions-loading">{isLoading ? "loading" : "idle"}</div>
       <button data-testid="reload-suggestions" onClick={handleReload}>
         Reload
       </button>
@@ -151,31 +139,21 @@ describe("useSuggestions E2E", () => {
       });
 
       expect(screen.getByTestId("suggestions-count").textContent).toBe("0");
-      expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-        "idle",
-      );
+      expect(screen.getByTestId("suggestions-loading").textContent).toBe("idle");
 
       fireEvent.click(screen.getByTestId("reload-suggestions"));
 
       await waitFor(() => {
-        expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-          "loading",
-        );
+        expect(screen.getByTestId("suggestions-loading").textContent).toBe("loading");
       });
 
       await waitFor(() => {
         expect(screen.getByTestId("suggestions-count").textContent).toBe("2");
-        expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-          "idle",
-        );
+        expect(screen.getByTestId("suggestions-loading").textContent).toBe("idle");
       });
 
-      expect(screen.getByTestId("suggestions-json").textContent).toContain(
-        "Option A",
-      );
-      expect(screen.getByTestId("suggestions-json").textContent).toContain(
-        "Option B",
-      );
+      expect(screen.getByTestId("suggestions-json").textContent).toContain("Option A");
+      expect(screen.getByTestId("suggestions-json").textContent).toContain("Option B");
 
       fireEvent.click(screen.getByTestId("clear-suggestions"));
 
@@ -183,9 +161,7 @@ describe("useSuggestions E2E", () => {
         expect(screen.getByTestId("suggestions-count").textContent).toBe("0");
       });
 
-      expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-        "idle",
-      );
+      expect(screen.getByTestId("suggestions-loading").textContent).toBe("idle");
 
       ui.unmount();
     });
@@ -199,16 +175,12 @@ describe("useSuggestions E2E", () => {
       });
 
       expect(screen.getByTestId("suggestions-count").textContent).toBe("0");
-      expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-        "idle",
-      );
+      expect(screen.getByTestId("suggestions-loading").textContent).toBe("idle");
       expect(screen.getByTestId("suggestions-json").textContent).toBe("[]");
     });
 
     it("handles single suggestion", async () => {
-      const agent = new SuggestionsProviderAgent([
-        { title: "Only Option", message: "The only way", isLoading: false },
-      ]);
+      const agent = new SuggestionsProviderAgent([{ title: "Only Option", message: "The only way", isLoading: false }]);
 
       renderWithCopilotKit({
         agent,
@@ -244,18 +216,14 @@ describe("useSuggestions E2E", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("suggestions-count").textContent).toBe("5");
-        expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-          "idle",
-        );
+        expect(screen.getByTestId("suggestions-loading").textContent).toBe("idle");
       });
     });
   });
 
   describe("Loading state transitions", () => {
     it("transitions from idle -> loading -> idle correctly", async () => {
-      const agent = new SuggestionsProviderAgent([
-        { title: "Test", message: "Message", isLoading: false },
-      ]);
+      const agent = new SuggestionsProviderAgent([{ title: "Test", message: "Message", isLoading: false }]);
 
       renderWithCopilotKit({
         agent,
@@ -263,32 +231,24 @@ describe("useSuggestions E2E", () => {
       });
 
       // Initial state
-      expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-        "idle",
-      );
+      expect(screen.getByTestId("suggestions-loading").textContent).toBe("idle");
 
       // Trigger reload
       fireEvent.click(screen.getByTestId("reload-suggestions"));
 
       // Should transition to loading
       await waitFor(() => {
-        expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-          "loading",
-        );
+        expect(screen.getByTestId("suggestions-loading").textContent).toBe("loading");
       });
 
       // Should transition back to idle
       await waitFor(() => {
-        expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-          "idle",
-        );
+        expect(screen.getByTestId("suggestions-loading").textContent).toBe("idle");
       });
     });
 
     it("stays in loading state during multiple reloads", async () => {
-      const agent = new SuggestionsProviderAgent([
-        { title: "Test", message: "Message", isLoading: false },
-      ]);
+      const agent = new SuggestionsProviderAgent([{ title: "Test", message: "Message", isLoading: false }]);
 
       renderWithCopilotKit({
         agent,
@@ -300,16 +260,12 @@ describe("useSuggestions E2E", () => {
       fireEvent.click(screen.getByTestId("reload-suggestions"));
 
       await waitFor(() => {
-        expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-          "loading",
-        );
+        expect(screen.getByTestId("suggestions-loading").textContent).toBe("loading");
       });
 
       // Eventually should complete and go to idle
       await waitFor(() => {
-        expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-          "idle",
-        );
+        expect(screen.getByTestId("suggestions-loading").textContent).toBe("idle");
       });
     });
   });
@@ -341,15 +297,11 @@ describe("useSuggestions E2E", () => {
       });
 
       // Should not show loading state during clear
-      expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-        "idle",
-      );
+      expect(screen.getByTestId("suggestions-loading").textContent).toBe("idle");
     });
 
     it("can clear suggestions while loading", async () => {
-      const agent = new SuggestionsProviderAgent([
-        { title: "Option A", message: "Message A", isLoading: false },
-      ]);
+      const agent = new SuggestionsProviderAgent([{ title: "Option A", message: "Message A", isLoading: false }]);
 
       renderWithCopilotKit({
         agent,
@@ -360,9 +312,7 @@ describe("useSuggestions E2E", () => {
       fireEvent.click(screen.getByTestId("reload-suggestions"));
 
       await waitFor(() => {
-        expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-          "loading",
-        );
+        expect(screen.getByTestId("suggestions-loading").textContent).toBe("loading");
       });
 
       // Clear while loading
@@ -370,9 +320,7 @@ describe("useSuggestions E2E", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("suggestions-count").textContent).toBe("0");
-        expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-          "idle",
-        );
+        expect(screen.getByTestId("suggestions-loading").textContent).toBe("idle");
       });
     });
 
@@ -393,17 +341,13 @@ describe("useSuggestions E2E", () => {
         expect(screen.getByTestId("suggestions-count").textContent).toBe("0");
       });
 
-      expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-        "idle",
-      );
+      expect(screen.getByTestId("suggestions-loading").textContent).toBe("idle");
     });
   });
 
   describe("Reload functionality", () => {
     it("can reload to get fresh suggestions", async () => {
-      const agent = new SuggestionsProviderAgent([
-        { title: "Option A", message: "Message A", isLoading: false },
-      ]);
+      const agent = new SuggestionsProviderAgent([{ title: "Option A", message: "Message A", isLoading: false }]);
 
       renderWithCopilotKit({
         agent,
@@ -429,9 +373,7 @@ describe("useSuggestions E2E", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("suggestions-count").textContent).toBe("1");
-        expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-          "idle",
-        );
+        expect(screen.getByTestId("suggestions-loading").textContent).toBe("idle");
       });
     });
 
@@ -457,16 +399,12 @@ describe("useSuggestions E2E", () => {
       fireEvent.click(screen.getByTestId("reload-suggestions"));
 
       await waitFor(() => {
-        expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-          "loading",
-        );
+        expect(screen.getByTestId("suggestions-loading").textContent).toBe("loading");
       });
 
       await waitFor(() => {
         expect(screen.getByTestId("suggestions-count").textContent).toBe("2");
-        expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-          "idle",
-        );
+        expect(screen.getByTestId("suggestions-loading").textContent).toBe("idle");
       });
     });
   });
@@ -483,9 +421,7 @@ describe("useSuggestions E2E", () => {
       fireEvent.click(screen.getByTestId("reload-suggestions"));
 
       await waitFor(() => {
-        expect(screen.getByTestId("suggestions-loading").textContent).toBe(
-          "idle",
-        );
+        expect(screen.getByTestId("suggestions-loading").textContent).toBe("idle");
       });
 
       expect(screen.getByTestId("suggestions-count").textContent).toBe("0");

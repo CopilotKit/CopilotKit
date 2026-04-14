@@ -13,15 +13,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { ModeToggle } from "@/components/mode-toggle";
-import {
-  Code2,
-  FlaskConical,
-  LayoutDashboard,
-  LogOut,
-  Settings,
-  TestTube2,
-  TrendingUp,
-} from "lucide-react";
+import { Code2, FlaskConical, LayoutDashboard, LogOut, Settings, TestTube2, TrendingUp } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
 
@@ -61,9 +53,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <SidebarHeader className="flex justify-between px-4 py-2">
           <div className="flex items-center gap-2">
             <LayoutDashboard className="h-6 w-6" />
-            <h1 className="text-xl font-semibold tracking-tight">
-              EnterpriseX
-            </h1>
+            <h1 className="text-xl font-semibold tracking-tight">EnterpriseX</h1>
           </div>
         </SidebarHeader>
         <SidebarContent>

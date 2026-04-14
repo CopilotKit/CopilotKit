@@ -17,10 +17,7 @@ export interface CopilotEndpointCorsConfig {
    *
    * Note: When credentials is true, origin cannot be "*"
    */
-  origin:
-    | string
-    | string[]
-    | ((origin: string, c: any) => string | undefined | null);
+  origin: string | string[] | ((origin: string, c: any) => string | undefined | null);
   /**
    * Whether to allow credentials (cookies, HTTP authentication).
    * When true, origin must be explicitly specified (not "*").
@@ -75,15 +72,10 @@ export function createCopilotHonoHandler({
 /**
  * Convert Hono-specific CORS config to the fetch handler's CopilotCorsConfig.
  */
-export function toFetchCorsConfig(
-  config: CopilotEndpointCorsConfig,
-): CopilotCorsConfig {
+export function toFetchCorsConfig(config: CopilotEndpointCorsConfig): CopilotCorsConfig {
   const origin = config.origin;
   return {
-    origin:
-      typeof origin === "function"
-        ? (reqOrigin: string) => origin(reqOrigin, undefined) ?? null
-        : origin,
+    origin: typeof origin === "function" ? (reqOrigin: string) => origin(reqOrigin, undefined) ?? null : origin,
     credentials: config.credentials,
   };
 }

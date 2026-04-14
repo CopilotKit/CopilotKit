@@ -29,14 +29,10 @@ function HRContent() {
   const filtered =
     activeFilter === "all"
       ? employees
-      : employees.filter(
-          (e) => e.department.toLowerCase() === activeFilter.toLowerCase(),
-        );
+      : employees.filter((e) => e.department.toLowerCase() === activeFilter.toLowerCase());
 
   const activeCount = employees.filter((e) => e.status === "active").length;
-  const totalPayroll = employees
-    .filter((e) => e.status === "active")
-    .reduce((sum, e) => sum + e.salary, 0);
+  const totalPayroll = employees.filter((e) => e.status === "active").reduce((sum, e) => sum + e.salary, 0);
 
   return (
     <Shell>
@@ -47,32 +43,20 @@ function HRContent() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Card size="sm">
             <CardContent>
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Active Employees
-              </p>
-              <p className="mt-2 text-2xl font-bold text-foreground">
-                {activeCount}
-              </p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Active Employees</p>
+              <p className="mt-2 text-2xl font-bold text-foreground">{activeCount}</p>
             </CardContent>
           </Card>
           <Card size="sm">
             <CardContent>
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Departments
-              </p>
-              <p className="mt-2 text-2xl font-bold text-foreground">
-                {departments.length}
-              </p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Departments</p>
+              <p className="mt-2 text-2xl font-bold text-foreground">{departments.length}</p>
             </CardContent>
           </Card>
           <Card size="sm">
             <CardContent>
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Annual Payroll
-              </p>
-              <p className="mt-2 text-2xl font-bold text-foreground">
-                {formatCurrency(totalPayroll)}
-              </p>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Annual Payroll</p>
+              <p className="mt-2 text-2xl font-bold text-foreground">{formatCurrency(totalPayroll)}</p>
             </CardContent>
           </Card>
         </div>
@@ -83,9 +67,7 @@ function HRContent() {
             {["all", ...departments].map((f) => (
               <Link
                 key={f}
-                href={
-                  f === "all" ? "/hr" : `/hr?filter=${encodeURIComponent(f)}`
-                }
+                href={f === "all" ? "/hr" : `/hr?filter=${encodeURIComponent(f)}`}
                 className={cn(
                   "rounded-lg border px-3 py-1.5 text-xs font-medium capitalize transition-colors",
                   activeFilter.toLowerCase() === f.toLowerCase()
@@ -106,11 +88,7 @@ function HRContent() {
         {/* Employee Cards Grid */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((emp) => (
-            <Card
-              key={emp.id}
-              size="sm"
-              className="transition-all hover:shadow-lg"
-            >
+            <Card key={emp.id} size="sm" className="transition-all hover:shadow-lg">
               <CardContent>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -119,9 +97,7 @@ function HRContent() {
                     </div>
                     <div>
                       <p className="font-medium text-foreground">{emp.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {emp.role}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{emp.role}</p>
                     </div>
                   </div>
                   <StatusBadge status={emp.status} />
@@ -134,15 +110,11 @@ function HRContent() {
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Start Date</span>
-                    <span className="text-muted-foreground">
-                      {emp.startDate}
-                    </span>
+                    <span className="text-muted-foreground">{emp.startDate}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Salary</span>
-                    <span className="font-medium text-foreground">
-                      {formatCurrency(emp.salary)}
-                    </span>
+                    <span className="font-medium text-foreground">{formatCurrency(emp.salary)}</span>
                   </div>
                 </div>
 

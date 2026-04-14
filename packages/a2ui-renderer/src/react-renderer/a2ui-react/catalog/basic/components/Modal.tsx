@@ -69,9 +69,7 @@ export const Modal = createReactComponent(ModalApi, ({ props, buildChild }) => {
                 &times;
               </button>
             </div>
-            <div style={{ flex: 1 }}>
-              {props.content ? buildChild(props.content) : null}
-            </div>
+            <div style={{ flex: 1 }}>{props.content ? buildChild(props.content) : null}</div>
           </div>
         </div>
       )}

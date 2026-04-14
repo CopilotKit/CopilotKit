@@ -9,21 +9,15 @@ import { createCopilotEndpointSingleRouteExpress } from "../endpoints/express-si
 import { CopilotRuntime } from "../core/runtime";
 
 vi.mock("../handlers/handle-run", () => ({
-  handleRunAgent: vi
-    .fn()
-    .mockResolvedValue(new Response(null, { status: 200 })),
+  handleRunAgent: vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
 }));
 
 vi.mock("../handlers/handle-connect", () => ({
-  handleConnectAgent: vi
-    .fn()
-    .mockResolvedValue(new Response(null, { status: 200 })),
+  handleConnectAgent: vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
 }));
 
 vi.mock("../handlers/handle-stop", () => ({
-  handleStopAgent: vi
-    .fn()
-    .mockResolvedValue(new Response(null, { status: 200 })),
+  handleStopAgent: vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
 }));
 
 describe("Express adapter with hooks", () => {
@@ -61,12 +55,7 @@ describe("Express adapter with hooks", () => {
   describe("createCopilotEndpointExpress", () => {
     const createApp = (
       runtimeOpts?: Partial<CopilotRuntime>,
-      endpointOpts?: Partial<
-        Omit<
-          Parameters<typeof createCopilotEndpointExpress>[0],
-          "runtime" | "basePath"
-        >
-      >,
+      endpointOpts?: Partial<Omit<Parameters<typeof createCopilotEndpointExpress>[0], "runtime" | "basePath">>,
     ) => {
       const runtime = createMockRuntime(runtimeOpts);
       const app = express();
@@ -90,14 +79,11 @@ describe("Express adapter with hooks", () => {
 
     it("routes POST /agent/:id/run correctly", async () => {
       const { app } = createApp();
-      const response = await request(app)
-        .post("/agent/myAgent/run")
-        .set("Content-Type", "application/json")
-        .send({
-          messages: [],
-          state: {},
-          threadId: "thread-1",
-        });
+      const response = await request(app).post("/agent/myAgent/run").set("Content-Type", "application/json").send({
+        messages: [],
+        state: {},
+        threadId: "thread-1",
+      });
 
       expect(response.status).not.toBe(404);
     });
@@ -150,11 +136,7 @@ describe("Express adapter with hooks", () => {
   });
 
   describe("createCopilotEndpointSingleRouteExpress", () => {
-    const createSingleApp = (
-      hooks?: Parameters<
-        typeof createCopilotEndpointSingleRouteExpress
-      >[0]["hooks"],
-    ) => {
+    const createSingleApp = (hooks?: Parameters<typeof createCopilotEndpointSingleRouteExpress>[0]["hooks"]) => {
       const runtime = createMockRuntime();
       const app = express();
       app.use(

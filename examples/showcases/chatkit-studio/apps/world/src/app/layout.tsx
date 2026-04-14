@@ -6,11 +6,7 @@ import "./globals.css";
 import "@copilotkit/react-ui/styles.css";
 import ApiKeyInput from "@/components/ApiKeyInput";
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [apiKey, setApiKey] = useState<string | null>(null);
 
   useEffect(() => {

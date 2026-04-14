@@ -1,16 +1,9 @@
-import {
-  CopilotRuntime,
-  createCopilotEndpoint,
-  InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+import { CopilotRuntime, createCopilotEndpoint, InMemoryAgentRunner } from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 import { handle } from "hono/vercel";
 
 const defaultAgent = new LangGraphAgent({
-  deploymentUrl:
-    process.env.AGENT_URL ||
-    process.env.LANGGRAPH_DEPLOYMENT_URL ||
-    "http://localhost:8123",
+  deploymentUrl: process.env.AGENT_URL || process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
   graphId: "sample_agent",
   langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
 });

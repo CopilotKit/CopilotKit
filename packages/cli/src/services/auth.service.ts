@@ -26,8 +26,7 @@ interface LoginResponse {
 
 export class AuthService {
   private readonly config = new Conf({ projectName: "CopilotKitCLI" });
-  private readonly COPILOT_CLOUD_BASE_URL =
-    process.env.COPILOT_CLOUD_BASE_URL || "https://cloud.copilotkit.ai";
+  private readonly COPILOT_CLOUD_BASE_URL = process.env.COPILOT_CLOUD_BASE_URL || "https://cloud.copilotkit.ai";
 
   getToken(): string | undefined {
     return this.config.get("cliToken") as string | undefined;
@@ -42,10 +41,7 @@ export class AuthService {
     this.config.delete("cliToken");
   }
 
-  async requireLogin(
-    cmd: Command,
-    context?: "cloud-features" | "general",
-  ): Promise<LoginResponse> {
+  async requireLogin(cmd: Command, context?: "cloud-features" | "general"): Promise<LoginResponse> {
     let cliToken = this.getCLIToken();
     // Check authentication
     if (!cliToken) {
@@ -59,8 +55,7 @@ export class AuthService {
             {
               name: "shouldLogin",
               type: "confirm",
-              message:
-                "🪁 You are not yet authenticated. Authenticate with Copilot Cloud? (press Enter to confirm)",
+              message: "🪁 You are not yet authenticated. Authenticate with Copilot Cloud? (press Enter to confirm)",
               default: true,
             },
           ]);
@@ -70,9 +65,7 @@ export class AuthService {
         if (shouldLogin) {
           // Show different message for cloud features vs general usage
           if (context === "cloud-features") {
-            cmd.log(
-              chalk.cyan("\n🚀 Setting up Copilot Cloud authentication...\n"),
-            );
+            cmd.log(chalk.cyan("\n🚀 Setting up Copilot Cloud authentication...\n"));
           }
           const loginResult = await this.login({ exitAfterLogin: false });
           cliToken = loginResult.cliToken;
@@ -96,18 +89,12 @@ export class AuthService {
       me = await trpcClient.me.query();
     } catch (error) {
       // Token is invalid/expired, trigger new login
-      cmd.log(
-        chalk.yellow("Your authentication has expired. Re-authenticating..."),
-      );
+      cmd.log(chalk.yellow("Your authentication has expired. Re-authenticating..."));
       try {
         const loginResult = await this.login({ exitAfterLogin: false });
         return loginResult;
       } catch (loginError) {
-        cmd.log(
-          chalk.red(
-            "Could not authenticate with Copilot Cloud. Please run: npx copilotkit@latest login",
-          ),
-        );
+        cmd.log(chalk.red("Could not authenticate with Copilot Cloud. Please run: npx copilotkit@latest login"));
         process.exit(1);
       }
     }
@@ -119,9 +106,7 @@ export class AuthService {
     return { cliToken, user: me.user, organization: me.organization };
   }
 
-  async login(
-    { exitAfterLogin }: { exitAfterLogin?: boolean } = { exitAfterLogin: true },
-  ): Promise<LoginResponse> {
+  async login({ exitAfterLogin }: { exitAfterLogin?: boolean } = { exitAfterLogin: true }): Promise<LoginResponse> {
     const spinner = ora("🪁 Opening browser for authentication...").start();
     let analytics: AnalyticsService;
     analytics = new AnalyticsService();
@@ -171,9 +156,7 @@ export class AuthService {
 
         this.config.set("cliToken", cliToken);
         res.status(200).json({ message: "Callback called" });
-        spinner.succeed(
-          `🪁 Successfully logged in as ${chalk.hex("#7553fc")(user.email)}`,
-        );
+        spinner.succeed(`🪁 Successfully logged in as ${chalk.hex("#7553fc")(user.email)}`);
         if (exitAfterLogin) {
           process.exit(0);
         } else {
@@ -182,9 +165,7 @@ export class AuthService {
         }
       });
 
-      open(
-        `${this.COPILOT_CLOUD_BASE_URL}/cli-auth?callbackUrl=http://localhost:${port}/callback&state=${state}`,
-      );
+      open(`${this.COPILOT_CLOUD_BASE_URL}/cli-auth?callbackUrl=http://localhost:${port}/callback&state=${state}`);
     });
   }
 }

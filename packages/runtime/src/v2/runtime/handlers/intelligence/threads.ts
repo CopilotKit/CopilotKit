@@ -1,8 +1,4 @@
-import {
-  CopilotIntelligenceRuntimeLike,
-  CopilotRuntimeLike,
-  isIntelligenceRuntime,
-} from "../../core/runtime";
+import { CopilotIntelligenceRuntimeLike, CopilotRuntimeLike, isIntelligenceRuntime } from "../../core/runtime";
 import { logger } from "@copilotkit/shared";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { isValidIdentifier } from "../shared/intelligence-utils";
@@ -23,9 +19,7 @@ interface ThreadMutationContext {
   body: Record<string, unknown>;
 }
 
-async function parseJsonBody(
-  request: Request,
-): Promise<Record<string, unknown> | Response> {
+async function parseJsonBody(request: Request): Promise<Record<string, unknown> | Response> {
   try {
     return (await request.json()) as Record<string, unknown>;
   } catch (error) {
@@ -34,9 +28,7 @@ async function parseJsonBody(
   }
 }
 
-function requireIntelligenceRuntime(
-  runtime: CopilotRuntimeLike,
-): CopilotIntelligenceRuntimeLike | Response {
+function requireIntelligenceRuntime(runtime: CopilotRuntimeLike): CopilotIntelligenceRuntimeLike | Response {
   if (!isIntelligenceRuntime(runtime)) {
     return errorResponse(
       "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
@@ -69,10 +61,7 @@ async function resolveThreadMutationContext(
   };
 }
 
-export async function handleListThreads({
-  runtime,
-  request,
-}: ThreadsHandlerParams): Promise<Response> {
+export async function handleListThreads({ runtime, request }: ThreadsHandlerParams): Promise<Response> {
   const intelligenceRuntime = requireIntelligenceRuntime(runtime);
   if (isHandlerResponse(intelligenceRuntime)) {
     return intelligenceRuntime;
@@ -109,21 +98,14 @@ export async function handleListThreads({
   }
 }
 
-export async function handleUpdateThread({
-  runtime,
-  request,
-  threadId,
-}: ThreadMutationParams): Promise<Response> {
+export async function handleUpdateThread({ runtime, request, threadId }: ThreadMutationParams): Promise<Response> {
   const intelligenceRuntime = requireIntelligenceRuntime(runtime);
   if (isHandlerResponse(intelligenceRuntime)) {
     return intelligenceRuntime;
   }
 
   try {
-    const mutation = await resolveThreadMutationContext(
-      intelligenceRuntime,
-      request,
-    );
+    const mutation = await resolveThreadMutationContext(intelligenceRuntime, request);
     if (isHandlerResponse(mutation)) return mutation;
 
     const updates = { ...mutation.body };
@@ -144,10 +126,7 @@ export async function handleUpdateThread({
   }
 }
 
-export async function handleSubscribeToThreads({
-  runtime,
-  request,
-}: ThreadsHandlerParams): Promise<Response> {
+export async function handleSubscribeToThreads({ runtime, request }: ThreadsHandlerParams): Promise<Response> {
   const intelligenceRuntime = requireIntelligenceRuntime(runtime);
   if (isHandlerResponse(intelligenceRuntime)) {
     return intelligenceRuntime;
@@ -160,10 +139,9 @@ export async function handleSubscribeToThreads({
     });
     if (isHandlerResponse(user)) return user;
 
-    const credentials =
-      await intelligenceRuntime.intelligence.ɵsubscribeToThreads({
-        userId: user.id,
-      });
+    const credentials = await intelligenceRuntime.intelligence.ɵsubscribeToThreads({
+      userId: user.id,
+    });
 
     return Response.json({ joinToken: credentials.joinToken });
   } catch (error) {
@@ -172,21 +150,14 @@ export async function handleSubscribeToThreads({
   }
 }
 
-export async function handleArchiveThread({
-  runtime,
-  request,
-  threadId,
-}: ThreadMutationParams): Promise<Response> {
+export async function handleArchiveThread({ runtime, request, threadId }: ThreadMutationParams): Promise<Response> {
   const intelligenceRuntime = requireIntelligenceRuntime(runtime);
   if (isHandlerResponse(intelligenceRuntime)) {
     return intelligenceRuntime;
   }
 
   try {
-    const mutation = await resolveThreadMutationContext(
-      intelligenceRuntime,
-      request,
-    );
+    const mutation = await resolveThreadMutationContext(intelligenceRuntime, request);
     if (isHandlerResponse(mutation)) return mutation;
 
     await intelligenceRuntime.intelligence.archiveThread({
@@ -202,21 +173,14 @@ export async function handleArchiveThread({
   }
 }
 
-export async function handleDeleteThread({
-  runtime,
-  request,
-  threadId,
-}: ThreadMutationParams): Promise<Response> {
+export async function handleDeleteThread({ runtime, request, threadId }: ThreadMutationParams): Promise<Response> {
   const intelligenceRuntime = requireIntelligenceRuntime(runtime);
   if (isHandlerResponse(intelligenceRuntime)) {
     return intelligenceRuntime;
   }
 
   try {
-    const mutation = await resolveThreadMutationContext(
-      intelligenceRuntime,
-      request,
-    );
+    const mutation = await resolveThreadMutationContext(intelligenceRuntime, request);
     if (isHandlerResponse(mutation)) return mutation;
 
     await intelligenceRuntime.intelligence.deleteThread({
@@ -232,11 +196,7 @@ export async function handleDeleteThread({
   }
 }
 
-export async function handleGetThreadMessages({
-  runtime,
-  request,
-  threadId,
-}: ThreadMutationParams): Promise<Response> {
+export async function handleGetThreadMessages({ runtime, request, threadId }: ThreadMutationParams): Promise<Response> {
   const intelligenceRuntime = requireIntelligenceRuntime(runtime);
   if (isHandlerResponse(intelligenceRuntime)) {
     return intelligenceRuntime;

@@ -26,13 +26,7 @@ const completedTodo: SalesTodo = {
 describe("TodoList", () => {
   it("renders active and completed columns", () => {
     const onUpdate = vi.fn();
-    render(
-      <TodoList
-        todos={[activeTodo, completedTodo]}
-        onUpdate={onUpdate}
-        isAgentRunning={false}
-      />,
-    );
+    render(<TodoList todos={[activeTodo, completedTodo]} onUpdate={onUpdate} isAgentRunning={false} />);
     expect(screen.getByText("Active Deals")).toBeTruthy();
     expect(screen.getByText("Closed")).toBeTruthy();
     expect(screen.getByText("Follow up with Acme Corp")).toBeTruthy();
@@ -41,13 +35,7 @@ describe("TodoList", () => {
 
   it("can add a new todo", () => {
     const onUpdate = vi.fn();
-    render(
-      <TodoList
-        todos={[activeTodo]}
-        onUpdate={onUpdate}
-        isAgentRunning={false}
-      />,
-    );
+    render(<TodoList todos={[activeTodo]} onUpdate={onUpdate} isAgentRunning={false} />);
     const addBtn = screen.getByLabelText("Add new deal");
     fireEvent.click(addBtn);
     expect(onUpdate).toHaveBeenCalledOnce();
@@ -61,9 +49,7 @@ describe("TodoList", () => {
     const onUpdate = vi.fn();
     render(<TodoList todos={[]} onUpdate={onUpdate} isAgentRunning={false} />);
     expect(screen.getByText("No deals yet")).toBeTruthy();
-    expect(
-      screen.getByText("Create your first deal to get started"),
-    ).toBeTruthy();
+    expect(screen.getByText("Create your first deal to get started")).toBeTruthy();
   });
 
   it("empty state has add button", () => {

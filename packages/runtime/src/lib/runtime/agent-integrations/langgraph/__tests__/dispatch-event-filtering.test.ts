@@ -19,11 +19,7 @@ function createAgent() {
   return { agent, events };
 }
 
-function makeTextEvent(
-  type: EventType,
-  metadata: Record<string, any>,
-  messageId = "msg-1",
-) {
+function makeTextEvent(type: EventType, metadata: Record<string, any>, messageId = "msg-1") {
   return {
     type,
     messageId,
@@ -111,11 +107,7 @@ describe("dispatchEvent emit-messages filtering", () => {
     };
 
     agent.dispatchEvent(
-      makeTextEvent(
-        EventType.TEXT_MESSAGE_END,
-        { "copilotkit:emit-messages": false },
-        "msg-orchestrator",
-      ) as any,
+      makeTextEvent(EventType.TEXT_MESSAGE_END, { "copilotkit:emit-messages": false }, "msg-orchestrator") as any,
     );
 
     expect((agent as any).messagesInProcess["run-1"]).toBeNull();

@@ -39,20 +39,14 @@ export function Tabs({
             <button
               key={id}
               onClick={() => onTabChange(id)}
-              className={`${buttonClassName} ${
-                activeTab === id
-                  ? activeButtonClassName
-                  : inactiveButtonClassName
-              }`}
+              className={`${buttonClassName} ${activeTab === id ? activeButtonClassName : inactiveButtonClassName}`}
             >
               {label}
             </button>
           ))}
         </div>
       </nav>
-      <main className={contentClassName}>
-        {tabs.find((tab) => tab.id === activeTab)?.content}
-      </main>
+      <main className={contentClassName}>{tabs.find((tab) => tab.id === activeTab)?.content}</main>
     </div>
   );
 }

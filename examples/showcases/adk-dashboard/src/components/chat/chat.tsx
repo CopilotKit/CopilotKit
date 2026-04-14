@@ -28,8 +28,7 @@ export function Chat({ className }: ChatProps) {
             },
             {
               title: "AI growth",
-              message:
-                "Please rebuild the dashboard to help me keep track of the current trends in the AI industry.",
+              message: "Please rebuild the dashboard to help me keep track of the current trends in the AI industry.",
             },
             {
               title: "Music trends",

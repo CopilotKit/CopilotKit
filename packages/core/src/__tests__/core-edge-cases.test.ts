@@ -29,17 +29,10 @@ describe("CopilotKitCore.runAgent - Edge Cases", () => {
 
     const toolCallId = "processed-call";
     const assistantMsg = createToolCallMessage("alreadyProcessedTool");
-    if (
-      assistantMsg.role === "assistant" &&
-      assistantMsg.toolCalls &&
-      assistantMsg.toolCalls[0]
-    ) {
+    if (assistantMsg.role === "assistant" && assistantMsg.toolCalls && assistantMsg.toolCalls[0]) {
       assistantMsg.toolCalls[0].id = toolCallId;
     }
-    const existingResult = createToolResultMessage(
-      toolCallId,
-      "Already processed",
-    );
+    const existingResult = createToolResultMessage(toolCallId, "Already processed");
 
     const agent = new MockAgent({
       newMessages: [assistantMsg, existingResult],
@@ -81,9 +74,7 @@ describe("CopilotKitCore.runAgent - Edge Cases", () => {
   });
 
   it("should handle tool arguments as empty string", async () => {
-    const handler = vi.fn(
-      async (args: any) => `Received: ${JSON.stringify(args)}`,
-    );
+    const handler = vi.fn(async (args: any) => `Received: ${JSON.stringify(args)}`);
     const tool = createTool({
       name: "emptyArgsTool",
       handler,
@@ -117,9 +108,7 @@ describe("CopilotKitCore.runAgent - Edge Cases", () => {
   });
 
   it("should handle tool arguments as null", async () => {
-    const handler = vi.fn(
-      async (args: any) => `Received: ${JSON.stringify(args)}`,
-    );
+    const handler = vi.fn(async (args: any) => `Received: ${JSON.stringify(args)}`);
     const tool = createTool({
       name: "nullArgsTool",
       handler,
@@ -152,9 +141,7 @@ describe("CopilotKitCore.runAgent - Edge Cases", () => {
   });
 
   it("should handle tool arguments as undefined", async () => {
-    const handler = vi.fn(
-      async (args: any) => `Received: ${JSON.stringify(args)}`,
-    );
+    const handler = vi.fn(async (args: any) => `Received: ${JSON.stringify(args)}`);
     const tool = createTool({
       name: "undefArgsTool",
       handler,
@@ -187,9 +174,7 @@ describe("CopilotKitCore.runAgent - Edge Cases", () => {
   });
 
   it("should handle empty arguments via wildcard tool path", async () => {
-    const handler = vi.fn(
-      async (args: any) => `Wildcard: ${JSON.stringify(args)}`,
-    );
+    const handler = vi.fn(async (args: any) => `Wildcard: ${JSON.stringify(args)}`);
     const wildcardTool = createTool({
       name: "*",
       handler,
@@ -270,9 +255,7 @@ describe("CopilotKitCore.runAgent - Edge Cases", () => {
     // The injected message should be present
     expect(agent.messages.some((m) => m.content === "Injected")).toBe(true);
     // Tool result should still be added correctly
-    expect(
-      agent.messages.some((m) => m.role === "tool" && m.content === "Result"),
-    ).toBe(true);
+    expect(agent.messages.some((m) => m.role === "tool" && m.content === "Result")).toBe(true);
   });
 
   it("should propagate errors from agent.runAgent", async () => {

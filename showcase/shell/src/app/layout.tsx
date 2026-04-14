@@ -7,11 +7,7 @@ export const metadata: Metadata = {
   description: "Docs, live demos, and integrations for CopilotKit",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body className="min-h-screen">

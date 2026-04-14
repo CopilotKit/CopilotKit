@@ -35,11 +35,7 @@ describe("CopilotEndpoint routing", () => {
   };
 
   // Helper to test routing
-  const testRoute = async (
-    url: string,
-    method: string = "GET",
-    body?: unknown,
-  ) => {
+  const testRoute = async (url: string, method: string = "GET", body?: unknown) => {
     const runtime = createMockRuntime();
     const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
     const requestInit: RequestInit = { method };
@@ -54,59 +50,40 @@ describe("CopilotEndpoint routing", () => {
 
   describe("RunAgent route pattern", () => {
     it("should match agent run URL with simple agent name", async () => {
-      const response = await testRoute(
-        "https://example.com/agent/myAgent/run",
-        "POST",
-        {
-          agentId: "myAgent",
-        },
-      );
+      const response = await testRoute("https://example.com/agent/myAgent/run", "POST", {
+        agentId: "myAgent",
+      });
 
       // Should not be 404
       expect(response.status).not.toBe(404);
     });
 
     it("should match agent run URL with alphanumeric agent name", async () => {
-      const response = await testRoute(
-        "https://example.com/agent/agent123/run",
-        "POST",
-        {
-          agentId: "agent123",
-        },
-      );
+      const response = await testRoute("https://example.com/agent/agent123/run", "POST", {
+        agentId: "agent123",
+      });
 
       expect(response.status).not.toBe(404);
     });
 
     it("should match agent run URL with hyphenated agent name", async () => {
-      const response = await testRoute(
-        "https://example.com/agent/my-agent/run",
-        "POST",
-        {
-          agentId: "my-agent",
-        },
-      );
+      const response = await testRoute("https://example.com/agent/my-agent/run", "POST", {
+        agentId: "my-agent",
+      });
 
       expect(response.status).not.toBe(404);
     });
 
     it("should match agent run URL with underscored agent name", async () => {
-      const response = await testRoute(
-        "https://example.com/agent/my_agent/run",
-        "POST",
-        {
-          agentId: "my_agent",
-        },
-      );
+      const response = await testRoute("https://example.com/agent/my_agent/run", "POST", {
+        agentId: "my_agent",
+      });
 
       expect(response.status).not.toBe(404);
     });
 
     it("should not match agent run URL with empty agent name", async () => {
-      const response = await testRoute(
-        "https://example.com/agent//run",
-        "POST",
-      );
+      const response = await testRoute("https://example.com/agent//run", "POST");
 
       expect(response.status).toBe(404);
       const body = await response.json();
@@ -114,19 +91,13 @@ describe("CopilotEndpoint routing", () => {
     });
 
     it("should not match partial agent run URL", async () => {
-      const response = await testRoute(
-        "https://example.com/agent/myAgent",
-        "POST",
-      );
+      const response = await testRoute("https://example.com/agent/myAgent", "POST");
 
       expect(response.status).toBe(404);
     });
 
     it("should not match agent run URL with extra path segments", async () => {
-      const response = await testRoute(
-        "https://example.com/agent/myAgent/run/extra",
-        "POST",
-      );
+      const response = await testRoute("https://example.com/agent/myAgent/run/extra", "POST");
 
       expect(response.status).toBe(404);
     });
@@ -157,31 +128,20 @@ describe("CopilotEndpoint routing", () => {
   describe("Transcribe route pattern (/transcribe endpoint)", () => {
     it("should match simple transcribe URL", async () => {
       // Transcribe expects POST method and audio data
-      const response = await testRoute(
-        "https://example.com/transcribe",
-        "POST",
-        {},
-      );
+      const response = await testRoute("https://example.com/transcribe", "POST", {});
 
       // It might return an error since we're not providing audio, but it shouldn't be 404
       expect(response.status).not.toBe(404);
     });
 
     it("should match transcribe URL with query parameters", async () => {
-      const response = await testRoute(
-        "https://example.com/transcribe?format=json",
-        "POST",
-        {},
-      );
+      const response = await testRoute("https://example.com/transcribe?format=json", "POST", {});
 
       expect(response.status).not.toBe(404);
     });
 
     it("should not match transcribe URLs with extra path segments", async () => {
-      const response = await testRoute(
-        "https://example.com/transcribe/extra",
-        "POST",
-      );
+      const response = await testRoute("https://example.com/transcribe/extra", "POST");
 
       expect(response.status).toBe(404);
     });
@@ -217,13 +177,9 @@ describe("CopilotEndpoint routing", () => {
 
   describe("Edge cases", () => {
     it("should handle URLs with different domains", async () => {
-      const response = await testRoute(
-        "http://localhost:3000/agent/test/run",
-        "POST",
-        {
-          agentId: "test",
-        },
-      );
+      const response = await testRoute("http://localhost:3000/agent/test/run", "POST", {
+        agentId: "test",
+      });
 
       expect(response.status).not.toBe(404);
     });
@@ -235,21 +191,15 @@ describe("CopilotEndpoint routing", () => {
     });
 
     it("should handle URLs with ports for transcribe endpoint", async () => {
-      const response = await testRoute(
-        "https://api.example.com:8080/transcribe",
-        "POST",
-        {},
-      );
+      const response = await testRoute("https://api.example.com:8080/transcribe", "POST", {});
 
       expect(response.status).not.toBe(404);
     });
 
     it("should handle URLs with special characters in agent names", async () => {
-      const response = await testRoute(
-        "https://example.com/agent/test%20agent/run",
-        "POST",
-        { agentId: "test%20agent" },
-      );
+      const response = await testRoute("https://example.com/agent/test%20agent/run", "POST", {
+        agentId: "test%20agent",
+      });
 
       expect(response.status).not.toBe(404);
     });

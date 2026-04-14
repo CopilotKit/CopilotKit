@@ -39,10 +39,7 @@ hallucinations and guarantees type-safe props at render time.
 ## Usage
 
 ```tsx
-import {
-  HashBrownDashboard,
-  useHashBrownMessageRenderer,
-} from "./renderers/hashbrown";
+import { HashBrownDashboard, useHashBrownMessageRenderer } from "./renderers/hashbrown";
 
 function App() {
   const RenderMessage = useHashBrownMessageRenderer();

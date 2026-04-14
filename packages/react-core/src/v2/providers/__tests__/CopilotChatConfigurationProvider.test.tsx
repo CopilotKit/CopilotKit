@@ -18,12 +18,8 @@ function ConfigurationDisplay() {
     <div>
       <div data-testid="agentId">{config?.agentId || "no-config"}</div>
       <div data-testid="threadId">{config?.threadId || "no-config"}</div>
-      <div data-testid="placeholder">
-        {config?.labels.chatInputPlaceholder || "no-config"}
-      </div>
-      <div data-testid="copyLabel">
-        {config?.labels.assistantMessageToolbarCopyMessageLabel || "no-config"}
-      </div>
+      <div data-testid="placeholder">{config?.labels.chatInputPlaceholder || "no-config"}</div>
+      <div data-testid="copyLabel">{config?.labels.assistantMessageToolbarCopyMessageLabel || "no-config"}</div>
     </div>
   );
 }
@@ -39,17 +35,12 @@ describe("CopilotChatConfigurationProvider", () => {
 
       expect(screen.getByTestId("agentId").textContent).toBe(DEFAULT_AGENT_ID);
       expect(screen.getByTestId("threadId").textContent).toBe("test-thread");
-      expect(screen.getByTestId("placeholder").textContent).toBe(
-        CopilotChatDefaultLabels.chatInputPlaceholder,
-      );
+      expect(screen.getByTestId("placeholder").textContent).toBe(CopilotChatDefaultLabels.chatInputPlaceholder);
     });
 
     it("should accept custom agentId", () => {
       render(
-        <CopilotChatConfigurationProvider
-          threadId="test-thread"
-          agentId="custom-agent"
-        >
+        <CopilotChatConfigurationProvider threadId="test-thread" agentId="custom-agent">
           <ConfigurationDisplay />
         </CopilotChatConfigurationProvider>,
       );
@@ -63,17 +54,12 @@ describe("CopilotChatConfigurationProvider", () => {
       };
 
       render(
-        <CopilotChatConfigurationProvider
-          threadId="test-thread"
-          labels={customLabels}
-        >
+        <CopilotChatConfigurationProvider threadId="test-thread" labels={customLabels}>
           <ConfigurationDisplay />
         </CopilotChatConfigurationProvider>,
       );
 
-      expect(screen.getByTestId("placeholder").textContent).toBe(
-        "Custom placeholder",
-      );
+      expect(screen.getByTestId("placeholder").textContent).toBe("Custom placeholder");
       // Other labels should still have defaults
       expect(screen.getByTestId("copyLabel").textContent).toBe(
         CopilotChatDefaultLabels.assistantMessageToolbarCopyMessageLabel,
@@ -107,9 +93,7 @@ describe("CopilotChatConfigurationProvider", () => {
 
       // Find the input element and check its placeholder
       const input = container.querySelector('textarea, input[type="text"]');
-      expect(input?.getAttribute("placeholder")).toBe(
-        CopilotChatDefaultLabels.chatInputPlaceholder,
-      );
+      expect(input?.getAttribute("placeholder")).toBe(CopilotChatDefaultLabels.chatInputPlaceholder);
     });
 
     it("should inherit from existing provider when CopilotChat has no props", () => {
@@ -232,10 +216,7 @@ describe("CopilotChatConfigurationProvider", () => {
             agentId="outer-agent"
             labels={{ chatInputPlaceholder: "Outer placeholder" }}
           >
-            <CopilotChat
-              threadId="inner-thread"
-              labels={{ chatInputPlaceholder: "Inner placeholder" }}
-            />
+            <CopilotChat threadId="inner-thread" labels={{ chatInputPlaceholder: "Inner placeholder" }} />
             <ConfigurationDisplay />
           </CopilotChatConfigurationProvider>
         </CopilotKitProvider>,
@@ -244,9 +225,7 @@ describe("CopilotChatConfigurationProvider", () => {
       // ConfigurationDisplay is outside CopilotChat, so it sees outer values
       expect(screen.getByTestId("agentId").textContent).toBe("outer-agent");
       expect(screen.getByTestId("threadId").textContent).toBe("outer-thread");
-      expect(screen.getByTestId("placeholder").textContent).toBe(
-        "Outer placeholder",
-      );
+      expect(screen.getByTestId("placeholder").textContent).toBe("Outer placeholder");
     });
   });
 
@@ -256,12 +235,8 @@ describe("CopilotChatConfigurationProvider", () => {
         const config = useCopilotChatConfiguration();
         return (
           <div>
-            <div data-testid="hasSetModalOpen">
-              {config?.setModalOpen ? "yes" : "no"}
-            </div>
-            <div data-testid="hasIsModalOpen">
-              {config?.isModalOpen !== undefined ? "yes" : "no"}
-            </div>
+            <div data-testid="hasSetModalOpen">{config?.setModalOpen ? "yes" : "no"}</div>
+            <div data-testid="hasIsModalOpen">{config?.isModalOpen !== undefined ? "yes" : "no"}</div>
           </div>
         );
       }
@@ -281,18 +256,13 @@ describe("CopilotChatConfigurationProvider", () => {
         const config = useCopilotChatConfiguration();
         return (
           <div>
-            <div data-testid="isModalOpen">
-              {config?.isModalOpen ? "open" : "closed"}
-            </div>
+            <div data-testid="isModalOpen">{config?.isModalOpen ? "open" : "closed"}</div>
           </div>
         );
       }
 
       render(
-        <CopilotChatConfigurationProvider
-          threadId="test-thread"
-          isModalDefaultOpen={false}
-        >
+        <CopilotChatConfigurationProvider threadId="test-thread" isModalDefaultOpen={false}>
           <ModalStateDisplay />
         </CopilotChatConfigurationProvider>,
       );
@@ -305,21 +275,14 @@ describe("CopilotChatConfigurationProvider", () => {
         const config = useCopilotChatConfiguration();
         return (
           <div>
-            <div data-testid="isModalOpen">
-              {config?.isModalOpen ? "open" : "closed"}
-            </div>
-            <div data-testid="hasSetModalOpen">
-              {config?.setModalOpen ? "yes" : "no"}
-            </div>
+            <div data-testid="isModalOpen">{config?.isModalOpen ? "open" : "closed"}</div>
+            <div data-testid="hasSetModalOpen">{config?.setModalOpen ? "yes" : "no"}</div>
           </div>
         );
       }
 
       render(
-        <CopilotChatConfigurationProvider
-          threadId="outer-thread"
-          isModalDefaultOpen={false}
-        >
+        <CopilotChatConfigurationProvider threadId="outer-thread" isModalDefaultOpen={false}>
           <CopilotChatConfigurationProvider threadId="inner-thread">
             <ModalStateDisplay />
           </CopilotChatConfigurationProvider>
@@ -336,22 +299,14 @@ describe("CopilotChatConfigurationProvider", () => {
         const config = useCopilotChatConfiguration();
         return (
           <div>
-            <div data-testid="isModalOpen">
-              {config?.isModalOpen ? "open" : "closed"}
-            </div>
+            <div data-testid="isModalOpen">{config?.isModalOpen ? "open" : "closed"}</div>
           </div>
         );
       }
 
       render(
-        <CopilotChatConfigurationProvider
-          threadId="outer-thread"
-          isModalDefaultOpen={true}
-        >
-          <CopilotChatConfigurationProvider
-            threadId="inner-thread"
-            isModalDefaultOpen={false}
-          >
+        <CopilotChatConfigurationProvider threadId="outer-thread" isModalDefaultOpen={true}>
+          <CopilotChatConfigurationProvider threadId="inner-thread" isModalDefaultOpen={false}>
             <ModalStateDisplay />
           </CopilotChatConfigurationProvider>
         </CopilotChatConfigurationProvider>,
@@ -381,16 +336,10 @@ describe("CopilotChatConfigurationProvider", () => {
       return (
         <>
           <div data-testid={`${id}-state`}>{String(config?.isModalOpen)}</div>
-          <button
-            data-testid={`${id}-open`}
-            onClick={() => config?.setModalOpen(true)}
-          >
+          <button data-testid={`${id}-open`} onClick={() => config?.setModalOpen(true)}>
             open
           </button>
-          <button
-            data-testid={`${id}-close`}
-            onClick={() => config?.setModalOpen(false)}
-          >
+          <button data-testid={`${id}-close`} onClick={() => config?.setModalOpen(false)}>
             close
           </button>
         </>
@@ -404,10 +353,7 @@ describe("CopilotChatConfigurationProvider", () => {
         <CopilotChatConfigurationProvider threadId="outer">
           {/* OuterProbe sits outside the inner provider — reads outer context */}
           <ModalControls id="outer" />
-          <CopilotChatConfigurationProvider
-            threadId="inner"
-            isModalDefaultOpen={true}
-          >
+          <CopilotChatConfigurationProvider threadId="inner" isModalDefaultOpen={true}>
             <ModalControls id="inner" />
           </CopilotChatConfigurationProvider>
         </CopilotChatConfigurationProvider>,
@@ -429,15 +375,9 @@ describe("CopilotChatConfigurationProvider", () => {
       // If the user calls setModalOpen from the outer hook, the inner
       // provider (and therefore the sidebar) must respond.
       render(
-        <CopilotChatConfigurationProvider
-          threadId="outer"
-          isModalDefaultOpen={false}
-        >
+        <CopilotChatConfigurationProvider threadId="outer" isModalDefaultOpen={false}>
           <ModalControls id="outer" />
-          <CopilotChatConfigurationProvider
-            threadId="inner"
-            isModalDefaultOpen={false}
-          >
+          <CopilotChatConfigurationProvider threadId="inner" isModalDefaultOpen={false}>
             <ModalControls id="inner" />
           </CopilotChatConfigurationProvider>
         </CopilotChatConfigurationProvider>,
@@ -467,10 +407,7 @@ describe("CopilotChatConfigurationProvider", () => {
           <ModalControls id="p1" />
           <CopilotChatConfigurationProvider threadId="p2">
             {/* p2 has no isModalDefaultOpen — proxies p1's state */}
-            <CopilotChatConfigurationProvider
-              threadId="p3"
-              isModalDefaultOpen={true}
-            >
+            <CopilotChatConfigurationProvider threadId="p3" isModalDefaultOpen={true}>
               <ModalControls id="p3" />
             </CopilotChatConfigurationProvider>
           </CopilotChatConfigurationProvider>
@@ -493,15 +430,9 @@ describe("CopilotChatConfigurationProvider", () => {
       // parent's current value on initial render — the sync effect must
       // not overwrite the child's own initial state.
       render(
-        <CopilotChatConfigurationProvider
-          threadId="outer"
-          isModalDefaultOpen={true}
-        >
+        <CopilotChatConfigurationProvider threadId="outer" isModalDefaultOpen={true}>
           <ModalControls id="outer" />
-          <CopilotChatConfigurationProvider
-            threadId="inner"
-            isModalDefaultOpen={false}
-          >
+          <CopilotChatConfigurationProvider threadId="inner" isModalDefaultOpen={false}>
             <ModalControls id="inner" />
           </CopilotChatConfigurationProvider>
         </CopilotChatConfigurationProvider>,

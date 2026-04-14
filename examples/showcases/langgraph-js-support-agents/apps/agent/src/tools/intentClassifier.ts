@@ -53,15 +53,9 @@ Now classify this message:`;
 
     try {
       // Invoke AI for classification
-      const response = await model.invoke([
-        new SystemMessage(systemPrompt),
-        new HumanMessage(message),
-      ]);
+      const response = await model.invoke([new SystemMessage(systemPrompt), new HumanMessage(message)]);
 
-      const content =
-        typeof response.content === "string"
-          ? response.content
-          : JSON.stringify(response.content);
+      const content = typeof response.content === "string" ? response.content : JSON.stringify(response.content);
 
       // Try to parse AI response as JSON
       try {
@@ -99,68 +93,13 @@ function fallbackKeywordClassification(message: string) {
   const lowerMessage = message.toLowerCase();
 
   const intentPatterns = {
-    billing_issue: [
-      "bill",
-      "charge",
-      "payment",
-      "invoice",
-      "expensive",
-      "cost",
-      "price",
-      "refund",
-      "discount",
-    ],
-    service_outage: [
-      "not working",
-      "down",
-      "outage",
-      "slow",
-      "disconnected",
-      "no internet",
-      "connection",
-    ],
-    cancellation: [
-      "cancel",
-      "terminate",
-      "stop service",
-      "end subscription",
-      "quit",
-    ],
-    tech_support: [
-      "help",
-      "support",
-      "issue",
-      "problem",
-      "error",
-      "configure",
-      "setup",
-      "install",
-    ],
-    upgrade_request: [
-      "upgrade",
-      "faster",
-      "better plan",
-      "fiber",
-      "premium",
-      "more speed",
-    ],
-    payment_issue: [
-      "payment failed",
-      "can't pay",
-      "declined",
-      "payment error",
-      "autopay",
-    ],
-    general_inquiry: [
-      "hello",
-      "hi",
-      "info",
-      "question",
-      "how",
-      "what",
-      "when",
-      "where",
-    ],
+    billing_issue: ["bill", "charge", "payment", "invoice", "expensive", "cost", "price", "refund", "discount"],
+    service_outage: ["not working", "down", "outage", "slow", "disconnected", "no internet", "connection"],
+    cancellation: ["cancel", "terminate", "stop service", "end subscription", "quit"],
+    tech_support: ["help", "support", "issue", "problem", "error", "configure", "setup", "install"],
+    upgrade_request: ["upgrade", "faster", "better plan", "fiber", "premium", "more speed"],
+    payment_issue: ["payment failed", "can't pay", "declined", "payment error", "autopay"],
+    general_inquiry: ["hello", "hi", "info", "question", "how", "what", "when", "where"],
   };
 
   let bestIntent = "general_inquiry";
@@ -168,9 +107,7 @@ function fallbackKeywordClassification(message: string) {
   let matchedKeywords: string[] = [];
 
   for (const [intent, keywords] of Object.entries(intentPatterns)) {
-    const matches = keywords.filter((keyword) =>
-      lowerMessage.includes(keyword),
-    );
+    const matches = keywords.filter((keyword) => lowerMessage.includes(keyword));
     if (matches.length > maxMatches) {
       maxMatches = matches.length;
       bestIntent = intent;
@@ -180,30 +117,18 @@ function fallbackKeywordClassification(message: string) {
 
   let urgency: "low" | "medium" | "high" = "low";
 
-  if (
-    bestIntent === "service_outage" ||
-    bestIntent === "cancellation" ||
-    bestIntent === "payment_issue"
-  ) {
+  if (bestIntent === "service_outage" || bestIntent === "cancellation" || bestIntent === "payment_issue") {
     urgency = "high";
   } else if (bestIntent === "billing_issue" || bestIntent === "tech_support") {
     urgency = "medium";
   }
 
-  const urgentKeywords = [
-    "urgent",
-    "emergency",
-    "immediately",
-    "asap",
-    "critical",
-    "now",
-  ];
+  const urgentKeywords = ["urgent", "emergency", "immediately", "asap", "critical", "now"];
   if (urgentKeywords.some((kw) => lowerMessage.includes(kw))) {
     urgency = "high";
   }
 
-  const confidence =
-    maxMatches > 0 ? Math.min(0.5 + maxMatches * 0.15, 0.95) : 0.6;
+  const confidence = maxMatches > 0 ? Math.min(0.5 + maxMatches * 0.15, 0.95) : 0.6;
 
   return JSON.stringify({
     category: bestIntent,

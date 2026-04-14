@@ -1,13 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { DataChart } from "@/components/data-chart";
 import { Button } from "@/components/ui/button";
@@ -126,23 +120,13 @@ export function TesterDashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Tester Dashboard
-        </h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Tester Dashboard</h1>
         <div className="flex items-center gap-2">
-          <Button
-            variant={viewMode === "table" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("table")}
-          >
+          <Button variant={viewMode === "table" ? "default" : "outline"} size="sm" onClick={() => setViewMode("table")}>
             <Table2 className="mr-2 h-4 w-4" />
             Table
           </Button>
-          <Button
-            variant={viewMode === "chart" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("chart")}
-          >
+          <Button variant={viewMode === "chart" ? "default" : "outline"} size="sm" onClick={() => setViewMode("chart")}>
             <BarChart3 className="mr-2 h-4 w-4" />
             Chart
           </Button>
@@ -157,9 +141,7 @@ export function TesterDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">87.2%</div>
-            <p className="text-xs text-muted-foreground">
-              +2.5% from last month
-            </p>
+            <p className="text-xs text-muted-foreground">+2.5% from last month</p>
           </CardContent>
         </Card>
         <Card>
@@ -169,9 +151,7 @@ export function TesterDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">92.8%</div>
-            <p className="text-xs text-muted-foreground">
-              -0.7% from last week
-            </p>
+            <p className="text-xs text-muted-foreground">-0.7% from last week</p>
           </CardContent>
         </Card>
         <Card>
@@ -189,9 +169,7 @@ export function TesterDashboard() {
       <Card>
         <CardHeader>
           <CardTitle>Test Results</CardTitle>
-          <CardDescription>
-            Monitor test results and performance metrics
-          </CardDescription>
+          <CardDescription>Monitor test results and performance metrics</CardDescription>
         </CardHeader>
         <CardContent>
           {viewMode === "table" ? (

@@ -20,13 +20,7 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import type {
-  ChartSpec,
-  LineChartSpec,
-  BarChartSpec,
-  PieChartSpec,
-  ChartDataRecord,
-} from "@/lib/types";
+import type { ChartSpec, LineChartSpec, BarChartSpec, PieChartSpec, ChartDataRecord } from "@/lib/types";
 
 function safeVar(name: string) {
   return String(name)
@@ -40,28 +34,14 @@ interface ChartRendererProps {
 }
 
 export function ChartRenderer({ spec, data }: ChartRendererProps) {
-  if (spec.type === "line")
-    return <LineChart spec={spec as LineChartSpec} data={data} />;
-  if (spec.type === "bar")
-    return <BarChart spec={spec as BarChartSpec} data={data} />;
+  if (spec.type === "line") return <LineChart spec={spec as LineChartSpec} data={data} />;
+  if (spec.type === "bar") return <BarChart spec={spec as BarChartSpec} data={data} />;
   return <PieChart spec={spec as PieChartSpec} data={data} />;
 }
 
-const chartColors = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
-];
+const chartColors = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
 
-function LineChart({
-  spec,
-  data,
-}: {
-  spec: LineChartSpec;
-  data: ChartDataRecord[];
-}) {
+function LineChart({ spec, data }: { spec: LineChartSpec; data: ChartDataRecord[] }) {
   const config: ChartConfig = useMemo(
     () => ({
       [spec.y]: { label: spec.y, color: "var(--chart-1)" },
@@ -72,17 +52,9 @@ function LineChart({
   return (
     <ChartContainer config={config} className="aspect-auto h-[250px] w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <RLineChart
-          data={data}
-          margin={{ top: 10, right: 12, bottom: 0, left: 12 }}
-        >
+        <RLineChart data={data} margin={{ top: 10, right: 12, bottom: 0, left: 12 }}>
           <CartesianGrid vertical={false} />
-          <XAxis
-            dataKey={spec.x}
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-          />
+          <XAxis dataKey={spec.x} tickLine={false} axisLine={false} tickMargin={8} />
           <YAxis tickLine={false} axisLine={false} tickMargin={8} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <ChartLegend content={<ChartLegendContent />} />
@@ -99,13 +71,7 @@ function LineChart({
   );
 }
 
-function BarChart({
-  spec,
-  data,
-}: {
-  spec: BarChartSpec;
-  data: ChartDataRecord[];
-}) {
+function BarChart({ spec, data }: { spec: BarChartSpec; data: ChartDataRecord[] }) {
   const config: ChartConfig = useMemo(
     () => ({
       [spec.y]: { label: spec.y, color: "var(--chart-2)" },
@@ -116,26 +82,15 @@ function BarChart({
   return (
     <ChartContainer config={config} className="aspect-auto h-[250px] w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <RBarChart
-          data={data}
-          margin={{ top: 10, right: 12, bottom: 0, left: 12 }}
-        >
+        <RBarChart data={data} margin={{ top: 10, right: 12, bottom: 0, left: 12 }}>
           <CartesianGrid vertical={false} />
-          <XAxis
-            dataKey={spec.x}
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-          />
+          <XAxis dataKey={spec.x} tickLine={false} axisLine={false} tickMargin={8} />
           <YAxis tickLine={false} axisLine={false} tickMargin={8} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <ChartLegend content={<ChartLegendContent />} />
           <Bar dataKey={spec.y} radius={[4, 4, 0, 0]}>
             {data.map((_, index) => (
-              <Cell
-                key={`cell-${index}`}
-                fill={chartColors[index % chartColors.length]}
-              />
+              <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
             ))}
           </Bar>
         </RBarChart>
@@ -144,13 +99,7 @@ function BarChart({
   );
 }
 
-function PieChart({
-  spec,
-  data,
-}: {
-  spec: PieChartSpec;
-  data: ChartDataRecord[];
-}) {
+function PieChart({ spec, data }: { spec: PieChartSpec; data: ChartDataRecord[] }) {
   const slices = useMemo(() => data, [data]);
   const categories = slices.map((s) => String(s[spec.x ?? "category"]));
   const config: ChartConfig = useMemo(() => {

@@ -5,11 +5,7 @@ interface SlidePreviewProps {
   done?: boolean;
 }
 
-export function SlidePreview({
-  content,
-  spokenNarration,
-  done,
-}: SlidePreviewProps) {
+export function SlidePreview({ content, spokenNarration, done }: SlidePreviewProps) {
   return (
     <div className="">
       <div className=" w-full relative max-w-xs">
@@ -18,13 +14,9 @@ export function SlidePreview({
           <h1 className="font-bold text-xl text-white mb-4 relative z-50">
             {done ? "Slide added" : "Adding slide..."}
           </h1>
-          <p className="font-normal text-base text-slate-500 mb-4 relative z-50 whitespace-pre">
-            {content}
-          </p>
+          <p className="font-normal text-base text-slate-500 mb-4 relative z-50 whitespace-pre">{content}</p>
           {spokenNarration && (
-            <p className="font-normal text-sm text-slate-500 mb-4 relative z-50">
-              &quot;{spokenNarration}&quot;
-            </p>
+            <p className="font-normal text-sm text-slate-500 mb-4 relative z-50">&quot;{spokenNarration}&quot;</p>
           )}
         </div>
       </div>

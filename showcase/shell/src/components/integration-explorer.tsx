@@ -8,10 +8,7 @@ import constraintsData from "@/data/constraints.json";
 // Module-scope: stable reference, no useMemo needed
 const constraints = constraintsData as {
   generative_ui: Record<string, { allowed?: string[]; excluded?: string[] }>;
-  interaction_modalities: Record<
-    string,
-    { allowed?: string[]; excluded?: string[] }
-  >;
+  interaction_modalities: Record<string, { allowed?: string[]; excluded?: string[] }>;
 };
 
 const GEN_UI_LABELS: Record<string, string> = {
@@ -51,22 +48,14 @@ interface FilteredDemo {
   demo: Integration["demos"][number];
 }
 
-export function IntegrationExplorer({
-  integrations,
-  initialFeatureFilter,
-}: IntegrationExplorerProps) {
+export function IntegrationExplorer({ integrations, initialFeatureFilter }: IntegrationExplorerProps) {
   const [framework, setFramework] = useState("all");
   const [genUi, setGenUi] = useState("all");
   const [modality, setModality] = useState("all");
-  const [featureFilter, setFeatureFilter] = useState(
-    initialFeatureFilter ?? "",
-  );
+  const [featureFilter, setFeatureFilter] = useState(initialFeatureFilter ?? "");
 
   // Only deployed integrations participate in filtering
-  const deployed = useMemo(
-    () => integrations.filter((i) => i.deployed),
-    [integrations],
-  );
+  const deployed = useMemo(() => integrations.filter((i) => i.deployed), [integrations]);
 
   // Unique framework names from deployed integrations
   const frameworkOptions = useMemo(() => {
@@ -95,9 +84,7 @@ export function IntegrationExplorer({
   }, [deployed]);
 
   const comingSoonModality = useMemo(() => {
-    const available = new Set(
-      deployed.flatMap((i) => i.interaction_modalities ?? []),
-    );
+    const available = new Set(deployed.flatMap((i) => i.interaction_modalities ?? []));
     return new Set(MODALITY_VALUES.filter((v) => !available.has(v)));
   }, [deployed]);
 
@@ -110,10 +97,7 @@ export function IntegrationExplorer({
     return counts;
   }, [deployed]);
 
-  const totalDemoCount = useMemo(
-    () => deployed.reduce((sum, i) => sum + i.demos.length, 0),
-    [deployed],
-  );
+  const totalDemoCount = useMemo(() => deployed.reduce((sum, i) => sum + i.demos.length, 0), [deployed]);
 
   const filteredDemos = useMemo(() => {
     let packages = deployed;
@@ -130,18 +114,12 @@ export function IntegrationExplorer({
 
     // Generative UI filter: package-level then demo-level
     if (genUi !== "all") {
-      packages = packages.filter(
-        (i) => i.generative_ui && i.generative_ui.includes(genUi),
-      );
+      packages = packages.filter((i) => i.generative_ui && i.generative_ui.includes(genUi));
     }
 
     // Interaction modality filter: package-level
     if (modality !== "all") {
-      packages = packages.filter(
-        (i) =>
-          i.interaction_modalities &&
-          i.interaction_modalities.includes(modality),
-      );
+      packages = packages.filter((i) => i.interaction_modalities && i.interaction_modalities.includes(modality));
     }
 
     // Collect demos with demo-level filtering
@@ -152,22 +130,15 @@ export function IntegrationExplorer({
         // Generative UI demo-level: keep only demos in allowed list
         if (genUi !== "all") {
           const genUiConstraint = constraints.generative_ui[genUi];
-          if (
-            genUiConstraint?.allowed &&
-            !genUiConstraint.allowed.includes(demo.id)
-          ) {
+          if (genUiConstraint?.allowed && !genUiConstraint.allowed.includes(demo.id)) {
             continue;
           }
         }
 
         // Interaction modality demo-level: exclude demos in excluded list
         if (modality !== "all") {
-          const modalityConstraint =
-            constraints.interaction_modalities[modality];
-          if (
-            modalityConstraint?.excluded &&
-            modalityConstraint.excluded.includes(demo.id)
-          ) {
+          const modalityConstraint = constraints.interaction_modalities[modality];
+          if (modalityConstraint?.excluded && modalityConstraint.excluded.includes(demo.id)) {
             continue;
           }
         }
@@ -187,17 +158,15 @@ export function IntegrationExplorer({
       groups[cat].push(entry);
     }
     // Return ordered array of [category, demos] pairs
-    const result = CATEGORY_ORDER.filter(
-      (cat) => groups[cat] && groups[cat].length > 0,
-    ).map((cat) => [cat, groups[cat]] as [string, FilteredDemo[]]);
+    const result = CATEGORY_ORDER.filter((cat) => groups[cat] && groups[cat].length > 0).map(
+      (cat) => [cat, groups[cat]] as [string, FilteredDemo[]],
+    );
 
     // Append any categories not in CATEGORY_ORDER so they aren't silently dropped
     const orderedCats = new Set(CATEGORY_ORDER);
     for (const cat of Object.keys(groups)) {
       if (!orderedCats.has(cat) && groups[cat].length > 0) {
-        console.warn(
-          `[integration-explorer] Unknown category "${cat}" — appending to end`,
-        );
+        console.warn(`[integration-explorer] Unknown category "${cat}" — appending to end`);
         result.push([cat, groups[cat]]);
       }
     }
@@ -207,15 +176,9 @@ export function IntegrationExplorer({
 
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
-  const hasActiveFilters =
-    framework !== "all" ||
-    genUi !== "all" ||
-    modality !== "all" ||
-    !!featureFilter;
+  const hasActiveFilters = framework !== "all" || genUi !== "all" || modality !== "all" || !!featureFilter;
 
-  const clearFilter = (
-    which: "framework" | "genUi" | "modality" | "feature",
-  ) => {
+  const clearFilter = (which: "framework" | "genUi" | "modality" | "feature") => {
     if (which === "framework") setFramework("all");
     else if (which === "genUi") setGenUi("all");
     else if (which === "feature") setFeatureFilter("");
@@ -247,12 +210,7 @@ export function IntegrationExplorer({
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </button>
         {mobileFilterOpen && (
@@ -342,10 +300,7 @@ export function IntegrationExplorer({
       </div>
 
       {/* ---- Desktop sidebar ---- */}
-      <aside
-        className="hidden sm:block shrink-0 sticky top-4 self-start"
-        style={{ width: 220 }}
-      >
+      <aside className="hidden sm:block shrink-0 sticky top-4 self-start" style={{ width: 220 }}>
         {/* Framework group */}
         <FilterGroup title="Framework">
           <RadioOption
@@ -370,11 +325,7 @@ export function IntegrationExplorer({
 
         {/* Generative UI group */}
         <FilterGroup title="Generative UI">
-          <RadioOption
-            label="All"
-            selected={genUi === "all"}
-            onClick={() => setGenUi("all")}
-          />
+          <RadioOption label="All" selected={genUi === "all"} onClick={() => setGenUi("all")} />
           {GEN_UI_VALUES.map((v) => (
             <RadioOption
               key={v}
@@ -388,20 +339,14 @@ export function IntegrationExplorer({
 
         {/* Interaction group */}
         <FilterGroup title="Interaction">
-          <RadioOption
-            label="All"
-            selected={modality === "all"}
-            onClick={() => setModality("all")}
-          />
+          <RadioOption label="All" selected={modality === "all"} onClick={() => setModality("all")} />
           {MODALITY_VALUES.map((v) => (
             <RadioOption
               key={v}
               label={MODALITY_LABELS[v]}
               selected={modality === v}
               comingSoon={comingSoonModality.has(v)}
-              onClick={
-                comingSoonModality.has(v) ? undefined : () => setModality(v)
-              }
+              onClick={comingSoonModality.has(v) ? undefined : () => setModality(v)}
             />
           ))}
         </FilterGroup>
@@ -411,12 +356,9 @@ export function IntegrationExplorer({
       <div className="flex-1 min-w-0">
         {/* Header */}
         <div className="flex items-baseline gap-3 mb-4">
-          <h2 className="text-[18px] font-semibold text-[var(--text)]">
-            Demos
-          </h2>
+          <h2 className="text-[18px] font-semibold text-[var(--text)]">Demos</h2>
           <span className="text-[13px] text-[var(--text-muted)]">
-            {filteredDemos.length}{" "}
-            {filteredDemos.length === 1 ? "result" : "results"}
+            {filteredDemos.length} {filteredDemos.length === 1 ? "result" : "results"}
           </span>
         </div>
 
@@ -424,37 +366,19 @@ export function IntegrationExplorer({
         {hasActiveFilters && (
           <div className="flex flex-wrap gap-2 mb-4">
             {featureFilter && (
-              <FilterChip
-                label={`Feature: ${featureFilter}`}
-                onDismiss={() => clearFilter("feature")}
-              />
+              <FilterChip label={`Feature: ${featureFilter}`} onDismiss={() => clearFilter("feature")} />
             )}
-            {framework !== "all" && (
-              <FilterChip
-                label={framework}
-                onDismiss={() => clearFilter("framework")}
-              />
-            )}
-            {genUi !== "all" && (
-              <FilterChip
-                label={GEN_UI_LABELS[genUi]}
-                onDismiss={() => clearFilter("genUi")}
-              />
-            )}
+            {framework !== "all" && <FilterChip label={framework} onDismiss={() => clearFilter("framework")} />}
+            {genUi !== "all" && <FilterChip label={GEN_UI_LABELS[genUi]} onDismiss={() => clearFilter("genUi")} />}
             {modality !== "all" && (
-              <FilterChip
-                label={MODALITY_LABELS[modality]}
-                onDismiss={() => clearFilter("modality")}
-              />
+              <FilterChip label={MODALITY_LABELS[modality]} onDismiss={() => clearFilter("modality")} />
             )}
           </div>
         )}
 
         {/* Demo cards grouped by category */}
         {filteredDemos.length === 0 ? (
-          <div className="text-center py-16 text-[var(--text-muted)] text-sm">
-            No demos match the current filters.
-          </div>
+          <div className="text-center py-16 text-[var(--text-muted)] text-sm">No demos match the current filters.</div>
         ) : (
           <div className="flex flex-col gap-8">
             {groupedDemos.map(([category, demos]) => (
@@ -464,11 +388,7 @@ export function IntegrationExplorer({
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {demos.map(({ integration, demo }) => (
-                    <DemoCard
-                      key={`${integration.slug}::${demo.id}`}
-                      integration={integration}
-                      demo={demo}
-                    />
+                    <DemoCard key={`${integration.slug}::${demo.id}`} integration={integration} demo={demo} />
                   ))}
                 </div>
               </section>
@@ -484,18 +404,10 @@ export function IntegrationExplorer({
 // FilterGroup
 // ---------------------------------------------------------------------------
 
-function FilterGroup({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function FilterGroup({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-5">
-      <h3 className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 px-1">
-        {title}
-      </h3>
+      <h3 className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2 px-1">{title}</h3>
       <div className="flex flex-col gap-0.5">{children}</div>
     </div>
   );
@@ -522,9 +434,7 @@ function RadioOption({
     return (
       <div className="flex items-center justify-between rounded-md px-2 py-1.5 cursor-default">
         <span className="text-[13px] text-[var(--text-faint)]">{label}</span>
-        <span className="text-[10px] text-[var(--text-faint)] italic">
-          soon
-        </span>
+        <span className="text-[10px] text-[var(--text-faint)] italic">soon</span>
       </div>
     );
   }
@@ -539,15 +449,9 @@ function RadioOption({
           : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]"
       }`}
     >
-      <span className={`text-[13px] ${selected ? "font-medium" : ""}`}>
-        {label}
-      </span>
+      <span className={`text-[13px] ${selected ? "font-medium" : ""}`}>{label}</span>
       {count !== undefined && (
-        <span
-          className={`text-[11px] ${selected ? "text-[var(--accent)]" : "text-[var(--text-muted)]"}`}
-        >
-          {count}
-        </span>
+        <span className={`text-[11px] ${selected ? "text-[var(--accent)]" : "text-[var(--text-muted)]"}`}>{count}</span>
       )}
     </button>
   );
@@ -557,13 +461,7 @@ function RadioOption({
 // FilterChip
 // ---------------------------------------------------------------------------
 
-function FilterChip({
-  label,
-  onDismiss,
-}: {
-  label: string;
-  onDismiss: () => void;
-}) {
+function FilterChip({ label, onDismiss }: { label: string; onDismiss: () => void }) {
   return (
     <button
       type="button"
@@ -590,16 +488,9 @@ function FilterChip({
 // DemoCard
 // ---------------------------------------------------------------------------
 
-function DemoCard({
-  integration,
-  demo,
-}: {
-  integration: Integration;
-  demo: Integration["demos"][number];
-}) {
+function DemoCard({ integration, demo }: { integration: Integration; demo: Integration["demos"][number] }) {
   const [hovered, setHovered] = useState(false);
-  const previewUrl =
-    demo.animated_preview_url || integration.animated_preview_url;
+  const previewUrl = demo.animated_preview_url || integration.animated_preview_url;
 
   return (
     <Link
@@ -638,8 +529,7 @@ function DemoCard({
           <span
             className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium text-[var(--blue)] cursor-pointer"
             style={{
-              backgroundColor:
-                "color-mix(in srgb, var(--blue) 10%, transparent)",
+              backgroundColor: "color-mix(in srgb, var(--blue) 10%, transparent)",
             }}
             onClick={(e) => {
               e.preventDefault();
@@ -655,9 +545,7 @@ function DemoCard({
       <h3 className="text-[14px] font-semibold text-[var(--text)] mb-1 group-hover:text-[var(--accent)] transition-colors">
         {demo.name}
       </h3>
-      <p className="text-[12px] text-[var(--text-secondary)] leading-relaxed line-clamp-2">
-        {demo.description}
-      </p>
+      <p className="text-[12px] text-[var(--text-secondary)] leading-relaxed line-clamp-2">{demo.description}</p>
     </Link>
   );
 }

@@ -11,15 +11,8 @@ export type DeleteTripsProps = {
   trips: Trip[];
 };
 
-export const DeleteTrips = ({
-  args,
-  status,
-  handler,
-  trips,
-}: DeleteTripsProps) => {
-  const tripsToDelete = trips.filter((trip: Trip) =>
-    args?.trip_ids?.includes(trip.id),
-  );
+export const DeleteTrips = ({ args, status, handler, trips }: DeleteTripsProps) => {
+  const tripsToDelete = trips.filter((trip: Trip) => args?.trip_ids?.includes(trip.id));
 
   return (
     <div className="space-y-4 w-full bg-secondary p-6 rounded-lg">

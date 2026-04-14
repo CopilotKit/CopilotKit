@@ -37,12 +37,8 @@ describe("tunnel", () => {
     config = await Config.load();
 
     // Stub TunnelService methods
-    sinon
-      .stub(tunnelService, "getMetaData")
-      .resolves({ tunnelHost: "test-tunnel-host.com" });
-    sinon
-      .stub(tunnelService, "create")
-      .resolves(mockTunnel as unknown as Tunnel);
+    sinon.stub(tunnelService, "getMetaData").resolves({ tunnelHost: "test-tunnel-host.com" });
+    sinon.stub(tunnelService, "create").resolves(mockTunnel as unknown as Tunnel);
 
     // Store original process.exit
     originalExit = process.exit;
@@ -99,11 +95,7 @@ describe("tunnel", () => {
   });
 
   it("creates tunnel with subdomain flag", (done) => {
-    const command = new TunnelCreate(
-      ["3000", "--subdomain", "test-subdomain"],
-      config,
-      tunnelService,
-    );
+    const command = new TunnelCreate(["3000", "--subdomain", "test-subdomain"], config, tunnelService);
 
     process.once("mockExit", () => {
       try {

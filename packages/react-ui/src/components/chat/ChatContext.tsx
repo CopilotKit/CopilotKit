@@ -160,16 +160,12 @@ interface ChatContext {
   setOpen: (open: boolean) => void;
 }
 
-export const ChatContext = React.createContext<ChatContext | undefined>(
-  undefined,
-);
+export const ChatContext = React.createContext<ChatContext | undefined>(undefined);
 
 export function useChatContext(): ChatContext {
   const context = React.useContext(ChatContext);
   if (context === undefined) {
-    throw new Error(
-      "Context not found. Did you forget to wrap your app in a <ChatContextProvider> component?",
-    );
+    throw new Error("Context not found. Did you forget to wrap your app in a <ChatContextProvider> component?");
   }
   return context;
 }
@@ -242,7 +238,5 @@ export const ChatContextProvider = ({
     [memoizedLabels, memoizedIcons, open, setOpen],
   );
 
-  return (
-    <ChatContext.Provider value={context}>{children}</ChatContext.Provider>
-  );
+  return <ChatContext.Provider value={context}>{children}</ChatContext.Provider>;
 };

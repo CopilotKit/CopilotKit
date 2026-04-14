@@ -1,12 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import {
-  BehaviorSubject,
-  Observable,
-  OperatorFunction,
-  Subject,
-  Subscription,
-  asapScheduler,
-} from "rxjs";
+import { BehaviorSubject, Observable, OperatorFunction, Subject, Subscription, asapScheduler } from "rxjs";
 import { distinctUntilChanged, filter, map, observeOn } from "rxjs/operators";
 
 /**
@@ -31,24 +24,19 @@ export type ActionCreator<
 /**
  * Extracts the action type produced by an action creator.
  */
-export type ActionFromCreator<T> = T extends (...args: any[]) => infer A
-  ? A
-  : never;
+export type ActionFromCreator<T> = T extends (...args: any[]) => infer A ? A : never;
 
 /**
  * Extracts a union of actions produced by a tuple/array of action creators.
  */
-export type ActionFromCreators<
-  Creators extends readonly ActionCreator<string, any[], any>[],
-> = ActionFromCreator<Creators[number]>;
+export type ActionFromCreators<Creators extends readonly ActionCreator<string, any[], any>[]> = ActionFromCreator<
+  Creators[number]
+>;
 
 /**
  * A reducer transforms state in response to actions.
  */
-export type Reducer<State, Action extends AnyAction = AnyAction> = (
-  state: State | undefined,
-  action: Action,
-) => State;
+export type Reducer<State, Action extends AnyAction = AnyAction> = (state: State | undefined, action: Action) => State;
 
 /**
  * A selector derives a value from state.
@@ -75,9 +63,7 @@ export interface PropsActionConfig<Props extends Record<string, unknown>> {
 /**
  * Supported action creator config node in an action group.
  */
-export type ActionConfig =
-  | EmptyActionConfig
-  | PropsActionConfig<Record<string, unknown>>;
+export type ActionConfig = EmptyActionConfig | PropsActionConfig<Record<string, unknown>>;
 
 /**
  * Shape of an action group declaration object.
@@ -87,10 +73,7 @@ export type ActionGroupConfig = Record<string, ActionConfig>;
 /**
  * Maps an action group declaration to a strongly typed action-creator object.
  */
-export type ActionGroupResult<
-  Source extends string,
-  Config extends ActionGroupConfig,
-> = {
+export type ActionGroupResult<Source extends string, Config extends ActionGroupConfig> = {
   [K in keyof Config & string]: Config[K] extends PropsActionConfig<infer P>
     ? ActionCreator<`[${Source}] ${K}`, [P], { type: `[${Source}] ${K}` } & P>
     : ActionCreator<`[${Source}] ${K}`, [], { type: `[${Source}] ${K}` }>;
@@ -99,15 +82,13 @@ export type ActionGroupResult<
 interface OnReducerEntry<
   State,
   Action extends AnyAction = AnyAction,
-  Creators extends readonly ActionCreator<string, any[], any>[] =
-    readonly ActionCreator<string, any[], any>[],
+  Creators extends readonly ActionCreator<string, any[], any>[] = readonly ActionCreator<string, any[], any>[],
 > {
   creators: Creators;
   reducer: (state: State, action: Action) => State;
 }
 
-type ActionFromOnReducerEntry<TEntry> =
-  TEntry extends OnReducerEntry<any, infer TAction, any> ? TAction : never;
+type ActionFromOnReducerEntry<TEntry> = TEntry extends OnReducerEntry<any, infer TAction, any> ? TAction : never;
 
 /**
  * Effect contract for streams that emit actions to dispatch.
@@ -117,44 +98,29 @@ export interface DispatchingEffect<
   InputAction extends AnyAction = AnyAction,
   OutputAction extends AnyAction = AnyAction,
 > {
-  run: (
-    actions$: Observable<InputAction>,
-    state$: Observable<State>,
-  ) => Observable<OutputAction>;
+  run: (actions$: Observable<InputAction>, state$: Observable<State>) => Observable<OutputAction>;
   dispatch: true;
 }
 
 /**
  * Effect contract for side-effect-only streams whose emissions are ignored.
  */
-export interface NonDispatchingEffect<
-  State,
-  InputAction extends AnyAction = AnyAction,
-> {
-  run: (
-    actions$: Observable<InputAction>,
-    state$: Observable<State>,
-  ) => Observable<unknown>;
+export interface NonDispatchingEffect<State, InputAction extends AnyAction = AnyAction> {
+  run: (actions$: Observable<InputAction>, state$: Observable<State>) => Observable<unknown>;
   dispatch: false;
 }
 
 /**
  * Union of supported effect shapes.
  */
-export type Effect<
-  State,
-  InputAction extends AnyAction = AnyAction,
-  OutputAction extends AnyAction = AnyAction,
-> =
+export type Effect<State, InputAction extends AnyAction = AnyAction, OutputAction extends AnyAction = AnyAction> =
   | DispatchingEffect<State, InputAction, OutputAction>
   | NonDispatchingEffect<State, InputAction>;
 
 /**
  * Lifecycle actions dispatched by the store.
  */
-export type StoreLifecycleAction =
-  | { type: "@@micro-redux/init" }
-  | { type: "@@micro-redux/stop" };
+export type StoreLifecycleAction = { type: "@@micro-redux/init" } | { type: "@@micro-redux/stop" };
 
 /**
  * Options for a dispatching effect.
@@ -181,11 +147,7 @@ const INTERNAL_BOOT_ACTION: AnyAction = { type: INTERNAL_ACTION_TYPES.boot };
 /**
  * Builds a typed action creator from a type string and payload factory.
  */
-function createTypedActionCreator<
-  Type extends string,
-  Args extends unknown[],
-  Payload extends Record<string, unknown>,
->(
+function createTypedActionCreator<Type extends string, Args extends unknown[], Payload extends Record<string, unknown>>(
   type: Type,
   factory: (...args: Args) => Payload,
 ): ActionCreator<Type, Args, { type: Type } & Payload> {
@@ -195,8 +157,7 @@ function createTypedActionCreator<
   })) as ActionCreator<Type, Args, { type: Type } & Payload>;
 
   creator.type = type;
-  creator.match = (action: AnyAction): action is { type: Type } & Payload =>
-    action.type === type;
+  creator.match = (action: AnyAction): action is { type: Type } & Payload => action.type === type;
 
   return creator;
 }
@@ -211,9 +172,7 @@ function createTypedActionCreator<
  * });
  * ```
  */
-export function props<
-  Props extends Record<string, unknown>,
->(): PropsActionConfig<Props> {
+export function props<Props extends Record<string, unknown>>(): PropsActionConfig<Props> {
   return { kind: "props" };
 }
 
@@ -236,10 +195,10 @@ export function empty(): EmptyActionConfig {
  *
  * Action types are formatted as: `[Source] actionName`.
  */
-export function createActionGroup<
-  const Source extends string,
-  const Config extends ActionGroupConfig,
->(source: Source, config: Config): ActionGroupResult<Source, Config> {
+export function createActionGroup<const Source extends string, const Config extends ActionGroupConfig>(
+  source: Source,
+  config: Config,
+): ActionGroupResult<Source, Config> {
   const group = {} as ActionGroupResult<Source, Config>;
 
   for (const eventName of Object.keys(config) as Array<keyof Config & string>) {
@@ -251,17 +210,16 @@ export function createActionGroup<
     const actionType = `[${source}] ${eventName}` as const;
 
     if (eventConfig.kind === "props") {
-      group[eventName] = createTypedActionCreator(
-        actionType,
-        (payload: Record<string, unknown>) => ({ ...payload }),
-      ) as ActionGroupResult<Source, Config>[typeof eventName];
+      group[eventName] = createTypedActionCreator(actionType, (payload: Record<string, unknown>) => ({
+        ...payload,
+      })) as ActionGroupResult<Source, Config>[typeof eventName];
       continue;
     }
 
-    group[eventName] = createTypedActionCreator(
-      actionType,
-      () => ({}),
-    ) as ActionGroupResult<Source, Config>[typeof eventName];
+    group[eventName] = createTypedActionCreator(actionType, () => ({})) as ActionGroupResult<
+      Source,
+      Config
+    >[typeof eventName];
   }
 
   return group;
@@ -277,19 +235,13 @@ export function on<
   const Creators extends readonly ActionCreator<string, any[], any>[],
   Action extends ActionFromCreators<Creators>,
 >(
-  ...args: [
-    ...creators: Creators,
-    reducer: (state: State, action: Action) => State,
-  ]
+  ...args: [...creators: Creators, reducer: (state: State, action: Action) => State]
 ): OnReducerEntry<State, Action, Creators> {
   if (args.length < 2) {
     throw new Error("on requires at least one action creator and one reducer");
   }
 
-  const reducer = args[args.length - 1] as (
-    state: State,
-    action: Action,
-  ) => State;
+  const reducer = args[args.length - 1] as (state: State, action: Action) => State;
   const creators = args.slice(0, -1) as unknown as Creators;
 
   return {
@@ -303,29 +255,18 @@ export function on<
  *
  * Unknown action types return the current state unchanged.
  */
-export function createReducer<
-  State,
-  const Entries extends readonly OnReducerEntry<any, any, any>[],
->(
+export function createReducer<State, const Entries extends readonly OnReducerEntry<any, any, any>[]>(
   initialState: State,
   ...entries: Entries
 ): Reducer<State, ActionFromOnReducerEntry<Entries[number]>> {
   type ReducerAction = ActionFromOnReducerEntry<Entries[number]>;
 
-  const reducerMap = new Map<
-    string,
-    Array<(state: State, action: ReducerAction) => State>
-  >();
+  const reducerMap = new Map<string, Array<(state: State, action: ReducerAction) => State>>();
 
   for (const entry of entries) {
     for (const creator of entry.creators) {
       const handlers = reducerMap.get(creator.type) ?? [];
-      handlers.push(
-        entry.reducer as unknown as (
-          state: State,
-          action: ReducerAction,
-        ) => State,
-      );
+      handlers.push(entry.reducer as unknown as (state: State, action: ReducerAction) => State);
       reducerMap.set(creator.type, handlers);
     }
   }
@@ -349,25 +290,17 @@ export function createReducer<
 /**
  * Creates a memoized selector from a single projector.
  */
-export function createSelector<State, Result>(
-  projector: (state: State) => Result,
-): Selector<State, Result>;
+export function createSelector<State, Result>(projector: (state: State) => Result): Selector<State, Result>;
 
 /**
  * Creates a memoized selector from input selectors and a projector.
  *
  * Memoization uses one-entry caching over the latest input selector values.
  */
-export function createSelector<
-  State,
-  const Selectors extends readonly Selector<State, unknown>[],
-  Result,
->(
+export function createSelector<State, const Selectors extends readonly Selector<State, unknown>[], Result>(
   ...args: [
     ...selectors: Selectors,
-    projector: (
-      ...inputs: { [K in keyof Selectors]: ReturnType<Selectors[K]> }
-    ) => Result,
+    projector: (...inputs: { [K in keyof Selectors]: ReturnType<Selectors[K]> }) => Result,
   ]
 ): Selector<State, Result>;
 
@@ -378,10 +311,7 @@ export function createSelector<
 export function createSelector<State, Result>(
   ...args:
     | [(state: State) => Result]
-    | [
-        ...selectors: Array<Selector<State, unknown>>,
-        projector: (...inputs: unknown[]) => Result,
-      ]
+    | [...selectors: Array<Selector<State, unknown>>, projector: (...inputs: unknown[]) => Result]
 ): Selector<State, Result> {
   if (args.length === 1) {
     const projector = args[0] as (state: State) => Result;
@@ -430,9 +360,7 @@ export function createSelector<State, Result>(
  * RxJS operator that maps state emissions through a selector and suppresses
  * unchanged projected values via reference equality.
  */
-export function select<State, Result>(
-  selector: Selector<State, Result>,
-): OperatorFunction<State, Result> {
+export function select<State, Result>(selector: Selector<State, Result>): OperatorFunction<State, Result> {
   return (source$) => source$.pipe(map(selector), distinctUntilChanged());
 }
 
@@ -442,9 +370,7 @@ export function select<State, Result>(
  *
  * @throws Error when called without at least one action creator.
  */
-export function ofType<
-  const Creators extends readonly ActionCreator<string, any[], AnyAction>[],
->(
+export function ofType<const Creators extends readonly ActionCreator<string, any[], AnyAction>[]>(
   ...creators: Creators
 ): OperatorFunction<AnyAction, ActionFromCreators<Creators>> {
   if (creators.length === 0) {
@@ -464,15 +390,8 @@ export function ofType<
 /**
  * Creates a dispatching effect. Emitted actions are automatically dispatched.
  */
-export function createEffect<
-  State,
-  InputAction extends AnyAction,
-  OutputAction extends AnyAction,
->(
-  factory: (
-    actions$: Observable<InputAction>,
-    state$: Observable<State>,
-  ) => Observable<OutputAction>,
+export function createEffect<State, InputAction extends AnyAction, OutputAction extends AnyAction>(
+  factory: (actions$: Observable<InputAction>, state$: Observable<State>) => Observable<OutputAction>,
   options?: DispatchingEffectOptions,
 ): DispatchingEffect<State, InputAction, OutputAction>;
 
@@ -480,25 +399,15 @@ export function createEffect<
  * Creates a non-dispatching effect. Emitted values are ignored.
  */
 export function createEffect<State, InputAction extends AnyAction>(
-  factory: (
-    actions$: Observable<InputAction>,
-    state$: Observable<State>,
-  ) => Observable<unknown>,
+  factory: (actions$: Observable<InputAction>, state$: Observable<State>) => Observable<unknown>,
   options: NonDispatchingEffectOptions,
 ): NonDispatchingEffect<State, InputAction>;
 
 /**
  * Creates an effect descriptor consumed by `createStore`.
  */
-export function createEffect<
-  State,
-  InputAction extends AnyAction,
-  OutputAction extends AnyAction,
->(
-  factory: (
-    actions$: Observable<InputAction>,
-    state$: Observable<State>,
-  ) => Observable<OutputAction>,
+export function createEffect<State, InputAction extends AnyAction, OutputAction extends AnyAction>(
+  factory: (actions$: Observable<InputAction>, state$: Observable<State>) => Observable<OutputAction>,
   options: DispatchingEffectOptions | NonDispatchingEffectOptions = {},
 ): Effect<State, InputAction, OutputAction> {
   if (options.dispatch === false) {
@@ -538,10 +447,7 @@ export interface Store<State, Action extends AnyAction = AnyAction> {
  * - Any effect error triggers fail-fast teardown and errors both `actions$`
  *   and `state$`.
  */
-export function createStore<
-  State,
-  Action extends AnyAction = AnyAction,
->(options: {
+export function createStore<State, Action extends AnyAction = AnyAction>(options: {
   reducer: Reducer<State, Action | StoreLifecycleAction>;
   effects?: Array<Effect<State, Action | StoreLifecycleAction, Action>>;
 }): Store<State, Action> {
@@ -552,10 +458,7 @@ export function createStore<
   let isRunning = false;
   let effectSubscriptions = new Subscription();
 
-  let currentState = reducer(
-    undefined,
-    INTERNAL_BOOT_ACTION as Action | StoreLifecycleAction,
-  );
+  let currentState = reducer(undefined, INTERNAL_BOOT_ACTION as Action | StoreLifecycleAction);
   const stateSubject = new BehaviorSubject<State>(currentState);
   const actionsSubject = new Subject<Action | StoreLifecycleAction>();
 
@@ -585,9 +488,7 @@ export function createStore<
 
   const startEffects = (): void => {
     for (const effect of effects) {
-      const scheduledActions$ = actionsSubject
-        .asObservable()
-        .pipe(observeOn(asapScheduler));
+      const scheduledActions$ = actionsSubject.asObservable().pipe(observeOn(asapScheduler));
       const state$ = stateSubject.asObservable();
 
       if (effect.dispatch) {

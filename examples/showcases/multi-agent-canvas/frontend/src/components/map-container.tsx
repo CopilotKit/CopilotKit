@@ -29,12 +29,9 @@ interface Place {
   description: string;
 }
 
-const Map = dynamic(
-  () => import("react-leaflet").then((mod) => mod.MapContainer),
-  {
-    ssr: false,
-  },
-);
+const Map = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), {
+  ssr: false,
+});
 
 export default function MapComponent() {
   const [pointsFrom, setPointsFrom] = useState<Place[]>([]);
@@ -174,52 +171,30 @@ export default function MapComponent() {
             return (
               <div className="flex items-start py-2 px-3">
                 <span className={colorClass}>
-                  <Icon
-                    className={`h-4 w-4 ${pending ? "animate-spin" : ""}`}
-                  />
+                  <Icon className={`h-4 w-4 ${pending ? "animate-spin" : ""}`} />
                 </span>
                 <span className="ml-3 font-semibold capitalize">{message}</span>
               </div>
             );
           })()}
           <div className="p-2">
-            <div
-              key={`trips-list-${args.trips?.length ?? 0}`}
-              className="space-y-6"
-            >
+            <div key={`trips-list-${args.trips?.length ?? 0}`} className="space-y-6">
               {args.trips?.map((trip) => (
                 <div key={trip.id} className="rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-medium text-gray-900">
-                      {trip.name}
-                    </h3>
-                    <span className="text-sm text-gray-500">
-                      {trip.places?.length || 0} places
-                    </span>
+                    <h3 className="text-lg font-medium text-gray-900">{trip.name}</h3>
+                    <span className="text-sm text-gray-500">{trip.places?.length || 0} places</span>
                   </div>
                   <div className="flex flex-col gap-4">
                     {trip.places?.map((place) => (
-                      <div
-                        key={place.id}
-                        className="bg-white p-4 rounded-md shadow-sm"
-                      >
-                        <h4 className="font-medium text-gray-800">
-                          {place.name}
-                        </h4>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {place.address}
-                        </p>
+                      <div key={place.id} className="bg-white p-4 rounded-md shadow-sm">
+                        <h4 className="font-medium text-gray-800">{place.name}</h4>
+                        <p className="text-sm text-gray-600 mt-1">{place.address}</p>
                         <div className="flex items-center mt-2">
-                          <span className="text-yellow-500">
-                            {"★".repeat(Math.round(place.rating))}
-                          </span>
-                          <span className="text-gray-400">
-                            {"★".repeat(5 - Math.round(place.rating))}
-                          </span>
+                          <span className="text-yellow-500">{"★".repeat(Math.round(place.rating))}</span>
+                          <span className="text-gray-400">{"★".repeat(5 - Math.round(place.rating))}</span>
                         </div>
-                        <p className="text-sm text-gray-700 mt-2">
-                          {place.description}
-                        </p>
+                        <p className="text-sm text-gray-700 mt-2">{place.description}</p>
                       </div>
                     ))}
                   </div>
@@ -296,9 +271,7 @@ export default function MapComponent() {
       return (
         <div className="p-4 bg-gray-100 rounded-md">
           <h3 className="font-semibold mb-3">
-            {status === "executing" || status === "inProgress"
-              ? "Searching for places..."
-              : "Searched for places"}
+            {status === "executing" || status === "inProgress" ? "Searching for places..." : "Searched for places"}
           </h3>
           <ul className="space-y-2 text-gray-700">
             {args.queries.map((q: string, i: number) => (
@@ -334,12 +307,7 @@ export default function MapComponent() {
   // Show map with points
   return (
     <div style={{ height: "100vh", width: "100%", position: "relative" }}>
-      <Map
-        center={center}
-        zoom={13}
-        style={{ height: "100%", width: "100%" }}
-        className="leaflet-container"
-      >
+      <Map center={center} zoom={13} style={{ height: "100%", width: "100%" }} className="leaflet-container">
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -351,11 +319,7 @@ export default function MapComponent() {
           keepBuffer={2}
         />
         {pointsFrom.map((point) => (
-          <Marker
-            key={point.id}
-            position={[point.latitude, point.longitude] as LatLngTuple}
-            icon={customIcon}
-          >
+          <Marker key={point.id} position={[point.latitude, point.longitude] as LatLngTuple} icon={customIcon}>
             <Popup>
               <h3 className="font-bold">{point.name}</h3>
               <p>{point.description}</p>

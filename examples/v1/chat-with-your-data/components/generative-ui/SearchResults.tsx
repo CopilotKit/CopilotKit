@@ -14,9 +14,7 @@ export function SearchResults({ query, status }: SearchResultsProps) {
         <h3 className="text-sm font-medium">Search Results</h3>
       </div>
 
-      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-        Query: {query}
-      </p>
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Query: {query}</p>
 
       {status === "executing" && (
         <div className="flex items-center gap-2 text-xs text-blue-500">

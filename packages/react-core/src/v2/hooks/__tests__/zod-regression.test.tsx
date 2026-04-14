@@ -86,9 +86,7 @@ describe("useRenderTool Zod regression", () => {
     render(<Harness />);
 
     expect(core.addHookRenderToolCall).toHaveBeenCalledTimes(1);
-    const renderer = core.renderToolCalls.find(
-      (r) => r.name === "complexSearch",
-    );
+    const renderer = core.renderToolCalls.find((r) => r.name === "complexSearch");
     expect(renderer).toBeDefined();
     // The args should be the exact same Zod schema object (identity)
     expect(renderer?.args).toBe(schema);
@@ -147,9 +145,7 @@ describe("useRenderTool Zod regression", () => {
 
     render(<Harness />);
 
-    const renderer = core.renderToolCalls.find(
-      (r) => r.name === "actionRenderer",
-    );
+    const renderer = core.renderToolCalls.find((r) => r.name === "actionRenderer");
     expect(renderer).toBeDefined();
     expect(renderer?.args).toBe(schema);
   });
@@ -253,9 +249,7 @@ describe("useComponent Zod regression", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("registers a component with a Zod schema", () => {
-    const WeatherCard: React.FC<{ city: string }> = ({ city }) => (
-      <div>{city}</div>
-    );
+    const WeatherCard: React.FC<{ city: string }> = ({ city }) => <div>{city}</div>;
 
     const schema = z.object({ city: z.string() });
 
@@ -271,9 +265,7 @@ describe("useComponent Zod regression", () => {
     render(<Harness />);
 
     expect(mockUseFrontendTool).toHaveBeenCalledTimes(1);
-    const [toolConfig] = mockUseFrontendTool.mock.calls[0] as [
-      { name: string; parameters: any },
-    ];
+    const [toolConfig] = mockUseFrontendTool.mock.calls[0] as [{ name: string; parameters: any }];
     expect(toolConfig.name).toBe("weatherCard");
     expect(toolConfig.parameters).toBe(schema);
     expect(toolConfig.parameters["~standard"].vendor).toBe("zod");
@@ -302,9 +294,7 @@ describe("useComponent Zod regression", () => {
     render(<Harness />);
 
     expect(mockUseFrontendTool).toHaveBeenCalledTimes(1);
-    const [toolConfig] = mockUseFrontendTool.mock.calls[0] as [
-      { name: string; parameters: any },
-    ];
+    const [toolConfig] = mockUseFrontendTool.mock.calls[0] as [{ name: string; parameters: any }];
     expect(toolConfig.name).toBe("dataGrid");
     expect(toolConfig.parameters).toBe(schema);
   });

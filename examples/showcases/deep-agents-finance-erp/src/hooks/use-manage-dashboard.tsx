@@ -27,8 +27,7 @@ function DashboardManager({
   status: string;
   result?: unknown;
 }) {
-  const { getWidgets, setWidgets, removeWidget, resetToDefault } =
-    useDashboard();
+  const { getWidgets, setWidgets, removeWidget, resetToDefault } = useDashboard();
 
   useEffect(() => {
     if (status !== ToolCallStatus.Complete) return;
@@ -57,31 +56,12 @@ function DashboardManager({
         setWidgets(updatedWidgets);
       }
     });
-  }, [
-    status,
-    action,
-    widgetId,
-    updates,
-    resetToDefault,
-    removeWidget,
-    getWidgets,
-    setWidgets,
-  ]);
+  }, [status, action, widgetId, updates, resetToDefault, removeWidget, getWidgets, setWidgets]);
 
   if (status === ToolCallStatus.Complete) {
-    return (
-      <CompletedToolCard
-        name="manage_dashboard"
-        args={{ action, widgetId, updates }}
-        result={result}
-      />
-    );
+    return <CompletedToolCard name="manage_dashboard" args={{ action, widgetId, updates }} result={result} />;
   }
-  return (
-    <p className="text-sm text-muted-foreground animate-pulse py-1">
-      Updating layout...
-    </p>
-  );
+  return <p className="text-sm text-muted-foreground animate-pulse py-1">Updating layout...</p>;
 }
 
 export function useManageDashboard() {

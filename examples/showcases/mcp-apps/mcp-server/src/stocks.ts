@@ -4,20 +4,9 @@
  */
 
 // Type definitions
-export type Sector =
-  | "technology"
-  | "healthcare"
-  | "finance"
-  | "energy"
-  | "consumer"
-  | "industrial";
+export type Sector = "technology" | "healthcare" | "finance" | "energy" | "consumer" | "industrial";
 export type RiskTolerance = "conservative" | "moderate" | "aggressive";
-export type PortfolioFocus =
-  | "tech"
-  | "healthcare"
-  | "diversified"
-  | "growth"
-  | "dividend";
+export type PortfolioFocus = "tech" | "healthcare" | "diversified" | "growth" | "dividend";
 
 /**
  * Represents a stock in the market.
@@ -331,12 +320,7 @@ export function createPortfolio(options: {
   const id = generatePortfolioId();
 
   // Determine allocation percentages based on risk tolerance
-  const stockAllocation =
-    riskTolerance === "conservative"
-      ? 0.4
-      : riskTolerance === "moderate"
-        ? 0.6
-        : 0.8;
+  const stockAllocation = riskTolerance === "conservative" ? 0.4 : riskTolerance === "moderate" ? 0.6 : 0.8;
 
   const investmentAmount = initialBalance * stockAllocation;
   const cashAmount = initialBalance - investmentAmount;
@@ -345,10 +329,7 @@ export function createPortfolio(options: {
   let selectedStocks: Stock[];
   switch (focus) {
     case "tech":
-      selectedStocks = STOCKS.filter((s) => s.sector === "technology").slice(
-        0,
-        4,
-      );
+      selectedStocks = STOCKS.filter((s) => s.sector === "technology").slice(0, 4);
       break;
     case "healthcare":
       selectedStocks = STOCKS.filter((s) => s.sector === "healthcare");
@@ -357,22 +338,12 @@ export function createPortfolio(options: {
       selectedStocks = STOCKS.filter((s) => s.dividendYield >= 2.0).slice(0, 5);
       break;
     case "growth":
-      selectedStocks = STOCKS.filter(
-        (s) => s.volatility >= 0.3 && s.dividendYield < 1,
-      ).slice(0, 4);
+      selectedStocks = STOCKS.filter((s) => s.volatility >= 0.3 && s.dividendYield < 1).slice(0, 4);
       break;
     default: // diversified
       // One from each sector
-      const sectors: Sector[] = [
-        "technology",
-        "healthcare",
-        "finance",
-        "energy",
-        "consumer",
-      ];
-      selectedStocks = sectors.map(
-        (sector) => STOCKS.find((s) => s.sector === sector)!,
-      );
+      const sectors: Sector[] = ["technology", "healthcare", "finance", "energy", "consumer"];
+      selectedStocks = sectors.map((sector) => STOCKS.find((s) => s.sector === sector)!);
   }
 
   // Calculate equal investment per stock
@@ -437,12 +408,7 @@ export function getPortfolio(portfolioId: string): Portfolio | undefined {
 /**
  * Execute a trade (buy or sell).
  */
-export function executeTrade(
-  portfolioId: string,
-  symbol: string,
-  action: TradeAction,
-  quantity: number,
-): TradeResult {
+export function executeTrade(portfolioId: string, symbol: string, action: TradeAction, quantity: number): TradeResult {
   const portfolio = portfolios.get(portfolioId);
   if (!portfolio) {
     return { success: false, message: "Portfolio not found" };
@@ -475,8 +441,7 @@ export function executeTrade(
       holding.currentPrice = stock.price;
       holding.change = stock.change;
       holding.value = Math.round(totalShares * stock.price * 100) / 100;
-      holding.profitLoss =
-        Math.round((holding.value - totalShares * holding.avgCost) * 100) / 100;
+      holding.profitLoss = Math.round((holding.value - totalShares * holding.avgCost) * 100) / 100;
     } else {
       // Create new holding
       portfolio.holdings.push({
@@ -510,44 +475,26 @@ export function executeTrade(
     holding.shares -= quantity;
     if (holding.shares === 0) {
       // Remove holding entirely
-      portfolio.holdings = portfolio.holdings.filter(
-        (h) => h.symbol !== symbol,
-      );
+      portfolio.holdings = portfolio.holdings.filter((h) => h.symbol !== symbol);
     } else {
       holding.value = Math.round(holding.shares * stock.price * 100) / 100;
-      holding.profitLoss =
-        Math.round((holding.value - holding.shares * holding.avgCost) * 100) /
-        100;
+      holding.profitLoss = Math.round((holding.value - holding.shares * holding.avgCost) * 100) / 100;
     }
 
     portfolio.cash = Math.round((portfolio.cash + totalCost) * 100) / 100;
   }
 
   // Recalculate portfolio totals
-  const totalStockValue = portfolio.holdings.reduce(
-    (sum, h) => sum + h.value,
-    0,
-  );
-  portfolio.totalValue =
-    Math.round((totalStockValue + portfolio.cash) * 100) / 100;
-  portfolio.totalProfitLoss =
-    Math.round(
-      portfolio.holdings.reduce((sum, h) => sum + h.profitLoss, 0) * 100,
-    ) / 100;
+  const totalStockValue = portfolio.holdings.reduce((sum, h) => sum + h.value, 0);
+  portfolio.totalValue = Math.round((totalStockValue + portfolio.cash) * 100) / 100;
+  portfolio.totalProfitLoss = Math.round(portfolio.holdings.reduce((sum, h) => sum + h.profitLoss, 0) * 100) / 100;
   portfolio.allocation = {
-    stocks:
-      portfolio.totalValue > 0
-        ? Math.round((totalStockValue / portfolio.totalValue) * 100)
-        : 0,
-    cash:
-      portfolio.totalValue > 0
-        ? Math.round((portfolio.cash / portfolio.totalValue) * 100)
-        : 0,
+    stocks: portfolio.totalValue > 0 ? Math.round((totalStockValue / portfolio.totalValue) * 100) : 0,
+    cash: portfolio.totalValue > 0 ? Math.round((portfolio.cash / portfolio.totalValue) * 100) : 0,
   };
 
   // Update performance (add today's value)
-  portfolio.performance[portfolio.performance.length - 1].value =
-    portfolio.totalValue;
+  portfolio.performance[portfolio.performance.length - 1].value = portfolio.totalValue;
 
   return {
     success: true,
@@ -566,9 +513,7 @@ export function executeTrade(
 /**
  * Refresh stock prices with random small changes.
  */
-export function refreshPrices(
-  portfolioId: string,
-): { portfolio: Portfolio; availableStocks: Stock[] } | undefined {
+export function refreshPrices(portfolioId: string): { portfolio: Portfolio; availableStocks: Stock[] } | undefined {
   const portfolio = portfolios.get(portfolioId);
   if (!portfolio) {
     return undefined;
@@ -589,32 +534,17 @@ export function refreshPrices(
       holding.currentPrice = stock.price;
       holding.change = stock.change;
       holding.value = Math.round(holding.shares * stock.price * 100) / 100;
-      holding.profitLoss =
-        Math.round((holding.value - holding.shares * holding.avgCost) * 100) /
-        100;
+      holding.profitLoss = Math.round((holding.value - holding.shares * holding.avgCost) * 100) / 100;
     }
   });
 
   // Recalculate totals
-  const totalStockValue = portfolio.holdings.reduce(
-    (sum, h) => sum + h.value,
-    0,
-  );
-  portfolio.totalValue =
-    Math.round((totalStockValue + portfolio.cash) * 100) / 100;
-  portfolio.totalProfitLoss =
-    Math.round(
-      portfolio.holdings.reduce((sum, h) => sum + h.profitLoss, 0) * 100,
-    ) / 100;
+  const totalStockValue = portfolio.holdings.reduce((sum, h) => sum + h.value, 0);
+  portfolio.totalValue = Math.round((totalStockValue + portfolio.cash) * 100) / 100;
+  portfolio.totalProfitLoss = Math.round(portfolio.holdings.reduce((sum, h) => sum + h.profitLoss, 0) * 100) / 100;
   portfolio.allocation = {
-    stocks:
-      portfolio.totalValue > 0
-        ? Math.round((totalStockValue / portfolio.totalValue) * 100)
-        : 0,
-    cash:
-      portfolio.totalValue > 0
-        ? Math.round((portfolio.cash / portfolio.totalValue) * 100)
-        : 0,
+    stocks: portfolio.totalValue > 0 ? Math.round((totalStockValue / portfolio.totalValue) * 100) : 0,
+    cash: portfolio.totalValue > 0 ? Math.round((portfolio.cash / portfolio.totalValue) * 100) : 0,
   };
 
   // Get available stocks

@@ -55,9 +55,7 @@ function stripCommonIndent(code: string): string {
   const nonEmptyLines = lines.filter((l) => l.trim().length > 0);
   if (nonEmptyLines.length === 0) return code;
 
-  const minIndent = Math.min(
-    ...nonEmptyLines.map((l) => l.match(/^(\s*)/)![1].length),
-  );
+  const minIndent = Math.min(...nonEmptyLines.map((l) => l.match(/^(\s*)/)![1].length));
   if (minIndent === 0) return code;
 
   return lines.map((l) => l.slice(minIndent)).join("\n");
@@ -84,10 +82,7 @@ export function parseMeta(meta: string): Record<string, string> {
 /**
  * Extract all code blocks with a doctest attribute from an MDX file.
  */
-export function extractFromMdx(
-  content: string,
-  sourceFile: string,
-): CodeBlock[] {
+export function extractFromMdx(content: string, sourceFile: string): CodeBlock[] {
   const blocks: CodeBlock[] = [];
 
   let tree: ReturnType<typeof parser.parse>;
@@ -106,8 +101,7 @@ export function extractFromMdx(
 
     if (!attrs.doctest) return;
 
-    const line =
-      node.position && node.position.start ? node.position.start.line : 0;
+    const line = node.position && node.position.start ? node.position.start.line : 0;
 
     blocks.push({
       lang,
@@ -127,10 +121,7 @@ export function extractFromMdx(
  * Only extracts code blocks with doctest attributes — less precise on
  * position, but sufficient for our purposes.
  */
-function extractFromMdxFallback(
-  content: string,
-  sourceFile: string,
-): CodeBlock[] {
+function extractFromMdxFallback(content: string, sourceFile: string): CodeBlock[] {
   const blocks: CodeBlock[] = [];
   const lines = content.split("\n");
 
@@ -210,8 +201,7 @@ function findMdxFiles(dir: string): string[] {
     for (const entry of entries) {
       const full = path.join(current, entry.name);
       if (entry.isDirectory()) {
-        if (entry.name.startsWith(".") || entry.name === "node_modules")
-          continue;
+        if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
         walk(full);
       } else if (entry.name.endsWith(".mdx")) {
         results.push(full);
@@ -231,11 +221,7 @@ function findMdxFiles(dir: string): string[] {
  * Group extracted blocks by page slug and title, then write to output dir.
  * Blocks sharing the same title within a page are concatenated into one file.
  */
-export function writeExtractedBlocks(
-  blocks: CodeBlock[],
-  outputDir: string,
-  docsDir: string,
-): ManifestEntry[] {
+export function writeExtractedBlocks(blocks: CodeBlock[], outputDir: string, docsDir: string): ManifestEntry[] {
   const manifest: ManifestEntry[] = [];
 
   // Group by (page slug, title)
@@ -262,20 +248,14 @@ export function writeExtractedBlocks(
     fs.writeFileSync(filePath, code, "utf-8");
 
     // Copy doctest.json sidecar if it exists
-    const sidecarPath = path.join(
-      path.dirname(groupBlocks[0].sourceFile),
-      "doctest.json",
-    );
+    const sidecarPath = path.join(path.dirname(groupBlocks[0].sourceFile), "doctest.json");
     const destSidecar = path.join(dir, "doctest.json");
     if (fs.existsSync(sidecarPath) && !fs.existsSync(destSidecar)) {
       fs.copyFileSync(sidecarPath, destSidecar);
     }
 
     const firstBlock = groupBlocks[0];
-    const relSource = path.relative(
-      path.resolve(docsDir, ".."),
-      firstBlock.sourceFile,
-    );
+    const relSource = path.relative(path.resolve(docsDir, ".."), firstBlock.sourceFile);
 
     const id = `${slug}-${title.replace(/[^a-zA-Z0-9]/g, "-")}`;
 
@@ -295,10 +275,7 @@ export function writeExtractedBlocks(
 // Main
 // ---------------------------------------------------------------------------
 
-export function extract(
-  docsDir: string = DOCS_DIR,
-  outputDir: string = OUTPUT_DIR,
-): ManifestEntry[] {
+export function extract(docsDir: string = DOCS_DIR, outputDir: string = OUTPUT_DIR): ManifestEntry[] {
   // Clean output dir
   if (fs.existsSync(outputDir)) {
     fs.rmSync(outputDir, { recursive: true });

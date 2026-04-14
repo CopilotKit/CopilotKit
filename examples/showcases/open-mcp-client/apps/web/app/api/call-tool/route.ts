@@ -5,17 +5,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 async function connectClient(url: string) {
   try {
-    const client = new Client(
-      { name: "mcp-studio-call-tool", version: "1.0.0" },
-      { capabilities: {} },
-    );
+    const client = new Client({ name: "mcp-studio-call-tool", version: "1.0.0" }, { capabilities: {} });
     await client.connect(new StreamableHTTPClientTransport(new URL(url)));
     return client;
   } catch {
-    const client = new Client(
-      { name: "mcp-studio-call-tool", version: "1.0.0" },
-      { capabilities: {} },
-    );
+    const client = new Client({ name: "mcp-studio-call-tool", version: "1.0.0" }, { capabilities: {} });
     await client.connect(new SSEClientTransport(new URL(url)));
     return client;
   }
@@ -35,10 +29,7 @@ export async function POST(req: NextRequest) {
 
   const { endpoint, toolName, args = {} } = body;
   if (!endpoint || !toolName) {
-    return NextResponse.json(
-      { error: "Missing endpoint or toolName" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Missing endpoint or toolName" }, { status: 400 });
   }
 
   let client: Client | null = null;
@@ -48,8 +39,7 @@ export async function POST(req: NextRequest) {
     await client.close();
 
     // Extract structuredContent — this is the widget output props
-    const structuredContent =
-      (result as Record<string, unknown>).structuredContent ?? null;
+    const structuredContent = (result as Record<string, unknown>).structuredContent ?? null;
 
     return NextResponse.json({ result, structuredContent });
   } catch (err) {
@@ -58,9 +48,6 @@ export async function POST(req: NextRequest) {
     } catch {
       /* ignore */
     }
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 502 },
-    );
+    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 502 });
   }
 }

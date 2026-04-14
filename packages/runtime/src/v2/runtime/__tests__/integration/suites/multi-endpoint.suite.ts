@@ -14,17 +14,11 @@ export function multiEndpointSuite(
   factory: (opts?: {
     capturedHeaders?: Record<string, string>[];
   }) => Promise<ServerHandle & { handler?: (r: Request) => Promise<Response> }>,
-  requestFn?: (
-    input: RequestInfo | URL,
-    init?: RequestInit,
-  ) => Promise<Response>,
+  requestFn?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
 ) {
   describe(`[${name}] Multi-Endpoint`, () => {
     let handle: ServerHandle & { handler?: (r: Request) => Promise<Response> };
-    let doFetch: (
-      input: RequestInfo | URL,
-      init?: RequestInit,
-    ) => Promise<Response>;
+    let doFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
     beforeAll(async () => {
       handle = await factory();
@@ -32,14 +26,7 @@ export function multiEndpointSuite(
         requestFn ??
         (handle.handler
           ? (input, init) =>
-              handle.handler!(
-                new Request(
-                  typeof input === "string" || input instanceof URL
-                    ? input
-                    : input,
-                  init,
-                ),
-              )
+              handle.handler!(new Request(typeof input === "string" || input instanceof URL ? input : input, init))
           : fetch);
     });
 
@@ -283,31 +270,25 @@ export function multiEndpointSuite(
         const h = await factory({ capturedHeaders: captured });
         const localFetch =
           requestFn ??
-          ((h as any).handler
-            ? (input: any, init: any) =>
-                (h as any).handler(new Request(input, init))
-            : fetch);
+          ((h as any).handler ? (input: any, init: any) => (h as any).handler(new Request(input, init)) : fetch);
 
         try {
-          const res = await localFetch(
-            `${h.baseUrl}${h.basePath}/agent/default/run`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer test-token",
-              },
-              body: JSON.stringify({
-                threadId: "t-hdr-1",
-                runId: "r-hdr-1",
-                messages: [],
-                state: {},
-                tools: [],
-                context: [],
-                forwardedProps: {},
-              }),
+          const res = await localFetch(`${h.baseUrl}${h.basePath}/agent/default/run`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: "Bearer test-token",
             },
-          );
+            body: JSON.stringify({
+              threadId: "t-hdr-1",
+              runId: "r-hdr-1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+              forwardedProps: {},
+            }),
+          });
           if (res.body) await readSSEStream(res.body);
           expect(captured.length).toBeGreaterThan(0);
           expect(captured[0]!.authorization).toBe("Bearer test-token");
@@ -321,31 +302,25 @@ export function multiEndpointSuite(
         const h = await factory({ capturedHeaders: captured });
         const localFetch =
           requestFn ??
-          ((h as any).handler
-            ? (input: any, init: any) =>
-                (h as any).handler(new Request(input, init))
-            : fetch);
+          ((h as any).handler ? (input: any, init: any) => (h as any).handler(new Request(input, init)) : fetch);
 
         try {
-          const res = await localFetch(
-            `${h.baseUrl}${h.basePath}/agent/default/run`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-Custom-Value": "my-value",
-              },
-              body: JSON.stringify({
-                threadId: "t-hdr-2",
-                runId: "r-hdr-2",
-                messages: [],
-                state: {},
-                tools: [],
-                context: [],
-                forwardedProps: {},
-              }),
+          const res = await localFetch(`${h.baseUrl}${h.basePath}/agent/default/run`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Custom-Value": "my-value",
             },
-          );
+            body: JSON.stringify({
+              threadId: "t-hdr-2",
+              runId: "r-hdr-2",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+              forwardedProps: {},
+            }),
+          });
           if (res.body) await readSSEStream(res.body);
           expect(captured.length).toBeGreaterThan(0);
           expect(captured[0]!["x-custom-value"]).toBe("my-value");

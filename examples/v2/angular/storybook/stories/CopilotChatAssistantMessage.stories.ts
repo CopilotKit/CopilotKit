@@ -3,10 +3,7 @@ import { moduleMetadata } from "@storybook/angular";
 import { fn } from "@storybook/test";
 import { CommonModule } from "@angular/common";
 import { Component, Input } from "@angular/core";
-import {
-  CopilotChatAssistantMessage,
-  provideCopilotChatLabels,
-} from "@copilotkit/angular";
+import { CopilotChatAssistantMessage, provideCopilotChatLabels } from "@copilotkit/angular";
 import { AssistantMessage } from "@ag-ui/client";
 
 // Simple default message

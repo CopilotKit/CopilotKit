@@ -25,9 +25,7 @@ test.describe("Human in the Loop", () => {
     await input.press("Enter");
 
     // MeetingTimePicker renders time slot buttons with AM/PM times
-    const timeSlotButton = page.locator(
-      'button:has-text("AM"), button:has-text("PM")',
-    );
+    const timeSlotButton = page.locator('button:has-text("AM"), button:has-text("PM")');
     await expect(timeSlotButton.first()).toBeVisible({ timeout: 60000 });
   });
 
@@ -37,9 +35,7 @@ test.describe("Human in the Loop", () => {
     await input.press("Enter");
 
     // Wait for time slot buttons to appear
-    const timeSlotButton = page.locator(
-      'button:has-text("AM"), button:has-text("PM")',
-    );
+    const timeSlotButton = page.locator('button:has-text("AM"), button:has-text("PM")');
     await expect(timeSlotButton.first()).toBeVisible({ timeout: 60000 });
 
     // Click the first available time slot
@@ -57,9 +53,7 @@ test.describe("Human in the Loop", () => {
     await input.press("Enter");
 
     // Wait for the time slot picker to appear
-    const timeSlotButton = page.locator(
-      'button:has-text("AM"), button:has-text("PM")',
-    );
+    const timeSlotButton = page.locator('button:has-text("AM"), button:has-text("PM")');
     await expect(timeSlotButton.first()).toBeVisible({ timeout: 60000 });
 
     // The decline button reads "None of these work"

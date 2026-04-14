@@ -16,24 +16,13 @@ interface TaskApprovalCardProps {
   onReject: () => void;
 }
 
-export function TaskApprovalCard({
-  taskTitle,
-  taskDescription,
-  impact,
-  onApprove,
-  onReject,
-}: TaskApprovalCardProps) {
+export function TaskApprovalCard({ taskTitle, taskDescription, impact, onApprove, onReject }: TaskApprovalCardProps) {
   return (
     <div className="glass-card p-5 max-w-md border-l-4 border-l-[var(--color-lilac)]">
       {/* Header with approval indicator */}
       <div className="flex items-start gap-3 mb-4">
         <div className="w-10 h-10 rounded-lg bg-[var(--color-lilac)]/20 flex items-center justify-center flex-shrink-0">
-          <svg
-            className="w-5 h-5 text-[var(--color-lilac-dark)]"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-5 h-5 text-[var(--color-lilac-dark)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -46,17 +35,13 @@ export function TaskApprovalCard({
           <p className="text-xs font-medium text-[var(--color-lilac-dark)] uppercase tracking-wide mb-1">
             Approval Required
           </p>
-          <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">
-            {taskTitle}
-          </h3>
+          <h3 className="text-lg font-semibold text-[var(--color-text-primary)]">{taskTitle}</h3>
         </div>
       </div>
 
       {/* Task description */}
       <div className="mb-4 p-3 rounded-lg bg-[var(--color-glass-subtle)]">
-        <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-          {taskDescription}
-        </p>
+        <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">{taskDescription}</p>
       </div>
 
       {/* Impact section if provided */}
@@ -76,12 +61,8 @@ export function TaskApprovalCard({
             />
           </svg>
           <div>
-            <p className="text-xs font-medium text-[var(--color-text-tertiary)] mb-1">
-              Impact
-            </p>
-            <p className="text-sm text-[var(--color-text-secondary)]">
-              {impact}
-            </p>
+            <p className="text-xs font-medium text-[var(--color-text-tertiary)] mb-1">Impact</p>
+            <p className="text-sm text-[var(--color-text-secondary)]">{impact}</p>
           </div>
         </div>
       )}
@@ -96,18 +77,8 @@ export function TaskApprovalCard({
                      transition-all duration-200 active:scale-[0.98]"
         >
           <span className="flex items-center justify-center gap-2">
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
             Reject
           </span>
@@ -121,18 +92,8 @@ export function TaskApprovalCard({
                      transition-all duration-200 active:scale-[0.98]"
         >
           <span className="flex items-center justify-center gap-2">
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             Approve
           </span>

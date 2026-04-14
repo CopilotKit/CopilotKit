@@ -72,8 +72,6 @@ describe("getWeatherImpl", () => {
 
   it("feels_like is within ±5 of temperature", () => {
     const result = getWeatherImpl("Berlin");
-    expect(
-      Math.abs(result.feels_like - result.temperature),
-    ).toBeLessThanOrEqual(5);
+    expect(Math.abs(result.feels_like - result.temperature)).toBeLessThanOrEqual(5);
   });
 });

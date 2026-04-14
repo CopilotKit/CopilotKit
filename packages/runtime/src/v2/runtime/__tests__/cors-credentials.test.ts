@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  createCopilotEndpoint,
-  createCopilotEndpointSingleRoute,
-} from "../endpoints";
+import { createCopilotEndpoint, createCopilotEndpointSingleRoute } from "../endpoints";
 import { CopilotRuntime } from "../core/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 
@@ -45,12 +42,8 @@ describe("CORS credentials configuration", () => {
 
       const response = await endpoint.fetch(request);
 
-      expect(response.headers.get("Access-Control-Allow-Credentials")).toBe(
-        "true",
-      );
-      expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
-        "https://myapp.com",
-      );
+      expect(response.headers.get("Access-Control-Allow-Credentials")).toBe("true");
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://myapp.com");
     });
 
     it("does not set Access-Control-Allow-Credentials header when credentials is false", async () => {
@@ -75,12 +68,8 @@ describe("CORS credentials configuration", () => {
       const response = await endpoint.fetch(request);
 
       // When credentials is false, the header should not be present or be "false"
-      const credentialsHeader = response.headers.get(
-        "Access-Control-Allow-Credentials",
-      );
-      expect(credentialsHeader === null || credentialsHeader === "false").toBe(
-        true,
-      );
+      const credentialsHeader = response.headers.get("Access-Control-Allow-Credentials");
+      expect(credentialsHeader === null || credentialsHeader === "false").toBe(true);
     });
 
     it("defaults to no credentials when cors config is not provided", async () => {
@@ -103,12 +92,8 @@ describe("CORS credentials configuration", () => {
 
       // Should allow any origin but not credentials
       expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
-      const credentialsHeader = response.headers.get(
-        "Access-Control-Allow-Credentials",
-      );
-      expect(credentialsHeader === null || credentialsHeader === "false").toBe(
-        true,
-      );
+      const credentialsHeader = response.headers.get("Access-Control-Allow-Credentials");
+      expect(credentialsHeader === null || credentialsHeader === "false").toBe(true);
     });
 
     it("receives cookies in request when client sends them", async () => {
@@ -171,12 +156,8 @@ describe("CORS credentials configuration", () => {
 
       const response = await endpoint.fetch(request);
 
-      expect(response.headers.get("Access-Control-Allow-Credentials")).toBe(
-        "true",
-      );
-      expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
-        "https://myapp.com",
-      );
+      expect(response.headers.get("Access-Control-Allow-Credentials")).toBe("true");
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://myapp.com");
     });
 
     it("receives cookies in POST request body", async () => {
@@ -240,9 +221,7 @@ describe("CORS credentials configuration", () => {
 
       const response = await endpoint.fetch(request);
 
-      expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
-        "https://specific-origin.com",
-      );
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://specific-origin.com");
     });
 
     it("supports array of origins", async () => {
@@ -266,9 +245,7 @@ describe("CORS credentials configuration", () => {
       });
 
       const response1 = await endpoint.fetch(request1);
-      expect(response1.headers.get("Access-Control-Allow-Origin")).toBe(
-        "https://app1.com",
-      );
+      expect(response1.headers.get("Access-Control-Allow-Origin")).toBe("https://app1.com");
 
       // Request from second allowed origin
       const request2 = new Request("https://example.com/info", {
@@ -280,9 +257,7 @@ describe("CORS credentials configuration", () => {
       });
 
       const response2 = await endpoint.fetch(request2);
-      expect(response2.headers.get("Access-Control-Allow-Origin")).toBe(
-        "https://app2.com",
-      );
+      expect(response2.headers.get("Access-Control-Allow-Origin")).toBe("https://app2.com");
     });
 
     it("supports function origin for dynamic resolution", async () => {
@@ -312,9 +287,7 @@ describe("CORS credentials configuration", () => {
       });
 
       const response1 = await endpoint.fetch(request1);
-      expect(response1.headers.get("Access-Control-Allow-Origin")).toBe(
-        "https://app.mycompany.com",
-      );
+      expect(response1.headers.get("Access-Control-Allow-Origin")).toBe("https://app.mycompany.com");
     });
   });
 });

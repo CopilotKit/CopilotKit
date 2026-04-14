@@ -24,14 +24,8 @@ const preview: Preview = {
         transform: (src: string, ctx: any) => {
           try {
             // Prefer the currently rendered story function
-            const storyResult = (ctx?.storyFn || ctx?.originalStoryFn)?.(
-              ctx?.args || {},
-            );
-            if (
-              storyResult &&
-              typeof storyResult === "object" &&
-              "template" in storyResult
-            ) {
+            const storyResult = (ctx?.storyFn || ctx?.originalStoryFn)?.(ctx?.args || {});
+            if (storyResult && typeof storyResult === "object" && "template" in storyResult) {
               return (storyResult as any).template as string;
             }
           } catch {}

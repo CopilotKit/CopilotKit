@@ -1,10 +1,5 @@
 import Link from "next/link";
-import {
-  getIntegrations,
-  getFeatures,
-  getFeatureCategories,
-  getCategoryLabel,
-} from "@/lib/registry";
+import { getIntegrations, getFeatures, getFeatureCategories, getCategoryLabel } from "@/lib/registry";
 import { IntegrationsTabs } from "@/components/integrations-tabs";
 
 export default function FeatureMatrixPage() {
@@ -16,19 +11,13 @@ export default function FeatureMatrixPage() {
     return (
       <div className="mx-auto max-w-7xl px-6 py-8">
         <IntegrationsTabs />
-        <h1 className="text-3xl font-light text-[var(--text)] text-center">
-          Feature Matrix
-        </h1>
-        <p className="mt-6 text-[var(--text-muted)]">
-          No integrations registered yet.
-        </p>
+        <h1 className="text-3xl font-light text-[var(--text)] text-center">Feature Matrix</h1>
+        <p className="mt-6 text-[var(--text-muted)]">No integrations registered yet.</p>
       </div>
     );
   }
 
-  const activeFeatures = features.filter((feature) =>
-    integrations.some((i) => i.features.includes(feature.id)),
-  );
+  const activeFeatures = features.filter((feature) => integrations.some((i) => i.features.includes(feature.id)));
 
   const featuresByCategory = featureCategories
     .map((cat) => ({
@@ -41,13 +30,10 @@ export default function FeatureMatrixPage() {
     <div className="px-6 py-8">
       <div className="mx-auto max-w-7xl">
         <IntegrationsTabs />
-        <h1 className="text-3xl font-light text-[var(--text)]">
-          Feature Matrix
-        </h1>
+        <h1 className="text-3xl font-light text-[var(--text)]">Feature Matrix</h1>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">
           {integrations.length} integration
-          {integrations.length !== 1 ? "s" : ""} across {activeFeatures.length}{" "}
-          features
+          {integrations.length !== 1 ? "s" : ""} across {activeFeatures.length} features
         </p>
       </div>
 
@@ -72,9 +58,7 @@ export default function FeatureMatrixPage() {
             {/* Feature name row */}
             <tr className="border-b-2 border-[var(--border)]">
               <th className="sticky left-0 z-20 bg-[var(--bg-elevated)] p-4 text-left min-w-[200px]">
-                <span className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]">
-                  Integration
-                </span>
+                <span className="text-xs font-mono uppercase tracking-wider text-[var(--text-muted)]">Integration</span>
               </th>
               {featuresByCategory.map((cat) =>
                 cat.features.map((feature, idx) => (
@@ -115,15 +99,11 @@ export default function FeatureMatrixPage() {
                 {featuresByCategory.map((cat) =>
                   cat.features.map((feature, idx) => {
                     const supported = integration.features.includes(feature.id);
-                    const hasDemo = integration.demos.some(
-                      (d) => d.id === feature.id,
-                    );
+                    const hasDemo = integration.demos.some((d) => d.id === feature.id);
                     return (
                       <td
                         key={feature.id}
-                        className={`px-3 py-3 text-center ${
-                          idx === 0 ? "border-l border-[var(--border)]" : ""
-                        }`}
+                        className={`px-3 py-3 text-center ${idx === 0 ? "border-l border-[var(--border)]" : ""}`}
                       >
                         {supported && hasDemo ? (
                           <Link
@@ -170,9 +150,7 @@ export default function FeatureMatrixPage() {
           Supported, no demo
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center justify-center w-5 h-5 text-[var(--border)] text-[10px]">
-            —
-          </span>
+          <span className="inline-flex items-center justify-center w-5 h-5 text-[var(--border)] text-[10px]">—</span>
           Not supported
         </div>
       </div>

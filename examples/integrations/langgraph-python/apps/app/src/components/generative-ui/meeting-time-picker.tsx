@@ -41,9 +41,7 @@ export function MeetingTimePicker({
 
   const handleSelectSlot = (slot: TimeSlot) => {
     setSelectedSlot(slot);
-    respond?.(
-      `Meeting scheduled for ${slot.date} at ${slot.time}${slot.duration ? ` (${slot.duration})` : ""}.`,
-    );
+    respond?.(`Meeting scheduled for ${slot.date} at ${slot.time}${slot.duration ? ` (${slot.duration})` : ""}.`);
   };
 
   const handleDecline = () => {
@@ -63,9 +61,7 @@ export function MeetingTimePicker({
               <Check className="h-5 w-5 text-white" strokeWidth={3} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-[var(--foreground)]">
-                Meeting Scheduled
-              </h3>
+              <h3 className="text-lg font-bold text-[var(--foreground)]">Meeting Scheduled</h3>
               <p className="text-sm text-[var(--muted-foreground)] mt-1">
                 {selectedSlot.date} at {selectedSlot.time}
               </p>
@@ -92,9 +88,7 @@ export function MeetingTimePicker({
               <X className="h-6 w-6 text-[var(--muted-foreground)]" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-[var(--foreground)]">
-                No Time Selected
-              </h3>
+              <h3 className="text-lg font-bold text-[var(--foreground)]">No Time Selected</h3>
               <p className="text-sm text-[var(--muted-foreground)] mt-1">
                 Looking for a better time that works for you
               </p>
@@ -113,13 +107,9 @@ export function MeetingTimePicker({
           <div className="flex items-center justify-center h-12 w-12 rounded-full bg-[var(--accent)] mb-3">
             <Clock className="h-6 w-6 text-[#BEC2FF]" />
           </div>
-          <h3 className="text-lg font-bold text-[var(--foreground)]">
-            {displayTitle}
-          </h3>
+          <h3 className="text-lg font-bold text-[var(--foreground)]">{displayTitle}</h3>
           <p className="text-sm text-[var(--muted-foreground)] mt-1">
-            {status === "inProgress"
-              ? "Finding available times..."
-              : "Pick a time that works for you"}
+            {status === "inProgress" ? "Finding available times..." : "Pick a time that works for you"}
           </p>
         </div>
 
@@ -142,18 +132,11 @@ export function MeetingTimePicker({
                   flex items-center gap-4"
               >
                 <div className="flex-1 text-left">
-                  <div className="font-semibold text-base text-[var(--foreground)]">
-                    {slot.date}
-                  </div>
-                  <div className="text-sm text-[var(--muted-foreground)] mt-0.5">
-                    {slot.time}
-                  </div>
+                  <div className="font-semibold text-base text-[var(--foreground)]">{slot.date}</div>
+                  <div className="text-sm text-[var(--muted-foreground)] mt-0.5">{slot.time}</div>
                 </div>
                 {slot.duration && (
-                  <Badge
-                    variant="secondary"
-                    className="shrink-0 text-sm px-3 py-1"
-                  >
+                  <Badge variant="secondary" className="shrink-0 text-sm px-3 py-1">
                     {slot.duration}
                   </Badge>
                 )}

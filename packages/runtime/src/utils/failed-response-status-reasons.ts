@@ -1,7 +1,4 @@
-import {
-  FailedResponseStatus,
-  FailedResponseStatusReason,
-} from "../graphql/types/response-status.type";
+import { FailedResponseStatus, FailedResponseStatusReason } from "../graphql/types/response-status.type";
 
 export class GuardrailsValidationFailureResponse extends FailedResponseStatus {
   reason = FailedResponseStatusReason.GUARDRAILS_VALIDATION_FAILED;

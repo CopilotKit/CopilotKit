@@ -67,10 +67,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
         children: (
           <>
             <DynamicToolComponent />
-            <CopilotChatToolCallsView
-              message={assistantMessage}
-              messages={messages}
-            />
+            <CopilotChatToolCallsView message={assistantMessage} messages={messages} />
           </>
         ),
       });
@@ -96,8 +93,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           parameters: z.object({ message: z.string() }),
           render: ({ name, args, result }) => (
             <div data-testid="dynamic-tool-render">
-              {name}: {args.message} | Result:{" "}
-              {result ? JSON.stringify(result) : "pending"}
+              {name}: {args.message} | Result: {result ? JSON.stringify(result) : "pending"}
             </div>
           ),
           handler: async (args) => {
@@ -120,9 +116,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
 
         return (
           <>
-            <div data-testid="dynamic-status">
-              {isRegistered ? "Registered" : "Not registered"}
-            </div>
+            <div data-testid="dynamic-status">{isRegistered ? "Registered" : "Not registered"}</div>
             {isRegistered && <ToolUser />}
           </>
         );
@@ -142,9 +136,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
 
       // Wait for dynamic registration
       await waitFor(() => {
-        expect(screen.getByTestId("dynamic-status").textContent).toBe(
-          "Registered",
-        );
+        expect(screen.getByTestId("dynamic-status").textContent).toBe("Registered");
       });
 
       // Submit a message that will trigger the dynamically registered tool
@@ -217,12 +209,8 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           render: ({ args }) => (
             <div data-testid="streaming-tool-render">
               <div data-testid="tool-name">{args.name || "undefined"}</div>
-              <div data-testid="tool-items">
-                {args.items ? args.items.join(", ") : "undefined"}
-              </div>
-              <div data-testid="tool-count">
-                {args.count !== undefined ? args.count : "undefined"}
-              </div>
+              <div data-testid="tool-items">{args.items ? args.items.join(", ") : "undefined"}</div>
+              <div data-testid="tool-count">{args.count !== undefined ? args.count : "undefined"}</div>
             </div>
           ),
         };
@@ -314,9 +302,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
 
       // Check items array is complete
       await waitFor(() => {
-        expect(screen.getByTestId("tool-items").textContent).toBe(
-          "item1, item2, item3",
-        );
+        expect(screen.getByTestId("tool-items").textContent).toBe("item1, item2, item3");
       });
 
       // Final chunk: complete the JSON
@@ -397,9 +383,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       // Tool should render
       await waitFor(() => {
         expect(screen.getByTestId("no-followup-tool")).toBeDefined();
-        expect(screen.getByTestId("tool-action").textContent).toBe(
-          "stop-after-this",
-        );
+        expect(screen.getByTestId("tool-action").textContent).toBe("stop-after-this");
       });
 
       // The agent should NOT continue after this tool call
@@ -473,25 +457,16 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       // Tool should render
       await waitFor(() => {
         expect(screen.getByTestId("continue-followup-tool")).toBeDefined();
-        expect(screen.getByTestId("tool-action").textContent).toBe(
-          "continue-after-this",
-        );
+        expect(screen.getByTestId("tool-action").textContent).toBe("continue-after-this");
       });
 
       // The agent SHOULD continue after this tool call
       // Emit a follow-up message to simulate continued execution
-      agent.emit(
-        textChunkEvent(
-          followUpMessageId,
-          "This is a follow-up message after tool execution",
-        ),
-      );
+      agent.emit(textChunkEvent(followUpMessageId, "This is a follow-up message after tool execution"));
 
       // Verify the follow-up message appears
       await waitFor(() => {
-        expect(
-          screen.getByText("This is a follow-up message after tool execution"),
-        ).toBeDefined();
+        expect(screen.getByText("This is a follow-up message after tool execution")).toBeDefined();
       });
 
       agent.emit(runFinishedEvent());
@@ -515,10 +490,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           return cloned;
         }
 
-        async runAgent(
-          parameters?: RunAgentParameters,
-          subscriber?: AgentSubscriber,
-        ) {
+        async runAgent(parameters?: RunAgentParameters, subscriber?: AgentSubscriber) {
           this._capture.lastRunParameters = parameters;
           return super.runAgent(parameters, subscriber);
         }
@@ -627,8 +599,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           },
           render: ({ name, args, result, status }) => (
             <div data-testid="temporary-tool">
-              {name}: {args.value} | Status: {status} | Result:{" "}
-              {String(result ?? "")}
+              {name}: {args.value} | Status: {status} | Result: {String(result ?? "")}
             </div>
           ),
         };
@@ -640,10 +611,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
         const [showTool, setShowTool] = useState(true);
         return (
           <>
-            <button
-              onClick={() => setShowTool(!showTool)}
-              data-testid="toggle-button"
-            >
+            <button onClick={() => setShowTool(!showTool)} data-testid="toggle-button">
               Toggle Tool
             </button>
             {showTool && <ToggleableToolComponent />}
@@ -715,9 +683,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       };
 
       // Second component with override tool definition
-      const SecondToolComponent: React.FC<{ isActive: boolean }> = ({
-        isActive,
-      }) => {
+      const SecondToolComponent: React.FC<{ isActive: boolean }> = ({ isActive }) => {
         if (!isActive) return null;
 
         const tool: ReactFrontendTool<{ text: string }> = {
@@ -741,10 +707,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           <>
             <FirstToolComponent />
             <SecondToolComponent isActive={showSecond} />
-            <button
-              onClick={() => setShowSecond(true)}
-              data-testid="activate-override"
-            >
+            <button onClick={() => setShowSecond(true)} data-testid="activate-override">
               Activate Override
             </button>
             <div style={{ height: 400 }}>
@@ -820,9 +783,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       await waitFor(() => {
         const secondVersions = screen.getAllByTestId("second-version");
         // Find the one with "after override"
-        const afterOverride = secondVersions.find((el) =>
-          el.textContent?.includes("after override"),
-        );
+        const afterOverride = secondVersions.find((el) => el.textContent?.includes("after override"));
         expect(afterOverride).toBeDefined();
         expect(afterOverride?.textContent).toContain("after override");
       });
@@ -959,9 +920,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
               <div data-testid="executing-tool">
                 <div data-testid="tool-status">{status}</div>
                 <div data-testid="tool-value">{args.value || "undefined"}</div>
-                <div data-testid="tool-result">
-                  {result ? JSON.stringify(result) : "no-result"}
-                </div>
+                <div data-testid="tool-result">{result ? JSON.stringify(result) : "no-result"}</div>
               </div>
             );
           },
@@ -1023,9 +982,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
         const toolEl = screen.getByTestId("executing-tool");
         expect(toolEl).toBeDefined();
         expect(screen.getByTestId("tool-value").textContent).toBe("test");
-        expect(screen.getByTestId("tool-status").textContent).toBe(
-          ToolCallStatus.InProgress,
-        );
+        expect(screen.getByTestId("tool-status").textContent).toBe(ToolCallStatus.InProgress);
       });
 
       agent.emit(runFinishedEvent());
@@ -1092,11 +1049,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           name: "testTool", // Same name as other tools
           parameters: z.object({ message: z.string() }),
           agentId: "wrongAgent", // Different agent
-          render: ({ args }) => (
-            <div data-testid="wrong-agent-tool">
-              Wrong Agent Tool: {args.message}
-            </div>
-          ),
+          render: ({ args }) => <div data-testid="wrong-agent-tool">Wrong Agent Tool: {args.message}</div>,
           handler: async (args) => {
             wrongAgentHandlerCalled = true;
             return { result: `Wrong agent processed: ${args.message}` };
@@ -1115,9 +1068,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           render: ({ args, result }) => (
             <div data-testid="default-agent-tool">
               Default Agent Tool: {args.message}
-              {result && (
-                <div data-testid="default-result">{JSON.stringify(result)}</div>
-              )}
+              {result && <div data-testid="default-result">{JSON.stringify(result)}</div>}
             </div>
           ),
           handler: async (args) => {
@@ -1135,11 +1086,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           name: "testTool", // Same name again
           parameters: z.object({ message: z.string() }),
           agentId: "specificAgent", // Different agent
-          render: ({ args }) => (
-            <div data-testid="specific-agent-tool">
-              Specific Agent Tool: {args.message}
-            </div>
-          ),
+          render: ({ args }) => <div data-testid="specific-agent-tool">Specific Agent Tool: {args.message}</div>,
           handler: async (args) => {
             specificAgentHandlerCalled = true;
             return { result: `Specific agent processed: ${args.message}` };
@@ -1256,9 +1203,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           render: ({ args, result }) => (
             <div data-testid="scoped-tool">
               Scoped Tool: {args.message}
-              {result && (
-                <div data-testid="scoped-result">{JSON.stringify(result)}</div>
-              )}
+              {result && <div data-testid="scoped-result">{JSON.stringify(result)}</div>}
             </div>
           ),
           handler: async (args) => {
@@ -1279,9 +1224,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           render: ({ args, result }) => (
             <div data-testid="global-tool">
               Global Tool: {args.message}
-              {result && (
-                <div data-testid="global-result">{JSON.stringify(result)}</div>
-              )}
+              {result && <div data-testid="global-result">{JSON.stringify(result)}</div>}
             </div>
           ),
           handler: async (args) => {
@@ -1366,9 +1309,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       // The global tool should have a result
       await waitFor(() => {
         const globalResult = screen.getByTestId("global-result");
-        expect(globalResult.textContent).toContain(
-          "Global processed: trying global",
-        );
+        expect(globalResult.textContent).toContain("Global processed: trying global");
       });
     });
   });
@@ -1384,9 +1325,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
         const tool: ReactFrontendTool<{ childValue: string }> = {
           name: "childTool",
           parameters: z.object({ childValue: z.string() }),
-          render: ({ args }) => (
-            <div data-testid="child-tool">Child: {args.childValue}</div>
-          ),
+          render: ({ args }) => <div data-testid="child-tool">Child: {args.childValue}</div>,
         };
 
         useFrontendTool(tool);
@@ -1402,9 +1341,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
         const tool: ReactFrontendTool<{ parentValue: string }> = {
           name: "parentTool",
           parameters: z.object({ parentValue: z.string() }),
-          render: ({ args }) => (
-            <div data-testid="parent-tool">Parent: {args.parentValue}</div>
-          ),
+          render: ({ args }) => <div data-testid="parent-tool">Parent: {args.parentValue}</div>,
         };
 
         useFrontendTool(tool);
@@ -1467,9 +1404,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       // Child tool should render
       await waitFor(() => {
         expect(screen.getByTestId("child-tool")).toBeDefined();
-        expect(screen.getByTestId("child-tool").textContent).toContain(
-          "test child",
-        );
+        expect(screen.getByTestId("child-tool").textContent).toContain("test child");
       });
 
       agent.emit(runFinishedEvent());
@@ -1481,15 +1416,11 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
     it("should ensure tools are available when request is made", async () => {
       const agent = new MockStepwiseAgent();
 
-      const AvailabilityTestTool: React.FC<{ onRegistered?: () => void }> = ({
-        onRegistered,
-      }) => {
+      const AvailabilityTestTool: React.FC<{ onRegistered?: () => void }> = ({ onRegistered }) => {
         const tool: ReactFrontendTool<{ test: string }> = {
           name: "availabilityTool",
           parameters: z.object({ test: z.string() }),
-          render: ({ args }) => (
-            <div data-testid="availability-tool">{args.test}</div>
-          ),
+          render: ({ args }) => <div data-testid="availability-tool">{args.test}</div>,
           handler: async (args) => ({ received: args.test }),
         };
 
@@ -1550,9 +1481,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       // Tool should render successfully
       await waitFor(() => {
         expect(screen.getByTestId("availability-tool")).toBeDefined();
-        expect(screen.getByTestId("availability-tool").textContent).toBe(
-          "available",
-        );
+        expect(screen.getByTestId("availability-tool").textContent).toBe("available");
       });
 
       agent.emit(runFinishedEvent());
@@ -1586,10 +1515,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
 
         return (
           <div>
-            <button
-              data-testid="rerender-button"
-              onClick={() => setCounter((c) => c + 1)}
-            >
+            <button data-testid="rerender-button" onClick={() => setCounter((c) => c + 1)}>
               Re-render ({counter})
             </button>
           </div>
@@ -1696,17 +1622,10 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
 
         return (
           <>
-            <button
-              data-testid="bump-version"
-              type="button"
-              onClick={() => setVersion((v) => v + 1)}
-            >
+            <button data-testid="bump-version" type="button" onClick={() => setVersion((v) => v + 1)}>
               Bump
             </button>
-            <CopilotChatToolCallsView
-              message={assistantMessage}
-              messages={messages}
-            />
+            <CopilotChatToolCallsView message={assistantMessage} messages={messages} />
           </>
         );
       };
@@ -1751,9 +1670,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
             <div data-testid="error-tool">
               <div data-testid="error-status">{status}</div>
               <div data-testid="error-message">{args.message}</div>
-              <div data-testid="error-result">
-                {result ? String(result) : "no-result"}
-              </div>
+              <div data-testid="error-result">{result ? String(result) : "no-result"}</div>
             </div>
           ),
           handler: async (args) => {
@@ -1830,37 +1747,34 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       });
 
       // Status should be complete even with error
-      expect(screen.getByTestId("error-status").textContent).toBe(
-        ToolCallStatus.Complete,
-      );
+      expect(screen.getByTestId("error-status").textContent).toBe(ToolCallStatus.Complete);
     });
 
     it("should handle async errors in handler", async () => {
       const agent = new MockStepwiseAgent();
 
       const AsyncErrorTool: React.FC = () => {
-        const tool: ReactFrontendTool<{ delay: number; errorMessage: string }> =
-          {
-            name: "asyncErrorTool",
-            parameters: z.object({
-              delay: z.number(),
-              errorMessage: z.string(),
-            }),
-            render: ({ args, status, result }) => (
-              <div data-testid="async-error-tool">
-                <div data-testid="async-status">{status}</div>
-                <div data-testid="async-delay">Delay: {args.delay}ms</div>
-                <div data-testid="async-error-msg">{args.errorMessage}</div>
-                {result && <div data-testid="async-result">{result}</div>}
-              </div>
-            ),
-            handler: async (args) => {
-              // Simulate async operation
-              await new Promise((resolve) => setTimeout(resolve, args.delay));
-              // In test environment, throwing might not propagate as expected
-              throw new Error(args.errorMessage);
-            },
-          };
+        const tool: ReactFrontendTool<{ delay: number; errorMessage: string }> = {
+          name: "asyncErrorTool",
+          parameters: z.object({
+            delay: z.number(),
+            errorMessage: z.string(),
+          }),
+          render: ({ args, status, result }) => (
+            <div data-testid="async-error-tool">
+              <div data-testid="async-status">{status}</div>
+              <div data-testid="async-delay">Delay: {args.delay}ms</div>
+              <div data-testid="async-error-msg">{args.errorMessage}</div>
+              {result && <div data-testid="async-result">{result}</div>}
+            </div>
+          ),
+          handler: async (args) => {
+            // Simulate async operation
+            await new Promise((resolve) => setTimeout(resolve, args.delay));
+            // In test environment, throwing might not propagate as expected
+            throw new Error(args.errorMessage);
+          },
+        };
 
         useFrontendTool(tool);
         return null;
@@ -1894,8 +1808,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           toolCallId: testId("tc"),
           toolCallName: "asyncErrorTool",
           parentMessageId: testId("msg"),
-          delta:
-            '{"delay":10,"errorMessage":"Async operation failed after delay"}',
+          delta: '{"delay":10,"errorMessage":"Async operation failed after delay"}',
         }),
       );
 
@@ -1903,9 +1816,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       await waitFor(() => {
         expect(screen.getByTestId("async-error-tool")).toBeDefined();
         expect(screen.getByTestId("async-delay").textContent).toContain("10ms");
-        expect(screen.getByTestId("async-error-msg").textContent).toContain(
-          "Async operation failed",
-        );
+        expect(screen.getByTestId("async-error-msg").textContent).toContain("Async operation failed");
       });
 
       // The test verifies that:
@@ -1934,16 +1845,10 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
           parameters: z.any(),
           render: ({ name, args, status, result }) => (
             <div data-testid={`wildcard-render-${name}`}>
-              <div data-testid="wildcard-tool-name">
-                Wildcard caught: {name}
-              </div>
-              <div data-testid="wildcard-args">
-                Args: {JSON.stringify(args)}
-              </div>
+              <div data-testid="wildcard-tool-name">Wildcard caught: {name}</div>
+              <div data-testid="wildcard-args">Args: {JSON.stringify(args)}</div>
               <div data-testid="wildcard-status">Status: {status}</div>
-              {result && (
-                <div data-testid="wildcard-result">Result: {result}</div>
-              )}
+              {result && <div data-testid="wildcard-result">Result: {result}</div>}
             </div>
           ),
           handler: async (args: any) => {
@@ -2055,9 +1960,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
         const tool: ReactFrontendTool<{ value: string }> = {
           name: "specificTool",
           parameters: z.object({ value: z.string() }),
-          render: ({ args }) => (
-            <div data-testid="specific-render">Specific: {args.value}</div>
-          ),
+          render: ({ args }) => <div data-testid="specific-render">Specific: {args.value}</div>,
         };
         useFrontendTool(tool);
         return null;
@@ -2068,9 +1971,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
         const tool: ReactFrontendTool<any> = {
           name: "*",
           parameters: z.any(),
-          render: ({ name }) => (
-            <div data-testid="wildcard-render">Wildcard: {name}</div>
-          ),
+          render: ({ name }) => <div data-testid="wildcard-render">Wildcard: {name}</div>,
         };
         useFrontendTool(tool);
         return null;
@@ -2113,9 +2014,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       // Should render with specific renderer, not wildcard
       await waitFor(() => {
         expect(screen.getByTestId("specific-render")).toBeDefined();
-        expect(screen.getByTestId("specific-render").textContent).toContain(
-          "test specific",
-        );
+        expect(screen.getByTestId("specific-render").textContent).toContain("test specific");
       });
 
       // Call unknown tool - should use wildcard renderer
@@ -2132,9 +2031,7 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       await waitFor(() => {
         const wildcards = screen.getAllByTestId("wildcard-render");
         expect(wildcards.length).toBeGreaterThan(0);
-        const unknownToolRender = wildcards.find((el) =>
-          el.textContent?.includes("unknownTool"),
-        );
+        const unknownToolRender = wildcards.find((el) => el.textContent?.includes("unknownTool"));
         expect(unknownToolRender).toBeDefined();
       });
 

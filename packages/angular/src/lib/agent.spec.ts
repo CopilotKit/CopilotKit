@@ -4,10 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 import { AgentStore, injectAgentStore } from "./agent";
 import { CopilotKit } from "./copilotkit";
-import {
-  ProxiedCopilotRuntimeAgent,
-  CopilotKitCoreRuntimeConnectionStatus,
-} from "@copilotkit/core";
+import { ProxiedCopilotRuntimeAgent, CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 
 class MockAgent {
   readonly id: string;
@@ -65,10 +62,9 @@ class MockAgent {
 
 class CopilotKitStub {
   readonly #agents = signal<Record<string, AbstractAgent>>({});
-  readonly #runtimeConnectionStatus =
-    signal<CopilotKitCoreRuntimeConnectionStatus>(
-      CopilotKitCoreRuntimeConnectionStatus.Disconnected,
-    );
+  readonly #runtimeConnectionStatus = signal<CopilotKitCoreRuntimeConnectionStatus>(
+    CopilotKitCoreRuntimeConnectionStatus.Disconnected,
+  );
   readonly #runtimeUrl = signal<string | undefined>(undefined);
   readonly #runtimeTransport = signal<"rest" | "single" | "auto">("auto");
   readonly #headers = signal<Record<string, string>>({});
@@ -196,9 +192,7 @@ describe("injectAgentStore", () => {
     copilotKitStub.setAgents({});
     copilotKitStub.setRuntimeUrl("https://runtime.local");
     copilotKitStub.setHeaders({ "x-test": "1" });
-    copilotKitStub.setRuntimeConnectionStatus(
-      CopilotKitCoreRuntimeConnectionStatus.Connecting,
-    );
+    copilotKitStub.setRuntimeConnectionStatus(CopilotKitCoreRuntimeConnectionStatus.Connecting);
 
     @Component({
       standalone: true,
@@ -223,9 +217,7 @@ describe("injectAgentStore", () => {
   it("throws when agent cannot be resolved after runtime sync", () => {
     copilotKitStub.setAgents({});
     copilotKitStub.setRuntimeUrl("https://runtime.local");
-    copilotKitStub.setRuntimeConnectionStatus(
-      CopilotKitCoreRuntimeConnectionStatus.Connected,
-    );
+    copilotKitStub.setRuntimeConnectionStatus(CopilotKitCoreRuntimeConnectionStatus.Connected);
 
     @Component({
       standalone: true,

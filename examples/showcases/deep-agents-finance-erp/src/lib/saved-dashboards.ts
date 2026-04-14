@@ -32,9 +32,7 @@ export async function getSavedDashboards(): Promise<SavedDashboard[]> {
     const serverDashboards: SavedDashboard[] = await res.json();
 
     // If server returned custom dashboards (Postgres is connected), use server data only
-    const hasServerCustom = serverDashboards.some(
-      (d) => d.category === "custom",
-    );
+    const hasServerCustom = serverDashboards.some((d) => d.category === "custom");
     if (hasServerCustom) return serverDashboards;
 
     // Otherwise merge: server templates + localStorage custom
@@ -83,10 +81,7 @@ export async function saveDashboard(
   }
 }
 
-export async function updateSavedDashboard(
-  id: string,
-  widgets: DashboardWidget[],
-): Promise<SavedDashboard | null> {
+export async function updateSavedDashboard(id: string, widgets: DashboardWidget[]): Promise<SavedDashboard | null> {
   try {
     const res = await fetch(`${BASE}/${id}`, {
       method: "PUT",
@@ -111,9 +106,7 @@ export async function deleteSavedDashboard(id: string): Promise<void> {
   persistLocal(local);
 }
 
-export async function loadSavedDashboard(
-  id: string,
-): Promise<DashboardWidget[] | null> {
+export async function loadSavedDashboard(id: string): Promise<DashboardWidget[] | null> {
   try {
     const res = await fetch(`${BASE}/${id}`);
     if (res.ok) {
@@ -128,9 +121,7 @@ export async function loadSavedDashboard(
   return local?.widgets ?? null;
 }
 
-export async function findSavedDashboardByName(
-  name: string,
-): Promise<SavedDashboard | null> {
+export async function findSavedDashboardByName(name: string): Promise<SavedDashboard | null> {
   const dashboards = await getSavedDashboards();
   const lower = name.toLowerCase();
   return dashboards.find((d) => d.name.toLowerCase().includes(lower)) ?? null;

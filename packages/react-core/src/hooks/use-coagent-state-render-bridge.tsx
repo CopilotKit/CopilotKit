@@ -100,10 +100,7 @@ export interface CoAgentStateRenderBridgeProps {
   stateSnapshot: any;
 }
 
-export function useCoagentStateRenderBridge(
-  agentId: string,
-  props: CoAgentStateRenderBridgeProps,
-) {
+export function useCoagentStateRenderBridge(agentId: string, props: CoAgentStateRenderBridgeProps) {
   const { stateSnapshot, message } = props;
   const { coAgentStateRenders, claimsRef } = useCoAgentStateRenders();
   const { agent } = useAgent({ agentId });
@@ -137,25 +134,18 @@ export function useCoagentStateRenderBridge(
 
   const getStateRender = useCallback(
     (messageId: string) => {
-      return Object.entries(coAgentStateRenders).find(
-        ([stateRenderId, stateRender]) => {
-          if (claimsRef.current[messageId]) {
-            return stateRenderId === claimsRef.current[messageId].stateRenderId;
-          }
-          const matchingAgentName = stateRender.name === agentId;
-          const matchesNodeContext = stateRender.nodeName
-            ? stateRender.nodeName === nodeName
-            : true;
-          return matchingAgentName && matchesNodeContext;
-        },
-      );
+      return Object.entries(coAgentStateRenders).find(([stateRenderId, stateRender]) => {
+        if (claimsRef.current[messageId]) {
+          return stateRenderId === claimsRef.current[messageId].stateRenderId;
+        }
+        const matchingAgentName = stateRender.name === agentId;
+        const matchesNodeContext = stateRender.nodeName ? stateRender.nodeName === nodeName : true;
+        return matchingAgentName && matchesNodeContext;
+      });
     },
     [coAgentStateRenders, nodeName, agentId],
   );
-  const stateRenderEntry = useMemo(
-    () => getStateRender(message.id),
-    [getStateRender, message.id],
-  );
+  const stateRenderEntry = useMemo(() => getStateRender(message.id), [getStateRender, message.id]);
   const stateRenderId = stateRenderEntry?.[0];
   const stateRender = stateRenderEntry?.[1];
 
@@ -184,17 +174,13 @@ export function useCoagentStateRenderBridge(
 
     if (stateRender.handler) {
       stateRender.handler({
-        state: stateSnapshot
-          ? parseJson(stateSnapshot, stateSnapshot)
-          : (agent?.state ?? {}),
+        state: stateSnapshot ? parseJson(stateSnapshot, stateSnapshot) : (agent?.state ?? {}),
         nodeName: nodeName ?? "",
       });
     }
 
     if (stateRender.render) {
-      const status = agent?.isRunning
-        ? RenderStatus.InProgress
-        : RenderStatus.Complete;
+      const status = agent?.isRunning ? RenderStatus.InProgress : RenderStatus.Complete;
 
       if (typeof stateRender.render === "string") return stateRender.render;
 
@@ -205,16 +191,7 @@ export function useCoagentStateRenderBridge(
         nodeName: nodeName ?? "",
       });
     }
-  }, [
-    stateRender,
-    stateRenderId,
-    agent?.state,
-    agent?.isRunning,
-    nodeName,
-    message.id,
-    stateSnapshot,
-    canRender,
-  ]);
+  }, [stateRender, stateRenderId, agent?.state, agent?.isRunning, nodeName, message.id, stateSnapshot, canRender]);
 }
 
 export function CoAgentStateRenderBridge(props: CoAgentStateRenderBridgeProps) {

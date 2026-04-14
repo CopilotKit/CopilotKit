@@ -38,10 +38,7 @@ export const Slider = createReactComponent(SliderApi, ({ props }) => {
     >
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         {props.label && (
-          <label
-            htmlFor={uniqueId}
-            style={{ fontSize: "14px", fontWeight: "bold" }}
-          >
+          <label htmlFor={uniqueId} style={{ fontSize: "14px", fontWeight: "bold" }}>
             {props.label}
           </label>
         )}

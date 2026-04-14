@@ -3,11 +3,7 @@ import { z } from "zod";
 import * as v from "valibot";
 import { toStandardJsonSchema } from "@valibot/to-json-schema";
 import { type } from "arktype";
-import {
-  defineTool,
-  convertToolDefinitionsToVercelAITools,
-  BuiltInAgent,
-} from "../index";
+import { defineTool, convertToolDefinitionsToVercelAITools, BuiltInAgent } from "../index";
 import type { RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
 import { mockStreamTextResponse, finish, collectEvents } from "./test-helpers";
@@ -178,11 +174,7 @@ describe("Standard Schema support in agent tools", () => {
 
       const aiTools = convertToolDefinitionsToVercelAITools(tools);
 
-      expect(Object.keys(aiTools)).toEqual([
-        "zodTool",
-        "valibotTool",
-        "arktypeTool",
-      ]);
+      expect(Object.keys(aiTools)).toEqual(["zodTool", "valibotTool", "arktypeTool"]);
       for (const key of Object.keys(aiTools)) {
         expect(aiTools[key]).toHaveProperty("execute");
         expect(aiTools[key]).toHaveProperty("inputSchema");
@@ -206,9 +198,7 @@ describe("Standard Schema support in agent tools", () => {
         tools: [valibotTool],
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -241,9 +231,7 @@ describe("Standard Schema support in agent tools", () => {
         tools: [arktypeTool],
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",
@@ -286,9 +274,7 @@ describe("Standard Schema support in agent tools", () => {
         ],
       });
 
-      vi.mocked(streamText).mockReturnValue(
-        mockStreamTextResponse([finish()]) as any,
-      );
+      vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finish()]) as any);
 
       const input: RunAgentInput = {
         threadId: "thread1",

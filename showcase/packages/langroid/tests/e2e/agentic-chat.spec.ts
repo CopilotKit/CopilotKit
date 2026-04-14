@@ -5,18 +5,12 @@ test.describe("Agentic Chat", () => {
     await page.goto("/demos/agentic-chat");
   });
 
-  test("page loads with chat input and background container", async ({
-    page,
-  }) => {
+  test("page loads with chat input and background container", async ({ page }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
-    await expect(
-      page.locator('[data-testid="background-container"]'),
-    ).toBeVisible();
+    await expect(page.locator('[data-testid="background-container"]')).toBeVisible();
   });
 
-  test("background container has default background style", async ({
-    page,
-  }) => {
+  test("background container has default background style", async ({ page }) => {
     const bg = page.locator('[data-testid="background-container"]');
     await expect(bg).toHaveCSS("background-color", "rgb(250, 250, 249)");
   });
@@ -31,9 +25,7 @@ test.describe("Agentic Chat", () => {
     });
   });
 
-  test("weather request renders WeatherCard with location and stats", async ({
-    page,
-  }) => {
+  test("weather request renders WeatherCard with location and stats", async ({ page }) => {
     const input = page.getByPlaceholder("Type a message");
     await input.fill("What is the weather in Tokyo?");
     await input.press("Enter");
@@ -52,9 +44,7 @@ test.describe("Agentic Chat", () => {
     });
   });
 
-  test("background change request updates background style", async ({
-    page,
-  }) => {
+  test("background change request updates background style", async ({ page }) => {
     const input = page.getByPlaceholder("Type a message");
     await input.fill("Change the background to a blue gradient");
     await input.press("Enter");

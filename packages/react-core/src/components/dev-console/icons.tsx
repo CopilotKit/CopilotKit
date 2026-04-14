@@ -1,13 +1,7 @@
 import React from "react";
 
 export const ExclamationMarkTriangleIcon = () => (
-  <svg
-    width="13.3967723px"
-    height="12px"
-    viewBox="0 0 13.3967723 12"
-    version="1.1"
-    xmlns="http://www.w3.org/2000/svg"
-  >
+  <svg width="13.3967723px" height="12px" viewBox="0 0 13.3967723 12" version="1.1" xmlns="http://www.w3.org/2000/svg">
     <g id="Page-1" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
       <g id="exclamation-triangle" fill="#CD2121">
         <path
@@ -20,13 +14,7 @@ export const ExclamationMarkTriangleIcon = () => (
 );
 
 export const ExclamationMarkIcon = () => (
-  <svg
-    width="14px"
-    height="14px"
-    viewBox="0 0 14 14"
-    version="1.1"
-    xmlns="http://www.w3.org/2000/svg"
-  >
+  <svg width="14px" height="14px" viewBox="0 0 14 14" version="1.1" xmlns="http://www.w3.org/2000/svg">
     <g id="Page-1" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
       <g id="exclamation-circle" fill="#EC662C">
         <path
@@ -39,14 +27,7 @@ export const ExclamationMarkIcon = () => (
 );
 
 export const ChevronDownIcon = () => (
-  <svg
-    width="7px"
-    height="4px"
-    viewBox="0 0 7 4"
-    version="1.1"
-    xmlns="http://www.w3.org/2000/svg"
-    fill="currentColor"
-  >
+  <svg width="7px" height="4px" viewBox="0 0 7 4" version="1.1" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
     <g id="Page-1" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
       <g id="Group" fill="currentColor" fillRule="nonzero">
         <path
@@ -59,20 +40,9 @@ export const ChevronDownIcon = () => (
 );
 
 export const CheckIcon = () => (
-  <svg
-    width="14px"
-    height="14px"
-    viewBox="0 0 14 14"
-    version="1.1"
-    xmlns="http://www.w3.org/2000/svg"
-  >
+  <svg width="14px" height="14px" viewBox="0 0 14 14" version="1.1" xmlns="http://www.w3.org/2000/svg">
     <g id="Page-1" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
-      <g
-        id="Group-2"
-        transform="translate(-118, 0)"
-        fill="#1BC030"
-        fillRule="nonzero"
-      >
+      <g id="Group-2" transform="translate(-118, 0)" fill="#1BC030" fillRule="nonzero">
         <g id="Group" transform="translate(118, 0)">
           <path
             d="M0,7 C0,3.13384615 3.13384615,0 7,0 C10.8661538,0 14,3.13384615 14,7 C14,10.8661538 10.8661538,14 7,14 C3.13384615,14 0,10.8661538 0,7 Z M9.59179487,5.69764103 C9.70905818,5.54139023 9.73249341,5.33388318 9.65303227,5.15541491 C9.57357113,4.97694665 9.40367989,4.85551619 9.20909814,4.83811118 C9.01451638,4.82070616 8.82577109,4.91005717 8.71589744,5.07158974 L6.39261538,8.32389744 L5.22666667,7.15794872 C5.01450582,6.96025518 4.68389046,6.9660885 4.47883563,7.17114332 C4.27378081,7.37619815 4.26794748,7.70681351 4.46564103,7.91897436 L6.08102564,9.53435897 C6.19289944,9.64614839 6.3482622,9.70310251 6.50588106,9.69010587 C6.66349993,9.67710922 6.80743532,9.59547613 6.89948718,9.46687179 L9.59179487,5.69764103 L9.59179487,5.69764103 Z"
@@ -85,13 +55,7 @@ export const CheckIcon = () => (
 );
 
 export const CopilotKitIcon = () => (
-  <svg
-    width="33px"
-    height="35px"
-    viewBox="0 0 33 35"
-    version="1.1"
-    xmlns="http://www.w3.org/2000/svg"
-  >
+  <svg width="33px" height="35px" viewBox="0 0 33 35" version="1.1" xmlns="http://www.w3.org/2000/svg">
     <title>bd5c9079-929b-4d55-bdc9-16d1c8181b71</title>
     <g id="Page-1" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
       <image

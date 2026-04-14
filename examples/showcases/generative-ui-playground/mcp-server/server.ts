@@ -14,12 +14,7 @@ import express, { Request, Response } from "express";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import {
-  CallToolResult,
-  isInitializeRequest,
-  ReadResourceResult,
-  Resource,
-} from "@modelcontextprotocol/sdk/types.js";
+import { CallToolResult, isInitializeRequest, ReadResourceResult, Resource } from "@modelcontextprotocol/sdk/types.js";
 import { InMemoryEventStore } from "@modelcontextprotocol/sdk/examples/shared/inMemoryEventStore.js";
 import cors from "cors";
 import path from "node:path";
@@ -27,20 +22,10 @@ import fs from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 // Import flights logic
-import {
-  searchFlights,
-  selectFlight,
-  selectSeats,
-  createBooking,
-} from "./src/flights.js";
+import { searchFlights, selectFlight, selectSeats, createBooking } from "./src/flights.js";
 
 // Import hotels logic
-import {
-  searchHotels,
-  selectHotel,
-  selectRoom,
-  createHotelBooking,
-} from "./src/hotels.js";
+import { searchHotels, selectHotel, selectRoom, createHotelBooking } from "./src/hotels.js";
 
 // Import trading logic
 import {
@@ -55,14 +40,7 @@ import {
 } from "./src/stocks.js";
 
 // Import kanban logic
-import {
-  createBoard,
-  addCard,
-  updateCard,
-  deleteCard,
-  moveCard,
-  Board,
-} from "./src/kanban.js";
+import { createBoard, addCard, updateCard, deleteCard, moveCard, Board } from "./src/kanban.js";
 
 // Import calculator logic (NEW)
 import {
@@ -169,8 +147,7 @@ const getServer = async () => {
       name: "flights-app-template",
       uri: "ui://flights/flights-app.html",
       title: "Airline Booking",
-      description:
-        "Interactive flight search and booking wizard with seat selection",
+      description: "Interactive flight search and booking wizard with seat selection",
       mimeType: "text/html+mcp",
     },
     flightsAppHtml,
@@ -182,8 +159,7 @@ const getServer = async () => {
       name: "hotels-app-template",
       uri: "ui://hotels/hotels-app.html",
       title: "Hotel Booking",
-      description:
-        "Interactive hotel search and booking wizard with room selection",
+      description: "Interactive hotel search and booking wizard with room selection",
       mimeType: "text/html+mcp",
     },
     hotelsAppHtml,
@@ -195,8 +171,7 @@ const getServer = async () => {
       name: "trading-app-template",
       uri: "ui://trading/trading-app.html",
       title: "Investment Simulator",
-      description:
-        "Interactive portfolio UI with holdings, charts, and trading",
+      description: "Interactive portfolio UI with holdings, charts, and trading",
       mimeType: "text/html+mcp",
     },
     tradingAppHtml,
@@ -247,37 +222,19 @@ const getServer = async () => {
     "search-flights",
     {
       title: "Search Flights",
-      description:
-        "Searches for available flights between two airports. Returns an interactive booking wizard UI.",
+      description: "Searches for available flights between two airports. Returns an interactive booking wizard UI.",
       inputSchema: {
-        origin: z
-          .string()
-          .describe("Origin airport code (e.g., JFK, LAX, LHR)"),
+        origin: z.string().describe("Origin airport code (e.g., JFK, LAX, LHR)"),
         destination: z.string().describe("Destination airport code"),
-        departureDate: z
-          .string()
-          .describe("Departure date in YYYY-MM-DD format"),
-        passengers: z
-          .number()
-          .min(1)
-          .max(9)
-          .describe("Number of passengers (1-9)"),
-        cabinClass: z
-          .enum(["economy", "business", "first"])
-          .optional()
-          .describe("Cabin class (default: economy)"),
+        departureDate: z.string().describe("Departure date in YYYY-MM-DD format"),
+        passengers: z.number().min(1).max(9).describe("Number of passengers (1-9)"),
+        cabinClass: z.enum(["economy", "business", "first"]).optional().describe("Cabin class (default: economy)"),
       },
       _meta: {
         [RESOURCE_URI_META_KEY]: flightsResource.uri,
       },
     },
-    async ({
-      origin,
-      destination,
-      departureDate,
-      passengers,
-      cabinClass,
-    }): Promise<CallToolResult> => {
+    async ({ origin, destination, departureDate, passengers, cabinClass }): Promise<CallToolResult> => {
       try {
         const search = searchFlights({
           origin,
@@ -289,10 +246,7 @@ const getServer = async () => {
 
         const flightSummary = search.flights
           .slice(0, 3)
-          .map(
-            (f) =>
-              `${f.airline.code}${f.flightNumber.slice(2)} ${f.departureTime}-${f.arrivalTime} $${f.price}`,
-          )
+          .map((f) => `${f.airline.code}${f.flightNumber.slice(2)} ${f.departureTime}-${f.arrivalTime} $${f.price}`)
           .join(", ");
 
         return {
@@ -315,9 +269,7 @@ const getServer = async () => {
         };
       } catch (error) {
         return {
-          content: [
-            { type: "text", text: `Error: ${(error as Error).message}` },
-          ],
+          content: [{ type: "text", text: `Error: ${(error as Error).message}` }],
           structuredContent: {
             success: false,
             error: (error as Error).message,
@@ -332,8 +284,7 @@ const getServer = async () => {
     "select-flight",
     {
       title: "Select Flight",
-      description:
-        "Selects a flight from search results and returns the seat map",
+      description: "Selects a flight from search results and returns the seat map",
       inputSchema: {
         searchId: z.string().describe("The search session ID"),
         flightId: z.string().describe("The flight ID to select"),
@@ -377,9 +328,7 @@ const getServer = async () => {
       inputSchema: {
         searchId: z.string().describe("The search session ID"),
         flightId: z.string().describe("The flight ID"),
-        seats: z
-          .array(z.string())
-          .describe("Array of seat IDs (e.g., ['12A', '12B'])"),
+        seats: z.array(z.string()).describe("Array of seat IDs (e.g., ['12A', '12B'])"),
       },
     },
     async ({ searchId, flightId, seats }): Promise<CallToolResult> => {
@@ -450,31 +399,19 @@ const getServer = async () => {
     "search-hotels",
     {
       title: "Search Hotels",
-      description:
-        "Searches for available hotels in a city. Returns an interactive booking wizard UI.",
+      description: "Searches for available hotels in a city. Returns an interactive booking wizard UI.",
       inputSchema: {
         city: z.string().describe("City name (e.g., Paris, New York, Tokyo)"),
         checkIn: z.string().describe("Check-in date in YYYY-MM-DD format"),
         checkOut: z.string().describe("Check-out date in YYYY-MM-DD format"),
         guests: z.number().min(1).max(6).describe("Number of guests (1-6)"),
-        rooms: z
-          .number()
-          .min(1)
-          .max(4)
-          .optional()
-          .describe("Number of rooms needed (default: 1)"),
+        rooms: z.number().min(1).max(4).optional().describe("Number of rooms needed (default: 1)"),
       },
       _meta: {
         [RESOURCE_URI_META_KEY]: hotelsResource.uri,
       },
     },
-    async ({
-      city,
-      checkIn,
-      checkOut,
-      guests,
-      rooms,
-    }): Promise<CallToolResult> => {
+    async ({ city, checkIn, checkOut, guests, rooms }): Promise<CallToolResult> => {
       try {
         const search = searchHotels({
           city,
@@ -487,16 +424,11 @@ const getServer = async () => {
         // Calculate nights for display
         const checkInDate = new Date(checkIn);
         const checkOutDate = new Date(checkOut);
-        const nights = Math.ceil(
-          (checkOutDate.getTime() - checkInDate.getTime()) /
-            (1000 * 60 * 60 * 24),
-        );
+        const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
 
         const hotelSummary = search.hotels
           .slice(0, 3)
-          .map(
-            (h) => `${h.name} (${h.rating}/10) from $${h.priceRange.min}/night`,
-          )
+          .map((h) => `${h.name} (${h.rating}/10) from $${h.priceRange.min}/night`)
           .join("\n");
 
         return {
@@ -520,9 +452,7 @@ const getServer = async () => {
         };
       } catch (error) {
         return {
-          content: [
-            { type: "text", text: `Error: ${(error as Error).message}` },
-          ],
+          content: [{ type: "text", text: `Error: ${(error as Error).message}` }],
           structuredContent: {
             success: false,
             error: (error as Error).message,
@@ -537,8 +467,7 @@ const getServer = async () => {
     "select-hotel",
     {
       title: "Select Hotel",
-      description:
-        "Selects a hotel from search results and returns available rooms",
+      description: "Selects a hotel from search results and returns available rooms",
       inputSchema: {
         searchId: z.string().describe("The search session ID"),
         hotelId: z.string().describe("The hotel ID to select"),
@@ -557,9 +486,7 @@ const getServer = async () => {
         };
       }
 
-      const roomSummary = result.rooms
-        .map((r) => `${r.name}: $${r.pricePerNight}/night`)
-        .join(", ");
+      const roomSummary = result.rooms.map((r) => `${r.name}: $${r.pricePerNight}/night`).join(", ");
 
       return {
         content: [
@@ -676,23 +603,10 @@ const getServer = async () => {
       description:
         "Creates an investment portfolio based on initial balance, risk tolerance, and focus area. Returns an interactive UI for trading.",
       inputSchema: {
-        initialBalance: z
-          .number()
-          .min(1000)
-          .max(1000000)
-          .describe("Starting cash balance (1000-1000000)"),
-        riskTolerance: z
-          .enum(["conservative", "moderate", "aggressive"])
-          .describe("Risk tolerance level"),
+        initialBalance: z.number().min(1000).max(1000000).describe("Starting cash balance (1000-1000000)"),
+        riskTolerance: z.enum(["conservative", "moderate", "aggressive"]).describe("Risk tolerance level"),
         focus: z
-          .enum([
-            "technology",
-            "healthcare",
-            "finance",
-            "consumer",
-            "energy",
-            "industrial",
-          ])
+          .enum(["technology", "healthcare", "finance", "consumer", "energy", "industrial"])
           .optional()
           .describe("Portfolio focus area (sector)"),
       },
@@ -700,11 +614,7 @@ const getServer = async () => {
         [RESOURCE_URI_META_KEY]: tradingResource.uri,
       },
     },
-    async ({
-      initialBalance,
-      riskTolerance,
-      focus,
-    }): Promise<CallToolResult> => {
+    async ({ initialBalance, riskTolerance, focus }): Promise<CallToolResult> => {
       // Create the portfolio
       const portfolio = createPortfolio({
         initialBalance,
@@ -715,9 +625,7 @@ const getServer = async () => {
       // Get available stocks for the UI
       const allStocks = getStocks();
       const holdingSymbols = new Set(portfolio.holdings.map((h) => h.symbol));
-      const availableStocks = allStocks.filter(
-        (s) => !holdingSymbols.has(s.symbol),
-      );
+      const availableStocks = allStocks.filter((s) => !holdingSymbols.has(s.symbol));
 
       // Store portfolio for later trades
       activePortfolios.set(portfolio.id, portfolio);
@@ -725,10 +633,7 @@ const getServer = async () => {
       // Build holdings summary
       const holdingsSummary = portfolio.holdings
         .slice(0, 3)
-        .map(
-          (h: { symbol: string; shares: number }) =>
-            `${h.symbol}: ${h.shares} shares`,
-        )
+        .map((h: { symbol: string; shares: number }) => `${h.symbol}: ${h.shares} shares`)
         .join(", ");
 
       const plSign = portfolio.totalGain >= 0 ? "+" : "";
@@ -768,18 +673,8 @@ const getServer = async () => {
         quantity: z.number().min(1).describe("Number of shares"),
       },
     },
-    async ({
-      portfolioId,
-      symbol,
-      action,
-      quantity,
-    }): Promise<CallToolResult> => {
-      const result = executeTrade(
-        portfolioId,
-        action as TradeType,
-        symbol,
-        quantity,
-      );
+    async ({ portfolioId, symbol, action, quantity }): Promise<CallToolResult> => {
+      const result = executeTrade(portfolioId, action as TradeType, symbol, quantity);
 
       if (!result.success) {
         return {
@@ -795,12 +690,8 @@ const getServer = async () => {
 
       // Get available stocks for the UI
       const allStocks = getStocks();
-      const holdingSymbols = new Set(
-        result.portfolio?.holdings.map((h) => h.symbol) || [],
-      );
-      const availableStocks = allStocks.filter(
-        (s) => !holdingSymbols.has(s.symbol),
-      );
+      const holdingSymbols = new Set(result.portfolio?.holdings.map((h) => h.symbol) || []);
+      const availableStocks = allStocks.filter((s) => !holdingSymbols.has(s.symbol));
 
       return {
         content: [{ type: "text", text: result.message }],
@@ -829,9 +720,7 @@ const getServer = async () => {
 
       if (!portfolio) {
         return {
-          content: [
-            { type: "text", text: `Portfolio ${portfolioId} not found.` },
-          ],
+          content: [{ type: "text", text: `Portfolio ${portfolioId} not found.` }],
           structuredContent: { success: false, error: "Portfolio not found" },
         };
       }
@@ -842,9 +731,7 @@ const getServer = async () => {
       // Get available stocks for the UI
       const allStocks = getStocks();
       const holdingSymbols = new Set(portfolio.holdings.map((h) => h.symbol));
-      const availableStocks = allStocks.filter(
-        (s) => !holdingSymbols.has(s.symbol),
-      );
+      const availableStocks = allStocks.filter((s) => !holdingSymbols.has(s.symbol));
 
       const plSign = portfolio.totalGain >= 0 ? "+" : "";
 
@@ -879,9 +766,7 @@ const getServer = async () => {
         projectName: z.string().describe("Name for the project board"),
         template: z
           .enum(["blank", "software", "marketing", "personal"])
-          .describe(
-            "Board template with pre-configured columns and sample cards",
-          ),
+          .describe("Board template with pre-configured columns and sample cards"),
       },
       _meta: {
         [RESOURCE_URI_META_KEY]: kanbanResource.uri,
@@ -894,10 +779,7 @@ const getServer = async () => {
       // Store board for later operations
       activeBoards.set(board.id, board);
 
-      const totalCards = board.columns.reduce(
-        (sum, c) => sum + c.cards.length,
-        0,
-      );
+      const totalCards = board.columns.reduce((sum, c) => sum + c.cards.length, 0);
 
       return {
         content: [
@@ -929,18 +811,10 @@ const getServer = async () => {
         boardId: z.string().describe("The board ID"),
         cardId: z.string().describe("The card ID to move"),
         targetColumnId: z.string().describe("Target column ID"),
-        position: z
-          .number()
-          .optional()
-          .describe("Position in column (default: end)"),
+        position: z.number().optional().describe("Position in column (default: end)"),
       },
     },
-    async ({
-      boardId,
-      cardId,
-      targetColumnId,
-      position,
-    }): Promise<CallToolResult> => {
+    async ({ boardId, cardId, targetColumnId, position }): Promise<CallToolResult> => {
       const result = moveCard(boardId, cardId, targetColumnId, position);
 
       if (!result.success) {
@@ -977,19 +851,10 @@ const getServer = async () => {
         columnId: z.string().describe("The column ID"),
         title: z.string().describe("Card title"),
         description: z.string().optional().describe("Card description"),
-        priority: z
-          .enum(["low", "medium", "high"])
-          .optional()
-          .describe("Card priority"),
+        priority: z.enum(["low", "medium", "high"]).optional().describe("Card priority"),
       },
     },
-    async ({
-      boardId,
-      columnId,
-      title,
-      description,
-      priority,
-    }): Promise<CallToolResult> => {
+    async ({ boardId, columnId, title, description, priority }): Promise<CallToolResult> => {
       const result = addCard(boardId, columnId, {
         title,
         description,
@@ -1110,8 +975,7 @@ const getServer = async () => {
     "open-calculator",
     {
       title: "Open Calculator",
-      description:
-        "Opens an interactive calculator with memory and history features.",
+      description: "Opens an interactive calculator with memory and history features.",
       inputSchema: {},
       _meta: {
         [RESOURCE_URI_META_KEY]: calculatorResource.uri,
@@ -1148,15 +1012,10 @@ const getServer = async () => {
     "input-calculator",
     {
       title: "Input to Calculator",
-      description:
-        "Sends input to the calculator (digit, operator, or command)",
+      description: "Sends input to the calculator (digit, operator, or command)",
       inputSchema: {
         calculatorId: z.string().describe("The calculator session ID"),
-        input: z
-          .string()
-          .describe(
-            "Input: digit (0-9), operator (+,-,*,/), decimal (.), equals (=), clear (C), etc.",
-          ),
+        input: z.string().describe("Input: digit (0-9), operator (+,-,*,/), decimal (.), equals (=), clear (C), etc."),
       },
     },
     async ({ calculatorId, input }): Promise<CallToolResult> => {
@@ -1193,9 +1052,7 @@ const getServer = async () => {
       description: "Evaluates a mathematical expression directly",
       inputSchema: {
         calculatorId: z.string().describe("The calculator session ID"),
-        expression: z
-          .string()
-          .describe("Mathematical expression (e.g., '2+2', '100*5/2')"),
+        expression: z.string().describe("Mathematical expression (e.g., '2+2', '100*5/2')"),
       },
     },
     async ({ calculatorId, expression }): Promise<CallToolResult> => {
@@ -1268,13 +1125,9 @@ const getServer = async () => {
     "open-todo-list",
     {
       title: "Open Todo List",
-      description:
-        "Opens an interactive todo list for task management with priorities and filters.",
+      description: "Opens an interactive todo list for task management with priorities and filters.",
       inputSchema: {
-        name: z
-          .string()
-          .optional()
-          .describe("Name for the todo list (default: 'My Tasks')"),
+        name: z.string().optional().describe("Name for the todo list (default: 'My Tasks')"),
       },
       _meta: {
         [RESOURCE_URI_META_KEY]: todoResource.uri,
@@ -1316,25 +1169,12 @@ const getServer = async () => {
         listId: z.string().describe("The todo list ID"),
         title: z.string().describe("Task title"),
         description: z.string().optional().describe("Task description"),
-        priority: z
-          .enum(["low", "medium", "high"])
-          .optional()
-          .describe("Priority level"),
-        dueDate: z
-          .string()
-          .optional()
-          .describe("Due date in YYYY-MM-DD format"),
+        priority: z.enum(["low", "medium", "high"]).optional().describe("Priority level"),
+        dueDate: z.string().optional().describe("Due date in YYYY-MM-DD format"),
         tags: z.array(z.string()).optional().describe("Tags for the task"),
       },
     },
-    async ({
-      listId,
-      title,
-      description,
-      priority,
-      dueDate,
-      tags,
-    }): Promise<CallToolResult> => {
+    async ({ listId, title, description, priority, dueDate, tags }): Promise<CallToolResult> => {
       const result = addTodoItem(listId, {
         title,
         description,
@@ -1632,9 +1472,7 @@ app.get("/health", (_req: Request, res: Response) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(
-    `[UI Protocols MCP Server] Running at http://localhost:${PORT}/mcp`,
-  );
+  console.log(`[UI Protocols MCP Server] Running at http://localhost:${PORT}/mcp`);
   console.log(`[Health Check] http://localhost:${PORT}/health`);
   console.log(`[Apps] Flights, Hotels, Trading, Kanban, Calculator, Todo`);
 });

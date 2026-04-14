@@ -20,11 +20,7 @@ export class AgentCoreRole extends iam.Role {
             new iam.PolicyStatement({
               sid: "ECRImageAccess",
               effect: iam.Effect.ALLOW,
-              actions: [
-                "ecr:BatchGetImage",
-                "ecr:GetDownloadUrlForLayer",
-                "ecr:BatchCheckLayerAvailability",
-              ],
+              actions: ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer", "ecr:BatchCheckLayerAvailability"],
               resources: [`arn:aws:ecr:${region}:${accountId}:repository/*`],
             }),
             new iam.PolicyStatement({
@@ -37,9 +33,7 @@ export class AgentCoreRole extends iam.Role {
               sid: "CloudWatchLogsGroupAccess",
               effect: iam.Effect.ALLOW,
               actions: ["logs:DescribeLogStreams", "logs:CreateLogGroup"],
-              resources: [
-                `arn:aws:logs:${region}:${accountId}:log-group:/aws/bedrock-agentcore/runtimes/*`,
-              ],
+              resources: [`arn:aws:logs:${region}:${accountId}:log-group:/aws/bedrock-agentcore/runtimes/*`],
             }),
             new iam.PolicyStatement({
               sid: "CloudWatchLogsDescribeGroups",
@@ -91,14 +85,8 @@ export class AgentCoreRole extends iam.Role {
             new iam.PolicyStatement({
               sid: "BedrockModelInvocation",
               effect: iam.Effect.ALLOW,
-              actions: [
-                "bedrock:InvokeModel",
-                "bedrock:InvokeModelWithResponseStream",
-              ],
-              resources: [
-                "arn:aws:bedrock:*::foundation-model/*",
-                `arn:aws:bedrock:${region}:${accountId}:*`,
-              ],
+              actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+              resources: ["arn:aws:bedrock:*::foundation-model/*", `arn:aws:bedrock:${region}:${accountId}:*`],
             }),
           ],
         }),

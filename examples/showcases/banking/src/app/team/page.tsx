@@ -2,25 +2,14 @@
 import useTeam from "@/app/team/actions";
 import { Button } from "@/components/ui/button";
 import { UserPlus } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthContext } from "@/components/auth-context";
 import { ExpenseRole, MemberRole } from "@/app/api/v1/data";
 import { useEffect, useReducer, useState } from "react";
 import { TeamPageOperations } from "@/components/copilot-context";
 import { useSearchParams } from "next/navigation";
 import { useCopilotReadable, useHumanInTheLoop } from "@copilotkit/react-core";
-import {
-  AddOrEditMemberDialog,
-  defaultDialogState,
-  DialogState,
-} from "@/components/add-or-edit-member-dialog";
+import { AddOrEditMemberDialog, defaultDialogState, DialogState } from "@/components/add-or-edit-member-dialog";
 import { RemoveMemberConfirmationDialog } from "@/components/remove-member-dialog";
 
 function ApprovalButtons({
@@ -66,13 +55,7 @@ function ApprovalButtons({
 
 export default function Team() {
   const { currentUser } = useAuthContext();
-  const {
-    team,
-    inviteMember,
-    removeMember,
-    changeMemberRole,
-    changeMemberTeam,
-  } = useTeam();
+  const { team, inviteMember, removeMember, changeMemberRole, changeMemberTeam } = useTeam();
   const searchParams = useSearchParams();
   const operation = searchParams.get("operation") as TeamPageOperations | null;
 
@@ -90,8 +73,7 @@ export default function Team() {
       {
         name: "id",
         type: "string",
-        description:
-          "The ID of the member to remove (provided by copilot, ask questions to figure out the member)",
+        description: "The ID of the member to remove (provided by copilot, ask questions to figure out the member)",
         required: true,
       },
     ],
@@ -104,8 +86,7 @@ export default function Team() {
           <h3 className="font-semibold text-lg">Remove Team Member</h3>
           <div className="text-sm space-y-1">
             <p>
-              <span className="text-gray-500">Member:</span>{" "}
-              {member?.name ?? id}
+              <span className="text-gray-500">Member:</span> {member?.name ?? id}
             </p>
             <p>
               <span className="text-gray-500">Role:</span> {member?.role}
@@ -155,12 +136,10 @@ export default function Team() {
           <h3 className="font-semibold text-lg">Change Member Role</h3>
           <div className="text-sm space-y-1">
             <p>
-              <span className="text-gray-500">Member:</span>{" "}
-              {member?.name ?? id}
+              <span className="text-gray-500">Member:</span> {member?.name ?? id}
             </p>
             <p>
-              <span className="text-gray-500">Current Role:</span>{" "}
-              {member?.role}
+              <span className="text-gray-500">Current Role:</span> {member?.role}
             </p>
             <p>
               <span className="text-gray-500">New Role:</span> {role}
@@ -210,12 +189,10 @@ export default function Team() {
           <h3 className="font-semibold text-lg">Change Member Team</h3>
           <div className="text-sm space-y-1">
             <p>
-              <span className="text-gray-500">Member:</span>{" "}
-              {member?.name ?? id}
+              <span className="text-gray-500">Member:</span> {member?.name ?? id}
             </p>
             <p>
-              <span className="text-gray-500">Current Team:</span>{" "}
-              {member?.team}
+              <span className="text-gray-500">Current Team:</span> {member?.team}
             </p>
             <p>
               <span className="text-gray-500">New Team:</span> {newTeam}
@@ -237,9 +214,7 @@ export default function Team() {
     },
   });
 
-  const [dialogState, dispatchDialogState] = useReducer<
-    React.Reducer<DialogState, Partial<DialogState>>
-  >(
+  const [dialogState, dispatchDialogState] = useReducer<React.Reducer<DialogState, Partial<DialogState>>>(
     (state: DialogState, payload: Partial<DialogState>) => ({
       ...state,
       ...payload,
@@ -254,15 +229,11 @@ export default function Team() {
   };
 
   useEffect(() => {
-    const operationNameToMethod: Partial<
-      Record<TeamPageOperations, () => void>
-    > = {
-      [TeamPageOperations.InviteMember]: () =>
-        dispatchDialogState({ dialogOpen: true }),
+    const operationNameToMethod: Partial<Record<TeamPageOperations, () => void>> = {
+      [TeamPageOperations.InviteMember]: () => dispatchDialogState({ dialogOpen: true }),
     };
 
-    if (!operation || !Object.values(TeamPageOperations).includes(operation))
-      return;
+    if (!operation || !Object.values(TeamPageOperations).includes(operation)) return;
     operationNameToMethod[operation]?.();
   }, [operation]);
 
@@ -270,11 +241,7 @@ export default function Team() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Team Management</h2>
-        <Button
-          onClick={() =>
-            dispatchDialogState({ dialogOpen: true, action: "add" })
-          }
-        >
+        <Button onClick={() => dispatchDialogState({ dialogOpen: true, action: "add" })}>
           <UserPlus className="mr-2 h-4 w-4" /> Invite Team Member
         </Button>
       </div>

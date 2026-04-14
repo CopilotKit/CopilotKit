@@ -1,8 +1,4 @@
-import {
-  CopilotRuntimeClient,
-  CopilotRuntimeClientOptions,
-  GraphQLError,
-} from "@copilotkit/runtime-client-gql";
+import { CopilotRuntimeClient, CopilotRuntimeClientOptions, GraphQLError } from "@copilotkit/runtime-client-gql";
 import { useToast } from "../components/toast/toast-provider";
 import { useMemo, useRef } from "react";
 import {
@@ -22,9 +18,7 @@ export interface CopilotRuntimeClientHookOptions extends CopilotRuntimeClientOpt
   onError: CopilotErrorHandler;
 }
 
-export const useCopilotRuntimeClient = (
-  options: CopilotRuntimeClientHookOptions,
-) => {
+export const useCopilotRuntimeClient = (options: CopilotRuntimeClientHookOptions) => {
   const { setBannerError } = useToast();
   const { showDevConsole, onError, ...runtimeOptions } = options;
 
@@ -49,12 +43,8 @@ export const useCopilotRuntimeClient = (
           },
           technical: {
             environment: "browser",
-            userAgent:
-              typeof navigator !== "undefined"
-                ? navigator.userAgent
-                : undefined,
-            stackTrace:
-              originalError instanceof Error ? originalError.stack : undefined,
+            userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
+            stackTrace: originalError instanceof Error ? originalError.stack : undefined,
           },
         },
         error,
@@ -162,9 +152,7 @@ function createStructuredError(gqlError: GraphQLError): CopilotKitError | null {
   if (originalError?.stack?.includes("CopilotApiDiscoveryError")) {
     return new CopilotKitApiDiscoveryError({ message });
   }
-  if (
-    originalError?.stack?.includes("CopilotKitRemoteEndpointDiscoveryError")
-  ) {
+  if (originalError?.stack?.includes("CopilotKitRemoteEndpointDiscoveryError")) {
     return new CopilotKitRemoteEndpointDiscoveryError({ message });
   }
   if (originalError?.stack?.includes("CopilotKitAgentDiscoveryError")) {

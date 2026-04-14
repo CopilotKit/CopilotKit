@@ -2,10 +2,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-export const ROOT = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../../..",
-);
+export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
 export type ReleaseScope = "monorepo" | "cli" | "angular";
 
@@ -29,9 +26,7 @@ export function getScopeConfig(scope: ReleaseScope): ScopeConfig {
   const config = loadConfig();
   const scopeConfig = config.scopes[scope];
   if (!scopeConfig) {
-    throw new Error(
-      `Unknown scope: ${scope}. Valid scopes: ${Object.keys(config.scopes).join(", ")}`,
-    );
+    throw new Error(`Unknown scope: ${scope}. Valid scopes: ${Object.keys(config.scopes).join(", ")}`);
   }
   return scopeConfig;
 }

@@ -1,9 +1,4 @@
-import {
-  Severity,
-  CopilotKitError,
-  ErrorVisibility,
-  CopilotKitErrorCode,
-} from "@copilotkit/shared";
+import { Severity, CopilotKitError, ErrorVisibility, CopilotKitErrorCode } from "@copilotkit/shared";
 import React from "react";
 
 interface UsageBannerProps {
@@ -22,12 +17,7 @@ interface UsageBannerProps {
   };
 }
 
-export function UsageBanner({
-  severity = Severity.CRITICAL,
-  message = "",
-  onClose,
-  actions,
-}: UsageBannerProps) {
+export function UsageBanner({ severity = Severity.CRITICAL, message = "", onClose, actions }: UsageBannerProps) {
   if (!message || !severity) {
     return null;
   }
@@ -233,12 +223,7 @@ export const getErrorActions = (error: CopilotKitError) => {
       return {
         primary: {
           label: "Upgrade",
-          onClick: () =>
-            window.open(
-              "https://cloud.copilotkit.ai",
-              "_blank",
-              "noopener,noreferrer",
-            ),
+          onClick: () => window.open("https://cloud.copilotkit.ai", "_blank", "noopener,noreferrer"),
         },
       };
     default:
@@ -246,10 +231,7 @@ export const getErrorActions = (error: CopilotKitError) => {
   }
 };
 
-export function renderCopilotKitUsage(
-  error: CopilotKitError,
-  onClose?: () => void,
-) {
+export function renderCopilotKitUsage(error: CopilotKitError, onClose?: () => void) {
   // Route based on error visibility level
   if (error.visibility !== ErrorVisibility.BANNER) {
     return null;

@@ -28,9 +28,7 @@ export function EmailComposeView({ email }: EmailComposeViewProps) {
         className="max-w-2xl w-full rounded-xl bg-[var(--surface-primary)] border border-[var(--border-card)] overflow-hidden my-3"
         style={{ boxShadow: "var(--shadow-card)" }}
       >
-        <div className="px-5 py-4 text-sm text-[var(--text-tertiary)] text-center">
-          Draft discarded.
-        </div>
+        <div className="px-5 py-4 text-sm text-[var(--text-tertiary)] text-center">Draft discarded.</div>
       </div>
     );
   }
@@ -42,13 +40,7 @@ export function EmailComposeView({ email }: EmailComposeViewProps) {
         style={{ boxShadow: "var(--shadow-card)" }}
       >
         <div className="px-5 py-4 flex items-center justify-center gap-2 text-sm text-emerald-600">
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-          >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -79,11 +71,7 @@ export function EmailComposeView({ email }: EmailComposeViewProps) {
             stroke="currentColor"
           >
             {isReply ? (
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
             ) : (
               <path
                 strokeLinecap="round"
@@ -92,9 +80,7 @@ export function EmailComposeView({ email }: EmailComposeViewProps) {
               />
             )}
           </svg>
-          <h2 className="text-base font-semibold text-[var(--text-primary)]">
-            {isReply ? "Reply" : "New Message"}
-          </h2>
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">{isReply ? "Reply" : "New Message"}</h2>
         </div>
       </div>
 
@@ -102,25 +88,17 @@ export function EmailComposeView({ email }: EmailComposeViewProps) {
         {/* To / Subject rows */}
         <div className="space-y-2 mb-4">
           <div className="flex items-center gap-3">
-            <span className="text-xs font-medium text-[var(--text-tertiary)] w-12 shrink-0">
-              To
-            </span>
+            <span className="text-xs font-medium text-[var(--text-tertiary)] w-12 shrink-0">To</span>
             <div className="flex items-center gap-2">
               <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-[9px] font-semibold shrink-0">
                 {getInitial(email.to)}
               </div>
-              <span className="text-sm text-[var(--text-secondary)]">
-                {email.to}
-              </span>
+              <span className="text-sm text-[var(--text-secondary)]">{email.to}</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs font-medium text-[var(--text-tertiary)] w-12 shrink-0">
-              Subject
-            </span>
-            <span className="text-sm text-[var(--text-secondary)]">
-              {email.subject}
-            </span>
+            <span className="text-xs font-medium text-[var(--text-tertiary)] w-12 shrink-0">Subject</span>
+            <span className="text-sm text-[var(--text-secondary)]">{email.subject}</span>
           </div>
         </div>
 
@@ -137,13 +115,7 @@ export function EmailComposeView({ email }: EmailComposeViewProps) {
             onClick={() => setSent(true)}
             className="flex items-center gap-1.5 px-4 py-1.5 text-sm text-white bg-blue-500 rounded-full hover:bg-blue-600 transition-colors"
           >
-            <svg
-              className="w-3.5 h-3.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-            >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -183,9 +155,7 @@ export function EmailComposeLoadingState() {
           <div className="h-3 w-1/2 bg-[var(--surface-quaternary)] rounded" />
         </div>
       </div>
-      <div className="px-5 pb-3 text-xs text-[var(--text-tertiary)]">
-        Drafting email...
-      </div>
+      <div className="px-5 pb-3 text-xs text-[var(--text-tertiary)]">Drafting email...</div>
     </div>
   );
 }

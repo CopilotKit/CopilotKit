@@ -2,14 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Trash2, Pencil } from "lucide-react";
-import type {
-  Chart,
-  ChartSpec,
-  ChartDataMap,
-  LineChartSpec,
-  BarChartSpec,
-  PieChartSpec,
-} from "@/lib/types";
+import type { Chart, ChartSpec, ChartDataMap, LineChartSpec, BarChartSpec, PieChartSpec } from "@/lib/types";
 import { ChartRenderer } from "./chart-renderer";
 import { ChartTypeIcon } from "./chart-type-icon";
 
@@ -20,11 +13,7 @@ interface ChartGridProps {
   chartData?: ChartDataMap;
 }
 
-export function ChartGrid({
-  charts,
-  onRemoveChart,
-  onEditChart,
-}: ChartGridProps) {
+export function ChartGrid({ charts, onRemoveChart, onEditChart }: ChartGridProps) {
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState<ChartSpec | null>(null);
 
@@ -101,9 +90,7 @@ function ChartEditModal({
   const [title, setTitle] = useState<string>("title" in spec ? spec.title : "");
   const [x, setX] = useState<string>("x" in spec ? spec.x : "");
   const [y, setY] = useState<string>("y" in spec ? spec.y : "");
-  const [steps, setSteps] = useState<string>(
-    "steps" in spec && Array.isArray(spec.steps) ? spec.steps.join(", ") : "",
-  );
+  const [steps, setSteps] = useState<string>("steps" in spec && Array.isArray(spec.steps) ? spec.steps.join(", ") : "");
 
   const buildSpec = (): ChartSpec => {
     const type = spec.type; // Keep the original type
@@ -142,9 +129,7 @@ function ChartEditModal({
             />
           </div>
           <div>
-            <label className="block text-sm mb-1">
-              Steps (comma separated)
-            </label>
+            <label className="block text-sm mb-1">Steps (comma separated)</label>
             <input
               value={steps}
               onChange={(e) => setSteps(e.target.value)}

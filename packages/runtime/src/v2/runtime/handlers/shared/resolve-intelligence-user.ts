@@ -1,7 +1,4 @@
-import {
-  CopilotIntelligenceRuntimeLike,
-  CopilotRuntimeUser,
-} from "../../core/runtime";
+import { CopilotIntelligenceRuntimeLike, CopilotRuntimeUser } from "../../core/runtime";
 import { errorResponse } from "./json-response";
 import { isValidIdentifier } from "./intelligence-utils";
 

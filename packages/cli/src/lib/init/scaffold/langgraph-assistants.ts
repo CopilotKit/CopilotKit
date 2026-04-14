@@ -16,20 +16,17 @@ export type LangGraphAgent = {
 
 export async function getLangGraphAgents(url: string, langSmithApiKey: string) {
   try {
-    const response = await fetch(
-      `${url.trim().replace(/\/$/, "")}/assistants/search`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Api-Key": langSmithApiKey,
-        },
-        body: JSON.stringify({
-          limit: 10,
-          offset: 0,
-        }),
+    const response = await fetch(`${url.trim().replace(/\/$/, "")}/assistants/search`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Api-Key": langSmithApiKey,
       },
-    );
+      body: JSON.stringify({
+        limit: 10,
+        offset: 0,
+      }),
+    });
 
     return (await response.json()) as LangGraphAgent[];
   } catch (error) {

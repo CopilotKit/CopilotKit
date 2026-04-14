@@ -9,11 +9,7 @@ let capturedSidebarProps: Record<string, unknown> = {};
 vi.mock("@copilotkit/react-core", () => ({
   CopilotKit: (props: Record<string, unknown>) => {
     capturedCopilotKitProps = props;
-    return (
-      <div data-testid="copilotkit-provider">
-        {props.children as React.ReactNode}
-      </div>
-    );
+    return <div data-testid="copilotkit-provider">{props.children as React.ReactNode}</div>;
   },
 }));
 
@@ -82,9 +78,7 @@ describe("A2UIDashboard", () => {
   it("sets sidebar to default open with correct title", () => {
     render(<A2UIDashboard agentId="test-agent" />);
     expect(capturedSidebarProps.defaultOpen).toBe(true);
-    expect(
-      (capturedSidebarProps.labels as Record<string, string>).modalHeaderTitle,
-    ).toBe("Sales Dashboard Assistant");
+    expect((capturedSidebarProps.labels as Record<string, string>).modalHeaderTitle).toBe("Sales Dashboard Assistant");
   });
 
   it("does not pass openGenerativeUI to CopilotKit", () => {

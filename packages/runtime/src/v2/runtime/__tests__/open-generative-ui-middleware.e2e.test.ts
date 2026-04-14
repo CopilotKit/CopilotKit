@@ -9,10 +9,7 @@ import {
 } from "@ag-ui/client";
 import { Observable, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
-import {
-  OpenGenerativeUIMiddleware,
-  ArgsParser,
-} from "../open-generative-ui-middleware";
+import { OpenGenerativeUIMiddleware, ArgsParser } from "../open-generative-ui-middleware";
 
 /**
  * A minimal agent that records the input it receives and emits scripted events.
@@ -56,9 +53,7 @@ function createRunInput(overrides: Partial<RunAgentInput> = {}): RunAgentInput {
   };
 }
 
-async function collectEvents(
-  observable: Observable<BaseEvent>,
-): Promise<BaseEvent[]> {
+async function collectEvents(observable: Observable<BaseEvent>): Promise<BaseEvent[]> {
   return firstValueFrom(observable.pipe(toArray()));
 }
 
@@ -112,14 +107,10 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
 
       // Start streaming html — first chunk
       parser.write('"html":"<div');
-      const htmlDeltas1 = emitted.filter(
-        (e) => e.type === EventType.ACTIVITY_DELTA,
-      ) as ActivityDeltaEvent[];
+      const htmlDeltas1 = emitted.filter((e) => e.type === EventType.ACTIVITY_DELTA) as ActivityDeltaEvent[];
       // Should have array creation + first chunk
       expect(htmlDeltas1.length).toBeGreaterThanOrEqual(1);
-      expect(htmlDeltas1[0].patch).toEqual([
-        { op: "add", path: "/html", value: [] },
-      ]);
+      expect(htmlDeltas1[0].patch).toEqual([{ op: "add", path: "/html", value: [] }]);
 
       emitted.length = 0;
       // More html content — note: clarinet needs a delimiter after the
@@ -129,9 +120,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       const completeDelta = emitted.find(
         (e) =>
           e.type === EventType.ACTIVITY_DELTA &&
-          (e as ActivityDeltaEvent).patch.some(
-            (p) => p.path === "/htmlComplete",
-          ),
+          (e as ActivityDeltaEvent).patch.some((p) => p.path === "/htmlComplete"),
       );
       expect(completeDelta).toBeDefined();
 
@@ -161,17 +150,10 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       expect(parser.params.jsExpressions).toEqual(["alert(1)"]);
 
       parser.write('"console.log(2)",');
-      expect(parser.params.jsExpressions).toEqual([
-        "alert(1)",
-        "console.log(2)",
-      ]);
+      expect(parser.params.jsExpressions).toEqual(["alert(1)", "console.log(2)"]);
 
       parser.write('"document.title"]}');
-      expect(parser.params.jsExpressions).toEqual([
-        "alert(1)",
-        "console.log(2)",
-        "document.title",
-      ]);
+      expect(parser.params.jsExpressions).toEqual(["alert(1)", "console.log(2)", "document.title"]);
     });
 
     it("handles partial chunks that split across keys and values", () => {
@@ -190,9 +172,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
 
     it("ignores unknown keys", () => {
       const parser = new ArgsParser("tc-1", noop);
-      parser.write(
-        '{"initialHeight":100,"unknown_field":"ignored","html":"ok"}',
-      );
+      parser.write('{"initialHeight":100,"unknown_field":"ignored","html":"ok"}');
 
       expect(parser.params.initialHeight).toBe(100);
       expect(parser.params.html).toBe("ok");
@@ -227,30 +207,18 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
 
       parser.write('"html":"<div/>",');
       // Should have: array creation, chunk(s), htmlComplete
-      const htmlDeltas = emitted.filter(
-        (e) => e.type === EventType.ACTIVITY_DELTA,
-      ) as ActivityDeltaEvent[];
-      expect(htmlDeltas[0].patch).toEqual([
-        { op: "add", path: "/html", value: [] },
-      ]);
+      const htmlDeltas = emitted.filter((e) => e.type === EventType.ACTIVITY_DELTA) as ActivityDeltaEvent[];
+      expect(htmlDeltas[0].patch).toEqual([{ op: "add", path: "/html", value: [] }]);
       // Last html delta should be htmlComplete
-      const completeIdx = htmlDeltas.findIndex((d) =>
-        d.patch.some((p) => p.path === "/htmlComplete"),
-      );
+      const completeIdx = htmlDeltas.findIndex((d) => d.patch.some((p) => p.path === "/htmlComplete"));
       expect(completeIdx).toBeGreaterThan(0);
 
       emitted.length = 0;
       parser.write('"jsFunctions":"fn(){}"}');
-      const fnDeltas = emitted.filter(
-        (e) => e.type === EventType.ACTIVITY_DELTA,
-      ) as ActivityDeltaEvent[];
+      const fnDeltas = emitted.filter((e) => e.type === EventType.ACTIVITY_DELTA) as ActivityDeltaEvent[];
       expect(fnDeltas).toHaveLength(2);
-      expect(fnDeltas[0].patch).toEqual([
-        { op: "add", path: "/jsFunctions", value: "fn(){}" },
-      ]);
-      expect(fnDeltas[1].patch).toEqual([
-        { op: "add", path: "/jsFunctionsComplete", value: true },
-      ]);
+      expect(fnDeltas[0].patch).toEqual([{ op: "add", path: "/jsFunctions", value: "fn(){}" }]);
+      expect(fnDeltas[1].patch).toEqual([{ op: "add", path: "/jsFunctionsComplete", value: true }]);
     });
 
     it("emits ACTIVITY_DELTA with add op for each jsExpressions item", () => {
@@ -265,30 +233,22 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       expect(emitted).toHaveLength(2);
       const arrayCreate = emitted[0] as ActivityDeltaEvent;
       expect(arrayCreate.type).toBe(EventType.ACTIVITY_DELTA);
-      expect(arrayCreate.patch).toEqual([
-        { op: "add", path: "/jsExpressions", value: [] },
-      ]);
+      expect(arrayCreate.patch).toEqual([{ op: "add", path: "/jsExpressions", value: [] }]);
       const delta1 = emitted[1] as ActivityDeltaEvent;
       expect(delta1.type).toBe(EventType.ACTIVITY_DELTA);
-      expect(delta1.patch).toEqual([
-        { op: "add", path: "/jsExpressions/-", value: "expr1" },
-      ]);
+      expect(delta1.patch).toEqual([{ op: "add", path: "/jsExpressions/-", value: "expr1" }]);
 
       emitted.length = 0;
       parser.write('"expr2",');
       expect(emitted).toHaveLength(1);
       const delta2 = emitted[0] as ActivityDeltaEvent;
-      expect(delta2.patch).toEqual([
-        { op: "add", path: "/jsExpressions/-", value: "expr2" },
-      ]);
+      expect(delta2.patch).toEqual([{ op: "add", path: "/jsExpressions/-", value: "expr2" }]);
 
       emitted.length = 0;
       parser.write('"expr3"]}');
       expect(emitted).toHaveLength(2);
       const delta3 = emitted[0] as ActivityDeltaEvent;
-      expect(delta3.patch).toEqual([
-        { op: "add", path: "/jsExpressions/-", value: "expr3" },
-      ]);
+      expect(delta3.patch).toEqual([{ op: "add", path: "/jsExpressions/-", value: "expr3" }]);
       expect((emitted[1] as ActivityDeltaEvent).patch).toEqual([
         { op: "add", path: "/jsExpressionsComplete", value: true },
       ]);
@@ -303,30 +263,22 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
 
       // Start html streaming — first write should emit
       parser.write('"html":"chunk1');
-      const firstDeltas = emitted.filter(
-        (e) => e.type === EventType.ACTIVITY_DELTA,
-      ) as ActivityDeltaEvent[];
+      const firstDeltas = emitted.filter((e) => e.type === EventType.ACTIVITY_DELTA) as ActivityDeltaEvent[];
       // Should have array creation + first chunk
       expect(firstDeltas.length).toBeGreaterThanOrEqual(1);
 
       // Immediate second write should also emit (no throttle)
       emitted.length = 0;
       parser.write("chunk2");
-      const secondDeltas = emitted.filter(
-        (e) => e.type === EventType.ACTIVITY_DELTA,
-      ) as ActivityDeltaEvent[];
+      const secondDeltas = emitted.filter((e) => e.type === EventType.ACTIVITY_DELTA) as ActivityDeltaEvent[];
       expect(secondDeltas).toHaveLength(1);
       expect(secondDeltas[0].patch[0].value).toContain("chunk2");
 
       // Completing the html string should flush remaining + htmlComplete
       emitted.length = 0;
       parser.write('",');
-      const completeDeltas = emitted.filter(
-        (e) => e.type === EventType.ACTIVITY_DELTA,
-      ) as ActivityDeltaEvent[];
-      const completeDelta = completeDeltas.find((d) =>
-        d.patch.some((p) => p.path === "/htmlComplete"),
-      );
+      const completeDeltas = emitted.filter((e) => e.type === EventType.ACTIVITY_DELTA) as ActivityDeltaEvent[];
+      const completeDelta = completeDeltas.find((d) => d.patch.some((p) => p.path === "/htmlComplete"));
       expect(completeDelta).toBeDefined();
     });
 
@@ -336,9 +288,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
 
       parser.write('{"initialHeight":100,"html":"a","jsFunctions":"b"}');
 
-      const snapshots = emitted.filter(
-        (e) => e.type === EventType.ACTIVITY_SNAPSHOT,
-      );
+      const snapshots = emitted.filter((e) => e.type === EventType.ACTIVITY_SNAPSHOT);
       expect(snapshots).toHaveLength(1);
     });
 
@@ -355,10 +305,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       let content: Record<string, unknown> = {};
       for (const event of emitted) {
         if (event.type === EventType.ACTIVITY_SNAPSHOT) {
-          content = { ...(event as ActivitySnapshotEvent).content } as Record<
-            string,
-            unknown
-          >;
+          content = { ...(event as ActivitySnapshotEvent).content } as Record<string, unknown>;
         } else if (event.type === EventType.ACTIVITY_DELTA) {
           const delta = event as ActivityDeltaEvent;
           for (const op of delta.patch) {
@@ -399,10 +346,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       let content: Record<string, unknown> = {};
       for (const event of emitted) {
         if (event.type === EventType.ACTIVITY_SNAPSHOT) {
-          content = { ...(event as ActivitySnapshotEvent).content } as Record<
-            string,
-            unknown
-          >;
+          content = { ...(event as ActivitySnapshotEvent).content } as Record<string, unknown>;
         } else if (event.type === EventType.ACTIVITY_DELTA) {
           const delta = event as ActivityDeltaEvent;
           for (const op of delta.patch) {
@@ -438,9 +382,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
 
       // Should get array creation delta followed by item delta
       expect(emitted).toHaveLength(2);
-      expect((emitted[0] as ActivityDeltaEvent).patch).toEqual([
-        { op: "add", path: "/jsExpressions", value: [] },
-      ]);
+      expect((emitted[0] as ActivityDeltaEvent).patch).toEqual([{ op: "add", path: "/jsExpressions", value: [] }]);
       expect((emitted[1] as ActivityDeltaEvent).patch).toEqual([
         { op: "add", path: "/jsExpressions/-", value: "first" },
       ]);
@@ -493,47 +435,31 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         } as BaseEvent,
       ]);
 
-      const events = await collectEvents(
-        middleware.run(createRunInput(), agent),
-      );
+      const events = await collectEvents(middleware.run(createRunInput(), agent));
 
       // ACTIVITY_SNAPSHOT should appear before any tool call events
-      const snapshotIdx = events.findIndex(
-        (e) => e.type === EventType.ACTIVITY_SNAPSHOT,
-      );
-      const toolCallStartIdx = events.findIndex(
-        (e) => e.type === EventType.TOOL_CALL_START,
-      );
+      const snapshotIdx = events.findIndex((e) => e.type === EventType.ACTIVITY_SNAPSHOT);
+      const toolCallStartIdx = events.findIndex((e) => e.type === EventType.TOOL_CALL_START);
       expect(snapshotIdx).toBeGreaterThan(-1);
       expect(toolCallStartIdx).toBeGreaterThan(-1);
       expect(snapshotIdx).toBeLessThan(toolCallStartIdx);
 
       // Activity content is correct
-      const snapshots = events.filter(
-        (e) => e.type === EventType.ACTIVITY_SNAPSHOT,
-      ) as ActivitySnapshotEvent[];
+      const snapshots = events.filter((e) => e.type === EventType.ACTIVITY_SNAPSHOT) as ActivitySnapshotEvent[];
       expect(snapshots).toHaveLength(1);
       expect(snapshots[0].content).toEqual({
         initialHeight: 300,
         generating: true,
       });
 
-      const deltas = events.filter(
-        (e) => e.type === EventType.ACTIVITY_DELTA,
-      ) as ActivityDeltaEvent[];
+      const deltas = events.filter((e) => e.type === EventType.ACTIVITY_DELTA) as ActivityDeltaEvent[];
       // html deltas: array creation, chunk(s), htmlComplete, then generating: false
       expect(deltas.length).toBeGreaterThanOrEqual(3);
-      expect(deltas[0].patch).toEqual([
-        { op: "add", path: "/html", value: [] },
-      ]);
+      expect(deltas[0].patch).toEqual([{ op: "add", path: "/html", value: [] }]);
       // Last delta should be generating: false
-      expect(deltas[deltas.length - 1].patch).toEqual([
-        { op: "add", path: "/generating", value: false },
-      ]);
+      expect(deltas[deltas.length - 1].patch).toEqual([{ op: "add", path: "/generating", value: false }]);
       // htmlComplete should be emitted
-      const htmlCompleteDelta = deltas.find((d) =>
-        d.patch.some((p) => p.path === "/htmlComplete" && p.value === true),
-      );
+      const htmlCompleteDelta = deltas.find((d) => d.patch.some((p) => p.path === "/htmlComplete" && p.value === true));
       expect(htmlCompleteDelta).toBeDefined();
     });
 
@@ -579,9 +505,7 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         } as BaseEvent,
       ]);
 
-      const events = await collectEvents(
-        middleware.run(createRunInput(), agent),
-      );
+      const events = await collectEvents(middleware.run(createRunInput(), agent));
 
       const types = events.map((e) => e.type);
       expect(types).toEqual([
@@ -657,14 +581,10 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         } as BaseEvent,
       ]);
 
-      const events = await collectEvents(
-        middleware.run(createRunInput(), agent),
-      );
+      const events = await collectEvents(middleware.run(createRunInput(), agent));
 
       // Verify snapshot
-      const snapshots = events.filter(
-        (e) => e.type === EventType.ACTIVITY_SNAPSHOT,
-      ) as ActivitySnapshotEvent[];
+      const snapshots = events.filter((e) => e.type === EventType.ACTIVITY_SNAPSHOT) as ActivitySnapshotEvent[];
       expect(snapshots).toHaveLength(1);
       expect(snapshots[0].content).toEqual({
         initialHeight: 400,
@@ -672,36 +592,23 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       });
 
       // Verify deltas
-      const deltas = events.filter(
-        (e) => e.type === EventType.ACTIVITY_DELTA,
-      ) as ActivityDeltaEvent[];
+      const deltas = events.filter((e) => e.type === EventType.ACTIVITY_DELTA) as ActivityDeltaEvent[];
 
       // html is now streamed as array: creation, chunk(s), htmlComplete
       // Then: jsFunctions, jsExpressions array creation, items, generating: false
       // Verify key structural deltas exist
-      expect(deltas[0].patch).toEqual([
-        { op: "add", path: "/html", value: [] },
-      ]);
-      const htmlCompleteDelta = deltas.find((d) =>
-        d.patch.some((p) => p.path === "/htmlComplete" && p.value === true),
-      );
+      expect(deltas[0].patch).toEqual([{ op: "add", path: "/html", value: [] }]);
+      const htmlCompleteDelta = deltas.find((d) => d.patch.some((p) => p.path === "/htmlComplete" && p.value === true));
       expect(htmlCompleteDelta).toBeDefined();
-      const jsFuncDelta = deltas.find((d) =>
-        d.patch.some((p) => p.path === "/jsFunctions"),
-      );
+      const jsFuncDelta = deltas.find((d) => d.patch.some((p) => p.path === "/jsFunctions"));
       expect(jsFuncDelta).toBeDefined();
-      expect(deltas[deltas.length - 1].patch).toEqual([
-        { op: "add", path: "/generating", value: false },
-      ]);
+      expect(deltas[deltas.length - 1].patch).toEqual([{ op: "add", path: "/generating", value: false }]);
 
       // Reconstruct content to prove patches work end-to-end
       let content: Record<string, unknown> = {};
       for (const event of events) {
         if (event.type === EventType.ACTIVITY_SNAPSHOT) {
-          content = { ...(event as ActivitySnapshotEvent).content } as Record<
-            string,
-            unknown
-          >;
+          content = { ...(event as ActivitySnapshotEvent).content } as Record<string, unknown>;
         } else if (event.type === EventType.ACTIVITY_DELTA) {
           for (const op of (event as ActivityDeltaEvent).patch) {
             if (op.op === "add") {

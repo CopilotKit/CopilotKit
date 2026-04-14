@@ -21,14 +21,9 @@ import { createRequest, sendResponse } from "@remix-run/node-fetch-server";
 import type { CopilotRuntimeFetchHandler } from "../core/fetch-handler";
 import { logger } from "@copilotkit/shared";
 
-export type NodeFetchHandler = (
-  req: IncomingMessage,
-  res: ServerResponse,
-) => Promise<void>;
+export type NodeFetchHandler = (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 
-export function createCopilotNodeHandler(
-  handler: CopilotRuntimeFetchHandler,
-): NodeFetchHandler {
+export function createCopilotNodeHandler(handler: CopilotRuntimeFetchHandler): NodeFetchHandler {
   return async (req: IncomingMessage, res: ServerResponse) => {
     try {
       const fetchReq = createRequest(req, res);

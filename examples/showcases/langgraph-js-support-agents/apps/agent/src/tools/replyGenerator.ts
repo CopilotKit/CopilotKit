@@ -34,9 +34,7 @@ ${
 - Device Protection: ${customer.DeviceProtection}
 - Tech Support: ${customer.TechSupport}
 - Payment Method: ${customer.PaymentMethod}
-- Churn Risk: ${
-        customer.Churn === "Yes" ? "⚠️ HIGH - Prioritize retention!" : "✅ Low"
-      }
+- Churn Risk: ${customer.Churn === "Yes" ? "⚠️ HIGH - Prioritize retention!" : "✅ Low"}
 `
     : "Customer not identified yet - ask for Customer ID"
 }
@@ -82,15 +80,9 @@ IMPORTANT:
 
     try {
       // Invoke LLM with context
-      const response = await model.invoke([
-        new SystemMessage(systemPrompt),
-        new HumanMessage(message),
-      ]);
+      const response = await model.invoke([new SystemMessage(systemPrompt), new HumanMessage(message)]);
 
-      const content =
-        typeof response.content === "string"
-          ? response.content
-          : JSON.stringify(response.content);
+      const content = typeof response.content === "string" ? response.content : JSON.stringify(response.content);
 
       // Try to parse as JSON
       try {
@@ -100,11 +92,7 @@ IMPORTANT:
         // If LLM didn't return JSON, wrap it
         return JSON.stringify({
           message: content,
-          suggestedActions: [
-            "View account details",
-            "Speak to specialist",
-            "Explore options",
-          ],
+          suggestedActions: ["View account details", "Speak to specialist", "Explore options"],
         });
       }
     } catch (error) {
@@ -112,14 +100,9 @@ IMPORTANT:
 
       // Fallback to smart template (better than current static ones)
       const fallbackReply = customer
-        ? `I understand your ${intent.replace(
-            /_/g,
-            " ",
-          )} concern. I can see you're on our ${
+        ? `I understand your ${intent.replace(/_/g, " ")} concern. I can see you're on our ${
             customer.InternetService
-          } service at $${
-            customer.MonthlyCharges
-          }/month. Let me help you with this.`
+          } service at $${customer.MonthlyCharges}/month. Let me help you with this.`
         : "I'd be happy to help! Could you provide your Customer ID so I can give you personalized assistance?";
 
       return JSON.stringify({
@@ -130,13 +113,9 @@ IMPORTANT:
   },
   {
     name: "generateReply",
-    description:
-      "Generate a personalized response based on customer information and their intent.",
+    description: "Generate a personalized response based on customer information and their intent.",
     schema: z.object({
-      customerId: z
-        .string()
-        .optional()
-        .describe("The customer ID if available"),
+      customerId: z.string().optional().describe("The customer ID if available"),
       intent: z.string().describe("The classified intent category"),
       message: z.string().describe("The original customer message"),
     }),

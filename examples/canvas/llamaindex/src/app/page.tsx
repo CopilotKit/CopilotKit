@@ -1,15 +1,7 @@
 "use client";
 
-import {
-  useCoAgent,
-  useCopilotAction,
-  useCopilotAdditionalInstructions,
-} from "@copilotkit/react-core";
-import {
-  CopilotKitCSSProperties,
-  CopilotChat,
-  CopilotPopup,
-} from "@copilotkit/react-ui";
+import { useCoAgent, useCopilotAction, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
+import { CopilotKitCSSProperties, CopilotChat, CopilotPopup } from "@copilotkit/react-ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import { Button } from "@/components/ui/button";
@@ -17,12 +9,7 @@ import AppChatHeader, { PopupHeader } from "@/components/canvas/AppChatHeader";
 import { X } from "lucide-react";
 import CardRenderer from "@/components/canvas/CardRenderer";
 import ShikiHighlighter from "react-shiki/web";
-import {
-  motion,
-  useScroll,
-  useTransform,
-  useMotionValueEvent,
-} from "motion/react";
+import { motion, useScroll, useTransform, useMotionValueEvent } from "motion/react";
 import { EmptyState } from "@/components/empty-state";
 import { cn, getContentArg } from "@/lib/utils";
 import type {
@@ -64,20 +51,14 @@ export default function CopilotKitPage() {
     }
   }, [state]);
   // we use viewState to avoid transient flicker; TODO: troubleshoot and remove this workaround
-  const viewState: AgentState = isNonEmptyAgentState(state)
-    ? (state as AgentState)
-    : cachedStateRef.current;
+  const viewState: AgentState = isNonEmptyAgentState(state) ? (state as AgentState) : cachedStateRef.current;
 
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const [showJsonView, setShowJsonView] = useState<boolean>(false);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const { scrollY } = useScroll({ container: scrollAreaRef });
   const headerScrollThreshold = 64;
-  const headerOpacity = useTransform(
-    scrollY,
-    [0, headerScrollThreshold],
-    [1, 0],
-  );
+  const headerOpacity = useTransform(scrollY, [0, headerScrollThreshold], [1, 0]);
   const [headerDisabled, setHeaderDisabled] = useState<boolean>(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const descTextareaRef = useRef<HTMLInputElement | null>(null);
@@ -87,15 +68,10 @@ export default function CopilotKitPage() {
     id: string;
     ts: number;
   } | null>(null);
-  const lastChecklistCreationRef = useRef<
-    Record<string, { text: string; id: string; ts: number }>
-  >({});
-  const lastMetricCreationRef = useRef<
-    Record<
-      string,
-      { label: string; value: number | ""; id: string; ts: number }
-    >
-  >({});
+  const lastChecklistCreationRef = useRef<Record<string, { text: string; id: string; ts: number }>>({});
+  const lastMetricCreationRef = useRef<Record<string, { label: string; value: number | ""; id: string; ts: number }>>(
+    {},
+  );
 
   useMotionValueEvent(scrollY, "change", (y) => {
     const disable = y >= headerScrollThreshold;
@@ -118,9 +94,7 @@ export default function CopilotKitPage() {
     }
   }, [viewState?.items, showJsonView]);
 
-  const getStatePreviewJSON = (
-    s: AgentState | undefined,
-  ): Record<string, unknown> => {
+  const getStatePreviewJSON = (s: AgentState | undefined): Record<string, unknown> => {
     const snapshot = (s ?? initialState) as AgentState;
     const { globalTitle, globalDescription, items } = snapshot;
     return {
@@ -209,9 +183,7 @@ export default function CopilotKitPage() {
       return (
         <div className="rounded-md border bg-white p-4 text-sm shadow">
           <p className="mb-2 font-medium">Select an item</p>
-          <p className="mb-3 text-xs text-gray-600">
-            {getContentArg(args) ?? "Which item should I use?"}
-          </p>
+          <p className="mb-3 text-xs text-gray-600">{getContentArg(args) ?? "Which item should I use?"}</p>
           <select
             className="w-full rounded border px-2 py-1"
             defaultValue={selectedId}
@@ -226,16 +198,10 @@ export default function CopilotKitPage() {
             ))}
           </select>
           <div className="mt-3 flex justify-end gap-2">
-            <button
-              className="rounded border px-3 py-1"
-              onClick={() => respond?.("")}
-            >
+            <button className="rounded border px-3 py-1" onClick={() => respond?.("")}>
               Cancel
             </button>
-            <button
-              className="rounded border bg-blue-600 px-3 py-1 text-white"
-              onClick={() => respond?.(selectedId)}
-            >
+            <button className="rounded border bg-blue-600 px-3 py-1 text-white" onClick={() => respond?.(selectedId)}>
               Use item
             </button>
           </div>
@@ -268,9 +234,7 @@ export default function CopilotKitPage() {
       return (
         <div className="rounded-md border bg-white p-4 text-sm shadow">
           <p className="mb-2 font-medium">Select a card type</p>
-          <p className="mb-3 text-xs text-gray-600">
-            {getContentArg(args) ?? "Which type of card should I create?"}
-          </p>
+          <p className="mb-3 text-xs text-gray-600">{getContentArg(args) ?? "Which type of card should I create?"}</p>
           <select
             className="w-full rounded border px-2 py-1"
             defaultValue=""
@@ -288,10 +252,7 @@ export default function CopilotKitPage() {
             ))}
           </select>
           <div className="mt-3 flex justify-end gap-2">
-            <button
-              className="rounded border px-3 py-1"
-              onClick={() => respond?.("")}
-            >
+            <button className="rounded border px-3 py-1" onClick={() => respond?.("")}>
               Cancel
             </button>
             <button
@@ -312,9 +273,7 @@ export default function CopilotKitPage() {
       setState((prev) => {
         const base = prev ?? initialState;
         const items: Item[] = base.items ?? [];
-        const nextItems = items.map((p) =>
-          p.id === itemId ? { ...p, ...updates } : p,
-        );
+        const nextItems = items.map((p) => (p.id === itemId ? { ...p, ...updates } : p));
         return { ...base, items: nextItems } as AgentState;
       });
     },
@@ -326,9 +285,7 @@ export default function CopilotKitPage() {
       setState((prev) => {
         const base = prev ?? initialState;
         const items: Item[] = base.items ?? [];
-        const nextItems = items.map((p) =>
-          p.id === itemId ? { ...p, data: updater(p.data) } : p,
-        );
+        const nextItems = items.map((p) => (p.id === itemId ? { ...p, data: updater(p.data) } : p));
         return { ...base, items: nextItems } as AgentState;
       });
     },
@@ -410,9 +367,7 @@ export default function CopilotKitPage() {
           const parsed = Number.parseInt(String(it.id ?? "0"), 10);
           return Number.isFinite(parsed) ? Math.max(max, parsed) : max;
         }, 0);
-        const priorCount = Number.isFinite(base.itemsCreated)
-          ? (base.itemsCreated as number)
-          : 0;
+        const priorCount = Number.isFinite(base.itemsCreated) ? (base.itemsCreated as number) : 0;
         const nextNumber = Math.max(priorCount, maxExisting) + 1;
         createdId = String(nextNumber).padStart(4, "0");
         const item: Item = {
@@ -500,8 +455,7 @@ export default function CopilotKitPage() {
   // Set item subtitle
   useCopilotAction({
     name: "setItemSubtitleOrDescription",
-    description:
-      "Set an item's description/subtitle (short description or subtitle).",
+    description: "Set an item's description/subtitle (short description or subtitle).",
     available: "remote",
     parameters: [
       {
@@ -576,15 +530,7 @@ export default function CopilotKitPage() {
         description: "If true, prefix with a newline.",
       },
     ],
-    handler: ({
-      value,
-      itemId,
-      withNewline,
-    }: {
-      value: string;
-      itemId: string;
-      withNewline?: boolean;
-    }) => {
+    handler: ({ value, itemId, withNewline }: { value: string; itemId: string; withNewline?: boolean }) => {
       updateItemData(itemId, (prev) => {
         const nd = prev as NoteData;
         if (Object.prototype.hasOwnProperty.call(nd, "field1")) {
@@ -699,16 +645,10 @@ export default function CopilotKitPage() {
         description: "Target item id.",
       },
     ],
-    handler: (
-      args: { date?: string; itemId: string } & Record<string, unknown>,
-    ) => {
+    handler: (args: { date?: string; itemId: string } & Record<string, unknown>) => {
       const itemId = String(args.itemId);
       const dictArgs = args as Record<string, unknown>;
-      const rawInput =
-        dictArgs["date"] ??
-        dictArgs["value"] ??
-        dictArgs["val"] ??
-        dictArgs["text"];
+      const rawInput = dictArgs["date"] ?? dictArgs["value"] ?? dictArgs["val"] ?? dictArgs["text"];
       const normalizeDate = (input: unknown): string | null => {
         if (input == null) return null;
         if (input instanceof Date && !isNaN(input.getTime())) {
@@ -787,14 +727,10 @@ export default function CopilotKitPage() {
     handler: ({ itemId, text }: { itemId: string; text?: string }) => {
       const norm = (text ?? "").trim();
       // 1) If a checklist item with same text exists, return its id
-      const project = (viewState.items ?? initialState.items).find(
-        (it) => it.id === itemId,
-      );
+      const project = (viewState.items ?? initialState.items).find((it) => it.id === itemId);
       if (project && project.type === "project") {
         const list = (project.data as ProjectData).field4 ?? [];
-        const dup = norm
-          ? list.find((c) => (c.text ?? "").trim() === norm)
-          : undefined;
+        const dup = norm ? list.find((c) => (c.text ?? "").trim() === norm) : undefined;
         if (dup) return dup.id;
       }
       // 2) Per-project throttle to avoid rapid duplicates
@@ -806,10 +742,7 @@ export default function CopilotKitPage() {
       }
       let createdId = "";
       updateItemData(itemId, (prev) => {
-        const { next, createdId: id } = projectAddField4Item(
-          prev as ProjectData,
-          text,
-        );
+        const { next, createdId: id } = projectAddField4Item(prev as ProjectData, text);
         createdId = id;
         return next;
       });
@@ -857,8 +790,7 @@ export default function CopilotKitPage() {
       const target = args.checklistItemId ?? args.itemId;
       let targetId = target != null ? String(target) : "";
       const maybeDone = args.done;
-      const text: string | undefined =
-        args.text != null ? String(args.text) : undefined;
+      const text: string | undefined = args.text != null ? String(args.text) : undefined;
       const toBool = (v: unknown): boolean | undefined => {
         if (typeof v === "boolean") return v;
         if (typeof v === "string") {
@@ -881,10 +813,8 @@ export default function CopilotKitPage() {
           else if (n > 0 && n - 1 < list.length) idx = n - 1; // 1-based
           if (idx >= 0) targetId = list[idx].id;
         }
-        if (typeof text === "string")
-          next = projectSetField4ItemText(next, targetId, text);
-        if (typeof done === "boolean")
-          next = projectSetField4ItemDone(next, targetId, done);
+        if (typeof text === "string") next = projectSetField4ItemText(next, targetId, text);
+        if (typeof done === "boolean") next = projectSetField4ItemDone(next, targetId, done);
         return next;
       });
     },
@@ -908,16 +838,8 @@ export default function CopilotKitPage() {
         description: "Checklist item id to remove.",
       },
     ],
-    handler: ({
-      itemId,
-      checklistItemId,
-    }: {
-      itemId: string;
-      checklistItemId: string;
-    }) => {
-      updateItemData(itemId, (prev) =>
-        projectRemoveField4Item(prev as ProjectData, checklistItemId),
-      );
+    handler: ({ itemId, checklistItemId }: { itemId: string; checklistItemId: string }) => {
+      updateItemData(itemId, (prev) => projectRemoveField4Item(prev as ProjectData, checklistItemId));
     },
   });
 
@@ -1062,25 +984,13 @@ export default function CopilotKitPage() {
         description: "Metric value 0..100 (optional).",
       },
     ],
-    handler: ({
-      itemId,
-      label,
-      value,
-    }: {
-      itemId: string;
-      label?: string;
-      value?: number;
-    }) => {
+    handler: ({ itemId, label, value }: { itemId: string; label?: string; value?: number }) => {
       const normLabel = (label ?? "").trim();
       // 1) If a metric with same label exists, return its id
-      const item = (viewState.items ?? initialState.items).find(
-        (it) => it.id === itemId,
-      );
+      const item = (viewState.items ?? initialState.items).find((it) => it.id === itemId);
       if (item && item.type === "chart") {
         const list = (item.data as ChartData).field1 ?? [];
-        const dup = normLabel
-          ? list.find((m) => (m.label ?? "").trim() === normLabel)
-          : undefined;
+        const dup = normLabel ? list.find((m) => (m.label ?? "").trim() === normLabel) : undefined;
         if (dup) return dup.id;
       }
       // 2) Per-chart throttle to avoid rapid duplicates
@@ -1088,24 +998,13 @@ export default function CopilotKitPage() {
       const key = `${itemId}`;
       const recent = lastMetricCreationRef.current[key];
       const valKey: number | "" =
-        typeof value === "number" && Number.isFinite(value)
-          ? Math.max(0, Math.min(100, value))
-          : "";
-      if (
-        recent &&
-        recent.label === normLabel &&
-        recent.value === valKey &&
-        now - recent.ts < 800
-      ) {
+        typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : "";
+      if (recent && recent.label === normLabel && recent.value === valKey && now - recent.ts < 800) {
         return recent.id;
       }
       let createdId = "";
       updateItemData(itemId, (prev) => {
-        const { next, createdId: id } = chartAddField1Metric(
-          prev as ChartData,
-          label,
-          value,
-        );
+        const { next, createdId: id } = chartAddField1Metric(prev as ChartData, label, value);
         createdId = id;
         return next;
       });
@@ -1143,18 +1042,8 @@ export default function CopilotKitPage() {
         description: "New metric label.",
       },
     ],
-    handler: ({
-      itemId,
-      index,
-      label,
-    }: {
-      itemId: string;
-      index: number;
-      label: string;
-    }) => {
-      updateItemData(itemId, (prev) =>
-        chartSetField1Label(prev as ChartData, index, label),
-      );
+    handler: ({ itemId, index, label }: { itemId: string; index: number; label: string }) => {
+      updateItemData(itemId, (prev) => chartSetField1Label(prev as ChartData, index, label));
     },
   });
 
@@ -1182,18 +1071,8 @@ export default function CopilotKitPage() {
         description: "Metric value 0..100.",
       },
     ],
-    handler: ({
-      itemId,
-      index,
-      value,
-    }: {
-      itemId: string;
-      index: number;
-      value: number;
-    }) => {
-      updateItemData(itemId, (prev) =>
-        chartSetField1Value(prev as ChartData, index, value),
-      );
+    handler: ({ itemId, index, value }: { itemId: string; index: number; value: number }) => {
+      updateItemData(itemId, (prev) => chartSetField1Value(prev as ChartData, index, value));
     },
   });
 
@@ -1217,9 +1096,7 @@ export default function CopilotKitPage() {
       },
     ],
     handler: ({ itemId, index }: { itemId: string; index: number }) => {
-      updateItemData(itemId, (prev) =>
-        chartSetField1Value(prev as ChartData, index, ""),
-      );
+      updateItemData(itemId, (prev) => chartSetField1Value(prev as ChartData, index, ""));
     },
   });
 
@@ -1242,9 +1119,7 @@ export default function CopilotKitPage() {
       },
     ],
     handler: ({ itemId, index }: { itemId: string; index: number }) => {
-      updateItemData(itemId, (prev) =>
-        chartRemoveField1Metric(prev as ChartData, index),
-      );
+      updateItemData(itemId, (prev) => chartRemoveField1Metric(prev as ChartData, index));
     },
   });
 
@@ -1282,12 +1157,7 @@ export default function CopilotKitPage() {
       // 2) Per-run throttle: avoid duplicate creations within a short window for identical type+name
       const now = Date.now();
       const recent = lastCreationRef.current;
-      if (
-        recent &&
-        recent.type === t &&
-        (recent.name ?? "") === normalized &&
-        now - recent.ts < 5000
-      ) {
+      if (recent && recent.type === t && (recent.name ?? "") === normalized && now - recent.ts < 5000) {
         return recent.id;
       }
       const id = addItem(t, name);
@@ -1310,9 +1180,7 @@ export default function CopilotKitPage() {
       },
     ],
     handler: ({ itemId }: { itemId: string }) => {
-      const existed = (viewState.items ?? initialState.items).some(
-        (p) => p.id === itemId,
-      );
+      const existed = (viewState.items ?? initialState.items).some((p) => p.id === itemId);
       deleteItem(itemId);
       return existed ? `deleted:${itemId}` : `not_found:${itemId}`;
     },
@@ -1332,9 +1200,7 @@ export default function CopilotKitPage() {
 
   return (
     <div
-      style={
-        { "--copilot-kit-primary-color": "#2563eb" } as CopilotKitCSSProperties
-      }
+      style={{ "--copilot-kit-primary-color": "#2563eb" } as CopilotKitCSSProperties}
       className="h-screen flex flex-col"
     >
       {/* Main Layout */}
@@ -1350,8 +1216,7 @@ export default function CopilotKitPage() {
                 className="flex-1 overflow-auto w-full"
                 labels={{
                   title: "Agent",
-                  initial:
-                    "👋 Share a brief or ask to extract fields. Changes will sync with the canvas in real time.",
+                  initial: "👋 Share a brief or ask to extract fields. Changes will sync with the canvas in real time.",
                 }}
                 suggestions={[
                   {
@@ -1377,23 +1242,16 @@ export default function CopilotKitPage() {
         </aside>
         {/* Main Content */}
         <main className="relative flex flex-1 h-full">
-          <div
-            ref={scrollAreaRef}
-            className="relative overflow-auto size-full px-4 sm:px-8 md:px-10 py-4"
-          >
+          <div ref={scrollAreaRef} className="relative overflow-auto size-full px-4 sm:px-8 md:px-10 py-4">
             <div
               className={cn(
                 "relative mx-auto max-w-7xl h-full min-h-8",
-                (showJsonView || (viewState.items ?? []).length === 0) &&
-                  "flex flex-col",
+                (showJsonView || (viewState.items ?? []).length === 0) && "flex flex-col",
               )}
             >
               {/* Global Title & Description (hidden in JSON view) */}
               {!showJsonView && (
-                <motion.div
-                  style={{ opacity: headerOpacity }}
-                  className="sticky top-0 mb-6"
-                >
+                <motion.div style={{ opacity: headerOpacity }} className="sticky top-0 mb-6">
                   <input
                     ref={titleInputRef}
                     disabled={headerDisabled}
@@ -1410,10 +1268,7 @@ export default function CopilotKitPage() {
                   <input
                     ref={descTextareaRef}
                     disabled={headerDisabled}
-                    value={
-                      viewState?.globalDescription ??
-                      initialState.globalDescription
-                    }
+                    value={viewState?.globalDescription ?? initialState.globalDescription}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setState((prev) => ({
                         ...(prev ?? initialState),
@@ -1421,10 +1276,7 @@ export default function CopilotKitPage() {
                       }))
                     }
                     placeholder="Canvas description..."
-                    className={cn(
-                      titleClasses,
-                      "mt-2 text-sm leading-6 resize-none overflow-hidden",
-                    )}
+                    className={cn(titleClasses, "mt-2 text-sm leading-6 resize-none overflow-hidden")}
                   />
                 </motion.div>
               )}
@@ -1432,18 +1284,10 @@ export default function CopilotKitPage() {
               {(viewState.items ?? []).length === 0 ? (
                 <EmptyState className="flex-1">
                   <div className="mx-auto max-w-lg text-center">
-                    <h2 className="text-lg font-semibold text-foreground">
-                      Nothing here yet
-                    </h2>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Create your first item to get started.
-                    </p>
+                    <h2 className="text-lg font-semibold text-foreground">Nothing here yet</h2>
+                    <p className="mt-2 text-sm text-muted-foreground">Create your first item to get started.</p>
                     <div className="mt-6 flex justify-center">
-                      <NewItemMenu
-                        onSelect={(t: CardType) => addItem(t)}
-                        align="center"
-                        className="md:h-10"
-                      />
+                      <NewItemMenu onSelect={(t: CardType) => addItem(t)} align="center" className="md:h-10" />
                     </div>
                   </div>
                 </EmptyState>
@@ -1453,11 +1297,7 @@ export default function CopilotKitPage() {
                     <div className="pb-16 size-full">
                       <div className="rounded-2xl border shadow-sm bg-card size-full overflow-auto max-md:text-sm">
                         <ShikiHighlighter language="json" theme="github-light">
-                          {JSON.stringify(
-                            getStatePreviewJSON(viewState),
-                            null,
-                            2,
-                          )}
+                          {JSON.stringify(getStatePreviewJSON(viewState), null, 2)}
                         </ShikiHighlighter>
                       </div>
                     </div>
@@ -1481,20 +1321,14 @@ export default function CopilotKitPage() {
                             name={item.name}
                             subtitle={item.subtitle}
                             description={""}
-                            onNameChange={(v) =>
-                              updateItem(item.id, { name: v })
-                            }
-                            onSubtitleChange={(v) =>
-                              updateItem(item.id, { subtitle: v })
-                            }
+                            onNameChange={(v) => updateItem(item.id, { name: v })}
+                            onSubtitleChange={(v) => updateItem(item.id, { subtitle: v })}
                           />
 
                           <div className="mt-6">
                             <CardRenderer
                               item={item}
-                              onUpdateData={(updater) =>
-                                updateItemData(item.id, updater)
-                              }
+                              onUpdateData={(updater) => updateItemData(item.id, updater)}
                               onToggleTag={(tag) => toggleTag(item.id, tag)}
                             />
                           </div>
@@ -1525,10 +1359,7 @@ export default function CopilotKitPage() {
               <Button
                 type="button"
                 variant="outline"
-                className={cn(
-                  "gap-1.25 text-base font-semibold rounded-l-none",
-                  "peer-hover:border-l-accent!",
-                )}
+                className={cn("gap-1.25 text-base font-semibold rounded-l-none", "peer-hover:border-l-accent!")}
                 onClick={() => setShowJsonView((v) => !v)}
               >
                 {showJsonView ? "Canvas" : <>JSON</>}
@@ -1544,8 +1375,7 @@ export default function CopilotKitPage() {
             Header={PopupHeader}
             labels={{
               title: "Agent",
-              initial:
-                "👋 Share a brief or ask to extract fields. Changes will sync with the canvas in real time.",
+              initial: "👋 Share a brief or ask to extract fields. Changes will sync with the canvas in real time.",
             }}
             suggestions={[
               {

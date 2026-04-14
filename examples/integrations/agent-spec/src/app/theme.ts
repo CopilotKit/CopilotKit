@@ -183,8 +183,7 @@ export const theme: Types.Theme = {
     Card: {
       "border-radius": "12px",
       padding: "20px 24px",
-      "box-shadow":
-        "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+      "box-shadow": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
     },
     Divider: {
       margin: "8px 0",

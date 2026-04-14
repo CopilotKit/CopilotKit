@@ -65,10 +65,7 @@ export interface UseCopilotAdditionalInstructionsOptions {
  * Adds the given instructions to the Copilot context.
  */
 export function useCopilotAdditionalInstructions(
-  {
-    instructions,
-    available = "enabled",
-  }: UseCopilotAdditionalInstructionsOptions,
+  { instructions, available = "enabled" }: UseCopilotAdditionalInstructionsOptions,
   dependencies?: any[],
 ) {
   const { setAdditionalInstructions } = useCopilotContext();
@@ -76,23 +73,12 @@ export function useCopilotAdditionalInstructions(
   useEffect(() => {
     if (available === "disabled") return;
 
-    setAdditionalInstructions((prevInstructions) => [
-      ...(prevInstructions || []),
-      instructions,
-    ]);
+    setAdditionalInstructions((prevInstructions) => [...(prevInstructions || []), instructions]);
 
     return () => {
       setAdditionalInstructions(
-        (prevInstructions) =>
-          prevInstructions?.filter(
-            (instruction) => instruction !== instructions,
-          ) || [],
+        (prevInstructions) => prevInstructions?.filter((instruction) => instruction !== instructions) || [],
       );
     };
-  }, [
-    available,
-    instructions,
-    setAdditionalInstructions,
-    ...(dependencies || []),
-  ]);
+  }, [available, instructions, setAdditionalInstructions, ...(dependencies || [])]);
 }

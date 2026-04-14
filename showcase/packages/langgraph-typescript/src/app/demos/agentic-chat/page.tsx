@@ -1,12 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  useFrontendTool,
-  useRenderTool,
-  useAgentContext,
-  CopilotChat,
-} from "@copilotkit/react-core/v2";
+import { useFrontendTool, useRenderTool, useAgentContext, CopilotChat } from "@copilotkit/react-core/v2";
 import { CopilotKit } from "@copilotkit/react-core";
 import { z } from "zod";
 import { DemoErrorBoundary } from "@copilotkit/showcase-shared";
@@ -60,9 +55,7 @@ function Chat() {
     description:
       "Change the background color of the chat. ONLY call this tool when the user explicitly asks to change the background. Never call it proactively or as part of another response. Can be anything that the CSS background attribute accepts. Prefer gradients.",
     parameters: z.object({
-      background: z
-        .string()
-        .describe("The CSS background value. Prefer gradients."),
+      background: z.string().describe("The CSS background value. Prefer gradients."),
     }),
     handler: async ({ background }: { background: string }) => {
       setBackground(background);

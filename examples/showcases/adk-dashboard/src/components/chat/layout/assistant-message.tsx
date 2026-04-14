@@ -3,11 +3,7 @@ import type { AssistantMessageProps } from "@copilotkit/react-ui";
 import { Markdown } from "@/components/chat/layout/markdown";
 import { Cursor } from "@/components/chat/layout/cursor";
 
-export function AssistantBubble({
-  message,
-  isGenerating,
-  isLoading,
-}: AssistantMessageProps) {
+export function AssistantBubble({ message, isGenerating, isLoading }: AssistantMessageProps) {
   const content = message?.content ?? "";
 
   if (!message) return null;

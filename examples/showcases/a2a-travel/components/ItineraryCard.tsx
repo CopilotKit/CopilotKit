@@ -51,10 +51,7 @@ interface ItineraryCardProps {
   restaurantData?: RestaurantData | null; // Optional restaurant data to populate meals
 }
 
-export const ItineraryCard: React.FC<ItineraryCardProps> = ({
-  data,
-  restaurantData,
-}) => {
+export const ItineraryCard: React.FC<ItineraryCardProps> = ({ data, restaurantData }) => {
   // Get meals for a specific day from restaurant data
   const getMealsForDay = (dayNumber: number): Meals | null => {
     if (!restaurantData) return null;
@@ -75,9 +72,7 @@ export const ItineraryCard: React.FC<ItineraryCardProps> = ({
       <div className="mb-3 flex-shrink-0">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-xl">🗺️</span>
-          <h2 className="text-xl font-semibold text-[#010507]">
-            {data.destination} Itinerary
-          </h2>
+          <h2 className="text-xl font-semibold text-[#010507]">{data.destination} Itinerary</h2>
         </div>
         <p className="text-[#57575B] text-xs">
           {data.days} day{data.days > 1 ? "s" : ""} of adventure
@@ -102,9 +97,7 @@ export const ItineraryCard: React.FC<ItineraryCardProps> = ({
                 <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#BEC2FF] text-white font-bold text-sm">
                   {day.day}
                 </div>
-                <h3 className="text-lg font-semibold text-[#010507]">
-                  {day.title}
-                </h3>
+                <h3 className="text-lg font-semibold text-[#010507]">{day.title}</h3>
               </div>
 
               {/* Time Slots and Meals Side-by-Side */}
@@ -113,9 +106,7 @@ export const ItineraryCard: React.FC<ItineraryCardProps> = ({
                 <div className="lg:col-span-3 space-y-2">
                   <div className="flex items-center gap-1 mb-1">
                     <span className="text-sm">📅</span>
-                    <h4 className="text-sm font-semibold text-[#010507]">
-                      Day Itinerary
-                    </h4>
+                    <h4 className="text-sm font-semibold text-[#010507]">Day Itinerary</h4>
                   </div>
                   {/* Morning */}
                   <TimeSlotSection
@@ -150,51 +141,29 @@ export const ItineraryCard: React.FC<ItineraryCardProps> = ({
                   <div className="lg:border-l lg:border-[#DBDBE5] lg:pl-2 flex flex-col h-full">
                     <div className="flex items-center gap-1 mb-1">
                       <span className="text-sm">🍽️</span>
-                      <h4 className="text-sm font-semibold text-[#010507]">
-                        Meals
-                      </h4>
+                      <h4 className="text-sm font-semibold text-[#010507]">Meals</h4>
                       {!restaurantMeals && (
-                        <span className="ml-auto text-[9px] text-[#BEC2FF] font-medium animate-pulse">
-                          Loading...
-                        </span>
+                        <span className="ml-auto text-[9px] text-[#BEC2FF] font-medium animate-pulse">Loading...</span>
                       )}
                     </div>
                     <div className="flex flex-col justify-between flex-1 space-y-1">
                       {restaurantMeals ? (
                         <>
-                          <MealItem
-                            icon="🥐"
-                            label="Breakfast"
-                            meal={mealsToDisplay.breakfast}
-                          />
-                          <MealItem
-                            icon="🍜"
-                            label="Lunch"
-                            meal={mealsToDisplay.lunch}
-                          />
-                          <MealItem
-                            icon="🍷"
-                            label="Dinner"
-                            meal={mealsToDisplay.dinner}
-                          />
+                          <MealItem icon="🥐" label="Breakfast" meal={mealsToDisplay.breakfast} />
+                          <MealItem icon="🍜" label="Lunch" meal={mealsToDisplay.lunch} />
+                          <MealItem icon="🍷" label="Dinner" meal={mealsToDisplay.dinner} />
                         </>
                       ) : (
                         // Show placeholder while waiting for restaurant data
                         <>
                           <div className="flex-1 flex items-center justify-center bg-[#F7F7F9] rounded p-1">
-                            <span className="text-[10px] text-[#838389]">
-                              Awaiting recommendations...
-                            </span>
+                            <span className="text-[10px] text-[#838389]">Awaiting recommendations...</span>
                           </div>
                           <div className="flex-1 flex items-center justify-center bg-[#F7F7F9] rounded p-1">
-                            <span className="text-[10px] text-[#838389]">
-                              Awaiting recommendations...
-                            </span>
+                            <span className="text-[10px] text-[#838389]">Awaiting recommendations...</span>
                           </div>
                           <div className="flex-1 flex items-center justify-center bg-[#F7F7F9] rounded p-1">
-                            <span className="text-[10px] text-[#838389]">
-                              Awaiting recommendations...
-                            </span>
+                            <span className="text-[10px] text-[#838389]">Awaiting recommendations...</span>
                           </div>
                         </>
                       )}
@@ -219,13 +188,7 @@ interface TimeSlotSectionProps {
   color: "orange" | "yellow" | "blue";
 }
 
-const TimeSlotSection: React.FC<TimeSlotSectionProps> = ({
-  icon,
-  title,
-  location,
-  activities,
-  color,
-}) => {
+const TimeSlotSection: React.FC<TimeSlotSectionProps> = ({ icon, title, location, activities, color }) => {
   const colorClasses = {
     orange: "bg-orange-50 border-orange-200",
     yellow: "bg-amber-50 border-amber-200",

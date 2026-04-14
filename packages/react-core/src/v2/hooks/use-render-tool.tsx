@@ -162,15 +162,13 @@ export function useRenderTool<S extends StandardSchemaV1>(
       config.name === "*" && !config.parameters
         ? defineToolCallRenderer({
             name: "*",
-            render: (props) =>
-              config.render({ ...props, parameters: props.args }),
+            render: (props) => config.render({ ...props, parameters: props.args }),
             ...(config.agentId ? { agentId: config.agentId } : {}),
           })
         : defineToolCallRenderer({
             name: config.name,
             args: config.parameters!,
-            render: (props) =>
-              config.render({ ...props, parameters: props.args }),
+            render: (props) => config.render({ ...props, parameters: props.args }),
             ...(config.agentId ? { agentId: config.agentId } : {}),
           });
 

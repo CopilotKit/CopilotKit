@@ -23,10 +23,7 @@ export function TripCard({ className, map }: TripCardProps) {
   const [minimized, setMinimized] = useState(false);
 
   if (selectedTrip) {
-    map.setView(
-      [selectedTrip.center_latitude, selectedTrip.center_longitude],
-      selectedTrip.zoom_level || 13,
-    );
+    map.setView([selectedTrip.center_latitude, selectedTrip.center_longitude], selectedTrip.zoom_level || 13);
   }
 
   return (
@@ -44,11 +41,7 @@ export function TripCard({ className, map }: TripCardProps) {
         )}
       >
         <div className="flex flex-row items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMinimized(!minimized)}
-          >
+          <Button variant="ghost" size="icon" onClick={() => setMinimized(!minimized)}>
             {minimized ? <ChevronDown /> : <ChevronUp />}
           </Button>
           <CardTitle className="text-wrap truncate max-w-full font-bold">
@@ -60,9 +53,7 @@ export function TripCard({ className, map }: TripCardProps) {
 
       {!minimized && (
         <ScrollArea className="flex-1">
-          <CardContent className="pt-4">
-            {selectedTrip && <TripContent map={map} trip={selectedTrip} />}
-          </CardContent>
+          <CardContent className="pt-4">{selectedTrip && <TripContent map={map} trip={selectedTrip} />}</CardContent>
         </ScrollArea>
       )}
     </Card>

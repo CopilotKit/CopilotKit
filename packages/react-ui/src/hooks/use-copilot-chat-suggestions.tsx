@@ -63,9 +63,6 @@ import {
   type UseCopilotChatSuggestionsConfiguration,
 } from "@copilotkit/react-core";
 
-export function useCopilotChatSuggestions(
-  config: UseCopilotChatSuggestionsConfiguration,
-  dependencies: any[] = [],
-) {
+export function useCopilotChatSuggestions(config: UseCopilotChatSuggestionsConfiguration, dependencies: any[] = []) {
   useCoreCopilotChatSuggestions(config, dependencies);
 }

@@ -16,16 +16,14 @@ export const useSearchActions = () => {
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 <div className="truncate">
-                  Searching the internet for:{" "}
-                  <span className="font-bold">{request}</span>
+                  Searching the internet for: <span className="font-bold">{request}</span>
                 </div>
               </>
             ) : (
               <>
                 <Check className="h-4 w-4 mr-2 text-accent" />
                 <div className="truncate">
-                  Searched the internet for:{" "}
-                  <span className="font-bold">{request}</span>
+                  Searched the internet for: <span className="font-bold">{request}</span>
                 </div>
               </>
             )}

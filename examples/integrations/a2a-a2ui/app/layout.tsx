@@ -35,9 +35,7 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Google+Symbols:opsz,wght,FILL,GRAD,ROND@20..48,100..700,0..1,-50..200,0..100&display=swap&icon_names=arrow_drop_down,check_circle,close,communication,content_copy,delete,draw,error,info,mobile_layout,pen_size_1,progress_activity,rectangle,send,upload,warning"
         />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        {children}
-      </body>
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>{children}</body>
     </html>
   );
 }
