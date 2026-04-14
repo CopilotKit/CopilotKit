@@ -104,7 +104,7 @@ debug: {
 
 ### What Gets Logged
 
-**Runtime:** Agent run started/finished, SSE stream lifecycle, every AG-UI event emitted (with Pino structured logger).
+**Runtime:** Agent run started, SSE stream opened/completed/errored, every AG-UI event emitted (with Pino structured logger).
 
 **Client:** SSE events received, event validation, chunk transformation, event verification, subscriber dispatch, run lifecycle. Uses `console.debug` via a centralized `DebugLogger`.
 

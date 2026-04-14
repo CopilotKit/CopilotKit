@@ -23,16 +23,27 @@ const runtime = new CopilotRuntime({
 });
 ```
 
-This produces structured Pino logs with a `copilotkit-debug` component label:
+This produces structured Pino logs (formatted by `pino-pretty`) with a `copilotkit-debug` component label:
 
 ```
-[copilotkit-debug] Agent run started { agentName: "default", threadId: "abc-123" }
-[copilotkit-debug] SSE stream opened
-[copilotkit-debug] Event emitted { type: "TEXT_MESSAGE_START", messageId: "msg-1", role: "assistant" }
-[copilotkit-debug] Event emitted { type: "TEXT_MESSAGE_CONTENT", deltaLength: 42 }
-[copilotkit-debug] Event emitted { type: "TEXT_MESSAGE_END" }
-[copilotkit-debug] Event emitted { type: "RUN_FINISHED" }
-[copilotkit-debug] SSE stream completed { eventCount: 4 }
+[14:32:01.123] DEBUG (copilotkit-debug): Agent run started
+    agentName: "default"
+    threadId: "abc-123"
+[14:32:01.130] DEBUG (copilotkit-debug): SSE stream opened
+[14:32:01.145] DEBUG (copilotkit-debug): Event emitted
+    type: "TEXT_MESSAGE_START"
+    messageId: "msg-1"
+    role: "assistant"
+[14:32:01.200] DEBUG (copilotkit-debug): Event emitted
+    type: "TEXT_MESSAGE_CONTENT"
+    deltaLength: 42
+[14:32:01.250] DEBUG (copilotkit-debug): Event emitted
+    type: "TEXT_MESSAGE_END"
+[14:32:01.260] DEBUG (copilotkit-debug): Event emitted
+    type: "RUN_FINISHED"
+[14:32:01.261] DEBUG (copilotkit-debug): SSE stream completed
+    eventCount: 4
+    loggedEventCount: 4
 ```
 
 ### Client-Side (React)

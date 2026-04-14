@@ -83,14 +83,14 @@ describe("resolveDebugConfig", () => {
     });
   });
 
-  it("sets enabled to false even when verbose is true if events and lifecycle are both false", () => {
+  it("clamps verbose to false when enabled is false (events and lifecycle both false)", () => {
     expect(
       resolveDebugConfig({ events: false, lifecycle: false, verbose: true }),
     ).toEqual({
       enabled: false,
       events: false,
       lifecycle: false,
-      verbose: true,
+      verbose: false,
     });
   });
 

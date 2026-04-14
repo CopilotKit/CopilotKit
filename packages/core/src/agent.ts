@@ -371,6 +371,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       runtimeMode: this.runtimeMode,
       intelligence: this.intelligence,
       capabilities: this._capabilities,
+      debug: this.debug,
     });
     cloned.threadId = this.threadId;
     cloned.setState(this.state);

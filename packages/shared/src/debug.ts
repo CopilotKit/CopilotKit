@@ -47,8 +47,8 @@ export function resolveDebugConfig(
 
   const events = debug.events ?? true;
   const lifecycle = debug.lifecycle ?? true;
-  const verbose = debug.verbose ?? false;
   const enabled = events || lifecycle;
+  const verbose = enabled && (debug.verbose ?? false);
 
   return { enabled, events, lifecycle, verbose };
 }
