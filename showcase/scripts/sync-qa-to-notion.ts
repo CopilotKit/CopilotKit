@@ -37,7 +37,7 @@ const FEATURE_REGISTRY_PATH = path.join(
 
 const NOTION_API_KEY = process.env.NOTION_API_KEY;
 const QA_PARENT_PAGE_ID =
-  process.env.QA_PARENT_PAGE_ID || "32d3aa38-1852-81af-a1f4-d1ef37402428";
+  process.env.QA_PARENT_PAGE_ID || "3423aa38-1852-8126-84d5-e40a2bd5a7ec";
 const DRY_RUN = process.env.DRY_RUN === "true";
 
 const NOTION_API = "https://api.notion.com/v1";
