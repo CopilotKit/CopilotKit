@@ -8,7 +8,6 @@ import {
   useUiKit,
   useJsonParser,
 } from "@hashbrownai/react";
-import { useAgentContext } from "@copilotkit/react-core";
 import type { RenderMessageProps } from "@copilotkit/react-ui";
 import type { AssistantMessage } from "@ag-ui/core";
 
@@ -249,11 +248,8 @@ function useHashBrownKit() {
 export function HashBrownDashboard({ children }: HashBrownDashboardProps) {
   const kit = useSalesDashboardKit();
 
-  // Forward the kit schema to the agent so it constrains its response_format
-  useAgentContext({
-    description: "output_schema",
-    value: s.toJsonSchema(kit.schema),
-  });
+  // Note: Agent context forwarding (useAgentContext) for output_schema is
+  // omitted because the npm-published react-core may not export it yet.
 
   return (
     <HashBrownKitContext.Provider value={kit}>

@@ -1,17 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useAgentContext } from "@copilotkit/react-core";
 import { RenderMode } from "./types";
 
 const STORAGE_KEY = "showcase-render-mode";
 
 /**
- * Manages the active render mode with localStorage persistence and
- * CopilotKit agent context forwarding.
+ * Manages the active render mode with localStorage persistence.
  *
- * The mode is automatically exposed to the agent as a `render_mode` context
- * value so backend logic can adapt its output strategy.
+ * Note: Agent context forwarding (useAgentContext) is omitted here because
+ * the npm-published @copilotkit/react-core may not export it yet, which
+ * causes prerender failures during Docker builds. The backend render_mode
+ * middleware falls back to "tool-based" when no context is present.
  */
 export function useRenderMode() {
   const [mode, setMode] = useState<RenderMode>(() => {
@@ -19,12 +19,6 @@ export function useRenderMode() {
       return (localStorage.getItem(STORAGE_KEY) as RenderMode) || "tool-based";
     }
     return "tool-based";
-  });
-
-  // Forward the current render mode to the agent via CopilotKit context.
-  useAgentContext({
-    description: "render_mode",
-    value: mode,
   });
 
   const setAndPersist = (newMode: RenderMode) => {
