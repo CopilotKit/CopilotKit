@@ -23,10 +23,14 @@ else
   echo "[entrypoint] OPENAI_API_KEY: set (${#OPENAI_API_KEY} chars)"
 fi
 
-echo "[entrypoint] Starting Python agent server on port 8123..."
-cd /app && python -m uvicorn agent.main:app --host 0.0.0.0 --port 8123 2>&1 | sed 's/^/[agent] /' &
+echo "[entrypoint] Starting LangGraph agent server on port 8123..."
+python -m langgraph_cli dev \
+  --config agent/langgraph.json \
+  --host 0.0.0.0 \
+  --port 8123 \
+  --no-browser 2>&1 | sed 's/^/[agent] /' &
 AGENT_PID=$!
-sleep 2
+sleep 3
 if kill -0 $AGENT_PID 2>/dev/null; then
   echo "[entrypoint] Agent server started (PID: $AGENT_PID)"
 else

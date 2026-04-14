@@ -29,6 +29,9 @@ COPY --from=frontend /app/package.json ./
 # Agent code (self-contained — tools + data bundled inside)
 COPY agent/ ./agent/
 
+# Agent server (FastAPI entrypoint)
+COPY agent_server.py ./
+
 # Entrypoint
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
