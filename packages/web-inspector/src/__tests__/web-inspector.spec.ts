@@ -206,4 +206,51 @@ describe("WebInspectorElement", () => {
     inspectorHandle.persistState();
     expect(localStorage.getItem("cpk:inspector:state")).toBeTruthy();
   });
+
+  it("syncs agent state on direct setState (onStateChanged without pipeline events)", async () => {
+    // Simulates a selfManagedAgent where agent.setState() is called directly
+    // from UI code, bypassing the AG-UI event pipeline. Before the fix,
+    // only onStateSnapshotEvent updated the inspector — onStateChanged was
+    // not subscribed to, so direct setState() left the inspector stale.
+    const { agent, controller } = createMockAgent("counter", {
+      state: { counter: 0 },
+    });
+    const { core, emitAgentsChanged } = createMockCore({ counter: agent });
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = core as unknown as WebInspectorElement["core"];
+
+    emitAgentsChanged();
+    await inspector.updateComplete;
+
+    const inspectorHandle = inspector as unknown as InspectorInternals;
+
+    // Initial state should be captured on subscription
+    expect(inspectorHandle.agentStates.get("counter")).toEqual({ counter: 0 });
+
+    // Simulate agent.setState({ counter: 1 }) — mutate the agent's state
+    // property and fire onStateChanged (exactly what AbstractAgent.setState does)
+    (agent as unknown as { state: unknown }).state = { counter: 1 };
+    controller.emit("onStateChanged", {
+      state: { counter: 1 },
+      messages: [],
+      agent,
+    });
+    await inspector.updateComplete;
+
+    // Inspector should reflect the updated state
+    expect(inspectorHandle.agentStates.get("counter")).toEqual({ counter: 1 });
+
+    // Simulate a second setState
+    (agent as unknown as { state: unknown }).state = { counter: 5 };
+    controller.emit("onStateChanged", {
+      state: { counter: 5 },
+      messages: [],
+      agent,
+    });
+    await inspector.updateComplete;
+
+    expect(inspectorHandle.agentStates.get("counter")).toEqual({ counter: 5 });
+  });
 });

@@ -496,6 +496,9 @@ export class WebInspectorElement extends LitElement {
       onMessagesChanged: () => {
         this.syncAgentMessages(agent);
       },
+      onStateChanged: () => {
+        this.syncAgentState(agent);
+      },
       onRawEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "RAW_EVENT", event);
       },
