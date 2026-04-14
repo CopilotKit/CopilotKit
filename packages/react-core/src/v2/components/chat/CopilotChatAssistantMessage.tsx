@@ -22,6 +22,7 @@ import {
 import { useKatexStyles } from "../../hooks/useKatexStyles";
 import { WithSlots, renderSlot } from "../../lib/slots";
 import { Streamdown } from "streamdown";
+import { copyToClipboard } from "@copilotkit/shared";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
 
 export type CopilotChatAssistantMessageProps = WithSlots<
@@ -86,11 +87,7 @@ export function CopilotChatAssistantMessage({
     {
       onClick: async () => {
         if (message.content) {
-          if (!navigator.clipboard?.writeText) {
-            console.error("Clipboard API is not available");
-            return;
-          }
-          await navigator.clipboard.writeText(message.content);
+          await copyToClipboard(message.content);
         }
       },
     },
@@ -276,29 +273,25 @@ export namespace CopilotChatAssistantMessage {
     }, []);
 
     const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
-      const clipboardAvailable = !!navigator.clipboard?.writeText;
+      if (onClick) {
+        await (
+          onClick as (
+            event: React.MouseEvent<HTMLButtonElement>,
+          ) => Promise<void>
+        )(event);
+      }
 
-      try {
-        if (onClick) {
-          await (
-            onClick as (
-              event: React.MouseEvent<HTMLButtonElement>,
-            ) => Promise<void>
-          )(event);
+      // Only show copied state if the clipboard API is available.
+      // The actual copy is performed by the onClick handler via copyToClipboard.
+      if (navigator.clipboard?.writeText) {
+        setCopied(true);
+        if (timerRef.current !== null) {
+          clearTimeout(timerRef.current);
         }
-
-        if (clipboardAvailable) {
-          setCopied(true);
-          if (timerRef.current !== null) {
-            clearTimeout(timerRef.current);
-          }
-          timerRef.current = setTimeout(() => {
-            timerRef.current = null;
-            setCopied(false);
-          }, 2000);
-        }
-      } catch (err) {
-        console.error("Failed to copy message:", err);
+        timerRef.current = setTimeout(() => {
+          timerRef.current = null;
+          setCopied(false);
+        }, 2000);
       }
     };
 

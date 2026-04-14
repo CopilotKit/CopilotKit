@@ -20,7 +20,7 @@ import {
   ExclamationMarkTriangleIcon,
 } from "./icons";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
-import { COPILOTKIT_VERSION } from "@copilotkit/shared";
+import { COPILOTKIT_VERSION, copyToClipboard } from "@copilotkit/shared";
 import { SmallSpinnerIcon } from "../chat/Icons";
 import { CopilotKitHelpModal } from "../help-modal";
 
@@ -171,16 +171,10 @@ function VersionInfo({
   ].join(" ");
 
   const handleCopyClick = async () => {
-    try {
-      if (!navigator.clipboard?.writeText) {
-        console.error("Clipboard API is not available");
-        return;
-      }
-      await navigator.clipboard.writeText(installCommand.trim());
+    const success = await copyToClipboard(installCommand.trim());
+    if (success) {
       setCopyStatus("Command copied to clipboard!");
       setTimeout(() => setCopyStatus(""), 1000);
-    } catch (err) {
-      console.error("Failed to copy command:", err);
     }
   };
 
