@@ -175,5 +175,4 @@ graph = create_react_agent(
         get_sales_todos,
     ],
     prompt=SYSTEM_PROMPT,
-    state_schema=AgentState,
 )

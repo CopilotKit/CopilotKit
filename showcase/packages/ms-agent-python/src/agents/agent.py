@@ -248,7 +248,6 @@ def create_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
         agent=base_agent,
         name="CopilotKitMicrosoftAgentFrameworkAgent",
         description="Manages sales pipeline todos, weather, data queries, and meeting scheduling.",
-        state_schema=STATE_SCHEMA,
         predict_state_config=PREDICT_STATE_CONFIG,
         require_confirmation=False,
     )
