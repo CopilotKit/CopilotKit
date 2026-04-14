@@ -8,9 +8,15 @@ from langgraph.prebuilt import create_react_agent
 from langchain_openai import ChatOpenAI
 
 from src.agents.tools import query_data, get_weather, schedule_meeting
-from src.agents.todos import todo_tools, AgentState
 from src.agents.a2ui_fixed_schema import search_flights
 from src.agents.a2ui_dynamic_schema import generate_a2ui
+
+# Import todo_tools but not custom AgentState — newer langgraph requires
+# remaining_steps in state_schema which the custom schema doesn't have
+try:
+    from src.agents.todos import todo_tools
+except Exception:
+    todo_tools = []
 
 SYSTEM_PROMPT = """You are a polished, professional demo assistant for CopilotKit.
 Keep responses brief and clear -- 1 to 2 sentences max.
@@ -34,5 +40,4 @@ graph = create_react_agent(
     tools=[query_data, get_weather, schedule_meeting, search_flights, generate_a2ui]
     + todo_tools,
     prompt=SYSTEM_PROMPT,
-    state_schema=AgentState,
 )
