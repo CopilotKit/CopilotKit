@@ -26,6 +26,12 @@ export { DemoWrapper, DemoErrorBoundary } from "./components/demo-wrapper";
 
 // Sales Dashboard
 export { SalesDashboard } from "./components/sales-dashboard";
+export { DealCard } from "./components/sales-dashboard/deal-card";
+export type { DealCardProps } from "./components/sales-dashboard/deal-card";
+export { Pipeline } from "./components/sales-dashboard/pipeline";
+export type { PipelineProps } from "./components/sales-dashboard/pipeline";
+export { MetricCard } from "./components/sales-dashboard/metric-card";
+export type { MetricCardProps } from "./components/sales-dashboard/metric-card";
 
 // A2UI Catalog
 export {
@@ -33,3 +39,24 @@ export {
   type DemonstrationCatalogDefinitions,
 } from "./a2ui/definitions";
 export { demonstrationCatalog } from "./a2ui/renderers";
+
+// Renderers
+export type {
+  RenderMode,
+  RenderStrategyInfo,
+  RendererSelectorProps,
+} from "./renderers";
+export {
+  RENDER_STRATEGIES,
+  RendererSelector,
+  useRenderMode,
+} from "./renderers";
+export { ToolBasedDashboard } from "./renderers/tool-based";
+export { A2UIDashboard } from "./renderers/a2ui";
+export {
+  HashBrownDashboard,
+  useHashBrownMessageRenderer,
+  useSalesDashboardKit,
+} from "./renderers/hashbrown";
+export type { HashBrownDashboardProps } from "./renderers/hashbrown";
+export { OpenGenUIDashboard } from "./renderers/open-genui";
