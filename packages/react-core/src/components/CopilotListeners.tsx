@@ -133,5 +133,5 @@ export function CopilotListeners() {
     };
   }, [copilotkit?.subscribe]);
 
-  return (hasAgents || hasRuntime) ? <CopilotListenersAgentSubscription /> : null;
+  return hasAgents || hasRuntime ? <CopilotListenersAgentSubscription /> : null;
 }
