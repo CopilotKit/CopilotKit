@@ -1,0 +1,8 @@
+{
+  "slug": "langgraph-python",
+  "name": "LangGraph Python",
+  "language": "python",
+  "agentDir": "agent",
+  "agentPort": 8123,
+  "generated": true
+}

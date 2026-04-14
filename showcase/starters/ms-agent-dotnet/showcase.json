@@ -1,0 +1,8 @@
+{
+  "slug": "ms-agent-dotnet",
+  "name": "Microsoft Agent .NET",
+  "language": "csharp",
+  "agentDir": "agent",
+  "agentPort": 8123,
+  "generated": true
+}
