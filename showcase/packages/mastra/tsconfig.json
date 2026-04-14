@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -23,21 +19,11 @@
       }
     ],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ],
-      "@copilotkit/showcase-shared": [
-        "./shared_frontend/src"
-      ],
-      "@copilotkit/showcase-shared/*": [
-        "./shared_frontend/src/*"
-      ],
-      "@copilotkit/showcase-shared-tools": [
-        "./shared_typescript/tools"
-      ],
-      "@copilotkit/showcase-shared-tools/*": [
-        "./shared_typescript/tools/*"
-      ]
+      "@/*": ["./src/*"],
+      "@copilotkit/showcase-shared": ["./shared_frontend/src"],
+      "@copilotkit/showcase-shared/*": ["./shared_frontend/src/*"],
+      "@copilotkit/showcase-shared-tools": ["./shared_typescript/tools"],
+      "@copilotkit/showcase-shared-tools/*": ["./shared_typescript/tools/*"]
     }
   },
   "include": [
@@ -48,7 +34,5 @@
     "shared_frontend/src/**/*.ts",
     "shared_frontend/src/**/*.tsx"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

@@ -59,10 +59,7 @@ export const POST = async (req: NextRequest) => {
     const err = error as Error;
     console.error(`[copilotkit/route] ERROR: ${err.message}`);
     console.error(`[copilotkit/route] Stack: ${err.stack}`);
-    return NextResponse.json(
-      { error: err.message },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 };
 

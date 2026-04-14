@@ -24,7 +24,11 @@ test.describe("Tool-Based Generative UI", () => {
 
     // Haiku cards contain Japanese and English lines
     await expect(
-      page.locator('[data-testid="haiku-japanese-line"], [data-testid="haiku-english-line"]').first(),
+      page
+        .locator(
+          '[data-testid="haiku-japanese-line"], [data-testid="haiku-english-line"]',
+        )
+        .first(),
     ).toBeVisible({ timeout: 60000 });
   });
 

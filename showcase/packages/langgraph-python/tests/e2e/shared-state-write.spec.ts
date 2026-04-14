@@ -66,17 +66,13 @@ test.describe("Shared State (Writing)", () => {
     // After the agent writes state, the dashboard should reflect deals
     // Either "Active Deals" heading appears or the pipeline values change
     await expect(
-      page
-        .getByText("Active Deals")
-        .or(page.getByText(/\$\d{1,3}(,\d{3})*/)),
+      page.getByText("Active Deals").or(page.getByText(/\$\d{1,3}(,\d{3})*/)),
     ).toBeVisible({ timeout: 30000 });
   });
 
   test("can add a deal via UI button", async ({ page }) => {
     // Look for an "Add" or "+" button on the dashboard
-    const addBtn = page.locator(
-      'button:has-text("Add"), button:has-text("+")',
-    );
+    const addBtn = page.locator('button:has-text("Add"), button:has-text("+")');
     await expect(addBtn.first()).toBeVisible({ timeout: 5000 });
     const initialCount = await page
       .locator('[data-testid="todo-card"], .todo-card')

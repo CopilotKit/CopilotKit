@@ -22,10 +22,7 @@ import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
 } from "@copilotkit/sdk-js/langgraph";
-import {
-  getWeatherImpl,
-  queryDataImpl,
-} from "./shared-tools";
+import { getWeatherImpl, queryDataImpl } from "./shared-tools";
 
 // ---------------------------------------------------------------------------
 // 1. Agent state — extends CopilotKit state with a proverbs list

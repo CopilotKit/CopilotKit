@@ -34,9 +34,7 @@ describe("ToolReasoning", () => {
 
   it("shows expandable args section with entries", () => {
     const args = { query: "weather NYC", limit: 5 };
-    render(
-      <ToolReasoning name="searchWeb" args={args} status="complete" />,
-    );
+    render(<ToolReasoning name="searchWeb" args={args} status="complete" />);
     expect(screen.getByText("query:")).toBeTruthy();
     expect(screen.getByText('"weather NYC"')).toBeTruthy();
     expect(screen.getByText("limit:")).toBeTruthy();
@@ -60,17 +58,13 @@ describe("ToolReasoning", () => {
 
   it("formats array values as item count", () => {
     const args = { items: [1, 2, 3] };
-    render(
-      <ToolReasoning name="process" args={args} status="complete" />,
-    );
+    render(<ToolReasoning name="process" args={args} status="complete" />);
     expect(screen.getByText("[3 items]")).toBeTruthy();
   });
 
   it("formats object values as key count", () => {
     const args = { config: { a: 1, b: 2 } };
-    render(
-      <ToolReasoning name="process" args={args} status="complete" />,
-    );
+    render(<ToolReasoning name="process" args={args} status="complete" />);
     expect(screen.getByText("{2 keys}")).toBeTruthy();
   });
 });

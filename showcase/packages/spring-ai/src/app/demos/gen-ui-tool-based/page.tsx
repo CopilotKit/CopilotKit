@@ -8,7 +8,10 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { DemoErrorBoundary, useShowcaseHooks } from "@copilotkit/showcase-shared";
+import {
+  DemoErrorBoundary,
+  useShowcaseHooks,
+} from "@copilotkit/showcase-shared";
 
 interface Haiku {
   japanese: string[];

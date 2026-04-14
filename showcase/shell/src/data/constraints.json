@@ -14,12 +14,7 @@
         "subagents",
         "voice"
       ],
-      "excluded": [
-        "tool-rendering",
-        "hitl",
-        "gen-ui-interrupt",
-        "open-gen-ui"
-      ]
+      "excluded": ["tool-rendering", "hitl", "gen-ui-interrupt", "open-gen-ui"]
     },
     "constrained-explicit": {
       "allowed": [
@@ -64,10 +59,7 @@
   },
   "interaction_modalities": {
     "headless": {
-      "excluded": [
-        "open-gen-ui",
-        "voice"
-      ]
+      "excluded": ["open-gen-ui", "voice"]
     }
   }
 }

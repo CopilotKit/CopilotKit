@@ -8,7 +8,11 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { DemoErrorBoundary, WeatherCard, useShowcaseHooks } from "@copilotkit/showcase-shared";
+import {
+  DemoErrorBoundary,
+  WeatherCard,
+  useShowcaseHooks,
+} from "@copilotkit/showcase-shared";
 
 export default function ToolRenderingDemo() {
   return (

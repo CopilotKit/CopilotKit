@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-
 export async function GET(req: NextRequest) {
   // Token-gated: SHOWCASE_DEBUG_TOKEN must be set in env and matched
   const token =
