@@ -4908,7 +4908,7 @@ ${this.announcementMarkdown}</pre
     const fullPayload = { agentId: this.emitterAgentId, ...payload };
 
     try {
-      devtoolsClient.emit(this.emitterEventType as any, fullPayload as any);
+      devtoolsClient.emitDynamic(this.emitterEventType, fullPayload);
       this.showStatus("Event emitted.");
     } catch (err) {
       this.emitterJsonError = `Emit failed: ${(err as Error).message}`;
@@ -4999,7 +4999,7 @@ ${this.announcementMarkdown}</pre
 
     const fullPayload = { agentId: this.emitterAgentId, ...snippet.payload };
     try {
-      devtoolsClient.emit(snippet.eventType as any, fullPayload as any);
+      devtoolsClient.emitDynamic(snippet.eventType, fullPayload);
       this.showStatus("Snippet replayed.");
     } catch (err) {
       this.emitterJsonError = `Replay failed: ${(err as Error).message}`;
