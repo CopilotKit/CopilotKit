@@ -52,6 +52,7 @@ export async function handleConnectAgent({
       runtime,
       request,
       threadId: connectRequest.input.threadId,
+      agent,
     });
   } catch (error) {
     console.error("Error running agent:", error);

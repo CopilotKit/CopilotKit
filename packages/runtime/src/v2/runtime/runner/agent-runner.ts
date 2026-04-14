@@ -16,6 +16,7 @@ export interface AgentRunnerRunRequest {
 
 export interface AgentRunnerConnectRequest {
   threadId: string;
+  agent?: AbstractAgent;
   headers?: Record<string, string>;
   joinCode?: string;
 }
