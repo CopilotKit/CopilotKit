@@ -1,5 +1,6 @@
 package com.copilotkit.showcase.springai.tools;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -73,12 +74,19 @@ public class WeatherTool implements Function<WeatherRequest, String> {
         }
 
         WeatherResponse.CurrentWeather w = weather.getCurrent();
-        String condition = CONDITIONS.getOrDefault(w.getWeatherCode(), "Unknown");
+        String conditions = CONDITIONS.getOrDefault(w.getWeatherCode(), "Unknown");
 
-        return String.format(
-                "Weather in %s: %.1f°C (feels like %.1f°C), %s, humidity %d%%, wind %.1f km/h",
-                loc.getName(), w.getTemperature2m(), w.getApparentTemperature(),
-                condition, (int) w.getRelativeHumidity2m(), w.getWindSpeed10m()
-        );
+        try {
+            return new ObjectMapper().writeValueAsString(Map.of(
+                    "city", loc.getName(),
+                    "temperature", w.getTemperature2m(),
+                    "humidity", (int) w.getRelativeHumidity2m(),
+                    "wind_speed", w.getWindSpeed10m(),
+                    "feels_like", w.getApparentTemperature(),
+                    "conditions", conditions
+            ));
+        } catch (Exception e) {
+            return "{\"error\": \"Failed to serialize weather data: " + e.getMessage() + "\"}";
+        }
     }
 }

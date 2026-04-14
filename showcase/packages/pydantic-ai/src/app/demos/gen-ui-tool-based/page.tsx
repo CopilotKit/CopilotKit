@@ -4,7 +4,6 @@ import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-core/v2";
 import {
-  SalesDashboard,
   useShowcaseHooks,
   useShowcaseSuggestions,
   demonstrationCatalog,
@@ -25,33 +24,29 @@ export default function GenUiToolBasedDemo() {
         agent="gen-ui-tool-based"
         a2ui={{ catalog: demonstrationCatalog }}
       >
-        <SidebarWithSuggestions />
-        <DashboardDisplay />
+        <SidebarWithContent />
       </CopilotKit>
     </div>
   );
 }
 
-function SidebarWithSuggestions() {
+function SidebarWithContent() {
+  useShowcaseHooks();
   useShowcaseSuggestions();
 
   return (
-    <CopilotSidebar
-      defaultOpen={true}
-      labels={{
-        modalHeaderTitle: "Sales Pipeline",
-      }}
-    />
-  );
-}
-
-function DashboardDisplay() {
-  useShowcaseHooks();
-
-  return (
     <div className="relative flex items-center justify-center h-full w-full">
+      <CopilotSidebar
+        defaultOpen={true}
+        labels={{
+          modalHeaderTitle: "Chart Generator",
+        }}
+      />
       <div style={{ padding: "48px 80px", width: "100%", maxWidth: "56rem" }}>
-        <SalesDashboard agentId="gen-ui-tool-based" />
+        <div className="text-center text-gray-400 text-lg">
+          Use the sidebar to generate charts. Try "Show me a pie chart of
+          revenue by category" or "Show me a bar chart of expenses."
+        </div>
       </div>
     </div>
   );

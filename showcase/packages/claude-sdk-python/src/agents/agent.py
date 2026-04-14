@@ -1,5 +1,5 @@
 """
-Claude Agent SDK (Python) — sales assistant with weather, HITL, and generative UI.
+Claude Agent SDK (Python) -- sales assistant with weather, HITL, and generative UI.
 
 Implements the AG-UI protocol directly using the Anthropic Python SDK.
 All demo routes share this single agent instance served by agent_server.py.
@@ -41,7 +41,17 @@ load_dotenv()
 
 # Import shared tool implementations
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"))
-from tools import get_weather_impl, query_data_impl, manage_sales_todos_impl, get_sales_todos_impl, schedule_meeting_impl
+from tools import (
+    get_weather_impl,
+    query_data_impl,
+    manage_sales_todos_impl,
+    get_sales_todos_impl,
+    schedule_meeting_impl,
+    search_flights_impl,
+    build_a2ui_operations_from_tool_call,
+    RENDER_A2UI_TOOL_SCHEMA,
+)
+from tools.types import Flight
 
 # ============
 # Tool schemas
@@ -186,6 +196,61 @@ TOOLS: list[dict[str, Any]] = [
             "required": ["background"],
         },
     },
+    {
+        "name": "search_flights",
+        "description": (
+            "Search for flights and display the results as rich A2UI cards. "
+            "Return exactly 2 flights. Each flight must have: airline, airlineLogo, "
+            "flightNumber, origin, destination, date, departureTime, arrivalTime, "
+            "duration, status, statusColor, price, currency. "
+            "For airlineLogo use: https://www.google.com/s2/favicons?domain={airline_domain}&sz=128"
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "flights": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "airline": {"type": "string"},
+                            "airlineLogo": {"type": "string"},
+                            "flightNumber": {"type": "string"},
+                            "origin": {"type": "string"},
+                            "destination": {"type": "string"},
+                            "date": {"type": "string"},
+                            "departureTime": {"type": "string"},
+                            "arrivalTime": {"type": "string"},
+                            "duration": {"type": "string"},
+                            "status": {"type": "string"},
+                            "statusColor": {"type": "string"},
+                            "price": {"type": "string"},
+                            "currency": {"type": "string"},
+                        },
+                    },
+                    "description": "List of flight objects to display.",
+                },
+            },
+            "required": ["flights"],
+        },
+    },
+    {
+        "name": "generate_a2ui",
+        "description": (
+            "Generate dynamic A2UI components based on the conversation. "
+            "A secondary LLM designs the UI schema and data."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "context": {
+                    "type": "string",
+                    "description": "Conversation context to generate UI for.",
+                },
+            },
+            "required": ["context"],
+        },
+    },
 ]
 
 SYSTEM_PROMPT = dedent("""
@@ -207,6 +272,8 @@ SYSTEM_PROMPT = dedent("""
     - `generate_task_steps`: call when the user asks you to plan something step-by-step.
       Wait for approval/rejection before continuing with the plan.
     - `change_background`: only call when user explicitly asks to change the background.
+    - `search_flights`: call when the user asks about flights. Generate 2 realistic flights.
+    - `generate_a2ui`: call when the user asks for a dashboard or dynamic UI.
 
     After executing tools, provide a brief summary of what changed.
     Keep responses concise and friendly.
@@ -221,7 +288,7 @@ class AgentState(BaseModel):
     todos: list[dict] = []
 
 
-def _execute_tool(name: str, tool_input: dict[str, Any], state: AgentState) -> tuple[str, AgentState | None]:
+def _execute_tool(name: str, tool_input: dict[str, Any], state: AgentState, conversation_messages: list[dict[str, Any]] | None = None) -> tuple[str, AgentState | None]:
     """Execute backend tools and return (result_text, new_state_or_None)."""
     if name == "get_weather":
         return json.dumps(get_weather_impl(tool_input["location"])), None
@@ -241,13 +308,44 @@ def _execute_tool(name: str, tool_input: dict[str, Any], state: AgentState) -> t
         return json.dumps(schedule_meeting_impl(tool_input["reason"])), None
 
     if name == "generate_task_steps":
-        # Frontend HITL tool — backend just acknowledges; UI handles the interaction
+        # Frontend HITL tool -- backend just acknowledges; UI handles the interaction
         steps = tool_input.get("steps", [])
         return f"Presented {len(steps)} steps for review.", None
 
     if name == "change_background":
-        # Frontend tool — backend just acknowledges
+        # Frontend tool -- backend just acknowledges
         return f"Background change requested: {tool_input.get('background', '')}", None
+
+    if name == "search_flights":
+        flights_data = tool_input.get("flights", [])
+        typed_flights = [Flight(**f) for f in flights_data]
+        result = search_flights_impl(typed_flights)
+        return json.dumps(result), None
+
+    if name == "generate_a2ui":
+        context = tool_input.get("context", "")
+        import openai
+        client = openai.OpenAI()
+        llm_messages: list[dict[str, Any]] = [
+            {"role": "system", "content": context or "Generate a useful dashboard UI."},
+        ]
+        # Pass conversation messages to the secondary LLM for context
+        if conversation_messages:
+            llm_messages.extend(conversation_messages)
+        else:
+            llm_messages.append({"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."})
+        response = client.chat.completions.create(
+            model="gpt-4.1",
+            messages=llm_messages,
+            tools=[{"type": "function", "function": RENDER_A2UI_TOOL_SCHEMA}],
+            tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+        )
+        choice = response.choices[0]
+        if choice.message.tool_calls:
+            args = json.loads(choice.message.tool_calls[0].function.arguments)
+            a2ui_result = build_a2ui_operations_from_tool_call(args)
+            return json.dumps(a2ui_result), None
+        return json.dumps({"error": "LLM did not call render_a2ui"}), None
 
     return f"Unknown tool: {name}", None
 
@@ -293,7 +391,7 @@ async def run_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
 
     yield encoder.encode(RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id))
 
-    # Agentic loop — keep calling Claude until no more tool calls
+    # Agentic loop -- keep calling Claude until no more tool calls
     while True:
         response_text = ""
         tool_calls: list[dict[str, Any]] = []
@@ -376,7 +474,7 @@ async def run_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
             message_id=msg_id,
         ))
 
-        # No tool calls — we're done
+        # No tool calls -- we're done
         if not tool_calls:
             break
 
@@ -396,7 +494,7 @@ async def run_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
         # Execute tools and build tool-result turn
         tool_results: list[dict[str, Any]] = []
         for tc in tool_calls:
-            result_text, new_state = _execute_tool(tc["name"], tc["input"], state)
+            result_text, new_state = _execute_tool(tc["name"], tc["input"], state, conversation_messages=messages)
             if new_state is not None:
                 state = new_state
                 yield encoder.encode(StateSnapshotEvent(

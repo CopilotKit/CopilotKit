@@ -6,6 +6,7 @@ import { CopilotChat, useHumanInTheLoop } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import {
   MeetingTimePicker,
+  useShowcaseHooks,
   useShowcaseSuggestions,
   demonstrationCatalog,
 } from "@copilotkit/showcase-shared";
@@ -23,6 +24,7 @@ export default function HitlDemo() {
 }
 
 function DemoContent() {
+  useShowcaseHooks();
   useShowcaseSuggestions();
 
   useHumanInTheLoop({

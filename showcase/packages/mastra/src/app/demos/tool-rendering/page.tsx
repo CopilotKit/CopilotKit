@@ -2,88 +2,53 @@
 
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import {
-  CopilotChat,
-  useRenderTool,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotChat, useRenderTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { WeatherCard, getWeatherIcon } from "@copilotkit/showcase-shared";
+import {
+  WeatherCard,
+  useShowcaseHooks,
+  useShowcaseSuggestions,
+  demonstrationCatalog,
+} from "@copilotkit/showcase-shared";
 
 export default function ToolRenderingDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="weatherAgent">
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      agent="tool-rendering"
+      a2ui={{ catalog: demonstrationCatalog }}
+    >
       <Chat />
     </CopilotKit>
   );
 }
 
 function Chat() {
+  useShowcaseHooks();
+  useShowcaseSuggestions();
+
   useRenderTool({
-    name: "get-weather",
+    name: "get_weather",
     parameters: z.object({
       location: z.string(),
     }),
     render: ({ args, result, status }: any) => {
       if (status !== "complete") {
-        return (
-          <div
-            className="flex items-center gap-3 px-5 py-4 rounded-2xl max-w-sm"
-            style={{
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            }}
-          >
-            <div className="animate-pulse text-2xl">
-              {getWeatherIcon("Clear")}
-            </div>
-            <div>
-              <p className="text-white font-medium text-sm">
-                Checking weather...
-              </p>
-              <p className="text-white/60 text-xs">{args.location}</p>
-            </div>
-          </div>
-        );
-      }
-
-      let parsed = result;
-      if (typeof result === "string") {
-        try {
-          parsed = JSON.parse(result);
-        } catch {
-          parsed = {};
-        }
+        return <WeatherCard location={args.location} loading />;
       }
 
       return (
         <WeatherCard
-          location={parsed?.city || args.location}
-          temperature={parsed?.temperature ?? 22}
-          conditions={parsed?.conditions || "Clear skies"}
-          humidity={parsed?.humidity ?? 55}
-          windSpeed={parsed?.wind_speed ?? 12}
-          feelsLike={parsed?.feels_like ?? parsed?.temperature ?? 22}
+          location={args.location}
+          temperature={result?.temperature}
+          conditions={result?.conditions}
+          humidity={result?.humidity}
+          windSpeed={result?.wind_speed}
+          feelsLike={result?.feels_like}
+          city={result?.city}
         />
       );
     },
-  });
-
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Weather in San Francisco",
-        message: "What's the weather like in San Francisco?",
-      },
-      {
-        title: "Weather in New York",
-        message: "Tell me about the weather in New York.",
-      },
-      {
-        title: "Weather in Tokyo",
-        message: "How's the weather in Tokyo today?",
-      },
-    ],
-    available: "always",
   });
 
   return (

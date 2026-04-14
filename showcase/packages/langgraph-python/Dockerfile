@@ -1,5 +1,5 @@
 # Stage 1: Build Next.js frontend
-FROM node:20.20-slim AS frontend
+FROM node:22-slim AS frontend
 WORKDIR /app
 COPY package.json ./
 RUN npm install --legacy-peer-deps
@@ -11,7 +11,7 @@ RUN npm run build
 FROM python:3.12.13-slim AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl && \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y nodejs && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 

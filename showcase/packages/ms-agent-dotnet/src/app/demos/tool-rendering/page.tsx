@@ -2,30 +2,30 @@
 
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import {
-  CopilotChat,
-  useRenderTool,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotChat, useRenderTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import {
-  DemoErrorBoundary,
   WeatherCard,
   useShowcaseHooks,
+  useShowcaseSuggestions,
+  demonstrationCatalog,
 } from "@copilotkit/showcase-shared";
 
 export default function ToolRenderingDemo() {
   return (
-    <DemoErrorBoundary demoName="Tool Rendering">
-      <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
-        <DemoContent />
-      </CopilotKit>
-    </DemoErrorBoundary>
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      agent="tool-rendering"
+      a2ui={{ catalog: demonstrationCatalog }}
+    >
+      <Chat />
+    </CopilotKit>
   );
 }
 
-function DemoContent() {
+function Chat() {
   useShowcaseHooks();
+  useShowcaseSuggestions();
 
   useRenderTool({
     name: "get_weather",
@@ -36,35 +36,19 @@ function DemoContent() {
       if (status !== "complete") {
         return <WeatherCard location={args.location} loading />;
       }
+
       return (
         <WeatherCard
           location={args.location}
-          temperature={result?.temperature ?? 20}
-          conditions={result?.conditions || "Sunny"}
-          humidity={result?.humidity ?? 50}
-          windSpeed={result?.wind_speed ?? 10}
-          feelsLike={result?.feelsLike ?? result?.feels_like}
+          temperature={result?.temperature}
+          conditions={result?.conditions}
+          humidity={result?.humidity}
+          windSpeed={result?.wind_speed}
+          feelsLike={result?.feels_like}
+          city={result?.city}
         />
       );
     },
-  });
-
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Weather in San Francisco",
-        message: "What's the weather like in San Francisco?",
-      },
-      {
-        title: "Weather in Tokyo",
-        message: "How's the weather in Tokyo today?",
-      },
-      {
-        title: "Weather in New York",
-        message: "Tell me about the weather in New York.",
-      },
-    ],
-    available: "always",
   });
 
   return (

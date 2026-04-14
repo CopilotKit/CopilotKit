@@ -1,4 +1,4 @@
-FROM node:20.20-slim AS builder
+FROM node:22-slim AS builder
 WORKDIR /app
 COPY package.json ./
 RUN npm install --legacy-peer-deps
@@ -11,7 +11,7 @@ RUN npx tsc --outDir /app/dist --module commonjs --moduleResolution node \
     --target es2020 --esModuleInterop true --skipLibCheck true \
     src/agent_server.ts
 
-FROM node:20.20-slim AS runner
+FROM node:22-slim AS runner
 WORKDIR /app
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules

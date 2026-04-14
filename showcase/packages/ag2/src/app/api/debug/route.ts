@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+
 export async function GET(req: NextRequest) {
   // Token-gated: SHOWCASE_DEBUG_TOKEN must be set in env and matched
   const token =
@@ -10,7 +11,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 403 });
   }
 
-  const AGENT_URL = process.env.AGENT_URL || "unknown";
+  const AGENT_URL =
+    process.env.AGENT_URL || "unknown";
 
   // Agent connectivity
   let agentStatus = "unknown";
