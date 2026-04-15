@@ -220,7 +220,7 @@ export class PreviewPanel {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; script-src 'nonce-${nonce}' blob:; style-src 'unsafe-inline' ${webview.cspSource}; font-src ${webview.cspSource};">
+    content="default-src 'none'; script-src 'nonce-${nonce}' blob:; style-src 'unsafe-inline' ${webview.cspSource}; font-src ${webview.cspSource}; connect-src ${webview.cspSource};">
   <title>CopilotKit Preview</title>
   <style>
     body {
