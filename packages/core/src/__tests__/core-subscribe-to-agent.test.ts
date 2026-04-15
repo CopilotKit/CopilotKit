@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   AbstractAgent,
+  EventType,
   type AgentSubscriberParams,
   type RunAgentInput,
+  type RunErrorEvent,
   type BaseEvent,
 } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
@@ -76,11 +78,13 @@ function notifyLifecycle(
     const params = { ...base, error: new Error("run failed") };
     agent.subscribers.forEach((s) => s.onRunFailed?.(params));
   } else if (event === "onRunErrorEvent") {
-    const params = {
-      ...base,
-      event: { type: "RUN_ERROR", message: "backend error" } as any,
+    const errorEvent: RunErrorEvent = {
+      type: EventType.RUN_ERROR,
+      message: "backend error",
     };
-    agent.subscribers.forEach((s) => s.onRunErrorEvent?.(params));
+    agent.subscribers.forEach((s) =>
+      s.onRunErrorEvent?.({ ...base, event: errorEvent }),
+    );
   } else {
     agent.subscribers.forEach((s) => s[event]?.(base));
   }
@@ -88,6 +92,11 @@ function notifyLifecycle(
 
 function userMsg(id: string, content: string) {
   return { id, role: "user" as const, content };
+}
+
+/** Silence console.error and return the spy for assertions. Caller must restore. */
+function silenceConsoleError() {
+  return vi.spyOn(console, "error").mockImplementation(() => {});
 }
 
 // ---------------------------------------------------------------------------
@@ -352,13 +361,18 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
   // Run lifecycle events always fire immediately
   // -------------------------------------------------------------------------
 
-  it("onRunInitialized fires immediately during throttle window", () => {
+  it.each([
+    "onRunInitialized",
+    "onRunFinalized",
+    "onRunFailed",
+    "onRunErrorEvent",
+  ] as const)("%s fires immediately during throttle window", (event) => {
     const onMessages = vi.fn();
-    const onRunInit = vi.fn();
+    const callback = vi.fn();
 
     core.subscribeToAgentWithOptions(
       agent,
-      { onMessagesChanged: onMessages, onRunInitialized: onRunInit },
+      { onMessagesChanged: onMessages, [event]: callback },
       { throttleMs: 100 },
     );
 
@@ -367,63 +381,8 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
     notifyMessagesChanged(agent);
 
     // Run lifecycle — should fire immediately (not throttled)
-    notifyLifecycle(agent, "onRunInitialized");
-    expect(onRunInit).toHaveBeenCalledTimes(1);
-  });
-
-  it("onRunFinalized fires immediately during throttle window", () => {
-    const onMessages = vi.fn();
-    const onRunFinalized = vi.fn();
-
-    core.subscribeToAgentWithOptions(
-      agent,
-      { onMessagesChanged: onMessages, onRunFinalized },
-      { throttleMs: 100 },
-    );
-
-    // Start throttle window
-    agent.messages = [userMsg("1", "a")];
-    notifyMessagesChanged(agent);
-
-    notifyLifecycle(agent, "onRunFinalized");
-    expect(onRunFinalized).toHaveBeenCalledTimes(1);
-  });
-
-  it("onRunFailed fires immediately during throttle window", () => {
-    const onMessages = vi.fn();
-    const onRunFailed = vi.fn();
-
-    core.subscribeToAgentWithOptions(
-      agent,
-      { onMessagesChanged: onMessages, onRunFailed },
-      { throttleMs: 100 },
-    );
-
-    // Start throttle window
-    agent.messages = [userMsg("1", "a")];
-    notifyMessagesChanged(agent);
-
-    notifyLifecycle(agent, "onRunFailed");
-    expect(onRunFailed).toHaveBeenCalledTimes(1);
-  });
-
-  it("onRunErrorEvent fires immediately during throttle window", () => {
-    const onMessages = vi.fn();
-    const onRunErrorEvent = vi.fn();
-
-    core.subscribeToAgentWithOptions(
-      agent,
-      { onMessagesChanged: onMessages, onRunErrorEvent },
-      { throttleMs: 100 },
-    );
-
-    // Start throttle window
-    agent.messages = [userMsg("1", "a")];
-    notifyMessagesChanged(agent);
-
-    // Protocol-level RUN_ERROR — should fire immediately (not throttled)
-    notifyLifecycle(agent, "onRunErrorEvent");
-    expect(onRunErrorEvent).toHaveBeenCalledTimes(1);
+    notifyLifecycle(agent, event);
+    expect(callback).toHaveBeenCalledTimes(1);
   });
 
   // -------------------------------------------------------------------------
@@ -575,7 +534,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
   ])(
     "invalid throttleMs ($label) falls back to unthrottled with console.error",
     ({ value }) => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const errorSpy = silenceConsoleError();
       const onMessages = vi.fn();
 
       core.subscribeToAgentWithOptions(
@@ -605,7 +564,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
   // -------------------------------------------------------------------------
 
   it("exception in onMessagesChanged does not prevent onStateChanged from flushing", () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const errorSpy = silenceConsoleError();
     const onState = vi.fn();
     const onMessages = vi.fn().mockImplementation(() => {
       throw new Error("callback boom");
@@ -635,7 +594,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
   });
 
   it("exception in callback does not permanently deadlock the throttle", () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const errorSpy = silenceConsoleError();
     let callCount = 0;
     const onMessages = vi.fn().mockImplementation(() => {
       callCount++;
@@ -671,7 +630,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
   });
 
   it("async rejection in callback is caught and logged", async () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const errorSpy = silenceConsoleError();
     const onMessages = vi.fn().mockImplementation(() => {
       return Promise.reject(new Error("async boom"));
     });
@@ -700,7 +659,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
   // -------------------------------------------------------------------------
 
   it("unthrottled: exception in onMessagesChanged does not prevent onStateChanged", () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const errorSpy = silenceConsoleError();
     const onState = vi.fn();
     const onMessages = vi.fn().mockImplementation(() => {
       throw new Error("unthrottled boom");
@@ -881,7 +840,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
   });
 
   it("unthrottled: exception in run lifecycle callback is caught", () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const errorSpy = silenceConsoleError();
     const onRunInit = vi.fn().mockImplementation(() => {
       throw new Error("lifecycle boom");
     });
@@ -905,7 +864,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
   // -------------------------------------------------------------------------
 
   it("subscriber callback failure emits SUBSCRIBER_CALLBACK_FAILED through onError", async () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const errorSpy = silenceConsoleError();
     const onError = vi.fn();
     core.subscribe({ onError });
 
@@ -940,7 +899,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
   // -------------------------------------------------------------------------
 
   it("unsubscribe + throw in onMessagesChanged still prevents onStateChanged from firing", () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const errorSpy = silenceConsoleError();
     let subHandle: { unsubscribe: () => void };
     const onMessages = vi.fn().mockImplementation(() => {
       subHandle.unsubscribe();
@@ -981,14 +940,18 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const onEvent = vi.fn();
 
-    // Pass an unsupported key via cast (simulating JS consumer)
+    // Intentional `as any`: simulates a JS consumer passing an unsupported
+    // callback key — verifies guardAll strips it at runtime.
     core.subscribeToAgentWithOptions(agent, {
       onMessagesChanged: vi.fn(),
       onEvent,
     } as any);
 
-    // Trigger the event through the agent's subscriber
-    agent.subscribers.forEach((s: any) => s.onEvent?.({ type: "test" }));
+    // Verify the unsupported key was stripped — accessing a property the type
+    // system correctly says doesn't exist on AgentSubscriber
+    agent.subscribers.forEach(
+      (s: any) => s.onEvent?.({ type: "test" }), // eslint-disable-line @typescript-eslint/no-explicit-any
+    );
 
     // onEvent should never have been called — it was stripped
     expect(onEvent).not.toHaveBeenCalled();
@@ -1004,7 +967,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
   // -------------------------------------------------------------------------
 
   it("async rejection during trailing-edge flush is caught and logged", async () => {
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const errorSpy = silenceConsoleError();
     let callCount = 0;
     const onMessages = vi.fn().mockImplementation(() => {
       callCount++;
