@@ -20,7 +20,8 @@ from langchain_core.tools import tool
 def query_data(query: str):
     """
     Query the database. Takes natural language.
-    Always call before showing a chart or graph.
+    Call ONCE to get data, then pass the result to a chart frontend tool (pieChart or barChart).
+    Do not call repeatedly -- one call returns the full dataset.
     """
     return query_data_impl(query)
 
