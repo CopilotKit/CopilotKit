@@ -141,13 +141,27 @@ read from and write to this data model. Examples:
   For lists:  "data": { "items": [{"name": "Product A"}, {"name": "Product B"}] }
   For mixed:  "data": { "form": { "query": "" }, "results": [...] }
 
+PATH BINDING — CRITICAL SCHEMA RULE:
+Path bindings ({ "path": "/some/path" }) are ONLY allowed on properties whose schema
+explicitly includes them. Check the Available Components schema for each property:
+  - If the schema shows "anyOf": [{"type":"string"}, {"type":"object","properties":{"path":...}}]
+    then the property supports BOTH literal values AND path bindings.
+  - If the schema shows only a plain type (e.g. "type": "array", "type": "string",
+    "type": "number"), then that property accepts ONLY literal values — NOT path bindings.
+
+NEVER use { "path": "..." } on a property that does not have the anyOf/union type in
+the schema. Doing so will silently break rendering. For example, if a chart component's
+"data" property is defined as "type": "array", you MUST provide the data inline as a
+literal array — do NOT use { "path": "/chartData" }.
+
 FORMS AND TWO-WAY DATA BINDING:
 To create editable forms, bind input components to data model paths using { "path": "..." }.
 The client automatically writes user input back to the data model at the bound path.
 CRITICAL: Using a literal value (e.g. "value": "") makes the field READ-ONLY.
 You MUST use { "path": "..." } to make inputs editable.
 
-All input components use "value" as the binding property:
+All input components use "value" as the binding property (these work because input
+components define "value" with the anyOf union type in the schema):
 - TextField:     "value": { "path": "/form/fieldName" }
 - CheckBox:      "value": { "path": "/form/isChecked" }
 - Slider:        "value": { "path": "/form/sliderVal" }
