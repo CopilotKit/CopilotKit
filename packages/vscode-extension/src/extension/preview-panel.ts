@@ -115,9 +115,13 @@ export class PreviewPanel {
     }
   }
 
-  private async sendFixtures(component: DiscoveredComponent, activeFixture?: string): Promise<void> {
+  private async sendFixtures(
+    component: DiscoveredComponent,
+    activeFixture?: string,
+  ): Promise<void> {
     let fixtures: Record<string, A2UIFixture> = {};
-    const fixturePath = component.fixturePath ?? findFixtureFile(component.filePath);
+    const fixturePath =
+      component.fixturePath ?? findFixtureFile(component.filePath);
 
     if (fixturePath && fs.existsSync(fixturePath)) {
       const content = fs.readFileSync(fixturePath, "utf-8");
@@ -211,6 +215,9 @@ export class PreviewPanel {
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, "dist", "webview", "index.js"),
     );
+    const stylesUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, "dist", "webview", "styles.css"),
+    );
 
     const nonce = getNonce();
 
@@ -222,6 +229,7 @@ export class PreviewPanel {
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'none'; script-src 'nonce-${nonce}' blob:; style-src 'unsafe-inline' ${webview.cspSource}; font-src ${webview.cspSource}; connect-src ${webview.cspSource};">
   <title>CopilotKit Preview</title>
+  <link rel="stylesheet" href="${stylesUri}">
   <style>
     body {
       margin: 0;

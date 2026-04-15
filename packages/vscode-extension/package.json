@@ -1,18 +1,48 @@
 {
   "name": "@copilotkit/vscode-extension",
   "displayName": "CopilotKit",
-  "description": "Live preview for A2UI catalog components inside VS Code",
   "version": "0.1.0",
-  "publisher": "copilotkit",
-  "license": "MIT",
   "private": false,
+  "description": "Live preview for A2UI catalog components inside VS Code",
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "license": "MIT",
+  "publisher": "copilotkit",
   "type": "module",
   "main": "dist/extension/activate.cjs",
-  "engines": {
-    "vscode": "^1.85.0"
+  "scripts": {
+    "build": "tsdown && pnpm run build:css",
+    "build:css": "tailwindcss -i ./src/webview/styles.css -o ./dist/webview/styles.css -m",
+    "dev": "tsdown --watch",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "package": "vsce package --no-dependencies"
   },
-  "categories": ["Visualization", "Other"],
-  "activationEvents": [],
+  "dependencies": {
+    "oxc-parser": "^0.72.0",
+    "rolldown": "^1.0.0-rc.15",
+    "zod": "^3.21.0"
+  },
+  "devDependencies": {
+    "@copilotkit/a2ui-renderer": "workspace:*",
+    "@copilotkit/typescript-config": "workspace:*",
+    "@tailwindcss/cli": "^4.1.11",
+    "@testing-library/react": "^16.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.0.0",
+    "jsdom": "^26.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.0.8",
+    "tsdown": "^0.12.0",
+    "typescript": "~5.8.2",
+    "vitest": "^3.1.1"
+  },
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -72,32 +102,8 @@
       ]
     }
   },
-  "scripts": {
-    "build": "tsdown",
-    "dev": "tsdown --watch",
-    "check-types": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "package": "vsce package --no-dependencies"
-  },
-  "dependencies": {
-    "rolldown": "^1.0.0-rc.15",
-    "oxc-parser": "^0.72.0",
-    "zod": "^3.21.0"
-  },
-  "devDependencies": {
-    "@copilotkit/a2ui-renderer": "workspace:*",
-    "@copilotkit/typescript-config": "workspace:*",
-    "@testing-library/react": "^16.0.0",
-    "@types/vscode": "^1.85.0",
-    "jsdom": "^26.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "tsdown": "^0.12.0",
-    "typescript": "~5.8.2",
-    "vitest": "^3.1.1",
-    "@vscode/vsce": "^3.0.0"
+  "activationEvents": [],
+  "engines": {
+    "vscode": "^1.85.0"
   }
 }
