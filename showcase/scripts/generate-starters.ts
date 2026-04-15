@@ -590,6 +590,20 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     copyDirSync(agentSrc, agentDest);
   }
 
+  // For spring-ai: the source copies src/main/{java,resources} flattened into
+  // agent/{java,resources}, but Maven requires the standard src/main/ layout.
+  // Restructure: agent/java/ → agent/src/main/java/, agent/resources/ → agent/src/main/resources/
+  if (fw.slug === "spring-ai") {
+    const srcMainDir = path.join(agentDest, "src", "main");
+    fs.mkdirSync(srcMainDir, { recursive: true });
+    for (const sub of ["java", "resources"]) {
+      const flat = path.join(agentDest, sub);
+      if (fs.existsSync(flat)) {
+        fs.renameSync(flat, path.join(srcMainDir, sub));
+      }
+    }
+  }
+
   // For Python: make self-contained by copying shared tools + rewriting imports
   if (fw.language === "python") {
     copySharedPythonTools(agentDest);
@@ -783,10 +797,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     if (fs.existsSync(mvnDir)) {
       copyDirSync(mvnDir, path.join(agentDest, ".mvn"));
     }
-    const propsSrc = path.join(pkgDir, "src", "main", "resources");
-    if (fs.existsSync(propsSrc)) {
-      copyDirSync(propsSrc, path.join(agentDest, "resources"));
-    }
+    // resources/ already placed at agent/src/main/resources/ by the restructure step above
   }
 }
 
