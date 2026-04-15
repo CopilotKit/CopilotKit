@@ -86,11 +86,11 @@ This works the same way on both the server and client.
 
 | Input | `events` | `lifecycle` | `verbose` |
 |-------|----------|-------------|-----------|
-| `debug: true` | `true` | `true` | `true` |
+| `debug: true` | `true` | `true` | `false` |
 | `debug: {}` | `true` | `true` | `false` |
 | `debug: { events: false }` | `false` | `true` | `false` |
 
-When `debug` is a boolean (`true`), verbose mode is on by default so you get full event payloads. When using the object form, verbose defaults to off so you get concise summaries.
+When `debug` is a boolean (`true`), events and lifecycle logging are enabled but verbose mode is **off** by default (to avoid leaking PII in logs). To get full event payloads, explicitly opt in with `debug: { verbose: true }`.
 
 ### Examples
 
