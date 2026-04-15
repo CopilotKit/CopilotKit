@@ -9,9 +9,14 @@ import {
   getFixtureNames,
 } from "./sidebar/component-scanner";
 import { parseFixtureJson, validateFixture } from "./fixture-validator";
+import { ComponentRegistry } from "./component-registry";
 
 export function activate(context: vscode.ExtensionContext): void {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+  // Component registry — scans catalog files and extracts valid component names.
+  // Used by the fixture validator to check component types.
+  const registry = new ComponentRegistry();
 
   // Diagnostics collection for fixture validation
   const diagnosticCollection =
@@ -23,7 +28,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.onDidChangeTextDocument((event) => {
       const fsPath = event.document.uri.fsPath;
       if (!fsPath.includes(".fixture.")) return;
-      validateFixtureDocument(event.document, diagnosticCollection);
+      validateFixtureDocument(event.document, diagnosticCollection, registry);
     }),
   );
 
@@ -31,14 +36,14 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.workspace.onDidOpenTextDocument((doc) => {
       if (!doc.uri.fsPath.includes(".fixture.")) return;
-      validateFixtureDocument(doc, diagnosticCollection);
+      validateFixtureDocument(doc, diagnosticCollection, registry);
     }),
   );
 
   // Validate any already-open fixture files
   for (const doc of vscode.workspace.textDocuments) {
     if (doc.uri.fsPath.includes(".fixture.")) {
-      validateFixtureDocument(doc, diagnosticCollection);
+      validateFixtureDocument(doc, diagnosticCollection, registry);
     }
   }
 
@@ -59,10 +64,26 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   context.subscriptions.push(treeView);
 
-  // File watcher
+  // Populate the registry from discovered components
+  for (const comp of sidebarProvider.getComponents()) {
+    registry.register(comp.filePath);
+  }
+
+  // File watcher — updates sidebar, preview, and component registry on changes
   const fileWatcher = new FileWatcher((filePath) => {
     sidebarProvider.refresh();
     previewPanel.handleFileChange(filePath);
+
+    // Update registry when catalog files change
+    if (filePath.endsWith(".ts") || filePath.endsWith(".tsx")) {
+      registry.update(filePath);
+      // Re-validate all open fixture files (component names may have changed)
+      for (const doc of vscode.workspace.textDocuments) {
+        if (doc.uri.fsPath.includes(".fixture.")) {
+          validateFixtureDocument(doc, diagnosticCollection, registry);
+        }
+      }
+    }
   });
   context.subscriptions.push(fileWatcher);
 
@@ -128,6 +149,7 @@ export function deactivate(): void {}
 function validateFixtureDocument(
   doc: vscode.TextDocument,
   diagnostics: vscode.DiagnosticCollection,
+  registry: ComponentRegistry,
 ): void {
   const fsPath = doc.uri.fsPath;
   const content = doc.getText();
@@ -137,10 +159,11 @@ function validateFixtureDocument(
     if (result.valid) {
       diagnostics.delete(doc.uri);
 
+      const validComponents = registry.getValidComponents(fsPath);
       const errors: vscode.Diagnostic[] = [];
       if (result.fixtures) {
         for (const [name, fixture] of Object.entries(result.fixtures)) {
-          validateFixtureMessages(content, name, fixture.messages, errors);
+          validateFixtureMessages(content, name, fixture.messages, errors, validComponents);
         }
       }
       if (errors.length > 0) {
@@ -187,19 +210,21 @@ function validateFixtureDocument(
 
 /**
  * Deep-validates fixture messages against the A2UI v0.9 protocol.
+ * If validComponents is provided, also validates component type names.
  */
 function validateFixtureMessages(
   content: string,
   fixtureName: string,
   messages: unknown[],
   errors: vscode.Diagnostic[],
+  validComponents: Set<string> | null,
 ): void {
-  const warn = (msgIdx: number, text: string, key?: string) => {
-    const line = findKeyLine(content, fixtureName, msgIdx, key);
+  const warn = (text: string, searchValue?: string) => {
+    const { line, col, length } = findValuePosition(content, searchValue);
     errors.push(
       new vscode.Diagnostic(
-        new vscode.Range(line, 0, line, 200),
-        `"${fixtureName}" message[${msgIdx}]: ${text}`,
+        new vscode.Range(line, col, line, col + length),
+        text,
         vscode.DiagnosticSeverity.Warning,
       ),
     );
@@ -210,25 +235,23 @@ function validateFixtureMessages(
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i] as Record<string, unknown>;
 
-    // version field
     if (!msg.version) {
-      warn(i, 'missing "version" field (expected "v0.9")');
+      warn('Missing "version" field (expected "v0.9")', `"${fixtureName}"`);
       continue;
     }
     if (msg.version !== "v0.9") {
-      warn(i, `"version" is "${msg.version}" — only "v0.9" is supported`, "version");
+      warn(`"version" is "${msg.version}" — only "v0.9" is supported`, `"version": "${msg.version}"`);
     }
 
-    // Count message types present
     const types = ["createSurface", "updateComponents", "updateDataModel", "deleteSurface"] as const;
     const present = types.filter((t) => t in msg);
 
     if (present.length === 0) {
-      warn(i, "no recognized message type (expected createSurface, updateComponents, updateDataModel, or deleteSurface)");
+      warn("No recognized message type (expected createSurface, updateComponents, updateDataModel, or deleteSurface)", `"version": "v0.9"`);
       continue;
     }
     if (present.length > 1) {
-      warn(i, `multiple message types in one message (${present.join(", ")}) — each message should have exactly one`);
+      warn(`Multiple message types (${present.join(", ")}) — each message should have exactly one`, `"${present[1]}"`);
     }
 
     // --- createSurface ---
@@ -236,56 +259,60 @@ function validateFixtureMessages(
       hasCreateSurface = true;
       const cs = msg.createSurface as Record<string, unknown> | null;
       if (!cs || typeof cs !== "object") {
-        warn(i, '"createSurface" must be an object', "createSurface");
+        warn('"createSurface" must be an object', '"createSurface"');
         continue;
       }
       if (typeof cs.surfaceId !== "string" || !cs.surfaceId) {
-        warn(i, '"createSurface.surfaceId" is required and must be a non-empty string', "surfaceId");
+        warn('"createSurface.surfaceId" is required (non-empty string)', '"createSurface"');
       }
       if (typeof cs.catalogId !== "string" || !cs.catalogId) {
-        warn(i, '"createSurface.catalogId" is required and must be a non-empty string', "catalogId");
+        warn('"createSurface.catalogId" is required (non-empty string)', '"createSurface"');
       }
     }
 
     // --- updateComponents ---
     if ("updateComponents" in msg) {
       if (!hasCreateSurface) {
-        warn(i, '"updateComponents" sent before "createSurface" — surface must be created first');
+        warn('"updateComponents" before "createSurface" — surface must be created first', '"updateComponents"');
       }
       const uc = msg.updateComponents as Record<string, unknown> | null;
       if (!uc || typeof uc !== "object") {
-        warn(i, '"updateComponents" must be an object', "updateComponents");
+        warn('"updateComponents" must be an object', '"updateComponents"');
         continue;
       }
       if (typeof uc.surfaceId !== "string" || !uc.surfaceId) {
-        warn(i, '"updateComponents.surfaceId" is required and must be a non-empty string', "surfaceId");
+        warn('"updateComponents.surfaceId" is required (non-empty string)', '"updateComponents"');
       }
       if (!Array.isArray(uc.components)) {
-        warn(i, '"updateComponents.components" is required and must be an array', "components");
+        warn('"updateComponents.components" must be an array', '"updateComponents"');
       } else {
-        // Validate each component
         const seenIds = new Set<string>();
-        for (let c = 0; c < uc.components.length; c++) {
-          const comp = uc.components[c] as Record<string, unknown>;
-          if (!comp || typeof comp !== "object") {
-            warn(i, `components[${c}] must be an object`, "components");
-            continue;
-          }
-          if (typeof comp.id !== "string" || !comp.id) {
-            warn(i, `components[${c}] missing required "id" field`, "components");
+        for (const comp of uc.components) {
+          const c = comp as Record<string, unknown>;
+          if (!c || typeof c !== "object") continue;
+
+          const compId = typeof c.id === "string" ? c.id : null;
+          const compType = typeof c.component === "string" ? c.component : null;
+
+          if (!compId) {
+            warn('Component missing required "id" field', '"component"');
+          } else if (seenIds.has(compId)) {
+            warn(`Duplicate component id "${compId}"`, `"id": "${compId}"`);
           } else {
-            if (seenIds.has(comp.id)) {
-              warn(i, `components[${c}] duplicate id "${comp.id}" — each component must have a unique id`, "components");
-            }
-            seenIds.add(comp.id);
+            seenIds.add(compId);
           }
-          if (typeof comp.component !== "string" || !comp.component) {
-            warn(i, `components[${c}] (id: "${comp.id ?? "?"}") missing required "component" field — must specify the component type`, "components");
+
+          if (!compType) {
+            warn(`Component "${compId ?? "?"}" missing "component" field`, compId ? `"id": "${compId}"` : '"components"');
+          } else if (validComponents && !validComponents.has(compType)) {
+            warn(
+              `Unknown component "${compType}" — not found in catalog. Available: ${[...validComponents].sort().join(", ")}`,
+              `"component": "${compType}"`,
+            );
           }
         }
-        // Check that a "root" component exists
         if (!seenIds.has("root")) {
-          warn(i, 'no component with id "root" — the surface renderer starts from the "root" component', "components");
+          warn('No component with id "root" — the renderer starts from "root"', '"components"');
         }
       }
     }
@@ -293,15 +320,15 @@ function validateFixtureMessages(
     // --- updateDataModel ---
     if ("updateDataModel" in msg) {
       if (!hasCreateSurface) {
-        warn(i, '"updateDataModel" sent before "createSurface" — surface must be created first');
+        warn('"updateDataModel" before "createSurface"', '"updateDataModel"');
       }
       const ud = msg.updateDataModel as Record<string, unknown> | null;
       if (!ud || typeof ud !== "object") {
-        warn(i, '"updateDataModel" must be an object', "updateDataModel");
+        warn('"updateDataModel" must be an object', '"updateDataModel"');
         continue;
       }
       if (typeof ud.surfaceId !== "string" || !ud.surfaceId) {
-        warn(i, '"updateDataModel.surfaceId" is required', "surfaceId");
+        warn('"updateDataModel.surfaceId" is required', '"updateDataModel"');
       }
     }
 
@@ -309,82 +336,40 @@ function validateFixtureMessages(
     if ("deleteSurface" in msg) {
       const ds = msg.deleteSurface as Record<string, unknown> | null;
       if (!ds || typeof ds !== "object") {
-        warn(i, '"deleteSurface" must be an object', "deleteSurface");
+        warn('"deleteSurface" must be an object', '"deleteSurface"');
         continue;
       }
       if (typeof ds.surfaceId !== "string" || !ds.surfaceId) {
-        warn(i, '"deleteSurface.surfaceId" is required', "surfaceId");
+        warn('"deleteSurface.surfaceId" is required', '"deleteSurface"');
       }
     }
   }
 
-  // Cross-message checks
   if (messages.length > 0 && !hasCreateSurface) {
-    const line = findKeyLine(content, fixtureName, 0);
-    errors.push(
-      new vscode.Diagnostic(
-        new vscode.Range(line, 0, line, 200),
-        `"${fixtureName}": no "createSurface" message found — the first message should create the surface`,
-        vscode.DiagnosticSeverity.Warning,
-      ),
-    );
+    warn(`"${fixtureName}": no "createSurface" message — the first message should create the surface`, `"${fixtureName}"`);
   }
 }
 
 /**
- * Best-effort line finder for a key within a fixture's message in JSON.
+ * Finds the exact line, column, and length of a string value in content.
+ * Returns the position for diagnostic highlighting.
  */
-function findKeyLine(
+function findValuePosition(
   content: string,
-  fixtureName: string,
-  messageIndex: number,
-  key?: string,
-): number {
-  const lines = content.split("\n");
-  let inFixture = false;
-  let braceDepth = 0;
-  let messagesSeen = -1;
-  let messageStartLine = 0;
+  searchValue?: string,
+): { line: number; col: number; length: number } {
+  if (!searchValue) return { line: 0, col: 0, length: 1 };
 
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
+  const idx = content.indexOf(searchValue);
+  if (idx === -1) return { line: 0, col: 0, length: 1 };
 
-    if (!inFixture && lines[i].includes(`"${fixtureName}"`)) {
-      inFixture = true;
-      continue;
-    }
-    if (!inFixture) continue;
+  // Count lines up to the match
+  const before = content.slice(0, idx);
+  const line = before.split("\n").length - 1;
+  const lastNewline = before.lastIndexOf("\n");
+  const col = idx - lastNewline - 1;
 
-    // Track message boundaries within the "messages" array
-    if (trimmed.includes('"messages"')) {
-      messagesSeen = -1;
-    }
-
-    // Count opening braces as potential message starts
-    if (trimmed === "{" || trimmed.startsWith('{"') || trimmed.startsWith("{ ")) {
-      braceDepth++;
-      if (braceDepth === 3) {
-        // depth 1=fixture, 2=messages array content, 3=individual message
-        messagesSeen++;
-        messageStartLine = i;
-      }
-    }
-    if (trimmed.includes("}")) {
-      braceDepth = Math.max(0, braceDepth - (trimmed.split("}").length - 1));
-    }
-
-    if (messagesSeen === messageIndex) {
-      if (key && lines[i].includes(`"${key}"`)) {
-        return i;
-      }
-      if (!key) return messageStartLine;
-    }
-
-    // Stop if we've left this fixture
-    if (inFixture && braceDepth === 0 && messagesSeen >= 0) break;
-  }
-
-  return messageStartLine || 0;
+  return { line, col, length: searchValue.length };
 }
 
 function buildComponent(filePath: string): DiscoveredComponent {
