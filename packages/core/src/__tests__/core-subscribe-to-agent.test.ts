@@ -736,14 +736,12 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
     agent.messages = [userMsg("1", "a"), userMsg("2", "b")];
     notifyMessagesChanged(agent);
 
-    // Trailing edge fires — callback triggers re-entrant notification
-    vi.advanceTimersByTime(100);
-    expect(onMessages).toHaveBeenCalledTimes(2);
-    expect(onMessages.mock.calls[1][0].messages).toHaveLength(2);
-
-    // The re-entrant notification should flush on the next trailing edge
+    // Trailing edge fires — callback triggers re-entrant notification which
+    // fires immediately as a new leading edge (Pacer considers the previous
+    // window expired after the trailing fires).
     vi.advanceTimersByTime(100);
     expect(onMessages).toHaveBeenCalledTimes(3);
+    expect(onMessages.mock.calls[1][0].messages).toHaveLength(2);
     expect(onMessages.mock.calls[2][0].messages).toHaveLength(3);
   });
 
