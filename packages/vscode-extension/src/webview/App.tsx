@@ -40,7 +40,7 @@ export function App(): React.ReactElement {
     ) => {
       try {
         // Clean up previous catalog global
-        delete (window as any).__copilotkit_catalog;
+        (window as any).__copilotkit_catalog = undefined;
 
         // Load the IIFE-bundled catalog via a <script> tag.
         // The IIFE assigns to window.__copilotkit_catalog.
@@ -65,7 +65,7 @@ export function App(): React.ReactElement {
         });
 
         const catalogExport = (window as any).__copilotkit_catalog;
-        delete (window as any).__copilotkit_catalog;
+        (window as any).__copilotkit_catalog = undefined;
 
         const newCatalog =
           catalogExport?.default ?? catalogExport?.catalog ?? catalogExport;
