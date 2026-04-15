@@ -263,8 +263,24 @@ describe("generate-starters", () => {
       expect(fs.existsSync(path.join(agentDir, "pom.xml"))).toBe(true);
     });
 
-    it("has resources/", () => {
-      expect(fs.existsSync(path.join(agentDir, "resources"))).toBe(true);
+    it("has Maven standard src/main/java/ layout", () => {
+      expect(fs.existsSync(path.join(agentDir, "src", "main", "java"))).toBe(
+        true,
+      );
+    });
+
+    it("has Maven standard src/main/resources/ layout", () => {
+      expect(
+        fs.existsSync(path.join(agentDir, "src", "main", "resources")),
+      ).toBe(true);
+    });
+
+    it("does NOT have flattened java/ at agent root", () => {
+      expect(fs.existsSync(path.join(agentDir, "java"))).toBe(false);
+    });
+
+    it("does NOT have flattened resources/ at agent root", () => {
+      expect(fs.existsSync(path.join(agentDir, "resources"))).toBe(false);
     });
   });
 
