@@ -373,7 +373,9 @@ const STARTER_SLUG = process.env.STARTER_SLUG;
 
 const STARTERS: Starter[] = registry.integrations
   .filter(
-    (i): i is RegistryIntegration & {
+    (
+      i,
+    ): i is RegistryIntegration & {
       starter: NonNullable<RegistryIntegration["starter"]>;
     } =>
       Boolean(i.starter?.demo_url) &&
@@ -420,12 +422,7 @@ test.describe("Deployed Starters", () => {
 
       // L3: Round-trip chat
       test.slow(); // Allow extra time for cold starts
-      const chat = await sendChatMessage(
-        page,
-        starter.demoUrl,
-        "Hello",
-        "/",
-      );
+      const chat = await sendChatMessage(page, starter.demoUrl, "Hello", "/");
       expect(
         chat.gotResponse,
         `${starter.slug} starter did not produce an assistant response.`,
