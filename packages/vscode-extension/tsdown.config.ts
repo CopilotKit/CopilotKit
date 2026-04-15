@@ -43,16 +43,16 @@ export default defineConfig([
     sourcemap: true,
     plugins: [nodeResolveFallback()],
   },
-  // Webview app — browser, IIFE (loaded via <script> tag)
+  // Webview app — browser, ESM (loaded via <script type="module">)
+  // ESM format is required because @copilotkit/a2ui-renderer has circular
+  // dependencies that break in IIFE/CJS format. ESM handles them via live bindings.
   {
     entry: ["src/webview/index.tsx"],
-    format: ["iife"],
+    format: ["esm"],
     platform: "browser",
     outDir: "dist/webview",
     sourcemap: true,
     external: [],
-    // Force-bundle everything — tsdown auto-externalizes node_modules by default,
-    // but we need all deps (zod, a2ui-renderer, etc.) inlined for the webview.
     noExternal: [/.*/],
     plugins: [nodeResolveFallback()],
   },

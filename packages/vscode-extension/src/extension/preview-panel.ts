@@ -209,7 +209,7 @@ export class PreviewPanel {
 
   private getWebviewHtml(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, "dist", "webview", "index.iife.js"),
+      vscode.Uri.joinPath(this.extensionUri, "dist", "webview", "index.js"),
     );
 
     const nonce = getNonce();
@@ -233,7 +233,7 @@ export class PreviewPanel {
 </head>
 <body>
   <div id="root"></div>
-  <script nonce="${nonce}" src="${scriptUri}"></script>
+  <script type="module" nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
   }
