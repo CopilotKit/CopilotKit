@@ -337,6 +337,46 @@ Before you begin, you'll need the following:
 
 </Steps>
 
+## Session persistence
+
+Agno can persist conversation history, session state, and run metadata when you configure a database and reuse the same `session_id`.
+
+```python title="main.py"
+from agno.agent import Agent
+from agno.db.postgres import PostgresDb
+from agno.models.openai import OpenAIChat
+
+db = PostgresDb(db_url="postgresql+psycopg://...")
+
+agent = Agent(
+    model=OpenAIChat(id="gpt-5.4"),
+    db=db,
+    session_id="customer-support-session",
+)
+```
+
+On the CopilotKit side, use a stable `threadId` so the frontend keeps reconnecting to the same conversation:
+
+```tsx title="app/layout.tsx"
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  agent="my_agent"
+  threadId="customer-support-session"
+>
+  {children}
+</CopilotKit>
+```
+
+<Callout type="info" title="Important">
+  Agno persistence and CopilotKit message hydration are related, but they are not the same thing.
+</Callout>
+
+- Agno persistence keeps the backend session alive when you reuse the same `session_id`.
+- CopilotKit's `threadId` keeps the frontend attached to the same thread.
+- If you want previously saved Agno messages to appear immediately in the UI after a page reload, you still need to hydrate that history from your own storage layer when reconnecting.
+
+For the Agno-side setup, see the official [Agno session persistence guide](https://docs.agno.com/basics/sessions/persisting-sessions/overview).
+
 ## What's next?
 
 Now that you have your basic agent setup, explore these advanced features:
