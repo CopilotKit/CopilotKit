@@ -41,7 +41,7 @@ export interface UseAgentProps {
    * provider specifies a non-zero `defaultThrottleMs`.
    *
    * Run lifecycle callbacks (`onRunInitialized`, `onRunFinalized`,
-   * `onRunFailed`) always fire immediately.
+   * `onRunFailed`, `onRunErrorEvent`) always fire immediately.
    *
    * @default undefined
    * When unset, inherits from the provider's `defaultThrottleMs`;
@@ -301,6 +301,9 @@ export function useAgent({
       handlers.onRunInitialized = batchedForceUpdate;
       handlers.onRunFinalized = batchedForceUpdate;
       handlers.onRunFailed = batchedForceUpdate;
+      // Protocol-level RUN_ERROR event (distinct from onRunFailed which
+      // handles local exceptions like network errors).
+      handlers.onRunErrorEvent = batchedForceUpdate;
     }
 
     const subscription = copilotkit.subscribeToAgentWithOptions(

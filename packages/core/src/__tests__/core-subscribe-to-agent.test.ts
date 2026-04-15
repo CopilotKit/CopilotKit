@@ -60,7 +60,11 @@ function notifyStateChanged(agent: TestAgent) {
 
 function notifyLifecycle(
   agent: TestAgent,
-  event: "onRunInitialized" | "onRunFinalized" | "onRunFailed",
+  event:
+    | "onRunInitialized"
+    | "onRunFinalized"
+    | "onRunFailed"
+    | "onRunErrorEvent",
 ) {
   const base: AgentSubscriberParams = {
     messages: agent.messages,
@@ -71,6 +75,12 @@ function notifyLifecycle(
   if (event === "onRunFailed") {
     const params = { ...base, error: new Error("run failed") };
     agent.subscribers.forEach((s) => s.onRunFailed?.(params));
+  } else if (event === "onRunErrorEvent") {
+    const params = {
+      ...base,
+      event: { type: "RUN_ERROR", message: "backend error" } as any,
+    };
+    agent.subscribers.forEach((s) => s.onRunErrorEvent?.(params));
   } else {
     agent.subscribers.forEach((s) => s[event]?.(base));
   }
@@ -395,6 +405,25 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
 
     notifyLifecycle(agent, "onRunFailed");
     expect(onRunFailed).toHaveBeenCalledTimes(1);
+  });
+
+  it("onRunErrorEvent fires immediately during throttle window", () => {
+    const onMessages = vi.fn();
+    const onRunErrorEvent = vi.fn();
+
+    core.subscribeToAgentWithOptions(
+      agent,
+      { onMessagesChanged: onMessages, onRunErrorEvent },
+      { throttleMs: 100 },
+    );
+
+    // Start throttle window
+    agent.messages = [userMsg("1", "a")];
+    notifyMessagesChanged(agent);
+
+    // Protocol-level RUN_ERROR — should fire immediately (not throttled)
+    notifyLifecycle(agent, "onRunErrorEvent");
+    expect(onRunErrorEvent).toHaveBeenCalledTimes(1);
   });
 
   // -------------------------------------------------------------------------

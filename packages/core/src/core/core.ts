@@ -203,10 +203,11 @@ const ALLOWED_KEYS: ReadonlySet<(typeof SUBSCRIBE_TO_AGENT_KEYS)[number]> =
 
 /**
  * The subset of `AgentSubscriber` callbacks accepted by
- * {@link CopilotKitCore.subscribeToAgentWithOptions}. Only the five callbacks listed
- * in {@link SUBSCRIBE_TO_AGENT_KEYS} are supported: `onMessagesChanged`,
- * `onStateChanged`, and the three run lifecycle callbacks
- * (`onRunInitialized`, `onRunFinalized`, `onRunFailed`).
+ * {@link CopilotKitCore.subscribeToAgentWithOptions}. Only the callbacks
+ * listed in {@link SUBSCRIBE_TO_AGENT_KEYS} are supported:
+ * `onMessagesChanged`, `onStateChanged`, and the four run lifecycle
+ * callbacks (`onRunInitialized`, `onRunFinalized`, `onRunFailed`,
+ * `onRunErrorEvent`).
  *
  * Two categories of `AgentSubscriber` members are excluded:
  *
@@ -220,9 +221,18 @@ const ALLOWED_KEYS: ReadonlySet<(typeof SUBSCRIBE_TO_AGENT_KEYS)[number]> =
  *   same data at a coarser granularity, and throttling per-item callbacks
  *   would have different semantic expectations.
  *
- * Note: the included lifecycle callbacks also return
- * `Omit<AgentStateMutation, "stopPropagation">`. On the error path,
- * `safeCall` discards those return values (see its inline documentation).
+ * `onRunErrorEvent` is technically an AG-UI event handler (its return type
+ * includes `stopPropagation`), but it is included here because all
+ * framework consumers need it to reset `isRunning` on protocol-level
+ * `RUN_ERROR` events — distinct from `onRunFailed` which handles local
+ * exceptions like network errors. In practice, consumers return `void`
+ * from this callback, so the `stopPropagation` semantics are unused.
+ *
+ * Note: the included lifecycle callbacks return
+ * `Omit<AgentStateMutation, "stopPropagation">` (or full
+ * `AgentStateMutation` in the case of `onRunErrorEvent`). On the error
+ * path, `safeCall` discards those return values (see its inline
+ * documentation).
  *
  * Use `agent.subscribe()` directly when event mutation or per-item
  * notification semantics are needed.
