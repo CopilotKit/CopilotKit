@@ -1,9 +1,53 @@
+import * as path from "node:path";
 import { build } from "rolldown";
+import { createRequire } from "node:module";
 
 export interface BundleResult {
   success: boolean;
   code?: string;
   error?: string;
+}
+
+// Create a require function scoped to this extension's directory.
+// This lets the fallback resolver find packages (like zod) installed
+// in the extension's own node_modules, even when the user's project
+// doesn't have them directly accessible (e.g., pnpm strict mode).
+const extensionRequire = createRequire(__filename);
+
+/**
+ * Rolldown plugin that resolves bare specifiers using Node's module
+ * resolution as a fallback. Tries the importer's directory first
+ * (the user's project), then the extension's own node_modules.
+ */
+function nodeResolveFallback() {
+  return {
+    name: "node-resolve-fallback",
+    enforce: "pre" as const,
+    resolveId(source: string, importer: string | undefined) {
+      // Skip relative/absolute imports — Rolldown handles these fine
+      if (source.startsWith(".") || path.isAbsolute(source)) return null;
+
+      // Try resolving from the importer's directory (user's project)
+      if (importer) {
+        try {
+          const importerDir = path.dirname(importer);
+          const importerRequire = createRequire(
+            path.join(importerDir, "package.json"),
+          );
+          return { id: importerRequire.resolve(source), external: false };
+        } catch {
+          // Fall through to extension fallback
+        }
+      }
+
+      // Fallback: resolve from the extension's own node_modules
+      try {
+        return { id: extensionRequire.resolve(source), external: false };
+      } catch {
+        return null;
+      }
+    },
+  };
 }
 
 /**
@@ -42,6 +86,7 @@ export async function bundleCatalog(entryPath: string): Promise<BundleResult> {
         "react/jsx-dev-runtime",
         /^@copilotkit\//,
       ],
+      plugins: [nodeResolveFallback()],
       logLevel: "silent",
     });
 
