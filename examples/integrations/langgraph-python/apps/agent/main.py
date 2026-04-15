@@ -15,7 +15,7 @@ from src.a2ui_dynamic_schema import generate_a2ui
 from src.a2ui_fixed_schema import search_flights
 
 agent = create_agent(
-    model="openai:gpt-4.1",
+    model="openai:gpt-5.4",
     tools=[query_data, *todo_tools, generate_a2ui, search_flights],
     middleware=[CopilotKitMiddleware()],
     state_schema=AgentState,

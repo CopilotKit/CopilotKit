@@ -9,6 +9,5 @@ packages:
   - "examples/showcases/generative-ui-playground"
   - "!examples/v1/_legacy"
   - "showcase/scripts"
-  - "showcase/shared/frontend"
 onlyBuiltDependencies:
   - better-sqlite3

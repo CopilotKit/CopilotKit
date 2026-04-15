@@ -14,6 +14,7 @@ import {
   type AudioInputPart,
   type VideoInputPart,
   type DocumentInputPart,
+  copyToClipboard,
 } from "@copilotkit/shared";
 import { CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer";
 
@@ -116,12 +117,9 @@ export function CopilotChatUserMessage({
   const BoundCopyButton = renderSlot(copyButton, CopilotChatUserMessage.CopyButton, {
     onClick: async () => {
       if (flattenedContent) {
-        try {
-          await navigator.clipboard.writeText(flattenedContent);
-        } catch (err) {
-          console.error("Failed to copy message:", err);
-        }
+        return await copyToClipboard(flattenedContent);
       }
+      return false;
     },
   });
 
@@ -269,12 +267,17 @@ export namespace CopilotChatUserMessage {
     const labels = config?.labels ?? CopilotChatDefaultLabels;
     const [copied, setCopied] = useState(false);
 
-    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-
+    const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
+      let success = false;
       if (onClick) {
-        onClick(event);
+        // onClick may return a boolean indicating copy success
+        const result = await Promise.resolve(onClick(event));
+        success = result === true;
+      }
+
+      if (success) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
       }
     };
 

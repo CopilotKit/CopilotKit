@@ -526,7 +526,7 @@ describe("CopilotChatAssistantMessage", () => {
       fireEvent.click(copyButton);
 
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith("Failed to copy message:", expect.any(Error));
+        expect(consoleSpy).toHaveBeenCalledWith("Failed to copy to clipboard:", expect.any(Error));
       });
 
       consoleSpy.mockRestore();

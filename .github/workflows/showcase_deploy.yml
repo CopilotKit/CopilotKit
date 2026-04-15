@@ -5,7 +5,6 @@ on:
     branches: [main]
     paths:
       - "showcase/**"
-      - "examples/integrations/**"
   workflow_dispatch:
     inputs:
       service:
@@ -33,17 +32,29 @@ on:
           - claude-sdk-typescript
           - ms-agent-dotnet
           - claude-sdk-python
-          - starter-langgraph-python
-          - starter-mastra
+          - starter-ag2
+          - starter-agno
+          - starter-claude-sdk-python
+          - starter-claude-sdk-typescript
           - starter-crewai-crews
           - starter-google-adk
+          - starter-langgraph-fastapi
+          - starter-langgraph-python
+          - starter-langgraph-typescript
+          - starter-langroid
+          - starter-llamaindex
+          - starter-mastra
+          - starter-ms-agent-dotnet
+          - starter-ms-agent-python
+          - starter-pydantic-ai
+          - starter-spring-ai
+          - starter-strands
           - aimock
           - shell-dojolike
-          - test-integration-tmp
 
 concurrency:
-  group: showcase-deploy-${{ github.ref }}
-  cancel-in-progress: true
+  group: showcase-deploy-${{ github.ref }}-${{ github.event.inputs.service || 'auto' }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 env:
   RAILWAY_ENV_ID: "b14919f4-6417-429f-848d-c6ae2201e04f"
@@ -54,7 +65,6 @@ jobs:
     outputs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
       has_changes: ${{ steps.build-matrix.outputs.has_changes }}
-      test_integration_tmp: ${{ steps.changes.outputs.test_integration_tmp }}
     steps:
       - uses: actions/checkout@v4
 
@@ -68,8 +78,6 @@ jobs:
               - 'showcase/shared/**'
               - 'showcase/scripts/**'
               - 'showcase/packages/*/manifest.yaml'
-            test_integration_tmp:
-              - 'showcase/packages/test-integration-tmp/**'
             langgraph: 'showcase/packages/langgraph-python/**'
             mastra: 'showcase/packages/mastra/**'
             crewai_crews: 'showcase/packages/crewai-crews/**'
@@ -87,10 +95,23 @@ jobs:
             claude_sdk_typescript: 'showcase/packages/claude-sdk-typescript/**'
             ms_agent_dotnet: 'showcase/packages/ms-agent-dotnet/**'
             claude_sdk_python: 'showcase/packages/claude-sdk-python/**'
-            starter_langgraph_python: 'examples/integrations/langgraph-python/**'
-            starter_mastra: 'examples/integrations/mastra/**'
-            starter_crewai_crews: 'examples/integrations/crewai-crews/**'
-            starter_google_adk: 'examples/integrations/adk/**'
+            starter_ag2: 'showcase/starters/ag2/**'
+            starter_agno: 'showcase/starters/agno/**'
+            starter_claude_sdk_python: 'showcase/starters/claude-sdk-python/**'
+            starter_claude_sdk_typescript: 'showcase/starters/claude-sdk-typescript/**'
+            starter_crewai_crews: 'showcase/starters/crewai-crews/**'
+            starter_google_adk: 'showcase/starters/google-adk/**'
+            starter_langgraph_fastapi: 'showcase/starters/langgraph-fastapi/**'
+            starter_langgraph_python: 'showcase/starters/langgraph-python/**'
+            starter_langgraph_typescript: 'showcase/starters/langgraph-typescript/**'
+            starter_langroid: 'showcase/starters/langroid/**'
+            starter_llamaindex: 'showcase/starters/llamaindex/**'
+            starter_mastra: 'showcase/starters/mastra/**'
+            starter_ms_agent_dotnet: 'showcase/starters/ms-agent-dotnet/**'
+            starter_ms_agent_python: 'showcase/starters/ms-agent-python/**'
+            starter_pydantic_ai: 'showcase/starters/pydantic-ai/**'
+            starter_spring_ai: 'showcase/starters/spring-ai/**'
+            starter_strands: 'showcase/starters/strands/**'
             aimock: 'showcase/aimock/**'
             shell_dojolike: 'showcase/shell-dojolike/**'
 
@@ -98,7 +119,7 @@ jobs:
         id: build-matrix
         run: |
           # Full service config as JSON
-          # Fields: dispatch_name, filter_key, context, image, cache_scope, railway_id, timeout, lfs, build_args, dockerfile
+          # Fields: dispatch_name, filter_key, context, image, cache_scope, railway_id, timeout, lfs, build_args, build_args_sha, build_args_branch, dockerfile
           ALL_SERVICES='[
             {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","cache_scope":"shell","railway_id":"40eea0da-6071-4ea8-bdb9-39afb19225ec","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","dockerfile":"showcase/shell/Dockerfile"},
             {"dispatch_name":"langgraph-python","filter_key":"langgraph","context":"showcase/packages/langgraph-python","image":"showcase-langgraph-python","cache_scope":"langgraph","railway_id":"90d03214-4569-41b0-b4c1-6438a8a7b203","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
@@ -118,10 +139,23 @@ jobs:
             {"dispatch_name":"claude-sdk-typescript","filter_key":"claude_sdk_typescript","context":"showcase/packages/claude-sdk-typescript","image":"showcase-claude-sdk-typescript","cache_scope":"claude_sdk_typescript","railway_id":"18a98727-5700-44aa-b497-b60795dbbd6a","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"ms-agent-dotnet","filter_key":"ms_agent_dotnet","context":"showcase/packages/ms-agent-dotnet","image":"showcase-ms-agent-dotnet","cache_scope":"ms_agent_dotnet","railway_id":"beeb2dd6-87a4-4599-aa07-0578f7bd6519","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/packages/claude-sdk-python","image":"showcase-claude-sdk-python","cache_scope":"claude_sdk_python","railway_id":"b122ab65-9854-4cb2-a68e-b50ff13f7481","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-langgraph-python","filter_key":"starter_langgraph_python","context":"examples/integrations/langgraph-python","image":"showcase-starter-langgraph-python","cache_scope":"starter_langgraph_python","railway_id":"","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-mastra","filter_key":"starter_mastra","context":"examples/integrations/mastra","image":"showcase-starter-mastra","cache_scope":"starter_mastra","railway_id":"","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-crewai-crews","filter_key":"starter_crewai_crews","context":"examples/integrations/crewai-crews","image":"showcase-starter-crewai-crews","cache_scope":"starter_crewai_crews","railway_id":"","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-google-adk","filter_key":"starter_google_adk","context":"examples/integrations/adk","image":"showcase-starter-google-adk","cache_scope":"starter_google_adk","railway_id":"","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-ag2","filter_key":"starter_ag2","context":"showcase/starters/ag2","image":"showcase-starter-ag2","cache_scope":"starter_ag2","railway_id":"0d7ce4ea-0ebe-4ba6-a408-503f7425c175","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-agno","filter_key":"starter_agno","context":"showcase/starters/agno","image":"showcase-starter-agno","cache_scope":"starter_agno","railway_id":"baf9f0db-1f62-462e-a603-2e1448652473","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-claude-sdk-python","filter_key":"starter_claude_sdk_python","context":"showcase/starters/claude-sdk-python","image":"showcase-starter-claude-sdk-python","cache_scope":"starter_claude_sdk_python","railway_id":"912b480d-ee38-4d8d-ab32-237bee146fed","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-claude-sdk-typescript","filter_key":"starter_claude_sdk_typescript","context":"showcase/starters/claude-sdk-typescript","image":"showcase-starter-claude-sdk-typescript","cache_scope":"starter_claude_sdk_typescript","railway_id":"fa61aabc-aba7-4611-8269-25f5454901ad","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-crewai-crews","filter_key":"starter_crewai_crews","context":"showcase/starters/crewai-crews","image":"showcase-starter-crewai-crews","cache_scope":"starter_crewai_crews","railway_id":"6c8f5514-2295-4d7c-8c95-2687b9e77558","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-google-adk","filter_key":"starter_google_adk","context":"showcase/starters/google-adk","image":"showcase-starter-google-adk","cache_scope":"starter_google_adk","railway_id":"0ae6bb33-b653-41d3-93b4-53482f4e2c31","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-langgraph-fastapi","filter_key":"starter_langgraph_fastapi","context":"showcase/starters/langgraph-fastapi","image":"showcase-starter-langgraph-fastapi","cache_scope":"starter_langgraph_fastapi","railway_id":"dc2070ba-2edb-4def-b7bf-c4c67a5b721b","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-langgraph-python","filter_key":"starter_langgraph_python","context":"showcase/starters/langgraph-python","image":"showcase-starter-langgraph-python","cache_scope":"starter_langgraph_python","railway_id":"58eaea00-00f9-4b66-bd1b-484b2679221b","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-langgraph-typescript","filter_key":"starter_langgraph_typescript","context":"showcase/starters/langgraph-typescript","image":"showcase-starter-langgraph-typescript","cache_scope":"starter_langgraph_typescript","railway_id":"56b73322-1553-402c-9fca-5c710e9d9eb6","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-langroid","filter_key":"starter_langroid","context":"showcase/starters/langroid","image":"showcase-starter-langroid","cache_scope":"starter_langroid","railway_id":"d2da2be5-db1f-48bd-93f9-7fe770d6a863","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-llamaindex","filter_key":"starter_llamaindex","context":"showcase/starters/llamaindex","image":"showcase-starter-llamaindex","cache_scope":"starter_llamaindex","railway_id":"147341c5-12c0-4de1-985a-20af45abea17","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-mastra","filter_key":"starter_mastra","context":"showcase/starters/mastra","image":"showcase-starter-mastra","cache_scope":"starter_mastra","railway_id":"315270a7-7b0e-4a1d-b1ed-319515baf265","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-ms-agent-dotnet","filter_key":"starter_ms_agent_dotnet","context":"showcase/starters/ms-agent-dotnet","image":"showcase-starter-ms-agent-dotnet","cache_scope":"starter_ms_agent_dotnet","railway_id":"986d55f6-4e01-4658-b7c9-cd33cb4df978","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-ms-agent-python","filter_key":"starter_ms_agent_python","context":"showcase/starters/ms-agent-python","image":"showcase-starter-ms-agent-python","cache_scope":"starter_ms_agent_python","railway_id":"bd8e9def-d92f-4c87-95c5-97761c1ea482","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-pydantic-ai","filter_key":"starter_pydantic_ai","context":"showcase/starters/pydantic-ai","image":"showcase-starter-pydantic-ai","cache_scope":"starter_pydantic_ai","railway_id":"f9e01966-ce8d-4e57-a336-315e41d92654","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-spring-ai","filter_key":"starter_spring_ai","context":"showcase/starters/spring-ai","image":"showcase-starter-spring-ai","cache_scope":"starter_spring_ai","railway_id":"3559ece3-7ba3-41ac-b24c-1f780133ec58","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"starter-strands","filter_key":"starter_strands","context":"showcase/starters/strands","image":"showcase-starter-strands","cache_scope":"starter_strands","railway_id":"06db2bb8-e15d-4c6a-97ad-e14777c92d9f","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"aimock","filter_key":"aimock","context":"showcase/aimock","image":"showcase-aimock","cache_scope":"aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":5,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"shell-dojolike","filter_key":"shell_dojolike","context":"showcase/shell-dojolike","image":"showcase-shell-dojolike","cache_scope":"shell_dojolike","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","timeout":10,"lfs":false,"build_args":"","dockerfile":""}
           ]'
@@ -203,12 +237,13 @@ jobs:
       - name: Copy shared modules into build context
         run: |
           CONTEXT="${{ matrix.service.context }}"
+          # Starters are self-contained — skip shared module copies
+          if [[ "$CONTEXT" == showcase/starters/* ]]; then
+            echo "Starter build — skipping shared module copies"
+            exit 0
+          fi
           if [ -d "showcase/shared/python" ] && [ -d "$CONTEXT" ]; then
             cp -r showcase/shared/python "$CONTEXT/shared_python"
-          fi
-          if [ -d "showcase/shared/frontend/src" ] && [ -d "$CONTEXT" ]; then
-            mkdir -p "$CONTEXT/shared_frontend"
-            cp -r showcase/shared/frontend/src "$CONTEXT/shared_frontend/src"
           fi
           if [ -d "showcase/shared/typescript/tools" ] && [ -d "$CONTEXT" ]; then
             mkdir -p "$CONTEXT/shared_typescript"
@@ -239,61 +274,73 @@ jobs:
             -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"${{ matrix.service.railway_id }}\", environmentId: \"${{ env.RAILWAY_ENV_ID }}\") }"}' \
             && echo "Deploy triggered for ${{ matrix.service.dispatch_name }}"
 
+      - name: Verify deploy health
+        if: matrix.service.railway_id != ''
+        run: |
+          # Wait for Railway to pull and start the new image
+          sleep 30
+
+          # Get the service domain from Railway API or construct from naming pattern
+          IMAGE="${{ matrix.service.image }}"
+          # Try the standard domain pattern
+          HEALTH_URL="https://${IMAGE}-production.up.railway.app/api/health"
+
+          echo "Checking health: $HEALTH_URL"
+          for i in $(seq 1 6); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$HEALTH_URL" 2>/dev/null || echo "000")
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Service healthy"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Service did not return 200 after 90s (may still be starting with sleep-on-idle)"
+          # Don't fail the job — sleep-on-idle services may take longer to wake
+          # But log it clearly for visibility
+
   notify:
     needs: [detect-changes, check-lockfile, build]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Collect results and notify Slack
+      - name: Build deploy summary
+        id: summary
+        if: needs.detect-changes.result == 'success' && needs.detect-changes.outputs.has_changes == 'true'
+        run: |
+          MATRIX='${{ needs.detect-changes.outputs.matrix }}'
+          SERVICES=$(echo "$MATRIX" | jq -r '[.[].dispatch_name] | join(", ")')
+          COUNT=$(echo "$MATRIX" | jq 'length')
+          echo "services=$SERVICES" >> $GITHUB_OUTPUT
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+
+      - name: Build Slack payload
+        if: always()
+        run: |
+          URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          DETECT="${{ needs.detect-changes.result }}"
+          LOCKFILE="${{ needs.check-lockfile.result }}"
+          BUILD="${{ needs.build.result }}"
+          COUNT="${{ steps.summary.outputs.count }}"
+          SERVICES=$(echo "${{ steps.summary.outputs.services }}" | cut -c1-200)
+
+          if [ "$DETECT" = "failure" ] || [ "$LOCKFILE" = "failure" ]; then
+            MSG=":x: *Showcase deploy*: FAILED (pre-build check)"
+          elif [ "$BUILD" = "success" ]; then
+            MSG=":white_check_mark: *Showcase deploy*: ${COUNT} service(s) deployed to Railway (${SERVICES})"
+          elif [ "$BUILD" = "skipped" ] && [ "$DETECT" = "success" ]; then
+            MSG=":white_check_mark: *Showcase deploy*: no changes detected, nothing to deploy"
+          else
+            MSG=":x: *Showcase deploy*: FAILED — ${COUNT} service(s) targeted (${SERVICES})"
+          fi
+
+          jq -n --arg text "$MSG | <$URL|View run>" '{text: $text}' > /tmp/slack-payload.json
+
+      - name: Post to Slack
+        if: always()
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
-          payload: |
-            {
-              "text": "${{ (needs.detect-changes.result == 'failure' || needs.check-lockfile.result == 'failure') && format(':x: *Showcase deploy*: FAILED (pre-build check)') || needs.build.result == 'success' && ':white_check_mark: *Showcase deploy*: all services deployed to Railway' || (needs.build.result == 'skipped' && needs.detect-changes.result == 'success') && ':white_check_mark: *Showcase deploy*: no changes detected, nothing to deploy' || format(':x: *Showcase deploy*: FAILED (result: {0})', needs.build.result) }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
-            }
-
-  build-test_integration_tmp:
-    name: Build & Push Test Integration
-    needs: [detect-changes, check-lockfile]
-    if: |
-      needs.detect-changes.outputs.test_integration_tmp == 'true' ||
-      github.event.inputs.service == 'test-integration-tmp' ||
-      github.event.inputs.service == 'all'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: showcase/packages/test-integration-tmp
-          push: true
-          tags: |
-            ghcr.io/copilotkit/showcase-test-integration-tmp:latest
-            ghcr.io/copilotkit/showcase-test-integration-tmp:${{ github.sha }}
-          cache-from: type=gha,scope=test_integration_tmp
-          cache-to: type=gha,scope=test_integration_tmp,mode=max
-
-      - name: Trigger Railway deploy
-        run: |
-          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
-            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"RAILWAY_SERVICE_ID\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
-            && echo "test-integration-tmp deploy triggered"
+          payload-file-path: /tmp/slack-payload.json

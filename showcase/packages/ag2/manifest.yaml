@@ -94,6 +94,13 @@ demos:
       - multi-agent
     route: /demos/subagents
     animated_preview_url:
+starter:
+  path: showcase/starters/ag2
+  name: Sales Dashboard
+  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/ag2
+  demo_url: https://showcase-starter-ag2-production.up.railway.app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/ag2 my-copilotkit-app
 managed_platform:
   name: Agent OS
   url: https://ag2.ai/product

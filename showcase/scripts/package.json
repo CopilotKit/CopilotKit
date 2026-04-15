@@ -9,10 +9,12 @@
     "sync-qa": "tsx sync-qa-to-notion.ts",
     "sync-qa:dry": "DRY_RUN=true tsx sync-qa-to-notion.ts",
     "bundle-content": "tsx bundle-demo-content.ts",
+    "generate-starters": "tsx generate-starters.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@playwright/test": "^1.59.1",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "chalk": "^5.4.0",

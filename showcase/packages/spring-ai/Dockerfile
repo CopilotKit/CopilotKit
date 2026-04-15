@@ -31,7 +31,6 @@ RUN npm install --legacy-peer-deps
 COPY next.config.ts tsconfig.json postcss.config.mjs ./
 COPY src/app/ src/app/
 COPY public/ public/
-COPY shared_frontend/src/ ./shared_frontend/src/
 RUN npm run build
 
 # Stage 3: Production runtime (JRE + Node)

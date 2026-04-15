@@ -4,6 +4,7 @@ import { LucideAngularModule, Copy, Check, Edit } from "lucide-angular";
 import { CopilotTooltip } from "../../directives/tooltip";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
+import { copyToClipboard } from "@copilotkit/shared";
 
 // Base toolbar button component
 @Component({
@@ -96,18 +97,13 @@ export class CopilotChatUserMessageCopyButton {
   handleCopy(): void {
     if (!this.content()) return;
 
-    // Set copied immediately for instant feedback
-    this.copied.set(true);
-    setTimeout(() => this.copied.set(false), 2000);
-
-    // Copy to clipboard (fire and forget)
-    navigator.clipboard.writeText(this.content()!).then(
-      () => this.clicked.emit(),
-      (err) => {
-        console.error("Failed to copy message:", err);
-        this.copied.set(false);
-      },
-    );
+    copyToClipboard(this.content()!).then((success) => {
+      if (success) {
+        this.copied.set(true);
+        this.clicked.emit();
+        setTimeout(() => this.copied.set(false), 2000);
+      }
+    });
   }
 }
 

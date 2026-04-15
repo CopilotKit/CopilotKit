@@ -36,6 +36,8 @@ import {
   convertActionInputToOpenAITool,
   convertMessageToOpenAIMessage,
   convertSystemMessageToAssistantAPI,
+  retrieveThreadRun,
+  submitToolOutputsStream,
 } from "./utils";
 import { RuntimeEventSource } from "../events";
 import { ActionInput } from "../../graphql/inputs/action.input";
@@ -164,7 +166,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     eventSource: RuntimeEventSource,
   ) {
     const openai = this.ensureOpenAI();
-    let run = await openai.beta.threads.runs.retrieve(threadId, runId);
+    let run = await retrieveThreadRun(openai, threadId, runId);
 
     if (!run.required_action) {
       throw new Error("No tool outputs required");
@@ -190,7 +192,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
       };
     });
 
-    const stream = openai.beta.threads.runs.submitToolOutputsStream(threadId, runId, {
+    const stream = submitToolOutputsStream(openai, threadId, runId, {
       tool_outputs: toolOutputs,
       ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
     });

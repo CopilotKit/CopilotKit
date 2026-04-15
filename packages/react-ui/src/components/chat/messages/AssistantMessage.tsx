@@ -3,6 +3,7 @@ import { useChatContext } from "../ChatContext";
 import { Markdown } from "../Markdown";
 import { useState } from "react";
 import React from "react";
+import { copyToClipboard } from "@copilotkit/shared";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
   const { icons, labels } = useChatContext();
@@ -19,16 +20,14 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
   } = props;
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     const content = message?.content || "";
-    if (content && onCopy) {
-      navigator.clipboard.writeText(content);
+    if (!content) return;
+
+    const success = await copyToClipboard(content);
+    if (success) {
       setCopied(true);
-      onCopy(content);
-      setTimeout(() => setCopied(false), 2000);
-    } else if (content) {
-      navigator.clipboard.writeText(content);
-      setCopied(true);
+      if (onCopy) onCopy(content);
       setTimeout(() => setCopied(false), 2000);
     }
   };

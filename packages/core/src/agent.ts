@@ -10,6 +10,7 @@ import {
   runHttpRequest,
   transformHttpEventStream,
 } from "@ag-ui/client";
+import type { AgentCapabilities } from "@ag-ui/core";
 import { Observable, EMPTY, defer, from } from "rxjs";
 import { catchError, switchMap } from "rxjs/operators";
 import {
@@ -64,6 +65,7 @@ export interface ProxiedCopilotRuntimeAgentConfig extends Omit<HttpAgentConfig, 
   credentials?: RequestCredentials;
   runtimeMode?: ResolvedRuntimeMode;
   intelligence?: IntelligenceRuntimeInfo;
+  capabilities?: AgentCapabilities;
 }
 
 export class ProxiedCopilotRuntimeAgent extends HttpAgent {
@@ -73,6 +75,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   private singleEndpointUrl?: string;
   private runtimeMode: ResolvedRuntimeMode;
   private intelligence?: IntelligenceRuntimeInfo;
+  private _capabilities?: AgentCapabilities;
   private delegate?: AbstractAgent;
   private runtimeInfoPromise?: Promise<void>;
 
@@ -97,9 +100,18 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     this.transport = transport;
     this.runtimeMode = config.runtimeMode ?? RUNTIME_MODE_SSE;
     this.intelligence = config.intelligence;
+    this._capabilities = config.capabilities;
     if (this.transport === "single") {
       this.singleEndpointUrl = this.runtimeUrl;
     }
+  }
+
+  get capabilities(): AgentCapabilities | undefined {
+    return this._capabilities;
+  }
+
+  async getCapabilities(): Promise<AgentCapabilities> {
+    return this._capabilities ?? {};
   }
 
   override async detachActiveRun(): Promise<void> {
@@ -322,6 +334,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       transport: this.transport,
       runtimeMode: this.runtimeMode,
       intelligence: this.intelligence,
+      capabilities: this._capabilities,
     });
     cloned.threadId = this.threadId;
     cloned.setState(this.state);

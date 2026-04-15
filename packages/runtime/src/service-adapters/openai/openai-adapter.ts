@@ -57,7 +57,12 @@ import {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
-import { convertActionInputToOpenAITool, convertMessageToOpenAIMessage, limitMessagesToTokenCount } from "./utils";
+import {
+  convertActionInputToOpenAITool,
+  convertMessageToOpenAIMessage,
+  limitMessagesToTokenCount,
+  getChatCompletionsForStreaming,
+} from "./utils";
 import { randomUUID } from "@copilotkit/shared";
 import { convertServiceAdapterError, getSdkClientOptions } from "../shared";
 
@@ -197,7 +202,8 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
 
     try {
       const openai = this.ensureOpenAI();
-      const stream = openai.beta.chat.completions.stream({
+      const completions = getChatCompletionsForStreaming(openai);
+      const stream = completions.stream({
         model: model,
         stream: true,
         messages: openaiMessages,
