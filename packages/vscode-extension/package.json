@@ -28,7 +28,6 @@
   "devDependencies": {
     "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/typescript-config": "workspace:*",
-    "@tailwindcss/cli": "^4.1.11",
     "@testing-library/react": "^16.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
@@ -37,7 +36,6 @@
     "jsdom": "^26.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "tailwindcss": "^4.0.8",
     "tsdown": "^0.12.0",
     "typescript": "~5.8.2",
     "vitest": "^3.1.1"

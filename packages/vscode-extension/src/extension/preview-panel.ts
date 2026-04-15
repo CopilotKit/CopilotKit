@@ -223,8 +223,9 @@ export class PreviewPanel {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; script-src 'nonce-${nonce}' blob:; style-src 'unsafe-inline' ${webview.cspSource}; font-src ${webview.cspSource}; connect-src ${webview.cspSource};">
+    content="default-src 'none'; script-src 'nonce-${nonce}' blob: https://cdn.jsdelivr.net; style-src 'unsafe-inline' ${webview.cspSource}; font-src ${webview.cspSource}; connect-src ${webview.cspSource} https://cdn.jsdelivr.net;">
   <title>CopilotKit Preview</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <style>
     body {
       margin: 0;

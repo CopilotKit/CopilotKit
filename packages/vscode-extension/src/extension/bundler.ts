@@ -52,60 +52,11 @@ function nodeResolveFallback() {
 }
 
 /**
- * Extract Tailwind class candidates from a JS/TS source string.
- * Scans for className patterns and splits on whitespace.
- */
-function extractTailwindCandidates(code: string): string[] {
-  const candidates = new Set<string>();
-  const patterns = [
-    /className\s*[:=]\s*"([^"]+)"/g,
-    /className\s*[:=]\s*'([^']+)'/g,
-    /class\s*[:=]\s*"([^"]+)"/g,
-  ];
-  for (const pattern of patterns) {
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(code)) !== null) {
-      for (const cls of match[1].split(/\s+/)) {
-        if (cls && /^[a-z]/.test(cls) && !cls.includes("(")) {
-          candidates.add(cls);
-        }
-      }
-    }
-  }
-  return [...candidates];
-}
-
-// Lazily compiled Tailwind instance (reused across builds for speed)
-let tailwindCompiled: { build: (candidates: string[]) => string } | null =
-  null;
-
-async function compileTailwindCss(candidates: string[]): Promise<string> {
-  if (candidates.length === 0) return "";
-  try {
-    if (!tailwindCompiled) {
-      // Access @tailwindcss/node through @tailwindcss/cli's dependency
-      const cliPkgPath = extensionRequire.resolve(
-        "@tailwindcss/cli/package.json",
-      );
-      const nodeRequire = createRequire(cliPkgPath);
-      const { compile } = nodeRequire("@tailwindcss/node");
-      tailwindCompiled = await compile('@import "tailwindcss";', {
-        base: path.dirname(cliPkgPath),
-        onDependency: () => {},
-      });
-    }
-    return tailwindCompiled.build(candidates);
-  } catch {
-    return "";
-  }
-}
-
-/**
  * Bundles a catalog component file into an IIFE string plus CSS.
  *
- * CSS comes from two sources:
- * 1. CSS files imported by the component (extracted by Rolldown)
- * 2. Tailwind utility classes found in the code (JIT compiled at runtime)
+ * CSS is extracted from any CSS files imported by the component (via Rolldown).
+ * Tailwind utility classes are handled by the @tailwindcss/browser CDN loaded
+ * in the webview, which JIT-compiles classes directly from the DOM.
  *
  * React and @copilotkit/* are externalized and mapped to globals.
  * Everything else (zod, etc.) is bundled into the IIFE.
@@ -157,13 +108,6 @@ export async function bundleCatalog(entryPath: string): Promise<BundleResult> {
       ) {
         cssChunks.push(o.source);
       }
-    }
-
-    // Generate Tailwind CSS from class candidates in the bundled code
-    const candidates = extractTailwindCandidates(jsOutput.code);
-    const tailwindCss = await compileTailwindCss(candidates);
-    if (tailwindCss) {
-      cssChunks.push(tailwindCss);
     }
 
     const css = cssChunks.length > 0 ? cssChunks.join("\n") : undefined;
