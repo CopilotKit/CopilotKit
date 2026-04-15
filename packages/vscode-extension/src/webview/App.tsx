@@ -39,14 +39,36 @@ export function App(): React.ReactElement {
       msg: Extract<ExtensionToWebviewMessage, { type: "catalog-update" }>,
     ) => {
       try {
-        const blob = new Blob([msg.code], {
-          type: "application/javascript",
-        });
-        const url = URL.createObjectURL(blob);
-        const module = await import(/* @vite-ignore */ url);
-        URL.revokeObjectURL(url);
+        // Clean up previous catalog global
+        delete (window as any).__copilotkit_catalog;
 
-        const newCatalog = module.default ?? module.catalog;
+        // Load the IIFE-bundled catalog via a <script> tag.
+        // The IIFE assigns to window.__copilotkit_catalog.
+        // Using a Blob URL + <script src> is allowed by our CSP (blob: in script-src).
+        const blob = new Blob([msg.code], { type: "application/javascript" });
+        const url = URL.createObjectURL(blob);
+
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = url;
+          script.onload = () => {
+            URL.revokeObjectURL(url);
+            script.remove();
+            resolve();
+          };
+          script.onerror = () => {
+            URL.revokeObjectURL(url);
+            script.remove();
+            reject(new Error("Failed to load catalog script"));
+          };
+          document.head.appendChild(script);
+        });
+
+        const catalogExport = (window as any).__copilotkit_catalog;
+        delete (window as any).__copilotkit_catalog;
+
+        const newCatalog =
+          catalogExport?.default ?? catalogExport?.catalog ?? catalogExport;
         if (newCatalog) {
           setCatalog(newCatalog);
           setError(null);

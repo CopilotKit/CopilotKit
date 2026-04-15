@@ -5,7 +5,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 
 describe("bundleCatalog", () => {
-  it("bundles a simple TypeScript file to ESM string", async () => {
+  it("bundles a simple TypeScript file to IIFE string", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ck-bundler-"));
     const entryPath = path.join(tmpDir, "test-catalog.ts");
     fs.writeFileSync(
@@ -20,7 +20,7 @@ describe("bundleCatalog", () => {
 
     expect(result.success).toBe(true);
     expect(result.code).toContain("test");
-    expect(result.code).toContain("export");
+    expect(result.code).toContain("__copilotkit_catalog");
     expect(result.error).toBeUndefined();
 
     fs.rmSync(tmpDir, { recursive: true });
@@ -54,9 +54,10 @@ describe("bundleCatalog", () => {
     const result = await bundleCatalog(entryPath);
 
     expect(result.success).toBe(true);
-    // Externalized imports should remain as import statements, not bundled
-    expect(result.code).toContain("react");
-    expect(result.code).toContain("@copilotkit/a2ui-renderer");
+    // Externalized imports should reference globals, not bare specifiers
+    expect(result.code).toContain("__copilotkit_deps");
+    expect(result.code).not.toContain('from "react"');
+    expect(result.code).not.toContain('from "@copilotkit/a2ui-renderer"');
 
     fs.rmSync(tmpDir, { recursive: true });
   });
