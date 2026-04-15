@@ -1,0 +1,108 @@
+---
+title: VS Code Extension
+icon: "lucide/Monitor"
+description: Live preview A2UI catalog components directly inside VS Code with hot-reload.
+---
+
+import { Steps, Step } from "fumadocs-ui/components/steps";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import { Callout } from "fumadocs-ui/components/callout";
+
+## What is this?
+
+The CopilotKit VS Code extension gives you a live preview of your A2UI catalog components inside your editor. Edit a component file, save, and see the rendered result update instantly in a side panel — no localhost server, no browser tab.
+
+## When should I use this?
+
+- Iterating on data visualization or agent UI components
+- Testing components with different data scenarios via fixture files
+- Previewing catalog components without running a full agent loop
+
+<Callout type="info">
+  New to CopilotKit? Start with the [Quickstart](/quickstart) to set up a project first,
+  then come back here to supercharge your component development workflow.
+</Callout>
+
+## Get started
+
+<Steps>
+<Step>
+### Install the extension
+
+Open VS Code, go to Extensions (Ctrl+Shift+X), and search for **CopilotKit**. Click Install.
+
+Alternatively, install from the command line:
+
+```bash
+code --install-extension copilotkit.copilotkit
+```
+</Step>
+
+<Step>
+### Open the CopilotKit sidebar
+
+Click the **CopilotKit icon** in the Activity Bar (left edge of VS Code, alongside Explorer and Search). The **Component Preview** panel lists all A2UI catalog components discovered in your workspace.
+
+The extension automatically finds any `.ts`/`.tsx` file that imports from `@copilotkit/a2ui-renderer` and exports a catalog.
+</Step>
+
+<Step>
+### Preview a component
+
+Click any component in the sidebar to open a live preview panel. You can also:
+- Open a catalog file and run **CopilotKit: Preview Component** from the command palette (Ctrl+Shift+P)
+- Right-click a `.ts`/`.tsx` file in the Explorer and select **CopilotKit: Preview Component**
+
+Edit the component file and save — the preview updates instantly while preserving interaction state.
+</Step>
+</Steps>
+
+## Fixture files
+
+Fixtures provide named test data scenarios for your component previews. Create a fixture file next to your component:
+
+<Tabs items={["JSON", "TypeScript"]}>
+<Tab value="JSON">
+`MyComponent.fixture.json`:
+```json
+{
+  "default": {
+    "surfaceId": "preview",
+    "messages": [
+      { "beginRendering": { "surfaceId": "preview", "root": "root" } },
+      { "surfaceUpdate": { "surfaceId": "preview", "components": [] } }
+    ]
+  },
+  "empty state": {
+    "surfaceId": "preview",
+    "messages": []
+  }
+}
+```
+</Tab>
+<Tab value="TypeScript">
+`MyComponent.fixture.ts`:
+```ts
+export default {
+  "default": {
+    surfaceId: "preview",
+    messages: [
+      { beginRendering: { surfaceId: "preview", root: "root" } },
+      { surfaceUpdate: { surfaceId: "preview", components: [] } },
+    ],
+  },
+  "empty state": {
+    surfaceId: "preview",
+    messages: [],
+  },
+};
+```
+</Tab>
+</Tabs>
+
+Each key is a named fixture. Use the dropdown at the top of the preview panel to switch between them. Components without a fixture file get an auto-generated default.
+
+<Callout type="info">
+  The extension validates fixture files on save and shows warnings as editor diagnostics
+  if the structure is invalid (missing `surfaceId` or `messages` fields).
+</Callout>
