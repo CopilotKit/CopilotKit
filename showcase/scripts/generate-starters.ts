@@ -328,6 +328,14 @@ function rewritePythonImports(filePath: string, _agentDir: string): void {
     "$1from .$2 import ",
   );
 
+  // Rewrite "from agents.X import ..." to "from .X import ..."
+  // When the demo "agents/" dir is renamed to "agent/" in starters,
+  // intra-package absolute imports break. Convert to relative imports.
+  content = content.replace(
+    /^(\s*)from agents\.([\w.]+) import /gm,
+    "$1from .$2 import ",
+  );
+
   fs.writeFileSync(filePath, content);
 }
 
