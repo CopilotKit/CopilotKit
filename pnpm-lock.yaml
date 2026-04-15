@@ -2341,8 +2341,8 @@ importers:
   packages/runtime:
     dependencies:
       '@ag-ui/a2ui-middleware':
-        specifier: 0.0.4
-        version: 0.0.4(@ag-ui/client@0.0.52)(rxjs@7.8.1)
+        specifier: 0.0.5
+        version: 0.0.5(@ag-ui/client@0.0.52)(rxjs@7.8.1)
       '@ag-ui/client':
         specifier: 0.0.52
         version: 0.0.52
@@ -2927,8 +2927,8 @@ packages:
       '@ag-ui/client': '>=0.0.42'
       '@ag-ui/core': '>=0.0.42'
 
-  '@ag-ui/a2ui-middleware@0.0.4':
-    resolution: {integrity: sha512-N7goCObceqsCQgFRKBpo/X9D9Q0Jp6ALV+ier2W7WnK3sy0WfY2jAeFhqEaoZRqcNeLTKEt8sDqdtd4TGQE1+w==}
+  '@ag-ui/a2ui-middleware@0.0.5':
+    resolution: {integrity: sha512-nhF8LBzq36BmLR1O3nStxqSpIu1+4//ttqOyQgiXUsKZK1znCyN4q4MBTARrkFa7CuFr3fcNTiZuS4V1HRUHTw==}
     peerDependencies:
       '@ag-ui/client': '>=0.0.40'
       rxjs: 7.8.1
@@ -22207,7 +22207,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@ag-ui/a2ui-middleware@0.0.4(@ag-ui/client@0.0.52)(rxjs@7.8.1)':
+  '@ag-ui/a2ui-middleware@0.0.5(@ag-ui/client@0.0.52)(rxjs@7.8.1)':
     dependencies:
       '@ag-ui/client': 0.0.52
       clarinet: 0.12.6

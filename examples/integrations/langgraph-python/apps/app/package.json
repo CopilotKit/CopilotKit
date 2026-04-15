@@ -8,11 +8,11 @@
     "start": "next start"
   },
   "dependencies": {
-    "@copilotkit/a2ui-renderer": "1.55.2",
-    "@copilotkit/react-core": "1.55.2",
-    "@copilotkit/react-ui": "1.55.2",
-    "@copilotkit/runtime": "1.55.2",
-    "@copilotkit/shared": "1.55.2",
+    "@copilotkit/a2ui-renderer": "https://pkg.pr.new/CopilotKit/CopilotKit/@copilotkit/a2ui-renderer@cfeb1c68c43e1c0fc00bcef91ea48b065668218b",
+    "@copilotkit/react-core": "https://pkg.pr.new/CopilotKit/CopilotKit/@copilotkit/react-core@cfeb1c68c43e1c0fc00bcef91ea48b065668218b",
+    "@copilotkit/react-ui": "https://pkg.pr.new/CopilotKit/CopilotKit/@copilotkit/react-ui@cfeb1c68c43e1c0fc00bcef91ea48b065668218b",
+    "@copilotkit/runtime": "https://pkg.pr.new/CopilotKit/CopilotKit/@copilotkit/runtime@cfeb1c68c43e1c0fc00bcef91ea48b065668218b",
+    "@copilotkit/shared": "https://pkg.pr.new/CopilotKit/CopilotKit/@copilotkit/shared@cfeb1c68c43e1c0fc00bcef91ea48b065668218b",
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-separator": "^1.1.8",
