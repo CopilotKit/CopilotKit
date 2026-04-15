@@ -36,9 +36,7 @@ describe("Markdown CSS/component selector consistency", () => {
   it("should render a div instead of p for the paragraph component", () => {
     // The paragraph component should use <div> to avoid hydration errors
     // when block-level elements are nested inside markdown paragraphs
-    const pComponentMatch = tsxContent.match(
-      /p:\s*\(\{[^}]*\}\)\s*=>\s*\(\s*<(\w+)/,
-    );
+    const pComponentMatch = tsxContent.match(/p:\s*\(\{[^}]*\}\)\s*=>\s*\(\s*<(\w+)/);
     expect(pComponentMatch).not.toBeNull();
     expect(pComponentMatch![1]).toBe("div");
   });
@@ -52,12 +50,8 @@ describe("Markdown CSS/component selector consistency", () => {
 
   it("should use .copilotKitParagraph (not p) inside blockquote selector", () => {
     // After p->div, blockquote nested paragraph selector must target the class
-    expect(cssContent).toMatch(
-      /blockquote\.copilotKitMarkdownElement\s+\.copilotKitParagraph\s*\{/,
-    );
-    expect(cssContent).not.toMatch(
-      /blockquote\.copilotKitMarkdownElement\s+p\s*\{/,
-    );
+    expect(cssContent).toMatch(/blockquote\.copilotKitMarkdownElement\s+\.copilotKitParagraph\s*\{/);
+    expect(cssContent).not.toMatch(/blockquote\.copilotKitMarkdownElement\s+p\s*\{/);
   });
 
   describe("other element selectors remain valid", () => {
@@ -88,8 +82,7 @@ describe("Markdown CSS/component selector consistency", () => {
         const funcRegex = new RegExp(
           `${element}\\([^)]*\\)\\s*\\{[\\s\\S]*?<${element}[\\s\\S]*?copilotKitMarkdownElement`,
         );
-        const matches =
-          arrowRegex.test(tsxContent) || funcRegex.test(tsxContent);
+        const matches = arrowRegex.test(tsxContent) || funcRegex.test(tsxContent);
         expect(matches).toBe(true);
       });
 

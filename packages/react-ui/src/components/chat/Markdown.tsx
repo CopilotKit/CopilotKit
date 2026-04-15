@@ -49,13 +49,7 @@ const defaultComponents: Components = {
       );
     }
 
-    return (
-      <CodeBlock
-        language={(match && match[1]) || ""}
-        value={String(children).replace(/\n$/, "")}
-        {...props}
-      />
-    );
+    return <CodeBlock language={(match && match[1]) || ""} value={String(children).replace(/\n$/, "")} {...props} />;
   },
   h1: ({ children, ...props }) => (
     <h1 className="copilotKitMarkdownElement" {...props}>

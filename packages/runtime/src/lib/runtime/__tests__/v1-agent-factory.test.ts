@@ -1,10 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { HttpAgent } from "@ag-ui/client";
 import { CopilotRuntime } from "../copilot-runtime";
-import {
-  resolveAgents,
-  type AgentsConfig,
-} from "../../../v2/runtime/core/runtime";
+import { resolveAgents, type AgentsConfig } from "../../../v2/runtime/core/runtime";
 
 function createMockAgent(name = "test") {
   return new HttpAgent({ url: `https://example.com/${name}` });

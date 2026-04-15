@@ -35,9 +35,7 @@ function collectFiles(dir: string, base = dir): string[] {
 describe("Cross-starter consistency", () => {
   beforeAll(() => {
     if (!fs.existsSync(path.join(STARTERS_DIR, "langgraph-python"))) {
-      throw new Error(
-        "Starters not generated. Run: cd showcase/scripts && npx tsx generate-starters.ts",
-      );
+      throw new Error("Starters not generated. Run: cd showcase/scripts && npx tsx generate-starters.ts");
     }
   });
 
@@ -51,10 +49,7 @@ describe("Cross-starter consistency", () => {
 
         // Every template file should exist in the starter's src/
         for (const tf of templateFiles) {
-          expect(
-            starterFiles,
-            `${slug} missing frontend file: ${tf}`,
-          ).toContain(tf);
+          expect(starterFiles, `${slug} missing frontend file: ${tf}`).toContain(tf);
         }
       });
     }
@@ -62,26 +57,14 @@ describe("Cross-starter consistency", () => {
 
   describe("renderer components are identical across all starters", () => {
     // Use langgraph-python as the reference
-    const refDir = path.join(
-      STARTERS_DIR,
-      "langgraph-python",
-      "src",
-      "components",
-      "renderers",
-    );
+    const refDir = path.join(STARTERS_DIR, "langgraph-python", "src", "components", "renderers");
     const refFiles = collectFiles(refDir);
 
     for (const slug of EXPECTED_SLUGS) {
       if (slug === "langgraph-python") continue;
 
       it(`${slug} has identical renderer file set`, () => {
-        const dir = path.join(
-          STARTERS_DIR,
-          slug,
-          "src",
-          "components",
-          "renderers",
-        );
+        const dir = path.join(STARTERS_DIR, slug, "src", "components", "renderers");
         const files = collectFiles(dir);
         expect(files).toEqual(refFiles);
       });
@@ -90,19 +73,10 @@ describe("Cross-starter consistency", () => {
         for (const file of refFiles) {
           const refContent = fs.readFileSync(path.join(refDir, file), "utf-8");
           const starterContent = fs.readFileSync(
-            path.join(
-              STARTERS_DIR,
-              slug,
-              "src",
-              "components",
-              "renderers",
-              file,
-            ),
+            path.join(STARTERS_DIR, slug, "src", "components", "renderers", file),
             "utf-8",
           );
-          expect(starterContent, `${slug} renderer file differs: ${file}`).toBe(
-            refContent,
-          );
+          expect(starterContent, `${slug} renderer file differs: ${file}`).toBe(refContent);
         }
       });
     }
@@ -189,14 +163,10 @@ describe("Cross-starter consistency", () => {
     for (const fw of pythonFrameworks) {
       it(`${fw.slug} has Python agent with requirements.txt`, () => {
         const agentDir = path.join(STARTERS_DIR, fw.slug, fw.agentDir);
-        expect(fs.existsSync(path.join(agentDir, "requirements.txt"))).toBe(
-          true,
-        );
+        expect(fs.existsSync(path.join(agentDir, "requirements.txt"))).toBe(true);
         // At least one .py file
         const pyFiles = fs.existsSync(agentDir)
-          ? fs
-              .readdirSync(agentDir, { recursive: true })
-              .filter((f) => typeof f === "string" && f.endsWith(".py"))
+          ? fs.readdirSync(agentDir, { recursive: true }).filter((f) => typeof f === "string" && f.endsWith(".py"))
           : [];
         expect(pyFiles.length).toBeGreaterThan(0);
       });
@@ -206,9 +176,7 @@ describe("Cross-starter consistency", () => {
       // Mastra is special -- agent lives in src/mastra/
       if (fw.slug === "mastra") {
         it(`${fw.slug} has Mastra agent in src/mastra/`, () => {
-          expect(
-            fs.existsSync(path.join(STARTERS_DIR, fw.slug, "src", "mastra")),
-          ).toBe(true);
+          expect(fs.existsSync(path.join(STARTERS_DIR, fw.slug, "src", "mastra"))).toBe(true);
         });
         continue;
       }
@@ -218,11 +186,7 @@ describe("Cross-starter consistency", () => {
         if (fs.existsSync(agentDir)) {
           const tsFiles = fs
             .readdirSync(agentDir, { recursive: true })
-            .filter(
-              (f) =>
-                typeof f === "string" &&
-                (f.endsWith(".ts") || f.endsWith(".tsx")),
-            );
+            .filter((f) => typeof f === "string" && (f.endsWith(".ts") || f.endsWith(".tsx")));
           expect(tsFiles.length).toBeGreaterThan(0);
         }
       });
@@ -249,12 +213,7 @@ describe("Cross-starter consistency", () => {
   describe("showcase.json consistency", () => {
     for (const slug of EXPECTED_SLUGS) {
       it(`${slug} has consistent showcase.json`, () => {
-        const meta = JSON.parse(
-          fs.readFileSync(
-            path.join(STARTERS_DIR, slug, "showcase.json"),
-            "utf-8",
-          ),
-        );
+        const meta = JSON.parse(fs.readFileSync(path.join(STARTERS_DIR, slug, "showcase.json"), "utf-8"));
         expect(meta.slug).toBe(slug);
         expect(meta.agentPort).toBe(8123);
         expect(meta.generated).toBe(true);

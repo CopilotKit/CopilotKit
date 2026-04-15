@@ -75,10 +75,7 @@ function generateMockData(): DataRow[] {
 
   for (const month of months) {
     for (const cat of categories) {
-      const baseAmount =
-        cat.type === "income"
-          ? 15000 + Math.floor(rand() * 35000)
-          : 8000 + Math.floor(rand() * 40000);
+      const baseAmount = cat.type === "income" ? 15000 + Math.floor(rand() * 35000) : 8000 + Math.floor(rand() * 40000);
       const day = String(1 + Math.floor(rand() * 28)).padStart(2, "0");
       rows.push({
         date: `2026-${month}-${day}`,

@@ -20,9 +20,7 @@ export default function AgenticChatDemo() {
 }
 
 function Chat() {
-  const [background, setBackground] = useState<string>(
-    "var(--copilot-kit-background-color)",
-  );
+  const [background, setBackground] = useState<string>("var(--copilot-kit-background-color)");
 
   useAgentContext({
     description: "Name of the user",
@@ -34,9 +32,7 @@ function Chat() {
     description:
       "Change the background color of the chat. Can be anything that the CSS background attribute accepts. Regular colors, linear or radial gradients etc.",
     parameters: z.object({
-      background: z
-        .string()
-        .describe("The background. Prefer gradients. Only use when asked."),
+      background: z.string().describe("The background. Prefer gradients. Only use when asked."),
     }),
     handler: async ({ background }: { background: string }) => {
       setBackground(background);

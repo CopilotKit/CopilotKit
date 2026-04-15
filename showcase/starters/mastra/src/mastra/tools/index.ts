@@ -19,8 +19,7 @@ export const weatherTool = createTool({
   inputSchema: z.object({
     location: z.string().describe("City name"),
   }),
-  execute: async ({ context }) =>
-    JSON.stringify(getWeatherImpl(context.location)),
+  execute: async ({ context }) => JSON.stringify(getWeatherImpl(context.location)),
 });
 
 export const queryDataTool = createTool({
@@ -50,8 +49,7 @@ export const manageSalesTodosTool = createTool({
       )
       .describe("Array of sales todo items"),
   }),
-  execute: async ({ context }) =>
-    JSON.stringify(manageSalesTodosImpl(context.todos)),
+  execute: async ({ context }) => JSON.stringify(manageSalesTodosImpl(context.todos)),
 });
 
 export const getSalesTodosTool = createTool({
@@ -74,8 +72,7 @@ export const getSalesTodosTool = createTool({
       .nullable()
       .describe("Current todos if any"),
   }),
-  execute: async ({ context }) =>
-    JSON.stringify(getSalesTodosImpl(context.currentTodos)),
+  execute: async ({ context }) => JSON.stringify(getSalesTodosImpl(context.currentTodos)),
 });
 
 export const scheduleMeetingTool = createTool({
@@ -85,10 +82,7 @@ export const scheduleMeetingTool = createTool({
     reason: z.string().describe("Reason for the meeting"),
     durationMinutes: z.number().optional().describe("Duration in minutes"),
   }),
-  execute: async ({ context }) =>
-    JSON.stringify(
-      scheduleMeetingImpl(context.reason, context.durationMinutes),
-    ),
+  execute: async ({ context }) => JSON.stringify(scheduleMeetingImpl(context.reason, context.durationMinutes)),
 });
 
 export const searchFlightsTool = createTool({
@@ -115,8 +109,7 @@ export const searchFlightsTool = createTool({
       )
       .describe("Array of flight results"),
   }),
-  execute: async ({ context }) =>
-    JSON.stringify(searchFlightsImpl(context.flights)),
+  execute: async ({ context }) => JSON.stringify(searchFlightsImpl(context.flights)),
 });
 
 export const generateA2uiTool = createTool({
@@ -124,10 +117,7 @@ export const generateA2uiTool = createTool({
   description: "Generate dynamic A2UI surface components",
   inputSchema: z.object({
     messages: z.array(z.record(z.unknown())).describe("Chat messages"),
-    contextEntries: z
-      .array(z.record(z.unknown()))
-      .optional()
-      .describe("Context entries"),
+    contextEntries: z.array(z.record(z.unknown())).optional().describe("Context entries"),
   }),
   execute: async ({ context }) => {
     const prep = generateA2uiImpl({
@@ -148,13 +138,8 @@ export const generateA2uiTool = createTool({
           parameters: z.object({
             surfaceId: z.string().describe("Unique surface identifier."),
             catalogId: z.string().describe("The catalog ID."),
-            components: z
-              .array(z.record(z.unknown()))
-              .describe("A2UI v0.9 component array."),
-            data: z
-              .record(z.unknown())
-              .optional()
-              .describe("Optional initial data model."),
+            components: z.array(z.record(z.unknown())).describe("A2UI v0.9 component array."),
+            data: z.record(z.unknown()).optional().describe("Optional initial data model."),
           }),
         }),
       },
@@ -166,8 +151,6 @@ export const generateA2uiTool = createTool({
       return JSON.stringify({ error: "LLM did not call render_a2ui" });
     }
 
-    return JSON.stringify(
-      buildA2uiOperationsFromToolCall(toolCall.args as Record<string, unknown>),
-    );
+    return JSON.stringify(buildA2uiOperationsFromToolCall(toolCall.args as Record<string, unknown>));
   },
 });

@@ -19,18 +19,14 @@ const STARTERS_DIR = path.join(ROOT, "showcase", "starters");
 
 // Derive expected slugs from FRAMEWORKS so they stay in sync automatically
 const EXPECTED_SLUGS = FRAMEWORKS.map((f) => f.slug);
-const PYTHON_SLUGS = FRAMEWORKS.filter((f) => f.language === "python").map(
-  (f) => f.slug,
-);
+const PYTHON_SLUGS = FRAMEWORKS.filter((f) => f.language === "python").map((f) => f.slug);
 
 describe("generate-starters", () => {
   // Assumes starters have already been generated before running tests
   beforeAll(() => {
     const exists = fs.existsSync(path.join(STARTERS_DIR, "langgraph-python"));
     if (!exists) {
-      throw new Error(
-        "Starters not generated. Run: cd showcase/scripts && npx tsx generate-starters.ts",
-      );
+      throw new Error("Starters not generated. Run: cd showcase/scripts && npx tsx generate-starters.ts");
     }
   });
 
@@ -49,9 +45,7 @@ describe("generate-starters", () => {
 
         it("has package.json", () => {
           expect(fs.existsSync(path.join(dir, "package.json"))).toBe(true);
-          const pkg = JSON.parse(
-            fs.readFileSync(path.join(dir, "package.json"), "utf-8"),
-          );
+          const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf-8"));
           expect(pkg.name).toBe(`copilotkit-showcase-${slug}`);
           expect(pkg.scripts.build).toBe("next build");
           expect(pkg.scripts.dev).toBeTruthy();
@@ -66,62 +60,39 @@ describe("generate-starters", () => {
 
         it("has entrypoint.sh", () => {
           expect(fs.existsSync(path.join(dir, "entrypoint.sh"))).toBe(true);
-          const content = fs.readFileSync(
-            path.join(dir, "entrypoint.sh"),
-            "utf-8",
-          );
+          const content = fs.readFileSync(path.join(dir, "entrypoint.sh"), "utf-8");
           expect(content).toContain(slug);
         });
 
         it("has showcase.json", () => {
-          const meta = JSON.parse(
-            fs.readFileSync(path.join(dir, "showcase.json"), "utf-8"),
-          );
+          const meta = JSON.parse(fs.readFileSync(path.join(dir, "showcase.json"), "utf-8"));
           expect(meta.slug).toBe(slug);
           expect(meta.agentPort).toBe(8123);
           expect(meta.generated).toBe(true);
         });
 
         it("has frontend source files", () => {
-          expect(fs.existsSync(path.join(dir, "src", "app", "page.tsx"))).toBe(
-            true,
-          );
-          expect(
-            fs.existsSync(path.join(dir, "src", "app", "layout.tsx")),
-          ).toBe(true);
-          expect(
-            fs.existsSync(
-              path.join(dir, "src", "app", "api", "copilotkit", "route.ts"),
-            ),
-          ).toBe(true);
+          expect(fs.existsSync(path.join(dir, "src", "app", "page.tsx"))).toBe(true);
+          expect(fs.existsSync(path.join(dir, "src", "app", "layout.tsx"))).toBe(true);
+          expect(fs.existsSync(path.join(dir, "src", "app", "api", "copilotkit", "route.ts"))).toBe(true);
           expect(fs.existsSync(path.join(dir, "src", "types.ts"))).toBe(true);
         });
 
         it("has renderer components", () => {
           const renderersDir = path.join(dir, "src", "components", "renderers");
           expect(fs.existsSync(path.join(renderersDir, "types.ts"))).toBe(true);
-          expect(
-            fs.existsSync(path.join(renderersDir, "renderer-selector.tsx")),
-          ).toBe(true);
-          expect(
-            fs.existsSync(path.join(renderersDir, "tool-based", "index.tsx")),
-          ).toBe(true);
+          expect(fs.existsSync(path.join(renderersDir, "renderer-selector.tsx"))).toBe(true);
+          expect(fs.existsSync(path.join(renderersDir, "tool-based", "index.tsx"))).toBe(true);
         });
 
         it("has next.config.ts without webpack alias", () => {
-          const content = fs.readFileSync(
-            path.join(dir, "next.config.ts"),
-            "utf-8",
-          );
+          const content = fs.readFileSync(path.join(dir, "next.config.ts"), "utf-8");
           expect(content).not.toContain("webpack");
           expect(content).not.toContain("@copilotkit/showcase-shared");
         });
 
         it("has tsconfig.json without showcase-shared paths", () => {
-          const content = fs.readFileSync(
-            path.join(dir, "tsconfig.json"),
-            "utf-8",
-          );
+          const content = fs.readFileSync(path.join(dir, "tsconfig.json"), "utf-8");
           expect(content).not.toContain("showcase-shared");
           expect(content).not.toContain("shared_frontend");
         });
@@ -136,9 +107,7 @@ describe("generate-starters", () => {
         const tsFiles = findFiles(dir, [".ts", ".tsx"]);
         for (const f of tsFiles) {
           const content = fs.readFileSync(f, "utf-8");
-          expect(content, `leftover in ${f}`).not.toContain(
-            "@copilotkit/showcase-shared-tools",
-          );
+          expect(content, `leftover in ${f}`).not.toContain("@copilotkit/showcase-shared-tools");
         }
       }
     });
@@ -149,15 +118,7 @@ describe("generate-starters", () => {
       const templateVarRegex = /\{\{[A-Z_]+\}\}/;
       for (const slug of EXPECTED_SLUGS) {
         const dir = path.join(STARTERS_DIR, slug);
-        const allFiles = findFiles(dir, [
-          ".ts",
-          ".tsx",
-          ".json",
-          ".css",
-          ".html",
-          ".mjs",
-          ".sh",
-        ]);
+        const allFiles = findFiles(dir, [".ts", ".tsx", ".json", ".css", ".html", ".mjs", ".sh"]);
         for (const f of allFiles) {
           const content = fs.readFileSync(f, "utf-8");
           const match = content.match(templateVarRegex);
@@ -197,24 +158,16 @@ describe("generate-starters", () => {
         });
 
         it("has self-contained tools/ directory", () => {
-          expect(
-            fs.existsSync(path.join(agentDir, "tools", "__init__.py")),
-          ).toBe(true);
-          expect(
-            fs.existsSync(path.join(agentDir, "tools", "get_weather.py")),
-          ).toBe(true);
+          expect(fs.existsSync(path.join(agentDir, "tools", "__init__.py"))).toBe(true);
+          expect(fs.existsSync(path.join(agentDir, "tools", "get_weather.py"))).toBe(true);
         });
 
         it("has data/db.csv", () => {
-          expect(fs.existsSync(path.join(agentDir, "data", "db.csv"))).toBe(
-            true,
-          );
+          expect(fs.existsSync(path.join(agentDir, "data", "db.csv"))).toBe(true);
         });
 
         it("has requirements.txt", () => {
-          expect(fs.existsSync(path.join(agentDir, "requirements.txt"))).toBe(
-            true,
-          );
+          expect(fs.existsSync(path.join(agentDir, "requirements.txt"))).toBe(true);
         });
       });
     }
@@ -244,15 +197,11 @@ describe("generate-starters", () => {
 
   describe("Mastra layout validation", () => {
     it("has src/mastra/ directory", () => {
-      expect(
-        fs.existsSync(path.join(STARTERS_DIR, "mastra", "src", "mastra")),
-      ).toBe(true);
+      expect(fs.existsSync(path.join(STARTERS_DIR, "mastra", "src", "mastra"))).toBe(true);
     });
 
     it("does NOT have agent/ directory at root", () => {
-      expect(fs.existsSync(path.join(STARTERS_DIR, "mastra", "agent"))).toBe(
-        false,
-      );
+      expect(fs.existsSync(path.join(STARTERS_DIR, "mastra", "agent"))).toBe(false);
     });
   });
 
@@ -264,15 +213,11 @@ describe("generate-starters", () => {
     });
 
     it("has Maven standard src/main/java/ layout", () => {
-      expect(fs.existsSync(path.join(agentDir, "src", "main", "java"))).toBe(
-        true,
-      );
+      expect(fs.existsSync(path.join(agentDir, "src", "main", "java"))).toBe(true);
     });
 
     it("has Maven standard src/main/resources/ layout", () => {
-      expect(
-        fs.existsSync(path.join(agentDir, "src", "main", "resources")),
-      ).toBe(true);
+      expect(fs.existsSync(path.join(agentDir, "src", "main", "resources"))).toBe(true);
     });
 
     it("does NOT have flattened java/ at agent root", () => {
@@ -288,9 +233,7 @@ describe("generate-starters", () => {
     const agentDir = path.join(STARTERS_DIR, "ms-agent-dotnet", "agent");
 
     it("has .csproj file", () => {
-      const files = fs.existsSync(agentDir)
-        ? fs.readdirSync(agentDir).filter((f) => f.endsWith(".csproj"))
-        : [];
+      const files = fs.existsSync(agentDir) ? fs.readdirSync(agentDir).filter((f) => f.endsWith(".csproj")) : [];
       expect(files.length).toBeGreaterThan(0);
     });
 
@@ -301,9 +244,7 @@ describe("generate-starters", () => {
 
   describe("substituteVars()", () => {
     it("replaces single variable", () => {
-      expect(substituteVars("Hello {{NAME}}", { NAME: "World" })).toBe(
-        "Hello World",
-      );
+      expect(substituteVars("Hello {{NAME}}", { NAME: "World" })).toBe("Hello World");
     });
 
     it("replaces multiple occurrences", () => {
@@ -343,25 +284,14 @@ describe("generate-starters", () => {
 
   describe("template variables are substituted", () => {
     it("layout.tsx has framework name, not template variable", () => {
-      const content = fs.readFileSync(
-        path.join(STARTERS_DIR, "langgraph-python", "src", "app", "layout.tsx"),
-        "utf-8",
-      );
+      const content = fs.readFileSync(path.join(STARTERS_DIR, "langgraph-python", "src", "app", "layout.tsx"), "utf-8");
       expect(content).toContain("LangGraph Python");
       expect(content).not.toContain("{{NAME}}");
     });
 
     it("health route has slug, not template variable", () => {
       const content = fs.readFileSync(
-        path.join(
-          STARTERS_DIR,
-          "ag2",
-          "src",
-          "app",
-          "api",
-          "health",
-          "route.ts",
-        ),
+        path.join(STARTERS_DIR, "ag2", "src", "app", "api", "health", "route.ts"),
         "utf-8",
       );
       expect(content).toContain('"ag2"');
@@ -394,12 +324,7 @@ describe("generate-starters", () => {
     it("removes single-line sys.path.insert", () => {
       const fp = writeTmp(
         "test.py",
-        [
-          "import sys",
-          "import os",
-          'sys.path.insert(0, "/some/path")',
-          "from tools import foo",
-        ].join("\n"),
+        ["import sys", "import os", 'sys.path.insert(0, "/some/path")', "from tools import foo"].join("\n"),
       );
       rewritePythonImports(fp, "agent");
       const result = readTmp(fp);
@@ -444,10 +369,7 @@ describe("generate-starters", () => {
     });
 
     it("cleans up triple blank lines", () => {
-      const fp = writeTmp(
-        "test.py",
-        "import sys\nsys.path.insert(0, '.')\n\n\n\nfrom tools import x\n",
-      );
+      const fp = writeTmp("test.py", "import sys\nsys.path.insert(0, '.')\n\n\n\nfrom tools import x\n");
       rewritePythonImports(fp, "agent");
       const result = readTmp(fp);
       expect(result).not.toMatch(/\n{3,}/);

@@ -19,9 +19,7 @@ export function useRenderMode() {
   const [mode, setMode] = useState<RenderMode>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem(STORAGE_KEY);
-      return VALID_MODES.has(stored ?? "")
-        ? (stored as RenderMode)
-        : "tool-based";
+      return VALID_MODES.has(stored ?? "") ? (stored as RenderMode) : "tool-based";
     }
     return "tool-based";
   });

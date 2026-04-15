@@ -66,9 +66,7 @@ describe("copyToClipboard", () => {
   });
 
   it("returns false when writeText rejects", async () => {
-    const writeTextMock = vi
-      .fn()
-      .mockRejectedValue(new Error("Permission denied"));
+    const writeTextMock = vi.fn().mockRejectedValue(new Error("Permission denied"));
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText: writeTextMock },
       writable: true,
@@ -78,10 +76,7 @@ describe("copyToClipboard", () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const result = await copyToClipboard("hello");
     expect(result).toBe(false);
-    expect(consoleSpy).toHaveBeenCalledWith(
-      "Failed to copy to clipboard:",
-      expect.any(Error),
-    );
+    expect(consoleSpy).toHaveBeenCalledWith("Failed to copy to clipboard:", expect.any(Error));
     consoleSpy.mockRestore();
   });
 });

@@ -24,9 +24,7 @@ test.describe("dark mode CSS scoping (#2920)", () => {
     await page.locator(".copilotKitWindow.open").waitFor({ timeout: 10_000 });
   });
 
-  test("enabling .dark class does not leak CopilotKit styles to host elements", async ({
-    page,
-  }) => {
+  test("enabling .dark class does not leak CopilotKit styles to host elements", async ({ page }) => {
     // Grab a host-app element that should never be styled by CopilotKit CSS.
     // In form-filling the <body> itself or a top-level container works.
     const body = page.locator("body");
@@ -37,9 +35,7 @@ test.describe("dark mode CSS scoping (#2920)", () => {
     // Wait a tick for styles to recompute
     await page.waitForTimeout(100);
 
-    const colorAfter = await body.evaluate(
-      (el) => window.getComputedStyle(el).color,
-    );
+    const colorAfter = await body.evaluate((el) => window.getComputedStyle(el).color);
 
     // The bug on main: .dark { color: rgb(69, 69, 69) !important } would
     // override the body's color. With the fix, the body color should be
@@ -50,9 +46,7 @@ test.describe("dark mode CSS scoping (#2920)", () => {
     expect(colorAfter).not.toBe("rgb(69, 69, 69)");
   });
 
-  test("CopilotKit poweredBy gets correct dark mode color", async ({
-    page,
-  }) => {
+  test("CopilotKit poweredBy gets correct dark mode color", async ({ page }) => {
     // Toggle dark mode
     await page.evaluate(() => document.documentElement.classList.add("dark"));
     await page.waitForTimeout(100);
@@ -64,17 +58,13 @@ test.describe("dark mode CSS scoping (#2920)", () => {
     const count = await poweredBy.count();
     test.skip(count === 0, "No .poweredBy element found — skipping");
 
-    const color = await poweredBy
-      .first()
-      .evaluate((el) => window.getComputedStyle(el).color);
+    const color = await poweredBy.first().evaluate((el) => window.getComputedStyle(el).color);
     expect(color).toBe("rgb(69, 69, 69)");
   });
 
   test("screenshot: dark mode side-by-side comparison", async ({ page }) => {
     // Light mode screenshot
-    await page.evaluate(() =>
-      document.documentElement.classList.remove("dark"),
-    );
+    await page.evaluate(() => document.documentElement.classList.remove("dark"));
     await page.waitForTimeout(200);
     const lightScreenshot = await page.screenshot({ fullPage: true });
     expect(lightScreenshot).toBeTruthy();
@@ -103,9 +93,7 @@ test.describe("dark mode CSS scoping (#2920)", () => {
     await page.evaluate(() => document.documentElement.classList.add("dark"));
     await page.waitForTimeout(100);
 
-    const markerColorDark = await page
-      .locator("#leak-detector")
-      .evaluate((el) => window.getComputedStyle(el).color);
+    const markerColorDark = await page.locator("#leak-detector").evaluate((el) => window.getComputedStyle(el).color);
 
     // The leak detector element should NOT have its color changed by
     // CopilotKit's .dark CSS rules. If it does, that's a style leak.

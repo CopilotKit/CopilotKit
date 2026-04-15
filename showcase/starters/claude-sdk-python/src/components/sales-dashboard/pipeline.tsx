@@ -25,10 +25,7 @@ export function Pipeline({ deals }: PipelineProps) {
   );
 
   return (
-    <div
-      data-testid="pipeline-board"
-      className="flex gap-4 overflow-x-auto pb-4"
-    >
+    <div data-testid="pipeline-board" className="flex gap-4 overflow-x-auto pb-4">
       {SALES_STAGES.map((stage) => {
         const stageDeals = dealsByStage[stage];
         const totalValue = stageDeals.reduce((sum, d) => sum + d.value, 0);
@@ -42,16 +39,12 @@ export function Pipeline({ deals }: PipelineProps) {
             {/* Column header */}
             <div className="mb-3">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-[var(--foreground)]">
-                  {STAGE_LABELS[stage]}
-                </h3>
+                <h3 className="text-sm font-bold text-[var(--foreground)]">{STAGE_LABELS[stage]}</h3>
                 <span className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--secondary)] px-2 py-0.5 text-xs font-semibold text-[var(--secondary-foreground)]">
                   {stageDeals.length}
                 </span>
               </div>
-              <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                ${totalValue.toLocaleString()}
-              </p>
+              <p className="text-xs text-[var(--muted-foreground)] mt-0.5">${totalValue.toLocaleString()}</p>
             </div>
 
             {/* Cards */}

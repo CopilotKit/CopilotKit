@@ -1,10 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import {
-  isOpenAIV5,
-  getChatCompletionsForStreaming,
-  retrieveThreadRun,
-  submitToolOutputsStream,
-} from "../utils";
+import { isOpenAIV5, getChatCompletionsForStreaming, retrieveThreadRun, submitToolOutputsStream } from "../utils";
 import type OpenAI from "openai";
 
 /**
@@ -122,9 +117,7 @@ describe("getChatCompletionsForStreaming", () => {
 describe("retrieveThreadRun", () => {
   it("v4: calls retrieve with positional args (threadId, runId)", async () => {
     const { client } = createMockV4Client();
-    const retrieveFn = client.beta.threads.runs.retrieve as ReturnType<
-      typeof vi.fn
-    >;
+    const retrieveFn = client.beta.threads.runs.retrieve as ReturnType<typeof vi.fn>;
 
     await retrieveThreadRun(client, "thread_abc", "run_xyz");
 
@@ -133,9 +126,7 @@ describe("retrieveThreadRun", () => {
 
   it("v5: calls retrieve with named path params (runId, { thread_id })", async () => {
     const { client } = createMockV5Client();
-    const retrieveFn = client.beta.threads.runs.retrieve as ReturnType<
-      typeof vi.fn
-    >;
+    const retrieveFn = client.beta.threads.runs.retrieve as ReturnType<typeof vi.fn>;
 
     await retrieveThreadRun(client, "thread_abc", "run_xyz");
 
@@ -148,8 +139,7 @@ describe("retrieveThreadRun", () => {
 describe("submitToolOutputsStream", () => {
   it("v4: calls with positional args (threadId, runId, body)", () => {
     const { client } = createMockV4Client();
-    const submitFn = client.beta.threads.runs
-      .submitToolOutputsStream as ReturnType<typeof vi.fn>;
+    const submitFn = client.beta.threads.runs.submitToolOutputsStream as ReturnType<typeof vi.fn>;
     const body = {
       tool_outputs: [{ tool_call_id: "tc_1", output: "result" }],
     };
@@ -161,8 +151,7 @@ describe("submitToolOutputsStream", () => {
 
   it("v5: calls with named path params (runId, { thread_id, ...body })", () => {
     const { client } = createMockV5Client();
-    const submitFn = client.beta.threads.runs
-      .submitToolOutputsStream as ReturnType<typeof vi.fn>;
+    const submitFn = client.beta.threads.runs.submitToolOutputsStream as ReturnType<typeof vi.fn>;
     const body = {
       tool_outputs: [{ tool_call_id: "tc_1", output: "result" }],
     };

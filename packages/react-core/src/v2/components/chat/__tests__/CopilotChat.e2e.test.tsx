@@ -1037,9 +1037,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       agent.emit(runStartedEvent());
       agent.emit(reasoningStartEvent(reasoningId));
       agent.emit(reasoningMessageStartEvent(reasoningId));
-      agent.emit(
-        reasoningMessageContentEvent(reasoningId, "Deep analysis in progress"),
-      );
+      agent.emit(reasoningMessageContentEvent(reasoningId, "Deep analysis in progress"));
 
       await waitFor(() => {
         expect(screen.getByText("Thinking…")).toBeDefined();

@@ -77,18 +77,12 @@ export function BarChart({ title, description, data }: BarChartPropsType) {
               <line x1="12" y1="20" x2="12" y2="4" />
               <line x1="6" y1="20" x2="6" y2="14" />
             </svg>
-            <h3 className="text-lg font-semibold leading-none tracking-tight text-[var(--foreground)]">
-              {title}
-            </h3>
+            <h3 className="text-lg font-semibold leading-none tracking-tight text-[var(--foreground)]">{title}</h3>
           </div>
-          <p className="text-sm text-[var(--muted-foreground)]">
-            {description}
-          </p>
+          <p className="text-sm text-[var(--muted-foreground)]">{description}</p>
         </div>
         <div className="p-6 pt-0">
-          <p className="text-[var(--muted-foreground)] text-center py-8 text-sm">
-            No data available
-          </p>
+          <p className="text-[var(--muted-foreground)] text-center py-8 text-sm">No data available</p>
         </div>
       </div>
     );
@@ -121,23 +115,14 @@ export function BarChart({ title, description, data }: BarChartPropsType) {
               <line x1="6" y1="20" x2="6" y2="14" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold leading-none tracking-tight text-[var(--foreground)]">
-            {title}
-          </h3>
+          <h3 className="text-lg font-semibold leading-none tracking-tight text-[var(--foreground)]">{title}</h3>
         </div>
         <p className="text-sm text-[var(--muted-foreground)]">{description}</p>
       </div>
       <div className="p-6 pt-2">
         <ResponsiveContainer width="100%" height={280}>
-          <RechartsBarChart
-            data={data}
-            margin={{ top: 12, right: 12, bottom: 4, left: -8 }}
-          >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="var(--border)"
-              vertical={false}
-            />
+          <RechartsBarChart data={data} margin={{ top: 12, right: 12, bottom: 4, left: -8 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
             <XAxis
               dataKey="label"
               tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
@@ -151,10 +136,7 @@ export function BarChart({ title, description, data }: BarChartPropsType) {
               tickLine={false}
               axisLine={false}
             />
-            <Tooltip
-              contentStyle={CHART_CONFIG.tooltipStyle}
-              cursor={{ fill: "var(--secondary)", opacity: 0.5 }}
-            />
+            <Tooltip contentStyle={CHART_CONFIG.tooltipStyle} cursor={{ fill: "var(--secondary)", opacity: 0.5 }} />
             <Bar
               isAnimationActive={false}
               dataKey="value"
@@ -166,10 +148,7 @@ export function BarChart({ title, description, data }: BarChartPropsType) {
               }}
             >
               {data.map((_, index) => (
-                <Cell
-                  key={index}
-                  fill={CHART_COLORS[index % CHART_COLORS.length]}
-                />
+                <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
               ))}
             </Bar>
           </RechartsBarChart>

@@ -12,9 +12,7 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
   const completedTodos = todos.filter((t) => t.completed);
 
   const toggleCompleted = (todo: SalesTodo) => {
-    const updated = todos.map((t) =>
-      t.id === todo.id ? { ...t, completed: !t.completed } : t,
-    );
+    const updated = todos.map((t) => (t.id === todo.id ? { ...t, completed: !t.completed } : t));
     onUpdate(updated);
   };
 
@@ -54,12 +52,8 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <div className="text-5xl">{"\uD83D\uDCBC"}</div>
-        <p className="text-base font-semibold text-[var(--foreground)]">
-          No deals yet
-        </p>
-        <p className="text-sm text-[var(--muted-foreground)]">
-          Create your first deal to get started
-        </p>
+        <p className="text-base font-semibold text-[var(--foreground)]">No deals yet</p>
+        <p className="text-sm text-[var(--muted-foreground)]">Create your first deal to get started</p>
         <button
           onClick={addTodo}
           disabled={isAgentRunning}

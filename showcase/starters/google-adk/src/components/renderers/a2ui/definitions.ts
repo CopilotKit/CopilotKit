@@ -56,10 +56,7 @@ export const demonstrationCatalogDefinitions = {
       justify: z.string().optional(),
       // Union with { componentId, path } so GenericBinder treats this as
       // STRUCTURAL and resolves template children from the data model.
-      children: z.union([
-        z.array(z.string()),
-        z.object({ componentId: z.string(), path: z.string() }),
-      ]),
+      children: z.union([z.array(z.string()), z.object({ componentId: z.string(), path: z.string() })]),
     }),
   },
 
@@ -69,10 +66,7 @@ export const demonstrationCatalogDefinitions = {
       gap: z.number().optional(),
       align: z.string().optional(),
       // Same union as Row -- required for template children support.
-      children: z.union([
-        z.array(z.string()),
-        z.object({ componentId: z.string(), path: z.string() }),
-      ]),
+      children: z.union([z.array(z.string()), z.object({ componentId: z.string(), path: z.string() })]),
     }),
   },
 
@@ -87,8 +81,7 @@ export const demonstrationCatalogDefinitions = {
   },
 
   Metric: {
-    description:
-      "A key metric display with label, value, and optional trend indicator. Great for KPIs and stats.",
+    description: "A key metric display with label, value, and optional trend indicator. Great for KPIs and stats.",
     props: z.object({
       label: z.string(),
       value: z.string(),
@@ -98,8 +91,7 @@ export const demonstrationCatalogDefinitions = {
   },
 
   PieChart: {
-    description:
-      "A pie/donut chart. Provide data as array of {label, value, color} objects.",
+    description: "A pie/donut chart. Provide data as array of {label, value, color} objects.",
     props: z.object({
       data: z.array(
         z.object({
@@ -113,8 +105,7 @@ export const demonstrationCatalogDefinitions = {
   },
 
   BarChart: {
-    description:
-      "A bar chart. Provide data as array of {label, value} objects.",
+    description: "A bar chart. Provide data as array of {label, value} objects.",
     props: z.object({
       data: z.array(z.object({ label: z.string(), value: z.number() })),
       color: z.string().optional(),
@@ -122,13 +113,10 @@ export const demonstrationCatalogDefinitions = {
   },
 
   Badge: {
-    description:
-      "A small status badge/tag. Use for labels, statuses, categories.",
+    description: "A small status badge/tag. Use for labels, statuses, categories.",
     props: z.object({
       text: z.string(),
-      variant: z
-        .enum(["success", "warning", "error", "info", "neutral"])
-        .optional(),
+      variant: z.enum(["success", "warning", "error", "info", "neutral"]).optional(),
     }),
   },
 
@@ -144,11 +132,7 @@ export const demonstrationCatalogDefinitions = {
     description:
       "An interactive button with an action event. Use 'child' with a Text component ID for the label. 'action' is dispatched on click.",
     props: z.object({
-      child: z
-        .string()
-        .describe(
-          "The ID of the child component (e.g. a Text component for the label).",
-        ),
+      child: z.string().describe("The ID of the child component (e.g. a Text component for the label)."),
       variant: z.enum(["primary", "secondary", "ghost"]).optional(),
       action: ActionSchema,
     }),
@@ -176,5 +160,4 @@ export const demonstrationCatalogDefinitions = {
 };
 
 /** Type helper for renderers */
-export type DemonstrationCatalogDefinitions =
-  typeof demonstrationCatalogDefinitions;
+export type DemonstrationCatalogDefinitions = typeof demonstrationCatalogDefinitions;

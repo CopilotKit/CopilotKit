@@ -44,9 +44,7 @@ export function generateA2uiImpl(input: GenerateA2UIInput): GenerateA2UIResult {
   const contextText = (input.contextEntries ?? [])
     .filter(
       (e): e is Record<string, unknown> & { value: string } =>
-        typeof e === "object" &&
-        typeof e.value === "string" &&
-        e.value.length > 0,
+        typeof e === "object" && typeof e.value === "string" && e.value.length > 0,
     )
     .map((e) => e.value)
     .join("\n\n");
@@ -68,9 +66,7 @@ export interface A2UIOperation {
   data?: Record<string, unknown>;
 }
 
-export function buildA2uiOperationsFromToolCall(
-  args: Record<string, unknown>,
-): {
+export function buildA2uiOperationsFromToolCall(args: Record<string, unknown>): {
   a2ui_operations: A2UIOperation[];
 } {
   const surfaceId = (args.surfaceId as string) ?? "dynamic-surface";
@@ -79,10 +75,7 @@ export function buildA2uiOperationsFromToolCall(
   const data = args.data as Record<string, unknown> | undefined;
 
   if (components.length === 0) {
-    console.warn(
-      "buildA2uiOperationsFromToolCall: empty components for surface",
-      surfaceId,
-    );
+    console.warn("buildA2uiOperationsFromToolCall: empty components for surface", surfaceId);
   }
 
   const ops: A2UIOperation[] = [

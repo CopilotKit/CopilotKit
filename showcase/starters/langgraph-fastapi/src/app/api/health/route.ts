@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const AGENT_URL =
-  process.env.AGENT_URL ||
-  process.env.LANGGRAPH_DEPLOYMENT_URL ||
-  "http://localhost:8123";
+const AGENT_URL = process.env.AGENT_URL || process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
 
 export async function GET(req: NextRequest) {
   let agentStatus = "unknown";
@@ -23,8 +20,7 @@ export async function GET(req: NextRequest) {
     timestamp: new Date().toISOString(),
   };
 
-  const token =
-    req.headers.get("x-debug-token") || req.nextUrl.searchParams.get("debug");
+  const token = req.headers.get("x-debug-token") || req.nextUrl.searchParams.get("debug");
   const expectedToken = process.env.SHOWCASE_DEBUG_TOKEN;
 
   if (token && expectedToken && token === expectedToken) {

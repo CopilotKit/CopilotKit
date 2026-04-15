@@ -9,9 +9,7 @@ import { AssistantMessage, UserMessage } from "@ag-ui/core";
 
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <CopilotKitProvider>
-    <CopilotChatConfigurationProvider threadId="test-thread">
-      {children}
-    </CopilotChatConfigurationProvider>
+    <CopilotChatConfigurationProvider threadId="test-thread">{children}</CopilotChatConfigurationProvider>
   </CopilotKitProvider>
 );
 
@@ -100,18 +98,14 @@ describe("CopyButton clipboard behavior", () => {
     });
 
     it("logs error when clipboard write rejects", async () => {
-      const writeTextMock = vi
-        .fn()
-        .mockRejectedValue(new Error("Permission denied"));
+      const writeTextMock = vi.fn().mockRejectedValue(new Error("Permission denied"));
       Object.defineProperty(navigator, "clipboard", {
         value: { writeText: writeTextMock },
         writable: true,
         configurable: true,
       });
 
-      const consoleSpy = vi
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
       const message = createAssistantMessage("Hello assistant");
       render(
@@ -128,10 +122,7 @@ describe("CopyButton clipboard behavior", () => {
       });
 
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith(
-          "Failed to copy to clipboard:",
-          expect.any(Error),
-        );
+        expect(consoleSpy).toHaveBeenCalledWith("Failed to copy to clipboard:", expect.any(Error));
       });
 
       // Should NOT show copied state when write failed
@@ -197,18 +188,14 @@ describe("CopyButton clipboard behavior", () => {
     });
 
     it("logs error when clipboard write rejects", async () => {
-      const writeTextMock = vi
-        .fn()
-        .mockRejectedValue(new Error("Permission denied"));
+      const writeTextMock = vi.fn().mockRejectedValue(new Error("Permission denied"));
       Object.defineProperty(navigator, "clipboard", {
         value: { writeText: writeTextMock },
         writable: true,
         configurable: true,
       });
 
-      const consoleSpy = vi
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
       const message = createUserMessage("Hello user");
       render(
@@ -225,10 +212,7 @@ describe("CopyButton clipboard behavior", () => {
       });
 
       await waitFor(() => {
-        expect(consoleSpy).toHaveBeenCalledWith(
-          "Failed to copy to clipboard:",
-          expect.any(Error),
-        );
+        expect(consoleSpy).toHaveBeenCalledWith("Failed to copy to clipboard:", expect.any(Error));
       });
 
       // Should NOT show copied state when write failed

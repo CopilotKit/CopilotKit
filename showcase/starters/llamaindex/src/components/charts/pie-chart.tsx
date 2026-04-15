@@ -56,14 +56,7 @@ function DonutChart({
       style={{ maxWidth: size, transform: "scaleX(-1)" }}
     >
       {/* Background ring */}
-      <circle
-        cx={center}
-        cy={center}
-        r={radius}
-        fill="none"
-        stroke="var(--secondary)"
-        strokeWidth={strokeWidth}
-      />
+      <circle cx={center} cy={center} r={radius} fill="none" stroke="var(--secondary)" strokeWidth={strokeWidth} />
       {/* Data slices */}
       {slices.map((slice, i) => (
         <circle
@@ -89,17 +82,11 @@ export function PieChart({ title, description, data }: PieChartPropsType) {
     return (
       <div className="max-w-lg mx-auto my-4 rounded-lg border border-[var(--border)] bg-[var(--card)]">
         <div className="p-6 pb-0">
-          <h3 className="text-lg font-semibold leading-none tracking-tight text-[var(--foreground)]">
-            {title}
-          </h3>
-          <p className="text-sm text-[var(--muted-foreground)]">
-            {description}
-          </p>
+          <h3 className="text-lg font-semibold leading-none tracking-tight text-[var(--foreground)]">{title}</h3>
+          <p className="text-sm text-[var(--muted-foreground)]">{description}</p>
         </div>
         <div className="p-6">
-          <p className="text-[var(--muted-foreground)] text-center py-8 text-sm">
-            No data available
-          </p>
+          <p className="text-[var(--muted-foreground)] text-center py-8 text-sm">No data available</p>
         </div>
       </div>
     );
@@ -110,9 +97,7 @@ export function PieChart({ title, description, data }: PieChartPropsType) {
   return (
     <div className="max-w-lg mx-auto my-4 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card)]">
       <div className="p-6 pb-0">
-        <h3 className="text-lg font-semibold leading-none tracking-tight text-[var(--foreground)]">
-          {title}
-        </h3>
+        <h3 className="text-lg font-semibold leading-none tracking-tight text-[var(--foreground)]">{title}</h3>
         <p className="text-sm text-[var(--muted-foreground)]">{description}</p>
       </div>
       <div className="p-6 pt-4">
@@ -135,15 +120,9 @@ export function PieChart({ title, description, data }: PieChartPropsType) {
                     backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
                   }}
                 />
-                <span className="flex-1 text-[var(--foreground)] truncate">
-                  {item.label}
-                </span>
-                <span className="text-[var(--muted-foreground)] tabular-nums">
-                  {val.toLocaleString()}
-                </span>
-                <span className="text-[var(--muted-foreground)] text-sm w-10 text-right tabular-nums">
-                  {pct}%
-                </span>
+                <span className="flex-1 text-[var(--foreground)] truncate">{item.label}</span>
+                <span className="text-[var(--muted-foreground)] tabular-nums">{val.toLocaleString()}</span>
+                <span className="text-[var(--muted-foreground)] text-sm w-10 text-right tabular-nums">{pct}%</span>
               </div>
             );
           })}

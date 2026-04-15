@@ -55,9 +55,7 @@ export function manageSalesTodosImpl(todos: Partial<SalesTodo>[]): SalesTodo[] {
 /**
  * Return current todos or initial defaults if none provided.
  */
-export function getSalesTodosImpl(
-  currentTodos?: Partial<SalesTodo>[] | null,
-): SalesTodo[] {
+export function getSalesTodosImpl(currentTodos?: Partial<SalesTodo>[] | null): SalesTodo[] {
   if (currentTodos != null) {
     return currentTodos.length > 0 ? manageSalesTodosImpl(currentTodos) : [];
   }

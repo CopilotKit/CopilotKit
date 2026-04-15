@@ -1,10 +1,4 @@
-export const RENDER_MODES = [
-  "tool-based",
-  "a2ui",
-  "json-render",
-  "hashbrown",
-  "open-genui",
-] as const;
+export const RENDER_MODES = ["tool-based", "a2ui", "json-render", "hashbrown", "open-genui"] as const;
 export type RenderMode = (typeof RENDER_MODES)[number];
 
 export interface RenderStrategyInfo {

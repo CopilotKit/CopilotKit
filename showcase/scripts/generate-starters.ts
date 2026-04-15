@@ -147,8 +147,7 @@ const FRAMEWORKS: FrameworkDef[] = [
     language: "typescript",
     agentSourceDir: "src/mastra",
     agentDir: "src/mastra",
-    devScript:
-      'concurrently "next dev --turbopack" "npx mastra dev --port 8123"',
+    devScript: 'concurrently "next dev --turbopack" "npx mastra dev --port 8123"',
   },
   {
     slug: "claude-sdk-python",
@@ -182,8 +181,7 @@ const FRAMEWORKS: FrameworkDef[] = [
     language: "csharp",
     agentSourceDir: "agent",
     agentDir: "agent",
-    devScript:
-      'concurrently "next dev --turbopack" "cd agent && dotnet run --urls http://0.0.0.0:8123"',
+    devScript: 'concurrently "next dev --turbopack" "cd agent && dotnet run --urls http://0.0.0.0:8123"',
   },
   {
     slug: "spring-ai",
@@ -231,9 +229,7 @@ function copyDirSync(src: string, dest: string): void {
     } catch (e: unknown) {
       const code = (e as NodeJS.ErrnoException).code;
       if (code === "ENOENT") {
-        console.warn(
-          `  [warn] Broken symlink or missing: ${srcPath} — skipping`,
-        );
+        console.warn(`  [warn] Broken symlink or missing: ${srcPath} — skipping`);
         continue;
       }
       throw e;
@@ -254,9 +250,7 @@ function substituteVars(content: string, vars: Record<string, string>): string {
   }
   const remaining = result.match(/\{\{[A-Z_]+\}\}/g);
   if (remaining) {
-    console.warn(
-      `  [warn] Unreplaced template variables: ${remaining.join(", ")}`,
-    );
+    console.warn(`  [warn] Unreplaced template variables: ${remaining.join(", ")}`);
   }
   return result;
 }
@@ -316,17 +310,11 @@ function rewritePythonImports(filePath: string, _agentDir: string): void {
 
   // Rewrite "from tools import ..." to "from .tools import ..."
   content = content.replace(/^from tools import /gm, "from .tools import ");
-  content = content.replace(
-    /^from tools\.(\w+) import /gm,
-    "from .tools.$1 import ",
-  );
+  content = content.replace(/^from tools\.(\w+) import /gm, "from .tools.$1 import ");
 
   // Rewrite "from src.agents.X import ..." to "from .X import ..."
   // This handles main.py style imports like "from src.agents.tools import ..."
-  content = content.replace(
-    /^(\s*)from src\.agents\.(\w+) import /gm,
-    "$1from .$2 import ",
-  );
+  content = content.replace(/^(\s*)from src\.agents\.(\w+) import /gm, "$1from .$2 import ");
 
   fs.writeFileSync(filePath, content);
 }
@@ -336,10 +324,7 @@ function rewriteTypeScriptSharedImports(filePath: string): void {
   let content = fs.readFileSync(filePath, "utf-8");
 
   // Rewrite @copilotkit/showcase-shared-tools to relative ./shared-tools
-  content = content.replace(
-    /@copilotkit\/showcase-shared-tools/g,
-    "./shared-tools",
-  );
+  content = content.replace(/@copilotkit\/showcase-shared-tools/g, "./shared-tools");
 
   fs.writeFileSync(filePath, content);
 }
@@ -496,8 +481,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
 
   // Extra Dockerfile COPY lines for frameworks that need root-level config files
   let dockerExtraCopy =
-    fw.extraFiles &&
-    Object.keys(fw.extraFiles).some((dest) => !dest.includes("/"))
+    fw.extraFiles && Object.keys(fw.extraFiles).some((dest) => !dest.includes("/"))
       ? Object.keys(fw.extraFiles)
           .filter((dest) => !dest.includes("/"))
           .map((dest) => `\n# Framework config\nCOPY ${dest} ./`)
@@ -505,13 +489,8 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
       : "";
 
   // Non-langgraph Python starters need agent_server.py at the root
-  if (
-    fw.language === "python" &&
-    fw.slug !== "langgraph-python" &&
-    fw.slug !== "langgraph-fastapi"
-  ) {
-    dockerExtraCopy +=
-      "\n# FastAPI agent server entrypoint\nCOPY agent_server.py ./";
+  if (fw.language === "python" && fw.slug !== "langgraph-python" && fw.slug !== "langgraph-fastapi") {
+    dockerExtraCopy += "\n# FastAPI agent server entrypoint\nCOPY agent_server.py ./";
   }
 
   const vars: Record<string, string> = {
@@ -582,9 +561,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
       );
       fs.mkdirSync(agentDest, { recursive: true });
     } else {
-      throw new Error(
-        `Agent source directory missing for ${fw.slug}: ${agentSrc}`,
-      );
+      throw new Error(`Agent source directory missing for ${fw.slug}: ${agentSrc}`);
     }
   } else {
     copyDirSync(agentSrc, agentDest);
@@ -621,9 +598,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
       fs.renameSync(toolsPy, newName);
       // Update imports in OTHER .py files (not tool_wrappers.py itself)
       // to reference tool_wrappers instead of tools (the wrapper file, not the dir)
-      for (const pyFile of fs
-        .readdirSync(agentDest)
-        .filter((f) => f.endsWith(".py") && f !== "tool_wrappers.py")) {
+      for (const pyFile of fs.readdirSync(agentDest).filter((f) => f.endsWith(".py") && f !== "tool_wrappers.py")) {
         const fp = path.join(agentDest, pyFile);
         let content = fs.readFileSync(fp, "utf-8");
         const agentMod = fw.agentDir.replace(/\//g, ".");
@@ -634,10 +609,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
         );
         // from .tools import X -> from .tool_wrappers import X
         // (but NOT from .tools.submodule — those reference the tools/ dir)
-        content = content.replace(
-          /^from \.tools import/gm,
-          "from .tool_wrappers import",
-        );
+        content = content.replace(/^from \.tools import/gm, "from .tool_wrappers import");
         fs.writeFileSync(fp, content);
       }
     }
@@ -646,16 +618,11 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     // because langgraph_cli loads modules standalone, not as packages
     if (fw.slug.startsWith("langgraph-")) {
       const agentMod = fw.agentDir.replace(/\//g, ".");
-      for (const pyFile of fs
-        .readdirSync(agentDest)
-        .filter((f) => f.endsWith(".py"))) {
+      for (const pyFile of fs.readdirSync(agentDest).filter((f) => f.endsWith(".py"))) {
         const fp = path.join(agentDest, pyFile);
         let content = fs.readFileSync(fp, "utf-8");
         // from .X import -> from <agentMod>.X import
-        content = content.replace(
-          /^from \.([\w.]+) import/gm,
-          `from ${agentMod}.$1 import`,
-        );
+        content = content.replace(/^from \.([\w.]+) import/gm, `from ${agentMod}.$1 import`);
         fs.writeFileSync(fp, content);
       }
     }
@@ -676,15 +643,10 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
       if (fs.existsSync(agentServerSrc)) {
         let serverContent = fs.readFileSync(agentServerSrc, "utf-8");
         // Rewrite imports: demo packages use "agents/" dir, starters use "agent/"
-        serverContent = serverContent.replace(
-          /^from agents\./gm,
-          "from agent.",
-        );
+        serverContent = serverContent.replace(/^from agents\./gm, "from agent.");
         fs.writeFileSync(path.join(outDir, "agent_server.py"), serverContent);
       } else {
-        console.warn(
-          `  [warn] agent_server.py missing for ${fw.slug}: ${agentServerSrc} — skipping`,
-        );
+        console.warn(`  [warn] agent_server.py missing for ${fw.slug}: ${agentServerSrc} — skipping`);
       }
     }
   }
@@ -701,9 +663,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
       const srcPath = path.join(pkgDir, src);
       const destPath = path.join(outDir, dest);
       if (!fs.existsSync(srcPath)) {
-        console.warn(
-          `  [warn] Extra file missing for ${fw.slug}: ${srcPath} — skipping`,
-        );
+        console.warn(`  [warn] Extra file missing for ${fw.slug}: ${srcPath} — skipping`);
         continue;
       }
       fs.mkdirSync(path.dirname(destPath), { recursive: true });
@@ -713,10 +673,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
       // Only rewrite paths when agents are flattened into a different dir
       // (e.g. src/agents/ -> agent/). Skip rewriting when the starter
       // preserves the same directory structure as the package.
-      if (
-        dest.endsWith("langgraph.json") &&
-        fw.agentDir !== fw.agentSourceDir
-      ) {
+      if (dest.endsWith("langgraph.json") && fw.agentDir !== fw.agentSourceDir) {
         let lgContent = fs.readFileSync(destPath, "utf-8");
         lgContent = lgContent.replace(/\.\/src\/agents\//g, "./");
         lgContent = lgContent.replace(/\.\/src\/agent\//g, "./");
@@ -727,11 +684,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
 
   // 5. Copy Dockerfile
   const dockerfileKey = fw.language === "csharp" ? "dotnet" : fw.language;
-  const dockerfileSrc = path.join(
-    TEMPLATE_DIR,
-    "dockerfiles",
-    `Dockerfile.${dockerfileKey}`,
-  );
+  const dockerfileSrc = path.join(TEMPLATE_DIR, "dockerfiles", `Dockerfile.${dockerfileKey}`);
   if (!fs.existsSync(dockerfileSrc)) {
     throw new Error(`Dockerfile missing for ${fw.slug}: ${dockerfileSrc}`);
   }
@@ -740,10 +693,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
   fs.writeFileSync(path.join(outDir, "Dockerfile"), dockerfileContent);
 
   // 6. Generate entrypoint.sh
-  const entrypointTemplate = fs.readFileSync(
-    path.join(TEMPLATE_DIR, "entrypoint.template.sh"),
-    "utf-8",
-  );
+  const entrypointTemplate = fs.readFileSync(path.join(TEMPLATE_DIR, "entrypoint.template.sh"), "utf-8");
   const entrypoint = substituteVars(entrypointTemplate, vars);
   fs.writeFileSync(path.join(outDir, "entrypoint.sh"), entrypoint, {
     mode: 0o755,
@@ -758,20 +708,10 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     agentPort: 8123,
     generated: true,
   };
-  fs.writeFileSync(
-    path.join(outDir, "showcase.json"),
-    JSON.stringify(showcaseJson, null, 2) + "\n",
-  );
+  fs.writeFileSync(path.join(outDir, "showcase.json"), JSON.stringify(showcaseJson, null, 2) + "\n");
 
   // 8. Copy flight-schema.json for A2UI
-  const flightSchemaSrc = path.join(
-    SHOWCASE,
-    "shared",
-    "frontend",
-    "src",
-    "a2ui",
-    "flight-schema.json",
-  );
+  const flightSchemaSrc = path.join(SHOWCASE, "shared", "frontend", "src", "a2ui", "flight-schema.json");
   if (fs.existsSync(flightSchemaSrc)) {
     if (fw.language === "python") {
       const flightDest = path.join(agentDest, "data", "flight-schema.json");
@@ -810,10 +750,7 @@ function generateStarter(fw: FrameworkDef, dryRun: boolean): void {
   generateStarterImpl(fw, outDir);
 }
 
-function processTemplateVarsInDir(
-  dir: string,
-  vars: Record<string, string>,
-): void {
+function processTemplateVarsInDir(dir: string, vars: Record<string, string>): void {
   if (!fs.existsSync(dir)) return;
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
@@ -882,9 +819,7 @@ function main(): void {
   const slugIdx = args.indexOf("--slug");
   const filterSlug = slugIdx >= 0 ? args[slugIdx + 1] : null;
 
-  const targets = filterSlug
-    ? FRAMEWORKS.filter((f) => f.slug === filterSlug)
-    : FRAMEWORKS;
+  const targets = filterSlug ? FRAMEWORKS.filter((f) => f.slug === filterSlug) : FRAMEWORKS;
 
   if (targets.length === 0) {
     console.error(`Unknown slug: ${filterSlug}`);
@@ -927,9 +862,7 @@ function runCheckMode(targets: FrameworkDef[]): void {
 
     const committedDir = path.join(STARTERS_DIR, fw.slug);
     if (!fs.existsSync(committedDir)) {
-      console.error(
-        `[check] DRIFT: ${fw.slug}/ does not exist in committed starters`,
-      );
+      console.error(`[check] DRIFT: ${fw.slug}/ does not exist in committed starters`);
       drifted = true;
       continue;
     }
@@ -953,9 +886,7 @@ function runCheckMode(targets: FrameworkDef[]): void {
   fs.rmSync(tmpDir, { recursive: true });
 
   if (drifted) {
-    console.error(
-      "\n[check] FAILED: Starters are out of date. Run: npx tsx generate-starters.ts",
-    );
+    console.error("\n[check] FAILED: Starters are out of date. Run: npx tsx generate-starters.ts");
     process.exit(1);
   } else {
     console.log("[check] OK: All starters are up to date.");
@@ -971,11 +902,4 @@ function generateStarterToDir(fw: FrameworkDef, startersBase: string): void {
 
 main();
 
-export {
-  FRAMEWORKS,
-  generateStarter,
-  substituteVars,
-  rewritePythonImports,
-  extractUvicornModule,
-  getEntrypointBlock,
-};
+export { FRAMEWORKS, generateStarter, substituteVars, rewritePythonImports, extractUvicornModule, getEntrypointBlock };

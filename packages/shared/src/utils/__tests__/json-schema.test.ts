@@ -257,9 +257,7 @@ describe("convertJsonSchemaToZodSchema", () => {
     expect(result).toBeDefined();
 
     // The circular ref should have produced a console.warn
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Circular $ref detected"),
-    );
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Circular $ref detected"));
 
     // The top-level shape should still have a "root" key that is an object
     const shape = (result as z.ZodObject<any>).shape;
@@ -351,9 +349,7 @@ describe("convertJsonSchemaToZodSchema", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
-    const wrapperShape = (
-      (result as z.ZodObject<any>).shape.wrapper as z.ZodObject<any>
-    ).shape;
+    const wrapperShape = ((result as z.ZodObject<any>).shape.wrapper as z.ZodObject<any>).shape;
 
     // Both first and second should be fully resolved Leaf objects
     expect(wrapperShape.first._def.typeName).toBe("ZodObject");
@@ -432,11 +428,7 @@ describe("convertJsonSchemaToZodSchema", () => {
     const result = convertJsonSchemaToZodSchema(jsonSchema, true);
 
     expect(result._def.typeName).toBe("ZodAny");
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining(
-        'Unsupported JSON schema type "custom_unsupported"',
-      ),
-    );
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Unsupported JSON schema type "custom_unsupported"'));
 
     warnSpy.mockRestore();
   });

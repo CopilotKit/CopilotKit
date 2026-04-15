@@ -35,20 +35,15 @@ test.describe("Demo: agentic-chat", () => {
     });
   });
 
-  test("page loads with chat input and styled background container", async ({
-    page,
-  }) => {
-    await expect(
-      page.locator('[data-testid="background-container"]'),
-    ).toBeVisible();
-    await expect(
-      page.locator('[data-testid="background-container"]'),
-    ).toHaveCSS("background-color", "rgb(250, 250, 249)");
+  test("page loads with chat input and styled background container", async ({ page }) => {
+    await expect(page.locator('[data-testid="background-container"]')).toBeVisible();
+    await expect(page.locator('[data-testid="background-container"]')).toHaveCSS(
+      "background-color",
+      "rgb(250, 250, 249)",
+    );
   });
 
-  test("suggestion buttons are rendered with correct text", async ({
-    page,
-  }) => {
+  test("suggestion buttons are rendered with correct text", async ({ page }) => {
     // The agentic-chat demo configures two suggestions via useConfigureSuggestions
     // CopilotKit renders these as clickable elements in the chat UI
     await expect(page.getByText("Change background")).toBeVisible({
@@ -76,9 +71,7 @@ test.describe("Demo: agentic-chat", () => {
       expect(inputValue.toLowerCase()).toContain("background");
     } else {
       // Suggestion was sent as a message -- verify it appears in the chat
-      await expect(
-        page.getByText(/Change the background to something new/i),
-      ).toBeVisible({ timeout: 5000 });
+      await expect(page.getByText(/Change the background to something new/i)).toBeVisible({ timeout: 5000 });
     }
   });
 });
@@ -91,9 +84,7 @@ test.describe("Demo: hitl (Human in the Loop)", () => {
     });
   });
 
-  test("page loads with CopilotChat in a centered max-width container", async ({
-    page,
-  }) => {
+  test("page loads with CopilotChat in a centered max-width container", async ({ page }) => {
     // The HITL demo renders CopilotChat inside a max-w-4xl centered container
     const container = page.locator(".max-w-4xl").first();
     await expect(container).toBeVisible();
@@ -102,9 +93,7 @@ test.describe("Demo: hitl (Human in the Loop)", () => {
     await expect(container.getByPlaceholder("Type a message")).toBeVisible();
   });
 
-  test("suggestion buttons are rendered with correct text", async ({
-    page,
-  }) => {
+  test("suggestion buttons are rendered with correct text", async ({ page }) => {
     // The HITL demo configures two suggestions: "Simple plan" and "Complex plan"
     await expect(page.getByText("Simple plan")).toBeVisible({
       timeout: 10000,
@@ -112,9 +101,7 @@ test.describe("Demo: hitl (Human in the Loop)", () => {
     await expect(page.getByText("Complex plan")).toBeVisible();
   });
 
-  test("clicking a suggestion populates the chat or sends the message", async ({
-    page,
-  }) => {
+  test("clicking a suggestion populates the chat or sends the message", async ({ page }) => {
     const suggestion = page.getByText("Simple plan");
     await expect(suggestion).toBeVisible({ timeout: 10000 });
 
@@ -143,17 +130,13 @@ test.describe("Demo: tool-rendering", () => {
     });
   });
 
-  test("page loads with CopilotChat in a centered full-height layout", async ({
-    page,
-  }) => {
+  test("page loads with CopilotChat in a centered full-height layout", async ({ page }) => {
     // The tool-rendering demo wraps CopilotChat in a full-height container
     const chatContainer = page.locator(".h-full").first();
     await expect(chatContainer).toBeVisible();
   });
 
-  test("weather suggestion buttons are rendered with specific city text", async ({
-    page,
-  }) => {
+  test("weather suggestion buttons are rendered with specific city text", async ({ page }) => {
     // The tool-rendering demo configures three weather suggestions with specific cities
     await expect(page.getByText("Weather in San Francisco")).toBeVisible({
       timeout: 10000,
@@ -162,9 +145,7 @@ test.describe("Demo: tool-rendering", () => {
     await expect(page.getByText("Weather in Tokyo")).toBeVisible();
   });
 
-  test("clicking a weather suggestion populates the chat or sends the message", async ({
-    page,
-  }) => {
+  test("clicking a weather suggestion populates the chat or sends the message", async ({ page }) => {
     const suggestion = page.getByText("Weather in San Francisco");
     await expect(suggestion).toBeVisible({ timeout: 10000 });
 

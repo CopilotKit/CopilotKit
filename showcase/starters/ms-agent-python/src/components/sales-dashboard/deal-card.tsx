@@ -2,13 +2,10 @@ import type { SalesTodo } from "../../types";
 
 const STAGE_COLORS: Record<SalesTodo["stage"], string> = {
   prospect: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  qualified:
-    "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+  qualified: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
   proposal: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
-  negotiation:
-    "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-  "closed-won":
-    "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  negotiation: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+  "closed-won": "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   "closed-lost": "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
@@ -28,9 +25,7 @@ export function DealCard({ deal }: DealCardProps) {
         {/* Title */}
         <h3
           className={`text-sm font-semibold leading-snug break-words ${
-            deal.completed
-              ? "text-[var(--muted-foreground)] line-through"
-              : "text-[var(--foreground)]"
+            deal.completed ? "text-[var(--muted-foreground)] line-through" : "text-[var(--foreground)]"
           }`}
         >
           {deal.title}
@@ -53,9 +48,7 @@ export function DealCard({ deal }: DealCardProps) {
         >
           {deal.stage}
         </span>
-        <span className="text-sm font-semibold text-[var(--foreground)]">
-          ${deal.value.toLocaleString()}
-        </span>
+        <span className="text-sm font-semibold text-[var(--foreground)]">${deal.value.toLocaleString()}</span>
       </div>
 
       {/* Meta: assignee + due date */}

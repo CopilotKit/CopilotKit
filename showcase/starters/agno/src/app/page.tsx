@@ -10,10 +10,7 @@ import { useShowcaseHooks } from "../hooks/use-showcase-hooks";
 import { useShowcaseSuggestions } from "../hooks/use-showcase-suggestions";
 import { ToolBasedDashboard } from "../components/renderers/tool-based";
 import { A2UIDashboard } from "../components/renderers/a2ui";
-import {
-  HashBrownDashboard,
-  useHashBrownMessageRenderer,
-} from "../components/renderers/hashbrown";
+import { HashBrownDashboard, useHashBrownMessageRenderer } from "../components/renderers/hashbrown";
 import { OpenGenUIDashboard } from "../components/renderers/open-genui";
 
 const AGENT_ID = "sample_agent";
@@ -31,8 +28,7 @@ function JsonRenderPage() {
   return (
     <div>
       <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm px-4 py-2 text-center">
-        json-render is not yet available as a standalone starter. Showing
-        tool-based rendering instead.
+        json-render is not yet available as a standalone starter. Showing tool-based rendering instead.
       </div>
       <ToolBasedDashboard agentId={AGENT_ID} />
     </div>
@@ -93,9 +89,7 @@ export default function Home() {
   return (
     <div className="h-screen flex flex-col">
       <header className="sticky top-0 z-[60] border-b border-[var(--border)] bg-[var(--card)] px-6 py-3 flex items-center justify-between shrink-0">
-        <h1 className="text-sm font-bold text-[var(--foreground)]">
-          CopilotKit Sales Dashboard
-        </h1>
+        <h1 className="text-sm font-bold text-[var(--foreground)]">CopilotKit Sales Dashboard</h1>
         <RendererSelector mode={mode} onModeChange={setMode} />
       </header>
       <main className="flex-1 overflow-hidden">{renderDashboard()}</main>

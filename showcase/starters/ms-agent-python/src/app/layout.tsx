@@ -7,11 +7,7 @@ export const metadata: Metadata = {
   title: "CopilotKit Showcase — Microsoft Agent Python",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
