@@ -13,8 +13,7 @@
   "type": "module",
   "main": "dist/extension/activate.cjs",
   "scripts": {
-    "build": "tsdown && pnpm run build:css",
-    "build:css": "tailwindcss -i ./src/webview/styles.css -o ./dist/webview/styles.css -m",
+    "build": "tsdown",
     "dev": "tsdown --watch",
     "check-types": "tsc --noEmit",
     "test": "vitest run",

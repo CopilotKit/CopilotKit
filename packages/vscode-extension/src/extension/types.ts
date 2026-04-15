@@ -14,8 +14,12 @@ export interface DiscoveredComponent {
 
 // Extension Host -> Webview messages
 export type ExtensionToWebviewMessage =
-  | { type: "catalog-update"; code: string }
-  | { type: "fixture-update"; fixtures: Record<string, A2UIFixture>; activeFixture?: string }
+  | { type: "catalog-update"; code: string; css?: string }
+  | {
+      type: "fixture-update";
+      fixtures: Record<string, A2UIFixture>;
+      activeFixture?: string;
+    }
   | { type: "error"; message: string };
 
 // Webview -> Extension Host messages

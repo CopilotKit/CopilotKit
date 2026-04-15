@@ -17,7 +17,11 @@ import { ErrorOverlay } from "./ErrorOverlay";
  * Inner component that processes fixture messages into the A2UI surface
  * and renders the surface. Must be rendered inside A2UIProvider.
  */
-function FixtureView({ fixture }: { fixture: A2UIFixture }): React.ReactElement {
+function FixtureView({
+  fixture,
+}: {
+  fixture: A2UIFixture;
+}): React.ReactElement {
   const { processMessages } = useA2UIActions();
 
   useEffect(() => {
@@ -74,6 +78,16 @@ export function App(): React.ReactElement {
           setCatalog(newCatalog);
           setCatalogVersion((v) => v + 1);
           setError(null);
+
+          // Inject component CSS (from imports + Tailwind JIT)
+          const existingStyle = document.getElementById("copilotkit-component-css");
+          if (existingStyle) existingStyle.remove();
+          if (msg.css) {
+            const style = document.createElement("style");
+            style.id = "copilotkit-component-css";
+            style.textContent = msg.css;
+            document.head.appendChild(style);
+          }
         } else {
           setError(
             "Module does not export a catalog. Expected a default export or named 'catalog' export.",
@@ -98,7 +112,7 @@ export function App(): React.ReactElement {
           setActiveFixture(msg.activeFixture);
         } else {
           setActiveFixture((prev) =>
-            names.includes(prev) ? prev : names[0] ?? "default",
+            names.includes(prev) ? prev : (names[0] ?? "default"),
           );
         }
       }),
@@ -135,9 +149,7 @@ export function App(): React.ReactElement {
         <A2UIProvider
           key={`catalog-${catalogVersion}-${activeFixture}`}
           catalog={catalog}
-          onAction={(msg) =>
-            bridge.send({ type: "action", payload: msg })
-          }
+          onAction={(msg) => bridge.send({ type: "action", payload: msg })}
         >
           <div style={{ padding: "16px" }}>
             <FixtureView fixture={currentFixture} />

@@ -106,7 +106,7 @@ export class PreviewPanel {
     const result = await bundleCatalog(component.filePath);
 
     if (result.success && result.code) {
-      this.postMessage({ type: "catalog-update", code: result.code });
+      this.postMessage({ type: "catalog-update", code: result.code, css: result.css });
     } else {
       this.postMessage({
         type: "error",
@@ -215,10 +215,6 @@ export class PreviewPanel {
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, "dist", "webview", "index.js"),
     );
-    const stylesUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, "dist", "webview", "styles.css"),
-    );
-
     const nonce = getNonce();
 
     return `<!DOCTYPE html>
@@ -229,7 +225,6 @@ export class PreviewPanel {
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'none'; script-src 'nonce-${nonce}' blob:; style-src 'unsafe-inline' ${webview.cspSource}; font-src ${webview.cspSource}; connect-src ${webview.cspSource};">
   <title>CopilotKit Preview</title>
-  <link rel="stylesheet" href="${stylesUri}">
   <style>
     body {
       margin: 0;

@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 export interface BundleResult {
   success: boolean;
   code?: string;
+  css?: string;
   error?: string;
 }
 
@@ -51,14 +52,63 @@ function nodeResolveFallback() {
 }
 
 /**
- * Bundles a catalog component file into an IIFE string that can be loaded
- * in the webview via a <script> tag.
+ * Extract Tailwind class candidates from a JS/TS source string.
+ * Scans for className patterns and splits on whitespace.
+ */
+function extractTailwindCandidates(code: string): string[] {
+  const candidates = new Set<string>();
+  const patterns = [
+    /className\s*[:=]\s*"([^"]+)"/g,
+    /className\s*[:=]\s*'([^']+)'/g,
+    /class\s*[:=]\s*"([^"]+)"/g,
+  ];
+  for (const pattern of patterns) {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(code)) !== null) {
+      for (const cls of match[1].split(/\s+/)) {
+        if (cls && /^[a-z]/.test(cls) && !cls.includes("(")) {
+          candidates.add(cls);
+        }
+      }
+    }
+  }
+  return [...candidates];
+}
+
+// Lazily compiled Tailwind instance (reused across builds for speed)
+let tailwindCompiled: { build: (candidates: string[]) => string } | null =
+  null;
+
+async function compileTailwindCss(candidates: string[]): Promise<string> {
+  if (candidates.length === 0) return "";
+  try {
+    if (!tailwindCompiled) {
+      // Access @tailwindcss/node through @tailwindcss/cli's dependency
+      const cliPkgPath = extensionRequire.resolve(
+        "@tailwindcss/cli/package.json",
+      );
+      const nodeRequire = createRequire(cliPkgPath);
+      const { compile } = nodeRequire("@tailwindcss/node");
+      tailwindCompiled = await compile('@import "tailwindcss";', {
+        base: path.dirname(cliPkgPath),
+        onDependency: () => {},
+      });
+    }
+    return tailwindCompiled.build(candidates);
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Bundles a catalog component file into an IIFE string plus CSS.
  *
- * React and @copilotkit/* are externalized and mapped to globals that the
- * webview exposes on `window`. Everything else (zod, etc.) is bundled in.
- * This ensures the catalog uses the same React instance as the webview
- * (required for hooks to work) while avoiding bare-specifier resolution
- * issues in the browser.
+ * CSS comes from two sources:
+ * 1. CSS files imported by the component (extracted by Rolldown)
+ * 2. Tailwind utility classes found in the code (JIT compiled at runtime)
+ *
+ * React and @copilotkit/* are externalized and mapped to globals.
+ * Everything else (zod, etc.) is bundled into the IIFE.
  */
 export async function bundleCatalog(entryPath: string): Promise<BundleResult> {
   try {
@@ -70,7 +120,7 @@ export async function bundleCatalog(entryPath: string): Promise<BundleResult> {
         name: "__copilotkit_catalog",
         exports: "named",
         globals: {
-          "react": "__copilotkit_deps.React",
+          react: "__copilotkit_deps.React",
           "react-dom": "__copilotkit_deps.ReactDOM",
           "react-dom/client": "__copilotkit_deps.ReactDOMClient",
           "react/jsx-runtime": "__copilotkit_deps.JSXRuntime",
@@ -90,12 +140,35 @@ export async function bundleCatalog(entryPath: string): Promise<BundleResult> {
       logLevel: "silent",
     });
 
-    const output = result.output[0];
-    if (!output) {
+    const jsOutput = result.output.find(
+      (o) => o.type === "chunk" || o.fileName.endsWith(".js"),
+    );
+    if (!jsOutput || !("code" in jsOutput)) {
       return { success: false, error: "No output generated" };
     }
 
-    return { success: true, code: output.code };
+    // Collect CSS from Rolldown (from import "./styles.css" etc.)
+    const cssChunks: string[] = [];
+    for (const o of result.output) {
+      if (
+        o.type === "asset" &&
+        o.fileName.endsWith(".css") &&
+        typeof o.source === "string"
+      ) {
+        cssChunks.push(o.source);
+      }
+    }
+
+    // Generate Tailwind CSS from class candidates in the bundled code
+    const candidates = extractTailwindCandidates(jsOutput.code);
+    const tailwindCss = await compileTailwindCss(candidates);
+    if (tailwindCss) {
+      cssChunks.push(tailwindCss);
+    }
+
+    const css = cssChunks.length > 0 ? cssChunks.join("\n") : undefined;
+
+    return { success: true, code: jsOutput.code, css };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { success: false, error: message };
