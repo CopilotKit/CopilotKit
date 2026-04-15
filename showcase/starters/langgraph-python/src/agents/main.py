@@ -32,13 +32,20 @@ Keep responses brief and clear -- 1 to 2 sentences max.
 You can:
 - Chat naturally with the user
 - Change the UI background when asked (via frontend tool)
-- Query data and render charts (via query_data tool)
+- Query data and render charts:
+  1. Call query_data ONCE to fetch the dataset.
+  2. Then call the pieChart or barChart frontend tool to display the results.
+  Do NOT call query_data more than once per chart request.
 - Get weather information (via get_weather tool)
 - Schedule meetings with the user (via schedule_meeting tool -- the user picks a time in the UI)
 - Manage sales pipeline todos (via manage_sales_todos / get_sales_todos tools)
 - Search flights and display rich A2UI cards (via search_flights tool)
 - Generate dynamic A2UI dashboards from conversation context (via generate_a2ui tool)
 - Generate step-by-step plans for user review (human-in-the-loop)
+
+IMPORTANT: pieChart and barChart are frontend tools provided by CopilotKit.
+After fetching data with query_data, you MUST call pieChart or barChart to render charts.
+Never loop on query_data -- call it once, then render.
 """
 
 model = ChatOpenAI(model="gpt-4o-mini")
