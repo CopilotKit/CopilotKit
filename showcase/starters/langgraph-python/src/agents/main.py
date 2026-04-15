@@ -7,7 +7,7 @@ Uses langgraph.prebuilt.create_react_agent with state_modifier for the system pr
 from langgraph.prebuilt import create_react_agent
 from langchain_openai import ChatOpenAI
 
-from .tools import query_data, get_weather, schedule_meeting
+from src.agents.tool_wrappers import query_data, get_weather, schedule_meeting
 
 try:
     from .a2ui_fixed_schema import search_flights

@@ -17,7 +17,7 @@ from langchain_core.tools import tool as lc_tool
 from langchain_core.messages import SystemMessage
 from langchain_openai import ChatOpenAI
 
-from .tools import (
+from src.agents.tool_wrappers import (
     build_a2ui_operations_from_tool_call,
 )
 
