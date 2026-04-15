@@ -69,6 +69,7 @@ type MockCore = {
     unsubscribe: () => void;
   };
   getThreadStores: () => Record<string, never>;
+  getThreadStore: (agentId: string) => undefined;
 };
 
 function createMockCore(initialAgents: Record<string, AbstractAgent> = {}) {
@@ -84,6 +85,9 @@ function createMockCore(initialAgents: Record<string, AbstractAgent> = {}) {
     },
     getThreadStores() {
       return {};
+    },
+    getThreadStore(_agentId: string) {
+      return undefined;
     },
   };
 

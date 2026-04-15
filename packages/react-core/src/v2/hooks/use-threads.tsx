@@ -247,7 +247,6 @@ export function useThreads({
     headersKey,
     copilotkit.intelligence?.wsUrl,
     agentId,
-    copilotkit.headers,
     includeArchived,
     limit,
   ]);
