@@ -135,7 +135,9 @@ export function App(): React.ReactElement {
             bridge.send({ type: "action", payload: msg })
           }
         >
-          <FixtureView fixture={currentFixture} />
+          <div style={{ padding: "16px" }}>
+            <FixtureView fixture={currentFixture} />
+          </div>
         </A2UIProvider>
       ) : (
         <div
