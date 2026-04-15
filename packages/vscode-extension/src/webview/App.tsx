@@ -94,9 +94,13 @@ export function App(): React.ReactElement {
       bridge.on("fixture-update", (msg) => {
         setFixtures(msg.fixtures);
         const names = Object.keys(msg.fixtures);
-        setActiveFixture((prev) =>
-          names.includes(prev) ? prev : names[0] ?? "default",
-        );
+        if (msg.activeFixture && names.includes(msg.activeFixture)) {
+          setActiveFixture(msg.activeFixture);
+        } else {
+          setActiveFixture((prev) =>
+            names.includes(prev) ? prev : names[0] ?? "default",
+          );
+        }
       }),
       bridge.on("error", (msg) => setError(msg.message)),
     ];

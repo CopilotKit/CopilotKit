@@ -92,11 +92,11 @@ export class PreviewPanel {
 
   private async bundleAndSend(
     component: DiscoveredComponent,
-    _fixtureName?: string,
+    fixtureName?: string,
   ): Promise<void> {
     await Promise.all([
       this.bundleCatalogAndSend(component),
-      this.sendFixtures(component),
+      this.sendFixtures(component, fixtureName),
     ]);
   }
 
@@ -115,7 +115,7 @@ export class PreviewPanel {
     }
   }
 
-  private async sendFixtures(component: DiscoveredComponent): Promise<void> {
+  private async sendFixtures(component: DiscoveredComponent, activeFixture?: string): Promise<void> {
     let fixtures: Record<string, A2UIFixture> = {};
     const fixturePath = component.fixturePath ?? findFixtureFile(component.filePath);
 
@@ -174,7 +174,7 @@ export class PreviewPanel {
       };
     }
 
-    this.postMessage({ type: "fixture-update", fixtures });
+    this.postMessage({ type: "fixture-update", fixtures, activeFixture });
   }
 
   private postMessage(message: ExtensionToWebviewMessage): void {
