@@ -1,0 +1,100 @@
+{
+  "name": "@copilotkit/vscode-extension",
+  "displayName": "CopilotKit",
+  "description": "Live preview for A2UI catalog components inside VS Code",
+  "version": "0.1.0",
+  "publisher": "copilotkit",
+  "license": "MIT",
+  "private": false,
+  "type": "module",
+  "main": "dist/extension/activate.cjs",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Visualization", "Other"],
+  "activationEvents": [],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "copilotkit",
+          "title": "CopilotKit",
+          "icon": "icons/copilotkit.svg"
+        }
+      ]
+    },
+    "views": {
+      "copilotkit": [
+        {
+          "id": "copilotkit.componentPreview",
+          "name": "Component Preview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "copilotkit.previewComponent",
+        "title": "CopilotKit: Preview Component"
+      },
+      {
+        "command": "copilotkit.previewComponentFromExplorer",
+        "title": "CopilotKit: Preview Component"
+      },
+      {
+        "command": "copilotkit.previewComponentFromSidebar",
+        "title": "Preview Component"
+      },
+      {
+        "command": "copilotkit.refreshComponents",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "copilotkit.previewComponentFromExplorer",
+          "when": "resourceExtname =~ /\\.(ts|tsx)$/"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "copilotkit.refreshComponents",
+          "when": "view == copilotkit.componentPreview",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "copilotkit.previewComponentFromSidebar",
+          "when": "view == copilotkit.componentPreview"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "package": "vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "rolldown": "^1.0.0-rc.15",
+    "oxc-parser": "^0.72.0"
+  },
+  "devDependencies": {
+    "@copilotkit/a2ui-renderer": "workspace:*",
+    "@copilotkit/typescript-config": "workspace:*",
+    "@types/vscode": "^1.85.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tsdown": "^0.12.0",
+    "typescript": "~5.8.2",
+    "vitest": "^3.1.1",
+    "@vscode/vsce": "^3.0.0"
+  }
+}
