@@ -325,7 +325,7 @@ describe("useAgent throttleMs", () => {
     expect(screen.getByTestId("count").textContent).toBe("3");
   });
 
-  it("with throttleMs, onStateChanged is also throttled (shared window)", () => {
+  it("with throttleMs, onStateChanged is also throttled (shared window)", async () => {
     const TestComponent = createTestComponent({
       updates: [
         UseAgentUpdate.OnMessagesChanged,
@@ -353,8 +353,9 @@ describe("useAgent throttleMs", () => {
     // State update is pending, not yet rendered
     expect(screen.getByTestId("state").textContent).toBe("{}");
 
-    // Trailing edge fires after the window
-    act(() => {
+    // Trailing edge fires after the window — await so microtask from
+    // batchedForceUpdate flushes and triggers the React re-render.
+    await act(async () => {
       vi.advanceTimersByTime(100);
     });
 
@@ -393,7 +394,7 @@ describe("useAgent throttleMs", () => {
     expect(renderCount.current).toBe(countBeforeUnmount);
   });
 
-  it("with throttleMs and only OnStateChanged subscribed, first state fires on leading edge", () => {
+  it("with throttleMs and only OnStateChanged subscribed, first state fires on leading edge", async () => {
     const TestComponent = createTestComponent({
       updates: [UseAgentUpdate.OnStateChanged],
       throttleMs: 100,
@@ -401,8 +402,9 @@ describe("useAgent throttleMs", () => {
 
     render(<TestComponent />);
 
-    // First onStateChanged fires immediately (leading edge)
-    act(() => {
+    // First onStateChanged fires immediately (leading edge) — await so
+    // microtask from batchedForceUpdate flushes.
+    await act(async () => {
       mockAgent.state = { value: "test" };
       notifyStateChanged(mockAgent);
     });

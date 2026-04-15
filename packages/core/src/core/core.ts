@@ -191,6 +191,7 @@ const SUBSCRIBE_TO_AGENT_KEYS = [
   "onRunInitialized",
   "onRunFinalized",
   "onRunFailed",
+  "onRunErrorEvent",
 ] as const satisfies readonly (keyof AgentSubscriber)[];
 
 /**
@@ -752,6 +753,11 @@ export class CopilotKitCore {
         const fn = sub.onRunFailed;
         guarded.onRunFailed = (params) => safeCall("onRunFailed", fn, params);
       }
+      if (sub.onRunErrorEvent) {
+        const fn = sub.onRunErrorEvent;
+        guarded.onRunErrorEvent = (params) =>
+          safeCall("onRunErrorEvent", fn, params);
+      }
       return guarded;
     };
 
@@ -825,6 +831,8 @@ export class CopilotKitCore {
       lifecycleOnly.onRunFinalized = subscriber.onRunFinalized;
     if (subscriber.onRunFailed)
       lifecycleOnly.onRunFailed = subscriber.onRunFailed;
+    if (subscriber.onRunErrorEvent)
+      lifecycleOnly.onRunErrorEvent = subscriber.onRunErrorEvent;
 
     const wrappedSubscriber: SubscribeToAgentSubscriber =
       guardAll(lifecycleOnly);

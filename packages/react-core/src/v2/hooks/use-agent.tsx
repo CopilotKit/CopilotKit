@@ -267,6 +267,7 @@ export function useAgent({
   useEffect(() => {
     if (updateFlags.length === 0) return;
 
+    let active = true;
     const handlers: SubscribeToAgentSubscriber = {};
 
     // Microtask-batched forceUpdate: coalesces multiple synchronous
@@ -309,7 +310,10 @@ export function useAgent({
         throttleMs,
       },
     );
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, forceUpdate, throttleMs, providerThrottleMs, updateFlags]);
 
