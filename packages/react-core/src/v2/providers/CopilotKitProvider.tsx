@@ -577,6 +577,14 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }
   const copilotkit = copilotkitRef.current;
 
+  // Clean up the core instance (DevtoolsListener subscriptions, etc.) on unmount.
+  useEffect(() => {
+    const instance = copilotkitRef.current;
+    return () => {
+      instance?.destroy();
+    };
+  }, []);
+
   // Sync runtime feature flags from the core once runtime info is fetched
   useEffect(() => {
     // Check current value immediately (may already be set before subscription)

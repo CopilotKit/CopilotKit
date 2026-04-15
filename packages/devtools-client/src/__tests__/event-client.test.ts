@@ -121,4 +121,39 @@ describe("CopilotKitEventClient", () => {
     unsubscribe();
     expect(handler).not.toHaveBeenCalled();
   });
+
+  it("documents upstream withEventTarget unsubscribe leak", () => {
+    // UPSTREAM BUG: @tanstack/devtools-event-client's withEventTarget wraps
+    // the handler in an internal function but unsubscribe removes the original
+    // handler reference, not the wrapper — so the listener is never actually
+    // removed from the EventTarget.
+    //
+    // This test documents the leak so it's tracked. DevtoolsListener works
+    // around it with an active-guard (this.active check) that makes handlers
+    // no-ops after destroy(), even though they remain registered on the target.
+    const handler = vi.fn();
+    const unsubscribe = devtoolsClient.on("custom-event", handler, {
+      withEventTarget: true,
+    });
+
+    devtoolsClient.emit("custom-event", {
+      agentId: "agent-1",
+      name: "before-unsub",
+      value: {},
+    });
+    expect(handler).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+
+    devtoolsClient.emit("custom-event", {
+      agentId: "agent-1",
+      name: "after-unsub",
+      value: {},
+    });
+
+    // If the upstream bug is fixed, this will be 1 (unsubscribe worked).
+    // Currently it's 2 (listener leaked). When this assertion flips to 1,
+    // the bug is fixed and the active-guard workaround can be removed.
+    expect(handler).toHaveBeenCalledTimes(2);
+  });
 });
