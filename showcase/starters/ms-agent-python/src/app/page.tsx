@@ -14,8 +14,6 @@ import {
   HashBrownDashboard,
   useHashBrownMessageRenderer,
 } from "../components/renderers/hashbrown";
-import { OpenGenUIDashboard } from "../components/renderers/open-genui";
-
 const AGENT_ID = "sample_agent";
 
 function ToolBasedPage() {
@@ -66,10 +64,6 @@ function HashBrownPage() {
   );
 }
 
-function OpenGenUIPage() {
-  return <OpenGenUIDashboard />;
-}
-
 export default function Home() {
   const { mode, setMode } = useRenderMode();
 
@@ -83,8 +77,6 @@ export default function Home() {
         return <JsonRenderPage />;
       case "hashbrown":
         return <HashBrownPage />;
-      case "open-genui":
-        return <OpenGenUIPage />;
       default:
         return <ToolBasedPage />;
     }
