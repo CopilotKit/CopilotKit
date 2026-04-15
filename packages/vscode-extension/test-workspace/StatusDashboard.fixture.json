@@ -1,0 +1,110 @@
+{
+  "default": {
+    "surfaceId": "preview",
+    "messages": [
+      {
+        "beginRendering": {
+          "surfaceId": "preview",
+          "root": "root"
+        }
+      },
+      {
+        "surfaceUpdate": {
+          "surfaceId": "preview",
+          "components": [
+            {
+              "id": "heading-1",
+              "type": "Heading",
+              "props": { "text": "System Status", "level": "h1" },
+              "parentId": "root"
+            },
+            {
+              "id": "card-cpu",
+              "type": "StatusCard",
+              "props": { "label": "CPU Usage", "value": "42%", "status": "ok" },
+              "parentId": "root"
+            },
+            {
+              "id": "card-memory",
+              "type": "StatusCard",
+              "props": { "label": "Memory", "value": "78%", "status": "warning" },
+              "parentId": "root"
+            },
+            {
+              "id": "card-disk",
+              "type": "StatusCard",
+              "props": { "label": "Disk I/O", "value": "95%", "status": "error" },
+              "parentId": "root"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "all healthy": {
+    "surfaceId": "preview",
+    "messages": [
+      {
+        "beginRendering": {
+          "surfaceId": "preview",
+          "root": "root"
+        }
+      },
+      {
+        "surfaceUpdate": {
+          "surfaceId": "preview",
+          "components": [
+            {
+              "id": "heading-1",
+              "type": "Heading",
+              "props": { "text": "All Systems Operational", "level": "h1" },
+              "parentId": "root"
+            },
+            {
+              "id": "card-cpu",
+              "type": "StatusCard",
+              "props": { "label": "CPU Usage", "value": "12%", "status": "ok" },
+              "parentId": "root"
+            },
+            {
+              "id": "card-memory",
+              "type": "StatusCard",
+              "props": { "label": "Memory", "value": "34%", "status": "ok" },
+              "parentId": "root"
+            },
+            {
+              "id": "card-disk",
+              "type": "StatusCard",
+              "props": { "label": "Disk I/O", "value": "8%", "status": "ok" },
+              "parentId": "root"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "empty": {
+    "surfaceId": "preview",
+    "messages": [
+      {
+        "beginRendering": {
+          "surfaceId": "preview",
+          "root": "root"
+        }
+      },
+      {
+        "surfaceUpdate": {
+          "surfaceId": "preview",
+          "components": [
+            {
+              "id": "heading-1",
+              "type": "Heading",
+              "props": { "text": "No Data Available", "level": "h2" },
+              "parentId": "root"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

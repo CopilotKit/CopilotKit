@@ -1,0 +1,9 @@
+{
+  "name": "vscode-extension-test-workspace",
+  "private": true,
+  "dependencies": {
+    "@copilotkit/a2ui-renderer": "workspace:*",
+    "react": "^19.0.0",
+    "zod": "^3.23.0"
+  }
+}
