@@ -22,11 +22,12 @@ managed_platform:
   name: CrewAI Enterprise
   url: https://crewai.com/amp
 starter:
-  path: examples/integrations/crewai-crews
-  name: Multi-Agent Crew
-  description: Multi-agent crew with collaborative task execution and role-based agents
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/crewai-crews
-  demo_url: https://showcase-starter-crewai-crews-production.up.railway.app
+  path: showcase/starters/crewai-crews
+  name: Sales Dashboard
+  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/crewai-crews
+  demo_url: https://showcase-starter-crewai-crews-production-ad85.up.railway.app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/crewai-crews my-copilotkit-app
 features:
   - agentic-chat
   - hitl

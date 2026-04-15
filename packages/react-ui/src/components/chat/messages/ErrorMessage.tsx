@@ -2,22 +2,21 @@ import { ErrorMessageProps } from "../props";
 import { useChatContext } from "../ChatContext";
 import { Markdown } from "../Markdown";
 import { useState } from "react";
+import { copyToClipboard } from "@copilotkit/shared";
 
 export const ErrorMessage = (props: ErrorMessageProps) => {
   const { icons, labels } = useChatContext();
   const { error, onRegenerate, onCopy, isCurrentMessage } = props;
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = () => {
+  const handleCopy = async () => {
     const content = error.message;
-    if (content && onCopy) {
-      navigator.clipboard.writeText(content);
+    if (!content) return;
+
+    const success = await copyToClipboard(content);
+    if (success) {
       setCopied(true);
-      onCopy(content);
-      setTimeout(() => setCopied(false), 2000);
-    } else if (content) {
-      navigator.clipboard.writeText(content);
-      setCopied(true);
+      if (onCopy) onCopy(content);
       setTimeout(() => setCopied(false), 2000);
     }
   };

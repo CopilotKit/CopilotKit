@@ -19,11 +19,12 @@ interaction_modalities:
   - embedded
   - chat
 starter:
-  path: examples/integrations/llamaindex
-  name: Investment Analyst (LlamaIndex)
-  description: Investment analysis agent using LlamaIndex for data retrieval and analysis
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/llamaindex
-  demo_url: https://showcase-starter-llamaindex-production.up.railway.app
+  path: showcase/starters/llamaindex
+  name: Sales Dashboard
+  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/llamaindex
+  demo_url: https://showcase-starter-llamaindex-production-78fe.up.railway.app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/llamaindex my-copilotkit-app
 features:
   - agentic-chat
   - hitl

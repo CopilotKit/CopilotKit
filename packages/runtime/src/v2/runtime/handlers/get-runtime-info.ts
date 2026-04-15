@@ -1,3 +1,4 @@
+import type { AgentCapabilities } from "@ag-ui/core";
 import {
   CopilotRuntimeLike,
   isIntelligenceRuntime,
@@ -35,17 +36,36 @@ export async function handleGetRuntimeInfo({
   try {
     const agents = await resolveAgents(runtime.agents, request);
 
-    const agentsDict = Object.entries(agents).reduce(
-      (acc, [name, agent]) => {
-        acc[name] = {
+    const agentEntries = await Promise.all(
+      Object.entries(agents).map(async ([name, agent]) => {
+        let capabilities: AgentCapabilities | undefined;
+        try {
+          capabilities = agent.getCapabilities
+            ? await agent.getCapabilities()
+            : undefined;
+        } catch (error) {
+          // Per-agent isolation: a single agent failing to report capabilities
+          // must not take down the entire /info endpoint.
+          console.warn(
+            `Failed to fetch capabilities for agent "${name}":`,
+            error instanceof Error ? error.message : error,
+          );
+          capabilities = undefined;
+        }
+
+        const description: AgentDescription = {
           name,
           description: agent.description,
           className: agent.constructor.name,
+          ...(capabilities ? { capabilities } : {}),
         };
-        return acc;
-      },
-      {} as Record<string, AgentDescription>,
+
+        return [name, description] as const;
+      }),
     );
+
+    const agentsDict: Record<string, AgentDescription> =
+      Object.fromEntries(agentEntries);
 
     const runtimeInfo: RuntimeInfo = {
       version: VERSION,

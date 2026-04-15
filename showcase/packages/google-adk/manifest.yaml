@@ -19,11 +19,12 @@ interaction_modalities:
   - embedded
   - chat
 starter:
-  path: examples/integrations/adk
-  name: Investment Analyst (ADK)
-  description: Investment analysis agent built with Google Agent Development Kit
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/adk
-  demo_url: https://showcase-starter-google-adk-production.up.railway.app
+  path: showcase/starters/google-adk
+  name: Sales Dashboard
+  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/google-adk
+  demo_url: https://showcase-starter-google-adk-production-a56a.up.railway.app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/google-adk my-copilotkit-app
 features:
   - agentic-chat
   - hitl

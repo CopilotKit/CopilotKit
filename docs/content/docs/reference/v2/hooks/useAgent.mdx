@@ -86,6 +86,10 @@ function useAgent(options?: UseAgentProps): { agent: AbstractAgent }
       Indicates whether the agent is currently executing.
     </PropertyReference>
 
+    <PropertyReference name="capabilities" type="AgentCapabilities | undefined">
+      The agent's declared capabilities (tools, streaming, multi-agent, etc.), populated from the runtime `/info` response. See [`useCapabilities`](/reference/v2/hooks/useCapabilities) for a convenience hook that reads this directly.
+    </PropertyReference>
+
     ### Methods
 
     <PropertyReference name="runAgent" type="(options?: RunAgentOptions) => Promise<void>">
@@ -329,4 +333,5 @@ This is what CopilotKit's built-in `CopilotChat` component does internally — i
 
 ## Related
 
-- [AG-UI AbstractAgent](https://docs.ag-ui.com/sdk/js/client/abstract-agent) - Full agent interface documentation
+- [`useCapabilities`](/reference/v2/hooks/useCapabilities) -- convenience hook for reading agent capabilities
+- [AG-UI AbstractAgent](https://docs.ag-ui.com/sdk/js/client/abstract-agent) -- full agent interface documentation

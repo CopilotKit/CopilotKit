@@ -9,6 +9,7 @@
     "---Agent & Context---",
     "useAgent",
     "useAgentContext",
+    "useCapabilities",
     "---Frontend Tools---",
     "useFrontendTool",
     "useHumanInTheLoop",

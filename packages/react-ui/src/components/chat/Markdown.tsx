@@ -59,7 +59,6 @@ const defaultComponents: Components = {
 
     return (
       <CodeBlock
-        key={Math.random()}
         language={(match && match[1]) || ""}
         value={String(children).replace(/\n$/, "")}
         {...props}
@@ -97,9 +96,9 @@ const defaultComponents: Components = {
     </h6>
   ),
   p: ({ children, ...props }) => (
-    <p className="copilotKitMarkdownElement" {...props}>
+    <div className="copilotKitMarkdownElement copilotKitParagraph" {...props}>
       {children}
-    </p>
+    </div>
   ),
   pre: ({ children, ...props }) => (
     <pre className="copilotKitMarkdownElement" {...props}>
