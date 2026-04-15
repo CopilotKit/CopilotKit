@@ -37,7 +37,7 @@ describe("App", () => {
     expect(postMessageMock).toHaveBeenCalledWith({ type: "ready" });
   });
 
-  it("renders A2UIRenderer when fixtures are received", async () => {
+  it("shows waiting state when fixtures arrive but catalog is not yet loaded", async () => {
     render(<App />);
 
     act(() => {
@@ -49,9 +49,11 @@ describe("App", () => {
       });
     });
 
+    // Should still show waiting message because catalogVersion is 0
     await waitFor(() => {
-      expect(screen.getByTestId("a2ui-renderer")).toBeDefined();
-      expect(screen.getByText("Surface: preview")).toBeDefined();
+      expect(
+        screen.getByText("Waiting for component data..."),
+      ).toBeDefined();
     });
   });
 

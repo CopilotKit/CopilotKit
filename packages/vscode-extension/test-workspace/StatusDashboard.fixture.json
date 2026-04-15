@@ -14,8 +14,7 @@
         "updateComponents": {
           "surfaceId": "preview",
           "components": [
-            { "id": "root", "component": "Column", "gap": 8, "children": ["heading-1", "card-cpu", "card-memory", "card-disk"] },
-            { "id": "heading-1", "component": "Heading", "text": "System Status", "level": "h1" },
+            { "id": "root", "component": "Heading", "text": "System Status", "level": "h1" },
             { "id": "card-cpu", "component": "StatusCard", "label": "CPU Usage", "value": "42%", "status": "ok" },
             { "id": "card-memory", "component": "StatusCard", "label": "Memory", "value": "78%", "status": "warning" },
             { "id": "card-disk", "component": "StatusCard", "label": "Disk I/O", "value": "95%", "status": "error" }
@@ -39,8 +38,7 @@
         "updateComponents": {
           "surfaceId": "preview",
           "components": [
-            { "id": "root", "component": "Column", "gap": 8, "children": ["heading-1", "card-cpu", "card-memory", "card-disk"] },
-            { "id": "heading-1", "component": "Heading", "text": "All Systems Operational", "level": "h1" },
+            { "id": "root", "component": "Heading", "text": "All Systems Operational", "level": "h1" },
             { "id": "card-cpu", "component": "StatusCard", "label": "CPU Usage", "value": "12%", "status": "ok" },
             { "id": "card-memory", "component": "StatusCard", "label": "Memory", "value": "34%", "status": "ok" },
             { "id": "card-disk", "component": "StatusCard", "label": "Disk I/O", "value": "8%", "status": "ok" }

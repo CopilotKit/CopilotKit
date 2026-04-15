@@ -127,7 +127,7 @@ export function App(): React.ReactElement {
         active={activeFixture}
         onSelect={handleFixtureSelect}
       />
-      {currentFixture ? (
+      {currentFixture && catalogVersion > 0 ? (
         <A2UIProvider
           key={`catalog-${catalogVersion}-${activeFixture}`}
           catalog={catalog}
@@ -146,7 +146,7 @@ export function App(): React.ReactElement {
             fontFamily: "var(--vscode-font-family)",
           }}
         >
-          {fixtureNames.length === 0
+          {fixtureNames.length === 0 || catalogVersion === 0
             ? "Waiting for component data..."
             : `Fixture "${activeFixture}" not found`}
         </div>
