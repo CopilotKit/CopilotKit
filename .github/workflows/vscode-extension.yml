@@ -1,0 +1,67 @@
+name: VS Code Extension
+
+on:
+  push:
+    branches: [main]
+    paths: ["packages/vscode-extension/**"]
+  pull_request:
+    paths: ["packages/vscode-extension/**"]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build dependencies
+        run: npx nx run @copilotkit/vscode-extension:build --skip-nx-cache
+
+      - name: Type check
+        run: npx nx run @copilotkit/vscode-extension:check-types
+
+      - name: Unit & component tests
+        run: npx nx run @copilotkit/vscode-extension:test
+
+      - name: Integration tests (VS Code)
+        run: xvfb-run -a npx nx run @copilotkit/vscode-extension:test:integration
+
+      - name: Package extension
+        run: npx vsce package --no-dependencies
+        working-directory: packages/vscode-extension
+
+      - name: Upload .vsix artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: copilotkit-vscode-extension
+          path: packages/vscode-extension/*.vsix
+
+  publish:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: npx nx run @copilotkit/vscode-extension:build
+
+      - name: Publish to VS Code Marketplace
+        run: npx vsce publish --no-dependencies
+        working-directory: packages/vscode-extension
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
