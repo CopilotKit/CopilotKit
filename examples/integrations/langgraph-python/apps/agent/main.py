@@ -14,8 +14,12 @@ from src.todos import AgentState, todo_tools
 from src.a2ui_dynamic_schema import generate_a2ui
 from src.a2ui_fixed_schema import search_flights
 
+from langchain_openai import ChatOpenAI
+
+model = ChatOpenAI(model="gpt-5.4", model_kwargs={"parallel_tool_calls": False})
+
 agent = create_agent(
-    model="openai:gpt-5.4",
+    model=model,
     tools=[query_data, *todo_tools, generate_a2ui, search_flights],
     middleware=[
         CopilotKitMiddleware(),
