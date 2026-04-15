@@ -234,12 +234,7 @@ test.describe("Starter: Sales Dashboard", () => {
   // -------------------------------------------------------------------------
 
   test("only one renderer pill is active at a time", async ({ page }) => {
-    const modes = [
-      "A2UI Catalog",
-      "HashBrown",
-      "json-render",
-      "Tool-Based",
-    ];
+    const modes = ["A2UI Catalog", "HashBrown", "json-render", "Tool-Based"];
 
     for (const modeName of modes) {
       const pill = page.getByRole("radio", { name: new RegExp(modeName) });

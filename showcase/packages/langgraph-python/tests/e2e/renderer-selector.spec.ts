@@ -46,12 +46,7 @@ test.describe("Renderer Selector", () => {
   test("switching between multiple modes updates the active pill each time", async ({
     page,
   }) => {
-    const modes = [
-      "A2UI Catalog",
-      "json-render",
-      "HashBrown",
-      "Tool-Based",
-    ];
+    const modes = ["A2UI Catalog", "json-render", "HashBrown", "Tool-Based"];
 
     for (const modeName of modes) {
       const pill = page.getByRole("radio", { name: new RegExp(modeName) });
