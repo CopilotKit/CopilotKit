@@ -607,7 +607,9 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
       fs.renameSync(toolsPy, newName);
       // Update imports in OTHER .py files (not tool_wrappers.py itself)
       // to reference tool_wrappers instead of tools (the wrapper file, not the dir)
-      for (const pyFile of fs.readdirSync(agentDest).filter(f => f.endsWith(".py") && f !== "tool_wrappers.py")) {
+      for (const pyFile of fs
+        .readdirSync(agentDest)
+        .filter((f) => f.endsWith(".py") && f !== "tool_wrappers.py")) {
         const fp = path.join(agentDest, pyFile);
         let content = fs.readFileSync(fp, "utf-8");
         const agentMod = fw.agentDir.replace(/\//g, ".");
@@ -630,7 +632,9 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     // because langgraph_cli loads modules standalone, not as packages
     if (fw.slug.startsWith("langgraph-")) {
       const agentMod = fw.agentDir.replace(/\//g, ".");
-      for (const pyFile of fs.readdirSync(agentDest).filter(f => f.endsWith(".py"))) {
+      for (const pyFile of fs
+        .readdirSync(agentDest)
+        .filter((f) => f.endsWith(".py"))) {
         const fp = path.join(agentDest, pyFile);
         let content = fs.readFileSync(fp, "utf-8");
         // from .X import -> from <agentMod>.X import
