@@ -391,6 +391,7 @@
         "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langgraph-python",
         "demo_url": "https://showcase-starter-langgraph-python-production-3f57.up.railway.app",
+        "deployed": true,
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-python my-copilotkit-app"
       },
       "features": [
@@ -508,6 +509,7 @@
         "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langgraph-typescript",
         "demo_url": "https://showcase-starter-langgraph-typescript-production-25ca.up.railway.app",
+        "deployed": true,
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-typescript my-copilotkit-app"
       },
       "features": [
@@ -625,6 +627,7 @@
         "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langgraph-fastapi",
         "demo_url": "https://showcase-starter-langgraph-fastapi-production-c7d2.up.railway.app",
+        "deployed": true,
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-fastapi my-copilotkit-app"
       },
       "features": [
@@ -738,6 +741,7 @@
         "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/google-adk",
         "demo_url": "https://showcase-starter-google-adk-production-a56a.up.railway.app",
+        "deployed": true,
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/google-adk my-copilotkit-app"
       },
       "features": [
@@ -855,6 +859,7 @@
         "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/mastra",
         "demo_url": "https://showcase-starter-mastra-production-3a00.up.railway.app",
+        "deployed": false,
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/mastra my-copilotkit-app"
       },
       "features": [
@@ -972,6 +977,7 @@
         "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/crewai-crews",
         "demo_url": "https://showcase-starter-crewai-crews-production-ad85.up.railway.app",
+        "deployed": false,
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/crewai-crews my-copilotkit-app"
       },
       "features": [
@@ -1085,6 +1091,7 @@
         "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/pydantic-ai",
         "demo_url": "https://showcase-starter-pydantic-ai-production-cf5b.up.railway.app",
+        "deployed": true,
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/pydantic-ai my-copilotkit-app"
       },
       "features": [
@@ -1283,6 +1290,7 @@
         "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/claude-sdk-python",
         "demo_url": "https://showcase-starter-claude-sdk-python-production.up.railway.app",
+        "deployed": true,
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/claude-sdk-python my-copilotkit-app"
       }
     },
@@ -1396,6 +1404,7 @@
         "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/claude-sdk-typescript",
         "demo_url": "https://showcase-starter-claude-sdk-typescript-production.up.railway.app",
+        "deployed": false,
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/claude-sdk-typescript my-copilotkit-app"
       }
     },
@@ -1424,6 +1433,7 @@
         "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/agno",
         "demo_url": "https://showcase-starter-agno-production-359f.up.railway.app",
+        "deployed": true,
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/agno my-copilotkit-app"
       },
       "features": [
@@ -1626,6 +1636,7 @@
         "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/ag2",
         "demo_url": "https://showcase-starter-ag2-production.up.railway.app",
+        "deployed": true,
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/ag2 my-copilotkit-app"
       },
       "managed_platform": {
@@ -1658,6 +1669,7 @@
         "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/llamaindex",
         "demo_url": "https://showcase-starter-llamaindex-production-78fe.up.railway.app",
+        "deployed": true,
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/llamaindex my-copilotkit-app"
       },
       "features": [
@@ -1775,6 +1787,7 @@
         "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/strands",
         "demo_url": "https://showcase-starter-strands-production-1114.up.railway.app",
+        "deployed": true,
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/strands my-copilotkit-app"
       },
       "features": [
@@ -1973,6 +1986,7 @@
         "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langroid",
         "demo_url": "https://showcase-starter-langroid-production.up.railway.app",
+        "deployed": true,
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/langroid my-copilotkit-app"
       }
     },
@@ -2001,6 +2015,7 @@
         "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/ms-agent-python",
         "demo_url": "https://showcase-starter-ms-agent-python-production-d140.up.railway.app",
+        "deployed": true,
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/ms-agent-python my-copilotkit-app"
       },
       "features": [
@@ -2114,6 +2129,7 @@
         "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/ms-agent-dotnet",
         "demo_url": "https://showcase-starter-ms-agent-dotnet-production-b8cf.up.railway.app",
+        "deployed": true,
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/ms-agent-dotnet my-copilotkit-app"
       },
       "features": [
@@ -2312,6 +2328,7 @@
         "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/spring-ai",
         "demo_url": "https://showcase-starter-spring-ai-production.up.railway.app",
+        "deployed": true,
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/spring-ai my-copilotkit-app"
       }
     }
