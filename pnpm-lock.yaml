@@ -2825,6 +2825,9 @@ importers:
       '@copilotkit/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
+      '@testing-library/react':
+        specifier: ^16.0.0
+        version: 16.3.1(@testing-library/dom@10.4.0)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@types/react':
         specifier: ^19.1.0
         version: 19.2.7
@@ -2837,6 +2840,9 @@ importers:
       '@vscode/vsce':
         specifier: ^3.0.0
         version: 3.8.0
+      jsdom:
+        specifier: ^26.0.0
+        version: 26.1.0
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -2851,7 +2857,7 @@ importers:
         version: 5.8.2
       vitest:
         specifier: ^3.1.1
-        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.11)(@vitest/ui@3.2.4)(jiti@2.6.1)(jsdom@29.0.2(@noble/hashes@1.8.0))(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.11)(@vitest/ui@3.2.4)(jiti@2.6.1)(jsdom@26.1.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/web-inspector:
     dependencies:

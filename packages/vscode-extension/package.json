@@ -87,7 +87,9 @@
   "devDependencies": {
     "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/typescript-config": "workspace:*",
+    "@testing-library/react": "^16.0.0",
     "@types/vscode": "^1.85.0",
+    "jsdom": "^26.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "@types/react": "^19.0.0",
