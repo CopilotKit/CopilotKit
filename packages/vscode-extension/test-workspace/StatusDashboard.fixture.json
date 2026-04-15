@@ -11,7 +11,8 @@
         "updateComponents": {
           "surfaceId": "preview",
           "components": [
-            { "id": "root", "component": "Heading", "text": "Weather Forecast", "subtitle": "Current conditions across major cities" },
+            { "id": "root", "component": "Column", "gap": 12, "children": ["heading", "w1", "w2", "w3", "w4", "alert1"] },
+            { "id": "heading", "component": "Heading", "text": "Weather Forecast", "subtitle": "Current conditions across major cities" },
             { "id": "w1", "component": "WeatherCard", "city": "San Francisco", "temperature": "18\u00b0C", "condition": "partly-cloudy", "humidity": "72%", "wind": "15 km/h", "high": "21\u00b0C", "low": "14\u00b0C" },
             { "id": "w2", "component": "WeatherCard", "city": "New York", "temperature": "24\u00b0C", "condition": "sunny", "humidity": "45%", "wind": "8 km/h", "high": "27\u00b0C", "low": "19\u00b0C" },
             { "id": "w3", "component": "WeatherCard", "city": "London", "temperature": "12\u00b0C", "condition": "rainy", "humidity": "88%", "wind": "22 km/h", "high": "14\u00b0C", "low": "9\u00b0C" },
@@ -34,12 +35,14 @@
         "updateComponents": {
           "surfaceId": "preview",
           "components": [
-            { "id": "root", "component": "Heading", "text": "Infrastructure Monitor", "subtitle": "Production cluster \u2014 us-east-1" },
+            { "id": "root", "component": "Column", "gap": 12, "children": ["heading", "alert1", "m1", "m2", "m3", "m4", "h2", "p1", "p2", "p3", "p4", "alert2"] },
+            { "id": "heading", "component": "Heading", "text": "Infrastructure Monitor", "subtitle": "Production cluster \u2014 us-east-1" },
             { "id": "alert1", "component": "Alert", "message": "Disk usage on db-primary-03 exceeds 90% threshold. Auto-scaling triggered.", "severity": "error" },
             { "id": "m1", "component": "MetricCard", "label": "CPU Usage", "value": "42", "unit": "%", "trend": "down", "trendValue": "-8% from last hour", "status": "ok" },
             { "id": "m2", "component": "MetricCard", "label": "Memory", "value": "6.2", "unit": "GB", "trend": "up", "trendValue": "+400MB from last hour", "status": "warning" },
             { "id": "m3", "component": "MetricCard", "label": "Requests/s", "value": "12.4k", "trend": "up", "trendValue": "+2.1k since deploy", "status": "ok" },
             { "id": "m4", "component": "MetricCard", "label": "Error Rate", "value": "0.03", "unit": "%", "trend": "neutral", "trendValue": "Stable", "status": "ok" },
+            { "id": "h2", "component": "Heading", "text": "Resource Utilization", "level": "h3" },
             { "id": "p1", "component": "ProgressBar", "label": "CPU Cores", "value": 34, "max": 64 },
             { "id": "p2", "component": "ProgressBar", "label": "Memory", "value": 6200, "max": 8192 },
             { "id": "p3", "component": "ProgressBar", "label": "Disk (db-primary-03)", "value": 456, "max": 500 },
@@ -62,7 +65,8 @@
         "updateComponents": {
           "surfaceId": "preview",
           "components": [
-            { "id": "root", "component": "Heading", "text": "Q1 2026 Sales Report", "subtitle": "North America Region" },
+            { "id": "root", "component": "Column", "gap": 12, "children": ["heading", "m1", "m2", "m3", "m4", "h2", "t1", "h3", "info1", "alert1"] },
+            { "id": "heading", "component": "Heading", "text": "Q1 2026 Sales Report", "subtitle": "North America Region" },
             { "id": "m1", "component": "MetricCard", "label": "Revenue", "value": "$2.4M", "trend": "up", "trendValue": "+18% vs Q4", "status": "ok" },
             { "id": "m2", "component": "MetricCard", "label": "New Customers", "value": "847", "trend": "up", "trendValue": "+124 vs Q4", "status": "ok" },
             { "id": "m3", "component": "MetricCard", "label": "Churn Rate", "value": "3.2", "unit": "%", "trend": "down", "trendValue": "-0.8% vs Q4", "status": "ok" },
@@ -109,11 +113,13 @@
         "updateComponents": {
           "surfaceId": "preview",
           "components": [
-            { "id": "root", "component": "Heading", "text": "Notification Center" },
+            { "id": "root", "component": "Column", "gap": 12, "children": ["heading", "a1", "a2", "a3", "a4", "h2", "b1", "b2", "b3", "b4", "b5"] },
+            { "id": "heading", "component": "Heading", "text": "Notification Center" },
             { "id": "a1", "component": "Alert", "message": "Deployment v2.14.0 completed successfully. All 12 services healthy.", "severity": "success" },
             { "id": "a2", "component": "Alert", "message": "SSL certificate for api.example.com expires in 14 days. Renewal recommended.", "severity": "info" },
             { "id": "a3", "component": "Alert", "message": "Database replica lag exceeds 500ms. Automatic failover standby.", "severity": "warning" },
             { "id": "a4", "component": "Alert", "message": "Payment processing service unreachable. Incident #4521 opened.", "severity": "error" },
+            { "id": "h2", "component": "Heading", "text": "Status Badges", "level": "h3" },
             { "id": "b1", "component": "Badge", "text": "Production", "variant": "success" },
             { "id": "b2", "component": "Badge", "text": "Degraded", "variant": "warning" },
             { "id": "b3", "component": "Badge", "text": "Outage", "variant": "error" },
