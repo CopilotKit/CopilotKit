@@ -3,7 +3,7 @@ This is the main entry point for the agent.
 It defines the workflow graph, state, tools, nodes and edges.
 """
 
-from copilotkit import CopilotKitMiddleware
+from copilotkit import CopilotKitMiddleware, StateStreamingMiddleware, StateItem
 from langchain.agents import create_agent
 
 # Data & state tools
@@ -14,10 +14,19 @@ from src.todos import AgentState, todo_tools
 from src.a2ui_dynamic_schema import generate_a2ui
 from src.a2ui_fixed_schema import search_flights
 
+from langchain_openai import ChatOpenAI
+
+model = ChatOpenAI(model="gpt-5.4", model_kwargs={"parallel_tool_calls": False})
+
 agent = create_agent(
-    model="openai:gpt-5.4",
+    model=model,
     tools=[query_data, *todo_tools, generate_a2ui, search_flights],
-    middleware=[CopilotKitMiddleware()],
+    middleware=[
+        CopilotKitMiddleware(),
+        StateStreamingMiddleware(
+            StateItem(state_key="todos", tool="manage_todos", tool_argument="todos")
+        ),
+    ],
     state_schema=AgentState,
     system_prompt="""
         You are a polished, professional demo assistant. Keep responses to 1-2 sentences.
