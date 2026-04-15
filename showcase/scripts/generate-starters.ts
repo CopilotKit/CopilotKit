@@ -333,12 +333,23 @@ function rewritePythonImports(filePath: string, _agentDir: string): void {
   // Clean up multiple blank lines
   content = content.replace(/\n{3,}/g, "\n\n");
 
-  // Rewrite "from tools import ..." to "from .tools import ..."
-  content = content.replace(/^from tools import /gm, "from .tools import ");
-  content = content.replace(
-    /^from tools\.(\w+) import /gm,
-    "from .tools.$1 import ",
-  );
+  // Rewrite "from tools import ..." — context-dependent:
+  // Files inside tools/ directory: "from tools import X" → "from . import X"
+  // Files outside tools/ directory: "from tools import X" → "from .tools import X"
+  const isInsideToolsDir = filePath.includes("/tools/");
+  if (isInsideToolsDir) {
+    content = content.replace(/^from tools import /gm, "from . import ");
+    content = content.replace(
+      /^from tools\.(\w+) import /gm,
+      "from .$1 import ",
+    );
+  } else {
+    content = content.replace(/^from tools import /gm, "from .tools import ");
+    content = content.replace(
+      /^from tools\.(\w+) import /gm,
+      "from .tools.$1 import ",
+    );
+  }
 
   // Rewrite "from src.agents.X import ..." to "from .X import ..."
   // This handles main.py style imports like "from src.agents.tools import ..."
