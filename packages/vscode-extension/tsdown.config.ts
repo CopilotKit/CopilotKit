@@ -4,6 +4,16 @@ import * as path from "node:path";
 
 const require = createRequire(import.meta.url);
 
+// Resolve workspace packages to their TypeScript source instead of compiled
+// dist. This avoids CJS-to-ESM interop bugs in Rolldown (e.g., variable
+// shadowing in __commonJSMin wrappers that cause TDZ errors).
+const workspaceSourceAliases: Record<string, string> = {
+  "@copilotkit/a2ui-renderer": path.resolve(
+    import.meta.dirname,
+    "../a2ui-renderer/src/index.ts",
+  ),
+};
+
 /**
  * Rolldown plugin that resolves bare specifiers using Node's module
  * resolution. Needed because pnpm's strict node_modules doesn't hoist
@@ -23,6 +33,12 @@ function nodeResolveFallback() {
       ) {
         return null;
       }
+
+      // Resolve workspace packages to TypeScript source
+      if (source in workspaceSourceAliases) {
+        return { id: workspaceSourceAliases[source], external: false };
+      }
+
       try {
         return { id: require.resolve(source), external: false };
       } catch {
