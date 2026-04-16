@@ -322,6 +322,27 @@ function rewritePythonImports(filePath: string): void {
     }
   }
 
+  // Before removing `import os`, check if `os` is used elsewhere in non-skipped lines.
+  // If so, keep the `import os` line so the file doesn't break.
+  const osImportIndices: number[] = [];
+  for (const idx of skipIndices) {
+    if (lines[idx].trim() === "import os") {
+      osImportIndices.push(idx);
+    }
+  }
+  if (osImportIndices.length > 0) {
+    // Check if `os` is referenced in any non-skipped, non-import-os line
+    const osUsed = lines.some(
+      (line, i) => !skipIndices.has(i) && /\bos[.\s]/.test(line),
+    );
+    if (osUsed) {
+      // Keep import os lines — don't skip them
+      for (const idx of osImportIndices) {
+        skipIndices.delete(idx);
+      }
+    }
+  }
+
   for (let i = 0; i < lines.length; i++) {
     if (!skipIndices.has(i)) {
       result.push(lines[i]);
@@ -336,25 +357,22 @@ function rewritePythonImports(filePath: string): void {
   // Rewrite "from tools import ..." — context-dependent:
   // Files inside tools/ directory: "from tools import X" → "from . import X"
   // Files outside tools/ directory: "from tools import X" → "from .tools import X"
-  const isInsideToolsDir = filePath.includes("/tools/");
-  if (isInsideToolsDir) {
-    content = content.replace(/^from tools import /gm, "from . import ");
-    content = content.replace(
-      /^from tools\.(\w+) import /gm,
-      "from .$1 import ",
-    );
-  } else {
-    content = content.replace(/^from tools import /gm, "from .tools import ");
-    content = content.replace(
-      /^from tools\.(\w+) import /gm,
-      "from .tools.$1 import ",
-    );
-  }
+  const insideTools = filePath.includes("/tools/");
+  const pkgPrefix = insideTools ? "." : ".tools";
+  const subPrefix = insideTools ? "." : ".tools.";
+  content = content.replace(
+    /^from tools import /gm,
+    `from ${pkgPrefix} import `,
+  );
+  content = content.replace(
+    /^from tools\.(\w+) import /gm,
+    `from ${subPrefix}$1 import `,
+  );
 
   // Rewrite "from src.agents.X import ..." to "from .X import ..."
   // This handles main.py style imports like "from src.agents.tools import ..."
   content = content.replace(
-    /^(\s*)from src\.agents\.(\w+) import /gm,
+    /^(\s*)from src\.agents\.([\w.]+) import /gm,
     "$1from .$2 import ",
   );
 
@@ -414,7 +432,7 @@ function rewriteTypeScriptSharedImports(
 }
 
 /**
- * Extract the uvicorn module path (e.g. "agent.agent:app") from a framework's
+ * Extract the uvicorn module path (e.g. "agent_server:app") from a framework's
  * devScript. Falls back to "agent.main:app" if no uvicorn invocation is found.
  */
 function extractUvicornModule(fw: FrameworkDef): string {
@@ -719,12 +737,10 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
       fs.renameSync(toolsPy, newName);
       // Update imports in OTHER .py files (not tool_wrappers.py itself)
       // to reference tool_wrappers instead of tools (the wrapper file, not the dir)
-      for (const pyFile of fs
-        .readdirSync(agentDest)
-        .filter((f) => f.endsWith(".py") && f !== "tool_wrappers.py")) {
-        const fp = path.join(agentDest, pyFile);
+      const agentMod = fw.agentDir.replace(/\//g, ".");
+      forEachPyFile(agentDest, (fp) => {
+        if (path.basename(fp) === "tool_wrappers.py") return;
         let content = fs.readFileSync(fp, "utf-8");
-        const agentMod = fw.agentDir.replace(/\//g, ".");
         // from <agentMod>.tools import X -> from <agentMod>.tool_wrappers import X
         content = content.replace(
           new RegExp(`from ${agentMod}\\.tools import`, "g"),
@@ -737,25 +753,22 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
           "from .tool_wrappers import",
         );
         fs.writeFileSync(fp, content);
-      }
+      });
     }
 
     // For langgraph starters: convert relative imports to absolute
     // because langgraph_cli loads modules standalone, not as packages
     if (fw.slug.startsWith("langgraph-")) {
-      const agentMod = fw.agentDir.replace(/\//g, ".");
-      for (const pyFile of fs
-        .readdirSync(agentDest)
-        .filter((f) => f.endsWith(".py"))) {
-        const fp = path.join(agentDest, pyFile);
+      const lgAgentMod = fw.agentDir.replace(/\//g, ".");
+      forEachPyFile(agentDest, (fp) => {
         let content = fs.readFileSync(fp, "utf-8");
         // from .X import -> from <agentMod>.X import
         content = content.replace(
           /^from \.([\w.]+) import/gm,
-          `from ${agentMod}.$1 import`,
+          `from ${lgAgentMod}.$1 import`,
         );
         fs.writeFileSync(fp, content);
-      }
+      });
     }
 
     const reqSrc = path.join(pkgDir, "requirements.txt");
@@ -927,6 +940,25 @@ function processTemplateVarsInDir(
           fs.writeFileSync(fullPath, replaced);
         }
       }
+    }
+  }
+}
+
+/** Recursively walk `dir` and invoke `callback` for every .py file, skipping `data/` dirs. */
+function forEachPyFile(
+  dir: string,
+  callback: (filePath: string) => void,
+): void {
+  if (!fs.existsSync(dir)) return;
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name !== "data") {
+        forEachPyFile(fullPath, callback);
+      }
+    } else if (entry.name.endsWith(".py")) {
+      callback(fullPath);
     }
   }
 }

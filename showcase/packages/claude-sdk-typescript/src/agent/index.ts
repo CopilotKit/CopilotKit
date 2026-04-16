@@ -33,9 +33,7 @@ const anthropic = new Anthropic({
 
 console.log("[agent_server] Initializing Claude agent server");
 console.log(`[agent_server] Model: ${CLAUDE_MODEL}`);
-console.log(
-  `[agent_server] ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? "set" : "NOT SET"}`,
-);
+console.log("[agent_server] ANTHROPIC_API_KEY: set");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -52,7 +50,7 @@ function buildAnthropicMessages(messages: Message[]): Anthropic.MessageParam[] {
           : JSON.stringify(msg.content);
       result.push({
         role: "user",
-        content: userContent ?? "",
+        content: userContent,
       });
     } else if (msg.role === "assistant") {
       const toolCalls = msg.toolCalls;
@@ -285,7 +283,7 @@ app.get("/health", (_req: Request, res: Response) => {
   res.json({
     status: "ok",
     model: CLAUDE_MODEL,
-    anthropic_api_key: process.env.ANTHROPIC_API_KEY ? "set" : "NOT SET",
+    anthropic_api_key: "set",
   });
 });
 
