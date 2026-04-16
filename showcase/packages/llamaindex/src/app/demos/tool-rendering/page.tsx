@@ -26,32 +26,27 @@ function Chat() {
     render: ({ args, result, status }: any) => {
       if (status !== "complete") {
         return (
-          <div
-            className="flex items-center gap-3 px-5 py-4 rounded-2xl max-w-sm"
-            style={{
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            }}
-          >
-            <div className="animate-pulse text-2xl">🌤️</div>
-            <div>
-              <p className="text-white font-medium text-sm">
-                Checking weather...
-              </p>
-              <p className="text-white/60 text-xs">{args.location}</p>
-            </div>
+          <div className="bg-[#667eea] text-white p-4 rounded-lg max-w-md">
+            <span className="animate-spin">Retrieving weather...</span>
           </div>
         );
       }
 
-      const parsed = typeof result === "string" ? JSON.parse(result) : result;
+      const weatherResult: WeatherToolResult = {
+        temperature: result?.temperature || 0,
+        conditions: result?.conditions || "clear",
+        humidity: result?.humidity || 0,
+        windSpeed: result?.wind_speed || 0,
+        feelsLike: result?.feels_like || result?.temperature || 0,
+      };
+
+      const themeColor = getThemeColor(weatherResult.conditions);
+
       return (
         <WeatherCard
           location={args.location}
-          temperature={parsed?.temperature ?? 22}
-          conditions={parsed?.conditions || "Clear skies"}
-          humidity={parsed?.humidity ?? 55}
-          windSpeed={parsed?.wind_speed ?? 12}
-          feelsLike={parsed?.feels_like ?? parsed?.temperature ?? 22}
+          themeColor={themeColor}
+          result={weatherResult}
         />
       );
     },
@@ -77,124 +72,177 @@ function Chat() {
 
   return (
     <div className="flex justify-center items-center h-full w-full">
-      <div className="h-full w-full md:w-4/5 md:h-4/5 rounded-lg px-6">
+      <div className="h-full w-full md:w-4/5 md:h-4/5 rounded-lg">
         <CopilotChat className="h-full rounded-2xl max-w-6xl mx-auto" />
       </div>
     </div>
   );
 }
 
-function getGradient(conditions: string): string {
-  const c = conditions.toLowerCase();
-  if (c.includes("clear") || c.includes("sunny"))
-    return "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
-  if (c.includes("rain") || c.includes("storm"))
-    return "linear-gradient(135deg, #4A5568 0%, #2D3748 100%)";
-  if (c.includes("cloud") || c.includes("overcast"))
-    return "linear-gradient(135deg, #718096 0%, #4A5568 100%)";
-  if (c.includes("snow"))
-    return "linear-gradient(135deg, #63B3ED 0%, #4299E1 100%)";
-  return "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
-}
-
-function getIcon(conditions: string): string {
-  const c = conditions.toLowerCase();
-  if (c.includes("clear") || c.includes("sunny")) return "☀️";
-  if (c.includes("rain") || c.includes("drizzle")) return "🌧️";
-  if (c.includes("snow")) return "❄️";
-  if (c.includes("thunderstorm")) return "⛈️";
-  if (c.includes("cloud") || c.includes("overcast")) return "☁️";
-  if (c.includes("fog")) return "🌫️";
-  return "🌤️";
-}
-
-function WeatherCard({
-  location,
-  temperature,
-  conditions,
-  humidity,
-  windSpeed,
-  feelsLike,
-}: {
-  location: string;
+interface WeatherToolResult {
   temperature: number;
   conditions: string;
   humidity: number;
   windSpeed: number;
   feelsLike: number;
-}) {
-  const gradient = getGradient(conditions);
-  const icon = getIcon(conditions);
-  const tempF = ((temperature * 9) / 5 + 32).toFixed(0);
+}
 
+function getThemeColor(conditions: string): string {
+  const conditionLower = conditions.toLowerCase();
+  if (conditionLower.includes("clear") || conditionLower.includes("sunny")) {
+    return "#667eea";
+  }
+  if (conditionLower.includes("rain") || conditionLower.includes("storm")) {
+    return "#4A5568";
+  }
+  if (conditionLower.includes("cloud")) {
+    return "#718096";
+  }
+  if (conditionLower.includes("snow")) {
+    return "#63B3ED";
+  }
+  return "#764ba2";
+}
+
+function WeatherCard({
+  location,
+  themeColor,
+  result,
+}: {
+  location?: string;
+  themeColor: string;
+  result: WeatherToolResult;
+}) {
   return (
     <div
       data-testid="weather-card"
-      className="rounded-2xl overflow-hidden shadow-xl my-4"
-      style={{ background: gradient, width: "340px" }}
+      style={{ backgroundColor: themeColor }}
+      className="rounded-xl mt-6 mb-4 max-w-md w-full"
     >
-      {/* Header */}
-      <div className="px-6 pt-5 pb-4">
-        <div className="flex items-start justify-between">
+      <div className="bg-white/20 p-4 w-full">
+        <div className="flex items-center justify-between">
           <div>
             <h3
               data-testid="weather-city"
-              className="text-lg font-bold text-white capitalize tracking-tight"
+              className="text-xl font-bold text-white capitalize"
             >
               {location}
             </h3>
-            <p className="text-white/60 text-xs font-medium uppercase tracking-wider mt-0.5">
-              Current Weather
-            </p>
+            <p className="text-white">Current Weather</p>
           </div>
-          <span className="text-5xl leading-none mt-[-4px]">{icon}</span>
+          <WeatherIcon conditions={result.conditions} />
         </div>
 
-        {/* Temperature */}
-        <div className="mt-5 flex items-baseline gap-2">
-          <span className="text-5xl font-extralight text-white tracking-tighter">
-            {temperature}°
-          </span>
-          <div className="flex flex-col text-white/50 text-xs leading-tight">
-            <span>C</span>
-            <span className="mt-0.5">{tempF}°F</span>
+        <div className="mt-4 flex items-end justify-between">
+          <div className="text-3xl font-bold text-white">
+            <span>{result.temperature}&deg; C</span>
+            <span className="text-sm text-white/50">
+              {" / "}
+              {((result.temperature * 9) / 5 + 32).toFixed(1)}&deg; F
+            </span>
+          </div>
+          <div className="text-sm text-white capitalize">
+            {result.conditions}
           </div>
         </div>
 
-        {/* Conditions */}
-        <p className="text-white/80 text-sm font-medium capitalize mt-1">
-          {conditions}
-        </p>
-      </div>
-
-      {/* Stats bar */}
-      <div
-        className="grid grid-cols-3 text-center py-3 px-6"
-        style={{ background: "rgba(0,0,0,0.15)" }}
-      >
-        <div data-testid="weather-humidity">
-          <p className="text-white/50 text-[10px] font-medium uppercase tracking-wider">
-            Humidity
-          </p>
-          <p className="text-white text-sm font-semibold mt-0.5">{humidity}%</p>
-        </div>
-        <div data-testid="weather-wind" className="border-x border-white/10">
-          <p className="text-white/50 text-[10px] font-medium uppercase tracking-wider">
-            Wind
-          </p>
-          <p className="text-white text-sm font-semibold mt-0.5">
-            {windSpeed} mph
-          </p>
-        </div>
-        <div data-testid="weather-feels-like">
-          <p className="text-white/50 text-[10px] font-medium uppercase tracking-wider">
-            Feels Like
-          </p>
-          <p className="text-white text-sm font-semibold mt-0.5">
-            {feelsLike}°
-          </p>
+        <div className="mt-4 pt-4 border-t border-white">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div data-testid="weather-humidity">
+              <p className="text-white text-xs">Humidity</p>
+              <p className="text-white font-medium">{result.humidity}%</p>
+            </div>
+            <div data-testid="weather-wind">
+              <p className="text-white text-xs">Wind</p>
+              <p className="text-white font-medium">{result.windSpeed} mph</p>
+            </div>
+            <div data-testid="weather-feels-like">
+              <p className="text-white text-xs">Feels Like</p>
+              <p className="text-white font-medium">{result.feelsLike}&deg;</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function WeatherIcon({ conditions }: { conditions: string }) {
+  if (!conditions) return null;
+
+  if (
+    conditions.toLowerCase().includes("clear") ||
+    conditions.toLowerCase().includes("sunny")
+  ) {
+    return <SunIcon />;
+  }
+
+  if (
+    conditions.toLowerCase().includes("rain") ||
+    conditions.toLowerCase().includes("drizzle") ||
+    conditions.toLowerCase().includes("snow") ||
+    conditions.toLowerCase().includes("thunderstorm")
+  ) {
+    return <RainIcon />;
+  }
+
+  return <CloudIcon />;
+}
+
+function SunIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className="w-14 h-14 text-yellow-200"
+    >
+      <circle cx="12" cy="12" r="5" />
+      <path
+        d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+        strokeWidth="2"
+        stroke="currentColor"
+      />
+    </svg>
+  );
+}
+
+function RainIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className="w-14 h-14 text-blue-200"
+    >
+      <path
+        d="M7 15a4 4 0 0 1 0-8 5 5 0 0 1 10 0 4 4 0 0 1 0 8H7z"
+        fill="currentColor"
+        opacity="0.8"
+      />
+      <path
+        d="M8 18l2 4M12 18l2 4M16 18l2 4"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        fill="none"
+      />
+    </svg>
+  );
+}
+
+function CloudIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className="w-14 h-14 text-gray-200"
+    >
+      <path
+        d="M7 15a4 4 0 0 1 0-8 5 5 0 0 1 10 0 4 4 0 0 1 0 8H7z"
+        fill="currentColor"
+      />
+    </svg>
   );
 }

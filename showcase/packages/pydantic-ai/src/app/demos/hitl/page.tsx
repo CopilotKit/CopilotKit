@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit, useLangGraphInterrupt } from "@copilotkit/react-core";
 import {
   CopilotChat,
   useHumanInTheLoop,
@@ -37,6 +37,20 @@ function DemoContent() {
     available: "always",
   });
 
+  useLangGraphInterrupt({
+    render: ({ event, resolve }) => (
+      <StepSelector
+        steps={event.value?.steps || []}
+        onConfirm={(selectedSteps) => {
+          resolve(
+            "The user selected the following steps: " +
+              selectedSteps.map((s) => s.description).join(", "),
+          );
+        }}
+      />
+    ),
+  });
+
   useHumanInTheLoop({
     agentId: "human_in_the_loop",
     name: "generate_task_steps",
@@ -55,13 +69,92 @@ function DemoContent() {
   });
 
   return (
-    <div className="flex justify-center items-center h-full w-full">
-      <div className="h-full w-full md:w-4/5 md:h-4/5 rounded-lg px-6">
+    <div className="flex justify-center items-center h-screen w-full">
+      <div className="h-full w-full max-w-4xl">
         <CopilotChat
           agentId="human_in_the_loop"
-          className="h-full rounded-2xl max-w-6xl mx-auto"
+          className="h-full rounded-2xl"
         />
       </div>
+    </div>
+  );
+}
+
+function StepSelector({
+  steps,
+  onConfirm,
+}: {
+  steps: Array<{ description?: string; status?: string } | string>;
+  onConfirm: (steps: Step[]) => void;
+}) {
+  const [localSteps, setLocalSteps] = useState<Step[]>(() =>
+    steps.map((s) => ({
+      description: typeof s === "string" ? s : s.description || "",
+      status: (typeof s === "object" && s.status === "disabled"
+        ? "disabled"
+        : "enabled") as Step["status"],
+    })),
+  );
+
+  const enabledCount = localSteps.filter((s) => s.status === "enabled").length;
+
+  return (
+    <div
+      className="rounded-xl border border-gray-200 bg-white p-6 shadow-lg w-[500px]"
+      data-testid="select-steps"
+    >
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-lg font-bold text-gray-800">Select Steps</h3>
+        <span className="text-sm text-gray-500">
+          {enabledCount}/{localSteps.length} selected
+        </span>
+      </div>
+      <div className="space-y-2 mb-4">
+        {localSteps.map((step, i) => (
+          <label
+            key={i}
+            className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"
+            data-testid="step-item"
+          >
+            <input
+              type="checkbox"
+              checked={step.status === "enabled"}
+              onChange={() =>
+                setLocalSteps((prev) =>
+                  prev.map((s, j) =>
+                    j === i
+                      ? {
+                          ...s,
+                          status:
+                            s.status === "enabled" ? "disabled" : "enabled",
+                        }
+                      : s,
+                  ),
+                )
+              }
+              className="w-4 h-4 rounded"
+            />
+            <span
+              className={
+                step.status !== "enabled"
+                  ? "line-through text-gray-400"
+                  : "text-gray-800"
+              }
+              data-testid="step-text"
+            >
+              {step.description}
+            </span>
+          </label>
+        ))}
+      </div>
+      <button
+        onClick={() =>
+          onConfirm(localSteps.filter((s) => s.status === "enabled"))
+        }
+        className="w-full rounded-lg bg-purple-600 px-4 py-2 text-white font-medium hover:bg-purple-700"
+      >
+        Perform Steps ({enabledCount})
+      </button>
     </div>
   );
 }
@@ -95,15 +188,8 @@ function StepsFeedback({
 
   return (
     <div
+      className="rounded-xl border border-gray-200 bg-white p-6 shadow-lg w-[500px]"
       data-testid="select-steps"
-      style={{
-        borderRadius: "16px",
-        border: "1px solid #e5e5e0",
-        background: "#fff",
-        padding: "32px",
-        boxShadow: "0 8px 30px rgba(0,0,0,0.08)",
-        width: "520px",
-      }}
     >
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-lg font-bold text-gray-800">Review Steps</h3>
@@ -111,19 +197,12 @@ function StepsFeedback({
           {enabledCount}/{steps.length} selected
         </span>
       </div>
-      <div className="space-y-1 mb-6">
+      <div className="space-y-2 mb-4">
         {steps.map((step: any, i: number) => (
           <label
             key={i}
+            className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"
             data-testid="step-item"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-              padding: "10px 16px",
-              borderRadius: "8px",
-              cursor: "pointer",
-            }}
           >
             <input
               type="checkbox"

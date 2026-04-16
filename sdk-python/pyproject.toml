@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "copilotkit"
-version = "0.1.86"
+version = "0.1.87"
 description = "CopilotKit python SDK"
 authors = ["Markus Ecker <markus.ecker@gmail.com>"]
 license = "MIT"
@@ -25,7 +25,7 @@ langgraph = { version = ">=0.3.25,<2" }
 langchain = { version = ">=0.3.0" }
 crewai = { version = "0.118.0", optional = true }
 ag-ui-langgraph = { version = ">=0.0.29", extras = ["fastapi"] }
-ag-ui-protocol = ">=0.1.11"
+ag-ui-protocol = ">=0.1.15"
 fastapi = ">=0.115.0,<1.0.0"
 partialjson = "^0.0.8"
 toml = "^0.10.2"

@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from agents.agent import ProverbsState, StateDeps, agent
+from agents.agent import SalesTodosState, StateDeps, agent
 
 load_dotenv()
 
@@ -30,7 +30,7 @@ async def health():
     return {"status": "ok"}
 
 # Mount the PydanticAI AG-UI endpoint at the root
-ag_ui_app = agent.to_ag_ui(deps=StateDeps(ProverbsState()))
+ag_ui_app = agent.to_ag_ui(deps=StateDeps(SalesTodosState()))
 app.mount("/", ag_ui_app)
 
 

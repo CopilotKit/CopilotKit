@@ -142,9 +142,19 @@ def langchain_messages_to_copilotkit(
         if hasattr(message, "content"):
             content = message.content
 
-            # Check if content is a list and use the first element
+            # Content can be a list of content blocks (e.g. Anthropic models).
+            # Extract and concatenate all text parts instead of only taking
+            # the first element.
             if isinstance(content, list):
-                content = content[0] if content else ""
+                text_parts = []
+                for part in content:
+                    if isinstance(part, str):
+                        text_parts.append(part)
+                    elif isinstance(part, dict) and part.get("type") == "text":
+                        text_parts.append(part.get("text", ""))
+                    elif isinstance(part, dict) and "text" in part:
+                        text_parts.append(part.get("text", ""))
+                content = "".join(text_parts)
 
             # Anthropic models return a dict with a "text" key
             if isinstance(content, dict):

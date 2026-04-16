@@ -374,4 +374,272 @@ describe("AnthropicAdapter", () => {
       });
     });
   });
+
+  describe("Unknown Tool Use Handling", () => {
+    it("should skip unknown tool_use blocks without crashing", async () => {
+      const systemMessage = new TextMessage("system", "System message");
+      const userMessage = new TextMessage("user", "Do something");
+
+      // Mock Anthropic to return a stream with an unknown tool_use block
+      mockAnthropicCreate.mockResolvedValue({
+        [Symbol.asyncIterator]: async function* () {
+          yield { type: "message_start", message: { id: "msg-1" } };
+          // Unknown tool_use block — tool name not in the actions list
+          yield {
+            type: "content_block_start",
+            content_block: {
+              type: "tool_use",
+              id: "tool-unknown",
+              name: "nonexistent_tool",
+            },
+          };
+          yield {
+            type: "content_block_delta",
+            delta: { type: "input_json_delta", partial_json: '{"query":' },
+          };
+          yield {
+            type: "content_block_delta",
+            delta: { type: "input_json_delta", partial_json: '"test"}' },
+          };
+          yield { type: "content_block_stop" };
+          // Then a normal text block
+          yield {
+            type: "content_block_start",
+            content_block: { type: "text" },
+          };
+          yield {
+            type: "content_block_delta",
+            delta: { type: "text_delta", text: "Here is the result." },
+          };
+          yield { type: "content_block_stop" };
+        },
+      });
+
+      const mockStream = {
+        sendTextMessageStart: vi.fn(),
+        sendTextMessageContent: vi.fn(),
+        sendTextMessageEnd: vi.fn(),
+        sendActionExecutionStart: vi.fn(),
+        sendActionExecutionArgs: vi.fn(),
+        sendActionExecutionEnd: vi.fn(),
+        complete: vi.fn(),
+      };
+
+      let streamCallbackDone: Promise<void>;
+      mockEventSource.stream.mockImplementation((callback: any) => {
+        streamCallbackDone = callback(mockStream);
+      });
+
+      await adapter.process({
+        threadId: "test-thread",
+        messages: [systemMessage, userMessage],
+        actions: [
+          {
+            name: "known_tool",
+            description: "A known tool",
+            parameters: [],
+            jsonSchema: '{"type":"object","properties":{}}',
+          },
+        ],
+        eventSource: mockEventSource,
+        forwardedParameters: {},
+      });
+
+      // Wait for async stream processing to complete
+      await streamCallbackDone!;
+
+      // Should NOT have sent action execution events for the unknown tool
+      expect(mockStream.sendActionExecutionStart).not.toHaveBeenCalled();
+      expect(mockStream.sendActionExecutionArgs).not.toHaveBeenCalled();
+      expect(mockStream.sendActionExecutionEnd).not.toHaveBeenCalled();
+
+      // Should still process the text block normally
+      expect(mockStream.sendTextMessageStart).toHaveBeenCalled();
+      expect(mockStream.sendTextMessageContent).toHaveBeenCalledWith({
+        messageId: "msg-1",
+        content: "Here is the result.",
+      });
+      expect(mockStream.sendTextMessageEnd).toHaveBeenCalled();
+      expect(mockStream.complete).toHaveBeenCalled();
+    });
+
+    it("should trigger fallback when only unknown tool_use blocks are returned", async () => {
+      const systemMessage = new TextMessage("system", "System message");
+      const userMessage = new TextMessage("user", "Do something");
+
+      const toolExecution = new ActionExecutionMessage({
+        id: "tool-prev",
+        name: "someAction",
+        arguments: "{}",
+      });
+
+      const toolResult = new ResultMessage({
+        actionExecutionId: "tool-prev",
+        result: "Previous result",
+      });
+
+      // Mock Anthropic to return ONLY an unknown tool_use block
+      mockAnthropicCreate.mockResolvedValue({
+        [Symbol.asyncIterator]: async function* () {
+          yield { type: "message_start", message: { id: "msg-1" } };
+          yield {
+            type: "content_block_start",
+            content_block: {
+              type: "tool_use",
+              id: "tool-unknown",
+              name: "nonexistent_tool",
+            },
+          };
+          yield {
+            type: "content_block_delta",
+            delta: { type: "input_json_delta", partial_json: "{}" },
+          };
+          yield { type: "content_block_stop" };
+        },
+      });
+
+      const mockStream = {
+        sendTextMessageStart: vi.fn(),
+        sendTextMessageContent: vi.fn(),
+        sendTextMessageEnd: vi.fn(),
+        sendActionExecutionStart: vi.fn(),
+        sendActionExecutionArgs: vi.fn(),
+        sendActionExecutionEnd: vi.fn(),
+        complete: vi.fn(),
+      };
+
+      let streamCallbackDone: Promise<void>;
+      mockEventSource.stream.mockImplementation((callback: any) => {
+        streamCallbackDone = callback(mockStream);
+      });
+
+      await adapter.process({
+        threadId: "test-thread",
+        messages: [systemMessage, userMessage, toolExecution, toolResult],
+        actions: [
+          {
+            name: "known_tool",
+            description: "A known tool",
+            parameters: [],
+            jsonSchema: '{"type":"object","properties":{}}',
+          },
+        ],
+        eventSource: mockEventSource,
+        forwardedParameters: {},
+      });
+
+      // Wait for async stream processing to complete
+      await streamCallbackDone!;
+
+      // Should NOT have sent action execution events
+      expect(mockStream.sendActionExecutionStart).not.toHaveBeenCalled();
+
+      // Should trigger fallback since hasReceivedContent should be false
+      expect(mockStream.sendTextMessageStart).toHaveBeenCalled();
+      expect(mockStream.sendTextMessageContent).toHaveBeenCalledWith({
+        messageId: expect.any(String),
+        content: "Previous result",
+      });
+      expect(mockStream.sendTextMessageEnd).toHaveBeenCalled();
+    });
+  });
+});
+
+describe("AnthropicAdapter max_tokens default", () => {
+  let mockAnthropicCreate: any;
+  let mockEventSource: any;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should default max_tokens to 4096 when not specified", async () => {
+    const mockAnthropic = {
+      messages: {
+        create: vi.fn(),
+      },
+    };
+
+    const adapter = new AnthropicAdapter({ anthropic: mockAnthropic as any });
+    mockAnthropicCreate = mockAnthropic.messages.create;
+
+    mockAnthropicCreate.mockResolvedValue({
+      [Symbol.asyncIterator]: async function* () {},
+    });
+
+    mockEventSource = {
+      stream: vi.fn((callback) => {
+        const mockStream = {
+          sendTextMessageStart: vi.fn(),
+          sendTextMessageContent: vi.fn(),
+          sendTextMessageEnd: vi.fn(),
+          sendActionExecutionStart: vi.fn(),
+          sendActionExecutionArgs: vi.fn(),
+          sendActionExecutionEnd: vi.fn(),
+          complete: vi.fn(),
+        };
+        callback(mockStream);
+        return Promise.resolve();
+      }),
+    };
+
+    const systemMessage = new TextMessage("system", "System message");
+    const userMessage = new TextMessage("user", "Hello");
+
+    await adapter.process({
+      threadId: "test-thread",
+      messages: [systemMessage, userMessage],
+      actions: [],
+      eventSource: mockEventSource,
+      forwardedParameters: {},
+    });
+
+    const createCallArgs = mockAnthropicCreate.mock.calls[0][0];
+    expect(createCallArgs.max_tokens).toBe(4096);
+  });
+
+  it("should use provided maxTokens when specified", async () => {
+    const mockAnthropic = {
+      messages: {
+        create: vi.fn(),
+      },
+    };
+
+    const adapter = new AnthropicAdapter({ anthropic: mockAnthropic as any });
+    mockAnthropicCreate = mockAnthropic.messages.create;
+
+    mockAnthropicCreate.mockResolvedValue({
+      [Symbol.asyncIterator]: async function* () {},
+    });
+
+    mockEventSource = {
+      stream: vi.fn((callback) => {
+        const mockStream = {
+          sendTextMessageStart: vi.fn(),
+          sendTextMessageContent: vi.fn(),
+          sendTextMessageEnd: vi.fn(),
+          sendActionExecutionStart: vi.fn(),
+          sendActionExecutionArgs: vi.fn(),
+          sendActionExecutionEnd: vi.fn(),
+          complete: vi.fn(),
+        };
+        callback(mockStream);
+        return Promise.resolve();
+      }),
+    };
+
+    const systemMessage = new TextMessage("system", "System message");
+    const userMessage = new TextMessage("user", "Hello");
+
+    await adapter.process({
+      threadId: "test-thread",
+      messages: [systemMessage, userMessage],
+      actions: [],
+      eventSource: mockEventSource,
+      forwardedParameters: { maxTokens: 8192 },
+    });
+
+    const createCallArgs = mockAnthropicCreate.mock.calls[0][0];
+    expect(createCallArgs.max_tokens).toBe(8192);
+  });
 });

@@ -1,6 +1,6 @@
 {
   "name": "@copilotkitnext/angular",
-  "version": "1.54.3-next.0",
+  "version": "1.54.3",
   "description": "Angular library for CopilotKit",
   "license": "Commercial",
   "repository": {

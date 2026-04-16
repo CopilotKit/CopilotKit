@@ -1,0 +1,267 @@
+---
+title: Interrupts
+icon: "lucide/CirclePause"
+description: Learn how to implement Human-in-the-Loop (HITL) using Mastra's native tool suspension.
+---
+
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
+
+## What is this?
+
+Mastra's [tool suspension](https://mastra.ai/docs/agents/agent-approval) provides a native way to implement Human-in-the-Loop workflows.
+Tools can call `suspend()` to pause execution mid-tool and send a payload to the frontend. CopilotKit's `useInterrupt` hook
+captures the suspension, renders custom UI, and sends the user's response back to resume the tool.
+
+## When should I use this?
+
+Interrupt-based HITL is ideal when a tool needs to pause its own execution to collect user input before continuing. Common use cases include:
+
+- **Approvals** — confirm before performing destructive or irreversible actions
+- **Disambiguation** — ask the user to clarify ambiguous inputs
+- **Progressive disclosure** — collect additional details only when needed at runtime
+
+<Callout type="info">
+  If you want to render a standalone frontend tool that collects user input without suspending tool execution, see the [tool-based approach](/mastra/human-in-the-loop/tool-based).
+</Callout>
+
+## Implementation
+
+<Steps>
+<Step>
+  ### Run and connect your agent
+  <RunAndConnect components={props.components} />
+</Step>
+
+<Step>
+  ### Define a tool with `suspend()`
+
+  Create a Mastra tool that uses `suspend()` to pause execution and ask for user confirmation.
+  The `suspendSchema` defines what gets sent to the frontend, and the `resumeSchema` defines what the frontend sends back.
+
+  ```typescript title="src/mastra/tools/index.ts"
+  import { createTool } from "@mastra/core/tools";
+  import { z } from "zod";
+
+  export const confirmActionTool = createTool({
+    id: "confirm-action",
+    description: "Ask the user to confirm before performing a critical action",
+    inputSchema: z.object({
+      action: z.string().describe("Description of the action to confirm"),
+    }),
+    outputSchema: z.object({ confirmed: z.boolean() }),
+    suspendSchema: z.object({ action: z.string() }), // [!code highlight]
+    resumeSchema: z.object({ confirmed: z.boolean() }), // [!code highlight]
+    execute: async (inputData, context) => {
+      const { resumeData, suspend } = context?.agent ?? {};
+
+      // [!code highlight:4]
+      // First execution: pause and ask for confirmation
+      if (!resumeData) {
+        return suspend?.({ action: inputData.action });
+      }
+
+      // Resumed: the user has responded
+      return { confirmed: resumeData.confirmed };
+    },
+  });
+  ```
+</Step>
+
+<Step>
+  ### Add the tool to your agent
+
+  ```typescript title="src/mastra/agents/index.ts"
+  import { Agent } from "@mastra/core/agent";
+  import { openai } from "@ai-sdk/openai";
+  import { confirmActionTool } from "@/mastra/tools"; // [!code highlight]
+
+  export const myAgent = new Agent({
+    id: "my-agent",
+    name: "My Agent",
+    tools: { confirmActionTool }, // [!code highlight]
+    model: openai("gpt-4o"),
+    instructions:
+      "You are a helpful assistant. When performing critical actions, " +
+      "always use the confirm-action tool to get user approval first.",
+  });
+  ```
+</Step>
+
+<Step>
+  ### Handle the interrupt in your frontend
+
+  Use the `useInterrupt` hook to render UI when the agent suspends a tool.
+  The `event.value.suspendPayload` contains the data from the tool's `suspend()` call.
+  Call `resolve()` with the user's response to resume execution.
+
+  ```tsx title="ui/app/page.tsx"
+  import { useInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
+  // ...
+
+  function YourMainContent() {
+    // ...
+
+    // [!code highlight:16]
+    useInterrupt({
+      render: ({ event, resolve }) => {
+        const { action } = event.value.suspendPayload;
+        return (
+          <div>
+            <p>{action}</p>
+            <button onClick={() => resolve({ confirmed: true })}>
+              Approve
+            </button>
+            <button onClick={() => resolve({ confirmed: false })}>
+              Reject
+            </button>
+          </div>
+        );
+      },
+    });
+
+    // ...
+    return <div>{/* ... */}</div>;
+  }
+  ```
+</Step>
+
+<Step>
+  ### Give it a try!
+
+  Try asking your agent to do something that requires confirmation.
+
+  ```
+  Can you delete all inactive user accounts?
+  ```
+
+  The agent will call the `confirm-action` tool, which suspends execution and shows an approval UI.
+  After you approve or reject, the tool resumes with your response and the agent continues.
+</Step>
+</Steps>
+
+## Advanced usage
+
+### Handle multiple interrupt types
+
+When your agent has multiple tools that use `suspend()`, use the `enabled` property to route each
+interrupt to the correct handler. The `eventValue.toolName` field identifies which tool triggered the suspension.
+
+<Steps>
+<Step>
+  ### Define multiple suspending tools
+
+  ```typescript title="src/mastra/tools/index.ts"
+  import { createTool } from "@mastra/core/tools";
+  import { z } from "zod";
+
+  export const confirmActionTool = createTool({
+    id: "confirm-action",
+    description: "Ask the user to confirm an action",
+    inputSchema: z.object({ action: z.string() }),
+    outputSchema: z.object({ confirmed: z.boolean() }),
+    suspendSchema: z.object({ action: z.string() }),
+    resumeSchema: z.object({ confirmed: z.boolean() }),
+    execute: async (inputData, context) => {
+      const { resumeData, suspend } = context?.agent ?? {};
+      if (!resumeData) return suspend?.({ action: inputData.action });
+      return { confirmed: resumeData.confirmed };
+    },
+  });
+
+  export const askQuestionTool = createTool({
+    id: "ask-question",
+    description: "Ask the user a free-form question",
+    inputSchema: z.object({ question: z.string() }),
+    outputSchema: z.object({ answer: z.string() }),
+    suspendSchema: z.object({ question: z.string() }),
+    resumeSchema: z.object({ answer: z.string() }),
+    execute: async (inputData, context) => {
+      const { resumeData, suspend } = context?.agent ?? {};
+      if (!resumeData) return suspend?.({ question: inputData.question });
+      return { answer: resumeData.answer };
+    },
+  });
+  ```
+</Step>
+
+<Step>
+  ### Route interrupts with `enabled`
+
+  ```tsx title="ui/app/page.tsx"
+  import { useInterrupt } from "@copilotkit/react-core/v2";
+
+  function YourMainContent() {
+    // ...
+
+    // [!code highlight:10]
+    useInterrupt({
+      enabled: ({ eventValue }) => eventValue.toolName === "confirm-action",
+      render: ({ event, resolve }) => (
+        <div>
+          <p>{event.value.suspendPayload.action}</p>
+          <button onClick={() => resolve({ confirmed: true })}>Approve</button>
+          <button onClick={() => resolve({ confirmed: false })}>Reject</button>
+        </div>
+      ),
+    });
+
+    // [!code highlight:14]
+    useInterrupt({
+      enabled: ({ eventValue }) => eventValue.toolName === "ask-question",
+      render: ({ event, resolve }) => (
+        <div>
+          <p>{event.value.suspendPayload.question}</p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              resolve({ answer: (e.target as HTMLFormElement).response.value });
+            }}
+          >
+            <input type="text" name="response" placeholder="Your answer" />
+            <button type="submit">Submit</button>
+          </form>
+        </div>
+      ),
+    });
+
+    // ...
+    return <div>{/* ... */}</div>;
+  }
+  ```
+</Step>
+</Steps>
+
+### Preprocessing with `handler`
+
+Use the `handler` property to transform interrupt data or resolve interrupts programmatically before rendering UI.
+The return value of `handler` is passed to `render` as the `result` argument.
+
+```tsx title="ui/app/page.tsx"
+import { useInterrupt } from "@copilotkit/react-core/v2";
+
+function YourMainContent() {
+  const [user] = useState({ role: "admin" });
+
+  useInterrupt({
+    // [!code highlight:10]
+    handler: async ({ event, resolve }) => {
+      // Auto-approve for admins
+      if (user.role === "admin") {
+        resolve({ confirmed: true });
+        return;
+      }
+      return { action: event.value.suspendPayload.action };
+    },
+    render: ({ result, resolve }) => (
+      <div>
+        <p>{result.action}</p>
+        <button onClick={() => resolve({ confirmed: true })}>Approve</button>
+        <button onClick={() => resolve({ confirmed: false })}>Reject</button>
+      </div>
+    ),
+  });
+
+  // ...
+  return <div>{/* ... */}</div>;
+}
+```

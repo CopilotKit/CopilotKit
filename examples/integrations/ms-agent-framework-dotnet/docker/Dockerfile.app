@@ -24,10 +24,6 @@ RUN node -e "\
     fs.writeFileSync(f, c); \
   }"
 
-# Patch hardcoded agent URL to read from AGENT_URL env var at runtime
-RUN sed -i 's|url: "http://localhost:8000/"|url: process.env.AGENT_URL \|\| "http://localhost:8000/"|' src/app/api/copilotkit/route.ts
-RUN grep -q 'process.env.AGENT_URL' src/app/api/copilotkit/route.ts || (echo "ERROR: agent URL patch failed" && exit 1)
-
 # Build
 RUN npm run build
 

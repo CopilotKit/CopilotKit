@@ -110,7 +110,7 @@ function extractCodeRegions(
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    if (/^```/.test(line.trimStart())) {
+    if (line.trimStart().startsWith("```")) {
       if (inFencedBlock) {
         // End of fenced block
         regions.push({ text: blockLines.join("\n"), lineOffset: blockStart });

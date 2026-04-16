@@ -29,10 +29,17 @@ jobs:
   capture:
     name: Capture Preview GIFs
     runs-on: ubuntu-latest
-    # Only run on successful deploy completions, or direct triggers
-    if: >
-      github.event_name != 'workflow_run' ||
-      github.event.workflow_run.conclusion == 'success'
+    # Disabled — preview GIFs removed from repo, awaiting external storage setup
+    # Loop prevention: when re-enabled, the conditions below prevent an infinite cycle:
+    #   capture commits registry.json → push matches showcase/** → deploy runs →
+    #   workflow_run triggers capture again. We break the loop by skipping when either
+    #   trigger path was caused by this workflow's own commit (identified by commit message).
+    if: >-
+      false &&
+      (github.event_name != 'workflow_run' ||
+       !startsWith(github.event.workflow_run.head_commit.message, 'Auto-capture preview GIFs')) &&
+      (github.event_name != 'push' ||
+       !startsWith(github.event.head_commit.message, 'Auto-capture preview GIFs'))
     timeout-minutes: 30
     steps:
       - name: Checkout

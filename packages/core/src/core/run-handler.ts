@@ -206,6 +206,18 @@ export class RunHandler {
         };
       }
 
+      // Notify subscribers (e.g. the inspector) about the agent that is about
+      // to run. This is critical for per-thread clones that are not present in
+      // the agent registry and would otherwise be invisible to subscribers.
+      await this._internal.notifySubscribers(
+        (subscriber) =>
+          subscriber.onAgentRunStarted?.({
+            copilotkit: this.core,
+            agent,
+          }),
+        "Subscriber onAgentRunStarted error:",
+      );
+
       const runAgentResult = await agent.connectAgent(
         {
           forwardedProps: this._internal.properties,
@@ -281,6 +293,18 @@ export class RunHandler {
     // onAgentsChanged). The composite-key logic in StateManager means this
     // does not overwrite the registry agent's subscription.
     this._internal.subscribeAgentToStateManager(agent);
+
+    // Notify subscribers (e.g. the inspector) about the agent that is about
+    // to run. This is critical for per-thread clones that are not present in
+    // the agent registry and would otherwise be invisible to subscribers.
+    await this._internal.notifySubscribers(
+      (subscriber) =>
+        subscriber.onAgentRunStarted?.({
+          copilotkit: this.core,
+          agent,
+        }),
+      "Subscriber onAgentRunStarted error:",
+    );
 
     // Set up abort controller and agent.abortRun() intercept only for the
     // top-level call. Recursive follow-up calls from processAgentResult
@@ -855,6 +879,7 @@ export class RunHandler {
       .filter(
         (tool) =>
           tool.available !== false &&
+          tool.available !== "disabled" &&
           (!tool.agentId || tool.agentId === agentId),
       )
       .map((tool) => ({

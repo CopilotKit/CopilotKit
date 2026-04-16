@@ -18,6 +18,8 @@ WebApplication app = builder.Build();
 var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new ProverbsAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
+
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapAGUI("/", agentFactory.CreateProverbsAgent());
 
 await app.RunAsync();
@@ -59,7 +61,7 @@ public class ProverbsAgentFactory
             new System.ClientModel.ApiKeyCredential(githubToken),
             new OpenAIClientOptions
             {
-                Endpoint = new Uri("https://models.inference.ai.azure.com")
+                Endpoint = new Uri(Environment.GetEnvironmentVariable("OPENAI_BASE_URL") ?? "https://models.inference.ai.azure.com")
             });
     }
 

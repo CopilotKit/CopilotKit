@@ -72,6 +72,7 @@ agent = ConversableAgent(
     name="assistant",
     system_message="You are a helpful assistant.",
     llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
+    human_input_mode="NEVER",
 )
 
 stream = AGUIStream(agent)
@@ -140,6 +141,7 @@ agent = ConversableAgent(
     name="assistant",
     system_message="You are a helpful assistant.",
     llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
+    human_input_mode="NEVER",
 )
 
 stream = AGUIStream(agent)

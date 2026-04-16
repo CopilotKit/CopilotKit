@@ -38,7 +38,7 @@
     },
     "language": {
       "type": "string",
-      "enum": ["python", "typescript", "dotnet"],
+      "enum": ["python", "typescript", "dotnet", "java"],
       "description": "Primary agent backend language"
     },
     "logo": {
@@ -135,7 +135,13 @@
       "type": "array",
       "items": {
         "type": "string",
-        "enum": ["constrained-declarative", "constrained-explicit", "open"]
+        "enum": [
+          "constrained-declarative",
+          "constrained-explicit",
+          "open",
+          "a2ui-fixed-schema",
+          "a2ui-dynamic-schema"
+        ]
       },
       "minItems": 1,
       "description": "Generative UI patterns supported by this integration"
@@ -189,6 +195,10 @@
           "type": "string",
           "format": "uri",
           "description": "URL of the deployed starter app for live demo iframe"
+        },
+        "clone_command": {
+          "type": "string",
+          "description": "Shell command to clone the starter (e.g. npx degit ...)"
         }
       },
       "required": ["path", "name"],

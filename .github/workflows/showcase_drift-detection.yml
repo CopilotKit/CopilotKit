@@ -17,52 +17,76 @@ jobs:
     name: E2E Smoke Suite
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Don't run on the weekly version-drift-only schedule
-    if: github.event.schedule != '0 9 * * 1' || github.event_name == 'workflow_dispatch'
+    # Only run on schedule (excluding weekly version-drift slot) or manual dispatch
+    if: (github.event_name == 'schedule' && github.event.schedule != '0 9 * * 1') || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          lfs: true
+          lfs: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
       - name: Install dependencies
         working-directory: showcase/tests
-        run: pnpm install --ignore-scripts || true
+        run: npm ci
 
       - name: Install Playwright
         working-directory: showcase/tests
-        run: npx playwright install chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Run L1-L3 tests
+        id: l1_l3
         working-directory: showcase/tests
         env:
           CI: true
-        run: npx playwright test --grep "@health|@agent|@chat" --reporter=github
+        run: |
+          npx playwright test integration-smoke --grep "@health|@agent|@chat" --reporter=github 2>&1 | tee /tmp/e2e-output.log
+          exit ${PIPESTATUS[0]}
 
       - name: Run L4 tests (daily only)
+        id: l4
         if: github.event.schedule == '0 0 * * *' || github.event_name == 'workflow_dispatch'
         working-directory: showcase/tests
         env:
           CI: true
-        run: npx playwright test --grep "@tools" --reporter=github
+        run: |
+          npx playwright test integration-smoke --grep "@tools" --reporter=github 2>&1 | tee -a /tmp/e2e-output.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Extract failure summary
+        id: failures
+        if: failure()
+        run: |
+          # Extract failed test names and error messages from playwright output
+          DETAILS=$(grep -E "^\s+\d+\)|Error:" /tmp/e2e-output.log 2>/dev/null | head -15 | sed 's/"/\\"/g' || echo "See CI logs for details")
+          DETAILS="${DETAILS:0:1200}"
+
+          {
+            echo "details<<EOFEOF"
+            echo "$DETAILS"
+            echo "EOFEOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build Slack payload
+        if: failure()
+        run: |
+          SUMMARY=$(echo "${{ steps.failures.outputs.details }}" | head -3 | sed 's/\x1b\[[0-9;]*m//g' | cut -c1-200)
+          URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          jq -n --arg text ":x: *Showcase E2E suite failed*\n<$URL|View run>\n\`\`\`$SUMMARY\`\`\`" \
+            '{text: $text}' > /tmp/slack-payload.json
 
       - name: Post failure to Slack
-        if: failure() && github.event_name == 'schedule'
+        if: failure()
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
-          payload: |
-            { "text": ":x: *Showcase E2E suite failed*\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+          payload-file-path: /tmp/slack-payload.json
 
       - name: Create issue on failure
         if: failure()
@@ -172,6 +196,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create drift report issue
+        id: drift_issue
         if: steps.python_drift.outputs.report != '' || steps.npm_drift.outputs.report != ''
         uses: actions/github-script@v7
         with:
@@ -202,14 +227,16 @@ jobs:
               state: 'open',
             });
 
+            let issueUrl;
             if (issues.length === 0) {
-              await github.rest.issues.create({
+              const { data: created } = await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title,
                 body,
                 labels: ['showcase-drift', 'version-drift'],
               });
+              issueUrl = created.html_url;
             } else {
               await github.rest.issues.update({
                 owner: context.repo.owner,
@@ -217,4 +244,24 @@ jobs:
                 issue_number: issues[0].number,
                 body,
               });
+              issueUrl = issues[0].html_url;
             }
+            core.setOutput('issue_url', issueUrl);
+
+      - name: Notify Slack (version drift)
+        if: steps.python_drift.outputs.report != '' || steps.npm_drift.outputs.report != ''
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":warning: *Version drift*: dependency updates available | <${{ steps.drift_issue.outputs.issue_url }}|View issue>" }
+
+      - name: Notify Slack (version drift failure)
+        if: failure()
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":x: *Version drift check*: failed | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }

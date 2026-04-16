@@ -19,6 +19,7 @@ import {
   CopilotKitCoreRunToolParams,
   CopilotKitCoreRunToolResult,
 } from "./run-handler";
+import { DebugConfig } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
 
 /** Configuration options for `CopilotKitCore`. */
@@ -39,6 +40,8 @@ export interface CopilotKitCoreConfig {
   tools?: FrontendTool<any>[];
   /** Suggestions config for the core. */
   suggestionsConfig?: SuggestionsConfig[];
+  /** Enable debug logging for the client-side event pipeline. */
+  debug?: DebugConfig;
 }
 
 export type { CopilotKitCoreAddAgentParams };
@@ -153,6 +156,15 @@ export interface CopilotKitCoreSubscriber {
     code: CopilotKitCoreErrorCode;
     context: Record<string, any>;
   }) => void | Promise<void>;
+  /**
+   * Fired when an agent run or connect begins. The `agent` may be a per-thread
+   * clone that is not present in `core.agents`. Subscribers (e.g. the inspector)
+   * can use this to subscribe to the clone's AG-UI events.
+   */
+  onAgentRunStarted?: (event: {
+    copilotkit: CopilotKitCore;
+    agent: AbstractAgent;
+  }) => void | Promise<void>;
 }
 
 // Subscription object returned by subscribe()
@@ -189,6 +201,7 @@ export interface CopilotKitCoreFriendsAccess {
   readonly credentials: RequestCredentials | undefined;
   readonly properties: Readonly<Record<string, unknown>>;
   readonly context: Readonly<Record<string, Context>>;
+  readonly debug?: DebugConfig;
 
   // Internal methods
   buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[];
@@ -219,6 +232,7 @@ export class CopilotKitCore {
   private _credentials?: RequestCredentials;
   private _properties: Record<string, unknown>;
   private _defaultThrottleMs?: number;
+  private _debug?: DebugConfig;
 
   private subscribers: Set<CopilotKitCoreSubscriber> = new Set();
 
@@ -238,10 +252,12 @@ export class CopilotKitCore {
     agents__unsafe_dev_only = {},
     tools = [],
     suggestionsConfig = [],
+    debug,
   }: CopilotKitCoreConfig) {
     this._headers = headers;
     this._credentials = credentials;
     this._properties = properties;
+    this._debug = debug;
 
     // Initialize delegate classes
     this.agentRegistry = new AgentRegistry(this);
@@ -376,6 +392,14 @@ export class CopilotKitCore {
       return;
     }
     this._defaultThrottleMs = value;
+  }
+
+  get debug(): DebugConfig | undefined {
+    return this._debug;
+  }
+
+  setDebug(debug: DebugConfig | undefined): void {
+    this._debug = debug;
   }
 
   get runtimeConnectionStatus(): CopilotKitCoreRuntimeConnectionStatus {

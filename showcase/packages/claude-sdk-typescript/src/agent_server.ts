@@ -182,15 +182,13 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
     let toolCallId: string | null = null;
     let toolCallName: string | null = null;
     let toolCallArgs = "";
+    let textMessageStarted = false;
 
     for await (const event of stream) {
       if (event.type === "message_start") {
         assistantMsgId = event.message.id;
-        emit({
-          type: EventType.TEXT_MESSAGE_START,
-          messageId: msgId,
-          role: "assistant",
-        });
+        // Don't emit TEXT_MESSAGE_START here — wait until we actually
+        // receive a text_delta so tool-call-only responses stay clean.
       } else if (event.type === "content_block_start") {
         if (event.content_block.type === "tool_use") {
           toolCallId = event.content_block.id;
@@ -205,6 +203,15 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
         }
       } else if (event.type === "content_block_delta") {
         if (event.delta.type === "text_delta") {
+          // Lazily emit TEXT_MESSAGE_START on first text content
+          if (!textMessageStarted) {
+            emit({
+              type: EventType.TEXT_MESSAGE_START,
+              messageId: msgId,
+              role: "assistant",
+            });
+            textMessageStarted = true;
+          }
           emit({
             type: EventType.TEXT_MESSAGE_CONTENT,
             messageId: msgId,
@@ -229,12 +236,23 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
           toolCallArgs = "";
         }
       } else if (event.type === "message_stop") {
-        emit({
-          type: EventType.TEXT_MESSAGE_END,
-          messageId: msgId,
-        });
+        // Only close the text message if we opened one
+        if (textMessageStarted) {
+          emit({
+            type: EventType.TEXT_MESSAGE_END,
+            messageId: msgId,
+          });
+        }
       }
     }
+
+    // Design note: this is a pass-through architecture — all tools are
+    // registered by the frontend via CopilotKit and forwarded here as
+    // AG-UI tool definitions. When Claude responds with stop_reason
+    // "tool_use", the tool calls have already been emitted above as
+    // TOOL_CALL_START/ARGS/END events. The AG-UI client will execute
+    // them on the frontend and re-invoke the agent with results. No
+    // server-side tool execution loop is needed.
 
     emit({ type: EventType.RUN_FINISHED, runId, threadId });
   } catch (error: unknown) {

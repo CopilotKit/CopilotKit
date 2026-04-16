@@ -110,10 +110,14 @@ describe("MCP Tools Utils", () => {
       });
       expect(result[1]).toEqual({
         name: "objectArray",
-        type: "array",
+        type: "object[]",
         description:
           "Array of objects Array of objects with properties: name, value",
         required: false,
+        attributes: [
+          { name: "name", type: "string", description: "", required: false },
+          { name: "value", type: "number", description: "", required: false },
+        ],
       });
     });
 
@@ -147,6 +151,7 @@ describe("MCP Tools Utils", () => {
         type: "string",
         description: "Status value Allowed values: active | inactive | pending",
         required: true,
+        enum: ["active", "inactive", "pending"],
       });
       expect(result[1]).toEqual({
         name: "priority",
@@ -192,6 +197,30 @@ describe("MCP Tools Utils", () => {
         description:
           "User object Object with properties: name, email, preferences",
         required: true,
+        attributes: [
+          { name: "name", type: "string", description: "", required: false },
+          { name: "email", type: "string", description: "", required: false },
+          {
+            name: "preferences",
+            type: "object",
+            description: "Object with properties: theme, notifications",
+            required: false,
+            attributes: [
+              {
+                name: "theme",
+                type: "string",
+                description: "",
+                required: false,
+              },
+              {
+                name: "notifications",
+                type: "boolean",
+                description: "",
+                required: false,
+              },
+            ],
+          },
+        ],
       });
     });
 

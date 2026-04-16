@@ -16,7 +16,7 @@
   "dependencies": {
     "@a2a-js/sdk": "latest",
     "@ag-ui/a2a-middleware": "0.0.2",
-    "@ag-ui/client": "0.0.40",
+    "@ag-ui/client": "0.0.52",
     "@copilotkit/react-core": "latest",
     "@copilotkit/react-ui": "latest",
     "@copilotkit/runtime": "latest",
@@ -36,6 +36,6 @@
     "typescript": "^5"
   },
   "overrides": {
-    "@ag-ui/client": "0.0.40"
+    "@ag-ui/client": "0.0.52"
   }
 }

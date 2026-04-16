@@ -32,7 +32,7 @@ export function limitMessagesToTokenCount(
 
   let cutoff: boolean = false;
 
-  const reversedMessages = [...messages].reverse();
+  const reversedMessages = [...messages].toReversed();
   for (const message of reversedMessages) {
     if (message.role === "system") {
       result.unshift(message);
@@ -49,7 +49,66 @@ export function limitMessagesToTokenCount(
     maxTokens -= numTokens;
   }
 
-  return result;
+  // Post-process: remove orphaned tool_result and tool_use blocks.
+  // Token trimming may have removed the assistant message containing tool_use
+  // while keeping the user message with tool_result (or vice versa),
+  // which Anthropic rejects.
+
+  // Collect all tool_use IDs from assistant messages
+  const toolUseIds = new Set<string>();
+  for (const msg of result) {
+    if (msg.role === "assistant" && Array.isArray(msg.content)) {
+      for (const block of msg.content) {
+        if (block.type === "tool_use") {
+          toolUseIds.add(block.id);
+        }
+      }
+    }
+  }
+
+  // Collect all tool_result IDs from user messages
+  const toolResultIds = new Set<string>();
+  for (const msg of result) {
+    if (msg.role === "user" && Array.isArray(msg.content)) {
+      for (const block of msg.content) {
+        if (block.type === "tool_result") {
+          toolResultIds.add(block.tool_use_id);
+        }
+      }
+    }
+  }
+
+  // Filter orphaned blocks without mutating the original messages
+  const filtered: any[] = [];
+  for (const msg of result) {
+    if (msg.role === "user" && Array.isArray(msg.content)) {
+      const remaining = msg.content.filter(
+        (block: any) =>
+          block.type !== "tool_result" || toolUseIds.has(block.tool_use_id),
+      );
+      if (remaining.length === 0) continue;
+      if (remaining.length !== msg.content.length) {
+        filtered.push({ ...msg, content: remaining });
+      } else {
+        filtered.push(msg);
+      }
+    } else if (msg.role === "assistant" && Array.isArray(msg.content)) {
+      const remaining = msg.content.filter(
+        (block: any) =>
+          block.type !== "tool_use" || toolResultIds.has(block.id),
+      );
+      if (remaining.length === 0) continue;
+      if (remaining.length !== msg.content.length) {
+        filtered.push({ ...msg, content: remaining });
+      } else {
+        filtered.push(msg);
+      }
+    } else {
+      filtered.push(msg);
+    }
+  }
+
+  return filtered;
 }
 
 const MAX_TOKENS = 128000;

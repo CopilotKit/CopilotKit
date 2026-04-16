@@ -1,6 +1,7 @@
 {
   "pages": [
     "error-debugging",
+    "debug-mode",
     "observability-connectors",
     "common-issues"
   ]

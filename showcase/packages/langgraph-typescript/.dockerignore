@@ -1,6 +1,12 @@
-node_modules
+**/node_modules
 .next
 .env
 .env.local
 playwright-report
 test-results
+**/vitest.config.ts
+**/test-setup.ts
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx

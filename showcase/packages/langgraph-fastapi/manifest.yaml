@@ -12,6 +12,8 @@ deployed: true
 sort_order: 12
 generative_ui:
   - constrained-explicit
+  - a2ui-fixed-schema
+  - a2ui-dynamic-schema
 interaction_modalities:
   - sidebar
   - embedded
@@ -20,16 +22,22 @@ managed_platform:
   name: LangGraph Platform
   url: https://langsmith.com
 starter:
-  path: examples/integrations/langgraph-fastapi
-  name: Investment Analyst (FastAPI)
-  description: Investment analysis agent using LangGraph with a FastAPI backend
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-fastapi
-  demo_url: https://showcase-starter-langgraph-fastapi-production.up.railway.app
+  path: showcase/starters/langgraph-fastapi
+  name: Sales Dashboard
+  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langgraph-fastapi
+  demo_url: https://showcase-starter-langgraph-fastapi-production-c7d2.up.railway.app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-fastapi my-copilotkit-app
 features:
   - agentic-chat
   - tool-rendering
   - hitl
   - gen-ui-tool-based
+  - gen-ui-agent
+  - shared-state-read
+  - shared-state-write
+  - shared-state-streaming
+  - subagents
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -58,4 +66,39 @@ demos:
     tags:
       - generative-ui
     route: /demos/gen-ui-tool-based
+    animated_preview_url:
+  - id: gen-ui-agent
+    name: Agentic Generative UI
+    description: Long-running agent tasks with generated UI
+    tags:
+      - generative-ui
+    route: /demos/gen-ui-agent
+    animated_preview_url:
+  - id: shared-state-read
+    name: Shared State (Reading)
+    description: Reading agent state from UI
+    tags:
+      - agent-state
+    route: /demos/shared-state-read
+    animated_preview_url:
+  - id: shared-state-write
+    name: Shared State (Writing)
+    description: Writing to agent state from UI
+    tags:
+      - agent-state
+    route: /demos/shared-state-write
+    animated_preview_url:
+  - id: shared-state-streaming
+    name: State Streaming
+    description: Per-token state delta streaming from agent to UI
+    tags:
+      - agent-state
+    route: /demos/shared-state-streaming
+    animated_preview_url:
+  - id: subagents
+    name: Sub-Agents
+    description: Multiple agents with visible task delegation
+    tags:
+      - multi-agent
+    route: /demos/subagents
     animated_preview_url:
