@@ -256,6 +256,20 @@ describe("generate-starters", () => {
     });
   });
 
+  describe("PIN_OVERRIDES integration", () => {
+    it("pins mastra dependency versions instead of floating beta tags", () => {
+      const mastraPkg = JSON.parse(
+        fs.readFileSync(
+          path.join(STARTERS_DIR, "mastra", "package.json"),
+          "utf-8",
+        ),
+      );
+      expect(mastraPkg.dependencies["@ag-ui/mastra"]).toBe("0.2.1-beta.2");
+      expect(mastraPkg.dependencies["mastra"]).toBe("^1.6.0");
+      expect(mastraPkg.dependencies["@mastra/core"]).toBe("^1.25.0");
+    });
+  });
+
   describe("spring-ai backend artifacts", () => {
     const agentDir = path.join(STARTERS_DIR, "spring-ai", "agent");
 
@@ -401,7 +415,7 @@ describe("generate-starters", () => {
           "from tools import foo",
         ].join("\n"),
       );
-      rewritePythonImports(fp, "agent");
+      rewritePythonImports(fp);
       const result = readTmp(fp);
       expect(result).not.toContain("sys.path.insert");
       expect(result).not.toContain("import sys");
@@ -419,28 +433,57 @@ describe("generate-starters", () => {
           "from tools import foo",
         ].join("\n"),
       );
-      rewritePythonImports(fp, "agent");
+      rewritePythonImports(fp);
       const result = readTmp(fp);
       expect(result).not.toContain("sys.path.insert");
     });
 
     it("rewrites 'from tools import X' to 'from .tools import X'", () => {
       const fp = writeTmp("test.py", "from tools import get_weather\n");
-      rewritePythonImports(fp, "agent");
+      rewritePythonImports(fp);
       expect(readTmp(fp)).toContain("from .tools import get_weather");
     });
 
     it("rewrites 'from src.agents.X import Y' to 'from .X import Y'", () => {
       const fp = writeTmp("test.py", "from src.agents.tools import helper\n");
-      rewritePythonImports(fp, "agent");
+      rewritePythonImports(fp);
       expect(readTmp(fp)).toContain("from .tools import helper");
     });
 
     it("leaves file unchanged when no patterns match", () => {
       const original = "import json\nprint('hello')\n";
       const fp = writeTmp("test.py", original);
-      rewritePythonImports(fp, "agent");
+      rewritePythonImports(fp);
       expect(readTmp(fp)).toBe(original);
+    });
+
+    it("rewrites 'from tools import' to 'from . import' inside tools/ directory", () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "py-rewrite-"));
+      const toolsDir = path.join(tmpDir, "tools");
+      fs.mkdirSync(toolsDir, { recursive: true });
+      const filePath = path.join(toolsDir, "custom_tool.py");
+      fs.writeFileSync(
+        filePath,
+        "from tools import get_weather\nfrom tools.search_flights import search\n",
+      );
+      rewritePythonImports(filePath);
+      const result = fs.readFileSync(filePath, "utf-8");
+      expect(result).toContain("from . import get_weather");
+      expect(result).toContain("from .search_flights import search");
+    });
+
+    it("rewrites 'from agents.X import' to relative imports", () => {
+      const fp = writeTmp(
+        "crew.py",
+        "from agents.tools import helper\nfrom agents.tools.weather import get_weather\n",
+      );
+      const result = fs.readFileSync(fp, "utf-8");
+      // Verify file was written correctly before rewrite
+      expect(result).toContain("from agents.tools import helper");
+      rewritePythonImports(fp);
+      const rewritten = fs.readFileSync(fp, "utf-8");
+      expect(rewritten).toContain("from .tools import helper");
+      expect(rewritten).toContain("from .tools.weather import get_weather");
     });
 
     it("cleans up triple blank lines", () => {
@@ -448,7 +491,7 @@ describe("generate-starters", () => {
         "test.py",
         "import sys\nsys.path.insert(0, '.')\n\n\n\nfrom tools import x\n",
       );
-      rewritePythonImports(fp, "agent");
+      rewritePythonImports(fp);
       const result = readTmp(fp);
       expect(result).not.toMatch(/\n{3,}/);
     });

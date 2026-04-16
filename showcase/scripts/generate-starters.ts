@@ -280,7 +280,7 @@ function substituteVars(content: string, vars: Record<string, string>): string {
   return result;
 }
 
-function rewritePythonImports(filePath: string, _agentDir: string): void {
+function rewritePythonImports(filePath: string): void {
   if (!filePath.endsWith(".py")) return;
   let content = fs.readFileSync(filePath, "utf-8");
 
@@ -662,6 +662,10 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
         for (const [dep, version] of Object.entries(pins)) {
           if (pkg.dependencies[dep]) {
             pkg.dependencies[dep] = version;
+          } else {
+            console.warn(
+              `  [warn] PIN_OVERRIDES: ${dep} not found in ${fw.slug} dependencies — pin ignored`,
+            );
           }
         }
       }
@@ -938,7 +942,7 @@ function rewritePythonImportsInDir(dir: string, agentDir: string): void {
         rewritePythonImportsInDir(fullPath, agentDir);
       }
     } else {
-      rewritePythonImports(fullPath, agentDir);
+      rewritePythonImports(fullPath);
     }
   }
 }

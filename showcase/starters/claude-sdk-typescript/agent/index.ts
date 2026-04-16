@@ -16,11 +16,16 @@ dotenv.config({ path: ".env.local" });
 dotenv.config();
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 
 const HOST = process.env.AGENT_HOST || "0.0.0.0";
 const PORT = parseInt(process.env.AGENT_PORT || "8123", 10);
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-3-5-haiku-20241022";
+
+if (!process.env.ANTHROPIC_API_KEY) {
+  console.error("[agent_server] FATAL: ANTHROPIC_API_KEY is not set");
+  process.exit(1);
+}
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -41,29 +46,32 @@ function buildAnthropicMessages(messages: Message[]): Anthropic.MessageParam[] {
 
   for (const msg of messages) {
     if (msg.role === "user") {
+      const userContent =
+        typeof msg.content === "string"
+          ? msg.content
+          : JSON.stringify(msg.content);
       result.push({
         role: "user",
-        content: (msg as any).content ?? "",
+        content: userContent ?? "",
       });
     } else if (msg.role === "assistant") {
-      const toolCalls = (msg as any).toolCalls as
-        | Array<{ id: string; function: { name: string; arguments: string } }>
-        | undefined;
+      const toolCalls = msg.toolCalls;
 
       if (toolCalls && toolCalls.length > 0) {
         const content: Anthropic.ContentBlock[] = [];
 
-        const textContent = (msg as any).content;
-        if (textContent) {
-          content.push({ type: "text", text: textContent, citations: null });
+        if (msg.content) {
+          content.push({ type: "text", text: msg.content, citations: null });
         }
 
         for (const tc of toolCalls) {
           let input: Record<string, unknown> = {};
           try {
             input = JSON.parse(tc.function.arguments);
-          } catch {
-            // leave empty
+          } catch (e) {
+            console.warn(
+              `[agent_server] Failed to parse tool call arguments for ${tc.function?.name}: ${e}`,
+            );
           }
           content.push({
             type: "tool_use",
@@ -77,26 +85,25 @@ function buildAnthropicMessages(messages: Message[]): Anthropic.MessageParam[] {
       } else {
         result.push({
           role: "assistant",
-          content: (msg as any).content ?? "",
+          content: msg.content ?? "",
         });
       }
     } else if (msg.role === "tool") {
-      const toolMsg = msg as any;
       result.push({
         role: "user",
         content: [
           {
             type: "tool_result",
-            tool_use_id: toolMsg.toolCallId ?? "",
+            tool_use_id: msg.toolCallId ?? "",
             content:
-              typeof toolMsg.content === "string"
-                ? toolMsg.content
-                : JSON.stringify(toolMsg.content),
+              typeof msg.content === "string"
+                ? msg.content
+                : JSON.stringify(msg.content),
           },
         ],
       });
     }
-    // skip "system" and "developer" roles — handled separately as system prompt
+    // skip "system" and "developer" roles -- not forwarded to Anthropic (system prompt is built from input.context)
   }
 
   return result;
@@ -117,8 +124,10 @@ function buildTools(tools: RunAgentInput["tools"]): Anthropic.Tool[] {
             ? JSON.parse(tool.parameters)
             : tool.parameters;
         inputSchema = parsed as Anthropic.Tool.InputSchema;
-      } catch {
-        // use empty schema
+      } catch (e) {
+        console.warn(
+          `[agent_server] Failed to parse parameters schema for tool "${tool.name}": ${e}`,
+        );
       }
     }
     return {
@@ -178,7 +187,6 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
 
     const stream = await anthropic.messages.stream(claudeRequest);
 
-    let assistantMsgId: string | null = null;
     let toolCallId: string | null = null;
     let toolCallName: string | null = null;
     let toolCallArgs = "";
@@ -186,7 +194,6 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
 
     for await (const event of stream) {
       if (event.type === "message_start") {
-        assistantMsgId = event.message.id;
         // Don't emit TEXT_MESSAGE_START here — wait until we actually
         // receive a text_delta so tool-call-only responses stay clean.
       } else if (event.type === "content_block_start") {
@@ -262,7 +269,7 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
       type: EventType.RUN_ERROR,
       runId,
       threadId,
-      message: err.message,
+      message: "An error occurred while processing the request",
       code: "AGENT_ERROR",
     });
   }
