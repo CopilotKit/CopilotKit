@@ -120,7 +120,7 @@ const playAudioResponse = (
 
 export type PushToTalkState = "idle" | "recording" | "transcribing";
 
-export type SendFunction = (text: string) => Promise<Message>;
+export type SendFunction = (text: string) => Promise<Message | void>;
 
 export const usePushToTalk = ({
   sendFunction,
@@ -166,7 +166,9 @@ export const usePushToTalk = ({
           recordedChunks.current = [];
           setPushToTalkState("idle");
           const message = await sendFunction(transcription);
-          setStartReadingFromMessageId(message.id);
+          if (message) {
+            setStartReadingFromMessageId(message.id);
+          }
         });
       }
     }
