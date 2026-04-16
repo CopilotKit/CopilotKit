@@ -1,0 +1,140 @@
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { ConnectionBar } from "./ConnectionBar";
+import { FilterBar } from "./FilterBar";
+import { EventList } from "./EventList";
+import { EventDetail } from "./EventDetail";
+
+interface DebugEventEnvelope {
+  timestamp: number;
+  agentId: string;
+  threadId: string;
+  runId: string;
+  event: { type: string; [key: string]: unknown };
+}
+
+type ConnectionStatus = "connected" | "disconnected" | "connecting";
+
+const vscode = acquireVsCodeApi();
+
+const MAX_EVENTS = 10_000;
+
+export function App() {
+  const [events, setEvents] = useState<DebugEventEnvelope[]>([]);
+  const [connectionStatus, setConnectionStatus] =
+    useState<ConnectionStatus>("disconnected");
+  const [selectedEvent, setSelectedEvent] = useState<DebugEventEnvelope | null>(
+    null,
+  );
+  const [filters, setFilters] = useState<{
+    eventTypes: Set<string>;
+    search: string;
+    agentId: string;
+    runId: string;
+  }>({
+    eventTypes: new Set(),
+    search: "",
+    agentId: "",
+    runId: "",
+  });
+
+  const firstTimestamp = useRef<number | null>(null);
+
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      const msg = e.data;
+      switch (msg.type) {
+        case "debug-event": {
+          const envelope = msg.envelope as DebugEventEnvelope;
+          setEvents((prev) => {
+            const next = [...prev, envelope];
+            if (next.length > MAX_EVENTS) {
+              return next.slice(next.length - MAX_EVENTS);
+            }
+            return next;
+          });
+          if (firstTimestamp.current === null) {
+            firstTimestamp.current = envelope.timestamp;
+          }
+          break;
+        }
+        case "connection-status":
+          setConnectionStatus(msg.status);
+          break;
+        case "clear":
+          setEvents([]);
+          setSelectedEvent(null);
+          firstTimestamp.current = null;
+          break;
+      }
+    };
+
+    window.addEventListener("message", handler);
+    vscode.postMessage({ type: "ready" });
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
+  const handleConnect = useCallback((runtimeUrl: string) => {
+    vscode.postMessage({ type: "connect", runtimeUrl });
+  }, []);
+
+  const handleDisconnect = useCallback(() => {
+    vscode.postMessage({ type: "disconnect" });
+  }, []);
+
+  const handleClear = useCallback(() => {
+    setEvents([]);
+    setSelectedEvent(null);
+    firstTimestamp.current = null;
+  }, []);
+
+  const filteredEvents = events.filter((e) => {
+    if (filters.eventTypes.size > 0 && !filters.eventTypes.has(e.event.type))
+      return false;
+    if (filters.agentId && e.agentId !== filters.agentId) return false;
+    if (filters.runId && e.runId !== filters.runId) return false;
+    if (filters.search) {
+      const json = JSON.stringify(e).toLowerCase();
+      if (!json.includes(filters.search.toLowerCase())) return false;
+    }
+    return true;
+  });
+
+  const seenAgentIds = [...new Set(events.map((e) => e.agentId))];
+  const seenRunIds = [...new Set(events.map((e) => e.runId).filter(Boolean))];
+
+  return (
+    <div className="flex flex-col h-full">
+      <ConnectionBar
+        status={connectionStatus}
+        onConnect={handleConnect}
+        onDisconnect={handleDisconnect}
+        onClear={handleClear}
+      />
+      <FilterBar
+        filters={filters}
+        onFiltersChange={setFilters}
+        seenAgentIds={seenAgentIds}
+        seenRunIds={seenRunIds}
+      />
+      <div className="flex flex-1 min-h-0">
+        <EventList
+          events={filteredEvents}
+          firstTimestamp={firstTimestamp.current}
+          selectedEvent={selectedEvent}
+          onSelectEvent={setSelectedEvent}
+        />
+        {selectedEvent && (
+          <EventDetail
+            envelope={selectedEvent}
+            firstTimestamp={firstTimestamp.current}
+            onClose={() => setSelectedEvent(null)}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+declare function acquireVsCodeApi(): {
+  postMessage(msg: unknown): void;
+};
