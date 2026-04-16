@@ -278,7 +278,7 @@ jobs:
           for SVC in ${{ steps.image_drift.outputs.stale_services }}; do
             echo "Triggering rebuild for ${SVC}..."
             RC=0
-            ERR_OUTPUT=$(gh workflow run showcase_deploy.yml -f service="${SVC}" 2>&1) || RC=$?
+            ERR_OUTPUT=$(gh workflow run showcase_deploy.yml --repo "${{ github.repository }}" -f service="${SVC}" 2>&1) || RC=$?
             if [ "$RC" -eq 0 ]; then
               COUNT=$((COUNT + 1))
             else
