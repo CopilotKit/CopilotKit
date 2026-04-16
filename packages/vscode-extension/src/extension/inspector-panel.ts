@@ -8,25 +8,25 @@ import { getNonce } from "./utils";
 
 export class InspectorPanel {
   private panel: vscode.WebviewPanel | null = null;
-  private debugStream: DebugStream;
   private ready = false;
   private messageQueue: InspectorToWebviewMessage[] = [];
+  private unsubscribers: (() => void)[] = [];
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly debugStream: DebugStream,
   ) {
-    this.debugStream.onEvent((envelope) => {
-      this.postMessage({ type: "debug-event", envelope });
-    });
-
-    this.debugStream.onStatus((status) => {
-      this.postMessage({ type: "connection-status", status });
-    });
-
-    this.debugStream.onError((error) => {
-      this.postMessage({ type: "connection-error", error });
-    });
+    this.unsubscribers.push(
+      this.debugStream.onEvent((envelope) => {
+        this.postMessage({ type: "debug-event", envelope });
+      }),
+      this.debugStream.onStatus((status) => {
+        this.postMessage({ type: "connection-status", status });
+      }),
+      this.debugStream.onError((error) => {
+        this.postMessage({ type: "connection-error", error });
+      }),
+    );
   }
 
   show(): void {
@@ -64,6 +64,8 @@ export class InspectorPanel {
   }
 
   dispose(): void {
+    for (const unsub of this.unsubscribers) unsub();
+    this.unsubscribers = [];
     this.panel?.dispose();
   }
 

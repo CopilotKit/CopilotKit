@@ -76,6 +76,10 @@ const eventTypeToCategory: Record<string, EventCategory> = {
   STATE_DELTA: "state",
   ACTIVITY_SNAPSHOT: "activity",
   ACTIVITY_DELTA: "activity",
+  STEP_STARTED: "lifecycle",
+  STEP_FINISHED: "lifecycle",
+  MESSAGES_SNAPSHOT: "text",
+  CUSTOM: "unknown",
 };
 
 export function getEventCategory(eventType: string): EventCategory {
@@ -94,7 +98,7 @@ export const allCategories: {
   {
     category: "lifecycle",
     label: "Lifecycle",
-    eventTypes: ["RUN_STARTED", "RUN_FINISHED"],
+    eventTypes: ["RUN_STARTED", "RUN_FINISHED", "STEP_STARTED", "STEP_FINISHED"],
   },
   { category: "error", label: "Errors", eventTypes: ["RUN_ERROR"] },
   {

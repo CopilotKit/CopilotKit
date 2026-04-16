@@ -30,8 +30,11 @@ export class DebugEventBus {
     for (const listener of this.listeners) {
       try {
         listener(envelope);
-      } catch {
-        // Never block the real event stream due to a debug listener error.
+      } catch (err) {
+        console.warn(
+          "[DebugEventBus] Listener error suppressed:",
+          err instanceof Error ? err.message : err,
+        );
       }
     }
   }

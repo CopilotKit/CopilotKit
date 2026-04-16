@@ -73,9 +73,16 @@ export class DebugStream {
   private doConnect(runtimeUrl: string): void {
     this.setStatus("connecting");
 
-    // Append /debug-events to the runtime URL, preserving the existing path
-    const base = runtimeUrl.endsWith("/") ? runtimeUrl : runtimeUrl + "/";
-    const url = new URL("debug-events", base);
+    let url: URL;
+    try {
+      const base = runtimeUrl.endsWith("/") ? runtimeUrl : runtimeUrl + "/";
+      url = new URL("debug-events", base);
+    } catch {
+      this.emitError(`Invalid URL: ${runtimeUrl}`);
+      this.handleDisconnect(runtimeUrl);
+      return;
+    }
+
     const mod = url.protocol === "https:" ? https : http;
 
     const req = mod.get(url, (res) => {
@@ -107,7 +114,9 @@ export class DebugStream {
                 cb(envelope);
               }
             } catch {
-              // Malformed JSON, skip.
+              this.emitError(
+                `Failed to parse event: ${line.slice(6, 200)}${line.length > 206 ? "..." : ""}`,
+              );
             }
           }
         }
@@ -117,7 +126,8 @@ export class DebugStream {
         this.handleDisconnect(runtimeUrl);
       });
 
-      res.on("error", () => {
+      res.on("error", (err) => {
+        this.emitError(`Stream error: ${err.message}`);
         this.handleDisconnect(runtimeUrl);
       });
     });

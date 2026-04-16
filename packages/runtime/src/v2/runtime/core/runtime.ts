@@ -210,7 +210,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public mcpApps: CopilotRuntimeOptions["mcpApps"];
   public openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
   public licenseChecker?: LicenseChecker;
-  public debugEventBus?: DebugEventBus;
+  public readonly debugEventBus?: DebugEventBus;
 
   abstract readonly intelligence?: CopilotKitIntelligence;
   abstract readonly mode: RuntimeMode;

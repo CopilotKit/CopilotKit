@@ -104,6 +104,11 @@
           "command": "copilotkit.openInspector",
           "when": "view == copilotkit.componentPreview",
           "group": "navigation"
+        },
+        {
+          "command": "copilotkit.openInspector",
+          "when": "view == copilotkit.inspector",
+          "group": "navigation"
         }
       ],
       "view/item/context": [

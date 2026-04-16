@@ -83,6 +83,7 @@ export function App() {
     setEvents([]);
     setSelectedEvent(null);
     firstTimestamp.current = null;
+    vscode.postMessage({ type: "clear" });
   }, []);
 
   const filteredEvents = useMemo(
