@@ -1,6 +1,7 @@
 {
   "pages": [
     "error-debugging",
+    "event-inspector",
     "observability-connectors",
     "common-issues"
   ]
