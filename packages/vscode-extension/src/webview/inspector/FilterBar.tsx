@@ -1,12 +1,6 @@
 import React from "react";
 import { allCategories, getEventColors } from "./colors";
-
-interface Filters {
-  eventTypes: Set<string>;
-  search: string;
-  agentId: string;
-  runId: string;
-}
+import type { Filters } from "./types";
 
 interface FilterBarProps {
   filters: Filters;

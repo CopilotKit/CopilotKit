@@ -61,8 +61,9 @@ export function createSseEventResponse({
       next: async (event) => {
         // Extract threadId/runId from RUN_STARTED
         if (event.type === "RUN_STARTED") {
-          debugThreadId = (event as any).threadId ?? "";
-          debugRunId = (event as any).runId ?? "";
+          const e = event as { threadId?: string; runId?: string };
+          debugThreadId = e.threadId ?? "";
+          debugRunId = e.runId ?? "";
         }
 
         // Broadcast to debug listeners

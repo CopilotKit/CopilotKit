@@ -1,13 +1,6 @@
 import React, { useState } from "react";
 import { getEventColors } from "./colors";
-
-interface DebugEventEnvelope {
-  timestamp: number;
-  agentId: string;
-  threadId: string;
-  runId: string;
-  event: { type: string; [key: string]: unknown };
-}
+import type { DebugEventEnvelope } from "./types";
 
 interface EventDetailProps {
   envelope: DebugEventEnvelope;

@@ -10,6 +10,7 @@ import { bundleCatalog } from "./bundler";
 import { parseFixtureJson, validateFixture } from "./fixture-validator";
 import { findFixtureFile } from "./sidebar/component-scanner";
 import type { ComponentRegistry } from "./component-registry";
+import { getNonce } from "./utils";
 
 export class PreviewPanel {
   private panel: vscode.WebviewPanel | undefined;
@@ -108,7 +109,11 @@ export class PreviewPanel {
     const result = await bundleCatalog(component.filePath);
 
     if (result.success && result.code) {
-      this.postMessage({ type: "catalog-update", code: result.code, css: result.css });
+      this.postMessage({
+        type: "catalog-update",
+        code: result.code,
+        css: result.css,
+      });
     } else {
       this.postMessage({
         type: "error",
@@ -253,14 +258,4 @@ export class PreviewPanel {
 </body>
 </html>`;
   }
-}
-
-function getNonce(): string {
-  let text = "";
-  const chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  for (let i = 0; i < 32; i++) {
-    text += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return text;
 }

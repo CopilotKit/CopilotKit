@@ -1,18 +1,15 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import { ConnectionBar } from "./ConnectionBar";
 import { FilterBar } from "./FilterBar";
 import { EventList } from "./EventList";
 import { EventDetail } from "./EventDetail";
-
-interface DebugEventEnvelope {
-  timestamp: number;
-  agentId: string;
-  threadId: string;
-  runId: string;
-  event: { type: string; [key: string]: unknown };
-}
-
-type ConnectionStatus = "connected" | "disconnected" | "connecting";
+import type { DebugEventEnvelope, ConnectionStatus, Filters } from "./types";
 
 const vscode = acquireVsCodeApi();
 
@@ -25,12 +22,7 @@ export function App() {
   const [selectedEvent, setSelectedEvent] = useState<DebugEventEnvelope | null>(
     null,
   );
-  const [filters, setFilters] = useState<{
-    eventTypes: Set<string>;
-    search: string;
-    agentId: string;
-    runId: string;
-  }>({
+  const [filters, setFilters] = useState<Filters>({
     eventTypes: new Set(),
     search: "",
     agentId: "",
@@ -87,20 +79,33 @@ export function App() {
     firstTimestamp.current = null;
   }, []);
 
-  const filteredEvents = events.filter((e) => {
-    if (filters.eventTypes.size > 0 && !filters.eventTypes.has(e.event.type))
-      return false;
-    if (filters.agentId && e.agentId !== filters.agentId) return false;
-    if (filters.runId && e.runId !== filters.runId) return false;
-    if (filters.search) {
-      const json = JSON.stringify(e).toLowerCase();
-      if (!json.includes(filters.search.toLowerCase())) return false;
-    }
-    return true;
-  });
+  const filteredEvents = useMemo(
+    () =>
+      events.filter((e) => {
+        if (
+          filters.eventTypes.size > 0 &&
+          !filters.eventTypes.has(e.event.type)
+        )
+          return false;
+        if (filters.agentId && e.agentId !== filters.agentId) return false;
+        if (filters.runId && e.runId !== filters.runId) return false;
+        if (filters.search) {
+          const json = JSON.stringify(e).toLowerCase();
+          if (!json.includes(filters.search.toLowerCase())) return false;
+        }
+        return true;
+      }),
+    [events, filters],
+  );
 
-  const seenAgentIds = [...new Set(events.map((e) => e.agentId))];
-  const seenRunIds = [...new Set(events.map((e) => e.runId).filter(Boolean))];
+  const seenAgentIds = useMemo(
+    () => [...new Set(events.map((e) => e.agentId))],
+    [events],
+  );
+  const seenRunIds = useMemo(
+    () => [...new Set(events.map((e) => e.runId).filter(Boolean))],
+    [events],
+  );
 
   return (
     <div className="flex flex-col h-full">
