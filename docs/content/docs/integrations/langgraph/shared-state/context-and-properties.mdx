@@ -1,0 +1,96 @@
+---
+title: Context & Properties
+icon: "lucide/PackageOpen"
+description: Access useCopilotReadable context and CopilotKit properties inside your Python agent.
+---
+
+## What is this?
+
+CopilotKit injects two framework-provided fields into your agent's LangGraph state under the
+`copilotkit` key. Both are always available — you don't need to declare them in your state schema.
+
+| Field | Source | Shape |
+|-------|--------|-------|
+| `state["copilotkit"]["context"]` | `useCopilotReadable()` items registered on the frontend | `list[{"value": str, ...}]` |
+| `state["copilotkit"]["properties"]` | `<CopilotKit properties={...} />` on the frontend | `dict[str, Any]` |
+
+## `copilotkit.context` — readable context items
+
+When you call `useCopilotReadable` on the frontend, CopilotKit sends those items to the agent as
+a list of objects with a `"value"` key.
+
+**Frontend**
+```tsx
+useCopilotReadable({
+  description: "Current user",
+  value: "Alice, premium plan, UTC timezone",
+});
+```
+
+**Agent (Python)**
+```python
+def my_node(state: AgentState, config: RunnableConfig):
+    context_entries = state.get("copilotkit", {}).get("context", [])
+    context_text = "\n".join(
+        entry["value"]
+        for entry in context_entries
+        if isinstance(entry, dict) and entry.get("value")
+    )
+    # Use context_text in your system prompt, tool call, etc.
+```
+
+## `copilotkit.properties` — app-level properties
+
+Properties set on the `<CopilotKit>` component are forwarded as a plain dict.
+
+**Frontend**
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  properties={{ appVersion: "2.1", featureFlags: { darkMode: true } }}
+>
+  {children}
+</CopilotKit>
+```
+
+**Agent (Python)**
+```python
+def my_node(state: AgentState, config: RunnableConfig):
+    properties = state.get("copilotkit", {}).get("properties", {})
+    app_version = properties.get("appVersion")
+    feature_flags = properties.get("featureFlags", {})
+```
+
+## Complete example
+
+```python
+from langchain_core.messages import SystemMessage
+from langchain_openai import ChatOpenAI
+
+def chat_node(state: AgentState, config: RunnableConfig):
+    # Build system prompt from readable context
+    context_entries = state.get("copilotkit", {}).get("context", [])
+    context_text = "\n".join(
+        entry["value"] for entry in context_entries if entry.get("value")
+    )
+
+    # Personalise based on app properties
+    properties = state.get("copilotkit", {}).get("properties", {})
+    user_plan = properties.get("plan", "free")
+
+    system = f"""You are a helpful assistant.
+User plan: {user_plan}
+
+Context:
+{context_text}"""
+
+    model = ChatOpenAI(model="gpt-4o-mini")
+    response = model.invoke([SystemMessage(content=system), *state["messages"]], config)
+    return {"messages": response}
+```
+
+<Callout type="info">
+  `copilotkit` is a reserved key — CopilotKit always writes `context`, `actions`, and
+  `properties` into it before your graph runs. Do not declare a custom state field named
+  `copilotkit`, as it will be overwritten.
+</Callout>

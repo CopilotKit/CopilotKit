@@ -125,12 +125,20 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     """
     t0 = time.time()
     messages = runtime.state["messages"][:-1]
+
+    # useCopilotReadable() items arrive here as a list of {value: str} objects.
     context_entries = runtime.state.get("copilotkit", {}).get("context", [])
     context_text = "\n\n".join(
         entry.get("value", "")
         for entry in context_entries
         if isinstance(entry, dict) and entry.get("value")
     )
+
+    # <CopilotKit properties={...} /> values arrive as a plain dict.
+    properties = runtime.state.get("copilotkit", {}).get("properties", {})
+    if properties:
+        props_text = "\n".join(f"- {k}: {v}" for k, v in properties.items())
+        context_text = f"App properties:\n{props_text}\n\n{context_text}".strip()
 
     model = ChatOpenAI(model="gpt-4.1")
     model_with_tool = model.bind_tools([render_a2ui], tool_choice="render_a2ui")

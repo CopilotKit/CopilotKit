@@ -351,7 +351,8 @@ class CopilotKitRemoteEndpoint:
                 config=config,
                 messages=messages,
                 actions=actions,
-                meta_events=meta_events
+                meta_events=meta_events,
+                context=context,
             )
         except Exception as error:
             raise AgentExecutionException(name, error) from error
