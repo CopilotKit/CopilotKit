@@ -1107,7 +1107,7 @@ importers:
         specifier: ^4.2.127
         version: 4.2.260(@radix-ui/react-popover@1.1.15(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@types/node@22.19.11)(@types/react@19.2.7)(encoding@0.1.13)(react-dom@19.2.3(react@19.2.3))(ts-node@10.9.2(@swc/core@1.15.8(@swc/helpers@0.5.18))(@types/node@22.19.11)(typescript@5.9.3))(typescript@5.9.3)
 
-  examples/v2/interrupts-langraph:
+  examples/v2/interrupts-langgraph:
     devDependencies:
       '@langchain/langgraph-cli':
         specifier: ^1.0.4
@@ -1116,23 +1116,23 @@ importers:
         specifier: ^2.3.3
         version: 2.7.3
 
-  examples/v2/interrupts-langraph/apps/agent:
+  examples/v2/interrupts-langgraph/apps/agent:
     dependencies:
       '@copilotkit/sdk-js':
         specifier: workspace:*
         version: link:../../../../../packages/sdk-js
       '@langchain/core':
         specifier: ^1.1.26
-        version: 1.1.27(@opentelemetry/api@1.9.0)(openai@6.24.0(ws@8.19.0)(zod@3.25.76))
+        version: 1.1.40(@opentelemetry/api@1.9.0)(openai@6.24.0(ws@8.19.0)(zod@3.25.76))
       '@langchain/langgraph':
         specifier: 1.1.5
-        version: 1.1.5(@langchain/core@1.1.27(@opentelemetry/api@1.9.0)(openai@6.24.0(ws@8.19.0)(zod@3.25.76)))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76)
+        version: 1.1.5(@langchain/core@1.1.40(@opentelemetry/api@1.9.0)(openai@6.24.0(ws@8.19.0)(zod@3.25.76)))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76)
       '@langchain/langgraph-checkpoint':
         specifier: 1.0.0
-        version: 1.0.0(@langchain/core@1.1.27(@opentelemetry/api@1.9.0)(openai@6.24.0(ws@8.19.0)(zod@3.25.76)))
+        version: 1.0.0(@langchain/core@1.1.40(@opentelemetry/api@1.9.0)(openai@6.24.0(ws@8.19.0)(zod@3.25.76)))
       '@langchain/openai':
         specifier: ^1.2.8
-        version: 1.2.9(@langchain/core@1.1.27(@opentelemetry/api@1.9.0)(openai@6.24.0(ws@8.19.0)(zod@3.25.76)))(ws@8.19.0)
+        version: 1.2.9(@langchain/core@1.1.40(@opentelemetry/api@1.9.0)(openai@6.24.0(ws@8.19.0)(zod@3.25.76)))(ws@8.19.0)
       zod:
         specifier: ^3.25.76
         version: 3.25.76
@@ -1147,7 +1147,7 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  examples/v2/interrupts-langraph/apps/web:
+  examples/v2/interrupts-langgraph/apps/web:
     dependencies:
       '@copilotkit/react-core':
         specifier: workspace:*
@@ -1188,7 +1188,7 @@ importers:
         version: 19.2.3(@types/react@19.2.7)
       tailwindcss:
         specifier: ^4
-        version: 4.1.18
+        version: 4.2.2
       typescript:
         specifier: ^5
         version: 5.9.3
@@ -1296,7 +1296,7 @@ importers:
         version: 0.7.4(@tanstack/ai-client@0.7.5)(@tanstack/ai@0.10.2)(ws@8.19.0)(zod@3.25.76)
       ai:
         specifier: latest
-        version: 6.0.165(zod@3.25.76)
+        version: 6.0.168(zod@3.25.76)
       isbot:
         specifier: ^5.1.27
         version: 5.1.37
@@ -3016,8 +3016,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/gateway@3.0.102':
-    resolution: {integrity: sha512-GrwDpaYJiVafrsA1MTbZtXPcQUI67g5AXiJo7Y1F8b+w+SiYHLk3ZIn1YmpQVoVAh2bjvxjj+Vo0AvfskuGH4g==}
+  '@ai-sdk/gateway@3.0.104':
+    resolution: {integrity: sha512-ZKX5n74io8VIRlhIMSLWVlvT3sXC8Z7cZ9GHuWBWZDVi96+62AIsWuLGvMfcBA1STYuSoDrp6rIziZmvrTq0TA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -11514,6 +11514,10 @@ packages:
     resolution: {integrity: sha512-Fw28YZpRnA3cAHHDlkt7xQHiJ0fcL+NRcIqsocZQUSmbzeIKRpwttJjik5ZGanXP+vlA4SbTg+AbA3bP363l+w==}
     engines: {node: '>= 20'}
 
+  '@vercel/oidc@3.2.0':
+    resolution: {integrity: sha512-UycprH3T6n3jH0k44NHMa7pnFHGu/N05MjojYr+Mc6I7obkoLIJujSWwin1pCvdy/eOxrI/l3uDLQsmcrOb4ug==}
+    engines: {node: '>= 20'}
+
   '@vitejs/plugin-basic-ssl@1.2.0':
     resolution: {integrity: sha512-mkQnxTkcldAzIsomk1UuLfAu9n+kpQ3JbHcpCp7d2Oo6ITtji8pHS3QToOWjhPFvNQSnhlkAjmGbhv2QvwO/7Q==}
     engines: {node: '>=14.21.3'}
@@ -11832,8 +11836,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  ai@6.0.165:
-    resolution: {integrity: sha512-2Qqd0TZudA6p66W3BcK5eh5S5CrbyPPfmnrX50KhgNFVWFCPJcZdm4lQaYDSFRFz6sK8SawsE6xGsuLVhNSIpw==}
+  ai@6.0.168:
+    resolution: {integrity: sha512-2HqCJuO+1V2aV7vfYs5LFEUfxbkGX+5oa54q/gCCTL7KLTdbxcCu5D7TdLA5kwsrs3Szgjah9q6D9tpjHM3hUQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -22419,11 +22423,11 @@ snapshots:
       '@ai-sdk/provider-utils': 4.0.15(zod@3.25.76)
       zod: 3.25.76
 
-  '@ai-sdk/gateway@3.0.102(zod@3.25.76)':
+  '@ai-sdk/gateway@3.0.104(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.8
       '@ai-sdk/provider-utils': 4.0.23(zod@3.25.76)
-      '@vercel/oidc': 3.1.0
+      '@vercel/oidc': 3.2.0
       zod: 3.25.76
 
   '@ai-sdk/gateway@3.0.58(zod@3.25.76)':
@@ -28759,9 +28763,9 @@ snapshots:
       dotenv: 16.6.1
       exit-hook: 4.0.0
       hono: 4.11.4
-      langsmith: 0.4.12(@opentelemetry/api@1.9.0)(openai@6.24.0(ws@8.19.0)(zod@3.25.76))
+      langsmith: 0.5.6(@opentelemetry/api@1.9.0)(openai@6.24.0(ws@8.19.0)(zod@3.25.76))
       open: 10.2.0
-      semver: 7.7.3
+      semver: 7.7.4
       stacktrace-parser: 0.1.11
       superjson: 2.2.6
       tsx: 4.21.0
@@ -29007,9 +29011,9 @@ snapshots:
     transitivePeerDependencies:
       - ws
 
-  '@langchain/openai@1.2.9(@langchain/core@1.1.27(@opentelemetry/api@1.9.0)(openai@6.24.0(ws@8.19.0)(zod@3.25.76)))(ws@8.19.0)':
+  '@langchain/openai@1.2.9(@langchain/core@1.1.40(@opentelemetry/api@1.9.0)(openai@6.24.0(ws@8.19.0)(zod@3.25.76)))(ws@8.19.0)':
     dependencies:
-      '@langchain/core': 1.1.27(@opentelemetry/api@1.9.0)(openai@6.24.0(ws@8.19.0)(zod@3.25.76))
+      '@langchain/core': 1.1.40(@opentelemetry/api@1.9.0)(openai@6.24.0(ws@8.19.0)(zod@3.25.76))
       js-tiktoken: 1.0.21
       openai: 6.24.0(ws@8.19.0)(zod@3.25.76)
       zod: 3.25.76
@@ -33867,6 +33871,8 @@ snapshots:
 
   '@vercel/oidc@3.1.0': {}
 
+  '@vercel/oidc@3.2.0': {}
+
   '@vitejs/plugin-basic-ssl@1.2.0(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(less@4.2.2)(lightningcss@1.32.0)(sass@1.85.0)(terser@5.39.0)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
       vite: 6.4.1(@types/node@22.19.11)(jiti@2.6.1)(less@4.2.2)(lightningcss@1.32.0)(sass@1.85.0)(terser@5.39.0)(tsx@4.21.0)(yaml@2.8.2)
@@ -34352,9 +34358,9 @@ snapshots:
       '@opentelemetry/api': 1.9.0
       zod: 3.25.76
 
-  ai@6.0.165(zod@3.25.76):
+  ai@6.0.168(zod@3.25.76):
     dependencies:
-      '@ai-sdk/gateway': 3.0.102(zod@3.25.76)
+      '@ai-sdk/gateway': 3.0.104(zod@3.25.76)
       '@ai-sdk/provider': 3.0.8
       '@ai-sdk/provider-utils': 4.0.23(zod@3.25.76)
       '@opentelemetry/api': 1.9.0
@@ -34679,14 +34685,6 @@ snapshots:
   axios@1.13.2:
     dependencies:
       follow-redirects: 1.15.11(debug@4.3.2)
-      form-data: 4.0.5
-      proxy-from-env: 1.1.0
-    transitivePeerDependencies:
-      - debug
-
-  axios@1.13.2(debug@4.4.3):
-    dependencies:
-      follow-redirects: 1.15.11(debug@4.4.3)
       form-data: 4.0.5
       proxy-from-env: 1.1.0
     transitivePeerDependencies:
@@ -39038,7 +39036,7 @@ snapshots:
       '@types/debug': 4.1.12
       '@types/node': 18.19.130
       '@types/tough-cookie': 4.0.5
-      axios: 1.13.2(debug@4.4.3)
+      axios: 1.13.2
       camelcase: 6.3.0
       debug: 4.4.3(supports-color@8.1.1)
       dotenv: 16.6.1
@@ -39048,7 +39046,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.13.2)
+      retry-axios: 2.6.0(axios@1.13.2(debug@4.4.3))
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -40604,7 +40602,7 @@ snapshots:
       chalk: 4.1.2
       console-table-printer: 2.15.0
       p-queue: 6.6.2
-      semver: 7.7.3
+      semver: 7.7.4
       uuid: 10.0.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
@@ -40616,7 +40614,7 @@ snapshots:
       chalk: 5.6.2
       console-table-printer: 2.15.0
       p-queue: 6.6.2
-      semver: 7.7.3
+      semver: 7.7.4
       uuid: 10.0.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
@@ -40628,7 +40626,7 @@ snapshots:
       chalk: 5.6.2
       console-table-printer: 2.15.0
       p-queue: 6.6.2
-      semver: 7.7.3
+      semver: 7.7.4
       uuid: 10.0.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
@@ -44619,7 +44617,7 @@ snapshots:
       retext-stringify: 4.0.0
       unified: 11.0.5
 
-  retry-axios@2.6.0(axios@1.13.2):
+  retry-axios@2.6.0(axios@1.13.2(debug@4.4.3)):
     dependencies:
       axios: 1.13.2
 
