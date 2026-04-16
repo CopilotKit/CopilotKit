@@ -16,7 +16,9 @@
  *   - Every declared demo has a matching tests/e2e/<id>.spec.ts.
  *   - Every declared demo has a matching qa/<id>.md.
  *   - Package demo count matches the baseline (default: 9).
- *   - spec count == demo count.
+ *   - spec count >= demo count (spec count exceeding demo count is
+ *     legitimate — e.g. renderer-selector.spec.ts for langgraph-python —
+ *     so only UNDER-coverage is flagged).
  *   - qa count >= demo count.
  *
  * Usage (from showcase/ or showcase/scripts/):
@@ -184,11 +186,13 @@ export function auditPackage(
     );
   }
 
-  // SHOULD: spec count == demo count (specs may legitimately exceed, e.g.
-  // renderer-selector.spec.ts for langgraph-python, so we flag inequality)
-  if (specFiles.length !== demoIds.length) {
+  // SHOULD: spec count >= demo count. Spec count EXCEEDING demo count is
+  // legitimate (e.g. renderer-selector.spec.ts for langgraph-python covers
+  // cross-demo behaviour and is intentionally not tied to a declared demo),
+  // so we only warn on UNDER-coverage.
+  if (specFiles.length < demoIds.length) {
     warnings.push(
-      `spec count ${specFiles.length} != demo count ${demoIds.length}`,
+      `spec count ${specFiles.length} < demo count ${demoIds.length}`,
     );
   }
 
