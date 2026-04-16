@@ -46,7 +46,7 @@ jobs:
 
       - name: Run starter deployed smoke tests
         working-directory: showcase/tests
-        # Emit JSON report alongside the default reporter so the Slack step can enrich the alert.
+        # Use github reporter for Actions annotations plus json for programmatic parsing.
         run: npx playwright test e2e/integration-smoke.spec.ts --grep "@starter-health|@starter-agent|@starter-chat" --reporter=github,json
         env:
           STARTER_SLUG: ${{ inputs.starter_slug || '' }}
@@ -67,36 +67,39 @@ jobs:
           fi
 
           # Walk the playwright JSON suite tree, pull failed tests with: title, tags, first error line.
-          # Cap at 5 entries to avoid noisy Slack messages.
-          jq -r '
-            def walk_suites:
-              (.suites // [])[] | (., (.suites // [])[] | walk_suites), (.specs // [])[];
+          # Iterate all tests per spec so multi-project configs don't drop failures.
+          if ! jq -r '
             [ .. | objects | select(.tests? and .title?) ] as $specs
             | $specs
             | map(
                 . as $spec
-                | ($spec.tests[0] // {}) as $t
+                | ($spec.tests // [])[] as $t
                 | ($t.results // [])[-1] as $r
                 | select($r.status == "failed" or $r.status == "timedOut")
                 | {
                     title: $spec.title,
                     tags: ($spec.title | [scan("@[a-zA-Z0-9_-]+")]),
-                    slug: ($spec.title | capture("\\[Starter\\] (?<s>[a-zA-Z0-9_-]+)"; "g").s // ""),
+                    slug: ((try ($spec.title | capture("\\[Starter\\] (?<s>[a-zA-Z0-9_-]+)").s) catch "") // ""),
                     error: (
                       ($r.error.message // $r.errors[0].message // "no error message")
-                      | gsub("\u001b\\[[0-9;]*m"; "")
+                      | gsub("\u001b\\[[0-9;?]*[A-Za-z]"; "")
                       | split("\n")[0]
                       | .[0:240]
                     )
                   }
               )
-          ' "$REPORT" > /tmp/failures.json || echo "[]" > /tmp/failures.json
+          ' "$REPORT" > /tmp/failures.json 2> /tmp/jq-err.log; then
+            echo "::warning::jq failed to parse $REPORT"
+            echo "jq stderr:"; cat /tmp/jq-err.log
+            echo "[]" > /tmp/failures.json
+            echo "extraction_error=jq_parse_failed" >> "$GITHUB_OUTPUT"
+          fi
 
           TOTAL=$(jq 'length' /tmp/failures.json)
           # Unique list of starter slugs for the header
           STARTERS=$(jq -r '[.[].slug] | unique | map(select(. != "")) | join(", ")' /tmp/failures.json)
 
-          # Build a short human-readable summary (first 5 failures)
+          # Build a short human-readable summary — cap at 5 entries to avoid noisy Slack messages.
           jq -r '
             .[0:5][]
             | "• *" + (.slug | if . == "" then "?" else . end) + "* "
@@ -116,11 +119,15 @@ jobs:
 
       - name: Build Slack payload
         if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
+        id: slack-payload
         run: |
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           JOB_URL="${RUN_URL}/job/${{ github.job }}"
           STARTERS="${{ steps.failures.outputs.starters }}"
           FAILED_COUNT="${{ steps.failures.outputs.failed_count || '0' }}"
+
+          SLACK_MSG=$(mktemp)
+          SLACK_PAYLOAD=$(mktemp)
 
           # Build the message with REAL newlines, then hand it to jq via --rawfile so escaping is handled correctly.
           {
@@ -138,9 +145,11 @@ jobs:
               cat /tmp/failure-summary.txt
               printf '```\n'
             fi
-          } > /tmp/slack-message.txt
+          } > "$SLACK_MSG"
 
-          jq -n --rawfile text /tmp/slack-message.txt '{text: $text}' > /tmp/slack-payload.json
+          jq -n --rawfile text "$SLACK_MSG" '{text: $text}' > "$SLACK_PAYLOAD"
+          rm -f "$SLACK_MSG"
+          echo "payload_path=${SLACK_PAYLOAD}" >> "$GITHUB_OUTPUT"
 
       - name: Alert Slack on failure
         if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
@@ -149,7 +158,11 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
-          payload-file-path: /tmp/slack-payload.json
+          payload-file-path: ${{ steps.slack-payload.outputs.payload_path }}
+
+      - name: Clean up Slack payload tmpfile
+        if: always() && steps.slack-payload.outputs.payload_path
+        run: rm -f "${{ steps.slack-payload.outputs.payload_path }}"
 
       - name: Create GitHub issue on failure
         if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
