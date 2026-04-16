@@ -75,6 +75,8 @@ https://github.com/user-attachments/assets/55bf6714-62a7-4d5d-9232-07747cc0763b
 npx copilotkit@latest create -f <framework>
 ```
 
+Supported frameworks: `langgraph-py`, `langgraph-js`, `mastra`, `pydantic-ai`, `aws-strands-py`, `adk`, `microsoft-agent-framework-dotnet`, `microsoft-agent-framework-py`, `mcp-apps`, `flows` (CrewAI), `llamaindex`, `agno`, `ag2`, `a2a`, `agentcore-langgraph`, `agentcore-strands`, `a2ui`, `opengenui`.
+
 ### Existing projects:
 
 ```bash
@@ -139,7 +141,7 @@ https://github.com/user-attachments/assets/3cfacac0-4ffd-457a-96f9-d7951e4ab7b6
 
 - [Static (AG-UI Protocol)](https://docs.copilotkit.ai/ag-ui-protocol)
 - [Declarative (A2UI)](https://docs.copilotkit.ai/generative-ui/specs/a2ui#using-a2ui-with-copilotkit)
-- [Open-Ended (MCP Apps & Open JSON)](https://docs.copilotkit.ai/generative-ui/specs/mcp-apps)
+- [Open-Ended (Open Generative UI)](https://docs.copilotkit.ai/generative-ui/open-generative-ui)
 
 [Generative UI educational repo →](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/generative-ui)
 
