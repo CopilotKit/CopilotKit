@@ -34,8 +34,10 @@ const demoAgentNames = [
 ];
 
 function buildAgents() {
-  // resourceId is typed as required but only used to tag agents downstream;
-  // empty string matches the pre-aliasing behavior where it was undefined.
+  // resourceId is typed as required. We pass "" because these demo agents are
+  // stateless — scoping memory to an empty resource bucket is acceptable here.
+  // This is a behavioral change from the pre-aliasing code which omitted the
+  // field entirely; not a no-op.
   const localAgents = MastraAgent.getLocalAgents({ mastra, resourceId: "" });
   const weatherAgent = localAgents.weatherAgent;
   if (!weatherAgent) {
