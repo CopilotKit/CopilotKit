@@ -64,12 +64,10 @@ This will start both the UI and agent servers concurrently.
 The following scripts can also be run using your preferred package manager:
 
 - `dev` - Starts both UI and agent servers in development mode
-- `dev:debug` - Starts development servers with debug logging enabled
 - `dev:ui` - Starts only the Next.js UI server
 - `dev:agent` - Starts only the CrewAI Flow agent server
 - `build` - Builds the Next.js application for production
 - `start` - Starts the production server
-- `lint` - Runs ESLint for code linting
 - `install:agent` - Installs Python dependencies for the agent using `uv`
 
 ## Documentation
@@ -79,7 +77,7 @@ The main UI component is in `src/app/page.tsx`. You can:
 - Modify the theme colors and styling
 - Add new frontend actions
 - Utilize shared-state
-- Customize your user-interface for interactin with CrewAI Flow
+- Customize your user-interface for interacting with CrewAI Flow
 
 ## 📚 Documentation
 

@@ -34,7 +34,7 @@ bun install
 
 > **Note:** This will automatically setup the Python environment as well.
 >
-> If you have manual isseus, you can run:
+> If you have manual issues, you can run:
 >
 > ```sh
 > npm run install:agent
@@ -76,7 +76,6 @@ The following scripts can also be run using your preferred package manager:
 - `dev:agent` - Starts only the PydanticAI agent server
 - `build` - Builds the Next.js application for production
 - `start` - Starts the production server
-- `lint` - Runs ESLint for code linting
 - `install:agent` - Installs Python dependencies for the agent
 
 ## Documentation

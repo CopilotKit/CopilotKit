@@ -1,6 +1,6 @@
-# CopilotKit <> CrewAI Flow Starter
+# CopilotKit <> CrewAI Crew Starter
 
-This is a starter template for building AI agents using [CrewAI Flows](https://docs.crewai.com/en/concepts/flows) and [CopilotKit](https://copilotkit.ai). It provides a modern Next.js application with an integrated CrewAI Flow agent to be built on top of.
+This is a starter template for building AI agents using [CrewAI Crews](https://docs.crewai.com/en/concepts/crews) and [CopilotKit](https://copilotkit.ai). It provides a modern Next.js application with an integrated CrewAI Crew agent to be built on top of.
 
 ## Prerequisites
 
@@ -11,7 +11,7 @@ This is a starter template for building AI agents using [CrewAI Flows](https://d
   - [pnpm](https://pnpm.io/installation)
   - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/)
   - [bun](https://bun.sh/)
-- OpenAI API Key (for the CrewAI Flow agent)
+- OpenAI API Key (for the CrewAI Crew agent)
 
 ## Getting Started
 
@@ -63,9 +63,8 @@ This will start both the UI and agent servers concurrently.
 The following scripts can also be run using your preferred package manager:
 
 - `dev` - Starts both UI and agent servers in development mode
-- `dev:debug` - Starts development servers with debug logging enabled
 - `dev:ui` - Starts only the Next.js UI server
-- `dev:agent` - Starts only the CrewAI Flow agent server
+- `dev:agent` - Starts only the CrewAI Crew agent server
 - `build` - Builds the Next.js application for production
 - `start` - Starts the production server
 - `lint` - Runs ESLint for code linting
@@ -78,12 +77,12 @@ The main UI component is in `src/app/page.tsx`. You can:
 - Modify the theme colors and styling
 - Add new frontend actions
 - Utilize shared-state
-- Customize your user-interface for interactin with CrewAI Flow
+- Customize your user-interface for interacting with CrewAI Crews
 
 ## 📚 Documentation
 
 - [CopilotKit Documentation](https://docs.copilotkit.ai) - Explore CopilotKit's capabilities
-- [CrewAI Flow Documentation](https://docs.crewai.com/en/concepts/flows) - Learn more about CrewAI Flow and its features
+- [CrewAI Crews Documentation](https://docs.crewai.com/en/concepts/crews) - Learn more about CrewAI Crews and its features
 - [Next.js Documentation](https://nextjs.org/docs) - Learn about Next.js features and API
 
 ## Contributing
@@ -100,6 +99,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 If you see "I'm having trouble connecting to my tools", make sure:
 
-1. The CrewAI Flow agent is running on port 8000
+1. The CrewAI Crew agent is running on port 8000
 2. Your OpenAI API key is set correctly
 3. Both servers started successfully

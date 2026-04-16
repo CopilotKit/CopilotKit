@@ -105,7 +105,6 @@ You can run these with any package manager:
 - `dev:agent` - Starts only the Agent Spec FastAPI server
 - `build` - Builds the Next.js application for production
 - `start` - Starts the production server
-- `lint` - Runs ESLint for code linting
 - `install:agent` - Installs Python dependencies for the agent
 
 ## Documentation

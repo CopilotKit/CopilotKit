@@ -36,7 +36,7 @@ bun install
 
 > **Note:** This will automatically setup the Python environment as well.
 >
-> If you have manual isseus, you can run:
+> If you have manual issues, you can run:
 >
 > ```sh
 > npm run install:agent
@@ -75,15 +75,14 @@ The following scripts can also be run using your preferred package manager:
 - `dev` - Starts both UI and agent servers in development mode
 - `dev:debug` - Starts development servers with debug logging enabled
 - `dev:ui` - Starts only the Next.js UI server
-- `dev:agent` - Starts only the PydanticAI agent server
+- `dev:agent` - Starts only the A2A agent server
 - `build` - Builds the Next.js application for production
 - `start` - Starts the production server
-- `lint` - Runs ESLint for code linting
 - `install:agent` - Installs Python dependencies for the agent
 
 ## Documentation
 
-The main UI component is in `src/app/page.tsx`, but most of the UI comes from from the agent in the form of A2UI declarative components. To see and edit the components it can generate, look in `agent/prompt_builder.py`.
+The main UI component is in `app/page.tsx`, but most of the UI comes from from the agent in the form of A2UI declarative components. To see and edit the components it can generate, look in `agent/prompt_builder.py`.
 To generate new components, try the [A2UI Composer](https://a2ui-editor.ag-ui.com)
 
 ## 📚 Documentation

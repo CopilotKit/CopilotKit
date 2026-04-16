@@ -89,7 +89,6 @@ The following scripts can also be run using your preferred package manager:
 - `dev:agent` - Starts only the ADK agent server
 - `build` - Builds the Next.js application for production
 - `start` - Starts the production server
-- `lint` - Runs ESLint for code linting
 - `install:agent` - Installs Python dependencies for the agent
 
 ## Documentation
