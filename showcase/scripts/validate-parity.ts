@@ -9,6 +9,7 @@
  *   4. Lists src/app/demos/<id>/ directories.
  *
  * MUST checks (fail -> exit 1):
+ *   - manifest.yaml exists and is parseable.
  *   - Every declared demo has a matching src/app/demos/<id>/ directory.
  *
  * SHOULD checks (warn on stderr, do not fail):
@@ -78,6 +79,18 @@ function listFiles(p: string, suffix: string): string[] {
     .map((d) => d.name);
 }
 
+/**
+ * Load and parse a package's manifest.yaml.
+ *
+ * Returns:
+ *   - null if the file does not exist ("missing manifest" — caller flags).
+ *   - the parsed Manifest on success.
+ *
+ * Throws:
+ *   - any parse error from yaml.parse. Callers in the validator path wrap
+ *     this in try/catch and convert it into a package-level mustError so
+ *     one bad manifest doesn't abort the whole run.
+ */
 function loadManifest(slug: string): Manifest | null {
   const manifestPath = path.join(PACKAGES_DIR, slug, "manifest.yaml");
   if (!fs.existsSync(manifestPath)) return null;
@@ -90,7 +103,24 @@ function auditPackage(slug: string): PackageReport {
   const mustErrors: string[] = [];
   const warnings: string[] = [];
 
-  const manifest = loadManifest(slug);
+  let manifest: Manifest | null;
+  try {
+    manifest = loadManifest(slug);
+  } catch (err) {
+    // Malformed YAML: flag this package but let the rest of the run proceed.
+    const msg = err instanceof Error ? err.message : String(err);
+    mustErrors.push(`unparseable manifest.yaml: ${msg}`);
+    return {
+      slug,
+      demoIds: [],
+      specFiles: [],
+      qaFiles: [],
+      demoDirs: [],
+      mustErrors,
+      warnings,
+    };
+  }
+
   if (!manifest) {
     mustErrors.push(`missing manifest.yaml`);
     return {
