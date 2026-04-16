@@ -25,6 +25,21 @@ const PACKAGES_DIR = path.join(SHOWCASE, "packages");
 const SHARED_PYTHON_DIR = path.join(SHOWCASE, "shared", "python");
 const SHARED_TS_DIR = path.join(SHOWCASE, "shared", "typescript", "tools");
 
+// Replace floating dist-tags (like 'beta', 'next') with known-good version
+// ranges for reproducible Docker installs. The monorepo lockfile keeps the
+// demo packages stable, but starters run `npm install` from scratch and can
+// hit version drift.
+const PIN_OVERRIDES: Record<string, Record<string, string>> = {
+  mastra: {
+    "@ag-ui/mastra": "0.2.1-beta.2",
+    "@mastra/client-js": "^1.13.4",
+    "@mastra/core": "^1.25.0",
+    "@mastra/libsql": "^1.8.1",
+    "@mastra/memory": "^1.15.1",
+    mastra: "^1.6.0",
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Framework definitions
 // ---------------------------------------------------------------------------
@@ -333,7 +348,7 @@ function rewritePythonImports(filePath: string): void {
   if (osImportIndices.length > 0) {
     // Check if `os` is referenced in any non-skipped, non-import-os line
     const osUsed = lines.some(
-      (line, i) => !skipIndices.has(i) && /\bos[.\s]/.test(line),
+      (line, i) => !skipIndices.has(i) && /\bos\b/.test(line),
     );
     if (osUsed) {
       // Keep import os lines — don't skip them
@@ -661,20 +676,6 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
         }
         pkg.devDependencies = sorted;
       }
-      // Pin floating dist-tags (like "beta", "next") to concrete versions
-      // so Docker builds get reproducible installs. The monorepo lockfile
-      // keeps the demo packages stable, but starters run `npm install`
-      // from scratch and can hit version drift.
-      const PIN_OVERRIDES: Record<string, Record<string, string>> = {
-        mastra: {
-          "@ag-ui/mastra": "0.2.1-beta.2",
-          "@mastra/client-js": "^1.13.4",
-          "@mastra/core": "^1.25.0",
-          "@mastra/libsql": "^1.8.1",
-          "@mastra/memory": "^1.15.1",
-          mastra: "^1.6.0",
-        },
-      };
       const pins = PIN_OVERRIDES[fw.slug];
       if (pins && pkg.dependencies) {
         for (const [dep, version] of Object.entries(pins)) {
@@ -725,7 +726,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     copySharedPythonTools(agentDest);
 
     // Always rewrite: remove sys.path.insert and convert shared tool imports
-    rewritePythonImportsInDir(agentDest, fw.agentDir);
+    forEachPyFile(agentDest, rewritePythonImports);
 
     // Handle tools.py / tools/ naming collision:
     // If both tools.py (wrapper) and tools/ (shared tools dir) exist,
@@ -963,22 +964,6 @@ function forEachPyFile(
   }
 }
 
-function rewritePythonImportsInDir(dir: string, agentDir: string): void {
-  if (!fs.existsSync(dir)) return;
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      // Skip data dirs but process everything else including tools/
-      if (entry.name !== "data") {
-        rewritePythonImportsInDir(fullPath, agentDir);
-      }
-    } else {
-      rewritePythonImports(fullPath);
-    }
-  }
-}
-
 function rewriteTypeScriptImportsInDir(
   dir: string,
   agentDestDir?: string,
@@ -1108,9 +1093,11 @@ main();
 
 export {
   FRAMEWORKS,
+  PIN_OVERRIDES,
   generateStarter,
   substituteVars,
   rewritePythonImports,
+  forEachPyFile,
   extractUvicornModule,
   getEntrypointBlock,
 };

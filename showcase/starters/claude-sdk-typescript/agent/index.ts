@@ -8,7 +8,7 @@
 import express, { Request, Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { EventEncoder } from "@ag-ui/encoder";
-import { EventType, RunAgentInput, Message } from "@ag-ui/core";
+import { BaseEvent, EventType, RunAgentInput, Message } from "@ag-ui/core";
 import * as dotenv from "dotenv";
 import { randomUUID } from "crypto";
 
@@ -27,9 +27,7 @@ if (!process.env.ANTHROPIC_API_KEY) {
   process.exit(1);
 }
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+const anthropic = new Anthropic();
 
 console.log("[agent_server] Initializing Claude agent server");
 console.log(`[agent_server] Model: ${CLAUDE_MODEL}`);
@@ -56,10 +54,10 @@ function buildAnthropicMessages(messages: Message[]): Anthropic.MessageParam[] {
       const toolCalls = msg.toolCalls;
 
       if (toolCalls && toolCalls.length > 0) {
-        const content: Anthropic.ContentBlock[] = [];
+        const content: Anthropic.ContentBlockParam[] = [];
 
         if (msg.content) {
-          content.push({ type: "text", text: msg.content, citations: null });
+          content.push({ type: "text", text: msg.content });
         }
 
         for (const tc of toolCalls) {
@@ -153,8 +151,8 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
   const threadId = input.threadId ?? randomUUID();
   const msgId = randomUUID();
 
-  const emit = (event: object) => {
-    res.write(encoder.encodeSSE(event as any));
+  const emit = (event: BaseEvent) => {
+    res.write(encoder.encodeSSE(event));
   };
 
   try {
@@ -169,7 +167,7 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
       "You are a helpful AI assistant powered by Anthropic's Claude.";
     if (input.context && input.context.length > 0) {
       const contextStr = input.context
-        .map((c: any) => `${c.description}: ${c.value}`)
+        .map((c) => `${c.description}: ${c.value}`)
         .join("\n");
       systemPrompt += `\n\nContext:\n${contextStr}`;
     }
@@ -187,7 +185,6 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
 
     let toolCallId: string | null = null;
     let toolCallName: string | null = null;
-    let toolCallArgs = "";
     let textMessageStarted = false;
 
     for await (const event of stream) {
@@ -198,7 +195,6 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
         if (event.content_block.type === "tool_use") {
           toolCallId = event.content_block.id;
           toolCallName = event.content_block.name;
-          toolCallArgs = "";
           emit({
             type: EventType.TOOL_CALL_START,
             toolCallId,
@@ -223,7 +219,6 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
             delta: event.delta.text,
           });
         } else if (event.delta.type === "input_json_delta") {
-          toolCallArgs += event.delta.partial_json;
           emit({
             type: EventType.TOOL_CALL_ARGS,
             toolCallId,
@@ -238,7 +233,6 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
           });
           toolCallId = null;
           toolCallName = null;
-          toolCallArgs = "";
         }
       } else if (event.type === "message_stop") {
         // Only close the text message if we opened one
@@ -283,7 +277,6 @@ app.get("/health", (_req: Request, res: Response) => {
   res.json({
     status: "ok",
     model: CLAUDE_MODEL,
-    anthropic_api_key: "set",
   });
 });
 

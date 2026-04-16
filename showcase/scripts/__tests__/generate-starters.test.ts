@@ -9,9 +9,11 @@ import * as os from "node:os";
 import {
   substituteVars,
   rewritePythonImports,
+  forEachPyFile,
   extractUvicornModule,
   getEntrypointBlock,
   FRAMEWORKS,
+  PIN_OVERRIDES,
 } from "../generate-starters";
 
 const ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -494,6 +496,100 @@ describe("generate-starters", () => {
       rewritePythonImports(fp);
       const result = readTmp(fp);
       expect(result).not.toMatch(/\n{3,}/);
+    });
+  });
+
+  describe("import os preservation", () => {
+    let tmpDir: string;
+
+    afterEach(() => {
+      if (tmpDir && fs.existsSync(tmpDir)) {
+        fs.rmSync(tmpDir, { recursive: true });
+      }
+    });
+
+    it("keeps import os when os is used outside sys.path.insert", () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "py-os-keep-"));
+      const fp = path.join(tmpDir, "test.py");
+      fs.writeFileSync(
+        fp,
+        [
+          "import sys",
+          "import os",
+          'sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))',
+          'os.environ["FOO"] = "bar"',
+        ].join("\n"),
+      );
+      rewritePythonImports(fp);
+      const result = fs.readFileSync(fp, "utf-8");
+      expect(result).toContain("import os");
+      expect(result).toContain('os.environ["FOO"]');
+      expect(result).not.toContain("sys.path.insert");
+    });
+
+    it("removes import os when os is only used in sys.path.insert", () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "py-os-remove-"));
+      const fp = path.join(tmpDir, "test.py");
+      fs.writeFileSync(
+        fp,
+        [
+          "import sys",
+          "import os",
+          'sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))',
+          "from tools import foo",
+        ].join("\n"),
+      );
+      rewritePythonImports(fp);
+      const result = fs.readFileSync(fp, "utf-8");
+      expect(result).not.toContain("import os");
+      expect(result).not.toContain("import sys");
+      expect(result).not.toContain("sys.path.insert");
+    });
+  });
+
+  describe("forEachPyFile()", () => {
+    let tmpDir: string;
+
+    afterEach(() => {
+      if (tmpDir && fs.existsSync(tmpDir)) {
+        fs.rmSync(tmpDir, { recursive: true });
+      }
+    });
+
+    it("skips data/ directory", () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "py-foreach-"));
+      const dataDir = path.join(tmpDir, "data");
+      fs.mkdirSync(dataDir, { recursive: true });
+      fs.writeFileSync(path.join(dataDir, "script.py"), "print('hi')");
+      fs.writeFileSync(path.join(tmpDir, "main.py"), "print('main')");
+
+      const visited: string[] = [];
+      forEachPyFile(tmpDir, (fp) => visited.push(fp));
+
+      expect(visited).toHaveLength(1);
+      expect(visited[0]).toContain("main.py");
+      expect(visited.some((f) => f.includes("data"))).toBe(false);
+    });
+  });
+
+  describe("PIN_OVERRIDES warn path", () => {
+    it("does not inject phantom dependencies into mastra package.json", () => {
+      // Verify that a nonexistent pinned dep doesn't appear in output
+      expect(PIN_OVERRIDES["mastra"]).toBeDefined();
+      const mastraPkg = JSON.parse(
+        fs.readFileSync(
+          path.join(STARTERS_DIR, "mastra", "package.json"),
+          "utf-8",
+        ),
+      );
+      // @fake/package is not in PIN_OVERRIDES, so it should not be in deps
+      expect(mastraPkg.dependencies["@fake/package"]).toBeUndefined();
+      // Also verify that PIN_OVERRIDES keys that ARE present got pinned
+      for (const [dep, version] of Object.entries(PIN_OVERRIDES["mastra"])) {
+        if (mastraPkg.dependencies[dep]) {
+          expect(mastraPkg.dependencies[dep]).toBe(version);
+        }
+      }
     });
   });
 
