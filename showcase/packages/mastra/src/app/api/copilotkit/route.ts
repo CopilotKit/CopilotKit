@@ -54,7 +54,6 @@ export const POST = async (req: NextRequest) => {
   // 3. Create the CopilotRuntime instance and utilize the Mastra AG-UI
   //    integration to get the remote agents. Cache this for performance.
   const runtime = new CopilotRuntime({
-    // @ts-expect-error - CopilotRuntime expects MaybePromise<Record<...>>; the spread-widened object literal doesn't structurally match
     agents: buildAgents(),
   });
 
