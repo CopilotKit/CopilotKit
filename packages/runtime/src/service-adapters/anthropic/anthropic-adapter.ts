@@ -244,6 +244,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
       forwardedParameters,
     } = request;
     const tools = actions.map(convertActionInputToAnthropicTool);
+    const knownActionNames = new Set(actions.map((a) => a.name));
 
     const messages = [...rawMessages];
 
@@ -375,12 +376,18 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
             if (chunk.type === "message_start") {
               currentMessageId = chunk.message.id;
             } else if (chunk.type === "content_block_start") {
-              hasReceivedContent = true;
               if (chunk.content_block.type === "text") {
+                hasReceivedContent = true;
                 didOutputText = false;
                 filterThinkingTextBuffer.reset();
                 mode = "message";
               } else if (chunk.content_block.type === "tool_use") {
+                if (!knownActionNames.has(chunk.content_block.name)) {
+                  // Unknown tool - skip execution to prevent crashes
+                  mode = null;
+                  continue;
+                }
+                hasReceivedContent = true;
                 currentToolCallId = chunk.content_block.id;
                 eventStream$.sendActionExecutionStart({
                   actionExecutionId: currentToolCallId,
@@ -390,6 +397,10 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
                 mode = "function";
               }
             } else if (chunk.type === "content_block_delta") {
+              if (mode === null) {
+                // Skip deltas for unknown/skipped content blocks
+                continue;
+              }
               if (chunk.delta.type === "text_delta") {
                 const text = filterThinkingTextBuffer.onTextChunk(
                   chunk.delta.text,
