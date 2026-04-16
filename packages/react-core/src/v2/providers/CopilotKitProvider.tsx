@@ -726,7 +726,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // Remind developers to use Tailwind v4. CopilotKit v2 is not compatible with v3.
   // Module-level flag ensures this fires at most once per page load (survives StrictMode double-invoke).
   useEffect(() => {
-    if (process.env.NODE_ENV === "production") return;
+    if (process.env.NODE_ENV !== "development") return;
     if (_tailwindWarningShown) return;
     _tailwindWarningShown = true;
     console.warn(
