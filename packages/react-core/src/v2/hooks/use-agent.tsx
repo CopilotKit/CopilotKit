@@ -1,4 +1,4 @@
-import { useCopilotKit } from "../providers/CopilotKitProvider";
+import { useCopilotKit } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { useMemo, useEffect, useReducer, useRef } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";

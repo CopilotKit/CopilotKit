@@ -1,0 +1,192 @@
+import React, {
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  CopilotKitContext,
+  type CopilotKitContextValue,
+} from "@copilotkit/react-core/v2/context";
+import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
+import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
+
+export interface CopilotKitNativeProviderProps {
+  children: ReactNode;
+  /** URL of the CopilotKit runtime endpoint */
+  runtimeUrl: string;
+  /** Custom headers sent with every request */
+  headers?: Record<string, string>;
+  /** Whether the runtime uses a single-route endpoint */
+  useSingleEndpoint?: boolean;
+  /** Custom properties forwarded to agents */
+  properties?: Record<string, unknown>;
+  /**
+   * Error handler called when CopilotKit encounters an error.
+   * Fires for all error types (runtime connection failures, agent errors, tool errors).
+   * If not provided, errors are logged to console.error.
+   */
+  onError?: (event: {
+    error: Error;
+    code: CopilotKitCoreErrorCode;
+    context: Record<string, any>;
+  }) => void;
+}
+
+/**
+ * CopilotKit provider for React Native.
+ *
+ * A lightweight alternative to the web CopilotKitProvider that avoids
+ * web-only dependencies (DOM, CSS, Radix UI, Lit, etc).
+ *
+ * Usage:
+ * ```tsx
+ * import "@copilotkit/react-native/polyfills";
+ * import { CopilotKitProvider } from "@copilotkit/react-native";
+ *
+ * function App() {
+ *   return (
+ *     <CopilotKitProvider runtimeUrl="https://your-runtime/api/copilotkit">
+ *       <ChatScreen />
+ *     </CopilotKitProvider>
+ *   );
+ * }
+ * ```
+ */
+export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
+  children,
+  runtimeUrl,
+  headers,
+  useSingleEndpoint = true,
+  properties,
+  onError,
+}) => {
+  // Stabilize headers/properties references to avoid effect churn when callers
+  // pass inline object literals (e.g. headers={{}} or the undefined default).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableHeaders = useMemo(() => headers ?? {}, [JSON.stringify(headers)]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableProperties = useMemo(
+    () => properties ?? {},
+    [JSON.stringify(properties)],
+  );
+
+  const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
+
+  if (copilotkitRef.current === null) {
+    copilotkitRef.current = new CopilotKitCoreReact({
+      runtimeUrl,
+      runtimeTransport: useSingleEndpoint ? "single" : "rest",
+      headers: stableHeaders,
+      properties: stableProperties,
+    });
+  }
+
+  const copilotkit = copilotkitRef.current;
+
+  // Sync props to core instance
+  useEffect(() => {
+    copilotkit.setRuntimeUrl(runtimeUrl);
+    copilotkit.setRuntimeTransport(useSingleEndpoint ? "single" : "rest");
+    copilotkit.setHeaders(stableHeaders);
+    copilotkit.setProperties(stableProperties);
+  }, [
+    runtimeUrl,
+    useSingleEndpoint,
+    stableHeaders,
+    stableProperties,
+    copilotkit,
+  ]);
+
+  // Track executing tool call IDs at the provider level.
+  // Critical for HITL reconnection: onToolExecutionStart fires before child
+  // components mount, so we must capture the state here.
+  const [executingToolCallIds, setExecutingToolCallIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
+
+  useEffect(() => {
+    const subscription = copilotkit.subscribe({
+      onToolExecutionStart: ({ toolCallId }) => {
+        setExecutingToolCallIds((prev) => {
+          if (prev.has(toolCallId)) return prev;
+          const next = new Set(prev);
+          next.add(toolCallId);
+          return next;
+        });
+      },
+      onToolExecutionEnd: ({ toolCallId }) => {
+        setExecutingToolCallIds((prev) => {
+          if (!prev.has(toolCallId)) return prev;
+          const next = new Set(prev);
+          next.delete(toolCallId);
+          return next;
+        });
+      },
+    });
+    return () => subscription.unsubscribe();
+  }, [copilotkit]);
+
+  // Use ref to avoid subscription churn when onError changes
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+
+  // Always subscribe — fall back to console.error when no onError provided
+  useEffect(() => {
+    const subscription = copilotkit.subscribe({
+      onError: (event) => {
+        if (onErrorRef.current) {
+          onErrorRef.current({
+            error: event.error,
+            code: event.code,
+            context: event.context,
+          });
+        } else {
+          console.error(
+            `[CopilotKit] Error (${event.code}):`,
+            event.error,
+            event.context ?? {},
+          );
+        }
+      },
+    });
+    return () => subscription.unsubscribe();
+  }, [copilotkit]);
+
+  // The headless bundle inlines @copilotkit/core, so TypeScript emits a separate
+  // declaration for CopilotKitCoreReact that is structurally identical but nominally
+  // distinct from the one in @copilotkit/react-core/v2/context. The cast bridges
+  // this TS-only mismatch. We verify critical methods at runtime to catch version drift.
+  const contextValue = useMemo(() => {
+    const requiredMethods = [
+      "subscribe",
+      "setRuntimeUrl",
+      "setHeaders",
+      "setProperties",
+      "setRuntimeTransport",
+    ] as const;
+    const missing = requiredMethods.filter(
+      (m) => typeof (copilotkit as any)[m] !== "function",
+    );
+    if (missing.length > 0) {
+      throw new Error(
+        "[CopilotKit] CopilotKitCoreReact shape mismatch: headless bundle may have " +
+          "diverged from the context type. Ensure @copilotkit/core versions are aligned. " +
+          `Missing methods: ${missing.join(", ")}`,
+      );
+    }
+    return {
+      copilotkit,
+      executingToolCallIds,
+    } as unknown as CopilotKitContextValue;
+  }, [copilotkit, executingToolCallIds]);
+
+  return (
+    <CopilotKitContext.Provider value={contextValue}>
+      {children}
+    </CopilotKitContext.Provider>
+  );
+};
