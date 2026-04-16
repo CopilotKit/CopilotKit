@@ -142,16 +142,26 @@ jobs:
             { "text": ":warning: *Docs sync*: PR created but auto-merge FAILED — needs manual merge\n${{ steps.push.outputs.pr_url }}\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
 
       # Review items = files the sync script flagged but did NOT write to disk
-      # (local modifications, files deleted on main). No file changes to propose —
-      # just alert Slack so a human can manually reconcile.
+      # (local modifications, files deleted on main). A PR may have been opened
+      # for the clean-transform portion — link it so reviewers can click through.
       - name: Notify Slack (review needed)
-        if: always() && steps.sync.outputs.action == 'push_and_pr'
+        if: always() && steps.sync.outputs.action == 'push_and_pr' && steps.push.outputs.pr_url != ''
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload: |
-            { "text": ":warning: *Docs sync*: files needing manual review\n```${{ steps.sync.outputs.review_items_json }}```\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+            { "text": ":warning: *Docs sync*: files needing manual review\n```${{ steps.sync.outputs.review_items_json }}```\nReview: ${{ steps.push.outputs.pr_url }}\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+
+      # Fallback: review items but no PR was opened (clean-transform portion was empty).
+      - name: Notify Slack (review needed, no PR)
+        if: always() && steps.sync.outputs.action == 'push_and_pr' && steps.push.outputs.pr_url == ''
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":warning: *Docs sync*: files needing manual review (no auto-PR opened)\n```${{ steps.sync.outputs.review_items_json }}```\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
 
       - name: Notify Slack (failure)
         if: failure() && steps.push.outputs.pr_url == ''
