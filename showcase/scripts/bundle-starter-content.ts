@@ -67,7 +67,11 @@ function detectLanguage(filename: string): string {
     ".yml": "yaml",
     ".md": "markdown",
     ".mdx": "markdown",
+    ".sh": "bash",
+    ".mjs": "javascript",
+    ".java": "java",
   };
+  if (path.basename(filename) === "Dockerfile") return "dockerfile";
   return map[ext] || "text";
 }
 
@@ -117,7 +121,7 @@ function collectAgentFiles(dir: string, prefix: string): StarterFile[] {
     ".ruff_cache",
     "__init__.py",
   ]);
-  const EXTENSIONS = new Set([".py", ".ts", ".js", ".cs"]);
+  const EXTENSIONS = new Set([".py", ".ts", ".js", ".cs", ".java"]);
 
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
@@ -173,7 +177,7 @@ function discoverStarterFiles(starterPath: string): StarterFile[] {
     const agentDir = path.join(starterPath, "apps", "agent");
     if (fs.existsSync(agentDir)) {
       // Top-level agent source files
-      const AGENT_EXTENSIONS = new Set([".py", ".ts", ".js", ".cs"]);
+      const AGENT_EXTENSIONS = new Set([".py", ".ts", ".js", ".cs", ".java"]);
       const AGENT_SKIP = new Set(["__init__.py"]);
       const agentEntries = fs.readdirSync(agentDir, { withFileTypes: true });
       for (const entry of agentEntries) {
@@ -220,7 +224,7 @@ function discoverStarterFiles(starterPath: string): StarterFile[] {
     const agentDir = path.join(starterPath, "agent");
     if (fs.existsSync(agentDir)) {
       // Top-level agent source files (e.g. main.py, Program.cs, SharedStateAgent.cs)
-      const AGENT_EXTENSIONS = new Set([".py", ".ts", ".js", ".cs"]);
+      const AGENT_EXTENSIONS = new Set([".py", ".ts", ".js", ".cs", ".java"]);
       const AGENT_SKIP = new Set(["__init__.py"]);
       const agentEntries = fs.readdirSync(agentDir, { withFileTypes: true });
       for (const entry of agentEntries) {
@@ -234,12 +238,17 @@ function discoverStarterFiles(starterPath: string): StarterFile[] {
         );
         if (file) files.push(file);
       }
-      // Collect from agent/src/
-      const srcFiles = collectAgentFiles(
-        path.join(agentDir, "src"),
-        "agent/src",
-      );
-      files.push(...srcFiles);
+      // Collect from agent subdirectories (src/, java/, etc.)
+      const agentSubdirs = fs
+        .readdirSync(agentDir, { withFileTypes: true })
+        .filter((e) => e.isDirectory());
+      for (const subdir of agentSubdirs) {
+        const subFiles = collectAgentFiles(
+          path.join(agentDir, subdir.name),
+          `agent/${subdir.name}`,
+        );
+        files.push(...subFiles);
+      }
     }
 
     // Mastra: src/mastra/ directory
@@ -251,6 +260,27 @@ function discoverStarterFiles(starterPath: string): StarterFile[] {
 
     // .NET agent files at agent/ root (e.g. Program.cs, SharedStateAgent.cs)
     // Already handled above via collectAgentFiles
+
+    // Sales Dashboard components (starters)
+    const componentDirs = [
+      "src/components/sales-dashboard",
+      "src/components/renderers",
+      "src/components/charts",
+    ];
+    for (const compDir of componentDirs) {
+      const fullDir = path.join(starterPath, compDir);
+      if (fs.existsSync(fullDir)) {
+        const compFiles = collectAgentFiles(fullDir, compDir);
+        files.push(...compFiles);
+      }
+    }
+
+    // Config files (Dockerfile, entrypoint.sh, postcss.config.mjs)
+    const configFiles = ["Dockerfile", "entrypoint.sh", "postcss.config.mjs"];
+    for (const cf of configFiles) {
+      const file = tryReadFile(path.join(starterPath, cf), cf);
+      if (file) files.push(file);
+    }
   }
 
   // Deduplicate by filename

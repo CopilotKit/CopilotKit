@@ -41,6 +41,7 @@ interface Integration {
     description?: string;
     github_url?: string;
     demo_url?: string;
+    clone_command?: string;
   };
   features: string[];
   demos: Demo[];
@@ -114,11 +115,19 @@ export function ProfileClient({
 
   function copyCloneCommand() {
     if (!integration.starter) return;
-    const cmd = `git clone https://github.com/CopilotKit/CopilotKit.git && cd CopilotKit/${integration.starter.path}`;
-    navigator.clipboard.writeText(cmd).then(() => {
-      setCloneCopied(true);
-      setTimeout(() => setCloneCopied(false), 2000);
-    });
+    const cmd =
+      integration.starter.clone_command ||
+      `npx degit CopilotKit/CopilotKit/${integration.starter.path} my-copilotkit-app`;
+    navigator.clipboard
+      .writeText(cmd)
+      .then(() => {
+        setCloneCopied(true);
+        setTimeout(() => setCloneCopied(false), 2000);
+      })
+      .catch(() => {
+        // Fallback: show the command in a prompt if clipboard fails
+        window.prompt("Copy this command:", cmd);
+      });
   }
 
   // Find the "key" agent file — prefer a Python file with "agent" or "main" in the name, else first backend file
@@ -190,10 +199,12 @@ export function ProfileClient({
             Developer Guide
           </a>
         </div>
+      </div>
 
-        {/* Full Starter */}
-        {integration.starter && keyFile && (
-          <section className="mt-10">
+      {/* Full Starter — wider breakout container */}
+      {integration.starter && keyFile && (
+        <div className="mx-auto max-w-[90rem] px-6">
+          <section className="mt-0">
             <div className="rounded-xl border-2 border-[var(--accent)] bg-[var(--bg-elevated)] p-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -239,7 +250,7 @@ export function ProfileClient({
                       <iframe
                         src={integration.starter.demo_url}
                         className="w-full rounded-lg border border-[var(--border)]"
-                        style={{ height: "600px" }}
+                        style={{ height: "min(80vh, 900px)" }}
                         sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                         loading="lazy"
                       />
@@ -404,8 +415,10 @@ export function ProfileClient({
               </div>
             </div>
           </section>
-        )}
+        </div>
+      )}
 
+      <div className="mx-auto max-w-5xl px-6 pb-12">
         {/* Demos */}
         <section className="mt-10">
           <h2 className="mb-4 text-xs font-mono uppercase tracking-widest text-[var(--text-muted)]">

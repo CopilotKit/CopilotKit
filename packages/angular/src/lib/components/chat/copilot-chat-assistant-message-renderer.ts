@@ -16,6 +16,7 @@ import hljs from "highlight.js";
 import * as katex from "katex";
 import { completePartialMarkdown } from "@copilotkit/core";
 import { LucideAngularModule } from "lucide-angular";
+import { copyToClipboard } from "@copilotkit/shared";
 import { injectChatLabels } from "../../chat-config";
 
 @Component({
@@ -387,37 +388,34 @@ export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
   }
 
   private copyCodeBlock(blockId: string, code: string): void {
-    navigator.clipboard.writeText(code).then(
-      () => {
-        // Update the button in the DOM
-        const button = this.elementRef.nativeElement.querySelector(
-          `[data-code-block-id="${blockId}"]`,
-        );
-        if (button) {
-          const originalHTML = button.innerHTML;
-          button.innerHTML = `
+    copyToClipboard(code).then((success) => {
+      if (!success) return;
+
+      // Update the button in the DOM
+      const button = this.elementRef.nativeElement.querySelector(
+        `[data-code-block-id="${blockId}"]`,
+      );
+      if (button) {
+        const originalHTML = button.innerHTML;
+        button.innerHTML = `
             <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
             <span>${this.labels.assistantMessageToolbarCopyCodeCopiedLabel}</span>
           `;
+        button.setAttribute(
+          "aria-label",
+          `${this.labels.assistantMessageToolbarCopyCodeCopiedLabel} code`,
+        );
+
+        // Reset after 2 seconds
+        setTimeout(() => {
+          button.innerHTML = originalHTML;
           button.setAttribute(
             "aria-label",
-            `${this.labels.assistantMessageToolbarCopyCodeCopiedLabel} code`,
+            `${this.labels.assistantMessageToolbarCopyCodeLabel} code`,
           );
-
-          // Reset after 2 seconds
-          setTimeout(() => {
-            button.innerHTML = originalHTML;
-            button.setAttribute(
-              "aria-label",
-              `${this.labels.assistantMessageToolbarCopyCodeLabel} code`,
-            );
-          }, 2000);
-        }
-      },
-      (err) => {
-        console.error("Failed to copy code:", err);
-      },
-    );
+        }, 2000);
+      }
+    });
   }
 
   private generateBlockId(code: string): string {

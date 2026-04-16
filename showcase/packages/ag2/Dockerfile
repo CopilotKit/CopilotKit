@@ -5,7 +5,6 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --legacy-peer-deps
 COPY . .
-COPY shared_frontend/src/ ./shared_frontend/src/
 RUN npm run build
 
 # Stage 2: Production image with Node.js + Python

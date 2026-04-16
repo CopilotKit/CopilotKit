@@ -1,60 +1,95 @@
 "use client";
 
-import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-core/v2";
+import React, { useState } from "react";
 import {
-  SalesDashboard,
-  useShowcaseHooks,
-  useShowcaseSuggestions,
-  demonstrationCatalog,
-  RendererSelector,
-  useRenderMode,
-  ToolBasedDashboard,
-  A2UIDashboard,
-  HashBrownDashboard,
-  OpenGenUIDashboard,
-} from "@copilotkit/showcase-shared";
+  useFrontendTool,
+  useRenderTool,
+  useAgentContext,
+  useConfigureSuggestions,
+  CopilotChat,
+} from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core";
+import { z } from "zod";
 
 export default function AgenticChatDemo() {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      agent="agentic_chat"
-      a2ui={{ catalog: demonstrationCatalog }}
-    >
-      <div className="min-h-screen w-full flex items-center justify-center">
-        <DemoContent />
-        <CopilotSidebar
-          defaultOpen={true}
-          labels={{
-            modalHeaderTitle: "Sales Assistant",
-          }}
-        />
-      </div>
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="agentic_chat">
+      <Chat />
     </CopilotKit>
   );
 }
 
-function DemoContent() {
-  useShowcaseHooks();
-  useShowcaseSuggestions();
+function Chat() {
+  const [background, setBackground] = useState<string>(
+    "var(--copilot-kit-background-color)",
+  );
 
-  return <DashboardWithRenderer agentId="agentic_chat" />;
-}
+  useAgentContext({
+    description: "Name of the user",
+    value: "Bob",
+  });
 
-function DashboardWithRenderer({ agentId }: { agentId: string }) {
-  const { mode, setMode } = useRenderMode();
+  useFrontendTool({
+    name: "change_background",
+    description:
+      "Change the background color of the chat. Can be anything that the CSS background attribute accepts. Regular colors, linear or radial gradients etc.",
+    parameters: z.object({
+      background: z
+        .string()
+        .describe("The background. Prefer gradients. Only use when asked."),
+    }),
+    handler: async ({ background }: { background: string }) => {
+      setBackground(background);
+      return {
+        status: "success",
+        message: `Background changed to ${background}`,
+      };
+    },
+  });
+
+  useRenderTool({
+    name: "get_weather",
+    parameters: z.object({
+      location: z.string(),
+    }),
+    render: ({ args, result, status }: any) => {
+      if (status !== "complete") {
+        return <div data-testid="weather-info-loading">Loading weather...</div>;
+      }
+      return (
+        <div data-testid="weather-info">
+          <strong>Weather in {result?.city || args.location}</strong>
+          <div>Temperature: {result?.temperature}&deg;C</div>
+          <div>Humidity: {result?.humidity}%</div>
+          <div>Wind Speed: {result?.windSpeed ?? result?.wind_speed} mph</div>
+          <div>Conditions: {result?.conditions}</div>
+        </div>
+      );
+    },
+  });
+
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Change background",
+        message: "Change the background to something new.",
+      },
+      {
+        title: "Generate sonnet",
+        message: "Write a short sonnet about AI.",
+      },
+    ],
+    available: "always",
+  });
 
   return (
-    <div className="flex flex-col h-full">
-      <RendererSelector mode={mode} onModeChange={setMode} />
-      <div className="flex-1">
-        {mode === "tool-based" && <ToolBasedDashboard agentId={agentId} />}
-        {mode === "a2ui" && <A2UIDashboard agentId={agentId} />}
-        {mode === "hashbrown" && <HashBrownDashboard />}
-        {mode === "open-genui" && <OpenGenUIDashboard />}
-        {mode === "json-render" && <ToolBasedDashboard agentId={agentId} />}
+    <div
+      className="flex justify-center items-center h-screen w-full"
+      data-testid="background-container"
+      style={{ background }}
+    >
+      <div className="h-full w-full max-w-4xl">
+        <CopilotChat agentId="agentic_chat" className="h-full rounded-2xl" />
       </div>
     </div>
   );

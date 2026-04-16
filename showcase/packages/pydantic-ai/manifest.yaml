@@ -19,11 +19,12 @@ interaction_modalities:
   - embedded
   - chat
 starter:
-  path: examples/integrations/pydantic-ai
-  name: Investment Analyst (PydanticAI)
-  description: Investment analysis agent with type-safe tool definitions via PydanticAI
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/pydantic-ai
-  demo_url: https://showcase-starter-pydantic-ai-production.up.railway.app
+  path: showcase/starters/pydantic-ai
+  name: Sales Dashboard
+  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/pydantic-ai
+  demo_url: https://showcase-starter-pydantic-ai-production-cf5b.up.railway.app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/pydantic-ai my-copilotkit-app
 features:
   - agentic-chat
   - hitl

@@ -31,6 +31,33 @@ import {
 } from "@copilotkit/shared";
 import { Suggestion } from "@copilotkit/core";
 
+/**
+ * Determine whether a GraphQL error should be suppressed based on its visibility
+ * and whether the dev console is active.
+ *
+ * Returns `null` when the error should be surfaced to the UI, or a log prefix
+ * string when the error should be suppressed (logged to console only).
+ *
+ * Exported for unit testing.
+ */
+export function getErrorSuppression(
+  visibility: ErrorVisibility | undefined,
+  isDev: boolean,
+): string | null {
+  // Silent errors are always suppressed
+  if (visibility === ErrorVisibility.SILENT) {
+    return "CopilotKit Silent Error:";
+  }
+
+  // DEV_ONLY errors are suppressed in production
+  if (!isDev && visibility === ErrorVisibility.DEV_ONLY) {
+    return "CopilotKit Error (hidden in production):";
+  }
+
+  // All other visibilities (TOAST, BANNER, undefined) are always surfaced
+  return null;
+}
+
 // Helper to determine if error should show as banner based on visibility and legacy patterns
 function shouldShowAsBanner(gqlError: GraphQLError): boolean {
   const extensions = gqlError.extensions;
@@ -224,20 +251,13 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
           const visibility = extensions?.visibility as ErrorVisibility;
           const isDev = shouldShowDevConsole(showDevConsole);
 
-          if (!isDev) {
-            console.error(
-              "CopilotKit Error (hidden in production):",
-              gqlError.message,
-            );
+          const suppression = getErrorSuppression(visibility, isDev);
+          if (suppression) {
+            console.error(suppression, gqlError.message);
             return;
           }
 
-          // Silent errors - just log
-          if (visibility === ErrorVisibility.SILENT) {
-            console.error("CopilotKit Silent Error:", gqlError.message);
-            return;
-          }
-
+          // TOAST and BANNER errors are always surfaced, even in production
           // All other errors (including DEV_ONLY) show as banners for consistency
           const ckError = createStructuredError(gqlError);
           if (ckError) {
@@ -259,19 +279,14 @@ export function CopilotMessages({ children }: { children: ReactNode }) {
         // Process all errors as banners
         graphQLErrors.forEach(routeError);
       } else {
-        const isDev = shouldShowDevConsole(showDevConsole);
-        if (!isDev) {
-          console.error("CopilotKit Error (hidden in production):", error);
-        } else {
-          // Route non-GraphQL errors to banner as well
-          const fallbackError = new CopilotKitError({
-            message: error?.message || String(error),
-            code: CopilotKitErrorCode.UNKNOWN,
-          });
-          setBannerError(fallbackError);
-          // Trace the non-GraphQL error
-          traceUIError(fallbackError, error);
-        }
+        // Non-GraphQL errors are always surfaced to the user
+        const fallbackError = new CopilotKitError({
+          message: error?.message || String(error),
+          code: CopilotKitErrorCode.UNKNOWN,
+        });
+        setBannerError(fallbackError);
+        // Trace the non-GraphQL error
+        traceUIError(fallbackError, error);
       }
     },
     [setBannerError, showDevConsole, traceUIError],
