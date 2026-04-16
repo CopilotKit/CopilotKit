@@ -7,12 +7,16 @@ on:
       - "docs/**"
       - "README.md"
       - "examples/**"
+      - "showcase/**"
+      - "sdk-python/**"
   pull_request:
     branches: [main]
     paths-ignore:
       - "docs/**"
       - "README.md"
       - "examples/**"
+      - "showcase/**"
+      - "sdk-python/**"
   workflow_dispatch:
     inputs:
       branch:
