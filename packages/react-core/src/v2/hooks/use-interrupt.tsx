@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import { useAgent } from "./use-agent";
+import type { AbstractAgent } from "@ag-ui/client";
 import type {
   InterruptEvent,
   InterruptRenderProps,
@@ -79,6 +80,13 @@ interface UseInterruptConfigBase<TValue = unknown, TResult = never> {
   enabled?: (event: InterruptEvent<TValue>) => boolean;
   /** Optional agent id. Defaults to the current configured chat agent. */
   agentId?: string;
+  /**
+   * Optional agent instance to subscribe to. When provided, the hook uses
+   * this instance directly instead of creating one internally via `useAgent`.
+   * This is useful in multiplexer setups where the consumer already holds
+   * the agent instance that `runAgent` will execute on.
+   */
+  agent?: AbstractAgent;
 }
 
 export interface UseInterruptInChatConfig<
@@ -183,7 +191,8 @@ export function useInterrupt<
 ): UseInterruptReturn<TRenderInChat> {
   /* eslint-enable @typescript-eslint/no-explicit-any */
   const { copilotkit } = useCopilotKit();
-  const { agent } = useAgent({ agentId: config.agentId });
+  const { agent: internalAgent } = useAgent({ agentId: config.agentId });
+  const agent = config.agent ?? internalAgent;
   const [pendingEvent, setPendingEvent] = useState<InterruptEvent | null>(null);
   const pendingEventRef = useRef(pendingEvent);
   pendingEventRef.current = pendingEvent;
