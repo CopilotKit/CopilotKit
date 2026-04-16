@@ -25,7 +25,8 @@ jobs:
         run: npx nx run @copilotkit/vscode-extension:build --skip-nx-cache
 
       - name: Type check
-        run: npx nx run @copilotkit/vscode-extension:check-types
+        run: npx tsc --noEmit
+        working-directory: packages/vscode-extension
 
       - name: Unit & component tests
         run: npx nx run @copilotkit/vscode-extension:test

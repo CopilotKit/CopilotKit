@@ -83,7 +83,7 @@ export function App(): React.ReactElement {
           // Extract the real component schema from the catalog's Zod definitions
           // and send it back to the extension host for fixture validation.
           try {
-            const schema = extractCatalogComponentSchemas(newCatalog);
+            const schema = extractCatalogComponentSchemas(newCatalog) as unknown as import("../extension/types").ComponentSchemaEntry[];
             bridge.send({ type: "catalog-schema", schema });
           } catch {
             // Non-critical — validation will fall back to regex-extracted schema

@@ -80,6 +80,7 @@ afterEach(() => {
 describe("ConnectionBar", () => {
   const defaults = {
     status: "disconnected" as const,
+    error: null as string | null,
     onConnect: vi.fn(),
     onDisconnect: vi.fn(),
     onClear: vi.fn(),
