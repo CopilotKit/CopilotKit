@@ -3,25 +3,41 @@ import { DebugStream } from "./debug-stream";
 import {
   InspectorToWebviewMessage,
   InspectorFromWebviewMessage,
+  DebugEventEnvelope,
 } from "./inspector-types";
 import { getNonce } from "./utils";
+
+const MAX_BUFFERED_EVENTS = 10_000;
 
 /**
  * Provides the AG-UI Inspector as a sidebar WebviewView.
  * Shares a DebugStream so events flow to both the sidebar and the editor panel.
+ *
+ * Buffers events persistently so that events received while the sidebar is
+ * hidden (e.g. user switched to Explorer) are replayed when the view reopens.
  */
 export class InspectorViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "copilotkit.inspector";
 
   private view: vscode.WebviewView | null = null;
   private ready = false;
-  private messageQueue: InspectorToWebviewMessage[] = [];
+  private pendingMessages: InspectorToWebviewMessage[] = [];
+
+  /** Persistent event buffer — survives view dispose/recreate cycles. */
+  private eventBuffer: DebugEventEnvelope[] = [];
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly debugStream: DebugStream,
   ) {
     this.debugStream.onEvent((envelope) => {
+      // Always buffer, regardless of view state
+      this.eventBuffer.push(envelope);
+      if (this.eventBuffer.length > MAX_BUFFERED_EVENTS) {
+        this.eventBuffer = this.eventBuffer.slice(
+          this.eventBuffer.length - MAX_BUFFERED_EVENTS,
+        );
+      }
       this.postMessage({ type: "debug-event", envelope });
     });
 
@@ -40,6 +56,8 @@ export class InspectorViewProvider implements vscode.WebviewViewProvider {
     _token: vscode.CancellationToken,
   ): void {
     this.view = webviewView;
+    this.ready = false;
+    this.pendingMessages = [];
 
     webviewView.webview.options = {
       enableScripts: true,
@@ -59,7 +77,7 @@ export class InspectorViewProvider implements vscode.WebviewViewProvider {
     webviewView.onDidDispose(() => {
       this.view = null;
       this.ready = false;
-      this.messageQueue = [];
+      this.pendingMessages = [];
     });
   }
 
@@ -67,10 +85,18 @@ export class InspectorViewProvider implements vscode.WebviewViewProvider {
     switch (msg.type) {
       case "ready":
         this.ready = true;
-        for (const queued of this.messageQueue) {
+        // Replay buffered events so the webview catches up
+        for (const envelope of this.eventBuffer) {
+          this.view?.webview.postMessage({
+            type: "debug-event",
+            envelope,
+          });
+        }
+        // Flush any pending non-event messages (status, errors)
+        for (const queued of this.pendingMessages) {
           this.view?.webview.postMessage(queued);
         }
-        this.messageQueue = [];
+        this.pendingMessages = [];
         break;
       case "connect":
         this.debugStream.connect(msg.runtimeUrl);
@@ -79,17 +105,18 @@ export class InspectorViewProvider implements vscode.WebviewViewProvider {
         this.debugStream.disconnect();
         break;
       case "clear":
+        this.eventBuffer = [];
         this.postMessage({ type: "clear" });
         break;
     }
   }
 
   private postMessage(msg: InspectorToWebviewMessage): void {
-    if (!this.view) return;
-
-    if (!this.ready) {
-      if (this.messageQueue.length < 1000) {
-        this.messageQueue.push(msg);
+    // If the view isn't ready yet, queue non-event messages (status/error).
+    // Event messages are handled separately via eventBuffer.
+    if (!this.view || !this.ready) {
+      if (msg.type !== "debug-event" && this.pendingMessages.length < 100) {
+        this.pendingMessages.push(msg);
       }
       return;
     }
