@@ -78,7 +78,7 @@ jobs:
       - name: Start aimock
         run: |
           npm install -g @copilotkit/aimock@latest
-          npx aimock --port 4010 --host 127.0.0.1 --fixtures showcase/aimock/feature-parity.json &
+          npx aimock --port 4010 --host 127.0.0.1 --fixtures showcase/aimock/feature-parity.json --validate-on-load &
           # Wait for aimock to be ready
           for i in $(seq 1 20); do
             curl -sf http://localhost:4010/ > /dev/null 2>&1 && break
