@@ -14,9 +14,9 @@
     "postinstall": "npm run install:agent"
   },
   "dependencies": {
-    "@copilotkit/react-core": "1.52.1",
-    "@copilotkit/react-ui": "1.52.1",
-    "@copilotkit/runtime": "1.52.1",
+    "@copilotkit/react-core": "1.56.2",
+    "@copilotkit/react-ui": "1.56.2",
+    "@copilotkit/runtime": "1.56.2",
     "next": "16.0.8",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
