@@ -75,6 +75,11 @@
         "command": "copilotkit.refreshComponents",
         "title": "Refresh",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "copilotkit.openInspector",
+        "title": "CopilotKit: Open AG-UI Inspector",
+        "icon": "$(pulse)"
       }
     ],
     "menus": {
@@ -87,6 +92,11 @@
       "view/title": [
         {
           "command": "copilotkit.refreshComponents",
+          "when": "view == copilotkit.componentPreview",
+          "group": "navigation"
+        },
+        {
+          "command": "copilotkit.openInspector",
           "when": "view == copilotkit.componentPreview",
           "group": "navigation"
         }

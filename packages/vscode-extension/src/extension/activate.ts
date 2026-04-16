@@ -4,12 +4,10 @@ import type { DiscoveredComponent } from "./types";
 import { PreviewPanel } from "./preview-panel";
 import { FileWatcher } from "./file-watcher";
 import { ComponentPreviewProvider } from "./sidebar/view-provider";
-import {
-  findFixtureFile,
-  getFixtureNames,
-} from "./sidebar/component-scanner";
+import { findFixtureFile, getFixtureNames } from "./sidebar/component-scanner";
 import { parseFixtureJson, validateFixture } from "./fixture-validator";
 import { ComponentRegistry } from "./component-registry";
+import { InspectorPanel } from "./inspector-panel";
 
 export function activate(context: vscode.ExtensionContext): void {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -56,13 +54,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Sidebar tree view
   const sidebarProvider = new ComponentPreviewProvider(workspaceRoot);
-  const treeView = vscode.window.createTreeView(
-    "copilotkit.componentPreview",
-    {
-      treeDataProvider: sidebarProvider,
-      showCollapseAll: true,
-    },
-  );
+  const treeView = vscode.window.createTreeView("copilotkit.componentPreview", {
+    treeDataProvider: sidebarProvider,
+    showCollapseAll: true,
+  });
   context.subscriptions.push(treeView);
 
   // Populate the registry from discovered components
@@ -139,6 +134,17 @@ export function activate(context: vscode.ExtensionContext): void {
       sidebarProvider.refresh();
     }),
   );
+
+  // Inspector panel
+  const inspectorPanel = new InspectorPanel(context.extensionUri);
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("copilotkit.openInspector", () => {
+      inspectorPanel.show();
+    }),
+  );
+
+  context.subscriptions.push({ dispose: () => inspectorPanel.dispose() });
 }
 
 export function deactivate(): void {}
@@ -164,7 +170,15 @@ function validateFixtureDocument(
       const errors: vscode.Diagnostic[] = [];
       if (result.fixtures) {
         for (const [name, fixture] of Object.entries(result.fixtures)) {
-          validateFixtureMessages(content, name, fixture.messages, errors, validComponents, registry, fsPath);
+          validateFixtureMessages(
+            content,
+            name,
+            fixture.messages,
+            errors,
+            validComponents,
+            registry,
+            fsPath,
+          );
         }
       }
       if (errors.length > 0) {
@@ -174,19 +188,17 @@ function validateFixtureDocument(
       const diags = result.errors.map(
         (err) =>
           new vscode.Diagnostic(
-            new vscode.Range(
-              (err.line ?? 1) - 1,
-              0,
-              (err.line ?? 1) - 1,
-              100,
-            ),
+            new vscode.Range((err.line ?? 1) - 1, 0, (err.line ?? 1) - 1, 100),
             err.message,
             vscode.DiagnosticSeverity.Warning,
           ),
       );
       diagnostics.set(doc.uri, diags);
     }
-  } else if (fsPath.endsWith(".fixture.ts") || fsPath.endsWith(".fixture.tsx")) {
+  } else if (
+    fsPath.endsWith(".fixture.ts") ||
+    fsPath.endsWith(".fixture.tsx")
+  ) {
     const result = validateFixture(fsPath, content);
     if (result.valid) {
       diagnostics.delete(doc.uri);
@@ -194,12 +206,7 @@ function validateFixtureDocument(
       const diags = result.errors.map(
         (err) =>
           new vscode.Diagnostic(
-            new vscode.Range(
-              (err.line ?? 1) - 1,
-              0,
-              (err.line ?? 1) - 1,
-              100,
-            ),
+            new vscode.Range((err.line ?? 1) - 1, 0, (err.line ?? 1) - 1, 100),
             err.message,
             vscode.DiagnosticSeverity.Warning,
           ),
@@ -243,18 +250,32 @@ function validateFixtureMessages(
       continue;
     }
     if (msg.version !== "v0.9") {
-      warn(`"version" is "${msg.version}" — only "v0.9" is supported`, `"version": "${msg.version}"`);
+      warn(
+        `"version" is "${msg.version}" — only "v0.9" is supported`,
+        `"version": "${msg.version}"`,
+      );
     }
 
-    const types = ["createSurface", "updateComponents", "updateDataModel", "deleteSurface"] as const;
+    const types = [
+      "createSurface",
+      "updateComponents",
+      "updateDataModel",
+      "deleteSurface",
+    ] as const;
     const present = types.filter((t) => t in msg);
 
     if (present.length === 0) {
-      warn("No recognized message type (expected createSurface, updateComponents, updateDataModel, or deleteSurface)", `"version": "v0.9"`);
+      warn(
+        "No recognized message type (expected createSurface, updateComponents, updateDataModel, or deleteSurface)",
+        `"version": "v0.9"`,
+      );
       continue;
     }
     if (present.length > 1) {
-      warn(`Multiple message types (${present.join(", ")}) — each message should have exactly one`, `"${present[1]}"`);
+      warn(
+        `Multiple message types (${present.join(", ")}) — each message should have exactly one`,
+        `"${present[1]}"`,
+      );
     }
 
     // --- createSurface ---
@@ -266,17 +287,26 @@ function validateFixtureMessages(
         continue;
       }
       if (typeof cs.surfaceId !== "string" || !cs.surfaceId) {
-        warn('"createSurface.surfaceId" is required (non-empty string)', '"createSurface"');
+        warn(
+          '"createSurface.surfaceId" is required (non-empty string)',
+          '"createSurface"',
+        );
       }
       if (typeof cs.catalogId !== "string" || !cs.catalogId) {
-        warn('"createSurface.catalogId" is required (non-empty string)', '"createSurface"');
+        warn(
+          '"createSurface.catalogId" is required (non-empty string)',
+          '"createSurface"',
+        );
       }
     }
 
     // --- updateComponents ---
     if ("updateComponents" in msg) {
       if (!hasCreateSurface) {
-        warn('"updateComponents" before "createSurface" — surface must be created first', '"updateComponents"');
+        warn(
+          '"updateComponents" before "createSurface" — surface must be created first',
+          '"updateComponents"',
+        );
       }
       const uc = msg.updateComponents as Record<string, unknown> | null;
       if (!uc || typeof uc !== "object") {
@@ -284,10 +314,16 @@ function validateFixtureMessages(
         continue;
       }
       if (typeof uc.surfaceId !== "string" || !uc.surfaceId) {
-        warn('"updateComponents.surfaceId" is required (non-empty string)', '"updateComponents"');
+        warn(
+          '"updateComponents.surfaceId" is required (non-empty string)',
+          '"updateComponents"',
+        );
       }
       if (!Array.isArray(uc.components)) {
-        warn('"updateComponents.components" must be an array', '"updateComponents"');
+        warn(
+          '"updateComponents.components" must be an array',
+          '"updateComponents"',
+        );
       } else {
         const seenIds = new Set<string>();
         for (const comp of uc.components) {
@@ -306,7 +342,10 @@ function validateFixtureMessages(
           }
 
           if (!compType) {
-            warn(`Component "${compId ?? "?"}" missing "component" field`, compId ? `"id": "${compId}"` : '"components"');
+            warn(
+              `Component "${compId ?? "?"}" missing "component" field`,
+              compId ? `"id": "${compId}"` : '"components"',
+            );
           } else if (validComponents && !validComponents.has(compType)) {
             warn(
               `Unknown component "${compType}" — not found in catalog. Available: ${[...validComponents].sort().join(", ")}`,
@@ -314,7 +353,10 @@ function validateFixtureMessages(
             );
           } else if (compType) {
             // Validate props against the component's known schema
-            const knownProps = registry.getComponentProps(fixturePath, compType);
+            const knownProps = registry.getComponentProps(
+              fixturePath,
+              compType,
+            );
             if (knownProps && knownProps.size > 0) {
               const structuralKeys = new Set(["id", "component"]);
               for (const key of Object.keys(c)) {
@@ -335,7 +377,10 @@ function validateFixtureMessages(
           }
         }
         if (!seenIds.has("root")) {
-          warn('No component with id "root" — the renderer starts from "root"', '"components"');
+          warn(
+            'No component with id "root" — the renderer starts from "root"',
+            '"components"',
+          );
         }
       }
     }
@@ -369,7 +414,10 @@ function validateFixtureMessages(
   }
 
   if (messages.length > 0 && !hasCreateSurface) {
-    warn(`"${fixtureName}": no "createSurface" message — the first message should create the surface`, `"${fixtureName}"`);
+    warn(
+      `"${fixtureName}": no "createSurface" message — the first message should create the surface`,
+      `"${fixtureName}"`,
+    );
   }
 }
 
