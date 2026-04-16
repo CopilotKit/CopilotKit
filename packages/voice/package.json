@@ -36,8 +36,8 @@
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
-    "tsdown": "^0.20.3",
-    "typescript": "5.8.2",
+    "tsdown": "^0.21.0",
+    "typescript": "5.9.3",
     "vitest": "^3.0.5"
   },
   "engines": {
