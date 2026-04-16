@@ -75,18 +75,30 @@ export interface PackageReport {
 
 export function listDirs(p: string): string[] {
   if (!fs.existsSync(p)) return [];
-  return fs
-    .readdirSync(p, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
-    .map((d) => d.name);
+  try {
+    return fs
+      .readdirSync(p, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[WARN] failed to read directory ${p}: ${msg}`);
+    return [];
+  }
 }
 
 export function listFiles(p: string, suffix: string): string[] {
   if (!fs.existsSync(p)) return [];
-  return fs
-    .readdirSync(p, { withFileTypes: true })
-    .filter((d) => d.isFile() && d.name.endsWith(suffix))
-    .map((d) => d.name);
+  try {
+    return fs
+      .readdirSync(p, { withFileTypes: true })
+      .filter((d) => d.isFile() && d.name.endsWith(suffix))
+      .map((d) => d.name);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[WARN] failed to read directory ${p}: ${msg}`);
+    return [];
+  }
 }
 
 /**
