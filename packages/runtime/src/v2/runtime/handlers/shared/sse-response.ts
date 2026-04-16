@@ -2,22 +2,29 @@ import { BaseEvent } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
 import { Observable, Subscription } from "rxjs";
 import { telemetry } from "../../telemetry";
+import { DebugEventBus } from "../../core/debug-event-bus";
 
 interface CreateSseEventResponseParams {
   request: Request;
   observableFactory: () =>
     | Promise<Observable<BaseEvent>>
     | Observable<BaseEvent>;
+  debugEventBus?: DebugEventBus;
+  agentId?: string;
 }
 
 export function createSseEventResponse({
   request,
   observableFactory,
+  debugEventBus,
+  agentId,
 }: CreateSseEventResponseParams): Response {
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
   const encoder = new EventEncoder();
   let streamClosed = false;
+  let debugThreadId = "";
+  let debugRunId = "";
 
   const closeStream = async () => {
     if (!streamClosed) {
@@ -52,6 +59,21 @@ export function createSseEventResponse({
 
     subscription = observable.subscribe({
       next: async (event) => {
+        // Extract threadId/runId from RUN_STARTED
+        if (event.type === "RUN_STARTED") {
+          debugThreadId = (event as any).threadId ?? "";
+          debugRunId = (event as any).runId ?? "";
+        }
+
+        // Broadcast to debug listeners
+        if (debugEventBus) {
+          debugEventBus.broadcast(event, {
+            agentId: agentId ?? "",
+            threadId: debugThreadId,
+            runId: debugRunId,
+          });
+        }
+
         if (!request.signal.aborted && !streamClosed) {
           try {
             await writer.write(encoder.encode(event));

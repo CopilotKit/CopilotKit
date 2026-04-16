@@ -65,7 +65,7 @@ export async function handleRunAgent({
       });
     }
 
-    return handleSseRun({ runtime, request, agent, input });
+    return handleSseRun({ runtime, request, agent, input, agentId });
   } catch (error) {
     console.error("Error running agent:", error);
     console.error(

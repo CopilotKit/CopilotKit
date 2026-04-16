@@ -15,6 +15,8 @@ export function handleSseConnect({
 }: HandleSseConnectParams): Response {
   return createSseEventResponse({
     request,
+    debugEventBus: runtime.debugEventBus,
+    agentId: "connect",
     observableFactory: () =>
       runtime.runner.connect({
         threadId,
