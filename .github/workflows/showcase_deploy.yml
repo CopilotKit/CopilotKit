@@ -264,40 +264,131 @@ jobs:
           build-args: ${{ steps.build-args.outputs.args }}
 
       - name: Deploy to Railway
+        id: deploy
         if: matrix.service.railway_id != ''
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SERVICE_ID: ${{ matrix.service.railway_id }}
+          ENV_ID: ${{ env.RAILWAY_ENV_ID }}
         run: |
+          # Capture the current deployment ID BEFORE redeploying so the verify
+          # step can distinguish the fresh deployment from the prior one.
+          PRIOR_RESULT=$(curl -s -H "Authorization: Bearer $RAILWAY_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\":\"query { deployments(first: 1, input: { serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\" }) { edges { node { id } } } }\"}" \
+            https://backboard.railway.com/graphql/v2 2>/dev/null)
+          # Fail fast on GraphQL errors — silent failure here would bypass the
+          # stale-deployment guard in the verify step.
+          PRIOR_ERRORS=$(echo "$PRIOR_RESULT" | jq -r '.errors[]?.message // empty')
+          if [ -n "$PRIOR_ERRORS" ]; then
+            echo "::error::Railway prior-deploy query failed: $PRIOR_ERRORS"
+            exit 1
+          fi
+          PRIOR_DEPLOY_ID=$(echo "$PRIOR_RESULT" | jq -r '.data.deployments.edges[0].node.id // empty')
+          echo "Prior deployment ID: ${PRIOR_DEPLOY_ID:-<none>}"
+          echo "prior_deploy_id=$PRIOR_DEPLOY_ID" >> "$GITHUB_OUTPUT"
+
           # All Railway services are configured to pull :latest from GHCR.
           # serviceInstanceRedeploy triggers a fresh pull of the configured image.
-          curl -sf -X POST "https://backboard.railway.com/graphql/v2" \
-            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+          # Check response body for GraphQL errors (HTTP 200 + errors is valid).
+          REDEPLOY_RESULT=$(curl -s -X POST "https://backboard.railway.com/graphql/v2" \
+            -H "Authorization: Bearer $RAILWAY_TOKEN" \
             -H "Content-Type: application/json" \
-            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"${{ matrix.service.railway_id }}\", environmentId: \"${{ env.RAILWAY_ENV_ID }}\") }"}' \
-            && echo "Deploy triggered for ${{ matrix.service.dispatch_name }}"
+            -d "{\"query\":\"mutation { serviceInstanceRedeploy(serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\") }\"}")
+          REDEPLOY_ERRORS=$(echo "$REDEPLOY_RESULT" | jq -r '.errors[]?.message // empty')
+          if [ -n "$REDEPLOY_ERRORS" ]; then
+            echo "::error::Railway redeploy failed: $REDEPLOY_ERRORS"
+            exit 1
+          fi
+          REDEPLOY_OK=$(echo "$REDEPLOY_RESULT" | jq -r '.data.serviceInstanceRedeploy // false')
+          if [ "$REDEPLOY_OK" != "true" ]; then
+            echo "::error::Railway redeploy did not confirm success: $REDEPLOY_RESULT"
+            exit 1
+          fi
+          echo "Deploy triggered for ${{ matrix.service.dispatch_name }}"
 
       - name: Verify deploy health
         if: matrix.service.railway_id != ''
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SERVICE_ID: ${{ matrix.service.railway_id }}
+          ENV_ID: ${{ env.RAILWAY_ENV_ID }}
+          PRIOR_DEPLOY_ID: ${{ steps.deploy.outputs.prior_deploy_id }}
         run: |
-          # Wait for Railway to pull and start the new image
-          sleep 30
+          # Fail fast if RAILWAY_TOKEN is not set
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN is not set"
+            exit 1
+          fi
 
-          # Get the service domain from Railway API or construct from naming pattern
-          IMAGE="${{ matrix.service.image }}"
-          # Try the standard domain pattern
-          HEALTH_URL="https://${IMAGE}-production.up.railway.app/api/health"
+          echo "Verifying fresh deploy (prior ID: ${PRIOR_DEPLOY_ID:-<none>})..."
+          # 24 attempts * 15s = 360s to accommodate JVM/slow-boot services (spring-ai, mastra)
+          # Require 2 consecutive healthy polls before declaring success — catches
+          # SUCCESS-then-crash (JVM lazy init failure, Python OOM on first request).
+          HEALTHY_STREAK=0
+          REQUIRED_STREAK=2
+          for i in $(seq 1 24); do
+            RESULT=$(curl -s -H "Authorization: Bearer $RAILWAY_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"query\":\"query { deployments(first: 1, input: { serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\" }) { edges { node { id status staticUrl } } } }\"}" \
+              https://backboard.railway.com/graphql/v2 2>/dev/null)
 
-          echo "Checking health: $HEALTH_URL"
-          for i in $(seq 1 6); do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$HEALTH_URL" 2>/dev/null || echo "000")
-            echo "Attempt $i: HTTP $STATUS"
-            if [ "$STATUS" = "200" ]; then
-              echo "Service healthy"
-              exit 0
+            # Surface GraphQL errors and fail fast
+            ERRORS=$(echo "$RESULT" | jq -r '.errors[]?.message // empty')
+            if [ -n "$ERRORS" ]; then
+              echo "::error::Railway API error: $ERRORS"
+              exit 1
             fi
-            sleep 10
+
+            DEPLOY_ID=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.id')
+            STATUS=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.status')
+            DOMAIN=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.staticUrl')
+            echo "Attempt $i: deploy=$DEPLOY_ID status=$STATUS domain=$DOMAIN streak=$HEALTHY_STREAK"
+
+            # Skip stale deployments: if we see the prior deployment, the fresh
+            # one hasn't appeared yet — wait without declaring success or failure.
+            if [ -n "$PRIOR_DEPLOY_ID" ] && [ "$DEPLOY_ID" = "$PRIOR_DEPLOY_ID" ]; then
+              echo "  (prior deployment still latest — waiting for fresh one)"
+              HEALTHY_STREAK=0
+              sleep 15
+              continue
+            fi
+
+            # Fail on any terminal failure status. Railway's DeploymentStatus enum
+            # has no CANCELLED value; the real terminal failures are below.
+            case "$STATUS" in
+              CRASHED|FAILED|REMOVED|SKIPPED)
+                echo "::error::Service ${{ matrix.service.dispatch_name }} deploy status: $STATUS"
+                exit 1
+                ;;
+            esac
+
+            if [ "$STATUS" = "SUCCESS" ] && [ -n "$DOMAIN" ] && [ "$DOMAIN" != "null" ]; then
+              # Hit /api/health rather than root: many starters are API-only
+              # backends that 404 at /, so a 404 at root can't distinguish
+              # "dead" from "alive-but-no-index-route".
+              HEALTH_URL="https://${DOMAIN}/api/health"
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$HEALTH_URL" 2>/dev/null || echo "000")
+              echo "HTTP check: $HEALTH_URL → $HTTP_CODE"
+              if [ "$HTTP_CODE" = "200" ]; then
+                HEALTHY_STREAK=$((HEALTHY_STREAK + 1))
+                if [ "$HEALTHY_STREAK" -ge "$REQUIRED_STREAK" ]; then
+                  echo "Service healthy ($HEALTHY_STREAK consecutive 200s)"
+                  exit 0
+                fi
+              else
+                # Reset streak if we had a partial streak and then a non-200
+                HEALTHY_STREAK=0
+              fi
+              # SUCCESS but not (yet) responding — may be sleep-on-idle waking up
+            else
+              HEALTHY_STREAK=0
+            fi
+
+            sleep 15
           done
-          echo "Service did not return 200 after 90s (may still be starting with sleep-on-idle)"
-          # Don't fail the job — sleep-on-idle services may take longer to wake
-          # But log it clearly for visibility
+          echo "::warning::Service ${{ matrix.service.dispatch_name }} did not become healthy within 360s"
+          # Don't fail — sleep-on-idle services take time to wake
 
   notify:
     needs: [detect-changes, check-lockfile, build]
