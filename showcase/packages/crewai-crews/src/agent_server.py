@@ -61,8 +61,18 @@ _crewai_crew_chat.generate_crew_description_with_ai = _static_crew_description
 
 # Verify the patch took effect (defense-in-depth against import-order weirdness
 # or re-imports that could shadow our module reference).
-assert _crewai_crew_chat.generate_input_description_with_ai is _static_input_description
-assert _crewai_crew_chat.generate_crew_description_with_ai is _static_crew_description
+if _crewai_crew_chat.generate_input_description_with_ai is not _static_input_description:
+    raise RuntimeError(
+        "crewai hardening shim: patch verification failed — "
+        "generate_input_description_with_ai was shadowed or re-imported after patching. "
+        "This would reintroduce the pre-bind LLM crash bug."
+    )
+if _crewai_crew_chat.generate_crew_description_with_ai is not _static_crew_description:
+    raise RuntimeError(
+        "crewai hardening shim: patch verification failed — "
+        "generate_crew_description_with_ai was shadowed or re-imported after patching. "
+        "This would reintroduce the pre-bind LLM crash bug."
+    )
 
 logging.getLogger(__name__).info(
     "Applied crewai.cli.crew_chat hardening shim (upstream issue #5510). "
