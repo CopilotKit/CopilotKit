@@ -9,10 +9,14 @@ import {
   CopilotSidebarViewProps,
 } from "./CopilotSidebarView";
 
-export type CopilotSidebarProps = Omit<CopilotChatProps, "chatView"> & {
+export type CopilotSidebarProps = Omit<CopilotChatProps, "chatView" | "isModalOpen" | "onModalOpenChange"> & {
   header?: CopilotSidebarViewProps["header"];
   toggleButton?: CopilotSidebarViewProps["toggleButton"];
   defaultOpen?: boolean;
+  /** Controlled mode: external source of truth for open/close state. */
+  isOpen?: boolean;
+  /** Callback fired when the sidebar wants to change its open state. */
+  onOpenChange?: (open: boolean) => void;
   width?: number | string;
 };
 
@@ -20,6 +24,8 @@ export function CopilotSidebar({
   header,
   toggleButton,
   defaultOpen,
+  isOpen,
+  onOpenChange,
   width,
   ...chatProps
 }: CopilotSidebarProps) {
@@ -65,6 +71,8 @@ export function CopilotSidebar({
         welcomeScreen={CopilotSidebarView.WelcomeScreen}
         {...chatProps}
         isModalDefaultOpen={defaultOpen}
+        isModalOpen={isOpen}
+        onModalOpenChange={onOpenChange}
         chatView={SidebarViewOverride}
       />
     </>

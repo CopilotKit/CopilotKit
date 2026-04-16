@@ -58,12 +58,16 @@ export interface CopilotChatConfigurationProviderProps {
   agentId?: string;
   threadId?: string;
   isModalDefaultOpen?: boolean;
+  /** Controlled mode: external source of truth for modal open/close state. */
+  isModalOpen?: boolean;
+  /** Callback fired when the modal wants to change its open state. */
+  onModalOpenChange?: (open: boolean) => void;
 }
 
 // Provider component
 export const CopilotChatConfigurationProvider: React.FC<
   CopilotChatConfigurationProviderProps
-> = ({ children, labels, agentId, threadId, isModalDefaultOpen }) => {
+> = ({ children, labels, agentId, threadId, isModalDefaultOpen, isModalOpen: externalIsOpen, onModalOpenChange }) => {
   const parentConfig = useContext(CopilotChatConfiguration);
 
   // Stabilize labels references so that inline objects (new reference on every
@@ -94,6 +98,10 @@ export const CopilotChatConfigurationProvider: React.FC<
 
   const resolvedDefaultOpen = isModalDefaultOpen ?? true;
 
+  // Controlled vs uncontrolled mode:
+  // When externalIsOpen is provided, the consumer owns the open/close state.
+  const isControlled = externalIsOpen !== undefined;
+
   const [internalModalOpen, setInternalModalOpen] =
     useState<boolean>(resolvedDefaultOpen);
 
@@ -106,11 +114,14 @@ export const CopilotChatConfigurationProvider: React.FC<
   // "outer hook always returns true" regression (CPK-7152 Behavior B).
   const setAndSync = useCallback(
     (open: boolean) => {
-      setInternalModalOpen(open);
+      if (!isControlled) {
+        setInternalModalOpen(open);
+      }
+      onModalOpenChange?.(open);
       parentConfig?.setModalOpen(open);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [parentConfig?.setModalOpen],
+    [parentConfig?.setModalOpen, isControlled, onModalOpenChange],
   );
 
   // Sync parent → child: when an ancestor's modal state is changed externally
@@ -126,15 +137,20 @@ export const CopilotChatConfigurationProvider: React.FC<
       return;
     }
     if (parentConfig?.isModalOpen === undefined) return;
-    setInternalModalOpen(parentConfig.isModalOpen);
-  }, [parentConfig?.isModalOpen, hasExplicitDefault]);
+    if (!isControlled) {
+      setInternalModalOpen(parentConfig.isModalOpen);
+    }
+  }, [parentConfig?.isModalOpen, hasExplicitDefault, isControlled]);
 
-  const resolvedIsModalOpen = hasExplicitDefault
-    ? internalModalOpen
-    : (parentConfig?.isModalOpen ?? internalModalOpen);
-  const resolvedSetModalOpen = hasExplicitDefault
+  // In controlled mode, use externalIsOpen; otherwise fall back to internal state.
+  const resolvedIsModalOpen = isControlled
+    ? externalIsOpen
+    : hasExplicitDefault
+      ? internalModalOpen
+      : (parentConfig?.isModalOpen ?? internalModalOpen);
+  const resolvedSetModalOpen = hasExplicitDefault || isControlled
     ? setAndSync
-    : (parentConfig?.setModalOpen ?? setInternalModalOpen);
+    : (parentConfig?.setModalOpen ?? setAndSync);
 
   const configurationValue: CopilotChatConfigurationValue = useMemo(
     () => ({
