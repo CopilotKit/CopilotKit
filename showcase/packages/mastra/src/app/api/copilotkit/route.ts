@@ -15,6 +15,12 @@ const serviceAdapter = new ExperimentalEmptyAdapter();
 // `human_in_the_loop`, etc.). Mirror the crewai-crews pattern and expose the
 // same underlying agent under every name the demos ask for so the runtime can
 // resolve them. `weatherAgent` is also preserved for backend smoke tests.
+//
+// NOTE: This aliasing makes demo pages load without agent-name 404s.
+// Demos that depend on specific agent capabilities (HITL interrupts,
+// streaming state, gen-ui steps) remain limited by weatherAgent's features.
+// Full feature parity requires dedicated Mastra agents per demo — see
+// crewai-crews for the precedent pattern.
 const demoAgentNames = [
   "agentic_chat",
   "human_in_the_loop",
@@ -28,19 +34,19 @@ const demoAgentNames = [
 ];
 
 function buildAgents() {
-  // @ts-expect-error - ignore for now, typing error (matches upstream pattern)
-  const localAgents = MastraAgent.getLocalAgents({ mastra }) as Record<
-    string,
-    unknown
-  >;
+  // resourceId is typed as required but only used to tag agents downstream;
+  // empty string matches the pre-aliasing behavior where it was undefined.
+  const localAgents = MastraAgent.getLocalAgents({ mastra, resourceId: "" });
   const weatherAgent = localAgents.weatherAgent;
-  const agents: Record<string, unknown> = { ...localAgents };
-  if (weatherAgent) {
-    for (const name of demoAgentNames) {
-      agents[name] = weatherAgent;
-    }
+  if (!weatherAgent) {
+    throw new Error(
+      "weatherAgent missing from Mastra config — required for demo aliases",
+    );
   }
-  return agents;
+  return {
+    ...localAgents,
+    ...Object.fromEntries(demoAgentNames.map((name) => [name, weatherAgent])),
+  };
 }
 
 // 2. Build a Next.js API route that handles the CopilotKit runtime requests.
@@ -48,7 +54,7 @@ export const POST = async (req: NextRequest) => {
   // 3. Create the CopilotRuntime instance and utilize the Mastra AG-UI
   //    integration to get the remote agents. Cache this for performance.
   const runtime = new CopilotRuntime({
-    // @ts-expect-error - ignore for now, typing error
+    // @ts-expect-error - CopilotRuntime expects MaybePromise<Record<...>>; the spread-widened object literal doesn't structurally match
     agents: buildAgents(),
   });
 
