@@ -70,7 +70,7 @@ services:
       [
         "bash",
         "-c",
-        "cd /tests && npm install --no-audit --no-fund 2>/dev/null && npx playwright install chromium 2>/dev/null && npx playwright test starter-smoke --reporter=list",
+        "cd /tests && npm install --no-audit --no-fund 2>/dev/null && npx playwright install chromium && npx playwright test starter-smoke --reporter=list",
       ]
 
 volumes:
