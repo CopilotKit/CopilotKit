@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { createCatalog, type CatalogRenderers } from "@copilotkit/a2ui-renderer";
+import {
+  createCatalog,
+  type CatalogRenderers,
+} from "@copilotkit/a2ui-renderer";
 import React from "react";
 
 const definitions = {
@@ -43,11 +46,13 @@ const definitions = {
   SourceCard: {
     description: "A citation/source reference card",
     props: z.object({
-      sources: z.array(z.object({
-        title: z.string(),
-        url: z.string().optional(),
-        snippet: z.string().optional(),
-      })),
+      sources: z.array(
+        z.object({
+          title: z.string(),
+          url: z.string().optional(),
+          snippet: z.string().optional(),
+        }),
+      ),
     }),
   },
 };
@@ -65,21 +70,31 @@ const renderers: CatalogRenderers<typeof definitions> = {
               : "bg-neutral-800 text-neutral-200 rounded-bl-sm"
           }`}
         >
-          <div className={`text-xs mb-1 font-medium ${isUser ? "text-blue-200" : "text-neutral-400"}`}>
+          <div
+            className={`text-xs mb-1 font-medium ${isUser ? "text-blue-200" : "text-neutral-400"}`}
+          >
             {props.sender}
           </div>
           <div className="text-sm leading-relaxed whitespace-pre-wrap">
             {props.isThinking ? (
               <span className="inline-flex gap-1">
                 <span className="w-2 h-2 bg-neutral-500 rounded-full animate-pulse" />
-                <span className="w-2 h-2 bg-neutral-500 rounded-full animate-pulse" style={{ animationDelay: "0.2s" }} />
-                <span className="w-2 h-2 bg-neutral-500 rounded-full animate-pulse" style={{ animationDelay: "0.4s" }} />
+                <span
+                  className="w-2 h-2 bg-neutral-500 rounded-full animate-pulse"
+                  style={{ animationDelay: "0.2s" }}
+                />
+                <span
+                  className="w-2 h-2 bg-neutral-500 rounded-full animate-pulse"
+                  style={{ animationDelay: "0.4s" }}
+                />
               </span>
             ) : (
               props.message
             )}
           </div>
-          <div className={`text-[10px] mt-1 ${isUser ? "text-blue-300" : "text-neutral-500"}`}>
+          <div
+            className={`text-[10px] mt-1 ${isUser ? "text-blue-300" : "text-neutral-500"}`}
+          >
             {props.time}
           </div>
         </div>
@@ -109,10 +124,21 @@ const renderers: CatalogRenderers<typeof definitions> = {
             color: "#8b949e",
           }}
         >
-          {props.filename} {props.language && <span style={{ color: "#484f58" }}>({props.language})</span>}
+          {props.filename}{" "}
+          {props.language && (
+            <span style={{ color: "#484f58" }}>({props.language})</span>
+          )}
         </div>
       )}
-      <pre style={{ margin: 0, padding: "12px", color: "#c9d1d9", overflowX: "auto", lineHeight: 1.6 }}>
+      <pre
+        style={{
+          margin: 0,
+          padding: "12px",
+          color: "#c9d1d9",
+          overflowX: "auto",
+          lineHeight: 1.6,
+        }}
+      >
         <code>{props.code}</code>
       </pre>
     </div>
@@ -134,10 +160,25 @@ const renderers: CatalogRenderers<typeof definitions> = {
 
   // Tailwind
   ToolCallCard: ({ props }) => {
-    const statusConfig: Record<string, { icon: string; color: string; bg: string }> = {
-      running: { icon: "\u23F3", color: "text-yellow-400", bg: "bg-yellow-900/20 border-yellow-800/30" },
-      success: { icon: "\u2705", color: "text-green-400", bg: "bg-green-900/20 border-green-800/30" },
-      error: { icon: "\u274C", color: "text-red-400", bg: "bg-red-900/20 border-red-800/30" },
+    const statusConfig: Record<
+      string,
+      { icon: string; color: string; bg: string }
+    > = {
+      running: {
+        icon: "\u23F3",
+        color: "text-yellow-400",
+        bg: "bg-yellow-900/20 border-yellow-800/30",
+      },
+      success: {
+        icon: "\u2705",
+        color: "text-green-400",
+        bg: "bg-green-900/20 border-green-800/30",
+      },
+      error: {
+        icon: "\u274C",
+        color: "text-red-400",
+        bg: "bg-red-900/20 border-red-800/30",
+      },
     };
     const s = statusConfig[props.status ?? "success"];
     return (
@@ -147,11 +188,15 @@ const renderers: CatalogRenderers<typeof definitions> = {
           <span className={`font-semibold ${s.color}`}>{props.tool}</span>
         </div>
         <div className="text-neutral-500 mb-1">Args:</div>
-        <pre className="text-neutral-300 bg-black/30 rounded p-2 m-0 overflow-x-auto whitespace-pre-wrap">{props.args}</pre>
+        <pre className="text-neutral-300 bg-black/30 rounded p-2 m-0 overflow-x-auto whitespace-pre-wrap">
+          {props.args}
+        </pre>
         {props.result && (
           <>
             <div className="text-neutral-500 mt-2 mb-1">Result:</div>
-            <pre className="text-neutral-300 bg-black/30 rounded p-2 m-0 overflow-x-auto whitespace-pre-wrap">{props.result}</pre>
+            <pre className="text-neutral-300 bg-black/30 rounded p-2 m-0 overflow-x-auto whitespace-pre-wrap">
+              {props.result}
+            </pre>
           </>
         )}
       </div>
@@ -172,10 +217,27 @@ const renderers: CatalogRenderers<typeof definitions> = {
             fontFamily: "system-ui, sans-serif",
           }}
         >
-          <div style={{ fontSize: "13px", fontWeight: 600, color: "#a5b4fc" }}>{src.title}</div>
-          {src.url && <div style={{ fontSize: "11px", color: "#6366f1", marginTop: "2px" }}>{src.url}</div>}
+          <div style={{ fontSize: "13px", fontWeight: 600, color: "#a5b4fc" }}>
+            {src.title}
+          </div>
+          {src.url && (
+            <div
+              style={{ fontSize: "11px", color: "#6366f1", marginTop: "2px" }}
+            >
+              {src.url}
+            </div>
+          )}
           {src.snippet && (
-            <p style={{ fontSize: "12px", color: "#94a3b8", margin: "8px 0 0", lineHeight: 1.5 }}>{src.snippet}</p>
+            <p
+              style={{
+                fontSize: "12px",
+                color: "#94a3b8",
+                margin: "8px 0 0",
+                lineHeight: 1.5,
+              }}
+            >
+              {src.snippet}
+            </p>
           )}
         </div>
       ))}

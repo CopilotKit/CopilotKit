@@ -83,7 +83,7 @@ export function validateFixture(
     return {
       valid: false,
       errors: result.errors.map((e) => ({
-        message: typeof e === "string" ? e : e.message ?? String(e),
+        message: typeof e === "string" ? e : (e.message ?? String(e)),
       })),
     };
   }

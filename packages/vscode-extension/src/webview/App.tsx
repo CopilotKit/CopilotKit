@@ -90,7 +90,9 @@ export function App(): React.ReactElement {
           }
 
           // Inject component CSS (from imports + Tailwind JIT)
-          const existingStyle = document.getElementById("copilotkit-component-css");
+          const existingStyle = document.getElementById(
+            "copilotkit-component-css",
+          );
           if (existingStyle) existingStyle.remove();
           if (msg.css) {
             const style = document.createElement("style");

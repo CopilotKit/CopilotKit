@@ -51,9 +51,7 @@ describe("App", () => {
 
     // Should still show waiting message because catalogVersion is 0
     await waitFor(() => {
-      expect(
-        screen.getByText("Waiting for component data..."),
-      ).toBeDefined();
+      expect(screen.getByText("Waiting for component data...")).toBeDefined();
     });
   });
 

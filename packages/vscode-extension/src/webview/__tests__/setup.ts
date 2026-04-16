@@ -17,7 +17,5 @@ export { postMessageMock };
 export function simulateExtensionMessage(
   message: ExtensionToWebviewMessage,
 ): void {
-  window.dispatchEvent(
-    new MessageEvent("message", { data: message }),
-  );
+  window.dispatchEvent(new MessageEvent("message", { data: message }));
 }

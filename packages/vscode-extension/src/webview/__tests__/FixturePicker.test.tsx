@@ -6,7 +6,11 @@ import { FixturePicker } from "../FixturePicker";
 describe("FixturePicker", () => {
   it("renders nothing when there is only one fixture", () => {
     const { container } = render(
-      <FixturePicker fixtures={["default"]} active="default" onSelect={vi.fn()} />,
+      <FixturePicker
+        fixtures={["default"]}
+        active="default"
+        onSelect={vi.fn()}
+      />,
     );
     expect(container.innerHTML).toBe("");
   });

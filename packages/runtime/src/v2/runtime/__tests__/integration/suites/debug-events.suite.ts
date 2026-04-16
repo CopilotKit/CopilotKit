@@ -130,88 +130,84 @@ export function debugEventsSuite(
     // across tests (the debug SSE endpoint is long-lived and its cleanup
     // depends on the request signal being aborted).
 
-    it(
-      "streams debug event envelopes with correct structure during an agent run",
-      async () => {
-        const controller = new AbortController();
+    it("streams debug event envelopes with correct structure during an agent run", async () => {
+      const controller = new AbortController();
 
-        // Start the debug stream. For real HTTP servers, fetch blocks until
-        // the first chunk arrives, so we also start the agent run concurrently.
-        const debugFetchPromise = doFetch(url("/debug-events"), {
-          signal: controller.signal,
-        });
+      // Start the debug stream. For real HTTP servers, fetch blocks until
+      // the first chunk arrives, so we also start the agent run concurrently.
+      const debugFetchPromise = doFetch(url("/debug-events"), {
+        signal: controller.signal,
+      });
 
-        // Give the subscription a tick to register
-        await new Promise((r) => setTimeout(r, 50));
+      // Give the subscription a tick to register
+      await new Promise((r) => setTimeout(r, 50));
 
-        // Trigger an agent run. We start it AND begin consuming its stream
-        // concurrently with reading the debug stream.
-        const runRes = await doFetch(url("/agent/default/run"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            threadId: "t-debug-1",
-            runId: "r-debug-1",
-            messages: [],
-            state: {},
-            tools: [],
-            context: [],
-            forwardedProps: {},
-          }),
-        });
+      // Trigger an agent run. We start it AND begin consuming its stream
+      // concurrently with reading the debug stream.
+      const runRes = await doFetch(url("/agent/default/run"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          threadId: "t-debug-1",
+          runId: "r-debug-1",
+          messages: [],
+          state: {},
+          tools: [],
+          context: [],
+          forwardedProps: {},
+        }),
+      });
 
-        // Consume the run stream and the debug stream concurrently.
-        // Both are needed: the debug stream blocks until events arrive,
-        // and the run stream must be consumed to avoid backpressure.
-        const [debugRes, runPayload] = await Promise.all([
-          debugFetchPromise,
-          readSSEStream(runRes.body!),
-        ]);
+      // Consume the run stream and the debug stream concurrently.
+      // Both are needed: the debug stream blocks until events arrive,
+      // and the run stream must be consumed to avoid backpressure.
+      const [debugRes, runPayload] = await Promise.all([
+        debugFetchPromise,
+        readSSEStream(runRes.body!),
+      ]);
 
-        // ── SSE response format ──
-        expect(debugRes.status).toBe(200);
-        expect(debugRes.headers.get("content-type")).toContain(
-          "text/event-stream",
-        );
+      // ── SSE response format ──
+      expect(debugRes.status).toBe(200);
+      expect(debugRes.headers.get("content-type")).toContain(
+        "text/event-stream",
+      );
 
-        // Run completed — events should be buffered in the debug stream.
-        expect(runPayload).toContain("RUN_FINISHED");
+      // Run completed — events should be buffered in the debug stream.
+      expect(runPayload).toContain("RUN_FINISHED");
 
-        // Read the debug stream (events are already in the buffer)
-        const debugPayload = await readDebugStream(debugRes.body!, {
-          waitMs: 4_000,
-        });
+      // Read the debug stream (events are already in the buffer)
+      const debugPayload = await readDebugStream(debugRes.body!, {
+        waitMs: 4_000,
+      });
 
-        const envelopes = parseDebugEnvelopes(debugPayload);
+      const envelopes = parseDebugEnvelopes(debugPayload);
 
-        // ── Events flow through ──
-        expect(envelopes.length).toBeGreaterThan(0);
+      // ── Events flow through ──
+      expect(envelopes.length).toBeGreaterThan(0);
 
-        const eventTypes = envelopes.map((e) => e.event.type);
-        expect(eventTypes).toContain("RUN_STARTED");
-        expect(eventTypes).toContain("RUN_FINISHED");
+      const eventTypes = envelopes.map((e) => e.event.type);
+      expect(eventTypes).toContain("RUN_STARTED");
+      expect(eventTypes).toContain("RUN_FINISHED");
 
-        // ── Envelope structure ──
-        for (const envelope of envelopes) {
-          expect(typeof envelope.timestamp).toBe("number");
-          expect(envelope.timestamp).toBeGreaterThan(0);
-          expect(envelope.agentId).toBe("default");
-          expect(typeof envelope.threadId).toBe("string");
-          expect(typeof envelope.runId).toBe("string");
-          expect(envelope.event).toBeDefined();
-          expect(typeof envelope.event.type).toBe("string");
-        }
+      // ── Envelope structure ──
+      for (const envelope of envelopes) {
+        expect(typeof envelope.timestamp).toBe("number");
+        expect(envelope.timestamp).toBeGreaterThan(0);
+        expect(envelope.agentId).toBe("default");
+        expect(typeof envelope.threadId).toBe("string");
+        expect(typeof envelope.runId).toBe("string");
+        expect(envelope.event).toBeDefined();
+        expect(typeof envelope.event.type).toBe("string");
+      }
 
-        // Full event sequence
-        expect(eventTypes).toContain("TEXT_MESSAGE_START");
-        expect(eventTypes).toContain("TEXT_MESSAGE_CONTENT");
-        expect(eventTypes).toContain("TEXT_MESSAGE_END");
+      // Full event sequence
+      expect(eventTypes).toContain("TEXT_MESSAGE_START");
+      expect(eventTypes).toContain("TEXT_MESSAGE_CONTENT");
+      expect(eventTypes).toContain("TEXT_MESSAGE_END");
 
-        // Clean up: abort the request so the debug subscriber is removed
-        controller.abort();
-      },
-      15_000,
-    );
+      // Clean up: abort the request so the debug subscriber is removed
+      controller.abort();
+    }, 15_000);
 
     // ─── HTTP Method Validation ──────────────────────────────────────
 

@@ -11,9 +11,7 @@ interface ComponentTreeItem {
   fixtureName?: string;
 }
 
-export class ComponentPreviewProvider
-  implements vscode.TreeDataProvider<ComponentTreeItem>
-{
+export class ComponentPreviewProvider implements vscode.TreeDataProvider<ComponentTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<
     ComponentTreeItem | undefined | void
   >();
@@ -87,7 +85,10 @@ export class ComponentPreviewProvider
       }));
     }
 
-    if (element.type === "component" && element.component.fixtureNames?.length) {
+    if (
+      element.type === "component" &&
+      element.component.fixtureNames?.length
+    ) {
       // Component children -- list fixtures
       return element.component.fixtureNames.map((name) => ({
         type: "fixture" as const,

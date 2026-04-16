@@ -93,13 +93,17 @@ describe("ConnectionBar", () => {
     render(<ConnectionBar {...defaults} />);
     const input = screen.getByPlaceholderText("Runtime URL");
     expect(input).toBeDefined();
-    expect((input as HTMLInputElement).value).toBe("http://localhost:4000/api/copilotkit");
+    expect((input as HTMLInputElement).value).toBe(
+      "http://localhost:4000/api/copilotkit",
+    );
   });
 
   it("calls onConnect with the URL when Connect is clicked", () => {
     render(<ConnectionBar {...defaults} />);
     fireEvent.click(screen.getByText("Connect"));
-    expect(defaults.onConnect).toHaveBeenCalledWith("http://localhost:4000/api/copilotkit");
+    expect(defaults.onConnect).toHaveBeenCalledWith(
+      "http://localhost:4000/api/copilotkit",
+    );
   });
 
   it('shows "Disconnect" button when status is "connected"', () => {

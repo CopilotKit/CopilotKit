@@ -107,9 +107,7 @@ export class ComponentRegistry {
     entries: Array<{ name: string; props: Record<string, unknown> }>,
   ): void {
     const catalogPath = findAssociatedCatalog(fixturePath);
-    const key = catalogPath
-      ? normalizePath(catalogPath)
-      : `__live_schema__`;
+    const key = catalogPath ? normalizePath(catalogPath) : `__live_schema__`;
 
     const schema: ComponentSchema = new Map();
     for (const entry of entries) {
@@ -220,7 +218,8 @@ function extractComponentSchema(filePath: string): ComponentSchema {
 
 function findAssociatedCatalog(fixturePath: string): string | undefined {
   const dir = path.dirname(fixturePath);
-  const basename = path.basename(fixturePath)
+  const basename = path
+    .basename(fixturePath)
     .replace(".fixture.json", "")
     .replace(".fixture.ts", "")
     .replace(".fixture.tsx", "");

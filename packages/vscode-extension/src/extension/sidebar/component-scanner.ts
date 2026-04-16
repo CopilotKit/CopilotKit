@@ -119,8 +119,7 @@ export function scanDirectory(
         continue;
       }
 
-      if (!entry.name.endsWith(".ts") && !entry.name.endsWith(".tsx"))
-        continue;
+      if (!entry.name.endsWith(".ts") && !entry.name.endsWith(".tsx")) continue;
       if (entry.name.includes(".fixture.")) continue;
       if (entry.name.includes(".test.") || entry.name.includes(".spec."))
         continue;

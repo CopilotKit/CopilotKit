@@ -60,9 +60,7 @@ export function ConnectionBar({
         </button>
       </div>
       {error && (
-        <div className="px-3 pb-2 text-xs text-red-400 font-mono">
-          {error}
-        </div>
+        <div className="px-3 pb-2 text-xs text-red-400 font-mono">{error}</div>
       )}
     </div>
   );

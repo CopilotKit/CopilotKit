@@ -98,7 +98,12 @@ export const allCategories: {
   {
     category: "lifecycle",
     label: "Lifecycle",
-    eventTypes: ["RUN_STARTED", "RUN_FINISHED", "STEP_STARTED", "STEP_FINISHED"],
+    eventTypes: [
+      "RUN_STARTED",
+      "RUN_FINISHED",
+      "STEP_STARTED",
+      "STEP_FINISHED",
+    ],
   },
   { category: "error", label: "Errors", eventTypes: ["RUN_ERROR"] },
   {

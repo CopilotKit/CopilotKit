@@ -23,7 +23,9 @@ interface TestServer {
   close(): Promise<void>;
 }
 
-function makeEnvelope(partial?: Partial<DebugEventEnvelope>): DebugEventEnvelope {
+function makeEnvelope(
+  partial?: Partial<DebugEventEnvelope>,
+): DebugEventEnvelope {
   return {
     timestamp: Date.now(),
     agentId: "agent-1",

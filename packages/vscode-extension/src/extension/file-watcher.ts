@@ -12,17 +12,14 @@ export class FileWatcher implements vscode.Disposable {
     this.debounceMs = options?.debounceMs ?? 200;
 
     // Watch TypeScript/TSX files
-    const tsWatcher = vscode.workspace.createFileSystemWatcher(
-      "**/*.{ts,tsx}",
-    );
+    const tsWatcher = vscode.workspace.createFileSystemWatcher("**/*.{ts,tsx}");
     tsWatcher.onDidChange((uri) => this.handleChange(uri));
     tsWatcher.onDidCreate((uri) => this.handleChange(uri));
     this.watchers.push(tsWatcher);
 
     // Watch JSON fixture files
-    const jsonWatcher = vscode.workspace.createFileSystemWatcher(
-      "**/*.fixture.json",
-    );
+    const jsonWatcher =
+      vscode.workspace.createFileSystemWatcher("**/*.fixture.json");
     jsonWatcher.onDidChange((uri) => this.handleChange(uri));
     jsonWatcher.onDidCreate((uri) => this.handleChange(uri));
     this.watchers.push(jsonWatcher);
