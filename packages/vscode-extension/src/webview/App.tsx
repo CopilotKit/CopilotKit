@@ -72,8 +72,7 @@ export function App(): React.ReactElement {
         const catalogExport = (window as any).__copilotkit_catalog;
         (window as any).__copilotkit_catalog = undefined;
 
-        const newCatalog =
-          catalogExport?.default ?? catalogExport?.catalog ?? catalogExport;
+        const newCatalog = findCatalogInExports(catalogExport);
         if (newCatalog) {
           setCatalog(newCatalog);
           setCatalogVersion((v) => v + 1);
@@ -90,7 +89,7 @@ export function App(): React.ReactElement {
           }
         } else {
           setError(
-            "Module does not export a catalog. Expected a default export or named 'catalog' export.",
+            "No catalog found in module exports. The file should export a value created by createCatalog().",
           );
         }
       } catch (err) {
@@ -171,4 +170,34 @@ export function App(): React.ReactElement {
       )}
     </div>
   );
+}
+
+/**
+ * Finds a Catalog instance in the IIFE export object by shape detection.
+ * A Catalog has `id` (string), `components` (Map-like), and `functions` (Map-like).
+ * This means the user can name their export anything — `export const myDashboard = createCatalog(...)`.
+ */
+function isCatalogLike(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const obj = value as Record<string, unknown>;
+  return (
+    typeof obj.id === "string" &&
+    obj.components instanceof Map &&
+    obj.functions instanceof Map
+  );
+}
+
+function findCatalogInExports(exports: unknown): unknown {
+  if (!exports || typeof exports !== "object") return null;
+  const obj = exports as Record<string, unknown>;
+
+  // Check if the exports object itself is a catalog (single default export)
+  if (isCatalogLike(obj)) return obj;
+
+  // Search all export properties for a catalog instance
+  for (const key of Object.keys(obj)) {
+    if (isCatalogLike(obj[key])) return obj[key];
+  }
+
+  return null;
 }
