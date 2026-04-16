@@ -38,6 +38,30 @@ jobs:
       - name: Verify lockfile is up to date
         run: pnpm install --frozen-lockfile --ignore-scripts
 
+      - name: Enforce e2e spec count (min 9 per package)
+        run: |
+          set -euo pipefail
+          MIN=9
+          failed=0
+          found=0
+          for dir in showcase/packages/*/tests/e2e/; do
+            [ -d "$dir" ] || continue
+            found=$((found + 1))
+            count=$(find "$dir" -maxdepth 1 -name '*.spec.ts' | wc -l | tr -d ' ')
+            pkg=$(echo "$dir" | awk -F/ '{print $3}')
+            if [ "$count" -lt "$MIN" ]; then
+              echo "::error file=$dir::Package '$pkg' has $count e2e spec(s); minimum required is $MIN"
+              failed=1
+            else
+              echo "ok: $pkg has $count spec(s)"
+            fi
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "::error::No showcase/packages/*/tests/e2e/ directories found — baseline check cannot run"
+            exit 1
+          fi
+          exit "$failed"
+
       - name: Run build pipeline tests
         working-directory: showcase/scripts
         run: npx vitest run
