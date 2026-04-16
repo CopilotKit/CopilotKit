@@ -1,6 +1,7 @@
 name: test / doc-examples
 on:
   pull_request:
+    branches: [main]
     paths: ["docs/**"]
   push:
     branches: [main]
