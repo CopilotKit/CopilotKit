@@ -41,6 +41,9 @@ jobs:
       - name: Enforce e2e spec count (min 9 per package)
         run: |
           set -euo pipefail
+          shopt -s nullglob
+          # MIN=9 is the baseline demo count (see BASELINE_DEMO_COUNT in
+          # showcase/scripts/validate-parity.ts). Keep these in sync.
           MIN=9
           failed=0
           found=0
@@ -54,7 +57,7 @@ jobs:
               failed=1
               continue
             fi
-            count=$(find "$e2e_dir" -maxdepth 1 -name '*.spec.ts' | wc -l | tr -d ' ')
+            count=$(find "$e2e_dir" -maxdepth 1 -type f -name '*.spec.ts' | wc -l | tr -d ' ')
             if [ "$count" -lt "$MIN" ]; then
               echo "::error file=$e2e_dir::Package '$pkg' has $count e2e spec(s); minimum required is $MIN"
               failed=1
