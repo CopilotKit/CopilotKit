@@ -59,6 +59,15 @@ jobs:
           elif [ $EXIT_CODE -eq 3 ]; then
             echo "Has review items + clean transforms"
             echo "action=push_and_pr" >> "$GITHUB_OUTPUT"
+            if [ -f review-items.txt ]; then
+              REVIEW_ITEMS=$(cat review-items.txt)
+            else
+              echo "::warning::review-items.txt not found despite exit code 3 — sync script may have a bug"
+              REVIEW_ITEMS="(review-items.txt not found — check sync script output)"
+            fi
+            # JSON-escape review items for embedding in Slack payload
+            REVIEW_ITEMS_JSON=$(echo "$REVIEW_ITEMS" | jq -Rs '.' | sed 's/^"//;s/"$//')
+            echo "review_items_json=${REVIEW_ITEMS_JSON}" >> "$GITHUB_OUTPUT"
           else
             echo "Sync failed with exit code $EXIT_CODE"
             exit 1
@@ -142,7 +151,7 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload: |
-            { "text": ":warning: *Docs sync*: files needing manual review — see workflow run for details\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+            { "text": ":warning: *Docs sync*: files needing manual review\n```${{ steps.sync.outputs.review_items_json }}```\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
 
       - name: Notify Slack (failure)
         if: failure() && steps.push.outputs.pr_url == ''
