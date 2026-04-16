@@ -1,0 +1,134 @@
+import * as http from "http";
+import * as https from "https";
+import {
+  DebugEventEnvelope,
+  ConnectionStatus,
+} from "./inspector-types";
+
+type EventCallback = (envelope: DebugEventEnvelope) => void;
+type StatusCallback = (status: ConnectionStatus) => void;
+
+export class DebugStream {
+  private eventCallbacks: EventCallback[] = [];
+  private statusCallbacks: StatusCallback[] = [];
+  private request: http.ClientRequest | null = null;
+  private status: ConnectionStatus = "disconnected";
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectDelay = 1000;
+  private shouldReconnect = false;
+
+  onEvent(cb: EventCallback): () => void {
+    this.eventCallbacks.push(cb);
+    return () => {
+      this.eventCallbacks = this.eventCallbacks.filter((c) => c !== cb);
+    };
+  }
+
+  onStatus(cb: StatusCallback): () => void {
+    this.statusCallbacks.push(cb);
+    return () => {
+      this.statusCallbacks = this.statusCallbacks.filter((c) => c !== cb);
+    };
+  }
+
+  connect(runtimeUrl: string): void {
+    this.disconnect();
+    this.shouldReconnect = true;
+    this.reconnectDelay = 1000;
+    this.doConnect(runtimeUrl);
+  }
+
+  disconnect(): void {
+    this.shouldReconnect = false;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.request) {
+      this.request.destroy();
+      this.request = null;
+    }
+    this.setStatus("disconnected");
+  }
+
+  dispose(): void {
+    this.disconnect();
+    this.eventCallbacks = [];
+    this.statusCallbacks = [];
+  }
+
+  private doConnect(runtimeUrl: string): void {
+    this.setStatus("connecting");
+
+    const url = new URL("/debug-events", runtimeUrl);
+    const mod = url.protocol === "https:" ? https : http;
+
+    const req = mod.get(url, (res) => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        this.handleDisconnect(runtimeUrl);
+        return;
+      }
+
+      this.setStatus("connected");
+      this.reconnectDelay = 1000;
+
+      let buffer = "";
+
+      res.setEncoding("utf-8");
+      res.on("data", (chunk: string) => {
+        buffer += chunk;
+        const lines = buffer.split("\n");
+        buffer = lines.pop()!;
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const envelope = JSON.parse(line.slice(6)) as DebugEventEnvelope;
+              for (const cb of this.eventCallbacks) {
+                cb(envelope);
+              }
+            } catch {
+              // Malformed JSON, skip.
+            }
+          }
+        }
+      });
+
+      res.on("end", () => {
+        this.handleDisconnect(runtimeUrl);
+      });
+
+      res.on("error", () => {
+        this.handleDisconnect(runtimeUrl);
+      });
+    });
+
+    req.on("error", () => {
+      this.handleDisconnect(runtimeUrl);
+    });
+
+    this.request = req;
+  }
+
+  private handleDisconnect(runtimeUrl: string): void {
+    this.request = null;
+    this.setStatus("disconnected");
+
+    if (this.shouldReconnect) {
+      this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = null;
+        this.doConnect(runtimeUrl);
+      }, this.reconnectDelay);
+      this.reconnectDelay = Math.min(this.reconnectDelay * 2, 10000);
+    }
+  }
+
+  private setStatus(status: ConnectionStatus): void {
+    if (this.status === status) return;
+    this.status = status;
+    for (const cb of this.statusCallbacks) {
+      cb(status);
+    }
+  }
+}
