@@ -1,0 +1,4 @@
+slug: ok-pkg
+demos:
+  - id: chat
+    name: Chat
