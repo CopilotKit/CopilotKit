@@ -111,12 +111,13 @@ def langgraph_default_merge_state( # pylint: disable=unused-argument
 
     new_messages = [message for message in messages if message.id not in existing_message_ids]
 
+    # Preserve any existing copilotkit keys (e.g. context, properties) from the
+    # incoming state, then overwrite actions with the freshly-resolved list.
+    incoming_copilotkit = state.get("copilotkit", {})
     return {
         **state,
         "messages": new_messages,
-        "copilotkit": {
-            "actions": actions
-        }
+        "copilotkit": {**incoming_copilotkit, "actions": actions},
     }
 
 
@@ -231,6 +232,7 @@ class LangGraphAgent(Agent):
             thread_id: str,
             actions: Optional[List[ActionDict]] = None,
             meta_events: Optional[List[MetaEvent]] = None,
+            context: Optional[Any] = None,
             **kwargs
     ):
         node_name = kwargs.get("node_name")
@@ -242,7 +244,8 @@ class LangGraphAgent(Agent):
             actions=actions,
             thread_id=thread_id,
             node_name=node_name,
-            meta_events=meta_events
+            meta_events=meta_events,
+            context=context,
         )
 
     async def prepare_stream( # pylint: disable=too-many-arguments
@@ -256,8 +259,12 @@ class LangGraphAgent(Agent):
             actions: Optional[List[ActionDict]] = None,
             node_name: Optional[str] = None,
             meta_events: Optional[List[MetaEvent]] = None,
+            context: Optional[Any] = None,
     ):
         active_interrupts = agent_state.tasks[0].interrupts if agent_state.tasks and agent_state.tasks[0].interrupts else None
+        # Snapshot copilotkit.context from the original incoming state before any mutation,
+        # so we can restore it after merge_state (which would otherwise clobber it).
+        incoming_copilotkit_context = (state_input or {}).get("copilotkit", {}).get("context", [])
         state_input["messages"] = agent_state.values.get("messages", [])
         current_graph_state = agent_state.values
         langchain_messages = self.convert_messages(messages)
@@ -267,6 +274,12 @@ class LangGraphAgent(Agent):
             actions=actions,
             agent_name=self.name
         )
+        # Ensure copilotkit.context and copilotkit.properties are always present.
+        # merge_state implementations (including custom ones) may rebuild the copilotkit
+        # dict without these keys, so we inject them explicitly here.
+        state.setdefault("copilotkit", {})
+        state["copilotkit"]["context"] = incoming_copilotkit_context
+        state["copilotkit"]["properties"] = context["properties"] if context is not None else {}
         # Only update graph state with keys that merge_state explicitly produced,
         # not keys that were simply passed through from state_input unchanged.
         # This preserves graph-owned state keys that the frontend may have sent stale values for.
@@ -328,7 +341,8 @@ class LangGraphAgent(Agent):
             state: Any,
             config: Optional[dict] = None,
             actions: Optional[List[ActionDict]] = None,
-            message_checkpoint: HumanMessage
+            message_checkpoint: HumanMessage,
+            context: Optional[Any] = None,
     ):
         thread_id = config.get("configurable", {}).get("thread_id")
         time_travel_checkpoint = await self.get_checkpoint_before_message(message_checkpoint.id, thread_id)
@@ -341,12 +355,17 @@ class LangGraphAgent(Agent):
             as_node=time_travel_checkpoint.next[0] if time_travel_checkpoint.next else "__start__"
         )
 
+        # Snapshot context from the current request state (not the checkpoint, which may be stale).
+        incoming_copilotkit_context = (state or {}).get("copilotkit", {}).get("context", [])
         stream_input = cast(Callable, self.merge_state)(
             state=time_travel_checkpoint.values,
             messages=[message_checkpoint],
             actions=actions,
             agent_name=self.name
         )
+        stream_input.setdefault("copilotkit", {})
+        stream_input["copilotkit"]["context"] = incoming_copilotkit_context
+        stream_input["copilotkit"]["properties"] = context["properties"] if context is not None else {}
         stream = self.graph.astream_events(stream_input, fork, version="v2")
         return {
             "stream": stream,
@@ -365,6 +384,7 @@ class LangGraphAgent(Agent):
             actions: Optional[List[ActionDict]] = None,
             node_name: Optional[str] = None,
             meta_events: Optional[List[MetaEvent]] = None,
+            context: Optional[Any] = None,
         ):
         default_config = ensure_config(cast(Any, self.langgraph_config.copy()) if self.langgraph_config else {}) # pylint: disable=line-too-long
         config = {**default_config, **(self.graph.config or {}), **(config or {})}
@@ -387,7 +407,8 @@ class LangGraphAgent(Agent):
             actions=actions,
             thread_id=thread_id,
             node_name=node_name,
-            meta_events=meta_events
+            meta_events=meta_events,
+            context=context,
         )
 
         langchain_messages = self.convert_messages(messages)
@@ -406,6 +427,7 @@ class LangGraphAgent(Agent):
                     config=config,
                     message_checkpoint=last_user_message,
                     actions=actions,
+                    context=context,
                 )
 
         state = prepared_stream_response["state"]
