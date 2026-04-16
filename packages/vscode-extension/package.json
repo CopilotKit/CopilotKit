@@ -53,13 +53,13 @@
     "views": {
       "copilotkit": [
         {
-          "id": "copilotkit.componentPreview",
-          "name": "Component Preview"
-        },
-        {
           "id": "copilotkit.inspector",
           "type": "webview",
           "name": "AG-UI Inspector"
+        },
+        {
+          "id": "copilotkit.componentPreview",
+          "name": "A2UI Catalog Components Preview"
         }
       ]
     },
