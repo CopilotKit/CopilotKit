@@ -74,6 +74,11 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "transcribe" };
   }
 
+  // /debug-events (1 segment)
+  if (len >= 1 && segments[len - 1] === "debug-events") {
+    return { method: "debug-events" };
+  }
+
   // /agent/:agentId/run (3 segments)
   if (
     len >= 3 &&
