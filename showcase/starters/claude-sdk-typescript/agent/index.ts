@@ -219,11 +219,13 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
             delta: event.delta.text,
           });
         } else if (event.delta.type === "input_json_delta") {
-          emit({
-            type: EventType.TOOL_CALL_ARGS,
-            toolCallId,
-            delta: event.delta.partial_json,
-          });
+          if (toolCallId) {
+            emit({
+              type: EventType.TOOL_CALL_ARGS,
+              toolCallId,
+              delta: event.delta.partial_json,
+            });
+          }
         }
       } else if (event.type === "content_block_stop") {
         if (toolCallId) {
@@ -257,13 +259,17 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
   } catch (error: unknown) {
     const err = error as Error;
     console.error(`[agent_server] ERROR: ${err.message}`);
-    emit({
-      type: EventType.RUN_ERROR,
-      runId,
-      threadId,
-      message: "An error occurred while processing the request",
-      code: "AGENT_ERROR",
-    });
+    try {
+      emit({
+        type: EventType.RUN_ERROR,
+        runId,
+        threadId,
+        message: "An error occurred while processing the request",
+        code: "AGENT_ERROR",
+      });
+    } catch {
+      // Client may have disconnected — cannot write error event
+    }
   }
 
   res.end();
