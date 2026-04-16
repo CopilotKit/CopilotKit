@@ -18,6 +18,7 @@ import type {
   AfterRequestMiddleware,
 } from "./middleware";
 import { TranscriptionService } from "../transcription-service/transcription-service";
+import { DebugEventBus } from "./debug-event-bus";
 import { AgentRunner } from "../runner/agent-runner";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
@@ -181,6 +182,7 @@ export interface CopilotRuntimeLike {
   identifyUser?: IdentifyUserCallback;
   mode: RuntimeMode;
   licenseChecker?: LicenseChecker;
+  debugEventBus?: DebugEventBus;
 }
 
 export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
@@ -208,6 +210,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public mcpApps: CopilotRuntimeOptions["mcpApps"];
   public openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
   public licenseChecker?: LicenseChecker;
+  public debugEventBus?: DebugEventBus;
 
   abstract readonly intelligence?: CopilotKitIntelligence;
   abstract readonly mode: RuntimeMode;
@@ -231,6 +234,10 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.mcpApps = mcpApps;
     this.openGenerativeUI = openGenerativeUI;
     this.runner = runner;
+
+    if (process.env.NODE_ENV !== "production") {
+      this.debugEventBus = new DebugEventBus();
+    }
   }
 }
 
@@ -386,5 +393,9 @@ export class CopilotRuntime implements CopilotRuntimeLike {
 
   get licenseChecker() {
     return this.delegate.licenseChecker;
+  }
+
+  get debugEventBus() {
+    return this.delegate.debugEventBus;
   }
 }
