@@ -1,9 +1,6 @@
-import * as http from "http";
-import * as https from "https";
-import {
-  DebugEventEnvelope,
-  ConnectionStatus,
-} from "./inspector-types";
+import * as http from "node:http";
+import * as https from "node:https";
+import { DebugEventEnvelope, ConnectionStatus } from "./inspector-types";
 
 type EventCallback = (envelope: DebugEventEnvelope) => void;
 type StatusCallback = (status: ConnectionStatus) => void;

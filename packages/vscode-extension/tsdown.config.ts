@@ -74,12 +74,13 @@ export default defineConfig([
   },
   // Inspector webview — browser, ESM
   {
-    entry: ["src/webview/inspector/index.tsx"],
+    entry: { inspector: "src/webview/inspector/index.tsx" },
     outDir: "dist/webview",
     format: ["esm"],
     platform: "browser",
     noExternal: [/.*/],
     dts: false,
     clean: false,
+    plugins: [nodeResolveFallback()],
   },
 ]);
