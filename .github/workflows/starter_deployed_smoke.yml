@@ -46,16 +46,101 @@ jobs:
 
       - name: Run starter deployed smoke tests
         working-directory: showcase/tests
-        run: npx playwright test e2e/integration-smoke.spec.ts --grep "@starter-health|@starter-agent|@starter-chat"
+        # Emit JSON report alongside the default reporter so the Slack step can enrich the alert.
+        run: npx playwright test e2e/integration-smoke.spec.ts --grep "@starter-health|@starter-agent|@starter-chat" --reporter=github,json
         env:
           STARTER_SLUG: ${{ inputs.starter_slug || '' }}
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results.json
+
+      - name: Extract failure details
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
+        id: failures
+        working-directory: showcase/tests
+        run: |
+          REPORT=test-results/results.json
+          if [ ! -f "$REPORT" ]; then
+            echo "No JSON report found at $REPORT; writing empty summary"
+            : > /tmp/failure-summary.txt
+            echo "failed_count=0" >> "$GITHUB_OUTPUT"
+            echo "starters=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Walk the playwright JSON suite tree, pull failed tests with: title, tags, first error line.
+          # Cap at 5 entries to avoid noisy Slack messages.
+          jq -r '
+            def walk_suites:
+              (.suites // [])[] | (., (.suites // [])[] | walk_suites), (.specs // [])[];
+            [ .. | objects | select(.tests? and .title?) ] as $specs
+            | $specs
+            | map(
+                . as $spec
+                | ($spec.tests[0] // {}) as $t
+                | ($t.results // [])[-1] as $r
+                | select($r.status == "failed" or $r.status == "timedOut")
+                | {
+                    title: $spec.title,
+                    tags: ($spec.title | [scan("@[a-zA-Z0-9_-]+")]),
+                    slug: ($spec.title | capture("\\[Starter\\] (?<s>[a-zA-Z0-9_-]+)"; "g").s // ""),
+                    error: (
+                      ($r.error.message // $r.errors[0].message // "no error message")
+                      | gsub("\u001b\\[[0-9;]*m"; "")
+                      | split("\n")[0]
+                      | .[0:240]
+                    )
+                  }
+              )
+          ' "$REPORT" > /tmp/failures.json || echo "[]" > /tmp/failures.json
+
+          TOTAL=$(jq 'length' /tmp/failures.json)
+          # Unique list of starter slugs for the header
+          STARTERS=$(jq -r '[.[].slug] | unique | map(select(. != "")) | join(", ")' /tmp/failures.json)
+
+          # Build a short human-readable summary (first 5 failures)
+          jq -r '
+            .[0:5][]
+            | "• *" + (.slug | if . == "" then "?" else . end) + "* "
+              + (if (.tags | length) > 0 then "(" + (.tags | join(" ")) + ") " else "" end)
+              + "— " + .error
+          ' /tmp/failures.json > /tmp/failure-summary.txt
+          if [ "$TOTAL" -gt 5 ]; then
+            echo "• …and $((TOTAL - 5)) more failure(s)" >> /tmp/failure-summary.txt
+          fi
+
+          echo "failed_count=${TOTAL}" >> "$GITHUB_OUTPUT"
+          {
+            echo "starters<<STARTERS_EOF"
+            echo "${STARTERS}"
+            echo "STARTERS_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build Slack payload
         if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
         run: |
-          URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          jq -n --arg text ":rotating_light: *Starter Deployed Smoke Test Failed*\n<$URL|View run>" \
-            '{text: $text}' > /tmp/slack-payload.json
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          JOB_URL="${RUN_URL}/job/${{ github.job }}"
+          STARTERS="${{ steps.failures.outputs.starters }}"
+          FAILED_COUNT="${{ steps.failures.outputs.failed_count || '0' }}"
+
+          # Build the message with REAL newlines, then hand it to jq via --rawfile so escaping is handled correctly.
+          {
+            if [ "$FAILED_COUNT" = "0" ] || [ -z "$FAILED_COUNT" ]; then
+              # Fallback when JSON report wasn't produced (e.g. install step failed).
+              printf ':rotating_light: *Starter Deployed Smoke Test Failed*\n<%s|View run> · <%s|View job>\n' "$RUN_URL" "$JOB_URL"
+            else
+              HEADER=":rotating_light: *Starter Deployed Smoke Test Failed*"
+              if [ -n "$STARTERS" ]; then
+                HEADER="${HEADER} — ${STARTERS}"
+              fi
+              printf '%s\n' "$HEADER"
+              printf '<%s|View run> · <%s|View job>\n' "$RUN_URL" "$JOB_URL"
+              printf '```\n'
+              cat /tmp/failure-summary.txt
+              printf '```\n'
+            fi
+          } > /tmp/slack-message.txt
+
+          jq -n --rawfile text /tmp/slack-message.txt '{text: $text}' > /tmp/slack-payload.json
 
       - name: Alert Slack on failure
         if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')

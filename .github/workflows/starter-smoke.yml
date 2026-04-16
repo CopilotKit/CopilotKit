@@ -115,11 +115,19 @@ jobs:
 
       - name: Build Slack payload
         if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
+        env:
+          SUMMARY_RAW: ${{ steps.failure-cause.outputs.summary }}
         run: |
-          SUMMARY=$(echo "${{ steps.failure-cause.outputs.summary }}" | head -3 | sed 's/\x1b\[[0-9;]*m//g' | cut -c1-200)
+          SUMMARY=$(printf '%s' "$SUMMARY_RAW" | head -3 | sed 's/\x1b\[[0-9;]*m//g' | cut -c1-200)
           URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          jq -n --arg text ":x: *Starter smoke test failing: ${{ matrix.starter }}*\n<$URL|View run>\n\`\`\`$SUMMARY\`\`\`" \
-            '{text: $text}' > /tmp/slack-payload.json
+          JOB_URL="${URL}/job/${{ github.job }}"
+          # Build the message with REAL newlines, then hand it to jq via --rawfile so escaping is handled correctly.
+          {
+            printf ':x: *Starter smoke test failing: %s*\n' "${{ matrix.starter }}"
+            printf '<%s|View run> · <%s|View job>\n' "$URL" "$JOB_URL"
+            printf '```\n%s\n```\n' "$SUMMARY"
+          } > /tmp/slack-message.txt
+          jq -n --rawfile text /tmp/slack-message.txt '{text: $text}' > /tmp/slack-payload.json
 
       - name: Alert Slack on failure
         if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')

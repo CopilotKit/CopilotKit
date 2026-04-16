@@ -74,11 +74,19 @@ jobs:
 
       - name: Build Slack payload
         if: failure()
+        env:
+          DETAILS_RAW: ${{ steps.failures.outputs.details }}
         run: |
-          SUMMARY=$(echo "${{ steps.failures.outputs.details }}" | head -3 | sed 's/\x1b\[[0-9;]*m//g' | cut -c1-200)
+          SUMMARY=$(printf '%s' "$DETAILS_RAW" | head -3 | sed 's/\x1b\[[0-9;]*m//g' | cut -c1-200)
           URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          jq -n --arg text ":x: *Showcase E2E suite failed*\n<$URL|View run>\n\`\`\`$SUMMARY\`\`\`" \
-            '{text: $text}' > /tmp/slack-payload.json
+          JOB_URL="${URL}/job/${{ github.job }}"
+          # Build the message with REAL newlines, then hand it to jq via --rawfile so escaping is handled correctly.
+          {
+            printf ':x: *Showcase E2E suite failed*\n'
+            printf '<%s|View run> · <%s|View job>\n' "$URL" "$JOB_URL"
+            printf '```\n%s\n```\n' "$SUMMARY"
+          } > /tmp/slack-message.txt
+          jq -n --rawfile text /tmp/slack-message.txt '{text: $text}' > /tmp/slack-payload.json
 
       - name: Post failure to Slack
         if: failure()
