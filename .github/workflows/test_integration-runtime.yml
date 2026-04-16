@@ -1,16 +1,16 @@
-name: test / integration
+name: test / integration / runtime
 
 on:
   push:
     branches: [main]
     paths:
       - "packages/runtime/**"
-      - ".github/workflows/test_runtime-servers.yml"
+      - ".github/workflows/test_integration-runtime.yml"
   pull_request:
     branches: [main]
     paths:
       - "packages/runtime/**"
-      - ".github/workflows/test_runtime-servers.yml"
+      - ".github/workflows/test_integration-runtime.yml"
   workflow_dispatch:
     inputs:
       branch:
