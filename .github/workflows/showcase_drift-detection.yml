@@ -83,6 +83,9 @@ jobs:
           SUMMARY=$(printf '%s' "$DETAILS_RAW" | head -3 \
             | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/\x1b\][^\x07]*\x07//g; s/\x1b[()][A-Za-z0-9]//g' \
             | head -c 200 | iconv -f UTF-8 -t UTF-8//IGNORE)
+          if [ -z "$SUMMARY" ]; then
+            SUMMARY="(no failure detail captured — see job log)"
+          fi
           URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           JOB_URL="${URL}/job/${{ github.job }}"
 

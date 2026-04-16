@@ -63,6 +63,7 @@ jobs:
             : > /tmp/failure-summary.txt
             echo "failed_count=0" >> "$GITHUB_OUTPUT"
             echo "starters=" >> "$GITHUB_OUTPUT"
+            echo "extraction_error=missing_report" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -79,7 +80,7 @@ jobs:
                 | {
                     title: $spec.title,
                     tags: ($spec.title | [scan("@[a-zA-Z0-9_-]+")]),
-                    slug: ((try ($spec.title | capture("\\[Starter\\] (?<s>[a-zA-Z0-9_-]+)").s) catch "") // ""),
+                    slug: ((try ($spec.title | capture("\\[Starter\\] (?<s>[a-zA-Z0-9_-]+)").s) catch null) // ($spec.title | .[0:40]) // "unknown"),
                     error: (
                       ($r.error.message // $r.errors[0].message // "no error message")
                       | gsub("\u001b\\[[0-9;?]*[A-Za-z]"; "")
@@ -102,7 +103,7 @@ jobs:
           # Build a short human-readable summary — cap at 5 entries to avoid noisy Slack messages.
           jq -r '
             .[0:5][]
-            | "• *" + (.slug | if . == "" then "?" else . end) + "* "
+            | "• *" + (.slug | if . == "" then "unknown" else . end) + "* "
               + (if (.tags | length) > 0 then "(" + (.tags | join(" ")) + ") " else "" end)
               + "— " + .error
           ' /tmp/failures.json > /tmp/failure-summary.txt
@@ -125,15 +126,23 @@ jobs:
           JOB_URL="${RUN_URL}/job/${{ github.job }}"
           STARTERS="${{ steps.failures.outputs.starters }}"
           FAILED_COUNT="${{ steps.failures.outputs.failed_count || '0' }}"
+          EXTRACTION_ERROR="${{ steps.failures.outputs.extraction_error }}"
 
           SLACK_MSG=$(mktemp)
           SLACK_PAYLOAD=$(mktemp)
 
           # Build the message with REAL newlines, then hand it to jq via --rawfile so escaping is handled correctly.
+          # Distinguish failure modes so on-call can tell install-failed from jq-failed from zero-hits from real test failures.
           {
-            if [ "$FAILED_COUNT" = "0" ] || [ -z "$FAILED_COUNT" ]; then
-              # Fallback when JSON report wasn't produced (e.g. install step failed).
-              printf ':rotating_light: *Starter Deployed Smoke Test Failed*\n<%s|View run> · <%s|View job>\n' "$RUN_URL" "$JOB_URL"
+            if [ "$EXTRACTION_ERROR" = "jq_parse_failed" ]; then
+              # jq crashed trying to parse the report
+              printf ':rotating_light: *Starter Deployed Smoke Test Failed — jq parse of Playwright report failed*\n<%s|View run> · <%s|View job>\n' "$RUN_URL" "$JOB_URL"
+            elif [ "$EXTRACTION_ERROR" = "missing_report" ]; then
+              # Report file never produced (pre-test stage: install, setup, playwright install, etc.)
+              printf ':rotating_light: *Starter Deployed Smoke Test Failed (pre-test stage — no JSON report produced)*\n<%s|View run> · <%s|View job>\n' "$RUN_URL" "$JOB_URL"
+            elif [ "$FAILED_COUNT" = "0" ] || [ -z "$FAILED_COUNT" ]; then
+              # Report exists but jq matched zero failures — job-level error (e.g. non-zero exit without failed tests)
+              printf ':rotating_light: *Starter Deployed Smoke Test Failed (no test failures in report — check run for job-level error)*\n<%s|View run> · <%s|View job>\n' "$RUN_URL" "$JOB_URL"
             else
               HEADER=":rotating_light: *Starter Deployed Smoke Test Failed*"
               if [ -n "$STARTERS" ]; then
