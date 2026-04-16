@@ -19,6 +19,7 @@ export function App() {
   const [events, setEvents] = useState<DebugEventEnvelope[]>([]);
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("disconnected");
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<DebugEventEnvelope | null>(
     null,
   );
@@ -51,6 +52,10 @@ export function App() {
         }
         case "connection-status":
           setConnectionStatus(msg.status);
+          if (msg.status === "connected") setConnectionError(null);
+          break;
+        case "connection-error":
+          setConnectionError(msg.error);
           break;
         case "clear":
           setEvents([]);
@@ -66,6 +71,7 @@ export function App() {
   }, []);
 
   const handleConnect = useCallback((runtimeUrl: string) => {
+    setConnectionError(null);
     vscode.postMessage({ type: "connect", runtimeUrl });
   }, []);
 
@@ -111,6 +117,7 @@ export function App() {
     <div className="flex flex-col h-full">
       <ConnectionBar
         status={connectionStatus}
+        error={connectionError}
         onConnect={handleConnect}
         onDisconnect={handleDisconnect}
         onClear={handleClear}

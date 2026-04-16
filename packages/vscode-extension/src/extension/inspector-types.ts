@@ -11,6 +11,7 @@ export type ConnectionStatus = "connected" | "disconnected" | "connecting";
 export type InspectorToWebviewMessage =
   | { type: "debug-event"; envelope: DebugEventEnvelope }
   | { type: "connection-status"; status: ConnectionStatus }
+  | { type: "connection-error"; error: string }
   | { type: "clear" };
 
 export type InspectorFromWebviewMessage =

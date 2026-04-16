@@ -22,6 +22,10 @@ export class InspectorPanel {
     this.debugStream.onStatus((status) => {
       this.postMessage({ type: "connection-status", status });
     });
+
+    this.debugStream.onError((error) => {
+      this.postMessage({ type: "connection-error", error });
+    });
   }
 
   show(): void {

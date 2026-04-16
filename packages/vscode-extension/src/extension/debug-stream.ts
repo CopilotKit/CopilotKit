@@ -4,10 +4,12 @@ import { DebugEventEnvelope, ConnectionStatus } from "./inspector-types";
 
 type EventCallback = (envelope: DebugEventEnvelope) => void;
 type StatusCallback = (status: ConnectionStatus) => void;
+type ErrorCallback = (error: string) => void;
 
 export class DebugStream {
   private eventCallbacks: EventCallback[] = [];
   private statusCallbacks: StatusCallback[] = [];
+  private errorCallbacks: ErrorCallback[] = [];
   private request: http.ClientRequest | null = null;
   private status: ConnectionStatus = "disconnected";
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -25,6 +27,13 @@ export class DebugStream {
     this.statusCallbacks.push(cb);
     return () => {
       this.statusCallbacks = this.statusCallbacks.filter((c) => c !== cb);
+    };
+  }
+
+  onError(cb: ErrorCallback): () => void {
+    this.errorCallbacks.push(cb);
+    return () => {
+      this.errorCallbacks = this.errorCallbacks.filter((c) => c !== cb);
     };
   }
 
@@ -52,17 +61,29 @@ export class DebugStream {
     this.disconnect();
     this.eventCallbacks = [];
     this.statusCallbacks = [];
+    this.errorCallbacks = [];
+  }
+
+  private emitError(error: string): void {
+    for (const cb of this.errorCallbacks) {
+      cb(error);
+    }
   }
 
   private doConnect(runtimeUrl: string): void {
     this.setStatus("connecting");
 
-    const url = new URL("/debug-events", runtimeUrl);
+    // Append /debug-events to the runtime URL, preserving the existing path
+    const base = runtimeUrl.endsWith("/") ? runtimeUrl : runtimeUrl + "/";
+    const url = new URL("debug-events", base);
     const mod = url.protocol === "https:" ? https : http;
 
     const req = mod.get(url, (res) => {
       if (res.statusCode !== 200) {
         res.resume();
+        this.emitError(
+          `Server returned ${res.statusCode}${res.statusCode === 404 ? " — debug endpoint not found. Is the runtime running in development mode?" : ""}`,
+        );
         this.handleDisconnect(runtimeUrl);
         return;
       }
@@ -101,7 +122,8 @@ export class DebugStream {
       });
     });
 
-    req.on("error", () => {
+    req.on("error", (err) => {
+      this.emitError(`Connection failed: ${err.message}`);
       this.handleDisconnect(runtimeUrl);
     });
 
