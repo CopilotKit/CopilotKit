@@ -26,6 +26,11 @@
  *   # or:
  *   cd showcase/scripts && npx tsx validate-parity.ts
  *
+ * Exit codes:
+ *   0 — no MUST failures
+ *   1 — one or more MUST failures
+ *   2 — internal error (uncaught exception during validation)
+ *
  * The script resolves packages relative to its own file location, so the
  * invocation cwd does not matter as long as the `yaml` dep resolves (it
  * lives under showcase/scripts/node_modules, matching the pattern used by
@@ -258,10 +263,11 @@ export function main(packagesDir: string = DEFAULT_PACKAGES_DIR): void {
     );
   }
 
-  // Emit MUST errors to stdout (part of the failure report)
+  // Emit MUST errors to stderr (failures belong on stderr, not stdout —
+  // stdout is reserved for the pass/summary table).
   for (const r of reports) {
     for (const err of r.mustErrors) {
-      console.log(`[FAIL] ${r.slug}: ${err}`);
+      console.error(`[FAIL] ${r.slug}: ${err}`);
     }
   }
 
@@ -285,5 +291,13 @@ if (
   process.argv[1] &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
-  main();
+  try {
+    main();
+  } catch (err) {
+    // Top-level safety net: surface internal errors with exit code 2 so
+    // they are distinguishable from legitimate MUST failures (exit 1).
+    const msg = err instanceof Error ? err.stack || err.message : String(err);
+    console.error(`[INTERNAL ERROR] validate-parity crashed: ${msg}`);
+    process.exit(2);
+  }
 }
