@@ -4,587 +4,228 @@ icon: "lucide/Bot"
 description: Use A2UI to declaratively generate user interfaces.
 ---
 import Image from "next/image"
+import { Callout } from "fumadocs-ui/components/callout"
 
-Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate widgets, and render them in your CopilotKit powered app.
-  <div>
-    <video src="https://cdn.copilotkit.ai/a2ui/demo.mp4" autoPlay controls loop muted playsInline className="rounded-xl shadow-lg mx-auto mt-auto w-5/6" />
-    <div className="text-center text-sm text-muted-foreground mt-4">
-      Demo of the <a href="https://a2ui-editor.ag-ui.com">A2UI Composer</a> - powered by CopilotKit<br />
-    </div>
+Build an agent that renders rich, interactive UI by emitting [A2UI](https://a2ui.org) v0.9 components — then catalog your own React components so the agent can compose them.
+
+<div>
+  <video src="https://cdn.copilotkit.ai/a2ui/demo.mp4" autoPlay controls loop muted playsInline className="rounded-xl shadow-lg mx-auto mt-auto w-5/6" />
+  <div className="text-center text-sm text-muted-foreground mt-4">
+    Demo of the <a href="https://a2ui-composer.ag-ui.com/">A2UI Composer</a> — powered by CopilotKit<br />
   </div>
+</div>
 
 ## Getting started
 
 <Steps>
   <Step>
-    ### Clone the A2A starter template
+    ### Scaffold the starter
 
     ```bash
-    git clone https://github.com/copilotkit/with-a2a-a2ui.git
+    npx copilotkit@latest create my-app --framework a2ui
+    cd my-app
     ```
 
-    The agent and application from the starter template are already configured to use A2UI, but details are included below for completeness.
+    The `a2ui` framework scaffolds a Next.js app paired with a LangGraph Python agent, preconfigured with an A2UI catalog and the middleware wiring. `-f a2ui` works as a shorthand.
   </Step>
-  <Step>
-    ### Install dependencies
 
-    ```
+  <Step>
+    ### Install and run
+
+    ```bash
     pnpm install
-    ```
-
-  </Step>
-  <Step>
-    ### Run and connect your agent
-
-    ```
+    cp .env.example .env   # add your OPENAI_API_KEY
     pnpm dev
     ```
 
+    `pnpm dev` starts the Next.js UI and the LangGraph agent concurrently. Open http://localhost:3000 and send a message — the agent will respond with an A2UI surface rendered from your catalog.
   </Step>
 
   <Step>
-    ### Configure your agent to use A2UI
+    ### How A2UI works
 
+    A2UI has three moving parts:
+
+    - **Catalog** — a set of component definitions (Zod schemas) paired with React renderers. Registered once on the frontend.
+    - **Surface** — a rendered UI instance. The agent creates a surface against a catalog, then updates its components and data.
+    - **Operations** — `createSurface`, `updateComponents`, `updateDataModel`. The middleware streams these to the client.
+
+    There are two patterns for where the component tree comes from:
+
+    | Pattern | Component tree | Best for |
+    |---|---|---|
+    | **Fixed schema** | Pre-defined in a JSON file; agent provides data only | Known layouts (flight cards, product lists) |
+    | **Dynamic schema** | A secondary LLM generates the tree and data per turn | Open-ended UI that changes with the conversation |
+
+    Both patterns share the same frontend catalog.
   </Step>
 
-
   <Step>
-    ### Setting up your agent with components
+    ### Register the catalog in the app
 
-    The starter template is already configured to use A2UI, but lets look at how to add your own components.
+    The catalog is registered once, at the root of the tree:
 
-    ```python title="agent/restaurant_finder/prompt_builder.py"
-      RESTAURANT_UI_EXAMPLES = """
-      ...
-      ---BEGIN SINGLE_COLUMN_LIST_EXAMPLE---
-      [
-        {{ "beginRendering": {{ "surfaceId": "default", "root": "root-column", "styles": {{ "primaryColor": "#FF0000", "font": "Roboto" }} }} }},
-        {{ "surfaceUpdate": {{
-          "surfaceId": "default",
-          "components": [
-            {{ "id": "root-column", "component": {{ "Column": {{ "children": {{ "explicitList": ["title-heading", "item-list"] }} }} }} }},
-            {{ "id": "title-heading", "component": {{ "Text": {{ "usageHint": "h1", "text": {{ "literalString": "Top Restaurants" }} }} }} }},
-            {{ "id": "item-list", "component": {{ "List": {{ "direction": "vertical", "children": {{ "template": {{ "componentId": "item-card-template", "dataBinding": "/items" }} }} }} }} }},
-            {{ "id": "item-card-template", "component": {{ "Card": {{ "child": "card-layout" }} }} }},
-            {{ "id": "card-layout", "component": {{ "Row": {{ "children": {{ "explicitList": ["template-image", "card-details"] }} }} }} }},
-            {{ "id": "template-image", weight: 1, "component": {{ "Image": {{ "url": {{ "path": "imageUrl" }} }} }} }},
-            {{ "id": "card-details", weight: 2, "component": {{ "Column": {{ "children": {{ "explicitList": ["template-name", "template-rating", "template-detail", "template-link", "template-book-button"] }} }} }} }},
-            {{ "id": "template-name", "component": {{ "Text": {{ "usageHint": "h3", "text": {{ "path": "name" }} }} }} }},
-            {{ "id": "template-rating", "component": {{ "Text": {{ "text": {{ "path": "rating" }} }} }} }},
-            {{ "id": "template-detail", "component": {{ "Text": {{ "text": {{ "path": "detail" }} }} }} }},
-            {{ "id": "template-link", "component": {{ "Text": {{ "text": {{ "path": "infoLink" }} }} }} }},
-            {{ "id": "template-book-button", "component": {{ "Button": {{ "child": "book-now-text", "primary": true, "action": {{ "name": "book_restaurant", "context": [ {{ "key": "restaurantName", "value": {{ "path": "name" }} }}, {{ "key": "imageUrl", "value": {{ "path": "imageUrl" }} }}, {{ "key": "address", "value": {{ "path": "address" }} }} ] }} }} }} }},
-            {{ "id": "book-now-text", "component": {{ "Text": {{ "text": {{ "literalString": "Book Now" }} }} }} }}
-          ]
-        }} }},
-        {{ "dataModelUpdate": {{
-          "surfaceId": "default",
-          "path": "/",
-          "contents": [
-            {{ "key": "items", "valueMap": [
-              {{ "key": "item1", "valueMap": [
-                {{ "key": "name", "valueString": "The Fancy Place" }},
-                {{ "key": "rating", "valueNumber": 4.8 }},
-                {{ "key": "detail", "valueString": "Fine dining experience" }},
-                {{ "key": "infoLink", "valueString": "https://example.com/fancy" }},
-                {{ "key": "imageUrl", "valueString": "https://example.com/fancy.jpg" }},
-                {{ "key": "address", "valueString": "123 Main St" }}
-              ] }},
-              {{ "key": "item2", "valueMap": [
-                {{ "key": "name", "valueString": "Quick Bites" }},
-                {{ "key": "rating", "valueNumber": 4.2 }},
-                {{ "key": "detail", "valueString": "Casual and fast" }},
-                {{ "key": "infoLink", "valueString": "https://example.com/quick" }},
-                {{ "key": "imageUrl", "valueString": "https://example.com/quick.jpg" }},
-                {{ "key": "address", "valueString": "456 Oak Ave" }}
-              ] }}
-            ] }} // Populate this with restaurant data
-          ]
-        }} }}
-      ]
-      ---END SINGLE_COLUMN_LIST_EXAMPLE---
-      # ... more examples below
-      ```
+    ```tsx title="apps/app/src/app/layout.tsx"
+    "use client";
+    import "@copilotkit/react-core/v2/styles.css";
+    import { CopilotKit } from "@copilotkit/react-core/v2";
+    import { demonstrationCatalog } from "./declarative-generative-ui/renderers";
 
-    The widgets are injected into the agent's prompt, in this case using the `RESTAURANT_UI_EXAMPLES` variable.
-    Widgets are defined for the agent using examples of the json arrays they should output, wrapped in a comment block.
-    - A comment indicating the start of the example
-    - beginRendering: The start of the widget's rendering
-    - surfaceUpdate: An example of the json structure for the widget
-    - dataModelUpdate: an example of the data that will be used to populate the widget
-    - A comment indicating the end of the example
+    export default function RootLayout({
+      children,
+    }: {
+      children: React.ReactNode;
+    }) {
+      return (
+        <html lang="en">
+          <body>
+            <CopilotKit
+              runtimeUrl="/api/copilotkit"
+              a2ui={{ catalog: demonstrationCatalog }}
+            >
+              {children}
+            </CopilotKit>
+          </body>
+        </html>
+      );
+    }
+    ```
 
-    In the example repo, all of the widgets are defined in a single variable int the prompt_builder.py file, but you can structure them however you like,
-    they simply need to be be injected into the agent's prompt in a clearly delineated way.
+    <Callout type="info">
+    The import path is `@copilotkit/react-core/v2` — A2UI surfaces render through the v2 runtime.
+    </Callout>
   </Step>
+
   <Step>
-    ### Generating components with the A2UI Composer
-    If you want an easy way to generate components, you can use the A2UI Composer.
-    Go to https://a2ui-composer.ag-ui.com/ to create your own components.
-    The composer will generate the json spec for you, all you have to do is copy and paste it into your agent's prompt.
-    <a href="https://a2ui-editor.ag-ui.com/gallery" target="_blank" rel="noopener noreferrer">
-      <Image 
-        src="/images/a2ui-composer.png" 
-        alt="Agentic Backend to Agentic Application" 
-        width={4096} 
+    ### Define a custom catalog
+
+    A catalog has two files: **definitions** (what the agent sees) and **renderers** (what the user sees). Both live under `apps/app/src/app/declarative-generative-ui/` in the starter.
+
+    **Definitions** — Zod schemas plus a description. The description is how the agent learns what each component is for:
+
+    ```ts title="apps/app/src/app/declarative-generative-ui/definitions.ts"
+    import { z } from "zod";
+
+    export const demonstrationCatalogDefinitions = {
+      Metric: {
+        description:
+          "A key metric display with label, value, and optional trend indicator. Great for KPIs and stats.",
+        props: z.object({
+          label: z.string(),
+          value: z.string(),
+          trend: z.enum(["up", "down", "neutral"]).optional(),
+          trendValue: z.string().optional(),
+        }),
+      },
+
+      DashboardCard: {
+        description:
+          "A card container with title and optional subtitle. Has a 'child' slot for content.",
+        props: z.object({
+          title: z.string(),
+          subtitle: z.string().optional(),
+          child: z.string().optional(),
+        }),
+      },
+    };
+
+    export type DemonstrationCatalogDefinitions =
+      typeof demonstrationCatalogDefinitions;
+    ```
+
+    **Renderers** — React components, type-checked against the schemas:
+
+    ```tsx title="apps/app/src/app/declarative-generative-ui/renderers.tsx"
+    "use client";
+    import {
+      createCatalog,
+      type CatalogRenderers,
+    } from "@copilotkit/a2ui-renderer";
+    import {
+      demonstrationCatalogDefinitions,
+      type DemonstrationCatalogDefinitions,
+    } from "./definitions";
+
+    const renderers: CatalogRenderers<DemonstrationCatalogDefinitions> = {
+      Metric: ({ props }) => (
+        <div>
+          <span>{props.label}</span>
+          <strong>{props.value}</strong>
+          {props.trend && <span>{props.trendValue}</span>}
+        </div>
+      ),
+
+      DashboardCard: ({ props, children }) => (
+        <div className="rounded-xl border p-5">
+          <h3>{props.title}</h3>
+          {props.subtitle && <p>{props.subtitle}</p>}
+          {props.child && children(props.child)}
+        </div>
+      ),
+    };
+
+    export const demonstrationCatalog = createCatalog(
+      demonstrationCatalogDefinitions,
+      renderers,
+      { catalogId: "copilotkit://app-dashboard-catalog" },
+    );
+    ```
+
+    <Callout type="info">
+    The `catalogId` is how your agent references this catalog. Use a stable URI-style string that's unique to your app.
+    </Callout>
+  </Step>
+
+  <Step>
+    ### Point your agent at the catalog
+
+    On the agent side, every surface is created against a `catalog_id`:
+
+    ```python title="apps/agent/src/a2ui_dynamic_schema.py"
+    from copilotkit import a2ui
+
+    CUSTOM_CATALOG_ID = "copilotkit://app-dashboard-catalog"
+
+    ops = [
+        a2ui.create_surface(surface_id, catalog_id=CUSTOM_CATALOG_ID),
+        a2ui.update_components(surface_id, components),
+        a2ui.update_data_model(surface_id, data),
+    ]
+    return a2ui.render(operations=ops)
+    ```
+
+    The same pattern applies for fixed-schema tools — the only difference is that `components` is loaded from a JSON file with `a2ui.load_schema(...)` instead of being generated by an LLM.
+
+    For deeper coverage of each pattern, see the LangGraph guides:
+    - [Fixed Schema](/integrations/langgraph/generative-ui/a2ui/fixed-schema)
+    - [Dynamic Schema](/integrations/langgraph/generative-ui/a2ui/dynamic-schema)
+  </Step>
+
+  <Step>
+    ### Design components with the A2UI Composer
+
+    To design and preview A2UI components visually, use the [A2UI Composer](https://a2ui-composer.ag-ui.com/) — built by CopilotKit engineers and updated for v0.9.
+
+    - `/basic-catalog` documents the standard A2UI v0.9 components.
+    - `/custom-catalog` shows a worked example of a custom catalog you can riff on.
+    - `/gallery` has reference widgets you can open and edit.
+
+    The editor produces v0.9 JSON which you can copy straight into your agent (for fixed schemas) or hand to a secondary LLM (for dynamic schemas).
+
+    <a href="https://a2ui-composer.ag-ui.com/" target="_blank" rel="noopener noreferrer">
+      <Image
+        src="/images/a2ui-composer.png"
+        alt="A2UI Composer"
+        width={4096}
         height={2304}
         className="mx-auto w-1/2"
       />
     </a>
   </Step>
+
   <Step>
-    ### Configuring your application to render A2UI
-    AG-UI handles communicating with your a2a agent, and passes the a2ui messages back and forth as `ActivityMessage` objects.
-    In order to render them in your frontend, you need to configure activity message rendering.
+    ### Give it a try
 
-    Copilotkit provides a renderer for A2UI messages, all you need to do is instantiate it with a theme and pass it to your CopilotKitProvider.
-
-    ```tsx title="app/page.tsx"
-    "use client";
-
-    import { CopilotChat, CopilotKitProvider } from "@copilotkit/react";
-    import { createA2UIMessageRenderer } from "@copilotkit/a2ui-renderer";
-    import { theme } from "./theme";
-
-    // Disable static optimization for this page
-    export const dynamic = "force-dynamic";
-
-    const A2UIMessageRenderer = createA2UIMessageRenderer({ theme });
-
-    export default function Home() {
-      return (
-        <CopilotKitProvider
-          runtimeUrl="/api/copilotkit"
-          showDevConsole="auto"
-          renderActivityMessages={[A2UIMessageRenderer]}
-        >
-          <main
-            className="flex min-h-screen flex-1 flex-col overflow-hidden"
-            style={{ minHeight: "100dvh" }}
-          >
-            <Chat />
-          </main>
-        </CopilotKitProvider>
-      );
-    }
-
-    function Chat() {
-      return (
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <CopilotChat style={{ flex: 1, minHeight: "100%" }} />
-        </div>
-      );
-    }
-    ```
-
-    ```tsx title="app/theme.ts"
-    import { v0_8 } from "@google/a2ui";
-
-    /** Elements */
-
-    const a = {
-      "typography-f-sf": true,
-      "typography-fs-n": true,
-      "typography-w-500": true,
-      "layout-as-n": true,
-      "layout-dis-iflx": true,
-      "layout-al-c": true,
-    };
-
-    const audio = {
-      "layout-w-100": true,
-    };
-
-    const body = {
-      "typography-f-s": true,
-      "typography-fs-n": true,
-      "typography-w-400": true,
-      "layout-mt-0": true,
-      "layout-mb-2": true,
-      "typography-sz-bm": true,
-      "color-c-n10": true,
-    };
-
-    const button = {
-      "typography-f-sf": true,
-      "typography-fs-n": true,
-      "typography-w-500": true,
-      "layout-pt-3": true,
-      "layout-pb-3": true,
-      "layout-pl-5": true,
-      "layout-pr-5": true,
-      "layout-mb-1": true,
-      "border-br-16": true,
-      "border-bw-0": true,
-      "border-c-n70": true,
-      "border-bs-s": true,
-      "color-bgc-s30": true,
-      "color-c-n100": true,
-      "behavior-ho-80": true,
-    };
-
-    const heading = {
-      "typography-f-sf": true,
-      "typography-fs-n": true,
-      "typography-w-500": true,
-      "layout-mt-0": true,
-      "layout-mb-2": true,
-      "color-c-n10": true,
-    };
-
-    const h1 = {
-      ...heading,
-      "typography-sz-tl": true,
-    };
-
-    const h2 = {
-      ...heading,
-      "typography-sz-tm": true,
-    };
-
-    const h3 = {
-      ...heading,
-      "typography-sz-ts": true,
-    };
-
-    const iframe = {
-      "behavior-sw-n": true,
-    };
-
-    const input = {
-      "typography-f-sf": true,
-      "typography-fs-n": true,
-      "typography-w-400": true,
-      "layout-pl-4": true,
-      "layout-pr-4": true,
-      "layout-pt-2": true,
-      "layout-pb-2": true,
-      "border-br-6": true,
-      "border-bw-1": true,
-      "color-bc-s70": true,
-      "border-bs-s": true,
-      "layout-as-n": true,
-      "color-c-n10": true,
-    };
-
-    const p = {
-      "typography-f-s": true,
-      "typography-fs-n": true,
-      "typography-w-400": true,
-      "layout-m-0": true,
-      "typography-sz-bm": true,
-      "layout-as-n": true,
-      "color-c-n10": true,
-    };
-
-    const orderedList = {
-      "typography-f-s": true,
-      "typography-fs-n": true,
-      "typography-w-400": true,
-      "layout-m-0": true,
-      "typography-sz-bm": true,
-      "layout-as-n": true,
-    };
-
-    const unorderedList = {
-      "typography-f-s": true,
-      "typography-fs-n": true,
-      "typography-w-400": true,
-      "layout-m-0": true,
-      "typography-sz-bm": true,
-      "layout-as-n": true,
-    };
-
-    const listItem = {
-      "typography-f-s": true,
-      "typography-fs-n": true,
-      "typography-w-400": true,
-      "layout-m-0": true,
-      "typography-sz-bm": true,
-      "layout-as-n": true,
-    };
-
-    const pre = {
-      "typography-f-c": true,
-      "typography-fs-n": true,
-      "typography-w-400": true,
-      "typography-sz-bm": true,
-      "typography-ws-p": true,
-      "layout-as-n": true,
-    };
-
-    const textarea = {
-      ...input,
-      "layout-r-none": true,
-      "layout-fs-c": true,
-    };
-
-    const video = {
-      "layout-el-cv": true,
-    };
-
-    const aLight = v0_8.Styles.merge(a, { "color-c-n5": true });
-    const inputLight = v0_8.Styles.merge(input, { "color-c-n5": true });
-    const textareaLight = v0_8.Styles.merge(textarea, { "color-c-n5": true });
-    const buttonLight = v0_8.Styles.merge(button, { "color-c-n100": true });
-    const h1Light = v0_8.Styles.merge(h1, { "color-c-n5": true });
-    const h2Light = v0_8.Styles.merge(h2, { "color-c-n5": true });
-    const h3Light = v0_8.Styles.merge(h3, { "color-c-n5": true });
-    const bodyLight = v0_8.Styles.merge(body, { "color-c-n5": true });
-    const pLight = v0_8.Styles.merge(p, { "color-c-n35": true });
-    const preLight = v0_8.Styles.merge(pre, { "color-c-n35": true });
-    const orderedListLight = v0_8.Styles.merge(orderedList, {
-      "color-c-n35": true,
-    });
-    const unorderedListLight = v0_8.Styles.merge(unorderedList, {
-      "color-c-n35": true,
-    });
-    const listItemLight = v0_8.Styles.merge(listItem, {
-      "color-c-n35": true,
-    });
-
-    export const theme: v0_8.Types.Theme = {
-      additionalStyles: {
-        Button: {
-          "--n-35": "var(--n-100)",
-        },
-      },
-      components: {
-        AudioPlayer: {},
-        Button: {
-          "layout-pt-2": true,
-          "layout-pb-2": true,
-          "layout-pl-3": true,
-          "layout-pr-3": true,
-          "border-br-12": true,
-          "border-bw-0": true,
-          "border-bs-s": true,
-          "color-bgc-p30": true,
-          "color-c-n100": true,
-          "behavior-ho-70": true,
-        },
-        Card: { "border-br-9": true, "color-bgc-p100": true, "layout-p-4": true },
-        CheckBox: {
-          element: {
-            "layout-m-0": true,
-            "layout-mr-2": true,
-            "layout-p-2": true,
-            "border-br-12": true,
-            "border-bw-1": true,
-            "border-bs-s": true,
-            "color-bgc-p100": true,
-            "color-bc-p60": true,
-            "color-c-n30": true,
-            "color-c-p30": true,
-          },
-          label: {
-            "color-c-p30": true,
-            "typography-f-sf": true,
-            "typography-v-r": true,
-            "typography-w-400": true,
-            "layout-flx-1": true,
-            "typography-sz-ll": true,
-          },
-          container: {
-            "layout-dsp-iflex": true,
-            "layout-al-c": true,
-          },
-        },
-        Column: {
-          "layout-g-2": true,
-        },
-        DateTimeInput: {
-          container: {
-            "typography-sz-bm": true,
-            "layout-w-100": true,
-            "layout-g-2": true,
-            "layout-dsp-flexhor": true,
-            "layout-al-c": true,
-          },
-          label: {
-            "layout-flx-0": true,
-          },
-          element: {
-            "layout-pt-2": true,
-            "layout-pb-2": true,
-            "layout-pl-3": true,
-            "layout-pr-3": true,
-            "border-br-12": true,
-            "border-bw-1": true,
-            "border-bs-s": true,
-            "color-bgc-p100": true,
-            "color-bc-p60": true,
-            "color-c-n30": true,
-            "color-c-p30": true,
-          },
-        },
-        Divider: {},
-        Image: {
-          all: {
-            "border-br-5": true,
-            "layout-el-cv": true,
-            "layout-w-100": true,
-            "layout-h-100": true,
-          },
-          avatar: {},
-          header: {},
-          icon: {},
-          largeFeature: {},
-          mediumFeature: {},
-          smallFeature: {},
-        },
-        Icon: {},
-        List: {
-          "layout-g-4": true,
-          "layout-p-2": true,
-        },
-        Modal: {
-          backdrop: { "color-bbgc-p60_20": true },
-          element: {
-            "border-br-2": true,
-            "color-bgc-p100": true,
-            "layout-p-4": true,
-            "border-bw-1": true,
-            "border-bs-s": true,
-            "color-bc-p80": true,
-          },
-        },
-        MultipleChoice: {
-          container: {},
-          label: {},
-          element: {},
-        },
-        Row: {
-          "layout-g-4": true,
-        },
-        Slider: {
-          container: {},
-          label: {},
-          element: {},
-        },
-        Tabs: {
-          container: {},
-          controls: { all: {}, selected: {} },
-          element: {},
-        },
-        Text: {
-          all: {
-            "layout-w-100": true,
-            "layout-g-2": true,
-            "color-c-p30": true,
-          },
-          h1: {
-            "typography-f-sf": true,
-            "typography-v-r": true,
-            "typography-w-400": true,
-            "layout-m-0": true,
-            "layout-p-0": true,
-            "typography-sz-tl": true,
-          },
-          h2: {
-            "typography-f-sf": true,
-            "typography-v-r": true,
-            "typography-w-400": true,
-            "layout-m-0": true,
-            "layout-p-0": true,
-            "typography-sz-tm": true,
-          },
-          h3: {
-            "typography-f-sf": true,
-            "typography-v-r": true,
-            "typography-w-400": true,
-            "layout-m-0": true,
-            "layout-p-0": true,
-            "typography-sz-ts": true,
-          },
-          h4: {
-            "typography-f-sf": true,
-            "typography-v-r": true,
-            "typography-w-400": true,
-            "layout-m-0": true,
-            "layout-p-0": true,
-            "typography-sz-bl": true,
-          },
-          h5: {
-            "typography-f-sf": true,
-            "typography-v-r": true,
-            "typography-w-400": true,
-            "layout-m-0": true,
-            "layout-p-0": true,
-            "typography-sz-bm": true,
-          },
-          body: {},
-          caption: {},
-        },
-        TextField: {
-          container: {
-            "typography-sz-bm": true,
-            "layout-w-100": true,
-            "layout-g-2": true,
-            "layout-dsp-flexhor": true,
-            "layout-al-c": true,
-          },
-          label: {
-            "layout-flx-0": true,
-          },
-          element: {
-            "typography-sz-bm": true,
-            "layout-pt-2": true,
-            "layout-pb-2": true,
-            "layout-pl-3": true,
-            "layout-pr-3": true,
-            "border-br-12": true,
-            "border-bw-1": true,
-            "border-bs-s": true,
-            "color-bgc-p100": true,
-            "color-bc-p60": true,
-            "color-c-n30": true,
-            "color-c-p30": true,
-          },
-        },
-        Video: {
-          "border-br-5": true,
-          "layout-el-cv": true,
-        },
-      },
-      elements: {
-        a: aLight,
-        audio,
-        body: bodyLight,
-        button: buttonLight,
-        h1: h1Light,
-        h2: h2Light,
-        h3: h3Light,
-        iframe,
-        input: inputLight,
-        p: pLight,
-        pre: preLight,
-        textarea: textareaLight,
-        video,
-      },
-      markdown: {
-        p: [...Object.keys(pLight)],
-        h1: [...Object.keys(h1Light)],
-        h2: [...Object.keys(h2Light)],
-        h3: [...Object.keys(h3Light)],
-        h4: [],
-        h5: [],
-        h6: [],
-        ul: [...Object.keys(unorderedListLight)],
-        ol: [...Object.keys(orderedListLight)],
-        li: [...Object.keys(listItemLight)],
-        a: [...Object.keys(aLight)],
-        strong: [],
-        em: [],
-      },
-    };
-    ```
-
-  </Step>
-  <Step>
-    ### Give it a try!
-
-    That's it! When your agent generates an A2UI message, it will be rendered in your frontend.
-    A2UI actions (like button clicks) are automatically sent back to your agent via AG-UI.
+    Send a message in the chat. The agent renders an A2UI surface using your catalog, and interactions (button clicks, form input) flow back to the agent automatically via AG-UI.
   </Step>
 </Steps>
