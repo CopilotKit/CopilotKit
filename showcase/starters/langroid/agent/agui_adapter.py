@@ -34,7 +34,7 @@ from ag_ui.core import (
 from fastapi import Request
 from fastapi.responses import StreamingResponse
 
-from agents.agent import (
+from .agent import (
     create_agent,
     ALL_TOOLS,
     BACKEND_TOOLS,

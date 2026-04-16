@@ -3,7 +3,6 @@ export const RENDER_MODES = [
   "a2ui",
   "json-render",
   "hashbrown",
-  "open-genui",
 ] as const;
 export type RenderMode = (typeof RENDER_MODES)[number];
 
@@ -67,18 +66,6 @@ export const RENDER_STRATEGIES: RenderStrategyInfo[] = [
       interactivity: false,
       sandbox: false,
       constraintLevel: "high",
-    },
-  },
-  {
-    mode: "open-genui",
-    name: "Open GenUI",
-    description: "Agent generates arbitrary UI",
-    icon: "\u{1F3A8}",
-    features: {
-      streaming: false,
-      interactivity: true,
-      sandbox: true,
-      constraintLevel: "none",
     },
   },
 ];

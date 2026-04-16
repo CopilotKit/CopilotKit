@@ -879,6 +879,7 @@ export class RunHandler {
       .filter(
         (tool) =>
           tool.available !== false &&
+          tool.available !== "disabled" &&
           (!tool.agentId || tool.agentId === agentId),
       )
       .map((tool) => ({

@@ -1267,13 +1267,17 @@ export class BuiltInAgent extends AbstractAgent {
                 break;
               }
               case "reasoning-start": {
-                // Use SDK-provided id, or generate a fresh UUID if id is falsy/"0"
-                // to prevent consecutive reasoning blocks from sharing a messageId
+                // Use SDK-provided id, or generate a fresh UUID if the id is falsy,
+                // "0", or matches the non-unique pattern emitted by @ai-sdk/openai-compatible
+                // (e.g. "txt-0", "reasoning-0", "msg-0").
                 const providedId = "id" in part ? part.id : undefined;
-                reasoningMessageId =
-                  providedId && providedId !== "0"
-                    ? (providedId as typeof reasoningMessageId)
-                    : randomUUID();
+                const isNonUniqueId =
+                  !providedId ||
+                  providedId === "0" ||
+                  /^(txt|reasoning|msg)-0$/.test(providedId);
+                reasoningMessageId = isNonUniqueId
+                  ? randomUUID()
+                  : (providedId as typeof reasoningMessageId);
                 const reasoningStartEvent: ReasoningStartEvent = {
                   type: EventType.REASONING_START,
                   messageId: reasoningMessageId,
@@ -1341,12 +1345,16 @@ export class BuiltInAgent extends AbstractAgent {
 
               case "text-start": {
                 // New text message starting - use the SDK-provided id
-                // Use randomUUID() if part.id is falsy or "0" to prevent message merging issues
+                // Use randomUUID() if part.id is falsy, "0", or matches the non-unique
+                // pattern emitted by @ai-sdk/openai-compatible (e.g. "txt-0", "msg-0").
                 const providedId = "id" in part ? part.id : undefined;
-                messageId =
-                  providedId && providedId !== "0"
-                    ? (providedId as typeof messageId)
-                    : randomUUID();
+                const isNonUniqueTextId =
+                  !providedId ||
+                  providedId === "0" ||
+                  /^(txt|reasoning|msg)-0$/.test(providedId);
+                messageId = isNonUniqueTextId
+                  ? randomUUID()
+                  : (providedId as typeof messageId);
                 break;
               }
 

@@ -27,13 +27,12 @@ This matrix tracks what testing exists for each demo and the Sales Dashboard sta
 
 | Feature                         | Manual QA | Vitest Unit                                                    | Playwright E2E (smoke)                | Playwright E2E (interaction)                  | Aimock Fixtures                  | CI Auto                                   |
 | ------------------------------- | --------- | -------------------------------------------------------------- | ------------------------------------- | --------------------------------------------- | -------------------------------- | ----------------------------------------- |
-| **Sales Dashboard (page load)** | ❌        | ✅ generate-starters tests (17 starters exist, file structure) | ✅ header, 5 renderer pills           | ✅ pill switching, content verification       | ⚠️ `sales`/`todo`/`deal` matches | ⚠️ validate + aimock-e2e (manual trigger) |
-| **Renderer Selector**           | ❌        | ❌                                                             | ✅ 5 pills visible, default selection | ✅ mutual exclusion, content changes per mode | ❌                               | ⚠️ validate only                          |
+| **Sales Dashboard (page load)** | ❌        | ✅ generate-starters tests (17 starters exist, file structure) | ✅ header, 4 renderer pills           | ✅ pill switching, content verification       | ⚠️ `sales`/`todo`/`deal` matches | ⚠️ validate + aimock-e2e (manual trigger) |
+| **Renderer Selector**           | ❌        | ❌                                                             | ✅ 4 pills visible, default selection | ✅ mutual exclusion, content changes per mode | ❌                               | ⚠️ validate only                          |
 | **Tool-Based mode**             | ❌        | ❌                                                             | ✅ pipeline heading, KPI cards        | ✅ Add a deal, multiple deals, empty state    | ⚠️ `sales`/`todo` matches        | ⚠️ validate only                          |
 | **A2UI Catalog mode**           | ❌        | ❌                                                             | ✅ same pipeline content              | ❌                                            | ❌                               | ⚠️ validate only                          |
 | **json-render mode**            | ❌        | ❌                                                             | ✅ fallback note + pipeline           | ❌                                            | ❌                               | ⚠️ validate only                          |
 | **HashBrown mode**              | ❌        | ❌                                                             | ✅ pipeline content                   | ❌                                            | ❌                               | ⚠️ validate only                          |
-| **Open GenUI mode**             | ❌        | ❌                                                             | ✅ no pipeline, instructional text    | ✅ switching restores/removes pipeline        | ❌                               | ⚠️ validate only                          |
 
 ## Test Infrastructure Details
 

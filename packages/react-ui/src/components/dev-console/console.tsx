@@ -84,13 +84,16 @@ export function CopilotDevConsole() {
   };
 
   useEffect(() => {
+    if (!showDevConsole) {
+      return;
+    }
     if (dontRunTwiceInDevMode.current === true) {
       return;
     }
     dontRunTwiceInDevMode.current = true;
 
     checkForUpdates();
-  }, []);
+  }, [showDevConsole]);
 
   if (!showDevConsole) {
     return null;

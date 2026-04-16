@@ -98,7 +98,7 @@ export function CopilotChatAssistantMessage({
     thumbsUpButton,
     CopilotChatAssistantMessage.ThumbsUpButton,
     {
-      onClick: onThumbsUp,
+      onClick: onThumbsUp ? () => onThumbsUp(message) : undefined,
     },
   );
 
@@ -106,7 +106,7 @@ export function CopilotChatAssistantMessage({
     thumbsDownButton,
     CopilotChatAssistantMessage.ThumbsDownButton,
     {
-      onClick: onThumbsDown,
+      onClick: onThumbsDown ? () => onThumbsDown(message) : undefined,
     },
   );
 
@@ -114,7 +114,7 @@ export function CopilotChatAssistantMessage({
     readAloudButton,
     CopilotChatAssistantMessage.ReadAloudButton,
     {
-      onClick: onReadAloud,
+      onClick: onReadAloud ? () => onReadAloud(message) : undefined,
     },
   );
 
@@ -122,7 +122,7 @@ export function CopilotChatAssistantMessage({
     regenerateButton,
     CopilotChatAssistantMessage.RegenerateButton,
     {
-      onClick: onRegenerate,
+      onClick: onRegenerate ? () => onRegenerate(message) : undefined,
     },
   );
 

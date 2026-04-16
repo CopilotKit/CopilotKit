@@ -2,6 +2,7 @@
   "pages": [
     "error-debugging",
     "event-inspector",
+    "debug-mode",
     "observability-connectors",
     "common-issues"
   ]
