@@ -8,7 +8,7 @@
 import express, { Request, Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { EventEncoder } from "@ag-ui/encoder";
-import { EventType, RunAgentInput, Message } from "@ag-ui/core";
+import { BaseEvent, EventType, RunAgentInput, Message } from "@ag-ui/core";
 import * as dotenv from "dotenv";
 import { randomUUID } from "crypto";
 
@@ -16,21 +16,22 @@ dotenv.config({ path: ".env.local" });
 dotenv.config();
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 
 const HOST = process.env.AGENT_HOST || "0.0.0.0";
 const PORT = parseInt(process.env.AGENT_PORT || "8123", 10);
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-3-5-haiku-20241022";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+if (!process.env.ANTHROPIC_API_KEY) {
+  console.error("[agent_server] FATAL: ANTHROPIC_API_KEY is not set");
+  process.exit(1);
+}
+
+const anthropic = new Anthropic();
 
 console.log("[agent_server] Initializing Claude agent server");
 console.log(`[agent_server] Model: ${CLAUDE_MODEL}`);
-console.log(
-  `[agent_server] ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? "set" : "NOT SET"}`,
-);
+console.log("[agent_server] ANTHROPIC_API_KEY: set");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -41,29 +42,32 @@ function buildAnthropicMessages(messages: Message[]): Anthropic.MessageParam[] {
 
   for (const msg of messages) {
     if (msg.role === "user") {
+      const userContent =
+        typeof msg.content === "string"
+          ? msg.content
+          : JSON.stringify(msg.content);
       result.push({
         role: "user",
-        content: (msg as any).content ?? "",
+        content: userContent,
       });
     } else if (msg.role === "assistant") {
-      const toolCalls = (msg as any).toolCalls as
-        | Array<{ id: string; function: { name: string; arguments: string } }>
-        | undefined;
+      const toolCalls = msg.toolCalls;
 
       if (toolCalls && toolCalls.length > 0) {
-        const content: Anthropic.ContentBlock[] = [];
+        const content: Anthropic.ContentBlockParam[] = [];
 
-        const textContent = (msg as any).content;
-        if (textContent) {
-          content.push({ type: "text", text: textContent, citations: null });
+        if (msg.content) {
+          content.push({ type: "text", text: msg.content });
         }
 
         for (const tc of toolCalls) {
           let input: Record<string, unknown> = {};
           try {
             input = JSON.parse(tc.function.arguments);
-          } catch {
-            // leave empty
+          } catch (e) {
+            console.warn(
+              `[agent_server] Failed to parse tool call arguments for ${tc.function?.name}: ${e}`,
+            );
           }
           content.push({
             type: "tool_use",
@@ -77,26 +81,25 @@ function buildAnthropicMessages(messages: Message[]): Anthropic.MessageParam[] {
       } else {
         result.push({
           role: "assistant",
-          content: (msg as any).content ?? "",
+          content: msg.content ?? "",
         });
       }
     } else if (msg.role === "tool") {
-      const toolMsg = msg as any;
       result.push({
         role: "user",
         content: [
           {
             type: "tool_result",
-            tool_use_id: toolMsg.toolCallId ?? "",
+            tool_use_id: msg.toolCallId ?? "",
             content:
-              typeof toolMsg.content === "string"
-                ? toolMsg.content
-                : JSON.stringify(toolMsg.content),
+              typeof msg.content === "string"
+                ? msg.content
+                : JSON.stringify(msg.content),
           },
         ],
       });
     }
-    // skip "system" and "developer" roles — handled separately as system prompt
+    // skip "system" and "developer" roles -- not forwarded to Anthropic (system prompt is built from input.context)
   }
 
   return result;
@@ -117,8 +120,10 @@ function buildTools(tools: RunAgentInput["tools"]): Anthropic.Tool[] {
             ? JSON.parse(tool.parameters)
             : tool.parameters;
         inputSchema = parsed as Anthropic.Tool.InputSchema;
-      } catch {
-        // use empty schema
+      } catch (e) {
+        console.warn(
+          `[agent_server] Failed to parse parameters schema for tool "${tool.name}": ${e}`,
+        );
       }
     }
     return {
@@ -146,8 +151,8 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
   const threadId = input.threadId ?? randomUUID();
   const msgId = randomUUID();
 
-  const emit = (event: object) => {
-    res.write(encoder.encodeSSE(event as any));
+  const emit = (event: BaseEvent) => {
+    res.write(encoder.encodeSSE(event));
   };
 
   try {
@@ -162,7 +167,7 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
       "You are a helpful AI assistant powered by Anthropic's Claude.";
     if (input.context && input.context.length > 0) {
       const contextStr = input.context
-        .map((c: any) => `${c.description}: ${c.value}`)
+        .map((c) => `${c.description}: ${c.value}`)
         .join("\n");
       systemPrompt += `\n\nContext:\n${contextStr}`;
     }
@@ -178,22 +183,18 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
 
     const stream = await anthropic.messages.stream(claudeRequest);
 
-    let assistantMsgId: string | null = null;
     let toolCallId: string | null = null;
     let toolCallName: string | null = null;
-    let toolCallArgs = "";
     let textMessageStarted = false;
 
     for await (const event of stream) {
       if (event.type === "message_start") {
-        assistantMsgId = event.message.id;
         // Don't emit TEXT_MESSAGE_START here — wait until we actually
         // receive a text_delta so tool-call-only responses stay clean.
       } else if (event.type === "content_block_start") {
         if (event.content_block.type === "tool_use") {
           toolCallId = event.content_block.id;
           toolCallName = event.content_block.name;
-          toolCallArgs = "";
           emit({
             type: EventType.TOOL_CALL_START,
             toolCallId,
@@ -218,12 +219,13 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
             delta: event.delta.text,
           });
         } else if (event.delta.type === "input_json_delta") {
-          toolCallArgs += event.delta.partial_json;
-          emit({
-            type: EventType.TOOL_CALL_ARGS,
-            toolCallId,
-            delta: event.delta.partial_json,
-          });
+          if (toolCallId) {
+            emit({
+              type: EventType.TOOL_CALL_ARGS,
+              toolCallId,
+              delta: event.delta.partial_json,
+            });
+          }
         }
       } else if (event.type === "content_block_stop") {
         if (toolCallId) {
@@ -233,7 +235,6 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
           });
           toolCallId = null;
           toolCallName = null;
-          toolCallArgs = "";
         }
       } else if (event.type === "message_stop") {
         // Only close the text message if we opened one
@@ -258,13 +259,17 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
   } catch (error: unknown) {
     const err = error as Error;
     console.error(`[agent_server] ERROR: ${err.message}`);
-    emit({
-      type: EventType.RUN_ERROR,
-      runId,
-      threadId,
-      message: err.message,
-      code: "AGENT_ERROR",
-    });
+    try {
+      emit({
+        type: EventType.RUN_ERROR,
+        runId,
+        threadId,
+        message: "An error occurred while processing the request",
+        code: "AGENT_ERROR",
+      });
+    } catch {
+      // Client may have disconnected — cannot write error event
+    }
   }
 
   res.end();
@@ -278,7 +283,6 @@ app.get("/health", (_req: Request, res: Response) => {
   res.json({
     status: "ok",
     model: CLAUDE_MODEL,
-    anthropic_api_key: process.env.ANTHROPIC_API_KEY ? "set" : "NOT SET",
   });
 });
 

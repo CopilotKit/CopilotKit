@@ -1,7 +1,7 @@
 """Mock weather data tool implementation."""
 
 import random
-from .types import WeatherResult
+from src.agents.types import WeatherResult
 
 _CONDITIONS = [
     "Sunny",
