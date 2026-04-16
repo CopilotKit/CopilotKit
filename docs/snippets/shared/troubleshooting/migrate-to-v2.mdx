@@ -2,6 +2,10 @@
 
 CopilotKit V2 consolidates the frontend into a single package. Both hooks and UI components are now exported from `@copilotkit/react-core/v2`. Your backend does not need any changes.
 
+<Callout type="warn">
+  **CopilotKit v2 requires Tailwind CSS v4.** If your project uses Tailwind v3, you must upgrade before migrating. See Step 1 below.
+</Callout>
+
 **What's changing:**
 
 | Before | After |
@@ -18,6 +22,14 @@ CopilotKit V2 consolidates the frontend into a single package. Both hooks and UI
 ## Migration Steps
 
 <Steps>
+<Step>
+### Upgrade to Tailwind CSS v4
+
+CopilotKit v2 requires Tailwind CSS v4. If your project uses Tailwind v3, upgrade it now — the components will not render correctly until you do.
+
+See the **[Tailwind v4 upgrade guide](/tailwind-v4-upgrade)** for the exact steps (PostCSS config, CSS entry point, and `tailwind.config.js` removal).
+
+</Step>
 <Step>
 ### Update `@copilotkit/react-core` imports
 
