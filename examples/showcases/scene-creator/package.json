@@ -12,9 +12,9 @@
   },
   "dependencies": {
     "@ag-ui/langgraph": "0.0.18",
-    "@copilotkit/react-core": "1.10.6",
-    "@copilotkit/react-ui": "1.10.6",
-    "@copilotkit/runtime": "1.10.6",
+    "@copilotkit/react-core": "1.56.0",
+    "@copilotkit/react-ui": "1.56.0",
+    "@copilotkit/runtime": "1.56.0",
     "next": "16.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

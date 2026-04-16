@@ -14,7 +14,7 @@ dependencies = [
   "uvicorn (>=0.35.0,<0.36.0)",
   "langgraph (==0.6.3)",
   "langchain-core (==0.3.72)",
-  "copilotkit (==0.1.58)",
+  "copilotkit (==0.1.87)",
   "langchain[google-genai] (==0.3.26)",
   "requests (>=2.31.0,<3.0.0)",
 ]

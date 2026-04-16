@@ -10,7 +10,7 @@
     "dev": "npx @langchain/langgraph-cli dev --port 8123 --no-browser"
   },
   "dependencies": {
-    "@copilotkit/sdk-js": "1.10.6",
+    "@copilotkit/sdk-js": "1.56.0",
     "@langchain/core": "^1.0.1",
     "@langchain/google-genai": "^2.0.0",
     "@langchain/langgraph": "1.0.2",

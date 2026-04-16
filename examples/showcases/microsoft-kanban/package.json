@@ -15,9 +15,9 @@
   },
   "dependencies": {
     "@ag-ui/client": "^0.0.40",
-    "@copilotkit/react-core": "1.10.6",
-    "@copilotkit/react-ui": "1.10.6",
-    "@copilotkit/runtime": "1.10.6",
+    "@copilotkit/react-core": "1.56.0",
+    "@copilotkit/react-ui": "1.56.0",
+    "@copilotkit/runtime": "1.56.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-progress": "^1.1.7",
