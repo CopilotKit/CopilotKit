@@ -1,4 +1,4 @@
-name: "Showcase: Smoke Monitor"
+name: test / smoke / showcase-deployed
 
 on:
   schedule:
