@@ -71,6 +71,21 @@ jobs:
           fi
           exit "$failed"
 
+      - name: Run validate-parity (MUST checks gating)
+        working-directory: showcase/scripts
+        # MUST failures (missing manifest, missing src/app/demos dir) exit 1 and
+        # fail the PR. SHOULD deviations print warnings and exit 0. See
+        # showcase/scripts/validate-parity.ts for the full policy.
+        run: npx tsx validate-parity.ts
+
+      - name: Run validate-pins (advisory; non-gating)
+        working-directory: showcase/scripts
+        # Non-gating: 44 existing drifts from the original run need a product
+        # decision (align showcase -> Dojo vs bump Dojo -> showcase) before we
+        # can gate. Until then, surface the drift report without blocking PRs.
+        continue-on-error: true
+        run: npx tsx validate-pins.ts
+
       - name: Run build pipeline tests
         working-directory: showcase/scripts
         run: npx vitest run
