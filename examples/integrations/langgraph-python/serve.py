@@ -7,7 +7,7 @@ import os
 import sys
 
 # Add the agent directory to the path so imports work
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "apps", "agent"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "agent"))
 
 import uvicorn
 from fastapi import FastAPI

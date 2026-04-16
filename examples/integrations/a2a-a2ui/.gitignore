@@ -141,3 +141,8 @@ vite.config.ts.timestamp-*
 .vite/
 
 next-env.d.ts
+
+# lock files (keep package-lock.json for npm)
+pnpm-lock.yaml
+yarn.lock
+bun.lockb

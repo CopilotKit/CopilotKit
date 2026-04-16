@@ -18,7 +18,7 @@ sleep 3
 
 # Start Next.js standalone
 echo "[entrypoint] Starting Next.js on port ${PORT:-3000}..."
-HOSTNAME=0.0.0.0 PORT=${PORT:-3000} node apps/app/server.js 2>&1 &
+HOSTNAME=0.0.0.0 PORT=${PORT:-3000} node server.js 2>&1 &
 NEXT_PID=$!
 
 echo "[entrypoint] Agent=$AGENT_PID Next=$NEXT_PID"

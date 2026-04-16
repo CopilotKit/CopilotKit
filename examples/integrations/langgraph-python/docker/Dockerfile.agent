@@ -1,5 +1,5 @@
 # Dockerfile for the Python LangGraph agent.
-# Mirrors the user experience: uv sync + langgraph dev (same as pnpm dev:agent).
+# Mirrors the user experience: uv sync + langgraph dev (same as npm run dev:agent).
 FROM python:3.12-slim
 
 RUN apt-get update && \

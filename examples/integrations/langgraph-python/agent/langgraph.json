@@ -6,5 +6,5 @@
   "graphs": {
     "sample_agent": "./main.py:graph"
   },
-  "env": "../../.env"
+  "env": "../.env"
 }

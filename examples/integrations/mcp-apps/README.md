@@ -1,74 +1,74 @@
 # CopilotKit <> MCP Apps Starter
 
-This repository demonstrates how to integrate MCP Apps with CopilotKit. It uses the [Three.js example](https://github.com/modelcontextprotocol/ext-apps/tree/main/examples/threejs-server) from the official Model Context Protocol organization on GitHub.
+This is a starter template for integrating [MCP Apps](https://mcpui.dev) with [CopilotKit](https://copilotkit.ai). It uses the [Three.js example](https://github.com/modelcontextprotocol/ext-apps/tree/main/examples/threejs-server) from the official Model Context Protocol organization on GitHub.
 
 https://github.com/user-attachments/assets/8908af31-2b64-4426-9c83-c51ab86256de
+
+## Project Structure
+
+```
+.
+├── app/                   # Next.js App Router pages and API routes
+│   ├── page.tsx           # Main page
+│   └── api/copilotkit/    # CopilotKit API route
+├── threejs-server/        # MCP App Server (Three.js)
+│   ├── server.ts          # Server entry point
+│   ├── src/               # Three.js app source
+│   └── package.json
+├── scripts/               # MCP server run scripts
+├── next.config.ts
+├── tsconfig.json
+└── package.json
+```
 
 ## Prerequisites
 
 - Node.js 20+
-- [pnpm](https://pnpm.io/installation) (recommended)
 - OpenAI API Key
-
-> **Note:** This repository ignores lock files (package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb) to avoid conflicts between different package managers. Each developer should generate their own lock file using their preferred package manager. After that, make sure to delete it from the .gitignore.
 
 ## Getting Started
 
 1. Install dependencies:
 
 ```bash
-pnpm i
+npm install
 ```
 
-2. Set up your OpenAI API key:
+> The `postinstall` script automatically installs the MCP server dependencies in `threejs-server/`.
+
+2. Set up your environment variables:
 
 ```bash
 echo 'OPENAI_API_KEY=your-openai-api-key-here' > .env
 ```
 
-3. Start the MCP Apps server:
+3. Start the development servers:
 
 ```bash
-# Using pnpm
-cd src/threejs-server
-pnpm i
-pnpm start
-```
-
-4. Start the development server:
-
-```bash
-# Using pnpm
-pnpm dev
-
-# Using npm
 npm run dev
-
-# Using yarn
-yarn dev
-
-# Using bun
-bun run dev
 ```
+
+This starts both the Next.js app and the MCP server concurrently.
 
 ## Available Scripts
 
-The following scripts can also be run using your preferred package manager:
+- `npm run dev` - Starts both the UI and MCP server in development mode
+- `npm run dev:ui` - Starts only the Next.js UI server
+- `npm run dev:mcp` - Starts only the MCP App Server
+- `npm run build` - Builds the Next.js application for production
+- `npm run start` - Starts the production server
 
-- `dev` - Starts both UI and agent servers in development mode
-- `build` - Builds the Next.js application for production
-- `start` - Starts the production server
-- `lint` - Runs ESLint for code linting
+## Customization
 
-## Documentation
-
-The main UI component is in `src/app/page.tsx`. You can:
+The main UI component is in `app/page.tsx`. You can:
 
 - Modify the theme colors and styling
 - Add new frontend actions
 - Customize the CopilotKit sidebar appearance
 
-## 📚 Documentation
+The MCP App Server code is in `threejs-server/`.
+
+## Documentation
 
 - [CopilotKit Documentation](https://docs.copilotkit.ai) - Explore CopilotKit's capabilities
 - [Next.js Documentation](https://nextjs.org/docs) - Learn about Next.js features and API
