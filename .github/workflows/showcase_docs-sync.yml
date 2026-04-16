@@ -198,13 +198,6 @@ jobs:
             '{text: (":x: *Docs sync*: workflow failed\n*Failed step:* " + $failed_step + " | <" + $run_url + "|View run>")}' \
             > slack-payloads/failure.json
 
-          # plain-text fallback used only when notify-* steps themselves fail
-          # (webhook 5xx, rate limit, etc). Keeps us from silently losing alerts.
-          jq -n \
-            --arg run_url "$RUN_URL" \
-            '{text: (":rotating_light: *Docs sync*: review/alert machinery failed — check Actions UI\n<" + $run_url + "|View run>")}' \
-            > slack-payloads/notify-fallback.json
-
       - name: Notify Slack (auto-sync)
         id: notify-auto-sync
         if: always() && steps.push.outcome == 'success' && steps.push.outputs.files_changed != '0'
@@ -262,6 +255,13 @@ jobs:
       # rate limit, malformed payload), fire a plain-text alert so we never
       # silently lose a review-needed or failure notification. Uses curl
       # directly so it doesn't share failure modes with the slackapi action.
+      # Payload is inlined (not read from slack-payloads/) so this fallback
+      # has no dependency on the Build Slack payloads step succeeding — if
+      # that step broke (jq missing, mkdir failed, etc), every notify-* step
+      # would fail AND the fallback could not read its file. RUN_URL is
+      # constructed from GitHub-controlled env vars only (no user input), so
+      # direct string interpolation into the JSON literal is safe — the
+      # values cannot contain " or \.
       - name: Notify Slack (alert machinery failed)
         if: >-
           always() && (
@@ -279,7 +279,8 @@ jobs:
             echo "::warning::SLACK_WEBHOOK_OSS_ALERTS not set — cannot post fallback alert"
             exit 0
           fi
+          RUN_URL="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           curl -sS -X POST \
             -H "Content-Type: application/json" \
-            --data @slack-payloads/notify-fallback.json \
+            --data "{\"text\": \":rotating_light: *Docs sync*: review/alert machinery failed — check Actions UI ${RUN_URL}\"}" \
             "$SLACK_WEBHOOK" || echo "::warning::fallback Slack post also failed"
