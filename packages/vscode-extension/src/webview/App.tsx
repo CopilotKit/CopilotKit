@@ -34,6 +34,7 @@ function FixtureView({
 export function App(): React.ReactElement {
   const [catalog, setCatalog] = useState(basicCatalog);
   const [catalogVersion, setCatalogVersion] = useState(0);
+  const [fixtureVersion, setFixtureVersion] = useState(0);
   const [fixtures, setFixtures] = useState<Record<string, A2UIFixture>>({});
   const [activeFixture, setActiveFixture] = useState<string>("default");
   const [error, setError] = useState<string | null>(null);
@@ -106,6 +107,7 @@ export function App(): React.ReactElement {
       bridge.on("catalog-update", handleCatalogUpdate),
       bridge.on("fixture-update", (msg) => {
         setFixtures(msg.fixtures);
+        setFixtureVersion((v) => v + 1);
         const names = Object.keys(msg.fixtures);
         if (msg.activeFixture && names.includes(msg.activeFixture)) {
           setActiveFixture(msg.activeFixture);
@@ -146,7 +148,7 @@ export function App(): React.ReactElement {
       />
       {currentFixture && catalogVersion > 0 ? (
         <A2UIProvider
-          key={`catalog-${catalogVersion}-${activeFixture}`}
+          key={`catalog-${catalogVersion}-fixture-${fixtureVersion}-${activeFixture}`}
           catalog={catalog}
           onAction={(msg) => bridge.send({ type: "action", payload: msg })}
         >

@@ -11,13 +11,17 @@ import { parseSync } from "oxc-parser";
  * valid component names from its definitions, and fixture files are
  * matched to their catalog to look up valid names.
  */
+/** Component name -> set of known prop keys */
+export type ComponentSchema = Map<string, Set<string>>;
+
 export class ComponentRegistry {
-  private catalogs = new Map<string, Set<string>>();
+  /** catalogFilePath -> ComponentSchema (name -> props) */
+  private catalogs = new Map<string, ComponentSchema>();
 
   register(filePath: string): void {
-    const names = extractDefinitionKeys(filePath);
-    if (names.size > 0) {
-      this.catalogs.set(normalizePath(filePath), names);
+    const schema = extractComponentSchema(filePath);
+    if (schema.size > 0) {
+      this.catalogs.set(normalizePath(filePath), schema);
     }
   }
 
@@ -46,8 +50,6 @@ export class ComponentRegistry {
 
   /**
    * Get all valid component names for a fixture file.
-   * Finds the associated catalog and merges its definitions with
-   * the basic catalog components.
    */
   getValidComponents(fixturePath: string): Set<string> | null {
     const catalogPath = findAssociatedCatalog(fixturePath);
@@ -56,38 +58,82 @@ export class ComponentRegistry {
     const custom = this.catalogs.get(normalizePath(catalogPath));
     if (!custom) return null;
 
-    const all = new Set(BASIC_CATALOG_COMPONENTS);
-    for (const name of custom) {
+    const all = new Set<string>([...BASIC_CATALOG_COMPONENTS.keys()]);
+    for (const name of custom.keys()) {
       all.add(name);
     }
     return all;
   }
 
+  /**
+   * Get known prop keys for a specific component type.
+   * Merges basic catalog props with custom catalog props.
+   */
+  getComponentProps(
+    fixturePath: string,
+    componentType: string,
+  ): Set<string> | null {
+    // Check basic catalog first
+    const basicProps = BASIC_CATALOG_COMPONENTS.get(componentType);
+
+    // Check custom catalog
+    const catalogPath = findAssociatedCatalog(fixturePath);
+    let customProps: Set<string> | undefined;
+    if (catalogPath) {
+      const schema = this.catalogs.get(normalizePath(catalogPath));
+      customProps = schema?.get(componentType);
+    }
+
+    if (!basicProps && !customProps) return null;
+
+    const all = new Set<string>();
+    if (basicProps) for (const p of basicProps) all.add(p);
+    if (customProps) for (const p of customProps) all.add(p);
+    return all;
+  }
+
   getComponents(filePath: string): Set<string> | undefined {
-    return this.catalogs.get(normalizePath(filePath));
+    const schema = this.catalogs.get(normalizePath(filePath));
+    return schema ? new Set(schema.keys()) : undefined;
   }
 }
 
-const BASIC_CATALOG_COMPONENTS = new Set([
-  "Text", "Image", "Icon", "Video", "AudioPlayer",
-  "Row", "Column", "List", "Card", "Tabs",
-  "Divider", "Modal", "Button", "TextField",
-  "CheckBox", "ChoicePicker", "Slider", "DateTimeInput",
+/** Basic catalog components with their known prop keys. */
+const BASIC_CATALOG_COMPONENTS = new Map<string, Set<string>>([
+  ["Text", new Set(["text", "style", "weight"])],
+  ["Image", new Set(["src", "alt", "width", "height"])],
+  ["Icon", new Set(["name", "size", "color"])],
+  ["Video", new Set(["src", "poster", "autoplay"])],
+  ["AudioPlayer", new Set(["src", "title"])],
+  ["Row", new Set(["children", "gap", "align", "justify"])],
+  ["Column", new Set(["children", "gap", "align"])],
+  ["List", new Set(["children", "ordered"])],
+  ["Card", new Set(["children", "title", "subtitle", "child"])],
+  ["Tabs", new Set(["children", "tabs"])],
+  ["Divider", new Set([])],
+  ["Modal", new Set(["children", "title", "open", "child"])],
+  ["Button", new Set(["child", "variant", "action"])],
+  ["TextField", new Set(["label", "placeholder", "value"])],
+  ["CheckBox", new Set(["label", "checked"])],
+  ["ChoicePicker", new Set(["label", "options", "value"])],
+  ["Slider", new Set(["label", "min", "max", "value", "step"])],
+  ["DateTimeInput", new Set(["label", "value", "type"])],
 ]);
 
 /**
- * Extract definition keys from a catalog source file.
- * Parses with oxc-parser then scans for object keys that follow
- * the CatalogDefinitions pattern: Name: { props: ..., description: ... }
+ * Extract component definitions (names + prop keys) from a catalog source file.
+ * Parses with oxc-parser for validation, then uses regex to extract:
+ * - Component names (PascalCase keys with `props:` or `description:`)
+ * - Prop keys from z.object({ key: ... }) patterns
  */
-function extractDefinitionKeys(filePath: string): Set<string> {
-  const names = new Set<string>();
+function extractComponentSchema(filePath: string): ComponentSchema {
+  const schema: ComponentSchema = new Map();
 
   let content: string;
   try {
     content = fs.readFileSync(filePath, "utf-8");
   } catch {
-    return names;
+    return schema;
   }
 
   const lang = filePath.endsWith(".tsx")
@@ -101,29 +147,50 @@ function extractDefinitionKeys(filePath: string): Set<string> {
       lang,
       sourceType: "module",
     });
-    if (result.errors.length > 0) return names;
+    if (result.errors.length > 0) return schema;
   } catch {
     // Fall through to regex extraction
   }
 
-  // Regex extraction: find object keys followed by { props: or { description:
-  // This matches the standard catalog definition format
-  const patterns = [
-    /^\s+(\w+):\s*\{[\s\S]*?(?:description|props)\s*:/gm,
-    /(\w+):\s*\{\s*(?:description|props)\s*:/g,
-  ];
+  // Find component definitions: Name: { ... props: z.object({ ... }) ... }
+  // We extract the component name AND the prop keys from z.object
+  const componentBlockPattern =
+    /(\w+):\s*\{[^}]*?props:\s*z\.object\(\{([\s\S]*?)\}\)/g;
+  let blockMatch: RegExpExecArray | null;
+  while ((blockMatch = componentBlockPattern.exec(content)) !== null) {
+    const name = blockMatch[1];
+    if (!name || !/^[A-Z]/.test(name) || name === "React") continue;
 
-  for (const pattern of patterns) {
+    const propsBlock = blockMatch[2];
+    const propKeys = new Set<string>();
+
+    // Extract keys from inside z.object({ key: z.xxx(), ... })
+    const propKeyPattern = /(\w+)\s*:/g;
+    let propMatch: RegExpExecArray | null;
+    while ((propMatch = propKeyPattern.exec(propsBlock)) !== null) {
+      const key = propMatch[1];
+      // Filter out z.xxx method names and common non-prop words
+      if (key && !key.startsWith("z") && key !== "description") {
+        propKeys.add(key);
+      }
+    }
+
+    schema.set(name, propKeys);
+  }
+
+  // Fallback: if the z.object regex didn't match, at least get the names
+  if (schema.size === 0) {
+    const simplePattern = /(\w+):\s*\{\s*(?:description|props)\s*:/g;
     let match: RegExpExecArray | null;
-    while ((match = pattern.exec(content)) !== null) {
+    while ((match = simplePattern.exec(content)) !== null) {
       const name = match[1];
       if (name && /^[A-Z]/.test(name) && name !== "React") {
-        names.add(name);
+        schema.set(name, new Set());
       }
     }
   }
 
-  return names;
+  return schema;
 }
 
 function findAssociatedCatalog(fixturePath: string): string | undefined {

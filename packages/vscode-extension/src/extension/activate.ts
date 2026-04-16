@@ -163,7 +163,7 @@ function validateFixtureDocument(
       const errors: vscode.Diagnostic[] = [];
       if (result.fixtures) {
         for (const [name, fixture] of Object.entries(result.fixtures)) {
-          validateFixtureMessages(content, name, fixture.messages, errors, validComponents);
+          validateFixtureMessages(content, name, fixture.messages, errors, validComponents, registry, fsPath);
         }
       }
       if (errors.length > 0) {
@@ -218,6 +218,8 @@ function validateFixtureMessages(
   messages: unknown[],
   errors: vscode.Diagnostic[],
   validComponents: Set<string> | null,
+  registry: ComponentRegistry,
+  fixturePath: string,
 ): void {
   const warn = (text: string, searchValue?: string) => {
     const { line, col, length } = findValuePosition(content, searchValue);
@@ -309,6 +311,26 @@ function validateFixtureMessages(
               `Unknown component "${compType}" — not found in catalog. Available: ${[...validComponents].sort().join(", ")}`,
               `"component": "${compType}"`,
             );
+          } else if (compType) {
+            // Validate props against the component's known schema
+            const knownProps = registry.getComponentProps(fixturePath, compType);
+            if (knownProps && knownProps.size > 0) {
+              const structuralKeys = new Set(["id", "component"]);
+              for (const key of Object.keys(c)) {
+                if (structuralKeys.has(key)) continue;
+                if (!knownProps.has(key)) {
+                  // Find closest match for typo suggestion
+                  const suggestion = findClosestMatch(key, knownProps);
+                  const hint = suggestion
+                    ? ` Did you mean "${suggestion}"?`
+                    : ` Known props: ${[...knownProps].sort().join(", ")}`;
+                  warn(
+                    `Unknown prop "${key}" on <${compType}>.${hint}`,
+                    `"${key}"`,
+                  );
+                }
+              }
+            }
           }
         }
         if (!seenIds.has("root")) {
@@ -348,6 +370,49 @@ function validateFixtureMessages(
   if (messages.length > 0 && !hasCreateSurface) {
     warn(`"${fixtureName}": no "createSurface" message — the first message should create the surface`, `"${fixtureName}"`);
   }
+}
+
+/**
+ * Simple Levenshtein distance for typo detection.
+ */
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () =>
+    Array(n + 1).fill(0),
+  );
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + (a[i - 1] !== b[j - 1] ? 1 : 0),
+      );
+    }
+  }
+  return dp[m][n];
+}
+
+/**
+ * Finds the closest matching string from a set, or null if nothing is close.
+ */
+function findClosestMatch(
+  input: string,
+  candidates: Set<string>,
+): string | null {
+  let best: string | null = null;
+  let bestDist = Infinity;
+  const maxDist = Math.max(2, Math.floor(input.length * 0.4));
+  for (const candidate of candidates) {
+    const dist = levenshtein(input.toLowerCase(), candidate.toLowerCase());
+    if (dist < bestDist && dist <= maxDist) {
+      bestDist = dist;
+      best = candidate;
+    }
+  }
+  return best;
 }
 
 /**
