@@ -74,11 +74,33 @@ jobs:
 
       - name: Build Slack payload
         if: failure()
+        id: slack-payload
+        env:
+          DETAILS_RAW: ${{ steps.failures.outputs.details }}
         run: |
-          SUMMARY=$(echo "${{ steps.failures.outputs.details }}" | head -3 | sed 's/\x1b\[[0-9;]*m//g' | cut -c1-200)
+          # Strip ANSI sequences (SGR, OSC, and G0/G1 charset designators), then truncate
+          # to 200 bytes and drop any trailing partial UTF-8 bytes so we don't emit mojibake.
+          SUMMARY=$(printf '%s' "$DETAILS_RAW" | head -3 \
+            | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/\x1b\][^\x07]*\x07//g; s/\x1b[()][A-Za-z0-9]//g' \
+            | head -c 200 | iconv -f UTF-8 -t UTF-8//IGNORE)
+          if [ -z "$SUMMARY" ]; then
+            SUMMARY="(no failure detail captured — see job log)"
+          fi
           URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          jq -n --arg text ":x: *Showcase E2E suite failed*\n<$URL|View run>\n\`\`\`$SUMMARY\`\`\`" \
-            '{text: $text}' > /tmp/slack-payload.json
+          JOB_URL="${URL}/job/${{ github.job }}"
+
+          SLACK_MSG=$(mktemp)
+          SLACK_PAYLOAD=$(mktemp)
+
+          # Build the message with REAL newlines, then hand it to jq via --rawfile so escaping is handled correctly.
+          {
+            printf ':x: *Showcase E2E suite failed*\n'
+            printf '<%s|View run> · <%s|View job>\n' "$URL" "$JOB_URL"
+            printf '```\n%s\n```\n' "$SUMMARY"
+          } > "$SLACK_MSG"
+          jq -n --rawfile text "$SLACK_MSG" '{text: $text}' > "$SLACK_PAYLOAD"
+          rm -f "$SLACK_MSG"
+          echo "payload_path=${SLACK_PAYLOAD}" >> "$GITHUB_OUTPUT"
 
       - name: Post failure to Slack
         if: failure()
@@ -86,7 +108,11 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
-          payload-file-path: /tmp/slack-payload.json
+          payload-file-path: ${{ steps.slack-payload.outputs.payload_path }}
+
+      - name: Clean up Slack payload tmpfile
+        if: always() && steps.slack-payload.outputs.payload_path
+        run: rm -f "${{ steps.slack-payload.outputs.payload_path }}"
 
       - name: Create issue on failure
         if: failure()

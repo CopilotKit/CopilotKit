@@ -42,7 +42,7 @@ jobs:
           echo "aimock binary: $AIMOCK_BIN"
           ls -la "$AIMOCK_BIN" || echo "binary not found at expected path"
           which aimock || echo "aimock not on PATH"
-          nohup node $(npm root -g)/@copilotkit/aimock/dist/cli.js --fixtures scripts/doc-tests/fixtures > /tmp/aimock.log 2>&1 &
+          nohup node $(npm root -g)/@copilotkit/aimock/dist/cli.js --fixtures scripts/doc-tests/fixtures --validate-on-load > /tmp/aimock.log 2>&1 &
           for i in $(seq 1 60); do
             if curl -sf http://localhost:4010/health; then
               echo "aimock ready"

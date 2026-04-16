@@ -11,7 +11,7 @@
  * visible even without an agent backend.
  *
  * To run with aimock (deterministic LLM responses for agent-dependent tests):
- *   npx aimock --fixtures showcase/aimock --port 4010 &
+ *   npx aimock --fixtures showcase/aimock --port 4010 --validate-on-load &
  *   cd showcase/packages/langgraph-python
  *   OPENAI_BASE_URL=http://localhost:4010/v1 OPENAI_API_KEY=test-key pnpm dev &
  *   cd ../../scripts
