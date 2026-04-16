@@ -5,6 +5,7 @@
   "scripts": {
     "generate-registry": "tsx generate-registry.ts",
     "validate-manifests": "tsx generate-registry.ts --validate-only",
+    "showcase:audit": "tsx audit.ts",
     "create-integration": "tsx create-integration/index.ts",
     "sync-qa": "tsx sync-qa-to-notion.ts",
     "sync-qa:dry": "DRY_RUN=true tsx sync-qa-to-notion.ts",
