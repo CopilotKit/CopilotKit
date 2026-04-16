@@ -74,7 +74,7 @@ This matrix tracks what testing exists for each demo and the Sales Dashboard sta
 ### CI Workflows (`.github/workflows/showcase_*.yml`)
 
 - `showcase_validate.yml` -- runs `npx vitest run` on PR (unit tests only)
-- `showcase_aimock-e2e.yml` -- runs aimock-backed Playwright E2E, **manual trigger only** (`/test-aimock` comment or workflow_dispatch)
+- `test_e2e-showcase-on-demand.yml` -- runs aimock-backed Playwright E2E, **manual trigger only** (`/test-aimock` comment or workflow_dispatch)
 - `showcase_drift-detection.yml` -- template drift detection
 - `showcase_template-drift.yml` -- template synchronization
 - `showcase_deploy.yml` -- deployment pipeline

@@ -1,4 +1,4 @@
-name: "Showcase: Aimock E2E Tests"
+name: "test / e2e / showcase / on-demand"
 
 on:
   issue_comment:
@@ -163,5 +163,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `${status} **Aimock E2E Tests** (\`${slug}\`): ${{ job.status }}\n\n[View run](${runUrl})`
+              body: `${status} **Showcase E2E (on-demand)** (\`${slug}\`): ${{ job.status }}\n\n[View run](${runUrl})`
             });
