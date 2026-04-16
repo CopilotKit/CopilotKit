@@ -25,7 +25,7 @@ jobs:
         run: pnpm run build
 
       - name: Test
-        run: npx nx run @copilotkit/vscode-extension:test
+        run: npx nx run copilotkit-vscode-extension:test
 
       - name: Package extension
         run: npx vsce package --no-dependencies

@@ -1,5 +1,5 @@
 {
-  "name": "@copilotkit/vscode-extension",
+  "name": "copilotkit-vscode-extension",
   "displayName": "CopilotKit",
   "version": "0.1.0",
   "private": false,
