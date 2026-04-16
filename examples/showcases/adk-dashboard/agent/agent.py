@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 # ADK imports
-from ag_ui_adk import ADKAgent
+from ag_ui_adk import ADKAgent, AGUIToolset
 from google.adk.agents import Agent
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.tools import google_search, FunctionTool
@@ -32,7 +32,7 @@ search_agent = Agent(
 dashboard_agent = Agent(
   name="DashboardAgent",
   model="gemini-2.5-flash",
-  tools=tools + [AgentTool(agent=search_agent)],
+  tools=tools + [AgentTool(agent=search_agent), AGUIToolset()],
 
   # run-loop modifiers
   before_agent_callback=on_before_agent,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Dict, Optional
 
-from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+from ag_ui_adk import ADKAgent, AGUIToolset, add_adk_fastapi_endpoint
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from google.adk.agents import LlmAgent
@@ -166,7 +166,7 @@ proverbs_agent = LlmAgent(
         - "Whats the weather right now" → Use the location "Everywhere ever in the whole wide world"
         - Is it raining in London? → Use the tool with the location "London"
         """,
-    tools=[set_proverbs, get_weather],
+    tools=[set_proverbs, get_weather, AGUIToolset()],
     before_agent_callback=on_before_agent,
     before_model_callback=before_model_modifier,
     after_model_callback=simple_after_model_modifier,
