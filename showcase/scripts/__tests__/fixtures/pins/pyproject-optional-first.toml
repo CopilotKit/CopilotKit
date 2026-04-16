@@ -1,0 +1,12 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sample"
+version = "0.0.1"
+optional-dependencies = ["ruff==0.4.0"]
+dependencies = ["langgraph==0.2.14", "copilotkit==1.10.0"]
+
+[project.optional-dependencies]
+dev = ["pytest==8.0.0"]
