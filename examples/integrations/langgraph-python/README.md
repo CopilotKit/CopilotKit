@@ -9,14 +9,29 @@ https://github.com/user-attachments/assets/47761912-d46a-4fb3-b9bd-cb41ddd02e34
 - Node.js 18+
 - Python 3.8+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
+- Any of the following package managers:
+  - npm (default)
+  - [pnpm](https://pnpm.io/installation)
+  - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/)
+  - [bun](https://bun.sh/)
 - OpenAI API Key (for the LangGraph agent)
 
 ## Getting Started
 
-1. Install dependencies:
+1. Install dependencies using your preferred package manager:
 
 ```bash
+# Using npm (default)
 npm install
+
+# Using pnpm
+pnpm install
+
+# Using yarn
+yarn install
+
+# Using bun
+bun install
 ```
 
 This will also install the Python agent dependencies via `uv sync`.
@@ -36,12 +51,24 @@ OPENAI_API_KEY=your-openai-api-key-here
 3. Start the development server:
 
 ```bash
+# Using npm (default)
 npm run dev
+
+# Using pnpm
+pnpm dev
+
+# Using yarn
+yarn dev
+
+# Using bun
+bun run dev
 ```
 
 This will start both the UI and agent servers concurrently.
 
 ## Available Scripts
+
+The following scripts can also be run using your preferred package manager:
 
 - `dev` - Starts both UI and agent servers in development mode
 - `dev:debug` - Starts development servers with debug logging enabled

@@ -22,14 +22,29 @@ This is a starter template for building AI agents using [LangGraph](https://www.
 ## Prerequisites
 
 - Node.js 18+
+- Any of the following package managers:
+  - npm (default)
+  - [pnpm](https://pnpm.io/installation)
+  - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/)
+  - [bun](https://bun.sh/)
 - OpenAI API Key (for the LangGraph agent)
 
 ## Getting Started
 
-1. Install dependencies:
+1. Install dependencies using your preferred package manager:
 
 ```bash
+# Using npm (default)
 npm install
+
+# Using pnpm
+pnpm install
+
+# Using yarn
+yarn install
+
+# Using bun
+bun install
 ```
 
 2. Set up your environment variables:
@@ -47,20 +62,32 @@ OPENAI_API_KEY=your-openai-api-key-here
 3. Start the development servers:
 
 ```bash
+# Using npm (default)
 npm run dev
+
+# Using pnpm
+pnpm dev
+
+# Using yarn
+yarn dev
+
+# Using bun
+bun run dev
 ```
 
 This will start both the Next.js app (on port 3000) and the LangGraph agent (on port 8123) concurrently.
 
 ## Available Scripts
 
-- `npm run dev` - Starts both the web app and agent servers in development mode
-- `npm run dev:debug` - Starts development servers with debug logging enabled
-- `npm run dev:ui` - Starts only the Next.js UI server
-- `npm run dev:agent` - Starts only the LangGraph agent server
-- `npm run build` - Builds the Next.js application for production
-- `npm run start` - Starts the production server
-- `npm run lint` - Runs linting
+The following scripts can also be run using your preferred package manager:
+
+- `dev` - Starts both the web app and agent servers in development mode
+- `dev:debug` - Starts development servers with debug logging enabled
+- `dev:ui` - Starts only the Next.js UI server
+- `dev:agent` - Starts only the LangGraph agent server
+- `build` - Builds the Next.js application for production
+- `start` - Starts the production server
+- `lint` - Runs linting
 
 ## Customization
 

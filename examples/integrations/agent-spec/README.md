@@ -11,12 +11,10 @@ This is a starter template for building AI agents using Agent Spec and CopilotKi
 - uv
 - Node.js 20+
 - Any of the following package managers:
-  - pnpm (recommended)
-  - npm
-  - yarn
-  - bun
-
-> Note: This repository ignores lock files to avoid conflicts between different package managers. Each developer can generate a lock file locally with their preferred package manager.
+  - npm (default)
+  - [pnpm](https://pnpm.io/installation)
+  - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/)
+  - [bun](https://bun.sh/)
 
 ## Getting Started
 
@@ -25,11 +23,11 @@ Before installing, please clone the [AG-UI repository](https://github.com/ag-ui-
 1. Install dependencies using your preferred package manager:
 
 ```bash
-# Using pnpm (recommended)
-pnpm install
-
-# Using npm
+# Using npm (default)
 npm install
+
+# Using pnpm
+pnpm install
 
 # Using yarn
 yarn install
@@ -64,11 +62,11 @@ The backend loads this `.env` automatically (via `python-dotenv`). You can also 
 3. Start the development servers:
 
 ```bash
+# Using npm (default)
+npm run dev
+
 # Using pnpm
 pnpm dev
-
-# Using npm
-npm run dev
 
 # Using yarn
 yarn dev
@@ -83,10 +81,10 @@ To run only the UI or only the backend:
 
 ```bash
 # Only UI
-pnpm run dev:ui
+npm run dev:ui
 
 # Only backend
-pnpm run dev:agent
+npm run dev:agent
 ```
 
 ## Project Structure

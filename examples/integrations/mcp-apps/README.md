@@ -24,14 +24,29 @@ https://github.com/user-attachments/assets/8908af31-2b64-4426-9c83-c51ab86256de
 ## Prerequisites
 
 - Node.js 20+
+- Any of the following package managers:
+  - npm (default)
+  - [pnpm](https://pnpm.io/installation)
+  - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/)
+  - [bun](https://bun.sh/)
 - OpenAI API Key
 
 ## Getting Started
 
-1. Install dependencies:
+1. Install dependencies using your preferred package manager:
 
 ```bash
+# Using npm (default)
 npm install
+
+# Using pnpm
+pnpm install
+
+# Using yarn
+yarn install
+
+# Using bun
+bun install
 ```
 
 > The `postinstall` script automatically installs the MCP server dependencies in `threejs-server/`.
@@ -45,18 +60,30 @@ echo 'OPENAI_API_KEY=your-openai-api-key-here' > .env
 3. Start the development servers:
 
 ```bash
+# Using npm (default)
 npm run dev
+
+# Using pnpm
+pnpm dev
+
+# Using yarn
+yarn dev
+
+# Using bun
+bun run dev
 ```
 
 This starts both the Next.js app and the MCP server concurrently.
 
 ## Available Scripts
 
-- `npm run dev` - Starts both the UI and MCP server in development mode
-- `npm run dev:ui` - Starts only the Next.js UI server
-- `npm run dev:mcp` - Starts only the MCP App Server
-- `npm run build` - Builds the Next.js application for production
-- `npm run start` - Starts the production server
+The following scripts can also be run using your preferred package manager:
+
+- `dev` - Starts both the UI and MCP server in development mode
+- `dev:ui` - Starts only the Next.js UI server
+- `dev:mcp` - Starts only the MCP App Server
+- `build` - Builds the Next.js application for production
+- `start` - Starts the production server
 
 ## Customization
 
