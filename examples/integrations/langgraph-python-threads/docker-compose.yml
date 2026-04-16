@@ -1,0 +1,136 @@
+# Intelligence infrastructure for threads support.
+#
+# Starts postgres, redis, runs DB migrations, and the intelligence
+# app-api + realtime-gateway services.
+#
+# Prerequisites:
+#   Build local images first — see intelligence/scripts/build-local-images.sh
+#
+# Usage:
+#   docker compose up -d --wait
+#
+# Then start the app services on the host:
+#   pnpm dev
+
+name: langgraph-python-intelligence
+
+services:
+  # ---------------------------------------------------------------------------
+  # Infrastructure
+  # ---------------------------------------------------------------------------
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: intelligence
+      POSTGRES_PASSWORD: intelligence
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/init-db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intelligence -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - intelligence
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - intelligence
+
+  # ---------------------------------------------------------------------------
+  # Database migrations (runs once then exits)
+  # ---------------------------------------------------------------------------
+
+  db-migrations:
+    image: cpki/db-migrations:local
+    environment:
+      DATABASE_URL: postgresql://intelligence:intelligence@postgres:5432/intelligence_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - intelligence
+
+  # ---------------------------------------------------------------------------
+  # Intelligence services
+  # ---------------------------------------------------------------------------
+
+  app-api:
+    image: cpki/app-api:local
+    ports:
+      - "${APP_API_HOST_PORT:-4201}:4201"
+    environment:
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: 4201
+      LOG_LEVEL: debug
+      DATABASE_URL: postgresql://intelligence:intelligence@postgres:5432/intelligence_app
+      REDIS_URL: redis://redis:6379
+      AUTH_SECRET: local-dev-secret-must-be-at-least-32-chars
+      AUTH_TRUST_HOST: "true"
+      DEPLOYMENT_MODE: self-hosted
+      DEFAULT_ORGANIZATION_ID: casa-de-erlang
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      db-migrations:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks:
+      - intelligence
+
+  realtime-gateway:
+    image: cpki/realtime-gateway:local
+    ports:
+      - "${REALTIME_GATEWAY_HOST_PORT:-4401}:4401"
+    environment:
+      DATABASE_URL: postgresql://intelligence:intelligence@postgres:5432/intelligence_app
+      REDIS_URL: redis://redis:6379
+      RUNNER_AUTH_SECRET: dev-runner-secret
+      SECRET_KEY_BASE: local-realtime-gateway-secret-key-base-at-least-64-bytes-long-for-dev
+      PHX_HOST: localhost
+      PORT: 4401
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      db-migrations:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 4401"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - intelligence
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  intelligence:
+    driver: bridge

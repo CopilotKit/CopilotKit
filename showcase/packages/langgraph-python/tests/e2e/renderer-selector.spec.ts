@@ -5,9 +5,9 @@ test.describe("Renderer Selector", () => {
     await page.goto("/");
   });
 
-  test("page loads with 5 renderer pills", async ({ page }) => {
+  test("page loads with 4 renderer pills", async ({ page }) => {
     const pills = page.locator("[role='radio']");
-    await expect(pills).toHaveCount(5);
+    await expect(pills).toHaveCount(4);
 
     // Verify all strategy names are visible
     await expect(page.getByRole("radio", { name: /Tool-Based/ })).toBeVisible();
@@ -18,7 +18,6 @@ test.describe("Renderer Selector", () => {
       page.getByRole("radio", { name: /json-render/ }),
     ).toBeVisible();
     await expect(page.getByRole("radio", { name: /HashBrown/ })).toBeVisible();
-    await expect(page.getByRole("radio", { name: /Open GenUI/ })).toBeVisible();
   });
 
   test("default selection is tool-based", async ({ page }) => {
@@ -44,30 +43,10 @@ test.describe("Renderer Selector", () => {
     await expect(toolBasedPill).toHaveAttribute("aria-checked", "false");
   });
 
-  test("dashboard content changes when switching to Open GenUI mode", async ({
-    page,
-  }) => {
-    // Switch to Open GenUI
-    const openGenuiPill = page.getByRole("radio", { name: /Open GenUI/ });
-    await openGenuiPill.click();
-    await expect(openGenuiPill).toHaveAttribute("aria-checked", "true");
-
-    // Open GenUI shows placeholder text about building a dashboard
-    await expect(page.getByText("sales dashboard")).toBeVisible({
-      timeout: 10000,
-    });
-  });
-
   test("switching between multiple modes updates the active pill each time", async ({
     page,
   }) => {
-    const modes = [
-      "A2UI Catalog",
-      "json-render",
-      "HashBrown",
-      "Open GenUI",
-      "Tool-Based",
-    ];
+    const modes = ["A2UI Catalog", "json-render", "HashBrown", "Tool-Based"];
 
     for (const modeName of modes) {
       const pill = page.getByRole("radio", { name: new RegExp(modeName) });
