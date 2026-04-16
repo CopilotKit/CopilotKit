@@ -1,7 +1,8 @@
 {
-  "name": "@copilotkit/core",
-  "version": "1.56.0",
-  "description": "Core web utilities for CopilotKit2",
+  "name": "@copilotkit/devtools-client",
+  "version": "1.55.3",
+  "description": "TanStack DevTools EventClient for emitting AG-UI events",
+  "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
@@ -21,32 +22,20 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "check-types": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "check-types": "tsc --noEmit",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.52",
-    "@copilotkit/devtools-client": "workspace:*",
-    "@copilotkit/shared": "workspace:*",
-    "phoenix": "^1.8.4",
-    "rxjs": "7.8.1",
-    "zod-to-json-schema": "^3.24.6"
+    "@tanstack/devtools-event-client": "^0.4.3"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:*",
-    "@types/node": "^22.15.3",
-    "@valibot/to-json-schema": "^1.5.0",
-    "@vitest/coverage-v8": "^3.2.4",
-    "arktype": "^2.1.29",
+    "jsdom": "^29.0.2",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
-    "valibot": "^1.2.0",
-    "vitest": "^3.2.4",
-    "zod": "^3.25.75"
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">=18"
