@@ -36,13 +36,17 @@ for _candidate in _SCHEMA_CANDIDATES:
 
 # Fallback: use the schema from the examples directory if present
 if _flight_schema is None:
-    _fallback = Path(__file__).resolve().parents[4] / (
-        "examples/integrations/langgraph-python/apps/agent/src/a2ui/schemas/flight_schema.json"
-    )
-    if _fallback.exists():
-        with open(_fallback) as _f:
-            _flight_schema = json.load(_f)
-        _logger.info("Loaded flight schema from examples fallback: %s", _fallback)
+    try:
+        _fallback = Path(__file__).resolve().parents[4] / (
+            "examples/integrations/langgraph-python/apps/agent/src/a2ui/schemas/flight_schema.json"
+        )
+        if _fallback.exists():
+            with open(_fallback) as _f:
+                _flight_schema = json.load(_f)
+            _logger.info("Loaded flight schema from examples fallback: %s", _fallback)
+    except IndexError:
+        # In Docker the file path is too shallow for parents[4]; skip this fallback.
+        pass
 
 # Last resort: inline minimal schema
 if _flight_schema is None:

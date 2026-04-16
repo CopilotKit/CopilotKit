@@ -14,7 +14,7 @@
         "subagents",
         "voice"
       ],
-      "excluded": ["tool-rendering", "hitl", "gen-ui-interrupt", "open-gen-ui"]
+      "excluded": ["tool-rendering", "hitl", "gen-ui-interrupt"]
     },
     "constrained-explicit": {
       "allowed": [
@@ -34,32 +34,11 @@
         "subagents",
         "voice"
       ]
-    },
-    "open": {
-      "allowed": [
-        "open-gen-ui",
-        "multi-modal",
-        "suggestions",
-        "shared-state-read",
-        "shared-state-write",
-        "shared-state-streaming",
-        "readables",
-        "subagents",
-        "voice"
-      ],
-      "excluded": [
-        "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based",
-        "gen-ui-interrupt",
-        "useComponent",
-        "agentic-chat"
-      ]
     }
   },
   "interaction_modalities": {
     "headless": {
-      "excluded": ["open-gen-ui", "voice"]
+      "excluded": ["voice"]
     }
   }
 }

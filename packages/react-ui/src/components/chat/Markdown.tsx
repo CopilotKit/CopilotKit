@@ -126,15 +126,21 @@ const MemoizedReactMarkdown: FC<Options> = memo(
   ReactMarkdown,
   (prevProps, nextProps) =>
     prevProps.children === nextProps.children &&
-    prevProps.components === nextProps.components,
+    prevProps.components === nextProps.components &&
+    prevProps.urlTransform === nextProps.urlTransform,
 );
 
 type MarkdownProps = {
   content: string;
   components?: Components;
+  urlTransform?: Options["urlTransform"];
 };
 
-export const Markdown = ({ content, components }: MarkdownProps) => {
+export const Markdown = ({
+  content,
+  components,
+  urlTransform,
+}: MarkdownProps) => {
   const mergedComponents = useMemo(
     () => ({ ...defaultComponents, ...components }),
     [components],
@@ -148,6 +154,7 @@ export const Markdown = ({ content, components }: MarkdownProps) => {
           [remarkMath, { singleDollarTextMath: false }],
         ]}
         rehypePlugins={[rehypeRaw]}
+        {...(urlTransform !== undefined ? { urlTransform } : {})}
       >
         {content}
       </MemoizedReactMarkdown>

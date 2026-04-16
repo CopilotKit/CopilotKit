@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Optional
 
-from .types import SalesTodo
+from src.agents.types import SalesTodo
 
 INITIAL_TODOS: list[SalesTodo] = [
     SalesTodo(

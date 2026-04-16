@@ -25,6 +25,21 @@ const PACKAGES_DIR = path.join(SHOWCASE, "packages");
 const SHARED_PYTHON_DIR = path.join(SHOWCASE, "shared", "python");
 const SHARED_TS_DIR = path.join(SHOWCASE, "shared", "typescript", "tools");
 
+// Replace floating dist-tags (like 'beta', 'next') with known-good version
+// ranges for reproducible Docker installs. The monorepo lockfile keeps the
+// demo packages stable, but starters run `npm install` from scratch and can
+// hit version drift.
+const PIN_OVERRIDES: Record<string, Record<string, string>> = {
+  mastra: {
+    "@ag-ui/mastra": "0.2.1-beta.2",
+    "@mastra/client-js": "^1.13.4",
+    "@mastra/core": "^1.25.0",
+    "@mastra/libsql": "^1.8.1",
+    "@mastra/memory": "^1.15.1",
+    mastra: "^1.6.0",
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Framework definitions
 // ---------------------------------------------------------------------------
@@ -37,6 +52,7 @@ interface FrameworkDef {
   agentDir: string; // Output dir name in generated starter
   devScript: string;
   extraFiles?: Record<string, string>; // destPath -> sourcePath (relative to package dir)
+  extraDependencies?: Record<string, string>; // Additional npm dependencies to merge into package.json
 }
 
 const FRAMEWORKS: FrameworkDef[] = [
@@ -147,8 +163,19 @@ const FRAMEWORKS: FrameworkDef[] = [
     language: "typescript",
     agentSourceDir: "src/mastra",
     agentDir: "src/mastra",
-    devScript:
-      'concurrently "next dev --turbopack" "npx mastra dev --port 8123"',
+    devScript: 'concurrently "next dev --turbopack" "PORT=8123 npx mastra dev"',
+    extraDependencies: {
+      "@ag-ui/mastra": "beta",
+      "@ai-sdk/openai": "^2.0.42",
+      "@libsql/client": "^0.15.15",
+      "@mastra/client-js": "beta",
+      "@mastra/core": "beta",
+      "@mastra/libsql": "beta",
+      "@mastra/memory": "beta",
+      ai: "^4.0.0",
+      libsql: "^0.5.22",
+      mastra: "beta",
+    },
   },
   {
     slug: "claude-sdk-python",
@@ -166,6 +193,13 @@ const FRAMEWORKS: FrameworkDef[] = [
     agentSourceDir: "src/agent",
     agentDir: "agent",
     devScript: 'concurrently "next dev --turbopack" "npx tsx agent/index.ts"',
+    extraDependencies: {
+      "@ag-ui/core": "^0.0.48",
+      "@ag-ui/encoder": "^0.0.48",
+      "@anthropic-ai/sdk": "^0.57.0",
+      dotenv: "^16.4.0",
+      express: "^4.21.0",
+    },
   },
   {
     slug: "ms-agent-python",
@@ -261,7 +295,7 @@ function substituteVars(content: string, vars: Record<string, string>): string {
   return result;
 }
 
-function rewritePythonImports(filePath: string, _agentDir: string): void {
+function rewritePythonImports(filePath: string): void {
   if (!filePath.endsWith(".py")) return;
   let content = fs.readFileSync(filePath, "utf-8");
 
@@ -303,6 +337,27 @@ function rewritePythonImports(filePath: string, _agentDir: string): void {
     }
   }
 
+  // Before removing `import os`, check if `os` is used elsewhere in non-skipped lines.
+  // If so, keep the `import os` line so the file doesn't break.
+  const osImportIndices: number[] = [];
+  for (const idx of skipIndices) {
+    if (lines[idx].trim() === "import os") {
+      osImportIndices.push(idx);
+    }
+  }
+  if (osImportIndices.length > 0) {
+    // Check if `os` is referenced in any non-skipped, non-import-os line
+    const osUsed = lines.some(
+      (line, i) => !skipIndices.has(i) && /\bos\b/.test(line),
+    );
+    if (osUsed) {
+      // Keep import os lines — don't skip them
+      for (const idx of osImportIndices) {
+        skipIndices.delete(idx);
+      }
+    }
+  }
+
   for (let i = 0; i < lines.length; i++) {
     if (!skipIndices.has(i)) {
       result.push(lines[i]);
@@ -314,38 +369,85 @@ function rewritePythonImports(filePath: string, _agentDir: string): void {
   // Clean up multiple blank lines
   content = content.replace(/\n{3,}/g, "\n\n");
 
-  // Rewrite "from tools import ..." to "from .tools import ..."
-  content = content.replace(/^from tools import /gm, "from .tools import ");
+  // Rewrite "from tools import ..." — context-dependent:
+  // Files inside tools/ directory: "from tools import X" → "from . import X"
+  // Files outside tools/ directory: "from tools import X" → "from .tools import X"
+  const insideTools = filePath.includes("/tools/");
+  const pkgPrefix = insideTools ? "." : ".tools";
+  const subPrefix = insideTools ? "." : ".tools.";
+  content = content.replace(
+    /^from tools import /gm,
+    `from ${pkgPrefix} import `,
+  );
   content = content.replace(
     /^from tools\.(\w+) import /gm,
-    "from .tools.$1 import ",
+    `from ${subPrefix}$1 import `,
   );
 
   // Rewrite "from src.agents.X import ..." to "from .X import ..."
   // This handles main.py style imports like "from src.agents.tools import ..."
   content = content.replace(
-    /^(\s*)from src\.agents\.(\w+) import /gm,
+    /^(\s*)from src\.agents\.([\w.]+) import /gm,
+    "$1from .$2 import ",
+  );
+
+  // Rewrite "from agents.X import ..." to "from .X import ..."
+  // When the demo "agents/" dir is renamed to "agent/" in starters,
+  // intra-package absolute imports break. Convert to relative imports.
+  content = content.replace(
+    /^(\s*)from agents\.([\w.]+) import /gm,
     "$1from .$2 import ",
   );
 
   fs.writeFileSync(filePath, content);
 }
 
-function rewriteTypeScriptSharedImports(filePath: string): void {
+function rewriteTypeScriptSharedImports(
+  filePath: string,
+  agentDestDir: string,
+  starterOutDir?: string,
+): void {
   if (!filePath.endsWith(".ts") && !filePath.endsWith(".tsx")) return;
   let content = fs.readFileSync(filePath, "utf-8");
 
-  // Rewrite @copilotkit/showcase-shared-tools to relative ./shared-tools
+  // Compute correct relative path from file to shared-tools dir
+  const fileDir = path.dirname(filePath);
+  const sharedToolsDir = path.join(agentDestDir, "shared-tools");
+  let relativePath = path.relative(fileDir, sharedToolsDir);
+  // Ensure it starts with ./ for files at the same level
+  if (!relativePath.startsWith(".")) {
+    relativePath = "./" + relativePath;
+  }
+
+  // Rewrite @copilotkit/showcase-shared-tools to correct relative path
   content = content.replace(
     /@copilotkit\/showcase-shared-tools/g,
-    "./shared-tools",
+    relativePath,
   );
+
+  // Rewrite Next.js path aliases (@/...) to relative imports.
+  // In the source packages, @/ maps to src/ via tsconfig paths. But tools
+  // like mastra dev use rollup which doesn't resolve tsconfig aliases.
+  if (starterOutDir) {
+    const srcDir = path.join(starterOutDir, "src");
+    content = content.replace(
+      /from\s+["']@\/([^"']+)["']/g,
+      (_match, aliasPath) => {
+        const targetPath = path.join(srcDir, aliasPath);
+        let relPath = path.relative(fileDir, targetPath);
+        if (!relPath.startsWith(".")) {
+          relPath = "./" + relPath;
+        }
+        return `from "${relPath}"`;
+      },
+    );
+  }
 
   fs.writeFileSync(filePath, content);
 }
 
 /**
- * Extract the uvicorn module path (e.g. "agent.agent:app") from a framework's
+ * Extract the uvicorn module path (e.g. "agent_server:app") from a framework's
  * devScript. Falls back to "agent.main:app" if no uvicorn invocation is found.
  */
 function extractUvicornModule(fw: FrameworkDef): string {
@@ -398,7 +500,7 @@ ${AGENT_HEALTH_CHECK}`;
       }
       if (fw.slug === "mastra") {
         return `echo "[entrypoint] Starting Mastra agent on port 8123..."
-npx mastra dev --port 8123 2>&1 | sed 's/^/[agent] /' &
+PORT=8123 npx mastra dev 2>&1 | sed 's/^/[agent] /' &
 AGENT_PID=$!
 sleep 3
 ${AGENT_HEALTH_CHECK}`;
@@ -555,6 +657,17 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
         pkg.devDependencies = pkg.devDependencies || {};
         pkg.devDependencies.concurrently = "^9.1.0";
       }
+      // Merge framework-specific dependencies
+      if (fw.extraDependencies) {
+        pkg.dependencies = pkg.dependencies || {};
+        Object.assign(pkg.dependencies, fw.extraDependencies);
+        // Sort dependencies keys for deterministic output
+        const sorted: Record<string, string> = {};
+        for (const key of Object.keys(pkg.dependencies).sort()) {
+          sorted[key] = pkg.dependencies[key];
+        }
+        pkg.dependencies = sorted;
+      }
       // Sort devDependencies keys for deterministic output
       if (pkg.devDependencies) {
         const sorted: Record<string, string> = {};
@@ -562,6 +675,18 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
           sorted[key] = pkg.devDependencies[key];
         }
         pkg.devDependencies = sorted;
+      }
+      const pins = PIN_OVERRIDES[fw.slug];
+      if (pins && pkg.dependencies) {
+        for (const [dep, version] of Object.entries(pins)) {
+          if (pkg.dependencies[dep]) {
+            pkg.dependencies[dep] = version;
+          } else {
+            console.warn(
+              `  [warn] PIN_OVERRIDES: ${dep} not found in ${fw.slug} dependencies — pin ignored`,
+            );
+          }
+        }
       }
       content = JSON.stringify(pkg, null, 2) + "\n";
     }
@@ -574,18 +699,10 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
   const agentSrc = path.join(pkgDir, fw.agentSourceDir);
   const agentDest = path.join(outDir, fw.agentDir);
 
-  const KNOWN_INCOMPLETE_AGENTS = ["claude-sdk-typescript"];
   if (!fs.existsSync(agentSrc)) {
-    if (KNOWN_INCOMPLETE_AGENTS.includes(fw.slug)) {
-      console.warn(
-        `  [warn] Agent source directory missing for ${fw.slug}: ${agentSrc} (known incomplete — continuing)`,
-      );
-      fs.mkdirSync(agentDest, { recursive: true });
-    } else {
-      throw new Error(
-        `Agent source directory missing for ${fw.slug}: ${agentSrc}`,
-      );
-    }
+    throw new Error(
+      `Agent source directory missing for ${fw.slug}: ${agentSrc}`,
+    );
   } else {
     copyDirSync(agentSrc, agentDest);
   }
@@ -609,7 +726,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     copySharedPythonTools(agentDest);
 
     // Always rewrite: remove sys.path.insert and convert shared tool imports
-    rewritePythonImportsInDir(agentDest, fw.agentDir);
+    forEachPyFile(agentDest, rewritePythonImports);
 
     // Handle tools.py / tools/ naming collision:
     // If both tools.py (wrapper) and tools/ (shared tools dir) exist,
@@ -621,12 +738,10 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
       fs.renameSync(toolsPy, newName);
       // Update imports in OTHER .py files (not tool_wrappers.py itself)
       // to reference tool_wrappers instead of tools (the wrapper file, not the dir)
-      for (const pyFile of fs
-        .readdirSync(agentDest)
-        .filter((f) => f.endsWith(".py") && f !== "tool_wrappers.py")) {
-        const fp = path.join(agentDest, pyFile);
+      const agentMod = fw.agentDir.replace(/\//g, ".");
+      forEachPyFile(agentDest, (fp) => {
+        if (path.basename(fp) === "tool_wrappers.py") return;
         let content = fs.readFileSync(fp, "utf-8");
-        const agentMod = fw.agentDir.replace(/\//g, ".");
         // from <agentMod>.tools import X -> from <agentMod>.tool_wrappers import X
         content = content.replace(
           new RegExp(`from ${agentMod}\\.tools import`, "g"),
@@ -639,25 +754,22 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
           "from .tool_wrappers import",
         );
         fs.writeFileSync(fp, content);
-      }
+      });
     }
 
     // For langgraph starters: convert relative imports to absolute
     // because langgraph_cli loads modules standalone, not as packages
     if (fw.slug.startsWith("langgraph-")) {
-      const agentMod = fw.agentDir.replace(/\//g, ".");
-      for (const pyFile of fs
-        .readdirSync(agentDest)
-        .filter((f) => f.endsWith(".py"))) {
-        const fp = path.join(agentDest, pyFile);
+      const lgAgentMod = fw.agentDir.replace(/\//g, ".");
+      forEachPyFile(agentDest, (fp) => {
         let content = fs.readFileSync(fp, "utf-8");
         // from .X import -> from <agentMod>.X import
         content = content.replace(
           /^from \.([\w.]+) import/gm,
-          `from ${agentMod}.$1 import`,
+          `from ${lgAgentMod}.$1 import`,
         );
         fs.writeFileSync(fp, content);
-      }
+      });
     }
 
     const reqSrc = path.join(pkgDir, "requirements.txt");
@@ -692,7 +804,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
   // For TypeScript: copy shared tools and rewrite imports
   if (fw.language === "typescript") {
     copySharedTypeScriptTools(agentDest);
-    rewriteTypeScriptImportsInDir(agentDest);
+    rewriteTypeScriptImportsInDir(agentDest, undefined, outDir);
   }
 
   // 4. Copy extra files
@@ -833,33 +945,41 @@ function processTemplateVarsInDir(
   }
 }
 
-function rewritePythonImportsInDir(dir: string, agentDir: string): void {
+/** Recursively walk `dir` and invoke `callback` for every .py file, skipping `data/` dirs. */
+function forEachPyFile(
+  dir: string,
+  callback: (filePath: string) => void,
+): void {
   if (!fs.existsSync(dir)) return;
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      // Skip data dirs but process everything else including tools/
       if (entry.name !== "data") {
-        rewritePythonImportsInDir(fullPath, agentDir);
+        forEachPyFile(fullPath, callback);
       }
-    } else {
-      rewritePythonImports(fullPath, agentDir);
+    } else if (entry.name.endsWith(".py")) {
+      callback(fullPath);
     }
   }
 }
 
-function rewriteTypeScriptImportsInDir(dir: string): void {
+function rewriteTypeScriptImportsInDir(
+  dir: string,
+  agentDestDir?: string,
+  starterOutDir?: string,
+): void {
   if (!fs.existsSync(dir)) return;
+  const rootDir = agentDestDir ?? dir;
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (entry.name !== "shared-tools" && entry.name !== "data") {
-        rewriteTypeScriptImportsInDir(fullPath);
+        rewriteTypeScriptImportsInDir(fullPath, rootDir, starterOutDir);
       }
     } else {
-      rewriteTypeScriptSharedImports(fullPath);
+      rewriteTypeScriptSharedImports(fullPath, rootDir, starterOutDir);
     }
   }
 }
@@ -973,9 +1093,11 @@ main();
 
 export {
   FRAMEWORKS,
+  PIN_OVERRIDES,
   generateStarter,
   substituteVars,
   rewritePythonImports,
+  forEachPyFile,
   extractUvicornModule,
   getEntrypointBlock,
 };
