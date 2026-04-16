@@ -132,10 +132,10 @@ If A2UI cards (e.g. those with bottom action buttons) get clipped in the chat UI
 To apply it locally (this edits `node_modules` and will be overwritten by reinstalling dependencies):
 
 ```bash
-pnpm patch:ui
+npm run patch:ui
 ```
 
-After copying, restart `pnpm dev`.
+After copying, restart `npm run dev`.
 
 ### Custom message key warning (temporary workaround)
 
@@ -146,10 +146,10 @@ If you see React warnings about duplicate keys related to custom message renderi
 To apply it locally (this edits `node_modules` and will be overwritten by reinstalling dependencies):
 
 ```bash
-pnpm patch:ui
+npm run patch:ui
 ```
 
-After copying, restart `pnpm dev`.
+After copying, restart `npm run dev`.
 
 ### Agent Connection Issues
 

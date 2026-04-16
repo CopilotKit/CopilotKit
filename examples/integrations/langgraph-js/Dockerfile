@@ -4,7 +4,7 @@ FROM node:20-slim AS builder
 WORKDIR /app
 
 COPY package.json ./
-RUN npm install
+RUN npm install --ignore-scripts
 
 COPY app/ ./app/
 COPY public/ ./public/
@@ -28,6 +28,7 @@ COPY --from=builder /app/public ./public
 
 # Agent code + dependencies
 COPY agent/ ./agent/
+RUN cd agent && npm install --ignore-scripts
 
 # Copy entrypoint
 COPY entrypoint.sh ./

@@ -11,7 +11,7 @@ WORKDIR /app
 COPY package.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm install --ignore-scripts
 
 # Build stage
 FROM base AS builder
