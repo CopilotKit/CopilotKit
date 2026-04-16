@@ -9,7 +9,7 @@
  * They do NOT require a running agent backend -- only the Next.js frontend.
  *
  * To run with aimock (deterministic LLM responses for agent-dependent tests):
- *   npx aimock --fixtures showcase/aimock --port 4010 &
+ *   npx aimock --fixtures showcase/aimock --port 4010 --validate-on-load &
  *   cd showcase/starters/langgraph-python
  *   OPENAI_BASE_URL=http://localhost:4010/v1 OPENAI_API_KEY=test-key npm run dev &
  *   cd ../../scripts
