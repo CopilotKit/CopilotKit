@@ -44,18 +44,20 @@ A2UI specifications can be rendered on web, mobile, or any other platform, makin
 
 ### Backend
 
-Enable A2UI in `CopilotRuntime` by passing `a2ui: true`:
+Enable A2UI in `CopilotRuntime` and inject a rendering tool (`render_a2ui`) into your agent so it can produce A2UI surfaces:
 
 ```ts title="app/api/copilotkit/route.ts"
 import { CopilotRuntime } from "@copilotkit/runtime";
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
-  a2ui: true,
+  a2ui: {
+    injectA2UITool: true,
+  },
 });
 ```
 
-This automatically applies `A2UIMiddleware` to all registered agents. Pass an object instead of `true` to customise behaviour — for example, to scope it to specific agents: `a2ui: { agents: ["my-agent"] }`.
+This applies `A2UIMiddleware` to all registered agents and adds `render_a2ui` to the agent's tool list, along with usage guidelines so the LLM knows how to call it. Scope to specific agents with `a2ui: { injectA2UITool: true, agents: ["my-agent"] }`.
 
 Once configured, any A2UI output returned from your agent will automatically be rendered in the chat interface — no additional frontend code required.
 
