@@ -23,6 +23,11 @@ export function handleDebugEvents({
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
 
+  // Send an SSE comment immediately to flush response headers to the client.
+  // Without this, some frameworks buffer the response until actual data is written,
+  // leaving the client stuck in "connecting" state.
+  writer.write(encoder.encode(": connected\n\n")).catch(() => {});
+
   const unsubscribe = bus.subscribe((envelope: DebugEventEnvelope) => {
     if (request.signal.aborted) return;
     const line = `data: ${JSON.stringify(envelope)}\n\n`;
