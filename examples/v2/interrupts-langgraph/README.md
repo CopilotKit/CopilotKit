@@ -101,6 +101,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 If you see "I'm having trouble connecting to my tools", make sure:
 
-1. The LangGraph agent is running on port 8000
+1. The LangGraph agent is running on port 8123
 2. Your OpenAI API key is set correctly
 3. Both servers started successfully
