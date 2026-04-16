@@ -96,6 +96,31 @@ export class ComponentRegistry {
     const schema = this.catalogs.get(normalizePath(filePath));
     return schema ? new Set(schema.keys()) : undefined;
   }
+
+  /**
+   * Update the registry with the real schema extracted from the loaded catalog
+   * in the webview (via extractCatalogComponentSchemas which uses zod-to-json-schema).
+   * This replaces the regex-extracted schema with the authoritative one.
+   */
+  updateFromCatalogSchema(
+    fixturePath: string,
+    entries: Array<{ name: string; props: Record<string, unknown> }>,
+  ): void {
+    const catalogPath = findAssociatedCatalog(fixturePath);
+    const key = catalogPath
+      ? normalizePath(catalogPath)
+      : `__live_schema__`;
+
+    const schema: ComponentSchema = new Map();
+    for (const entry of entries) {
+      const propKeys = extractPropKeysFromJsonSchema(entry.props);
+      schema.set(entry.name, propKeys);
+    }
+
+    if (schema.size > 0) {
+      this.catalogs.set(key, schema);
+    }
+  }
 }
 
 /** Basic catalog components with their known prop keys. */
@@ -213,6 +238,41 @@ function findAssociatedCatalog(fixturePath: string): string | undefined {
     }
   }
   return undefined;
+}
+
+/**
+ * Extract prop keys from a JSON Schema object (from zod-to-json-schema).
+ * Handles standard JSON Schema shapes: { properties: { key: ... } }
+ */
+function extractPropKeysFromJsonSchema(
+  schema: Record<string, unknown>,
+): Set<string> {
+  const keys = new Set<string>();
+
+  // Standard JSON Schema: { type: "object", properties: { ... } }
+  const props = schema.properties as Record<string, unknown> | undefined;
+  if (props && typeof props === "object") {
+    for (const key of Object.keys(props)) {
+      keys.add(key);
+    }
+  }
+
+  // Sometimes wrapped in allOf/anyOf/oneOf
+  for (const wrapper of ["allOf", "anyOf", "oneOf"] as const) {
+    const arr = schema[wrapper] as unknown[] | undefined;
+    if (Array.isArray(arr)) {
+      for (const item of arr) {
+        if (item && typeof item === "object") {
+          const nested = extractPropKeysFromJsonSchema(
+            item as Record<string, unknown>,
+          );
+          for (const k of nested) keys.add(k);
+        }
+      }
+    }
+  }
+
+  return keys;
 }
 
 function normalizePath(p: string): string {

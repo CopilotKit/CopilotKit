@@ -51,6 +51,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const previewPanel = new PreviewPanel(
     context.extensionUri,
     diagnosticCollection,
+    registry,
   );
 
   // Sidebar tree view

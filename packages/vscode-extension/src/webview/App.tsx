@@ -4,6 +4,7 @@ import {
   A2UIRenderer,
   basicCatalog,
   useA2UIActions,
+  extractCatalogComponentSchemas,
 } from "@copilotkit/a2ui-renderer";
 import type {
   A2UIFixture,
@@ -78,6 +79,15 @@ export function App(): React.ReactElement {
           setCatalog(newCatalog);
           setCatalogVersion((v) => v + 1);
           setError(null);
+
+          // Extract the real component schema from the catalog's Zod definitions
+          // and send it back to the extension host for fixture validation.
+          try {
+            const schema = extractCatalogComponentSchemas(newCatalog);
+            bridge.send({ type: "catalog-schema", schema });
+          } catch {
+            // Non-critical — validation will fall back to regex-extracted schema
+          }
 
           // Inject component CSS (from imports + Tailwind JIT)
           const existingStyle = document.getElementById("copilotkit-component-css");

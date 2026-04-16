@@ -9,6 +9,7 @@ import type {
 import { bundleCatalog } from "./bundler";
 import { parseFixtureJson, validateFixture } from "./fixture-validator";
 import { findFixtureFile } from "./sidebar/component-scanner";
+import type { ComponentRegistry } from "./component-registry";
 
 export class PreviewPanel {
   private panel: vscode.WebviewPanel | undefined;
@@ -20,6 +21,7 @@ export class PreviewPanel {
   constructor(
     private extensionUri: vscode.Uri,
     private diagnosticCollection: vscode.DiagnosticCollection,
+    private registry?: ComponentRegistry,
   ) {}
 
   async show(
@@ -207,6 +209,16 @@ export class PreviewPanel {
         console.log("[CopilotKit] Action:", message.payload);
         break;
       case "select-fixture":
+        break;
+      case "catalog-schema":
+        // Update the component registry with the real schema from the loaded catalog.
+        // This replaces the regex-extracted schema with the authoritative Zod-derived one.
+        if (this.registry && this.currentComponent?.fixturePath) {
+          this.registry.updateFromCatalogSchema(
+            this.currentComponent.fixturePath,
+            message.schema,
+          );
+        }
         break;
     }
   }
