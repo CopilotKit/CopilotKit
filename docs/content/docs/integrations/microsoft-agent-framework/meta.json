@@ -11,6 +11,7 @@
     "---App Control---",
     "frontend-tools", "shared-state", "agent-app-context",
     "---Microsoft Agent Framework---",
+    "message-persistence",
     "auth",
     "---Backend---",
     "copilot-runtime", "ag-ui",

@@ -8,7 +8,7 @@ hideTOC: true
 import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content.tsx";
 import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon } from "lucide-react";
+import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon, DatabaseIcon } from "lucide-react";
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
@@ -522,6 +522,12 @@ Now that you have your basic agent setup, explore these advanced features:
     description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
     href="/microsoft-agent-framework/shared-state"
     icon={<RepeatIcon />}
+  />
+  <Card
+    title="Persist message history"
+    description="Store and resume conversation threads across sessions using backend persistence."
+    href="/microsoft-agent-framework/message-persistence"
+    icon={<DatabaseIcon />}
   />
   <Card
     title="Add some generative UI"
