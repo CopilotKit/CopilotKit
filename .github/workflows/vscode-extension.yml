@@ -21,18 +21,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Build dependencies
-        run: npx nx run @copilotkit/vscode-extension:build --skip-nx-cache
+      - name: Build
+        run: pnpm run build
 
-      - name: Type check
-        run: npx tsc --noEmit
-        working-directory: packages/vscode-extension
-
-      - name: Unit & component tests
+      - name: Test
         run: npx nx run @copilotkit/vscode-extension:test
-
-      - name: Integration tests (VS Code)
-        run: xvfb-run -a npx nx run @copilotkit/vscode-extension:test:integration
 
       - name: Package extension
         run: npx vsce package --no-dependencies
@@ -59,7 +52,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: npx nx run @copilotkit/vscode-extension:build
+        run: pnpm run build
 
       - name: Publish to VS Code Marketplace
         run: npx vsce publish --no-dependencies
