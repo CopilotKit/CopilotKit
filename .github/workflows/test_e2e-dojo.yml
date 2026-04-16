@@ -6,13 +6,13 @@ on:
     paths:
       - "packages/**"
       - "sdk-python/**"
-      - ".github/workflows/e2e_dojo.yml"
+      - ".github/workflows/test_e2e-dojo.yml"
   pull_request:
     branches: [main]
     paths:
       - "packages/**"
       - "sdk-python/**"
-      - ".github/workflows/e2e_dojo.yml"
+      - ".github/workflows/test_e2e-dojo.yml"
       - ".changeset"
   workflow_dispatch:
     inputs:
@@ -45,7 +45,7 @@ jobs:
           filters: |
             ts:
               - 'packages/**'
-              - '.github/workflows/e2e_dojo.yml'
+              - '.github/workflows/test_e2e-dojo.yml'
               - '.changeset'
             python:
               - 'sdk-python/**'
