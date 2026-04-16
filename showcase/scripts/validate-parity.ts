@@ -37,23 +37,26 @@ import yaml from "yaml";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const PACKAGES_DIR = path.join(ROOT, "packages");
+const DEFAULT_PACKAGES_DIR = path.join(ROOT, "packages");
 
 // Baseline expected demo count per package. Packages that deviate from this
 // are flagged as warnings (e.g. ones still being built out).
 const BASELINE_DEMO_COUNT = 9;
 
-interface ManifestDemo {
+// TODO: If a shared manifest module lands at showcase/scripts/lib/manifest.ts
+// (owned by FX-A / validate-pins), replace these local interfaces with an
+// import from there to keep a single source of truth for the manifest schema.
+export interface ManifestDemo {
   id: string;
   name?: string;
 }
 
-interface Manifest {
+export interface Manifest {
   slug: string;
   demos?: ManifestDemo[];
 }
 
-interface PackageReport {
+export interface PackageReport {
   slug: string;
   demoIds: string[];
   specFiles: string[];
@@ -63,7 +66,7 @@ interface PackageReport {
   warnings: string[];
 }
 
-function listDirs(p: string): string[] {
+export function listDirs(p: string): string[] {
   if (!fs.existsSync(p)) return [];
   return fs
     .readdirSync(p, { withFileTypes: true })
@@ -71,7 +74,7 @@ function listDirs(p: string): string[] {
     .map((d) => d.name);
 }
 
-function listFiles(p: string, suffix: string): string[] {
+export function listFiles(p: string, suffix: string): string[] {
   if (!fs.existsSync(p)) return [];
   return fs
     .readdirSync(p, { withFileTypes: true })
@@ -91,21 +94,27 @@ function listFiles(p: string, suffix: string): string[] {
  *     this in try/catch and convert it into a package-level mustError so
  *     one bad manifest doesn't abort the whole run.
  */
-function loadManifest(slug: string): Manifest | null {
-  const manifestPath = path.join(PACKAGES_DIR, slug, "manifest.yaml");
+export function loadManifest(
+  slug: string,
+  packagesDir: string = DEFAULT_PACKAGES_DIR,
+): Manifest | null {
+  const manifestPath = path.join(packagesDir, slug, "manifest.yaml");
   if (!fs.existsSync(manifestPath)) return null;
   const raw = fs.readFileSync(manifestPath, "utf-8");
   return yaml.parse(raw) as Manifest;
 }
 
-function auditPackage(slug: string): PackageReport {
-  const pkgDir = path.join(PACKAGES_DIR, slug);
+export function auditPackage(
+  slug: string,
+  packagesDir: string = DEFAULT_PACKAGES_DIR,
+): PackageReport {
+  const pkgDir = path.join(packagesDir, slug);
   const mustErrors: string[] = [];
   const warnings: string[] = [];
 
   let manifest: Manifest | null;
   try {
-    manifest = loadManifest(slug);
+    manifest = loadManifest(slug, packagesDir);
   } catch (err) {
     // Malformed YAML: flag this package but let the rest of the run proceed.
     const msg = err instanceof Error ? err.message : String(err);
@@ -199,24 +208,24 @@ function auditPackage(slug: string): PackageReport {
   };
 }
 
-function main(): void {
-  if (!fs.existsSync(PACKAGES_DIR)) {
-    console.error(`[FAIL] packages directory not found: ${PACKAGES_DIR}`);
+export function main(packagesDir: string = DEFAULT_PACKAGES_DIR): void {
+  if (!fs.existsSync(packagesDir)) {
+    console.error(`[FAIL] packages directory not found: ${packagesDir}`);
     process.exit(1);
   }
 
   const slugs = fs
-    .readdirSync(PACKAGES_DIR, { withFileTypes: true })
+    .readdirSync(packagesDir, { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => d.name)
     .sort();
 
   if (slugs.length === 0) {
-    console.error(`[FAIL] no packages found under ${PACKAGES_DIR}`);
+    console.error(`[FAIL] no packages found under ${packagesDir}`);
     process.exit(1);
   }
 
-  const reports = slugs.map((s) => auditPackage(s));
+  const reports = slugs.map((s) => auditPackage(s, packagesDir));
 
   let hasMustFailure = false;
   let totalWarnings = 0;
@@ -266,4 +275,11 @@ function main(): void {
   process.exit(hasMustFailure ? 1 : 0);
 }
 
-main();
+// Only invoke main() when this file is run directly (not when imported by
+// tests). Matches the isMain guard pattern used by audit.ts.
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  main();
+}
