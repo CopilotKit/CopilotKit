@@ -177,7 +177,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     To do this, we'll use the `useInterrupt` hook, give it a component to render, and then call `resolve` with the user's response.
 
     <Callout type="warn">
-      **`agentId` must match a runtime-registered agent.** If you omit `agentId`, the hook assumes `"default"`.
+      **`agentId` must match a runtime-registered agent.** If you omit `agentId`, the hook assumes `"default"`. If the IDs don't match, the interrupt will never fire.
     </Callout>
 
     ```tsx title="app/page.tsx"
