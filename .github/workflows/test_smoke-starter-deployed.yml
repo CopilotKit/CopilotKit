@@ -1,4 +1,4 @@
-name: Starter Deployed Smoke Tests
+name: test / smoke / starter-deployed
 
 on:
   schedule:
