@@ -25,29 +25,35 @@ export class InspectorViewProvider implements vscode.WebviewViewProvider {
 
   /** Persistent event buffer — survives view dispose/recreate cycles. */
   private eventBuffer: DebugEventEnvelope[] = [];
+  private unsubscribers: (() => void)[] = [];
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly debugStream: DebugStream,
   ) {
-    this.debugStream.onEvent((envelope) => {
-      // Always buffer, regardless of view state
-      this.eventBuffer.push(envelope);
-      if (this.eventBuffer.length > MAX_BUFFERED_EVENTS) {
-        this.eventBuffer = this.eventBuffer.slice(
-          this.eventBuffer.length - MAX_BUFFERED_EVENTS,
-        );
-      }
-      this.postMessage({ type: "debug-event", envelope });
-    });
+    this.unsubscribers.push(
+      this.debugStream.onEvent((envelope) => {
+        // Always buffer, regardless of view state
+        this.eventBuffer.push(envelope);
+        if (this.eventBuffer.length > MAX_BUFFERED_EVENTS) {
+          this.eventBuffer = this.eventBuffer.slice(
+            this.eventBuffer.length - MAX_BUFFERED_EVENTS,
+          );
+        }
+        this.postMessage({ type: "debug-event", envelope });
+      }),
+      this.debugStream.onStatus((status) => {
+        this.postMessage({ type: "connection-status", status });
+      }),
+      this.debugStream.onError((error) => {
+        this.postMessage({ type: "connection-error", error });
+      }),
+    );
+  }
 
-    this.debugStream.onStatus((status) => {
-      this.postMessage({ type: "connection-status", status });
-    });
-
-    this.debugStream.onError((error) => {
-      this.postMessage({ type: "connection-error", error });
-    });
+  dispose(): void {
+    for (const unsub of this.unsubscribers) unsub();
+    this.unsubscribers = [];
   }
 
   resolveWebviewView(

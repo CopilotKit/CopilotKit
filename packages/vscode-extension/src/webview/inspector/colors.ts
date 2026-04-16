@@ -109,6 +109,7 @@ export const allCategories: {
       "TEXT_MESSAGE_CONTENT",
       "TEXT_MESSAGE_END",
       "TEXT_MESSAGE_CHUNK",
+      "MESSAGES_SNAPSHOT",
     ],
   },
   {
@@ -142,5 +143,10 @@ export const allCategories: {
     category: "activity",
     label: "Activity/UI",
     eventTypes: ["ACTIVITY_SNAPSHOT", "ACTIVITY_DELTA"],
+  },
+  {
+    category: "unknown",
+    label: "Other",
+    eventTypes: ["CUSTOM"],
   },
 ];
