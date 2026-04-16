@@ -1529,8 +1529,8 @@ function updateWorkflows(args: CLIArgs) {
     }
   }
 
-  // 3. Update starter-smoke.yml — add to matrix (block sequence format)
-  const smokePath = path.join(workflowsDir, "starter-smoke.yml");
+  // 3. Update test_smoke-starter.yml — add to matrix (block sequence format)
+  const smokePath = path.join(workflowsDir, "test_smoke-starter.yml");
   if (fs.existsSync(smokePath)) {
     let smoke = fs.readFileSync(smokePath, "utf-8");
     const slug = args.slug;
@@ -1572,7 +1572,7 @@ function updateWorkflows(args: CLIArgs) {
       lines.splice(lastEntryIndex + 1, 0, `${entryIndent}${slug}`);
       smoke = lines.join("\n");
       fs.writeFileSync(smokePath, smoke);
-      console.log("  Updated starter-smoke.yml");
+      console.log("  Updated test_smoke-starter.yml");
     }
   }
 }

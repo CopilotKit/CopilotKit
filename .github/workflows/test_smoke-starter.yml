@@ -1,4 +1,4 @@
-name: Starter Smoke Tests
+name: test / smoke / starter
 
 on:
   schedule:
@@ -10,7 +10,7 @@ on:
   pull_request:
     paths:
       - "examples/integrations/**"
-      - ".github/workflows/starter-smoke.yml"
+      - ".github/workflows/test_smoke-starter.yml"
   workflow_dispatch: {}
 
 permissions:
