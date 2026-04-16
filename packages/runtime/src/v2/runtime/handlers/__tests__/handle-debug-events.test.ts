@@ -124,6 +124,10 @@ describe("handleDebugEvents", () => {
 
     const reader = response.body!.getReader();
 
+    // Read and discard the initial ": connected" SSE comment
+    const comment = await readNextSSELine(reader);
+    expect(comment).toMatch(/^: connected/);
+
     // Broadcast an event through the bus
     bus.broadcast(createTestEvent(), {
       agentId: "agent-1",
