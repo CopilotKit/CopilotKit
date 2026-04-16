@@ -8,6 +8,8 @@ import { findFixtureFile, getFixtureNames } from "./sidebar/component-scanner";
 import { parseFixtureJson, validateFixture } from "./fixture-validator";
 import { ComponentRegistry } from "./component-registry";
 import { InspectorPanel } from "./inspector-panel";
+import { InspectorViewProvider } from "./inspector-view-provider";
+import { DebugStream } from "./debug-stream";
 
 export function activate(context: vscode.ExtensionContext): void {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -135,8 +137,25 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
-  // Inspector panel
-  const inspectorPanel = new InspectorPanel(context.extensionUri);
+  // Shared debug stream — used by both sidebar view and editor panel
+  const debugStream = new DebugStream();
+  context.subscriptions.push({ dispose: () => debugStream.dispose() });
+
+  // Inspector sidebar view
+  const inspectorViewProvider = new InspectorViewProvider(
+    context.extensionUri,
+    debugStream,
+  );
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      InspectorViewProvider.viewType,
+      inspectorViewProvider,
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
+  );
+
+  // Inspector editor panel (opened via command)
+  const inspectorPanel = new InspectorPanel(context.extensionUri, debugStream);
 
   context.subscriptions.push(
     vscode.commands.registerCommand("copilotkit.openInspector", () => {

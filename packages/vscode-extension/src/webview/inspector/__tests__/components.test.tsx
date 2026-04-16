@@ -89,17 +89,17 @@ describe("ConnectionBar", () => {
     vi.clearAllMocks();
   });
 
-  it('renders URL input with default value "http://localhost:4000"', () => {
+  it('renders URL input with default value "http://localhost:4000/api/copilotkit"', () => {
     render(<ConnectionBar {...defaults} />);
     const input = screen.getByPlaceholderText("Runtime URL");
     expect(input).toBeDefined();
-    expect((input as HTMLInputElement).value).toBe("http://localhost:4000");
+    expect((input as HTMLInputElement).value).toBe("http://localhost:4000/api/copilotkit");
   });
 
   it("calls onConnect with the URL when Connect is clicked", () => {
     render(<ConnectionBar {...defaults} />);
     fireEvent.click(screen.getByText("Connect"));
-    expect(defaults.onConnect).toHaveBeenCalledWith("http://localhost:4000");
+    expect(defaults.onConnect).toHaveBeenCalledWith("http://localhost:4000/api/copilotkit");
   });
 
   it('shows "Disconnect" button when status is "connected"', () => {
@@ -341,7 +341,7 @@ describe("App", () => {
 
     expect(postMessageMock).toHaveBeenCalledWith({
       type: "connect",
-      runtimeUrl: "http://localhost:4000",
+      runtimeUrl: "http://localhost:4000/api/copilotkit",
     });
   });
 });

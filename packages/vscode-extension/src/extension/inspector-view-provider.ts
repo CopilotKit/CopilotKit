@@ -6,9 +6,14 @@ import {
 } from "./inspector-types";
 import { getNonce } from "./utils";
 
-export class InspectorPanel {
-  private panel: vscode.WebviewPanel | null = null;
-  private debugStream: DebugStream;
+/**
+ * Provides the AG-UI Inspector as a sidebar WebviewView.
+ * Shares a DebugStream so events flow to both the sidebar and the editor panel.
+ */
+export class InspectorViewProvider implements vscode.WebviewViewProvider {
+  public static readonly viewType = "copilotkit.inspector";
+
+  private view: vscode.WebviewView | null = null;
   private ready = false;
   private messageQueue: InspectorToWebviewMessage[] = [];
 
@@ -29,42 +34,33 @@ export class InspectorPanel {
     });
   }
 
-  show(): void {
-    if (this.panel) {
-      this.panel.reveal();
-      return;
-    }
+  resolveWebviewView(
+    webviewView: vscode.WebviewView,
+    _context: vscode.WebviewViewResolveContext,
+    _token: vscode.CancellationToken,
+  ): void {
+    this.view = webviewView;
 
-    this.panel = vscode.window.createWebviewPanel(
-      "copilotkit.inspector",
-      "AG-UI Inspector",
-      vscode.ViewColumn.Beside,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        localResourceRoots: [
-          vscode.Uri.joinPath(this.extensionUri, "dist", "webview"),
-        ],
-      },
-    );
+    webviewView.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [
+        vscode.Uri.joinPath(this.extensionUri, "dist", "webview"),
+      ],
+    };
 
-    this.panel.webview.html = this.getWebviewHtml(this.panel.webview);
+    webviewView.webview.html = this.getWebviewHtml(webviewView.webview);
 
-    this.panel.webview.onDidReceiveMessage(
+    webviewView.webview.onDidReceiveMessage(
       (msg: InspectorFromWebviewMessage) => {
         this.handleWebviewMessage(msg);
       },
     );
 
-    this.panel.onDidDispose(() => {
-      this.panel = null;
+    webviewView.onDidDispose(() => {
+      this.view = null;
       this.ready = false;
       this.messageQueue = [];
     });
-  }
-
-  dispose(): void {
-    this.panel?.dispose();
   }
 
   private handleWebviewMessage(msg: InspectorFromWebviewMessage): void {
@@ -72,7 +68,7 @@ export class InspectorPanel {
       case "ready":
         this.ready = true;
         for (const queued of this.messageQueue) {
-          this.panel?.webview.postMessage(queued);
+          this.view?.webview.postMessage(queued);
         }
         this.messageQueue = [];
         break;
@@ -89,7 +85,7 @@ export class InspectorPanel {
   }
 
   private postMessage(msg: InspectorToWebviewMessage): void {
-    if (!this.panel) return;
+    if (!this.view) return;
 
     if (!this.ready) {
       if (this.messageQueue.length < 1000) {
@@ -98,7 +94,7 @@ export class InspectorPanel {
       return;
     }
 
-    this.panel.webview.postMessage(msg);
+    this.view.webview.postMessage(msg);
   }
 
   private getWebviewHtml(webview: vscode.Webview): string {

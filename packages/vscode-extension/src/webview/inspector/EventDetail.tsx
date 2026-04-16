@@ -20,7 +20,7 @@ export function EventDetail({
       : "0.000s";
 
   return (
-    <div className="w-[400px] border-l border-[var(--vscode-panel-border)] flex flex-col bg-[var(--vscode-sideBar-background)]">
+    <div className="md:w-[400px] w-full border-t md:border-t-0 md:border-l border-[var(--vscode-panel-border)] flex flex-col bg-[var(--vscode-sideBar-background)] max-h-[50%] md:max-h-none">
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--vscode-panel-border)]">
         <div className="flex items-center gap-2">
           <span

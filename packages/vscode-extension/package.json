@@ -55,6 +55,11 @@
         {
           "id": "copilotkit.componentPreview",
           "name": "Component Preview"
+        },
+        {
+          "id": "copilotkit.inspector",
+          "type": "webview",
+          "name": "AG-UI Inspector"
         }
       ]
     },
