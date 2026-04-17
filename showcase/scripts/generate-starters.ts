@@ -633,6 +633,27 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
   copyDirSync(frontendSrc, frontendDest);
   processTemplateVarsInDir(frontendDest, vars);
 
+  // 1a. langgraph starters use langgraph_cli which exposes /ok (not /health).
+  // Rewrite the probe path in the copilotkit + health routes for these starters only.
+  if (fw.slug.startsWith("langgraph-")) {
+    const probeFiles = [
+      path.join(frontendDest, "app/api/copilotkit/route.ts"),
+      path.join(frontendDest, "app/api/health/route.ts"),
+    ];
+    for (const file of probeFiles) {
+      if (fs.existsSync(file)) {
+        const content = fs.readFileSync(file, "utf-8");
+        const updated = content.replace(
+          /\$\{AGENT_URL\}\/health/g,
+          "${AGENT_URL}/ok",
+        );
+        if (updated !== content) {
+          fs.writeFileSync(file, updated);
+        }
+      }
+    }
+  }
+
   // 2. Copy template config files
   const templateConfigs: Array<[string, string]> = [
     ["package.template.json", "package.json"],
