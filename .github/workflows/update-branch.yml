@@ -1,7 +1,7 @@
 name: Update PR branch
 
 on:
-  pull_request:
+  pull_request_target:
     types: [labeled]
 
 permissions:
@@ -24,8 +24,11 @@ jobs:
               await github.rest.pulls.updateBranch({ owner, repo, pull_number });
               core.info(`Updated branch for PR #${pull_number}`);
             } catch (error) {
-              core.setFailed(`Failed to update branch: ${error.message}`);
-              throw error;
+              if (error.status === 422) {
+                core.info(`Branch already up to date or cannot be updated: ${error.message}`);
+              } else {
+                core.setFailed(`Failed to update branch: ${error.message}`);
+              }
             } finally {
               try {
                 await github.rest.issues.removeLabel({
