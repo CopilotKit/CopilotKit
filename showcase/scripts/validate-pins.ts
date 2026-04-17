@@ -811,12 +811,16 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
   const dropped: string[] = [];
 
   // --- PEP 621: [project] table ---
-  // Find the [project] section body, stopping at the next TOP-LEVEL
-  // header (i.e. `[something]` or `[something-without-dots]` at column 0).
-  // Dotted subtables like `[project.optional-dependencies]` are NOT
-  // top-level and should not end the section.
+  // Find the [project] section body, stopping at the next header of any
+  // kind — whether a plain table like `[tool]` or a dotted table like
+  // `[tool.poetry]` / `[project.optional-dependencies]`. Dotted
+  // subtables under `[project]` (e.g. `[project.optional-dependencies]`)
+  // are handled by separate scanners that run against the raw file, so
+  // it is safe — and in fact required — to terminate [project] body at
+  // the FIRST subsequent `[...]` header. Otherwise `dependencies = [`
+  // keys inside Poetry group subtables can leak into PEP 621 parsing.
   const projectBodyRe =
-    /(?:^|\n)\[project\][^\n]*\n([\s\S]*?)(?=\n\[[^.\]\n]+\]|\n*$)/;
+    /(?:^|\n)\[project\][^\n]*\n([\s\S]*?)(?=\n\[[^\]\n]+\]|\n*$)/;
   const projectMatch = raw.match(projectBodyRe);
   if (projectMatch) {
     const section = projectMatch[1];

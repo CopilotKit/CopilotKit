@@ -1227,6 +1227,45 @@ describe("parsePyprojectToml Poetry group sections (A7)", () => {
   });
 });
 
+// A [project] body must be terminated by any subsequent top-level
+// header, including dotted tables like [tool.poetry]. Otherwise PEP 621
+// parsing consumes the following Poetry section and can yield wrong or
+// duplicated entries.
+describe("parsePyprojectToml [project] terminates at dotted top-level headers", () => {
+  it("does not bleed content after [tool.poetry] into [project] dependencies array", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      // [project] has NO dependencies key. A later Poetry group subtable
+      // contains `dependencies = [ "poetry-only-dep==9.9.9" ]`.
+      // Poetry-style parsing (parsePoetryInlineTables / groups) reads
+      // each KEY under `[tool.poetry.group.dev.dependencies]` as a
+      // named dep — NOT a `dependencies` array. So under the buggy
+      // [project] regex, the PEP 621 scanner extends its body past
+      // [tool.poetry] and finds this `dependencies = [` array, then
+      // parses `poetry-only-dep==9.9.9` as a PEP 621 dep (producing
+      // `==9.9.9`). The dotted-header fix terminates [project] body
+      // correctly so this line is owned only by the Poetry scanner.
+      write(
+        file,
+        [
+          "[project]",
+          'name = "bleed-test"',
+          'version = "0.1.0"',
+          "",
+          "[tool.poetry.group.dev.dependencies]",
+          'dependencies = ["poetry-only-dep==9.9.9"]',
+        ].join("\n"),
+      );
+      const detailed = parsePyprojectTomlDetailed(file);
+      // Under the bug, `poetry-only-dep` appears in deps as `==9.9.9`.
+      // With the fix, the Poetry group scanner sees a single key named
+      // `dependencies` with a non-string array value → it surfaces in
+      // skipped[] as a non-string value, not in deps.
+      expect(detailed.deps["poetry-only-dep"]).toBeUndefined();
+    });
+  });
+});
+
 // T5: when both [project] and [tool.poetry.dependencies] are present,
 // PEP 621 [project] wins (first-writer-wins in parse order).
 describe("parsePyprojectToml precedence: [project] before Poetry", () => {
