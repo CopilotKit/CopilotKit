@@ -688,6 +688,87 @@ describe("validate-parity", () => {
         );
       }
     });
+
+    it("re-throws unknown (non-manifest) errors from loadManifest instead of mislabelling them as malformed-manifest", () => {
+      // If loadManifest throws an error that is NOT a
+      // ManifestMalformedError / ManifestUnreadableError — e.g. a
+      // TypeError surfaced from a bug — auditPackage must NOT silently
+      // bucket it as `malformed-manifest` (which would hide the real
+      // defect). The catch-all branch should re-throw so the top-level
+      // CLI handler surfaces an [INTERNAL ERROR] with EXIT_INTERNAL.
+      //
+      // We force loadManifest to throw a TypeError by monkey-patching
+      // fs.readFileSync (which parseManifest calls through
+      // loadManifest) to throw. parseManifest itself catches readFileSync
+      // failures and converts to { kind: "unreadable" }, so we instead
+      // patch fs.readdirSync? — no: loadManifest doesn't call that.
+      // Instead: patch Object.freeze to throw (parseManifest uses it
+      // late, after validation, to seal the result). A TypeError from
+      // Object.freeze is NOT a ManifestMalformed/Unreadable error, so
+      // loadManifest's own switch will not rewrap it — it will propagate
+      // up to auditPackage where the catch-all else lives.
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-unknown-err-"));
+      try {
+        const pkgDir = path.join(tmp, "ok-pkg");
+        fs.mkdirSync(pkgDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(pkgDir, "manifest.yaml"),
+          "slug: ok-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
+          "utf-8",
+        );
+        const originalFreeze = Object.freeze;
+        const sentinel = new TypeError("synthetic non-manifest failure");
+        try {
+          Object.freeze = ((o: unknown) => {
+            // Only throw once parseManifest is actually freezing demo
+            // objects (they have a stringy id). Leaves other freeze
+            // calls in the test harness untouched.
+            if (
+              o !== null &&
+              typeof o === "object" &&
+              "id" in (o as Record<string, unknown>)
+            ) {
+              throw sentinel;
+            }
+            return originalFreeze(o as object);
+          }) as typeof Object.freeze;
+          expect(() => auditPackage("ok-pkg", tmp)).toThrow(sentinel);
+        } finally {
+          Object.freeze = originalFreeze;
+        }
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("rejects manifests whose inner slug disagrees with the directory slug (slug-mismatch guard wired via loadManifest)", () => {
+      // M-R10-10: parseManifest accepts an optional dirSlug and returns
+      // a shape-malformed result when `slug:` in the YAML differs from
+      // the directory name on disk. loadManifest (and by extension
+      // auditPackage) must wire that guard in — otherwise a copy-paste
+      // or rename mistake silently keys into the wrong package.
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-slugmismatch-"));
+      try {
+        const pkgDir = path.join(tmp, "actual-slug");
+        fs.mkdirSync(pkgDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(pkgDir, "manifest.yaml"),
+          "slug: declared-slug\ndemos: []\n",
+          "utf-8",
+        );
+        const report = auditPackage("actual-slug", tmp);
+        expect(
+          report.mustErrors.some(
+            (e) =>
+              e.category === "malformed-manifest" &&
+              /slug mismatch/.test(deriveMessage(e)),
+          ),
+          JSON.stringify(report.mustErrors),
+        ).toBe(true);
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
   });
 
   describe("listDirs / listFiles graceful error handling", () => {
@@ -973,7 +1054,7 @@ describe("validate-parity", () => {
       ["0x10"],
       ["1e2"],
     ])(
-      "rejects invalid VALIDATE_PARITY_BASELINE=%j with exit 1",
+      "rejects invalid VALIDATE_PARITY_BASELINE=%j with exit 2 (EXIT_INVALID_INPUT)",
       (raw: string) => {
         writeFixturePackage(tree.packagesDir, "only-pkg", {
           manifest: "slug: only-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
@@ -987,12 +1068,15 @@ describe("validate-parity", () => {
             VALIDATE_PARITY_BASELINE: raw,
           },
         });
-        expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(1);
+        // Invalid CLI input should be distinguishable from a legitimate
+        // MUST failure (exit 1). audit.ts uses exit 2 for the same
+        // category of error — keep the taxonomy aligned across tools.
+        expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(2);
         expect(r.stderr).toMatch(/VALIDATE_PARITY_BASELINE/);
       },
     );
 
-    it("rejects invalid --baseline=abc with exit 1", () => {
+    it("rejects invalid --baseline=abc with exit 2 (EXIT_INVALID_INPUT)", () => {
       writeFixturePackage(tree.packagesDir, "only-pkg", {
         manifest: "slug: only-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
         demoDirs: ["chat"],
@@ -1002,7 +1086,7 @@ describe("validate-parity", () => {
       const r = runCli(["--baseline=abc"], {
         env: { VALIDATE_PARITY_REPO_ROOT: tree.root },
       });
-      expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(1);
+      expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(2);
       expect(r.stderr).toMatch(/invalid --baseline value/);
     });
   });
@@ -1086,7 +1170,8 @@ describe("validate-parity", () => {
           encoding: "utf-8",
           timeout: 30_000,
         });
-        expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(1);
+        // Invalid input → exit 2 (EXIT_INVALID_INPUT), not 1 (MUST failure).
+        expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(2);
         expect(r.stderr).toMatch(/float/i);
       } finally {
         fs.rmSync(root, { recursive: true, force: true });
@@ -1202,16 +1287,16 @@ describe("validate-parity", () => {
       expect(r.stdout).toMatch(/bad-pkg/);
     });
 
-    it("does not call process.exit(code) directly — verified by source grep", () => {
-      // The convention in audit.ts / validate-pins.ts is
-      // `process.exitCode = N; return;`. We assert validate-parity.ts
-      // contains no synchronous `process.exit(<code>)` call from its
-      // main() / CLI wrapper. A single `process.exit(EXIT_INTERNAL)`
-      // inside the top-level catch handler IS still acceptable because
-      // that path runs after an exception, not after normal stdout
-      // emission — but main() must not call process.exit on its own.
+    it("[source-lint] main() body uses process.exitCode, not synchronous process.exit(code)", () => {
+      // This is a source-level lint (not a behavioural test): the
+      // convention shared with audit.ts / validate-pins.ts is
+      // `process.exitCode = N` so Node can drain buffered stdout/stderr
+      // before tearing down. The companion behavioural assertion lives
+      // in the "emits the full summary table on stdout even when
+      // exiting non-zero" test above, which confirms the drain actually
+      // works end-to-end. This lint guards against a regression where
+      // someone swaps main()'s body back to synchronous process.exit.
       const src = fs.readFileSync(PARITY_SCRIPT, "utf-8");
-      // Find main() function block and assert it does not call process.exit.
       const mainMatch = src.match(
         /function main\([^)]*\)[^{]*\{([\s\S]*?)\n\}/,
       );
