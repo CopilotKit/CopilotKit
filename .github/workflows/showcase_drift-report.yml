@@ -4,7 +4,7 @@ name: "Showcase: Drift Report"
 # Complements showcase_validate.yml's ratchet gating by surfacing the
 # current backlog even when no PR is open. Goal: keep the drift count
 # visible so the drift-to-zero commitment (tracked in the GitHub issue
-# referenced by showcase_validate.yml's TODO(showcase-drift, ...)) stays
+# referenced by showcase_validate.yml's TODO(showcase-drift-zero, ...)) stays
 # in front of the team.
 #
 # Reference: Notion: "Showcase Drift Baseline Runbook"
@@ -33,13 +33,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # pnpm must be set up BEFORE setup-node so that `cache: 'pnpm'` can
+      # detect the pnpm binary when wiring up the store cache.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4.4.0
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4.4.0
+          # Cache the pnpm store so weekly cold-cache runs don't re-fetch
+          # the full dependency set every Monday.
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
@@ -48,7 +53,10 @@ jobs:
         id: baseline
         run: |
           set -euo pipefail
-          baseline=$(node -e "
+          # Emit `count|hash` so we can ratchet on both; surface "SET DRIFTED"
+          # when the count matches but the hash differs.
+          set +e
+          baseline_tuple=$(node -e "
             let v;
             try {
               v = require('./showcase/scripts/fail-baseline.json');
@@ -57,13 +65,29 @@ jobs:
               process.exit(2);
             }
             const c = v.validatePinsFailCount;
+            const h = v.validatePinsFailHash;
             if (typeof c !== 'number' || !Number.isInteger(c) || c < 0) {
               console.error('fail-baseline.json: schema failure: validatePinsFailCount must be a non-negative integer');
               process.exit(3);
             }
-            console.log(c);
+            if (typeof h !== 'string' || !/^[0-9a-f]{64}$/.test(h)) {
+              console.error('fail-baseline.json: schema failure: validatePinsFailHash must be a 64-char lowercase hex SHA-256');
+              process.exit(3);
+            }
+            console.log(c + '|' + h);
           ")
-          echo "count=$baseline" >> "$GITHUB_OUTPUT"
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            # Preserve node's distinct rc (2=JSON syntax, 3=schema) in the
+            # annotation so the weekly log pinpoints the cause.
+            echo "::error::Failed to read baseline from showcase/scripts/fail-baseline.json (node exit=$rc; 2=JSON syntax, 3=schema)"
+            exit "$rc"
+          fi
+          baseline_count="${baseline_tuple%%|*}"
+          baseline_hash="${baseline_tuple##*|}"
+          echo "count=$baseline_count" >> "$GITHUB_OUTPUT"
+          echo "hash=$baseline_hash" >> "$GITHUB_OUTPUT"
 
       - name: Run validate-pins
         id: validate
@@ -92,7 +116,21 @@ jobs:
             echo "::error::Could not parse FAIL=<int> from Summary line"
             exit 1
           fi
+          # Hash the sorted, deduplicated `[FAIL] ...` lines (stderr only),
+          # matching the identical computation in showcase_validate.yml. This
+          # catches the "count equal but set drifted" case: one FAIL healed
+          # while another regressed.
+          actual_hash=$(printf '%s\n' "$stderr" | grep -E '^\[FAIL\]' | LC_ALL=C sort -u | shasum -a 256 | cut -d' ' -f1)
+          # Determine set-drift status for the weekly Slack payload so a
+          # count-equal-but-set-changed week is visible, not silently clean.
+          if [ "$actual" -eq "${{ steps.baseline.outputs.count }}" ] && [ "$actual_hash" != "${{ steps.baseline.outputs.hash }}" ]; then
+            set_status="SET DRIFTED"
+          else
+            set_status="ok"
+          fi
           echo "actual=$actual" >> "$GITHUB_OUTPUT"
+          echo "actual_hash=$actual_hash" >> "$GITHUB_OUTPUT"
+          echo "set_status=$set_status" >> "$GITHUB_OUTPUT"
 
       - name: Notify Slack (weekly drift report)
         # Skip cleanly when the webhook secret is unset (forks / pre-provision)
@@ -103,13 +141,13 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload: |
-            { "text": ":chart_with_downwards_trend: *Showcase pin-drift (weekly)*: FAIL=${{ steps.validate.outputs.actual }} (baseline ${{ steps.baseline.outputs.count }}) | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+            { "text": ":chart_with_downwards_trend: *Showcase pin-drift (weekly)*: FAIL=${{ steps.validate.outputs.actual }} (baseline ${{ steps.baseline.outputs.count }}) [${{ steps.validate.outputs.set_status }}] | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
 
       - name: Log result (no Slack)
         if: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS == '' }}
         run: |
           echo "::warning::SLACK_WEBHOOK_OSS_ALERTS not set; weekly drift report not sent to Slack."
-          echo "Weekly pin-drift report: FAIL=${{ steps.validate.outputs.actual }} baseline=${{ steps.baseline.outputs.count }}"
+          echo "Weekly pin-drift report: FAIL=${{ steps.validate.outputs.actual }} baseline=${{ steps.baseline.outputs.count }} set_status=${{ steps.validate.outputs.set_status }} actual_hash=${{ steps.validate.outputs.actual_hash }} baseline_hash=${{ steps.baseline.outputs.hash }}"
 
       - name: Notify Slack (job failure)
         # Surface silent crashes (baseline read, validate-pins internal error,

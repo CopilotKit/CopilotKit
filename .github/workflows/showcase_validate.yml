@@ -76,6 +76,7 @@ jobs:
           # per-package e2e-spec-count floor cannot drift between CI and the
           # validator. If parsing fails we distinguish JSON syntax errors
           # from schema failures (missing/non-integer/negative field).
+          set +e
           MIN=$(node -e "
             let v;
             try {
@@ -90,10 +91,15 @@ jobs:
               process.exit(3);
             }
             console.log(n);
-          ") || {
-            echo "::error::Failed to read baselineDemoCount from showcase/scripts/fail-baseline.json (see stderr above)"
-            exit 1
-          }
+          ")
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            # Preserve node's distinct rc (2=JSON syntax, 3=schema) in the
+            # annotation so the CI log pinpoints the cause without re-running.
+            echo "::error::Failed to read baselineDemoCount from showcase/scripts/fail-baseline.json (node exit=$rc; 2=JSON syntax, 3=schema)"
+            exit "$rc"
+          fi
           failed=0
           found=0
           for pkg_dir in showcase/packages/*/; do
@@ -149,7 +155,7 @@ jobs:
         # procedure. Weekly backlog visibility is provided by
         # `.github/workflows/showcase_drift-report.yml`.
         #
-        # TODO(<tracking-issue-to-be-created>, owner: @jpr5): drive the
+        # TODO(showcase-drift-zero, owner: @jpr5): drive the
         # baseline to zero; re-audit quarterly.
         run: |
           set -euo pipefail
@@ -171,6 +177,7 @@ jobs:
           # `_comment`) that would otherwise leave required fields
           # undefined and be caught only via the schema branch with a
           # more confusing message.
+          set +e
           baseline_json=$(node -e "
             const ALLOWED = ['_comment', 'validatePinsFailCount', 'validatePinsFailHash', 'baselineDemoCount'];
             let v;
@@ -196,10 +203,15 @@ jobs:
               process.exit(3);
             }
             console.log(JSON.stringify({ count: c, hash: h }));
-          ") || {
-            echo "::error::fail-baseline.json failed validation (see stderr above; exit 2=JSON syntax, 3=schema, 4=unexpected field)"
-            exit 1
-          }
+          ")
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            # Preserve node's distinct rc (2=JSON syntax, 3=schema, 4=unexpected field)
+            # in the annotation so the CI log pinpoints the cause.
+            echo "::error::fail-baseline.json failed validation (node exit=$rc; 2=JSON syntax, 3=schema, 4=unexpected field)"
+            exit "$rc"
+          fi
           baseline=$(node -e "console.log(JSON.parse(process.argv[1]).count)" "$baseline_json")
           baseline_hash=$(node -e "console.log(JSON.parse(process.argv[1]).hash)" "$baseline_json")
 
