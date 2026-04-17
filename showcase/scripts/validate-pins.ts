@@ -481,6 +481,18 @@ function isExactSpec(spec: string): boolean {
   // of two constraints and cannot be a single exact pin.
   if (/,/.test(trimmed)) return false;
 
+  // Bare version shape: MAJOR[.MINOR[.PATCH]] with an optional
+  // pre-release / build / PEP 440 suffix. Previously a trailing-
+  // digit-check was missing, so exotic forms like `1x`, `2X`, and
+  // `1e2` slipped through: the leading digit + no range-operator +
+  // no wildcard-between-separators checks did not catch a letter
+  // immediately after the digits. Tighten to a concrete semver-shape
+  // regex so only digit-dotted-digit forms (plus permitted suffixes)
+  // pass.
+  if (!/^\d+(?:\.\d+){0,2}(?:[-+.][A-Za-z0-9.-]+)*$/.test(trimmed)) {
+    return false;
+  }
+
   return true;
 }
 
