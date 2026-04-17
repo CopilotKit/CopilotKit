@@ -211,8 +211,7 @@ function resolveExampleDirDetailed(
   // Strategy 3 — direct name match (common case: showcase slug ===
   // examples dir name).
   const direct = path.join(EXAMPLES_DIR, showcaseSlug);
-  if (existsAsDir(direct))
-    return { exampleDir: direct, missingFallbackTarget };
+  if (existsAsDir(direct)) return { exampleDir: direct, missingFallbackTarget };
 
   return { exampleDir: null, missingFallbackTarget };
 }
@@ -1342,9 +1341,7 @@ function validateAll(): Report {
     return report;
   }
   if (!packagesStat.isDirectory()) {
-    report.fail.push(
-      `[FAIL] Packages dir is not a directory: ${PACKAGES_DIR}`,
-    );
+    report.fail.push(`[FAIL] Packages dir is not a directory: ${PACKAGES_DIR}`);
     return report;
   }
 
@@ -1492,10 +1489,7 @@ function validateAll(): Report {
       showcase.jsDeps,
       /* isPython */ false,
     );
-    const dojoJsRaw = canonicalizeDepMap(
-      dojo.jsDeps,
-      /* isPython */ false,
-    );
+    const dojoJsRaw = canonicalizeDepMap(dojo.jsDeps, /* isPython */ false);
 
     let pkgHadViolation = pkgHadParseError;
 

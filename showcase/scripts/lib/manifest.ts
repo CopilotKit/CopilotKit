@@ -268,9 +268,7 @@ export function parseManifest(
   // production callers (audit.ts, validate-parity.ts) pass the slug
   // they used to build the filePath.
   const expectedDirSlug =
-    typeof dirSlug === "string" && dirSlug.length > 0
-      ? dirSlug
-      : undefined;
+    typeof dirSlug === "string" && dirSlug.length > 0 ? dirSlug : undefined;
   if (expectedDirSlug !== undefined && expectedDirSlug !== slug) {
     return {
       kind: "malformed",
