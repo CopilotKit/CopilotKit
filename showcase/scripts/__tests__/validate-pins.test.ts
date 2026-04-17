@@ -2024,3 +2024,331 @@ describe("P-R8-T1: no [parse-error] in pre-report stderr (extended with printRep
     expect(parseErrorCount).toBe(0);
   });
 });
+
+// P-R10-1: a showcase package whose showcase- or dojo-side parse fails
+// MUST NOT ALSO be reported as OK. Previously a parseError produced a
+// FAIL line but `pkgHadViolation` was only set from the per-dep loop, so
+// the same slug appeared in BOTH `report.ok` and `report.fail`.
+describe("P-R10-1: parseErrors suppress the OK line for a slug", () => {
+  let repoRoot: string;
+  let savedRepoRoot: string | undefined;
+
+  beforeEach(() => {
+    savedRepoRoot = process.env.VALIDATE_PINS_REPO_ROOT;
+    repoRoot = tmpdir();
+    process.env.VALIDATE_PINS_REPO_ROOT = repoRoot;
+    fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+      recursive: true,
+    });
+  });
+  afterEach(() => {
+    if (savedRepoRoot === undefined) {
+      delete process.env.VALIDATE_PINS_REPO_ROOT;
+    } else {
+      process.env.VALIDATE_PINS_REPO_ROOT = savedRepoRoot;
+    }
+    fs.rmSync(repoRoot, { recursive: true, force: true });
+  });
+
+  it("does not emit [OK] for a slug with a mix of valid + parse-errored showcase files", () => {
+    const slug = "mastra";
+    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const exDir = path.join(repoRoot, "examples", "integrations", slug);
+    // Valid root package.json — so `showcase.files.length > 0` and we
+    // do NOT hit the `files.length === 0` early-continue path. The
+    // malformed apps/agent/package.json still produces a parseError.
+    write(
+      path.join(pkgDir, "apps", "agent", "package.json"),
+      "{ not valid json",
+    );
+    write(
+      path.join(pkgDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@mastra/core": "0.15.0" },
+      }),
+    );
+    write(
+      path.join(exDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@mastra/core": "0.15.0" },
+      }),
+    );
+
+    const report = validateAll();
+    const okForSlug = report.ok.some((l) => l.includes(`[OK] ${slug}`));
+    const failForSlug = report.fail.some(
+      (l) =>
+        l.includes(`[FAIL] ${slug}`) && /parse error/i.test(l),
+    );
+    expect(failForSlug).toBe(true);
+    // Slug must NOT also be reported as OK.
+    expect(okForSlug).toBe(false);
+  });
+
+  it("does not emit [OK] for a slug with a mix of valid + parse-errored Dojo files", () => {
+    const slug = "mastra";
+    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const exDir = path.join(repoRoot, "examples", "integrations", slug);
+    write(
+      path.join(pkgDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@mastra/core": "0.15.0" },
+      }),
+    );
+    // Dojo: valid root + malformed apps/agent/package.json.
+    write(
+      path.join(exDir, "apps", "agent", "package.json"),
+      "{ not valid json",
+    );
+    write(
+      path.join(exDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@mastra/core": "0.15.0" },
+      }),
+    );
+
+    const report = validateAll();
+    const okForSlug = report.ok.some((l) => l.includes(`[OK] ${slug}`));
+    const failForSlug = report.fail.some(
+      (l) =>
+        l.includes(`[FAIL] ${slug}`) && /parse error/i.test(l),
+    );
+    expect(failForSlug).toBe(true);
+    expect(okForSlug).toBe(false);
+  });
+});
+
+// P-R10-5: cross-ecosystem dep name collision. A JS dep and a Python dep
+// with the SAME name must not share a slot in `deps`, which would cause
+// one side's spec to be obliterated by the other and then be subject to
+// the wrong canonicalization. Track JS and Python deps in separate maps
+// from parse time so the collision cannot occur.
+describe("P-R10-5: JS vs Python dep name collisions are kept separate", () => {
+  it("collectDepsFromDir reports JS-only deps in `deps` minus `pythonDeps`", () => {
+    withTmp((tmp) => {
+      // Create both a package.json and a requirements.txt with the same
+      // dep name `openai` — JS has "4.0.0" (valid semver), Python has
+      // "==1.2.3" (PEP 440 exact). If the two collapsed into a shared
+      // slot, the JS spec could be erased and downstream JS comparisons
+      // would see the Python spec (e.g. `==1.2.3`) instead.
+      write(
+        path.join(tmp, "package.json"),
+        JSON.stringify({ name: "x", dependencies: { openai: "4.0.0" } }),
+      );
+      write(
+        path.join(tmp, "requirements.txt"),
+        ["openai==1.2.3"].join("\n"),
+      );
+      const src = collectDojoDeps(tmp);
+      // Python side: Python dep is visible with its spec.
+      expect(src.pythonDeps["openai"]).toBe("==1.2.3");
+      // JS side must also be retained and NOT have been overwritten by
+      // the Python spec. The JS name lives outside pythonDeps.
+      // Implementation may track JS deps in a separate jsDeps map — fall
+      // back to the difference of `deps` and `pythonDeps` which is the
+      // documented contract.
+      const jsOnly: Record<string, string> = {};
+      for (const [n, s] of Object.entries(src.deps)) {
+        if (!(n in src.pythonDeps)) jsOnly[n] = s;
+      }
+      // First-writer-wins file order places package.json before
+      // requirements.txt in DEP_FILE_CANDIDATES, so `deps["openai"]`
+      // retains the JS spec and requirements.txt's identical-name entry
+      // does NOT overwrite it. The Python side's `pythonDeps` still has
+      // the Python spec in isolation so the comparator can report on it.
+      expect(src.deps["openai"]).toBe("4.0.0");
+      expect(jsOnly["openai"]).toBe("4.0.0");
+    });
+  });
+});
+
+// P-R10-6: isExactSpec must reject exotic bare-version forms like `1x`
+// and `1e2` that slip past the wildcard check (no `.`/`-`/`_` between
+// the digits) but are not real semver.
+describe("P-R10-6: isExactSpec rejects exotic bare forms", () => {
+  it("rejects `1x`, `2X`, `1e2`", () => {
+    expect(isExactSpec("1x")).toBe(false);
+    expect(isExactSpec("2X")).toBe(false);
+    expect(isExactSpec("1e2")).toBe(false);
+  });
+
+  it("still accepts strict semver forms and pre-release labels", () => {
+    expect(isExactSpec("1.2.3")).toBe(true);
+    expect(isExactSpec("1.2.3-beta.1")).toBe(true);
+    expect(isExactSpec("0.2.14")).toBe(true);
+    expect(isExactSpec("1.2")).toBe(true);
+    expect(isExactSpec("1")).toBe(true);
+  });
+});
+
+// R10-2-1: non-string Poetry inline value (boolean / number / null etc.)
+// MUST be recorded in `skipped[]`, not silently dropped via bare
+// `continue`. Before the fix, a `foo = true` line disappeared without a
+// trace.
+describe("R10-2-1: Poetry non-string dep value surfaces in skipped[]", () => {
+  it("records `foo = true` as skipped with a reason naming the type", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      write(
+        file,
+        [
+          "[tool.poetry.dependencies]",
+          'python = "^3.10"',
+          "foo_bool = true",
+          "foo_num = 42",
+          'good = "==1.2.3"',
+        ].join("\n"),
+      );
+      const { deps, skipped } = parsePyprojectTomlDetailed(file);
+      expect(deps["good"]).toBe("==1.2.3");
+      expect(deps["foo_bool"]).toBeUndefined();
+      expect(deps["foo_num"]).toBeUndefined();
+      const names = skipped.map((s) => s.name);
+      expect(names).toContain("foo_bool");
+      expect(names).toContain("foo_num");
+      const boolSkip = skipped.find((s) => s.name === "foo_bool");
+      expect(boolSkip!.reason).toMatch(/non-string/i);
+    });
+  });
+});
+
+// R10-2-2: a Poetry string value with an opening quote but no closing
+// quote is UNTERMINATED. Previously the parser treated it the same as
+// `foo = ""` and reported "empty version string" — the wrong diagnosis
+// for operators.
+describe("R10-2-2: Poetry unterminated string value is distinguished from empty", () => {
+  it('reports `foo = "1.2.3` as unterminated, not empty', () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      write(
+        file,
+        [
+          "[tool.poetry.dependencies]",
+          'python = "^3.10"',
+          'foo_unterm = "1.2.3',
+          'good = "==1.2.3"',
+        ].join("\n"),
+      );
+      const { deps, skipped } = parsePyprojectTomlDetailed(file);
+      expect(deps["good"]).toBe("==1.2.3");
+      expect(deps["foo_unterm"]).toBeUndefined();
+      const untermSkip = skipped.find((s) => s.name === "foo_unterm");
+      expect(untermSkip).toBeDefined();
+      expect(untermSkip!.reason).toMatch(/unterminated/i);
+      // And NOT the "empty version string" reason.
+      expect(untermSkip!.reason).not.toMatch(/empty/i);
+    });
+  });
+});
+
+// R10-2-8: Unterminated `[project.optional-dependencies]` subkey arrays
+// (i.e. `agent = [` with no closing `]`) must surface as a parseError
+// (FAIL), not merely a dropped-line WARN. The data is actually
+// incomplete, not just noisy.
+describe("R10-2-8: unterminated optional-dependencies subkey array is a parseError", () => {
+  it("throws on unterminated optional-dependencies subkey array", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      write(
+        file,
+        [
+          "[project]",
+          'name = "x"',
+          "dependencies = []",
+          "",
+          "[project.optional-dependencies]",
+          'agent = [',
+          '  "foo==1.0.0"',
+          // missing closing `]` before the next section
+          "",
+          "[tool.poetry]",
+          'name = "x"',
+        ].join("\n"),
+      );
+      expect(() => parsePyprojectToml(file)).toThrow(/unterminated|malformed/i);
+    });
+  });
+});
+
+// R10-2-9 / P-R10-2: ingestArrayBody must propagate name-only entries
+// into `skipped[]` so pyproject dependencies mirror requirements.txt
+// handling of `foo` with no version.
+describe("R10-2-9: pyproject name-only dep surfaces in skipped[]", () => {
+  it("records `[\"foo\"]` as skipped, not admitted to deps with empty spec", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      write(
+        file,
+        [
+          "[project]",
+          'name = "x"',
+          // `foo` with no version spec, plus a correctly pinned `bar`
+          'dependencies = ["foo", "bar==1.2.3"]',
+        ].join("\n"),
+      );
+      const { deps, skipped } = parsePyprojectTomlDetailed(file);
+      expect(deps["bar"]).toBe("==1.2.3");
+      // `foo` must not be silently admitted to `deps` with empty spec.
+      expect(deps["foo"]).toBeUndefined();
+      const names = skipped.map((s) => s.name);
+      expect(names).toContain("foo");
+    });
+  });
+});
+
+// R10-3-3: within-stream ordering of printReport. On stdout: OK lines
+// precede SKIP lines. On stderr: WARN lines precede FAIL lines. This
+// captures the current contract so reordering is a deliberate change
+// and not an accidental regression.
+describe("R10-3-3: printReport within-stream order", () => {
+  let stdoutSpy: ReturnType<typeof vi.spyOn>;
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    stdoutSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    stderrSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    stdoutSpy.mockRestore();
+    stderrSpy.mockRestore();
+  });
+
+  it("stdout emits all OK lines before any SKIP line", async () => {
+    const { printReport } = await import("../validate-pins.js");
+    printReport({
+      ok: ["[OK] slug-a", "[OK] slug-b"],
+      skip: ["[SKIP] slug-c"],
+      warn: [],
+      fail: [],
+    });
+    const stdoutLines = stdoutSpy.mock.calls.map((c) => String(c[0]));
+    const okIdx = stdoutLines.findIndex((l) => l.startsWith("[OK]"));
+    const skipIdx = stdoutLines.findIndex((l) => l.startsWith("[SKIP]"));
+    expect(okIdx).toBeGreaterThanOrEqual(0);
+    expect(skipIdx).toBeGreaterThanOrEqual(0);
+    expect(okIdx).toBeLessThan(skipIdx);
+  });
+
+  it("stderr emits all WARN lines before any FAIL line", async () => {
+    const { printReport } = await import("../validate-pins.js");
+    printReport({
+      ok: [],
+      skip: [],
+      warn: ["[WARN] slug-a", "[WARN] slug-b"],
+      fail: ["[FAIL] slug-c"],
+    });
+    const stderrLines = stderrSpy.mock.calls.map((c) => String(c[0]));
+    const warnIdx = stderrLines.findIndex((l) => l.startsWith("[WARN]"));
+    const failIdx = stderrLines.findIndex((l) => l.startsWith("[FAIL]"));
+    expect(warnIdx).toBeGreaterThanOrEqual(0);
+    expect(failIdx).toBeGreaterThanOrEqual(0);
+    expect(warnIdx).toBeLessThan(failIdx);
+  });
+});
