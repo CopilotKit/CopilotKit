@@ -134,6 +134,8 @@ export type PackageIssue =
   | { category: "malformed-manifest"; error: string }
   | { category: "missing-demo-dir"; demoId: string }
   | { category: "unreadable-demos-dir"; path: string; error: string }
+  | { category: "unreadable-specs-dir"; path: string; error: string }
+  | { category: "unreadable-qa-dir"; path: string; error: string }
   | { category: "missing-spec"; demoId: string }
   | { category: "missing-qa"; demoId: string }
   | { category: "baseline-deviation"; demoCount: number; baseline: number }
@@ -166,6 +168,10 @@ export function deriveMessage(issue: PackageIssue): string {
       return `demo '${issue.demoId}' declared in manifest but no src/app/demos/${issue.demoId}/ directory`;
     case "unreadable-demos-dir":
       return `unreadable demos directory: failed to read directory ${issue.path}: ${issue.error}`;
+    case "unreadable-specs-dir":
+      return `unreadable specs directory: failed to read directory ${issue.path}: ${issue.error}`;
+    case "unreadable-qa-dir":
+      return `unreadable qa directory: failed to read directory ${issue.path}: ${issue.error}`;
     case "missing-spec":
       return `demo '${issue.demoId}' has no tests/e2e/${issue.demoId}.spec.ts`;
     case "missing-qa":
@@ -345,21 +351,49 @@ export function auditPackage(
   const qaFiles = qaResult.entries;
   const demoDirs = demoDirResult.entries;
 
-  // When src/app/demos/ is unreadable, elevate to a MUST error
-  // under category "unreadable-demos-dir" and SUPPRESS the downstream
-  // missing-demo-dir cascade so the EACCES root cause isn't buried.
-  // We detect this by checking whether listDirs returned a
-  // listing-failed warning for the demos/ path specifically.
+  // When src/app/demos/, tests/e2e/, or qa/ is unreadable, elevate to a
+  // MUST error under category "unreadable-{demos,specs,qa}-dir" and
+  // SUPPRESS the downstream missing-{demo-dir,spec,qa} cascade so the
+  // EACCES root cause isn't buried. We detect this by checking whether
+  // the respective list call returned a listing-failed warning for the
+  // target path specifically (not an unrelated path).
   const demosDirPath = path.join(pkgDir, "src", "app", "demos");
-  const demosDirUnreadable = demoDirResult.warnings.find(
-    (w): w is Extract<PackageIssue, { category: "listing-failed" }> =>
-      w.category === "listing-failed" && w.path === demosDirPath,
-  );
+  const specsDirPath = path.join(pkgDir, "tests", "e2e");
+  const qaDirPath = path.join(pkgDir, "qa");
+  const findListingFailed = (
+    result: ListResult,
+    target: string,
+  ): Extract<PackageIssue, { category: "listing-failed" }> | undefined =>
+    result.warnings.find(
+      (w): w is Extract<PackageIssue, { category: "listing-failed" }> =>
+        w.category === "listing-failed" && w.path === target,
+    );
+  const demosDirUnreadable = findListingFailed(demoDirResult, demosDirPath);
+  const specsDirUnreadable = findListingFailed(specResult, specsDirPath);
+  const qaDirUnreadable = findListingFailed(qaResult, qaDirPath);
 
-  // Merge spec/qa listing warnings unconditionally. The demo-dir
-  // listing warning is handled specially below — we only merge it if
-  // it was NOT elevated to a MUST error.
-  warnings.push(...specResult.warnings, ...qaResult.warnings);
+  // Merge listing warnings only when the underlying path was NOT elevated
+  // to a MUST error. For the elevated paths, push the typed MUST variant
+  // so consumers see a single authoritative signal instead of a warning
+  // plus N cascaded per-demo errors.
+  if (!specsDirUnreadable) {
+    warnings.push(...specResult.warnings);
+  } else {
+    mustErrors.push({
+      category: "unreadable-specs-dir",
+      path: specsDirPath,
+      error: specsDirUnreadable.error,
+    });
+  }
+  if (!qaDirUnreadable) {
+    warnings.push(...qaResult.warnings);
+  } else {
+    mustErrors.push({
+      category: "unreadable-qa-dir",
+      path: qaDirPath,
+      error: qaDirUnreadable.error,
+    });
+  }
   if (!demosDirUnreadable) {
     warnings.push(...demoDirResult.warnings);
   } else {
@@ -447,17 +481,25 @@ export function auditPackage(
     }
   }
 
-  // SHOULD: every declared demo has a spec file
-  for (const id of demoIds) {
-    if (!specIdSet.has(id)) {
-      warnings.push({ category: "missing-spec", demoId: id });
+  // SHOULD: every declared demo has a spec file. Suppressed when the
+  // tests/e2e/ dir itself is unreadable — a single unreadable-specs-dir
+  // MUST is clearer than N cascaded missing-spec warnings that all trace
+  // to the same EACCES root cause.
+  if (!specsDirUnreadable) {
+    for (const id of demoIds) {
+      if (!specIdSet.has(id)) {
+        warnings.push({ category: "missing-spec", demoId: id });
+      }
     }
   }
 
-  // SHOULD: every declared demo has a QA doc
-  for (const id of demoIds) {
-    if (!qaIdSet.has(id)) {
-      warnings.push({ category: "missing-qa", demoId: id });
+  // SHOULD: every declared demo has a QA doc. Suppressed when qa/ is
+  // unreadable — see unreadable-qa-dir rationale above.
+  if (!qaDirUnreadable) {
+    for (const id of demoIds) {
+      if (!qaIdSet.has(id)) {
+        warnings.push({ category: "missing-qa", demoId: id });
+      }
     }
   }
 

@@ -641,6 +641,165 @@ describe("validate-parity", () => {
       }
     });
 
+    it("elevates unreadable tests/e2e dir to MUST with unreadable-specs-dir and suppresses missing-spec cascade", () => {
+      // When tests/e2e/ is unreadable (EACCES etc.), the legacy
+      // behaviour was to report a listing-failed WARNING plus N
+      // missing-spec WARNING entries (one per declared demo), burying
+      // the EACCES root cause. New contract: one MUST error of
+      // category "unreadable-specs-dir", no per-demo missing-spec
+      // cascade, and the listing-failed warning is elevated (not
+      // duplicated into the warnings array).
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-specsunread-"));
+      try {
+        const pkgDir = path.join(tmp, "specs-unreadable");
+        fs.mkdirSync(path.join(pkgDir, "src", "app", "demos", "a"), {
+          recursive: true,
+        });
+        fs.mkdirSync(path.join(pkgDir, "src", "app", "demos", "b"), {
+          recursive: true,
+        });
+        fs.mkdirSync(path.join(pkgDir, "src", "app", "demos", "c"), {
+          recursive: true,
+        });
+        fs.mkdirSync(path.join(pkgDir, "tests", "e2e"), { recursive: true });
+        fs.mkdirSync(path.join(pkgDir, "qa"), { recursive: true });
+        fs.writeFileSync(path.join(pkgDir, "qa", "a.md"), "", "utf-8");
+        fs.writeFileSync(path.join(pkgDir, "qa", "b.md"), "", "utf-8");
+        fs.writeFileSync(path.join(pkgDir, "qa", "c.md"), "", "utf-8");
+        fs.writeFileSync(
+          path.join(pkgDir, "manifest.yaml"),
+          "slug: specs-unreadable\ndemos:\n  - id: a\n  - id: b\n  - id: c\n",
+          "utf-8",
+        );
+        const warnSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+        const origReaddir = fs.readdirSync;
+        const readdirSpy = vi.spyOn(fs, "readdirSync").mockImplementation(((
+          p: fs.PathLike,
+          ...rest: unknown[]
+        ) => {
+          const s = typeof p === "string" ? p : p.toString();
+          if (
+            s.endsWith(`${path.sep}tests${path.sep}e2e`) ||
+            s.endsWith("/tests/e2e")
+          ) {
+            const e: NodeJS.ErrnoException = Object.assign(
+              new Error("EACCES: permission denied"),
+              { code: "EACCES" },
+            );
+            throw e;
+          }
+          return (
+            origReaddir as unknown as (
+              p: fs.PathLike,
+              ...rest: unknown[]
+            ) => unknown
+          ).call(fs, p, ...rest);
+        }) as unknown as typeof fs.readdirSync);
+        try {
+          const report = auditPackage("specs-unreadable", tmp);
+          const unreadable = report.mustErrors.filter(
+            (e) => e.category === "unreadable-specs-dir",
+          );
+          expect(unreadable.length).toBe(1);
+          // No missing-spec cascade.
+          const missingSpec = report.warnings.filter(
+            (w) => w.category === "missing-spec",
+          );
+          expect(missingSpec.length).toBe(0);
+          // listing-failed for tests/e2e was elevated, not duplicated.
+          const listingFailedSpecs = report.warnings.filter(
+            (w) =>
+              w.category === "listing-failed" && /tests\/e2e/.test(w.path),
+          );
+          expect(listingFailedSpecs.length).toBe(0);
+          // Sanity: qa cascade NOT suppressed (unrelated dir).
+          const missingQa = report.warnings.filter(
+            (w) => w.category === "missing-qa",
+          );
+          expect(missingQa.length).toBe(0); // all qa present
+        } finally {
+          readdirSpy.mockRestore();
+          warnSpy.mockRestore();
+        }
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("elevates unreadable qa dir to MUST with unreadable-qa-dir and suppresses missing-qa cascade", () => {
+      // Same contract as unreadable-specs-dir: one MUST error of
+      // category "unreadable-qa-dir", missing-qa cascade suppressed,
+      // listing-failed entry elevated (not duplicated).
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-qaunread-"));
+      try {
+        const pkgDir = path.join(tmp, "qa-unreadable");
+        fs.mkdirSync(path.join(pkgDir, "src", "app", "demos", "a"), {
+          recursive: true,
+        });
+        fs.mkdirSync(path.join(pkgDir, "src", "app", "demos", "b"), {
+          recursive: true,
+        });
+        fs.mkdirSync(path.join(pkgDir, "tests", "e2e"), { recursive: true });
+        fs.writeFileSync(
+          path.join(pkgDir, "tests", "e2e", "a.spec.ts"),
+          "",
+          "utf-8",
+        );
+        fs.writeFileSync(
+          path.join(pkgDir, "tests", "e2e", "b.spec.ts"),
+          "",
+          "utf-8",
+        );
+        fs.mkdirSync(path.join(pkgDir, "qa"), { recursive: true });
+        fs.writeFileSync(
+          path.join(pkgDir, "manifest.yaml"),
+          "slug: qa-unreadable\ndemos:\n  - id: a\n  - id: b\n",
+          "utf-8",
+        );
+        const warnSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+        const origReaddir = fs.readdirSync;
+        const readdirSpy = vi.spyOn(fs, "readdirSync").mockImplementation(((
+          p: fs.PathLike,
+          ...rest: unknown[]
+        ) => {
+          const s = typeof p === "string" ? p : p.toString();
+          if (s.endsWith(`${path.sep}qa`) || s.endsWith("/qa")) {
+            const e: NodeJS.ErrnoException = Object.assign(
+              new Error("EACCES: permission denied"),
+              { code: "EACCES" },
+            );
+            throw e;
+          }
+          return (
+            origReaddir as unknown as (
+              p: fs.PathLike,
+              ...rest: unknown[]
+            ) => unknown
+          ).call(fs, p, ...rest);
+        }) as unknown as typeof fs.readdirSync);
+        try {
+          const report = auditPackage("qa-unreadable", tmp);
+          const unreadable = report.mustErrors.filter(
+            (e) => e.category === "unreadable-qa-dir",
+          );
+          expect(unreadable.length).toBe(1);
+          const missingQa = report.warnings.filter(
+            (w) => w.category === "missing-qa",
+          );
+          expect(missingQa.length).toBe(0);
+          const listingFailedQa = report.warnings.filter(
+            (w) => w.category === "listing-failed" && /\/qa$/.test(w.path),
+          );
+          expect(listingFailedQa.length).toBe(0);
+        } finally {
+          readdirSpy.mockRestore();
+          warnSpy.mockRestore();
+        }
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
     it("still lists spec/qa files after a manifest failure so reporter counts are accurate", () => {
       // When manifest is malformed, MUST error still fires, but the
       // reporter row benefits from knowing spec/qa counts. Early return
@@ -1393,6 +1552,26 @@ describe("validate-parity", () => {
           error: "EACCES",
         }),
       ).toMatch(/unreadable demos directory/);
+    });
+
+    it("renders unreadable-specs-dir including the failing path", () => {
+      expect(
+        deriveMessage({
+          category: "unreadable-specs-dir",
+          path: "/x/y/tests/e2e",
+          error: "EACCES",
+        }),
+      ).toMatch(/unreadable specs directory/);
+    });
+
+    it("renders unreadable-qa-dir including the failing path", () => {
+      expect(
+        deriveMessage({
+          category: "unreadable-qa-dir",
+          path: "/x/y/qa",
+          error: "EACCES",
+        }),
+      ).toMatch(/unreadable qa directory/);
     });
 
     it("renders missing-spec including the demo id", () => {
