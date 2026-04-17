@@ -5,11 +5,52 @@ import { bundleHookSite } from "./hook-bundler";
 import { HookControlsStore } from "./persistence";
 import { getNonce } from "../utils";
 
+interface WebviewControlsChangedMsg {
+  type: "controlsChanged";
+  selection: {
+    filePath: string;
+    hook: string;
+    name: string | null;
+    line: number;
+  };
+  values: Record<string, unknown>;
+}
+
+interface WebviewOpenSourceMsg {
+  type: "openSource";
+  filePath: string;
+  line: number;
+}
+
+interface WebviewMountErrorMsg {
+  type: "mountError";
+  error: string;
+}
+
+type WebviewMsg =
+  | WebviewControlsChangedMsg
+  | WebviewOpenSourceMsg
+  | WebviewMountErrorMsg;
+
+function isWebviewMsg(msg: unknown): msg is WebviewMsg {
+  return (
+    !!msg &&
+    typeof msg === "object" &&
+    "type" in (msg as Record<string, unknown>) &&
+    typeof (msg as { type: unknown }).type === "string"
+  );
+}
+
 export class HookPreviewPanel {
   public static readonly viewType = "copilotkit.hookPreview";
   private panel: vscode.WebviewPanel | null = null;
   private currentSite: HookCallSite | null = null;
-  private currentNonce: string | null = null;
+  // Increments on every pushBundle invocation. A stale in-flight bundle
+  // (e.g. a "load" whose bundleHookSite await takes longer than a subsequent
+  // "reload") checks this token on resume and bails out — prevents out-of-
+  // order messages reaching the webview and prevents postMessage on a
+  // disposed panel.
+  private pushToken = 0;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -33,11 +74,10 @@ export class HookPreviewPanel {
       this.panel.onDidDispose(() => {
         this.panel = null;
         this.currentSite = null;
-        this.currentNonce = null;
       });
       this.panel.webview.onDidReceiveMessage((msg) => this.onMessage(msg));
-      this.currentNonce = getNonce();
-      this.panel.webview.html = this.html(this.currentNonce);
+      const nonce = getNonce();
+      this.panel.webview.html = this.html(nonce);
     } else {
       this.panel.title = this.titleFor(site);
       this.panel.reveal(vscode.ViewColumn.Beside, false);
@@ -62,6 +102,7 @@ export class HookPreviewPanel {
   }
 
   private async pushBundle(type: "load" | "reload"): Promise<void> {
+    const token = ++this.pushToken;
     const site = this.currentSite;
     if (!site || !this.panel) return;
     const def = getHookDef(site.hook);
@@ -74,18 +115,25 @@ export class HookPreviewPanel {
     }
 
     const bundle = await bundleHookSite(site.filePath);
+    // Drop this result if another pushBundle raced past us, or the panel
+    // closed mid-await.
+    if (token !== this.pushToken || !this.panel) return;
+
     if (!bundle.success || !bundle.code) {
       this.panel.webview.postMessage({
         type: "error",
         message: bundle.error ?? "Bundle failed",
       });
-      this.outputChannel.appendLine(`[bundle] ${site.filePath}: ${bundle.error}`);
+      this.outputChannel.appendLine(
+        `[bundle] ${site.filePath}: ${bundle.error}`,
+      );
       return;
     }
 
     // MVP: schemaHint is always "none" — the webview reads the real config
-    // from the captured registry and auto-forms V1 parameters / V2 Zod
-    // directly in-webview. Static extraction from source is follow-up work.
+    // from the captured registry and auto-forms V1 parameters / V2 Zod in-
+    // webview via its own converters. Static extraction here via
+    // `extractSchemaHint` (in schema-extraction.ts) is the future hookup.
     const schemaHint = { kind: "none" as const, payload: null };
 
     const persisted =
@@ -109,35 +157,32 @@ export class HookPreviewPanel {
     });
   }
 
-  private async onMessage(msg: unknown): Promise<void> {
-    if (!msg || typeof msg !== "object") return;
-    const m = msg as Record<string, unknown>;
-    if (m.type === "controlsChanged" && m.selection) {
-      const sel = m.selection as {
-        filePath: string;
-        hook: string;
-        name: string | null;
-        line: number;
-      };
+  private async onMessage(raw: unknown): Promise<void> {
+    if (!isWebviewMsg(raw)) return;
+    if (raw.type === "controlsChanged") {
       await this.controls.save(
-        sel.filePath,
-        sel.hook,
-        sel.name,
-        (m.values as Record<string, unknown>) ?? {},
-        sel.line,
+        raw.selection.filePath,
+        raw.selection.hook,
+        raw.selection.name,
+        raw.values ?? {},
+        raw.selection.line,
       );
-    } else if (m.type === "openSource" && typeof m.filePath === "string") {
-      const uri = vscode.Uri.file(m.filePath);
+      return;
+    }
+    if (raw.type === "openSource") {
+      const uri = vscode.Uri.file(raw.filePath);
       const doc = await vscode.workspace.openTextDocument(uri);
       const editor = await vscode.window.showTextDocument(doc, {
         preserveFocus: false,
       });
-      const line = Math.max(0, ((m.line as number) ?? 1) - 1);
+      const line = Math.max(0, (raw.line ?? 1) - 1);
       editor.revealRange(new vscode.Range(line, 0, line, 0));
       editor.selection = new vscode.Selection(line, 0, line, 0);
-    } else if (m.type === "mountError") {
+      return;
+    }
+    if (raw.type === "mountError") {
       this.outputChannel.appendLine(
-        `[mount] ${this.currentSite?.filePath}: ${m.error}`,
+        `[mount] ${this.currentSite?.filePath}: ${raw.error}`,
       );
     }
   }
@@ -147,6 +192,14 @@ export class HookPreviewPanel {
     const scriptUri = this.panel.webview.asWebviewUri(
       vscode.Uri.joinPath(this.extensionUri, "dist", "webview", "hook-preview.js"),
     );
+    // CSP notes:
+    //  - `script-src 'nonce-${nonce}'` keeps scripts strictly nonced.
+    //  - `style-src 'unsafe-inline'` is required for React's runtime style
+    //    injection + CopilotKit's transitive CSS-in-JS helpers. We can't
+    //    nonce styles the same way without rewriting every inline style.
+    //  - `connect-src https:` allows the bundled host component's effects
+    //    to talk to real user APIs; the fetch interceptor in the webview
+    //    still filters the dummy CopilotKit runtime URL separately.
     return /* html */ `<!doctype html>
 <html><head>
 <meta charset="utf-8"/>
