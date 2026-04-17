@@ -884,27 +884,38 @@ describe("BORN_IN_SHOWCASE set", () => {
     expect(BORN_IN_SHOWCASE.has("spring-ai")).toBe(true);
   });
 
-  it("every BORN_IN_SHOWCASE slug has no counterpart directory under examples/integrations/ in the real repo", () => {
-    // BORN_IN_SHOWCASE is the set of packages that live ONLY under
-    // showcase/ — so each slug MUST NOT have a corresponding directory
-    // under examples/integrations/. Walk the real repo root and assert.
-    const repoExamplesDir = path.resolve(
-      __dirname,
-      "..",
-      "..",
-      "..",
-      "examples",
-      "integrations",
-    );
-    // If examples/integrations doesn't exist (unlikely but possible in
-    // fixture-only CI), the assertion is vacuously true.
-    if (!fs.existsSync(repoExamplesDir)) return;
-    for (const slug of BORN_IN_SHOWCASE) {
-      const candidate = path.join(repoExamplesDir, slug);
-      expect(
-        fs.existsSync(candidate),
-        `BORN_IN_SHOWCASE slug "${slug}" has a directory under examples/integrations — either remove it from BORN_IN_SHOWCASE or remove the dir`,
-      ).toBe(false);
+  it("every BORN_IN_SHOWCASE slug has no counterpart directory under examples/integrations/ (fixture-synthesized invariant)", () => {
+    // Fixture-based version of the real-repo invariant: synthesize a
+    // tmpdir that mimics examples/integrations/ containing only the
+    // slugs that SHOULD be there (i.e. nothing from BORN_IN_SHOWCASE).
+    // This always runs in CI — no `if (!fs.existsSync) return;` bail.
+    //
+    // The invariant asserted: given a clean examples/integrations/
+    // tree that contains no BORN_IN_SHOWCASE slugs, findExamplesSource
+    // must return null for every BORN_IN_SHOWCASE member. If someone
+    // later adds a BORN_IN_SHOWCASE slug to SLUG_TO_EXAMPLES by mistake
+    // this test will fail via the second assertion.
+    const tmp = makeTmpTree();
+    try {
+      // Seed a handful of non-born slugs so the examples dir isn't empty.
+      makeExampleDir(tmp, "mastra");
+      makeExampleDir(tmp, "agno");
+      const cfg = makeConfig(tmp);
+      for (const slug of BORN_IN_SHOWCASE) {
+        // No dir created for this slug — findExamplesSource must return
+        // null and SLUG_TO_EXAMPLES must not carry a mapping for it.
+        const r = findExamplesSource(slug, cfg);
+        expect(
+          r,
+          `BORN_IN_SHOWCASE slug "${slug}" resolved to a non-null examples source — the maps are inconsistent`,
+        ).toBeNull();
+        expect(
+          SLUG_TO_EXAMPLES[slug],
+          `BORN_IN_SHOWCASE slug "${slug}" appears in SLUG_TO_EXAMPLES — remove one or the other`,
+        ).toBeUndefined();
+      }
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
     }
   });
 });
@@ -922,27 +933,36 @@ describe("SLUG_TO_EXAMPLES — dead entries removed", () => {
     },
   );
 
-  it("every mapped target exists as a dir under examples/integrations/ in the real repo", () => {
-    // Dead-entry guard: if any SLUG_TO_EXAMPLES value points at a
-    // non-existent examples/integrations/ dir, the audit will emit
-    // spurious "no examples source" anomalies at runtime.
-    const repoExamplesDir = path.resolve(
-      __dirname,
-      "..",
-      "..",
-      "..",
-      "examples",
-      "integrations",
-    );
-    if (!fs.existsSync(repoExamplesDir)) return;
-    for (const [slug, targets] of Object.entries(SLUG_TO_EXAMPLES)) {
-      for (const target of targets) {
-        const candidate = path.join(repoExamplesDir, target);
-        expect(
-          fs.existsSync(candidate),
-          `SLUG_TO_EXAMPLES[${slug}] points at missing dir ${candidate}`,
-        ).toBe(true);
+  it("every mapped target resolves when its examples/integrations/ dir is present (fixture-synthesized)", () => {
+    // Fixture-based dead-entry guard: synthesize an examples/integrations/
+    // tmpdir containing every target named in SLUG_TO_EXAMPLES, then
+    // assert findExamplesSource returns a non-null path for each slug.
+    // This exercises the positive resolution path deterministically and
+    // always runs in CI — no `if (!fs.existsSync) return;` bail.
+    //
+    // Dead-entry protection: if anyone adds a SLUG_TO_EXAMPLES entry
+    // pointing at a non-existent target and the real repo lacks that
+    // dir, audit would emit a phantom "no examples source" anomaly.
+    // The slug-map.test.ts real-repo invariant (separate file) still
+    // enforces the production tree; this test locks in the runtime
+    // resolution contract.
+    const tmp = makeTmpTree();
+    try {
+      for (const targets of Object.values(SLUG_TO_EXAMPLES)) {
+        for (const target of targets) {
+          makeExampleDir(tmp, target);
+        }
       }
+      const cfg = makeConfig(tmp);
+      for (const [slug, targets] of Object.entries(SLUG_TO_EXAMPLES)) {
+        const r = findExamplesSource(slug, cfg);
+        expect(
+          r,
+          `SLUG_TO_EXAMPLES[${slug}] → [${targets.join(", ")}] failed to resolve against a fixture containing every target`,
+        ).not.toBeNull();
+      }
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
     }
   });
 });
