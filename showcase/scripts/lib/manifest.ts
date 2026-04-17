@@ -36,12 +36,18 @@ export type DemoId = string & { readonly __brand: "DemoId" };
 
 /**
  * Smart constructor for `DemoId`. Returns the branded value on success
- * or `null` if validation fails (currently: empty string). Kept as
+ * or `null` if validation fails (non-string or empty string). Kept as
  * `null`-returning rather than throwing so `parseManifest` can turn a
  * failure into its usual `{kind:"malformed", subkind:"shape"}` result
  * without crossing an exception boundary.
+ *
+ * The parameter type is `unknown` — this function sits at an API
+ * boundary (yaml.parse results, JSON-roundtripped demos, caller-supplied
+ * strings) where the compile-time type does not hold. A widened param
+ * keeps the runtime typeof guard alive rather than reducing to a dead
+ * check.
  */
-export function createDemoId(s: string): DemoId | null {
+export function createDemoId(s: unknown): DemoId | null {
   if (typeof s !== "string" || s.length === 0) return null;
   return s as DemoId;
 }
@@ -50,10 +56,14 @@ export function createDemoId(s: string): DemoId | null {
  * One entry under `manifest.yaml :: demos[]`. Name is optional; id is
  * required AND non-empty (checked at runtime by parseManifest, typed
  * via the `DemoId` brand).
+ *
+ * Fields are `readonly`: parseManifest freezes the returned object so
+ * downstream consumers cannot mutate a demo after validation. The type
+ * matches the runtime freeze.
  */
 export interface ManifestDemo {
-  id: DemoId;
-  name?: string;
+  readonly id: DemoId;
+  readonly name?: string;
 }
 
 /**
@@ -66,15 +76,22 @@ export interface ManifestDemo {
  * complaining. parseManifest enforces `slug` is a non-empty string at
  * runtime, so the type matches reality.
  *
- * `name`, `deployed`, and `demos` remain optional: in practice not every
- * manifest sets `name`, and `deployed`/`demos` only appear when
- * meaningful.
+ * `name` and `deployed` remain optional: in practice not every manifest
+ * sets `name`, and `deployed` only appears when meaningful.
+ *
+ * `demos` is NON-optional but always set by parseManifest — an empty
+ * readonly array when the manifest omits the field. Callers iterate
+ * unconditionally instead of `?.` chaining.
+ *
+ * Fields are `readonly`: parseManifest deep-freezes the returned object
+ * (including the nested `demos` array), so the public type matches the
+ * runtime invariant.
  */
 export interface Manifest {
-  slug: string;
-  name?: string;
-  deployed?: boolean;
-  demos?: ManifestDemo[];
+  readonly slug: string;
+  readonly name?: string;
+  readonly deployed?: boolean;
+  readonly demos: readonly ManifestDemo[];
 }
 
 /**
@@ -140,6 +157,15 @@ function hasOwnProp<K extends string>(
 }
 
 /**
+ * Shared frozen empty-array sentinel reused across the "no demos
+ * declared" path. Every ok-result's `.demos` is this same frozen
+ * readonly value when the manifest omits demos, so callers can iterate
+ * unconditionally and the public `readonly` type matches the runtime
+ * freeze.
+ */
+const EMPTY_DEMOS: readonly ManifestDemo[] = Object.freeze([]);
+
+/**
  * Read + parse + validate a manifest.yaml at `filePath`. Returns a
  * tagged-union `ParsedManifest`; never throws for content errors.
  *
@@ -167,7 +193,10 @@ function hasOwnProp<K extends string>(
  * malformed because the file's contents are not actually known to be
  * invalid.
  */
-export function parseManifest(filePath: string): ParsedManifest {
+export function parseManifest(
+  filePath: string,
+  dirSlug?: string,
+): ParsedManifest {
   if (!fs.existsSync(filePath)) return { kind: "missing" };
 
   let raw: string;
@@ -225,6 +254,31 @@ export function parseManifest(filePath: string): ParsedManifest {
     };
   }
 
+  // Slug-mismatch guard (M-R10-10). Every consumer derives the target
+  // package by computing `packagesDir/<slug>/manifest.yaml`, so if the
+  // manifest's declared slug disagrees with the directory that holds
+  // it, downstream tools would silently key a copy-paste or rename
+  // mistake into the wrong package. Catch at the parser so both tools
+  // report the drift the same way.
+  //
+  // Opt-in: callers pass the expected dir slug via the `dirSlug`
+  // parameter. When omitted (or the explicit string ""), the check is
+  // skipped so existing tests and programmatic callers that don't
+  // operate against the packages tree continue to work. The two
+  // production callers (audit.ts, validate-parity.ts) pass the slug
+  // they used to build the filePath.
+  const expectedDirSlug =
+    typeof dirSlug === "string" && dirSlug.length > 0
+      ? dirSlug
+      : undefined;
+  if (expectedDirSlug !== undefined && expectedDirSlug !== slug) {
+    return {
+      kind: "malformed",
+      subkind: "shape",
+      error: `slug mismatch: manifest declares "${slug}" but lives under dir "${expectedDirSlug}"`,
+    };
+  }
+
   // name (optional) must be a string if present.
   let name: string | undefined;
   if (hasOwnProp(obj, "name") && obj.name !== undefined) {
@@ -251,11 +305,12 @@ export function parseManifest(filePath: string): ParsedManifest {
     deployed = obj.deployed;
   }
 
-  // demos (optional) must be an array of objects with non-empty string id.
-  // Treat both missing (`undefined`) and explicit null (YAML `demos:`)
-  // as "not provided". If the key is present with a non-nullish value
-  // that is not an array, fall through and report.
-  let demos: ManifestDemo[] | undefined;
+  // demos must be an array of objects with non-empty string id. Both
+  // "key absent" and "explicit null" (YAML `demos:`) are treated as
+  // "no demos declared" — parseManifest normalizes to an empty frozen
+  // array so `Manifest.demos` is always set. If the key is present with
+  // a non-nullish value that is not an array, fall through and report.
+  let demos: readonly ManifestDemo[] = EMPTY_DEMOS;
   if (hasOwnProp(obj, "demos") && obj.demos != null) {
     const rawDemos = obj.demos;
     if (!Array.isArray(rawDemos)) {
@@ -303,22 +358,30 @@ export function parseManifest(filePath: string): ParsedManifest {
         };
       }
       seen.add(brandedId);
-      // name is optional on a demo; only surface it if the source object
-      // actually carries it. We don't validate its type here because
-      // `ManifestDemo.name` is `string | undefined` and callers treat
-      // non-strings as a non-fatal display problem; parseManifest keeps
-      // its strict contract on `id` (the field callers actually key on).
-      const demoName: string | undefined =
-        hasOwnProp(d, "name") && typeof d.name === "string"
-          ? d.name
-          : undefined;
+      // demo-level `name` strictness (R10-5-5). Previously a present-
+      // but-wrong-type name was silently coerced to undefined; match the
+      // strictness applied to other fields so schema drift surfaces at
+      // the parser, not downstream. Absent `name` remains valid.
+      let demoName: string | undefined;
+      if (hasOwnProp(d, "name") && d.name !== undefined) {
+        if (typeof d.name !== "string") {
+          return {
+            kind: "malformed",
+            subkind: "shape",
+            error: `expected demos[${i}].name to be a string, got ${describeType(d.name)}`,
+          };
+        }
+        demoName = d.name;
+      }
       validated.push(
-        demoName === undefined
-          ? { id: brandedId }
-          : { id: brandedId, name: demoName },
+        Object.freeze(
+          demoName === undefined
+            ? { id: brandedId }
+            : { id: brandedId, name: demoName },
+        ),
       );
     }
-    demos = validated;
+    demos = Object.freeze(validated);
   }
 
   // Construct the result field-by-field from the narrowed locals so
@@ -326,19 +389,13 @@ export function parseManifest(filePath: string): ParsedManifest {
   // validation boundary. Each field below was checked individually
   // above; the compiler tracks the narrowed type through the local
   // bindings, so this object literal typechecks against Manifest
-  // without any casts.
-  const manifest: Manifest =
-    demos === undefined
-      ? {
-          slug,
-          ...(name !== undefined ? { name } : {}),
-          ...(deployed !== undefined ? { deployed } : {}),
-        }
-      : {
-          slug,
-          ...(name !== undefined ? { name } : {}),
-          ...(deployed !== undefined ? { deployed } : {}),
-          demos,
-        };
+  // without any casts. The final object is frozen so the `readonly`
+  // fields on Manifest match the runtime behavior.
+  const manifest: Manifest = Object.freeze({
+    slug,
+    ...(name !== undefined ? { name } : {}),
+    ...(deployed !== undefined ? { deployed } : {}),
+    demos,
+  });
   return { kind: "ok", manifest };
 }

@@ -58,16 +58,18 @@ export type ExamplesDir = string;
  * (SLUG entries construction, BORN_IN_SHOWCASE membership, callers
  * that accept user-supplied slug strings) to catch obvious garbage —
  * empty strings, whitespace, path separators — before it flows into
- * a filesystem path or a slug-indexed Map. The nominal `ShowcaseSlug`
- * type is a plain `string` alias and would otherwise admit any value.
+ * a filesystem path or a slug-indexed Map.
  *
- * Accepts non-string input defensively (returns `false`) even though
- * the declared parameter is `string`: this function sits at an API
- * boundary where TS guarantees are weakest — misuse from an `any`
- * source, a JSON roundtrip, or a yaml.parse result would silently
- * admit non-strings if we only guarded with `.length === 0`.
+ * The parameter type is `unknown` — this function sits at an API
+ * boundary where TS guarantees are weakest (yaml.parse results, JSON
+ * roundtrips, user-supplied strings). A widened param keeps the typeof
+ * guard live rather than reducing to a dead check under `(s: string)`.
+ *
+ * The return signature is a user-defined type predicate (`s is
+ * ShowcaseSlug`), so callers can narrow an `unknown` or `string` local
+ * to a `ShowcaseSlug` without a cast after a successful check.
  */
-export function isShowcaseSlug(s: string): boolean {
+export function isShowcaseSlug(s: unknown): s is ShowcaseSlug {
   if (typeof s !== "string") return false;
   if (s.length === 0) return false;
   // Reject whitespace and path separators: these are the characters
@@ -163,12 +165,43 @@ function freezeMap2D<K extends string, V>(
  * standalone declaration so the "known stale" documentation at its
  * call sites in validate-pins.ts continues to hold.
  */
-interface SlugEntry {
-  readonly slug: ShowcaseSlug;
-  readonly bornInShowcase: boolean;
-  readonly examples: readonly ExamplesDir[];
-  readonly fallback: boolean;
-}
+/**
+ * Discriminated union form of SlugEntry (R10-5-14).
+ *
+ * Three mutually-exclusive shapes replace the prior flat interface:
+ *   - born-in-showcase:   no examples counterpart, no fallback. The
+ *                         `examples` tuple is statically empty and
+ *                         `fallback` is never set.
+ *   - examples (no fallback): a real examples dir exists but the
+ *                             SLUG_MAP forward mapping is not stale.
+ *                             The `examples` tuple is non-empty and
+ *                             `fallback` is explicitly false.
+ *   - examples + fallback:  SLUG_MAP is stale for this slug;
+ *                             FALLBACK_MAP documents the correction.
+ *                             The `examples` tuple is non-empty and
+ *                             `fallback` is true; FALLBACK_MAP keys
+ *                             off this variant.
+ *
+ * Modeled as a discriminated union so consumers can read
+ * `e.examples[0]` on the fallback branch without a runtime length
+ * assertion — the tuple type guarantees at least one element, and the
+ * compiler narrows accordingly. Prior to this split, the flat
+ * `examples: readonly ExamplesDir[]` forced a runtime check at the
+ * FALLBACK_MAP reducer to rule out an empty tuple.
+ */
+type SlugEntry =
+  | {
+      readonly slug: ShowcaseSlug;
+      readonly bornInShowcase: true;
+      readonly examples: readonly [];
+      readonly fallback: false;
+    }
+  | {
+      readonly slug: ShowcaseSlug;
+      readonly bornInShowcase: false;
+      readonly examples: readonly [ExamplesDir, ...ExamplesDir[]];
+      readonly fallback: boolean;
+    };
 
 const ENTRIES: readonly SlugEntry[] = [
   // Born-in-showcase packages have no examples/integrations counterpart.
@@ -271,20 +304,14 @@ const ENTRIES: readonly SlugEntry[] = [
 // API-boundary validation: every slug that enters the derived maps
 // must pass `isShowcaseSlug`. The loop runs at module load so a bad
 // entry trips construction immediately rather than on first use.
+// The "bornInShowcase implies empty examples" and "fallback implies
+// non-empty examples" invariants are enforced statically by the
+// SlugEntry discriminated union above and no longer need a runtime
+// check here.
 for (const e of ENTRIES) {
   if (!isShowcaseSlug(e.slug)) {
     throw new Error(
       `lib/slug-map: invalid ShowcaseSlug in ENTRIES: ${JSON.stringify(e.slug)}`,
-    );
-  }
-  if (e.bornInShowcase && e.examples.length > 0) {
-    throw new Error(
-      `lib/slug-map: born-in-showcase slug '${e.slug}' must have no examples`,
-    );
-  }
-  if (e.fallback && e.examples.length === 0) {
-    throw new Error(
-      `lib/slug-map: fallback entry '${e.slug}' must have at least one examples dir`,
     );
   }
 }
