@@ -4,6 +4,7 @@ import { CodeBlock } from "./CodeBlock";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
 
 const defaultComponents: Components = {
   a({ children, ...props }) {
@@ -147,7 +148,7 @@ export const Markdown = ({ content, components }: MarkdownProps) => {
           remarkGfm,
           [remarkMath, { singleDollarTextMath: false }],
         ]}
-        rehypePlugins={[rehypeRaw]}
+        rehypePlugins={[rehypeRaw, rehypeSanitize]}
       >
         {content}
       </MemoizedReactMarkdown>
