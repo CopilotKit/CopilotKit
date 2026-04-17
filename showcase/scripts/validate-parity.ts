@@ -29,6 +29,7 @@
  * Exit codes (aligned with audit.ts / validate-pins.ts):
  *   0 — no MUST failures
  *   1 — one or more MUST failures
+ *   2 — invalid CLI input (bad --baseline / VALIDATE_PARITY_BASELINE)
  *   3 — unreadable (packages dir missing or readdir threw)
  *   4 — internal error (uncaught exception)
  *
@@ -67,6 +68,7 @@ const BASELINE_DEMO_COUNT = 9;
 // can disambiguate "no anomalies" / "anomalies" / "unreadable" / "internal".
 const EXIT_OK = 0;
 const EXIT_MUST_FAILURE = 1;
+const EXIT_INVALID_INPUT = 2;
 const EXIT_UNREADABLE = 3;
 const EXIT_INTERNAL = 4;
 
@@ -118,15 +120,10 @@ export class ManifestUnreadableError extends Error {
 
 /**
  * Tagged union of per-package entries in `mustErrors` / `warnings`. Each
- * variant carries only the structured fields the category needs —
- * categories that want a user-facing string render via `deriveMessage`
- * at display time so the struct has a single source of truth (no
- * pre-formatted `message` field that duplicates the structured data).
- *
- * Earlier revisions of this type carried both the structured fields AND
- * a pre-formatted `message`, which made it trivial for render paths to
- * drift from the structured encoding. Callers that previously read
- * `issue.message` should call `deriveMessage(issue)` instead.
+ * variant carries only the structured fields the category needs.
+ * Categories that want a user-facing string render via `deriveMessage`
+ * at display time so the struct has a single source of truth — no
+ * pre-formatted `message` field duplicating the structured data.
  */
 export type PackageIssue =
   | { category: "missing-manifest" }
@@ -182,15 +179,18 @@ export function deriveMessage(issue: PackageIssue): string {
 }
 
 export interface PackageReport {
-  slug: string;
-  demoIds: string[];
-  specFiles: string[];
-  qaFiles: string[];
-  demoDirs: string[];
-  // readonly arrays: surface any accidental post-return push/splice as
-  // a compile error. Callers that need a mutable copy should clone.
-  mustErrors: readonly PackageIssue[];
-  warnings: readonly PackageIssue[];
+  readonly slug: string;
+  // All arrays are `readonly` uniformly: surface any accidental post-
+  // return push/splice as a compile error. Callers that need a mutable
+  // copy should clone. Marking mustErrors/warnings readonly while
+  // leaving demoIds/specFiles/qaFiles/demoDirs mutable would be an
+  // asymmetric contract and invites drift.
+  readonly demoIds: readonly string[];
+  readonly specFiles: readonly string[];
+  readonly qaFiles: readonly string[];
+  readonly demoDirs: readonly string[];
+  readonly mustErrors: readonly PackageIssue[];
+  readonly warnings: readonly PackageIssue[];
 }
 
 /**
@@ -290,7 +290,11 @@ export function loadManifest(
   packagesDir: string = DEFAULT_PACKAGES_DIR,
 ): Manifest | null {
   const manifestPath = path.join(packagesDir, slug, "manifest.yaml");
-  const parsed = parseManifest(manifestPath);
+  // Pass the directory slug to parseManifest so its M-R10-10 slug-
+  // mismatch guard fires: if the manifest's `slug:` field disagrees
+  // with the directory on disk, we get a shape-malformed result
+  // instead of silently validating a copy-paste / rename mistake.
+  const parsed = parseManifest(manifestPath, slug);
   switch (parsed.kind) {
     case "missing":
       return null;
@@ -382,11 +386,12 @@ export function auditPackage(
         error: err.message,
       });
     } else {
-      const msg = err instanceof Error ? err.message : String(err);
-      mustErrors.push({
-        category: "malformed-manifest",
-        error: msg,
-      });
+      // Unknown error class (TypeError, OOM, bug surfacing from a
+      // future loadManifest refactor, etc.) — re-throw so the CLI's
+      // top-level catch surfaces [INTERNAL ERROR] with EXIT_INTERNAL.
+      // Silently bucketing these as malformed-manifest would hide real
+      // defects behind a legitimate-looking taxonomy entry.
+      throw err;
     }
     // Don't early-return: we still return the report with spec/qa/demo
     // dir counts populated so the table row is accurate. MUST error
@@ -668,10 +673,12 @@ export function formatRow(report: PackageReport, slugWidth: number): string {
 }
 
 /**
- * Core parity run. Returns a numeric exit code instead of calling
- * `process.exit`, so tests and other in-process callers can invoke it
+ * Core parity run. Returns a numeric exit code instead of mutating
+ * process state, so tests and other in-process callers can invoke it
  * without tearing down vitest. The CLI-facing `main()` wrapper (defined
- * below and NOT exported) is what actually calls `process.exit`.
+ * below and NOT exported) sets `process.exitCode` from the return
+ * value — neither function calls `process.exit` synchronously, which
+ * preserves stdout/stderr drain.
  */
 export function runParity(
   packagesDir?: string,
@@ -704,7 +711,7 @@ export function runParity(
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[FAIL] ${msg}`);
-      return EXIT_MUST_FAILURE;
+      return EXIT_INVALID_INPUT;
     }
 
     const envBaseline = process.env.VALIDATE_PARITY_BASELINE;
@@ -714,7 +721,7 @@ export function runParity(
         console.error(
           `[FAIL] invalid VALIDATE_PARITY_BASELINE value "${envBaseline}" (${coerced.reason}; expected a positive integer)`,
         );
-        return EXIT_MUST_FAILURE;
+        return EXIT_INVALID_INPUT;
       }
       envBaselineCoerced = coerced.value;
     }
