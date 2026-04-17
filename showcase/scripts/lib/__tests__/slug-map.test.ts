@@ -14,6 +14,7 @@ import {
   SLUG_MAP,
   SLUG_TO_EXAMPLES,
   FALLBACK_MAP,
+  isShowcaseSlug,
 } from "../slug-map.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -147,6 +148,133 @@ describe("SLUG_MAP (examples dir → showcase slug)", () => {
     const m = SLUG_MAP as unknown as Map<string, string>;
     expect(() => m.delete("langgraph-js")).toThrow();
     expect(() => m.clear()).toThrow();
+  });
+});
+
+describe("isShowcaseSlug runtime validator (S-R8-1)", () => {
+  it("accepts a non-empty, kebab-cased-or-plain slug string", () => {
+    expect(isShowcaseSlug("ag2")).toBe(true);
+    expect(isShowcaseSlug("langgraph-typescript")).toBe(true);
+    expect(isShowcaseSlug("ms-agent-framework-python")).toBe(true);
+  });
+
+  it("rejects the empty string", () => {
+    expect(isShowcaseSlug("")).toBe(false);
+  });
+
+  it("rejects non-string inputs via defensive typeof check", () => {
+    // The function signature is (s: string) but it is used at API
+    // boundaries where TS guarantees may not hold; cover the runtime guard
+    // so a misuse at the seam does not silently admit garbage.
+    expect(isShowcaseSlug(null as unknown as string)).toBe(false);
+    expect(isShowcaseSlug(undefined as unknown as string)).toBe(false);
+    expect(isShowcaseSlug(42 as unknown as string)).toBe(false);
+  });
+
+  it("rejects slugs containing whitespace or path separators", () => {
+    // These are the most likely garbage-input patterns at the boundary.
+    expect(isShowcaseSlug("foo bar")).toBe(false);
+    expect(isShowcaseSlug("foo/bar")).toBe(false);
+    expect(isShowcaseSlug("foo\\bar")).toBe(false);
+  });
+
+  it("is applied at construction — every BORN_IN_SHOWCASE and SLUG_MAP slug satisfies it", () => {
+    for (const s of BORN_IN_SHOWCASE) expect(isShowcaseSlug(s)).toBe(true);
+    for (const [, slug] of SLUG_MAP) expect(isShowcaseSlug(slug)).toBe(true);
+    for (const slug of Object.keys(SLUG_TO_EXAMPLES))
+      expect(isShowcaseSlug(slug)).toBe(true);
+    for (const slug of Object.keys(FALLBACK_MAP))
+      expect(isShowcaseSlug(slug)).toBe(true);
+  });
+});
+
+describe("freezeSet / freezeMap override descriptors (S-R8-2)", () => {
+  it("BORN_IN_SHOWCASE.add property descriptor is writable:false, configurable:false", () => {
+    // Without writable:false / configurable:false the replacement can be
+    // re-replaced: `Object.defineProperty(set, "add", { value: realAdd })`
+    // would silently restore the mutating method. Lock the descriptor so
+    // any re-defineProperty attempt throws in strict mode.
+    const s = BORN_IN_SHOWCASE as unknown as Set<string>;
+    const desc = Object.getOwnPropertyDescriptor(s, "add");
+    expect(desc).toBeDefined();
+    expect(desc!.writable).toBe(false);
+    expect(desc!.configurable).toBe(false);
+  });
+
+  it("re-defining add on BORN_IN_SHOWCASE throws", () => {
+    const s = BORN_IN_SHOWCASE as unknown as Set<string>;
+    expect(() => {
+      Object.defineProperty(s, "add", {
+        value: (v: string) => s,
+      });
+    }).toThrow();
+  });
+
+  it("SLUG_MAP.set property descriptor is writable:false, configurable:false", () => {
+    const m = SLUG_MAP as unknown as Map<string, string>;
+    const desc = Object.getOwnPropertyDescriptor(m, "set");
+    expect(desc).toBeDefined();
+    expect(desc!.writable).toBe(false);
+    expect(desc!.configurable).toBe(false);
+  });
+
+  it("re-defining set on SLUG_MAP throws", () => {
+    const m = SLUG_MAP as unknown as Map<string, string>;
+    expect(() => {
+      Object.defineProperty(m, "set", {
+        value: (k: string, v: string) => m,
+      });
+    }).toThrow();
+  });
+});
+
+describe("SLUG_TO_EXAMPLES / FALLBACK_MAP / BORN_IN_SHOWCASE derive from one entries source (S-R8-3)", () => {
+  it("every FALLBACK_MAP entry names a slug also present in SLUG_TO_EXAMPLES", () => {
+    // Derivation invariant: both maps come from the same per-slug entry
+    // (slug, examples dirs, optional fallback). A FALLBACK_MAP key with
+    // no SLUG_TO_EXAMPLES counterpart would mean the two maps were edited
+    // independently and fell out of sync.
+    for (const slug of Object.keys(FALLBACK_MAP)) {
+      expect(
+        (SLUG_TO_EXAMPLES as Record<string, unknown>)[slug],
+        `FALLBACK_MAP slug '${slug}' missing from SLUG_TO_EXAMPLES`,
+      ).toBeDefined();
+    }
+  });
+
+  it("FALLBACK_MAP target equals the first SLUG_TO_EXAMPLES candidate for the same slug", () => {
+    // Both maps share the same underlying entry; the fallback is simply
+    // the chosen preferred dir out of SLUG_TO_EXAMPLES[slug]. If someone
+    // edits one side but not the other, the two maps will disagree.
+    for (const [slug, target] of Object.entries(FALLBACK_MAP)) {
+      const dirs = SLUG_TO_EXAMPLES[slug];
+      expect(dirs).toBeDefined();
+      expect(dirs![0]).toBe(target);
+    }
+  });
+
+  it("BORN_IN_SHOWCASE and SLUG_TO_EXAMPLES are disjoint (no slug is both)", () => {
+    // A born-in-showcase slug has no examples counterpart by definition;
+    // putting it in SLUG_TO_EXAMPLES would contradict that. The derivation
+    // pipeline enforces that an entry with `bornInShowcase: true` has NO
+    // examples dirs, so the two outputs can never overlap.
+    for (const slug of BORN_IN_SHOWCASE) {
+      expect(
+        (SLUG_TO_EXAMPLES as Record<string, unknown>)[slug],
+        `'${slug}' is in both BORN_IN_SHOWCASE and SLUG_TO_EXAMPLES`,
+      ).toBeUndefined();
+    }
+  });
+
+  it("BORN_IN_SHOWCASE and FALLBACK_MAP are disjoint", () => {
+    // Same pairing: born-in-showcase slugs have no examples dir, so a
+    // FALLBACK_MAP target for one would be nonsensical.
+    for (const slug of BORN_IN_SHOWCASE) {
+      expect(
+        (FALLBACK_MAP as Record<string, unknown>)[slug],
+        `'${slug}' is in both BORN_IN_SHOWCASE and FALLBACK_MAP`,
+      ).toBeUndefined();
+    }
   });
 });
 
