@@ -27,7 +27,7 @@ managed_platform:
 starter:
   path: showcase/starters/langgraph-typescript
   name: Sales Dashboard
-  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  description: Full-featured sales pipeline with 4 GenUI rendering strategies
   github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langgraph-typescript
   demo_url: https://showcase-starter-langgraph-typescript-production-25ca.up.railway.app
   clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-typescript my-copilotkit-app
