@@ -41,7 +41,19 @@ const extensionRequire = createRequire(__filename);
  * then the extension's own node_modules. Bare specifiers that both lookups
  * fail on are returned as `null` so Rolldown surfaces the resolution error.
  */
-function nodeResolveFallback(skipPrefixes: string[] = []) {
+function matchesExternal(
+  source: string,
+  external: ReadonlyArray<string | RegExp>,
+): boolean {
+  return external.some((e) =>
+    typeof e === "string" ? e === source : e.test(source),
+  );
+}
+
+function nodeResolveFallback(
+  skipPrefixes: string[] = [],
+  external: ReadonlyArray<string | RegExp> = [],
+) {
   return {
     name: "node-resolve-fallback",
     enforce: "pre" as const,
@@ -50,6 +62,10 @@ function nodeResolveFallback(skipPrefixes: string[] = []) {
       if (skipPrefixes.some((p) => source === p || source.startsWith(p))) {
         return null;
       }
+      // If the caller explicitly configured `external` to include this
+      // specifier (or a matching regex), defer to their intent — they may
+      // want to supply a browser polyfill at runtime.
+      if (matchesExternal(source, external)) return null;
       // Node builtins (e.g. "os", "crypto", "stream") can appear in
       // transitive deps like supports-color or node-fetch. They can't be
       // bundled into an IIFE, so treat them as external and let rolldown
@@ -163,7 +179,7 @@ export async function bundleIife(
       external: opts.external,
       plugins: [
         cssCollectorPlugin(cssChunks),
-        nodeResolveFallback(opts.skipSpecifierPrefixes),
+        nodeResolveFallback(opts.skipSpecifierPrefixes, opts.external),
       ],
       logLevel: "silent",
     });
