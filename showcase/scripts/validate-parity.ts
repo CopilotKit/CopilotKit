@@ -59,8 +59,11 @@ const DEFAULT_PACKAGES_DIR = path.join(ROOT, "packages");
  * this are flagged as warnings (e.g. ones being built out).
  *
  * RECIPROCAL: the CI workflow .github/workflows/showcase_validate.yml
- * uses `MIN=9` when enforcing the per-package e2e-spec-count floor.
- * Keep these in sync — if one moves, move both.
+ * reads `baselineDemoCount` from showcase/scripts/fail-baseline.json
+ * when enforcing the per-package e2e-spec-count floor — there is no
+ * hardcoded MIN in the workflow anymore. Keep this default in sync
+ * with `baselineDemoCount` in fail-baseline.json; if one moves,
+ * move both.
  */
 const BASELINE_DEMO_COUNT = 9;
 
