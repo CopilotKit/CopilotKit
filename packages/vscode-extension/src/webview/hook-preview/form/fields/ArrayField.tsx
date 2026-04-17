@@ -16,9 +16,14 @@ export function ArrayField({
     onChange(items.map((item, idx) => (idx === i ? v : item)));
   const remove = (i: number) => onChange(items.filter((_, idx) => idx !== i));
   const add = () => {
-    const filled = { ...field.items, required: true } as FormField;
-    const def = defaultForField(filled);
-    onChange([...items, def ?? null]);
+    // Seed new items with a concrete default by forcing `required: true` on
+    // the item schema — without this, `defaultForField` returns undefined for
+    // optional items. The schema author's own `items.required` still governs
+    // the rendered field's required attribute below (we clone a separate
+    // config for rendering). defaultForField is total for required fields,
+    // so no ?? null fallback is needed.
+    const seeded = { ...field.items, required: true } as FormField;
+    onChange([...items, defaultForField(seeded)]);
   };
 
   return (

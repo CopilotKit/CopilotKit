@@ -78,4 +78,17 @@ describe("BooleanField", () => {
     fireEvent.click(screen.getByLabelText("B"));
     expect(onChange).toHaveBeenCalledWith(true);
   });
+
+  it("toggles from checked to unchecked", () => {
+    const onChange = vi.fn();
+    render(
+      <BooleanField
+        field={{ kind: "boolean", name: "b", label: "B", required: true }}
+        value={true}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("B"));
+    expect(onChange).toHaveBeenCalledWith(false);
+  });
 });
