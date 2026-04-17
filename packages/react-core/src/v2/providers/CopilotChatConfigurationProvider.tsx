@@ -82,6 +82,11 @@ export const CopilotChatConfigurationProvider: React.FC<
 
   const resolvedAgentId = agentId ?? parentConfig?.agentId ?? DEFAULT_AGENT_ID;
 
+  const autoThreadId = useRef<string | null>(null);
+  if (!autoThreadId.current) {
+    autoThreadId.current = randomUUID();
+  }
+
   const resolvedThreadId = useMemo(() => {
     if (threadId) {
       return threadId;
@@ -89,7 +94,7 @@ export const CopilotChatConfigurationProvider: React.FC<
     if (parentConfig?.threadId) {
       return parentConfig.threadId;
     }
-    return randomUUID();
+    return autoThreadId.current!;
   }, [threadId, parentConfig?.threadId]);
 
   const resolvedDefaultOpen = isModalDefaultOpen ?? true;
