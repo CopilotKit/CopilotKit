@@ -26,6 +26,7 @@ describe("hooks integration", () => {
       { hook: "useCoAgentStateRender", name: "basic_agent" },
       { hook: "useCopilotAction", name: "addTodo" },
       { hook: "useCopilotAction", name: "removeTodo" },
+      { hook: "useCopilotAction", name: "styledAction" },
       { hook: "useLangGraphInterrupt", name: null },
       { hook: "useRenderTool", name: "greetTool" },
     ]);
@@ -37,10 +38,21 @@ describe("hooks integration", () => {
       "BasicAgent.tsx",
       "InterruptDemo.tsx",
       "RenderToolDemo.tsx",
+      "StyledAction.tsx",
     ]) {
       const result = await bundleHookSite(path.join(fixturesDir, fx));
       expect(result.success, fx).toBe(true);
       expect(result.code, fx).toBeTruthy();
     }
+  }, 60_000);
+
+  it("collects CSS imports into the bundle result's css field", async () => {
+    const result = await bundleHookSite(
+      path.join(fixturesDir, "StyledAction.tsx"),
+    );
+    expect(result.success).toBe(true);
+    expect(result.css).toBeDefined();
+    expect(result.css).toContain("cpk-hook-fixture-action");
+    expect(result.css).toContain("rebeccapurple");
   }, 60_000);
 });
