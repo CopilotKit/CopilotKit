@@ -10,14 +10,7 @@ import { ComponentRegistry } from "./component-registry";
 import { InspectorPanel } from "./inspector-panel";
 import { InspectorViewProvider } from "./inspector-view-provider";
 import { DebugStream } from "./debug-stream";
-import { scanWorkspace } from "./hooks/hook-scanner";
-import {
-  HookTreeDataProvider,
-  type HookNode,
-} from "./hooks/view-provider";
-import { HookPreviewPanel } from "./hooks/panel";
-import { HookControlsStore } from "./hooks/persistence";
-import { getHookDef } from "./hooks/hook-registry";
+import { activateHookExplorer } from "./hooks/activate-hook-explorer";
 
 export function activate(context: vscode.ExtensionContext): void {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -174,109 +167,9 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push({ dispose: () => inspectorPanel.dispose() });
 
   // ----- Hook Explorer -----
-  const hookOutputChannel = vscode.window.createOutputChannel(
-    "CopilotKit Hook Explorer",
-  );
-  context.subscriptions.push(hookOutputChannel);
-
-  const hookStore = new HookControlsStore(
-    context.workspaceState,
-    workspaceRoot ?? "",
-  );
-  const hookTree = new HookTreeDataProvider(workspaceRoot);
-  const hookView = vscode.window.createTreeView("copilotkit.hooks", {
-    treeDataProvider: hookTree,
-    showCollapseAll: true,
-  });
-  context.subscriptions.push(hookView);
-
-  const hookPanel = new HookPreviewPanel(
-    context.extensionUri,
-    hookStore,
-    hookOutputChannel,
-  );
-  context.subscriptions.push({ dispose: () => hookPanel.dispose() });
-
-  const doHookScan = () => {
-    if (!workspaceRoot) {
-      hookTree.setSites([]);
-      return;
-    }
-    try {
-      const sites = scanWorkspace(workspaceRoot);
-      hookTree.setSites(sites);
-    } catch (err) {
-      hookOutputChannel.appendLine(
-        `[scan] ${err instanceof Error ? err.message : String(err)}`,
-      );
-      hookTree.setSites([]);
-    }
-  };
-  doHookScan();
-
-  context.subscriptions.push(
-    vscode.workspace.onDidSaveTextDocument((doc) => {
-      if (!/\.(ts|tsx)$/.test(doc.uri.fsPath)) return;
-      doHookScan();
-      void hookPanel.handleFileChange(doc.uri.fsPath);
-    }),
-    vscode.commands.registerCommand("copilotkit.hooks.refresh", () =>
-      doHookScan(),
-    ),
-    vscode.commands.registerCommand(
-      "copilotkit.hooks.openSource",
-      async (node: HookNode) => {
-        if (!node?.site) return;
-        const doc = await vscode.workspace.openTextDocument(
-          vscode.Uri.file(node.site.filePath),
-        );
-        const editor = await vscode.window.showTextDocument(doc);
-        const line = Math.max(0, node.site.loc.line - 1);
-        editor.revealRange(new vscode.Range(line, 0, line, 0));
-        editor.selection = new vscode.Selection(line, 0, line, 0);
-      },
-    ),
-    vscode.commands.registerCommand(
-      "copilotkit.hooks.preview",
-      async (node: HookNode) => {
-        if (!node?.site) return;
-        const def = getHookDef(node.site.hook);
-        if (!def || def.category !== "render") return;
-        await hookPanel.show(node.site);
-      },
-    ),
-    vscode.commands.registerCommand(
-      "copilotkit.hooks.copyIdentity",
-      async (node: HookNode) => {
-        if (!node?.site) return;
-        const id = `${node.site.hook}::${node.site.name ?? `line:${node.site.loc.line}`}`;
-        await vscode.env.clipboard.writeText(id);
-      },
-    ),
-    vscode.commands.registerCommand(
-      "copilotkit.hooks.focusPanel",
-      async () => {
-        const items: (vscode.QuickPickItem & { node: HookNode })[] = [];
-        for (const g of hookTree.getAllNodes()) {
-          if (g.label !== "Render hooks") continue;
-          for (const ht of g.children) {
-            for (const leaf of ht.children) {
-              if (!leaf.site) continue;
-              items.push({
-                label: leaf.label,
-                description: `${ht.label.replace(/\s+\(\d+\)$/, "")} · ${leaf.site.filePath}:${leaf.site.loc.line}`,
-                node: leaf,
-              });
-            }
-          }
-        }
-        const pick = await vscode.window.showQuickPick(items, {
-          placeHolder: "Pick a render hook to preview",
-        });
-        if (pick?.node.site) await hookPanel.show(pick.node.site);
-      },
-    ),
-  );
+  // All wiring (tree, panel, persistence, scan, 5 commands) lives in its own
+  // module so this file stays a thin composition root.
+  activateHookExplorer(context, workspaceRoot);
 }
 
 export function deactivate(): void {}
