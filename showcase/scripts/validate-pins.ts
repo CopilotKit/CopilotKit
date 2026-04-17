@@ -29,6 +29,9 @@
  * Exit codes:
  *   0 — no FAIL violations (WARN/SKIP are non-fatal)
  *   1 — one or more FAIL violations (pin drift detected)
+ *   2 — internal error (crash, unexpected exception). Distinct from 1 so
+ *       CI callers can distinguish "pin drift" from "validator broken".
+ *       Mirrors validate-parity.ts's convention.
  *
  * Output routing:
  *   - [OK] and [SKIP] lines go to stdout.
@@ -36,28 +39,18 @@
  *
  * --- NOTE: SLUG_MAP staleness ---
  *
- * The `SLUG_MAP` exported from `migrate-integration-examples.ts` is KNOWN
- * STALE with respect to the current set of directory names under
- * `showcase/packages/`. The following showcase slugs are not covered by the
- * reverse map (showcase slug -> examples/integrations dir) and require a
- * supplemental mapping maintained inside this script:
- *
- *   showcase slug          SLUG_MAP says          actual examples/ dir
- *   -------------          ---------------        ----------------------
- *   crewai-crews           (maps to "crewai")     crewai-crews
- *   ms-agent-dotnet        "maf-dotnet"           ms-agent-framework-dotnet
- *   ms-agent-python        "maf-python"           ms-agent-framework-python
- *   pydantic-ai            "pydanticai"           pydantic-ai
- *   strands                "aws-strands"          strands-python
+ * The `SLUG_MAP` imported from `./lib/slug-map.js` is KNOWN STALE with
+ * respect to the current set of directory names under
+ * `showcase/packages/`. The `FALLBACK_MAP` in that shared module documents
+ * the overrides (e.g. `strands -> strands-python`, `pydantic-ai ->
+ * pydantic-ai`, `ms-agent-dotnet -> ms-agent-framework-dotnet`). Consult
+ * `showcase/scripts/lib/slug-map.ts` for the current set. When SLUG_MAP is
+ * refreshed, the FALLBACK_MAP entries will fall through to the direct
+ * reverse-map lookup and can be removed at that time.
  *
  * Additionally, several showcase packages are "born-in-showcase" — they
- * have no Dojo counterpart and are skipped with [SKIP]:
- *
- *   ag2, claude-sdk-python, claude-sdk-typescript, langroid, spring-ai
- *
- * If SLUG_MAP is refreshed, remove the fallbacks from `FALLBACK_MAP` below
- * and the warning comments above. Staleness is tracked in the "Full Action
- * Inventory" doc.
+ * have no Dojo counterpart and are skipped with [SKIP]. See
+ * `BORN_IN_SHOWCASE` in `./lib/slug-map.js`.
  */
 
 import fs from "fs";
@@ -65,18 +58,33 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { BORN_IN_SHOWCASE, FALLBACK_MAP, SLUG_MAP } from "./lib/slug-map.js";
 
-// SLUG_MAP / FALLBACK_MAP / BORN_IN_SHOWCASE now live in
-// ./lib/slug-map.ts so audit.ts, validate-parity.ts, and this file
-// agree on the same frozen tables. Re-exported below for tests that
-// still import from "../validate-pins.js".
+// SLUG_MAP / FALLBACK_MAP / BORN_IN_SHOWCASE live in ./lib/slug-map.ts so
+// audit.ts, validate-parity.ts, and this file agree on the same frozen
+// tables. Re-exported at the bottom of this file for tests that still
+// import from "../validate-pins.js".
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// REPO_ROOT resolution allows tests to override via env var.
+// REPO_ROOT resolution allows tests to override via env var. The override
+// must be an absolute path pointing at an existing directory; a relative
+// or non-existent override silently yielding an empty scan would turn a
+// misconfiguration into a false green.
 function computeRepoRoot(): string {
   const override = process.env.VALIDATE_PINS_REPO_ROOT;
-  if (override) return override;
+  if (override) {
+    if (!path.isAbsolute(override)) {
+      throw new Error(
+        `VALIDATE_PINS_REPO_ROOT must be an absolute path; got: ${override}`,
+      );
+    }
+    if (!fs.existsSync(override)) {
+      throw new Error(
+        `VALIDATE_PINS_REPO_ROOT does not exist on disk: ${override}`,
+      );
+    }
+    return override;
+  }
   return path.resolve(__dirname, "..", "..");
 }
 
@@ -162,7 +170,9 @@ function resolveExampleDir(showcaseSlug: string): string | null {
 // llama_index, llama_index_*, llamaindex, google-adk, google-genai,
 // strands-agents, strands-agents-*, agent-framework, agent-framework-*,
 // @ai-sdk/*, ai, @hashbrownai/*, @anthropic-ai/*, anthropic, openai,
-// ag2, langroid, spring-ai*, spring-ai-*.
+// ag2, langroid, spring-ai*, spring-ai-*, and Spring's Maven coordinate
+// form `org.springframework.ai:<artifact>` which appears in Java
+// manifests as a colon-delimited group:artifact string.
 const FRAMEWORK_PATTERNS: Array<RegExp> = [
   // CopilotKit SDK
   /^@copilotkit\//,
@@ -222,6 +232,9 @@ const FRAMEWORK_PATTERNS: Array<RegExp> = [
   // Spring AI (Java coordinates appear with these prefixes)
   /^spring-ai$/,
   /^spring-ai-/,
+  // Maven coordinate form for Spring AI: `group:artifact` with group
+  // prefix `org.springframework.ai`. Matches `org.springframework.ai:foo`
+  // for any artifact `foo`.
   /^org\.springframework\.ai:/,
 ];
 
@@ -233,9 +246,58 @@ export interface DepMap {
   [name: string]: string; // name -> raw version specifier string
 }
 
+/**
+ * Branded string type: carries a compile-time proof that a spec was
+ * checked by `isExactSpec`. Downstream code that accepts `ExactSpec`
+ * cannot receive a non-exact string without an explicit re-check.
+ */
+export type ExactSpec = string & { readonly __brand: "ExactSpec" };
+
+/**
+ * Extended parse result: includes the DepMap plus advisory diagnostics.
+ * Callers use these to surface WARN lines even when the parse did not
+ * outright fail. Tests still assert against the returned DepMap shape.
+ */
+export interface ParseResult {
+  deps: DepMap;
+  /**
+   * Entries the parser intentionally skipped (e.g. Poetry git-only deps,
+   * inline tables with no `version`, malformed requirements.txt lines).
+   * Non-fatal but surface as [WARN] in validateAll so CI has a paper
+   * trail.
+   */
+  skipped: Array<{ name: string; reason: string }>;
+  /**
+   * Fully unparseable lines we dropped from requirements.txt. One entry
+   * per dropped line.
+   */
+  dropped: string[];
+}
+
+/**
+ * Parse a package.json into a DepMap. May throw on I/O failure or
+ * malformed JSON; callers that tolerate partial failure should catch
+ * and record the error. Runtime validates the parsed JSON is a plain
+ * object (not null / array / scalar) before property access.
+ *
+ * @throws Error on fs.readFileSync / JSON.parse failure, or when the
+ *         parsed value is not a plain object.
+ */
 function parsePackageJson(file: string): DepMap {
   const raw = fs.readFileSync(file, "utf-8");
-  const pkg = JSON.parse(raw) as {
+  const parsed: unknown = JSON.parse(raw);
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(
+      `expected JSON object at top level, got ${
+        parsed === null
+          ? "null"
+          : Array.isArray(parsed)
+            ? "array"
+            : typeof parsed
+      }`,
+    );
+  }
+  const pkg = parsed as {
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
     peerDependencies?: Record<string, string>;
@@ -266,8 +328,10 @@ function canonicalizePythonName(name: string): string {
  * Returns true if `spec` is an EXACT pin per the INTEGRATION-CHECKLIST rule.
  *
  * Accepts:
- *   - Bare semver-ish strings: "1.2.3", "0.2.14", "1.0.0-beta.1", "1.2.3.post1"
- *   - Python exact specs: "==1.2.3", "===1.2.3", "==0.2.14"
+ *   - Bare semver-ish strings: "1.2.3", "0.2.14", "1.0.0-beta.1"
+ *   - PEP 440 forms: "1.2.3.post1", "1.2.3.dev1", "1.2.3rc1", "1.2.3a1",
+ *                    "1.2.3b2"
+ *   - Python exact specs: "==1.2.3", "===1.2.3", "==0.2.14", "==1.2.3rc1"
  *
  * Rejects:
  *   - Range operators: ^, ~, >=, <=, >, <, ~=, !=
@@ -275,8 +339,12 @@ function canonicalizePythonName(name: string): string {
  *   - Dist-tags: "latest", "next", "" (empty)
  *   - Workspace/monorepo refs: "workspace:*", "workspace:^", "file:"
  *   - URLs / git refs / paths
+ *
+ * This is a type-guard: `spec is ExactSpec`. Callers can narrow the
+ * string to `ExactSpec` after verifying, so downstream code receives a
+ * compile-time proof that the spec was checked.
  */
-function isExactSpec(spec: string): boolean {
+function isExactSpec(spec: string): spec is ExactSpec {
   if (!spec) return false;
   const trimmed = spec.trim();
   if (!trimmed) return false;
@@ -346,30 +414,90 @@ function parseRequirementsLine(line: string): [string, string] | null {
   return [name, spec];
 }
 
-function parseRequirementsTxt(file: string): DepMap {
+/**
+ * Parse a requirements.txt file into a DepMap. Returns a ParseResult
+ * with the DepMap plus any lines that were unparseable (`dropped`) so
+ * the caller can surface them as [WARN].
+ *
+ * @throws Error on fs.readFileSync failure.
+ */
+function parseRequirementsTxtDetailed(file: string): ParseResult {
   const raw = fs.readFileSync(file, "utf-8");
   const out: DepMap = {};
+  const dropped: string[] = [];
   for (const line of raw.split(/\r?\n/)) {
+    // Empty and comment lines are legitimate — don't flag them as dropped.
+    const stripped = line.replace(/#.*$/, "").trim();
+    if (!stripped) continue;
+    // Editable installs / URLs are valid requirements but we cannot
+    // extract a pin from them; they're intentional non-deps, not drops.
+    if (/^-e\b/.test(stripped) || /^(https?|git\+)/.test(stripped)) continue;
     const parsed = parseRequirementsLine(line);
-    if (parsed) out[parsed[0]] = parsed[1];
+    if (parsed) {
+      // First-writer-wins within a file (a given dep may appear
+      // multiple times with different pins; the earlier line wins).
+      if (!(parsed[0] in out)) out[parsed[0]] = parsed[1];
+    } else {
+      dropped.push(stripped);
+    }
   }
-  return out;
+  return { deps: out, skipped: [], dropped };
+}
+
+/**
+ * Thin compatibility wrapper: returns a DepMap for callers that do not
+ * care about dropped-line diagnostics. Internally delegates to the
+ * detailed form.
+ *
+ * @throws Error on fs.readFileSync failure.
+ */
+function parseRequirementsTxt(file: string): DepMap {
+  return parseRequirementsTxtDetailed(file).deps;
 }
 
 /**
  * Extremely small pyproject.toml reader. Handles:
  *
  *   - Top-level `[project]` dependencies array (PEP 621).
- *   - Poetry `[tool.poetry.dependencies]` table.
+ *   - Top-level `[project.optional-dependencies]` tables (PEP 621 extras)
+ *     — every subkey's array is scanned.
+ *   - Poetry `[tool.poetry.dependencies]` tables, including
+ *     `[tool.poetry.group.<name>.dependencies]`.
  *
  * We avoid adding a full TOML dependency by using targeted regexes. The
  * parser stops at the NEXT TOP-LEVEL table header (e.g. `[tool.foo]`) —
  * crucially NOT at dotted subtables like `[project.optional-dependencies]`,
  * which are children of `[project]`.
+ *
+ * @throws Error on fs.readFileSync failure or when a `dependencies = [`
+ *         array is opened but never closed.
  */
-function parsePyprojectToml(file: string): DepMap {
+function parsePyprojectTomlDetailed(file: string): ParseResult {
   const raw = fs.readFileSync(file, "utf-8");
   const out: DepMap = {};
+  const skipped: Array<{ name: string; reason: string }> = [];
+  const dropped: string[] = [];
+
+  // --- Unterminated-array sanity check ---
+  // If the file says `dependencies = [` without a matching `]`, the
+  // regex below silently produces an empty array and the validator
+  // passes. Crash loudly instead — a malformed pyproject must not slip
+  // through as [OK].
+  const openIdx = raw.search(/\bdependencies\s*=\s*\[/);
+  if (openIdx >= 0) {
+    // Scan from the opening `[` for a matching `]`. This is not a full
+    // TOML tokenizer but catches the common case of a lost bracket.
+    const after = raw.slice(openIdx);
+    const bracketOpen = after.indexOf("[");
+    if (bracketOpen >= 0) {
+      const body = after.slice(bracketOpen + 1);
+      if (!body.includes("]")) {
+        throw new Error(
+          `malformed pyproject.toml: 'dependencies = [' opened but never closed`,
+        );
+      }
+    }
+  }
 
   // --- PEP 621: [project] table ---
   // Find the [project] section body, stopping at the next TOP-LEVEL
@@ -396,7 +524,47 @@ function parsePyprojectToml(file: string): DepMap {
       while ((m = quoteRe.exec(body))) {
         const entry = m[1] ?? m[2] ?? "";
         const parsed = parseRequirementsLine(entry);
-        if (parsed) out[parsed[0]] = parsed[1];
+        if (parsed) {
+          if (!(parsed[0] in out)) out[parsed[0]] = parsed[1];
+        } else if (entry.trim()) {
+          dropped.push(entry);
+        }
+      }
+    }
+  }
+
+  // --- PEP 621: [project.optional-dependencies] subsections ---
+  // Under PEP 621, optional dependencies are declared as:
+  //   [project.optional-dependencies]
+  //   extra_a = ["foo==1.0", "bar==2.0"]
+  //   extra_b = ["baz==3.0"]
+  // Each key's value is a string array; the array entries use the same
+  // requirements.txt grammar as [project].dependencies. We scan each
+  // key's array separately so optional-only framework deps are also
+  // subject to pin drift checks.
+  const optHeaderRe = /(?:^|\n)\[project\.optional-dependencies\][^\n]*\n/g;
+  let optHdr: RegExpExecArray | null;
+  while ((optHdr = optHeaderRe.exec(raw))) {
+    const bodyStart = optHdr.index + optHdr[0].length;
+    const rest = raw.slice(bodyStart);
+    const nextHeader = rest.match(/\n\[/);
+    const body = nextHeader ? rest.slice(0, nextHeader.index) : rest;
+    // Each subkey is `extra_name = [ "req1", "req2", ... ]`. Match
+    // across multiple lines because TOML arrays span lines.
+    const subkeyRe = /([A-Za-z0-9][A-Za-z0-9._-]*)\s*=\s*\[([\s\S]*?)\]/g;
+    let sm: RegExpExecArray | null;
+    while ((sm = subkeyRe.exec(body))) {
+      const arrBody = sm[2];
+      const quoteRe = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'/g;
+      let qm: RegExpExecArray | null;
+      while ((qm = quoteRe.exec(arrBody))) {
+        const entry = qm[1] ?? qm[2] ?? "";
+        const parsed = parseRequirementsLine(entry);
+        if (parsed) {
+          if (!(parsed[0] in out)) out[parsed[0]] = parsed[1];
+        } else if (entry.trim()) {
+          dropped.push(entry);
+        }
       }
     }
   }
@@ -412,8 +580,10 @@ function parsePyprojectToml(file: string): DepMap {
   // Poetry version-string semantics: a bare version like `"1.2.3"` means
   // caret (`^1.2.3`) in Poetry — NOT an exact pin. We prefix such values
   // with `^` before storing so downstream `isExactSpec` correctly rejects
-  // them. Operator-prefixed strings (`^`, `~`, `>=`, `==`, ...) are stored
-  // verbatim.
+  // them. The `^` prefix is irreversible: we lose the raw token but the
+  // validator never needs it downstream — it only needs the effective
+  // pin-vs-range classification. Operator-prefixed strings (`^`, `~`,
+  // `>=`, `==`, ...) are stored verbatim.
   const poetryHeaderRe =
     /(?:^|\n)\[tool\.poetry(?:\.group\.[A-Za-z0-9_-]+)?\.dependencies\][^\n]*\n/g;
   let headerMatch: RegExpExecArray | null;
@@ -438,10 +608,30 @@ function parsePyprojectToml(file: string): DepMap {
 
       let spec = "";
       if (value.startsWith("{")) {
-        // Inline table. Pull `version = "..."` out of it.
+        // Inline table. Pull `version = "..."` out of it; if absent
+        // (e.g. git-only / path-only / branch-only), record as skipped.
         const vm = value.match(/version\s*=\s*"([^"]*)"/);
-        if (vm) spec = vm[1];
-        else continue;
+        if (vm) {
+          spec = vm[1];
+        } else if (/\bgit\s*=/.test(value)) {
+          skipped.push({
+            name,
+            reason: "Poetry git-only dep (no version)",
+          });
+          continue;
+        } else if (/\bpath\s*=/.test(value)) {
+          skipped.push({
+            name,
+            reason: "Poetry path-only dep (no version)",
+          });
+          continue;
+        } else {
+          skipped.push({
+            name,
+            reason: "Poetry inline table missing version",
+          });
+          continue;
+        }
       } else if (value.startsWith('"') || value.startsWith("'")) {
         const q = value[0];
         const end = value.indexOf(q, 1);
@@ -465,7 +655,18 @@ function parsePyprojectToml(file: string): DepMap {
     }
   }
 
-  return out;
+  return { deps: out, skipped, dropped };
+}
+
+/**
+ * Thin compatibility wrapper: returns a DepMap for callers that do not
+ * care about skipped-dep diagnostics. Internally delegates to the
+ * detailed form.
+ *
+ * @throws Error on fs.readFileSync failure or malformed TOML.
+ */
+function parsePyprojectToml(file: string): DepMap {
+  return parsePyprojectTomlDetailed(file).deps;
 }
 
 // ---------------------------------------------------------------------------
@@ -487,6 +688,13 @@ export interface DojoDepSources {
   // Non-fatal parse errors accumulated during collection. Caller should
   // surface these rather than silently emit [OK].
   parseErrors: Array<{ file: string; message: string }>;
+  // Count of files this collector attempted to read — used to
+  // distinguish "no files found" from "all files parse-errored".
+  filesAttempted: number;
+  // Dep diagnostics forwarded from parsers (git-only Poetry deps,
+  // unparseable requirements lines).
+  skipped: Array<{ file: string; name: string; reason: string }>;
+  dropped: Array<{ file: string; line: string }>;
 }
 
 // Common candidate list for dep file discovery. App-/agent-specific files
@@ -516,34 +724,68 @@ function isPythonManifest(abs: string): boolean {
   return abs.endsWith("requirements.txt") || abs.endsWith("pyproject.toml");
 }
 
-// The Dojo examples have varied layouts. We walk app-specific paths FIRST
-// so that their specs take precedence over the root package.json, which
-// often pins older / generic versions. This implements first-writer-wins
-// at the file level: the first file that declares a dep wins.
-function collectDojoDeps(exampleDir: string): DojoDepSources {
-  const result: DojoDepSources = {
+type CollectShape = {
+  files: string[];
+  deps: DepMap;
+  pythonDeps: DepMap;
+  parseErrors: Array<{ file: string; message: string }>;
+  filesAttempted: number;
+  skipped: Array<{ file: string; name: string; reason: string }>;
+  dropped: Array<{ file: string; line: string }>;
+};
+
+/**
+ * Common collector used by both Dojo-side and showcase-side. Walks
+ * DEP_FILE_CANDIDATES in order, applying first-writer-wins at the file
+ * level. Parse errors are accumulated rather than thrown so one bad
+ * sibling doesn't abort the whole run.
+ */
+function collectDepsFromDir(rootDir: string): CollectShape {
+  const result: CollectShape = {
     files: [],
     deps: {},
     pythonDeps: {},
     parseErrors: [],
+    filesAttempted: 0,
+    skipped: [],
+    dropped: [],
   };
   for (const rel of DEP_FILE_CANDIDATES) {
-    const abs = path.join(exampleDir, rel);
+    const abs = path.join(rootDir, rel);
     if (!fs.existsSync(abs)) continue;
+    result.filesAttempted += 1;
     let parsed: DepMap = {};
+    let skipped: Array<{ name: string; reason: string }> = [];
+    let dropped: string[] = [];
     try {
-      if (abs.endsWith("package.json")) parsed = parsePackageJson(abs);
-      else if (abs.endsWith("requirements.txt"))
-        parsed = parseRequirementsTxt(abs);
-      else if (abs.endsWith("pyproject.toml")) parsed = parsePyprojectToml(abs);
+      if (abs.endsWith("package.json")) {
+        parsed = parsePackageJson(abs);
+      } else if (abs.endsWith("requirements.txt")) {
+        const detailed = parseRequirementsTxtDetailed(abs);
+        parsed = detailed.deps;
+        skipped = detailed.skipped;
+        dropped = detailed.dropped;
+      } else if (abs.endsWith("pyproject.toml")) {
+        const detailed = parsePyprojectTomlDetailed(abs);
+        parsed = detailed.deps;
+        skipped = detailed.skipped;
+        dropped = detailed.dropped;
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      // Log to stderr so CI surfaces it, and record in result for callers.
-      console.error(`[parse-error] ${abs}: ${msg}`);
+      // Record only — a single downstream [FAIL] line per parse error is
+      // emitted by validateAll with slug context. Immediate
+      // console.error here would cause duplicate output.
       result.parseErrors.push({ file: abs, message: msg });
       continue;
     }
     result.files.push(abs);
+    for (const s of skipped) {
+      result.skipped.push({ file: abs, name: s.name, reason: s.reason });
+    }
+    for (const d of dropped) {
+      result.dropped.push({ file: abs, line: d });
+    }
     const fromPython = isPythonManifest(abs);
     for (const [name, spec] of Object.entries(parsed)) {
       // First-writer-wins: agent-side files (walked first) take precedence
@@ -557,6 +799,14 @@ function collectDojoDeps(exampleDir: string): DojoDepSources {
   return result;
 }
 
+// The Dojo examples have varied layouts. We walk app-specific paths FIRST
+// so that their specs take precedence over the root package.json, which
+// often pins older / generic versions. This implements first-writer-wins
+// at the file level: the first file that declares a dep wins.
+function collectDojoDeps(exampleDir: string): DojoDepSources {
+  return collectDepsFromDir(exampleDir);
+}
+
 // ---------------------------------------------------------------------------
 // Showcase-side dep collection
 // ---------------------------------------------------------------------------
@@ -568,40 +818,13 @@ export interface ShowcaseDepSources {
   // Python canonicalization only to deps that came from Python manifests.
   pythonDeps: DepMap;
   parseErrors: Array<{ file: string; message: string }>;
+  filesAttempted: number;
+  skipped: Array<{ file: string; name: string; reason: string }>;
+  dropped: Array<{ file: string; line: string }>;
 }
 
 function collectShowcaseDeps(packageDir: string): ShowcaseDepSources {
-  const result: ShowcaseDepSources = {
-    files: [],
-    deps: {},
-    pythonDeps: {},
-    parseErrors: [],
-  };
-  for (const rel of DEP_FILE_CANDIDATES) {
-    const abs = path.join(packageDir, rel);
-    if (!fs.existsSync(abs)) continue;
-    let parsed: DepMap = {};
-    try {
-      if (abs.endsWith("package.json")) parsed = parsePackageJson(abs);
-      else if (abs.endsWith("requirements.txt"))
-        parsed = parseRequirementsTxt(abs);
-      else if (abs.endsWith("pyproject.toml")) parsed = parsePyprojectToml(abs);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error(`[parse-error] ${abs}: ${msg}`);
-      result.parseErrors.push({ file: abs, message: msg });
-      continue;
-    }
-    result.files.push(abs);
-    const fromPython = isPythonManifest(abs);
-    for (const [name, spec] of Object.entries(parsed)) {
-      if (!(name in result.deps)) result.deps[name] = spec;
-      if (fromPython && !(name in result.pythonDeps)) {
-        result.pythonDeps[name] = spec;
-      }
-    }
-  }
-  return result;
+  return collectDepsFromDir(packageDir);
 }
 
 /**
@@ -651,10 +874,10 @@ function validateAll(): Report {
   const report: Report = { fail: [], warn: [], skip: [], ok: [] };
   const { PACKAGES_DIR, EXAMPLES_DIR, REPO_ROOT } = paths();
 
-  // A3: missing packages dir must not produce a silent pass. If the
-  // validator can't see any packages, it has nothing to check, which is
-  // almost certainly a path misconfiguration. Emit a FAIL so the script
-  // exits non-zero.
+  // Missing packages dir must not produce a silent pass. If the validator
+  // can't see any packages, it has nothing to check, which is almost
+  // certainly a path misconfiguration. Emit a FAIL so the script exits
+  // non-zero.
   if (!fs.existsSync(PACKAGES_DIR)) {
     report.fail.push(`[FAIL] Packages dir not found: ${PACKAGES_DIR}`);
     return report;
@@ -666,7 +889,7 @@ function validateAll(): Report {
     .map((d) => d.name)
     .sort();
 
-  // A3: empty packages dir is the same class of error as missing — the
+  // Empty packages dir is the same class of error as missing — the
   // validator produced no results, so we fail loudly rather than exit 0.
   if (slugs.length === 0) {
     report.fail.push(
@@ -704,8 +927,8 @@ function validateAll(): Report {
     const showcase = collectShowcaseDeps(pkgDir);
     const dojo = collectDojoDeps(exampleDir);
 
-    // A4: Surface parse errors as FAIL so the process exits non-zero.
-    // A silent WARN lets broken manifests slip through CI with [OK].
+    // Parse errors: surface as FAIL so the process exits non-zero. A
+    // silent WARN lets broken manifests slip through CI with [OK].
     for (const pe of showcase.parseErrors) {
       report.fail.push(
         `[FAIL] ${slug}: parse error in ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
@@ -717,21 +940,53 @@ function validateAll(): Report {
       );
     }
 
-    if (showcase.files.length === 0) {
+    // Skipped deps (e.g. Poetry git-only) — WARN only.
+    for (const s of showcase.skipped) {
       report.warn.push(
-        `[WARN] ${slug}: no dependency files found in showcase package`,
+        `[WARN] ${slug}: skipped ${s.name} in ${path.relative(REPO_ROOT, s.file)}: ${s.reason}`,
       );
+    }
+    for (const s of dojo.skipped) {
+      report.warn.push(
+        `[WARN] ${slug}: skipped ${s.name} in ${path.relative(REPO_ROOT, s.file)}: ${s.reason}`,
+      );
+    }
+    // Dropped requirements.txt lines (unparseable but not fatal) — WARN.
+    for (const d of showcase.dropped) {
+      report.warn.push(
+        `[WARN] ${slug}: dropped unparseable line '${d.line}' in ${path.relative(REPO_ROOT, d.file)}`,
+      );
+    }
+    for (const d of dojo.dropped) {
+      report.warn.push(
+        `[WARN] ${slug}: dropped unparseable line '${d.line}' in ${path.relative(REPO_ROOT, d.file)}`,
+      );
+    }
+
+    // Distinguish "genuinely no files" from "files existed but all
+    // parse-errored". Only the former is a WARN; the latter already
+    // produced FAIL(s) above and we must not ALSO emit a WARN because
+    // that double-counts and muddles the signal.
+    if (showcase.files.length === 0) {
+      if (showcase.filesAttempted === 0) {
+        report.warn.push(
+          `[WARN] ${slug}: no dependency files found in showcase package`,
+        );
+      }
+      // else: all attempted files parse-errored; FAIL already emitted.
       continue;
     }
     if (dojo.files.length === 0) {
-      report.warn.push(
-        `[WARN] ${slug}: no dependency files found in Dojo example ` +
-          `(${path.relative(REPO_ROOT, exampleDir)})`,
-      );
+      if (dojo.filesAttempted === 0) {
+        report.warn.push(
+          `[WARN] ${slug}: no dependency files found in Dojo example ` +
+            `(${path.relative(REPO_ROOT, exampleDir)})`,
+        );
+      }
       continue;
     }
 
-    // A1: JS deps must NOT be Python-canonicalized (npm names are
+    // JS deps must NOT be Python-canonicalized (npm names are
     // case-sensitive and hyphen-sensitive, so `@Foo/bar` and `@foo/bar`
     // are DIFFERENT packages). Build two separate lookups per side — a
     // Python lookup (canonicalized) and a JS lookup (raw names) — then
@@ -798,8 +1053,8 @@ function validateAll(): Report {
     for (const { sc, dj, isPython, key } of iterations) {
       const displayName = sc?.name ?? dj?.name ?? key;
 
-      // A8: Canonicalize the name before the framework-pattern test when
-      // we are on the Python path so PEP 503 variants (mixed case,
+      // Canonicalize the name before the framework-pattern test when we
+      // are on the Python path so PEP 503 variants (mixed case,
       // hyphen/underscore/dot) are still recognized as framework deps.
       // For JS deps the raw name is correct (npm is case-sensitive).
       const detectionName = isPython
@@ -903,13 +1158,29 @@ function isMainPath(argv1: string | undefined, scriptPath: string): boolean {
   if (!argv1) return false;
   try {
     return path.resolve(argv1) === path.resolve(scriptPath);
-  } catch {
+  } catch (e) {
+    // path.resolve can throw on bizarre inputs (non-string, etc.). Log
+    // and treat as "not main" — a bare `catch {}` would silently skip
+    // main() on ANY error, masking bugs.
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`[isMainPath] path.resolve failed: ${msg}`);
     return false;
   }
 }
 
 // Only run main when invoked directly (not when imported for tests).
-if (isMainPath(process.argv[1], __filename)) main();
+// Top-level try/catch distinguishes "pin drift" (exit 1, legitimate) from
+// "validator crashed" (exit 2, needs investigation). Mirrors the
+// convention in validate-parity.ts.
+if (isMainPath(process.argv[1], __filename)) {
+  try {
+    main();
+  } catch (e) {
+    const msg = e instanceof Error ? e.stack || e.message : String(e);
+    console.error(`[INTERNAL ERROR] validate-pins crashed: ${msg}`);
+    process.exit(2);
+  }
+}
 
 export {
   resolveExampleDir,
@@ -918,7 +1189,10 @@ export {
   collectDojoDeps,
   parsePackageJson,
   parseRequirementsLine,
+  parseRequirementsTxt,
+  parseRequirementsTxtDetailed,
   parsePyprojectToml,
+  parsePyprojectTomlDetailed,
   canonicalizePythonName,
   isExactSpec,
   isFrameworkDep,
