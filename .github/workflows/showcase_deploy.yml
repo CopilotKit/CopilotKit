@@ -169,13 +169,19 @@ jobs:
           CHANGES='${{ steps.filter.outputs.changes }}'
           CHANGES="${CHANGES:-[]}"
 
-          # Filter services: on workflow_dispatch, include all (default) or specific service; on push, include only services whose paths changed
+          # Filter services based on three dispatch modes:
+          #   dispatch == "all": manual "deploy all" — include every service unconditionally
+          #     (paths-filter is unreliable on workflow_dispatch because there is no 'before' SHA,
+          #      so we must NOT consult $changes here — doing so silently produces an empty matrix).
+          #   dispatch == <specific service>: narrow to that service only (skips paths-filter so
+          #     drift-rebuild and manual single-service dispatches work regardless of $changes).
+          #   dispatch == "": push event — include services whose filter_key appears in paths-filter CHANGES.
           MATRIX=$(echo "$ALL_SERVICES" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" '
-            [.[] | select(
+            [.[] | (.filter_key as $fk | select(
               $dispatch == "all" or
-              $dispatch == .dispatch_name or
-              (.filter_key as $fk | $changes | index($fk) != null)
-            )]
+              ($dispatch != "" and $dispatch != "all" and $dispatch == .dispatch_name) or
+              ($dispatch == "" and ($changes | index($fk) != null))
+            ))]
           ')
 
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
