@@ -71,6 +71,13 @@ const __dirname = path.dirname(__filename);
 // must be an absolute path pointing at an existing directory; a relative
 // or non-existent override silently yielding an empty scan would turn a
 // misconfiguration into a false green.
+//
+// Implementation note: `fs.existsSync` collapses ENOENT (does not
+// exist) with EACCES (exists but unreadable by the current process)
+// into a single false result, which produces a misleading "does not
+// exist" error when the real problem is a permissions gap. Use
+// `fs.statSync` with errno inspection so the message names the right
+// failure mode.
 function computeRepoRoot(): string {
   const override = process.env.VALIDATE_PINS_REPO_ROOT;
   if (override) {
@@ -79,9 +86,25 @@ function computeRepoRoot(): string {
         `VALIDATE_PINS_REPO_ROOT must be an absolute path; got: ${override}`,
       );
     }
-    if (!fs.existsSync(override)) {
+    try {
+      fs.statSync(override);
+    } catch (e) {
+      const err = e as NodeJS.ErrnoException;
+      if (err && err.code === "ENOENT") {
+        throw new Error(
+          `VALIDATE_PINS_REPO_ROOT does not exist on disk: ${override}`,
+        );
+      }
+      if (err && err.code === "EACCES") {
+        throw new Error(
+          `VALIDATE_PINS_REPO_ROOT exists but is not readable (permission denied): ${override}`,
+        );
+      }
+      // Surface the underlying error message so the caller sees the
+      // actual failure rather than a generic wrapper.
+      const msg = err && err.message ? err.message : String(e);
       throw new Error(
-        `VALIDATE_PINS_REPO_ROOT does not exist on disk: ${override}`,
+        `VALIDATE_PINS_REPO_ROOT stat failed: ${override}: ${msg}`,
       );
     }
     return override;
@@ -389,22 +412,6 @@ function canonicalizePythonName(name: string): string {
 }
 
 /**
- * Returns true if `spec` is an EXACT pin per the INTEGRATION-CHECKLIST rule.
- *
- * Accepts:
- *   - Bare semver-ish strings: "1.2.3", "0.2.14", "1.0.0-beta.1"
- *   - PEP 440 forms: "1.2.3.post1", "1.2.3.dev1", "1.2.3rc1", "1.2.3a1",
- *                    "1.2.3b2"
- *   - Python exact specs: "==1.2.3", "===1.2.3", "==0.2.14", "==1.2.3rc1"
- *
- * Rejects:
- *   - Range operators: ^, ~, >=, <=, >, <, ~=, !=
- *   - X-ranges / wildcards: "1.x", "1.2.x", "1.2.*", "*", "X.X.X"
- *   - Dist-tags: "latest", "next", "" (empty)
- *   - Workspace/monorepo refs: "workspace:*", "workspace:^", "file:"
- *   - URLs / git refs / paths
- */
-/**
  * Returns true iff `spec` is a monorepo workspace reference that the
  * validator intentionally does NOT pin-check. Workspace refs (e.g.
  * `workspace:*`, `workspace:^`, `workspace:1.2.3`) are resolved by the
@@ -418,6 +425,23 @@ function isWorkspaceRef(spec: string): boolean {
   return /^workspace:/.test(spec.trim());
 }
 
+/**
+ * Returns true iff `spec` is an EXACT pin per the INTEGRATION-CHECKLIST rule.
+ *
+ * Accepts:
+ *   - Bare semver-ish strings: "1.2.3", "0.2.14", "1.0.0-beta.1"
+ *   - PEP 440 forms: "1.2.3.post1", "1.2.3.dev1", "1.2.3rc1", "1.2.3a1",
+ *                    "1.2.3b2"
+ *   - Python exact specs: "==1.2.3", "===1.2.3", "==0.2.14", "==1.2.3rc1"
+ *
+ * Rejects:
+ *   - Range operators: ^, ~, >=, <=, >, <, ~=, !=
+ *   - X-ranges / wildcards: "1.x", "1.2.x", "1.2.*", "*", "X.X.X"
+ *   - Dist-tags: "latest", "next", "" (empty)
+ *   - Workspace/monorepo refs: "workspace:*", "workspace:^", "file:"
+ *   - URLs / git refs / paths
+ *   - Malformed Python `==` bodies without a full MAJOR.MINOR (e.g. `==0`).
+ */
 function isExactSpec(spec: string): boolean {
   if (!spec) return false;
   const trimmed = spec.trim();
@@ -430,9 +454,12 @@ function isExactSpec(spec: string): boolean {
   if (/\*/.test(trimmed)) return false;
 
   // Python == / === exact form.
+  // Body must start with at least MAJOR.MINOR (`\d+\.\d+`) to reject
+  // degenerate specs like `==0` or `===1` that parse as "starts with a
+  // digit" but do not constitute a real pinned version per PEP 440.
   const pyMatch = trimmed.match(/^={2,3}\s*(\S+)$/);
   if (pyMatch) {
-    return /^\d/.test(pyMatch[1]);
+    return /^\d+\.\d+/.test(pyMatch[1]);
   }
 
   // Anything starting with a range operator is NOT exact.
@@ -450,13 +477,23 @@ function isExactSpec(spec: string): boolean {
   if (!/^\d/.test(trimmed)) return false;
   if (/\s/.test(trimmed)) return false;
   if (/[|]{1,2}/.test(trimmed)) return false; // "1.2.3 || 2.0.0"
+  // Comma-joined ranges (Poetry / PEP 440): "1.2.3,>=1.0" is composed
+  // of two constraints and cannot be a single exact pin.
+  if (/,/.test(trimmed)) return false;
 
   return true;
 }
 
 // Parse a requirements.txt line. Strip comments, extras, env markers,
 // pip hash flags, index-url flags, and `--find-links` flags.
-// Returns [name, versionSpec] or null if unparseable.
+//
+// Returns:
+//   - `[name, versionSpec]` on a valid `name<spec>` form; `versionSpec`
+//     MAY be an empty string when the line is name-only (e.g.
+//     `langgraph`). The file-level walker is responsible for surfacing
+//     these as `skipped[]` since an empty spec is not a pin.
+//   - `null` when the line is unparseable (editable install, URL-only,
+//     operator-leading, pure flag line, etc.).
 function parseRequirementsLine(line: string): [string, string] | null {
   // Strip trailing comments.
   const stripped = line.replace(/#.*$/, "").trim();
@@ -468,13 +505,13 @@ function parseRequirementsLine(line: string): [string, string] | null {
   const lhs = stripped.split(";")[0].trim();
 
   // Strip pip-install flags attached to a single line:
-  //   `--hash=sha256:...`, `--index-url=...`, `--extra-index-url=...`
-  // Also `--find-links=...`. These appear AFTER the spec.
+  //   `--hash=sha256:...`, `--index-url=...`, `--extra-index-url=...`,
+  //   `--find-links=...`. These appear AFTER the spec. Single-pass
+  //   alternation avoids order-dependency between sequential replaces
+  //   (e.g. a `--extra-index-url=...` substring being partially consumed
+  //   by a naïve `--index-url=\S+` regex run first).
   const flagsStripped = lhs
-    .replace(/\s+--hash=\S+/g, "")
-    .replace(/\s+--index-url=\S+/g, "")
-    .replace(/\s+--extra-index-url=\S+/g, "")
-    .replace(/\s+--find-links=\S+/g, "")
+    .replace(/\s+--(?:hash|index-url|extra-index-url|find-links)=\S+/g, "")
     .trim();
 
   // Match: name [extras] version-spec
@@ -490,8 +527,13 @@ function parseRequirementsLine(line: string): [string, string] | null {
 
 /**
  * Parse a requirements.txt file into a DepMap. Returns a ParseResult
- * with the DepMap plus any lines that were unparseable (`dropped`) so
- * the caller can surface them as [WARN].
+ * with the DepMap plus:
+ *   - `skipped`: name-only requirements (e.g. `langgraph` with no
+ *     version spec) that the parser intentionally did NOT admit to the
+ *     DepMap. The file-level walker surfaces these as [WARN] so
+ *     operators see the manifest has an unpinned dep rather than the
+ *     entry being silently dropped.
+ *   - `dropped`: fully unparseable lines — caller surfaces as [WARN].
  *
  * @throws Error on fs.readFileSync failure.
  */
@@ -511,12 +553,14 @@ function parseRequirementsTxtDetailed(file: string): ParseResult {
     if (parsed) {
       // First-writer-wins within a file (a given dep may appear
       // multiple times with different pins; the earlier line wins).
-      // NOTE: pip's own resolution rule is LAST-writer-wins. We use
-      // first-writer-wins here because the `apps/agent/*` file walks
-      // before `package.json`-style fallbacks; and within a single
-      // file, re-declaration is rare enough that either rule is
-      // equivalent on real inputs. The pip-standard last-writer
-      // behavior could be added later if a real case demands it.
+      // NOTE: pip's own resolver does not define a "first vs last
+      // writer" rule across identical lines — re-declaration within a
+      // single requirements file is already ambiguous input, and real
+      // installs are normally deduped upstream. We pick first-writer
+      // here so the rule matches collectDepsFromDir's first-writer
+      // file-level precedence (agent-scope wins over root-scope). If
+      // a concrete case demands pip's actual semantics, replace this
+      // block rather than layering an exception.
       const [name, spec] = parsed;
       if (!(name in out)) {
         if (!spec) {
@@ -540,13 +584,143 @@ function parseRequirementsTxtDetailed(file: string): ParseResult {
 
 /**
  * Thin compatibility wrapper: returns a DepMap for callers that do not
- * care about dropped-line diagnostics. Internally delegates to the
- * detailed form.
+ * care about dropped-line or skipped-line diagnostics. Internally
+ * delegates to the detailed form.
+ *
+ * NOTE: This wrapper intentionally discards the `skipped[]` and
+ * `dropped[]` fields from the detailed form. Callers that need those
+ * diagnostics (e.g. the file collector, which surfaces them as WARNs)
+ * must call `parseRequirementsTxtDetailed` directly. To avoid silent
+ * data loss when tests or ad-hoc callers use this wrapper, any skipped
+ * or dropped entries are logged to stderr with a short summary so the
+ * fact of the loss is visible rather than invisible.
  *
  * @throws Error on fs.readFileSync failure.
  */
 function parseRequirementsTxt(file: string): DepMap {
-  return parseRequirementsTxtDetailed(file).deps;
+  const detailed = parseRequirementsTxtDetailed(file);
+  if (detailed.skipped.length > 0) {
+    console.warn(
+      `[parseRequirementsTxt] ${file}: discarded ${detailed.skipped.length} skipped entr${
+        detailed.skipped.length === 1 ? "y" : "ies"
+      } (use parseRequirementsTxtDetailed to see them)`,
+    );
+  }
+  if (detailed.dropped.length > 0) {
+    console.warn(
+      `[parseRequirementsTxt] ${file}: discarded ${detailed.dropped.length} dropped line${
+        detailed.dropped.length === 1 ? "" : "s"
+      } (use parseRequirementsTxtDetailed to see them)`,
+    );
+  }
+  return detailed.deps;
+}
+
+/**
+ * Scan `raw` starting at `openBracketIdx` (which must point at a `[`
+ * character) and return the index of the matching closing `]`, skipping
+ * over any `]` or `[` embedded in single- or double-quoted strings.
+ * Returns -1 if no matching bracket is found before end-of-string OR
+ * before a new TOML table header (`\n[...]` at column 0).
+ *
+ * This exists because the PEP 621 and PEP 621-extras arrays can legally
+ * contain entries like `"langchain[all]==1.2.3"` where the bracket
+ * character appears inside a quoted string. A non-greedy `[\s\S]*?\]`
+ * regex silently truncates such arrays at the first `]` and drops
+ * everything after — a silent miss that makes the validator emit [OK]
+ * against incomplete dependency sets.
+ *
+ * The scanner handles:
+ *   - Basic double-quoted strings: `"..."` (escape `\"` permitted).
+ *   - Basic single-quoted strings: `'...'` (escape `\'` permitted).
+ *   - TOML comments: `#` to end-of-line are ignored outside strings so
+ *     a `]` that appears inside a comment does NOT satisfy the search.
+ *   - Table header termination: a `\n[` at column 0 while still at
+ *     depth > 0 means the array was never closed before the next
+ *     table header — return -1 so the caller can throw.
+ *
+ * It does NOT handle TOML multi-line basic strings (`"""..."""`) or
+ * nested arrays spanning multiple table bodies. A real TOML tokenizer
+ * would be more correct; the tradeoff is accepted because our fixtures
+ * are simple single-section arrays of strings.
+ */
+function findMatchingBracket(raw: string, openBracketIdx: number): number {
+  let depth = 0;
+  let i = openBracketIdx;
+  while (i < raw.length) {
+    const ch = raw[i];
+    // A new TOML table header `\n[` at depth >= 1 means the current
+    // array was never closed. The opening `[` of the header does NOT
+    // count as a nested-array bump — it's a new section starting.
+    // Only trigger this when we've already consumed the opening
+    // bracket (i > openBracketIdx) and the next char is `[`.
+    if (ch === "\n" && depth >= 1 && i + 1 < raw.length && raw[i + 1] === "[") {
+      return -1;
+    }
+    if (ch === '"') {
+      // Skip basic-string. Escapes: `\\` and `\"`.
+      i += 1;
+      while (i < raw.length) {
+        const c = raw[i];
+        if (c === "\\" && i + 1 < raw.length) {
+          i += 2;
+          continue;
+        }
+        if (c === '"') {
+          i += 1;
+          break;
+        }
+        i += 1;
+      }
+      continue;
+    }
+    if (ch === "'") {
+      // Skip literal-string.
+      i += 1;
+      while (i < raw.length && raw[i] !== "'") i += 1;
+      if (i < raw.length) i += 1;
+      continue;
+    }
+    if (ch === "#") {
+      // Skip to end-of-line. A `]` inside a comment must NOT close
+      // the array.
+      while (i < raw.length && raw[i] !== "\n") i += 1;
+      continue;
+    }
+    if (ch === "[") {
+      depth += 1;
+      i += 1;
+      continue;
+    }
+    if (ch === "]") {
+      depth -= 1;
+      if (depth === 0) return i;
+      i += 1;
+      continue;
+    }
+    i += 1;
+  }
+  return -1;
+}
+
+/**
+ * Extract quoted-string entries out of a TOML array body (the text
+ * between an opening `[` and its matching `]`), dispatching each entry
+ * through `parseRequirementsLine` and merging into `out` (first-writer-
+ * wins). Unparseable non-empty entries go into `dropped`.
+ */
+function ingestArrayBody(body: string, out: DepMap, dropped: string[]): void {
+  const quoteRe = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'/g;
+  let m: RegExpExecArray | null;
+  while ((m = quoteRe.exec(body))) {
+    const entry = m[1] ?? m[2] ?? "";
+    const parsed = parseRequirementsLine(entry);
+    if (parsed) {
+      if (!(parsed[0] in out)) out[parsed[0]] = parsed[1];
+    } else if (entry.trim()) {
+      dropped.push(entry);
+    }
+  }
 }
 
 /**
@@ -563,35 +737,15 @@ function parseRequirementsTxt(file: string): DepMap {
  * crucially NOT at dotted subtables like `[project.optional-dependencies]`,
  * which are children of `[project]`.
  *
- * @throws Error on fs.readFileSync failure or when a `dependencies = [`
- *         array is opened but never closed.
+ * @throws Error on fs.readFileSync failure, or when a top-level
+ *         `dependencies = [` array in `[project]` is opened but a
+ *         matching `]` is never found by the quote-aware scanner.
  */
 function parsePyprojectTomlDetailed(file: string): ParseResult {
   const raw = fs.readFileSync(file, "utf-8");
   const out: DepMap = {};
   const skipped: Array<{ name: string; reason: string }> = [];
   const dropped: string[] = [];
-
-  // --- Unterminated-array sanity check ---
-  // If the file says `dependencies = [` without a matching `]`, the
-  // regex below silently produces an empty array and the validator
-  // passes. Crash loudly instead — a malformed pyproject must not slip
-  // through as [OK].
-  const openIdx = raw.search(/\bdependencies\s*=\s*\[/);
-  if (openIdx >= 0) {
-    // Scan from the opening `[` for a matching `]`. This is not a full
-    // TOML tokenizer but catches the common case of a lost bracket.
-    const after = raw.slice(openIdx);
-    const bracketOpen = after.indexOf("[");
-    if (bracketOpen >= 0) {
-      const body = after.slice(bracketOpen + 1);
-      if (!body.includes("]")) {
-        throw new Error(
-          `malformed pyproject.toml: 'dependencies = [' opened but never closed`,
-        );
-      }
-    }
-  }
 
   // --- PEP 621: [project] table ---
   // Find the [project] section body, stopping at the next TOP-LEVEL
@@ -604,26 +758,23 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
   if (projectMatch) {
     const section = projectMatch[1];
 
-    // Look for a dependencies = [...] assignment. Anchor so we don't match
-    // `optional-dependencies = [...]` or other `*-dependencies = [...]`.
-    // The key must start at a line boundary and be literally `dependencies`.
-    const depsMatch = section.match(
-      /(?:^|\n)dependencies\s*=\s*\[([\s\S]*?)\]/,
-    );
-    if (depsMatch) {
-      const body = depsMatch[1];
-      // Extract all quoted strings.
-      const quoteRe = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'/g;
-      let m: RegExpExecArray | null;
-      while ((m = quoteRe.exec(body))) {
-        const entry = m[1] ?? m[2] ?? "";
-        const parsed = parseRequirementsLine(entry);
-        if (parsed) {
-          if (!(parsed[0] in out)) out[parsed[0]] = parsed[1];
-        } else if (entry.trim()) {
-          dropped.push(entry);
-        }
+    // Find `dependencies = [` using a regex anchored to a line boundary
+    // so we don't accidentally match `optional-dependencies = [` or
+    // `dev-dependencies = [`. We need the POSITION of the opening `[`
+    // so we can hand it to `findMatchingBracket`, which understands
+    // quoted-string embedded brackets (e.g. `"langchain[all]==1.2.3"`).
+    const depsKeyRe = /(?:^|\n)(dependencies\s*=\s*)\[/;
+    const km = depsKeyRe.exec(section);
+    if (km) {
+      const bracketIdx = km.index + km[0].length - 1;
+      const closeIdx = findMatchingBracket(section, bracketIdx);
+      if (closeIdx < 0) {
+        throw new Error(
+          `malformed pyproject.toml: [project] 'dependencies = [' opened but never closed (missing matching ']')`,
+        );
       }
+      const body = section.slice(bracketIdx + 1, closeIdx);
+      ingestArrayBody(body, out, dropped);
     }
   }
 
@@ -643,23 +794,34 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
     const rest = raw.slice(bodyStart);
     const nextHeader = rest.match(/\n\[/);
     const body = nextHeader ? rest.slice(0, nextHeader.index) : rest;
-    // Each subkey is `extra_name = [ "req1", "req2", ... ]`. Match
-    // across multiple lines because TOML arrays span lines.
-    const subkeyRe = /([A-Za-z0-9][A-Za-z0-9._-]*)\s*=\s*\[([\s\S]*?)\]/g;
+    // Walk subkey assignments `extra_name = [`. Use a regex to locate
+    // each opening `[` but hand the closing-bracket search off to the
+    // quote-aware scanner so embedded `]` characters (e.g. inside
+    // `"langchain[all]==1.2.3"`) don't truncate the array and silently
+    // drop subsequent entries.
+    const subkeyKeyRe = /([A-Za-z0-9][A-Za-z0-9._-]*)\s*=\s*\[/g;
     let sm: RegExpExecArray | null;
-    while ((sm = subkeyRe.exec(body))) {
-      const arrBody = sm[2];
-      const quoteRe = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'/g;
-      let qm: RegExpExecArray | null;
-      while ((qm = quoteRe.exec(arrBody))) {
-        const entry = qm[1] ?? qm[2] ?? "";
-        const parsed = parseRequirementsLine(entry);
-        if (parsed) {
-          if (!(parsed[0] in out)) out[parsed[0]] = parsed[1];
-        } else if (entry.trim()) {
-          dropped.push(entry);
-        }
+    while ((sm = subkeyKeyRe.exec(body))) {
+      const bracketIdx = sm.index + sm[0].length - 1;
+      const closeIdx = findMatchingBracket(body, bracketIdx);
+      if (closeIdx < 0) {
+        // Malformed extras array — record and skip rather than throw:
+        // the [project.optional-dependencies] block is noisier in the
+        // wild (template literals, dynamic generation) and a single
+        // broken extra should not prevent the rest of the file from
+        // being parsed. `[project].dependencies` remains strict.
+        dropped.push(
+          `optional-dependencies:${sm[1]}: unterminated array (missing ']')`,
+        );
+        // Advance the regex index past this opener to avoid an
+        // infinite loop.
+        subkeyKeyRe.lastIndex = bracketIdx + 1;
+        continue;
       }
+      const arrBody = body.slice(bracketIdx + 1, closeIdx);
+      ingestArrayBody(arrBody, out, dropped);
+      // Advance past the close so the next subkey is found after it.
+      subkeyKeyRe.lastIndex = closeIdx + 1;
     }
   }
 
@@ -732,6 +894,18 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
           });
           continue;
         }
+      } else if (value.startsWith("[")) {
+        // Array-form Poetry dep: `foo = ["^1.0", "^2.0"]` expresses a
+        // multi-constraint OR. There is no single "pinned version" for
+        // such a declaration, so the validator cannot meaningfully
+        // compare it to an exact Dojo pin. Surface as skipped so a
+        // [WARN] is emitted — silently dropping these would let pin
+        // drift slip through undetected.
+        skipped.push({
+          name,
+          reason: "Poetry array-form dep (multi-constraint, not an exact pin)",
+        });
+        continue;
       } else if (value.startsWith('"') || value.startsWith("'")) {
         const q = value[0];
         const end = value.indexOf(q, 1);
@@ -758,7 +932,14 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
       // with `^` so it is correctly classified as non-exact by
       // `isExactSpec`. Anything already starting with an operator
       // character is stored verbatim.
-      if (/^\d/.test(spec)) {
+      //
+      // Caveat: a comma-joined range like `"1.2.3,>=1.0"` starts with a
+      // digit but is NOT a bare version — it already composes multiple
+      // constraints. Prefixing such a value with `^` would produce a
+      // nonsense spec (`^1.2.3,>=1.0`). Leave comma-joined values
+      // verbatim; `isExactSpec` will correctly classify them as
+      // non-exact on the range-operator or comma path.
+      if (/^\d/.test(spec) && !spec.includes(",")) {
         spec = "^" + spec;
       }
 
@@ -776,7 +957,11 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
  * care about skipped-dep diagnostics. Internally delegates to the
  * detailed form.
  *
- * @throws Error on fs.readFileSync failure or malformed TOML.
+ * @throws Error on fs.readFileSync failure, or on the specific narrow
+ *         malformation: a top-level `[project] dependencies = [` array
+ *         opened but never closed. This parser is NOT a general TOML
+ *         validator — many other forms of malformed TOML will produce
+ *         an empty DepMap rather than an exception.
  */
 function parsePyprojectToml(file: string): DepMap {
   return parsePyprojectTomlDetailed(file).deps;
@@ -823,11 +1008,17 @@ export interface DepSources {
 // `DepSources`.
 export type DojoDepSources = DepSources;
 
-// Common candidate list for dep file discovery. App-/agent-specific files
-// come first so they win over root-level fallbacks (first-writer-wins at
-// the file level). Includes apps/web/** so showcase packages that only
-// ship a web app are scanned, plus apps/app/** for starter layouts that
-// use `apps/app/` as the application root.
+// Common candidate list for dep file discovery. Order IS precedence:
+// earlier entries are walked first, and because `collectDepsFromDir`
+// applies first-writer-wins at the file level, the earlier file's spec
+// for a shared dep name beats any later file's spec for the same name.
+//
+// Explicit precedence order (most-specific → least-specific):
+//   1. apps/agent/*   — agent-scope manifests win over anything else
+//   2. agent/*        — short-form `agent/` variant
+//   3. apps/web/*     — showcase packages that only ship a web app
+//   4. apps/app/*     — starter layouts using `apps/app/`
+//   5. <root>/*       — catch-all fallback
 const DEP_FILE_CANDIDATES = [
   "apps/agent/package.json",
   "apps/agent/pyproject.toml",
@@ -874,7 +1065,24 @@ function collectDepsFromDir(rootDir: string): DepSources {
   };
   for (const rel of DEP_FILE_CANDIDATES) {
     const abs = path.join(rootDir, rel);
-    if (!fs.existsSync(abs)) continue;
+    // Prefer fs.statSync so an EACCES (unreadable) candidate is
+    // distinguished from ENOENT (not present). `fs.existsSync` returns
+    // false in both cases, which silently ignores broken permissions
+    // — a missing framework dep file would then never be flagged.
+    try {
+      fs.statSync(abs);
+    } catch (e) {
+      const err = e as NodeJS.ErrnoException;
+      if (!err || err.code === "ENOENT") continue;
+      // EACCES / EIO / ELOOP / etc. — the candidate is "probably
+      // there" but we can't read it. Surface as a parse error so the
+      // caller emits a FAIL rather than silently passing over it.
+      result.parseErrors.push({
+        file: abs,
+        message: `stat failed (${err.code ?? "unknown"}): ${err.message ?? String(e)}`,
+      });
+      continue;
+    }
     // Determine which parser to use BEFORE the try block so that an
     // unrecognized extension is treated as a programmer bug (throws out
     // of this function) rather than silently absorbed as a "successful
@@ -1233,10 +1441,13 @@ function validateAll(): Report {
         // Dojo pins a framework dep that's entirely missing in showcase —
         // silent drift that the old validator would miss.
         if (isWorkspaceRef(dj.spec)) {
-          // Dojo uses a workspace ref — there's nothing for showcase to
-          // "mirror" since a workspace ref is not a published version.
-          report.skip.push(
-            `[SKIP] ${slug}: ${displayName} workspace ref in Dojo (${dj.spec})`,
+          // Dojo uses a workspace ref but showcase has NO entry for this
+          // dep at all. A workspace ref does not give us a version to
+          // mirror, but it still tells us the framework is expected to
+          // be present. Emit a WARN rather than a silent SKIP so CI
+          // surfaces that showcase is missing the dep entirely.
+          report.warn.push(
+            `[WARN] ${slug}: ${displayName} absent in showcase; Dojo declares it as workspace ref (${dj.spec})`,
           );
           continue;
         }
@@ -1251,7 +1462,16 @@ function validateAll(): Report {
         const scSpec = sc.spec;
         const djSpec = dj.spec;
 
-        // Workspace ref on either side: nothing to pin-check.
+        // Workspace ref on either side: nothing to pin-check. Enrich
+        // the SKIP message with the Dojo pin when showcase side is the
+        // workspace ref and Dojo pins a concrete version — operators
+        // grepping the log for a dep will want to see the target.
+        if (isWorkspaceRef(scSpec) && !isWorkspaceRef(djSpec)) {
+          report.skip.push(
+            `[SKIP] ${slug}: ${displayName} ${scSpec || "(empty)"} (Dojo pins ${djSpec || "(empty)"})`,
+          );
+          continue;
+        }
         if (isWorkspaceRef(scSpec) || isWorkspaceRef(djSpec)) {
           report.skip.push(
             `[SKIP] ${slug}: ${displayName} workspace ref (showcase=${scSpec || "(empty)"}, Dojo=${djSpec || "(empty)"})`,
@@ -1310,10 +1530,16 @@ function printReport(report: Report): void {
   console.log(summary);
 }
 
+// Exit codes are set via `process.exitCode` rather than `process.exit(N)`
+// so that stdout/stderr have time to drain before the process
+// terminates. `process.exit` is synchronous and can truncate output —
+// the hash-based ratchet in CI compares full summary/table output and a
+// truncated line would silently change the hash. Mirrors the audit.ts
+// pattern.
 function main(): void {
   const report = validateAll();
   printReport(report);
-  process.exit(report.fail.length > 0 ? 1 : 0);
+  process.exitCode = report.fail.length > 0 ? 1 : 0;
 }
 
 /**
@@ -1323,17 +1549,20 @@ function main(): void {
  * resolve-then-equal instead of substring match, so paths that merely
  * contain "validate-pins" (test harnesses, worker processes) do NOT
  * trigger `main()` on import.
+ *
+ * On a `path.resolve` failure (bizarre non-string input) we log to
+ * stderr and set `process.exitCode = 2` so the caller sees a non-zero
+ * exit; we still return false so main() doesn't run. A bare `catch {}`
+ * would silently skip main() AND exit 0, masking bugs.
  */
 function isMainPath(argv1: string | undefined, scriptPath: string): boolean {
   if (!argv1) return false;
   try {
     return path.resolve(argv1) === path.resolve(scriptPath);
   } catch (e) {
-    // path.resolve can throw on bizarre inputs (non-string, etc.). Log
-    // and treat as "not main" — a bare `catch {}` would silently skip
-    // main() on ANY error, masking bugs.
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[isMainPath] path.resolve failed: ${msg}`);
+    process.exitCode = 2;
     return false;
   }
 }
@@ -1348,7 +1577,7 @@ if (isMainPath(process.argv[1], __filename)) {
   } catch (e) {
     const msg = e instanceof Error ? e.stack || e.message : String(e);
     console.error(`[INTERNAL ERROR] validate-pins crashed: ${msg}`);
-    process.exit(2);
+    process.exitCode = 2;
   }
 }
 
