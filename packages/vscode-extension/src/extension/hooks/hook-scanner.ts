@@ -1,4 +1,6 @@
 import * as fs from "node:fs";
+import * as path from "node:path";
+import ignore, { type Ignore } from "ignore";
 import { parseSync } from "oxc-parser";
 import { getHookDef, isCopilotKitHook } from "./hook-registry";
 
@@ -152,5 +154,100 @@ export function scanFile(filePath: string): HookCallSite[] {
   };
 
   visit(ast);
+  return results;
+}
+
+const HARDCODED_EXCLUDES = [
+  "node_modules",
+  "dist",
+  ".git",
+  ".next",
+  "build",
+  ".turbo",
+  "out",
+];
+
+const SKIP_SUFFIXES = [".test.", ".spec.", ".stories."];
+
+function loadGitignore(rootDir: string): Map<string, Ignore> {
+  const byDir = new Map<string, Ignore>();
+
+  function walkForIgnoreFiles(dir: string): void {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (e.isDirectory()) {
+        if (HARDCODED_EXCLUDES.includes(e.name)) continue;
+        walkForIgnoreFiles(path.join(dir, e.name));
+      } else if (e.name === ".gitignore") {
+        try {
+          const content = fs.readFileSync(path.join(dir, e.name), "utf-8");
+          byDir.set(dir, ignore().add(content));
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+
+  walkForIgnoreFiles(rootDir);
+  return byDir;
+}
+
+function isIgnored(
+  filePath: string,
+  rootDir: string,
+  ignoreByDir: Map<string, Ignore>,
+): boolean {
+  for (const [dir, ig] of ignoreByDir) {
+    if (!filePath.startsWith(dir + path.sep) && filePath !== dir) continue;
+    const rel = path.relative(dir, filePath).split(path.sep).join("/");
+    if (!rel || rel.startsWith("..")) continue;
+    if (ig.ignores(rel)) return true;
+  }
+  return false;
+}
+
+export interface ScanWorkspaceOptions {
+  roots?: string[];
+}
+
+export function scanWorkspace(
+  workspaceDir: string,
+  opts: ScanWorkspaceOptions = {},
+): HookCallSite[] {
+  const ignoreByDir = loadGitignore(workspaceDir);
+  const results: HookCallSite[] = [];
+  const roots = opts.roots?.length
+    ? opts.roots.map((r) => path.resolve(workspaceDir, r))
+    : [workspaceDir];
+
+  const walk = (dir: string): void => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        if (HARDCODED_EXCLUDES.includes(e.name)) continue;
+        if (isIgnored(full, workspaceDir, ignoreByDir)) continue;
+        walk(full);
+        continue;
+      }
+      if (!e.name.endsWith(".ts") && !e.name.endsWith(".tsx")) continue;
+      if (SKIP_SUFFIXES.some((s) => e.name.includes(s))) continue;
+      if (isIgnored(full, workspaceDir, ignoreByDir)) continue;
+      results.push(...scanFile(full));
+    }
+  };
+
+  for (const r of roots) walk(r);
   return results;
 }

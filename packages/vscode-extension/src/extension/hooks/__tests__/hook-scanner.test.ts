@@ -1,7 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as path from "node:path";
+import * as fs from "node:fs";
+import * as os from "node:os";
 import { fileURLToPath } from "node:url";
-import { scanFile } from "../hook-scanner";
+import { scanFile, scanWorkspace } from "../hook-scanner";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -57,5 +59,99 @@ describe("hook-scanner scanFile", () => {
 
   it("returns empty for nonexistent files without throwing", () => {
     expect(scanFile(fx("does-not-exist.tsx"))).toEqual([]);
+  });
+});
+
+describe("hook-scanner scanWorkspace", () => {
+  let tmp: string;
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "hook-scan-"));
+  });
+  afterEach(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  const write = (rel: string, content: string) => {
+    const full = path.join(tmp, rel);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, content);
+  };
+
+  it("walks workspace and collects hook sites from multiple files", () => {
+    write(
+      "src/a.tsx",
+      `import { useCopilotAction } from "@copilotkit/react-core";\nexport function A(){ useCopilotAction({name:"x",render:()=>null}); return null; }`,
+    );
+    write(
+      "src/b.tsx",
+      `import { useCopilotReadable } from "@copilotkit/react-core";\nexport function B(){ useCopilotReadable({description:"d",value:1}); return null; }`,
+    );
+    const sites = scanWorkspace(tmp);
+    expect(sites.map((s) => s.hook).sort()).toEqual([
+      "useCopilotAction",
+      "useCopilotReadable",
+    ]);
+  });
+
+  it("skips node_modules, dist, .git", () => {
+    write(
+      "node_modules/lib/x.tsx",
+      `import { useCopilotAction } from "@copilotkit/react-core";\nexport function X(){ useCopilotAction({name:"n",render:()=>null}); return null; }`,
+    );
+    write(
+      "dist/x.tsx",
+      `import { useCopilotAction } from "@copilotkit/react-core";\nexport function X(){ useCopilotAction({name:"n",render:()=>null}); return null; }`,
+    );
+    write(
+      ".git/x.tsx",
+      `import { useCopilotAction } from "@copilotkit/react-core";\nexport function X(){ useCopilotAction({name:"n",render:()=>null}); return null; }`,
+    );
+    expect(scanWorkspace(tmp)).toEqual([]);
+  });
+
+  it("respects .gitignore patterns", () => {
+    write(".gitignore", "generated/\n*.ignore.tsx\n");
+    write(
+      "generated/x.tsx",
+      `import { useCopilotAction } from "@copilotkit/react-core";\nexport function X(){ useCopilotAction({name:"ign",render:()=>null}); return null; }`,
+    );
+    write(
+      "src/foo.ignore.tsx",
+      `import { useCopilotAction } from "@copilotkit/react-core";\nexport function X(){ useCopilotAction({name:"ign2",render:()=>null}); return null; }`,
+    );
+    write(
+      "src/ok.tsx",
+      `import { useCopilotAction } from "@copilotkit/react-core";\nexport function X(){ useCopilotAction({name:"ok",render:()=>null}); return null; }`,
+    );
+    const sites = scanWorkspace(tmp);
+    expect(sites.map((s) => s.name)).toEqual(["ok"]);
+  });
+
+  it("respects nested .gitignore", () => {
+    write("src/feature/.gitignore", "internal/\n");
+    write(
+      "src/feature/internal/x.tsx",
+      `import { useCopilotAction } from "@copilotkit/react-core";\nexport function X(){ useCopilotAction({name:"nope",render:()=>null}); return null; }`,
+    );
+    write(
+      "src/feature/ok.tsx",
+      `import { useCopilotAction } from "@copilotkit/react-core";\nexport function X(){ useCopilotAction({name:"yes",render:()=>null}); return null; }`,
+    );
+    const sites = scanWorkspace(tmp);
+    expect(sites.map((s) => s.name)).toEqual(["yes"]);
+  });
+
+  it("skips *.test.tsx / *.spec.tsx / *.stories.tsx by default", () => {
+    write(
+      "src/a.test.tsx",
+      `import { useCopilotAction } from "@copilotkit/react-core";\nexport function A(){ useCopilotAction({name:"t",render:()=>null}); return null; }`,
+    );
+    write(
+      "src/a.tsx",
+      `import { useCopilotAction } from "@copilotkit/react-core";\nexport function A(){ useCopilotAction({name:"a",render:()=>null}); return null; }`,
+    );
+    const sites = scanWorkspace(tmp);
+    expect(sites.map((s) => s.name)).toEqual(["a"]);
   });
 });
