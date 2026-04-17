@@ -15,7 +15,8 @@ services:
     image: ghcr.io/copilotkit/aimock:latest
     volumes:
       - ../aimock/feature-parity.json:/fixtures/default.json:ro
-    command: ["--fixtures", "/fixtures", "--host", "0.0.0.0"]
+    command:
+      ["--fixtures", "/fixtures", "--host", "0.0.0.0", "--validate-on-load"]
     ports:
       - "4010:4010"
     healthcheck:

@@ -224,10 +224,18 @@
     },
     {
       "match": {
+        "userMessage": "Based on the following context, write a concise"
+      },
+      "response": {
+        "content": "A short input value used to parameterize the crew's tasks and agents."
+      }
+    },
+    {
+      "match": {
         "userMessage": "plan"
       },
       "response": {
-        "text": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
+        "content": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
       }
     },
     {
@@ -235,7 +243,7 @@
         "userMessage": "steps"
       },
       "response": {
-        "text": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
+        "content": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
       }
     },
     {
@@ -243,7 +251,7 @@
         "userMessage": "mars"
       },
       "response": {
-        "text": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
+        "content": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
       }
     },
     {
@@ -251,7 +259,7 @@
         "userMessage": "dashboard"
       },
       "response": {
-        "text": "Working on your request. Step 1: Gathering data... Step 2: Analyzing results... Step 3: Generating report. Done!"
+        "content": "Working on your request. Step 1: Gathering data... Step 2: Analyzing results... Step 3: Generating report. Done!"
       }
     },
     {
@@ -259,7 +267,7 @@
         "userMessage": "report"
       },
       "response": {
-        "text": "Working on your request. Step 1: Gathering data... Step 2: Analyzing results... Step 3: Generating report. Done!"
+        "content": "Working on your request. Step 1: Gathering data... Step 2: Analyzing results... Step 3: Generating report. Done!"
       }
     },
     {
