@@ -155,7 +155,7 @@ describe("readManifest", () => {
   });
 
   it("collapses parseManifest 'unreadable' (EACCES) to 'malformed' with 'read failed:' prefix", () => {
-    // T2: mock readFileSync to throw EACCES so parseManifest returns
+    // Mock readFileSync to throw EACCES so parseManifest returns
     // { kind: 'unreadable', ... }, and verify audit.ts collapses it to
     // 'malformed' with the expected prefix (the three-state ManifestResult
     // shape that downstream buildReport/tests rely on).
@@ -300,8 +300,68 @@ describe("findExamplesSource", () => {
     }
   });
 
+  it("records stale-mapping warnings on the supplied sink array (no stderr monkey-patch)", () => {
+    // Regression guard for the old global-state approach: findExamplesSource
+    // used to monkey-patch process.stderr.write and restore it in a
+    // finally block. Concurrent calls would collide, and any caller that
+    // captured stderr (e.g. vitest's stderr spy) saw nothing because
+    // the monkey-patch sandwich restored the original. The new contract:
+    // pass an explicit string[] sink; warnings are appended to it, and
+    // the function never touches process.stderr.
+    const mappedSlug = "mastra";
+    expect(SLUG_TO_EXAMPLES[mappedSlug]).toBeDefined();
+    const cfg = makeConfig(root);
+    const sink: string[] = [];
+    const r = findExamplesSource(mappedSlug, cfg, sink);
+    expect(r).toBeNull();
+    // Sink received the stale-mapping warning verbatim.
+    expect(sink.length).toBeGreaterThan(0);
+    expect(sink.some((w) => w.includes(mappedSlug))).toBe(true);
+    expect(sink.some((w) => /warn/i.test(w))).toBe(true);
+  });
+
+  it("does not push to the sink when the slug is unmapped (fallback path)", () => {
+    // Unmapped slug falls back to [slug] — that's the "no mapping
+    // needed" path, not a dead entry, so no warning.
+    const cfg = makeConfig(root);
+    const sink: string[] = [];
+    const r = findExamplesSource("totally-unmapped-slug", cfg, sink);
+    expect(r).toBeNull();
+    expect(sink).toEqual([]);
+  });
+
+  it("statSync failures land on the sink (not stderr)", () => {
+    makeExampleDir(root, "crewai-crews");
+    const target = path.join(root, "examples", "integrations", "crewai-crews");
+    const orig = fs.statSync;
+    const spy = vi.spyOn(fs, "statSync").mockImplementation(((
+      p: fs.PathLike,
+      options?: unknown,
+    ) => {
+      if (typeof p === "string" && p === target) {
+        const e: NodeJS.ErrnoException = new Error("EIO: injected");
+        e.code = "EIO";
+        throw e;
+      }
+      return (orig as unknown as (p: fs.PathLike, o?: unknown) => unknown)(
+        p,
+        options,
+      );
+    }) as typeof fs.statSync);
+    try {
+      const cfg = makeConfig(root);
+      const sink: string[] = [];
+      const r = findExamplesSource("crewai-crews", cfg, sink);
+      expect(r).toBeNull();
+      expect(sink.some((w) => w.includes("statSync"))).toBe(true);
+      expect(sink.some((w) => w.includes("EIO"))).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("tries candidates in declared order and returns the first match", () => {
-    // T6: verify multi-candidate mapping. Force a SLUG_TO_EXAMPLES lookup
+    // Verify multi-candidate mapping. Force a SLUG_TO_EXAMPLES lookup
     // via the live map: pick a slug that's mapped, delete the first
     // candidate from the filesystem view, and confirm no match is returned
     // when the dir doesn't exist. We can't mutate the frozen map at test
@@ -335,7 +395,12 @@ describe("auditPackage", () => {
     });
     const cfg = makeConfig(root);
     const a = auditPackage("broken", cfg);
-    expect(a.manifest).toBe("malformed");
+    expect(a.manifest.kind).toBe("malformed");
+    // The full variant is preserved — callers can reach the underlying
+    // error without a second lookup.
+    if (a.manifest.kind === "malformed") {
+      expect(a.manifest.error).toMatch(/unterminated|Flow sequence|\[/);
+    }
     expect(a.anomalies.some((x) => x.kind === "malformed-manifest")).toBe(true);
     expect(a.anomalies.some((x) => x.kind === "missing-manifest")).toBe(false);
   });
@@ -344,7 +409,7 @@ describe("auditPackage", () => {
     writePackage(root, "noman", {});
     const cfg = makeConfig(root);
     const a = auditPackage("noman", cfg);
-    expect(a.manifest).toBe("missing");
+    expect(a.manifest.kind).toBe("missing");
     expect(anomalyStrings(a)).toContain("missing manifest.yaml");
   });
 
@@ -355,7 +420,7 @@ describe("auditPackage", () => {
     const cfg = makeConfig(root);
     expect(() => auditPackage("empty", cfg)).not.toThrow();
     const a = auditPackage("empty", cfg);
-    expect(a.manifest).toBe("malformed");
+    expect(a.manifest.kind).toBe("malformed");
     expect(a.anomalies.some((x) => x.kind === "malformed-manifest")).toBe(true);
   });
 
@@ -418,7 +483,7 @@ describe("auditPackage", () => {
     }
   });
 
-  it("surfaces 'could not read' anomaly when qa dir readdir fails (T1 — symmetric to spec)", () => {
+  it("surfaces 'could not read' anomaly when qa dir readdir fails (symmetric to spec)", () => {
     writePackage(root, "qaperm", {
       manifest: `slug: qaperm\ndeployed: true\ndemos:\n  - id: x\n`,
       specs: ["x.spec.ts"],
@@ -454,7 +519,7 @@ describe("auditPackage", () => {
     }
   });
 
-  it("deployed:undefined renders as 'deployed=unset' and counts toward notDeployed (T3)", () => {
+  it("deployed:undefined renders as 'deployed=unset' and counts toward notDeployed", () => {
     // Regression guard: a manifest with no `deployed` field MUST produce
     // a distinct "unset" state (not collapsed into "false").
     writePackage(root, "unset", {
@@ -496,10 +561,10 @@ describe("auditPackage", () => {
     );
   });
 
-  it("records stderr warnings on the `warnings` field for stale SLUG_TO_EXAMPLES entries", () => {
-    // Regression guard for the stderr-redirection blind spot: even if
-    // stderr is captured/redirected, the audit record itself should carry
-    // the warning.
+  it("records warnings on the `warnings` field for stale SLUG_TO_EXAMPLES entries", () => {
+    // Contract: even if stderr is captured/redirected (or if the
+    // caller renders JSON and swallows stderr entirely), the audit
+    // record itself should carry the warning.
     const mappedSlug = Object.keys(SLUG_TO_EXAMPLES)[0];
     writePackage(root, mappedSlug, {
       manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: x\n`,
@@ -547,7 +612,7 @@ describe("buildReport", () => {
     expect(report.totals.withAnomalies).toBe(1);
   });
 
-  it("classifies missing vs malformed manifests into distinct buckets (T4)", () => {
+  it("classifies missing vs malformed manifests into distinct buckets", () => {
     writePackage(root, "missing1", {}); // no manifest.yaml at all
     writePackage(root, "missing2", {});
     writePackage(root, "bad", { manifest: "demos: [[[\nunterminated\n" });
@@ -564,7 +629,7 @@ describe("buildReport", () => {
     expect(overlap).toEqual([]);
   });
 
-  it("per-dimension countMismatches filter: unreadable spec + real qa mismatch still appears (T5)", () => {
+  it("per-dimension countMismatches filter: unreadable spec + real qa mismatch still appears", () => {
     // Package 'mixed' has an unreadable spec dir AND a genuine qa
     // mismatch. The old filter would hide the whole package from
     // countMismatches because *any* 'could not read' was treated as a
@@ -614,8 +679,8 @@ describe("buildReport", () => {
   });
 
   it("populates top-level hasAnomalies and exitCode", () => {
-    // C11: JSON output needs the scalar summary so consumers don't have
-    // to re-derive it from nested arrays.
+    // JSON output needs the scalar summary so consumers don't have to
+    // re-derive it from nested arrays.
     writePackage(root, "ok1", {
       manifest: `slug: ok1\ndeployed: true\ndemos:\n  - id: a\n`,
       specs: ["a.spec.ts"],
@@ -637,7 +702,7 @@ describe("buildReport", () => {
     expect(dirty.exitCode).toBe(1);
   });
 
-  it("withAnomalies is a unique-package count even when buckets overlap (C3 contract)", () => {
+  it("withAnomalies is a unique-package count even when buckets overlap", () => {
     // Package "multi" has BOTH a count mismatch AND not-deployed. It
     // appears in countMismatches AND notDeployed (buckets overlap), but
     // totals.withAnomalies counts it once.
@@ -654,7 +719,7 @@ describe("buildReport", () => {
     expect(report.totals.withAnomalies).toBe(1);
   });
 
-  it("freezes PackageAudit entries to prevent downstream mutation (C16)", () => {
+  it("freezes PackageAudit entries to prevent downstream mutation", () => {
     writePackage(root, "frozen", {
       manifest: `slug: frozen\ndeployed: true\ndemos:\n  - id: a\n`,
       specs: ["a.spec.ts"],
@@ -665,6 +730,34 @@ describe("buildReport", () => {
     const report = buildReport(["frozen"], cfg);
     const p = report.packages[0];
     expect(Object.isFrozen(p)).toBe(true);
+  });
+
+  it("deep-freezes PackageAudit inner containers (anomalies, warnings, spec, qa, manifest)", () => {
+    // Regression guard: a shallow freeze would leave
+    // `p.anomalies.push(...)` working, so downstream consumers could
+    // silently mutate the audit state through a nested reference. The
+    // contract is deep-frozen-enough: the record AND its mutable inner
+    // containers cannot be reassigned OR pushed to.
+    writePackage(root, "deepfrozen", {
+      manifest: `slug: deepfrozen\ndeployed: true\ndemos:\n  - id: a\n`,
+      specs: ["a.spec.ts"],
+      qaFiles: ["a.md"],
+    });
+    makeExampleDir(root, "deepfrozen");
+    const cfg = makeConfig(root);
+    const report = buildReport(["deepfrozen"], cfg);
+    const p = report.packages[0];
+    expect(Object.isFrozen(p)).toBe(true);
+    expect(Object.isFrozen(p.anomalies)).toBe(true);
+    expect(Object.isFrozen(p.warnings)).toBe(true);
+    expect(Object.isFrozen(p.spec)).toBe(true);
+    expect(Object.isFrozen(p.qa)).toBe(true);
+    expect(Object.isFrozen(p.manifest)).toBe(true);
+    // "ok" manifest variant should have its inner .manifest object
+    // frozen too.
+    if (p.manifest.kind === "ok") {
+      expect(Object.isFrozen(p.manifest.manifest)).toBe(true);
+    }
   });
 });
 
@@ -694,6 +787,20 @@ describe("parseArgs", () => {
     expect(r.json).toBe(true);
     expect(r.errors).toEqual([]);
   });
+
+  it("rejects duplicate --json rather than silently accepting last-wins", () => {
+    const r = parseArgs(["--json", "--json"]);
+    expect(r.json).toBe(true);
+    expect(r.errors.some((e) => /--json/.test(e))).toBe(true);
+  });
+
+  it("rejects duplicate --slug rather than silently taking last-wins", () => {
+    const r = parseArgs(["--slug", "a", "--slug", "b"]);
+    expect(r.errors.some((e) => /--slug/.test(e))).toBe(true);
+    // Error message should mention both candidate values so the user can
+    // tell which occurrences collided.
+    expect(r.errors.some((e) => e.includes("a") && e.includes("b"))).toBe(true);
+  });
 });
 
 describe("BORN_IN_SHOWCASE set", () => {
@@ -705,7 +812,7 @@ describe("BORN_IN_SHOWCASE set", () => {
     expect(BORN_IN_SHOWCASE.has("spring-ai")).toBe(true);
   });
 
-  it("invariant: every BORN_IN_SHOWCASE slug has NO showcase/packages/<slug>/manifest.yaml with a real-repo provenance marker that would contradict it (Q1)", () => {
+  it("invariant: every BORN_IN_SHOWCASE slug has NO showcase/packages/<slug>/manifest.yaml with a real-repo provenance marker that would contradict it", () => {
     // The real invariant: BORN_IN_SHOWCASE is the set of packages that
     // are ONLY in showcase — so they must NOT have a corresponding
     // directory under examples/integrations/ in a real repo. We walk the
@@ -744,7 +851,7 @@ describe("SLUG_TO_EXAMPLES — dead entries removed", () => {
     },
   );
 
-  it("every mapped target exists as a dir under examples/integrations/ in the real repo (Q2)", () => {
+  it("every mapped target exists as a dir under examples/integrations/ in the real repo", () => {
     // Dead-entry guard: if any SLUG_TO_EXAMPLES value points at a
     // non-existent examples/integrations/ dir, the audit will emit
     // spurious "no examples source" anomalies at runtime.
@@ -769,49 +876,62 @@ describe("SLUG_TO_EXAMPLES — dead entries removed", () => {
   });
 });
 
-describe("findExamplesSource — runtime warning for mapped slug with no dir", () => {
+describe("findExamplesSource — sink-based warnings (no global stderr)", () => {
   let root: string;
-  let warnings: string[];
-  let stderrSpy: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
     root = makeTmpTree();
-    warnings = [];
-    stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(((
-      chunk: string | Uint8Array,
-    ) => {
-      warnings.push(
-        typeof chunk === "string" ? chunk : Buffer.from(chunk).toString(),
-      );
-      return true;
-    }) as typeof process.stderr.write);
   });
   afterEach(() => {
-    stderrSpy.mockRestore();
     fs.rmSync(root, { recursive: true, force: true });
   });
 
-  it("emits stderr warning (not error) when a SLUG_TO_EXAMPLES-mapped slug has no matching dir", () => {
+  it("populates the caller-supplied sink when a mapped slug has no matching dir", () => {
     // Use an explicit slug known to be in SLUG_TO_EXAMPLES rather than
     // first-key indexing, which would silently keep passing if the map
     // changed order.
     const mappedSlug = "mastra";
     expect(SLUG_TO_EXAMPLES[mappedSlug]).toBeDefined();
     const cfg = makeConfig(root);
-    const r = findExamplesSource(mappedSlug, cfg);
+    const sink: string[] = [];
+    const r = findExamplesSource(mappedSlug, cfg, sink);
     expect(r).toBeNull();
-    const joined = warnings.join("");
+    const joined = sink.join("\n");
     expect(joined).toMatch(/warn/i);
     expect(joined).toContain(mappedSlug);
   });
 
-  it("does NOT warn for an unmapped slug missing a dir (falls back to slug==dirname)", () => {
+  it("does NOT populate the sink for an unmapped slug missing a dir (falls back to slug==dirname)", () => {
     // A slug not in SLUG_TO_EXAMPLES falls back to [slug]. That's the
     // "no mapping" case — not a dead entry — so no warning.
     const cfg = makeConfig(root);
-    const r = findExamplesSource("totally-unmapped-slug", cfg);
+    const sink: string[] = [];
+    const r = findExamplesSource("totally-unmapped-slug", cfg, sink);
     expect(r).toBeNull();
-    const joined = warnings.join("");
-    expect(joined).not.toMatch(/warn/i);
+    expect(sink).toEqual([]);
+  });
+
+  it("does NOT write to process.stderr at all (hard guarantee — no global state)", () => {
+    // Regression guard for the stderr-monkey-patch contract removal:
+    // findExamplesSource is a pure function with respect to
+    // stdout/stderr. Callers pass an explicit sink or accept that
+    // warnings are discarded.
+    const stderrWrites: string[] = [];
+    const spy = vi.spyOn(process.stderr, "write").mockImplementation(((
+      chunk: string | Uint8Array,
+    ) => {
+      stderrWrites.push(
+        typeof chunk === "string" ? chunk : Buffer.from(chunk).toString(),
+      );
+      return true;
+    }) as typeof process.stderr.write);
+    try {
+      const mappedSlug = "mastra";
+      const cfg = makeConfig(root);
+      findExamplesSource(mappedSlug, cfg, []);
+      expect(stderrWrites).toEqual([]);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 
@@ -878,7 +998,7 @@ describe("main() exit codes via CLI subprocess", () => {
     }
   });
 
-  it("exits 3 (unreadable) when packages path exists but is a file, not a directory (C5)", () => {
+  it("exits 3 (unreadable) when packages path exists but is a file, not a directory", () => {
     // Regression guard: previously `readdirSync` on a file path threw
     // ENOTDIR inside the try/catch in listShowcasePackageSlugs which
     // returned [], so the CLI collapsed to "empty packages" (exit 1). We
@@ -925,7 +1045,7 @@ describe("main() exit codes via CLI subprocess", () => {
     expect(r.status, r.stdout + r.stderr).toBe(1);
   });
 
-  it("exits 2 on internal error (bad arg combination: --slug --json)", () => {
+  it("exits 2 on invalid arg combination (bad arg: --slug --json)", () => {
     writePackage(root, "crewai-crews", {
       manifest: `slug: crewai-crews\ndeployed: true\ndemos:\n  - id: a\n`,
       specs: ["a.spec.ts"],
@@ -939,7 +1059,7 @@ describe("main() exit codes via CLI subprocess", () => {
     expect(r.status, r.stdout + r.stderr).toBe(2);
   });
 
-  it("--json --slug <slug> combination emits JSON for a single package (T8)", () => {
+  it("--json --slug <slug> combination emits JSON for a single package", () => {
     writePackage(root, "crewai-crews", {
       manifest: `slug: crewai-crews\ndeployed: true\ndemos:\n  - id: a\n`,
       specs: ["a.spec.ts"],
@@ -959,37 +1079,83 @@ describe("main() exit codes via CLI subprocess", () => {
     const parsed = JSON.parse(r.stdout);
     expect(parsed.packages.length).toBe(1);
     expect(parsed.packages[0].slug).toBe("crewai-crews");
-    // Scalar summary exposed (C11).
+    // Scalar summary exposed alongside the nested report.
     expect(parsed.hasAnomalies).toBe(false);
     expect(parsed.exitCode).toBe(0);
   });
 
-  it("exits 4 (internal error) on unexpected exceptions (T7)", () => {
-    // Force an unexpected error by pointing SHOWCASE_AUDIT_ROOT at a
-    // path whose `packages` subdir is a VALID dir (passes existsSync +
-    // isDirectory()) but where readdirSync subsequently throws a
-    // non-ENOENT error after our stat check. Easiest reliable way is to
-    // inject an error via the NODE_OPTIONS preload hook — but that's
-    // fragile across node versions. Instead, we use --require to load a
-    // tiny preload that monkey-patches fs.statSync to throw a
-    // deliberately non-UnreadableDirError after the packages dir stat
-    // passes.
+  it("JSON mode does not duplicate per-package warnings to stderr", () => {
+    // In JSON mode, warnings are already carried on
+    // `packages[i].warnings` — echoing them to stderr would
+    // double-emit the same information. A consumer redirecting
+    // `2>/dev/null` should still get a complete machine-readable
+    // report via stdout.
+    const mappedSlug = Object.keys(SLUG_TO_EXAMPLES)[0];
+    writePackage(root, mappedSlug, {
+      manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: a\n`,
+      specs: ["a.spec.ts"],
+      qaFiles: ["a.md"],
+    });
+    // Intentionally DO NOT create examples/integrations/<mapped> dir so
+    // findExamplesSource emits a stale-mapping warning.
+    const r = runCli(["--json"], {
+      env: { SHOWCASE_AUDIT_ROOT: root },
+    });
+    // exit is 0/1 depending on anomalies — the focus here is stderr
+    // contents, not exit code.
+    expect(r.stderr || "").not.toMatch(/audit: warning:/);
+    // The JSON stdout should still carry the warning on the package
+    // record so JSON consumers aren't blind.
+    const parsed = JSON.parse(r.stdout);
+    const p = parsed.packages.find(
+      (x: { slug: string }) => x.slug === mappedSlug,
+    );
+    expect(p).toBeDefined();
+    expect(p.warnings.length).toBeGreaterThan(0);
+  });
+
+  it("text mode forwards per-package warnings to stderr for human readers", () => {
+    // Counterpart: in text mode a terminal user watching stderr should
+    // still see the stale-mapping diagnostic — the sink-based warnings
+    // must be forwarded, not silently dropped.
+    const mappedSlug = Object.keys(SLUG_TO_EXAMPLES)[0];
+    writePackage(root, mappedSlug, {
+      manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: a\n`,
+      specs: ["a.spec.ts"],
+      qaFiles: ["a.md"],
+    });
+    const r = runCli([], {
+      env: { SHOWCASE_AUDIT_ROOT: root },
+    });
+    expect(r.stderr).toMatch(/audit: warning:/);
+  });
+
+  it("exits 4 (internal error) on unexpected exceptions", () => {
+    // Inject a TypeError AFTER the top-level packages dir has been
+    // listed successfully, so the UnreadableDirError fast-path (which
+    // would route to exit 3) does NOT swallow it. We override
+    // `fs.existsSync` so that the initial existence check (on the
+    // packages dir itself) passes, then start throwing TypeError for
+    // every subsequent existsSync call — readManifest's existsSync
+    // call on `<root>/packages/foo/manifest.yaml` is NOT wrapped in
+    // try/catch inside parseManifest, so the TypeError escapes all
+    // downstream handlers and reaches the top-level main() catch,
+    // which routes it to EXIT_INTERNAL (4) via the programmer-bug
+    // branch.
     const preload = fs.mkdtempSync(path.join(os.tmpdir(), "audit-preload-"));
     const preloadScript = path.join(preload, "boom.cjs");
     fs.writeFileSync(
       preloadScript,
       `const fs = require("fs");
-const origRead = fs.readdirSync;
-fs.readdirSync = function(...args) {
-  // Trigger a TypeError — not an UnreadableDirError — from inside
-  // listShowcasePackageSlugs so the top-level catch routes to
-  // EXIT_INTERNAL (4). The UnreadableDirError fast-path won't match.
+const origExists = fs.existsSync;
+let allowed = 1; // let the top-level packagesDir check through
+fs.existsSync = function(...args) {
   const p = String(args[0] || "");
-  if (p.endsWith("/packages") || p.endsWith("\\\\packages")) {
-    const e = new TypeError("simulated bug: this should never happen");
-    throw e;
+  if (allowed > 0 && p.endsWith("packages")) {
+    allowed--;
+    return origExists.apply(this, args);
   }
-  return origRead.apply(this, args);
+  throw new TypeError("simulated bug: should never happen");
 };
 `,
     );
@@ -1008,15 +1174,14 @@ fs.readdirSync = function(...args) {
           timeout: 30_000,
         },
       );
-      // listShowcasePackageSlugs catches the readdirSync error and
-      // rethrows as UnreadableDirError → exit 3. That's the safest
-      // outcome for THIS specific injection. But if the injection
-      // reaches a path NOT covered by UnreadableDirError, we still want
-      // to assert the process exited non-zero and never silently
-      // succeeded. This test is a smoke test: exit != 0 and stderr
-      // mentions the injected message OR the unreadable message.
-      expect(r.status, r.stdout + r.stderr).not.toBe(0);
-      expect([3, 4]).toContain(r.status);
+      // The injected failure fires from inside parseManifest /
+      // findExamplesSource (downstream of listShowcasePackageSlugs),
+      // so UnreadableDirError does not apply and the top-level catch
+      // must route this to EXIT_INTERNAL (4).
+      expect(r.status, r.stdout + r.stderr).toBe(4);
+      // stderr should use the programmer-bug wording, not the generic
+      // "internal error" one.
+      expect(r.stderr).toMatch(/bug \(programmer error\)/);
     } finally {
       fs.rmSync(preload, { recursive: true, force: true });
     }
@@ -1066,7 +1231,7 @@ describe("listShowcasePackageSlugs", () => {
 
 describe("module isMain guard", () => {
   it("does not execute main() when imported as a subprocess (proof via spawnSync)", () => {
-    // Q5: replace the tautological in-process assertion with a real
+    // Replace the tautological in-process assertion with a real
     // subprocess test. We invoke node on a tiny inline script that
     // imports audit.js (as a URL, since the real file is audit.ts and
     // emits as audit.js in the module graph) and verifies it exits 0.
