@@ -4,6 +4,13 @@ export type StoredControls = Record<string, unknown>;
 
 const PREFIX = "copilotkit.hooks.controls";
 
+/**
+ * Wraps a VS Code Memento with a key scheme specific to hook controls.
+ *
+ * Callers must pass canonical (absolute, normalized) file paths — the store
+ * uses paths verbatim for key construction and does not deduplicate between
+ * different string representations of the same file.
+ */
 export class HookControlsStore {
   constructor(
     private readonly memento: vscode.Memento,
@@ -26,7 +33,13 @@ export class HookControlsStore {
     name: string | null,
     line?: number,
   ): StoredControls | undefined {
-    return this.memento.get(this.key(filePath, hook, name, line));
+    const raw = this.memento.get<unknown>(this.key(filePath, hook, name, line));
+    // Defensive: Memento round-trips arbitrary JSON, but a user hand-editing
+    // workspaceState could leave junk. Reject anything that isn't a plain object.
+    if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+      return undefined;
+    }
+    return raw as StoredControls;
   }
 
   async save(

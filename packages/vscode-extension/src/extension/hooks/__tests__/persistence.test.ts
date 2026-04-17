@@ -40,4 +40,43 @@ describe("HookControlsStore", () => {
     await store.reset("/ws/a.tsx", "useCopilotAction", "x");
     expect(store.load("/ws/a.tsx", "useCopilotAction", "x")).toBeUndefined();
   });
+
+  it("reset on a non-existent key is a no-op (does not throw)", async () => {
+    const store = new HookControlsStore(fakeMemento() as any, "/ws");
+    await expect(
+      store.reset("/ws/does-not-exist.tsx", "useCopilotAction", "nope"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("scopes entries by workspace root so two roots don't collide", async () => {
+    const m = fakeMemento();
+    const storeA = new HookControlsStore(m as any, "/workspace-a");
+    const storeB = new HookControlsStore(m as any, "/workspace-b");
+    await storeA.save("/file.tsx", "useCopilotAction", "x", { marker: "A" });
+    await storeB.save("/file.tsx", "useCopilotAction", "x", { marker: "B" });
+    expect(storeA.load("/file.tsx", "useCopilotAction", "x")).toEqual({
+      marker: "A",
+    });
+    expect(storeB.load("/file.tsx", "useCopilotAction", "x")).toEqual({
+      marker: "B",
+    });
+  });
+
+  it("save overwrites a prior entry (does not merge)", async () => {
+    const store = new HookControlsStore(fakeMemento() as any, "/ws");
+    await store.save("/ws/a.tsx", "useCopilotAction", "x", { a: 1, b: 2 });
+    await store.save("/ws/a.tsx", "useCopilotAction", "x", { a: 9 });
+    expect(store.load("/ws/a.tsx", "useCopilotAction", "x")).toEqual({ a: 9 });
+  });
+
+  it("load rejects non-object values left in storage (e.g. hand-edited junk)", () => {
+    const m = fakeMemento();
+    // Bypass the store to plant a non-object value directly in the memento.
+    void m.update(
+      "copilotkit.hooks.controls::/ws::/ws/a.tsx::useCopilotAction::x",
+      "scalar-junk",
+    );
+    const store = new HookControlsStore(m as any, "/ws");
+    expect(store.load("/ws/a.tsx", "useCopilotAction", "x")).toBeUndefined();
+  });
 });
