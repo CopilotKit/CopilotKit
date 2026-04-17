@@ -133,7 +133,7 @@ describe("CopilotChatAssistantMessage", () => {
       });
     });
 
-    it("calls thumbs up callback when thumbs up button clicked", () => {
+    it("calls thumbs up callback with the message when thumbs up button clicked", () => {
       renderWithProvider(
         <CopilotChatAssistantMessage
           message={basicMessage}
@@ -147,9 +147,10 @@ describe("CopilotChatAssistantMessage", () => {
       fireEvent.click(thumbsUpButton);
 
       expect(mockOnThumbsUp).toHaveBeenCalledTimes(1);
+      expect(mockOnThumbsUp).toHaveBeenCalledWith(basicMessage);
     });
 
-    it("calls thumbs down callback when thumbs down button clicked", () => {
+    it("calls thumbs down callback with the message when thumbs down button clicked", () => {
       renderWithProvider(
         <CopilotChatAssistantMessage
           message={basicMessage}
@@ -163,9 +164,10 @@ describe("CopilotChatAssistantMessage", () => {
       fireEvent.click(thumbsDownButton);
 
       expect(mockOnThumbsDown).toHaveBeenCalledTimes(1);
+      expect(mockOnThumbsDown).toHaveBeenCalledWith(basicMessage);
     });
 
-    it("calls read aloud callback when read aloud button clicked", () => {
+    it("calls read aloud callback with the message when read aloud button clicked", () => {
       renderWithProvider(
         <CopilotChatAssistantMessage
           message={basicMessage}
@@ -179,9 +181,10 @@ describe("CopilotChatAssistantMessage", () => {
       fireEvent.click(readAloudButton);
 
       expect(mockOnReadAloud).toHaveBeenCalledTimes(1);
+      expect(mockOnReadAloud).toHaveBeenCalledWith(basicMessage);
     });
 
-    it("calls regenerate callback when regenerate button clicked", () => {
+    it("calls regenerate callback with the message when regenerate button clicked", () => {
       renderWithProvider(
         <CopilotChatAssistantMessage
           message={basicMessage}
@@ -195,6 +198,7 @@ describe("CopilotChatAssistantMessage", () => {
       fireEvent.click(regenerateButton);
 
       expect(mockOnRegenerate).toHaveBeenCalledTimes(1);
+      expect(mockOnRegenerate).toHaveBeenCalledWith(basicMessage);
     });
   });
 
