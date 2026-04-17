@@ -162,6 +162,27 @@ export function auditPackage(
     };
   }
 
+  // yaml.parse can return non-object values for scalar / array YAML (e.g.
+  // `hello` parses to the string "hello"; `- a\n- b` parses to an array).
+  // Treat anything that isn't a plain object as an invalid manifest rather
+  // than silently reading `.demos` off it and reporting a 0-demo package.
+  if (typeof manifest !== "object" || Array.isArray(manifest)) {
+    mustErrors.push(
+      `invalid manifest.yaml: expected a mapping, got ${
+        Array.isArray(manifest) ? "array" : typeof manifest
+      }`,
+    );
+    return {
+      slug,
+      demoIds: [],
+      specFiles: [],
+      qaFiles: [],
+      demoDirs: [],
+      mustErrors,
+      warnings,
+    };
+  }
+
   const demos = manifest.demos ?? [];
   const demoIds = demos.map((d) => d.id);
 
