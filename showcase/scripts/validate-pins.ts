@@ -720,15 +720,41 @@ function findMatchingBracket(raw: string, openBracketIdx: number): number {
  * between an opening `[` and its matching `]`), dispatching each entry
  * through `parseRequirementsLine` and merging into `out` (first-writer-
  * wins). Unparseable non-empty entries go into `dropped`.
+ *
+ * Name-only entries (e.g. bare `"langgraph"` in the array) are pushed
+ * to `skipped[]` rather than silently admitted to `out` with an empty
+ * spec. This mirrors `parseRequirementsTxtDetailed`'s file-level
+ * handling so pyproject and requirements.txt report the same
+ * diagnostics for the same input.
  */
-function ingestArrayBody(body: string, out: DepMap, dropped: string[]): void {
+function ingestArrayBody(
+  body: string,
+  out: DepMap,
+  dropped: string[],
+  skipped: Array<{ name: string; reason: string }>,
+): void {
   const quoteRe = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'/g;
   let m: RegExpExecArray | null;
   while ((m = quoteRe.exec(body))) {
     const entry = m[1] ?? m[2] ?? "";
     const parsed = parseRequirementsLine(entry);
     if (parsed) {
-      if (!(parsed[0] in out)) out[parsed[0]] = parsed[1];
+      const [name, spec] = parsed;
+      if (!(name in out)) {
+        if (!spec) {
+          // Name-only entry — not pinning anything. Surface as
+          // skipped so a [WARN] is emitted, matching requirements.txt
+          // handling. Without this, the DepMap silently gained an
+          // entry with an empty spec and downstream error messages
+          // read `(empty)` without explaining the cause.
+          skipped.push({
+            name,
+            reason: "name-only requirement (no version)",
+          });
+        } else {
+          out[name] = spec;
+        }
+      }
     } else if (entry.trim()) {
       dropped.push(entry);
     }
@@ -786,7 +812,7 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
         );
       }
       const body = section.slice(bracketIdx + 1, closeIdx);
-      ingestArrayBody(body, out, dropped);
+      ingestArrayBody(body, out, dropped, skipped);
     }
   }
 
@@ -817,21 +843,17 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
       const bracketIdx = sm.index + sm[0].length - 1;
       const closeIdx = findMatchingBracket(body, bracketIdx);
       if (closeIdx < 0) {
-        // Malformed extras array — record and skip rather than throw:
-        // the [project.optional-dependencies] block is noisier in the
-        // wild (template literals, dynamic generation) and a single
-        // broken extra should not prevent the rest of the file from
-        // being parsed. `[project].dependencies` remains strict.
-        dropped.push(
-          `optional-dependencies:${sm[1]}: unterminated array (missing ']')`,
+        // Unterminated extras array is genuinely malformed TOML — the
+        // array's contents are truncated, so we cannot faithfully
+        // report what was declared. Throw a parseError so the caller
+        // surfaces a FAIL; downgrading to `dropped[]` (WARN) lets
+        // silent data loss pass CI.
+        throw new Error(
+          `malformed pyproject.toml: [project.optional-dependencies].${sm[1]} opened '[' but never closed (missing ']')`,
         );
-        // Advance the regex index past this opener to avoid an
-        // infinite loop.
-        subkeyKeyRe.lastIndex = bracketIdx + 1;
-        continue;
       }
       const arrBody = body.slice(bracketIdx + 1, closeIdx);
-      ingestArrayBody(arrBody, out, dropped);
+      ingestArrayBody(arrBody, out, dropped, skipped);
       // Advance past the close so the next subkey is found after it.
       subkeyKeyRe.lastIndex = closeIdx + 1;
     }
