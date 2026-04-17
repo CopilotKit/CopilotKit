@@ -86,8 +86,9 @@ function computeRepoRoot(): string {
         `VALIDATE_PINS_REPO_ROOT must be an absolute path; got: ${override}`,
       );
     }
+    let st: fs.Stats;
     try {
-      fs.statSync(override);
+      st = fs.statSync(override);
     } catch (e) {
       const err = e as NodeJS.ErrnoException;
       if (err && err.code === "ENOENT") {
@@ -105,6 +106,14 @@ function computeRepoRoot(): string {
       const msg = err && err.message ? err.message : String(e);
       throw new Error(
         `VALIDATE_PINS_REPO_ROOT stat failed: ${override}: ${msg}`,
+      );
+    }
+    // Override must be a directory — a file override would let the
+    // rest of the validator run with a bogus REPO_ROOT and produce
+    // misleading "nothing found" output rather than an immediate error.
+    if (!st.isDirectory()) {
+      throw new Error(
+        `VALIDATE_PINS_REPO_ROOT is not a directory: ${override}`,
       );
     }
     return override;
@@ -163,13 +172,29 @@ function resolveExampleDirDetailed(
   // Each strategy can "fall through" if its candidate dir does not
   // exist on disk, so that a stale FALLBACK_MAP entry doesn't block a
   // later strategy from resolving correctly.
+  //
+  // Use `fs.statSync` + catch-ENOENT rather than `fs.existsSync` so
+  // that a permission error (EACCES) does not silently collapse to the
+  // "not present" branch. EACCES means "there is something there, but
+  // this process can't read it" — treating it as "absent" hides real
+  // misconfiguration. Other errors re-throw so they're surfaced at the
+  // top level rather than quietly skipped.
+  const existsAsDir = (p: string): boolean => {
+    try {
+      return fs.statSync(p).isDirectory();
+    } catch (e) {
+      const err = e as NodeJS.ErrnoException;
+      if (err && err.code === "ENOENT") return false;
+      throw e;
+    }
+  };
 
   // Strategy 1 — explicit fallback (documents SLUG_MAP staleness).
   const fallback = FALLBACK_MAP[showcaseSlug];
   let missingFallbackTarget: string | undefined;
   if (fallback) {
     const dir = path.join(EXAMPLES_DIR, fallback);
-    if (fs.existsSync(dir)) return { exampleDir: dir };
+    if (existsAsDir(dir)) return { exampleDir: dir };
     // Display relative to REPO_ROOT so the WARN line reads
     // `examples/integrations/<name>` rather than the ambiguous
     // `integrations/<name>` (which hides where the missing dir is).
@@ -180,13 +205,13 @@ function resolveExampleDirDetailed(
   const candidates = REVERSE_MAP[showcaseSlug] || [];
   for (const cand of candidates) {
     const dir = path.join(EXAMPLES_DIR, cand);
-    if (fs.existsSync(dir)) return { exampleDir: dir, missingFallbackTarget };
+    if (existsAsDir(dir)) return { exampleDir: dir, missingFallbackTarget };
   }
 
   // Strategy 3 — direct name match (common case: showcase slug ===
   // examples dir name).
   const direct = path.join(EXAMPLES_DIR, showcaseSlug);
-  if (fs.existsSync(direct))
+  if (existsAsDir(direct))
     return { exampleDir: direct, missingFallbackTarget };
 
   return { exampleDir: null, missingFallbackTarget };
@@ -481,6 +506,18 @@ function isExactSpec(spec: string): boolean {
   // of two constraints and cannot be a single exact pin.
   if (/,/.test(trimmed)) return false;
 
+  // Bare version shape: MAJOR[.MINOR[.PATCH]] with an optional
+  // pre-release / build / PEP 440 suffix. Previously a trailing-
+  // digit-check was missing, so exotic forms like `1x`, `2X`, and
+  // `1e2` slipped through: the leading digit + no range-operator +
+  // no wildcard-between-separators checks did not catch a letter
+  // immediately after the digits. Tighten to a concrete semver-shape
+  // regex so only digit-dotted-digit forms (plus permitted suffixes)
+  // pass.
+  if (!/^\d+(?:\.\d+){0,2}(?:[-+.][A-Za-z0-9.-]+)*$/.test(trimmed)) {
+    return false;
+  }
+
   return true;
 }
 
@@ -708,15 +745,41 @@ function findMatchingBracket(raw: string, openBracketIdx: number): number {
  * between an opening `[` and its matching `]`), dispatching each entry
  * through `parseRequirementsLine` and merging into `out` (first-writer-
  * wins). Unparseable non-empty entries go into `dropped`.
+ *
+ * Name-only entries (e.g. bare `"langgraph"` in the array) are pushed
+ * to `skipped[]` rather than silently admitted to `out` with an empty
+ * spec. This mirrors `parseRequirementsTxtDetailed`'s file-level
+ * handling so pyproject and requirements.txt report the same
+ * diagnostics for the same input.
  */
-function ingestArrayBody(body: string, out: DepMap, dropped: string[]): void {
+function ingestArrayBody(
+  body: string,
+  out: DepMap,
+  dropped: string[],
+  skipped: Array<{ name: string; reason: string }>,
+): void {
   const quoteRe = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'/g;
   let m: RegExpExecArray | null;
   while ((m = quoteRe.exec(body))) {
     const entry = m[1] ?? m[2] ?? "";
     const parsed = parseRequirementsLine(entry);
     if (parsed) {
-      if (!(parsed[0] in out)) out[parsed[0]] = parsed[1];
+      const [name, spec] = parsed;
+      if (!(name in out)) {
+        if (!spec) {
+          // Name-only entry — not pinning anything. Surface as
+          // skipped so a [WARN] is emitted, matching requirements.txt
+          // handling. Without this, the DepMap silently gained an
+          // entry with an empty spec and downstream error messages
+          // read `(empty)` without explaining the cause.
+          skipped.push({
+            name,
+            reason: "name-only requirement (no version)",
+          });
+        } else {
+          out[name] = spec;
+        }
+      }
     } else if (entry.trim()) {
       dropped.push(entry);
     }
@@ -774,7 +837,7 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
         );
       }
       const body = section.slice(bracketIdx + 1, closeIdx);
-      ingestArrayBody(body, out, dropped);
+      ingestArrayBody(body, out, dropped, skipped);
     }
   }
 
@@ -805,21 +868,17 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
       const bracketIdx = sm.index + sm[0].length - 1;
       const closeIdx = findMatchingBracket(body, bracketIdx);
       if (closeIdx < 0) {
-        // Malformed extras array — record and skip rather than throw:
-        // the [project.optional-dependencies] block is noisier in the
-        // wild (template literals, dynamic generation) and a single
-        // broken extra should not prevent the rest of the file from
-        // being parsed. `[project].dependencies` remains strict.
-        dropped.push(
-          `optional-dependencies:${sm[1]}: unterminated array (missing ']')`,
+        // Unterminated extras array is genuinely malformed TOML — the
+        // array's contents are truncated, so we cannot faithfully
+        // report what was declared. Throw a parseError so the caller
+        // surfaces a FAIL; downgrading to `dropped[]` (WARN) lets
+        // silent data loss pass CI.
+        throw new Error(
+          `malformed pyproject.toml: [project.optional-dependencies].${sm[1]} opened '[' but never closed (missing ']')`,
         );
-        // Advance the regex index past this opener to avoid an
-        // infinite loop.
-        subkeyKeyRe.lastIndex = bracketIdx + 1;
-        continue;
       }
       const arrBody = body.slice(bracketIdx + 1, closeIdx);
-      ingestArrayBody(arrBody, out, dropped);
+      ingestArrayBody(arrBody, out, dropped, skipped);
       // Advance past the close so the next subkey is found after it.
       subkeyKeyRe.lastIndex = closeIdx + 1;
     }
@@ -909,9 +968,38 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
       } else if (value.startsWith('"') || value.startsWith("'")) {
         const q = value[0];
         const end = value.indexOf(q, 1);
-        if (end > 0) spec = value.slice(1, end);
+        if (end > 0) {
+          spec = value.slice(1, end);
+        } else {
+          // Opening quote but no matching closing quote before
+          // end-of-line — the string is unterminated. Previously
+          // `spec` remained "" and the downstream empty-spec branch
+          // fired, reporting this as `Poetry empty version string`
+          // which misleads operators. Record distinctly so the WARN
+          // line names the actual fault.
+          skipped.push({
+            name,
+            reason: "Poetry unterminated string value",
+          });
+          continue;
+        }
       } else {
-        // Not a string — skip (booleans, numbers etc.)
+        // Not a string — skip (booleans, numbers, etc.). Previously a
+        // bare `continue` dropped the dep without a trace; record it
+        // in `skipped[]` so operators reading the WARN output see the
+        // dep was silently malformed rather than thinking the file
+        // was clean.
+        const rawType = /^(true|false)\b/.test(value)
+          ? "boolean"
+          : /^-?\d/.test(value)
+            ? "number"
+            : value === "" || value.startsWith("\n")
+              ? "empty"
+              : typeof value;
+        skipped.push({
+          name,
+          reason: `Poetry non-string dep value (got ${rawType})`,
+        });
         continue;
       }
 
@@ -984,14 +1072,24 @@ function parsePyprojectToml(file: string): DepMap {
 export interface DepSources {
   // All absolute paths to dependency files that contributed deps.
   files: string[];
-  // Merged dep map. Order: app-specific files (apps/agent, agent/**) are
-  // walked BEFORE root-level files so that on dep-name collision, the
-  // agent-side spec wins (first-writer-wins).
+  // Merged dep map (union of jsDeps ∪ pythonDeps; on cross-ecosystem
+  // name collision the FIRST-writer wins, but that is a quirk — the
+  // comparator in validateAll uses jsDeps and pythonDeps directly so
+  // it is not affected by cross-ecosystem collisions). Retained for
+  // backward compatibility and for external callers that don't care
+  // about the JS vs Python split.
   deps: DepMap;
-  // Subset of `deps` whose source file was a Python manifest
-  // (requirements.txt / pyproject.toml). Used so the validator can apply
-  // Python PEP 503 canonicalization ONLY to Python deps (npm names are
-  // case-sensitive and hyphen-sensitive).
+  // JS deps only (from package.json files). Kept separate from
+  // pythonDeps because npm names are case-sensitive and hyphen-
+  // sensitive; applying PEP 503 canonicalization would merge
+  // distinct npm packages. Before this split the comparator
+  // derived JS deps via `diffMaps(deps, pythonDeps)` which dropped
+  // a JS dep entirely when a same-name Python dep existed in the
+  // same tree (cross-ecosystem name collision).
+  jsDeps: DepMap;
+  // Python deps only (from requirements.txt / pyproject.toml).
+  // Subject to PEP 503 canonicalization (case-insensitive, with `-`,
+  // `_`, `.` treated as equivalent).
   pythonDeps: DepMap;
   // Non-fatal parse errors accumulated during collection. Caller should
   // surface these rather than silently emit [OK].
@@ -1057,6 +1155,7 @@ function collectDepsFromDir(rootDir: string): DepSources {
   const result: DepSources = {
     files: [],
     deps: {},
+    jsDeps: {},
     pythonDeps: {},
     parseErrors: [],
     filesAttempted: 0,
@@ -1137,9 +1236,21 @@ function collectDepsFromDir(rootDir: string): DepSources {
     for (const [name, spec] of Object.entries(parsed)) {
       // First-writer-wins: agent-side files (walked first) take precedence
       // over root files. This matches the intent documented above.
+      // Track JS vs Python in separate maps at parse time so a
+      // cross-ecosystem name collision (e.g. `openai` on both sides)
+      // cannot obliterate one side's spec. Before this change, the
+      // comparator derived JS deps via `diffMaps(deps, pythonDeps)`
+      // which dropped the JS dep ENTIRELY when its name also
+      // appeared in `pythonDeps`.
       if (!(name in result.deps)) result.deps[name] = spec;
-      if (fromPython && !(name in result.pythonDeps)) {
-        result.pythonDeps[name] = spec;
+      if (fromPython) {
+        if (!(name in result.pythonDeps)) {
+          result.pythonDeps[name] = spec;
+        }
+      } else {
+        if (!(name in result.jsDeps)) {
+          result.jsDeps[name] = spec;
+        }
       }
     }
   }
@@ -1165,19 +1276,6 @@ export type ShowcaseDepSources = DepSources;
 
 function collectShowcaseDeps(packageDir: string): ShowcaseDepSources {
   return collectDepsFromDir(packageDir);
-}
-
-/**
- * Return a shallow copy of `all` with every key in `subset` removed.
- * Used by `validateAll` to separate JS deps (`all - pythonDeps`) from
- * Python deps so each ecosystem's canonicalization rules apply correctly.
- */
-function diffMaps(all: DepMap, subset: DepMap): DepMap {
-  const out: DepMap = {};
-  for (const [name, spec] of Object.entries(all)) {
-    if (!(name in subset)) out[name] = spec;
-  }
-  return out;
 }
 
 /**
@@ -1223,8 +1321,30 @@ function validateAll(): Report {
   // can't see any packages, it has nothing to check, which is almost
   // certainly a path misconfiguration. Emit a FAIL so the script exits
   // non-zero.
-  if (!fs.existsSync(PACKAGES_DIR)) {
-    report.fail.push(`[FAIL] Packages dir not found: ${PACKAGES_DIR}`);
+  //
+  // Use `fs.statSync` + catch-ENOENT rather than `fs.existsSync` so a
+  // permission error (EACCES) is not silently collapsed into "not
+  // present" and the packages dir not being a directory (i.e. it's a
+  // file) is caught before readdirSync throws a less-obvious error.
+  let packagesStat: fs.Stats;
+  try {
+    packagesStat = fs.statSync(PACKAGES_DIR);
+  } catch (e) {
+    const err = e as NodeJS.ErrnoException;
+    if (err && err.code === "ENOENT") {
+      report.fail.push(`[FAIL] Packages dir not found: ${PACKAGES_DIR}`);
+    } else {
+      const msg = err && err.message ? err.message : String(e);
+      report.fail.push(
+        `[FAIL] Packages dir stat failed (${err?.code ?? "unknown"}): ${PACKAGES_DIR}: ${msg}`,
+      );
+    }
+    return report;
+  }
+  if (!packagesStat.isDirectory()) {
+    report.fail.push(
+      `[FAIL] Packages dir is not a directory: ${PACKAGES_DIR}`,
+    );
     return report;
   }
 
@@ -1283,6 +1403,15 @@ function validateAll(): Report {
       report.fail.push(
         `[FAIL] ${slug}: parse error in ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
       );
+    }
+    // Pre-seed pkgHadViolation from parseErrors. Otherwise a slug with
+    // a mix of valid + parse-errored files would have one or more
+    // [FAIL] lines AND still receive an [OK] line at the end (because
+    // `pkgHadViolation` was only set from the per-dep loop). A slug
+    // must not appear in both report.ok and report.fail.
+    let pkgHadParseError = false;
+    if (showcase.parseErrors.length > 0 || dojo.parseErrors.length > 0) {
+      pkgHadParseError = true;
     }
 
     // Skipped deps (e.g. Poetry git-only) — WARN only.
@@ -1353,16 +1482,22 @@ function validateAll(): Report {
       dojo.pythonDeps,
       /* isPython */ true,
     );
+    // Use `jsDeps` (not `diffMaps(deps, pythonDeps)`): the diff-based
+    // derivation erased a JS dep entirely when the same name appeared
+    // as a Python dep in the same tree, which is a cross-ecosystem
+    // collision (e.g. `openai` with a JS `4.0.0` pin and a Python
+    // `==1.2.3` pin). Sourcing JS and Python from separate maps at
+    // parse time keeps both sides intact for the comparator.
     const showcaseJsRaw = canonicalizeDepMap(
-      diffMaps(showcase.deps, showcase.pythonDeps),
+      showcase.jsDeps,
       /* isPython */ false,
     );
     const dojoJsRaw = canonicalizeDepMap(
-      diffMaps(dojo.deps, dojo.pythonDeps),
+      dojo.jsDeps,
       /* isPython */ false,
     );
 
-    let pkgHadViolation = false;
+    let pkgHadViolation = pkgHadParseError;
 
     // Iterate the union of keys per ecosystem so drift where a framework
     // is pinned on one side but missing on the other is also surfaced.
