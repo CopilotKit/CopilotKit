@@ -1572,6 +1572,27 @@ describe("validate-pins CLI exit codes (T1)", () => {
   });
 });
 
+// Exit code 3 (EXIT_UNREADABLE) distinguishes "input was present but the
+// process couldn't read it" from "internal crash" (exit 2). CI callers
+// can then route a permissions misconfig to a different alert path.
+describe("validate-pins CLI exit code 3 (unreadable input)", () => {
+  it("exits 3 when VALIDATE_PINS_REPO_ROOT points at a non-directory", () => {
+    const tmp = tmpdir();
+    try {
+      const filePath = path.join(tmp, "not-a-dir");
+      fs.writeFileSync(filePath, "x");
+      const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
+        encoding: "utf-8",
+        env: { ...process.env, VALIDATE_PINS_REPO_ROOT: filePath },
+        timeout: 30_000,
+      });
+      expect(r.status, r.stdout + r.stderr).toBe(3);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+});
+
 // Q3: verify that importing validate-pins.ts does NOT invoke main() (exit 0).
 describe("module import does not invoke main() (Q3)", () => {
   it("importing the module exits cleanly (status 0)", () => {
