@@ -19,6 +19,16 @@ const ADAPTERS = {
   "activity-message": activityMessageAdapter,
 } as const;
 
+/**
+ * Invokes the captured render function for a given hook kind with the live
+ * control values.
+ *
+ * The `ADAPTERS[kind] as Adapter<K>` cast is unsound to the type checker but
+ * sound at runtime: the ADAPTERS record is keyed by the closed `RenderPropsKind`
+ * union, and `controls: ControlsByKind[K]` is the exact shape each adapter
+ * expects. TS would otherwise narrow the lookup result to `Adapter<never>`
+ * because `Adapter` is contravariant in its controls parameter.
+ */
 export function invokeRender<K extends RenderPropsKind>(
   kind: K,
   config: unknown,

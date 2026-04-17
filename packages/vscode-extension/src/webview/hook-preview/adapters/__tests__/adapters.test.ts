@@ -73,4 +73,75 @@ describe("hook adapters", () => {
       }),
     );
   });
+
+  it("render-tool adapter maps args to parameters and threads toolCallId", () => {
+    const render = vi.fn();
+    invokeRender(
+      "render-tool",
+      { name: "greet", render },
+      {
+        args: { who: "world" },
+        status: "complete",
+        result: "hi",
+        onRespond: vi.fn(),
+        toolCallId: "call-123",
+      },
+    );
+    expect(render).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "greet",
+        toolCallId: "call-123",
+        parameters: { who: "world" },
+        status: "complete",
+        result: "hi",
+      }),
+    );
+  });
+
+  it("human-in-the-loop adapter invokes render with the same shape as action", () => {
+    const render = vi.fn();
+    const onRespond = vi.fn();
+    invokeRender(
+      "human-in-the-loop",
+      { name: "confirm", render, handler: undefined },
+      {
+        args: { ok: true },
+        status: "executing",
+        result: "",
+        onRespond,
+      },
+    );
+    expect(render).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "confirm",
+        args: { ok: true },
+        status: "executing",
+        result: undefined,
+        respond: onRespond,
+      }),
+    );
+  });
+
+  it("custom-messages adapter forwards the message directly", () => {
+    const render = vi.fn();
+    const message = { id: "m1", role: "assistant", content: "hello" };
+    invokeRender("custom-messages", { render }, { message });
+    expect(render).toHaveBeenCalledWith(message);
+  });
+
+  it("activity-message adapter forwards the message directly", () => {
+    const render = vi.fn();
+    const message = { id: "a1", role: "system", content: "…" };
+    invokeRender("activity-message", { render }, { message });
+    expect(render).toHaveBeenCalledWith(message);
+  });
+
+  it("returns undefined when a config has no render function (safely no-ops)", () => {
+    const out = invokeRender(
+      "action",
+      { name: "no-render" },
+      { args: {}, status: "complete", result: "", onRespond: vi.fn() },
+    );
+    expect(out).toBeUndefined();
+  });
 });
