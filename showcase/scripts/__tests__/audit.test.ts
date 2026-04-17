@@ -156,7 +156,7 @@ describe("readManifest", () => {
   });
 
   it("returns { kind: 'unreadable', error } (distinct from 'malformed') on EACCES", () => {
-    // R8-5-5: audit.ts no longer collapses unreadable into malformed
+    // Contract: audit.ts does not collapse unreadable into malformed
     // with a string prefix. Downstream switches on all 4 ParsedManifest
     // variants and classifies unreadable manifests under the
     // `unreadable` bucket (alongside spec/qa-dir I/O failures), not
@@ -206,26 +206,27 @@ describe("countFiles", () => {
     fs.rmSync(root, { recursive: true, force: true });
   });
 
-  it("returns { kind: 'missing', count: 0 } when dir does not exist", () => {
+  it("returns { state: 'missing' } when dir does not exist", () => {
     const r = countFiles(path.join(root, "does-not-exist"), (n) =>
       n.endsWith(".spec.ts"),
     );
-    expect(r.kind).toBe("missing");
-    expect(r.count).toBe(0);
+    expect(r.state).toBe("missing");
   });
 
-  it("returns { kind: 'ok', count: N } for readable dir", () => {
+  it("returns { state: 'ok', count: N } for readable dir", () => {
     const d = path.join(root, "some");
     fs.mkdirSync(d);
     fs.writeFileSync(path.join(d, "a.spec.ts"), "");
     fs.writeFileSync(path.join(d, "b.spec.ts"), "");
     fs.writeFileSync(path.join(d, "c.md"), "");
     const r = countFiles(d, (n) => n.endsWith(".spec.ts"));
-    expect(r.kind).toBe("ok");
-    expect(r.count).toBe(2);
+    expect(r.state).toBe("ok");
+    if (r.state === "ok") {
+      expect(r.count).toBe(2);
+    }
   });
 
-  it("surfaces { kind: 'error' } instead of silent 0 on readdirSync failure", () => {
+  it("surfaces { state: 'unreadable' } instead of silent 0 on readdirSync failure", () => {
     const d = path.join(root, "unreadable");
     fs.mkdirSync(d);
     // Mock readdirSync to throw EACCES for this specific path.
@@ -246,9 +247,8 @@ describe("countFiles", () => {
     }) as typeof fs.readdirSync);
     try {
       const r = countFiles(d, (n) => n.endsWith(".spec.ts"));
-      expect(r.kind).toBe("error");
-      expect(r.count).toBe(0);
-      if (r.kind === "error") {
+      expect(r.state).toBe("unreadable");
+      if (r.state === "unreadable") {
         expect(r.error).toContain("EACCES");
       }
     } finally {
@@ -527,9 +527,9 @@ describe("auditPackage", () => {
 
   it("deployed:undefined renders as 'deployed=unset' and counts toward notDeployed", () => {
     // Regression guard: a manifest with no `deployed` field MUST produce
-    // a distinct "unset" state (not collapsed into "false"). The
-    // Anomaly.not-deployed.state carries actual runtime values
-    // (null for unset, false for explicit false) rather than strings.
+    // a distinct "unset" state (not collapsed into "explicit-false").
+    // The Anomaly.not-deployed.state carries a self-documenting string
+    // union — callers read the raw boolean off the manifest variant.
     writePackage(root, "unset", {
       manifest: `slug: unset\ndemos:\n  - id: x\n`,
       specs: ["x.spec.ts"],
@@ -543,7 +543,7 @@ describe("auditPackage", () => {
         x.kind === "not-deployed",
     );
     expect(notDeployed).toBeDefined();
-    expect(notDeployed!.state).toBeNull();
+    expect(notDeployed!.state).toBe("unset");
     // Read deployed via the manifest variant — single source of truth.
     expect(a.manifest.kind).toBe("ok");
     if (a.manifest.kind === "ok") {
@@ -563,7 +563,7 @@ describe("auditPackage", () => {
         x.kind === "not-deployed",
     );
     expect(bNot).toBeDefined();
-    expect(bNot!.state).toBe(false);
+    expect(bNot!.state).toBe("explicit-false");
     expect(b.manifest.kind).toBe("ok");
     if (b.manifest.kind === "ok") {
       expect(b.manifest.manifest.deployed).toBe(false);
@@ -827,11 +827,10 @@ describe("BORN_IN_SHOWCASE set", () => {
     expect(BORN_IN_SHOWCASE.has("spring-ai")).toBe(true);
   });
 
-  it("invariant: every BORN_IN_SHOWCASE slug has NO showcase/packages/<slug>/manifest.yaml with a real-repo provenance marker that would contradict it", () => {
-    // The real invariant: BORN_IN_SHOWCASE is the set of packages that
-    // are ONLY in showcase — so they must NOT have a corresponding
-    // directory under examples/integrations/ in a real repo. We walk the
-    // real repo root and assert that.
+  it("every BORN_IN_SHOWCASE slug has no counterpart directory under examples/integrations/ in the real repo", () => {
+    // BORN_IN_SHOWCASE is the set of packages that live ONLY under
+    // showcase/ — so each slug MUST NOT have a corresponding directory
+    // under examples/integrations/. Walk the real repo root and assert.
     const repoExamplesDir = path.resolve(
       __dirname,
       "..",
@@ -1244,7 +1243,7 @@ describe("listShowcasePackageSlugs", () => {
   });
 });
 
-describe("auditPackage — R8 fixes", () => {
+describe("auditPackage — direct-caller invariants", () => {
   let root: string;
   beforeEach(() => {
     root = makeTmpTree();
@@ -1253,7 +1252,7 @@ describe("auditPackage — R8 fixes", () => {
     fs.rmSync(root, { recursive: true, force: true });
   });
 
-  it("R8-5-9/10: anomalies and warnings arrays are frozen on the audit returned by auditPackage (before buildReport)", () => {
+  it("anomalies and warnings arrays are frozen on the audit returned by auditPackage (before buildReport)", () => {
     // Regression guard: previously the arrays were only frozen inside
     // buildReport, so direct callers of auditPackage saw unfrozen arrays
     // and could mutate them.
@@ -1269,7 +1268,7 @@ describe("auditPackage — R8 fixes", () => {
     expect(Object.isFrozen(a.warnings)).toBe(true);
   });
 
-  it("R8-5-7: Anomaly.not-deployed.state uses `false` / `null` (real values, not string union)", () => {
+  it("Anomaly.not-deployed.state distinguishes 'unset' from 'explicit-false'", () => {
     writePackage(root, "unsetreal", {
       manifest: `slug: unsetreal\ndemos:\n  - id: x\n`,
       specs: ["x.spec.ts"],
@@ -1295,12 +1294,13 @@ describe("auditPackage — R8 fixes", () => {
     );
     expect(aNot).toBeDefined();
     expect(bNot).toBeDefined();
-    // New contract: actual values, not strings.
-    expect(aNot!.state).toBeNull();
-    expect(bNot!.state).toBe(false);
+    // Self-documenting string union — callers read the raw boolean off
+    // the manifest variant when they need the original value.
+    expect(aNot!.state).toBe("unset");
+    expect(bNot!.state).toBe("explicit-false");
   });
 
-  it("R8-2-22: Object.freeze on manifest.manifest also freezes the demos array and each demo", () => {
+  it("Object.freeze on manifest.manifest also freezes the demos array and each demo", () => {
     writePackage(root, "frozendemos", {
       manifest: `slug: frozendemos\ndeployed: true\ndemos:\n  - id: a\n  - id: b\n`,
       specs: ["a.spec.ts", "b.spec.ts"],
@@ -1320,7 +1320,7 @@ describe("auditPackage — R8 fixes", () => {
     }
   });
 
-  it("R8-2-12: if ALL mapped candidates fail with unreadable errors, push a CRITICAL warning to the sink", () => {
+  it("if ALL mapped candidates fail with unreadable errors, push a CRITICAL warning to the sink", () => {
     // The slug has multiple candidates — inject statSync failures for
     // every candidate so the function exhausts all options.
     const slug = "langgraph-typescript"; // mapped
@@ -1362,7 +1362,7 @@ describe("auditPackage — R8 fixes", () => {
   });
 });
 
-describe("buildReport — R8 fixes", () => {
+describe("buildReport — scalar summary fields", () => {
   let root: string;
   beforeEach(() => {
     root = makeTmpTree();
@@ -1371,7 +1371,7 @@ describe("buildReport — R8 fixes", () => {
     fs.rmSync(root, { recursive: true, force: true });
   });
 
-  it("R8-2-10: hasWarnings scalar reflects whether any package has warnings", () => {
+  it("hasWarnings reflects whether any package has warnings", () => {
     // A package whose mapped dir is missing emits a stale-mapping warning.
     const mappedSlug = Object.keys(SLUG_TO_EXAMPLES)[0];
     writePackage(root, mappedSlug, {
@@ -1395,31 +1395,31 @@ describe("buildReport — R8 fixes", () => {
   });
 });
 
-describe("parseArgs — R8 fixes", () => {
-  it("R8-2-10: parses --strict flag", () => {
+describe("parseArgs — --strict and --columns", () => {
+  it("parses --strict flag", () => {
     const r = parseArgs(["--strict"]);
     expect(r.strict).toBe(true);
     expect(r.errors).toEqual([]);
   });
 
-  it("R8-2-10: --strict defaults to false", () => {
+  it("--strict defaults to false", () => {
     const r = parseArgs([]);
     expect(r.strict).toBe(false);
   });
 
-  it("R8-5-15: parses --columns=a,b,c into an array of column keys", () => {
+  it("parses --columns=a,b,c into an array of column keys", () => {
     const r = parseArgs(["--columns=slug,demos,deployed"]);
     expect(r.columns).toEqual(["slug", "demos", "deployed"]);
     expect(r.errors).toEqual([]);
   });
 
-  it("R8-5-15: rejects unknown column keys in --columns", () => {
+  it("rejects unknown column keys in --columns", () => {
     const r = parseArgs(["--columns=slug,bogus"]);
     expect(r.errors.some((e) => /bogus/.test(e))).toBe(true);
   });
 });
 
-describe("computeExitCode — --strict semantics (R8-2-10)", () => {
+describe("computeExitCode — --strict semantics", () => {
   it("anomalies present → exit 1 regardless of strict/warnings", () => {
     expect(
       computeExitCode({
@@ -1484,7 +1484,7 @@ describe("buildReport — --strict exit code", () => {
     fs.rmSync(root, { recursive: true, force: true });
   });
 
-  it("R8-2-10: default exit preserves current behavior when only warnings (no anomalies)", () => {
+  it("default exit preserves current behavior when only warnings (no anomalies)", () => {
     // A mapped slug with a statSync-race warning but a findable
     // directory: the examples dir exists under the FIRST candidate, so
     // examplesSource resolves successfully (no missing-examples
@@ -1538,7 +1538,7 @@ describe("buildReport — --strict exit code", () => {
     expect(cleanStrict.exitCode).toBe(0);
   });
 
-  it("R8-2-10: --strict surfaces hasWarnings but anomaly exit wins (warnings+anomalies → exit 1)", () => {
+  it("--strict surfaces hasWarnings but anomaly exit wins (warnings+anomalies → exit 1)", () => {
     // Fabricate the warnings-only case: use a mapped slug WITHOUT an
     // examples dir (→ warning + missing-examples anomaly), then mark
     // it as born-in-showcase-like by injecting its slug into a
@@ -1616,7 +1616,7 @@ describe("main() --columns via CLI subprocess", () => {
     });
   }
 
-  it("R8-5-15: --columns filters the table to the specified columns", () => {
+  it("--columns filters the table to the specified columns", () => {
     writePackage(root, "crewai-crews", {
       manifest: `slug: crewai-crews\ndeployed: true\ndemos:\n  - id: a\n`,
       specs: ["a.spec.ts"],
