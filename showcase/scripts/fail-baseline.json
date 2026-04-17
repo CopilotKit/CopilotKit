@@ -1,4 +1,5 @@
 {
-  "_comment": "Drift ratchet baseline for showcase_validate.yml. When validate-pins.ts reports fewer FAIL entries than `validatePinsFailCount`, CI will instruct you to update this file downward (ratchet-down). When it reports more, CI will fail. Never raise this number without an explicit review + sign-off. See .github/workflows/showcase_validate.yml 'Run validate-pins (ratchet)' step.",
-  "validatePinsFailCount": 111
+  "_comment": "Drift ratchet baseline for showcase_validate.yml. `validatePinsFailCount` holds the last-known FAIL count; `validatePinsFailHash` is a SHA-256 of the sorted, deduplicated `[FAIL] ...` lines from validate-pins.ts. CI compares BOTH: if the count changes, it tells you to ratchet (up rejected, down instructed). If the count is equal but the hash differs, the FAIL *set* has drifted (one item fixed, another regressed) and CI fails with a diff. Never raise the count without an explicit review + sign-off. See .github/workflows/showcase_validate.yml 'Run validate-pins (ratchet)' step.",
+  "validatePinsFailCount": 111,
+  "validatePinsFailHash": "77b586b74ed01f26a19814a9134f516e159c96529674eb2ba63748e60b474e03"
 }
