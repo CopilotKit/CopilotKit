@@ -114,32 +114,6 @@ jobs:
         if: always() && steps.slack-payload.outputs.payload_path
         run: rm -f "${{ steps.slack-payload.outputs.payload_path }}"
 
-      - name: Create issue on failure
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const title = '[Drift] Showcase E2E suite failing';
-            const body = `## E2E Drift Detection Alert\n\n**Run**: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n**Schedule**: ${context.payload.schedule || 'manual'}\n\nThe centralized E2E smoke suite is failing. Please investigate.`;
-
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: 'showcase-drift',
-              state: 'open',
-            });
-
-            const existing = issues.find(i => i.title === title);
-            if (!existing) {
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title,
-                body,
-                labels: ['showcase-drift'],
-              });
-            }
-
   version-drift:
     name: Version Drift Report
     runs-on: ubuntu-latest
@@ -221,59 +195,6 @@ jobs:
           echo -e "$report" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Create drift report issue
-        id: drift_issue
-        if: steps.python_drift.outputs.report != '' || steps.npm_drift.outputs.report != ''
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const pythonDrift = `${{ steps.python_drift.outputs.report }}`.trim();
-            const npmDrift = `${{ steps.npm_drift.outputs.report }}`.trim();
-
-            if (!pythonDrift && !npmDrift) return;
-
-            const title = `[Drift] Showcase packages have outdated pinned versions`;
-            const body = `## Weekly Version Drift Report
-
-            Showcase packages have pinned versions that differ from the latest releases.
-            Review each and update if the new version is compatible.
-
-            ${pythonDrift ? `### Python Packages\n| Package | Dep | Pinned | Latest |\n|---------|-----|--------|--------|\n${pythonDrift}` : ''}
-
-            ${npmDrift ? `### npm Packages\n| Package | Dep | Pinned | Latest |\n|---------|-----|--------|--------|\n${npmDrift}` : ''}
-
-            **Action**: For each outdated dep, check the Dojo example for the correct version.
-            Update \`requirements.txt\` / \`package.json\`, rebuild, and verify demos still work.
-            `;
-
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: 'showcase-drift,version-drift',
-              state: 'open',
-            });
-
-            let issueUrl;
-            if (issues.length === 0) {
-              const { data: created } = await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title,
-                body,
-                labels: ['showcase-drift', 'version-drift'],
-              });
-              issueUrl = created.html_url;
-            } else {
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issues[0].number,
-                body,
-              });
-              issueUrl = issues[0].html_url;
-            }
-            core.setOutput('issue_url', issueUrl);
-
       - name: Notify Slack (version drift)
         if: steps.python_drift.outputs.report != '' || steps.npm_drift.outputs.report != ''
         uses: slackapi/slack-github-action@v2.1.0
@@ -281,7 +202,7 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload: |
-            { "text": ":warning: *Version drift*: dependency updates available | <${{ steps.drift_issue.outputs.issue_url }}|View issue>" }
+            { "text": ":warning: *Version drift*: dependency updates available | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
 
       - name: Notify Slack (version drift failure)
         if: failure()
