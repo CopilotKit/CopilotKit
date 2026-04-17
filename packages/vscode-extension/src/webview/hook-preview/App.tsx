@@ -8,9 +8,8 @@ import type {
   HookBundlePayload,
   WebviewToExtensionMessage,
 } from "./bridge-types";
-import { v1ParametersToFormSchema } from "./form/schema/v1-params";
-import { standardSchemaToFormSchema } from "./form/schema/standard-schema";
 import { mergeValues } from "./form/schema/normalize";
+import { inferFormSchemaFromConfig } from "./form/schema/infer-from-config";
 import type { FormSchema } from "./form/schema/types";
 import { executeBundle } from "./bundle-loader";
 import { ControlsDispatch } from "./ControlsDispatch";
@@ -50,17 +49,6 @@ function findConfig(
   }
 }
 
-function buildSchema(hint: HookBundlePayload["schemaHint"]): FormSchema {
-  if (hint.kind === "v1-params") {
-    return v1ParametersToFormSchema(
-      hint.payload as Parameters<typeof v1ParametersToFormSchema>[0],
-    );
-  }
-  if (hint.kind === "standard-schema") {
-    return standardSchemaToFormSchema(hint.payload);
-  }
-  return { fields: [] };
-}
 
 function controlsFor(
   kind: keyof ControlsByKind,
@@ -134,30 +122,14 @@ export function App() {
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
-  const schema = useMemo(
-    () => (payload ? buildSchema(payload.schemaHint) : { fields: [] }),
-    [payload],
-  );
-
   useEffect(() => {
     if (!payload) return;
     try {
       executeBundle(payload.bundleCode);
     } catch (err) {
       setMountError(err instanceof Error ? err.message : String(err));
-      return;
     }
-    const kind = payload.selection.renderProps as keyof ControlsByKind;
-    setControls(
-      controlsFor(
-        kind,
-        schema,
-        payload.persistedControls,
-        setRespondValue,
-        setResolveValue,
-      ),
-    );
-  }, [payload, schema]);
+  }, [payload]);
 
   const HostRoot = useMemo(() => {
     if (!payload) return null;
@@ -170,6 +142,37 @@ export function App() {
     const firstFn = Object.values(mod).find((v) => typeof v === "function");
     return typeof firstFn === "function" ? (firstFn as () => unknown) : null;
   }, [payload]);
+
+  // Resolve the captured config once the registry is populated.
+  const config = useMemo(() => {
+    if (!payload || !registry) return null;
+    return findConfig(registry, payload.selection) ?? null;
+  }, [payload, registry]);
+
+  // Schema is derived from the captured config's runtime `parameters`,
+  // which is the real source of truth — not the extension host's unused
+  // schemaHint. This is what lets useCopilotAction's `parameters: [...]`
+  // and useRenderTool's Zod schema produce an auto-form.
+  const schema: FormSchema = useMemo(
+    () => inferFormSchemaFromConfig(config),
+    [config],
+  );
+
+  // Seed controls once the schema is known (after capture). Before registry
+  // arrives, we can't pre-populate `args` sensibly.
+  useEffect(() => {
+    if (!payload || !config) return;
+    const kind = payload.selection.renderProps as keyof ControlsByKind;
+    setControls(
+      controlsFor(
+        kind,
+        schema,
+        payload.persistedControls,
+        setRespondValue,
+        setResolveValue,
+      ),
+    );
+  }, [payload, config, schema]);
 
   useEffect(() => {
     if (!payload || !controls) return;
@@ -210,7 +213,6 @@ export function App() {
     );
   }
 
-  const config = findConfig(registry, payload.selection);
   if (!config) {
     return (
       <div className="hook-preview-notcaptured">
