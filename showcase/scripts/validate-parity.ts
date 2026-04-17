@@ -117,23 +117,69 @@ export class ManifestUnreadableError extends Error {
 }
 
 /**
- * Tagged union of per-package entries in `mustErrors` / `warnings`. Prior
- * to this type, both fields were bare `string[]` and callers had to
- * substring-sniff to discriminate. The tagged union lets consumers
- * (render, JSON, future filters) switch on `category`.
+ * Tagged union of per-package entries in `mustErrors` / `warnings`. Each
+ * variant carries only the structured fields the category needs —
+ * categories that want a user-facing string render via `deriveMessage`
+ * at display time so the struct has a single source of truth (no
+ * pre-formatted `message` field that duplicates the structured data).
+ *
+ * Earlier revisions of this type carried both the structured fields AND
+ * a pre-formatted `message`, which made it trivial for render paths to
+ * drift from the structured encoding. Callers that previously read
+ * `issue.message` should call `deriveMessage(issue)` instead.
  */
 export type PackageIssue =
-  | { category: "missing-manifest"; message: string }
-  | { category: "unreadable-manifest"; message: string }
-  | { category: "malformed-manifest"; message: string }
-  | { category: "missing-demo-dir"; demoId: string; message: string }
-  | { category: "unreadable-demos-dir"; path: string; message: string }
-  | { category: "missing-spec"; demoId: string; message: string }
-  | { category: "missing-qa"; demoId: string; message: string }
-  | { category: "baseline-deviation"; message: string }
-  | { category: "spec-under-coverage"; message: string }
-  | { category: "qa-under-coverage"; message: string }
-  | { category: "listing-failed"; path: string; message: string };
+  | { category: "missing-manifest" }
+  | { category: "unreadable-manifest"; error: string }
+  | { category: "malformed-manifest"; error: string }
+  | { category: "missing-demo-dir"; demoId: string }
+  | { category: "unreadable-demos-dir"; path: string; error: string }
+  | { category: "missing-spec"; demoId: string }
+  | { category: "missing-qa"; demoId: string }
+  | { category: "baseline-deviation"; demoCount: number; baseline: number }
+  | {
+      category: "spec-under-coverage";
+      specCount: number;
+      demoCount: number;
+    }
+  | { category: "qa-under-coverage"; qaCount: number; demoCount: number }
+  | { category: "listing-failed"; path: string; error: string };
+
+/**
+ * Render a PackageIssue as a user-facing string. Kept as the single
+ * source of truth for issue rendering so the stderr emitter, JSON
+ * summary, and any future consumer produce identical text.
+ *
+ * Using a discriminated union + exhaustive switch keeps this
+ * future-proof — adding a new PackageIssue variant without a matching
+ * case here is a TypeScript error.
+ */
+export function deriveMessage(issue: PackageIssue): string {
+  switch (issue.category) {
+    case "missing-manifest":
+      return "missing manifest.yaml";
+    case "unreadable-manifest":
+      return `unreadable manifest.yaml: ${issue.error}`;
+    case "malformed-manifest":
+      return `unparseable manifest.yaml: ${issue.error}`;
+    case "missing-demo-dir":
+      return `demo '${issue.demoId}' declared in manifest but no src/app/demos/${issue.demoId}/ directory`;
+    case "unreadable-demos-dir":
+      return `unreadable demos directory: failed to read directory ${issue.path}: ${issue.error}`;
+    case "missing-spec":
+      return `demo '${issue.demoId}' has no tests/e2e/${issue.demoId}.spec.ts`;
+    case "missing-qa":
+      return `demo '${issue.demoId}' has no qa/${issue.demoId}.md`;
+    case "baseline-deviation":
+      return `demo count ${issue.demoCount} deviates from baseline ${issue.baseline}`;
+    case "spec-under-coverage":
+      return `spec count ${issue.specCount} < demo count ${issue.demoCount}`;
+    case "qa-under-coverage":
+      return `qa count ${issue.qaCount} < demo count ${issue.demoCount}`;
+    case "listing-failed":
+      return `failed to read directory ${issue.path}: ${issue.error}`;
+  }
+}
 
 export interface PackageReport {
   slug: string;
@@ -141,8 +187,10 @@ export interface PackageReport {
   specFiles: string[];
   qaFiles: string[];
   demoDirs: string[];
-  mustErrors: PackageIssue[];
-  warnings: PackageIssue[];
+  // readonly arrays: surface any accidental post-return push/splice as
+  // a compile error. Callers that need a mutable copy should clone.
+  mustErrors: readonly PackageIssue[];
+  warnings: readonly PackageIssue[];
 }
 
 /**
@@ -173,12 +221,13 @@ export function listDirs(p: string): ListResult {
     return { entries, warnings: [] };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    const line = `failed to read directory ${p}: ${msg}`;
-    console.error(`[WARN] ${line}`);
-    return {
-      entries: [],
-      warnings: [{ category: "listing-failed", path: p, message: line }],
+    const issue: PackageIssue = {
+      category: "listing-failed",
+      path: p,
+      error: msg,
     };
+    console.error(`[WARN] ${deriveMessage(issue)}`);
+    return { entries: [], warnings: [issue] };
   }
 }
 
@@ -186,24 +235,37 @@ export function listDirs(p: string): ListResult {
  * List files in `p` with the given suffix. Same error-handling contract
  * as listDirs: missing dir → empty ListResult; read error → empty entries
  * + listing-failed warning, and stderr log.
+ *
+ * Bare-suffix filenames (e.g. a file literally named `.spec.ts` or
+ * `.md`) are silently skipped: after stripping the suffix they would
+ * map to an empty demo-id and could accidentally match a declared demo
+ * on the empty-string side of the Set comparison. Such files aren't a
+ * legitimate package-layout artefact, so dropping them is quieter and
+ * safer than warning about them.
  */
 export function listFiles(p: string, suffix: string): ListResult {
   if (!fs.existsSync(p)) return { entries: [], warnings: [] };
   try {
     const entries = fs
       .readdirSync(p, { withFileTypes: true })
-      .filter((d) => d.isFile() && d.name.endsWith(suffix))
+      .filter((d) => {
+        if (!d.isFile()) return false;
+        if (!d.name.endsWith(suffix)) return false;
+        // Reject files whose entire name IS the suffix (stem length 0).
+        return d.name.length > suffix.length;
+      })
       .map((d) => d.name)
       .sort();
     return { entries, warnings: [] };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    const line = `failed to read directory ${p}: ${msg}`;
-    console.error(`[WARN] ${line}`);
-    return {
-      entries: [],
-      warnings: [{ category: "listing-failed", path: p, message: line }],
+    const issue: PackageIssue = {
+      category: "listing-failed",
+      path: p,
+      error: msg,
     };
+    console.error(`[WARN] ${deriveMessage(issue)}`);
+    return { entries: [], warnings: [issue] };
   }
 }
 
@@ -276,7 +338,7 @@ export function auditPackage(
   const qaFiles = qaResult.entries;
   const demoDirs = demoDirResult.entries;
 
-  // R8-2-4: when src/app/demos/ is unreadable, elevate to a MUST error
+  // When src/app/demos/ is unreadable, elevate to a MUST error
   // under category "unreadable-demos-dir" and SUPPRESS the downstream
   // missing-demo-dir cascade so the EACCES root cause isn't buried.
   // We detect this by checking whether listDirs returned a
@@ -296,7 +358,7 @@ export function auditPackage(
     mustErrors.push({
       category: "unreadable-demos-dir",
       path: demosDirPath,
-      message: `unreadable demos directory: ${demosDirUnreadable.message}`,
+      error: demosDirUnreadable.error,
     });
   }
 
@@ -311,18 +373,18 @@ export function auditPackage(
     if (err instanceof ManifestUnreadableError) {
       mustErrors.push({
         category: "unreadable-manifest",
-        message: `unreadable manifest.yaml: ${err.message}`,
+        error: err.message,
       });
     } else if (err instanceof ManifestMalformedError) {
       mustErrors.push({
         category: "malformed-manifest",
-        message: `unparseable manifest.yaml: ${err.message}`,
+        error: err.message,
       });
     } else {
       const msg = err instanceof Error ? err.message : String(err);
       mustErrors.push({
         category: "malformed-manifest",
-        message: `unparseable manifest.yaml: ${msg}`,
+        error: msg,
       });
     }
     // Don't early-return: we still return the report with spec/qa/demo
@@ -340,10 +402,7 @@ export function auditPackage(
   }
 
   if (!manifest) {
-    mustErrors.push({
-      category: "missing-manifest",
-      message: `missing manifest.yaml`,
-    });
+    mustErrors.push({ category: "missing-manifest" });
     return {
       slug,
       demoIds: [],
@@ -374,11 +433,7 @@ export function auditPackage(
   if (!demosDirUnreadable) {
     for (const id of demoIds) {
       if (!demoDirSet.has(id)) {
-        mustErrors.push({
-          category: "missing-demo-dir",
-          demoId: id,
-          message: `demo '${id}' declared in manifest but no src/app/demos/${id}/ directory`,
-        });
+        mustErrors.push({ category: "missing-demo-dir", demoId: id });
       }
     }
   }
@@ -386,22 +441,14 @@ export function auditPackage(
   // SHOULD: every declared demo has a spec file
   for (const id of demoIds) {
     if (!specIdSet.has(id)) {
-      warnings.push({
-        category: "missing-spec",
-        demoId: id,
-        message: `demo '${id}' has no tests/e2e/${id}.spec.ts`,
-      });
+      warnings.push({ category: "missing-spec", demoId: id });
     }
   }
 
   // SHOULD: every declared demo has a QA doc
   for (const id of demoIds) {
     if (!qaIdSet.has(id)) {
-      warnings.push({
-        category: "missing-qa",
-        demoId: id,
-        message: `demo '${id}' has no qa/${id}.md`,
-      });
+      warnings.push({ category: "missing-qa", demoId: id });
     }
   }
 
@@ -409,7 +456,8 @@ export function auditPackage(
   if (demoIds.length !== baselineDemoCount) {
     warnings.push({
       category: "baseline-deviation",
-      message: `demo count ${demoIds.length} deviates from baseline ${baselineDemoCount}`,
+      demoCount: demoIds.length,
+      baseline: baselineDemoCount,
     });
   }
 
@@ -420,7 +468,8 @@ export function auditPackage(
   if (specFiles.length < demoIds.length) {
     warnings.push({
       category: "spec-under-coverage",
-      message: `spec count ${specFiles.length} < demo count ${demoIds.length}`,
+      specCount: specFiles.length,
+      demoCount: demoIds.length,
     });
   }
 
@@ -428,7 +477,8 @@ export function auditPackage(
   if (qaFiles.length < demoIds.length) {
     warnings.push({
       category: "qa-under-coverage",
-      message: `qa count ${qaFiles.length} < demo count ${demoIds.length}`,
+      qaCount: qaFiles.length,
+      demoCount: demoIds.length,
     });
   }
 
@@ -635,7 +685,7 @@ export function runParity(
       ? path.join(envRoot, "packages")
       : DEFAULT_PACKAGES_DIR);
 
-  // R8-1-23: only read process.argv when invoked from the top-level
+  // Only read process.argv when invoked from the top-level
   // CLI entrypoint (i.e. when no explicit baseline was passed). In-
   // process callers that hand in an explicit baseline must not have
   // their behaviour perturbed by argv they didn't write. The env var
@@ -727,7 +777,7 @@ export function runParity(
     if (r.mustErrors.length > 0) hasMustFailure = true;
     totalWarnings += r.warnings.length;
     // Drive both header and row from HEADER_COLUMNS so widths / alignment
-    // can never drift (PA-R8-C4 regression guard — see formatRow).
+    // can never drift (regression guard — see formatRow).
     console.log(formatRow(r, slugWidth));
   }
 
@@ -735,14 +785,14 @@ export function runParity(
   // stdout is reserved for the pass/summary table).
   for (const r of reports) {
     for (const issue of r.mustErrors) {
-      console.error(`[FAIL] ${r.slug}: ${issue.message}`);
+      console.error(`[FAIL] ${r.slug}: ${deriveMessage(issue)}`);
     }
   }
 
   // Emit warnings to stderr
   for (const r of reports) {
     for (const w of r.warnings) {
-      console.error(`[WARN] ${r.slug}: ${w.message}`);
+      console.error(`[WARN] ${r.slug}: ${deriveMessage(w)}`);
     }
   }
 
@@ -754,13 +804,20 @@ export function runParity(
 }
 
 /**
- * CLI entrypoint. File-internal (NOT exported) because it calls
- * process.exit — callers who want to unit-test or compose the validator
- * should use `runParity` which returns a numeric exit code.
+ * CLI entrypoint. File-internal (NOT exported) because it owns the
+ * `process.exitCode` side-effect — callers who want to unit-test or
+ * compose the validator should use `runParity` which returns a numeric
+ * exit code without touching the process.
+ *
+ * Setting `process.exitCode` and returning (rather than calling
+ * `process.exit(code)`) lets Node drain buffered stdout/stderr before
+ * tearing down the process. Synchronous `process.exit` truncates the
+ * pass/summary table that `runParity` wrote just above — audit.ts and
+ * validate-pins.ts follow the same convention.
  */
 function main(packagesDir?: string, baselineDemoCount?: number): void {
   const code = runParity(packagesDir, baselineDemoCount);
-  process.exit(code);
+  process.exitCode = code;
 }
 
 // Only invoke main() when this file is run directly (not when imported by
@@ -780,8 +837,11 @@ if (
     // Top-level safety net: surface internal errors with a distinct exit
     // code so they are distinguishable from legitimate MUST failures
     // (exit 1) and from unreadable infrastructure failures (exit 3).
+    // Use `process.exitCode = N` (not `process.exit(N)`) so any buffered
+    // stdout/stderr gets a chance to drain — matches audit.ts /
+    // validate-pins.ts.
     const msg = err instanceof Error ? err.stack || err.message : String(err);
     console.error(`[INTERNAL ERROR] validate-parity crashed: ${msg}`);
-    process.exit(EXIT_INTERNAL);
+    process.exitCode = EXIT_INTERNAL;
   }
 }
