@@ -14,6 +14,24 @@ export interface HookCallSite {
 
 const PREFILTER_STRINGS = ["@copilotkit/react-core", "@copilotkit/shared"];
 
+// AST node types that can never contain nested hook call-sites. Short-circuits
+// the visitor to avoid walking into identifier names, literal values, etc.
+const LEAF_TYPES = new Set([
+  "Identifier",
+  "Literal",
+  "StringLiteral",
+  "NumericLiteral",
+  "BooleanLiteral",
+  "NullLiteral",
+  "RegExpLiteral",
+  "BigIntLiteral",
+  "TemplateElement",
+  "ThisExpression",
+  "Super",
+  "Import",
+  "PrivateIdentifier",
+]);
+
 function hasCopilotKitPrefix(source: string): boolean {
   return PREFILTER_STRINGS.some((p) => source.includes(p));
 }
@@ -100,9 +118,15 @@ export function scanFile(filePath: string): HookCallSite[] {
 
   const lineOffsets = buildLineOffsets(content);
   const results: HookCallSite[] = [];
+  const seen = new WeakSet<object>();
 
   const visit = (node: any): void => {
     if (!node || typeof node !== "object") return;
+    if (seen.has(node)) return;
+    seen.add(node);
+
+    // Short-circuit on leaf nodes that can never contain hook call-sites.
+    if (LEAF_TYPES.has(node.type)) return;
 
     if (node.type === "CallExpression" && node.callee?.type === "Identifier") {
       const canonical = localToCanonical.get(node.callee.name);

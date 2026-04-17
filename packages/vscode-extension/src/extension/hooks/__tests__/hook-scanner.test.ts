@@ -11,15 +11,23 @@ const __dirname = path.dirname(__filename);
 const fx = (name: string) => path.join(__dirname, "fixtures", name);
 
 describe("hook-scanner scanFile", () => {
-  it("detects a direct import + hook call", () => {
+  it("detects a direct import + hook call and pins loc to the exact source line", () => {
     const sites = scanFile(fx("direct-import.tsx"));
     expect(sites).toHaveLength(1);
+    // direct-import.tsx line 4 is `  useCopilotAction({`; call closes on line 9.
+    expect(sites[0].loc.line).toBe(4);
+    expect(sites[0].loc.endLine).toBe(9);
     expect(sites[0]).toMatchObject({
       hook: "useCopilotAction",
       name: "addTodo",
       category: "render",
     });
-    expect(sites[0].loc.line).toBeGreaterThan(0);
+  });
+
+  it('handles string-literal property keys like {"name": "x"}', () => {
+    const sites = scanFile(fx("string-key-name.tsx"));
+    expect(sites).toHaveLength(1);
+    expect(sites[0].name).toBe("stringKey");
   });
 
   it("detects aliased imports", () => {
