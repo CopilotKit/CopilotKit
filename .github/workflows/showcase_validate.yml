@@ -5,6 +5,7 @@ on:
     paths:
       - "showcase/**"
       - "examples/integrations/**"
+      - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/showcase_validate.yml"
@@ -13,6 +14,7 @@ on:
     paths:
       - "showcase/**"
       - "examples/integrations/**"
+      - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/showcase_validate.yml"
@@ -21,9 +23,12 @@ on:
 permissions:
   contents: read
 
+# Split concurrency per event so main-branch push runs are never canceled
+# mid-execution (we need Slack failure alerts to fire reliably). PR runs
+# still cancel in progress to keep PR CI responsive.
 concurrency:
-  group: showcase-validate-${{ github.ref }}
-  cancel-in-progress: true
+  group: showcase-validate-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   validate:
@@ -143,10 +148,23 @@ jobs:
         # in the same PR (bump both `validatePinsFailCount` and
         # `validatePinsFailHash`; the error output prints the new hash).
         #
-        # Reference: Notion "Bugs-Found-During-Blitz-Deferred-Not-Fixed"
-        #   https://www.notion.so/3443aa38-1852-812f-b595-c5118dd68818
+        # Reference: see internal runbook for drift baseline tracking
+        # (do not embed private URLs in this public workflow).
         #
-        # TODO(showcase-drift): drive the baseline to zero; re-audit quarterly.
+        # Drift-to-zero policy:
+        #   - As of 2026-07-01, any non-zero baseline triggers a CI warning.
+        #   - After 2027-01-01, a non-zero baseline escalates to a hard CI
+        #     failure. The date itself is a forcing function; this comment
+        #     is the durable record of the commitment.
+        #   - A scheduled workflow (see `showcase_drift_report.yml`, tracked
+        #     separately) reports the current drift count weekly via Slack
+        #     so the backlog stays visible before the cutover.
+        #
+        # TODO(showcase-drift, owner: @jpr5): drive the baseline to zero;
+        # re-audit quarterly. Tracked in `showcase/scripts/fail-baseline.json`
+        # (see the `_comment` field there for ratchet semantics).
+        # TODO(showcase-drift, owner: @jpr5): land the weekly Slack drift
+        # reporter workflow referenced above.
         # -------------------------------------------------------------------
         run: |
           set -euo pipefail
@@ -179,37 +197,49 @@ jobs:
           # validate-pins exits 0 when FAIL=0, 1 when FAIL>0. Anything else
           # (2+, uncaught throw, node crash, SIGSEGV) is an internal failure
           # we must surface distinctly from a legitimate drift report.
+          #
+          # We deliberately keep stdout and stderr in separate variables.
+          # validate-pins.ts emits progress/summary on stdout and `[FAIL]`
+          # lines on stderr; mingling them with `2>&1` allowed progress
+          # chatter (or future stdout additions) to corrupt the hash input.
+          # The hash is computed strictly from stderr.
           set +e
-          output=$(pnpm exec tsx validate-pins.ts 2>&1)
+          stderr_file=$(mktemp)
+          stdout=$(pnpm exec tsx validate-pins.ts 2>"$stderr_file")
           rc=$?
+          stderr=$(cat "$stderr_file")
+          rm -f "$stderr_file"
           set -e
-          printf '%s\n' "$output"
+          # Replay both streams to the job log so humans can debug.
+          printf '%s\n' "$stdout"
+          printf '%s\n' "$stderr" >&2
           if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
             echo "::error::validate-pins.ts exited with unexpected code $rc (expected 0 or 1). This indicates an internal failure, not pin drift."
             exit 1
           fi
 
           # --- Parse Summary line (actual FAIL count) ---------------------
-          # awk extracts the integer after 'FAIL=' on the first Summary
-          # line. If awk emits nothing or non-digits (e.g. validator output
-          # format changed), fail loudly instead of silently treating it as
-          # zero.
-          summary_line=$(printf '%s\n' "$output" | grep -E '^Summary:' | head -n 1 || true)
+          # Summary line is on stdout. If the validator output format
+          # changed (missing Summary, non-numeric FAIL), fail loudly
+          # instead of silently treating it as zero.
+          summary_line=$(printf '%s\n' "$stdout" | grep -E '^Summary:' | head -n 1 || true)
           if [ -z "$summary_line" ]; then
             echo "::error::Could not find validate-pins 'Summary:' line in output"
             exit 1
           fi
-          actual=$(printf '%s\n' "$summary_line" | grep -oE 'FAIL=[0-9]+' | head -n 1 | cut -d= -f2)
+          # Word-boundary anchored to avoid matching e.g. `NEWFAIL=` or
+          # `TOTALFAIL=` if such tokens are ever added to the Summary line.
+          actual=$(printf '%s\n' "$summary_line" | grep -oE '\bFAIL=[0-9]+\b' | head -n 1 | cut -d= -f2)
           if [ -z "${actual:-}" ] || ! [[ "$actual" =~ ^[0-9]+$ ]]; then
             echo "::error::Could not parse FAIL=<int> from Summary line: $summary_line"
             exit 1
           fi
 
           # --- Compute tuple hash of current FAIL set ---------------------
-          # Hash the sorted, deduplicated `[FAIL] ...` lines. This catches
-          # the "count equal but set drifted" case: one FAIL healed while
-          # another regressed.
-          actual_hash=$(printf '%s\n' "$output" | grep -E '^\[FAIL\]' | LC_ALL=C sort -u | shasum -a 256 | cut -d' ' -f1)
+          # Hash the sorted, deduplicated `[FAIL] ...` lines (stderr only).
+          # This catches the "count equal but set drifted" case: one FAIL
+          # healed while another regressed.
+          actual_hash=$(printf '%s\n' "$stderr" | grep -E '^\[FAIL\]' | LC_ALL=C sort -u | shasum -a 256 | cut -d' ' -f1)
 
           echo "validate-pins FAIL: actual=$actual baseline=$baseline"
           echo "validate-pins HASH: actual=$actual_hash baseline=$baseline_hash"
@@ -225,7 +255,7 @@ jobs:
           if [ "$actual_hash" != "$baseline_hash" ]; then
             echo "::error::Pin drift SET changed (count equal at $actual, hash differs). One FAIL healed while another regressed — net zero on the counter but the failing tuples are not the same set. Update showcase/scripts/fail-baseline.json (validatePinsFailHash=$actual_hash) if this is intentional, or fix the new drift."
             echo "--- FAIL lines (current) ---"
-            printf '%s\n' "$output" | grep -E '^\[FAIL\]' | LC_ALL=C sort -u
+            printf '%s\n' "$stderr" | grep -E '^\[FAIL\]' | LC_ALL=C sort -u
             exit 1
           fi
           echo "Pin drift unchanged at baseline ($baseline, hash $baseline_hash)."
