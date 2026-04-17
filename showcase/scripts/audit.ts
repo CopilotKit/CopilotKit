@@ -87,6 +87,19 @@ interface AuditConfig {
   repoRoot: string;
 }
 
+// Exit-code constants — see the module header JSDoc for the full
+// contract. We keep them in one place so the internals stay in sync with
+// the CLI HELP_TEXT and the module docstring. Declared here (above the
+// type definitions) so AuditReport.exitCode can derive its literal union
+// from `typeof EXIT_*` rather than hard-coding the numbers, preventing
+// drift between the runtime constants and the type.
+const EXIT_OK = 0 as const;
+const EXIT_ANOMALIES = 1 as const;
+const EXIT_INVALID_CONTENT = 2 as const;
+const EXIT_UNREADABLE = 3 as const;
+const EXIT_INTERNAL = 4 as const;
+const EXIT_WARNINGS = 5 as const;
+
 /**
  * Tagged union describing a package-level anomaly. Replaces the earlier
  * `anomalies: string[]` kitchen sink — downstream `buildReport` used to
@@ -94,9 +107,13 @@ interface AuditConfig {
  * which was brittle and invited typos to silently mis-bucket packages.
  * Now `buildReport` switches on `kind`.
  *
- * `not-deployed.state` uses the actual boolean value (or null for
- * "unset") rather than a string union — callers can then compare against
- * true/false/null directly without re-parsing a label.
+ * `not-deployed.state` uses a string union (`"unset" | "explicit-false"`)
+ * rather than the raw `null | false` runtime values. The string encoding
+ * is self-documenting at consumption sites (`state === "unset"` vs the
+ * easy-to-misread `state === null`) and decouples the anomaly shape from
+ * the underlying manifest field encoding — callers read the boolean
+ * directly through `p.manifest.manifest.deployed` when they need the raw
+ * value.
  */
 type Anomaly =
   | { kind: "missing-manifest" }
@@ -109,7 +126,7 @@ type Anomaly =
       expected: number;
       actual: number;
     }
-  | { kind: "not-deployed"; state: false | null }
+  | { kind: "not-deployed"; state: "unset" | "explicit-false" }
   | { kind: "missing-examples" };
 
 /**
@@ -117,6 +134,10 @@ type Anomaly =
  * empty" from "count=0 because unreadable", which the old flat-number
  * representation collapsed — leading to misleading tables and phantom
  * parity mismatches.
+ *
+ * This is the sole discriminated union for count outcomes: countFiles
+ * returns it directly. There is no parallel internal type — anything
+ * storing a count state uses this shape.
  */
 type CountState =
   | { state: "ok"; count: number }
@@ -151,6 +172,19 @@ interface PackageAudit {
   warnings: readonly string[];
 }
 
+/**
+ * Literal union of the exit codes `main()` can assign. Derived from the
+ * EXIT_* constants so adding a new exit code (or retiring one) only
+ * requires changes in one place.
+ */
+type AuditExitCode =
+  | typeof EXIT_OK
+  | typeof EXIT_ANOMALIES
+  | typeof EXIT_INVALID_CONTENT
+  | typeof EXIT_UNREADABLE
+  | typeof EXIT_INTERNAL
+  | typeof EXIT_WARNINGS;
+
 interface AuditReport {
   /**
    * Top-level scalars for programmatic consumers. `hasAnomalies` mirrors
@@ -159,11 +193,18 @@ interface AuditReport {
    * ratchet on stale-mapping / statSync-race diagnostics without
    * re-walking every package. `exitCode` is the exit code `main()` will
    * actually use (see EXIT_ANOMALIES / EXIT_WARNINGS).
+   *
+   * These are explicitly derived values — exposed as getters on the live
+   * report object so they can't fall out of sync with the underlying
+   * packages / anomalies arrays. JSON serialization walks own-enumerable
+   * properties by default, so buildReport materializes these to a plain
+   * object shape via a per-field Object.defineProperty call that's both
+   * enumerable and computed-on-read; see buildReport for the wiring.
    */
-  hasAnomalies: boolean;
-  hasWarnings: boolean;
-  exitCode: 0 | 1 | 2 | 3 | 4 | 5;
-  packages: PackageAudit[];
+  readonly hasAnomalies: boolean;
+  readonly hasWarnings: boolean;
+  readonly exitCode: AuditExitCode;
+  readonly packages: readonly PackageAudit[];
   /**
    * Per-bucket lists. Buckets deliberately overlap: a single package
    * with both a count-mismatch and a not-deployed state appears in
@@ -175,31 +216,20 @@ interface AuditReport {
    * accident. Each field is `readonly string[]` so a consumer holding
    * the report reference cannot mutate the audit state.
    */
-  anomalies: {
-    countMismatches: readonly string[];
-    notDeployed: readonly string[];
-    missingExamples: readonly string[];
-    missingManifest: readonly string[];
-    malformedManifest: readonly string[];
-    unreadable: readonly string[];
+  readonly anomalies: {
+    readonly countMismatches: readonly string[];
+    readonly notDeployed: readonly string[];
+    readonly missingExamples: readonly string[];
+    readonly missingManifest: readonly string[];
+    readonly malformedManifest: readonly string[];
+    readonly unreadable: readonly string[];
   };
-  totals: {
-    total: number;
-    clean: number;
-    withAnomalies: number;
+  readonly totals: {
+    readonly total: number;
+    readonly clean: number;
+    readonly withAnomalies: number;
   };
 }
-
-// Deliberately NOT aliased: audit.ts, validate-parity.ts, and
-// validate-pins.ts all consume the 4-variant ParsedManifest from
-// lib/manifest.ts directly. The previous ManifestResult alias collapsed
-// `unreadable` into `malformed` with a string-prefix marker, which was a
-// brittle anti-pattern (see R8-5-5) — downstream consumers had to parse
-// the string to recover the original cause.
-type CountResult =
-  | { kind: "ok"; count: number }
-  | { kind: "missing"; count: 0 }
-  | { kind: "error"; count: 0; error: string };
 
 // ---------------------------------------------------------------------------
 // Config construction
@@ -289,39 +319,32 @@ function readManifest(slug: string, cfg: AuditConfig): ParsedManifest {
 /**
  * Count files in a directory matching a predicate. Distinguishes three
  * outcomes so callers can surface genuine errors:
- *   - missing → directory doesn't exist (legitimate zero)
- *   - ok      → read succeeded; count is accurate
- *   - error   → readdir threw (permission, I/O); count defaults to 0 but
- *               callers should emit an anomaly to avoid silent drops.
+ *   - ok         → read succeeded; count is accurate
+ *   - missing    → directory doesn't exist (legitimate zero)
+ *   - unreadable → readdir threw (permission, I/O); callers should emit
+ *                  an anomaly to avoid silent drops.
  *
  * The previous implementation swallowed errors and returned 0, which
  * could trigger phantom parity anomalies for packages whose spec dirs
  * were simply unreadable.
+ *
+ * Returns the public `CountState` shape directly — there used to be an
+ * internal parallel `CountResult` union that was bridged via
+ * `toCountState`, but the bridge added ceremony without buying anything.
  */
 function countFiles(
   dir: string,
   extFilter: (name: string) => boolean,
-): CountResult {
-  if (!fs.existsSync(dir)) return { kind: "missing", count: 0 };
+): CountState {
+  if (!fs.existsSync(dir)) return { state: "missing" };
   try {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     const count = entries.filter((d) => d.isFile() && extFilter(d.name)).length;
-    return { kind: "ok", count };
+    return { state: "ok", count };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     process.stderr.write(`audit: could not read ${dir}: ${msg}\n`);
-    return { kind: "error", count: 0, error: msg };
-  }
-}
-
-function toCountState(r: CountResult): CountState {
-  switch (r.kind) {
-    case "ok":
-      return { state: "ok", count: r.count };
-    case "missing":
-      return { state: "missing" };
-    case "error":
-      return { state: "unreadable", error: r.error };
+    return { state: "unreadable", error: msg };
   }
 }
 
@@ -464,14 +487,14 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
 
   // Read-error anomalies propagate regardless of manifest state —
   // unreadable dirs are infrastructure failures, not content failures.
-  if (specRes.kind === "error") {
+  if (specRes.state === "unreadable") {
     anomalies.push({
       kind: "unreadable-dir",
       dir: e2eDir,
       error: specRes.error,
     });
   }
-  if (qaRes.kind === "error") {
+  if (qaRes.state === "unreadable") {
     anomalies.push({
       kind: "unreadable-dir",
       dir: qaDir,
@@ -501,30 +524,35 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
 
       // Only report count-parity anomalies when we actually managed to
       // read the directories — otherwise we'd double-report (unreadable
-      // + phantom mismatch).
-      if (specRes.kind !== "error" && specRes.count !== demosDeclared) {
+      // + phantom mismatch). When the state is "ok" the count is a real
+      // number; "missing" implies count=0 which IS a legitimate data
+      // point for parity comparison.
+      const specCount = countValue(specRes);
+      if (specCount !== null && specCount !== demosDeclared) {
         anomalies.push({
           kind: "count-mismatch",
           dimension: "spec",
           expected: demosDeclared,
-          actual: specRes.count,
+          actual: specCount,
         });
       }
-      if (qaRes.kind !== "error" && qaRes.count !== demosDeclared) {
+      const qaCount = countValue(qaRes);
+      if (qaCount !== null && qaCount !== demosDeclared) {
         anomalies.push({
           kind: "count-mismatch",
           dimension: "qa",
           expected: demosDeclared,
-          actual: qaRes.count,
+          actual: qaCount,
         });
       }
 
       if (manifest.deployed !== true) {
         anomalies.push({
           kind: "not-deployed",
-          // Actual runtime value: `false` if explicitly false, `null`
-          // if the field was absent/undefined. No string round-tripping.
-          state: manifest.deployed === false ? false : null,
+          // String encoding is self-documenting at consumption sites —
+          // callers read the raw boolean off the manifest variant when
+          // they need it.
+          state: manifest.deployed === false ? "explicit-false" : "unset",
         });
       }
 
@@ -548,8 +576,8 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
     slug,
     manifest: manifestRes,
     demosDeclared,
-    spec: toCountState(specRes),
-    qa: toCountState(qaRes),
+    spec: specRes,
+    qa: qaRes,
     examplesSource,
     anomalies,
     warnings,
@@ -573,10 +601,11 @@ function anomalyMessage(a: Anomaly): string {
     case "count-mismatch":
       return `${a.dimension} count (${a.actual}) != demos (${a.expected})`;
     case "not-deployed":
-      // Render the null/false runtime values as familiar labels so
-      // human-readable output doesn't change, but the underlying
-      // values on the anomaly are actual booleans/null.
-      return `deployed=${a.state === false ? "false" : "unset"}`;
+      // Render the string-union state as a familiar label so
+      // human-readable output doesn't change. `"explicit-false"` → "false"
+      // preserves the legacy display; the anomaly itself carries the
+      // more explicit string for structured consumers.
+      return `deployed=${a.state === "explicit-false" ? "false" : "unset"}`;
     case "missing-examples":
       return "no examples/integrations counterpart";
   }
@@ -663,7 +692,7 @@ function selectColumns(
 }
 
 function renderTable(
-  audits: PackageAudit[],
+  audits: readonly PackageAudit[],
   columns: ReadonlyArray<(typeof TABLE_COLUMNS)[number]> = TABLE_COLUMNS,
 ): string {
   // Empty-list guard: no rows means nothing to align to but the header
@@ -762,6 +791,8 @@ function renderAnomalySection(report: AuditReport): string {
       const p = bySlug.get(slug);
       const deployed =
         p?.manifest.kind === "ok" ? p.manifest.manifest.deployed : undefined;
+      // Human-readable label: the legacy "false" / "unset" strings —
+      // not the internal Anomaly.state encoding.
       const state = deployed === false ? "false" : "unset";
       lines.push(`    - ${slug} (${state})`);
     }
@@ -852,19 +883,24 @@ function renderHealthSection(report: AuditReport): string {
  * tricky to drive into the "warnings without anomalies" quadrant using
  * filesystem fixtures alone).
  *
+ * Return type is narrowed to the three literal values this function
+ * can actually produce (0, 1, or 5). The wider AuditExitCode union
+ * covers values main() assigns on other control-flow paths (2, 3, 4)
+ * that do not go through this helper.
+ *
  * Contract:
  *   - anomalies present → EXIT_ANOMALIES (1), regardless of strict/warnings
  *   - no anomalies, --strict, warnings present → EXIT_WARNINGS (5)
- *   - no anomalies, default OR strict-without-warnings → 0
+ *   - no anomalies, default OR strict-without-warnings → EXIT_OK (0)
  */
 function computeExitCode(input: {
   hasAnomalies: boolean;
   hasWarnings: boolean;
   strict: boolean;
-}): 0 | 1 | 2 | 3 | 4 | 5 {
+}): typeof EXIT_OK | typeof EXIT_ANOMALIES | typeof EXIT_WARNINGS {
   if (input.hasAnomalies) return EXIT_ANOMALIES;
   if (input.strict && input.hasWarnings) return EXIT_WARNINGS;
-  return 0;
+  return EXIT_OK;
 }
 
 function buildReport(
@@ -878,26 +914,18 @@ function buildReport(
   // matching. String matching was brittle and could silently drop real
   // mismatches behind typos.
   //
-  // countMismatches per-dimension filter: suppress a spec-dimension
-  // mismatch only if the SPEC dir was unreadable, and suppress a
-  // qa-dimension mismatch only if the QA dir was unreadable. A package
-  // with an unreadable spec dir AND a real QA mismatch still appears in
-  // countMismatches (for the QA dimension).
+  // Invariant: auditPackage only emits a count-mismatch anomaly when
+  // the underlying count is readable (see `specCount !== null` /
+  // `qaCount !== null` guards in auditPackage). That means the mere
+  // presence of a `count-mismatch` anomaly in `p.anomalies` already
+  // implies the relevant dimension was readable — no secondary
+  // suppression needed here. Previously this filter also re-checked
+  // `p.spec.state === "unreadable"` defensively, but that guard was
+  // redundant (the anomaly can't exist under an unreadable state) and
+  // invited confusion about which code path owns the suppression rule.
   const countMismatches = packages
     .filter((p) => p.manifest.kind === "ok")
-    .filter((p) => {
-      const specUnreadable = p.spec.state === "unreadable";
-      const qaUnreadable = p.qa.state === "unreadable";
-      const hasSpecMismatch = p.anomalies.some(
-        (a) => a.kind === "count-mismatch" && a.dimension === "spec",
-      );
-      const hasQaMismatch = p.anomalies.some(
-        (a) => a.kind === "count-mismatch" && a.dimension === "qa",
-      );
-      const visibleSpec = hasSpecMismatch && !specUnreadable;
-      const visibleQa = hasQaMismatch && !qaUnreadable;
-      return visibleSpec || visibleQa;
-    })
+    .filter((p) => p.anomalies.some((a) => a.kind === "count-mismatch"))
     .map((p) => p.slug);
   // `deployed` is read through the manifest variant — the single
   // source of truth. A package with no manifest or a malformed one is
@@ -958,33 +986,64 @@ function buildReport(
     Object.freeze(p);
   }
 
-  const hasAnomalies = withAnomalies > 0;
-  const hasWarnings = packages.some((p) => p.warnings.length > 0);
-  const exitCode = computeExitCode({
-    hasAnomalies,
-    hasWarnings,
-    strict: opts.strict ?? false,
-  });
+  const strict = opts.strict ?? false;
 
-  return {
-    hasAnomalies,
-    hasWarnings,
-    exitCode,
+  // hasAnomalies / hasWarnings / exitCode are derived from `packages`
+  // and `withAnomalies` — NOT cached snapshots. Defining them as
+  // enumerable accessors (via Object.defineProperty) keeps them visible
+  // to JSON.stringify while preventing drift: the inputs are frozen
+  // below, so the derived values are effectively stable, but there is
+  // only ONE source of truth for each scalar (the computation itself)
+  // rather than a parallel cached copy. The cast-through-unknown at the
+  // end is necessary because Object.defineProperty has a loose return
+  // type; the shape genuinely matches AuditReport.
+  const report: Record<string, unknown> = {
     packages,
-    anomalies: {
+    anomalies: Object.freeze({
       countMismatches: Object.freeze(countMismatches),
       notDeployed: Object.freeze(notDeployed),
       missingExamples: Object.freeze(missingExamples),
       missingManifest: Object.freeze(missingManifest),
       malformedManifest: Object.freeze(malformedManifest),
       unreadable: Object.freeze(unreadable),
-    },
-    totals: {
+    }),
+    totals: Object.freeze({
       total: packages.length,
       clean: packages.length - withAnomalies,
       withAnomalies,
-    },
+    }),
   };
+  Object.defineProperty(report, "hasAnomalies", {
+    enumerable: true,
+    configurable: false,
+    get() {
+      return (
+        (this as { totals: { withAnomalies: number } }).totals.withAnomalies > 0
+      );
+    },
+  });
+  Object.defineProperty(report, "hasWarnings", {
+    enumerable: true,
+    configurable: false,
+    get() {
+      return (this as { packages: readonly PackageAudit[] }).packages.some(
+        (p) => p.warnings.length > 0,
+      );
+    },
+  });
+  Object.defineProperty(report, "exitCode", {
+    enumerable: true,
+    configurable: false,
+    get() {
+      const self = this as { hasAnomalies: boolean; hasWarnings: boolean };
+      return computeExitCode({
+        hasAnomalies: self.hasAnomalies,
+        hasWarnings: self.hasWarnings,
+        strict,
+      });
+    },
+  });
+  return Object.freeze(report) as unknown as AuditReport;
 }
 
 interface ParsedArgs {
@@ -1124,15 +1183,9 @@ const HELP_TEXT = [
   "  5 — warnings present with --strict (default: warnings don't change exit)",
 ].join("\n");
 
-// Exit-code constants — see the module header JSDoc for the full
-// contract. We keep them in one place so the internals stay in sync with
-// the CLI HELP_TEXT and the module docstring. The exitCode field on
-// AuditReport is typed as a literal union of these numbers.
-const EXIT_ANOMALIES = 1 as const;
-const EXIT_INVALID_CONTENT = 2 as const;
-const EXIT_UNREADABLE = 3 as const;
-const EXIT_INTERNAL = 4 as const;
-const EXIT_WARNINGS = 5 as const;
+// EXIT_* constants are declared at the top of this module (above the
+// type definitions) so AuditReport.exitCode can derive its literal
+// union from `typeof EXIT_*` without a forward reference.
 
 // Heuristic: treat TypeError / ReferenceError / RangeError as programmer
 // bugs (broken invariant, likely worth a bug report), not as
@@ -1290,12 +1343,31 @@ function main(): void {
   }
 }
 
-// Only run when executed directly. Uses path.resolve on both sides because
-// tsx and pnpm can realpath symlinks or hand argv[1] in non-canonical form,
-// which breaks a naive `===` comparison.
+/**
+ * Canonicalize a path for "is this the script being run?" comparison.
+ * Uses `fs.realpathSync` so a symlink to audit.ts (e.g. a globally
+ * linked CLI, or a node_modules symlink hop under pnpm) on either side
+ * of the comparison still matches the canonical source path. Falls back
+ * to `path.resolve` when `realpathSync` fails (e.g. the path doesn't
+ * exist on disk — which can legitimately happen during some test
+ * harness setups that hand a synthetic argv[0]).
+ */
+function canonicalizeForIsMain(p: string): string {
+  const resolved = path.resolve(p);
+  try {
+    return fs.realpathSync(resolved);
+  } catch {
+    return resolved;
+  }
+}
+
+// Only run when executed directly. Canonicalizes both sides via
+// realpathSync to match across symlinks (tsx shim, pnpm hoisting,
+// globally linked CLI, etc.).
 if (
   process.argv[1] &&
-  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))
+  canonicalizeForIsMain(process.argv[1]) ===
+    canonicalizeForIsMain(fileURLToPath(import.meta.url))
 ) {
   main();
 }
