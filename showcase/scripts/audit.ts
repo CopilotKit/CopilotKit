@@ -36,60 +36,20 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import yaml from "yaml";
+import {
+  parseManifest,
+  type Manifest,
+  type ManifestDemo,
+  type ParsedManifest,
+} from "./lib/manifest.js";
+import { BORN_IN_SHOWCASE, SLUG_TO_EXAMPLES } from "./lib/slug-map.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ---------------------------------------------------------------------------
-// Slug map — showcase slug → examples/integrations dir name(s)
-//
-// Duplicated from migrate-integration-examples.ts (which does not export
-// SLUG_MAP); keep in sync. Entries must reference slugs that actually appear
-// under showcase/packages/ — dead entries are removed to avoid phantom
-// "no examples source" anomalies.
-// ---------------------------------------------------------------------------
-const SLUG_TO_EXAMPLES: Record<string, string[]> = {
-  "langgraph-python": ["langgraph-python"],
-  "langgraph-typescript": ["langgraph-js"],
-  "langgraph-fastapi": ["langgraph-fastapi"],
-  mastra: ["mastra"],
-  "crewai-crews": ["crewai-crews"],
-  "pydantic-ai": ["pydantic-ai"],
-  agno: ["agno"],
-  llamaindex: ["llamaindex"],
-  "google-adk": ["adk"],
-  "ms-agent-dotnet": ["ms-agent-framework-dotnet"],
-  "ms-agent-python": ["ms-agent-framework-python"],
-  strands: ["strands-python"],
-};
-
-// Packages intentionally without a Dojo counterpart. Mirrors the set
-// maintained in validate-pins.ts so the two tools agree on what counts as
-// "working-as-designed." Updating one without the other produces
-// inconsistent audit output.
-const BORN_IN_SHOWCASE = new Set<string>([
-  "ag2",
-  "claude-sdk-python",
-  "claude-sdk-typescript",
-  "langroid",
-  "spring-ai",
-]);
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-interface ManifestDemo {
-  id: string;
-  name?: string;
-}
-
-interface Manifest {
-  slug: string;
-  name?: string;
-  deployed?: boolean;
-  demos?: ManifestDemo[];
-}
+// Slug map + born-in-showcase set now live in ./lib/slug-map.ts.
+// Manifest types + parseManifest live in ./lib/manifest.ts.
+// Re-exported below for backwards compatibility with existing tests.
 
 /**
  * Dependency-injected paths. In CLI mode these are derived from the
@@ -131,6 +91,10 @@ interface AuditReport {
   };
 }
 
+// Alias kept for call-site stability. The shared ParsedManifest adds an
+// "unreadable" variant that audit.ts collapses into "malformed" with a
+// prefixed error (see readManifest below) — this preserves the prior
+// three-state semantics that downstream code (and existing tests) rely on.
 type ManifestResult =
   | { kind: "ok"; manifest: Manifest }
   | { kind: "missing" }
@@ -201,45 +165,33 @@ function listShowcasePackageSlugs(cfg: AuditConfig): string[] {
 /**
  * Distinguishes three outcomes for a package's manifest.yaml:
  *   - missing   → file does not exist
- *   - malformed → file exists but YAML parse failed
+ *   - malformed → file exists but YAML parse failed OR the shared
+ *                 parseManifest reported "unreadable" (EACCES, I/O
+ *                 race, etc.) — we prefix "read failed: " in that case
+ *                 so the downstream anomaly reader distinguishes the
+ *                 cause without needing another union variant
  *   - ok        → file parsed successfully
  *
  * The previous implementation collapsed malformed into missing with an
  * empty catch{}, which silently reported "missing manifest.yaml" for
  * broken YAML and made debugging misleading.
+ *
+ * Delegates to lib/manifest.ts :: parseManifest so audit.ts, validate-pins.ts,
+ * and validate-parity.ts all apply identical YAML-shape validation rules.
  */
 function readManifest(slug: string, cfg: AuditConfig): ManifestResult {
   const p = path.join(cfg.packagesDir, slug, "manifest.yaml");
-  if (!fs.existsSync(p)) return { kind: "missing" };
-  let raw: string;
-  try {
-    raw = fs.readFileSync(p, "utf-8");
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { kind: "malformed", error: `read failed: ${msg}` };
-  }
-  try {
-    const parsed: unknown = yaml.parse(raw);
-    // `yaml.parse("")` returns null, and `yaml.parse("42")` returns a
-    // bare scalar — neither is a Manifest. Without this guard, downstream
-    // code that reads `.demos` / `.deployed` throws TypeError and crashes
-    // the whole audit for a single empty manifest.yaml.
-    if (
-      parsed === null ||
-      typeof parsed !== "object" ||
-      Array.isArray(parsed)
-    ) {
-      return {
-        kind: "malformed",
-        error: `expected YAML object at top level, got ${
-          parsed === null ? "null (empty file?)" : typeof parsed
-        }`,
-      };
-    }
-    return { kind: "ok", manifest: parsed as Manifest };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { kind: "malformed", error: msg };
+  const parsed: ParsedManifest = parseManifest(p);
+  switch (parsed.kind) {
+    case "ok":
+    case "missing":
+    case "malformed":
+      return parsed;
+    case "unreadable":
+      // Collapse unreadable into malformed with a distinguishing prefix.
+      // Keeps the pre-existing ManifestResult shape that audit.ts /
+      // buildReport() / the tests already depend on.
+      return { kind: "malformed", error: `read failed: ${parsed.error}` };
   }
 }
 
