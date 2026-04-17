@@ -13,6 +13,7 @@ import {
   findExamplesSource,
   parseArgs,
   BORN_IN_SHOWCASE,
+  SLUG_TO_EXAMPLES,
   type AuditConfig,
 } from "../audit.js";
 
@@ -122,6 +123,25 @@ describe("readManifest", () => {
       expect(r.manifest.deployed).toBe(true);
       expect(r.manifest.demos?.length).toBe(1);
     }
+  });
+
+  it("returns { kind: 'malformed' } for empty manifest.yaml (yaml.parse → null)", () => {
+    // yaml.parse("") returns null, and previously the parsed-as-Manifest
+    // cast let null propagate into downstream .demos / .deployed access,
+    // crashing with TypeError. Empty/non-object YAML must be rejected here
+    // before auditPackage touches it.
+    writePackage(root, "mypkg", { manifest: "" });
+    const cfg = makeConfig(root);
+    const r = readManifest("mypkg", cfg);
+    expect(r.kind).toBe("malformed");
+  });
+
+  it("returns { kind: 'malformed' } when manifest.yaml parses to a non-object (e.g. bare scalar)", () => {
+    // yaml.parse("42") returns the number 42 — also not a valid Manifest.
+    writePackage(root, "mypkg", { manifest: "42\n" });
+    const cfg = makeConfig(root);
+    const r = readManifest("mypkg", cfg);
+    expect(r.kind).toBe("malformed");
   });
 });
 
@@ -265,6 +285,20 @@ describe("auditPackage", () => {
     expect(a.anomalies).toContain("missing manifest.yaml");
   });
 
+  it("does not crash and emits 'malformed manifest.yaml' for an empty manifest.yaml", () => {
+    // yaml.parse("") → null; if the guard is missing, auditPackage will
+    // throw TypeError when it reads manifest.demos / manifest.deployed.
+    writePackage(root, "empty", { manifest: "" });
+    const cfg = makeConfig(root);
+    expect(() => auditPackage("empty", cfg)).not.toThrow();
+    const a = auditPackage("empty", cfg);
+    expect(a.manifestFound).toBe(false);
+    expect(a.manifestMalformed).toBe(true);
+    expect(
+      a.anomalies.some((s) => s.startsWith("malformed manifest.yaml")),
+    ).toBe(true);
+  });
+
   it("does not flag missingExamples for born-in-showcase slugs", () => {
     const slug = "ag2"; // known born-in-showcase
     expect(BORN_IN_SHOWCASE.has(slug)).toBe(true);
@@ -401,6 +435,65 @@ describe("BORN_IN_SHOWCASE set", () => {
   });
 });
 
+describe("SLUG_TO_EXAMPLES — dead entries removed", () => {
+  // These showcase slugs do not exist under showcase/packages/. Keeping
+  // them in the map produced phantom "no examples source" anomalies for
+  // nothing (and made the table/doc noise confusing). Each is a
+  // regression guard: if you add any of these back, you must create the
+  // corresponding showcase/packages/<slug>/ dir too.
+  it.each(["crewai-flows", "agent-spec-langgraph", "mcp-apps"])(
+    "does not include dead entry %s",
+    (slug) => {
+      expect(SLUG_TO_EXAMPLES[slug]).toBeUndefined();
+    },
+  );
+});
+
+describe("findExamplesSource — runtime warning for mapped slug with no dir", () => {
+  let root: string;
+  let warnings: string[];
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    root = makeTmpTree();
+    warnings = [];
+    stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(((
+      chunk: string | Uint8Array,
+    ) => {
+      warnings.push(
+        typeof chunk === "string" ? chunk : Buffer.from(chunk).toString(),
+      );
+      return true;
+    }) as typeof process.stderr.write);
+  });
+  afterEach(() => {
+    stderrSpy.mockRestore();
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it("emits stderr warning (not error) when a SLUG_TO_EXAMPLES-mapped slug has no matching dir", () => {
+    // Pick a slug that IS in SLUG_TO_EXAMPLES (so we hit the mapped path)
+    // but intentionally create no examples/integrations/<mapped> dir.
+    const mappedSlug = Object.keys(SLUG_TO_EXAMPLES)[0];
+    expect(mappedSlug).toBeDefined();
+    const cfg = makeConfig(root);
+    const r = findExamplesSource(mappedSlug, cfg);
+    expect(r).toBeNull();
+    const joined = warnings.join("");
+    expect(joined).toMatch(/warn/i);
+    expect(joined).toContain(mappedSlug);
+  });
+
+  it("does NOT warn for an unmapped slug missing a dir (falls back to slug==dirname)", () => {
+    // A slug not in SLUG_TO_EXAMPLES falls back to [slug]. That's the
+    // "no mapping" case — not a dead entry — so no warning.
+    const cfg = makeConfig(root);
+    const r = findExamplesSource("totally-unmapped-slug", cfg);
+    expect(r).toBeNull();
+    const joined = warnings.join("");
+    expect(joined).not.toMatch(/warn/i);
+  });
+});
+
 describe("main() exit codes via CLI subprocess", () => {
   let root: string;
 
@@ -449,15 +542,36 @@ describe("main() exit codes via CLI subprocess", () => {
     expect(r.status, r.stdout + r.stderr).toBe(1);
   });
 
-  it("exits 2 when SHOWCASE_AUDIT_ROOT points to missing packages dir", () => {
-    // Use a fresh temp dir with NO packages subdir.
+  it("exits 3 (unreadable) when SHOWCASE_AUDIT_ROOT points to missing packages dir", () => {
+    // Missing/unreadable packages dir is infrastructure failure, not
+    // user-input failure — distinct exit code from "invalid content" (2).
     const empty = fs.mkdtempSync(path.join(os.tmpdir(), "audit-empty-"));
     try {
       const r = runCli([], {
         env: { SHOWCASE_AUDIT_ROOT: empty },
       });
-      expect(r.status, r.stdout + r.stderr).toBe(2);
+      expect(r.status, r.stdout + r.stderr).toBe(3);
       expect(r.stderr).toMatch(/packages/i);
+    } finally {
+      fs.rmSync(empty, { recursive: true, force: true });
+    }
+  });
+
+  it("unreadable (3) and invalid-content (2) exit codes differ", () => {
+    // Regression guard: these two failure modes used to share exit code
+    // 2, which made it impossible for CI callers to distinguish
+    // "nothing to audit" from "I don't know what you meant".
+    const empty = fs.mkdtempSync(path.join(os.tmpdir(), "audit-diff-"));
+    try {
+      const unreadable = runCli([], {
+        env: { SHOWCASE_AUDIT_ROOT: empty },
+      });
+      const invalidArgs = runCli(["--slug", "--json"], {
+        env: { SHOWCASE_AUDIT_ROOT: empty },
+      });
+      expect(unreadable.status).not.toBe(invalidArgs.status);
+      expect(unreadable.status).toBe(3);
+      expect(invalidArgs.status).toBe(2);
     } finally {
       fs.rmSync(empty, { recursive: true, force: true });
     }
