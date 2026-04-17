@@ -630,7 +630,12 @@ function padLeft(s: string, w: number): string {
 // input against that union at runtime, and ParsedArgs.columns carries
 // the narrower type.
 const TABLE_COLUMNS = [
-  { key: "slug", label: "slug", align: "left", value: (a: PackageAudit) => a.slug },
+  {
+    key: "slug",
+    label: "slug",
+    align: "left",
+    value: (a: PackageAudit) => a.slug,
+  },
   {
     key: "demos",
     label: "demos",
@@ -643,7 +648,12 @@ const TABLE_COLUMNS = [
     align: "right",
     value: (a: PackageAudit) => countLabel(a.spec),
   },
-  { key: "qa", label: "qa", align: "right", value: (a: PackageAudit) => countLabel(a.qa) },
+  {
+    key: "qa",
+    label: "qa",
+    align: "right",
+    value: (a: PackageAudit) => countLabel(a.qa),
+  },
   {
     key: "deployed",
     label: "deployed",

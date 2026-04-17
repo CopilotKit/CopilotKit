@@ -2140,8 +2140,7 @@ describe("parseErrors suppress the OK line for a slug", () => {
     const report = validateAll();
     const okForSlug = report.ok.some((l) => l.includes(`[OK] ${slug}`));
     const failForSlug = report.fail.some(
-      (l) =>
-        l.includes(`[FAIL] ${slug}`) && /parse error/i.test(l),
+      (l) => l.includes(`[FAIL] ${slug}`) && /parse error/i.test(l),
     );
     expect(failForSlug).toBe(true);
     // Slug must NOT also be reported as OK.
@@ -2175,8 +2174,7 @@ describe("parseErrors suppress the OK line for a slug", () => {
     const report = validateAll();
     const okForSlug = report.ok.some((l) => l.includes(`[OK] ${slug}`));
     const failForSlug = report.fail.some(
-      (l) =>
-        l.includes(`[FAIL] ${slug}`) && /parse error/i.test(l),
+      (l) => l.includes(`[FAIL] ${slug}`) && /parse error/i.test(l),
     );
     expect(failForSlug).toBe(true);
     expect(okForSlug).toBe(false);
@@ -2200,10 +2198,7 @@ describe("JS vs Python dep name collisions are kept separate", () => {
         path.join(tmp, "package.json"),
         JSON.stringify({ name: "x", dependencies: { openai: "4.0.0" } }),
       );
-      write(
-        path.join(tmp, "requirements.txt"),
-        ["openai==1.2.3"].join("\n"),
-      );
+      write(path.join(tmp, "requirements.txt"), ["openai==1.2.3"].join("\n"));
       const src = collectDojoDeps(tmp);
       // Python side tracks the Python spec.
       expect(src.pythonDeps["openai"]).toBe("==1.2.3");
@@ -2369,7 +2364,7 @@ describe("unterminated optional-dependencies subkey array is a parseError", () =
           "dependencies = []",
           "",
           "[project.optional-dependencies]",
-          'agent = [',
+          "agent = [",
           '  "foo==1.0.0"',
           // missing closing `]` before the next section
           "",
@@ -2386,7 +2381,7 @@ describe("unterminated optional-dependencies subkey array is a parseError", () =
 // into `skipped[]` so pyproject dependencies mirror requirements.txt
 // handling of `foo` with no version.
 describe("pyproject name-only dep surfaces in skipped[]", () => {
-  it("records `[\"foo\"]` as skipped, not admitted to deps with empty spec", () => {
+  it('records `["foo"]` as skipped, not admitted to deps with empty spec', () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
       write(

@@ -747,7 +747,9 @@ describe("validate-parity", () => {
       // the directory name on disk. loadManifest (and by extension
       // auditPackage) must wire that guard in — otherwise a copy-paste
       // or rename mistake silently keys into the wrong package.
-      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-slugmismatch-"));
+      const tmp = fs.mkdtempSync(
+        path.join(os.tmpdir(), "parity-slugmismatch-"),
+      );
       try {
         const pkgDir = path.join(tmp, "actual-slug");
         fs.mkdirSync(pkgDir, { recursive: true });
