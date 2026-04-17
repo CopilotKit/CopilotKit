@@ -15,6 +15,7 @@ import {
   SLUG_TO_EXAMPLES,
   FALLBACK_MAP,
   isShowcaseSlug,
+  type ShowcaseSlug,
 } from "../slug-map.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -163,12 +164,31 @@ describe("isShowcaseSlug runtime validator (S-R8-1)", () => {
   });
 
   it("rejects non-string inputs via defensive typeof check", () => {
-    // The function signature is (s: string) but it is used at API
-    // boundaries where TS guarantees may not hold; cover the runtime guard
-    // so a misuse at the seam does not silently admit garbage.
-    expect(isShowcaseSlug(null as unknown as string)).toBe(false);
-    expect(isShowcaseSlug(undefined as unknown as string)).toBe(false);
-    expect(isShowcaseSlug(42 as unknown as string)).toBe(false);
+    // Signature widened from (s: string) to (s: unknown) so the guard
+    // is a live validator at any API boundary. Pass the values directly
+    // — no `as unknown as string` casts needed now that the parameter
+    // type accepts unknown.
+    expect(isShowcaseSlug(null)).toBe(false);
+    expect(isShowcaseSlug(undefined)).toBe(false);
+    expect(isShowcaseSlug(42)).toBe(false);
+    expect(isShowcaseSlug({})).toBe(false);
+    expect(isShowcaseSlug([])).toBe(false);
+    expect(isShowcaseSlug(true)).toBe(false);
+  });
+
+  it("narrows its argument via a user-defined type predicate", () => {
+    // isShowcaseSlug is declared `(s: unknown): s is ShowcaseSlug`, so
+    // when it returns true the compiler narrows the caller's variable to
+    // ShowcaseSlug. This test is primarily a compile-time assertion; a
+    // runtime check backs it up.
+    const candidate: unknown = "ag2";
+    if (isShowcaseSlug(candidate)) {
+      // Must be assignable to ShowcaseSlug without further casts.
+      const s: ShowcaseSlug = candidate;
+      expect(s).toBe("ag2");
+    } else {
+      throw new Error("expected 'ag2' to satisfy isShowcaseSlug");
+    }
   });
 
   it("rejects slugs containing whitespace or path separators", () => {
@@ -188,42 +208,37 @@ describe("isShowcaseSlug runtime validator (S-R8-1)", () => {
   });
 });
 
-describe("freezeSet / freezeMap override descriptors (S-R8-2)", () => {
-  it("BORN_IN_SHOWCASE.add property descriptor is writable:false, configurable:false", () => {
-    // Without writable:false / configurable:false the replacement can be
-    // re-replaced: `Object.defineProperty(set, "add", { value: realAdd })`
-    // would silently restore the mutating method. Lock the descriptor so
-    // any re-defineProperty attempt throws in strict mode.
-    const s = BORN_IN_SHOWCASE as unknown as Set<string>;
-    const desc = Object.getOwnPropertyDescriptor(s, "add");
-    expect(desc).toBeDefined();
-    expect(desc!.writable).toBe(false);
-    expect(desc!.configurable).toBe(false);
-  });
-
-  it("re-defining add on BORN_IN_SHOWCASE throws", () => {
+describe("freezeSet / freezeMap behavioral invariants (R10-6-1)", () => {
+  it("BORN_IN_SHOWCASE rejects re-defining its mutation methods", () => {
+    // Behavioral form of the old descriptor-bit check: the concrete
+    // invariant is that a later caller cannot restore a working `.add`
+    // by re-replacing the property. Assert that any re-defineProperty
+    // attempt throws, rather than inspecting descriptor bits directly —
+    // tests should pin observable behavior, not implementation shape.
     const s = BORN_IN_SHOWCASE as unknown as Set<string>;
     expect(() => {
-      Object.defineProperty(s, "add", {
-        value: (v: string) => s,
-      });
+      Object.defineProperty(s, "add", { value: (_v: string) => s });
+    }).toThrow();
+    expect(() => {
+      Object.defineProperty(s, "delete", { value: (_v: string) => true });
+    }).toThrow();
+    expect(() => {
+      Object.defineProperty(s, "clear", { value: () => undefined });
     }).toThrow();
   });
 
-  it("SLUG_MAP.set property descriptor is writable:false, configurable:false", () => {
-    const m = SLUG_MAP as unknown as Map<string, string>;
-    const desc = Object.getOwnPropertyDescriptor(m, "set");
-    expect(desc).toBeDefined();
-    expect(desc!.writable).toBe(false);
-    expect(desc!.configurable).toBe(false);
-  });
-
-  it("re-defining set on SLUG_MAP throws", () => {
+  it("SLUG_MAP rejects re-defining its mutation methods", () => {
     const m = SLUG_MAP as unknown as Map<string, string>;
     expect(() => {
       Object.defineProperty(m, "set", {
-        value: (k: string, v: string) => m,
+        value: (_k: string, _v: string) => m,
       });
+    }).toThrow();
+    expect(() => {
+      Object.defineProperty(m, "delete", { value: (_k: string) => true });
+    }).toThrow();
+    expect(() => {
+      Object.defineProperty(m, "clear", { value: () => undefined });
     }).toThrow();
   });
 });

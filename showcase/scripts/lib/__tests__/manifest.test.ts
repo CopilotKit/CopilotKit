@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { parseManifest } from "../manifest.js";
+import { parseManifest, createDemoId, type DemoId } from "../manifest.js";
 
 function tmpdir(prefix = "lib-manifest-"): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -212,14 +212,16 @@ describe("parseManifest", () => {
     }
   });
 
-  it("returns {kind:'ok'} when demos is omitted entirely", () => {
-    // `demos` is optional. A manifest without it should parse cleanly.
+  it("returns {kind:'ok'} with an empty demos array when demos is omitted", () => {
+    // `demos` is always set by parseManifest (R10-5-4): empty readonly
+    // array when the manifest omits the field, so callers can iterate
+    // without `?.` chaining. The old optional-undefined shape is gone.
     const f = path.join(root, "manifest.yaml");
     write(f, "slug: mypkg\n");
     const r = parseManifest(f);
     expect(r.kind).toBe("ok");
     if (r.kind === "ok") {
-      expect(r.manifest.demos).toBeUndefined();
+      expect(r.manifest.demos).toEqual([]);
     }
   });
 
@@ -280,6 +282,91 @@ describe("parseManifest", () => {
     }
   });
 
+  it("verifies manifest.slug matches the expected dir slug (M-R10-10)", () => {
+    // parseManifest accepts an optional `dirSlug` parameter so callers
+    // that derive filePath from a slug can detect drift between the
+    // manifest's declared slug and the directory that holds it (copy/
+    // paste error, rename-without-updating). Catch at the parser so
+    // downstream tools don't silently apply the wrong slug.
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: bar-pkg\n");
+    const r = parseManifest(f, "foo-pkg");
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/slug.*mismatch|mismatch.*slug/i);
+      expect(r.error).toContain("foo-pkg");
+      expect(r.error).toContain("bar-pkg");
+    }
+  });
+
+  it("accepts a manifest where the declared slug matches dirSlug", () => {
+    // Positive case for the slug-mismatch check: matching slug and
+    // dirSlug should still return {kind:'ok'}.
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\n");
+    const r = parseManifest(f, "mypkg");
+    expect(r.kind).toBe("ok");
+  });
+
+  it("skips the slug-mismatch check when dirSlug is omitted (backwards-compatible)", () => {
+    // Callers that don't operate against the packages tree (test
+    // fixtures, programmatic invocations with synthetic paths) should
+    // continue to work unchanged when they don't pass dirSlug.
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: whatever\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+  });
+
+  it("returns {kind:'malformed', subkind:'shape'} when a demo's name field is not a string (R10-5-5)", () => {
+    // Prior permissive behavior silently coerced non-string `name` to
+    // undefined. Match the strictness applied to top-level `name`:
+    // present-but-wrong-type is a shape malformed.
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: x\ndemos:\n  - id: foo\n    name: 42\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/demos\[0\]\.name/i);
+    }
+  });
+
+  it("freezes the returned manifest and its demos array (R10-5-3)", () => {
+    // parseManifest must return a frozen Manifest: downstream tools
+    // share the value across buckets and a mutation by one would poison
+    // the rest. Both the outer object and the nested demos array must
+    // be frozen.
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: x\ndemos:\n  - id: foo\n  - id: bar\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(Object.isFrozen(r.manifest)).toBe(true);
+      expect(Object.isFrozen(r.manifest.demos)).toBe(true);
+      expect(() => {
+        (r.manifest as unknown as Record<string, unknown>)["new"] = "bogus";
+      }).toThrow();
+      expect(() => {
+        (r.manifest.demos as unknown as unknown[])[0] = { id: "x" };
+      }).toThrow();
+    }
+  });
+
+  it("sets demos to a frozen empty readonly array when demos is omitted (R10-5-4)", () => {
+    // `demos` is non-optional in the public type: when absent, return an
+    // empty readonly array so consumers can iterate without `?.` chains.
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: x\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(r.manifest.demos).toEqual([]);
+      expect(Object.isFrozen(r.manifest.demos)).toBe(true);
+    }
+  });
+
   it("returns {kind:'unreadable'} when readFileSync throws (e.g. EACCES)", () => {
     // Simulate a permission error via spy. existsSync returns true but
     // readFileSync throws — the parser must surface this as 'unreadable',
@@ -315,6 +402,47 @@ describe("parseManifest", () => {
       }
     } finally {
       spy.mockRestore();
+    }
+  });
+});
+
+describe("createDemoId (R10-5-1)", () => {
+  it("accepts a non-empty string and returns a branded DemoId", () => {
+    const id = createDemoId("foo");
+    expect(id).toBe("foo");
+  });
+
+  it("returns null for the empty string", () => {
+    expect(createDemoId("")).toBeNull();
+  });
+
+  it("accepts unknown input and returns null for non-string values", () => {
+    // Signature widened from (s: string) to (s: unknown) so the dead
+    // typeof check becomes a live guard. Non-string inputs at API
+    // boundaries (yaml.parse results, untyped JSON) return null rather
+    // than silently producing a fake branded id.
+    expect(createDemoId(null)).toBeNull();
+    expect(createDemoId(undefined)).toBeNull();
+    expect(createDemoId(42)).toBeNull();
+    expect(createDemoId({})).toBeNull();
+    expect(createDemoId([])).toBeNull();
+    expect(createDemoId(true)).toBeNull();
+  });
+
+  it("narrows its input via a type predicate (compile-time shape)", () => {
+    // The returned value, when non-null, is both a DemoId AND carries a
+    // TypeScript narrowing that lets callers read it as a string without
+    // further casts. This test is mostly structural — the assertion is
+    // that the code compiles; we still run a basic runtime check.
+    const candidate: unknown = "abc";
+    const id = createDemoId(candidate);
+    if (id !== null) {
+      // Compiler should accept DemoId as assignable to a string-slot.
+      const asString: string = id;
+      expect(asString).toBe("abc");
+      // Also exercise the DemoId type import to ensure the export exists.
+      const branded: DemoId = id;
+      expect(branded).toBe("abc");
     }
   });
 });
