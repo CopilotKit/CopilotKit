@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 const INTEGRATION_SLUG = "ms-agent-dotnet";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 export async function GET() {
   const start = Date.now();
@@ -18,7 +18,7 @@ export async function GET() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         method: "agent/run",
-        params: { agentId: "agentic-chat" },
+        params: { agentId: "agentic_chat" },
         body: {
           threadId: `smoke-${Date.now()}`,
           runId: `smoke-run-${Date.now()}`,
@@ -35,7 +35,7 @@ export async function GET() {
           forwardedProps: {},
         },
       }),
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(50000),
     });
 
     const latency = Date.now() - start;

@@ -43,11 +43,9 @@ export function useMakeStandardInsertionOrEditingFunction(
     generateCopilotResponse: (...args: any[]) => {},
   };
   const { getContextString, copilotApiConfig } = useCopilotContext();
-  const headers = {
-    ...(copilotApiConfig.publicApiKey
-      ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
-      : {}),
-  };
+  const headers = copilotApiConfig.publicApiKey
+    ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
+    : {};
 
   async function runtimeClientResponseToStringStream(
     responsePromise: ReturnType<typeof runtimeClient.generateCopilotResponse>,

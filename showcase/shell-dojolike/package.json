@@ -1,0 +1,30 @@
+{
+  "name": "@copilotkit/showcase-shell-dojolike",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "generate": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts",
+    "dev": "next dev --turbopack --port 3001",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "highlight.js": "^11.11.1",
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-syntax-highlighter": "^15.6.0",
+    "recharts": "^2.15.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-syntax-highlighter": "^15.5.0",
+    "postcss": "^8.5.0",
+    "tailwindcss": "^4.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

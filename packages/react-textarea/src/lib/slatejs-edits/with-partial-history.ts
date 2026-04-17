@@ -49,7 +49,9 @@ export const withPartialHistory = <T extends Editor>(
 
       HistoryEditor.withoutSaving(e, () => {
         Editor.withoutNormalizing(e, () => {
-          const inverseOps = batch.operations.map(Operation.inverse).reverse();
+          const inverseOps = batch.operations
+            .map(Operation.inverse)
+            .toReversed();
 
           for (const op of inverseOps) {
             e.apply(op);

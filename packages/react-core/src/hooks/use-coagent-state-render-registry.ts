@@ -84,7 +84,7 @@ export function useStateRenderRegistry({
         Object.keys(existingClaim.stateSnapshot).length > 0
       ) {
         const snapshotCache = {
-          ...(store[LAST_SNAPSHOTS_BY_RENDER_AND_RUN] ?? {}),
+          ...store[LAST_SNAPSHOTS_BY_RENDER_AND_RUN],
         };
         const cacheKey = `${existingClaim.stateRenderId}::${existingClaim.runId ?? "pending"}`;
         snapshotCache[cacheKey] = existingClaim.stateSnapshot;
@@ -93,7 +93,7 @@ export function useStateRenderRegistry({
         store[LAST_SNAPSHOTS_BY_RENDER_AND_RUN] = snapshotCache;
 
         const messageCache = {
-          ...(store[LAST_SNAPSHOTS_BY_MESSAGE] ?? {}),
+          ...store[LAST_SNAPSHOTS_BY_MESSAGE],
         };
         messageCache[message.id] = {
           snapshot: existingClaim.stateSnapshot,
@@ -189,14 +189,14 @@ export function useStateRenderRegistry({
     if (!claimsRef.current[message.id].locked || snapshotChanged) {
       claimsRef.current[message.id].stateSnapshot = snapshot;
       const snapshotCache = {
-        ...(store[LAST_SNAPSHOTS_BY_RENDER_AND_RUN] ?? {}),
+        ...store[LAST_SNAPSHOTS_BY_RENDER_AND_RUN],
       };
       const cacheKey = `${stateRenderId}::${effectiveRunId}`;
       snapshotCache[cacheKey] = snapshot;
       snapshotCache[`${stateRenderId}::latest`] = snapshot;
       store[LAST_SNAPSHOTS_BY_RENDER_AND_RUN] = snapshotCache;
       const messageCache = {
-        ...(store[LAST_SNAPSHOTS_BY_MESSAGE] ?? {}),
+        ...store[LAST_SNAPSHOTS_BY_MESSAGE],
       };
       messageCache[message.id] = { snapshot, runId: effectiveRunId };
       store[LAST_SNAPSHOTS_BY_MESSAGE] = messageCache;
@@ -209,14 +209,14 @@ export function useStateRenderRegistry({
     if (!existingSnapshot) {
       claimsRef.current[message.id].stateSnapshot = snapshotForClaim;
       const snapshotCache = {
-        ...(store[LAST_SNAPSHOTS_BY_RENDER_AND_RUN] ?? {}),
+        ...store[LAST_SNAPSHOTS_BY_RENDER_AND_RUN],
       };
       const cacheKey = `${stateRenderId}::${effectiveRunId}`;
       snapshotCache[cacheKey] = snapshotForClaim;
       snapshotCache[`${stateRenderId}::latest`] = snapshotForClaim;
       store[LAST_SNAPSHOTS_BY_RENDER_AND_RUN] = snapshotCache;
       const messageCache = {
-        ...(store[LAST_SNAPSHOTS_BY_MESSAGE] ?? {}),
+        ...store[LAST_SNAPSHOTS_BY_MESSAGE],
       };
       messageCache[message.id] = {
         snapshot: snapshotForClaim,

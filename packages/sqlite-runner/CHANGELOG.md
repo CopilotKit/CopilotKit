@@ -1,5 +1,19 @@
 # @copilotkit/sqlite-runner
 
+## 1.55.2
+
+### Patch Changes
+
+- Updated dependencies [5f4ca65]
+  - @copilotkit/runtime@1.55.2
+
+## 1.55.2-next.1
+
+### Patch Changes
+
+- Updated dependencies [5f4ca65]
+  - @copilotkit/runtime@1.55.2-next.1
+
 ## 1.55.2-next.0
 
 ### Patch Changes

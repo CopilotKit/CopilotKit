@@ -13,7 +13,7 @@
     "---Built-in Agent---",
     "server-tools", "mcp-servers", "model-selection", "advanced-configuration",
     "---Backend---",
-    "copilot-runtime", "ag-ui",
+    "copilot-runtime", "custom-agent", "ag-ui",
     "---Premium Features---",
     "...premium",
     "---Tutorials---",

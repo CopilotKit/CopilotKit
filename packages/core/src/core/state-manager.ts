@@ -115,6 +115,12 @@ export class StateManager {
         runFinished = true;
         this.handleRunFinished(agent, effectiveInput(input), state);
       },
+      // A run error terminates the run — treat identically to finished for cleanup
+      onRunErrorEvent: ({ input, state }) => {
+        if (revoked) return;
+        runFinished = true;
+        this.handleRunFinished(agent, effectiveInput(input), state);
+      },
       onStateSnapshotEvent: ({ event, input, state }) => {
         if (revoked) return;
         this.handleStateSnapshot(agent, event, effectiveInput(input), state);

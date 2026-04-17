@@ -1,0 +1,167 @@
+name: "Showcase: Aimock E2E Tests"
+
+on:
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: "Package slug to test (e.g. langgraph-python), or 'all'"
+        required: false
+        default: "langgraph-python"
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  aimock-e2e:
+    # Only run on PR comments matching /test-aimock, or manual dispatch
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.issue.pull_request && contains(github.event.comment.body, '/test-aimock'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # For issue_comment events, we need to resolve the PR HEAD SHA ourselves
+      # because the event payload doesn't include pull_request.head.sha
+      - name: Resolve PR HEAD ref
+        id: pr-ref
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            core.setOutput('ref', pr.head.sha);
+            core.setOutput('pr_number', pr.number);
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr-ref.outputs.ref || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10.13.1"
+
+      - name: Determine slug
+        id: slug
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "slug=${{ github.event.inputs.slug }}" >> "$GITHUB_OUTPUT"
+          else
+            COMMENT="${{ github.event.comment.body }}"
+            SLUG=$(echo "$COMMENT" | grep -oP '/test-aimock\s+\K\S+' || echo "langgraph-python")
+            echo "slug=$SLUG" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Detect package type
+        id: pkg-type
+        run: |
+          SLUG="${{ steps.slug.outputs.slug }}"
+          PKG_DIR="showcase/packages/$SLUG"
+          if [ -f "$PKG_DIR/requirements.txt" ] || [ -f "$PKG_DIR/pyproject.toml" ]; then
+            echo "has_python=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_python=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Start aimock
+        run: |
+          npm install -g @copilotkit/aimock@latest
+          npx aimock --port 4010 --host 127.0.0.1 --fixtures showcase/aimock/feature-parity.json --validate-on-load &
+          # Wait for aimock to be ready
+          for i in $(seq 1 20); do
+            curl -sf http://localhost:4010/ > /dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -sf http://localhost:4010/ || { echo "aimock failed to start"; exit 1; }
+
+      - name: Setup Python agent
+        if: steps.pkg-type.outputs.has_python == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Start Python agent
+        if: steps.pkg-type.outputs.has_python == 'true'
+        run: |
+          SLUG="${{ steps.slug.outputs.slug }}"
+          cd "showcase/packages/$SLUG"
+          pip install -r requirements.txt
+          OPENAI_BASE_URL=http://localhost:4010/v1 OPENAI_API_KEY=test-key python -m uvicorn agent:app --host 127.0.0.1 --port 8000 &
+          # Wait for agent to be ready
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000/health > /dev/null 2>&1 && break
+            curl -sf http://localhost:8000/ > /dev/null 2>&1 && break
+            sleep 2
+          done
+
+      - name: Install package dependencies
+        run: |
+          SLUG="${{ steps.slug.outputs.slug }}"
+          cd "showcase/packages/$SLUG"
+          pnpm install
+
+      - name: Start dev server
+        run: |
+          SLUG="${{ steps.slug.outputs.slug }}"
+          cd "showcase/packages/$SLUG"
+          OPENAI_BASE_URL=http://localhost:4010/v1 \
+          OPENAI_API_KEY=test-key \
+          AGENT_URL=http://localhost:8000 \
+          pnpm dev &
+          # Wait for dev server
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000 > /dev/null 2>&1 && break
+            sleep 2
+          done
+          curl -sf http://localhost:3000 || { echo "Dev server failed to start"; exit 1; }
+
+      - name: Install Playwright
+        run: |
+          cd "showcase/packages/${{ steps.slug.outputs.slug }}"
+          npx playwright install chromium --with-deps
+
+      - name: Run Playwright tests
+        run: |
+          SLUG="${{ steps.slug.outputs.slug }}"
+          cd "showcase/packages/$SLUG"
+          BASE_URL=http://localhost:3000 npx playwright test --reporter=list
+        env:
+          CI: "true"
+          OPENAI_BASE_URL: http://localhost:4010/v1
+          OPENAI_API_KEY: test-key
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ steps.slug.outputs.slug }}
+          path: showcase/packages/${{ steps.slug.outputs.slug }}/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Post result to PR
+        if: github.event_name == 'issue_comment' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ job.status }}' === 'success' ? '✅' : '❌';
+            const slug = '${{ steps.slug.outputs.slug }}';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `${status} **Aimock E2E Tests** (\`${slug}\`): ${{ job.status }}\n\n[View run](${runUrl})`
+            });

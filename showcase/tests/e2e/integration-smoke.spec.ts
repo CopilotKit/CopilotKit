@@ -16,6 +16,7 @@
 
 import { test, expect } from "@playwright/test";
 import { checkHealth, checkAgentEndpoint, sendChatMessage } from "./helpers";
+import registry from "../../shell/src/data/registry.json";
 
 // ---------------------------------------------------------------------------
 // Integration registry — source of truth: showcase/shell/src/data/registry.json
@@ -200,10 +201,10 @@ const INTEGRATIONS: Integration[] = [
 ];
 
 // Only test deployed integrations unless SMOKE_ALL=true
-const DEPLOYED_ONLY = process.env.SMOKE_ALL !== "true";
-const activeIntegrations = DEPLOYED_ONLY
-  ? INTEGRATIONS.filter((i) => i.deployed)
-  : INTEGRATIONS;
+const SMOKE_ALL = process.env.SMOKE_ALL === "true";
+const activeIntegrations = SMOKE_ALL
+  ? INTEGRATIONS
+  : INTEGRATIONS.filter((i) => i.deployed);
 
 // ---------------------------------------------------------------------------
 // Level 1: Health checks (@health) — fast, API-only
@@ -211,7 +212,7 @@ const activeIntegrations = DEPLOYED_ONLY
 
 test.describe("Level 1: Backend Health @health", () => {
   for (const integration of activeIntegrations) {
-    test(`[health] ${integration.slug} backend is healthy @health`, async ({
+    test(`[L1: health] ${integration.slug} backend is healthy @health`, async ({
       request,
     }) => {
       const result = await checkHealth(request, integration.backendUrl);
@@ -229,7 +230,7 @@ test.describe("Level 1: Backend Health @health", () => {
 
 test.describe("Level 2: Agent Endpoint @agent", () => {
   for (const integration of activeIntegrations) {
-    test(`[agent] ${integration.slug} agent endpoint responds (not 404) @agent`, async ({
+    test(`[L2: agent] ${integration.slug} agent endpoint responds (not 404) @agent`, async ({
       request,
     }) => {
       const result = await checkAgentEndpoint(request, integration.backendUrl);
@@ -251,7 +252,7 @@ test.describe("Level 2: Agent Endpoint @agent", () => {
 
 test.describe("Level 3: Round-trip Chat @chat", () => {
   for (const integration of activeIntegrations) {
-    test(`[chat] ${integration.slug} responds to a message @chat`, async ({
+    test(`[L3: chat] ${integration.slug} responds to a message @chat`, async ({
       page,
     }) => {
       test.slow(); // Allow extra time for cold starts
@@ -285,7 +286,7 @@ test.describe("Level 4: Tool Rendering @tools", () => {
   );
 
   for (const integration of toolIntegrations) {
-    test(`[tools] ${integration.slug} renders tool results @tools`, async ({
+    test(`[L4: tools] ${integration.slug} renders tool results @tools`, async ({
       page,
     }) => {
       test.slow();
@@ -315,6 +316,121 @@ test.describe("Level 4: Tool Rendering @tools", () => {
         hasWeatherContent,
         `${integration.slug} response doesn't contain weather info: "${result.responseText}"`,
       ).toBe(true);
+
+      // Check for rendered components (not just text) — catches the query_data
+      // loop bug where the agent returns text but never renders a chart/card.
+      const responseArea = page
+        .locator('[data-testid="copilot-assistant-message"]')
+        .last();
+      const checks = await Promise.all([
+        responseArea
+          .locator(".recharts-wrapper")
+          .first()
+          .isVisible()
+          .catch(() => false),
+        responseArea
+          .locator("svg circle[stroke-dasharray]")
+          .first()
+          .isVisible()
+          .catch(() => false),
+        responseArea
+          .locator('[data-testid="weather-card"]')
+          .first()
+          .isVisible()
+          .catch(() => false),
+        responseArea
+          .locator("canvas")
+          .first()
+          .isVisible()
+          .catch(() => false),
+      ]);
+      const hasRenderedComponent = checks.some(Boolean);
+
+      // Warning for now — upgrade to hard failure after data-testid convention
+      // is established across all integrations
+      if (!hasRenderedComponent) {
+        console.warn(
+          `\u26a0\ufe0f ${integration.slug}: Tool response contains text but no rendered chart/weather component. This would have missed the query_data loop bug.`,
+        );
+      }
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Deployed Starters: L1-L3 smoke tests (@starter-health, @starter-agent, @starter-chat)
+// ---------------------------------------------------------------------------
+
+interface Starter {
+  slug: string;
+  name: string;
+  demoUrl: string;
+}
+
+type RegistryIntegration = (typeof registry)["integrations"][number];
+
+const STARTER_SLUG = process.env.STARTER_SLUG;
+
+const STARTERS: Starter[] = registry.integrations
+  .filter(
+    (
+      i,
+    ): i is RegistryIntegration & {
+      starter: NonNullable<RegistryIntegration["starter"]>;
+    } =>
+      Boolean(i.starter?.demo_url) &&
+      (!STARTER_SLUG || i.slug === STARTER_SLUG) &&
+      (SMOKE_ALL || i.starter?.deployed === true),
+  )
+  .map((i) => ({
+    slug: i.slug,
+    name: i.starter.name,
+    demoUrl: i.starter.demo_url,
+  }));
+
+test.describe("Deployed Starters", () => {
+  for (const starter of STARTERS) {
+    // Single test per starter so L2/L3 are naturally skipped when L1 fails.
+    // (fullyParallel: true in playwright.config.ts overrides describe.configure serial mode)
+    test(`[Starter] ${starter.slug} deployed smoke @starter-health @starter-agent @starter-chat`, async ({
+      request,
+      page,
+    }) => {
+      // L1: Health — 3 retries with 15s delay to handle Railway cold starts
+      const health = await checkHealth(
+        request,
+        starter.demoUrl,
+        undefined,
+        3,
+        15_000,
+      );
+      expect(
+        health.ok,
+        `${starter.slug} starter health check failed: status=${health.status} path=${health.path} body=${health.body.slice(0, 500)}`,
+      ).toBe(true);
+
+      // L2: Agent endpoint reachability
+      const agent = await checkAgentEndpoint(request, starter.demoUrl);
+      expect(
+        agent.status,
+        `${starter.slug} starter agent endpoint returned 404. Status=${agent.status} body=${agent.body.slice(0, 500)}`,
+      ).not.toBe(404);
+      expect(
+        agent.ok,
+        `${starter.slug} starter agent endpoint is unreachable: status=${agent.status} body=${agent.body.slice(0, 500)}`,
+      ).toBe(true);
+
+      // L3: Round-trip chat
+      test.slow(); // Allow extra time for cold starts
+      const chat = await sendChatMessage(page, starter.demoUrl, "Hello", "/");
+      expect(
+        chat.gotResponse,
+        `${starter.slug} starter did not produce an assistant response.`,
+      ).toBe(true);
+      expect(
+        chat.responseText.length,
+        `${starter.slug} starter assistant response was empty`,
+      ).toBeGreaterThan(0);
     });
   }
 });

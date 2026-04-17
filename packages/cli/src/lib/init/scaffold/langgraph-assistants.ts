@@ -25,7 +25,7 @@ export async function getLangGraphAgents(url: string, langSmithApiKey: string) {
           "X-Api-Key": langSmithApiKey,
         },
         body: JSON.stringify({
-          limit: 10,
+          limit: 100,
           offset: 0,
         }),
       },
@@ -33,6 +33,8 @@ export async function getLangGraphAgents(url: string, langSmithApiKey: string) {
 
     return (await response.json()) as LangGraphAgent[];
   } catch (error) {
-    throw new Error(`Failed to get LangGraph agents: ${error}`);
+    throw new Error(`Failed to get LangGraph agents: ${error}`, {
+      cause: error,
+    });
   }
 }

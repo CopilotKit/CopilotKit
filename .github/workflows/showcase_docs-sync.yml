@@ -15,7 +15,7 @@ concurrency:
 jobs:
   sync-docs:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: write
       pull-requests: write
@@ -28,8 +28,6 @@ jobs:
           fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
@@ -56,64 +54,233 @@ jobs:
             echo "No changes to sync"
             echo "action=none" >> "$GITHUB_OUTPUT"
           elif [ $EXIT_CODE -eq 0 ]; then
-            echo "Clean transforms only — will auto-push"
+            echo "Clean transforms only"
             echo "action=auto_push" >> "$GITHUB_OUTPUT"
           elif [ $EXIT_CODE -eq 3 ]; then
-            echo "Has review items — will auto-push clean transforms + open PR for review items"
+            echo "Has review items + clean transforms"
             echo "action=push_and_pr" >> "$GITHUB_OUTPUT"
+            if [ -f review-items.txt ]; then
+              REVIEW_ITEMS=$(cat review-items.txt)
+            else
+              echo "::warning::review-items.txt not found despite exit code 3 — sync script may have a bug"
+              REVIEW_ITEMS="(review-items.txt not found — check sync script output)"
+            fi
+            # Persist review items to a file for downstream jq-based payload building
+            # (avoids unsafe string interpolation of untrusted filenames into JSON).
+            printf '%s' "$REVIEW_ITEMS" > review-items-raw.txt
+            echo "review_items_file=review-items-raw.txt" >> "$GITHUB_OUTPUT"
           else
             echo "Sync failed with exit code $EXIT_CODE"
             exit 1
           fi
 
-      # Auto-push clean transforms directly to the showcase branch
-      - name: Auto-push clean transforms
+      # Generate a token from copilotkit-devops-bot (bypass actor on branch protection)
+      - name: Generate bot token
+        id: bot-token
         if: steps.sync.outputs.action == 'auto_push' || steps.sync.outputs.action == 'push_and_pr'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: 1108748
+          private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
 
-          git add showcase/shell/src/content/ showcase/shell/.docs-sync-sha
-          git commit -m "Auto-sync docs from main ($(date +%Y-%m-%d))" || echo "Nothing to commit"
-          git push origin "$SHOWCASE_BRANCH"
-
-      # Open PR only for files needing human review
-      - name: Create PR for review items
-        if: steps.sync.outputs.action == 'push_and_pr'
+      # Create PR and auto-merge via devops bot (bypasses branch protection)
+      - name: Create and merge PR for clean transforms
+        id: push
+        if: steps.sync.outputs.action == 'auto_push' || steps.sync.outputs.action == 'push_and_pr'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.bot-token.outputs.token }}
         run: |
+          git config user.name "copilotkit-devops-bot[bot]"
+          git config user.email "copilotkit-devops-bot[bot]@users.noreply.github.com"
+
           SHORT_SHA=$(git rev-parse --short origin/main)
-          BRANCH="docs-sync-review/${SHORT_SHA}"
+          BRANCH="docs-sync/auto/${SHORT_SHA}-$(date +%s)"
 
           git checkout -b "$BRANCH"
+          git add showcase/shell/src/content/ showcase/shell/.docs-sync-sha
+          CHANGED=$(git diff --cached --name-only | wc -l | tr -d ' ')
 
-          # The review-items.txt was written by the sync script
-          REVIEW_ITEMS=$(cat review-items.txt 2>/dev/null || echo "See sync output for details")
+          if [ "$CHANGED" = "0" ]; then
+            echo "Nothing to commit — no PR will be opened (deliberate)"
+            echo "files_changed=0" >> "$GITHUB_OUTPUT"
+            # Explicit signal: no PR opened, and this is the intended outcome
+            # (not an error path). Downstream alerts key on this.
+            echo "pr_opened=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
-          gh pr create \
-            --title "Docs sync: review needed (${SHORT_SHA})" \
-            --body "$(cat <<EOF
-          ## Docs Sync — Manual Review Needed
+          git commit --no-verify -m "chore: auto-sync docs from main ($(date +%Y-%m-%d))"
 
-          Clean transforms were auto-pushed to \`$SHOWCASE_BRANCH\`. These files need manual attention:
+          # Override git credential to use bot token (checkout configured GITHUB_TOKEN)
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git push origin "$BRANCH"
 
-          \`\`\`
-          ${REVIEW_ITEMS}
-          \`\`\`
-
-          <details>
-          <summary>Full sync output</summary>
-
-          \`\`\`
-          $(cat sync-output.txt)
-          \`\`\`
-
-          </details>
-
-          ---
-          Generated by Showcase Docs Sync
-          EOF
-          )" \
+          PR_URL=$(gh pr create \
+            --title "chore: auto-sync docs from main (${SHORT_SHA})" \
+            --body "Automated docs sync. Clean transforms only." \
             --base "$SHOWCASE_BRANCH" \
-            --head "$BRANCH"
+            --head "$BRANCH")
+
+          echo "Created PR: $PR_URL"
+          echo "files_changed=${CHANGED}" >> "$GITHUB_OUTPUT"
+          echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
+          # Only set pr_opened=true after the PR URL is captured. Any earlier
+          # failure (push, gh pr create) will leave this unset so downstream
+          # alerts fall through to failure() instead of a falsely-benign path.
+          echo "pr_opened=true" >> "$GITHUB_OUTPUT"
+
+          gh pr merge "$PR_URL" --merge
+
+      # Build all Slack payloads via jq into tmpfiles. This guarantees any
+      # review-item filename containing ", \, or control chars is safely
+      # JSON-escaped (never string-interpolated into a JSON literal).
+      - name: Build Slack payloads
+        id: payloads
+        if: always()
+        env:
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PR_URL: ${{ steps.push.outputs.pr_url }}
+          FILES_CHANGED: ${{ steps.push.outputs.files_changed }}
+          REVIEW_ITEMS_FILE: ${{ steps.sync.outputs.review_items_file }}
+          SYNC_OUTCOME: ${{ steps.sync.outcome }}
+          BOT_TOKEN_OUTCOME: ${{ steps.bot-token.outcome }}
+          PUSH_OUTCOME: ${{ steps.push.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p slack-payloads
+
+          # auto-sync success (PR merged)
+          jq -n \
+            --arg pr_url "${PR_URL:-}" \
+            --arg files "${FILES_CHANGED:-?}" \
+            --arg run_url "$RUN_URL" \
+            '{text: (":arrows_counterclockwise: *Docs sync*: auto-merged " + $files + " file(s)\n" + $pr_url + "\n<" + $run_url + "|View run>")}' \
+            > slack-payloads/auto-sync.json
+
+          # merge failed (PR exists but gh pr merge failed)
+          jq -n \
+            --arg pr_url "${PR_URL:-}" \
+            --arg run_url "$RUN_URL" \
+            '{text: (":warning: *Docs sync*: PR created but auto-merge FAILED — needs manual merge\n" + $pr_url + "\n<" + $run_url + "|View run>")}' \
+            > slack-payloads/merge-failed.json
+
+          # review-needed payloads: read items from file, let jq handle escaping
+          REVIEW_ITEMS=""
+          if [ -n "${REVIEW_ITEMS_FILE:-}" ] && [ -f "$REVIEW_ITEMS_FILE" ]; then
+            REVIEW_ITEMS=$(cat "$REVIEW_ITEMS_FILE")
+          fi
+
+          jq -n \
+            --arg items "$REVIEW_ITEMS" \
+            --arg pr_url "${PR_URL:-}" \
+            --arg run_url "$RUN_URL" \
+            '{text: (":warning: *Docs sync*: files needing manual review\n```" + $items + "```\nReview: " + $pr_url + "\n<" + $run_url + "|View run>")}' \
+            > slack-payloads/review-with-pr.json
+
+          jq -n \
+            --arg items "$REVIEW_ITEMS" \
+            --arg run_url "$RUN_URL" \
+            '{text: (":warning: *Docs sync*: files needing manual review (no auto-PR opened)\n```" + $items + "```\n<" + $run_url + "|View run>")}' \
+            > slack-payloads/review-no-pr.json
+
+          # failure alert
+          FAILED_STEP="unknown"
+          if [ "${SYNC_OUTCOME:-}" = "failure" ]; then
+            FAILED_STEP="sync-docs script"
+          elif [ "${BOT_TOKEN_OUTCOME:-}" = "failure" ]; then
+            FAILED_STEP="bot token generation (check DEVOPS_BOT_PRIVATE_KEY secret)"
+          elif [ "${PUSH_OUTCOME:-}" = "failure" ]; then
+            FAILED_STEP="push/PR creation"
+          fi
+          jq -n \
+            --arg failed_step "$FAILED_STEP" \
+            --arg run_url "$RUN_URL" \
+            '{text: (":x: *Docs sync*: workflow failed\n*Failed step:* " + $failed_step + " | <" + $run_url + "|View run>")}' \
+            > slack-payloads/failure.json
+
+      - name: Notify Slack (auto-sync)
+        id: notify-auto-sync
+        if: always() && steps.push.outcome == 'success' && steps.push.outputs.files_changed != '0'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload-file-path: slack-payloads/auto-sync.json
+
+      - name: Notify Slack (merge failed)
+        id: notify-merge-failed
+        if: failure() && steps.push.outputs.pr_opened == 'true'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload-file-path: slack-payloads/merge-failed.json
+
+      # Review items = files the sync script flagged but did NOT write to disk
+      # (local modifications, files deleted on main). A PR was opened for the
+      # clean-transform portion — link it so reviewers can click through.
+      # Gated on pr_opened == 'true' so it only fires when we actually have a
+      # PR URL (not on any error path that leaves pr_url empty).
+      - name: Notify Slack (review needed, with PR)
+        id: notify-review-with-pr
+        if: always() && steps.sync.outputs.action == 'push_and_pr' && steps.push.outputs.pr_opened == 'true'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload-file-path: slack-payloads/review-with-pr.json
+
+      # Review items but the clean-transform portion was empty so no PR was
+      # opened. Gated on pr_opened == 'false' (deliberate no-PR path) — not
+      # empty pr_url, which would also match error paths.
+      - name: Notify Slack (review needed, no PR)
+        id: notify-review-no-pr
+        if: always() && steps.sync.outputs.action == 'push_and_pr' && steps.push.outputs.pr_opened == 'false'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload-file-path: slack-payloads/review-no-pr.json
+
+      - name: Notify Slack (failure)
+        id: notify-failure
+        if: failure() && steps.push.outputs.pr_opened != 'true'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload-file-path: slack-payloads/failure.json
+
+      # Unconditional fallback: if any notify-* step above failed (webhook 5xx,
+      # rate limit, malformed payload), fire a plain-text alert so we never
+      # silently lose a review-needed or failure notification. Uses curl
+      # directly so it doesn't share failure modes with the slackapi action.
+      # Payload is inlined (not read from slack-payloads/) so this fallback
+      # has no dependency on the Build Slack payloads step succeeding — if
+      # that step broke (jq missing, mkdir failed, etc), every notify-* step
+      # would fail AND the fallback could not read its file. RUN_URL is
+      # constructed from GitHub-controlled env vars only (no user input), so
+      # direct string interpolation into the JSON literal is safe — the
+      # values cannot contain " or \.
+      - name: Notify Slack (alert machinery failed)
+        if: >-
+          always() && (
+            steps.notify-auto-sync.outcome == 'failure' ||
+            steps.notify-merge-failed.outcome == 'failure' ||
+            steps.notify-review-with-pr.outcome == 'failure' ||
+            steps.notify-review-no-pr.outcome == 'failure' ||
+            steps.notify-failure.outcome == 'failure'
+          )
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+        run: |
+          set -eu
+          if [ -z "${SLACK_WEBHOOK:-}" ]; then
+            echo "::warning::SLACK_WEBHOOK_OSS_ALERTS not set — cannot post fallback alert"
+            exit 0
+          fi
+          RUN_URL="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          curl -sS -X POST \
+            -H "Content-Type: application/json" \
+            --data "{\"text\": \":rotating_light: *Docs sync*: review/alert machinery failed — check Actions UI ${RUN_URL}\"}" \
+            "$SLACK_WEBHOOK" || echo "::warning::fallback Slack post also failed"

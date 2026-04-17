@@ -16,7 +16,9 @@ const serviceAdapter = new ExperimentalEmptyAdapter();
 const runtime = new CopilotRuntime({
   agents: {
     // Our FastAPI endpoint URL
-    agno_agent: new HttpAgent({ url: "http://localhost:8000/agui" }),
+    agno_agent: new HttpAgent({
+      url: (process.env.AGENT_URL || "http://localhost:8000") + "/agui",
+    }),
   },
 });
 

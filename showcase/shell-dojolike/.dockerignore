@@ -1,0 +1,8 @@
+**/node_modules
+.next
+__pycache__
+*.pyc
+.git
+shared_frontend/
+shared_python/
+shared_typescript/

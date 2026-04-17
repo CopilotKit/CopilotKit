@@ -4,10 +4,14 @@ on:
   pull_request:
     paths:
       - "showcase/**"
+      - "examples/integrations/**/fixtures/**"
+      - "scripts/doc-tests/fixtures/**"
   push:
     branches: [main]
     paths:
       - "showcase/**"
+      - "examples/integrations/**/fixtures/**"
+      - "scripts/doc-tests/fixtures/**"
 
 concurrency:
   group: showcase-validate-${{ github.ref }}
@@ -26,7 +30,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -53,3 +57,12 @@ jobs:
       - name: Build showcase shell
         working-directory: showcase/shell
         run: npm run build
+
+      - name: Notify Slack (failure)
+        if: failure() && github.event_name == 'push'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":x: *Showcase validate*: failed | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }

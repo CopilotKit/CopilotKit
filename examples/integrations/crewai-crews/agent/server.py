@@ -8,6 +8,13 @@ from src.latest_ai_development.crew import LatestAiDevelopment
 load_dotenv()
 
 app = FastAPI()
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 add_crewai_crew_fastapi_endpoint(app, LatestAiDevelopment(), "/")
 
 def main():

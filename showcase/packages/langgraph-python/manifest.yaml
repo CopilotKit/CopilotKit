@@ -16,6 +16,8 @@ deployed: true
 sort_order: 10
 generative_ui:
   - constrained-explicit
+  - a2ui-fixed-schema
+  - a2ui-dynamic-schema
 interaction_modalities:
   - sidebar
   - embedded
@@ -24,11 +26,12 @@ managed_platform:
   name: LangGraph Platform
   url: https://langsmith.com
 starter:
-  path: examples/integrations/langgraph-python
-  name: Collaborative Todo App
-  description: Full-featured todo app with agent-driven state management, generative UI, and MCP integration
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-python
-  demo_url: https://showcase-starter-langgraph-python-production.up.railway.app
+  path: showcase/starters/langgraph-python
+  name: Sales Dashboard
+  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langgraph-python
+  demo_url: https://showcase-starter-langgraph-python-production-3f57.up.railway.app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-python my-copilotkit-app
 features:
   - agentic-chat
   - hitl

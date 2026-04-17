@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { z } from "zod";
 import type { AbstractAgent, RunAgentResult } from "@ag-ui/client";
+import { useCopilotKit } from "../providers/CopilotKitProvider";
 
 // Protocol version supported
 const PROTOCOL_VERSION = "2025-06-18";
@@ -252,6 +253,7 @@ interface MCPAppsActivityRendererProps {
  */
 export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
   function MCPAppsActivityRenderer({ content, agent }) {
+    const { copilotkit } = useCopilotKit();
     const containerRef = useRef<HTMLDivElement>(null);
     const iframeRef = useRef<HTMLIFrameElement | null>(null);
     const [iframeReady, setIframeReady] = useState(false);
@@ -522,7 +524,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                 }
 
                 case "ui/message": {
-                  // Add message to CopilotKit chat
+                  // Add message to CopilotKit chat and optionally invoke agent
                   const currentAgent = agentRef.current;
 
                   if (!currentAgent) {
@@ -537,7 +539,11 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                     const params = msg.params as {
                       role?: string;
                       content?: Array<{ type: string; text?: string }>;
+                      followUp?: boolean;
                     };
+
+                    const role =
+                      (params.role as "user" | "assistant") || "user";
 
                     // Extract text content from the message
                     const textContent =
@@ -549,11 +555,35 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                     if (textContent) {
                       currentAgent.addMessage({
                         id: crypto.randomUUID(),
-                        role: (params.role as "user" | "assistant") || "user",
+                        role,
                         content: textContent,
                       });
                     }
+
+                    // Acknowledge the message immediately — don't block on agent run
                     sendResponse(msg.id, { isError: false });
+
+                    // Determine whether to invoke the agent after adding message.
+                    // followUp: true  → always invoke agent
+                    // followUp: false → display-only, skip agent
+                    // not specified   → invoke for user messages, skip for assistant
+                    const shouldFollowUp = params.followUp ?? role === "user";
+
+                    if (shouldFollowUp && textContent) {
+                      // Use copilotkit.runAgent to go through RunHandler — provides
+                      // frontend tools, context, tool execution, and abort support.
+                      // Fire-and-forget: errors are handled by RunHandler's error emission.
+                      mcpAppsRequestQueue
+                        .enqueue(currentAgent, () =>
+                          copilotkit.runAgent({ agent: currentAgent }),
+                        )
+                        .catch((err) =>
+                          console.error(
+                            "[MCPAppsRenderer] ui/message agent run failed:",
+                            err,
+                          ),
+                        );
+                    }
                   } catch (err) {
                     console.error("[MCPAppsRenderer] ui/message error:", err);
                     sendResponse(msg.id, { isError: true });

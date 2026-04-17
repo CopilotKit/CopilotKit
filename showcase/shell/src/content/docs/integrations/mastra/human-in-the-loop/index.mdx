@@ -1,0 +1,51 @@
+---
+title: Human-in-the-Loop
+description: Learn how to implement Human-in-the-Loop (HITL) using Mastra Agents.
+icon: lucide/User
+---
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+
+## What is Human-in-the-Loop (HITL)?
+
+Human-in-the-loop (HITL) allows agents to request human input or approval during execution, making AI systems more reliable and trustworthy. This pattern is essential when building AI applications that need to handle complex decisions or actions that require human judgment.
+
+## When should I use this?
+
+HITL combines the efficiency of AI with human judgment, creating a system that's both powerful and reliable. The key advantages include:
+
+- **Quality Control**: Human oversight at critical decision points
+- **Edge Cases**: Graceful handling of low-confidence situations
+- **Expert Input**: Leverage human expertise when needed
+- **Reliability**: More robust system for real-world use
+
+## How can I use this?
+
+Mastra supports two approaches to HITL, each suited for different use cases.
+
+<CTACards
+  columns={2}
+  cards={[
+    {
+      iconKey: "circlePause",
+      title: "Interrupt-based",
+      description:
+        "Use Mastra's native suspend/resume to pause tool execution and collect user input via useInterrupt.",
+      href: "/mastra/human-in-the-loop/interrupt-flow",
+    },
+    {
+      iconKey: "share2",
+      title: "Tool-based",
+      description:
+        "Register frontend tools with useHumanInTheLoop that render UI and wait for user responses.",
+      href: "/mastra/human-in-the-loop/tool-based",
+    },
+  ]}
+/>

@@ -1,4 +1,4 @@
-"""Google ADK Proverbs Agent with shared state."""
+"""Google ADK Sales Pipeline Agent with shared tools."""
 
 from __future__ import annotations
 
@@ -12,56 +12,163 @@ from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.adk.tools import ToolContext
 from google.genai import types
-from pydantic import BaseModel, Field
+
+import sys
+import os
+
+sys.path.insert(
+    0,
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"),
+)
+from tools import (
+    get_weather_impl,
+    query_data_impl,
+    manage_sales_todos_impl,
+    get_sales_todos_impl,
+    schedule_meeting_impl,
+    search_flights_impl,
+    build_a2ui_operations_from_tool_call,
+)
 
 load_dotenv()
 
 
-class ProverbsState(BaseModel):
-    """List of the proverbs being written."""
-
-    proverbs: list[str] = Field(
-        default_factory=list,
-        description="The list of already written proverbs",
-    )
+def get_weather(tool_context: ToolContext, location: str) -> dict:
+    """Get the weather for a given location. Ensure location is fully spelled out."""
+    return get_weather_impl(location)
 
 
-def set_proverbs(tool_context: ToolContext, new_proverbs: list[str]) -> Dict[str, str]:
+def query_data(tool_context: ToolContext, query: str) -> list:
+    """Query financial database for chart data. Returns data suitable for pie or bar charts."""
+    return query_data_impl(query)
+
+
+def manage_sales_todos(tool_context: ToolContext, todos: list[dict]) -> dict:
     """
-    Set the list of proverbs using the provided new list.
+    Manage the sales pipeline. Pass the complete list of sales todos.
 
     Args:
-        "new_proverbs": {
+        "todos": {
             "type": "array",
-            "items": {"type": "string"},
-            "description": "The new list of proverbs to maintain",
+            "items": {"type": "object"},
+            "description": "The complete list of sales todos to maintain",
         }
 
     Returns:
-        Dict indicating success status and message
+        Dict indicating success status
     """
+    result = manage_sales_todos_impl(todos)
+    tool_context.state["todos"] = result
+    return {"status": "updated", "count": len(result)}
+
+
+def get_sales_todos(tool_context: ToolContext) -> list:
+    """Get the current list of sales pipeline todos."""
+    return get_sales_todos_impl(tool_context.state.get("todos"))
+
+
+def schedule_meeting(tool_context: ToolContext, reason: str, duration_minutes: int = 30) -> dict:
+    """Schedule a meeting. The user will be asked to pick a time via the UI."""
+    return schedule_meeting_impl(reason, duration_minutes)
+
+
+def search_flights(tool_context: ToolContext, flights: list[dict]) -> dict:
+    """Search for flights and display the results as rich cards. Return exactly 2 flights.
+
+    Each flight must have: airline, airlineLogo, flightNumber, origin, destination,
+    date (short readable format like "Tue, Mar 18" -- use near-future dates),
+    departureTime, arrivalTime, duration (e.g. "4h 25m"),
+    status (e.g. "On Time" or "Delayed"),
+    statusColor (hex color for status dot),
+    price (e.g. "$289"), and currency (e.g. "USD").
+
+    For airlineLogo use Google favicon API:
+    https://www.google.com/s2/favicons?domain={airline_domain}&sz=128
+    """
+    return search_flights_impl(flights)
+
+
+def generate_a2ui(tool_context: ToolContext) -> dict:
+    """Generate dynamic A2UI components based on the conversation.
+
+    A secondary LLM designs the UI schema and data. The result is
+    returned as an a2ui_operations container for the middleware to detect.
+    """
+    from openai import OpenAI
+
+    # Extract copilotkit context entries from session state
+    copilotkit_state = tool_context.state.get("copilotkit", {})
+    context_entries = copilotkit_state.get("context", []) if isinstance(copilotkit_state, dict) else []
+    context_text = "\n\n".join(
+        entry.get("value", "")
+        for entry in context_entries
+        if isinstance(entry, dict) and entry.get("value")
+    )
+
+    # Extract conversation messages from session history
+    conversation_messages: list[dict] = []
     try:
-        new_state = {"proverbs": new_proverbs}
-        tool_context.state["proverbs"] = new_state["proverbs"]
-        return {"status": "success", "message": "Proverbs updated successfully"}
+        session = tool_context._invocation_context.session
+        if session and hasattr(session, "events"):
+            for event in session.events:
+                if hasattr(event, "content") and event.content and hasattr(event.content, "parts"):
+                    role_str = getattr(event.content, "role", "")
+                    if role_str in ("user", "model"):
+                        text_parts = []
+                        for part in event.content.parts:
+                            if hasattr(part, "text") and part.text:
+                                text_parts.append(part.text)
+                        if text_parts:
+                            oai_role = "assistant" if role_str == "model" else "user"
+                            conversation_messages.append({"role": oai_role, "content": "".join(text_parts)})
+    except Exception:
+        pass
 
-    except Exception as e:
-        return {"status": "error", "message": f"Error updating proverbs: {str(e)}"}
+    client = OpenAI()
+    tool_schema = {
+        "type": "function",
+        "function": {
+            "name": "render_a2ui",
+            "description": "Render a dynamic A2UI v0.9 surface.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "surfaceId": {"type": "string"},
+                    "catalogId": {"type": "string"},
+                    "components": {"type": "array", "items": {"type": "object"}},
+                    "data": {"type": "object"},
+                },
+                "required": ["surfaceId", "catalogId", "components"],
+            },
+        },
+    }
 
+    llm_messages: list[dict] = [
+        {"role": "system", "content": context_text or "Generate a useful dashboard UI."},
+    ]
+    llm_messages.extend(conversation_messages)
 
-def get_weather(tool_context: ToolContext, location: str) -> Dict[str, str]:
-    """Get the weather for a given location. Ensure location is fully spelled out."""
-    return {"status": "success", "message": f"The weather in {location} is sunny."}
+    response = client.chat.completions.create(
+        model="gpt-4.1",
+        messages=llm_messages,
+        tools=[tool_schema],
+        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+    )
+
+    if not response.choices[0].message.tool_calls:
+        return {"error": "LLM did not call render_a2ui"}
+
+    tool_call = response.choices[0].message.tool_calls[0]
+    args = json.loads(tool_call.function.arguments)
+    return build_a2ui_operations_from_tool_call(args)
 
 
 def on_before_agent(callback_context: CallbackContext):
     """
-    Initialize proverbs state if it doesn't exist.
+    Initialize sales todos state if it doesn't exist.
     """
-
-    if "proverbs" not in callback_context.state:
-        default_proverbs = []
-        callback_context.state["proverbs"] = default_proverbs
+    if "todos" not in callback_context.state:
+        callback_context.state["todos"] = []
 
     return None
 
@@ -69,24 +176,24 @@ def on_before_agent(callback_context: CallbackContext):
 def before_model_modifier(
     callback_context: CallbackContext, llm_request: LlmRequest
 ) -> Optional[LlmResponse]:
-    """Inspects/modifies the LLM request to include current proverbs state."""
+    """Inspects/modifies the LLM request to include current sales pipeline state."""
     agent_name = callback_context.agent_name
-    if agent_name == "ProverbsAgent":
-        proverbs_json = "No proverbs yet"
+    if agent_name == "SalesPipelineAgent":
+        todos_json = "No sales todos yet"
         if (
-            "proverbs" in callback_context.state
-            and callback_context.state["proverbs"] is not None
+            "todos" in callback_context.state
+            and callback_context.state["todos"] is not None
         ):
             try:
-                proverbs_json = json.dumps(callback_context.state["proverbs"], indent=2)
+                todos_json = json.dumps(callback_context.state["todos"], indent=2)
             except Exception as e:
-                proverbs_json = f"Error serializing proverbs: {str(e)}"
+                todos_json = f"Error serializing todos: {str(e)}"
         original_instruction = llm_request.config.system_instruction or types.Content(
             role="system", parts=[]
         )
-        prefix = f"""You are a helpful assistant for maintaining a list of proverbs.
-        This is the current state of the list of proverbs: {proverbs_json}
-        When you modify the list of proverbs (whether to add, remove, or modify one or more proverbs), use the set_proverbs tool to update the list."""
+        prefix = f"""You are a helpful sales assistant for managing a sales pipeline.
+        This is the current state of the sales todos: {todos_json}
+        When you modify the sales todos (whether to add, remove, or modify one or more todos), use the manage_sales_todos tool to update the list."""
         if not isinstance(original_instruction, types.Content):
             original_instruction = types.Content(
                 role="system", parts=[types.Part(text=str(original_instruction))]
@@ -107,7 +214,7 @@ def simple_after_model_modifier(
 ) -> Optional[LlmResponse]:
     """Stop the consecutive tool calling of the agent."""
     agent_name = callback_context.agent_name
-    if agent_name == "ProverbsAgent":
+    if agent_name == "SalesPipelineAgent":
         if llm_response.content and llm_response.content.parts:
             if (
                 llm_response.content.role == "model"
@@ -122,37 +229,35 @@ def simple_after_model_modifier(
     return None
 
 
-proverbs_agent = LlmAgent(
-    name="ProverbsAgent",
+sales_pipeline_agent = LlmAgent(
+    name="SalesPipelineAgent",
     model="gemini-2.5-flash",
     instruction="""
-        When a user asks you to do anything regarding proverbs, you MUST use the set_proverbs tool.
+        You are a helpful sales assistant that helps manage a sales pipeline and answer questions.
 
-        IMPORTANT RULES ABOUT PROVERBS AND THE SET_PROVERBS TOOL:
-        1. Always use the set_proverbs tool for any proverbs-related requests
-        2. Always pass the COMPLETE LIST of proverbs to the set_proverbs tool. If the list had 5 proverbs and you removed one, you must pass the complete list of 4 remaining proverbs.
-        3. You can use existing proverbs if one is relevant to the user's request, but you can also create new proverbs as required.
-        4. Be creative and helpful in generating complete, practical proverbs
-        5. After using the tool, provide a brief summary of what you created, removed, or changed.
+        SALES TODOS:
+        When a user asks you to do anything regarding sales todos or the pipeline, use the manage_sales_todos tool.
+        Always pass the COMPLETE LIST of todos to the manage_sales_todos tool.
+        After using the tool, provide a brief summary of what you created, removed, or changed.
 
-        Examples of when to use the set_proverbs tool:
-        - "Add a proverb about soap" -> Use tool with an array containing the existing list of proverbs with the new proverb about soap at the end.
-        - "Remove the first proverb" -> Use tool with an array containing all of the existing proverbs except the first one.
-        - "Change any proverbs about cats to mention that they have 18 lives" -> If no proverbs mention cats, do not use the tool. If one or more proverbs do mention cats, change them to mention cats having 18 lives, and use the tool with an array of all of the proverbs, including ones that were changed and ones that did not require changes.
+        WEATHER:
+        Only call the get_weather tool if the user asks about the weather.
+        If the user does not specify a location, use "Everywhere ever in the whole wide world".
 
-        Do your best to ensure proverbs plausibly make sense.
+        QUERY DATA:
+        Use the query_data tool when the user asks for financial data, charts, or analytics.
+        This returns data suitable for pie charts and bar charts.
 
+        GET SALES TODOS:
+        Use the get_sales_todos tool to retrieve the current list of sales todos before discussing them.
 
-        IMPORTANT RULES ABOUT WEATHER AND THE GET_WEATHER TOOL:
-        1. Only call the get_weather tool if the user asks you for the weather in a given location.
-        2. If the user does not specify a location, you can use the location "Everywhere ever in the whole wide world"
+        SEARCH FLIGHTS:
+        Use the search_flights tool to search for flights and display rich A2UI cards.
 
-        Examples of when to use the get_weather tool:
-        - "What's the weather today in Tokyo?" -> Use the tool with the location "Tokyo"
-        - "What's the weather right now" -> Use the location "Everywhere ever in the whole wide world"
-        - "Is it raining in London?" -> Use the tool with the location "London"
+        GENERATE A2UI:
+        Use the generate_a2ui tool to generate dynamic A2UI dashboards from conversation context.
         """,
-    tools=[set_proverbs, get_weather],
+    tools=[get_weather, query_data, manage_sales_todos, get_sales_todos, schedule_meeting, search_flights, generate_a2ui],
     before_agent_callback=on_before_agent,
     before_model_callback=before_model_modifier,
     after_model_callback=simple_after_model_modifier,

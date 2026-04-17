@@ -5,6 +5,13 @@ from fastapi import FastAPI
 from src.agent import agentic_chat_router
 
 app = FastAPI()
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 app.include_router(agentic_chat_router)
 
 

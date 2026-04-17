@@ -47,29 +47,38 @@ CRITICAL: Do NOT use "/name" (absolute) inside templates — use "name" (relativ
 The container's path ("/items") uses a leading slash (absolute), but all
 components INSIDE the template use paths WITHOUT leading slash.
 
-DATA MODEL:
-The "data" key in the tool args is a plain JSON object that initializes the surface
-data model. Components bound to paths (e.g. "value": { "path": "/form/name" })
-read from and write to this data model. Examples:
-  For forms:  "data": { "form": { "name": "Alice", "email": "" } }
-  For lists:  "data": { "items": [{"name": "Product A"}, {"name": "Product B"}] }
-  For mixed:  "data": { "form": { "query": "" }, "results": [...] }
+COMPONENT VALUES — DEFAULT RULE:
+Use inline literal values for ALL component properties. Pass strings, numbers,
+arrays, and objects directly on the component. Do NOT use { "path": "..." }
+objects unless the property's schema explicitly allows it (see exception below).
+CRITICAL: USING { "path": "..." } ON A PROPERTY THAT DOES NOT DECLARE PATH
+SUPPORT IN ITS SCHEMA WILL CAUSE A RUNTIME CRASH AND BREAK THE ENTIRE UI.
+ALWAYS CHECK THE COMPONENT SCHEMA FIRST — IF THE PROPERTY ONLY ACCEPTS A
+PLAIN TYPE, YOU MUST USE A LITERAL VALUE.
+VERY IMPORTANT: THE APPLICATION WILL BREAK IF YOU DO NOT FOLLOW THIS RULE!
 
-FORMS AND TWO-WAY DATA BINDING:
-To create editable forms, bind input components to data model paths using { "path": "..." }.
-The client automatically writes user input back to the data model at the bound path.
-CRITICAL: Using a literal value (e.g. "value": "") makes the field READ-ONLY.
-You MUST use { "path": "..." } to make inputs editable.
+For example, a chart's "data" must always be an inline array:
+  "data": [{"label": "Jan", "value": 100}, {"label": "Feb", "value": 200}]
+A metric's "value" must always be an inline string:
+  "value": "$1,200"
 
-Input components use "value" as the binding property:
-  "value": { "path": "/form/fieldName" }
+PATH BINDING EXCEPTION — SCHEMA-DRIVEN:
+A few properties accept { "path": "/some/path" } as an alternative to a literal
+value. You can identify these in the Available Components schema: the property
+will list BOTH a literal type AND an object-with-path option. If a property only
+shows a single type (string, number, array, etc.), it does NOT support path
+binding — use a literal value only.
 
-To retrieve form values when a button is clicked, include "context" with path references
-in the button's action. Paths are resolved to their current values at click time:
-  "action": { "event": { "name": "submit", "context": { "userName": { "path": "/form/name" } } } }
+Path binding is typically used for editable form inputs so the client can write
+user input back to the data model. When building forms:
+- Bind input "value" to a data model path: "value": { "path": "/form/name" }
+- Pre-fill via the "data" tool argument: "data": { "form": { "name": "Alice" } }
+- Capture values on submit via button action context:
+    "action": { "event": { "name": "submit", "context": { "name": { "path": "/form/name" } } } }
 
-To pre-fill form values, pass initial data via the "data" tool argument:
-  "data": { "form": { "name": "Markus" } }`;
+REPEATING CONTENT uses a structural children format (not the same as value binding):
+  children: { componentId: "card-id", path: "/items" }
+Components inside templates use RELATIVE paths (no leading slash): { "path": "name" }.`;
 
 /**
  * Design guidelines — visual design rules, component hierarchy tips,
@@ -94,8 +103,8 @@ Design principles:
     "action": { "event": { "name": "myAction", "context": { "key": "value" } } }
   The "event" key holds an OBJECT with "name" (required) and "context" (optional).
   Do NOT use a flat format like {"event": "name"} — "event" must be an object.
-- For forms: every input MUST use path binding on the "value" property
-  (e.g. "value": { "path": "/form/name" }) to be editable. The submit button's
-  action context MUST reference the same paths to capture the user's input.
+- For forms: check the component schema — if an input's "value" property
+  supports path binding, use it for editable fields. The submit button's
+  action context should reference the same paths to capture user input.
 
 Use the SAME surfaceId as the main surface. Match action names to button action event names.`;

@@ -1,22 +1,29 @@
 """
 Tools for the showcase LangGraph agent.
+
+Wraps shared implementations with LangGraph @tool decorators.
 """
 
+import sys
+import os
+
+sys.path.insert(
+    0,
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"),
+)
+from tools import get_weather_impl, query_data_impl, schedule_meeting_impl
+
 from langchain_core.tools import tool
-import random
 
 
 @tool
 def query_data(query: str):
     """
     Query the database. Takes natural language.
-    Always call before showing a chart or graph.
+    Call ONCE to get data, then pass the result to a chart frontend tool (pieChart or barChart).
+    Do not call repeatedly -- one call returns the full dataset.
     """
-    categories = ["Engineering", "Marketing", "Sales", "Support", "Design"]
-    return [
-        {"category": cat, "value": random.randint(10000, 100000), "quarter": "Q1 2026"}
-        for cat in categories
-    ]
+    return query_data_impl(query)
 
 
 @tool
@@ -24,12 +31,10 @@ def get_weather(location: str):
     """
     Get the current weather for a location.
     """
-    conditions = ["Clear skies", "Partly cloudy", "Overcast", "Light rain", "Sunny"]
-    return {
-        "city": location,
-        "temperature": random.randint(10, 35),
-        "humidity": random.randint(30, 90),
-        "wind_speed": random.randint(5, 25),
-        "feels_like": random.randint(8, 37),
-        "conditions": random.choice(conditions),
-    }
+    return get_weather_impl(location)
+
+
+@tool
+def schedule_meeting(reason: str, duration_minutes: int = 30):
+    """Schedule a meeting. The user will be asked to pick a time via the UI."""
+    return schedule_meeting_impl(reason, duration_minutes)

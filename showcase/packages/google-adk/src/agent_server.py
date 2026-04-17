@@ -11,7 +11,7 @@ from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from agents.main import proverbs_agent
+from agents.main import sales_pipeline_agent
 
 load_dotenv()
 
@@ -25,7 +25,7 @@ app.add_middleware(
 )
 
 adk_agent = ADKAgent(
-    adk_agent=proverbs_agent,
+    adk_agent=sales_pipeline_agent,
     user_id="demo_user",
     session_timeout_seconds=3600,
     use_in_memory_services=True,

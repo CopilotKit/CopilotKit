@@ -112,12 +112,6 @@
       "description": "Long-running agent tasks with generated UI"
     },
     {
-      "id": "open-gen-ui",
-      "name": "Open Generative UI",
-      "category": "generative-ui",
-      "description": "Fully agent-generated HTML/component rendering"
-    },
-    {
       "id": "tool-rendering",
       "name": "Tool Rendering",
       "category": "agent-capabilities",
@@ -292,12 +286,6 @@
       "description": "Hashbrown-style generative UI built on json-render"
     },
     {
-      "id": "byoc-opengenui",
-      "name": "BYOC OpenGenUI",
-      "category": "byoc",
-      "description": "Hashbrown-style generative UI built on Open GenUI framework"
-    },
-    {
       "id": "byoc-tambo",
       "name": "BYOC Tambo",
       "category": "byoc",
@@ -332,6 +320,30 @@
       "name": "vNext Chat",
       "category": "platform",
       "description": "Experimental next-generation chat using CopilotKit vNext runtime"
+    },
+    {
+      "id": "shared-state",
+      "name": "Shared State",
+      "category": "agent-state",
+      "description": "Bidirectional state sharing between agent and UI"
+    },
+    {
+      "id": "controlled-gen-ui",
+      "name": "Controlled Generative UI",
+      "category": "generative-ui",
+      "description": "Controlled generative UI rendering from agent"
+    },
+    {
+      "id": "a2ui",
+      "name": "A2UI",
+      "category": "a2ui",
+      "description": "Agent-to-UI protocol rendering"
+    },
+    {
+      "id": "frontend-tools",
+      "name": "Frontend Tools",
+      "category": "interactivity",
+      "description": "Frontend tool execution triggered by the agent"
     }
   ]
 }

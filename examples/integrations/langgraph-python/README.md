@@ -8,25 +8,24 @@ https://github.com/user-attachments/assets/47761912-d46a-4fb3-b9bd-cb41ddd02e34
 
 - Node.js 18+
 - Python 3.8+
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
 - Any of the following package managers:
-  - [pnpm](https://pnpm.io/installation) (recommended)
-  - npm
-  - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/#mac-stable)
+  - npm (default)
+  - [pnpm](https://pnpm.io/installation)
+  - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/)
   - [bun](https://bun.sh/)
 - OpenAI API Key (for the LangGraph agent)
-
-> **Note:** This repository ignores lock files (package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb) to avoid conflicts between different package managers. Each developer should generate their own lock file using their preferred package manager. After that, make sure to delete it from the .gitignore.
 
 ## Getting Started
 
 1. Install dependencies using your preferred package manager:
 
 ```bash
-# Using pnpm (recommended)
-pnpm install
-
-# Using npm
+# Using npm (default)
 npm install
+
+# Using pnpm
+pnpm install
 
 # Using yarn
 yarn install
@@ -34,6 +33,8 @@ yarn install
 # Using bun
 bun install
 ```
+
+This will also install the Python agent dependencies via `uv sync`.
 
 2. Set up your environment variables:
 
@@ -50,11 +51,11 @@ OPENAI_API_KEY=your-openai-api-key-here
 3. Start the development server:
 
 ```bash
+# Using npm (default)
+npm run dev
+
 # Using pnpm
 pnpm dev
-
-# Using npm
-npm run dev
 
 # Using yarn
 yarn dev
@@ -75,8 +76,33 @@ The following scripts can also be run using your preferred package manager:
 - `dev:agent` - Starts only the LangGraph agent server
 - `build` - Builds the Next.js application for production
 - `start` - Starts the production server
-- `lint` - Runs ESLint for code linting
 - `install:agent` - Installs Python dependencies for the agent
+
+## Project Structure
+
+```
+├── src/                         # Next.js frontend source
+│   ├── app/
+│   │   ├── page.tsx             # Main page
+│   │   └── api/copilotkit/      # CopilotKit API route
+│   ├── components/
+│   │   ├── example-canvas/      # Todo list UI
+│   │   ├── example-layout/      # Layout: chat + canvas side-by-side
+│   │   └── generative-ui/       # Example generative UI components
+│   └── hooks/
+├── agent/                       # LangGraph Python agent
+│   ├── main.py                  # Agent entry point
+│   └── src/
+│       ├── todos.py             # Todo tools and state schema
+│       └── query.py             # Example data query tool
+├── scripts/                     # Agent setup and run scripts
+│   ├── setup-agent.sh / .bat
+│   └── run-agent.sh / .bat
+├── public/                      # Static assets
+├── next.config.ts
+├── tsconfig.json
+└── package.json
+```
 
 ## A2UI — Agent-to-User Interface
 
@@ -101,15 +127,15 @@ Both patterns use the same catalog on the frontend — the difference is where t
 
 ### Key files
 
-| Purpose                              | Path                                                        |
-| ------------------------------------ | ----------------------------------------------------------- |
-| Catalog definitions (Zod schemas)    | `apps/app/src/app/declarative-generative-ui/definitions.ts` |
-| Catalog renderers (React components) | `apps/app/src/app/declarative-generative-ui/renderers.tsx`  |
-| Catalog registration                 | `apps/app/src/app/layout.tsx`                               |
-| Fixed-schema agent tool              | `apps/agent/src/a2ui_fixed_schema.py`                       |
-| Dynamic-schema agent tool            | `apps/agent/src/a2ui_dynamic_schema.py`                     |
-| Flight schema JSON                   | `apps/agent/src/a2ui/schemas/flight_schema.json`            |
-| Showcase config                      | `showcase.json`                                             |
+| Purpose                              | Path                                               |
+| ------------------------------------ | -------------------------------------------------- |
+| Catalog definitions (Zod schemas)    | `src/app/declarative-generative-ui/definitions.ts` |
+| Catalog renderers (React components) | `src/app/declarative-generative-ui/renderers.tsx`  |
+| Catalog registration                 | `src/app/layout.tsx`                               |
+| Fixed-schema agent tool              | `agent/src/a2ui_fixed_schema.py`                   |
+| Dynamic-schema agent tool            | `agent/src/a2ui_dynamic_schema.py`                 |
+| Flight schema JSON                   | `agent/src/a2ui/schemas/flight_schema.json`        |
+| Showcase config                      | `showcase.json`                                    |
 
 ### Adding a custom component
 
@@ -136,7 +162,7 @@ Both patterns use the same catalog on the frontend — the difference is where t
 
 ### Adding a new fixed-schema tool
 
-1. Create a JSON schema file in `apps/agent/src/a2ui/schemas/` describing the component tree.
+1. Create a JSON schema file in `agent/src/a2ui/schemas/` describing the component tree.
 2. Create a Python tool that loads the schema with `a2ui.load_schema()` and returns `a2ui.render(operations=[...])` with your data. See `a2ui_fixed_schema.py` for the pattern.
 
 ### Showcase mode
@@ -167,7 +193,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 If you see "I'm having trouble connecting to my tools", make sure:
 
-1. The LangGraph agent is running on port 8000
+1. The LangGraph agent is running on port 8123
 2. Your OpenAI API key is set correctly
 3. Both servers started successfully
 
@@ -176,5 +202,5 @@ If you see "I'm having trouble connecting to my tools", make sure:
 If you encounter Python import errors:
 
 ```bash
-npm install:agent
+npm run install:agent
 ```

@@ -389,6 +389,7 @@ export class IntelligenceAgent extends AbstractAgent {
         }
         throw new Error(
           `REST ${mode} request failed: ${error instanceof Error ? error.message : String(error)}`,
+          { cause: error },
         );
       }
     });
@@ -435,6 +436,7 @@ export class IntelligenceAgent extends AbstractAgent {
       } catch (error) {
         throw new Error(
           `REST connect request failed: ${error instanceof Error ? error.message : String(error)}`,
+          { cause: error },
         );
       }
     });
@@ -507,7 +509,7 @@ export class IntelligenceAgent extends AbstractAgent {
         url: this.config.url,
         options: {
           params: {
-            ...(this.config.socketParams ?? {}),
+            ...this.config.socketParams,
             join_token: credentials.joinToken,
           },
           reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),

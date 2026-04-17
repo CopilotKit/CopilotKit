@@ -19,6 +19,10 @@ on:
         default: "main"
         type: string
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   node:
     name: "runtime / node"

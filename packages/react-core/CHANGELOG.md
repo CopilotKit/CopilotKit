@@ -1,5 +1,28 @@
 # ui
 
+## 1.55.2
+
+### Patch Changes
+
+- 22a7f98: fix: preserve assistant text when multiple tool calls fire in one turn (CPK-7154)
+- Updated dependencies [62c6042]
+  - @copilotkit/a2ui-renderer@1.55.2
+  - @copilotkit/core@1.55.2
+  - @copilotkit/runtime-client-gql@1.55.2
+  - @copilotkit/shared@1.55.2
+  - @copilotkit/web-inspector@1.55.2
+
+## 1.55.2-next.1
+
+### Patch Changes
+
+- 22a7f98: fix: preserve assistant text when multiple tool calls fire in one turn (CPK-7154)
+  - @copilotkit/a2ui-renderer@1.55.2-next.1
+  - @copilotkit/core@1.55.2-next.1
+  - @copilotkit/runtime-client-gql@1.55.2-next.1
+  - @copilotkit/shared@1.55.2-next.1
+  - @copilotkit/web-inspector@1.55.2-next.1
+
 ## 1.55.2-next.0
 
 ### Patch Changes

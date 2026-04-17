@@ -2,10 +2,10 @@ import { useState } from "react";
 import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 
-type AgentType = "tanstack" | "builtin";
+type AgentType = "tanstack" | "aisdk";
 
 export default function Index() {
-  const [agentType, setAgentType] = useState<AgentType>("builtin");
+  const [agentType, setAgentType] = useState<AgentType>("tanstack");
 
   return (
     <CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole="auto">
@@ -13,14 +13,14 @@ export default function Index() {
         <div className="flex items-center gap-3 px-4 py-2 border-b bg-white">
           <span className="text-sm font-medium text-gray-600">Agent:</span>
           <button
-            onClick={() => setAgentType("builtin")}
+            onClick={() => setAgentType("aisdk")}
             className={`px-3 py-1 text-sm rounded-md transition-colors ${
-              agentType === "builtin"
+              agentType === "aisdk"
                 ? "bg-black text-white"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
-            BuiltInAgent
+            AI SDK
           </button>
           <button
             onClick={() => setAgentType("tanstack")}
@@ -40,11 +40,7 @@ export default function Index() {
             className="h-full w-full"
             attachments={{ enabled: true }}
             onError={(event) => {
-              console.error(
-                "[CopilotChat] Error:",
-                event.code,
-                event.error.message,
-              );
+              console.error("[CopilotChat] Error:", event);
             }}
           />
         </div>

@@ -14,9 +14,9 @@
   },
   "dependencies": {
     "@ag-ui/crewai": "^0.0.2",
-    "@copilotkit/react-core": "1.9.3",
-    "@copilotkit/react-ui": "1.9.3",
-    "@copilotkit/runtime": "1.9.3",
+    "@copilotkit/react-core": "1.55.2",
+    "@copilotkit/react-ui": "1.55.2",
+    "@copilotkit/runtime": "1.55.2",
     "next": "^15.3.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

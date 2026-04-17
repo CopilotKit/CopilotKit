@@ -10,6 +10,12 @@ from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 _ = load_dotenv()
 app = FastAPI()
 
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 add_langgraph_fastapi_endpoint(
     app=app,
     agent=LangGraphAGUIAgent(

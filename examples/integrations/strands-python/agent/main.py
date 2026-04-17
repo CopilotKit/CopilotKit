@@ -155,6 +155,12 @@ agui_agent = StrandsAgent(
 agent_path = os.getenv("AGENT_PATH", "/")
 app = create_strands_app(agui_agent, agent_path)
 
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 if __name__ == "__main__":
     import uvicorn
 

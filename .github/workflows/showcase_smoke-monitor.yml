@@ -8,8 +8,12 @@ on:
 jobs:
   smoke-check:
     name: Smoke Check
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      packages: read
+      actions: write
     steps:
       - name: Restore state from cache
         id: cache-restore
@@ -110,7 +114,8 @@ jobs:
                 ERROR_DESC="connection failed"
               fi
 
-              ALERTS="${ALERTS}:red_circle: *${SLUG}* — attempt: ${NEW_FAIL_COUNT}, error: ${ERROR_DESC}\n"
+              SVC_URL="${URLS[$SLUG]}"
+              ALERTS="${ALERTS}:red_circle: *${SLUG}* — attempt: ${NEW_FAIL_COUNT}, error: ${ERROR_DESC} (<${SVC_URL}/api/smoke|smoke> · <${SVC_URL}/api/health|health>)\n"
 
               # Escalation at 4 consecutive failures (1 hour at 15-min intervals)
               if [ "$NEW_FAIL_COUNT" -eq 4 ]; then
@@ -138,20 +143,15 @@ jobs:
             # Write alerts to a file to avoid escaping issues
             printf "%b" "$ALERTS" > alerts.txt
             echo "" >> alerts.txt
-            echo "<${RUN_URL}|View workflow run>" >> alerts.txt
+            echo "<https://showcase.copilotkit.ai|Showcase> · <${RUN_URL}|Workflow run>" >> alerts.txt
           else
             echo "has_alerts=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Save state to cache
-        uses: actions/cache/save@v4
-        with:
-          path: smoke-state.json
-          key: smoke-monitor-state-${{ github.run_id }}
-
       - name: Build Slack payload
         if: steps.smoke.outputs.has_alerts == 'true'
-        run: jq -n --rawfile text alerts.txt '{"text": $text}' > slack-payload.json
+        run: |
+          jq -n --rawfile text alerts.txt '{"text": $text}' > slack-payload.json
 
       - name: Post to Slack
         if: steps.smoke.outputs.has_alerts == 'true'
@@ -160,3 +160,209 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload-file-path: slack-payload.json
+
+      - name: Check image drift
+        id: image_drift
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Skip if the latest main commit is <20 min old (deploy is probably still building)
+          COMMIT_DATE=$(gh api "/repos/${{ github.repository }}/commits/main" --jq '.commit.committer.date' 2>/dev/null) || true
+          if [ -n "$COMMIT_DATE" ]; then
+            COMMIT_TS=$(date -d "$COMMIT_DATE" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$COMMIT_DATE" +%s 2>/dev/null) || true
+            NOW_TS=$(date +%s)
+            if [ -z "$COMMIT_TS" ]; then COMMIT_TS=$NOW_TS; fi
+            AGE_MIN=$(( (NOW_TS - COMMIT_TS) / 60 ))
+            echo "Latest main commit is ${AGE_MIN}m old"
+            if [ "$AGE_MIN" -lt 20 ]; then
+              echo "Skipping drift check — deploy likely still in progress"
+              echo "has_stale=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          STALE=""
+          STALE_LIST=""
+          SERVICES=(
+            shell langgraph-python langgraph-typescript langgraph-fastapi
+            mastra crewai-crews pydantic-ai google-adk ag2 agno llamaindex
+            strands ms-agent-python ms-agent-dotnet claude-sdk-python
+            claude-sdk-typescript langroid spring-ai aimock
+          )
+          # Compare against the last commits that touched showcase-related paths,
+          # NOT main HEAD. Deploys only trigger on showcase/ and examples/integrations/
+          # changes, so non-showcase commits shouldn't make images appear stale.
+          SHOWCASE_SHA=$(gh api "repos/${{ github.repository }}/commits?sha=main&path=showcase&per_page=1" --jq '.[0].sha // empty') || {
+            echo "::warning::Failed to fetch showcase/ commit SHA"
+            SHOWCASE_SHA=""
+          }
+          EXAMPLES_SHA=$(gh api "repos/${{ github.repository }}/commits?sha=main&path=examples/integrations&per_page=1" --jq '.[0].sha // empty') || {
+            echo "::warning::Failed to fetch examples/integrations/ commit SHA"
+            EXAMPLES_SHA=""
+          }
+          echo "Last showcase/ SHA: ${SHOWCASE_SHA:0:8}, Last examples/integrations/ SHA: ${EXAMPLES_SHA:0:8}"
+
+          if [ -z "$SHOWCASE_SHA" ] && [ -z "$EXAMPLES_SHA" ]; then
+            echo "::warning::Could not resolve any path-specific SHAs — skipping drift check"
+            echo "has_stale=false" >> "$GITHUB_OUTPUT"
+          else
+
+          for SVC in "${SERVICES[@]}"; do
+            PKG="showcase-${SVC}"
+            # Get tags for the latest version via GitHub Packages API
+            TAGS=$(gh api "/orgs/copilotkit/packages/container/${PKG}/versions?per_page=1" \
+              --jq '.[0].metadata.container.tags | join(" ")' 2>/dev/null) || true
+
+            if [ -z "$TAGS" ]; then
+              continue  # No package versions — new service, not yet built
+            fi
+
+            # Image is up to date if it matches EITHER the last showcase/ or
+            # examples/integrations/ commit (deploy triggers on both paths)
+            UP_TO_DATE=false
+            if [ -n "$SHOWCASE_SHA" ] && echo "$TAGS" | grep -q "$SHOWCASE_SHA"; then
+              UP_TO_DATE=true
+            fi
+            if [ -n "$EXAMPLES_SHA" ] && echo "$TAGS" | grep -q "$EXAMPLES_SHA"; then
+              UP_TO_DATE=true
+            fi
+            if [ "$UP_TO_DATE" = true ]; then
+              continue
+            fi
+
+            echo "  ${SVC}: stale (tags: ${TAGS:0:60})"
+            STALE="${STALE}:warning: *${SVC}* — image stale\n"
+            STALE_LIST="${STALE_LIST} ${SVC}"
+          done
+
+          # Compare against previous drift state to avoid alerting repeatedly
+          PREV_STALE=$(jq -r '.image_drift_services // ""' smoke-state.json 2>/dev/null) || true
+          SORTED_STALE=$(echo "$STALE_LIST" | tr ' ' '\n' | sort | tr '\n' ' ' | xargs)
+
+          if [ -n "$STALE_LIST" ]; then
+            echo "Image drift detected:${STALE_LIST}"
+            echo "stale_services=${STALE_LIST}" >> "$GITHUB_OUTPUT"
+            printf "%b" "$STALE" > image-drift.txt
+
+            if [ "$SORTED_STALE" != "$PREV_STALE" ]; then
+              echo "Stale set changed (was: '${PREV_STALE}', now: '${SORTED_STALE}') — alerting"
+              echo "has_stale=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "Same stale set as last run — suppressing alert"
+              echo "has_stale=false" >> "$GITHUB_OUTPUT"
+            fi
+
+            # Persist current stale set
+            STATE=$(cat smoke-state.json)
+            echo "$STATE" | jq --arg ds "$SORTED_STALE" '. + {"image_drift_services": $ds}' > smoke-state.json
+          else
+            echo "All images up to date"
+            echo "has_stale=false" >> "$GITHUB_OUTPUT"
+            # Clear drift state
+            STATE=$(cat smoke-state.json)
+            echo "$STATE" | jq 'del(.image_drift_services)' > smoke-state.json
+          fi
+
+          fi  # end SHA guard
+
+      - name: Trigger rebuild for stale services
+        id: rebuild
+        if: steps.image_drift.outputs.has_stale == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FAILED=""
+          FAILED_COUNT=0
+          : > rebuild-failures.txt
+          COUNT=0
+          for SVC in ${{ steps.image_drift.outputs.stale_services }}; do
+            echo "Triggering rebuild for ${SVC}..."
+            RC=0
+            ERR_OUTPUT=$(gh workflow run showcase_deploy.yml --repo "${{ github.repository }}" -f service="${SVC}" 2>&1) || RC=$?
+            if [ "$RC" -eq 0 ]; then
+              COUNT=$((COUNT + 1))
+            else
+              echo "::warning::Failed to trigger rebuild for ${SVC}: ${ERR_OUTPUT}"
+              # Collapse whitespace/newlines in the error so it fits on one Slack line
+              REASON=$(echo "$ERR_OUTPUT" | tr '\n' ' ' | sed 's/  */ /g' | sed 's/^ *//;s/ *$//')
+              if [ -z "$REASON" ]; then
+                REASON="unknown error"
+              fi
+              FAILED="${FAILED} ${SVC}"
+              FAILED_COUNT=$((FAILED_COUNT + 1))
+              printf ":x: *%s* — %s\n" "$SVC" "$REASON" >> rebuild-failures.txt
+            fi
+          done
+          echo "triggered_count=${COUNT}" >> "$GITHUB_OUTPUT"
+          echo "failed_count=${FAILED_COUNT}" >> "$GITHUB_OUTPUT"
+          if [ "$FAILED_COUNT" -gt 0 ]; then
+            # Surface failures via annotation and fail the job so the run shows
+            # RED in GitHub Actions UI / `gh run list`. Slack dedup is handled
+            # by guarding the failure() notifier with
+            # `steps.image_drift.outputs.has_stale != 'true'`, so this exit 1
+            # does NOT cause double-posting — the detailed drift-alert step
+            # covers the drift path.
+            echo "::error::Failed to trigger rebuilds for:${FAILED}"
+            echo "has_failures=true" >> "$GITHUB_OUTPUT"
+            exit 1
+          else
+            echo "has_failures=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Alert image drift to Slack
+        if: always() && steps.image_drift.outputs.has_stale == 'true'
+        run: |
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          COUNT="${{ steps.rebuild.outputs.triggered_count }}"
+          FAILED_COUNT="${{ steps.rebuild.outputs.failed_count }}"
+          if [ -z "$COUNT" ]; then
+            # Fallback: rebuild step didn't run or didn't set the output; count from stale_services
+            COUNT=$(echo "${{ steps.image_drift.outputs.stale_services }}" | wc -w | tr -d ' ')
+          fi
+          if [ -z "$FAILED_COUNT" ]; then
+            FAILED_COUNT=0
+          fi
+          NOUN="rebuilds"
+          if [ "$COUNT" = "1" ]; then NOUN="rebuild"; fi
+
+          if [ "${{ steps.rebuild.outputs.has_failures }}" = "true" ] && [ -s rebuild-failures.txt ]; then
+            # Failure case: list only the services that failed to rebuild, with reasons.
+            # COUNT reflects only successfully-triggered rebuilds; FAILED_COUNT is the rest.
+            {
+              printf ":package: *Image drift detected — %s %s triggered, %s failed:*\n" "$COUNT" "$NOUN" "$FAILED_COUNT"
+              cat rebuild-failures.txt
+              printf "<%s|Workflow run>\n" "$RUN_URL"
+            } > drift-message.txt
+          else
+            # Success case: just summarize the count with a link to the run
+            printf ":package: Image drift detected — %s %s triggered (<%s|run>)\n" "$COUNT" "$NOUN" "$RUN_URL" > drift-message.txt
+          fi
+          jq -n --rawfile text drift-message.txt '{"text": $text}' > drift-payload.json
+
+      - name: Post image drift to Slack
+        if: always() && steps.image_drift.outputs.has_stale == 'true'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload-file-path: drift-payload.json
+
+      - name: Notify Slack (workflow failure)
+        # Suppress when the drift-alert path is active — that step already
+        # posts a detailed Slack message covering per-service rebuild results.
+        # This generic notifier still fires for non-drift failures (e.g., the
+        # smoke-check step itself fails before drift detection runs).
+        if: failure() && steps.image_drift.outputs.has_stale != 'true'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":x: *Smoke monitor*: workflow failed | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+
+      - name: Save state to cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: smoke-state.json
+          key: smoke-monitor-state-${{ github.run_id }}

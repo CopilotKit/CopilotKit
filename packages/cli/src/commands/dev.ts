@@ -213,7 +213,7 @@ export default class Dev extends BaseCommand {
       spinner,
     });
 
-    await Promise.all([setupTunnel]);
+    [await setupTunnel];
   }
 
   private async setupTunnel({

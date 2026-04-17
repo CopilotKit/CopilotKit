@@ -11,11 +11,15 @@
   },
   "dependencies": {
     "@ag-ui/client": "^0.0.43",
+    "@copilotkit/a2ui-renderer": "next",
     "@copilotkit/react-core": "next",
     "@copilotkit/runtime": "next",
+    "@hashbrownai/core": "0.5.0-beta.4",
+    "@hashbrownai/react": "0.5.0-beta.4",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "recharts": "^2.15.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
