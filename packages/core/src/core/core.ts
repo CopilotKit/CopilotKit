@@ -410,6 +410,25 @@ export class CopilotKitCore {
   }
 
   /**
+   * Log a message to the console and emit an error to subscribers.
+   * Catches failures from `emitError` itself to prevent unhandled rejections.
+   */
+  private logAndEmitError(
+    message: string,
+    params: {
+      error: Error;
+      code: CopilotKitCoreErrorCode;
+      context?: Record<string, any>;
+    },
+    logLevel: "error" | "warn" = "error",
+  ): void {
+    console[logLevel](message, params.error);
+    this.emitError(params).catch((emitErr: unknown) => {
+      console.error(message + " — emitError itself failed:", emitErr);
+    });
+  }
+
+  /**
    * Snapshot accessors
    */
   get context(): Readonly<Record<string, Context>> {
@@ -474,22 +493,17 @@ export class CopilotKitCore {
    */
   setDefaultThrottleMs(value: number | undefined): void {
     if (value !== undefined && (!Number.isFinite(value) || value < 0)) {
-      console.error(
+      this.logAndEmitError(
         `CopilotKitCore.setDefaultThrottleMs: value must be a non-negative finite number or undefined, ` +
           `got ${value}. Keeping current value (${this._defaultThrottleMs}).`,
+        {
+          error: new Error(
+            `setDefaultThrottleMs: invalid value (${value}), keeping current value (${this._defaultThrottleMs})`,
+          ),
+          code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+          context: { value, currentValue: this._defaultThrottleMs },
+        },
       );
-      this.emitError({
-        error: new Error(
-          `setDefaultThrottleMs: invalid value (${value}), keeping current value (${this._defaultThrottleMs})`,
-        ),
-        code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
-        context: { value, currentValue: this._defaultThrottleMs },
-      }).catch((emitErr: unknown) => {
-        console.error(
-          `CopilotKitCore.setDefaultThrottleMs: emitError itself failed:`,
-          emitErr,
-        );
-      });
       return;
     }
     this._defaultThrottleMs = value;
@@ -677,22 +691,17 @@ export class CopilotKitCore {
     if (!Number.isFinite(resolved) || resolved < 0) {
       const source =
         options?.throttleMs !== undefined ? "throttleMs" : "defaultThrottleMs";
-      console.error(
+      this.logAndEmitError(
         `CopilotKitCore.subscribeToAgentWithOptions: ${source} must be a non-negative finite number, ` +
           `got ${resolved}. Falling back to unthrottled.`,
+        {
+          error: new Error(
+            `subscribeToAgentWithOptions: invalid ${source} (${resolved}), falling back to unthrottled`,
+          ),
+          code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+          context: { agentId: agent.agentId, source, value: resolved },
+        },
       );
-      this.emitError({
-        error: new Error(
-          `subscribeToAgentWithOptions: invalid ${source} (${resolved}), falling back to unthrottled`,
-        ),
-        code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
-        context: { agentId: agent.agentId, source, value: resolved },
-      }).catch((emitErr: unknown) => {
-        console.error(
-          `CopilotKitCore.subscribeToAgentWithOptions[${agent.agentId || "(unknown agent)"}]: emitError itself failed:`,
-          emitErr,
-        );
-      });
     } else {
       effectiveMs = resolved;
     }
@@ -709,18 +718,14 @@ export class CopilotKitCore {
       ...args: Parameters<F>
     ): any => {
       const reportError = (err: unknown, verb: string) => {
-        const message = `CopilotKitCore.subscribeToAgentWithOptions[${agentLabel}]: ${label} callback ${verb}:`;
-        console.error(message, err);
-        this.emitError({
-          error: err instanceof Error ? err : new Error(String(err)),
-          code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
-          context: { agentId: agent.agentId, callback: label },
-        }).catch((emitErr: unknown) => {
-          console.error(
-            `CopilotKitCore.subscribeToAgentWithOptions[${agentLabel}]: emitError itself failed:`,
-            emitErr,
-          );
-        });
+        this.logAndEmitError(
+          `CopilotKitCore.subscribeToAgentWithOptions[${agentLabel}]: ${label} callback ${verb}:`,
+          {
+            error: err instanceof Error ? err : new Error(String(err)),
+            code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+            context: { agentId: agent.agentId, callback: label },
+          },
+        );
       };
       try {
         const result = fn(...args);
@@ -781,17 +786,15 @@ export class CopilotKitCore {
           `CopilotKitCore.subscribeToAgentWithOptions[${agentLabel}]: callback "${key}" is not supported ` +
           `and was dropped. Supported callbacks: ${Array.from(ALLOWED_KEYS).join(", ")}. ` +
           `Use agent.subscribe() directly for event handlers and per-item notifications.`;
-        console.warn(message);
-        this.emitError({
-          error: new Error(message),
-          code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
-          context: { agentId: agent.agentId, droppedCallback: key },
-        }).catch((emitErr: unknown) => {
-          console.error(
-            `CopilotKitCore.subscribeToAgentWithOptions[${agentLabel}]: emitError itself failed:`,
-            emitErr,
-          );
-        });
+        this.logAndEmitError(
+          message,
+          {
+            error: new Error(message),
+            code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+            context: { agentId: agent.agentId, droppedCallback: key },
+          },
+          "warn",
+        );
       }
     }
 

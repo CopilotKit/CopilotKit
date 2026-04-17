@@ -553,6 +553,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
       expect(onMessages).toHaveBeenCalledTimes(2);
       expect(errorSpy).toHaveBeenCalledWith(
         expect.stringContaining("must be a non-negative finite number"),
+        expect.any(Error),
       );
 
       errorSpy.mockRestore();
@@ -957,6 +958,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
     expect(onEvent).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('callback "onEvent" is not supported'),
+      expect.any(Error),
     );
 
     warnSpy.mockRestore();

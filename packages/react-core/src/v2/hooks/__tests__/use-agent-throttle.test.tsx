@@ -439,6 +439,7 @@ describe("useAgent throttleMs", () => {
         expect.stringContaining(
           "throttleMs must be a non-negative finite number",
         ),
+        expect.any(Error),
       );
 
       // Should behave as unthrottled — every notification fires immediately
@@ -898,6 +899,7 @@ describe("useAgent defaultThrottleMs from provider", () => {
       // The core setter rejects invalid values and logs an error
       expect(errorSpy).toHaveBeenCalledWith(
         expect.stringContaining("must be a non-negative finite number"),
+        expect.any(Error),
       );
 
       // Should behave as unthrottled (setter rejected the value)
@@ -1019,6 +1021,7 @@ describe("CopilotKitCore.setDefaultThrottleMs", () => {
       expect(core.defaultThrottleMs).toBe(200);
       expect(errorSpy).toHaveBeenCalledWith(
         expect.stringContaining("must be a non-negative finite number"),
+        expect.any(Error),
       );
       errorSpy.mockRestore();
     },
