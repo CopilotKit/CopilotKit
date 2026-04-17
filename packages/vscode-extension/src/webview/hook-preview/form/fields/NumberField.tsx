@@ -7,23 +7,32 @@ export function NumberField({
 }: {
   field: Extract<FormField, { kind: "number" }>;
   value: number | undefined;
-  onChange: (v: number) => void;
+  onChange: (v: number | undefined) => void;
 }) {
   const id = `field-${field.name}`;
   return (
     <label htmlFor={id} className="hook-field">
-      <span className="hook-field-label">{field.label}{!field.required ? " (optional)" : ""}</span>
+      <span className="hook-field-label">
+        {field.label}
+        {!field.required ? " (optional)" : null}
+      </span>
       <input
         id={id}
         type="number"
-        aria-label={field.label}
+        required={field.required}
         value={value ?? ""}
         onChange={(e) => {
-          const n = e.target.value === "" ? 0 : Number(e.target.value);
-          onChange(Number.isFinite(n) ? n : 0);
+          if (e.target.value === "") {
+            onChange(undefined);
+            return;
+          }
+          const n = Number(e.target.value);
+          onChange(Number.isFinite(n) ? n : undefined);
         }}
       />
-      {field.description ? <small className="hook-field-desc">{field.description}</small> : null}
+      {field.description ? (
+        <small className="hook-field-desc">{field.description}</small>
+      ) : null}
     </label>
   );
 }

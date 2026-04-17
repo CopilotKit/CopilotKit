@@ -15,11 +15,14 @@ export function BooleanField({
       <input
         id={id}
         type="checkbox"
-        aria-label={field.label}
+        required={field.required}
         checked={value ?? false}
         onChange={(e) => onChange(e.target.checked)}
       />
-      <span className="hook-field-label">{field.label}{!field.required ? " (optional)" : ""}</span>
+      <span className="hook-field-label">
+        {field.label}
+        {!field.required ? " (optional)" : null}
+      </span>
       {field.description ? <small className="hook-field-desc">{field.description}</small> : null}
     </label>
   );

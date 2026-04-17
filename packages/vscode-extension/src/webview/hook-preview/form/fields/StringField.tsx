@@ -14,16 +14,23 @@ export function StringField({
     <label htmlFor={id} className="hook-field">
       <span className="hook-field-label">{field.label}{!field.required ? " (optional)" : ""}</span>
       {field.enum ? (
-        <select id={id} aria-label={field.label} value={value ?? field.enum[0]} onChange={(e) => onChange(e.target.value)}>
+        <select
+          id={id}
+          required={field.required}
+          value={value ?? field.enum[0]}
+          onChange={(e) => onChange(e.target.value)}
+        >
           {field.enum.map((v) => (
-            <option key={v} value={v}>{v}</option>
+            <option key={v} value={v}>
+              {v}
+            </option>
           ))}
         </select>
       ) : (
         <input
           id={id}
           type="text"
-          aria-label={field.label}
+          required={field.required}
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
         />

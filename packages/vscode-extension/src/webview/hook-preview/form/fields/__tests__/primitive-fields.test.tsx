@@ -49,6 +49,20 @@ describe("NumberField", () => {
     fireEvent.change(screen.getByLabelText("N"), { target: { value: "42" } });
     expect(onChange).toHaveBeenCalledWith(42);
   });
+
+  it("emits undefined for empty input (does not coerce to 0)", () => {
+    const onChange = vi.fn();
+    render(
+      <NumberField
+        field={{ kind: "number", name: "n", label: "N", required: false }}
+        value={3}
+        onChange={onChange}
+      />,
+    );
+    // Optional fields render "N (optional)" — match by leading label text.
+    fireEvent.change(screen.getByLabelText(/^N/), { target: { value: "" } });
+    expect(onChange).toHaveBeenCalledWith(undefined);
+  });
 });
 
 describe("BooleanField", () => {
