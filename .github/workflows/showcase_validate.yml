@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - "showcase/**"
+      - "examples/integrations/**"
       - "examples/integrations/**/fixtures/**"
       - "scripts/doc-tests/fixtures/**"
   push:
     branches: [main]
     paths:
       - "showcase/**"
+      - "examples/integrations/**"
       - "examples/integrations/**/fixtures/**"
       - "scripts/doc-tests/fixtures/**"
 
@@ -80,9 +82,22 @@ jobs:
 
       - name: Run validate-pins (advisory; non-gating)
         working-directory: showcase/scripts
-        # Non-gating: 44 existing drifts from the original run need a product
-        # decision (align showcase -> Dojo vs bump Dojo -> showcase) before we
-        # can gate. Until then, surface the drift report without blocking PRs.
+        # Non-gating: grandfathered drift allowlist (currently 44 entries) from
+        # the original run needs a product decision (align showcase -> Dojo vs
+        # bump Dojo -> showcase) before we can gate. Until then, surface the
+        # drift report without blocking PRs.
+        #
+        # Rule of engagement for the drift count:
+        #   - If the count DROPS, bump the allowlist / tolerance DOWN to match
+        #     (ratchet-down; never let it creep back up silently).
+        #   - If the count GROWS, file a fix PR. Do NOT bump the tolerance UP
+        #     without an explicit review + sign-off.
+        #
+        # Reference: Notion "Bugs-Found-During-Blitz-Deferred-Not-Fixed"
+        #   https://www.notion.so/3443aa38-1852-812f-b595-c5118dd68818
+        #
+        # TODO(showcase-drift): drive the allowlist to zero. Re-audit this
+        # allowlist quarterly; see the ADR when scheduled.
         continue-on-error: true
         run: npx tsx validate-pins.ts
 
