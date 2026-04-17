@@ -1,16 +1,26 @@
 /**
  * Tests for showcase parity validator.
  *
- * Uses fixture package directories under __tests__/fixtures/parity/ to exercise
- * loadManifest/auditPackage error paths without depending on the live
- * showcase/packages layout.
+ * Builds fixture package trees inside a per-suite tmpdir instead of relying on
+ * committed fixtures under __tests__/fixtures/parity/. The committed tree is
+ * incomplete (missing src/app/demos/<id>/ entries because empty dirs don't
+ * survive git), so materialising the whole tree at setup keeps the tests
+ * self-contained and unaffected by what does / doesn't get committed.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  afterEach,
+} from "vitest";
 import fs from "fs";
 import path from "path";
 import os from "os";
-import { fileURLToPath } from "url";
 import {
   auditPackage,
   loadManifest,
@@ -18,11 +28,94 @@ import {
   listDirs,
 } from "../validate-parity.js";
 
-const FIXTURES_DIR = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "fixtures",
-  "parity",
-);
+// Shared tmpdir populated by beforeAll with all the "static" fixture
+// packages (ok-pkg, missing-manifest, missing-demo-dir, missing-spec,
+// spec-exceeds, spec-less). Malformed / empty / scalar fixtures are still
+// built in per-test tmpdirs because they exercise distinct crash paths.
+let FIXTURES_DIR: string;
+
+function writeFixturePackage(
+  root: string,
+  slug: string,
+  opts: {
+    manifest?: string;
+    demoDirs?: string[];
+    specFiles?: string[];
+    qaFiles?: string[];
+  },
+) {
+  const pkgDir = path.join(root, slug);
+  fs.mkdirSync(pkgDir, { recursive: true });
+  if (opts.manifest !== undefined) {
+    fs.writeFileSync(
+      path.join(pkgDir, "manifest.yaml"),
+      opts.manifest,
+      "utf-8",
+    );
+  }
+  for (const id of opts.demoDirs ?? []) {
+    fs.mkdirSync(path.join(pkgDir, "src", "app", "demos", id), {
+      recursive: true,
+    });
+  }
+  if (opts.specFiles?.length) {
+    const e2eDir = path.join(pkgDir, "tests", "e2e");
+    fs.mkdirSync(e2eDir, { recursive: true });
+    for (const name of opts.specFiles) {
+      fs.writeFileSync(path.join(e2eDir, name), "", "utf-8");
+    }
+  }
+  if (opts.qaFiles?.length) {
+    const qaDir = path.join(pkgDir, "qa");
+    fs.mkdirSync(qaDir, { recursive: true });
+    for (const name of opts.qaFiles) {
+      fs.writeFileSync(path.join(qaDir, name), "", "utf-8");
+    }
+  }
+}
+
+function seedStaticFixtures(root: string) {
+  // ok-pkg: 1 demo, 1 spec, 1 qa, demo dir present → no errors, no warnings
+  // except baseline (1 != 9) which tests don't assert on here.
+  writeFixturePackage(root, "ok-pkg", {
+    manifest: "slug: ok-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
+    demoDirs: ["chat"],
+    specFiles: ["chat.spec.ts"],
+    qaFiles: ["chat.md"],
+  });
+
+  // missing-manifest: directory exists but no manifest.yaml
+  fs.mkdirSync(path.join(root, "missing-manifest"), { recursive: true });
+
+  // missing-demo-dir: manifest declares chat but no src/app/demos/chat/
+  writeFixturePackage(root, "missing-demo-dir", {
+    manifest: "slug: missing-demo-dir\ndemos:\n  - id: chat\n    name: Chat\n",
+  });
+
+  // missing-spec: demo dir present, qa present, spec absent → WARNING only
+  writeFixturePackage(root, "missing-spec", {
+    manifest: "slug: missing-spec\ndemos:\n  - id: chat\n    name: Chat\n",
+    demoDirs: ["chat"],
+    qaFiles: ["chat.md"],
+  });
+
+  // spec-exceeds: spec count > demo count (e.g. renderer-selector.spec.ts)
+  writeFixturePackage(root, "spec-exceeds", {
+    manifest: "slug: spec-exceeds\ndemos:\n  - id: chat\n    name: Chat\n",
+    demoDirs: ["chat"],
+    specFiles: ["chat.spec.ts", "renderer-selector.spec.ts"],
+    qaFiles: ["chat.md"],
+  });
+
+  // spec-less: 2 demos, only 1 spec → WARNING for under-coverage
+  writeFixturePackage(root, "spec-less", {
+    manifest:
+      "slug: spec-less\ndemos:\n  - id: chat\n    name: Chat\n  - id: tools\n    name: Tools\n",
+    demoDirs: ["chat", "tools"],
+    specFiles: ["chat.spec.ts"],
+    qaFiles: ["chat.md", "tools.md"],
+  });
+}
 
 // Malformed-YAML fixtures are written to a throwaway tmpdir at test time
 // rather than committed to the repo, because repo-level oxfmt / prettier /
@@ -41,6 +134,17 @@ function makeMalformedManifestDir(): string {
   );
   return tmp;
 }
+
+beforeAll(() => {
+  FIXTURES_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "parity-fixtures-"));
+  seedStaticFixtures(FIXTURES_DIR);
+});
+
+afterAll(() => {
+  if (FIXTURES_DIR) {
+    fs.rmSync(FIXTURES_DIR, { recursive: true, force: true });
+  }
+});
 
 describe("validate-parity", () => {
   describe("loadManifest", () => {
@@ -87,6 +191,50 @@ describe("validate-parity", () => {
         const report = auditPackage("malformed", tmp);
         expect(report.mustErrors.length).toBeGreaterThan(0);
         expect(report.mustErrors[0]).toMatch(/unparseable manifest\.yaml/);
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("flags an empty manifest.yaml as a MUST error instead of crashing", () => {
+      // yaml.parse("") returns null. Without a type guard, reading
+      // `.demos` on the parsed value crashes auditPackage. This test pins
+      // the expected behaviour: empty YAML is reported as an invalid
+      // manifest rather than letting null propagate into `.demos?.length`.
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-empty-"));
+      try {
+        const pkgDir = path.join(tmp, "empty");
+        fs.mkdirSync(pkgDir, { recursive: true });
+        fs.writeFileSync(path.join(pkgDir, "manifest.yaml"), "", "utf-8");
+        const report = auditPackage("empty", tmp);
+        expect(report.mustErrors.length).toBeGreaterThan(0);
+        expect(report.mustErrors.some((e) => /manifest\.yaml/.test(e))).toBe(
+          true,
+        );
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("flags a non-object manifest.yaml (scalar) as a MUST error", () => {
+      // A YAML file whose top-level value is a scalar (e.g. 'hello') parses
+      // to the string 'hello' — truthy but not a valid Manifest. Without a
+      // type guard the validator silently treats it as a manifest with no
+      // demos. Pin stricter behaviour: reject non-object values.
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-scalar-"));
+      try {
+        const pkgDir = path.join(tmp, "scalar");
+        fs.mkdirSync(pkgDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(pkgDir, "manifest.yaml"),
+          "hello\n",
+          "utf-8",
+        );
+        const report = auditPackage("scalar", tmp);
+        expect(report.mustErrors.length).toBeGreaterThan(0);
+        expect(report.mustErrors.some((e) => /manifest\.yaml/.test(e))).toBe(
+          true,
+        );
       } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
       }
@@ -173,6 +321,38 @@ describe("validate-parity", () => {
       try {
         const result = listDirs(blocked);
         expect(result).toEqual([]);
+        // Pin the "logs a warning" half of the contract — without this the
+        // test would pass even if listDirs silently swallowed the error.
+        expect(warnSpy).toHaveBeenCalledTimes(1);
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringMatching(/\[WARN\] failed to read directory .*blocked/),
+        );
+      } finally {
+        fs.chmodSync(blocked, 0o755);
+        warnSpy.mockRestore();
+      }
+    });
+
+    it("listFiles returns [] and logs a warning on readdir failure", () => {
+      // Symmetric coverage with listDirs — the same readdir failure path
+      // exists in listFiles and must also be asserted.
+      if (process.platform === "win32" || process.getuid?.() === 0) {
+        return;
+      }
+      const blocked = path.join(tmpDir, "blocked-files");
+      fs.mkdirSync(blocked);
+      fs.chmodSync(blocked, 0o000);
+
+      const warnSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const result = listFiles(blocked, ".md");
+        expect(result).toEqual([]);
+        expect(warnSpy).toHaveBeenCalledTimes(1);
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringMatching(
+            /\[WARN\] failed to read directory .*blocked-files/,
+          ),
+        );
       } finally {
         fs.chmodSync(blocked, 0o755);
         warnSpy.mockRestore();
@@ -188,15 +368,21 @@ describe("validate-parity", () => {
       expect(typeof listDirs).toBe("function");
     });
 
-    it("does not invoke main() on import (isMain guard is in place)", () => {
+    it("does not invoke main() on import (isMain guard is in place)", async () => {
       // If main() ran on import, the test runner would have exited by now
       // or fs.readdirSync(PACKAGES_DIR) would have side-effected in a way
       // we'd catch. This test simply re-imports the module and verifies no
       // throw — main() walking the real packages dir during a vitest run
       // would cause process.exit() calls we don't want.
-      expect(async () => {
-        await import("../validate-parity.js");
-      }).not.toThrow();
+      //
+      // Note: `expect(asyncFn).not.toThrow()` is always trivially true
+      // (toThrow does not await the returned promise), so we use
+      // `.resolves.not.toThrow()` to actually await the dynamic import.
+      await expect(
+        (async () => {
+          await import("../validate-parity.js");
+        })(),
+      ).resolves.not.toThrow();
     });
   });
 });
