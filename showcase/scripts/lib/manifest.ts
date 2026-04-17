@@ -7,13 +7,6 @@
  *   2. runtime shape validation of `manifest.yaml`
  *   3. the tagged-union return type distinguishing missing /
  *      malformed / unreadable / ok
- *
- * Prior to extraction, each script reimplemented this slightly
- * differently — e.g. audit.ts guarded against `yaml.parse → null` but
- * validate-parity.ts did not, and none of them verified `demos` was
- * actually an array of objects with string `id` fields. The resulting
- * `yaml.parse(raw) as Manifest` cast could silently propagate invalid
- * shapes into the rest of each tool.
  */
 
 import fs from "fs";
@@ -179,8 +172,8 @@ const EMPTY_DEMOS: readonly ManifestDemo[] = Object.freeze([]);
  *   - `demos`, if present, must be an array of objects each with a
  *     string `id`;
  *   - `deployed`, if present, must be a boolean (YAML `"yes"` parses to
- *     a string, which old code silently treated as truthy — classic
- *     footgun).
+ *     a string, which would be silently treated as truthy without this
+ *     check — classic footgun).
  *
  * Any shape failure produces
  * `{ kind: "malformed", subkind: "shape", error }` with a
@@ -254,7 +247,7 @@ export function parseManifest(
     };
   }
 
-  // Slug-mismatch guard (M-R10-10). Every consumer derives the target
+  // Slug-mismatch guard. Every consumer derives the target
   // package by computing `packagesDir/<slug>/manifest.yaml`, so if the
   // manifest's declared slug disagrees with the directory that holds
   // it, downstream tools would silently key a copy-paste or rename
@@ -356,10 +349,10 @@ export function parseManifest(
         };
       }
       seen.add(brandedId);
-      // demo-level `name` strictness (R10-5-5). Previously a present-
-      // but-wrong-type name was silently coerced to undefined; match the
-      // strictness applied to other fields so schema drift surfaces at
-      // the parser, not downstream. Absent `name` remains valid.
+      // demo-level `name` strictness: match the strictness applied to
+      // other fields so schema drift (present-but-wrong-type name)
+      // surfaces at the parser, not downstream. Absent `name` remains
+      // valid.
       let demoName: string | undefined;
       if (hasOwnProp(d, "name") && d.name !== undefined) {
         if (typeof d.name !== "string") {

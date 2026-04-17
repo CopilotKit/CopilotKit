@@ -7,16 +7,6 @@
  *                              inverse + FALLBACK_MAP override)
  *   - validate-parity.ts     (born-in-showcase membership)
  *
- * Prior to extraction each script carried its own copy. Drift between
- * copies led to:
- *   - audit.ts listing phantom "no examples source" anomalies for
- *     slugs whose entries pointed at non-existent showcase packages
- *     (crewai-flows, agent-spec-langgraph, mcp-apps);
- *   - validate-pins.ts maintaining its own FALLBACK_MAP of stale
- *     SLUG_MAP entries;
- *   - three different BORN_IN_SHOWCASE sets that could silently
- *     disagree.
- *
  * Everything here is immutable. We freeze the plain-object maps and
  * wrap the Set/Map values in a Proxy (a frozen plain Object is not
  * enough for Map/Set — their `.set`/`.add` methods don't respect
@@ -30,8 +20,10 @@
  * compare against arbitrary strings without ceremony) but named
  * distinctly from `ExamplesDir` so the map signatures below document
  * their direction of mapping. The runtime invariant — every
- * ShowcaseSlug is an actual directory under `showcase/packages/` — is
- * enforced by slug-map.test.ts, not by the type system.
+ * ShowcaseSlug that appears in SLUG_MAP (as a value), SLUG_TO_EXAMPLES
+ * (as a key), or FALLBACK_MAP (as a key) is an actual directory under
+ * `showcase/packages/` — is enforced by slug-map.test.ts, not by the
+ * type system.
  *
  * We deliberately keep this as a type alias (not a branded type) to
  * avoid forcing `as` casts on every external caller that builds a
@@ -166,9 +158,9 @@ function freezeMap2D<K extends string, V>(
  * call sites in validate-pins.ts continues to hold.
  */
 /**
- * Discriminated union form of SlugEntry (R10-5-14).
+ * Discriminated union form of SlugEntry.
  *
- * Three mutually-exclusive shapes replace the prior flat interface:
+ * Three mutually-exclusive shapes:
  *   - born-in-showcase:   no examples counterpart, no fallback. The
  *                         `examples` tuple is statically empty and
  *                         `fallback` is never set.
