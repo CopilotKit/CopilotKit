@@ -69,7 +69,7 @@ export const POST = async (req: NextRequest) => {
 export const GET = async () => {
   let agentStatus = "unknown";
   try {
-    const res = await fetch(`${AGENT_URL}/ok`, {
+    const res = await fetch(`${AGENT_URL}/health`, {
       signal: AbortSignal.timeout(3000),
     });
     agentStatus = res.ok ? "reachable" : `error (${res.status})`;
