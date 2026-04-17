@@ -143,48 +143,14 @@ jobs:
 
       - name: Run validate-pins (ratchet)
         working-directory: showcase/scripts
-        # --- Drift ratchet -------------------------------------------------
-        # We cannot yet gate on FAIL=0 because there is a grandfathered
-        # allowlist of pin drift that needs a product decision (align
-        # showcase -> Dojo vs bump Dojo -> showcase) before we can flip to
-        # strict gating. The authoritative count + hash live in
-        # `showcase/scripts/fail-baseline.json` — update that file, not
-        # this comment, when the allowlist changes.
+        # Ratchet gate on pin drift. Baseline (count + SHA-256 hash of sorted
+        # unique FAIL lines) lives in `showcase/scripts/fail-baseline.json`;
+        # see that file for the full ratchet semantics and adjustment
+        # procedure. Weekly backlog visibility is provided by
+        # `.github/workflows/showcase_drift-report.yml`.
         #
-        # Until then, we ratchet. `fail-baseline.json` holds the last-known
-        # FAIL count AND a SHA-256 hash of the sorted, deduplicated FAIL
-        # lines. CI compares both:
-        #   - count >  baseline  => NEW drift introduced; fail CI.
-        #   - count <  baseline  => drift reduced; fail CI with an explicit
-        #                           instruction to ratchet the baseline down
-        #                           (so the number can never creep back up
-        #                           silently).
-        #   - count == baseline, hash != baseline => the FAIL *set* drifted
-        #                           (one item healed, another regressed, net
-        #                           zero on the counter). Fail with a diff.
-        #   - count == baseline, hash == baseline => pass.
-        #
-        # To adjust the baseline, edit `showcase/scripts/fail-baseline.json`
-        # in the same PR (bump both `validatePinsFailCount` and
-        # `validatePinsFailHash`; the error output prints the new hash).
-        #
-        # Reference: Notion: "Showcase Drift Baseline Runbook"
-        # (searchable internal keyword; do not embed private URLs in this
-        # public workflow).
-        #
-        # Drift-to-zero policy: the commitment, cadence, and escalation
-        # timeline are tracked in the GitHub issue referenced by the TODO
-        # below rather than hardcoded here — dates in workflow comments
-        # have no enforcement and rot silently. The weekly drift reporter
-        # at `.github/workflows/showcase_drift-report.yml` emits the
-        # current FAIL count to Slack so the backlog stays visible.
-        #
-        # TODO(https://github.com/CopilotKit/CopilotKit/issues/NEW, owner: @jpr5):
-        # drive the baseline to zero; re-audit quarterly. The tracking issue
-        # owns the cutover date and escalation policy. Tracked in
-        # `showcase/scripts/fail-baseline.json` (see the `_comment` field
-        # there for ratchet semantics).
-        # -------------------------------------------------------------------
+        # TODO(<tracking-issue-to-be-created>, owner: @jpr5): drive the
+        # baseline to zero; re-audit quarterly.
         run: |
           set -euo pipefail
 
