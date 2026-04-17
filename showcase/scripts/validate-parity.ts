@@ -47,12 +47,15 @@ import {
 } from "./lib/manifest.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// ROOT = showcase/ (NOT the repo root). validate-parity.ts lives at
+// showcase/scripts/validate-parity.ts, so path.resolve(__dirname, "..")
+// resolves to showcase/. DEFAULT_PACKAGES_DIR is showcase/packages/.
 const ROOT = path.resolve(__dirname, "..");
 const DEFAULT_PACKAGES_DIR = path.join(ROOT, "packages");
 
 /**
  * Baseline expected demo count per package. Packages that deviate from
- * this are flagged as warnings (e.g. ones still being built out).
+ * this are flagged as warnings (e.g. ones being built out).
  *
  * RECIPROCAL: the CI workflow .github/workflows/showcase_validate.yml
  * uses `MIN=9` when enforcing the per-package e2e-spec-count floor.
@@ -68,8 +71,53 @@ const EXIT_UNREADABLE = 3;
 const EXIT_INTERNAL = 4;
 
 // Manifest / ManifestDemo now live in ./lib/manifest.ts. Re-exported below
-// for callers that still import these types from "../validate-parity.js".
+// for callers that import these types from "../validate-parity.js".
 export type { Manifest, ManifestDemo };
+
+/**
+ * Typed error raised when `manifest.yaml` exists and could be read but
+ * its contents do not form a valid Manifest (YAML syntax error, wrong
+ * top-level shape, non-array demos, missing id, etc.). Callers catch
+ * with `instanceof ManifestMalformedError` — no string-prefix sniffing.
+ */
+export class ManifestMalformedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ManifestMalformedError";
+  }
+}
+
+/**
+ * Typed error raised when `manifest.yaml` exists on disk but
+ * readFileSync threw (EACCES, I/O race, etc.). Distinct from
+ * ManifestMalformedError because the file's contents are not actually
+ * known to be invalid. Callers catch with `instanceof
+ * ManifestUnreadableError`.
+ */
+export class ManifestUnreadableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ManifestUnreadableError";
+  }
+}
+
+/**
+ * Tagged union of per-package entries in `mustErrors` / `warnings`. Prior
+ * to this type, both fields were bare `string[]` and callers had to
+ * substring-sniff to discriminate. The tagged union lets consumers
+ * (render, JSON, future filters) switch on `category`.
+ */
+export type PackageIssue =
+  | { category: "missing-manifest"; message: string }
+  | { category: "unreadable-manifest"; message: string }
+  | { category: "malformed-manifest"; message: string }
+  | { category: "missing-demo-dir"; demoId: string; message: string }
+  | { category: "missing-spec"; demoId: string; message: string }
+  | { category: "missing-qa"; demoId: string; message: string }
+  | { category: "baseline-deviation"; message: string }
+  | { category: "spec-under-coverage"; message: string }
+  | { category: "qa-under-coverage"; message: string }
+  | { category: "listing-failed"; path: string; message: string };
 
 export interface PackageReport {
   slug: string;
@@ -77,56 +125,69 @@ export interface PackageReport {
   specFiles: string[];
   qaFiles: string[];
   demoDirs: string[];
-  mustErrors: string[];
-  warnings: string[];
+  mustErrors: PackageIssue[];
+  warnings: PackageIssue[];
 }
 
 /**
- * List subdirectories of `p`. Non-existent paths return []. Read errors
- * (EACCES, I/O, etc.) return [] AND push a warning into `warnings` so the
- * caller can include it in the PackageReport's `warnings` array. This is
- * in addition to the stderr log — summary counts and stderr must agree.
+ * Return shape for `listDirs` / `listFiles`. The tuple keeps entries and
+ * per-listing warnings correlated without a side-effect parameter —
+ * callers merge `warnings` into their PackageReport explicitly.
  */
-export function listDirs(p: string, warnings?: string[]): string[] {
-  if (!fs.existsSync(p)) return [];
+export interface ListResult {
+  entries: string[];
+  warnings: PackageIssue[];
+}
+
+/**
+ * List subdirectories of `p`. Non-existent paths return { entries: [],
+ * warnings: [] }. Read errors (EACCES, I/O, etc.) return empty entries
+ * AND a `listing-failed` warning so the caller can include it in the
+ * PackageReport's `warnings` array. Also logs to stderr so summary
+ * counts and stderr output agree.
+ */
+export function listDirs(p: string): ListResult {
+  if (!fs.existsSync(p)) return { entries: [], warnings: [] };
   try {
-    return fs
+    const entries = fs
       .readdirSync(p, { withFileTypes: true })
       .filter((d) => d.isDirectory())
       .map((d) => d.name)
       .sort();
+    return { entries, warnings: [] };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const line = `failed to read directory ${p}: ${msg}`;
     console.error(`[WARN] ${line}`);
-    warnings?.push(line);
-    return [];
+    return {
+      entries: [],
+      warnings: [{ category: "listing-failed", path: p, message: line }],
+    };
   }
 }
 
 /**
  * List files in `p` with the given suffix. Same error-handling contract
- * as listDirs: missing dir → []; read error → [] + warning pushed into
- * `warnings` (if provided) and logged to stderr.
+ * as listDirs: missing dir → empty ListResult; read error → empty entries
+ * + listing-failed warning, and stderr log.
  */
-export function listFiles(
-  p: string,
-  suffix: string,
-  warnings?: string[],
-): string[] {
-  if (!fs.existsSync(p)) return [];
+export function listFiles(p: string, suffix: string): ListResult {
+  if (!fs.existsSync(p)) return { entries: [], warnings: [] };
   try {
-    return fs
+    const entries = fs
       .readdirSync(p, { withFileTypes: true })
       .filter((d) => d.isFile() && d.name.endsWith(suffix))
       .map((d) => d.name)
       .sort();
+    return { entries, warnings: [] };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const line = `failed to read directory ${p}: ${msg}`;
     console.error(`[WARN] ${line}`);
-    warnings?.push(line);
-    return [];
+    return {
+      entries: [],
+      warnings: [{ category: "listing-failed", path: p, message: line }],
+    };
   }
 }
 
@@ -138,13 +199,10 @@ export function listFiles(
  *   - the parsed Manifest on success.
  *
  * Throws:
- *   - An Error tagged with a prefix so callers can distinguish the cause:
- *     "[malformed] ..."  → file exists but YAML shape is invalid;
- *     "[unreadable] ..." → readFileSync failed (permissions, I/O race).
- *   The tagged throw is preserved for backwards compatibility with
- *   existing call sites that use a single try/catch and want to surface
- *   a per-package mustError. `auditPackage` parses the prefix to emit
- *   distinct error messages.
+ *   - `ManifestMalformedError` — file exists but YAML shape is invalid;
+ *   - `ManifestUnreadableError` — readFileSync failed (permissions, I/O
+ *     race).
+ *   Callers discriminate with `instanceof` (see auditPackage).
  *
  * Delegates to lib/manifest.ts :: parseManifest for shape validation so
  * audit.ts / validate-pins.ts / validate-parity.ts apply identical rules.
@@ -161,9 +219,9 @@ export function loadManifest(
     case "ok":
       return parsed.manifest;
     case "malformed":
-      throw new Error(`[malformed] ${parsed.error}`);
+      throw new ManifestMalformedError(parsed.error);
     case "unreadable":
-      throw new Error(`[unreadable] ${parsed.error}`);
+      throw new ManifestUnreadableError(parsed.error);
   }
 }
 
@@ -173,27 +231,33 @@ export function auditPackage(
   baselineDemoCount: number = BASELINE_DEMO_COUNT,
 ): PackageReport {
   const pkgDir = path.join(packagesDir, slug);
-  const mustErrors: string[] = [];
-  const warnings: string[] = [];
+  const mustErrors: PackageIssue[] = [];
+  const warnings: PackageIssue[] = [];
 
   let manifest: Manifest | null;
   try {
     manifest = loadManifest(slug, packagesDir);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    // loadManifest throws tagged errors so we can distinguish unreadable
-    // from malformed here and emit different messages. parseManifest is
-    // the single source of truth for the classification.
-    if (msg.startsWith("[unreadable]")) {
-      mustErrors.push(
-        `unreadable manifest.yaml: ${msg.slice("[unreadable]".length).trim()}`,
-      );
-    } else if (msg.startsWith("[malformed]")) {
-      mustErrors.push(
-        `unparseable manifest.yaml: ${msg.slice("[malformed]".length).trim()}`,
-      );
+    // Distinguish unreadable from malformed via typed error classes —
+    // parseManifest is the single source of truth for the classification,
+    // loadManifest wraps that in ManifestMalformedError /
+    // ManifestUnreadableError, and we match on the class here.
+    if (err instanceof ManifestUnreadableError) {
+      mustErrors.push({
+        category: "unreadable-manifest",
+        message: `unreadable manifest.yaml: ${err.message}`,
+      });
+    } else if (err instanceof ManifestMalformedError) {
+      mustErrors.push({
+        category: "malformed-manifest",
+        message: `unparseable manifest.yaml: ${err.message}`,
+      });
     } else {
-      mustErrors.push(`unparseable manifest.yaml: ${msg}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      mustErrors.push({
+        category: "malformed-manifest",
+        message: `unparseable manifest.yaml: ${msg}`,
+      });
     }
     return {
       slug,
@@ -207,7 +271,10 @@ export function auditPackage(
   }
 
   if (!manifest) {
-    mustErrors.push(`missing manifest.yaml`);
+    mustErrors.push({
+      category: "missing-manifest",
+      message: `missing manifest.yaml`,
+    });
     return {
       slug,
       demoIds: [],
@@ -227,13 +294,18 @@ export function auditPackage(
   const demos = manifest.demos ?? [];
   const demoIds = demos.map((d) => d.id);
 
-  const specFiles = listFiles(
-    path.join(pkgDir, "tests", "e2e"),
-    ".spec.ts",
-    warnings,
+  const specResult = listFiles(path.join(pkgDir, "tests", "e2e"), ".spec.ts");
+  const qaResult = listFiles(path.join(pkgDir, "qa"), ".md");
+  const demoDirResult = listDirs(path.join(pkgDir, "src", "app", "demos"));
+  warnings.push(
+    ...specResult.warnings,
+    ...qaResult.warnings,
+    ...demoDirResult.warnings,
   );
-  const qaFiles = listFiles(path.join(pkgDir, "qa"), ".md", warnings);
-  const demoDirs = listDirs(path.join(pkgDir, "src", "app", "demos"), warnings);
+
+  const specFiles = specResult.entries;
+  const qaFiles = qaResult.entries;
+  const demoDirs = demoDirResult.entries;
 
   const demoDirSet = new Set(demoDirs);
   const specIdSet = new Set(specFiles.map((f) => f.replace(/\.spec\.ts$/, "")));
@@ -242,31 +314,42 @@ export function auditPackage(
   // MUST: every declared demo has a demos/<id>/ directory
   for (const id of demoIds) {
     if (!demoDirSet.has(id)) {
-      mustErrors.push(
-        `demo '${id}' declared in manifest but no src/app/demos/${id}/ directory`,
-      );
+      mustErrors.push({
+        category: "missing-demo-dir",
+        demoId: id,
+        message: `demo '${id}' declared in manifest but no src/app/demos/${id}/ directory`,
+      });
     }
   }
 
   // SHOULD: every declared demo has a spec file
   for (const id of demoIds) {
     if (!specIdSet.has(id)) {
-      warnings.push(`demo '${id}' has no tests/e2e/${id}.spec.ts`);
+      warnings.push({
+        category: "missing-spec",
+        demoId: id,
+        message: `demo '${id}' has no tests/e2e/${id}.spec.ts`,
+      });
     }
   }
 
   // SHOULD: every declared demo has a QA doc
   for (const id of demoIds) {
     if (!qaIdSet.has(id)) {
-      warnings.push(`demo '${id}' has no qa/${id}.md`);
+      warnings.push({
+        category: "missing-qa",
+        demoId: id,
+        message: `demo '${id}' has no qa/${id}.md`,
+      });
     }
   }
 
   // SHOULD: demo count matches baseline
   if (demoIds.length !== baselineDemoCount) {
-    warnings.push(
-      `demo count ${demoIds.length} deviates from baseline ${baselineDemoCount}`,
-    );
+    warnings.push({
+      category: "baseline-deviation",
+      message: `demo count ${demoIds.length} deviates from baseline ${baselineDemoCount}`,
+    });
   }
 
   // SHOULD: spec count >= demo count. Spec count EXCEEDING demo count is
@@ -274,14 +357,18 @@ export function auditPackage(
   // multiple demos and is intentionally not tied to a single declared
   // demo), so we only warn on UNDER-coverage.
   if (specFiles.length < demoIds.length) {
-    warnings.push(
-      `spec count ${specFiles.length} < demo count ${demoIds.length}`,
-    );
+    warnings.push({
+      category: "spec-under-coverage",
+      message: `spec count ${specFiles.length} < demo count ${demoIds.length}`,
+    });
   }
 
   // SHOULD: qa count >= demo count
   if (qaFiles.length < demoIds.length) {
-    warnings.push(`qa count ${qaFiles.length} < demo count ${demoIds.length}`);
+    warnings.push({
+      category: "qa-under-coverage",
+      message: `qa count ${qaFiles.length} < demo count ${demoIds.length}`,
+    });
   }
 
   return {
@@ -296,21 +383,88 @@ export function auditPackage(
 }
 
 interface MainOptions {
+  /**
+   * Override for the expected demo count per package. Must be a positive
+   * integer (> 0). NaN / non-integer / non-positive values are rejected
+   * by `main()` / `runParity()` before they reach `auditPackage`.
+   */
   baseline?: number;
+}
+
+/**
+ * Validate a candidate baseline value. Returns the integer on success,
+ * or null for any non-finite / non-integer / non-positive value. Used
+ * to guard both `--baseline=N` CLI parsing and
+ * `VALIDATE_PARITY_BASELINE` env-var parsing.
+ */
+function coerceBaseline(raw: unknown): number | null {
+  if (typeof raw === "number") {
+    if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw <= 0) {
+      return null;
+    }
+    return raw;
+  }
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  // Explicit digits-only check — Number("0x10") / Number("1e2") /
+  // Number(" 9 ") would all accept otherwise. Reject leading + and
+  // anything with a decimal point too.
+  if (!/^[1-9]\d*$/.test(trimmed)) return null;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return null;
+  return n;
 }
 
 function parseMainArgs(argv: string[]): MainOptions {
   const opts: MainOptions = {};
   for (const a of argv) {
-    const m = /^--baseline=(\d+)$/.exec(a);
+    // Match anything after --baseline= (including non-digits) so we can
+    // emit a clear error, rather than silently ignoring e.g.
+    // `--baseline=abc`.
+    const m = /^--baseline=(.*)$/.exec(a);
     if (m) {
-      opts.baseline = Number(m[1]);
+      const coerced = coerceBaseline(m[1]);
+      if (coerced === null) {
+        throw new Error(
+          `invalid --baseline value "${m[1]}" (expected a positive integer)`,
+        );
+      }
+      opts.baseline = coerced;
     }
   }
   return opts;
 }
 
-export function main(packagesDir?: string, baselineDemoCount?: number): void {
+// Header format for the pass/summary table. Column widths are centralised
+// here (not repeated as magic numbers in the divider) so adding/removing
+// columns doesn't require hand-editing a sum further down. Consumers call
+// formatHeader / formatRow / computeDividerWidth.
+const HEADER_COLUMNS = [
+  { label: "package", width: 0 /* derived from slugs at runtime */ },
+  { label: "status", width: 6 },
+  { label: "demos", width: 5 },
+  { label: "specs", width: 5 },
+  { label: "qa", width: 3 },
+  { label: "notes", width: 10 },
+] as const;
+
+function buildHeader(slugWidth: number): string {
+  const cols = HEADER_COLUMNS.map((c, i) =>
+    i === 0 ? "package".padEnd(slugWidth) : c.label.padEnd(c.width),
+  );
+  return cols.join("  ");
+}
+
+/**
+ * Core parity run. Returns a numeric exit code instead of calling
+ * `process.exit`, so tests and other in-process callers can invoke it
+ * without tearing down vitest. The CLI-facing `main()` wrapper (defined
+ * below and NOT exported) is what actually calls `process.exit`.
+ */
+export function runParity(
+  packagesDir?: string,
+  baselineDemoCount?: number,
+): number {
   // Env-var override keyed to this validator (mirrors SHOWCASE_AUDIT_ROOT
   // in audit.ts and VALIDATE_PINS_REPO_ROOT in validate-pins.ts).
   const envRoot = process.env.VALIDATE_PARITY_REPO_ROOT;
@@ -320,19 +474,42 @@ export function main(packagesDir?: string, baselineDemoCount?: number): void {
       ? path.join(envRoot, "packages")
       : DEFAULT_PACKAGES_DIR);
 
-  // CLI-flag baseline overrides env default; explicit parameter still wins.
-  const cliOpts = parseMainArgs(process.argv.slice(2));
+  // CLI-flag baseline overrides env default; explicit parameter wins.
+  // Both --baseline= and VALIDATE_PARITY_BASELINE are validated as
+  // positive integers — NaN / "abc" / "0" / "-1" are rejected with a
+  // clear error rather than silently coerced.
+  let cliOpts: MainOptions;
+  try {
+    cliOpts = parseMainArgs(process.argv.slice(2));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[FAIL] ${msg}`);
+    return EXIT_MUST_FAILURE;
+  }
+
   const envBaseline = process.env.VALIDATE_PARITY_BASELINE;
+  let envBaselineCoerced: number | null = null;
+  if (envBaseline !== undefined && envBaseline.length > 0) {
+    envBaselineCoerced = coerceBaseline(envBaseline);
+    if (envBaselineCoerced === null) {
+      console.error(
+        `[FAIL] invalid VALIDATE_PARITY_BASELINE value "${envBaseline}" (expected a positive integer)`,
+      );
+      return EXIT_MUST_FAILURE;
+    }
+  }
+
   const resolvedBaseline =
     baselineDemoCount ??
     cliOpts.baseline ??
-    (envBaseline ? Number(envBaseline) : BASELINE_DEMO_COUNT);
+    envBaselineCoerced ??
+    BASELINE_DEMO_COUNT;
 
   if (!fs.existsSync(resolvedPackagesDir)) {
     console.error(
       `[FAIL] packages directory not found: ${resolvedPackagesDir}`,
     );
-    process.exit(EXIT_UNREADABLE);
+    return EXIT_UNREADABLE;
   }
 
   // Readdir on the packages dir can fail with EACCES / I/O — treat that
@@ -350,12 +527,12 @@ export function main(packagesDir?: string, baselineDemoCount?: number): void {
     console.error(
       `[FAIL] could not read packages directory ${resolvedPackagesDir}: ${msg}`,
     );
-    process.exit(EXIT_UNREADABLE);
+    return EXIT_UNREADABLE;
   }
 
   if (slugs.length === 0) {
     console.error(`[FAIL] no packages found under ${resolvedPackagesDir}`);
-    process.exit(EXIT_MUST_FAILURE);
+    return EXIT_MUST_FAILURE;
   }
 
   const reports = slugs.map((s) =>
@@ -370,10 +547,11 @@ export function main(packagesDir?: string, baselineDemoCount?: number): void {
     "package".length,
   );
 
-  console.log(
-    `\n${"package".padEnd(slugWidth)}  status  demos  specs  qa   notes`,
-  );
-  console.log("-".repeat(slugWidth + 2 + 8 + 7 + 7 + 5 + 10));
+  const header = buildHeader(slugWidth);
+  console.log(`\n${header}`);
+  // Divider width derived from the header string so adding/removing a
+  // column doesn't require re-summing magic numbers.
+  console.log("-".repeat(header.length));
 
   for (const r of reports) {
     const status = r.mustErrors.length > 0 ? "FAIL" : "PASS";
@@ -391,15 +569,15 @@ export function main(packagesDir?: string, baselineDemoCount?: number): void {
   // Emit MUST errors to stderr (failures belong on stderr, not stdout —
   // stdout is reserved for the pass/summary table).
   for (const r of reports) {
-    for (const err of r.mustErrors) {
-      console.error(`[FAIL] ${r.slug}: ${err}`);
+    for (const issue of r.mustErrors) {
+      console.error(`[FAIL] ${r.slug}: ${issue.message}`);
     }
   }
 
   // Emit warnings to stderr
   for (const r of reports) {
     for (const w of r.warnings) {
-      console.error(`[WARN] ${r.slug}: ${w}`);
+      console.error(`[WARN] ${r.slug}: ${w.message}`);
     }
   }
 
@@ -407,7 +585,17 @@ export function main(packagesDir?: string, baselineDemoCount?: number): void {
     `\n${reports.length} package(s) checked, ${reports.filter((r) => r.mustErrors.length === 0).length} pass, ${reports.filter((r) => r.mustErrors.length > 0).length} fail, ${totalWarnings} warning(s)`,
   );
 
-  process.exit(hasMustFailure ? EXIT_MUST_FAILURE : EXIT_OK);
+  return hasMustFailure ? EXIT_MUST_FAILURE : EXIT_OK;
+}
+
+/**
+ * CLI entrypoint. File-internal (NOT exported) because it calls
+ * process.exit — callers who want to unit-test or compose the validator
+ * should use `runParity` which returns a numeric exit code.
+ */
+function main(packagesDir?: string, baselineDemoCount?: number): void {
+  const code = runParity(packagesDir, baselineDemoCount);
+  process.exit(code);
 }
 
 // Only invoke main() when this file is run directly (not when imported by
