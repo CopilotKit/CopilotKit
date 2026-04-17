@@ -641,6 +641,165 @@ describe("validate-parity", () => {
       }
     });
 
+    it("elevates unreadable tests/e2e dir to MUST with unreadable-specs-dir and suppresses missing-spec cascade", () => {
+      // When tests/e2e/ is unreadable (EACCES etc.), the legacy
+      // behaviour was to report a listing-failed WARNING plus N
+      // missing-spec WARNING entries (one per declared demo), burying
+      // the EACCES root cause. New contract: one MUST error of
+      // category "unreadable-specs-dir", no per-demo missing-spec
+      // cascade, and the listing-failed warning is elevated (not
+      // duplicated into the warnings array).
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-specsunread-"));
+      try {
+        const pkgDir = path.join(tmp, "specs-unreadable");
+        fs.mkdirSync(path.join(pkgDir, "src", "app", "demos", "a"), {
+          recursive: true,
+        });
+        fs.mkdirSync(path.join(pkgDir, "src", "app", "demos", "b"), {
+          recursive: true,
+        });
+        fs.mkdirSync(path.join(pkgDir, "src", "app", "demos", "c"), {
+          recursive: true,
+        });
+        fs.mkdirSync(path.join(pkgDir, "tests", "e2e"), { recursive: true });
+        fs.mkdirSync(path.join(pkgDir, "qa"), { recursive: true });
+        fs.writeFileSync(path.join(pkgDir, "qa", "a.md"), "", "utf-8");
+        fs.writeFileSync(path.join(pkgDir, "qa", "b.md"), "", "utf-8");
+        fs.writeFileSync(path.join(pkgDir, "qa", "c.md"), "", "utf-8");
+        fs.writeFileSync(
+          path.join(pkgDir, "manifest.yaml"),
+          "slug: specs-unreadable\ndemos:\n  - id: a\n  - id: b\n  - id: c\n",
+          "utf-8",
+        );
+        const warnSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+        const origReaddir = fs.readdirSync;
+        const readdirSpy = vi.spyOn(fs, "readdirSync").mockImplementation(((
+          p: fs.PathLike,
+          ...rest: unknown[]
+        ) => {
+          const s = typeof p === "string" ? p : p.toString();
+          if (
+            s.endsWith(`${path.sep}tests${path.sep}e2e`) ||
+            s.endsWith("/tests/e2e")
+          ) {
+            const e: NodeJS.ErrnoException = Object.assign(
+              new Error("EACCES: permission denied"),
+              { code: "EACCES" },
+            );
+            throw e;
+          }
+          return (
+            origReaddir as unknown as (
+              p: fs.PathLike,
+              ...rest: unknown[]
+            ) => unknown
+          ).call(fs, p, ...rest);
+        }) as unknown as typeof fs.readdirSync);
+        try {
+          const report = auditPackage("specs-unreadable", tmp);
+          const unreadable = report.mustErrors.filter(
+            (e) => e.category === "unreadable-specs-dir",
+          );
+          expect(unreadable.length).toBe(1);
+          // No missing-spec cascade.
+          const missingSpec = report.warnings.filter(
+            (w) => w.category === "missing-spec",
+          );
+          expect(missingSpec.length).toBe(0);
+          // listing-failed for tests/e2e was elevated, not duplicated.
+          const listingFailedSpecs = report.warnings.filter(
+            (w) =>
+              w.category === "listing-failed" && /tests\/e2e/.test(w.path),
+          );
+          expect(listingFailedSpecs.length).toBe(0);
+          // Sanity: qa cascade NOT suppressed (unrelated dir).
+          const missingQa = report.warnings.filter(
+            (w) => w.category === "missing-qa",
+          );
+          expect(missingQa.length).toBe(0); // all qa present
+        } finally {
+          readdirSpy.mockRestore();
+          warnSpy.mockRestore();
+        }
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("elevates unreadable qa dir to MUST with unreadable-qa-dir and suppresses missing-qa cascade", () => {
+      // Same contract as unreadable-specs-dir: one MUST error of
+      // category "unreadable-qa-dir", missing-qa cascade suppressed,
+      // listing-failed entry elevated (not duplicated).
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-qaunread-"));
+      try {
+        const pkgDir = path.join(tmp, "qa-unreadable");
+        fs.mkdirSync(path.join(pkgDir, "src", "app", "demos", "a"), {
+          recursive: true,
+        });
+        fs.mkdirSync(path.join(pkgDir, "src", "app", "demos", "b"), {
+          recursive: true,
+        });
+        fs.mkdirSync(path.join(pkgDir, "tests", "e2e"), { recursive: true });
+        fs.writeFileSync(
+          path.join(pkgDir, "tests", "e2e", "a.spec.ts"),
+          "",
+          "utf-8",
+        );
+        fs.writeFileSync(
+          path.join(pkgDir, "tests", "e2e", "b.spec.ts"),
+          "",
+          "utf-8",
+        );
+        fs.mkdirSync(path.join(pkgDir, "qa"), { recursive: true });
+        fs.writeFileSync(
+          path.join(pkgDir, "manifest.yaml"),
+          "slug: qa-unreadable\ndemos:\n  - id: a\n  - id: b\n",
+          "utf-8",
+        );
+        const warnSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+        const origReaddir = fs.readdirSync;
+        const readdirSpy = vi.spyOn(fs, "readdirSync").mockImplementation(((
+          p: fs.PathLike,
+          ...rest: unknown[]
+        ) => {
+          const s = typeof p === "string" ? p : p.toString();
+          if (s.endsWith(`${path.sep}qa`) || s.endsWith("/qa")) {
+            const e: NodeJS.ErrnoException = Object.assign(
+              new Error("EACCES: permission denied"),
+              { code: "EACCES" },
+            );
+            throw e;
+          }
+          return (
+            origReaddir as unknown as (
+              p: fs.PathLike,
+              ...rest: unknown[]
+            ) => unknown
+          ).call(fs, p, ...rest);
+        }) as unknown as typeof fs.readdirSync);
+        try {
+          const report = auditPackage("qa-unreadable", tmp);
+          const unreadable = report.mustErrors.filter(
+            (e) => e.category === "unreadable-qa-dir",
+          );
+          expect(unreadable.length).toBe(1);
+          const missingQa = report.warnings.filter(
+            (w) => w.category === "missing-qa",
+          );
+          expect(missingQa.length).toBe(0);
+          const listingFailedQa = report.warnings.filter(
+            (w) => w.category === "listing-failed" && /\/qa$/.test(w.path),
+          );
+          expect(listingFailedQa.length).toBe(0);
+        } finally {
+          readdirSpy.mockRestore();
+          warnSpy.mockRestore();
+        }
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
     it("still lists spec/qa files after a manifest failure so reporter counts are accurate", () => {
       // When manifest is malformed, MUST error still fires, but the
       // reporter row benefits from knowing spec/qa counts. Early return
@@ -1289,24 +1448,16 @@ describe("validate-parity", () => {
       expect(r.stdout).toMatch(/bad-pkg/);
     });
 
-    it("[source-lint] main() body uses process.exitCode, not synchronous process.exit(code)", () => {
-      // This is a source-level lint (not a behavioural test): the
-      // convention shared with audit.ts / validate-pins.ts is
-      // `process.exitCode = N` so Node can drain buffered stdout/stderr
-      // before tearing down. The companion behavioural assertion lives
-      // in the "emits the full summary table on stdout even when
-      // exiting non-zero" test above, which confirms the drain actually
-      // works end-to-end. This lint guards against a regression where
-      // someone swaps main()'s body back to synchronous process.exit.
-      const src = fs.readFileSync(PARITY_SCRIPT, "utf-8");
-      const mainMatch = src.match(
-        /function main\([^)]*\)[^{]*\{([\s\S]*?)\n\}/,
-      );
-      expect(mainMatch).not.toBeNull();
-      const mainBody = mainMatch![1];
-      expect(mainBody).not.toMatch(/process\.exit\(/);
-      expect(mainBody).toMatch(/process\.exitCode/);
-    });
+    // Note: the source-grep regex that previously asserted `main()`'s
+    // body uses `process.exitCode` and not synchronous `process.exit(N)`
+    // was removed. The regex (`/function main\([^)]*\)[^{]*\{([\s\S]*?)\n\}/`)
+    // matched the first `\n}` it saw and was brittle to ordinary
+    // reformatting (e.g. nested braces, trailing-brace-on-same-line
+    // style). The behavioural "emits the full summary table on stdout
+    // even when exiting non-zero" subprocess test above already
+    // end-to-end verifies the drain works — which is the actual
+    // property we care about. A source-level lint on top of a
+    // behavioural test is both redundant and fragile.
   });
 
   describe("listFiles guards against bare suffix filenames", () => {
@@ -1397,6 +1548,26 @@ describe("validate-parity", () => {
       ).toMatch(/unreadable demos directory/);
     });
 
+    it("renders unreadable-specs-dir including the failing path", () => {
+      expect(
+        deriveMessage({
+          category: "unreadable-specs-dir",
+          path: "/x/y/tests/e2e",
+          error: "EACCES",
+        }),
+      ).toMatch(/unreadable specs directory/);
+    });
+
+    it("renders unreadable-qa-dir including the failing path", () => {
+      expect(
+        deriveMessage({
+          category: "unreadable-qa-dir",
+          path: "/x/y/qa",
+          error: "EACCES",
+        }),
+      ).toMatch(/unreadable qa directory/);
+    });
+
     it("renders missing-spec including the demo id", () => {
       expect(deriveMessage({ category: "missing-spec", demoId: "tools" })).toBe(
         "demo 'tools' has no tests/e2e/tools.spec.ts",
@@ -1450,18 +1621,27 @@ describe("validate-parity", () => {
     });
   });
 
-  describe("PackageReport issue arrays are readonly at the type level", () => {
-    // Defence-in-depth against accidental in-place mutation after
-    // auditPackage returns. TypeScript's `readonly T[]` surfaces any
-    // push/splice/shift attempt as a compile error rather than allowing
-    // callers to silently corrupt the report.
-    it("mustErrors and warnings are exposed as readonly arrays", () => {
-      const report = auditPackage("ok-pkg", FIXTURES_DIR);
-      // Runtime inspection: freeze is not required (the type check
-      // enforces the contract), but assert the arrays are actually the
-      // ones built by auditPackage and not nullish.
-      expect(Array.isArray(report.mustErrors)).toBe(true);
-      expect(Array.isArray(report.warnings)).toBe(true);
+  describe("PackageReport returns independent arrays for each audit call", () => {
+    // The `readonly T[]` annotation in PackageReport is a TypeScript-only
+    // enforcement (no runtime freeze). There is no meaningful runtime
+    // assertion for "this is readonly" — `Array.isArray` is trivially
+    // true, and `Object.isFrozen` is false because we don't freeze.
+    //
+    // What IS worth verifying at runtime is that each auditPackage call
+    // returns freshly-built arrays (no accidental shared module-level
+    // state leaking across calls). If two successive audits returned the
+    // same array instance, a caller mutating one would corrupt the next —
+    // exactly the failure mode the readonly type aims to prevent from
+    // the other direction. This test locks that in.
+    it("returns distinct mustErrors / warnings arrays across audit calls", () => {
+      const r1 = auditPackage("ok-pkg", FIXTURES_DIR);
+      const r2 = auditPackage("ok-pkg", FIXTURES_DIR);
+      expect(r1.mustErrors).not.toBe(r2.mustErrors);
+      expect(r1.warnings).not.toBe(r2.warnings);
+      expect(r1.demoIds).not.toBe(r2.demoIds);
+      expect(r1.specFiles).not.toBe(r2.specFiles);
+      expect(r1.qaFiles).not.toBe(r2.qaFiles);
+      expect(r1.demoDirs).not.toBe(r2.demoDirs);
     });
   });
 
