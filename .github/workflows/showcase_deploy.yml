@@ -260,7 +260,7 @@ jobs:
       - name: Build and push
         uses: depot/build-push-action@v1
         with:
-          project: 28s9x1m8b1
+          project: m2kw2wmmcp
           context: ${{ matrix.service.context }}
           file: ${{ matrix.service.dockerfile != '' && matrix.service.dockerfile || format('{0}/Dockerfile', matrix.service.context) }}
           push: true
