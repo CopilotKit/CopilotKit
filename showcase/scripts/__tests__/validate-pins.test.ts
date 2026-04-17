@@ -2484,9 +2484,7 @@ describe("parseRequirementsTxt wrapper throws on skipped/dropped", () => {
         // Parser accepted it — nothing to assert for wrapper throw.
         return;
       }
-      expect(() => parseRequirementsTxt(file)).toThrow(
-        /parseRequirementsTxt/i,
-      );
+      expect(() => parseRequirementsTxt(file)).toThrow(/parseRequirementsTxt/i);
     });
   });
 
@@ -2600,18 +2598,14 @@ describe("EACCES on examples/integrations/<slug> routes to EXIT_UNREADABLE", () 
       }
 
       try {
-        const r = spawnSync(
-          "npx",
-          ["tsx", VALIDATE_PINS_SCRIPT],
-          {
-            env: {
-              ...process.env,
-              VALIDATE_PINS_REPO_ROOT: tmp,
-            },
-            encoding: "utf-8",
-            timeout: 30_000,
+        const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
+          env: {
+            ...process.env,
+            VALIDATE_PINS_REPO_ROOT: tmp,
           },
-        );
+          encoding: "utf-8",
+          timeout: 30_000,
+        });
         // EXIT_UNREADABLE = 3. Must NOT be 2 (EXIT_INTERNAL) or 1
         // (EXIT_DRIFT). A successful routing yields 3.
         expect(r.status, r.stdout + r.stderr).toBe(3);
@@ -2674,18 +2668,14 @@ describe("validateAll: infra parse error routes to EXIT_UNREADABLE", () => {
       }
 
       try {
-        const r = spawnSync(
-          "npx",
-          ["tsx", VALIDATE_PINS_SCRIPT],
-          {
-            env: {
-              ...process.env,
-              VALIDATE_PINS_REPO_ROOT: tmp,
-            },
-            encoding: "utf-8",
-            timeout: 30_000,
+        const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
+          env: {
+            ...process.env,
+            VALIDATE_PINS_REPO_ROOT: tmp,
           },
-        );
+          encoding: "utf-8",
+          timeout: 30_000,
+        });
         // NOTE: fs.statSync may succeed on a mode-0000 file owned by
         // the current user (metadata is readable even when the file
         // isn't). In that case the infra branch in collectDepsFromDir

@@ -708,8 +708,7 @@ describe("validate-parity", () => {
           expect(missingSpec.length).toBe(0);
           // listing-failed for tests/e2e was elevated, not duplicated.
           const listingFailedSpecs = report.warnings.filter(
-            (w) =>
-              w.category === "listing-failed" && /tests\/e2e/.test(w.path),
+            (w) => w.category === "listing-failed" && /tests\/e2e/.test(w.path),
           );
           expect(listingFailedSpecs.length).toBe(0);
           // Sanity: qa cascade NOT suppressed (unrelated dir).

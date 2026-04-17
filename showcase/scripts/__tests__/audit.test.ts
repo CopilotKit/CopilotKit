@@ -1079,12 +1079,12 @@ describe("findExamplesSource — unreadable-candidates ERROR branch", () => {
       expect(sink.some((w) => w.includes("unreadable-candidates"))).toBe(true);
       // Every candidate should have shown up in a statSync warning too
       // (companion diagnostic emitted from the loop body).
-      expect(sink.some((w) => w.includes("statSync") && w.includes("cand-a"))).toBe(
-        true,
-      );
-      expect(sink.some((w) => w.includes("statSync") && w.includes("cand-b"))).toBe(
-        true,
-      );
+      expect(
+        sink.some((w) => w.includes("statSync") && w.includes("cand-a")),
+      ).toBe(true);
+      expect(
+        sink.some((w) => w.includes("statSync") && w.includes("cand-b")),
+      ).toBe(true);
     } finally {
       spy.mockRestore();
     }
