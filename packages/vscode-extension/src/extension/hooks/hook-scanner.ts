@@ -181,7 +181,7 @@ export function scanFile(filePath: string): HookCallSite[] {
   return results;
 }
 
-const HARDCODED_EXCLUDES = [
+const HARDCODED_EXCLUDES = new Set([
   "node_modules",
   "dist",
   ".git",
@@ -189,45 +189,17 @@ const HARDCODED_EXCLUDES = [
   "build",
   ".turbo",
   "out",
-];
+]);
 
 const SKIP_SUFFIXES = [".test.", ".spec.", ".stories."];
 
-function loadGitignore(rootDir: string): Map<string, Ignore> {
-  const byDir = new Map<string, Ignore>();
-
-  function walkForIgnoreFiles(dir: string): void {
-    let entries: fs.Dirent[];
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of entries) {
-      if (e.isDirectory()) {
-        if (HARDCODED_EXCLUDES.includes(e.name)) continue;
-        walkForIgnoreFiles(path.join(dir, e.name));
-      } else if (e.name === ".gitignore") {
-        try {
-          const content = fs.readFileSync(path.join(dir, e.name), "utf-8");
-          byDir.set(dir, ignore().add(content));
-        } catch {
-          /* ignore */
-        }
-      }
-    }
-  }
-
-  walkForIgnoreFiles(rootDir);
-  return byDir;
+interface IgnoreScope {
+  dir: string;
+  ig: Ignore;
 }
 
-function isIgnored(
-  filePath: string,
-  rootDir: string,
-  ignoreByDir: Map<string, Ignore>,
-): boolean {
-  for (const [dir, ig] of ignoreByDir) {
+function isIgnoredByAny(filePath: string, stack: IgnoreScope[]): boolean {
+  for (const { dir, ig } of stack) {
     if (!filePath.startsWith(dir + path.sep) && filePath !== dir) continue;
     const rel = path.relative(dir, filePath).split(path.sep).join("/");
     if (!rel || rel.startsWith("..")) continue;
@@ -236,42 +208,52 @@ function isIgnored(
   return false;
 }
 
-export interface ScanWorkspaceOptions {
-  roots?: string[];
-}
-
-export function scanWorkspace(
-  workspaceDir: string,
-  opts: ScanWorkspaceOptions = {},
-): HookCallSite[] {
-  const ignoreByDir = loadGitignore(workspaceDir);
+/**
+ * Walks the workspace once, inheriting any `.gitignore` encountered along the
+ * way as a stack. Skips the hardcoded excludes (case-insensitive) and common
+ * test-file suffixes, then runs `scanFile` on each remaining `.ts` / `.tsx`.
+ */
+export function scanWorkspace(workspaceDir: string): HookCallSite[] {
   const results: HookCallSite[] = [];
-  const roots = opts.roots?.length
-    ? opts.roots.map((r) => path.resolve(workspaceDir, r))
-    : [workspaceDir];
 
-  const walk = (dir: string): void => {
+  const walk = (dir: string, inherited: IgnoreScope[]): void => {
     let entries: fs.Dirent[];
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
     } catch {
       return;
     }
+
+    // First: if this directory contains a .gitignore, load it and push to the
+    // active stack so both sibling files and nested directories see it.
+    let activeStack = inherited;
+    for (const e of entries) {
+      if (!e.isDirectory() && e.name === ".gitignore") {
+        try {
+          const content = fs.readFileSync(path.join(dir, e.name), "utf-8");
+          activeStack = [...inherited, { dir, ig: ignore().add(content) }];
+        } catch {
+          /* ignore unreadable gitignore */
+        }
+        break;
+      }
+    }
+
     for (const e of entries) {
       const full = path.join(dir, e.name);
       if (e.isDirectory()) {
-        if (HARDCODED_EXCLUDES.includes(e.name)) continue;
-        if (isIgnored(full, workspaceDir, ignoreByDir)) continue;
-        walk(full);
+        if (HARDCODED_EXCLUDES.has(e.name.toLowerCase())) continue;
+        if (isIgnoredByAny(full, activeStack)) continue;
+        walk(full, activeStack);
         continue;
       }
       if (!e.name.endsWith(".ts") && !e.name.endsWith(".tsx")) continue;
       if (SKIP_SUFFIXES.some((s) => e.name.includes(s))) continue;
-      if (isIgnored(full, workspaceDir, ignoreByDir)) continue;
+      if (isIgnoredByAny(full, activeStack)) continue;
       results.push(...scanFile(full));
     }
   };
 
-  for (const r of roots) walk(r);
+  walk(workspaceDir, []);
   return results;
 }
