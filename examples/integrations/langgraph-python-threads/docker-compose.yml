@@ -3,9 +3,6 @@
 # Starts postgres, redis, runs DB migrations, and the intelligence
 # app-api + realtime-gateway services.
 #
-# Prerequisites:
-#   Build local images first — see intelligence/scripts/build-local-images.sh
-#
 # Usage:
 #   docker compose up -d --wait
 #
@@ -59,7 +56,7 @@ services:
   # ---------------------------------------------------------------------------
 
   db-migrations:
-    image: cpki/db-migrations:local
+    image: public.ecr.aws/cpk/intelligence/db-migrations:0.1.0-rc.5
     environment:
       DATABASE_URL: postgresql://intelligence:intelligence@postgres:5432/intelligence_app
     depends_on:
@@ -74,7 +71,7 @@ services:
   # ---------------------------------------------------------------------------
 
   app-api:
-    image: cpki/app-api:local
+    image: public.ecr.aws/cpk/intelligence/app-api:0.1.0-rc.5
     ports:
       - "${APP_API_HOST_PORT:-4201}:4201"
     environment:
@@ -100,7 +97,7 @@ services:
       - intelligence
 
   realtime-gateway:
-    image: cpki/realtime-gateway:local
+    image: public.ecr.aws/cpk/intelligence/realtime-gateway:0.1.0-rc.5
     ports:
       - "${REALTIME_GATEWAY_HOST_PORT:-4401}:4401"
     environment:

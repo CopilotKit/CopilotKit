@@ -55,18 +55,11 @@ This authenticates you and issues a `COPILOTKIT_LICENSE_TOKEN`. Add it to your `
 
 5. **Start intelligence infrastructure** (for threads):
 
-First, build the local Docker images from the intelligence repo:
-
-```bash
-# From the intelligence repo root
-./scripts/build-local-images.sh
-```
-
-Then start the infrastructure:
-
 ```bash
 docker compose up -d --wait
 ```
+
+This pulls the published images from `public.ecr.aws/cpk/intelligence/*`.
 
 6. Start all services:
 
