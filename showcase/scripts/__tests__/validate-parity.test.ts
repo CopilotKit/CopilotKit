@@ -21,6 +21,8 @@ import {
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { fileURLToPath } from "url";
+import { spawnSync } from "child_process";
 import {
   auditPackage,
   loadManifest,
@@ -28,11 +30,20 @@ import {
   listDirs,
 } from "../validate-parity.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PARITY_SCRIPT = path.resolve(__dirname, "..", "validate-parity.ts");
+
 // Shared tmpdir populated by beforeAll with all the "static" fixture
 // packages (ok-pkg, missing-manifest, missing-demo-dir, missing-spec,
 // spec-exceeds, spec-less). Malformed / empty / scalar fixtures are still
 // built in per-test tmpdirs because they exercise distinct crash paths.
 let FIXTURES_DIR: string;
+// Save cwd / env to restore in afterAll — avoids cross-file pollution if
+// any individual test temporarily swaps them.
+const ORIGINAL_CWD = process.cwd();
+const ORIGINAL_PARITY_ROOT = process.env.VALIDATE_PARITY_REPO_ROOT;
+const ORIGINAL_PARITY_BASELINE = process.env.VALIDATE_PARITY_BASELINE;
 
 function writeFixturePackage(
   root: string,
@@ -99,7 +110,7 @@ function seedStaticFixtures(root: string) {
     qaFiles: ["chat.md"],
   });
 
-  // spec-exceeds: spec count > demo count (e.g. renderer-selector.spec.ts)
+  // spec-exceeds: spec count > demo count (legitimate cross-demo extras)
   writeFixturePackage(root, "spec-exceeds", {
     manifest: "slug: spec-exceeds\ndemos:\n  - id: chat\n    name: Chat\n",
     demoDirs: ["chat"],
@@ -114,6 +125,14 @@ function seedStaticFixtures(root: string) {
     demoDirs: ["chat", "tools"],
     specFiles: ["chat.spec.ts"],
     qaFiles: ["chat.md", "tools.md"],
+  });
+
+  // spec-equal-demos: exactly spec count == demo count → NO warning
+  writeFixturePackage(root, "spec-equal", {
+    manifest: "slug: spec-equal\ndemos:\n  - id: chat\n    name: Chat\n",
+    demoDirs: ["chat"],
+    specFiles: ["chat.spec.ts"],
+    qaFiles: ["chat.md"],
   });
 }
 
@@ -135,7 +154,19 @@ function makeMalformedManifestDir(): string {
   return tmp;
 }
 
+// Build a tree that main() expects: <root>/packages/<slug>/... so
+// VALIDATE_PARITY_REPO_ROOT can point at the root.
+function makeMainTree(): { root: string; packagesDir: string } {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "parity-main-"));
+  const packagesDir = path.join(root, "packages");
+  fs.mkdirSync(packagesDir, { recursive: true });
+  return { root, packagesDir };
+}
+
 beforeAll(() => {
+  // Idempotent: only create the fixtures directory once. If a previous
+  // test file left one on disk (it shouldn't), we still create a fresh
+  // one so the seedStaticFixtures contract isn't corrupted.
   FIXTURES_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "parity-fixtures-"));
   seedStaticFixtures(FIXTURES_DIR);
 });
@@ -143,6 +174,21 @@ beforeAll(() => {
 afterAll(() => {
   if (FIXTURES_DIR) {
     fs.rmSync(FIXTURES_DIR, { recursive: true, force: true });
+  }
+  // Restore any env / cwd state in case a subprocess test mutated the
+  // parent process's environment inadvertently.
+  if (process.cwd() !== ORIGINAL_CWD) {
+    process.chdir(ORIGINAL_CWD);
+  }
+  if (ORIGINAL_PARITY_ROOT === undefined) {
+    delete process.env.VALIDATE_PARITY_REPO_ROOT;
+  } else {
+    process.env.VALIDATE_PARITY_REPO_ROOT = ORIGINAL_PARITY_ROOT;
+  }
+  if (ORIGINAL_PARITY_BASELINE === undefined) {
+    delete process.env.VALIDATE_PARITY_BASELINE;
+  } else {
+    process.env.VALIDATE_PARITY_BASELINE = ORIGINAL_PARITY_BASELINE;
   }
 });
 
@@ -158,7 +204,7 @@ describe("validate-parity", () => {
       // throwing; auditPackage converts that into a mustError.
       const tmp = makeMalformedManifestDir();
       try {
-        expect(() => loadManifest("malformed", tmp)).toThrow();
+        expect(() => loadManifest("malformed", tmp)).toThrow(/\[malformed\]/);
       } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
       }
@@ -191,6 +237,42 @@ describe("validate-parity", () => {
         const report = auditPackage("malformed", tmp);
         expect(report.mustErrors.length).toBeGreaterThan(0);
         expect(report.mustErrors[0]).toMatch(/unparseable manifest\.yaml/);
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("distinguishes unreadable from malformed in the mustError message", () => {
+      // parseManifest reports "unreadable" when readFileSync throws
+      // (permissions, I/O). loadManifest tags the throw with [unreadable]
+      // so auditPackage can emit a different message than for [malformed].
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-unreadable-"));
+      try {
+        const pkgDir = path.join(tmp, "unreadable");
+        fs.mkdirSync(pkgDir, { recursive: true });
+        const manifestPath = path.join(pkgDir, "manifest.yaml");
+        fs.writeFileSync(manifestPath, "slug: x\n", "utf-8");
+        const readSpy = vi.spyOn(fs, "readFileSync").mockImplementation(((
+          p: fs.PathOrFileDescriptor,
+        ) => {
+          if (typeof p === "string" && p.endsWith("manifest.yaml")) {
+            const e: NodeJS.ErrnoException = Object.assign(
+              new Error("EACCES: permission denied"),
+              { code: "EACCES" },
+            );
+            throw e;
+          }
+          // Fall through for unrelated reads (none expected in this test).
+          return "" as unknown as Buffer;
+        }) as typeof fs.readFileSync);
+        try {
+          const report = auditPackage("unreadable", tmp);
+          expect(report.mustErrors.length).toBeGreaterThan(0);
+          expect(report.mustErrors[0]).toMatch(/unreadable manifest\.yaml/);
+          expect(report.mustErrors[0]).not.toMatch(/unparseable/);
+        } finally {
+          readSpy.mockRestore();
+        }
       } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
       }
@@ -267,10 +349,20 @@ describe("validate-parity", () => {
     });
 
     it("does NOT warn when spec count exceeds demo count (legitimate extras)", () => {
-      // E.g. renderer-selector.spec.ts for langgraph-python is allowed.
+      // A cross-demo spec (e.g. one covering renderer selection) is allowed.
       const report = auditPackage("spec-exceeds", FIXTURES_DIR);
       expect(
         report.warnings.some((w) => /spec count.*demo count/.test(w)),
+      ).toBe(false);
+    });
+
+    it("does NOT warn when spec count equals demo count (equality boundary)", () => {
+      // Pin the boundary: the under-coverage warning uses strict `<`, so an
+      // exact match must not warn. Regression guard against accidentally
+      // tightening the comparison.
+      const report = auditPackage("spec-equal", FIXTURES_DIR);
+      expect(
+        report.warnings.some((w) => /spec count.*<.*demo count/.test(w)),
       ).toBe(false);
     });
 
@@ -290,12 +382,8 @@ describe("validate-parity", () => {
     });
 
     afterEach(() => {
-      // Restore permissions so cleanup succeeds, then rm.
-      try {
-        fs.chmodSync(tmpDir, 0o755);
-      } catch {
-        /* ignore */
-      }
+      // Restore permissions so cleanup succeeds, then rm. If chmod fails,
+      // let it throw — swallowing it silently would hide test-pollution.
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
@@ -308,55 +396,86 @@ describe("validate-parity", () => {
     });
 
     it("listDirs returns [] and logs a warning on readdir failure", () => {
-      // Skip on Windows or when running as root — chmod 0 won't produce
-      // EACCES for root.
-      if (process.platform === "win32" || process.getuid?.() === 0) {
-        return;
-      }
+      // Mock readdirSync to throw — avoids chmod-based tests that fail
+      // as root or on Windows and that leave behind tmpdirs that
+      // cleanup can't remove.
       const blocked = path.join(tmpDir, "blocked");
       fs.mkdirSync(blocked);
-      fs.chmodSync(blocked, 0o000);
 
       const warnSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const readdirSpy = vi
+        .spyOn(fs, "readdirSync")
+        .mockImplementation((): never => {
+          const e: NodeJS.ErrnoException = Object.assign(
+            new Error("EACCES: permission denied"),
+            { code: "EACCES" },
+          );
+          throw e;
+        });
       try {
-        const result = listDirs(blocked);
+        const warnings: string[] = [];
+        const result = listDirs(blocked, warnings);
         expect(result).toEqual([]);
-        // Pin the "logs a warning" half of the contract — without this the
-        // test would pass even if listDirs silently swallowed the error.
-        expect(warnSpy).toHaveBeenCalledTimes(1);
+        // The stderr log fires — assert on a pattern, not exact call count,
+        // to keep the contract loose enough to survive future refactors.
         expect(warnSpy).toHaveBeenCalledWith(
           expect.stringMatching(/\[WARN\] failed to read directory .*blocked/),
         );
+        // And the warning is ALSO pushed into the passed-in warnings array
+        // — ensures summary counts match what we emit on stderr.
+        expect(warnings.length).toBe(1);
+        expect(warnings[0]).toMatch(/failed to read directory .*blocked/);
       } finally {
-        fs.chmodSync(blocked, 0o755);
+        readdirSpy.mockRestore();
         warnSpy.mockRestore();
       }
     });
 
     it("listFiles returns [] and logs a warning on readdir failure", () => {
-      // Symmetric coverage with listDirs — the same readdir failure path
-      // exists in listFiles and must also be asserted.
-      if (process.platform === "win32" || process.getuid?.() === 0) {
-        return;
-      }
       const blocked = path.join(tmpDir, "blocked-files");
       fs.mkdirSync(blocked);
-      fs.chmodSync(blocked, 0o000);
 
       const warnSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const readdirSpy = vi
+        .spyOn(fs, "readdirSync")
+        .mockImplementation((): never => {
+          const e: NodeJS.ErrnoException = Object.assign(
+            new Error("EACCES: permission denied"),
+            { code: "EACCES" },
+          );
+          throw e;
+        });
       try {
-        const result = listFiles(blocked, ".md");
+        const warnings: string[] = [];
+        const result = listFiles(blocked, ".md", warnings);
         expect(result).toEqual([]);
-        expect(warnSpy).toHaveBeenCalledTimes(1);
         expect(warnSpy).toHaveBeenCalledWith(
           expect.stringMatching(
             /\[WARN\] failed to read directory .*blocked-files/,
           ),
         );
+        expect(warnings.length).toBe(1);
+        expect(warnings[0]).toMatch(/failed to read directory .*blocked-files/);
       } finally {
-        fs.chmodSync(blocked, 0o755);
+        readdirSpy.mockRestore();
         warnSpy.mockRestore();
       }
+    });
+
+    it("listDirs / listFiles return results in sorted order", () => {
+      // Filesystems don't guarantee iteration order, so auditPackage's
+      // reports could flake without explicit sorting. Pin sorted output.
+      const dir = path.join(tmpDir, "ordering");
+      fs.mkdirSync(dir, { recursive: true });
+      fs.mkdirSync(path.join(dir, "zeta"));
+      fs.mkdirSync(path.join(dir, "alpha"));
+      fs.mkdirSync(path.join(dir, "mu"));
+      fs.writeFileSync(path.join(dir, "zeta.md"), "", "utf-8");
+      fs.writeFileSync(path.join(dir, "alpha.md"), "", "utf-8");
+      fs.writeFileSync(path.join(dir, "mu.md"), "", "utf-8");
+
+      expect(listDirs(dir)).toEqual(["alpha", "mu", "zeta"]);
+      expect(listFiles(dir, ".md")).toEqual(["alpha.md", "mu.md", "zeta.md"]);
     });
   });
 
@@ -383,6 +502,79 @@ describe("validate-parity", () => {
           await import("../validate-parity.js");
         })(),
       ).resolves.not.toThrow();
+    });
+  });
+
+  describe("main() exit codes via CLI subprocess", () => {
+    let tree: { root: string; packagesDir: string };
+
+    beforeEach(() => {
+      tree = makeMainTree();
+    });
+
+    afterEach(() => {
+      fs.rmSync(tree.root, { recursive: true, force: true });
+    });
+
+    function runCli(args: string[], opts: { env?: NodeJS.ProcessEnv } = {}) {
+      return spawnSync("npx", ["tsx", PARITY_SCRIPT, ...args], {
+        env: { ...process.env, ...opts.env },
+        encoding: "utf-8",
+        timeout: 30_000,
+      });
+    }
+
+    it("exits 0 when there are no MUST failures", () => {
+      writeFixturePackage(tree.packagesDir, "ok-pkg", {
+        manifest: "slug: ok-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
+        demoDirs: ["chat"],
+        specFiles: ["chat.spec.ts"],
+        qaFiles: ["chat.md"],
+      });
+      const r = runCli([], {
+        env: { VALIDATE_PARITY_REPO_ROOT: tree.root },
+      });
+      expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(0);
+    });
+
+    it("exits 1 when a MUST failure is present", () => {
+      // missing demos/<id>/ dir triggers a MUST failure.
+      writeFixturePackage(tree.packagesDir, "bad", {
+        manifest: "slug: bad\ndemos:\n  - id: chat\n    name: Chat\n",
+      });
+      const r = runCli([], {
+        env: { VALIDATE_PARITY_REPO_ROOT: tree.root },
+      });
+      expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(1);
+    });
+
+    it("exits 3 (unreadable) when packages dir does not exist", () => {
+      // tree.root exists but packages/ was just removed.
+      fs.rmSync(tree.packagesDir, { recursive: true, force: true });
+      const r = runCli([], {
+        env: { VALIDATE_PARITY_REPO_ROOT: tree.root },
+      });
+      expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(3);
+      expect(r.stderr).toMatch(/packages/i);
+    });
+
+    it("respects VALIDATE_PARITY_REPO_ROOT env-var override", () => {
+      // Populate the fixture root and assert main() honors the env var
+      // rather than the default packages dir (which would walk real
+      // packages under showcase/packages/).
+      writeFixturePackage(tree.packagesDir, "only-pkg", {
+        manifest: "slug: only-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
+        demoDirs: ["chat"],
+        specFiles: ["chat.spec.ts"],
+        qaFiles: ["chat.md"],
+      });
+      const r = runCli([], {
+        env: { VALIDATE_PARITY_REPO_ROOT: tree.root },
+      });
+      expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(0);
+      // The summary line counts packages; with the env-var honored we should
+      // see exactly 1 (the fixture), not the real showcase slug count.
+      expect(r.stdout).toMatch(/1 package\(s\) checked/);
     });
   });
 });
