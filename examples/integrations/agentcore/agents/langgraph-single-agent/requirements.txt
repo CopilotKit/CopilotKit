@@ -1,9 +1,9 @@
 # LangGraph agent dependencies with pinned versions
 fastapi==0.115.12
 uvicorn==0.34.2
-ag-ui-protocol>=0.1.10
-ag-ui-langgraph==0.0.28
-copilotkit==0.1.83
+ag-ui-protocol>=0.1.15
+ag-ui-langgraph==0.0.33
+copilotkit==0.1.87
 partialjson>=0.0.8
 langgraph==1.0.10rc1
 langchain>=0.3.0

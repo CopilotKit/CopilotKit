@@ -4,7 +4,6 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --legacy-peer-deps
 COPY . .
-COPY shared_frontend/src/ ./shared_frontend/src/
 COPY shared_typescript/tools/ ./shared_typescript/tools/
 RUN npx next build
 

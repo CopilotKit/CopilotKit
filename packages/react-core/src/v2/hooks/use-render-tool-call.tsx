@@ -47,6 +47,7 @@ const ToolCallRenderer = React.memo(
       return (
         <RenderComponent
           name={toolName}
+          toolCallId={toolCall.id}
           args={args}
           status={ToolCallStatus.Complete}
           result={toolMessage.content}
@@ -56,6 +57,7 @@ const ToolCallRenderer = React.memo(
       return (
         <RenderComponent
           name={toolName}
+          toolCallId={toolCall.id}
           args={args}
           status={ToolCallStatus.Executing}
           result={undefined}
@@ -65,6 +67,7 @@ const ToolCallRenderer = React.memo(
       return (
         <RenderComponent
           name={toolName}
+          toolCallId={toolCall.id}
           args={args}
           status={ToolCallStatus.InProgress}
           result={undefined}

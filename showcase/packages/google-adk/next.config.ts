@@ -20,13 +20,6 @@ const nextConfig: NextConfig = {
     ];
   },
   typescript: { ignoreBuildErrors: true },
-  webpack: (config) => {
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      "@copilotkit/showcase-shared": "./shared_frontend/src",
-    };
-    return config;
-  },
 };
 
 export default nextConfig;

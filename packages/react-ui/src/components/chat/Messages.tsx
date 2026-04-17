@@ -112,9 +112,9 @@ export const Messages = ({
             />
           );
         })}
-        {messages[messages.length - 1]?.role === "user" && inProgress && (
-          <LoadingIcon />
-        )}
+        {inProgress &&
+          (messages[messages.length - 1]?.role === "user" ||
+            messages[messages.length - 1]?.role === "tool") && <LoadingIcon />}
         {interrupt}
         {chatError && ErrorMessage && (
           <ErrorMessage error={chatError} isCurrentMessage />
