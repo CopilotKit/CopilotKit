@@ -20,7 +20,6 @@ generative_ui:
       - tool-rendering
       - hitl
       - gen-ui-interrupt
-      - open-gen-ui
 
   constrained-explicit:
     allowed:
@@ -40,28 +39,8 @@ generative_ui:
       - subagents
       - voice
 
-  open:
-    allowed:
-      - open-gen-ui
-      - multi-modal
-      - suggestions
-      - shared-state-read
-      - shared-state-write
-      - shared-state-streaming
-      - readables
-      - subagents
-      - voice
-    excluded:
-      - tool-rendering
-      - hitl
-      - gen-ui-tool-based
-      - gen-ui-interrupt
-      - useComponent
-      - agentic-chat
-
 interaction_modalities:
   headless:
     excluded:
-      - open-gen-ui
       - voice
   # sidebar, embedded, popup, chat: no exclusions
