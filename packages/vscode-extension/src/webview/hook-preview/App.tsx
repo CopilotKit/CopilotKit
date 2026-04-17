@@ -13,14 +13,7 @@ import { standardSchemaToFormSchema } from "./form/schema/standard-schema";
 import { mergeValues } from "./form/schema/normalize";
 import type { FormSchema } from "./form/schema/types";
 import { executeBundle } from "./bundle-loader";
-import {
-  ActionControls,
-  CoAgentStateControls,
-  InterruptControls,
-  RenderToolControls,
-  CustomMessageControls,
-  ActivityMessageControls,
-} from "./controls";
+import { ControlsDispatch } from "./ControlsDispatch";
 
 declare const acquireVsCodeApi: <T = unknown>() => {
   postMessage: (msg: T) => void;
@@ -198,15 +191,19 @@ export function App() {
       </div>
     );
   }
+  const reportMountError = (err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    setMountError(msg);
+    vscode.postMessage({ type: "mountError", error: msg });
+  };
+
   if (!HostRoot || !registry) {
     return (
       <>
         <Harness
           HostRoot={(HostRoot ?? (() => null)) as () => ReactNode}
           onCapture={setRegistry}
-          onMountError={(err) =>
-            setMountError(err instanceof Error ? err.message : String(err))
-          }
+          onMountError={reportMountError}
         />
         <div className="hook-preview-wait">Mounting host…</div>
       </>
@@ -266,58 +263,14 @@ export function App() {
     }
   })();
 
-  const ControlsComponent = (() => {
-    switch (renderKind) {
-      case "action":
-      case "human-in-the-loop":
-        return (
-          <ActionControls
-            schema={schema}
-            values={controls as never}
-            onChange={setControls as never}
-          />
-        );
-      case "coagent-state":
-        return (
-          <CoAgentStateControls
-            schema={schema}
-            values={controls as never}
-            onChange={setControls as never}
-          />
-        );
-      case "interrupt":
-        return (
-          <InterruptControls
-            values={controls as never}
-            onChange={setControls as never}
-          />
-        );
-      case "render-tool":
-        return (
-          <RenderToolControls
-            schema={schema}
-            values={controls as never}
-            onChange={setControls as never}
-          />
-        );
-      case "custom-messages":
-        return (
-          <CustomMessageControls
-            values={controls as never}
-            onChange={setControls as never}
-          />
-        );
-      case "activity-message":
-        return (
-          <ActivityMessageControls
-            values={controls as never}
-            onChange={setControls as never}
-          />
-        );
-      default:
-        return <div>Unsupported render kind: {renderKind}</div>;
-    }
-  })();
+  const ControlsComponent = (
+    <ControlsDispatch
+      kind={renderKind}
+      schema={schema}
+      values={controls as ControlsByKind[typeof renderKind]}
+      onChange={setControls as (v: ControlsByKind[typeof renderKind]) => void}
+    />
+  );
 
   return (
     <div className="hook-preview-root">
