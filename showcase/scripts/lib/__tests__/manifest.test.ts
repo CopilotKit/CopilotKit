@@ -223,6 +223,63 @@ describe("parseManifest", () => {
     }
   });
 
+  it("returns {kind:'malformed', subkind:'shape'} when demos[i] is null (M-R8-5)", () => {
+    // YAML `demos: [~]` parses to `[null]`. The per-entry object guard must
+    // reject this as shape-malformed rather than crashing on `d.id` later.
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: x\ndemos:\n  - ~\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/demos\[0\].*null/i);
+    }
+  });
+
+  it("returns {kind:'malformed', subkind:'shape'} when demos[i] is a scalar (M-R8-5)", () => {
+    // YAML `demos: [42]` parses to `[42]`. The per-entry object guard must
+    // describe the concrete scalar type in the error (not "object").
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: x\ndemos:\n  - 42\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/demos\[0\].*number/i);
+    }
+  });
+
+  it("returns {kind:'malformed', subkind:'shape'} when demos[i].id is an empty string (M-R8-5)", () => {
+    // Empty ids would round-trip as valid strings but make downstream
+    // demo-path construction (`packages/<slug>/src/app/demos/<id>`) collapse
+    // onto the demos dir itself. Reject at validation time.
+    const f = path.join(root, "manifest.yaml");
+    write(f, 'slug: x\ndemos:\n  - id: ""\n');
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/demos\[0\]\.id.*non-empty/i);
+    }
+  });
+
+  it("returns {kind:'malformed', subkind:'shape'} on duplicate demo ids (M-R8-4)", () => {
+    // Two demos with the same id used to silently propagate — audit.ts
+    // would build two missing-demo-dir anomalies for the same path and
+    // validate-parity.ts would double-count coverage. Reject up-front.
+    const f = path.join(root, "manifest.yaml");
+    write(
+      f,
+      "slug: x\ndemos:\n  - id: agentic-chat\n  - id: human-in-the-loop\n  - id: agentic-chat\n",
+    );
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/duplicate demo id.*agentic-chat/i);
+    }
+  });
+
   it("returns {kind:'unreadable'} when readFileSync throws (e.g. EACCES)", () => {
     // Simulate a permission error via spy. existsSync returns true but
     // readFileSync throws — the parser must surface this as 'unreadable',

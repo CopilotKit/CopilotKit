@@ -32,6 +32,13 @@
  * their direction of mapping. The runtime invariant — every
  * ShowcaseSlug is an actual directory under `showcase/packages/` — is
  * enforced by slug-map.test.ts, not by the type system.
+ *
+ * We deliberately keep this as a type alias (not a branded type) to
+ * avoid forcing `as` casts on every external caller that builds a
+ * slug from a `path.basename` or `fs.readdirSync` result. The safety
+ * this trades away is recovered by `isShowcaseSlug` — a runtime
+ * validator applied at API boundaries (see `ENTRIES` construction
+ * below and the BORN_IN_SHOWCASE / SLUG_MAP assertions).
  */
 export type ShowcaseSlug = string;
 
@@ -47,6 +54,32 @@ export type ShowcaseSlug = string;
 export type ExamplesDir = string;
 
 /**
+ * Runtime validator for a ShowcaseSlug. Applied at API boundaries
+ * (SLUG entries construction, BORN_IN_SHOWCASE membership, callers
+ * that accept user-supplied slug strings) to catch obvious garbage —
+ * empty strings, whitespace, path separators — before it flows into
+ * a filesystem path or a slug-indexed Map. The nominal `ShowcaseSlug`
+ * type is a plain `string` alias and would otherwise admit any value.
+ *
+ * Accepts non-string input defensively (returns `false`) even though
+ * the declared parameter is `string`: this function sits at an API
+ * boundary where TS guarantees are weakest — misuse from an `any`
+ * source, a JSON roundtrip, or a yaml.parse result would silently
+ * admit non-strings if we only guarded with `.length === 0`.
+ */
+export function isShowcaseSlug(s: string): boolean {
+  if (typeof s !== "string") return false;
+  if (s.length === 0) return false;
+  // Reject whitespace and path separators: these are the characters
+  // that would break `path.join(packages, slug)` most surprisingly
+  // (newlines, spaces, `/`, `\`). We intentionally don't enforce a
+  // strict kebab-case pattern — existing slugs include dots and
+  // uppercase in related repos, so a strict regex would over-constrain.
+  if (/[\s/\\]/.test(s)) return false;
+  return true;
+}
+
+/**
  * Wrap a Set so mutation methods throw. Object.freeze on a Set does
  * not prevent .add/.delete — the set itself is frozen but its internal
  * slots are not. Casting to ReadonlySet is compile-time only.
@@ -54,6 +87,12 @@ export type ExamplesDir = string;
  * The returned type is ReadonlySet<T> (not Set<T>): callers that keep
  * a Set handle would bypass the runtime guard, so we force the narrow
  * type out of the helper.
+ *
+ * The replacement methods are installed with `writable: false` and
+ * `configurable: false` so they cannot themselves be re-replaced
+ * (`Object.defineProperty(set, "add", {value: realAdd})`) to restore
+ * mutation. Without those descriptors, a later caller could silently
+ * circumvent the freeze.
  */
 function freezeSet<T>(s: Set<T>): ReadonlySet<T> {
   // Replace mutation methods FIRST, THEN freeze — Object.freeze locks
@@ -63,9 +102,10 @@ function freezeSet<T>(s: Set<T>): ReadonlySet<T> {
   const fail = (method: string) => () => {
     throw new TypeError(`Cannot ${method} frozen Set`);
   };
-  Object.defineProperty(s, "add", { value: fail("add") });
-  Object.defineProperty(s, "delete", { value: fail("delete") });
-  Object.defineProperty(s, "clear", { value: fail("clear") });
+  const lock = { writable: false, configurable: false, enumerable: false };
+  Object.defineProperty(s, "add", { ...lock, value: fail("add") });
+  Object.defineProperty(s, "delete", { ...lock, value: fail("delete") });
+  Object.defineProperty(s, "clear", { ...lock, value: fail("clear") });
   return Object.freeze(s);
 }
 
@@ -73,9 +113,10 @@ function freezeMap<K, V>(m: Map<K, V>): ReadonlyMap<K, V> {
   const fail = (method: string) => () => {
     throw new TypeError(`Cannot ${method} frozen Map`);
   };
-  Object.defineProperty(m, "set", { value: fail("set") });
-  Object.defineProperty(m, "delete", { value: fail("delete") });
-  Object.defineProperty(m, "clear", { value: fail("clear") });
+  const lock = { writable: false, configurable: false, enumerable: false };
+  Object.defineProperty(m, "set", { ...lock, value: fail("set") });
+  Object.defineProperty(m, "delete", { ...lock, value: fail("delete") });
+  Object.defineProperty(m, "clear", { ...lock, value: fail("clear") });
   return Object.freeze(m);
 }
 
@@ -97,20 +138,170 @@ function freezeMap2D<K extends string, V>(
 }
 
 /**
+ * Single source of truth for the showcase/examples mapping tables.
+ * `SLUG_TO_EXAMPLES`, `FALLBACK_MAP`, and `BORN_IN_SHOWCASE` below are
+ * derived from this array via reducers. Adding / removing / renaming
+ * a slug happens in ONE place; before, three parallel maps had to be
+ * edited in lockstep and silently fell out of sync.
+ *
+ * Entry shape:
+ *   - slug           — the `showcase/packages/<slug>/` directory name
+ *   - bornInShowcase — true iff the package has no examples/integrations
+ *                      counterpart (skip instead of warn downstream).
+ *                      When true, `examples` MUST be empty.
+ *   - examples       — candidate dir names under `examples/integrations/`
+ *                      (or `integrations/` in older trees). The FIRST
+ *                      entry is treated as the preferred fallback.
+ *   - fallback       — if true, expose an entry in FALLBACK_MAP that
+ *                      points at `examples[0]`. FALLBACK_MAP documents
+ *                      known SLUG_MAP staleness where the slug under
+ *                      `showcase/packages/` no longer matches SLUG_MAP's
+ *                      examples→slug direction.
+ *
+ * `SLUG_MAP` (examples → slug) is NOT derived — it reflects the
+ * historical migrate-integration-examples.ts intent and is kept as a
+ * standalone declaration so the "known stale" documentation at its
+ * call sites in validate-pins.ts continues to hold.
+ */
+interface SlugEntry {
+  readonly slug: ShowcaseSlug;
+  readonly bornInShowcase: boolean;
+  readonly examples: readonly ExamplesDir[];
+  readonly fallback: boolean;
+}
+
+const ENTRIES: readonly SlugEntry[] = [
+  // Born-in-showcase packages have no examples/integrations counterpart.
+  { slug: "ag2", bornInShowcase: true, examples: [], fallback: false },
+  {
+    slug: "claude-sdk-python",
+    bornInShowcase: true,
+    examples: [],
+    fallback: false,
+  },
+  {
+    slug: "claude-sdk-typescript",
+    bornInShowcase: true,
+    examples: [],
+    fallback: false,
+  },
+  { slug: "langroid", bornInShowcase: true, examples: [], fallback: false },
+  { slug: "spring-ai", bornInShowcase: true, examples: [], fallback: false },
+
+  // Packages with a straightforward examples/integrations counterpart
+  // whose dir name matches SLUG_MAP's examples→slug direction.
+  {
+    slug: "langgraph-python",
+    bornInShowcase: false,
+    examples: ["langgraph-python"],
+    fallback: false,
+  },
+  {
+    slug: "langgraph-typescript",
+    bornInShowcase: false,
+    examples: ["langgraph-js"],
+    fallback: false,
+  },
+  {
+    slug: "langgraph-fastapi",
+    bornInShowcase: false,
+    examples: ["langgraph-fastapi"],
+    fallback: false,
+  },
+  {
+    slug: "mastra",
+    bornInShowcase: false,
+    examples: ["mastra"],
+    fallback: false,
+  },
+  {
+    slug: "agno",
+    bornInShowcase: false,
+    examples: ["agno"],
+    fallback: false,
+  },
+  {
+    slug: "llamaindex",
+    bornInShowcase: false,
+    examples: ["llamaindex"],
+    fallback: false,
+  },
+  {
+    slug: "google-adk",
+    bornInShowcase: false,
+    examples: ["adk"],
+    fallback: false,
+  },
+
+  // Packages whose showcase slug no longer matches SLUG_MAP's
+  // examples→slug direction — these need FALLBACK_MAP entries so
+  // validate-pins.ts can still resolve them.
+  {
+    slug: "crewai-crews",
+    bornInShowcase: false,
+    examples: ["crewai-crews"],
+    fallback: true,
+  },
+  {
+    slug: "pydantic-ai",
+    bornInShowcase: false,
+    examples: ["pydantic-ai"],
+    fallback: true,
+  },
+  {
+    slug: "ms-agent-dotnet",
+    bornInShowcase: false,
+    examples: ["ms-agent-framework-dotnet"],
+    fallback: true,
+  },
+  {
+    slug: "ms-agent-python",
+    bornInShowcase: false,
+    examples: ["ms-agent-framework-python"],
+    fallback: true,
+  },
+  {
+    slug: "strands",
+    bornInShowcase: false,
+    examples: ["strands-python"],
+    fallback: true,
+  },
+];
+
+// API-boundary validation: every slug that enters the derived maps
+// must pass `isShowcaseSlug`. The loop runs at module load so a bad
+// entry trips construction immediately rather than on first use.
+for (const e of ENTRIES) {
+  if (!isShowcaseSlug(e.slug)) {
+    throw new Error(
+      `lib/slug-map: invalid ShowcaseSlug in ENTRIES: ${JSON.stringify(e.slug)}`,
+    );
+  }
+  if (e.bornInShowcase && e.examples.length > 0) {
+    throw new Error(
+      `lib/slug-map: born-in-showcase slug '${e.slug}' must have no examples`,
+    );
+  }
+  if (e.fallback && e.examples.length === 0) {
+    throw new Error(
+      `lib/slug-map: fallback entry '${e.slug}' must have at least one examples dir`,
+    );
+  }
+}
+
+/**
  * Packages intentionally without a Dojo (examples/integrations)
  * counterpart. They are the single source of truth for:
  *   - audit.ts  → skip the "missing examples/integrations counterpart"
  *                 anomaly;
  *   - validate-pins.ts → emit [SKIP] instead of [WARN].
+ *
+ * Derived from ENTRIES by filtering `bornInShowcase === true`.
  */
 export const BORN_IN_SHOWCASE: ReadonlySet<ShowcaseSlug> = freezeSet(
-  new Set<ShowcaseSlug>([
-    "ag2",
-    "claude-sdk-python",
-    "claude-sdk-typescript",
-    "langroid",
-    "spring-ai",
-  ]),
+  new Set<ShowcaseSlug>(
+    ENTRIES.filter((e) => e.bornInShowcase).map((e) => e.slug),
+  ),
 );
 
 /**
@@ -118,6 +309,13 @@ export const BORN_IN_SHOWCASE: ReadonlySet<ShowcaseSlug> = freezeSet(
  * Mirrors migrate-integration-examples.ts (which does not export its
  * SLUG_MAP). Kept as a Map for O(1) lookup and so `.get()` returns
  * `ShowcaseSlug | undefined` unambiguously.
+ *
+ * This map is NOT derived from ENTRIES: it represents the historical
+ * migration intent at the time showcase was split from
+ * examples/integrations, and validate-pins.ts's comments explicitly
+ * call out that it is "known stale". FALLBACK_MAP (derived from
+ * ENTRIES) documents the corrections where SLUG_MAP no longer matches
+ * the current slug under `showcase/packages/`.
  *
  * Only entries whose VALUES correspond to real `showcase/packages/<slug>/`
  * directories are included. Dead entries (crewai-flows → crewai,
@@ -139,6 +337,15 @@ export const SLUG_MAP: ReadonlyMap<ExamplesDir, ShowcaseSlug> = freezeMap(
   ]),
 );
 
+// Construction-time assertion: every SLUG_MAP value is a valid slug.
+for (const [, slug] of SLUG_MAP) {
+  if (!isShowcaseSlug(slug)) {
+    throw new Error(
+      `lib/slug-map: invalid SLUG_MAP value: ${JSON.stringify(slug)}`,
+    );
+  }
+}
+
 /**
  * Reverse / corrected map used by audit.ts: showcase slug → candidate
  * examples/integrations dir name(s). Dead entries that pointed at
@@ -146,40 +353,40 @@ export const SLUG_MAP: ReadonlyMap<ExamplesDir, ShowcaseSlug> = freezeMap(
  * mcp-apps) are intentionally excluded so audit.ts no longer emits
  * phantom "no examples source" anomalies for them.
  *
- * freezeMap2D freezes BOTH the outer record (no adding/removing keys,
- * no reassigning arrays) AND each inner array (no element assignment).
- * The compile-time `Readonly<Record<..., readonly ExamplesDir[]>>`
- * matches.
+ * Derived from ENTRIES: each entry with non-empty `examples` becomes
+ * `SLUG_TO_EXAMPLES[slug] = examples`. freezeMap2D freezes BOTH the
+ * outer record (no adding/removing keys, no reassigning arrays) AND
+ * each inner array (no element assignment). The compile-time
+ * `Readonly<Record<..., readonly ExamplesDir[]>>` matches.
  */
 export const SLUG_TO_EXAMPLES: Readonly<
   Record<ShowcaseSlug, readonly ExamplesDir[]>
-> = freezeMap2D<ShowcaseSlug, ExamplesDir>({
-  "langgraph-python": ["langgraph-python"],
-  "langgraph-typescript": ["langgraph-js"],
-  "langgraph-fastapi": ["langgraph-fastapi"],
-  mastra: ["mastra"],
-  "crewai-crews": ["crewai-crews"],
-  "pydantic-ai": ["pydantic-ai"],
-  agno: ["agno"],
-  llamaindex: ["llamaindex"],
-  "google-adk": ["adk"],
-  "ms-agent-dotnet": ["ms-agent-framework-dotnet"],
-  "ms-agent-python": ["ms-agent-framework-python"],
-  strands: ["strands-python"],
-});
+> = freezeMap2D<ShowcaseSlug, ExamplesDir>(
+  ENTRIES.reduce<Record<ShowcaseSlug, readonly ExamplesDir[]>>((acc, e) => {
+    if (e.examples.length > 0) {
+      acc[e.slug] = e.examples;
+    }
+    return acc;
+  }, {}),
+);
 
 /**
  * Fallback map used by validate-pins.ts: showcase slug → examples dir
  * name. These entries document known SLUG_MAP staleness — the slug
  * under `showcase/packages/` no longer matches the value in SLUG_MAP,
- * so we override here. If SLUG_MAP is refreshed, clean up these
- * entries accordingly.
+ * so we override here. If SLUG_MAP is refreshed, clean up the
+ * `fallback: true` flag on the corresponding ENTRIES row and this
+ * map rebuilds to match.
+ *
+ * Derived from ENTRIES: each entry with `fallback: true` exposes
+ * `FALLBACK_MAP[slug] = examples[0]`.
  */
 export const FALLBACK_MAP: Readonly<Record<ShowcaseSlug, ExamplesDir>> =
-  Object.freeze({
-    "crewai-crews": "crewai-crews",
-    "ms-agent-dotnet": "ms-agent-framework-dotnet",
-    "ms-agent-python": "ms-agent-framework-python",
-    "pydantic-ai": "pydantic-ai",
-    strands: "strands-python",
-  });
+  Object.freeze(
+    ENTRIES.reduce<Record<ShowcaseSlug, ExamplesDir>>((acc, e) => {
+      if (e.fallback) {
+        acc[e.slug] = e.examples[0];
+      }
+      return acc;
+    }, {}),
+  );
