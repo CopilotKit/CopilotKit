@@ -642,7 +642,8 @@ describe("auditPackage", () => {
     // Contract: even if stderr is captured/redirected (or if the
     // caller renders JSON and swallows stderr entirely), the audit
     // record itself should carry the warning.
-    const mappedSlug = Object.keys(SLUG_TO_EXAMPLES)[0];
+    const mappedSlug = "mastra";
+    expect(SLUG_TO_EXAMPLES[mappedSlug]).toBeDefined();
     writePackage(root, mappedSlug, {
       manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: x\n`,
       specs: ["x.spec.ts"],
@@ -1166,7 +1167,8 @@ describe("main() exit codes via CLI subprocess", () => {
     // double-emit the same information. A consumer redirecting
     // `2>/dev/null` should still get a complete machine-readable
     // report via stdout.
-    const mappedSlug = Object.keys(SLUG_TO_EXAMPLES)[0];
+    const mappedSlug = "mastra";
+    expect(SLUG_TO_EXAMPLES[mappedSlug]).toBeDefined();
     writePackage(root, mappedSlug, {
       manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: a\n`,
       specs: ["a.spec.ts"],
@@ -1194,7 +1196,8 @@ describe("main() exit codes via CLI subprocess", () => {
     // Counterpart: in text mode a terminal user watching stderr should
     // still see the stale-mapping diagnostic — the sink-based warnings
     // must be forwarded, not silently dropped.
-    const mappedSlug = Object.keys(SLUG_TO_EXAMPLES)[0];
+    const mappedSlug = "mastra";
+    expect(SLUG_TO_EXAMPLES[mappedSlug]).toBeDefined();
     writePackage(root, mappedSlug, {
       manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: a\n`,
       specs: ["a.spec.ts"],

@@ -12,7 +12,7 @@
  *   npx tsx showcase/scripts/audit.ts --json --slug <slug> # single package, JSON
  *
  * Output sections (printed in this order):
- *   1. Per-package summary table (slug | demos | specs | qa | deployed | examples src)
+ *   1. Per-package summary table (slug | demos | specs | qa | deployed | examples-src)
  *   2. Coverage anomalies (count mismatches, undeployed, missing examples source)
  *   3. Overall health (pass/fail counts + suggestions)
  *
@@ -658,7 +658,7 @@ const TABLE_COLUMNS = [
     },
   },
   {
-    key: "examples src",
+    key: "examples-src",
     label: "examples src",
     align: "left",
     value: (a: PackageAudit) => a.examplesSource ?? "—",
@@ -1171,7 +1171,7 @@ const HELP_TEXT = [
   "                      are informational and do not affect exit code)",
   "  --columns=<csv>     Render only the listed columns (comma-separated keys;",
   "                      declared order preserved). Valid keys: slug, demos,",
-  "                      specs, qa, deployed, examples src",
+  "                      specs, qa, deployed, examples-src",
   "  -h, --help          Show this help",
   "",
   "Examples:",
