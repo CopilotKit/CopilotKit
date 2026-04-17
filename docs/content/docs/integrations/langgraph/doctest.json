@@ -1,5 +1,5 @@
 {
   "python": {
-    "deps": ["copilotkit", "langgraph", "langchain-openai", "langchain-core", "fastapi", "uvicorn"]
+    "deps": ["copilotkit", "langgraph", "langchain-openai", "langchain-core", "fastapi", "uvicorn", "ag-ui-langgraph", "dotenv"]
   }
 }
