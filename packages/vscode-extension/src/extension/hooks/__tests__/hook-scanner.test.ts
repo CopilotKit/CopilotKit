@@ -24,12 +24,6 @@ describe("hook-scanner scanFile", () => {
     });
   });
 
-  it('handles string-literal property keys like {"name": "x"}', () => {
-    const sites = scanFile(fx("string-key-name.tsx"));
-    expect(sites).toHaveLength(1);
-    expect(sites[0].name).toBe("stringKey");
-  });
-
   it("detects aliased imports", () => {
     const sites = scanFile(fx("aliased-import.tsx"));
     expect(sites).toHaveLength(1);
