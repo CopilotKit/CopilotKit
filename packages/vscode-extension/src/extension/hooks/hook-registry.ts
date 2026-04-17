@@ -227,7 +227,7 @@ const HOOK_MAP = new Map<string, HookDef>(
   HOOK_REGISTRY.map((h) => [h.name, h]),
 );
 
-export const RENDER_HOOK_NAMES = new Set(
+export const RENDER_HOOK_NAMES: Set<string> = new Set(
   HOOK_REGISTRY.filter((h) => h.category === "render").map((h) => h.name),
 );
 
