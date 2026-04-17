@@ -1,6 +1,7 @@
 import * as path from "node:path";
+import * as fs from "node:fs";
 import { build } from "rolldown";
-import { createRequire } from "node:module";
+import { createRequire, isBuiltin } from "node:module";
 
 export interface IifeBundleResult {
   success: boolean;
@@ -49,6 +50,13 @@ function nodeResolveFallback(skipPrefixes: string[] = []) {
       if (skipPrefixes.some((p) => source === p || source.startsWith(p))) {
         return null;
       }
+      // Node builtins (e.g. "os", "crypto", "stream") can appear in
+      // transitive deps like supports-color or node-fetch. They can't be
+      // bundled into an IIFE, so treat them as external and let rolldown
+      // emit `require("os")` stubs that webviews simply don't execute.
+      if (isBuiltin(source)) {
+        return { id: source, external: true };
+      }
 
       if (importer) {
         try {
@@ -72,6 +80,67 @@ function nodeResolveFallback(skipPrefixes: string[] = []) {
 }
 
 /**
+ * Collects CSS imports into `cssChunks` and replaces them with an empty JS
+ * module, since Rolldown has removed native CSS bundling. The collected CSS
+ * is returned alongside the JS bundle so callers can inject it into the
+ * webview at runtime.
+ */
+const CSS_VIRTUAL_PREFIX = "\0copilotkit-css:";
+const CSS_VIRTUAL_SUFFIX = ".js";
+
+function cssCollectorPlugin(cssChunks: string[]) {
+  return {
+    name: "copilotkit-css-collector",
+    enforce: "pre" as const,
+    resolveId(source: string, importer: string | undefined) {
+      if (!source.endsWith(".css")) return null;
+      // Rewrite the id to a virtual JS module so rolldown doesn't route it
+      // through its CSS pipeline (which no longer supports bundling).
+      let realPath: string | null = null;
+      if (path.isAbsolute(source)) {
+        realPath = source;
+      } else if (source.startsWith(".") && importer) {
+        realPath = path.resolve(path.dirname(importer), source);
+      } else if (importer) {
+        // Bare specifier like "katex/dist/katex.min.css" — resolve via the
+        // importer's module graph so we find the real file on disk.
+        try {
+          const importerRequire = createRequire(
+            path.join(path.dirname(importer), "package.json"),
+          );
+          realPath = importerRequire.resolve(source);
+        } catch {
+          try {
+            realPath = extensionRequire.resolve(source);
+          } catch {
+            /* fall through */
+          }
+        }
+      }
+      if (!realPath) return null;
+      return {
+        id: `${CSS_VIRTUAL_PREFIX}${realPath}${CSS_VIRTUAL_SUFFIX}`,
+      };
+    },
+    load(id: string) {
+      if (!id.startsWith(CSS_VIRTUAL_PREFIX) || !id.endsWith(CSS_VIRTUAL_SUFFIX)) {
+        return null;
+      }
+      const realPath = id.slice(
+        CSS_VIRTUAL_PREFIX.length,
+        id.length - CSS_VIRTUAL_SUFFIX.length,
+      );
+      try {
+        cssChunks.push(fs.readFileSync(realPath, "utf-8"));
+      } catch {
+        /* ignore unreadable CSS */
+      }
+      return "export default undefined;";
+    },
+  };
+}
+
+/**
  * Bundles an entry file into an IIFE string (plus CSS collected from any
  * CSS imports). Used for loading user source files into a webview. React and
  * any other singletons configured via `external` + `globals` are hoisted to
@@ -81,6 +150,7 @@ export async function bundleIife(
   opts: IifeBundleOptions,
 ): Promise<IifeBundleResult> {
   try {
+    const cssChunks: string[] = [];
     const result = await build({
       input: opts.entryPath,
       write: false,
@@ -91,7 +161,10 @@ export async function bundleIife(
         globals: opts.globals,
       },
       external: opts.external,
-      plugins: [nodeResolveFallback(opts.skipSpecifierPrefixes)],
+      plugins: [
+        cssCollectorPlugin(cssChunks),
+        nodeResolveFallback(opts.skipSpecifierPrefixes),
+      ],
       logLevel: "silent",
     });
 
@@ -100,17 +173,6 @@ export async function bundleIife(
     );
     if (!jsOutput || !("code" in jsOutput)) {
       return { success: false, error: "No output generated" };
-    }
-
-    const cssChunks: string[] = [];
-    for (const o of result.output) {
-      if (
-        o.type === "asset" &&
-        o.fileName.endsWith(".css") &&
-        typeof o.source === "string"
-      ) {
-        cssChunks.push(o.source);
-      }
     }
 
     return {
