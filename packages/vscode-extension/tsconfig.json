@@ -7,9 +7,9 @@
     "jsx": "react-jsx",
     "types": ["vitest/globals"],
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "."
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "test-workspace/**/*"],
   "exclude": [
     "dist",
     "node_modules",
