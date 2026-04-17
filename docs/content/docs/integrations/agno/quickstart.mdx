@@ -351,27 +351,35 @@ Before you begin, you'll need the following:
 
 Agno can persist conversation history, session state, and run metadata when you configure a database and reuse the same `session_id`.
 
-```python title="main.py"
-from agno.agent import Agent
+If you use Postgres-backed sessions, install a Postgres driver first:
+
+```bash
+uv add psycopg[binary]
+```
+
+Then update your existing agent setup with a database and a stable conversation-scoped session ID:
+
+```python title="main.py (update your existing agent setup)"
 from agno.db.postgres import PostgresDb
-from agno.models.openai import OpenAIChat
 
 db = PostgresDb(db_url="postgresql+psycopg://...")
 
 agent = Agent(
-    model=OpenAIChat(id="gpt-5.4"),
+    # keep your existing model, tools, instructions, and AG-UI wiring
     db=db,
-    session_id="customer-support-session",
+    session_id=conversation_id,
 )
 ```
 
-On the CopilotKit side, use a stable `threadId` so the frontend keeps reconnecting to the same conversation:
+On the CopilotKit side, use the same conversation-scoped ID as a stable `threadId` so the frontend keeps reconnecting to the same conversation:
 
 ```tsx title="app/layout.tsx"
+const conversationId = ticket.id; // or a stored UUID for this conversation
+
 <CopilotKit
   runtimeUrl="/api/copilotkit"
   agent="my_agent"
-  threadId="customer-support-session"
+  threadId={conversationId}
 >
   {children}
 </CopilotKit>
@@ -381,6 +389,7 @@ On the CopilotKit side, use a stable `threadId` so the frontend keeps reconnecti
   Agno persistence and CopilotKit message hydration are related, but they are not the same thing.
 </Callout>
 
+- Derive `conversation_id` / `threadId` per user or per conversation, then keep it stable only for that scope.
 - Agno persistence keeps the backend session alive when you reuse the same `session_id`.
 - CopilotKit's `threadId` keeps the frontend attached to the same thread.
 - If you want previously saved Agno messages to appear immediately in the UI after a page reload, you still need to hydrate that history from your own storage layer when reconnecting.
