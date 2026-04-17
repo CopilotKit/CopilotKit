@@ -1,40 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-
-vi.mock("vscode", () => {
-  class EventEmitter<T> {
-    readonly event = (_listener: (e: T) => void) => ({ dispose: () => {} });
-    fire(_e?: T): void {}
-  }
-  class TreeItem {
-    label: string;
-    collapsibleState: number;
-    contextValue?: string;
-    description?: string;
-    tooltip?: string;
-    command?: unknown;
-    iconPath?: unknown;
-    constructor(label: string, collapsibleState: number) {
-      this.label = label;
-      this.collapsibleState = collapsibleState;
-    }
-  }
-  class ThemeIcon {
-    constructor(public readonly id: string, public readonly color?: unknown) {}
-  }
-  class ThemeColor {
-    constructor(public readonly id: string) {}
-  }
-  const TreeItemCollapsibleState = { None: 0, Collapsed: 1, Expanded: 2 };
-  return {
-    EventEmitter,
-    TreeItem,
-    ThemeIcon,
-    ThemeColor,
-    TreeItemCollapsibleState,
-  };
-});
-
-import { buildTreeData } from "../view-provider";
+import { describe, it, expect } from "vitest";
+import { buildTreeData, findLeaf, statusKeyForSite } from "../tree-model";
 import type { HookCallSite } from "../hook-scanner";
 
 const sample: HookCallSite[] = [
@@ -93,5 +58,39 @@ describe("buildTreeData", () => {
     );
     expect(emptyHumanITL?.label).toMatch(/\(0\)$/);
     expect(emptyHumanITL?.children).toEqual([]);
+  });
+});
+
+describe("findLeaf", () => {
+  it("locates the leaf matching a given site", () => {
+    const tree = buildTreeData(sample);
+    const leaf = findLeaf(tree, sample[0]);
+    expect(leaf?.label).toBe("addTodo");
+  });
+
+  it("returns null for a site not in the tree", () => {
+    const tree = buildTreeData(sample);
+    const stranger: HookCallSite = {
+      filePath: "/ws/nowhere.tsx",
+      hook: "useCopilotAction",
+      name: "ghost",
+      loc: { line: 1, column: 0, endLine: 1, endColumn: 0 },
+      category: "render",
+    };
+    expect(findLeaf(tree, stranger)).toBeNull();
+  });
+});
+
+describe("statusKeyForSite", () => {
+  it("uses line fallback for nameless hooks", () => {
+    expect(statusKeyForSite(sample[2]!)).toBe(
+      "/ws/b.tsx::useCopilotReadable::line:5",
+    );
+  });
+
+  it("uses name when present", () => {
+    expect(statusKeyForSite(sample[0]!)).toBe(
+      "/ws/a.tsx::useCopilotAction::addTodo",
+    );
   });
 });
