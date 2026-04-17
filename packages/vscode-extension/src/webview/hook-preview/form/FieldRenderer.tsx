@@ -3,6 +3,8 @@ import { StringField } from "./fields/StringField";
 import { NumberField } from "./fields/NumberField";
 import { BooleanField } from "./fields/BooleanField";
 import { ArrayField } from "./fields/ArrayField";
+import { ObjectField } from "./fields/ObjectField";
+import { RawJsonField } from "./fields/RawJsonField";
 
 export function FieldRenderer({
   field,
@@ -46,7 +48,15 @@ export function FieldRenderer({
           onChange={onChange as (v: unknown[]) => void}
         />
       );
-    default:
-      return <div>Field kind &quot;{field.kind}&quot; not yet implemented in renderer</div>;
+    case "object":
+      return (
+        <ObjectField
+          field={field}
+          value={value as Record<string, unknown> | undefined}
+          onChange={onChange as (v: Record<string, unknown>) => void}
+        />
+      );
+    case "raw-json":
+      return <RawJsonField field={field} value={value} onChange={onChange} />;
   }
 }
