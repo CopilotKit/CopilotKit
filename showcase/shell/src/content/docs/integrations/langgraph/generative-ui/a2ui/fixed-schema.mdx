@@ -2,10 +2,6 @@
 title: "Fixed Schema A2UI"
 description: "Pre-defined A2UI schema with dynamic data. The fastest approach — no LLM schema generation needed."
 ---
-
-import { Callout } from "fumadocs-ui/components/callout"
-import { Steps, Step } from "fumadocs-ui/components/steps"
-
 In the fixed-schema approach, you design the UI schema once (in a JSON file or using the [A2UI Composer](https://a2ui-composer.ag-ui.com/)) and your agent tool only provides the data. The surface appears instantly when the tool returns.
 
 ## How it works
@@ -90,7 +86,7 @@ def search_flights(flights: list[Flight]) -> str:
 ```
 
 Key points:
-- The `Flight` TypedDict is essential — LangChain serializes it into the tool's JSON schema, which is what the LLM sees when deciding what data to generate.
+- The `Flight` TypedDict is essential — LangGraph serializes it into the tool's JSON schema, which is what the LLM sees when deciding what data to generate.
 - `action_handlers` declares optimistic UI responses. When a user clicks a button, the matching handler replaces the surface instantly — no round-trip to the server.
 - `"book_flight"` matches the `action.name` from the schema button. `"*"` is a catch-all for any unmatched action.
 </Step>
