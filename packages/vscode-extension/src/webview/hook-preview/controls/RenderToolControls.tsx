@@ -1,6 +1,9 @@
 import { ActionControls } from "./ActionControls";
 import type { FormSchema } from "../form/schema/types";
-import type { RenderToolControls as Values } from "../adapters/types";
+import type {
+  ActionControls as ActionValues,
+  RenderToolControls as Values,
+} from "../adapters/types";
 
 export function RenderToolControls({
   schema,
@@ -11,6 +14,15 @@ export function RenderToolControls({
   values: Values;
   onChange: (v: Values) => void;
 }) {
+  // Narrow the props we hand to ActionControls so toolCallId doesn't leak in
+  // or out via the nested onChange. The nested control owns only the
+  // action-shaped fields; we recombine toolCallId on every change.
+  const actionValues: ActionValues = {
+    args: values.args,
+    status: values.status,
+    result: values.result,
+    onRespond: values.onRespond,
+  };
   return (
     <div className="hook-controls">
       <label className="hook-control-row">
@@ -24,8 +36,8 @@ export function RenderToolControls({
       </label>
       <ActionControls
         schema={schema}
-        values={values}
-        onChange={(v) => onChange({ ...values, ...v })}
+        values={actionValues}
+        onChange={(v) => onChange({ ...v, toolCallId: values.toolCallId })}
       />
     </div>
   );
