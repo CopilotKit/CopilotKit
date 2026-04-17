@@ -48,6 +48,91 @@ function nodeResolveFallback() {
   };
 }
 
+/**
+ * Rolldown plugin that stubs out Node builtins and CSS imports to empty
+ * modules for browser targets that transitively pull them in through a
+ * library not originally meant for bundling (e.g. `@copilotkit/react-core`
+ * pulls `node-fetch` which loads `crypto`, `stream`, `zlib`, etc.).
+ *
+ * Only safe when the bundled code's runtime path doesn't actually need those
+ * modules — which is the case for hook-preview, because `node-fetch` is
+ * replaced by the browser's native `fetch` at runtime and the transitively
+ * imported CSS is harmless ambient styling that we don't want injected into
+ * the webview.
+ */
+const NODE_BUILTINS = new Set([
+  "crypto",
+  "stream",
+  "string_decoder",
+  "zlib",
+  "http",
+  "https",
+  "http2",
+  "fs",
+  "path",
+  "url",
+  "util",
+  "os",
+  "buffer",
+  "querystring",
+  "net",
+  "tls",
+  "events",
+  "assert",
+  "child_process",
+  "dns",
+  "dgram",
+  "worker_threads",
+]);
+
+// Transitive markdown-rendering chain pulled in by @copilotkit/react-core's
+// chat components. Unreachable on the hook-preview runtime path (we render
+// user JSX directly, not markdown messages). Stubbing avoids JSON→ESM named-
+// import interop failures and trims the bundle.
+//
+// Each entry lists the named exports the dependents statically import — we
+// emit a module exposing exactly those names as `undefined` so rolldown's
+// named-export analysis succeeds. If more markdown deps break the build as
+// the tree grows, add entries here.
+const HOOK_PREVIEW_STUBBED_DEPS: Record<string, string[]> = {
+  "stringify-entities": ["stringifyEntities"],
+  "character-entities-legacy": ["characterEntitiesLegacy"],
+  "character-entities": ["characterEntities"],
+  "character-reference-invalid": ["characterReferenceInvalid"],
+  "parse-entities": ["parseEntities"],
+};
+
+function stubNodeBuiltinsAndCss() {
+  const EMPTY_MODULE_ID = "\0empty-module";
+  const STUB_PREFIX = "\0stub:";
+  return {
+    name: "stub-node-builtins-and-css",
+    enforce: "pre" as const,
+    resolveId(source: string) {
+      if (source.endsWith(".css")) return EMPTY_MODULE_ID;
+      const bare = source.startsWith("node:") ? source.slice(5) : source;
+      if (NODE_BUILTINS.has(bare)) return EMPTY_MODULE_ID;
+      if (source in HOOK_PREVIEW_STUBBED_DEPS) {
+        return STUB_PREFIX + source;
+      }
+      return null;
+    },
+    load(id: string) {
+      if (id === EMPTY_MODULE_ID) {
+        return "export default {};";
+      }
+      if (id.startsWith(STUB_PREFIX)) {
+        const spec = id.slice(STUB_PREFIX.length);
+        const names = HOOK_PREVIEW_STUBBED_DEPS[spec] ?? [];
+        const lines = names.map((n) => `export const ${n} = undefined;`);
+        lines.push("export default {};");
+        return lines.join("\n");
+      }
+      return null;
+    },
+  };
+}
+
 export default defineConfig([
   // Extension host — Node.js, CJS (what VS Code loads)
   {
@@ -83,7 +168,10 @@ export default defineConfig([
     clean: false,
     plugins: [nodeResolveFallback()],
   },
-  // Hook-preview webview — browser, ESM
+  // Hook-preview webview — browser, ESM.
+  // Transitively imports `@copilotkit/react-core`, which pulls in node-fetch
+  // (which loads Node builtins) and ambient CSS. Neither is needed at runtime
+  // in the webview; `stubNodeBuiltinsAndCss` resolves them to empty modules.
   {
     entry: { "hook-preview": "src/webview/hook-preview/index.tsx" },
     outDir: "dist/webview",
@@ -92,6 +180,6 @@ export default defineConfig([
     noExternal: [/.*/],
     dts: false,
     clean: false,
-    plugins: [nodeResolveFallback()],
+    plugins: [stubNodeBuiltinsAndCss(), nodeResolveFallback()],
   },
 ]);
