@@ -1402,6 +1402,7 @@ export {
   countFiles,
   findExamplesSource,
   resolveExamplesSource,
+  isProgrammerBug,
   parseArgs,
   anomalyMessage,
   UnreadableDirError,

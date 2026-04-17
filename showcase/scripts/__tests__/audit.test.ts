@@ -13,6 +13,7 @@ import {
   countFiles,
   findExamplesSource,
   resolveExamplesSource,
+  isProgrammerBug,
   parseArgs,
   anomalyMessage,
   UnreadableDirError,
@@ -1023,6 +1024,120 @@ describe("findExamplesSource — sink-based warnings (no global stderr)", () => 
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe("findExamplesSource — unreadable-candidates ERROR branch", () => {
+  // Coverage for audit.ts:429-434: when a mapped slug has multiple
+  // candidates and ALL of them exist but ALL statSync calls fail, the
+  // resolver must emit an ERROR warning (category:
+  // unreadable-candidates) and return null. This is materially
+  // different from the benign "no matching dir" warning because we
+  // can't actually tell whether the provenance is satisfied — the
+  // downstream consumer needs the ERROR level to route differently.
+  let root: string;
+  beforeEach(() => {
+    root = makeTmpTree();
+  });
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it("emits an ERROR (category: unreadable-candidates) when every mapped candidate exists but statSync fails on all of them", () => {
+    const slug = "synthetic-unreadable";
+    const mapped = ["cand-a", "cand-b"] as const;
+    makeExampleDir(root, "cand-a");
+    makeExampleDir(root, "cand-b");
+    const dirA = path.join(root, "examples", "integrations", "cand-a");
+    const dirB = path.join(root, "examples", "integrations", "cand-b");
+    const orig = fs.statSync;
+    const spy = vi.spyOn(fs, "statSync").mockImplementation(((
+      p: fs.PathLike,
+      options?: unknown,
+    ) => {
+      if (typeof p === "string" && (p === dirA || p === dirB)) {
+        const e: NodeJS.ErrnoException = new Error("EACCES: injected");
+        e.code = "EACCES";
+        throw e;
+      }
+      return (orig as unknown as (p: fs.PathLike, o?: unknown) => unknown)(
+        p,
+        options,
+      );
+    }) as typeof fs.statSync);
+    try {
+      const cfg = makeConfig(root);
+      const sink: string[] = [];
+      const r = resolveExamplesSource(slug, mapped, cfg, sink);
+      expect(r).toBeNull();
+      // The ERROR warning must be present, tagged with the category,
+      // and must name the slug so downstream consumers can route it.
+      expect(
+        sink.some((w) => /ERROR/.test(w) && w.includes(slug)),
+        `expected an ERROR warning for slug "${slug}" in sink: ${JSON.stringify(sink)}`,
+      ).toBe(true);
+      expect(sink.some((w) => w.includes("unreadable-candidates"))).toBe(true);
+      // Every candidate should have shown up in a statSync warning too
+      // (companion diagnostic emitted from the loop body).
+      expect(sink.some((w) => w.includes("statSync") && w.includes("cand-a"))).toBe(
+        true,
+      );
+      expect(sink.some((w) => w.includes("statSync") && w.includes("cand-b"))).toBe(
+        true,
+      );
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe("isProgrammerBug classification", () => {
+  // Coverage for audit.ts:1206-1222. The top-level catch in main()
+  // uses isProgrammerBug to decide between "broken invariant, worth a
+  // bug report" diagnostic wording and "infrastructure / I/O" wording.
+  // Both land on EXIT_INTERNAL but the operator-facing message diverges.
+  it("classifies a bare TypeError as a programmer bug", () => {
+    expect(isProgrammerBug(new TypeError("invariant broken"))).toBe(true);
+  });
+
+  it("classifies ReferenceError and RangeError as programmer bugs too", () => {
+    expect(isProgrammerBug(new ReferenceError("x is not defined"))).toBe(true);
+    expect(isProgrammerBug(new RangeError("Maximum call stack"))).toBe(true);
+  });
+
+  it("classifies a plain Error (no .code) as NOT a programmer bug", () => {
+    // A bare Error without `.code` is neither an errno nor one of the
+    // recognised programmer-bug subclasses — falls through the guard
+    // and returns false.
+    expect(isProgrammerBug(new Error("something else"))).toBe(false);
+  });
+
+  it("classifies an ErrnoException-shaped Error as NOT a programmer bug", () => {
+    // Any Error carrying a string `.code` is treated as runtime I/O —
+    // including the rare case where a TypeError also picks up a
+    // `.code` field, in which case the errno check wins.
+    const e: NodeJS.ErrnoException = new Error("EACCES: permission denied");
+    e.code = "EACCES";
+    expect(isProgrammerBug(e)).toBe(false);
+  });
+
+  it("classifies a TypeError carrying a string .code as NOT a programmer bug (errno wins)", () => {
+    // This is the "weird subclass drift" case called out in the
+    // comment at audit.ts:1197-1202 — an errno-bearing TypeError is
+    // biased toward runtime, not programmer.
+    const e = new TypeError("weird drift") as TypeError & { code?: string };
+    e.code = "EIO";
+    expect(isProgrammerBug(e)).toBe(false);
+  });
+
+  it("classifies non-Error values as NOT programmer bugs", () => {
+    // Non-Error throws (strings, numbers, plain objects) don't satisfy
+    // the `instanceof Error` guard and return false.
+    expect(isProgrammerBug("string thrown")).toBe(false);
+    expect(isProgrammerBug(42)).toBe(false);
+    expect(isProgrammerBug({ message: "plain" })).toBe(false);
+    expect(isProgrammerBug(undefined)).toBe(false);
+    expect(isProgrammerBug(null)).toBe(false);
   });
 });
 
