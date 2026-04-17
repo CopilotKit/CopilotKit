@@ -2131,7 +2131,7 @@ describe("P-R10-1: parseErrors suppress the OK line for a slug", () => {
 // the wrong canonicalization. Track JS and Python deps in separate maps
 // from parse time so the collision cannot occur.
 describe("P-R10-5: JS vs Python dep name collisions are kept separate", () => {
-  it("collectDepsFromDir reports JS-only deps in `deps` minus `pythonDeps`", () => {
+  it("collectDepsFromDir tracks JS and Python deps in separate maps", () => {
     withTmp((tmp) => {
       // Create both a package.json and a requirements.txt with the same
       // dep name `openai` — JS has "4.0.0" (valid semver), Python has
@@ -2147,25 +2147,72 @@ describe("P-R10-5: JS vs Python dep name collisions are kept separate", () => {
         ["openai==1.2.3"].join("\n"),
       );
       const src = collectDojoDeps(tmp);
-      // Python side: Python dep is visible with its spec.
+      // Python side tracks the Python spec.
       expect(src.pythonDeps["openai"]).toBe("==1.2.3");
-      // JS side must also be retained and NOT have been overwritten by
-      // the Python spec. The JS name lives outside pythonDeps.
-      // Implementation may track JS deps in a separate jsDeps map — fall
-      // back to the difference of `deps` and `pythonDeps` which is the
-      // documented contract.
-      const jsOnly: Record<string, string> = {};
-      for (const [n, s] of Object.entries(src.deps)) {
-        if (!(n in src.pythonDeps)) jsOnly[n] = s;
-      }
-      // First-writer-wins file order places package.json before
-      // requirements.txt in DEP_FILE_CANDIDATES, so `deps["openai"]`
-      // retains the JS spec and requirements.txt's identical-name entry
-      // does NOT overwrite it. The Python side's `pythonDeps` still has
-      // the Python spec in isolation so the comparator can report on it.
-      expect(src.deps["openai"]).toBe("4.0.0");
-      expect(jsOnly["openai"]).toBe("4.0.0");
+      // JS side tracks the JS spec in its own map (independent of
+      // whether the name also appears under pythonDeps).
+      expect(src.jsDeps["openai"]).toBe("4.0.0");
     });
+  });
+
+  it("validateAll surfaces drift on BOTH the JS and Python `openai` when showcase and Dojo diverge", () => {
+    // End-to-end: with same-name JS + Python deps in both sides, the
+    // comparator must evaluate both ecosystems and report drift on
+    // each separately. Before the fix, JS `openai` was erased (diffMaps
+    // stripped it because pythonDeps also had `openai`), so the JS
+    // drift went undetected.
+    const repoRoot = tmpdir();
+    const saved = process.env.VALIDATE_PINS_REPO_ROOT;
+    process.env.VALIDATE_PINS_REPO_ROOT = repoRoot;
+    try {
+      const slug = "mastra";
+      const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+      const exDir = path.join(repoRoot, "examples", "integrations", slug);
+      fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
+        recursive: true,
+      });
+      fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+        recursive: true,
+      });
+      // Showcase: JS openai=4.0.0, Python openai==1.2.3
+      write(
+        path.join(pkgDir, "package.json"),
+        JSON.stringify({ name: slug, dependencies: { openai: "4.0.0" } }),
+      );
+      write(path.join(pkgDir, "requirements.txt"), "openai==1.2.3\n");
+      // Dojo: JS openai=4.1.0 (JS drift), Python openai==1.3.0 (Python drift)
+      write(
+        path.join(exDir, "package.json"),
+        JSON.stringify({ name: slug, dependencies: { openai: "4.1.0" } }),
+      );
+      write(path.join(exDir, "requirements.txt"), "openai==1.3.0\n");
+      const report = validateAll();
+      // JS drift should be surfaced.
+      const jsDrift = report.fail.some(
+        (l) =>
+          l.includes(slug) &&
+          l.includes("openai") &&
+          /4\.0\.0/.test(l) &&
+          /4\.1\.0/.test(l),
+      );
+      // Python drift should be surfaced.
+      const pyDrift = report.fail.some(
+        (l) =>
+          l.includes(slug) &&
+          l.includes("openai") &&
+          /==1\.2\.3/.test(l) &&
+          /==1\.3\.0/.test(l),
+      );
+      expect(jsDrift).toBe(true);
+      expect(pyDrift).toBe(true);
+    } finally {
+      if (saved === undefined) {
+        delete process.env.VALIDATE_PINS_REPO_ROOT;
+      } else {
+        process.env.VALIDATE_PINS_REPO_ROOT = saved;
+      }
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
   });
 });
 
