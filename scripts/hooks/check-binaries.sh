@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Rejects staged binary artifacts, build output, dSYM dirs, and files > 1 MB.
+# Invoked by lefthook pre-commit. Lives in a standalone file so Windows Git Bash
+# doesn't mangle the quoting when lefthook passes it through `sh.exe -c`.
+
+set -u
+
+VIOLATIONS=0
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$STAGED" ] && exit 0
+
+BINARIES=$(echo "$STAGED" | grep -iE '\.(exe|dll|so|dylib|o|obj|a|lib|wasm)$' || true)
+if [ -n "$BINARIES" ]; then
+  echo "Binary files detected:"
+  echo "$BINARIES"
+  VIOLATIONS=1
+fi
+
+BUILD=$(echo "$STAGED" | grep -E '/build/' || true)
+if [ -n "$BUILD" ]; then
+  echo "Files in build directories:"
+  echo "$BUILD"
+  VIOLATIONS=1
+fi
+
+DSYM=$(echo "$STAGED" | grep -E '\.dSYM/' || true)
+if [ -n "$DSYM" ]; then
+  echo "dSYM directories:"
+  echo "$DSYM"
+  VIOLATIONS=1
+fi
+
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  [ ! -f "$f" ] && continue
+  case "$f" in
+    pnpm-lock.yaml|*/package-lock.json) continue ;;
+  esac
+  SIZE=$(wc -c < "$f" | tr -d ' ')
+  [ -z "$SIZE" ] && continue
+  if [ "$SIZE" -gt 1048576 ]; then
+    echo "Oversized file: $f ($((SIZE / 1024)) KB)"
+    VIOLATIONS=1
+  fi
+done <<< "$STAGED"
+
+[ "$VIOLATIONS" -eq 1 ] && exit 1
+exit 0
