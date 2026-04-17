@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@copilotkit/a2ui-renderer": "workspace:*",
+    "@copilotkit/react-core": "workspace:*",
     "@copilotkit/typescript-config": "workspace:*",
     "@testing-library/react": "^16.0.0",
     "@types/react": "^19.0.0",

@@ -2831,6 +2831,9 @@ importers:
       '@copilotkit/a2ui-renderer':
         specifier: workspace:*
         version: link:../a2ui-renderer
+      '@copilotkit/react-core':
+        specifier: workspace:*
+        version: link:../react-core
       '@copilotkit/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
@@ -26678,7 +26681,7 @@ snapshots:
       openai: 4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76)
       ws: 8.19.0
       zod: 3.25.76
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
+      zod-to-json-schema: 3.25.2(zod@3.25.76)
     transitivePeerDependencies:
       - bufferutil
       - encoding
@@ -26694,7 +26697,7 @@ snapshots:
       openai: 6.24.0(ws@8.19.0)(zod@3.25.76)
       ws: 8.19.0
       zod: 3.25.76
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
+      zod-to-json-schema: 3.25.2(zod@3.25.76)
     transitivePeerDependencies:
       - bufferutil
       - encoding
