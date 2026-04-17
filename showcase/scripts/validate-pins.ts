@@ -539,13 +539,10 @@ function isExactSpec(spec: string): boolean {
   if (/,/.test(trimmed)) return false;
 
   // Bare version shape: MAJOR[.MINOR[.PATCH]] with an optional
-  // pre-release / build / PEP 440 suffix. Previously a trailing-
-  // digit-check was missing, so exotic forms like `1x`, `2X`, and
-  // `1e2` slipped through: the leading digit + no range-operator +
-  // no wildcard-between-separators checks did not catch a letter
-  // immediately after the digits. Tighten to a concrete semver-shape
-  // regex so only digit-dotted-digit forms (plus permitted suffixes)
-  // pass.
+  // pre-release / build / PEP 440 suffix. Enforced by a concrete
+  // semver-shape regex so only digit-dotted-digit forms (plus
+  // permitted suffixes) pass, rejecting exotic bare-letter tails
+  // like `1x`, `2X`, and `1e2`.
   if (!/^\d+(?:\.\d+){0,2}(?:[-+.][A-Za-z0-9.-]+)*$/.test(trimmed)) {
     return false;
   }
@@ -1008,11 +1005,10 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
           spec = value.slice(1, end);
         } else {
           // Opening quote but no matching closing quote before
-          // end-of-line — the string is unterminated. Previously
-          // `spec` remained "" and the downstream empty-spec branch
-          // fired, reporting this as `Poetry empty version string`
-          // which misleads operators. Record distinctly so the WARN
-          // line names the actual fault.
+          // end-of-line — the string is unterminated. Record as a
+          // distinct `unterminated string` reason so the WARN line
+          // names the actual fault rather than conflating with the
+          // empty-version-string branch below.
           skipped.push({
             name,
             reason: "Poetry unterminated string value",
@@ -1020,11 +1016,10 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
           continue;
         }
       } else {
-        // Not a string — skip (booleans, numbers, etc.). Previously a
-        // bare `continue` dropped the dep without a trace; record it
-        // in `skipped[]` so operators reading the WARN output see the
-        // dep was silently malformed rather than thinking the file
-        // was clean.
+        // Not a string — skip (booleans, numbers, etc.). Record the
+        // dep in `skipped[]` (rather than silently dropping) so
+        // operators reading the WARN output see a malformed value
+        // rather than a seemingly-clean file.
         const rawType = /^(true|false)\b/.test(value)
           ? "boolean"
           : /^-?\d/.test(value)
