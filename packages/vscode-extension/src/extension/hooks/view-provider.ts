@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "node:path";
 import type { HookCallSite } from "./hook-scanner";
+import { scanFile } from "./hook-scanner";
 import {
   buildTreeData,
   findLeaf,
@@ -23,6 +24,9 @@ export class HookTreeDataProvider implements vscode.TreeDataProvider<HookNode> {
 
   private nodes: HookNode[] = [];
   private statusByKey = new Map<string, HookTreeStatus>();
+  // Flat site list we can update per-file without re-running scanWorkspace.
+  // Populated by setSites() and updateSitesForFile().
+  private allSites: HookCallSite[] = [];
 
   constructor(private readonly workspaceRoot: string | undefined) {}
 
@@ -31,9 +35,27 @@ export class HookTreeDataProvider implements vscode.TreeDataProvider<HookNode> {
   }
 
   setSites(sites: HookCallSite[]): void {
+    this.allSites = sites;
     this.nodes = buildTreeData(sites);
     this.applyStatuses();
     // Full refresh is the right signal when the underlying site list changes.
+    this._changeEmitter.fire();
+  }
+
+  /**
+   * Re-scan a single file and splice its sites into the tree. Cheaper than
+   * a full workspace rescan on every save.
+   */
+  updateSitesForFile(filePath: string): void {
+    const next = this.allSites.filter((s) => s.filePath !== filePath);
+    try {
+      next.push(...scanFile(filePath));
+    } catch {
+      // scanFile swallows parse / read failures; noop here.
+    }
+    this.allSites = next;
+    this.nodes = buildTreeData(next);
+    this.applyStatuses();
     this._changeEmitter.fire();
   }
 

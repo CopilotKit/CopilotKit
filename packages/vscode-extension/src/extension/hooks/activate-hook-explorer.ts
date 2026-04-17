@@ -61,12 +61,32 @@ export function activateHookExplorer(
   };
   doScan();
 
+  // Per-file debounce map — batches rapid-fire saves (e.g. format-on-save
+  // followed by a manual save) into a single rescan. Replaces the prior
+  // full-workspace rescan on every save.
+  const saveDebounce = new Map<string, NodeJS.Timeout>();
+  const SAVE_DEBOUNCE_MS = 250;
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((doc) => {
-      if (!/\.(ts|tsx)$/.test(doc.uri.fsPath)) return;
-      doScan();
-      void panel.handleFileChange(doc.uri.fsPath);
+      const filePath = doc.uri.fsPath;
+      if (!/\.(ts|tsx)$/.test(filePath)) return;
+      const existing = saveDebounce.get(filePath);
+      if (existing) clearTimeout(existing);
+      saveDebounce.set(
+        filePath,
+        setTimeout(() => {
+          saveDebounce.delete(filePath);
+          tree.updateSitesForFile(filePath);
+          void panel.handleFileChange(filePath);
+        }, SAVE_DEBOUNCE_MS),
+      );
     }),
+    {
+      dispose: () => {
+        for (const timer of saveDebounce.values()) clearTimeout(timer);
+        saveDebounce.clear();
+      },
+    },
     vscode.commands.registerCommand("copilotkit.hooks.refresh", () => doScan()),
     vscode.commands.registerCommand(
       "copilotkit.hooks.openSource",
