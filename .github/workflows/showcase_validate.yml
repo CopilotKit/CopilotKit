@@ -4,10 +4,14 @@ on:
   pull_request:
     paths:
       - "showcase/**"
+      - "examples/integrations/**/fixtures/**"
+      - "scripts/doc-tests/fixtures/**"
   push:
     branches: [main]
     paths:
       - "showcase/**"
+      - "examples/integrations/**/fixtures/**"
+      - "scripts/doc-tests/fixtures/**"
 
 concurrency:
   group: showcase-validate-${{ github.ref }}
