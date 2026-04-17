@@ -95,15 +95,9 @@ jobs:
           echo "actual=$actual" >> "$GITHUB_OUTPUT"
 
       - name: Notify Slack (weekly drift report)
-        # Guard on SLACK_WEBHOOK_URL being non-empty. If the secret is
-        # unset (e.g. on a fork or before the secret is provisioned)
-        # we skip the Slack step rather than fail the job — the counts
-        # still appear in the job log for manual inspection.
-        if: env.SLACK_WEBHOOK_URL != ''
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
-          ACTUAL: ${{ steps.validate.outputs.actual }}
-          BASELINE: ${{ steps.baseline.outputs.count }}
+        # Skip cleanly when the webhook secret is unset (forks / pre-provision)
+        # rather than failing the job. Counts still appear in the job log.
+        if: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS != '' }}
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
@@ -112,9 +106,18 @@ jobs:
             { "text": ":chart_with_downwards_trend: *Showcase pin-drift (weekly)*: FAIL=${{ steps.validate.outputs.actual }} (baseline ${{ steps.baseline.outputs.count }}) | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
 
       - name: Log result (no Slack)
-        if: env.SLACK_WEBHOOK_URL == ''
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+        if: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS == '' }}
         run: |
-          echo "SLACK_WEBHOOK_OSS_ALERTS not set; skipping Slack notification."
+          echo "::warning::SLACK_WEBHOOK_OSS_ALERTS not set; weekly drift report not sent to Slack."
           echo "Weekly pin-drift report: FAIL=${{ steps.validate.outputs.actual }} baseline=${{ steps.baseline.outputs.count }}"
+
+      - name: Notify Slack (job failure)
+        # Surface silent crashes (baseline read, validate-pins internal error,
+        # Slack post failure) so the weekly report doesn't fail invisibly.
+        if: ${{ failure() && secrets.SLACK_WEBHOOK_OSS_ALERTS != '' }}
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":x: *Showcase drift report*: job failed | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
