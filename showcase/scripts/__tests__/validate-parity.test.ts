@@ -1446,24 +1446,16 @@ describe("validate-parity", () => {
       expect(r.stdout).toMatch(/bad-pkg/);
     });
 
-    it("[source-lint] main() body uses process.exitCode, not synchronous process.exit(code)", () => {
-      // This is a source-level lint (not a behavioural test): the
-      // convention shared with audit.ts / validate-pins.ts is
-      // `process.exitCode = N` so Node can drain buffered stdout/stderr
-      // before tearing down. The companion behavioural assertion lives
-      // in the "emits the full summary table on stdout even when
-      // exiting non-zero" test above, which confirms the drain actually
-      // works end-to-end. This lint guards against a regression where
-      // someone swaps main()'s body back to synchronous process.exit.
-      const src = fs.readFileSync(PARITY_SCRIPT, "utf-8");
-      const mainMatch = src.match(
-        /function main\([^)]*\)[^{]*\{([\s\S]*?)\n\}/,
-      );
-      expect(mainMatch).not.toBeNull();
-      const mainBody = mainMatch![1];
-      expect(mainBody).not.toMatch(/process\.exit\(/);
-      expect(mainBody).toMatch(/process\.exitCode/);
-    });
+    // Note: the source-grep regex that previously asserted `main()`'s
+    // body uses `process.exitCode` and not synchronous `process.exit(N)`
+    // was removed. The regex (`/function main\([^)]*\)[^{]*\{([\s\S]*?)\n\}/`)
+    // matched the first `\n}` it saw and was brittle to ordinary
+    // reformatting (e.g. nested braces, trailing-brace-on-same-line
+    // style). The behavioural "emits the full summary table on stdout
+    // even when exiting non-zero" subprocess test above already
+    // end-to-end verifies the drain works — which is the actual
+    // property we care about. A source-level lint on top of a
+    // behavioural test is both redundant and fragile.
   });
 
   describe("listFiles guards against bare suffix filenames", () => {
@@ -1627,18 +1619,27 @@ describe("validate-parity", () => {
     });
   });
 
-  describe("PackageReport issue arrays are readonly at the type level", () => {
-    // Defence-in-depth against accidental in-place mutation after
-    // auditPackage returns. TypeScript's `readonly T[]` surfaces any
-    // push/splice/shift attempt as a compile error rather than allowing
-    // callers to silently corrupt the report.
-    it("mustErrors and warnings are exposed as readonly arrays", () => {
-      const report = auditPackage("ok-pkg", FIXTURES_DIR);
-      // Runtime inspection: freeze is not required (the type check
-      // enforces the contract), but assert the arrays are actually the
-      // ones built by auditPackage and not nullish.
-      expect(Array.isArray(report.mustErrors)).toBe(true);
-      expect(Array.isArray(report.warnings)).toBe(true);
+  describe("PackageReport returns independent arrays for each audit call", () => {
+    // The `readonly T[]` annotation in PackageReport is a TypeScript-only
+    // enforcement (no runtime freeze). There is no meaningful runtime
+    // assertion for "this is readonly" — `Array.isArray` is trivially
+    // true, and `Object.isFrozen` is false because we don't freeze.
+    //
+    // What IS worth verifying at runtime is that each auditPackage call
+    // returns freshly-built arrays (no accidental shared module-level
+    // state leaking across calls). If two successive audits returned the
+    // same array instance, a caller mutating one would corrupt the next —
+    // exactly the failure mode the readonly type aims to prevent from
+    // the other direction. This test locks that in.
+    it("returns distinct mustErrors / warnings arrays across audit calls", () => {
+      const r1 = auditPackage("ok-pkg", FIXTURES_DIR);
+      const r2 = auditPackage("ok-pkg", FIXTURES_DIR);
+      expect(r1.mustErrors).not.toBe(r2.mustErrors);
+      expect(r1.warnings).not.toBe(r2.warnings);
+      expect(r1.demoIds).not.toBe(r2.demoIds);
+      expect(r1.specFiles).not.toBe(r2.specFiles);
+      expect(r1.qaFiles).not.toBe(r2.qaFiles);
+      expect(r1.demoDirs).not.toBe(r2.demoDirs);
     });
   });
 
