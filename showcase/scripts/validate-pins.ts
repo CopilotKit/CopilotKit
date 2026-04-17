@@ -396,11 +396,14 @@ function parsePackageJson(file: string): DepMap {
       }`,
     );
   }
-  const pkg = parsed as {
-    dependencies?: Record<string, unknown>;
-    devDependencies?: Record<string, unknown>;
-    peerDependencies?: Record<string, unknown>;
-  };
+  // After the guard above we know `parsed` is a plain (non-null,
+  // non-array) object. Treat it as `Record<string, unknown>` so every
+  // bucket lookup is typed as `unknown` and MUST be shape-checked by
+  // validateBucket below. Casting to a specific shape
+  // (`{ dependencies?: Record<string, unknown>; … }`) would imply
+  // pre-validated shape and invite callers to trust the cast without
+  // runtime checks.
+  const pkg: Record<string, unknown> = parsed as Record<string, unknown>;
 
   // Validate inner dep values are strings. A package.json with
   // non-string dep values (objects, numbers, nulls) is structurally
@@ -408,10 +411,10 @@ function parsePackageJson(file: string): DepMap {
   // silently admit them into the DepMap and downstream comparisons
   // would throw or misbehave.
   const validateBucket = (
-    bucket: Record<string, unknown> | undefined,
+    bucket: unknown,
     bucketName: string,
   ): Record<string, string> | undefined => {
-    if (!bucket) return undefined;
+    if (bucket === undefined) return undefined;
     if (
       typeof bucket !== "object" ||
       bucket === null ||
