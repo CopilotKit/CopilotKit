@@ -1,0 +1,40 @@
+name: Update PR branch
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-branch:
+    if: github.event.label.name == 'qa:update-branch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update PR branch with base
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request.number;
+
+            try {
+              await github.rest.pulls.updateBranch({ owner, repo, pull_number });
+              core.info(`Updated branch for PR #${pull_number}`);
+            } catch (error) {
+              core.setFailed(`Failed to update branch: ${error.message}`);
+              throw error;
+            } finally {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner,
+                  repo,
+                  issue_number: pull_number,
+                  name: 'qa:update-branch',
+                });
+              } catch (error) {
+                core.warning(`Could not remove label: ${error.message}`);
+              }
+            }
