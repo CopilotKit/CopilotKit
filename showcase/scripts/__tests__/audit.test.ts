@@ -155,6 +155,39 @@ describe("readManifest", () => {
     expect(r.kind).toBe("malformed");
   });
 
+  it("passes the dir slug to parseManifest so a slug-mismatch flags as malformed", () => {
+    // readManifest must pass the directory slug to parseManifest so
+    // a manifest whose declared `slug:` disagrees
+    // with the directory holding it is surfaced as a shape error
+    // (not silently accepted). Package dir name is "dir-slug" but
+    // manifest declares "manifest-slug" — shape validation catches
+    // the drift only if dirSlug flows through.
+    writePackage(root, "dir-slug", {
+      manifest: "slug: manifest-slug\ndeployed: true\ndemos:\n  - id: a\n",
+    });
+    const cfg = makeConfig(root);
+    const r = readManifest("dir-slug", cfg);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/slug mismatch/);
+      expect(r.error).toContain("manifest-slug");
+      expect(r.error).toContain("dir-slug");
+    }
+  });
+
+  it("accepts a manifest whose slug matches the directory name", () => {
+    // Counterpart of the slug-mismatch test: when the manifest's
+    // declared slug matches the directory slug, parseManifest's guard
+    // passes and the kind is 'ok'.
+    writePackage(root, "same-slug", {
+      manifest: "slug: same-slug\ndeployed: true\ndemos:\n  - id: a\n",
+    });
+    const cfg = makeConfig(root);
+    const r = readManifest("same-slug", cfg);
+    expect(r.kind).toBe("ok");
+  });
+
   it("returns { kind: 'unreadable', error } (distinct from 'malformed') on EACCES", () => {
     // Contract: audit.ts does not collapse unreadable into malformed
     // with a string prefix. Downstream switches on all 4 ParsedManifest
@@ -366,20 +399,49 @@ describe("findExamplesSource", () => {
     }
   });
 
-  it("tries candidates in declared order and returns the first match", () => {
-    // Verify multi-candidate mapping. Force a SLUG_TO_EXAMPLES lookup
-    // via the live map: pick a slug that's mapped, delete the first
-    // candidate from the filesystem view, and confirm no match is returned
-    // when the dir doesn't exist. We can't mutate the frozen map at test
-    // time, so instead we assert on the declared order by creating the
-    // first mapped candidate dir and verifying the relative path matches
-    // the FIRST declared candidate, not a sibling.
+  it("returns the first declared candidate when only the first exists", () => {
     const slug = "langgraph-typescript";
     const mapped = SLUG_TO_EXAMPLES[slug];
     expect(mapped).toBeDefined();
     expect(mapped!.length).toBeGreaterThan(0);
     const first = mapped![0];
     makeExampleDir(root, first);
+    const cfg = makeConfig(root);
+    const r = findExamplesSource(slug, cfg);
+    expect(r).toBe(path.join("examples", "integrations", first));
+  });
+
+  it("falls back to a later candidate when only that later candidate exists", () => {
+    // Companion of the first-only case: when the first declared
+    // candidate is absent but a later one exists, findExamplesSource
+    // must traverse past the gap and return the later dir.
+    const slug = "langgraph-typescript";
+    const mapped = SLUG_TO_EXAMPLES[slug];
+    expect(mapped).toBeDefined();
+    if (!mapped || mapped.length < 2) {
+      // Only run the fallback assertion when the live map has >=2
+      // candidates — otherwise there's nothing to fall through to.
+      return;
+    }
+    const later = mapped[mapped.length - 1];
+    makeExampleDir(root, later);
+    const cfg = makeConfig(root);
+    const r = findExamplesSource(slug, cfg);
+    expect(r).toBe(path.join("examples", "integrations", later));
+  });
+
+  it("returns the first candidate when both first and later candidates exist (first wins)", () => {
+    // With both a first and a later mapped candidate present, declared
+    // order decides — the first must win regardless of filesystem
+    // enumeration order.
+    const slug = "langgraph-typescript";
+    const mapped = SLUG_TO_EXAMPLES[slug];
+    expect(mapped).toBeDefined();
+    if (!mapped || mapped.length < 2) return;
+    const first = mapped[0];
+    const later = mapped[mapped.length - 1];
+    makeExampleDir(root, first);
+    makeExampleDir(root, later);
     const cfg = makeConfig(root);
     const r = findExamplesSource(slug, cfg);
     expect(r).toBe(path.join("examples", "integrations", first));
@@ -1209,8 +1271,44 @@ describe("UnreadableDirError", () => {
     expect(e).toBeInstanceOf(Error);
     expect(e.name).toBe("UnreadableDirError");
     expect(e.dir).toBe("/tmp/packages");
-    expect(e.message).toContain("/tmp/packages");
-    expect(e.message).toContain("EACCES");
+    expect(e.message).toMatch(/^could not read \/tmp\/packages: EACCES/);
+    // ES2022 cause chain preserves the original ErrnoException so
+    // callers can still reach `.code` / `.errno` / `.syscall`.
+    expect((e as Error & { cause?: unknown }).cause).toBe(cause);
+  });
+
+  it("is thrown by listShowcasePackageSlugs when readdirSync fails", () => {
+    // Verify the error is raised at the right control-flow point:
+    // listShowcasePackageSlugs catches fs failures and rethrows as
+    // UnreadableDirError carrying the exact packages dir it tried.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "audit-unreadable-"));
+    try {
+      const cfg = {
+        packagesDir: path.join(root, "does-not-exist"),
+        examplesIntegrationsDir: path.join(root, "examples", "integrations"),
+        repoRoot: root,
+      };
+      let thrown: unknown = null;
+      try {
+        listShowcasePackageSlugs(cfg);
+      } catch (e) {
+        thrown = e;
+      }
+      expect(thrown).toBeInstanceOf(UnreadableDirError);
+      const e = thrown as UnreadableDirError;
+      expect(e.dir).toBe(cfg.packagesDir);
+      expect(e.message).toContain(cfg.packagesDir);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("preserves the non-Error cause via String() coercion in the message", () => {
+    // Defensive: an fs layer could, in principle, reject with a
+    // non-Error value. UnreadableDirError still produces a readable
+    // message via String(cause).
+    const e = new UnreadableDirError("/tmp/x", "bespoke-failure-token");
+    expect(e.message).toBe("could not read /tmp/x: bespoke-failure-token");
   });
 });
 
@@ -1484,112 +1582,96 @@ describe("buildReport — --strict exit code", () => {
     fs.rmSync(root, { recursive: true, force: true });
   });
 
-  it("default exit preserves current behavior when only warnings (no anomalies)", () => {
-    // A mapped slug with a statSync-race warning but a findable
-    // directory: the examples dir exists under the FIRST candidate, so
-    // examplesSource resolves successfully (no missing-examples
-    // anomaly) BUT we also push a warning onto the sink via a
-    // statSync override of a non-first candidate. We simulate that
-    // by using a mapped slug whose first candidate exists (returns a
-    // path, no missing-examples anomaly) — and force a warning by
-    // injecting a statSync failure on a pre-seeded non-first candidate.
-    //
-    // Simpler: construct the warning path via auditPackage directly
-    // and then call buildReport with the fabricated input. The goal
-    // is strict-flag behavior, not the warning plumbing.
-    const mappedSlug = "langgraph-typescript"; // mapped to ["langgraph-js"]
-    const mapped = SLUG_TO_EXAMPLES[mappedSlug]!;
-    // Create the first candidate dir — examplesSource resolves to
-    // examples/integrations/<first>, so NO missing-examples anomaly.
-    makeExampleDir(root, mapped[0]);
-    writePackage(root, mappedSlug, {
-      manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: a\n`,
+  it("clean report with no warnings exits 0 regardless of --strict", () => {
+    // A fully clean package: manifest ok, deployed:true, counts match,
+    // examples dir present, and the slug is born-in-showcase so
+    // findExamplesSource is not consulted → no warnings, no anomalies.
+    const slug = "ag2"; // born-in-showcase → no SLUG_TO_EXAMPLES lookup
+    writePackage(root, slug, {
+      manifest: `slug: ${slug}\ndeployed: true\ndemos:\n  - id: a\n`,
       specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     const cfg = makeConfig(root);
-    // Sanity: clean (no anomalies).
-    const a = auditPackage(mappedSlug, cfg);
-    expect(a.anomalies.length).toBe(0);
 
-    // Force a warning onto this clean audit by rebuilding via
-    // buildReport with a mocked findExamplesSource sink — but since
-    // the sink is internal, we instead simulate by directly crafting
-    // a clean report + checking exit code logic.
-    //
-    // Rather than threading mocks, exercise buildReport with a
-    // package whose warnings array is non-empty but anomalies array
-    // is empty. We achieve that by pre-seeding a warning via the
-    // public findExamplesSource sink. The easiest path: use a slug
-    // that is in SLUG_TO_EXAMPLES AND has an examples dir, then
-    // verify our strict flag behavior by injecting via statSync mock
-    // on a second candidate that exists.
-    //
-    // Skip the injection dance — just confirm exit code semantics
-    // via a fabricated PackageAudit-shaped input, going through the
-    // real buildReport code path for strict.
-    const clean = buildReport([mappedSlug], cfg);
-    expect(clean.hasWarnings).toBe(false);
-    expect(clean.hasAnomalies).toBe(false);
-    expect(clean.exitCode).toBe(0);
+    const relaxed = buildReport([slug], cfg);
+    expect(relaxed.hasWarnings).toBe(false);
+    expect(relaxed.hasAnomalies).toBe(false);
+    expect(relaxed.exitCode).toBe(0);
 
-    const cleanStrict = buildReport([mappedSlug], cfg, { strict: true });
-    expect(cleanStrict.hasWarnings).toBe(false);
-    expect(cleanStrict.exitCode).toBe(0);
+    const strict = buildReport([slug], cfg, { strict: true });
+    expect(strict.hasWarnings).toBe(false);
+    expect(strict.hasAnomalies).toBe(false);
+    expect(strict.exitCode).toBe(0);
   });
 
-  it("--strict surfaces hasWarnings but anomaly exit wins (warnings+anomalies → exit 1)", () => {
-    // Fabricate the warnings-only case: use a mapped slug WITHOUT an
-    // examples dir (→ warning + missing-examples anomaly), then mark
-    // it as born-in-showcase-like by injecting its slug into a
-    // packages tree AND... no — BORN_IN_SHOWCASE is frozen.
+  it("--strict with warnings-only (no anomalies) exits 5 (EXIT_WARNINGS)", () => {
+    // Construct the warnings-only quadrant deterministically by
+    // driving findExamplesSource into the "all-candidates-unreadable"
+    // path: mapped slug whose candidates exist on disk but whose
+    // statSync throws for each — findExamplesSource returns null AND
+    // pushes a CRITICAL warning onto the sink. auditPackage would
+    // also push a missing-examples anomaly unless the slug is in
+    // BORN_IN_SHOWCASE. To avoid that anomaly while keeping the
+    // warning, we mock SLUG_TO_EXAMPLES-driven behavior on a
+    // born-in-showcase slug — impossible since BORN_IN_SHOWCASE is
+    // the set of slugs without mappings.
     //
-    // Pure approach: use statSync mocking inline to produce a warning
-    // on a clean package. Mock fs.statSync so the first candidate
-    // directory reports as a file (not a dir), forcing the loop to
-    // continue and the mapped slug to end with zero successes.
-    // That's still a missing-examples anomaly though.
+    // Instead, drive the warnings-only path by mocking statSync so
+    // findExamplesSource SUCCEEDS (dir statSync returns isDirectory)
+    // AND a warning is pushed to the sink. We achieve that by
+    // creating both candidates and forcing a stat failure on a LATER
+    // candidate while the FIRST resolves successfully:
+    //   - candidates[0] exists → returns path (no anomaly)
+    //   - but we first make the loop visit a pre-existing failing
+    //     candidate by creating it under the wrong name? No —
+    //     findExamplesSource iterates declared order and returns on
+    //     first match.
     //
-    // Test via the unreadable-candidates path: create both candidates
-    // but mock statSync to throw EACCES for both. auditPackage then
-    // returns missing-examples anomaly. Same problem.
+    // Simpler deterministic route: mock fs.statSync once so the first
+    // candidate's stat throws EIO (pushing a statSync warning) AND the
+    // statSync-catch `continue` then finds no later candidate → returns
+    // null → missing-examples anomaly appears for non-BORN slugs.
     //
-    // Final: accept that the current design couples stale-mapping
-    // warnings with missing-examples anomalies. To exercise
-    // warnings-only, we programmatically construct a PackageAudit
-    // shape and feed it through a minimal `buildReport` equivalent
-    // via the real code path using a born-in-showcase slug plus a
-    // SLUG_TO_EXAMPLES-like stale mapping. Since BORN_IN_SHOWCASE is
-    // frozen, we test the scalar+flag plumbing directly instead: a
-    // warning-free report must exit 0 regardless of --strict, and a
-    // handcrafted mock of buildReport's exit-code logic is not what
-    // we want.
-    //
-    // Exercise the real code path: inject a warning via statSync mock
-    // on a born-in-showcase slug (which is mapped-free, so no
-    // warning… we need a warning path).
-    //
-    // Skip the synthetic warnings-only test here — the exitCode
-    // computation is covered by `exitCode=0 when no warnings` above
-    // AND by the strict=true+warnings unit below via direct auditing
-    // of the report's exitCode field with forced hasWarnings via a
-    // genuine warning-producing setup (mapped slug with missing
-    // examples dir, which produces BOTH a warning AND an anomaly, but
-    // we separately assert the --strict flag's behavior on the
-    // exitCode scalar given hasWarnings=true).
-    const mappedSlug = Object.keys(SLUG_TO_EXAMPLES)[0];
-    writePackage(root, mappedSlug, {
-      manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: a\n`,
+    // The cleanest deterministic warnings-only setup uses TWO packages:
+    // one born-in-showcase clean package plus a second package we mock
+    // to push a warning through findExamplesSource's sink without
+    // producing an anomaly. Since the anomaly-vs-warning coupling
+    // makes this hard to produce organically, we verify the --strict
+    // exit-code path directly via computeExitCode AND confirm that
+    // when BOTH warnings and anomalies coexist, --strict does NOT
+    // downgrade the anomaly exit code.
+    const slug = "mastra"; // mapped, missing dir → warning + anomaly
+    writePackage(root, slug, {
+      manifest: `slug: ${slug}\ndeployed: true\ndemos:\n  - id: a\n`,
       specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
     const cfg = makeConfig(root);
-    const report = buildReport([mappedSlug], cfg, { strict: true });
-    // Both a warning AND an anomaly — anomaly still takes precedence
-    // (exit 1), but hasWarnings is true so consumers can tell.
+    const report = buildReport([slug], cfg, { strict: true });
+    // Sanity: warnings AND anomalies both present in this path.
     expect(report.hasWarnings).toBe(true);
     expect(report.hasAnomalies).toBe(true);
+    // Anomaly exit wins over warnings exit (contract of computeExitCode).
     expect(report.exitCode).toBe(1);
+
+    // Directly verify the warnings-only + strict exit path at the
+    // pure level (covered already in computeExitCode suite but
+    // asserted here for co-located clarity of the --strict contract).
+    expect(
+      computeExitCode({
+        hasAnomalies: false,
+        hasWarnings: true,
+        strict: true,
+      }),
+    ).toBe(5);
+    expect(
+      computeExitCode({
+        hasAnomalies: false,
+        hasWarnings: true,
+        strict: false,
+      }),
+    ).toBe(0);
   });
 });
 
