@@ -394,8 +394,23 @@ function findExamplesSource(
   cfg: AuditConfig,
   warnings?: string[],
 ): string | null {
+  return resolveExamplesSource(slug, SLUG_TO_EXAMPLES[slug], cfg, warnings);
+}
+
+/**
+ * Pure inner of findExamplesSource — the `mapped` argument is injected
+ * explicitly so tests can exercise multi-candidate fallback paths
+ * without relying on a specific SLUG_TO_EXAMPLES shape. Production
+ * callers should use findExamplesSource; tests that need deterministic
+ * multi-candidate behavior reach for this helper.
+ */
+function resolveExamplesSource(
+  slug: string,
+  mapped: readonly string[] | undefined,
+  cfg: AuditConfig,
+  warnings?: string[],
+): string | null {
   const sink = warnings ?? [];
-  const mapped = SLUG_TO_EXAMPLES[slug];
   const candidates = mapped ?? [slug];
   // Track outcomes per-candidate so we can distinguish "the mapped dirs
   // don't exist" (stale mapping) from "they all exist but we couldn't
@@ -1386,6 +1401,7 @@ export {
   readManifest,
   countFiles,
   findExamplesSource,
+  resolveExamplesSource,
   parseArgs,
   anomalyMessage,
   UnreadableDirError,

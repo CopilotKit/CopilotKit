@@ -12,6 +12,7 @@ import {
   readManifest,
   countFiles,
   findExamplesSource,
+  resolveExamplesSource,
   parseArgs,
   anomalyMessage,
   UnreadableDirError,
@@ -412,39 +413,32 @@ describe("findExamplesSource", () => {
   });
 
   it("falls back to a later candidate when only that later candidate exists", () => {
-    // Companion of the first-only case: when the first declared
-    // candidate is absent but a later one exists, findExamplesSource
-    // must traverse past the gap and return the later dir.
-    const slug = "langgraph-typescript";
-    const mapped = SLUG_TO_EXAMPLES[slug];
-    expect(mapped).toBeDefined();
-    if (!mapped || mapped.length < 2) {
-      // Only run the fallback assertion when the live map has >=2
-      // candidates — otherwise there's nothing to fall through to.
-      return;
-    }
-    const later = mapped[mapped.length - 1];
-    makeExampleDir(root, later);
+    // Exercise the multi-candidate fallback path via resolveExamplesSource,
+    // which accepts an explicit `mapped` tuple. All live SLUG_TO_EXAMPLES
+    // entries are single-candidate today, so using findExamplesSource
+    // would short-circuit the fallback loop and leave this codepath
+    // uncovered. Synthetic multi-candidate input makes the assertion
+    // meaningful regardless of the production map's shape.
+    const slug = "synthetic-multi";
+    const mapped = ["missing-first", "real-later"] as const;
+    makeExampleDir(root, "real-later");
     const cfg = makeConfig(root);
-    const r = findExamplesSource(slug, cfg);
-    expect(r).toBe(path.join("examples", "integrations", later));
+    const r = resolveExamplesSource(slug, mapped, cfg);
+    expect(r).toBe(path.join("examples", "integrations", "real-later"));
   });
 
   it("returns the first candidate when both first and later candidates exist (first wins)", () => {
-    // With both a first and a later mapped candidate present, declared
-    // order decides — the first must win regardless of filesystem
-    // enumeration order.
-    const slug = "langgraph-typescript";
-    const mapped = SLUG_TO_EXAMPLES[slug];
-    expect(mapped).toBeDefined();
-    if (!mapped || mapped.length < 2) return;
-    const first = mapped[0];
-    const later = mapped[mapped.length - 1];
-    makeExampleDir(root, first);
-    makeExampleDir(root, later);
+    // Declared order decides — the first present candidate wins
+    // regardless of filesystem enumeration order. Uses synthetic
+    // multi-candidate mapping for the same reason as the fallback test
+    // above: the live map is single-candidate everywhere.
+    const slug = "synthetic-multi";
+    const mapped = ["first-dir", "later-dir"] as const;
+    makeExampleDir(root, "first-dir");
+    makeExampleDir(root, "later-dir");
     const cfg = makeConfig(root);
-    const r = findExamplesSource(slug, cfg);
-    expect(r).toBe(path.join("examples", "integrations", first));
+    const r = resolveExamplesSource(slug, mapped, cfg);
+    expect(r).toBe(path.join("examples", "integrations", "first-dir"));
   });
 });
 
