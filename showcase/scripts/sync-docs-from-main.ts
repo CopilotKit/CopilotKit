@@ -13,7 +13,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -35,6 +35,22 @@ const LANGCHAIN_EXCLUSIONS = [
   "langchain.agents",
   "langchain_core",
 ];
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Strip only a single trailing newline (\n or \r\n). Preserves intentional
+ * leading/trailing whitespace inside the content — used for idempotency
+ * comparisons where trailing-EOL-only differences should be ignored but
+ * other whitespace differences are meaningful.
+ */
+function stripTrailingEol(s: string): string {
+  if (s.endsWith("\r\n")) return s.slice(0, -2);
+  if (s.endsWith("\n")) return s.slice(0, -1);
+  return s;
+}
 
 // ---------------------------------------------------------------------------
 // Transform pipeline
@@ -230,14 +246,15 @@ function hasShowcaseLocalModifications(
   // Get the main file content at the last sync point
   try {
     const mainRelative = path.relative(ROOT, mainPath);
-    const previousMainContent = execSync(
-      `git show ${lastSyncSha}:${mainRelative}`,
-      { encoding: "utf-8", cwd: ROOT },
+    const previousMainContent = execFileSync(
+      "git",
+      ["show", `${lastSyncSha}:${mainRelative}`],
+      { encoding: "utf-8", cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] },
     );
     const cleanTransform = transformContent(previousMainContent, showcasePath);
     const currentShowcase = fs.readFileSync(showcasePath, "utf-8");
 
-    return cleanTransform.trim() !== currentShowcase.trim();
+    return stripTrailingEol(cleanTransform) !== stripTrailingEol(currentShowcase);
   } catch (err: unknown) {
     // File didn't exist at last sync — safe to overwrite
     if (err instanceof Error && "status" in err) {
@@ -261,9 +278,10 @@ function getLastSyncSha(): string {
   }
   // No marker: use a reasonable default (100 commits ago)
   try {
-    return execSync("git rev-parse HEAD~100", {
+    return execFileSync("git", ["rev-parse", "HEAD~100"], {
       encoding: "utf-8",
       cwd: ROOT,
+      stdio: ["ignore", "pipe", "pipe"],
     }).trim();
   } catch {
     throw new Error(
@@ -274,9 +292,17 @@ function getLastSyncSha(): string {
 }
 
 function getChangedFiles(sinceSha: string): string[] {
-  const output = execSync(
-    `git diff --name-only ${sinceSha}..HEAD -- docs/content/docs/ docs/snippets/`,
-    { encoding: "utf-8", cwd: ROOT },
+  const output = execFileSync(
+    "git",
+    [
+      "diff",
+      "--name-only",
+      `${sinceSha}..HEAD`,
+      "--",
+      "docs/content/docs/",
+      "docs/snippets/",
+    ],
+    { encoding: "utf-8", cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] },
   );
   return output.split("\n").filter((f) => f.trim() && f.endsWith(".mdx"));
 }
@@ -304,6 +330,12 @@ function getAllFiles(): string[] {
 // Main
 // ---------------------------------------------------------------------------
 
+interface ConflictEntry {
+  relPath: string;
+  showcasePath: string;
+  content: string;
+}
+
 interface SyncResult {
   copied: string[];
   transformed: string[];
@@ -312,6 +344,7 @@ interface SyncResult {
   mergeConflict: string[];
   skipped: string[];
   deleted: string[];
+  conflictManifest: ConflictEntry[];
 }
 
 // ---------------------------------------------------------------------------
@@ -349,9 +382,10 @@ function attemptThreeWayMerge(
   let baseContent: string;
   try {
     const mainRelative = path.relative(ROOT, mainPath);
-    const previousMainContent = execSync(
-      `git show ${lastSyncSha}:${mainRelative}`,
-      { encoding: "utf-8", cwd: ROOT },
+    const previousMainContent = execFileSync(
+      "git",
+      ["show", `${lastSyncSha}:${mainRelative}`],
+      { encoding: "utf-8", cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] },
     );
     baseContent = transformContent(previousMainContent, showcasePath);
   } catch {
@@ -369,22 +403,42 @@ function attemptThreeWayMerge(
     fs.writeFileSync(remoteFile, upstreamTransformed);
 
     // `git merge-file` writes merged result in-place into `localFile`.
-    // Exit code 0 = clean merge; >0 = number of conflicts remaining.
-    let mergeExitCode = 0;
+    // Exit code 0 = clean merge; >0 = number of conflicts remaining; null =
+    // killed by signal (treat as failure).
+    let cleanMerge = false;
     try {
-      execSync(
-        `git merge-file -L showcase -L base -L upstream "${localFile}" "${baseFile}" "${remoteFile}"`,
+      execFileSync(
+        "git",
+        [
+          "merge-file",
+          "-L",
+          "showcase",
+          "-L",
+          "base",
+          "-L",
+          "upstream",
+          localFile,
+          baseFile,
+          remoteFile,
+        ],
         { stdio: "pipe" },
       );
+      cleanMerge = true;
     } catch (err: unknown) {
+      // status === null means killed by signal — treat as failure, not clean.
+      // status > 0 means N conflicts remaining — treat as failure.
       if (err instanceof Error && "status" in err) {
-        mergeExitCode = (err as { status: number }).status;
+        const status = (err as { status: number | null }).status;
+        if (status === null) {
+          return { success: false, content: upstreamTransformed };
+        }
+        // conflicts remain; fall through to upstream-wins
       } else {
         return { success: false, content: upstreamTransformed };
       }
     }
 
-    if (mergeExitCode === 0) {
+    if (cleanMerge) {
       const merged = fs.readFileSync(localFile, "utf-8");
       return { success: true, content: merged };
     }
@@ -408,9 +462,10 @@ function parseArgs(): { dryRun: boolean; all: boolean } {
 function main(): SyncResult {
   const { dryRun, all } = parseArgs();
   const lastSyncSha = getLastSyncSha();
-  const headSha = execSync("git rev-parse HEAD", {
+  const headSha = execFileSync("git", ["rev-parse", "HEAD"], {
     encoding: "utf-8",
     cwd: ROOT,
+    stdio: ["ignore", "pipe", "pipe"],
   }).trim();
 
   console.log("=== Docs Sync ===");
@@ -430,7 +485,14 @@ function main(): SyncResult {
     mergeConflict: [],
     skipped: [],
     deleted: [],
+    conflictManifest: [],
   };
+
+  // Upstream-wins content for merge-conflict files. Not written to the
+  // current worktree — workflow applies these to the PR branch only so
+  // that future sync runs on main still detect local drift until the
+  // needs-review PR is merged by a human.
+  const conflictManifest: ConflictEntry[] = result.conflictManifest;
 
   for (const relPath of changedRelPaths) {
     const mainAbsolute = path.join(ROOT, relPath);
@@ -452,7 +514,9 @@ function main(): SyncResult {
 
     // Check for showcase-local modifications — attempt 3-way merge and
     // always produce file content. Clean merge = auto-applied; conflicting
-    // merge = upstream-wins, flagged for human review in PR body.
+    // merge = upstream-wins CONTENT captured but NOT written to the current
+    // worktree — workflow applies it to the PR branch only so that future
+    // sync runs on main still detect the local drift until a human merges.
     if (
       hasShowcaseLocalModifications(showcaseAbsolute, mainAbsolute, lastSyncSha)
     ) {
@@ -469,7 +533,7 @@ function main(): SyncResult {
         : null;
       if (
         existingContent !== null &&
-        existingContent.trim() === merge.content.trim()
+        stripTrailingEol(existingContent) === stripTrailingEol(merge.content)
       ) {
         result.skipped.push(relPath);
         if (merge.success) {
@@ -484,18 +548,29 @@ function main(): SyncResult {
         continue;
       }
 
-      if (!dryRun) {
-        fs.mkdirSync(path.dirname(showcaseAbsolute), { recursive: true });
-        fs.writeFileSync(showcaseAbsolute, merge.content);
-      }
-
       if (merge.success) {
+        // Clean 3-way merge: safe to write to the worktree; it reflects an
+        // auto-applied resolution of both local + upstream changes.
+        if (!dryRun) {
+          fs.mkdirSync(path.dirname(showcaseAbsolute), { recursive: true });
+          fs.writeFileSync(showcaseAbsolute, merge.content);
+        }
         result.autoMerged.push(relPath);
         console.log(`  [REVIEW/AUTO-MERGED] ${relPath} (3-way merge clean)`);
       } else {
+        // Conflict: DO NOT write upstream-wins to the current worktree.
+        // Record into a manifest — the workflow applies these files to the
+        // PR branch only. Leaving the worktree untouched preserves the
+        // invariant that future sync runs on main still flag this file for
+        // review until a human merges the needs-review PR.
+        conflictManifest.push({
+          relPath,
+          showcasePath: path.relative(ROOT, showcaseAbsolute),
+          content: merge.content,
+        });
         result.mergeConflict.push(relPath);
         console.log(
-          `  [REVIEW/CONFLICT] ${relPath} (3-way merge failed; upstream wins — manual review required)`,
+          `  [REVIEW/CONFLICT] ${relPath} (3-way merge failed; upstream-wins content staged to manifest — manual review required)`,
         );
       }
       continue;
@@ -511,7 +586,7 @@ function main(): SyncResult {
     // Check if showcase already has this content
     if (fs.existsSync(showcaseAbsolute)) {
       const existing = fs.readFileSync(showcaseAbsolute, "utf-8");
-      if (existing.trim() === transformed.trim()) {
+      if (stripTrailingEol(existing) === stripTrailingEol(transformed)) {
         result.skipped.push(relPath);
         continue; // Already up to date
       }
@@ -624,6 +699,15 @@ if (!hasAutoApplied && !hasReviewItems) {
     path.join(ROOT, "review-items.txt"),
     reviewLines.join("\n") + "\n",
   );
+  // Persist the conflict manifest so the workflow can apply upstream-wins
+  // content to the PR branch (NOT the current worktree — see
+  // conflictManifest comment above).
+  if (result.conflictManifest.length > 0) {
+    fs.writeFileSync(
+      path.join(ROOT, "conflict-manifest.json"),
+      JSON.stringify(result.conflictManifest, null, 2) + "\n",
+    );
+  }
   process.exit(3);
 } else {
   process.exit(0);
