@@ -1,0 +1,120 @@
+name: "Showcase: Drift Report"
+
+# Weekly report on pin-drift baseline (validate-pins FAIL count).
+# Complements showcase_validate.yml's ratchet gating by surfacing the
+# current backlog even when no PR is open. Goal: keep the drift count
+# visible so the drift-to-zero commitment (tracked in the GitHub issue
+# referenced by showcase_validate.yml's TODO(showcase-drift, ...)) stays
+# in front of the team.
+#
+# Reference: Notion: "Showcase Drift Baseline Runbook"
+
+on:
+  schedule:
+    # Monday 10:00 UTC — intentionally offset from showcase_drift-detection.yml's
+    # Monday 09:00 UTC version-drift slot so the two reports do not pile up
+    # in Slack simultaneously.
+    - cron: "0 10 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    name: Weekly Pin-Drift Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4.4.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Read baseline
+        id: baseline
+        run: |
+          set -euo pipefail
+          baseline=$(node -e "
+            let v;
+            try {
+              v = require('./showcase/scripts/fail-baseline.json');
+            } catch (e) {
+              console.error('fail-baseline.json: JSON syntax error: ' + e.message);
+              process.exit(2);
+            }
+            const c = v.validatePinsFailCount;
+            if (typeof c !== 'number' || !Number.isInteger(c) || c < 0) {
+              console.error('fail-baseline.json: schema failure: validatePinsFailCount must be a non-negative integer');
+              process.exit(3);
+            }
+            console.log(c);
+          ")
+          echo "count=$baseline" >> "$GITHUB_OUTPUT"
+
+      - name: Run validate-pins
+        id: validate
+        working-directory: showcase/scripts
+        run: |
+          set +e
+          stderr_file=$(mktemp)
+          stdout=$(pnpm exec tsx validate-pins.ts 2>"$stderr_file")
+          rc=$?
+          stderr=$(cat "$stderr_file")
+          rm -f "$stderr_file"
+          set -e
+          printf '%s\n' "$stdout"
+          printf '%s\n' "$stderr" >&2
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
+            echo "::error::validate-pins.ts exited with unexpected code $rc"
+            exit 1
+          fi
+          summary_line=$(printf '%s\n' "$stdout" | grep -E '^Summary:' | head -n 1 || true)
+          if [ -z "$summary_line" ]; then
+            echo "::error::Could not find validate-pins 'Summary:' line"
+            exit 1
+          fi
+          actual=$(printf '%s\n' "$summary_line" | grep -oE '\bFAIL=[0-9]+\b' | head -n 1 | cut -d= -f2)
+          if [ -z "${actual:-}" ] || ! [[ "$actual" =~ ^[0-9]+$ ]]; then
+            echo "::error::Could not parse FAIL=<int> from Summary line"
+            exit 1
+          fi
+          echo "actual=$actual" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack (weekly drift report)
+        # Guard on SLACK_WEBHOOK_URL being non-empty. If the secret is
+        # unset (e.g. on a fork or before the secret is provisioned)
+        # we skip the Slack step rather than fail the job — the counts
+        # still appear in the job log for manual inspection.
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          ACTUAL: ${{ steps.validate.outputs.actual }}
+          BASELINE: ${{ steps.baseline.outputs.count }}
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":chart_with_downwards_trend: *Showcase pin-drift (weekly)*: FAIL=${{ steps.validate.outputs.actual }} (baseline ${{ steps.baseline.outputs.count }}) | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+
+      - name: Log result (no Slack)
+        if: env.SLACK_WEBHOOK_URL == ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+        run: |
+          echo "SLACK_WEBHOOK_OSS_ALERTS not set; skipping Slack notification."
+          echo "Weekly pin-drift report: FAIL=${{ steps.validate.outputs.actual }} baseline=${{ steps.baseline.outputs.count }}"
