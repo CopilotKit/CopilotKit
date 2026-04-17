@@ -1284,6 +1284,15 @@ function validateAll(): Report {
         `[FAIL] ${slug}: parse error in ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
       );
     }
+    // Pre-seed pkgHadViolation from parseErrors. Otherwise a slug with
+    // a mix of valid + parse-errored files would have one or more
+    // [FAIL] lines AND still receive an [OK] line at the end (because
+    // `pkgHadViolation` was only set from the per-dep loop). A slug
+    // must not appear in both report.ok and report.fail.
+    let pkgHadParseError = false;
+    if (showcase.parseErrors.length > 0 || dojo.parseErrors.length > 0) {
+      pkgHadParseError = true;
+    }
 
     // Skipped deps (e.g. Poetry git-only) — WARN only.
     for (const s of showcase.skipped) {
@@ -1362,7 +1371,7 @@ function validateAll(): Report {
       /* isPython */ false,
     );
 
-    let pkgHadViolation = false;
+    let pkgHadViolation = pkgHadParseError;
 
     // Iterate the union of keys per ecosystem so drift where a framework
     // is pinned on one side but missing on the other is also surfaced.
