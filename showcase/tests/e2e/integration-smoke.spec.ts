@@ -380,7 +380,7 @@ const STARTERS: Starter[] = registry.integrations
     } =>
       Boolean(i.starter?.demo_url) &&
       (!STARTER_SLUG || i.slug === STARTER_SLUG) &&
-      (SMOKE_ALL || i.starter?.deployed === true),
+      (SMOKE_ALL || i.deployed === true),
   )
   .map((i) => ({
     slug: i.slug,
