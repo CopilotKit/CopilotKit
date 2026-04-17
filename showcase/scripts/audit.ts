@@ -41,7 +41,6 @@ import { fileURLToPath } from "url";
 import {
   parseManifest,
   type Manifest,
-  type ManifestDemo,
   type ParsedManifest,
 } from "./lib/manifest.js";
 import { BORN_IN_SHOWCASE, SLUG_TO_EXAMPLES } from "./lib/slug-map.js";
@@ -58,6 +57,11 @@ const __dirname = path.dirname(__filename);
  * Thrown when the packages dir cannot be read (EACCES, ENOTDIR, etc.).
  * Distinct from generic Error so main()'s top-level catch can map it to
  * EXIT_UNREADABLE (3) rather than EXIT_INTERNAL (4).
+ *
+ * Uses the ES2022 `Error({ cause })` pattern so callers can still reach
+ * the original ErrnoException (with `.code`, `.errno`, `.syscall` etc.)
+ * via `err.cause`. Previously we only forwarded `cause.message`, which
+ * dropped those fields silently.
  */
 class UnreadableDirError extends Error {
   constructor(
@@ -65,7 +69,7 @@ class UnreadableDirError extends Error {
     cause: unknown,
   ) {
     const msg = cause instanceof Error ? cause.message : String(cause);
-    super(`could not read ${dir}: ${msg}`);
+    super(`could not read ${dir}: ${msg}`, { cause });
     this.name = "UnreadableDirError";
   }
 }
@@ -114,19 +118,28 @@ type CountState =
 
 interface PackageAudit {
   slug: string;
-  manifest: ParsedManifest["kind"]; // "ok" | "missing" | "malformed" | (collapsed)
+  /**
+   * Full tagged-union variant from readManifest. Keeping the whole
+   * variant (not just `.kind`) preserves the correlation between the
+   * manifest outcome and the derived fields (`demosDeclared`,
+   * `deployed`): downstream consumers that need to, e.g., echo the
+   * underlying malformed error or assert on the parsed manifest can
+   * reach through `audit.manifest.error` or `audit.manifest.manifest`
+   * without needing a second lookup table.
+   */
+  manifest: ManifestResult;
   demosDeclared: number;
   spec: CountState;
   qa: CountState;
   deployed: boolean | null;
   examplesSource: string | null; // relative path from repo root, or null
-  anomalies: Anomaly[];
+  anomalies: readonly Anomaly[];
   /**
    * Runtime diagnostics that don't rise to the level of an anomaly but
    * callers (JSON consumers, CI dashboards) may want to surface. Each
    * entry is a human-readable string written to stderr as well.
    */
-  warnings: string[];
+  warnings: readonly string[];
 }
 
 interface AuditReport {
@@ -185,9 +198,13 @@ type CountResult =
  * Build an AuditConfig for real CLI execution. Honors `SHOWCASE_AUDIT_ROOT`
  * to allow test subprocesses to point at a fixture tree. When unset,
  * derives paths by walking up from this script's location:
- *   __dirname              → showcase/scripts/
- *   showcaseRoot (..)      → showcase/
- *   repoRoot (../..)       → repo root
+ *   __dirname                   → showcase/scripts/
+ *   showcaseRoot = __dirname/.. → showcase/
+ *   repoRoot     = showcaseRoot/.. → repo root
+ * (Each step is a single `..` applied to the previous resolved path —
+ * not `../..` applied to __dirname, which is what the older comment
+ * read as.)
+ *
  * Note: `path.resolve` normalizes but does NOT follow symlinks. If the
  * repo is accessed through a symlink, the computed paths will reflect
  * the symlink path rather than the canonical one — which is fine for
@@ -331,11 +348,22 @@ function countLabel(s: CountState): string {
  *
  * statSync is wrapped in try/catch — between existsSync and statSync
  * there's a real (if rare) race window on network filesystems, and we
- * don't want a TOCTOU race to crash the whole audit. The error is
- * logged (not swallowed) so permission issues surface in stderr instead
- * of vanishing into a silent "null" return.
+ * don't want a TOCTOU race to crash the whole audit. Diagnostic strings
+ * for statSync failures and stale SLUG_TO_EXAMPLES entries are appended
+ * to the caller-supplied `warnings` sink. The caller is responsible for
+ * forwarding them to stderr and/or recording them on the PackageAudit —
+ * findExamplesSource does NOT touch global state (stdout/stderr).
+ *
+ * A narrow overload keeps the legacy no-sink call shape for external
+ * consumers (tests, ad-hoc scripts) that only care about the boolean
+ * "found or not found" outcome: in that case warnings are discarded.
  */
-function findExamplesSource(slug: string, cfg: AuditConfig): string | null {
+function findExamplesSource(
+  slug: string,
+  cfg: AuditConfig,
+  warnings?: string[],
+): string | null {
+  const sink = warnings ?? [];
   const mapped = SLUG_TO_EXAMPLES[slug];
   const candidates = mapped ?? [slug];
   for (const candidate of candidates) {
@@ -346,25 +374,23 @@ function findExamplesSource(slug: string, cfg: AuditConfig): string | null {
         return path.relative(cfg.repoRoot, full);
       }
     } catch (e) {
-      // Race condition or permission issue — log to stderr so EACCES /
-      // EMFILE / ELOOP don't disappear silently, then continue searching
-      // the remaining candidates.
+      // Race condition or permission issue — record on the warnings
+      // sink so EACCES / EMFILE / ELOOP don't disappear silently, then
+      // continue searching the remaining candidates.
       const msg = e instanceof Error ? e.message : String(e);
-      process.stderr.write(
-        `audit: warning: statSync(${full}) failed: ${msg}\n`,
-      );
+      sink.push(`audit: warning: statSync(${full}) failed: ${msg}`);
       continue;
     }
   }
   // If the slug was *explicitly* mapped but none of its mapped
   // candidates exist, the map is out of sync with the filesystem. Warn
-  // (stderr) rather than error: missing examples counterparts are
+  // (via the sink) rather than error: missing examples counterparts are
   // reported as audit anomalies downstream, not blocking failures.
   // Fallback (unmapped slug → [slug]) is intentionally NOT warned —
   // that's the normal "no mapping needed" path.
   if (mapped) {
-    process.stderr.write(
-      `audit: warning: SLUG_TO_EXAMPLES entry "${slug}" → [${mapped.join(", ")}] has no matching directory under ${cfg.examplesIntegrationsDir}\n`,
+    sink.push(
+      `audit: warning: SLUG_TO_EXAMPLES entry "${slug}" → [${mapped.join(", ")}] has no matching directory under ${cfg.examplesIntegrationsDir}`,
     );
   }
   return null;
@@ -379,27 +405,12 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
   const specRes = countFiles(e2eDir, (n) => n.endsWith(".spec.ts"));
   const qaRes = countFiles(qaDir, (n) => n.endsWith(".md"));
 
-  // findExamplesSource may emit a stderr warning for a stale
-  // SLUG_TO_EXAMPLES entry. Capture that warning so JSON consumers don't
-  // miss it if stderr is redirected.
-  const stderrSink: string[] = [];
-  const origWrite = process.stderr.write.bind(process.stderr);
-  process.stderr.write = ((chunk: string | Uint8Array, ...rest: unknown[]) => {
-    const asString =
-      typeof chunk === "string" ? chunk : Buffer.from(chunk).toString();
-    if (asString.startsWith("audit: warning:")) {
-      stderrSink.push(asString.replace(/\n$/, ""));
-    }
-    return (
-      origWrite as (chunk: string | Uint8Array, ...rest: unknown[]) => boolean
-    )(chunk, ...rest);
-  }) as typeof process.stderr.write;
-  let examplesSource: string | null;
-  try {
-    examplesSource = findExamplesSource(slug, cfg);
-  } finally {
-    process.stderr.write = origWrite;
-  }
+  // findExamplesSource records stale SLUG_TO_EXAMPLES / statSync-race
+  // warnings on this explicit sink — no more global stderr monkey-patch.
+  // Callers (main, CI) forward it to stderr; JSON consumers read it off
+  // `audit.warnings`.
+  const warnings: string[] = [];
+  const examplesSource = findExamplesSource(slug, cfg, warnings);
 
   // Pull demosDeclared + deployed directly from the validated manifest
   // (parseManifest guarantees demos is an array of objects and deployed,
@@ -410,31 +421,24 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
   const deployed =
     manifestRes.kind === "ok" ? (manifestRes.manifest.deployed ?? null) : null;
 
-  const manifestKind: PackageAudit["manifest"] = manifestRes.kind;
-
-  const audit: PackageAudit = {
-    slug,
-    manifest: manifestKind,
-    demosDeclared,
-    spec: toCountState(specRes),
-    qa: toCountState(qaRes),
-    deployed,
-    examplesSource,
-    anomalies: [],
-    warnings: stderrSink,
-  };
+  // Accumulate anomalies in a local array, then hand the frozen snapshot
+  // to the PackageAudit below. Deriving the final shape in one place
+  // keeps invariant checks (freeze, read-only array type, no downstream
+  // push) local and explicit — rather than mutating the record
+  // incrementally as the function walked.
+  const anomalies: Anomaly[] = [];
 
   // Read-error anomalies propagate regardless of manifest state —
   // unreadable dirs are infrastructure failures, not content failures.
   if (specRes.kind === "error") {
-    audit.anomalies.push({
+    anomalies.push({
       kind: "unreadable-dir",
       dir: e2eDir,
       error: specRes.error,
     });
   }
   if (qaRes.kind === "error") {
-    audit.anomalies.push({
+    anomalies.push({
       kind: "unreadable-dir",
       dir: qaDir,
       error: qaRes.error,
@@ -442,53 +446,60 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
   }
 
   if (manifestRes.kind === "missing") {
-    audit.anomalies.push({ kind: "missing-manifest" });
-    return audit;
-  }
-  if (manifestRes.kind === "malformed") {
-    audit.anomalies.push({
+    anomalies.push({ kind: "missing-manifest" });
+  } else if (manifestRes.kind === "malformed") {
+    anomalies.push({
       kind: "malformed-manifest",
       error: manifestRes.error,
     });
-    return audit;
+  } else {
+    const manifest = manifestRes.manifest;
+
+    // Only report count-parity anomalies when we actually managed to
+    // read the directories — otherwise we'd double-report (unreadable
+    // + phantom mismatch).
+    if (specRes.kind !== "error" && specRes.count !== demosDeclared) {
+      anomalies.push({
+        kind: "count-mismatch",
+        dimension: "spec",
+        expected: demosDeclared,
+        actual: specRes.count,
+      });
+    }
+    if (qaRes.kind !== "error" && qaRes.count !== demosDeclared) {
+      anomalies.push({
+        kind: "count-mismatch",
+        dimension: "qa",
+        expected: demosDeclared,
+        actual: qaRes.count,
+      });
+    }
+
+    if (manifest.deployed !== true) {
+      anomalies.push({
+        kind: "not-deployed",
+        state: manifest.deployed === false ? "false" : "unset",
+      });
+    }
+
+    // Born-in-showcase packages have no Dojo counterpart by design;
+    // skip the "missing examples source" check for them.
+    if (examplesSource === null && !BORN_IN_SHOWCASE.has(slug)) {
+      anomalies.push({ kind: "missing-examples" });
+    }
   }
 
-  const manifest = manifestRes.manifest;
-
-  // Only report count-parity anomalies when we actually managed to read
-  // the directories — otherwise we'd double-report (unreadable + phantom
-  // mismatch).
-  if (specRes.kind !== "error" && specRes.count !== demosDeclared) {
-    audit.anomalies.push({
-      kind: "count-mismatch",
-      dimension: "spec",
-      expected: demosDeclared,
-      actual: specRes.count,
-    });
-  }
-  if (qaRes.kind !== "error" && qaRes.count !== demosDeclared) {
-    audit.anomalies.push({
-      kind: "count-mismatch",
-      dimension: "qa",
-      expected: demosDeclared,
-      actual: qaRes.count,
-    });
-  }
-
-  if (manifest.deployed !== true) {
-    audit.anomalies.push({
-      kind: "not-deployed",
-      state: manifest.deployed === false ? "false" : "unset",
-    });
-  }
-
-  // Born-in-showcase packages have no Dojo counterpart by design; skip
-  // the "missing examples source" check for them.
-  if (examplesSource === null && !BORN_IN_SHOWCASE.has(slug)) {
-    audit.anomalies.push({ kind: "missing-examples" });
-  }
-
-  return audit;
+  return {
+    slug,
+    manifest: manifestRes,
+    demosDeclared,
+    spec: toCountState(specRes),
+    qa: toCountState(qaRes),
+    deployed,
+    examplesSource,
+    anomalies,
+    warnings,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -525,16 +536,47 @@ function padLeft(s: string, w: number): string {
   return " ".repeat(w - s.length) + s;
 }
 
-function renderTable(audits: PackageAudit[]): string {
-  const headers = [
-    "slug",
-    "demos",
-    "specs",
-    "qa",
-    "deployed",
-    "examples src",
-  ] as const;
+// Keyed schema for the package summary table. Defining the per-column
+// key, label, value projection, and alignment once — instead of relying
+// on positional-index coupling between the header array, the row array,
+// and the fmtRow alignment callback — eliminates a class of "edit one
+// list, forget the other two" bugs (e.g., adding a column that silently
+// grows the divider but wraps values under the wrong header).
+const TABLE_COLUMNS: ReadonlyArray<{
+  key: string;
+  label: string;
+  align: "left" | "right";
+  value: (a: PackageAudit) => string;
+}> = [
+  { key: "slug", label: "slug", align: "left", value: (a) => a.slug },
+  {
+    key: "demos",
+    label: "demos",
+    align: "right",
+    value: (a) => String(a.demosDeclared),
+  },
+  {
+    key: "specs",
+    label: "specs",
+    align: "right",
+    value: (a) => countLabel(a.spec),
+  },
+  { key: "qa", label: "qa", align: "right", value: (a) => countLabel(a.qa) },
+  {
+    key: "deployed",
+    label: "deployed",
+    align: "right",
+    value: (a) => (a.deployed === null ? "?" : a.deployed ? "yes" : "no"),
+  },
+  {
+    key: "examples src",
+    label: "examples src",
+    align: "left",
+    value: (a) => a.examplesSource ?? "—",
+  },
+];
 
+function renderTable(audits: PackageAudit[]): string {
   // Empty-list guard: no rows means nothing to align to but the header
   // widths. Without this, `Math.max(h.length, ...[])` still works (the
   // spread of an empty array disappears) but the table would consist of
@@ -544,30 +586,26 @@ function renderTable(audits: PackageAudit[]): string {
     return "  (no packages)";
   }
 
-  const rows = audits.map((a) => [
-    a.slug,
-    String(a.demosDeclared),
-    countLabel(a.spec),
-    countLabel(a.qa),
-    a.deployed === null ? "?" : a.deployed ? "yes" : "no",
-    a.examplesSource ?? "—",
-  ]);
+  const rows = audits.map((a) => TABLE_COLUMNS.map((col) => col.value(a)));
 
-  const widths = headers.map((h, i) =>
-    Math.max(h.length, ...rows.map((r) => r[i].length)),
+  const widths = TABLE_COLUMNS.map((col, i) =>
+    Math.max(col.label.length, ...rows.map((r) => r[i].length)),
   );
 
-  const fmtRow = (cells: string[]) =>
+  const fmtRow = (cells: readonly string[]) =>
     "  " +
     cells
       .map((c, i) =>
-        i === 0 || i === 5 ? padRight(c, widths[i]) : padLeft(c, widths[i]),
+        TABLE_COLUMNS[i].align === "left"
+          ? padRight(c, widths[i])
+          : padLeft(c, widths[i]),
       )
       .join("  ");
 
+  const headerRow = TABLE_COLUMNS.map((col) => col.label);
   const divider = "  " + widths.map((w) => "-".repeat(w)).join("  ");
 
-  return [fmtRow([...headers]), divider, ...rows.map(fmtRow)].join("\n");
+  return [fmtRow(headerRow), divider, ...rows.map(fmtRow)].join("\n");
 }
 
 function renderAnomalySection(report: AuditReport): string {
@@ -730,7 +768,7 @@ function buildReport(slugs: string[], cfg: AuditConfig): AuditReport {
   // with an unreadable spec dir AND a real QA mismatch still appears in
   // countMismatches (for the QA dimension).
   const countMismatches = packages
-    .filter((p) => p.manifest === "ok")
+    .filter((p) => p.manifest.kind === "ok")
     .filter((p) => {
       const specUnreadable = p.spec.state === "unreadable";
       const qaUnreadable = p.qa.state === "unreadable";
@@ -746,21 +784,21 @@ function buildReport(slugs: string[], cfg: AuditConfig): AuditReport {
     })
     .map((p) => p.slug);
   const notDeployed = packages
-    .filter((p) => p.manifest === "ok" && p.deployed !== true)
+    .filter((p) => p.manifest.kind === "ok" && p.deployed !== true)
     .map((p) => p.slug);
   const missingExamples = packages
     .filter(
       (p) =>
-        p.manifest === "ok" &&
+        p.manifest.kind === "ok" &&
         p.examplesSource === null &&
         !BORN_IN_SHOWCASE.has(p.slug),
     )
     .map((p) => p.slug);
   const missingManifest = packages
-    .filter((p) => p.manifest === "missing")
+    .filter((p) => p.manifest.kind === "missing")
     .map((p) => p.slug);
   const malformedManifest = packages
-    .filter((p) => p.manifest === "malformed")
+    .filter((p) => p.manifest.kind === "malformed")
     .map((p) => p.slug);
   const unreadable = packages
     .filter((p) => p.anomalies.some((a) => a.kind === "unreadable-dir"))
@@ -768,15 +806,26 @@ function buildReport(slugs: string[], cfg: AuditConfig): AuditReport {
 
   const withAnomalies = packages.filter((p) => p.anomalies.length > 0).length;
 
-  // Internal invariant: withAnomalies is a UNIQUE-package count. It is
-  // NOT the sum of bucket lengths (a package with multiple anomaly kinds
-  // appears in every matching bucket). Verified implicitly by the fact
-  // that `packages.filter(…).length` runs once per package.
-
-  // Freeze audit objects so downstream consumers can't accidentally
-  // mutate them. The slug-string buckets above are already immutable
-  // (new arrays of primitives); this closes the remaining aliasing gap.
-  for (const p of packages) Object.freeze(p);
+  // Deep-freeze audit records so downstream consumers can't accidentally
+  // mutate them. We freeze the record AND its inner mutable containers
+  // (anomalies, warnings, spec, qa, and the manifest variant) because a
+  // shallow `Object.freeze` would still leave `audit.anomalies.push(…)`
+  // working — the slug-string buckets below are already immutable (new
+  // arrays of primitives) but the per-package record was not.
+  for (const p of packages) {
+    Object.freeze(p.anomalies);
+    Object.freeze(p.warnings);
+    Object.freeze(p.spec);
+    Object.freeze(p.qa);
+    Object.freeze(p.manifest);
+    // The "ok" variant carries a nested Manifest object; freezing that
+    // too (shallowly) prevents callers from rewriting e.g. `deployed`
+    // on a shared reference. demos arrays are plain data from yaml.parse
+    // and are NOT frozen (we preserve yaml's mutable shape for backward
+    // compatibility with consumers that re-sort/rewrite).
+    if (p.manifest.kind === "ok") Object.freeze(p.manifest.manifest);
+    Object.freeze(p);
+  }
 
   const hasAnomalies = withAnomalies > 0;
   const exitCode = hasAnomalies ? EXIT_ANOMALIES : 0;
@@ -809,18 +858,29 @@ interface ParsedArgs {
 }
 
 // Flag-aware argv parser. Rejects `--slug --json` rather than silently
-// consuming `--json` as the slug value. Returns parse errors so the
-// caller can distinguish invalid arguments (exit 2) from package
-// anomalies (exit 1).
+// consuming `--json` as the slug value. Rejects duplicate `--slug` or
+// `--json` (e.g. `--json --json` or `--slug a --slug b`) rather than
+// last-wins, since CI shell concatenation is a common source of
+// accidental duplicates and "last wins" hides the user's first intent.
+// Returns parse errors so the caller can distinguish invalid arguments
+// (exit 2) from package anomalies (exit 1).
 function parseArgs(argv: string[]): ParsedArgs {
   let json = false;
   let slug: string | null = null;
   let help = false;
   const errors: string[] = [];
+  // Track which flags have already been set so duplicates surface as
+  // explicit errors instead of being silently overwritten.
+  const seenJson = { set: false };
+  const seenSlug = { set: false };
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--json") {
+      if (seenJson.set) {
+        errors.push("--json specified more than once");
+      }
+      seenJson.set = true;
       json = true;
     } else if (a === "--slug") {
       const next = argv[i + 1];
@@ -829,6 +889,12 @@ function parseArgs(argv: string[]): ParsedArgs {
           `--slug requires a value (not a flag like "${next ?? "(end of argv)"}")`,
         );
       } else {
+        if (seenSlug.set) {
+          errors.push(
+            `--slug specified more than once (first="${slug}", second="${next}")`,
+          );
+        }
+        seenSlug.set = true;
         slug = next;
         i++;
       }
@@ -865,22 +931,41 @@ const HELP_TEXT = [
   "  4 — unexpected internal error",
 ].join("\n");
 
-// Distinct exit codes so CI callers can tell failure modes apart:
-//   1 → anomalies (including empty packages dir)
-//   2 → user/content error (invalid args, unknown slug)
-//   3 → unreadable (packages path missing or not a directory)
-//   4 → unexpected internal error (top-level catch)
+// Exit-code constants — see the module header JSDoc for the full
+// contract. We keep them in one place so the internals stay in sync with
+// the CLI HELP_TEXT and the module docstring.
 const EXIT_ANOMALIES = 1;
 const EXIT_INVALID_CONTENT = 2;
 const EXIT_UNREADABLE = 3;
 const EXIT_INTERNAL = 4;
 
+// Heuristic: treat TypeError / ReferenceError / RangeError as programmer
+// bugs (broken invariant, likely worth a bug report), not as
+// infrastructure failures. Everything else that reaches the top-level
+// catch is more likely an unhandled I/O or runtime condition. Both
+// still land on EXIT_INTERNAL, but the diagnostic wording differs so
+// the on-call reader can triage faster.
+function isProgrammerBug(e: unknown): boolean {
+  return (
+    e instanceof TypeError ||
+    e instanceof ReferenceError ||
+    e instanceof RangeError
+  );
+}
+
+// All exit paths use `process.exitCode = N; return;` instead of
+// `process.exit(N)` so that stdout has time to drain before the process
+// terminates — `process.exit` is synchronous and can truncate
+// buffered JSON output on fast exits (observed in CI logs under heavy
+// load). The `return` statements terminate main(); the event loop
+// drains and the process exits with the set code.
 function main(): void {
   try {
     const parsed = parseArgs(process.argv.slice(2));
     if (parsed.help) {
       console.log(HELP_TEXT);
-      process.exit(0);
+      process.exitCode = 0;
+      return;
     }
     if (parsed.errors.length > 0) {
       for (const err of parsed.errors) {
@@ -888,16 +973,16 @@ function main(): void {
       }
       console.error("");
       console.error(HELP_TEXT);
-      // Invalid arguments are user/content error.
-      process.exit(EXIT_INVALID_CONTENT);
+      process.exitCode = EXIT_INVALID_CONTENT;
+      return;
     }
 
     const cfg = buildCliConfig();
 
     if (!fs.existsSync(cfg.packagesDir)) {
       console.error(`audit: packages dir does not exist: ${cfg.packagesDir}`);
-      // Missing packages dir is an unreadable/infrastructure failure.
-      process.exit(EXIT_UNREADABLE);
+      process.exitCode = EXIT_UNREADABLE;
+      return;
     }
     // stat the packages path to distinguish "exists as a file" from
     // "exists as a dir". The old code went straight to readdirSync which
@@ -908,12 +993,14 @@ function main(): void {
         console.error(
           `audit: packages path is not a directory: ${cfg.packagesDir}`,
         );
-        process.exit(EXIT_UNREADABLE);
+        process.exitCode = EXIT_UNREADABLE;
+        return;
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error(`audit: could not stat ${cfg.packagesDir}: ${msg}`);
-      process.exit(EXIT_UNREADABLE);
+      process.exitCode = EXIT_UNREADABLE;
+      return;
     }
 
     const allSlugs = listShowcasePackageSlugs(cfg);
@@ -923,8 +1010,8 @@ function main(): void {
       console.error(
         `audit: available slugs: ${allSlugs.join(", ") || "(none)"}`,
       );
-      // Unknown slug = invalid user input.
-      process.exit(EXIT_INVALID_CONTENT);
+      process.exitCode = EXIT_INVALID_CONTENT;
+      return;
     }
 
     const slugs = parsed.slug ? [parsed.slug] : allSlugs;
@@ -935,14 +1022,30 @@ function main(): void {
       );
       // Empty packages dir is a genuine anomaly (working-as-designed audit
       // should have something to audit), so exit 1 not 2.
-      process.exit(EXIT_ANOMALIES);
+      process.exitCode = EXIT_ANOMALIES;
+      return;
     }
 
     const report = buildReport(slugs, cfg);
 
     if (parsed.json) {
+      // In JSON mode, stdout carries the full report and the
+      // `packages[].warnings` array carries any per-package diagnostics.
+      // We deliberately suppress the stderr mirror of those warnings to
+      // avoid double-emitting the same information — JSON consumers read
+      // the structured field, and a redirected `2>/dev/null` JSON run
+      // stays machine-parseable.
       process.stdout.write(JSON.stringify(report, null, 2) + "\n");
     } else {
+      // In text mode, forward each PackageAudit's warnings to stderr so a
+      // human reader watching the terminal still sees the stale
+      // SLUG_TO_EXAMPLES / statSync-race diagnostics that findExamplesSource
+      // recorded. JSON mode (above) has these on the structured record.
+      for (const p of report.packages) {
+        for (const w of p.warnings) {
+          process.stderr.write(w + "\n");
+        }
+      }
       console.log("Per-package summary");
       console.log("-------------------");
       console.log(renderTable(report.packages));
@@ -952,22 +1055,29 @@ function main(): void {
       console.log(renderHealthSection(report));
     }
 
-    process.exit(report.exitCode);
+    process.exitCode = report.exitCode;
+    return;
   } catch (e) {
     // UnreadableDirError is a known I/O condition, not a bug — map to
     // EXIT_UNREADABLE (3) so CI can distinguish "permission denied on
     // packages dir" from "undefined is not a function".
     if (e instanceof UnreadableDirError) {
       console.error(`audit: ${e.message}`);
-      process.exit(EXIT_UNREADABLE);
+      process.exitCode = EXIT_UNREADABLE;
+      return;
     }
-    // Everything else is an unexpected exception. Always print the full
-    // stack for post-mortem. Distinct from invalid-content (2) and
-    // unreadable (3) so CI can alert differently on "this should never
-    // happen" vs. "user passed bad input" vs. "I/O failed".
+    // Programmer bugs (TypeError / ReferenceError / RangeError) and
+    // unhandled I/O/runtime errors both exit 4 but carry distinct
+    // diagnostic prefixes so the on-call reader can tell "fix the code"
+    // from "investigate the environment" at a glance.
     const stack = e instanceof Error ? e.stack || e.message : String(e);
-    console.error(`audit: internal error: ${stack}`);
-    process.exit(EXIT_INTERNAL);
+    if (isProgrammerBug(e)) {
+      console.error(`audit: bug (programmer error): ${stack}`);
+    } else {
+      console.error(`audit: internal error: ${stack}`);
+    }
+    process.exitCode = EXIT_INTERNAL;
+    return;
   }
 }
 
