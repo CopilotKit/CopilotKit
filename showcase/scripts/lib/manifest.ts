@@ -20,11 +20,39 @@ import fs from "fs";
 import yaml from "yaml";
 
 /**
+ * Branded, non-empty demo id. Structurally a string (so downstream
+ * callers can still use `demo.id` in template strings, `Set<string>`
+ * membership, equality comparisons, etc.) but the branding prevents
+ * arbitrary strings from flowing into a `DemoId` slot without going
+ * through the `createDemoId` smart constructor. parseManifest is the
+ * sole production caller of that constructor; it validates non-empty
+ * at runtime and re-reports shape-malformed on failure.
+ *
+ * The `__brand` property is phantom-only — it does not exist at
+ * runtime. That keeps the branded type zero-cost while still giving
+ * the compiler a distinct nominal type for id values.
+ */
+export type DemoId = string & { readonly __brand: "DemoId" };
+
+/**
+ * Smart constructor for `DemoId`. Returns the branded value on success
+ * or `null` if validation fails (currently: empty string). Kept as
+ * `null`-returning rather than throwing so `parseManifest` can turn a
+ * failure into its usual `{kind:"malformed", subkind:"shape"}` result
+ * without crossing an exception boundary.
+ */
+export function createDemoId(s: string): DemoId | null {
+  if (typeof s !== "string" || s.length === 0) return null;
+  return s as DemoId;
+}
+
+/**
  * One entry under `manifest.yaml :: demos[]`. Name is optional; id is
- * required (checked at runtime by parseManifest).
+ * required AND non-empty (checked at runtime by parseManifest, typed
+ * via the `DemoId` brand).
  */
 export interface ManifestDemo {
-  id: string;
+  id: DemoId;
   name?: string;
 }
 
@@ -61,10 +89,15 @@ export interface Manifest {
  *                    "shape"  = YAML parsed but the resulting value
  *                               does not match the Manifest shape
  *                               (null/scalar top-level, non-array demos,
- *                               demo missing id, etc.)
+ *                               demo missing id, duplicate demo id, etc.)
  *   - "unreadable" — file exists but readFileSync threw
  *                    (permissions, I/O race, etc.)
  *   - "ok"         — parse succeeded and shape validated
+ *
+ * The `subkind` discriminator on "malformed" lets callers route each
+ * failure mode distinctly: a "syntax" subkind flags a likely typo in
+ * the YAML source, whereas "shape" flags a schema-drift / validation
+ * problem (missing required field, wrong type, duplicate id, etc.).
  */
 export type ParsedManifest =
   | { kind: "ok"; manifest: Manifest }
@@ -85,6 +118,25 @@ function describeType(v: unknown): string {
   if (v === null) return "null";
   if (Array.isArray(v)) return "array";
   return typeof v;
+}
+
+/**
+ * `Object.hasOwn`-backed predicate that narrows `obj` to a type where
+ * `key` is known to exist. Preferred over `(obj as Record<string,
+ * unknown>)[key]` casts because:
+ *
+ *   - the TS predicate lets the caller read `obj[key]` without any
+ *     further cast;
+ *   - `Object.hasOwn` avoids the inherited-property pitfalls of the
+ *     raw `in` operator for YAML-parsed objects (yaml v2 returns plain
+ *     objects with a null prototype, but inheriting tests written
+ *     elsewhere might not).
+ */
+function hasOwnProp<K extends string>(
+  obj: object,
+  key: K,
+): obj is object & Record<K, unknown> {
+  return Object.hasOwn(obj, key);
 }
 
 /**
@@ -145,55 +197,82 @@ export function parseManifest(filePath: string): ParsedManifest {
     };
   }
 
-  const obj = parsed as Record<string, unknown>;
+  // At this point `parsed` is known to be a plain object mapping. We
+  // narrow each field access through `hasOwnProp` so the compiler does
+  // not need a blanket `as Record<string, unknown>` cast — every read
+  // below is narrowed by the predicate it just passed.
+  const obj: object = parsed;
 
   // slug is required — every consumer (audit.ts / validate-parity.ts /
   // validate-pins.ts) assumes a slug exists. A manifest without one is
   // always a bug, not a tolerable edge case.
-  if (typeof obj.slug !== "string" || obj.slug.length === 0) {
+  if (!hasOwnProp(obj, "slug")) {
+    return {
+      kind: "malformed",
+      subkind: "shape",
+      error: `missing required "slug" (non-empty string)`,
+    };
+  }
+  const slug = obj.slug;
+  if (typeof slug !== "string" || slug.length === 0) {
     return {
       kind: "malformed",
       subkind: "shape",
       error:
-        obj.slug === undefined
+        slug === undefined
           ? `missing required "slug" (non-empty string)`
-          : `expected "slug" to be a non-empty string, got ${describeType(obj.slug)}`,
+          : `expected "slug" to be a non-empty string, got ${describeType(slug)}`,
     };
   }
 
   // name (optional) must be a string if present.
-  if ("name" in obj && obj.name !== undefined && typeof obj.name !== "string") {
-    return {
-      kind: "malformed",
-      subkind: "shape",
-      error: `expected "name" to be a string, got ${describeType(obj.name)}`,
-    };
-  }
-
-  // deployed (optional) must be a real boolean if present.
-  if ("deployed" in obj && typeof obj.deployed !== "boolean") {
-    return {
-      kind: "malformed",
-      subkind: "shape",
-      error: `expected "deployed" to be boolean, got ${describeType(obj.deployed)}`,
-    };
-  }
-
-  // demos (optional) must be an array of objects with string id.
-  // `obj.demos != null` is deliberate: it covers both `undefined` (key
-  // absent or explicitly undefined) and `null` (YAML `demos:` with no
-  // value), treating both as "not provided". If the key is present with
-  // a non-nullish value that is not an array, fall through and report.
-  if (obj.demos != null) {
-    if (!Array.isArray(obj.demos)) {
+  let name: string | undefined;
+  if (hasOwnProp(obj, "name") && obj.name !== undefined) {
+    if (typeof obj.name !== "string") {
       return {
         kind: "malformed",
         subkind: "shape",
-        error: `expected "demos" to be an array, got ${describeType(obj.demos)}`,
+        error: `expected "name" to be a string, got ${describeType(obj.name)}`,
       };
     }
-    for (let i = 0; i < obj.demos.length; i++) {
-      const d = obj.demos[i];
+    name = obj.name;
+  }
+
+  // deployed (optional) must be a real boolean if present.
+  let deployed: boolean | undefined;
+  if (hasOwnProp(obj, "deployed")) {
+    if (typeof obj.deployed !== "boolean") {
+      return {
+        kind: "malformed",
+        subkind: "shape",
+        error: `expected "deployed" to be boolean, got ${describeType(obj.deployed)}`,
+      };
+    }
+    deployed = obj.deployed;
+  }
+
+  // demos (optional) must be an array of objects with non-empty string id.
+  // Treat both missing (`undefined`) and explicit null (YAML `demos:`)
+  // as "not provided". If the key is present with a non-nullish value
+  // that is not an array, fall through and report.
+  let demos: ManifestDemo[] | undefined;
+  if (hasOwnProp(obj, "demos") && obj.demos != null) {
+    const rawDemos = obj.demos;
+    if (!Array.isArray(rawDemos)) {
+      return {
+        kind: "malformed",
+        subkind: "shape",
+        error: `expected "demos" to be an array, got ${describeType(rawDemos)}`,
+      };
+    }
+    const validated: ManifestDemo[] = [];
+    // Duplicate-id detection: two demos with the same id cascade into
+    // double-counted coverage and double missing-demo-dir anomalies
+    // downstream. Reject at validation time so the error surfaces at
+    // the manifest, not at the consuming tool.
+    const seen = new Set<string>();
+    for (let i = 0; i < rawDemos.length; i++) {
+      const d: unknown = rawDemos[i];
       if (d === null || typeof d !== "object" || Array.isArray(d)) {
         return {
           kind: "malformed",
@@ -201,22 +280,65 @@ export function parseManifest(filePath: string): ParsedManifest {
           error: `expected demos[${i}] to be an object, got ${describeType(d)}`,
         };
       }
-      const dm = d as Record<string, unknown>;
-      if (typeof dm.id !== "string" || dm.id.length === 0) {
+      if (!hasOwnProp(d, "id") || typeof d.id !== "string") {
         return {
           kind: "malformed",
           subkind: "shape",
           error: `expected demos[${i}].id to be a non-empty string`,
         };
       }
+      const brandedId = createDemoId(d.id);
+      if (brandedId === null) {
+        return {
+          kind: "malformed",
+          subkind: "shape",
+          error: `expected demos[${i}].id to be a non-empty string`,
+        };
+      }
+      if (seen.has(brandedId)) {
+        return {
+          kind: "malformed",
+          subkind: "shape",
+          error: `duplicate demo id "${brandedId}" at demos[${i}]`,
+        };
+      }
+      seen.add(brandedId);
+      // name is optional on a demo; only surface it if the source object
+      // actually carries it. We don't validate its type here because
+      // `ManifestDemo.name` is `string | undefined` and callers treat
+      // non-strings as a non-fatal display problem; parseManifest keeps
+      // its strict contract on `id` (the field callers actually key on).
+      const demoName: string | undefined =
+        hasOwnProp(d, "name") && typeof d.name === "string"
+          ? d.name
+          : undefined;
+      validated.push(
+        demoName === undefined
+          ? { id: brandedId }
+          : { id: brandedId, name: demoName },
+      );
     }
+    demos = validated;
   }
 
-  // By the time we reach here all fields have been validated individually
-  // (slug is a non-empty string, name/deployed/demos match their declared
-  // shape). The compiler cannot narrow `obj: Record<string, unknown>` to
-  // `Manifest` through those runtime guards, so an `as unknown as
-  // Manifest` indirection is required — this is the one place in the
-  // module that crosses the validation boundary.
-  return { kind: "ok", manifest: obj as unknown as Manifest };
+  // Construct the result field-by-field from the narrowed locals so
+  // there is no `as unknown as Manifest` double-cast crossing the
+  // validation boundary. Each field below was checked individually
+  // above; the compiler tracks the narrowed type through the local
+  // bindings, so this object literal typechecks against Manifest
+  // without any casts.
+  const manifest: Manifest =
+    demos === undefined
+      ? {
+          slug,
+          ...(name !== undefined ? { name } : {}),
+          ...(deployed !== undefined ? { deployed } : {}),
+        }
+      : {
+          slug,
+          ...(name !== undefined ? { name } : {}),
+          ...(deployed !== undefined ? { deployed } : {}),
+          demos,
+        };
+  return { kind: "ok", manifest };
 }
