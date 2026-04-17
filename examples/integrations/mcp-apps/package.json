@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:ui\" \"npm run dev:mcp\" --names ui,mcp --prefix-colors blue,green --kill-others",
     "dev:ui": "next dev --turbopack",
-    "dev:mcp": "./scripts/run-mcp-server.sh",
+    "dev:mcp": "./scripts/run-mcp-server.sh || scripts\\run-mcp-server.bat",
     "build": "next build",
     "start": "next start",
     "install:mcp": "cd threejs-server && npm install",

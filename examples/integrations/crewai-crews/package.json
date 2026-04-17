@@ -4,12 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev:ui\" \"npm run dev:agent\" --names ui,agent --prefix-colors blue,green --kill-others",
-    "dev:agent": "./scripts/run-agent.sh",
+    "dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
     "dev:ui": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "install:agent": "./scripts/setup-agent.sh",
+    "install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat",
     "postinstall": "npm run install:agent"
   },
   "dependencies": {
