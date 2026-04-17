@@ -63,11 +63,12 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { BORN_IN_SHOWCASE, FALLBACK_MAP, SLUG_MAP } from "./lib/slug-map.js";
 
-// We intentionally do NOT import from migrate-integration-examples.ts:
-// SLUG_MAP is not exported, and mirroring it locally lets us document
-// staleness via FALLBACK_MAP without coupling to the migration script's
-// internals.
+// SLUG_MAP / FALLBACK_MAP / BORN_IN_SHOWCASE now live in
+// ./lib/slug-map.ts so audit.ts, validate-parity.ts, and this file
+// agree on the same frozen tables. Re-exported below for tests that
+// still import from "../validate-pins.js".
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -92,59 +93,17 @@ function paths() {
 // Slug resolution
 // ---------------------------------------------------------------------------
 
-// Mirror of SLUG_MAP (examples dir -> showcase slug) from
-// migrate-integration-examples.ts. Duplicated here because that file does
-// not export it; keeping the duplicate is the lesser evil versus importing
-// internal state and silently inheriting staleness.
-const SLUG_MAP: Record<string, string> = {
-  "langgraph-python": "langgraph-python",
-  "langgraph-js": "langgraph-typescript",
-  "langgraph-fastapi": "langgraph-fastapi",
-  mastra: "mastra",
-  "crewai-crews": "crewai",
-  "crewai-flows": "crewai",
-  "pydantic-ai": "pydanticai",
-  agno: "agno",
-  llamaindex: "llamaindex",
-  adk: "google-adk",
-  "ms-agent-framework-dotnet": "maf-dotnet",
-  "ms-agent-framework-python": "maf-python",
-  "strands-python": "aws-strands",
-  "agent-spec": "agent-spec-langgraph",
-  "a2a-a2ui": "a2a",
-  "a2a-middleware": "a2a",
-  "mcp-apps": "mcp-apps",
-};
-
-// Reverse (showcase slug -> candidate examples dirs) built from SLUG_MAP.
-// Precomputed at module load (not per-call) for perf and correctness.
+// Reverse (showcase slug -> candidate examples dirs) built from the
+// shared SLUG_MAP. Precomputed at module load (not per-call) for perf
+// and correctness.
 const REVERSE_MAP: Record<string, string[]> = (() => {
   const reverse: Record<string, string[]> = {};
-  for (const [example, slug] of Object.entries(SLUG_MAP)) {
+  for (const [example, slug] of SLUG_MAP) {
     if (!reverse[slug]) reverse[slug] = [];
     reverse[slug].push(example);
   }
   return reverse;
 })();
-
-// Known stale mappings: current showcase slug -> examples/integrations dir.
-// Documented above; these entries override / supplement the reverse map.
-const FALLBACK_MAP: Record<string, string> = {
-  "crewai-crews": "crewai-crews",
-  "ms-agent-dotnet": "ms-agent-framework-dotnet",
-  "ms-agent-python": "ms-agent-framework-python",
-  "pydantic-ai": "pydantic-ai",
-  strands: "strands-python",
-};
-
-// Packages intentionally without a Dojo counterpart.
-const BORN_IN_SHOWCASE = new Set<string>([
-  "ag2",
-  "claude-sdk-python",
-  "claude-sdk-typescript",
-  "langroid",
-  "spring-ai",
-]);
 
 export interface ResolveResult {
   exampleDir: string | null;

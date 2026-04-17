@@ -40,7 +40,11 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import yaml from "yaml";
+import {
+  parseManifest,
+  type Manifest,
+  type ManifestDemo,
+} from "./lib/manifest.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -50,18 +54,9 @@ const DEFAULT_PACKAGES_DIR = path.join(ROOT, "packages");
 // are flagged as warnings (e.g. ones still being built out).
 const BASELINE_DEMO_COUNT = 9;
 
-// TODO: If a shared manifest module lands at showcase/scripts/lib/manifest.ts
-// (owned by FX-A / validate-pins), replace these local interfaces with an
-// import from there to keep a single source of truth for the manifest schema.
-export interface ManifestDemo {
-  id: string;
-  name?: string;
-}
-
-export interface Manifest {
-  slug: string;
-  demos?: ManifestDemo[];
-}
+// Manifest / ManifestDemo now live in ./lib/manifest.ts. Re-exported below
+// for callers that still import these types from "../validate-parity.js".
+export type { Manifest, ManifestDemo };
 
 export interface PackageReport {
   slug: string;
@@ -109,18 +104,30 @@ export function listFiles(p: string, suffix: string): string[] {
  *   - the parsed Manifest on success.
  *
  * Throws:
- *   - any parse error from yaml.parse. Callers in the validator path wrap
- *     this in try/catch and convert it into a package-level mustError so
- *     one bad manifest doesn't abort the whole run.
+ *   - Error when the file exists but parseManifest returns "malformed"
+ *     or "unreadable". Kept as a throw so existing callers (and the
+ *     test contract — see __tests__/validate-parity.test.ts) can
+ *     convert it into a package-level mustError in a try/catch.
+ *
+ * Delegates to lib/manifest.ts :: parseManifest for shape validation so
+ * audit.ts / validate-pins.ts / validate-parity.ts apply identical rules.
  */
 export function loadManifest(
   slug: string,
   packagesDir: string = DEFAULT_PACKAGES_DIR,
 ): Manifest | null {
   const manifestPath = path.join(packagesDir, slug, "manifest.yaml");
-  if (!fs.existsSync(manifestPath)) return null;
-  const raw = fs.readFileSync(manifestPath, "utf-8");
-  return yaml.parse(raw) as Manifest;
+  const parsed = parseManifest(manifestPath);
+  switch (parsed.kind) {
+    case "missing":
+      return null;
+    case "ok":
+      return parsed.manifest;
+    case "malformed":
+      throw new Error(parsed.error);
+    case "unreadable":
+      throw new Error(parsed.error);
+  }
 }
 
 export function auditPackage(
