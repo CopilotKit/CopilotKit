@@ -62,8 +62,8 @@ const __dirname = path.dirname(__filename);
  *
  * Uses the ES2022 `Error({ cause })` pattern so callers can still reach
  * the original ErrnoException (with `.code`, `.errno`, `.syscall` etc.)
- * via `err.cause`. Previously we only forwarded `cause.message`, which
- * dropped those fields silently.
+ * via `err.cause`. Forwarding just `cause.message` would drop those
+ * fields.
  */
 class UnreadableDirError extends Error {
   constructor(
@@ -101,19 +101,16 @@ const EXIT_INTERNAL = 4 as const;
 const EXIT_WARNINGS = 5 as const;
 
 /**
- * Tagged union describing a package-level anomaly. Replaces the earlier
- * `anomalies: string[]` kitchen sink — downstream `buildReport` used to
- * classify via `startsWith("could not read")` / `startsWith("malformed")`,
- * which was brittle and invited typos to silently mis-bucket packages.
- * Now `buildReport` switches on `kind`.
+ * Tagged union describing a package-level anomaly. `buildReport`
+ * switches on `kind` to classify packages into anomaly buckets.
  *
  * `not-deployed.state` uses a string union (`"unset" | "explicit-false"`)
- * rather than the raw `null | false` runtime values. The string encoding
+ * rather than raw `null | false` runtime values — the string encoding
  * is self-documenting at consumption sites (`state === "unset"` vs the
  * easy-to-misread `state === null`) and decouples the anomaly shape from
- * the underlying manifest field encoding — callers read the boolean
- * directly through `p.manifest.manifest.deployed` when they need the raw
- * value.
+ * the underlying manifest field encoding. Callers read the boolean
+ * directly through `p.manifest.manifest.deployed` when they need the
+ * raw value.
  */
 type Anomaly =
   | { kind: "missing-manifest" }
@@ -130,14 +127,12 @@ type Anomaly =
   | { kind: "missing-examples" };
 
 /**
- * Per-dimension count state. Introduced to distinguish "count=0 because
- * empty" from "count=0 because unreadable", which the old flat-number
- * representation collapsed — leading to misleading tables and phantom
- * parity mismatches.
+ * Per-dimension count state. Distinguishes "count=0 because empty" from
+ * "count=0 because unreadable" so table rendering and parity checks
+ * don't collapse the two into phantom mismatches.
  *
  * This is the sole discriminated union for count outcomes: countFiles
- * returns it directly. There is no parallel internal type — anything
- * storing a count state uses this shape.
+ * returns it directly. Anything storing a count state uses this shape.
  */
 type CountState =
   | { state: "ok"; count: number }
@@ -313,7 +308,11 @@ function listShowcasePackageSlugs(cfg: AuditConfig): string[] {
  */
 function readManifest(slug: string, cfg: AuditConfig): ParsedManifest {
   const p = path.join(cfg.packagesDir, slug, "manifest.yaml");
-  return parseManifest(p);
+  // Pass slug so parseManifest can enforce the slug-mismatch guard:
+  // a manifest whose declared `slug:` disagrees with the directory that
+  // holds it is flagged as malformed rather than silently keying a
+  // copy-paste/rename mistake into the wrong package downstream.
+  return parseManifest(p, slug);
 }
 
 /**
@@ -324,13 +323,8 @@ function readManifest(slug: string, cfg: AuditConfig): ParsedManifest {
  *   - unreadable → readdir threw (permission, I/O); callers should emit
  *                  an anomaly to avoid silent drops.
  *
- * The previous implementation swallowed errors and returned 0, which
- * could trigger phantom parity anomalies for packages whose spec dirs
- * were simply unreadable.
- *
- * Returns the public `CountState` shape directly — there used to be an
- * internal parallel `CountResult` union that was bridged via
- * `toCountState`, but the bridge added ceremony without buying anything.
+ * Returns the public `CountState` shape directly so callers don't have
+ * to bridge through an intermediate representation.
  */
 function countFiles(
   dir: string,
@@ -391,9 +385,9 @@ function countLabel(s: CountState): string {
  * forwarding them to stderr and/or recording them on the PackageAudit —
  * findExamplesSource does NOT touch global state (stdout/stderr).
  *
- * A narrow overload keeps the legacy no-sink call shape for external
- * consumers (tests, ad-hoc scripts) that only care about the boolean
- * "found or not found" outcome: in that case warnings are discarded.
+ * The `warnings` sink is optional — consumers (tests, ad-hoc scripts)
+ * that only care about the "found or not found" outcome can omit it,
+ * in which case warnings are discarded.
  */
 function findExamplesSource(
   slug: string,
@@ -462,9 +456,8 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
   const qaRes = countFiles(qaDir, (n) => n.endsWith(".md"));
 
   // findExamplesSource records stale SLUG_TO_EXAMPLES / statSync-race
-  // warnings on this explicit sink — no more global stderr monkey-patch.
-  // Callers (main, CI) forward it to stderr; JSON consumers read it off
-  // `audit.warnings`.
+  // warnings on this explicit sink. Callers (main, CI) forward it to
+  // stderr; JSON consumers read it off `audit.warnings`.
   const warnings: string[] = [];
   const examplesSource = findExamplesSource(slug, cfg, warnings);
 
@@ -631,35 +624,31 @@ function padLeft(s: string, w: number): string {
 // list, forget the other two" bugs (e.g., adding a column that silently
 // grows the divider but wraps values under the wrong header).
 // Each column carries a stable `key` (machine-readable identifier used
-// by `--columns=<csv>` to filter) alongside its display `label`. The
-// previous version left `key` unused — a code smell that invited
-// accidental removal on the next refactor. Now `--columns` consumes it
-// and renderTable honours the user's subset.
-const TABLE_COLUMNS: ReadonlyArray<{
-  key: string;
-  label: string;
-  align: "left" | "right";
-  value: (a: PackageAudit) => string;
-}> = [
-  { key: "slug", label: "slug", align: "left", value: (a) => a.slug },
+// by `--columns=<csv>` to filter) alongside its display `label`.
+// `as const` pins the tuple shape so `ColumnKey` below is a literal
+// union of the declared keys — not `string`. parseArgs validates user
+// input against that union at runtime, and ParsedArgs.columns carries
+// the narrower type.
+const TABLE_COLUMNS = [
+  { key: "slug", label: "slug", align: "left", value: (a: PackageAudit) => a.slug },
   {
     key: "demos",
     label: "demos",
     align: "right",
-    value: (a) => String(a.demosDeclared),
+    value: (a: PackageAudit) => String(a.demosDeclared),
   },
   {
     key: "specs",
     label: "specs",
     align: "right",
-    value: (a) => countLabel(a.spec),
+    value: (a: PackageAudit) => countLabel(a.spec),
   },
-  { key: "qa", label: "qa", align: "right", value: (a) => countLabel(a.qa) },
+  { key: "qa", label: "qa", align: "right", value: (a: PackageAudit) => countLabel(a.qa) },
   {
     key: "deployed",
     label: "deployed",
     align: "right",
-    value: (a) => {
+    value: (a: PackageAudit) => {
       // Read deployed state through the manifest variant — single
       // source of truth. No duplicate `deployed` field on PackageAudit.
       if (a.manifest.kind !== "ok") return "?";
@@ -672,9 +661,16 @@ const TABLE_COLUMNS: ReadonlyArray<{
     key: "examples src",
     label: "examples src",
     align: "left",
-    value: (a) => a.examplesSource ?? "—",
+    value: (a: PackageAudit) => a.examplesSource ?? "—",
   },
-];
+] as const satisfies ReadonlyArray<{
+  key: string;
+  label: string;
+  align: "left" | "right";
+  value: (a: PackageAudit) => string;
+}>;
+
+type ColumnKey = (typeof TABLE_COLUMNS)[number]["key"];
 
 /**
  * Resolve a user-supplied list of column keys to the subset of
@@ -684,10 +680,10 @@ const TABLE_COLUMNS: ReadonlyArray<{
  * every entry is recognised.
  */
 function selectColumns(
-  keys: readonly string[] | null,
+  keys: readonly ColumnKey[] | null,
 ): ReadonlyArray<(typeof TABLE_COLUMNS)[number]> {
   if (keys === null) return TABLE_COLUMNS;
-  const wanted = new Set(keys);
+  const wanted = new Set<ColumnKey>(keys);
   return TABLE_COLUMNS.filter((c) => wanted.has(c.key));
 }
 
@@ -910,19 +906,15 @@ function buildReport(
 ): AuditReport {
   const packages = slugs.map((s) => auditPackage(s, cfg));
 
-  // Classify via tagged-union `Anomaly.kind` — NOT via string-prefix
-  // matching. String matching was brittle and could silently drop real
-  // mismatches behind typos.
+  // Classify via tagged-union `Anomaly.kind` for stable, typo-proof
+  // bucket routing.
   //
   // Invariant: auditPackage only emits a count-mismatch anomaly when
   // the underlying count is readable (see `specCount !== null` /
-  // `qaCount !== null` guards in auditPackage). That means the mere
-  // presence of a `count-mismatch` anomaly in `p.anomalies` already
-  // implies the relevant dimension was readable — no secondary
-  // suppression needed here. Previously this filter also re-checked
-  // `p.spec.state === "unreadable"` defensively, but that guard was
-  // redundant (the anomaly can't exist under an unreadable state) and
-  // invited confusion about which code path owns the suppression rule.
+  // `qaCount !== null` guards in auditPackage). The presence of a
+  // `count-mismatch` anomaly in `p.anomalies` already implies the
+  // relevant dimension was readable, so no secondary suppression is
+  // needed here.
   const countMismatches = packages
     .filter((p) => p.manifest.kind === "ok")
     .filter((p) => p.anomalies.some((a) => a.kind === "count-mismatch"))
@@ -989,61 +981,77 @@ function buildReport(
   const strict = opts.strict ?? false;
 
   // hasAnomalies / hasWarnings / exitCode are derived from `packages`
-  // and `withAnomalies` — NOT cached snapshots. Defining them as
-  // enumerable accessors (via Object.defineProperty) keeps them visible
-  // to JSON.stringify while preventing drift: the inputs are frozen
-  // below, so the derived values are effectively stable, but there is
-  // only ONE source of truth for each scalar (the computation itself)
-  // rather than a parallel cached copy. The cast-through-unknown at the
-  // end is necessary because Object.defineProperty has a loose return
-  // type; the shape genuinely matches AuditReport.
-  const report: Record<string, unknown> = {
-    packages,
-    anomalies: Object.freeze({
-      countMismatches: Object.freeze(countMismatches),
-      notDeployed: Object.freeze(notDeployed),
-      missingExamples: Object.freeze(missingExamples),
-      missingManifest: Object.freeze(missingManifest),
-      malformedManifest: Object.freeze(malformedManifest),
-      unreadable: Object.freeze(unreadable),
-    }),
-    totals: Object.freeze({
-      total: packages.length,
-      clean: packages.length - withAnomalies,
-      withAnomalies,
-    }),
-  };
-  Object.defineProperty(report, "hasAnomalies", {
-    enumerable: true,
-    configurable: false,
-    get() {
-      return (
-        (this as { totals: { withAnomalies: number } }).totals.withAnomalies > 0
-      );
-    },
+  // and `withAnomalies` — NOT cached snapshots. Defined as class
+  // getters so (a) the shape structurally matches AuditReport without
+  // any `as unknown as` cast and (b) there is only ONE source of truth
+  // for each scalar (the getter computation itself), not a parallel
+  // cached copy.
+  //
+  // JSON serialization: class getters are non-enumerable by default, so
+  // we opt them into JSON output via a toJSON() method that produces a
+  // plain object carrying the derived scalars alongside the data
+  // buckets. This preserves the external JSON contract (consumers see
+  // `hasAnomalies`, `hasWarnings`, `exitCode` as top-level fields).
+  const anomaliesBucket = Object.freeze({
+    countMismatches: Object.freeze(countMismatches) as readonly string[],
+    notDeployed: Object.freeze(notDeployed) as readonly string[],
+    missingExamples: Object.freeze(missingExamples) as readonly string[],
+    missingManifest: Object.freeze(missingManifest) as readonly string[],
+    malformedManifest: Object.freeze(malformedManifest) as readonly string[],
+    unreadable: Object.freeze(unreadable) as readonly string[],
   });
-  Object.defineProperty(report, "hasWarnings", {
-    enumerable: true,
-    configurable: false,
-    get() {
-      return (this as { packages: readonly PackageAudit[] }).packages.some(
-        (p) => p.warnings.length > 0,
-      );
-    },
+  const totals = Object.freeze({
+    total: packages.length,
+    clean: packages.length - withAnomalies,
+    withAnomalies,
   });
-  Object.defineProperty(report, "exitCode", {
-    enumerable: true,
-    configurable: false,
-    get() {
-      const self = this as { hasAnomalies: boolean; hasWarnings: boolean };
+
+  class AuditReportImpl implements AuditReport {
+    readonly packages: readonly PackageAudit[];
+    readonly anomalies: AuditReport["anomalies"];
+    readonly totals: AuditReport["totals"];
+    constructor(
+      pkgs: readonly PackageAudit[],
+      a: AuditReport["anomalies"],
+      t: AuditReport["totals"],
+    ) {
+      this.packages = pkgs;
+      this.anomalies = a;
+      this.totals = t;
+    }
+    get hasAnomalies(): boolean {
+      return this.totals.withAnomalies > 0;
+    }
+    get hasWarnings(): boolean {
+      return this.packages.some((p) => p.warnings.length > 0);
+    }
+    get exitCode(): AuditExitCode {
       return computeExitCode({
-        hasAnomalies: self.hasAnomalies,
-        hasWarnings: self.hasWarnings,
+        hasAnomalies: this.hasAnomalies,
+        hasWarnings: this.hasWarnings,
         strict,
       });
-    },
-  });
-  return Object.freeze(report) as unknown as AuditReport;
+    }
+    toJSON(): {
+      hasAnomalies: boolean;
+      hasWarnings: boolean;
+      exitCode: AuditExitCode;
+      packages: readonly PackageAudit[];
+      anomalies: AuditReport["anomalies"];
+      totals: AuditReport["totals"];
+    } {
+      return {
+        hasAnomalies: this.hasAnomalies,
+        hasWarnings: this.hasWarnings,
+        exitCode: this.exitCode,
+        packages: this.packages,
+        anomalies: this.anomalies,
+        totals: this.totals,
+      };
+    }
+  }
+  const report = new AuditReportImpl(packages, anomaliesBucket, totals);
+  return Object.freeze(report);
 }
 
 interface ParsedArgs {
@@ -1056,7 +1064,7 @@ interface ParsedArgs {
    * (which would render NOTHING). parseArgs validates every supplied
    * key against TABLE_COLUMNS up-front.
    */
-  columns: readonly string[] | null;
+  columns: readonly ColumnKey[] | null;
   help: boolean;
   /**
    * readonly so a caller walking the struct cannot silently push new
@@ -1077,18 +1085,16 @@ function parseArgs(argv: string[]): ParsedArgs {
   let slug: string | null = null;
   let help = false;
   let strict = false;
-  let columns: string[] | null = null;
+  let columns: ColumnKey[] | null = null;
   const errors: string[] = [];
   // Track which flags have already been set so duplicates surface as
-  // explicit errors instead of being silently overwritten. Plain `let`
-  // booleans — no boxed objects, which added ceremony without buying
-  // anything (the flags are never mutated through a shared reference).
+  // explicit errors instead of being silently overwritten.
   let sawJson = false;
   let sawSlug = false;
   let sawStrict = false;
   let sawColumns = false;
 
-  const validColumnKeys = new Set(TABLE_COLUMNS.map((c) => c.key));
+  const validColumnKeys = new Set<ColumnKey>(TABLE_COLUMNS.map((c) => c.key));
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -1133,13 +1139,17 @@ function parseArgs(argv: string[]): ParsedArgs {
       if (parts.length === 0) {
         errors.push("--columns requires at least one key");
       } else {
-        const unknown = parts.filter((k) => !validColumnKeys.has(k));
+        const unknown = parts.filter(
+          (k): k is string => !(validColumnKeys as Set<string>).has(k),
+        );
         if (unknown.length > 0) {
           errors.push(
             `--columns: unknown column key(s): ${unknown.join(", ")} (valid keys: ${[...validColumnKeys].join(", ")})`,
           );
         } else {
-          columns = parts;
+          // Narrowed: every `parts` entry passed the validColumnKeys
+          // membership check, so the cast is sound (runtime-verified).
+          columns = parts as ColumnKey[];
         }
       }
     } else if (a === "--help" || a === "-h") {
@@ -1182,10 +1192,6 @@ const HELP_TEXT = [
   "  4 — unexpected internal error",
   "  5 — warnings present with --strict (default: warnings don't change exit)",
 ].join("\n");
-
-// EXIT_* constants are declared at the top of this module (above the
-// type definitions) so AuditReport.exitCode can derive its literal
-// union from `typeof EXIT_*` without a forward reference.
 
 // Heuristic: treat TypeError / ReferenceError / RangeError as programmer
 // bugs (broken invariant, likely worth a bug report), not as
@@ -1247,9 +1253,9 @@ function main(): void {
       return;
     }
     // stat the packages path to distinguish "exists as a file" from
-    // "exists as a dir". The old code went straight to readdirSync which
-    // would throw ENOTDIR — but that was caught and collapsed into
-    // "empty packages" (exit 1), which masked the real cause.
+    // "exists as a dir". Without this explicit check, readdirSync's
+    // ENOTDIR would be caught and collapsed into "empty packages" (exit
+    // 1), masking the real cause — map it to EXIT_UNREADABLE instead.
     try {
       if (!fs.statSync(cfg.packagesDir).isDirectory()) {
         console.error(
