@@ -921,9 +921,38 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
       } else if (value.startsWith('"') || value.startsWith("'")) {
         const q = value[0];
         const end = value.indexOf(q, 1);
-        if (end > 0) spec = value.slice(1, end);
+        if (end > 0) {
+          spec = value.slice(1, end);
+        } else {
+          // Opening quote but no matching closing quote before
+          // end-of-line — the string is unterminated. Previously
+          // `spec` remained "" and the downstream empty-spec branch
+          // fired, reporting this as `Poetry empty version string`
+          // which misleads operators. Record distinctly so the WARN
+          // line names the actual fault.
+          skipped.push({
+            name,
+            reason: "Poetry unterminated string value",
+          });
+          continue;
+        }
       } else {
-        // Not a string — skip (booleans, numbers etc.)
+        // Not a string — skip (booleans, numbers, etc.). Previously a
+        // bare `continue` dropped the dep without a trace; record it
+        // in `skipped[]` so operators reading the WARN output see the
+        // dep was silently malformed rather than thinking the file
+        // was clean.
+        const rawType = /^(true|false)\b/.test(value)
+          ? "boolean"
+          : /^-?\d/.test(value)
+            ? "number"
+            : value === "" || value.startsWith("\n")
+              ? "empty"
+              : typeof value;
+        skipped.push({
+          name,
+          reason: `Poetry non-string dep value (got ${rawType})`,
+        });
         continue;
       }
 
