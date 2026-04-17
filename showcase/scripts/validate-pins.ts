@@ -42,11 +42,12 @@
  * The `SLUG_MAP` imported from `./lib/slug-map.js` is KNOWN STALE with
  * respect to the current set of directory names under
  * `showcase/packages/`. The `FALLBACK_MAP` in that shared module documents
- * the overrides (e.g. `strands -> strands-python`, `pydantic-ai ->
- * pydantic-ai`, `ms-agent-dotnet -> ms-agent-framework-dotnet`). Consult
- * `showcase/scripts/lib/slug-map.ts` for the current set. When SLUG_MAP is
- * refreshed, the FALLBACK_MAP entries will fall through to the direct
- * reverse-map lookup and can be removed at that time.
+ * the overrides (e.g. `strands -> strands-python`, `ms-agent-dotnet ->
+ * ms-agent-framework-dotnet`, `ms-agent-python ->
+ * ms-agent-framework-python`). Consult `showcase/scripts/lib/slug-map.ts`
+ * for the current set. When SLUG_MAP is refreshed, the FALLBACK_MAP
+ * entries will fall through to the direct reverse-map lookup and can be
+ * removed at that time.
  *
  * Additionally, several showcase packages are "born-in-showcase" — they
  * have no Dojo counterpart and are skipped with [SKIP]. See
@@ -60,7 +61,7 @@ import { BORN_IN_SHOWCASE, FALLBACK_MAP, SLUG_MAP } from "./lib/slug-map.js";
 
 // SLUG_MAP / FALLBACK_MAP / BORN_IN_SHOWCASE live in ./lib/slug-map.ts so
 // audit.ts, validate-parity.ts, and this file agree on the same frozen
-// tables. Re-exported at the bottom of this file for tests that still
+// tables. Re-exported at the bottom of this file for tests that
 // import from "../validate-pins.js".
 
 const __filename = fileURLToPath(import.meta.url);
@@ -101,16 +102,19 @@ function paths() {
 // Slug resolution
 // ---------------------------------------------------------------------------
 
-// Reverse (showcase slug -> candidate examples dirs) built from the
-// shared SLUG_MAP. Precomputed at module load (not per-call) for perf
-// and correctness.
-const REVERSE_MAP: Record<string, string[]> = (() => {
+// Reverse of SLUG_MAP: showcase slug → examples dir name(s).
+// Precomputed at module load so each slug lookup is O(1) rather than
+// a linear scan of SLUG_MAP. Frozen so runtime mutation attempts throw
+// — the tables are meant to be effectively constant.
+const REVERSE_MAP: Readonly<Record<string, readonly string[]>> = (() => {
   const reverse: Record<string, string[]> = {};
   for (const [example, slug] of SLUG_MAP) {
     if (!reverse[slug]) reverse[slug] = [];
     reverse[slug].push(example);
   }
-  return reverse;
+  // Freeze inner arrays first, then outer record.
+  for (const k of Object.keys(reverse)) Object.freeze(reverse[k]);
+  return Object.freeze(reverse);
 })();
 
 export interface ResolveResult {
@@ -120,29 +124,44 @@ export interface ResolveResult {
   missingFallbackTarget?: string;
 }
 
-function resolveExampleDirDetailed(showcaseSlug: string): ResolveResult {
+function resolveExampleDirDetailed(
+  showcaseSlug: string,
+  pathsOverride?: ReturnType<typeof paths>,
+): ResolveResult {
   if (BORN_IN_SHOWCASE.has(showcaseSlug)) return { exampleDir: null };
 
-  const { EXAMPLES_DIR } = paths();
+  // Accept an optional pre-computed `paths()` so validateAll can
+  // compute it ONCE per run rather than re-validating
+  // VALIDATE_PINS_REPO_ROOT per slug. Direct callers (tests, ad-hoc
+  // use) may omit it and pay the per-call cost.
+  const { EXAMPLES_DIR, REPO_ROOT } = pathsOverride ?? paths();
 
-  // 1. Explicit fallback wins (documents SLUG_MAP staleness), but fall
-  // through to other strategies if the target dir does not exist.
+  // Strategy: explicit-fallback > reverse-SLUG_MAP > direct-name-match.
+  // Each strategy can "fall through" if its candidate dir does not
+  // exist on disk, so that a stale FALLBACK_MAP entry doesn't block a
+  // later strategy from resolving correctly.
+
+  // Strategy 1 — explicit fallback (documents SLUG_MAP staleness).
   const fallback = FALLBACK_MAP[showcaseSlug];
   let missingFallbackTarget: string | undefined;
   if (fallback) {
     const dir = path.join(EXAMPLES_DIR, fallback);
     if (fs.existsSync(dir)) return { exampleDir: dir };
-    missingFallbackTarget = path.relative(path.dirname(EXAMPLES_DIR), dir);
+    // Display relative to REPO_ROOT so the WARN line reads
+    // `examples/integrations/<name>` rather than the ambiguous
+    // `integrations/<name>` (which hides where the missing dir is).
+    missingFallbackTarget = path.relative(REPO_ROOT, dir);
   }
 
-  // 2. Reverse-map lookup from SLUG_MAP.
+  // Strategy 2 — reverse-map lookup from SLUG_MAP.
   const candidates = REVERSE_MAP[showcaseSlug] || [];
   for (const cand of candidates) {
     const dir = path.join(EXAMPLES_DIR, cand);
     if (fs.existsSync(dir)) return { exampleDir: dir, missingFallbackTarget };
   }
 
-  // 3. Direct name match (common case).
+  // Strategy 3 — direct name match (common case: showcase slug ===
+  // examples dir name).
   const direct = path.join(EXAMPLES_DIR, showcaseSlug);
   if (fs.existsSync(direct))
     return { exampleDir: direct, missingFallbackTarget };
@@ -159,20 +178,23 @@ function resolveExampleDir(showcaseSlug: string): string | null {
 // ---------------------------------------------------------------------------
 
 // Heuristic: what counts as an agent framework / SDK that must be pinned.
-// Applied by prefix or substring. These are compared against dependency
-// NAMES only; versions are compared via exact string match per the
+// Applied as regex match (mostly anchored) against dependency NAMES only;
+// versions are compared via exact string match per the
 // INTEGRATION-CHECKLIST rule.
 //
-// Expected match set (non-exhaustive sanity list): @copilotkit/*, copilotkit,
-// @ag-ui/*, ag-ui-*, ag_ui_*, @langchain/*, langchain, langchain-*,
-// langgraph, langgraph-*, langsmith, @mastra/*, mastra, crewai, crewai-*,
-// pydantic-ai, pydantic-ai-*, agno, llama-index, llama-index-*,
-// llama_index, llama_index_*, llamaindex, google-adk, google-genai,
-// strands-agents, strands-agents-*, agent-framework, agent-framework-*,
-// @ai-sdk/*, ai, @hashbrownai/*, @anthropic-ai/*, anthropic, openai,
-// ag2, langroid, spring-ai*, spring-ai-*, and Spring's Maven coordinate
-// form `org.springframework.ai:<artifact>` which appears in Java
-// manifests as a colon-delimited group:artifact string.
+// Expected match set (non-exhaustive sanity list, with concrete examples
+// rather than glob-like notation): @copilotkit/<anything>, copilotkit,
+// @ag-ui/<anything>, ag-ui-<anything>, ag_ui_<anything>,
+// @langchain/<anything>, langchain, langchain-<anything>, langgraph,
+// langgraph-<anything>, langsmith, @mastra/<anything>, mastra, crewai,
+// crewai-<anything>, pydantic-ai, pydantic-ai-<anything>, agno,
+// llama-index, llama-index-<anything>, llama_index, llama_index_<anything>,
+// llamaindex, google-adk, google-genai, strands-agents,
+// strands-agents-<anything>, agent-framework, agent-framework-<anything>,
+// @ai-sdk/<anything>, ai, @hashbrownai/<anything>, @anthropic-ai/<anything>,
+// anthropic, openai, ag2, langroid, spring-ai, spring-ai-<anything>, and
+// Spring's Maven coordinate form `org.springframework.ai:<artifact>` which
+// appears in Java manifests as a colon-delimited group:artifact string.
 const FRAMEWORK_PATTERNS: Array<RegExp> = [
   // CopilotKit SDK
   /^@copilotkit\//,
@@ -247,13 +269,6 @@ export interface DepMap {
 }
 
 /**
- * Branded string type: carries a compile-time proof that a spec was
- * checked by `isExactSpec`. Downstream code that accepts `ExactSpec`
- * cannot receive a non-exact string without an explicit re-check.
- */
-export type ExactSpec = string & { readonly __brand: "ExactSpec" };
-
-/**
  * Extended parse result: includes the DepMap plus advisory diagnostics.
  * Callers use these to surface WARN lines even when the parse did not
  * outright fail. Tests still assert against the returned DepMap shape.
@@ -278,10 +293,17 @@ export interface ParseResult {
  * Parse a package.json into a DepMap. May throw on I/O failure or
  * malformed JSON; callers that tolerate partial failure should catch
  * and record the error. Runtime validates the parsed JSON is a plain
- * object (not null / array / scalar) before property access.
+ * object (not null / array / scalar) before property access, and that
+ * each entry in `dependencies` / `devDependencies` / `peerDependencies`
+ * is a string. Non-string dep values throw.
  *
- * @throws Error on fs.readFileSync / JSON.parse failure, or when the
- *         parsed value is not a plain object.
+ * Note: dep values are validated as strings, but the shape of each
+ * individual key (semver validity, registry name validity, etc.) is
+ * NOT validated here — that is the caller's responsibility.
+ *
+ * @throws Error on fs.readFileSync / JSON.parse failure, when the
+ *         parsed value is not a plain object, or when any declared
+ *         dep value is not a string.
  */
 function parsePackageJson(file: string): DepMap {
   const raw = fs.readFileSync(file, "utf-8");
@@ -298,10 +320,52 @@ function parsePackageJson(file: string): DepMap {
     );
   }
   const pkg = parsed as {
-    dependencies?: Record<string, string>;
-    devDependencies?: Record<string, string>;
-    peerDependencies?: Record<string, string>;
+    dependencies?: Record<string, unknown>;
+    devDependencies?: Record<string, unknown>;
+    peerDependencies?: Record<string, unknown>;
   };
+
+  // Validate inner dep values are strings. A package.json with
+  // non-string dep values (objects, numbers, nulls) is structurally
+  // invalid per the npm schema; the JS spread below would otherwise
+  // silently admit them into the DepMap and downstream comparisons
+  // would throw or misbehave.
+  const validateBucket = (
+    bucket: Record<string, unknown> | undefined,
+    bucketName: string,
+  ): Record<string, string> | undefined => {
+    if (!bucket) return undefined;
+    if (
+      typeof bucket !== "object" ||
+      bucket === null ||
+      Array.isArray(bucket)
+    ) {
+      throw new Error(
+        `expected '${bucketName}' to be an object of name→string, got ${
+          bucket === null
+            ? "null"
+            : Array.isArray(bucket)
+              ? "array"
+              : typeof bucket
+        }`,
+      );
+    }
+    const ok: Record<string, string> = {};
+    for (const [k, v] of Object.entries(bucket)) {
+      if (typeof v !== "string") {
+        throw new Error(
+          `expected '${bucketName}.${k}' to be a string, got ${typeof v}`,
+        );
+      }
+      ok[k] = v;
+    }
+    return ok;
+  };
+
+  const deps = validateBucket(pkg.dependencies, "dependencies");
+  const peerDeps = validateBucket(pkg.peerDependencies, "peerDependencies");
+  const devDeps = validateBucket(pkg.devDependencies, "devDependencies");
+
   // Merge dependencies, devDependencies, and peerDependencies. Frameworks
   // in JS apps often live in devDeps (e.g. Next.js starters), and pinning
   // rules apply to them all. On overlap, later spread wins: dev > peer >
@@ -309,9 +373,9 @@ function parsePackageJson(file: string): DepMap {
   // at the FILE level, and (b) in practice these rarely overlap within
   // one file.
   return {
-    ...pkg.dependencies,
-    ...pkg.peerDependencies,
-    ...pkg.devDependencies,
+    ...deps,
+    ...peerDeps,
+    ...devDeps,
   };
 }
 
@@ -339,12 +403,22 @@ function canonicalizePythonName(name: string): string {
  *   - Dist-tags: "latest", "next", "" (empty)
  *   - Workspace/monorepo refs: "workspace:*", "workspace:^", "file:"
  *   - URLs / git refs / paths
- *
- * This is a type-guard: `spec is ExactSpec`. Callers can narrow the
- * string to `ExactSpec` after verifying, so downstream code receives a
- * compile-time proof that the spec was checked.
  */
-function isExactSpec(spec: string): spec is ExactSpec {
+/**
+ * Returns true iff `spec` is a monorepo workspace reference that the
+ * validator intentionally does NOT pin-check. Workspace refs (e.g.
+ * `workspace:*`, `workspace:^`, `workspace:1.2.3`) are resolved by the
+ * package manager against the local monorepo, not published — there is
+ * no "pin" semantics to check. Handled out-of-band from isExactSpec
+ * because isExactSpec merely classifies, while this classifies AND
+ * indicates the caller should emit a [SKIP] rather than a [FAIL].
+ */
+function isWorkspaceRef(spec: string): boolean {
+  if (!spec) return false;
+  return /^workspace:/.test(spec.trim());
+}
+
+function isExactSpec(spec: string): boolean {
   if (!spec) return false;
   const trimmed = spec.trim();
   if (!trimmed) return false;
@@ -381,7 +455,7 @@ function isExactSpec(spec: string): spec is ExactSpec {
 }
 
 // Parse a requirements.txt line. Strip comments, extras, env markers,
-// pip hash flags and index-url flags.
+// pip hash flags, index-url flags, and `--find-links` flags.
 // Returns [name, versionSpec] or null if unparseable.
 function parseRequirementsLine(line: string): [string, string] | null {
   // Strip trailing comments.
@@ -424,6 +498,7 @@ function parseRequirementsLine(line: string): [string, string] | null {
 function parseRequirementsTxtDetailed(file: string): ParseResult {
   const raw = fs.readFileSync(file, "utf-8");
   const out: DepMap = {};
+  const skipped: Array<{ name: string; reason: string }> = [];
   const dropped: string[] = [];
   for (const line of raw.split(/\r?\n/)) {
     // Empty and comment lines are legitimate — don't flag them as dropped.
@@ -436,12 +511,31 @@ function parseRequirementsTxtDetailed(file: string): ParseResult {
     if (parsed) {
       // First-writer-wins within a file (a given dep may appear
       // multiple times with different pins; the earlier line wins).
-      if (!(parsed[0] in out)) out[parsed[0]] = parsed[1];
+      // NOTE: pip's own resolution rule is LAST-writer-wins. We use
+      // first-writer-wins here because the `apps/agent/*` file walks
+      // before `package.json`-style fallbacks; and within a single
+      // file, re-declaration is rare enough that either rule is
+      // equivalent on real inputs. The pip-standard last-writer
+      // behavior could be added later if a real case demands it.
+      const [name, spec] = parsed;
+      if (!(name in out)) {
+        if (!spec) {
+          // Name-only line (e.g. `langgraph` with no spec): surface as
+          // skipped since it's not pinning anything. See
+          // INTEGRATION-CHECKLIST rule about exact pins.
+          skipped.push({
+            name,
+            reason: "name-only requirement (no version)",
+          });
+        } else {
+          out[name] = spec;
+        }
+      }
     } else {
       dropped.push(stripped);
     }
   }
-  return { deps: out, skipped: [], dropped };
+  return { deps: out, skipped, dropped };
 }
 
 /**
@@ -580,10 +674,13 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
   // Poetry version-string semantics: a bare version like `"1.2.3"` means
   // caret (`^1.2.3`) in Poetry — NOT an exact pin. We prefix such values
   // with `^` before storing so downstream `isExactSpec` correctly rejects
-  // them. The `^` prefix is irreversible: we lose the raw token but the
-  // validator never needs it downstream — it only needs the effective
-  // pin-vs-range classification. Operator-prefixed strings (`^`, `~`,
-  // `>=`, `==`, ...) are stored verbatim.
+  // them. Tradeoff: the stored spec no longer textually matches the raw
+  // pyproject.toml token, which is visible in FAIL messages that read
+  // e.g. "pinned to ^1.2.3" when the file says `"1.2.3"`. This is
+  // accurate (the effective spec IS `^1.2.3` per Poetry rules), but can
+  // confuse an operator grepping the source — hence the explicit note.
+  // Operator-prefixed strings (`^`, `~`, `>=`, `==`, ...) are stored
+  // verbatim.
   const poetryHeaderRe =
     /(?:^|\n)\[tool\.poetry(?:\.group\.[A-Za-z0-9_-]+)?\.dependencies\][^\n]*\n/g;
   let headerMatch: RegExpExecArray | null;
@@ -608,11 +705,14 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
 
       let spec = "";
       if (value.startsWith("{")) {
-        // Inline table. Pull `version = "..."` out of it; if absent
-        // (e.g. git-only / path-only / branch-only), record as skipped.
-        const vm = value.match(/version\s*=\s*"([^"]*)"/);
+        // Inline table. Pull `version = "..."` or `version = '...'` out
+        // of it; if absent (e.g. git-only / path-only / branch-only),
+        // record as skipped. TOML permits both single and double quotes
+        // for basic strings and the stdlib / Poetry itself both accept
+        // either form.
+        const vm = value.match(/version\s*=\s*(?:"([^"]*)"|'([^']*)')/);
         if (vm) {
-          spec = vm[1];
+          spec = vm[1] ?? vm[2] ?? "";
         } else if (/\bgit\s*=/.test(value)) {
           skipped.push({
             name,
@@ -638,6 +738,19 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
         if (end > 0) spec = value.slice(1, end);
       } else {
         // Not a string — skip (booleans, numbers etc.)
+        continue;
+      }
+
+      // Trim at parse time so `isExactSpec` and downstream comparisons
+      // don't have to worry about quoted whitespace (e.g. `" 1.2.3"`).
+      spec = spec.trim();
+
+      // Empty spec (e.g. `foo = ""`) is malformed — record as skipped
+      // so the caller can surface a [WARN]. Without this, an empty
+      // string silently stored would later be rendered as "(empty)"
+      // in error messages without explaining WHY the spec was empty.
+      if (!spec) {
+        skipped.push({ name, reason: "Poetry empty version string" });
         continue;
       }
 
@@ -673,8 +786,18 @@ function parsePyprojectToml(file: string): DepMap {
 // Find Dojo-side dependency files for a given example directory.
 // ---------------------------------------------------------------------------
 
-export interface DojoDepSources {
-  // All absolute paths to Dojo-side dependency files that contributed deps.
+/**
+ * Shape returned by `collectDepsFromDir` — used for both the Dojo side
+ * (examples/integrations/<source>) and the showcase side
+ * (showcase/packages/<slug>). Both sides walk the same
+ * DEP_FILE_CANDIDATES list; the structure of the result is identical.
+ *
+ * `DojoDepSources` and `ShowcaseDepSources` are exported as aliases for
+ * call-site readability, but they are structurally the same type and
+ * callers can freely pass one where the other is expected.
+ */
+export interface DepSources {
+  // All absolute paths to dependency files that contributed deps.
   files: string[];
   // Merged dep map. Order: app-specific files (apps/agent, agent/**) are
   // walked BEFORE root-level files so that on dep-name collision, the
@@ -696,11 +819,15 @@ export interface DojoDepSources {
   skipped: Array<{ file: string; name: string; reason: string }>;
   dropped: Array<{ file: string; line: string }>;
 }
+// Named aliases for call-site readability. Structurally identical to
+// `DepSources`.
+export type DojoDepSources = DepSources;
 
 // Common candidate list for dep file discovery. App-/agent-specific files
 // come first so they win over root-level fallbacks (first-writer-wins at
 // the file level). Includes apps/web/** so showcase packages that only
-// ship a web app are still scanned.
+// ship a web app are scanned, plus apps/app/** for starter layouts that
+// use `apps/app/` as the application root.
 const DEP_FILE_CANDIDATES = [
   "apps/agent/package.json",
   "apps/agent/pyproject.toml",
@@ -724,24 +851,19 @@ function isPythonManifest(abs: string): boolean {
   return abs.endsWith("requirements.txt") || abs.endsWith("pyproject.toml");
 }
 
-type CollectShape = {
-  files: string[];
-  deps: DepMap;
-  pythonDeps: DepMap;
-  parseErrors: Array<{ file: string; message: string }>;
-  filesAttempted: number;
-  skipped: Array<{ file: string; name: string; reason: string }>;
-  dropped: Array<{ file: string; line: string }>;
-};
-
 /**
  * Common collector used by both Dojo-side and showcase-side. Walks
  * DEP_FILE_CANDIDATES in order, applying first-writer-wins at the file
  * level. Parse errors are accumulated rather than thrown so one bad
  * sibling doesn't abort the whole run.
+ *
+ * @throws Error on an unrecognized dep file path. This should be
+ *         unreachable because DEP_FILE_CANDIDATES is a closed list; the
+ *         throw exists to catch programmer error if someone adds a new
+ *         file to DEP_FILE_CANDIDATES without wiring up a parser here.
  */
-function collectDepsFromDir(rootDir: string): CollectShape {
-  const result: CollectShape = {
+function collectDepsFromDir(rootDir: string): DepSources {
+  const result: DepSources = {
     files: [],
     deps: {},
     pythonDeps: {},
@@ -753,19 +875,36 @@ function collectDepsFromDir(rootDir: string): CollectShape {
   for (const rel of DEP_FILE_CANDIDATES) {
     const abs = path.join(rootDir, rel);
     if (!fs.existsSync(abs)) continue;
+    // Determine which parser to use BEFORE the try block so that an
+    // unrecognized extension is treated as a programmer bug (throws out
+    // of this function) rather than silently absorbed as a "successful
+    // parse of empty deps". This is a closed-list guarantee: every
+    // entry in DEP_FILE_CANDIDATES must have a parser here.
+    let parser: "package.json" | "requirements.txt" | "pyproject.toml";
+    if (abs.endsWith("package.json")) {
+      parser = "package.json";
+    } else if (abs.endsWith("requirements.txt")) {
+      parser = "requirements.txt";
+    } else if (abs.endsWith("pyproject.toml")) {
+      parser = "pyproject.toml";
+    } else {
+      throw new Error(
+        `collectDepsFromDir: no parser for dep file ${abs}. DEP_FILE_CANDIDATES and parser dispatch are out of sync.`,
+      );
+    }
     result.filesAttempted += 1;
     let parsed: DepMap = {};
     let skipped: Array<{ name: string; reason: string }> = [];
     let dropped: string[] = [];
     try {
-      if (abs.endsWith("package.json")) {
+      if (parser === "package.json") {
         parsed = parsePackageJson(abs);
-      } else if (abs.endsWith("requirements.txt")) {
+      } else if (parser === "requirements.txt") {
         const detailed = parseRequirementsTxtDetailed(abs);
         parsed = detailed.deps;
         skipped = detailed.skipped;
         dropped = detailed.dropped;
-      } else if (abs.endsWith("pyproject.toml")) {
+      } else {
         const detailed = parsePyprojectTomlDetailed(abs);
         parsed = detailed.deps;
         skipped = detailed.skipped;
@@ -811,17 +950,10 @@ function collectDojoDeps(exampleDir: string): DojoDepSources {
 // Showcase-side dep collection
 // ---------------------------------------------------------------------------
 
-export interface ShowcaseDepSources {
-  files: string[];
-  deps: DepMap;
-  // Same semantics as DojoDepSources.pythonDeps — used so we can apply
-  // Python canonicalization only to deps that came from Python manifests.
-  pythonDeps: DepMap;
-  parseErrors: Array<{ file: string; message: string }>;
-  filesAttempted: number;
-  skipped: Array<{ file: string; name: string; reason: string }>;
-  dropped: Array<{ file: string; line: string }>;
-}
+// Structurally identical to `DepSources` — kept as a named alias for
+// readability at call sites so the showcase vs dojo side remains
+// textually distinct.
+export type ShowcaseDepSources = DepSources;
 
 function collectShowcaseDeps(packageDir: string): ShowcaseDepSources {
   return collectDepsFromDir(packageDir);
@@ -872,7 +1004,12 @@ interface Report {
 
 function validateAll(): Report {
   const report: Report = { fail: [], warn: [], skip: [], ok: [] };
-  const { PACKAGES_DIR, EXAMPLES_DIR, REPO_ROOT } = paths();
+  // Compute paths ONCE per run. `paths()` re-validates the
+  // VALIDATE_PINS_REPO_ROOT env var every call, so invoking it per
+  // slug turns every iteration into an fs.existsSync stat that has
+  // already been performed.
+  const resolvedPaths = paths();
+  const { PACKAGES_DIR, EXAMPLES_DIR, REPO_ROOT } = resolvedPaths;
 
   // Missing packages dir must not produce a silent pass. If the validator
   // can't see any packages, it has nothing to check, which is almost
@@ -900,7 +1037,7 @@ function validateAll(): Report {
 
   for (const slug of slugs) {
     const pkgDir = path.join(PACKAGES_DIR, slug);
-    const resolved = resolveExampleDirDetailed(slug);
+    const resolved = resolveExampleDirDetailed(slug, resolvedPaths);
     const exampleDir = resolved.exampleDir;
 
     if (exampleDir === null) {
@@ -964,13 +1101,22 @@ function validateAll(): Report {
     }
 
     // Distinguish "genuinely no files" from "files existed but all
-    // parse-errored". Only the former is a WARN; the latter already
-    // produced FAIL(s) above and we must not ALSO emit a WARN because
-    // that double-counts and muddles the signal.
+    // parse-errored". Only the former is a FAIL (unless the slug is
+    // explicitly born-in-showcase with no examples counterpart, which
+    // we already [SKIP]ed above); the latter already produced FAIL(s)
+    // above and we must not ALSO emit anything because that
+    // double-counts and muddles the signal.
+    //
+    // Changed from [WARN] to [FAIL]: a showcase package with zero dep
+    // files is structurally wrong — it cannot possibly demonstrate a
+    // framework integration because it has no declared runtime
+    // dependencies. Catching this as a FAIL at CI time is far better
+    // than silently marking the whole package OK because there was
+    // nothing to compare against.
     if (showcase.files.length === 0) {
       if (showcase.filesAttempted === 0) {
-        report.warn.push(
-          `[WARN] ${slug}: no dependency files found in showcase package`,
+        report.fail.push(
+          `[FAIL] ${slug}: no dependency files found in showcase package`,
         );
       }
       // else: all attempted files parse-errored; FAIL already emitted.
@@ -1066,6 +1212,13 @@ function validateAll(): Report {
         // Showcase has a framework dep that's not in the Dojo example.
         // This is allowed (showcase may add frameworks not in the example),
         // but we still require it to be an exact pin.
+        if (isWorkspaceRef(sc.spec)) {
+          // Workspace refs have no pin semantics — skip, don't FAIL.
+          report.skip.push(
+            `[SKIP] ${slug}: ${displayName} workspace ref (${sc.spec})`,
+          );
+          continue;
+        }
         if (!isExactSpec(sc.spec)) {
           report.fail.push(
             `[FAIL] ${slug}: ${displayName} is not an exact pin in showcase ` +
@@ -1079,6 +1232,14 @@ function validateAll(): Report {
       if (!sc && dj) {
         // Dojo pins a framework dep that's entirely missing in showcase —
         // silent drift that the old validator would miss.
+        if (isWorkspaceRef(dj.spec)) {
+          // Dojo uses a workspace ref — there's nothing for showcase to
+          // "mirror" since a workspace ref is not a published version.
+          report.skip.push(
+            `[SKIP] ${slug}: ${displayName} workspace ref in Dojo (${dj.spec})`,
+          );
+          continue;
+        }
         report.fail.push(
           `[FAIL] ${slug}: ${displayName} absent in showcase but Dojo pins ${dj.spec || "(empty)"}`,
         );
@@ -1089,6 +1250,14 @@ function validateAll(): Report {
       if (sc && dj) {
         const scSpec = sc.spec;
         const djSpec = dj.spec;
+
+        // Workspace ref on either side: nothing to pin-check.
+        if (isWorkspaceRef(scSpec) || isWorkspaceRef(djSpec)) {
+          report.skip.push(
+            `[SKIP] ${slug}: ${displayName} workspace ref (showcase=${scSpec || "(empty)"}, Dojo=${djSpec || "(empty)"})`,
+          );
+          continue;
+        }
 
         // Per INTEGRATION-CHECKLIST: both sides must be EXACT pins, and
         // they must match. `next`/`*`/`^1.0.0` on both sides is a FAIL.
@@ -1148,8 +1317,9 @@ function main(): void {
 }
 
 /**
- * Returns true iff `argv1` refers to the same file as `scriptUrl` (which
- * should be the caller's `import.meta.url`-derived path). Uses strict
+ * Returns true iff `argv1` refers to the same file as `scriptPath`
+ * (which should be the caller's `import.meta.url`-derived file path,
+ * e.g. via `fileURLToPath(import.meta.url)`). Uses strict
  * resolve-then-equal instead of substring match, so paths that merely
  * contain "validate-pins" (test harnesses, worker processes) do NOT
  * trigger `main()` on import.

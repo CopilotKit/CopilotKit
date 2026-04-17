@@ -104,6 +104,54 @@ describe("parsePackageJson", () => {
       expect(() => parsePackageJson(file)).toThrow(/object/i);
     });
   });
+
+  // P-R6-5-17: dep bucket entries must be strings. A malformed
+  // package.json with an object value (e.g. a spec-object pattern some
+  // tooling emits) would otherwise flow into the DepMap as an object
+  // and crash downstream comparisons with a non-obvious error.
+  it("P-R6-5-17: throws when a dependency value is not a string", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "package.json");
+      write(
+        file,
+        JSON.stringify({
+          name: "x",
+          dependencies: { langgraph: { version: "0.2.14" } },
+        }),
+      );
+      expect(() => parsePackageJson(file)).toThrow(/string/i);
+    });
+  });
+
+  it("P-R6-5-17: throws when devDependencies value is a number", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "package.json");
+      write(
+        file,
+        JSON.stringify({
+          name: "x",
+          devDependencies: { typescript: 5 },
+        }),
+      );
+      expect(() => parsePackageJson(file)).toThrow(/string/i);
+    });
+  });
+
+  it("P-R6-5-17: throws when dependencies is a non-object", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "package.json");
+      write(
+        file,
+        JSON.stringify({
+          name: "x",
+          dependencies: "this should be an object",
+        }),
+      );
+      expect(() => parsePackageJson(file)).toThrow(
+        /dependencies.*object|expected.*object/i,
+      );
+    });
+  });
 });
 
 describe("parsePyprojectToml", () => {
@@ -187,6 +235,74 @@ describe("parsePyprojectToml", () => {
       expect(isExactSpec(deps["foo_caret"])).toBe(false);
       expect(deps["foo_pep440"]).toBe("==1.2.3");
       expect(isExactSpec(deps["foo_pep440"])).toBe(true);
+    });
+  });
+
+  // P-F9: Poetry inline-table `version = '...'` single-quoted form must
+  // also parse. Previously the regex only handled double-quoted.
+  it("P-F9: parses Poetry inline-table version = '...' with single quotes", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      write(
+        file,
+        [
+          "[tool.poetry.dependencies]",
+          "python = '^3.10'",
+          "foo_exact = { version = '1.2.3' }",
+          "foo_caret = { version = '^1.2.3' }",
+          "foo_pep440 = { version = '==1.2.3' }",
+        ].join("\n"),
+      );
+      const deps = parsePyprojectToml(file);
+      expect(deps["foo_exact"]).toBe("^1.2.3");
+      expect(deps["foo_caret"]).toBe("^1.2.3");
+      expect(deps["foo_pep440"]).toBe("==1.2.3");
+    });
+  });
+
+  // P-R6-3-11: the `python = "^3.10"` interpreter constraint appears
+  // in every real-world Poetry pyproject.toml and must be silently
+  // ignored (it is not a runtime dependency).
+  it("P-R6-3-11: skips the Poetry `python` interpreter constraint", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      write(
+        file,
+        [
+          "[tool.poetry.dependencies]",
+          'python = "^3.10"',
+          'langgraph = "==0.2.14"',
+        ].join("\n"),
+      );
+      const { deps, skipped } = parsePyprojectTomlDetailed(file);
+      expect(deps["langgraph"]).toBe("==0.2.14");
+      // `python` must be absent from deps entirely — not "skipped with
+      // a reason", but silently omitted, because the interpreter
+      // constraint is not a framework dep.
+      expect(deps["python"]).toBeUndefined();
+      expect(skipped.find((s) => s.name === "python")).toBeUndefined();
+    });
+  });
+
+  // P-F13 (Poetry flavor): `foo = ""` empty version is malformed;
+  // surface in `skipped` so operators know the manifest is broken
+  // rather than silently admitting the dep with an empty spec.
+  it("P-F13: Poetry empty version string surfaces in skipped[]", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      write(
+        file,
+        [
+          "[tool.poetry.dependencies]",
+          'python = "^3.10"',
+          'foo_empty = ""',
+          'foo_good = "==1.2.3"',
+        ].join("\n"),
+      );
+      const { deps, skipped } = parsePyprojectTomlDetailed(file);
+      expect(deps["foo_good"]).toBe("==1.2.3");
+      expect(deps["foo_empty"]).toBeUndefined();
+      expect(skipped.map((s) => s.name)).toContain("foo_empty");
     });
   });
 
@@ -274,6 +390,23 @@ describe("parseRequirementsLine", () => {
     expect(parsed![0]).toBe("foo");
     expect(parsed![1]).toBe("==1.0.0");
   });
+
+  // P-R6-3-10: name-only requirement (no version spec) — returns the
+  // name with an empty spec string. Used to be silently untested; now
+  // asserted so the `[name, ""]` shape is part of the contract.
+  it("returns [name, ''] for a name-only line (no version)", () => {
+    const parsed = parseRequirementsLine("langgraph");
+    expect(parsed).not.toBeNull();
+    expect(parsed![0]).toBe("langgraph");
+    expect(parsed![1]).toBe("");
+  });
+
+  it("returns [name, ''] for a name-only line with trailing whitespace", () => {
+    const parsed = parseRequirementsLine("langgraph   ");
+    expect(parsed).not.toBeNull();
+    expect(parsed![0]).toBe("langgraph");
+    expect(parsed![1]).toBe("");
+  });
 });
 
 // T2: Direct unit tests for parseRequirementsTxt covering real-world shapes.
@@ -325,6 +458,26 @@ describe("parseRequirementsTxt (file-level)", () => {
       write(file, ["langgraph==0.2.14", "langgraph==0.3.0"].join("\n"));
       const deps = parseRequirementsTxt(file);
       expect(deps["langgraph"]).toBe("==0.2.14");
+    });
+  });
+
+  // P-F13: name-only lines ARE parseable by parseRequirementsLine (it
+  // returns [name, ""]) but they are NOT pinning anything. The file-
+  // level walker must surface them as `skipped` so the WARN line tells
+  // operators that the manifest has an unpinned dep, rather than the
+  // dep being silently admitted to the DepMap with an empty spec.
+  it("P-F13: name-only requirement surfaces in skipped[] (not deps)", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "requirements.txt");
+      write(file, ["langgraph", "copilotkit==1.10.0"].join("\n"));
+      const { deps, skipped } = parseRequirementsTxtDetailed(file);
+      // Correctly-pinned dep still makes it in.
+      expect(deps["copilotkit"]).toBe("==1.10.0");
+      // Name-only was NOT admitted to deps.
+      expect(deps["langgraph"]).toBeUndefined();
+      // But it IS surfaced as skipped with the name.
+      const names = skipped.map((s) => s.name);
+      expect(names).toContain("langgraph");
     });
   });
 
@@ -404,10 +557,15 @@ describe("isExactSpec", () => {
 
 describe("Unpinned spec rejection in validateAll", () => {
   let repoRoot: string;
-  let origCwd: string;
+  // Save-and-restore pattern for VALIDATE_PINS_REPO_ROOT so that if the
+  // env var was set at suite entry (e.g. by an outer invocation), it's
+  // preserved rather than silently deleted. `origCwd` is tracked on the
+  // describe level but no test ever calls process.chdir(), so we don't
+  // restore it here either.
+  let savedRepoRoot: string | undefined;
 
   beforeEach(() => {
-    origCwd = process.cwd();
+    savedRepoRoot = process.env.VALIDATE_PINS_REPO_ROOT;
     repoRoot = tmpdir();
     process.env.VALIDATE_PINS_REPO_ROOT = repoRoot;
 
@@ -421,8 +579,11 @@ describe("Unpinned spec rejection in validateAll", () => {
   });
 
   afterEach(() => {
-    process.chdir(origCwd);
-    delete process.env.VALIDATE_PINS_REPO_ROOT;
+    if (savedRepoRoot === undefined) {
+      delete process.env.VALIDATE_PINS_REPO_ROOT;
+    } else {
+      process.env.VALIDATE_PINS_REPO_ROOT = savedRepoRoot;
+    }
     fs.rmSync(repoRoot, { recursive: true, force: true });
   });
 
@@ -583,8 +744,10 @@ describe("collectDojoDeps precedence", () => {
 
 describe("validateAll cross-drift detection", () => {
   let repoRoot: string;
+  let savedRepoRoot: string | undefined;
 
   beforeEach(() => {
+    savedRepoRoot = process.env.VALIDATE_PINS_REPO_ROOT;
     repoRoot = tmpdir();
     process.env.VALIDATE_PINS_REPO_ROOT = repoRoot;
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
@@ -596,7 +759,11 @@ describe("validateAll cross-drift detection", () => {
   });
 
   afterEach(() => {
-    delete process.env.VALIDATE_PINS_REPO_ROOT;
+    if (savedRepoRoot === undefined) {
+      delete process.env.VALIDATE_PINS_REPO_ROOT;
+    } else {
+      process.env.VALIDATE_PINS_REPO_ROOT = savedRepoRoot;
+    }
     fs.rmSync(repoRoot, { recursive: true, force: true });
   });
 
@@ -682,8 +849,11 @@ describe("validateAll cross-drift detection", () => {
     ).toBe(false);
   });
 
-  // T11: zero dep files on showcase side produces WARN, no FAIL.
-  it("WARNs (not FAILs) when showcase package has zero dep files", () => {
+  // P-F5: zero dep files on showcase side is a STRUCTURAL error. A
+  // showcase package without any declared dependencies cannot
+  // demonstrate a framework integration, so it must FAIL (not WARN) so
+  // CI catches the omission.
+  it("FAILs (not WARNs) when showcase package has zero dep files (P-F5)", () => {
     const slug = "mastra";
     const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
@@ -697,12 +867,87 @@ describe("validateAll cross-drift detection", () => {
       }),
     );
     const report = validateAll();
-    const warned = report.warn.some(
+    const failed = report.fail.some(
       (l) =>
         l.includes(slug) && /no dependency files found in showcase/i.test(l),
     );
-    expect(warned).toBe(true);
-    expect(report.fail.filter((l) => l.includes(slug))).toEqual([]);
+    expect(failed).toBe(true);
+    // BORN_IN_SHOWCASE is the only case where a showcase package is
+    // allowed to have no dep files (since it might have no Dojo
+    // counterpart); that path is handled before we reach this check.
+  });
+
+  // P-F33: `workspace:*` refs (and variants) have no published-pin
+  // semantics. They must be routed to [SKIP], not [FAIL] — otherwise
+  // intra-monorepo showcase packages emit spurious pin-drift FAILs.
+  it("P-F33: workspace:* spec emits [SKIP], not [FAIL]", () => {
+    const slug = "mastra";
+    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const exDir = path.join(repoRoot, "examples", "integrations", slug);
+
+    // Showcase pins a workspace ref, Dojo pins an exact version. This
+    // used to surface as a "non-exact spec" FAIL on the showcase side;
+    // workspace refs are out-of-scope for pin checks.
+    write(
+      path.join(pkgDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@copilotkit/react-core": "workspace:*" },
+      }),
+    );
+    write(
+      path.join(exDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@copilotkit/react-core": "1.10.0" },
+      }),
+    );
+    const report = validateAll();
+    const skipped = report.skip.some(
+      (l) =>
+        l.includes(slug) &&
+        l.includes("@copilotkit/react-core") &&
+        /workspace/i.test(l),
+    );
+    expect(skipped).toBe(true);
+    const failed = report.fail.some(
+      (l) => l.includes(slug) && l.includes("@copilotkit/react-core"),
+    );
+    expect(failed).toBe(false);
+  });
+
+  it("P-F33: workspace:^ spec emits [SKIP] when both sides use workspace refs", () => {
+    const slug = "mastra";
+    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const exDir = path.join(repoRoot, "examples", "integrations", slug);
+    write(
+      path.join(pkgDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@copilotkit/react-core": "workspace:^" },
+      }),
+    );
+    write(
+      path.join(exDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@copilotkit/react-core": "workspace:*" },
+      }),
+    );
+    const report = validateAll();
+    expect(
+      report.skip.some(
+        (l) =>
+          l.includes(slug) &&
+          l.includes("@copilotkit/react-core") &&
+          /workspace/i.test(l),
+      ),
+    ).toBe(true);
+    expect(
+      report.fail.some(
+        (l) => l.includes(slug) && l.includes("@copilotkit/react-core"),
+      ),
+    ).toBe(false);
   });
 
   // T9: BORN_IN_SHOWCASE slug must produce a [SKIP] entry, not FAIL/WARN.
@@ -744,8 +989,10 @@ describe("isMainPath strict guard", () => {
 
 describe("FALLBACK_MAP fallthrough when target missing", () => {
   let repoRoot: string;
+  let savedRepoRoot: string | undefined;
 
   beforeEach(() => {
+    savedRepoRoot = process.env.VALIDATE_PINS_REPO_ROOT;
     repoRoot = tmpdir();
     process.env.VALIDATE_PINS_REPO_ROOT = repoRoot;
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
@@ -757,7 +1004,11 @@ describe("FALLBACK_MAP fallthrough when target missing", () => {
   });
 
   afterEach(() => {
-    delete process.env.VALIDATE_PINS_REPO_ROOT;
+    if (savedRepoRoot === undefined) {
+      delete process.env.VALIDATE_PINS_REPO_ROOT;
+    } else {
+      process.env.VALIDATE_PINS_REPO_ROOT = savedRepoRoot;
+    }
     fs.rmSync(repoRoot, { recursive: true, force: true });
   });
 
@@ -778,14 +1029,39 @@ describe("FALLBACK_MAP fallthrough when target missing", () => {
     );
     expect(warned).toBe(true);
   });
+
+  // P-R6-1-F2: the missingFallbackTarget path used to render as
+  // `integrations/<name>` which hides the `examples/` prefix and makes
+  // it unclear where the directory was expected. After the fix the
+  // path must render as a path relative to REPO_ROOT, i.e. starting
+  // with `examples/integrations/`.
+  it("P-R6-1-F2: missingFallbackTarget path renders relative to REPO_ROOT", () => {
+    const slug = "strands"; // FALLBACK_MAP points to strands-python
+    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    write(
+      path.join(pkgDir, "package.json"),
+      JSON.stringify({ name: slug, dependencies: {} }),
+    );
+    const report = validateAll();
+    const warn = report.warn.find(
+      (l) => l.includes(slug) && /fallback/i.test(l),
+    );
+    expect(warn).toBeDefined();
+    // Must NOT show the confusing `integrations/strands-python` form.
+    expect(warn).not.toMatch(/'integrations\//);
+    // Must show the full `examples/integrations/strands-python` path.
+    expect(warn).toMatch(/examples\/integrations\/strands-python/);
+  });
 });
 
 describe("FAIL/WARN go to stderr", () => {
   let repoRoot: string;
+  let savedRepoRoot: string | undefined;
   let stderrSpy: ReturnType<typeof vi.spyOn>;
   let stdoutSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    savedRepoRoot = process.env.VALIDATE_PINS_REPO_ROOT;
     repoRoot = tmpdir();
     process.env.VALIDATE_PINS_REPO_ROOT = repoRoot;
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
@@ -799,7 +1075,11 @@ describe("FAIL/WARN go to stderr", () => {
   });
 
   afterEach(() => {
-    delete process.env.VALIDATE_PINS_REPO_ROOT;
+    if (savedRepoRoot === undefined) {
+      delete process.env.VALIDATE_PINS_REPO_ROOT;
+    } else {
+      process.env.VALIDATE_PINS_REPO_ROOT = savedRepoRoot;
+    }
     fs.rmSync(repoRoot, { recursive: true, force: true });
     stderrSpy.mockRestore();
     stdoutSpy.mockRestore();
@@ -977,14 +1257,20 @@ describe("parsePyprojectToml precedence: [project] before Poetry", () => {
 // report states translate to exit-affecting FAILs.
 describe("validateAll exit-code integration (A3, A4, A8, A1, A5)", () => {
   let repoRoot: string;
+  let savedRepoRoot: string | undefined;
 
   beforeEach(() => {
+    savedRepoRoot = process.env.VALIDATE_PINS_REPO_ROOT;
     repoRoot = tmpdir();
     process.env.VALIDATE_PINS_REPO_ROOT = repoRoot;
   });
 
   afterEach(() => {
-    delete process.env.VALIDATE_PINS_REPO_ROOT;
+    if (savedRepoRoot === undefined) {
+      delete process.env.VALIDATE_PINS_REPO_ROOT;
+    } else {
+      process.env.VALIDATE_PINS_REPO_ROOT = savedRepoRoot;
+    }
     fs.rmSync(repoRoot, { recursive: true, force: true });
   });
 
@@ -1034,8 +1320,10 @@ describe("validateAll exit-code integration (A3, A4, A8, A1, A5)", () => {
   });
 
   // A13: when files existed but ALL parse-errored, do not ALSO emit the
-  // "no dependency files found" WARN (it's confusing double-reporting).
-  it("A13: all-files-parse-error must not produce a 'no dep files' WARN", () => {
+  // "no dependency files found" message (it's confusing double-reporting).
+  // After P-F5 the "no dep files" line is a FAIL rather than a WARN,
+  // so we assert on .fail here too.
+  it("A13: all-files-parse-error must not produce a 'no dep files' message", () => {
     fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
       recursive: true,
     });
@@ -1055,11 +1343,11 @@ describe("validateAll exit-code integration (A3, A4, A8, A1, A5)", () => {
       }),
     );
     const report = validateAll();
-    const noFilesWarn = report.warn.some(
+    const noFilesLine = [...report.fail, ...report.warn].some(
       (l) =>
         l.includes(slug) && /no dependency files found in showcase/i.test(l),
     );
-    expect(noFilesWarn).toBe(false);
+    expect(noFilesLine).toBe(false);
     // But the parse FAIL is still present.
     expect(
       report.fail.some((l) => l.includes(slug) && /parse error/i.test(l)),
@@ -1178,8 +1466,18 @@ describe("validateAll exit-code integration (A3, A4, A8, A1, A5)", () => {
 
 // A10: REPO_ROOT env override validation.
 describe("computeRepoRoot env override validation (A10)", () => {
+  let savedRepoRoot: string | undefined;
+
+  beforeEach(() => {
+    savedRepoRoot = process.env.VALIDATE_PINS_REPO_ROOT;
+  });
+
   afterEach(() => {
-    delete process.env.VALIDATE_PINS_REPO_ROOT;
+    if (savedRepoRoot === undefined) {
+      delete process.env.VALIDATE_PINS_REPO_ROOT;
+    } else {
+      process.env.VALIDATE_PINS_REPO_ROOT = savedRepoRoot;
+    }
   });
 
   it("throws when VALIDATE_PINS_REPO_ROOT is a relative path", () => {
