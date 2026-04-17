@@ -152,7 +152,7 @@ describe("SLUG_MAP (examples dir → showcase slug)", () => {
   });
 });
 
-describe("isShowcaseSlug runtime validator (S-R8-1)", () => {
+describe("isShowcaseSlug runtime validator", () => {
   it("accepts a non-empty, kebab-cased-or-plain slug string", () => {
     expect(isShowcaseSlug("ag2")).toBe(true);
     expect(isShowcaseSlug("langgraph-typescript")).toBe(true);
@@ -208,7 +208,7 @@ describe("isShowcaseSlug runtime validator (S-R8-1)", () => {
   });
 });
 
-describe("freezeSet / freezeMap behavioral invariants (R10-6-1)", () => {
+describe("freezeSet / freezeMap behavioral invariants", () => {
   it("BORN_IN_SHOWCASE rejects re-defining its mutation methods", () => {
     // Behavioral form of the old descriptor-bit check: the concrete
     // invariant is that a later caller cannot restore a working `.add`
@@ -243,7 +243,7 @@ describe("freezeSet / freezeMap behavioral invariants (R10-6-1)", () => {
   });
 });
 
-describe("SLUG_TO_EXAMPLES / FALLBACK_MAP / BORN_IN_SHOWCASE derive from one entries source (S-R8-3)", () => {
+describe("SLUG_TO_EXAMPLES / FALLBACK_MAP / BORN_IN_SHOWCASE derive from one entries source", () => {
   it("every FALLBACK_MAP entry names a slug also present in SLUG_TO_EXAMPLES", () => {
     // Derivation invariant: both maps come from the same per-slug entry
     // (slug, examples dirs, optional fallback). A FALLBACK_MAP key with

@@ -213,7 +213,7 @@ describe("parseManifest", () => {
   });
 
   it("returns {kind:'ok'} with an empty demos array when demos is omitted", () => {
-    // `demos` is always set by parseManifest (R10-5-4): empty readonly
+    // `demos` is always set by parseManifest: empty readonly
     // array when the manifest omits the field, so callers can iterate
     // without `?.` chaining. The old optional-undefined shape is gone.
     const f = path.join(root, "manifest.yaml");
@@ -225,7 +225,7 @@ describe("parseManifest", () => {
     }
   });
 
-  it("returns {kind:'malformed', subkind:'shape'} when demos[i] is null (M-R8-5)", () => {
+  it("returns {kind:'malformed', subkind:'shape'} when demos[i] is null", () => {
     // YAML `demos: [~]` parses to `[null]`. The per-entry object guard must
     // reject this as shape-malformed rather than crashing on `d.id` later.
     const f = path.join(root, "manifest.yaml");
@@ -238,7 +238,7 @@ describe("parseManifest", () => {
     }
   });
 
-  it("returns {kind:'malformed', subkind:'shape'} when demos[i] is a scalar (M-R8-5)", () => {
+  it("returns {kind:'malformed', subkind:'shape'} when demos[i] is a scalar", () => {
     // YAML `demos: [42]` parses to `[42]`. The per-entry object guard must
     // describe the concrete scalar type in the error (not "object").
     const f = path.join(root, "manifest.yaml");
@@ -251,7 +251,7 @@ describe("parseManifest", () => {
     }
   });
 
-  it("returns {kind:'malformed', subkind:'shape'} when demos[i].id is an empty string (M-R8-5)", () => {
+  it("returns {kind:'malformed', subkind:'shape'} when demos[i].id is an empty string", () => {
     // Empty ids would round-trip as valid strings but make downstream
     // demo-path construction (`packages/<slug>/src/app/demos/<id>`) collapse
     // onto the demos dir itself. Reject at validation time.
@@ -265,7 +265,7 @@ describe("parseManifest", () => {
     }
   });
 
-  it("returns {kind:'malformed', subkind:'shape'} on duplicate demo ids (M-R8-4)", () => {
+  it("returns {kind:'malformed', subkind:'shape'} on duplicate demo ids", () => {
     // Two demos with the same id used to silently propagate — audit.ts
     // would build two missing-demo-dir anomalies for the same path and
     // validate-parity.ts would double-count coverage. Reject up-front.
@@ -282,7 +282,7 @@ describe("parseManifest", () => {
     }
   });
 
-  it("verifies manifest.slug matches the expected dir slug (M-R10-10)", () => {
+  it("verifies manifest.slug matches the expected dir slug", () => {
     // parseManifest accepts an optional `dirSlug` parameter so callers
     // that derive filePath from a slug can detect drift between the
     // manifest's declared slug and the directory that holds it (copy/
@@ -319,7 +319,7 @@ describe("parseManifest", () => {
     expect(r.kind).toBe("ok");
   });
 
-  it("returns {kind:'malformed', subkind:'shape'} when a demo's name field is not a string (R10-5-5)", () => {
+  it("returns {kind:'malformed', subkind:'shape'} when a demo's name field is not a string", () => {
     // Prior permissive behavior silently coerced non-string `name` to
     // undefined. Match the strictness applied to top-level `name`:
     // present-but-wrong-type is a shape malformed.
@@ -333,7 +333,7 @@ describe("parseManifest", () => {
     }
   });
 
-  it("freezes the returned manifest and its demos array (R10-5-3)", () => {
+  it("freezes the returned manifest and its demos array", () => {
     // parseManifest must return a frozen Manifest: downstream tools
     // share the value across buckets and a mutation by one would poison
     // the rest. Both the outer object and the nested demos array must
@@ -354,7 +354,7 @@ describe("parseManifest", () => {
     }
   });
 
-  it("sets demos to a frozen empty readonly array when demos is omitted (R10-5-4)", () => {
+  it("sets demos to a frozen empty readonly array when demos is omitted", () => {
     // `demos` is non-optional in the public type: when absent, return an
     // empty readonly array so consumers can iterate without `?.` chains.
     const f = path.join(root, "manifest.yaml");
@@ -406,7 +406,7 @@ describe("parseManifest", () => {
   });
 });
 
-describe("createDemoId (R10-5-1)", () => {
+describe("createDemoId", () => {
   it("accepts a non-empty string and returns a branded DemoId", () => {
     const id = createDemoId("foo");
     expect(id).toBe("foo");
