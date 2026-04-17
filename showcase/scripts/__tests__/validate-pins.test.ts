@@ -1558,3 +1558,469 @@ describe("module import does not invoke main() (Q3)", () => {
     expect(r.status, r.stdout + r.stderr).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// R8 findings: regression tests introduced in the FX9-A round.
+// ---------------------------------------------------------------------------
+
+// P-R8-C1: Extras-syntax in PEP 621 `[project].dependencies` MUST NOT
+// truncate the array body at the embedded `]`. Previously a non-greedy
+// `[\s\S]*?\]` scanner would consume everything up to the first `]`,
+// silently dropping any deps that followed `"langchain[all]==1.2.3"`.
+describe("P-R8-C1: [project].dependencies extras-syntax handling", () => {
+  it("does NOT truncate at `]` embedded in `langchain[all]==1.2.3`", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      write(
+        file,
+        [
+          "[project]",
+          'name = "extras-test"',
+          "dependencies = [",
+          '  "langchain[all]==1.2.3",',
+          '  "copilotkit==1.10.0",',
+          '  "langgraph==0.2.14"',
+          "]",
+        ].join("\n"),
+      );
+      const deps = parsePyprojectToml(file);
+      // langchain (extras stripped by parseRequirementsLine) must be present.
+      expect(deps["langchain"]).toBe("==1.2.3");
+      // Deps following the extras MUST NOT have been dropped.
+      expect(deps["copilotkit"]).toBe("==1.10.0");
+      expect(deps["langgraph"]).toBe("==0.2.14");
+    });
+  });
+
+  it("handles multiple extras entries in a row", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      write(
+        file,
+        [
+          "[project]",
+          'name = "extras-many"',
+          'dependencies = ["foo[x]==1.0", "bar[y,z]==2.0", "baz==3.0"]',
+        ].join("\n"),
+      );
+      const deps = parsePyprojectToml(file);
+      expect(deps["foo"]).toBe("==1.0");
+      expect(deps["bar"]).toBe("==2.0");
+      expect(deps["baz"]).toBe("==3.0");
+    });
+  });
+});
+
+// P-R8-C2: Same bug class but under [project.optional-dependencies]
+// subkey arrays. Each extras-syntax entry must not swallow subsequent
+// entries.
+describe("P-R8-C2: [project.optional-dependencies] extras-syntax handling", () => {
+  it("extras-syntax does not truncate optional-dependencies subkey arrays", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      write(
+        file,
+        [
+          "[project]",
+          'name = "opt-extras"',
+          "dependencies = []",
+          "",
+          "[project.optional-dependencies]",
+          'agent = ["langchain[all]==1.2.3", "copilotkit==1.10.0", "langgraph==0.2.14"]',
+          'dev = ["pytest[toml]==8.0.0", "ruff==0.3.0"]',
+        ].join("\n"),
+      );
+      const deps = parsePyprojectToml(file);
+      expect(deps["langchain"]).toBe("==1.2.3");
+      expect(deps["copilotkit"]).toBe("==1.10.0");
+      expect(deps["langgraph"]).toBe("==0.2.14");
+      expect(deps["pytest"]).toBe("==8.0.0");
+      expect(deps["ruff"]).toBe("==0.3.0");
+    });
+  });
+});
+
+// P-R8-C3: balanced-bracket scan must still throw on a truly
+// unterminated top-level `[project].dependencies = [`.
+describe("P-R8-C3: balanced-bracket unterminated-array enforcement", () => {
+  it("throws on `dependencies = [` with no closing `]` (even when another `]` appears later in the file)", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      // A dangling `]` appears under a later unrelated section; this
+      // previously satisfied the `body.includes("]")` no-op check and
+      // let the parser silently produce an empty deps array.
+      write(
+        file,
+        [
+          "[project]",
+          'name = "still-broken"',
+          "dependencies = [",
+          '  "foo==1.0.0"',
+          // missing closing `]`
+          "",
+          "[project.optional-dependencies]",
+          "# note the ] in this comment should NOT satisfy the check",
+          'agent = ["copilotkit==1.10.0"]',
+        ].join("\n"),
+      );
+      expect(() => parsePyprojectToml(file)).toThrow(/malformed/i);
+    });
+  });
+});
+
+// P-R8-I1 / R8-2-2: main() and top-level catch must set `process.exitCode`
+// instead of calling `process.exit(N)` so stdout has time to drain. We
+// assert this by reading the source text, because spawning and racing
+// stdout drain to detect truncation is fragile.
+describe("P-R8-I1: CLI uses process.exitCode (not process.exit)", () => {
+  it("validate-pins.ts contains no `process.exit(N)` call sites", () => {
+    const src = fs.readFileSync(VALIDATE_PINS_SCRIPT, "utf-8");
+    // Strip comments and string literals to avoid false positives from
+    // JSDoc mentions of `process.exit`. Simpler: match
+    // `process\.exit\(` specifically and ensure count is 0.
+    // Exclude occurrences inside single-line comments `// ...`.
+    const noCommentSrc = src
+      .split(/\r?\n/)
+      .map((line) => line.replace(/\/\/.*$/, ""))
+      .join("\n");
+    const matches = noCommentSrc.match(/process\.exit\s*\(/g) ?? [];
+    expect(matches.length).toBe(0);
+  });
+});
+
+// R8-2-14: `==` body must require at least MAJOR.MINOR.
+describe("R8-2-14: isExactSpec rejects degenerate Python `==` bodies", () => {
+  it("rejects `==0`, `===1` without a full MAJOR.MINOR", () => {
+    expect(isExactSpec("==0")).toBe(false);
+    expect(isExactSpec("===1")).toBe(false);
+    expect(isExactSpec("==9")).toBe(false);
+  });
+
+  it("still accepts `==0.0`, `==1.2`, `==1.2.3`", () => {
+    expect(isExactSpec("==0.0")).toBe(true);
+    expect(isExactSpec("==1.2")).toBe(true);
+    expect(isExactSpec("==1.2.3")).toBe(true);
+  });
+});
+
+// R8-2-21: pip flag stripping must be order-independent. A single
+// alternation regex avoids the subtle ordering trap of sequential
+// replaces.
+describe("R8-2-21: pip flag stripping is order-independent", () => {
+  it("strips --extra-index-url even when it precedes --index-url", () => {
+    const parsed = parseRequirementsLine(
+      "foo==1.0.0 --extra-index-url=https://a.example --index-url=https://b.example",
+    );
+    expect(parsed).not.toBeNull();
+    expect(parsed![0]).toBe("foo");
+    expect(parsed![1]).toBe("==1.0.0");
+  });
+});
+
+// R8-2-13: Poetry array-form dep (multi-constraint OR) must be recorded
+// in `skipped` — silently dropping it would let pin drift slip through.
+describe("R8-2-13: Poetry array-form dep surfaces in skipped[]", () => {
+  it('records `foo = ["^1.0", "^2.0"]` as skipped with a reason', () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      write(
+        file,
+        [
+          "[tool.poetry.dependencies]",
+          'python = "^3.10"',
+          'foo = ["^1.0", "^2.0"]',
+          'good = "==1.2.3"',
+        ].join("\n"),
+      );
+      const { deps, skipped } = parsePyprojectTomlDetailed(file);
+      expect(deps["good"]).toBe("==1.2.3");
+      expect(deps["foo"]).toBeUndefined();
+      const fooSkip = skipped.find((s) => s.name === "foo");
+      expect(fooSkip).toBeDefined();
+      expect(fooSkip!.reason).toMatch(/array-form/i);
+    });
+  });
+});
+
+// R8-1-I4: Poetry caret-prefix must not be applied to comma-joined
+// constraints. `"1.2.3,>=1.0"` starts with a digit but is already a
+// multi-constraint range; prefixing produces `^1.2.3,>=1.0` which is
+// nonsense.
+describe("R8-1-I4: Poetry caret-prefix does not fire on comma-joined ranges", () => {
+  it('leaves `"1.2.3,>=1.0"` verbatim (no leading `^`)', () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      write(
+        file,
+        [
+          "[tool.poetry.dependencies]",
+          'python = "^3.10"',
+          'foo = "1.2.3,>=1.0"',
+        ].join("\n"),
+      );
+      const deps = parsePyprojectToml(file);
+      expect(deps["foo"]).toBe("1.2.3,>=1.0");
+      expect(isExactSpec(deps["foo"])).toBe(false);
+    });
+  });
+});
+
+// R8-2-20: Dojo workspace ref + showcase missing the dep must WARN (not
+// SKIP) so CI surfaces that the showcase package is missing a
+// framework the Dojo expects to be present.
+describe("R8-2-20: Dojo workspace ref absent in showcase -> WARN", () => {
+  let repoRoot: string;
+  let savedRepoRoot: string | undefined;
+
+  beforeEach(() => {
+    savedRepoRoot = process.env.VALIDATE_PINS_REPO_ROOT;
+    repoRoot = tmpdir();
+    process.env.VALIDATE_PINS_REPO_ROOT = repoRoot;
+    fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+      recursive: true,
+    });
+  });
+  afterEach(() => {
+    if (savedRepoRoot === undefined) {
+      delete process.env.VALIDATE_PINS_REPO_ROOT;
+    } else {
+      process.env.VALIDATE_PINS_REPO_ROOT = savedRepoRoot;
+    }
+    fs.rmSync(repoRoot, { recursive: true, force: true });
+  });
+
+  it("emits WARN (not SKIP) when Dojo uses workspace:* and showcase has no entry", () => {
+    const slug = "mastra";
+    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const exDir = path.join(repoRoot, "examples", "integrations", slug);
+    // Showcase has NO @copilotkit/react-core at all.
+    write(
+      path.join(pkgDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@mastra/core": "0.15.0" },
+      }),
+    );
+    // Dojo has a workspace ref for @copilotkit/react-core.
+    write(
+      path.join(exDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: {
+          "@copilotkit/react-core": "workspace:*",
+          "@mastra/core": "0.15.0",
+        },
+      }),
+    );
+
+    const report = validateAll();
+    const warned = report.warn.some(
+      (l) =>
+        l.includes(slug) &&
+        l.includes("@copilotkit/react-core") &&
+        /absent/i.test(l),
+    );
+    expect(warned).toBe(true);
+    const skippedForThisDep = report.skip.some(
+      (l) => l.includes(slug) && l.includes("@copilotkit/react-core"),
+    );
+    expect(skippedForThisDep).toBe(false);
+  });
+});
+
+// R8-2-7: SKIP message enrichment — when showcase uses workspace:* and
+// Dojo pins a concrete version, the [SKIP] line should echo the Dojo
+// pin so operators reading the log know what the showcase "should"
+// eventually resolve to.
+describe("R8-2-7: workspace ref on showcase echoes Dojo pin in SKIP", () => {
+  let repoRoot: string;
+  let savedRepoRoot: string | undefined;
+
+  beforeEach(() => {
+    savedRepoRoot = process.env.VALIDATE_PINS_REPO_ROOT;
+    repoRoot = tmpdir();
+    process.env.VALIDATE_PINS_REPO_ROOT = repoRoot;
+    fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+      recursive: true,
+    });
+  });
+  afterEach(() => {
+    if (savedRepoRoot === undefined) {
+      delete process.env.VALIDATE_PINS_REPO_ROOT;
+    } else {
+      process.env.VALIDATE_PINS_REPO_ROOT = savedRepoRoot;
+    }
+    fs.rmSync(repoRoot, { recursive: true, force: true });
+  });
+
+  it("SKIP message includes the Dojo pin when showcase is workspace ref", () => {
+    const slug = "mastra";
+    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const exDir = path.join(repoRoot, "examples", "integrations", slug);
+    write(
+      path.join(pkgDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@copilotkit/react-core": "workspace:*" },
+      }),
+    );
+    write(
+      path.join(exDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@copilotkit/react-core": "1.10.0" },
+      }),
+    );
+    const report = validateAll();
+    const match = report.skip.find(
+      (l) => l.includes(slug) && l.includes("@copilotkit/react-core"),
+    );
+    expect(match).toBeDefined();
+    // Both workspace ref AND Dojo pin visible in the line.
+    expect(match).toMatch(/workspace:\*/);
+    expect(match).toMatch(/1\.10\.0/);
+  });
+});
+
+// P-R8-T7: JS PEP 503 canonicalization drift test. Names must match
+// FRAMEWORK_PATTERNS so the code path that would incorrectly collapse
+// `.` and `-` is actually exercised.
+describe("P-R8-T7: JS deps with framework-matching names are NOT PEP 503 canonicalized", () => {
+  let repoRoot: string;
+  let savedRepoRoot: string | undefined;
+
+  beforeEach(() => {
+    savedRepoRoot = process.env.VALIDATE_PINS_REPO_ROOT;
+    repoRoot = tmpdir();
+    process.env.VALIDATE_PINS_REPO_ROOT = repoRoot;
+    fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+      recursive: true,
+    });
+  });
+  afterEach(() => {
+    if (savedRepoRoot === undefined) {
+      delete process.env.VALIDATE_PINS_REPO_ROOT;
+    } else {
+      process.env.VALIDATE_PINS_REPO_ROOT = savedRepoRoot;
+    }
+    fs.rmSync(repoRoot, { recursive: true, force: true });
+  });
+
+  it("distinct JS packages `@copilotkit/react-core.ext` vs `@copilotkit/react-core-ext` do NOT collide", () => {
+    const slug = "mastra";
+    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const exDir = path.join(repoRoot, "examples", "integrations", slug);
+    write(
+      path.join(pkgDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@copilotkit/react-core.ext": "1.10.0" },
+      }),
+    );
+    write(
+      path.join(exDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@copilotkit/react-core-ext": "1.11.0" },
+      }),
+    );
+    const report = validateAll();
+    // These are SEPARATE npm packages. If PEP 503 canonicalization
+    // were wrongly applied to JS names, they would collapse and
+    // produce a spurious drift FAIL between 1.10.0 and 1.11.0.
+    const wrongMerge = report.fail.some(
+      (l) =>
+        /react-core[.-]ext/.test(l) &&
+        /(1\.10\.0.*1\.11\.0|1\.11\.0.*1\.10\.0)/.test(l),
+    );
+    expect(wrongMerge).toBe(false);
+  });
+});
+
+// P-R8-T8: direct isFrameworkDep() assertions for headline framework
+// names. Previously only ag2/langroid/llama_index were covered, which
+// left the primary @copilotkit / @mastra / langgraph / @ag-ui patterns
+// unasserted at the unit level.
+describe("P-R8-T8: isFrameworkDep direct assertions for headline frameworks", () => {
+  it("matches @copilotkit/*", () => {
+    expect(isFrameworkDep("@copilotkit/react-core")).toBe(true);
+    expect(isFrameworkDep("@copilotkit/runtime")).toBe(true);
+  });
+  it("matches @mastra/*", () => {
+    expect(isFrameworkDep("@mastra/core")).toBe(true);
+  });
+  it("matches langgraph", () => {
+    expect(isFrameworkDep("langgraph")).toBe(true);
+  });
+  it("matches langchain", () => {
+    expect(isFrameworkDep("langchain")).toBe(true);
+  });
+  it("matches @ag-ui/*", () => {
+    expect(isFrameworkDep("@ag-ui/core")).toBe(true);
+  });
+});
+
+// P-R8-T1 extension: the pre-report stderr assertion must include a
+// call to `printReport(report)` AND assert [parse-error] appears
+// exactly zero times (the only stderr traffic should be from
+// printReport emitting [FAIL]/[WARN] lines — never a pre-report
+// collector leak).
+describe("P-R8-T1: no [parse-error] in pre-report stderr (extended with printReport)", () => {
+  let repoRoot: string;
+  let savedRepoRoot: string | undefined;
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
+  let stdoutSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    savedRepoRoot = process.env.VALIDATE_PINS_REPO_ROOT;
+    repoRoot = tmpdir();
+    process.env.VALIDATE_PINS_REPO_ROOT = repoRoot;
+    fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+      recursive: true,
+    });
+    stderrSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    stdoutSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    if (savedRepoRoot === undefined) {
+      delete process.env.VALIDATE_PINS_REPO_ROOT;
+    } else {
+      process.env.VALIDATE_PINS_REPO_ROOT = savedRepoRoot;
+    }
+    fs.rmSync(repoRoot, { recursive: true, force: true });
+    stderrSpy.mockRestore();
+    stdoutSpy.mockRestore();
+  });
+
+  it("never emits [parse-error] on stderr across collect + printReport", async () => {
+    const slug = "mastra";
+    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const exDir = path.join(repoRoot, "examples", "integrations", slug);
+    write(path.join(pkgDir, "package.json"), "{ not valid json");
+    write(
+      path.join(exDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@mastra/core": "0.15.0" },
+      }),
+    );
+    const { printReport } = await import("../validate-pins.js");
+    const report = validateAll();
+    printReport(report);
+    const allStderr = stderrSpy.mock.calls.flat().join("\n");
+    const parseErrorCount = (allStderr.match(/\[parse-error\]/g) ?? []).length;
+    expect(parseErrorCount).toBe(0);
+  });
+});
