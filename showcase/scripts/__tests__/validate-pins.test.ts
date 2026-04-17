@@ -61,7 +61,7 @@ describe("parsePackageJson", () => {
     expect(deps["@ag-ui/core"]).toBe("0.0.9");
   });
 
-  // T3: when the SAME dep name appears in all three buckets, dev wins.
+  // when the SAME dep name appears in all three buckets, dev wins.
   it("dev > peer > runtime precedence when same dep appears in all three", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "package.json");
@@ -80,7 +80,7 @@ describe("parsePackageJson", () => {
     });
   });
 
-  // A3: parsePackageJson must reject arrays / null / scalars as top-level.
+  // parsePackageJson must reject arrays / null / scalars as top-level.
   it("throws when JSON top-level is an array (not an object)", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "package.json");
@@ -105,11 +105,11 @@ describe("parsePackageJson", () => {
     });
   });
 
-  // P-R6-5-17: dep bucket entries must be strings. A malformed
+  // dep bucket entries must be strings. A malformed
   // package.json with an object value (e.g. a spec-object pattern some
   // tooling emits) would otherwise flow into the DepMap as an object
   // and crash downstream comparisons with a non-obvious error.
-  it("P-R6-5-17: throws when a dependency value is not a string", () => {
+  it("throws when a dependency value is not a string", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "package.json");
       write(
@@ -123,7 +123,7 @@ describe("parsePackageJson", () => {
     });
   });
 
-  it("P-R6-5-17: throws when devDependencies value is a number", () => {
+  it("throws when devDependencies value is a number", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "package.json");
       write(
@@ -137,7 +137,7 @@ describe("parsePackageJson", () => {
     });
   });
 
-  it("P-R6-5-17: throws when dependencies is a non-object", () => {
+  it("throws when dependencies is a non-object", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "package.json");
       write(
@@ -173,7 +173,7 @@ describe("parsePyprojectToml", () => {
     expect(deps["pydantic-ai"]).toBe("^0.0.20");
     // Must not include python marker
     expect(deps["python"]).toBeUndefined();
-    // Q4: also verify isExactSpec classification, don't rely on
+    // also verify isExactSpec classification, don't rely on
     // isExactSpec(undefined) accidentally returning false.
     expect(isExactSpec(deps["langgraph"])).toBe(false);
     expect(isExactSpec(deps["copilotkit"])).toBe(false);
@@ -187,7 +187,7 @@ describe("parsePyprojectToml", () => {
     expect(deps["copilotkit"]).toBe("==1.10.0");
   });
 
-  // A5: PEP 621 [project.optional-dependencies] subsections must be scanned.
+  // PEP 621 [project.optional-dependencies] subsections must be scanned.
   it("scans [project.optional-dependencies] arrays (PEP 621 extras)", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
@@ -213,7 +213,7 @@ describe("parsePyprojectToml", () => {
     });
   });
 
-  // A4: Poetry inline-table forms must be classified correctly.
+  // Poetry inline-table forms must be classified correctly.
   it("parses Poetry inline-table version = '...' form", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
@@ -238,9 +238,9 @@ describe("parsePyprojectToml", () => {
     });
   });
 
-  // P-F9: Poetry inline-table `version = '...'` single-quoted form must
+  // Poetry inline-table `version = '...'` single-quoted form must
   // also parse. Previously the regex only handled double-quoted.
-  it("P-F9: parses Poetry inline-table version = '...' with single quotes", () => {
+  it("parses Poetry inline-table version = '...' with single quotes", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
@@ -260,10 +260,10 @@ describe("parsePyprojectToml", () => {
     });
   });
 
-  // P-R6-3-11: the `python = "^3.10"` interpreter constraint appears
+  // the `python = "^3.10"` interpreter constraint appears
   // in every real-world Poetry pyproject.toml and must be silently
   // ignored (it is not a runtime dependency).
-  it("P-R6-3-11: skips the Poetry `python` interpreter constraint", () => {
+  it("skips the Poetry `python` interpreter constraint", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
@@ -284,10 +284,10 @@ describe("parsePyprojectToml", () => {
     });
   });
 
-  // P-F13 (Poetry flavor): `foo = ""` empty version is malformed;
+  // Poetry flavor: `foo = ""` empty version is malformed;
   // surface in `skipped` so operators know the manifest is broken
   // rather than silently admitting the dep with an empty spec.
-  it("P-F13: Poetry empty version string surfaces in skipped[]", () => {
+  it("Poetry empty version string surfaces in skipped[]", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
@@ -306,7 +306,7 @@ describe("parsePyprojectToml", () => {
     });
   });
 
-  // A4: Poetry git-only / path-only / version-less inline tables must be
+  // Poetry git-only / path-only / version-less inline tables must be
   // RECORDED in `skipped` rather than silently dropped.
   it("records Poetry git-only / path-only / version-less deps in skipped[]", () => {
     withTmp((tmp) => {
@@ -335,7 +335,7 @@ describe("parsePyprojectToml", () => {
     });
   });
 
-  // A6: unterminated `dependencies = [` must throw, not silently parse {}.
+  // unterminated `dependencies = [` must throw, not silently parse {}.
   it("throws on unterminated dependencies = [ array (malformed TOML)", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
@@ -391,7 +391,7 @@ describe("parseRequirementsLine", () => {
     expect(parsed![1]).toBe("==1.0.0");
   });
 
-  // P-R6-3-10: name-only requirement (no version spec) — returns the
+  // name-only requirement (no version spec) — returns the
   // name with an empty spec string. Used to be silently untested; now
   // asserted so the `[name, ""]` shape is part of the contract.
   it("returns [name, ''] for a name-only line (no version)", () => {
@@ -409,7 +409,7 @@ describe("parseRequirementsLine", () => {
   });
 });
 
-// T2: Direct unit tests for parseRequirementsTxt covering real-world shapes.
+// Direct unit tests for parseRequirementsTxt covering real-world shapes.
 describe("parseRequirementsTxt (file-level)", () => {
   it("handles multi-line files with comments, blanks, extras, and flags", () => {
     withTmp((tmp) => {
@@ -461,12 +461,12 @@ describe("parseRequirementsTxt (file-level)", () => {
     });
   });
 
-  // P-F13: name-only lines ARE parseable by parseRequirementsLine (it
+  // name-only lines ARE parseable by parseRequirementsLine (it
   // returns [name, ""]) but they are NOT pinning anything. The file-
   // level walker must surface them as `skipped` so the WARN line tells
   // operators that the manifest has an unpinned dep, rather than the
   // dep being silently admitted to the DepMap with an empty spec.
-  it("P-F13: name-only requirement surfaces in skipped[] (not deps)", () => {
+  it("name-only requirement surfaces in skipped[] (not deps)", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "requirements.txt");
       write(file, ["langgraph", "copilotkit==1.10.0"].join("\n"));
@@ -481,7 +481,7 @@ describe("parseRequirementsTxt (file-level)", () => {
     });
   });
 
-  // A7: truly unparseable lines (not editable, not URL) must be reported.
+  // truly unparseable lines (not editable, not URL) must be reported.
   it("records unparseable lines in dropped[]", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "requirements.txt");
@@ -529,7 +529,7 @@ describe("isExactSpec", () => {
     expect(isExactSpec("==0.2.14")).toBe(true);
   });
 
-  // T7: Python === triple-equals (PEP 440 arbitrary equality) is exact.
+  // Python === triple-equals (PEP 440 arbitrary equality) is exact.
   it("accepts Python === triple-equals exact specs", () => {
     expect(isExactSpec("===1.2.3")).toBe(true);
     expect(isExactSpec("===1.2.3rc1")).toBe(true);
@@ -608,7 +608,7 @@ describe("Unpinned spec rejection in validateAll", () => {
     );
 
     const report = validateAll();
-    // Q1: assert against the specific slug + dep name + message fragment.
+    // assert against the specific slug + dep name + message fragment.
     const matching = report.fail.filter(
       (l) =>
         l.includes(`[FAIL] ${slug}:`) &&
@@ -639,7 +639,7 @@ describe("Unpinned spec rejection in validateAll", () => {
     );
 
     const report = validateAll();
-    // Q1: specific slug + dep + expected message fragment.
+    // specific slug + dep + expected message fragment.
     const matching = report.fail.filter(
       (l) =>
         l.includes(`[FAIL] ${slug}:`) &&
@@ -693,7 +693,7 @@ describe("collectDojoDeps precedence", () => {
     expect(deps["langgraph"]).toBe("==0.2.14");
   });
 
-  // T4: three-way first-writer-wins root + apps/agent + apps/web.
+  // three-way first-writer-wins root + apps/agent + apps/web.
   it("root + apps/agent + apps/web: apps/agent wins for shared deps", () => {
     write(
       path.join(tmp, "package.json"),
@@ -721,7 +721,7 @@ describe("collectDojoDeps precedence", () => {
     expect(deps["foo"]).toBe("0.0.2");
   });
 
-  // T12: parse-error resilience — one bad sibling doesn't abort.
+  // parse-error resilience — one bad sibling doesn't abort.
   it("continues past a bad pyproject to parse the sibling package.json", () => {
     write(
       path.join(tmp, "pyproject.toml"),
@@ -787,7 +787,7 @@ describe("validateAll cross-drift detection", () => {
     );
 
     const report = validateAll();
-    // Q1: specific slug + dep + "absent".
+    // specific slug + dep + "absent".
     const matching = report.fail.filter(
       (l) =>
         l.includes(`[FAIL] ${slug}:`) &&
@@ -813,7 +813,7 @@ describe("validateAll cross-drift detection", () => {
     );
 
     const report = validateAll();
-    // Q1: assert on the slug + message framing.
+    // assert on the slug + message framing.
     const matching = report.fail.filter(
       (l) =>
         l.includes(`[FAIL] ${slug}:`) &&
@@ -823,7 +823,7 @@ describe("validateAll cross-drift detection", () => {
     expect(matching.length).toBeGreaterThan(0);
   });
 
-  // T10: exact-pin match both sides → OK, no FAIL.
+  // exact-pin match both sides → OK, no FAIL.
   it("emits [OK] when exact pins match both sides", () => {
     const slug = "mastra";
     const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
@@ -849,11 +849,11 @@ describe("validateAll cross-drift detection", () => {
     ).toBe(false);
   });
 
-  // P-F5: zero dep files on showcase side is a STRUCTURAL error. A
+  // zero dep files on showcase side is a STRUCTURAL error. A
   // showcase package without any declared dependencies cannot
   // demonstrate a framework integration, so it must FAIL (not WARN) so
   // CI catches the omission.
-  it("FAILs (not WARNs) when showcase package has zero dep files (P-F5)", () => {
+  it("FAILs (not WARNs) when showcase package has zero dep files", () => {
     const slug = "mastra";
     const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
@@ -877,10 +877,10 @@ describe("validateAll cross-drift detection", () => {
     // counterpart); that path is handled before we reach this check.
   });
 
-  // P-F33: `workspace:*` refs (and variants) have no published-pin
+  // `workspace:*` refs (and variants) have no published-pin
   // semantics. They must be routed to [SKIP], not [FAIL] — otherwise
   // intra-monorepo showcase packages emit spurious pin-drift FAILs.
-  it("P-F33: workspace:* spec emits [SKIP], not [FAIL]", () => {
+  it("workspace:* spec emits [SKIP], not [FAIL]", () => {
     const slug = "mastra";
     const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
@@ -916,7 +916,7 @@ describe("validateAll cross-drift detection", () => {
     expect(failed).toBe(false);
   });
 
-  it("P-F33: workspace:^ spec emits [SKIP] when both sides use workspace refs", () => {
+  it("workspace:^ spec emits [SKIP] when both sides use workspace refs", () => {
     const slug = "mastra";
     const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
@@ -950,7 +950,7 @@ describe("validateAll cross-drift detection", () => {
     ).toBe(false);
   });
 
-  // T9: BORN_IN_SHOWCASE slug must produce a [SKIP] entry, not FAIL/WARN.
+  // BORN_IN_SHOWCASE slug must produce a [SKIP] entry, not FAIL/WARN.
   it("emits [SKIP] for born-in-showcase slugs", () => {
     // ag2 is in BORN_IN_SHOWCASE.
     const slug = "ag2";
@@ -981,7 +981,7 @@ describe("isMainPath strict guard", () => {
     expect(isMainPath(scriptPath, scriptPath)).toBe(true);
   });
 
-  // T8: isMainPath(undefined, ...) must return false, not crash.
+  // isMainPath(undefined, ...) must return false, not crash.
   it("returns false for undefined argv1", () => {
     expect(isMainPath(undefined, "/any/path.ts")).toBe(false);
   });
@@ -1030,12 +1030,11 @@ describe("FALLBACK_MAP fallthrough when target missing", () => {
     expect(warned).toBe(true);
   });
 
-  // P-R6-1-F2: the missingFallbackTarget path used to render as
-  // `integrations/<name>` which hides the `examples/` prefix and makes
-  // it unclear where the directory was expected. After the fix the
-  // path must render as a path relative to REPO_ROOT, i.e. starting
-  // with `examples/integrations/`.
-  it("P-R6-1-F2: missingFallbackTarget path renders relative to REPO_ROOT", () => {
+  // The missingFallbackTarget path must render relative to REPO_ROOT,
+  // i.e. starting with `examples/integrations/`, so the WARN line
+  // names the full expected location rather than an ambiguous
+  // `integrations/<name>` that hides the `examples/` prefix.
+  it("missingFallbackTarget path renders relative to REPO_ROOT", () => {
     const slug = "strands"; // FALLBACK_MAP points to strands-python
     const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
     write(
@@ -1112,7 +1111,7 @@ describe("FAIL/WARN go to stderr", () => {
     expect(errorCalls).toMatch(/\[FAIL\]/);
   });
 
-  // A12: a parse error must produce EXACTLY ONE [FAIL] line (no
+  // a parse error must produce EXACTLY ONE [FAIL] line (no
   // immediate console.error at [parse-error] AND another [FAIL] —
   // that was double-logging).
   it("emits a single [FAIL] per parse error (no double-log)", async () => {
@@ -1156,8 +1155,8 @@ describe("FRAMEWORK_PATTERNS coverage", () => {
   });
 });
 
-// A2: isExactSpec must reject npm wildcard / x-range specs.
-describe("isExactSpec wildcard rejection (A2)", () => {
+// isExactSpec must reject npm wildcard / x-range specs.
+describe("isExactSpec wildcard rejection", () => {
   it("rejects `1.x`, `1.2.x`, `1.2.*`, `*`, `x.x.x`, `1.*`", () => {
     expect(isExactSpec("1.x")).toBe(false);
     expect(isExactSpec("1.2.x")).toBe(false);
@@ -1169,9 +1168,9 @@ describe("isExactSpec wildcard rejection (A2)", () => {
   });
 });
 
-// A6: Poetry bare versions like "1.2.3" mean ^1.2.3 in Poetry semantics and
+// Poetry bare versions like "1.2.3" mean ^1.2.3 in Poetry semantics and
 // must NOT be treated as exact pins. Only `==x.y.z` (PEP 440 form) counts.
-describe("parsePyprojectToml Poetry bare version semantics (A6)", () => {
+describe("parsePyprojectToml Poetry bare version semantics", () => {
   it("marks bare Poetry versions as non-exact (Poetry treats them as ^)", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
@@ -1200,8 +1199,8 @@ describe("parsePyprojectToml Poetry bare version semantics (A6)", () => {
   });
 });
 
-// A7: Poetry group dependency tables must be parsed.
-describe("parsePyprojectToml Poetry group sections (A7)", () => {
+// Poetry group dependency tables must be parsed.
+describe("parsePyprojectToml Poetry group sections", () => {
   it("parses [tool.poetry.group.<name>.dependencies] tables", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
@@ -1266,7 +1265,7 @@ describe("parsePyprojectToml [project] terminates at dotted top-level headers", 
   });
 });
 
-// T5: when both [project] and [tool.poetry.dependencies] are present,
+// when both [project] and [tool.poetry.dependencies] are present,
 // PEP 621 [project] wins (first-writer-wins in parse order).
 describe("parsePyprojectToml precedence: [project] before Poetry", () => {
   it("PEP 621 [project] deps win over Poetry for the same name", () => {
@@ -1291,10 +1290,10 @@ describe("parsePyprojectToml precedence: [project] before Poetry", () => {
   });
 });
 
-// A3, A4, A5, A1, A8 integration tests — verified end-to-end through
-// validateAll rather than at unit-level, because the bugs are in how
-// report states translate to exit-affecting FAILs.
-describe("validateAll exit-code integration (A3, A4, A8, A1, A5)", () => {
+// Integration tests — verified end-to-end through validateAll rather
+// than at unit-level, because the bugs we're guarding against live in
+// how report states translate to exit-affecting FAILs.
+describe("validateAll exit-code integration", () => {
   let repoRoot: string;
   let savedRepoRoot: string | undefined;
 
@@ -1313,15 +1312,15 @@ describe("validateAll exit-code integration (A3, A4, A8, A1, A5)", () => {
     fs.rmSync(repoRoot, { recursive: true, force: true });
   });
 
-  // A3: missing PACKAGES_DIR must not result in a green exit.
-  it("A3: missing packages dir produces a FAIL so exit is non-zero", () => {
+  // missing PACKAGES_DIR must not result in a green exit.
+  it("missing packages dir produces a FAIL so exit is non-zero", () => {
     // Do NOT create showcase/packages.
     const report = validateAll();
     expect(report.fail.length).toBeGreaterThan(0);
   });
 
-  // A3: empty PACKAGES_DIR must also not silently pass.
-  it("A3: empty packages dir produces a FAIL so exit is non-zero", () => {
+  // empty PACKAGES_DIR must also not silently pass.
+  it("empty packages dir produces a FAIL so exit is non-zero", () => {
     fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
       recursive: true,
     });
@@ -1332,8 +1331,8 @@ describe("validateAll exit-code integration (A3, A4, A8, A1, A5)", () => {
     expect(report.fail.length).toBeGreaterThan(0);
   });
 
-  // A4: parse errors must produce a FAIL (force non-zero exit).
-  it("A4: parse errors produce a FAIL (not just a WARN)", () => {
+  // parse errors must produce a FAIL (force non-zero exit).
+  it("parse errors produce a FAIL (not just a WARN)", () => {
     fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
       recursive: true,
     });
@@ -1358,11 +1357,11 @@ describe("validateAll exit-code integration (A3, A4, A8, A1, A5)", () => {
     expect(parseFail).toBe(true);
   });
 
-  // A13: when files existed but ALL parse-errored, do not ALSO emit the
+  // when files existed but ALL parse-errored, do not ALSO emit the
   // "no dependency files found" message (it's confusing double-reporting).
-  // After P-F5 the "no dep files" line is a FAIL rather than a WARN,
+  // The "no dep files" line is a FAIL rather than a WARN,
   // so we assert on .fail here too.
-  it("A13: all-files-parse-error must not produce a 'no dep files' message", () => {
+  it("all-files-parse-error must not produce a 'no dep files' message", () => {
     fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
       recursive: true,
     });
@@ -1393,8 +1392,8 @@ describe("validateAll exit-code integration (A3, A4, A8, A1, A5)", () => {
     ).toBe(true);
   });
 
-  // A5: apps/web/package.json in showcase should be scanned.
-  it("A5: apps/web/package.json in a showcase package is scanned", () => {
+  // apps/web/package.json in showcase should be scanned.
+  it("apps/web/package.json in a showcase package is scanned", () => {
     fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
       recursive: true,
     });
@@ -1431,10 +1430,10 @@ describe("validateAll exit-code integration (A3, A4, A8, A1, A5)", () => {
     expect(noFiles).toBe(false);
   });
 
-  // A1: JS dep names must NOT be Python-canonicalized. Mixed separators
+  // JS dep names must NOT be Python-canonicalized. Mixed separators
   // in npm names like `@mastra/foo.bar` vs `@mastra/foo-bar` are DIFFERENT
   // packages and must not be collapsed.
-  it("A1: JS package.json deps are compared without Python canonicalization", () => {
+  it("JS package.json deps are compared without Python canonicalization", () => {
     fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
       recursive: true,
     });
@@ -1475,9 +1474,9 @@ describe("validateAll exit-code integration (A3, A4, A8, A1, A5)", () => {
     expect(incorrectMerge).toBe(false);
   });
 
-  // A8: framework detection must canonicalize the name before the pattern
+  // framework detection must canonicalize the name before the pattern
   // check so PEP 503 variants (mixed case) are still recognized.
-  it("A8: framework detection recognizes mixed-case Python framework names", () => {
+  it("framework detection recognizes mixed-case Python framework names", () => {
     fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
       recursive: true,
     });
@@ -1503,8 +1502,8 @@ describe("validateAll exit-code integration (A3, A4, A8, A1, A5)", () => {
   });
 });
 
-// A10: REPO_ROOT env override validation.
-describe("computeRepoRoot env override validation (A10)", () => {
+// REPO_ROOT env override validation.
+describe("computeRepoRoot env override validation", () => {
   let savedRepoRoot: string | undefined;
 
   beforeEach(() => {
@@ -1531,8 +1530,8 @@ describe("computeRepoRoot env override validation (A10)", () => {
   });
 });
 
-// T1: CLI subprocess exit-code verification.
-describe("validate-pins CLI exit codes (T1)", () => {
+// CLI subprocess exit-code verification.
+describe("validate-pins CLI exit codes", () => {
   let repoRoot: string;
 
   beforeEach(() => {
@@ -1593,8 +1592,8 @@ describe("validate-pins CLI exit code 3 (unreadable input)", () => {
   });
 });
 
-// Q3: verify that importing validate-pins.ts does NOT invoke main() (exit 0).
-describe("module import does not invoke main() (Q3)", () => {
+// verify that importing validate-pins.ts does NOT invoke main() (exit 0).
+describe("module import does not invoke main()", () => {
   it("importing the module exits cleanly (status 0)", () => {
     // Use tsx's module loader via a small inline program that imports
     // validate-pins.js. If main() were invoked on import, the process
@@ -1623,11 +1622,10 @@ describe("module import does not invoke main() (Q3)", () => {
 // R8 findings: regression tests introduced in the FX9-A round.
 // ---------------------------------------------------------------------------
 
-// P-R8-C1: Extras-syntax in PEP 621 `[project].dependencies` MUST NOT
-// truncate the array body at the embedded `]`. Previously a non-greedy
-// `[\s\S]*?\]` scanner would consume everything up to the first `]`,
-// silently dropping any deps that followed `"langchain[all]==1.2.3"`.
-describe("P-R8-C1: [project].dependencies extras-syntax handling", () => {
+// Extras-syntax in PEP 621 `[project].dependencies` MUST NOT truncate
+// the array body at the embedded `]`. The scanner must be quote-aware
+// so entries following `"langchain[all]==1.2.3"` are not dropped.
+describe("[project].dependencies extras-syntax handling", () => {
   it("does NOT truncate at `]` embedded in `langchain[all]==1.2.3`", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
@@ -1671,10 +1669,9 @@ describe("P-R8-C1: [project].dependencies extras-syntax handling", () => {
   });
 });
 
-// P-R8-C2: Same bug class but under [project.optional-dependencies]
-// subkey arrays. Each extras-syntax entry must not swallow subsequent
-// entries.
-describe("P-R8-C2: [project.optional-dependencies] extras-syntax handling", () => {
+// Same extras-syntax handling but under [project.optional-dependencies]
+// subkey arrays — each entry must not swallow subsequent entries.
+describe("[project.optional-dependencies] extras-syntax handling", () => {
   it("extras-syntax does not truncate optional-dependencies subkey arrays", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
@@ -1700,9 +1697,9 @@ describe("P-R8-C2: [project.optional-dependencies] extras-syntax handling", () =
   });
 });
 
-// P-R8-C3: balanced-bracket scan must still throw on a truly
+// balanced-bracket scan must still throw on a truly
 // unterminated top-level `[project].dependencies = [`.
-describe("P-R8-C3: balanced-bracket unterminated-array enforcement", () => {
+describe("balanced-bracket unterminated-array enforcement", () => {
   it("throws on `dependencies = [` with no closing `]` (even when another `]` appears later in the file)", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
@@ -1728,11 +1725,12 @@ describe("P-R8-C3: balanced-bracket unterminated-array enforcement", () => {
   });
 });
 
-// P-R8-I1 / R8-2-2: main() and top-level catch must set `process.exitCode`
-// instead of calling `process.exit(N)` so stdout has time to drain. We
-// assert this by reading the source text, because spawning and racing
-// stdout drain to detect truncation is fragile.
-describe("P-R8-I1: CLI uses process.exitCode (not process.exit)", () => {
+// Source-grep lint (belt-and-suspenders): main() and the top-level
+// catch must set `process.exitCode` instead of calling `process.exit(N)`
+// so stdout has time to drain. The behavioral exit-code tests above
+// cover this end-to-end; this source-scan is a cheap guard against a
+// future edit re-introducing a `process.exit(N)` call site.
+describe("source-grep lint: CLI uses process.exitCode (not process.exit)", () => {
   it("validate-pins.ts contains no `process.exit(N)` call sites", () => {
     const src = fs.readFileSync(VALIDATE_PINS_SCRIPT, "utf-8");
     // Strip comments and string literals to avoid false positives from
@@ -1748,8 +1746,8 @@ describe("P-R8-I1: CLI uses process.exitCode (not process.exit)", () => {
   });
 });
 
-// R8-2-14: `==` body must require at least MAJOR.MINOR.
-describe("R8-2-14: isExactSpec rejects degenerate Python `==` bodies", () => {
+// `==` body must require at least MAJOR.MINOR.
+describe("isExactSpec rejects degenerate Python `==` bodies", () => {
   it("rejects `==0`, `===1` without a full MAJOR.MINOR", () => {
     expect(isExactSpec("==0")).toBe(false);
     expect(isExactSpec("===1")).toBe(false);
@@ -1763,10 +1761,10 @@ describe("R8-2-14: isExactSpec rejects degenerate Python `==` bodies", () => {
   });
 });
 
-// R8-2-21: pip flag stripping must be order-independent. A single
+// pip flag stripping must be order-independent. A single
 // alternation regex avoids the subtle ordering trap of sequential
 // replaces.
-describe("R8-2-21: pip flag stripping is order-independent", () => {
+describe("pip flag stripping is order-independent", () => {
   it("strips --extra-index-url even when it precedes --index-url", () => {
     const parsed = parseRequirementsLine(
       "foo==1.0.0 --extra-index-url=https://a.example --index-url=https://b.example",
@@ -1777,9 +1775,9 @@ describe("R8-2-21: pip flag stripping is order-independent", () => {
   });
 });
 
-// R8-2-13: Poetry array-form dep (multi-constraint OR) must be recorded
+// Poetry array-form dep (multi-constraint OR) must be recorded
 // in `skipped` — silently dropping it would let pin drift slip through.
-describe("R8-2-13: Poetry array-form dep surfaces in skipped[]", () => {
+describe("Poetry array-form dep surfaces in skipped[]", () => {
   it('records `foo = ["^1.0", "^2.0"]` as skipped with a reason', () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
@@ -1802,11 +1800,11 @@ describe("R8-2-13: Poetry array-form dep surfaces in skipped[]", () => {
   });
 });
 
-// R8-1-I4: Poetry caret-prefix must not be applied to comma-joined
+// Poetry caret-prefix must not be applied to comma-joined
 // constraints. `"1.2.3,>=1.0"` starts with a digit but is already a
 // multi-constraint range; prefixing produces `^1.2.3,>=1.0` which is
 // nonsense.
-describe("R8-1-I4: Poetry caret-prefix does not fire on comma-joined ranges", () => {
+describe("Poetry caret-prefix does not fire on comma-joined ranges", () => {
   it('leaves `"1.2.3,>=1.0"` verbatim (no leading `^`)', () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
@@ -1825,10 +1823,10 @@ describe("R8-1-I4: Poetry caret-prefix does not fire on comma-joined ranges", ()
   });
 });
 
-// R8-2-20: Dojo workspace ref + showcase missing the dep must WARN (not
+// Dojo workspace ref + showcase missing the dep must WARN (not
 // SKIP) so CI surfaces that the showcase package is missing a
 // framework the Dojo expects to be present.
-describe("R8-2-20: Dojo workspace ref absent in showcase -> WARN", () => {
+describe("Dojo workspace ref absent in showcase -> WARN", () => {
   let repoRoot: string;
   let savedRepoRoot: string | undefined;
 
@@ -1891,11 +1889,11 @@ describe("R8-2-20: Dojo workspace ref absent in showcase -> WARN", () => {
   });
 });
 
-// R8-2-7: SKIP message enrichment — when showcase uses workspace:* and
+// SKIP message enrichment — when showcase uses workspace:* and
 // Dojo pins a concrete version, the [SKIP] line should echo the Dojo
 // pin so operators reading the log know what the showcase "should"
 // eventually resolve to.
-describe("R8-2-7: workspace ref on showcase echoes Dojo pin in SKIP", () => {
+describe("workspace ref on showcase echoes Dojo pin in SKIP", () => {
   let repoRoot: string;
   let savedRepoRoot: string | undefined;
 
@@ -1948,10 +1946,10 @@ describe("R8-2-7: workspace ref on showcase echoes Dojo pin in SKIP", () => {
   });
 });
 
-// P-R8-T7: JS PEP 503 canonicalization drift test. Names must match
+// JS PEP 503 canonicalization drift test. Names must match
 // FRAMEWORK_PATTERNS so the code path that would incorrectly collapse
 // `.` and `-` is actually exercised.
-describe("P-R8-T7: JS deps with framework-matching names are NOT PEP 503 canonicalized", () => {
+describe("JS deps with framework-matching names are NOT PEP 503 canonicalized", () => {
   let repoRoot: string;
   let savedRepoRoot: string | undefined;
 
@@ -2006,11 +2004,11 @@ describe("P-R8-T7: JS deps with framework-matching names are NOT PEP 503 canonic
   });
 });
 
-// P-R8-T8: direct isFrameworkDep() assertions for headline framework
+// Direct isFrameworkDep() assertions for headline framework
 // names. Previously only ag2/langroid/llama_index were covered, which
 // left the primary @copilotkit / @mastra / langgraph / @ag-ui patterns
 // unasserted at the unit level.
-describe("P-R8-T8: isFrameworkDep direct assertions for headline frameworks", () => {
+describe("isFrameworkDep direct assertions for headline frameworks", () => {
   it("matches @copilotkit/*", () => {
     expect(isFrameworkDep("@copilotkit/react-core")).toBe(true);
     expect(isFrameworkDep("@copilotkit/runtime")).toBe(true);
@@ -2029,12 +2027,12 @@ describe("P-R8-T8: isFrameworkDep direct assertions for headline frameworks", ()
   });
 });
 
-// P-R8-T1 extension: the pre-report stderr assertion must include a
+// The pre-report stderr assertion must include a
 // call to `printReport(report)` AND assert [parse-error] appears
 // exactly zero times (the only stderr traffic should be from
 // printReport emitting [FAIL]/[WARN] lines — never a pre-report
 // collector leak).
-describe("P-R8-T1: no [parse-error] in pre-report stderr (extended with printReport)", () => {
+describe("no [parse-error] in pre-report stderr (extended with printReport)", () => {
   let repoRoot: string;
   let savedRepoRoot: string | undefined;
   let stderrSpy: ReturnType<typeof vi.spyOn>;
@@ -2085,11 +2083,11 @@ describe("P-R8-T1: no [parse-error] in pre-report stderr (extended with printRep
   });
 });
 
-// P-R10-1: a showcase package whose showcase- or dojo-side parse fails
+// A showcase package whose showcase- or dojo-side parse fails
 // MUST NOT ALSO be reported as OK. Previously a parseError produced a
 // FAIL line but `pkgHadViolation` was only set from the per-dep loop, so
 // the same slug appeared in BOTH `report.ok` and `report.fail`.
-describe("P-R10-1: parseErrors suppress the OK line for a slug", () => {
+describe("parseErrors suppress the OK line for a slug", () => {
   let repoRoot: string;
   let savedRepoRoot: string | undefined;
 
@@ -2185,12 +2183,12 @@ describe("P-R10-1: parseErrors suppress the OK line for a slug", () => {
   });
 });
 
-// P-R10-5: cross-ecosystem dep name collision. A JS dep and a Python dep
+// Cross-ecosystem dep name collision. A JS dep and a Python dep
 // with the SAME name must not share a slot in `deps`, which would cause
 // one side's spec to be obliterated by the other and then be subject to
 // the wrong canonicalization. Track JS and Python deps in separate maps
 // from parse time so the collision cannot occur.
-describe("P-R10-5: JS vs Python dep name collisions are kept separate", () => {
+describe("JS vs Python dep name collisions are kept separate", () => {
   it("collectDepsFromDir tracks JS and Python deps in separate maps", () => {
     withTmp((tmp) => {
       // Create both a package.json and a requirements.txt with the same
@@ -2276,10 +2274,10 @@ describe("P-R10-5: JS vs Python dep name collisions are kept separate", () => {
   });
 });
 
-// P-R10-6: isExactSpec must reject exotic bare-version forms like `1x`
+// isExactSpec must reject exotic bare-version forms like `1x`
 // and `1e2` that slip past the wildcard check (no `.`/`-`/`_` between
 // the digits) but are not real semver.
-describe("P-R10-6: isExactSpec rejects exotic bare forms", () => {
+describe("isExactSpec rejects exotic bare forms", () => {
   it("rejects `1x`, `2X`, `1e2`", () => {
     expect(isExactSpec("1x")).toBe(false);
     expect(isExactSpec("2X")).toBe(false);
@@ -2295,11 +2293,11 @@ describe("P-R10-6: isExactSpec rejects exotic bare forms", () => {
   });
 });
 
-// R10-2-1: non-string Poetry inline value (boolean / number / null etc.)
+// Non-string Poetry inline value (boolean / number / null etc.)
 // MUST be recorded in `skipped[]`, not silently dropped via bare
 // `continue`. Before the fix, a `foo = true` line disappeared without a
 // trace.
-describe("R10-2-1: Poetry non-string dep value surfaces in skipped[]", () => {
+describe("Poetry non-string dep value surfaces in skipped[]", () => {
   it("records `foo = true` as skipped with a reason naming the type", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
@@ -2326,11 +2324,11 @@ describe("R10-2-1: Poetry non-string dep value surfaces in skipped[]", () => {
   });
 });
 
-// R10-2-2: a Poetry string value with an opening quote but no closing
+// A Poetry string value with an opening quote but no closing
 // quote is UNTERMINATED. Previously the parser treated it the same as
 // `foo = ""` and reported "empty version string" — the wrong diagnosis
 // for operators.
-describe("R10-2-2: Poetry unterminated string value is distinguished from empty", () => {
+describe("Poetry unterminated string value is distinguished from empty", () => {
   it('reports `foo = "1.2.3` as unterminated, not empty', () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
@@ -2355,11 +2353,11 @@ describe("R10-2-2: Poetry unterminated string value is distinguished from empty"
   });
 });
 
-// R10-2-8: Unterminated `[project.optional-dependencies]` subkey arrays
+// Unterminated `[project.optional-dependencies]` subkey arrays
 // (i.e. `agent = [` with no closing `]`) must surface as a parseError
 // (FAIL), not merely a dropped-line WARN. The data is actually
 // incomplete, not just noisy.
-describe("R10-2-8: unterminated optional-dependencies subkey array is a parseError", () => {
+describe("unterminated optional-dependencies subkey array is a parseError", () => {
   it("throws on unterminated optional-dependencies subkey array", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
@@ -2384,10 +2382,10 @@ describe("R10-2-8: unterminated optional-dependencies subkey array is a parseErr
   });
 });
 
-// R10-2-9 / P-R10-2: ingestArrayBody must propagate name-only entries
+// ingestArrayBody must propagate name-only entries
 // into `skipped[]` so pyproject dependencies mirror requirements.txt
 // handling of `foo` with no version.
-describe("R10-2-9: pyproject name-only dep surfaces in skipped[]", () => {
+describe("pyproject name-only dep surfaces in skipped[]", () => {
   it("records `[\"foo\"]` as skipped, not admitted to deps with empty spec", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
@@ -2410,11 +2408,11 @@ describe("R10-2-9: pyproject name-only dep surfaces in skipped[]", () => {
   });
 });
 
-// R10-3-3: within-stream ordering of printReport. On stdout: OK lines
+// Within-stream ordering of printReport. On stdout: OK lines
 // precede SKIP lines. On stderr: WARN lines precede FAIL lines. This
 // captures the current contract so reordering is a deliberate change
 // and not an accidental regression.
-describe("R10-3-3: printReport within-stream order", () => {
+describe("printReport within-stream order", () => {
   let stdoutSpy: ReturnType<typeof vi.spyOn>;
   let stderrSpy: ReturnType<typeof vi.spyOn>;
 
