@@ -114,12 +114,6 @@
         "description": "Long-running agent tasks with generated UI"
       },
       {
-        "id": "open-gen-ui",
-        "name": "Open Generative UI",
-        "category": "generative-ui",
-        "description": "Fully agent-generated HTML/component rendering"
-      },
-      {
         "id": "tool-rendering",
         "name": "Tool Rendering",
         "category": "agent-capabilities",
@@ -292,12 +286,6 @@
         "name": "BYOC json-render",
         "category": "byoc",
         "description": "Hashbrown-style generative UI built on json-render"
-      },
-      {
-        "id": "byoc-opengenui",
-        "name": "BYOC OpenGenUI",
-        "category": "byoc",
-        "description": "Hashbrown-style generative UI built on Open GenUI framework"
       },
       {
         "id": "byoc-tambo",

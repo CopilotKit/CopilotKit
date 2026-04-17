@@ -14,10 +14,12 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@copilotkit/aimock": "^1.10.0",
     "@playwright/test": "^1.59.1",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "chalk": "^5.4.0",
+    "glob": "^10.4.0",
     "playwright": "^1.59.1",
     "prompts": "^2.4.2",
     "tsx": "^4.19.0",

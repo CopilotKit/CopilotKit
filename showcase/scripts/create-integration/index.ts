@@ -1169,7 +1169,7 @@ services:
       - "4010:4010"
     volumes:
       - ./fixtures:/fixtures:ro
-    command: ["--fixtures", "/fixtures", "--host", "0.0.0.0"]
+    command: ["--fixtures", "/fixtures", "--host", "0.0.0.0", "--validate-on-load"]
 
   app:
     build:

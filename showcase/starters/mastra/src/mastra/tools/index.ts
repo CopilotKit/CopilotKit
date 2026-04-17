@@ -11,7 +11,7 @@ import {
   searchFlightsImpl,
   generateA2uiImpl,
   buildA2uiOperationsFromToolCall,
-} from "./shared-tools";
+} from "../shared-tools";
 
 export const weatherTool = createTool({
   id: "get-weather",

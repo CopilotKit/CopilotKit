@@ -176,6 +176,10 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 
     To do this, we'll use the `useInterrupt` hook, give it a component to render, and then call `resolve` with the user's response.
 
+    <Callout type="warn">
+      **`agentId` must match a runtime-registered agent.** If you omit `agentId`, the hook assumes `"default"`. If the IDs don't match, the interrupt will never fire.
+    </Callout>
+
     ```tsx title="app/page.tsx"
     import { useInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
     // ...
@@ -185,6 +189,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     // [!code highlight:15]
     // styles omitted for brevity
     useInterrupt({
+        agentId: "starterAgent",
         render: ({ event, resolve }) => (
             <div>
                 <p>{event.value}</p>
@@ -326,6 +331,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
             // ...
             // [!code highlight:13]
             useInterrupt({
+                agentId: "starterAgent",
                 enabled: ({ eventValue }) => eventValue.type === 'ask',
                 render: ({ event, resolve }) => (
                     <AskComponent question={event.value.content} onAnswer={answer => resolve(answer)} />
@@ -333,6 +339,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
             });
 
             useInterrupt({
+                agentId: "starterAgent",
                 enabled: ({ eventValue }) => eventValue.type === 'approval',
                 render: ({ event, resolve }) => (
                     <ApproveComponent content={event.value.content} onAnswer={answer => resolve(answer)} />
@@ -371,6 +378,7 @@ const YourMainContent = () => {
     // styles omitted for brevity
     // [!code highlight:28]
     useInterrupt({
+        agentId: "starterAgent",
         handler: async ({ result, event, resolve }) => {
             const { department } = await getUserByEmail(userEmail)
             if (event.value.accessDepartment === department || department === 'admin') {

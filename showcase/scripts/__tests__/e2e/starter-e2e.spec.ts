@@ -9,7 +9,7 @@
  * They do NOT require a running agent backend -- only the Next.js frontend.
  *
  * To run with aimock (deterministic LLM responses for agent-dependent tests):
- *   npx aimock --fixtures showcase/aimock --port 4010 &
+ *   npx aimock --fixtures showcase/aimock --port 4010 --validate-on-load &
  *   cd showcase/starters/langgraph-python
  *   OPENAI_BASE_URL=http://localhost:4010/v1 OPENAI_API_KEY=test-key npm run dev &
  *   cd ../../scripts
@@ -43,11 +43,11 @@ test.describe("Starter: Sales Dashboard", () => {
   // Page load & renderer selector basics
   // -------------------------------------------------------------------------
 
-  test("page loads with header and renderer selector with 5 pills", async ({
+  test("page loads with header and renderer selector with 4 pills", async ({
     page,
   }) => {
     const pills = page.locator("[role='radio']");
-    await expect(pills).toHaveCount(5);
+    await expect(pills).toHaveCount(4);
 
     await expect(page.getByRole("radio", { name: /Tool-Based/ })).toBeVisible();
     await expect(
@@ -57,7 +57,6 @@ test.describe("Starter: Sales Dashboard", () => {
       page.getByRole("radio", { name: /json-render/ }),
     ).toBeVisible();
     await expect(page.getByRole("radio", { name: /HashBrown/ })).toBeVisible();
-    await expect(page.getByRole("radio", { name: /Open GenUI/ })).toBeVisible();
   });
 
   test("default selection is Tool-Based with pipeline content visible", async ({
@@ -160,73 +159,8 @@ test.describe("Starter: Sales Dashboard", () => {
   });
 
   // -------------------------------------------------------------------------
-  // Open GenUI mode: NO pipeline, shows instructional text instead
-  // -------------------------------------------------------------------------
-
-  test("Open GenUI mode does NOT show pipeline and shows instructional text", async ({
-    page,
-  }) => {
-    await page.getByRole("radio", { name: /Open GenUI/ }).click();
-    await expect(
-      page.getByRole("radio", { name: /Open GenUI/ }),
-    ).toHaveAttribute("aria-checked", "true");
-
-    // Open GenUI does NOT render the SalesDashboard -- no pipeline or KPI cards
-    await expect(page.getByText("Sales Pipeline")).not.toBeVisible({
-      timeout: 5000,
-    });
-    await expect(page.getByText("Total Pipeline")).not.toBeVisible();
-
-    // Instead, it shows instructional text about asking the agent
-    await expect(
-      page.getByText(/Ask the agent to build a sales dashboard/),
-    ).toBeVisible({ timeout: 10000 });
-  });
-
-  // -------------------------------------------------------------------------
   // Critical: switching modes actually changes visible content
   // -------------------------------------------------------------------------
-
-  test("switching from Tool-Based to Open GenUI changes visible content", async ({
-    page,
-  }) => {
-    // Start in Tool-Based mode -- pipeline is visible
-    await page.getByRole("radio", { name: /Tool-Based/ }).click();
-    await expect(page.getByText("Sales Pipeline")).toBeVisible({
-      timeout: 15000,
-    });
-    await expect(page.getByText("Total Pipeline")).toBeVisible();
-
-    // Switch to Open GenUI -- pipeline disappears, instructional text appears
-    await page.getByRole("radio", { name: /Open GenUI/ }).click();
-    await expect(page.getByText("Sales Pipeline")).not.toBeVisible({
-      timeout: 5000,
-    });
-    await expect(
-      page.getByText(/Ask the agent to build a sales dashboard/),
-    ).toBeVisible({ timeout: 10000 });
-  });
-
-  test("switching from Open GenUI back to Tool-Based restores pipeline", async ({
-    page,
-  }) => {
-    // Start in Open GenUI
-    await page.getByRole("radio", { name: /Open GenUI/ }).click();
-    await expect(
-      page.getByText(/Ask the agent to build a sales dashboard/),
-    ).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText("Sales Pipeline")).not.toBeVisible();
-
-    // Switch back to Tool-Based -- pipeline reappears
-    await page.getByRole("radio", { name: /Tool-Based/ }).click();
-    await expect(page.getByText("Sales Pipeline")).toBeVisible({
-      timeout: 15000,
-    });
-    await expect(page.getByText("Total Pipeline")).toBeVisible();
-    await expect(
-      page.getByText(/Ask the agent to build a sales dashboard/),
-    ).not.toBeVisible();
-  });
 
   test("switching to json-render shows fallback note that other modes lack", async ({
     page,
@@ -300,13 +234,7 @@ test.describe("Starter: Sales Dashboard", () => {
   // -------------------------------------------------------------------------
 
   test("only one renderer pill is active at a time", async ({ page }) => {
-    const modes = [
-      "A2UI Catalog",
-      "HashBrown",
-      "Open GenUI",
-      "json-render",
-      "Tool-Based",
-    ];
+    const modes = ["A2UI Catalog", "HashBrown", "json-render", "Tool-Based"];
 
     for (const modeName of modes) {
       const pill = page.getByRole("radio", { name: new RegExp(modeName) });
