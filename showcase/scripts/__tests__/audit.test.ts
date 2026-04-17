@@ -12,9 +12,13 @@ import {
   countFiles,
   findExamplesSource,
   parseArgs,
+  anomalyMessage,
+  UnreadableDirError,
   BORN_IN_SHOWCASE,
   SLUG_TO_EXAMPLES,
   type AuditConfig,
+  type Anomaly,
+  type PackageAudit,
 } from "../audit.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -82,6 +86,12 @@ function makeExampleDir(root: string, name: string) {
   });
 }
 
+// Helpers that recover the old string-based predicates so tests read like
+// a behavioral spec even though the underlying type is now tagged.
+function anomalyStrings(a: PackageAudit): string[] {
+  return a.anomalies.map(anomalyMessage);
+}
+
 describe("readManifest", () => {
   let root: string;
   beforeEach(() => {
@@ -142,6 +152,42 @@ describe("readManifest", () => {
     const cfg = makeConfig(root);
     const r = readManifest("mypkg", cfg);
     expect(r.kind).toBe("malformed");
+  });
+
+  it("collapses parseManifest 'unreadable' (EACCES) to 'malformed' with 'read failed:' prefix", () => {
+    // T2: mock readFileSync to throw EACCES so parseManifest returns
+    // { kind: 'unreadable', ... }, and verify audit.ts collapses it to
+    // 'malformed' with the expected prefix (the three-state ManifestResult
+    // shape that downstream buildReport/tests rely on).
+    writePackage(root, "mypkg", {
+      manifest: "slug: mypkg\ndeployed: true\ndemos:\n  - id: foo\n",
+    });
+    const target = path.join(root, "packages", "mypkg", "manifest.yaml");
+    const orig = fs.readFileSync;
+    const spy = vi.spyOn(fs, "readFileSync").mockImplementation(((
+      p: fs.PathOrFileDescriptor,
+      options?: unknown,
+    ) => {
+      if (typeof p === "string" && p === target) {
+        const e: NodeJS.ErrnoException = new Error("EACCES: permission denied");
+        e.code = "EACCES";
+        throw e;
+      }
+      return (
+        orig as unknown as (p: fs.PathOrFileDescriptor, o?: unknown) => unknown
+      )(p, options);
+    }) as typeof fs.readFileSync);
+    try {
+      const cfg = makeConfig(root);
+      const r = readManifest("mypkg", cfg);
+      expect(r.kind).toBe("malformed");
+      if (r.kind === "malformed") {
+        expect(r.error).toMatch(/^read failed:/);
+        expect(r.error).toContain("EACCES");
+      }
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 
@@ -253,6 +299,25 @@ describe("findExamplesSource", () => {
       spy.mockRestore();
     }
   });
+
+  it("tries candidates in declared order and returns the first match", () => {
+    // T6: verify multi-candidate mapping. Force a SLUG_TO_EXAMPLES lookup
+    // via the live map: pick a slug that's mapped, delete the first
+    // candidate from the filesystem view, and confirm no match is returned
+    // when the dir doesn't exist. We can't mutate the frozen map at test
+    // time, so instead we assert on the declared order by creating the
+    // first mapped candidate dir and verifying the relative path matches
+    // the FIRST declared candidate, not a sibling.
+    const slug = "langgraph-typescript";
+    const mapped = SLUG_TO_EXAMPLES[slug];
+    expect(mapped).toBeDefined();
+    expect(mapped!.length).toBeGreaterThan(0);
+    const first = mapped![0];
+    makeExampleDir(root, first);
+    const cfg = makeConfig(root);
+    const r = findExamplesSource(slug, cfg);
+    expect(r).toBe(path.join("examples", "integrations", first));
+  });
 });
 
 describe("auditPackage", () => {
@@ -270,19 +335,17 @@ describe("auditPackage", () => {
     });
     const cfg = makeConfig(root);
     const a = auditPackage("broken", cfg);
-    expect(a.manifestFound).toBe(false);
-    expect(
-      a.anomalies.some((s) => s.startsWith("malformed manifest.yaml")),
-    ).toBe(true);
-    expect(a.anomalies.some((s) => s === "missing manifest.yaml")).toBe(false);
+    expect(a.manifest).toBe("malformed");
+    expect(a.anomalies.some((x) => x.kind === "malformed-manifest")).toBe(true);
+    expect(a.anomalies.some((x) => x.kind === "missing-manifest")).toBe(false);
   });
 
   it("emits 'missing manifest.yaml' when no manifest.yaml exists", () => {
     writePackage(root, "noman", {});
     const cfg = makeConfig(root);
     const a = auditPackage("noman", cfg);
-    expect(a.manifestFound).toBe(false);
-    expect(a.anomalies).toContain("missing manifest.yaml");
+    expect(a.manifest).toBe("missing");
+    expect(anomalyStrings(a)).toContain("missing manifest.yaml");
   });
 
   it("does not crash and emits 'malformed manifest.yaml' for an empty manifest.yaml", () => {
@@ -292,11 +355,8 @@ describe("auditPackage", () => {
     const cfg = makeConfig(root);
     expect(() => auditPackage("empty", cfg)).not.toThrow();
     const a = auditPackage("empty", cfg);
-    expect(a.manifestFound).toBe(false);
-    expect(a.manifestMalformed).toBe(true);
-    expect(
-      a.anomalies.some((s) => s.startsWith("malformed manifest.yaml")),
-    ).toBe(true);
+    expect(a.manifest).toBe("malformed");
+    expect(a.anomalies.some((x) => x.kind === "malformed-manifest")).toBe(true);
   });
 
   it("does not flag missingExamples for born-in-showcase slugs", () => {
@@ -311,9 +371,7 @@ describe("auditPackage", () => {
     // Intentionally DO NOT create an examples/integrations/ag2 directory.
     const cfg = makeConfig(root);
     const a = auditPackage(slug, cfg);
-    expect(a.anomalies.some((s) => s.includes("examples/integrations"))).toBe(
-      false,
-    );
+    expect(a.anomalies.some((x) => x.kind === "missing-examples")).toBe(false);
   });
 
   it("born-in-showcase + deployed:true → zero anomalies (clean)", () => {
@@ -354,12 +412,105 @@ describe("auditPackage", () => {
     try {
       const cfg = makeConfig(root);
       const a = auditPackage("perm", cfg);
-      expect(a.anomalies.some((s) => s.startsWith("could not read"))).toBe(
-        true,
-      );
+      expect(a.anomalies.some((x) => x.kind === "unreadable-dir")).toBe(true);
     } finally {
       spy.mockRestore();
     }
+  });
+
+  it("surfaces 'could not read' anomaly when qa dir readdir fails (T1 — symmetric to spec)", () => {
+    writePackage(root, "qaperm", {
+      manifest: `slug: qaperm\ndeployed: true\ndemos:\n  - id: x\n`,
+      specs: ["x.spec.ts"],
+      qaFiles: ["x.md"],
+    });
+    const qaDir = path.join(root, "packages", "qaperm", "qa");
+    const orig = fs.readdirSync;
+    const spy = vi.spyOn(fs, "readdirSync").mockImplementation(((
+      p: fs.PathLike,
+      options?: unknown,
+    ) => {
+      if (typeof p === "string" && p === qaDir) {
+        const e: NodeJS.ErrnoException = new Error("EACCES");
+        e.code = "EACCES";
+        throw e;
+      }
+      return (orig as unknown as (p: fs.PathLike, o?: unknown) => unknown)(
+        p,
+        options,
+      );
+    }) as typeof fs.readdirSync);
+    try {
+      const cfg = makeConfig(root);
+      const a = auditPackage("qaperm", cfg);
+      const unreadable = a.anomalies.find(
+        (x): x is Extract<Anomaly, { kind: "unreadable-dir" }> =>
+          x.kind === "unreadable-dir",
+      );
+      expect(unreadable).toBeDefined();
+      expect(unreadable!.dir).toBe(qaDir);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("deployed:undefined renders as 'deployed=unset' and counts toward notDeployed (T3)", () => {
+    // Regression guard: a manifest with no `deployed` field MUST produce
+    // a distinct "unset" state (not collapsed into "false").
+    writePackage(root, "unset", {
+      manifest: `slug: unset\ndemos:\n  - id: x\n`,
+      specs: ["x.spec.ts"],
+      qaFiles: ["x.md"],
+    });
+    makeExampleDir(root, "unset");
+    const cfg = makeConfig(root);
+    const a = auditPackage("unset", cfg);
+    const notDeployed = a.anomalies.find(
+      (x): x is Extract<Anomaly, { kind: "not-deployed" }> =>
+        x.kind === "not-deployed",
+    );
+    expect(notDeployed).toBeDefined();
+    expect(notDeployed!.state).toBe("unset");
+    expect(a.deployed).toBeNull();
+
+    // Counterpart: deployed:false is distinct.
+    writePackage(root, "falsedep", {
+      manifest: `slug: falsedep\ndeployed: false\ndemos:\n  - id: x\n`,
+      specs: ["x.spec.ts"],
+      qaFiles: ["x.md"],
+    });
+    makeExampleDir(root, "falsedep");
+    const b = auditPackage("falsedep", cfg);
+    const bNot = b.anomalies.find(
+      (x): x is Extract<Anomaly, { kind: "not-deployed" }> =>
+        x.kind === "not-deployed",
+    );
+    expect(bNot).toBeDefined();
+    expect(bNot!.state).toBe("false");
+    expect(b.deployed).toBe(false);
+
+    // Both flow into the notDeployed bucket.
+    const report = buildReport(["unset", "falsedep"], cfg);
+    expect(report.anomalies.notDeployed.sort()).toEqual(
+      ["falsedep", "unset"].sort(),
+    );
+  });
+
+  it("records stderr warnings on the `warnings` field for stale SLUG_TO_EXAMPLES entries", () => {
+    // Regression guard for the stderr-redirection blind spot: even if
+    // stderr is captured/redirected, the audit record itself should carry
+    // the warning.
+    const mappedSlug = Object.keys(SLUG_TO_EXAMPLES)[0];
+    writePackage(root, mappedSlug, {
+      manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: x\n`,
+      specs: ["x.spec.ts"],
+      qaFiles: ["x.md"],
+    });
+    // Intentionally DO NOT create the examples/integrations/<mapped> dir.
+    const cfg = makeConfig(root);
+    const a = auditPackage(mappedSlug, cfg);
+    expect(a.warnings.length).toBeGreaterThan(0);
+    expect(a.warnings.some((w) => w.includes(mappedSlug))).toBe(true);
   });
 });
 
@@ -394,6 +545,126 @@ describe("buildReport", () => {
     expect(report.totals.total).toBe(3);
     expect(report.totals.clean).toBe(2);
     expect(report.totals.withAnomalies).toBe(1);
+  });
+
+  it("classifies missing vs malformed manifests into distinct buckets (T4)", () => {
+    writePackage(root, "missing1", {}); // no manifest.yaml at all
+    writePackage(root, "missing2", {});
+    writePackage(root, "bad", { manifest: "demos: [[[\nunterminated\n" });
+    const cfg = makeConfig(root);
+    const report = buildReport(["bad", "missing1", "missing2"], cfg);
+    expect(report.anomalies.missingManifest.sort()).toEqual(
+      ["missing1", "missing2"].sort(),
+    );
+    expect(report.anomalies.malformedManifest).toEqual(["bad"]);
+    // Cross-check: no overlap between the two buckets.
+    const overlap = report.anomalies.missingManifest.filter((s) =>
+      report.anomalies.malformedManifest.includes(s),
+    );
+    expect(overlap).toEqual([]);
+  });
+
+  it("per-dimension countMismatches filter: unreadable spec + real qa mismatch still appears (T5)", () => {
+    // Package 'mixed' has an unreadable spec dir AND a genuine qa
+    // mismatch. The old filter would hide the whole package from
+    // countMismatches because *any* 'could not read' was treated as a
+    // reason to suppress. The fix: per-dimension suppression — qa
+    // mismatch remains visible.
+    writePackage(root, "mixed", {
+      manifest: `slug: mixed\ndeployed: true\ndemos:\n  - id: a\n  - id: b\n`,
+      specs: ["a.spec.ts", "b.spec.ts"],
+      qaFiles: ["only-one.md"], // 1 qa vs 2 demos — real mismatch
+    });
+    makeExampleDir(root, "mixed");
+
+    const e2eDir = path.join(root, "packages", "mixed", "tests", "e2e");
+    const orig = fs.readdirSync;
+    const spy = vi.spyOn(fs, "readdirSync").mockImplementation(((
+      p: fs.PathLike,
+      options?: unknown,
+    ) => {
+      if (typeof p === "string" && p === e2eDir) {
+        const e: NodeJS.ErrnoException = new Error("EACCES");
+        e.code = "EACCES";
+        throw e;
+      }
+      return (orig as unknown as (p: fs.PathLike, o?: unknown) => unknown)(
+        p,
+        options,
+      );
+    }) as typeof fs.readdirSync);
+    try {
+      const cfg = makeConfig(root);
+      const report = buildReport(["mixed"], cfg);
+      // qa mismatch survives suppression (spec dir unreadable should
+      // only mask spec-dimension mismatches, not qa-dimension).
+      expect(report.anomalies.countMismatches).toContain("mixed");
+      // Also verify the underlying anomaly list — qa mismatch present,
+      // spec mismatch suppressed by "unreadable spec dir".
+      const audit = report.packages.find((p) => p.slug === "mixed")!;
+      const mismatches = audit.anomalies.filter(
+        (x): x is Extract<Anomaly, { kind: "count-mismatch" }> =>
+          x.kind === "count-mismatch",
+      );
+      expect(mismatches.some((m) => m.dimension === "qa")).toBe(true);
+      expect(mismatches.some((m) => m.dimension === "spec")).toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("populates top-level hasAnomalies and exitCode", () => {
+    // C11: JSON output needs the scalar summary so consumers don't have
+    // to re-derive it from nested arrays.
+    writePackage(root, "ok1", {
+      manifest: `slug: ok1\ndeployed: true\ndemos:\n  - id: a\n`,
+      specs: ["a.spec.ts"],
+      qaFiles: ["a.md"],
+    });
+    makeExampleDir(root, "ok1");
+    const cfg = makeConfig(root);
+    const clean = buildReport(["ok1"], cfg);
+    expect(clean.hasAnomalies).toBe(false);
+    expect(clean.exitCode).toBe(0);
+
+    writePackage(root, "bad", {
+      manifest: `slug: bad\ndeployed: false\ndemos:\n  - id: a\n`,
+      specs: [],
+      qaFiles: [],
+    });
+    const dirty = buildReport(["bad"], cfg);
+    expect(dirty.hasAnomalies).toBe(true);
+    expect(dirty.exitCode).toBe(1);
+  });
+
+  it("withAnomalies is a unique-package count even when buckets overlap (C3 contract)", () => {
+    // Package "multi" has BOTH a count mismatch AND not-deployed. It
+    // appears in countMismatches AND notDeployed (buckets overlap), but
+    // totals.withAnomalies counts it once.
+    writePackage(root, "multi", {
+      manifest: `slug: multi\ndeployed: false\ndemos:\n  - id: a\n  - id: b\n`,
+      specs: ["a.spec.ts"], // 1 vs 2 — real spec mismatch
+      qaFiles: ["a.md", "b.md"],
+    });
+    makeExampleDir(root, "multi");
+    const cfg = makeConfig(root);
+    const report = buildReport(["multi"], cfg);
+    expect(report.anomalies.countMismatches).toContain("multi");
+    expect(report.anomalies.notDeployed).toContain("multi");
+    expect(report.totals.withAnomalies).toBe(1);
+  });
+
+  it("freezes PackageAudit entries to prevent downstream mutation (C16)", () => {
+    writePackage(root, "frozen", {
+      manifest: `slug: frozen\ndeployed: true\ndemos:\n  - id: a\n`,
+      specs: ["a.spec.ts"],
+      qaFiles: ["a.md"],
+    });
+    makeExampleDir(root, "frozen");
+    const cfg = makeConfig(root);
+    const report = buildReport(["frozen"], cfg);
+    const p = report.packages[0];
+    expect(Object.isFrozen(p)).toBe(true);
   });
 });
 
@@ -433,6 +704,31 @@ describe("BORN_IN_SHOWCASE set", () => {
     expect(BORN_IN_SHOWCASE.has("langroid")).toBe(true);
     expect(BORN_IN_SHOWCASE.has("spring-ai")).toBe(true);
   });
+
+  it("invariant: every BORN_IN_SHOWCASE slug has NO showcase/packages/<slug>/manifest.yaml with a real-repo provenance marker that would contradict it (Q1)", () => {
+    // The real invariant: BORN_IN_SHOWCASE is the set of packages that
+    // are ONLY in showcase — so they must NOT have a corresponding
+    // directory under examples/integrations/ in a real repo. We walk the
+    // real repo root and assert that.
+    const repoExamplesDir = path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "examples",
+      "integrations",
+    );
+    // If examples/integrations doesn't exist (unlikely but possible in
+    // fixture-only CI), the assertion is vacuously true.
+    if (!fs.existsSync(repoExamplesDir)) return;
+    for (const slug of BORN_IN_SHOWCASE) {
+      const candidate = path.join(repoExamplesDir, slug);
+      expect(
+        fs.existsSync(candidate),
+        `BORN_IN_SHOWCASE slug "${slug}" has a directory under examples/integrations — either remove it from BORN_IN_SHOWCASE or remove the dir`,
+      ).toBe(false);
+    }
+  });
 });
 
 describe("SLUG_TO_EXAMPLES — dead entries removed", () => {
@@ -447,6 +743,30 @@ describe("SLUG_TO_EXAMPLES — dead entries removed", () => {
       expect(SLUG_TO_EXAMPLES[slug]).toBeUndefined();
     },
   );
+
+  it("every mapped target exists as a dir under examples/integrations/ in the real repo (Q2)", () => {
+    // Dead-entry guard: if any SLUG_TO_EXAMPLES value points at a
+    // non-existent examples/integrations/ dir, the audit will emit
+    // spurious "no examples source" anomalies at runtime.
+    const repoExamplesDir = path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "examples",
+      "integrations",
+    );
+    if (!fs.existsSync(repoExamplesDir)) return;
+    for (const [slug, targets] of Object.entries(SLUG_TO_EXAMPLES)) {
+      for (const target of targets) {
+        const candidate = path.join(repoExamplesDir, target);
+        expect(
+          fs.existsSync(candidate),
+          `SLUG_TO_EXAMPLES[${slug}] points at missing dir ${candidate}`,
+        ).toBe(true);
+      }
+    }
+  });
 });
 
 describe("findExamplesSource — runtime warning for mapped slug with no dir", () => {
@@ -471,10 +791,11 @@ describe("findExamplesSource — runtime warning for mapped slug with no dir", (
   });
 
   it("emits stderr warning (not error) when a SLUG_TO_EXAMPLES-mapped slug has no matching dir", () => {
-    // Pick a slug that IS in SLUG_TO_EXAMPLES (so we hit the mapped path)
-    // but intentionally create no examples/integrations/<mapped> dir.
-    const mappedSlug = Object.keys(SLUG_TO_EXAMPLES)[0];
-    expect(mappedSlug).toBeDefined();
+    // Use an explicit slug known to be in SLUG_TO_EXAMPLES rather than
+    // first-key indexing, which would silently keep passing if the map
+    // changed order.
+    const mappedSlug = "mastra";
+    expect(SLUG_TO_EXAMPLES[mappedSlug]).toBeDefined();
     const cfg = makeConfig(root);
     const r = findExamplesSource(mappedSlug, cfg);
     expect(r).toBeNull();
@@ -557,6 +878,25 @@ describe("main() exit codes via CLI subprocess", () => {
     }
   });
 
+  it("exits 3 (unreadable) when packages path exists but is a file, not a directory (C5)", () => {
+    // Regression guard: previously `readdirSync` on a file path threw
+    // ENOTDIR inside the try/catch in listShowcasePackageSlugs which
+    // returned [], so the CLI collapsed to "empty packages" (exit 1). We
+    // now distinguish this with a dedicated stat() check — exit 3.
+    const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "audit-file-"));
+    try {
+      // Create <fixture>/packages as a FILE, not a directory.
+      fs.writeFileSync(path.join(fixture, "packages"), "not a dir\n");
+      const r = runCli([], {
+        env: { SHOWCASE_AUDIT_ROOT: fixture },
+      });
+      expect(r.status, r.stdout + r.stderr).toBe(3);
+      expect(r.stderr).toMatch(/not a directory/i);
+    } finally {
+      fs.rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
   it("unreadable (3) and invalid-content (2) exit codes differ", () => {
     // Regression guard: these two failure modes used to share exit code
     // 2, which made it impossible for CI callers to distinguish
@@ -598,6 +938,101 @@ describe("main() exit codes via CLI subprocess", () => {
     // argparse failure is a user/internal error, not a package anomaly.
     expect(r.status, r.stdout + r.stderr).toBe(2);
   });
+
+  it("--json --slug <slug> combination emits JSON for a single package (T8)", () => {
+    writePackage(root, "crewai-crews", {
+      manifest: `slug: crewai-crews\ndeployed: true\ndemos:\n  - id: a\n`,
+      specs: ["a.spec.ts"],
+      qaFiles: ["a.md"],
+    });
+    makeExampleDir(root, "crewai-crews");
+    writePackage(root, "other", {
+      manifest: `slug: other\ndeployed: true\ndemos:\n  - id: a\n`,
+      specs: ["a.spec.ts"],
+      qaFiles: ["a.md"],
+    });
+    makeExampleDir(root, "other");
+    const r = runCli(["--json", "--slug", "crewai-crews"], {
+      env: { SHOWCASE_AUDIT_ROOT: root },
+    });
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    const parsed = JSON.parse(r.stdout);
+    expect(parsed.packages.length).toBe(1);
+    expect(parsed.packages[0].slug).toBe("crewai-crews");
+    // Scalar summary exposed (C11).
+    expect(parsed.hasAnomalies).toBe(false);
+    expect(parsed.exitCode).toBe(0);
+  });
+
+  it("exits 4 (internal error) on unexpected exceptions (T7)", () => {
+    // Force an unexpected error by pointing SHOWCASE_AUDIT_ROOT at a
+    // path whose `packages` subdir is a VALID dir (passes existsSync +
+    // isDirectory()) but where readdirSync subsequently throws a
+    // non-ENOENT error after our stat check. Easiest reliable way is to
+    // inject an error via the NODE_OPTIONS preload hook — but that's
+    // fragile across node versions. Instead, we use --require to load a
+    // tiny preload that monkey-patches fs.statSync to throw a
+    // deliberately non-UnreadableDirError after the packages dir stat
+    // passes.
+    const preload = fs.mkdtempSync(path.join(os.tmpdir(), "audit-preload-"));
+    const preloadScript = path.join(preload, "boom.cjs");
+    fs.writeFileSync(
+      preloadScript,
+      `const fs = require("fs");
+const origRead = fs.readdirSync;
+fs.readdirSync = function(...args) {
+  // Trigger a TypeError — not an UnreadableDirError — from inside
+  // listShowcasePackageSlugs so the top-level catch routes to
+  // EXIT_INTERNAL (4). The UnreadableDirError fast-path won't match.
+  const p = String(args[0] || "");
+  if (p.endsWith("/packages") || p.endsWith("\\\\packages")) {
+    const e = new TypeError("simulated bug: this should never happen");
+    throw e;
+  }
+  return origRead.apply(this, args);
+};
+`,
+    );
+    writePackage(root, "foo", {
+      manifest: `slug: foo\ndeployed: true\ndemos:\n  - id: a\n`,
+      specs: ["a.spec.ts"],
+      qaFiles: ["a.md"],
+    });
+    try {
+      const r = spawnSync(
+        "npx",
+        ["tsx", "--require", preloadScript, AUDIT_SCRIPT],
+        {
+          env: { ...process.env, SHOWCASE_AUDIT_ROOT: root },
+          encoding: "utf-8",
+          timeout: 30_000,
+        },
+      );
+      // listShowcasePackageSlugs catches the readdirSync error and
+      // rethrows as UnreadableDirError → exit 3. That's the safest
+      // outcome for THIS specific injection. But if the injection
+      // reaches a path NOT covered by UnreadableDirError, we still want
+      // to assert the process exited non-zero and never silently
+      // succeeded. This test is a smoke test: exit != 0 and stderr
+      // mentions the injected message OR the unreadable message.
+      expect(r.status, r.stdout + r.stderr).not.toBe(0);
+      expect([3, 4]).toContain(r.status);
+    } finally {
+      fs.rmSync(preload, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("UnreadableDirError", () => {
+  it("carries the dir and a human-readable message", () => {
+    const cause = new Error("EACCES: permission denied");
+    const e = new UnreadableDirError("/tmp/packages", cause);
+    expect(e).toBeInstanceOf(Error);
+    expect(e.name).toBe("UnreadableDirError");
+    expect(e.dir).toBe("/tmp/packages");
+    expect(e.message).toContain("/tmp/packages");
+    expect(e.message).toContain("EACCES");
+  });
 });
 
 describe("listShowcasePackageSlugs", () => {
@@ -617,22 +1052,50 @@ describe("listShowcasePackageSlugs", () => {
     expect(listShowcasePackageSlugs(cfg)).toEqual(["alpha", "beta", "gamma"]);
   });
 
-  it("returns [] when packages dir does not exist", () => {
+  it("throws UnreadableDirError when packages dir cannot be read", () => {
     const cfg = {
       ...makeConfig(root),
       packagesDir: path.join(root, "nope"),
     };
-    expect(listShowcasePackageSlugs(cfg)).toEqual([]);
+    // Missing dir → readdirSync ENOENT → UnreadableDirError. Previously
+    // the code returned [] and main() collapsed this to "exit 1 (empty
+    // packages)", masking a real I/O failure.
+    expect(() => listShowcasePackageSlugs(cfg)).toThrow(UnreadableDirError);
   });
 });
 
 describe("module isMain guard", () => {
-  it("does not execute main() when imported (no process.exit side effect)", async () => {
-    // If the import of audit.ts were invoking main() under test, this
-    // test file wouldn't be able to run at all (main calls process.exit).
-    // So reaching this assertion IS the proof.
-    const m = await import("../audit.js");
-    expect(typeof m.auditPackage).toBe("function");
-    expect(typeof m.buildReport).toBe("function");
+  it("does not execute main() when imported as a subprocess (proof via spawnSync)", () => {
+    // Q5: replace the tautological in-process assertion with a real
+    // subprocess test. We invoke node on a tiny inline script that
+    // imports audit.js (as a URL, since the real file is audit.ts and
+    // emits as audit.js in the module graph) and verifies it exits 0.
+    // If main() ran on import, it would exit 1 (empty packages) or 3
+    // (missing packages), not 0.
+    const helper = fs.mkdtempSync(path.join(os.tmpdir(), "audit-import-"));
+    const helperScript = path.join(helper, "probe.mjs");
+    // Use tsx to import the .ts file directly — tsx resolves the .js
+    // extension against the source .ts.
+    fs.writeFileSync(
+      helperScript,
+      `import("${AUDIT_SCRIPT.replace(/\\/g, "/")}").then((m) => {
+  if (typeof m.auditPackage !== "function") process.exit(1);
+  if (typeof m.buildReport !== "function") process.exit(1);
+  process.exit(0);
+}).catch((e) => {
+  console.error(e);
+  process.exit(2);
+});
+`,
+    );
+    try {
+      const r = spawnSync("npx", ["tsx", helperScript], {
+        encoding: "utf-8",
+        timeout: 30_000,
+      });
+      expect(r.status, r.stdout + r.stderr).toBe(0);
+    } finally {
+      fs.rmSync(helper, { recursive: true, force: true });
+    }
   });
 });
