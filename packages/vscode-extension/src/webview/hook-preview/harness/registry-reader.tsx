@@ -10,29 +10,6 @@ import { useCopilotKit } from "@copilotkit/react-core/v2";
 
 type V2Access = { copilotkit?: unknown } | null;
 
-/**
- * Projects the V2 `renderToolCalls` array into a `Record<name, entry>` shape.
- *
- * V1's `useCopilotAction` delegates all registrations to the V2 registry — its
- * own `context.actions` record stays empty for hook-registered actions. To
- * preserve the `v1.actions` surface the hook-preview harness expects, we read
- * the V2 render-tool-call entries and key them by name. Each entry already
- * carries the `name`, `args`, and `render` fields that downstream previewers
- * consume.
- */
-function projectV1Actions(
-  copilotkit: { renderToolCalls?: ReadonlyArray<{ name: string }> } | undefined,
-): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  const list = copilotkit?.renderToolCalls ?? [];
-  for (const entry of list) {
-    if (entry && typeof entry.name === "string") {
-      out[entry.name] = entry;
-    }
-  }
-  return out;
-}
-
 export function RegistryReader({
   onCapture,
   v2,
@@ -49,36 +26,22 @@ export function RegistryReader({
 
   useEffect(() => {
     function capture() {
+      const v2core = copilotkit as unknown as {
+        renderToolCalls?: ReadonlyArray<{ name: string; [k: string]: unknown }>;
+        tools?: ReadonlyArray<{ name: string; [k: string]: unknown }>;
+        subscribe?: (s: { onRenderToolCallsChanged?: () => void }) => {
+          unsubscribe: () => void;
+        };
+      };
+      const v1state = v1ctx as unknown as {
+        coAgentStateRenders?: Array<{ name?: string; [k: string]: unknown }>;
+        chatComponentsCache?: unknown;
+      };
       onCapture({
-        v1: {
-          actions: projectV1Actions(
-            copilotkit as unknown as {
-              renderToolCalls?: ReadonlyArray<{ name: string }>;
-            },
-          ),
-          // `coAgentStateRenders` is not exposed on the V1 context surface in
-          // current react-core; stay compatible by reporting an empty list.
-          coAgentStateRenders:
-            (v1ctx as unknown as { coAgentStateRenders?: unknown[] })
-              .coAgentStateRenders ?? [],
-          chatComponents:
-            (v1ctx as unknown as { chatComponentsCache?: unknown })
-              .chatComponentsCache ?? null,
-        },
-        v2: {
-          tools:
-            (
-              copilotkit as unknown as {
-                tools?: ReadonlyArray<unknown>;
-              }
-            ).tools?.slice() ?? [],
-          renderToolCalls:
-            (
-              copilotkit as unknown as {
-                renderToolCalls?: ReadonlyArray<unknown>;
-              }
-            ).renderToolCalls?.slice() ?? [],
-        },
+        renderToolCalls: v2core.renderToolCalls?.slice() ?? [],
+        tools: v2core.tools?.slice() ?? [],
+        coAgentStateRenders: v1state.coAgentStateRenders?.slice() ?? [],
+        chatComponents: v1state.chatComponentsCache ?? null,
       });
     }
 

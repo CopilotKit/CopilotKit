@@ -46,15 +46,17 @@ export function Harness({
     interceptorInstalled = true;
   }
 
+  // Wrap BOTH the RegistryReader and the host in the same error boundary so a
+  // crash in either flows to `onMountError` rather than bubbling to React's
+  // default handler. Keeping them under a single boundary also means a host
+  // error prevents a stale registry snapshot from being published.
   const inner = (
-    <>
+    <HarnessBoundary onError={onMountError}>
       <RegistryReader onCapture={onCapture} v2={v2Access} />
-      <HarnessBoundary onError={onMountError}>
-        <Suspense fallback={null}>
-          <HostRoot />
-        </Suspense>
-      </HarnessBoundary>
-    </>
+      <Suspense fallback={null}>
+        <HostRoot />
+      </Suspense>
+    </HarnessBoundary>
   );
 
   const body = V2Provider ? <V2Provider>{inner}</V2Provider> : inner;
