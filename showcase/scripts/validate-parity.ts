@@ -345,7 +345,8 @@ export function auditPackage(
   // listing-failed warning for the demos/ path specifically.
   const demosDirPath = path.join(pkgDir, "src", "app", "demos");
   const demosDirUnreadable = demoDirResult.warnings.find(
-    (w) => w.category === "listing-failed" && w.path === demosDirPath,
+    (w): w is Extract<PackageIssue, { category: "listing-failed" }> =>
+      w.category === "listing-failed" && w.path === demosDirPath,
   );
 
   // Merge spec/qa listing warnings unconditionally. The demo-dir
