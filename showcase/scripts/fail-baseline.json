@@ -1,0 +1,4 @@
+{
+  "_comment": "Drift ratchet baseline for showcase_validate.yml. When validate-pins.ts reports fewer FAIL entries than `validatePinsFailCount`, CI will instruct you to update this file downward (ratchet-down). When it reports more, CI will fail. Never raise this number without an explicit review + sign-off. See .github/workflows/showcase_validate.yml 'Run validate-pins (ratchet)' step.",
+  "validatePinsFailCount": 111
+}
