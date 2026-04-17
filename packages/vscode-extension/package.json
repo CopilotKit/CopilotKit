@@ -21,9 +21,11 @@
     "package": "vsce package --no-dependencies"
   },
   "dependencies": {
+    "ignore": "^7.0.5",
     "oxc-parser": "^0.72.0",
     "rolldown": "^1.0.0-rc.15",
-    "zod": "^3.21.0"
+    "zod": "^3.21.0",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
     "@copilotkit/a2ui-renderer": "workspace:*",
@@ -58,6 +60,10 @@
           "name": "AG-UI Inspector"
         },
         {
+          "id": "copilotkit.hooks",
+          "name": "CopilotKit Hooks"
+        },
+        {
           "id": "copilotkit.componentPreview",
           "name": "A2UI Catalog Components Preview"
         }
@@ -85,6 +91,27 @@
         "command": "copilotkit.openInspector",
         "title": "CopilotKit: Open AG-UI Inspector",
         "icon": "$(pulse)"
+      },
+      {
+        "command": "copilotkit.hooks.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "copilotkit.hooks.preview",
+        "title": "CopilotKit: Preview Hook Render"
+      },
+      {
+        "command": "copilotkit.hooks.openSource",
+        "title": "Open Source"
+      },
+      {
+        "command": "copilotkit.hooks.copyIdentity",
+        "title": "Copy Hook Identity"
+      },
+      {
+        "command": "copilotkit.hooks.focusPanel",
+        "title": "CopilotKit: Preview Hook Render…"
       }
     ],
     "menus": {
@@ -109,12 +136,32 @@
           "command": "copilotkit.openInspector",
           "when": "view == copilotkit.inspector",
           "group": "navigation"
+        },
+        {
+          "command": "copilotkit.hooks.refresh",
+          "when": "view == copilotkit.hooks",
+          "group": "navigation"
         }
       ],
       "view/item/context": [
         {
           "command": "copilotkit.previewComponentFromSidebar",
           "when": "view == copilotkit.componentPreview"
+        },
+        {
+          "command": "copilotkit.hooks.preview",
+          "when": "view == copilotkit.hooks && viewItem == renderHook",
+          "group": "inline"
+        },
+        {
+          "command": "copilotkit.hooks.openSource",
+          "when": "view == copilotkit.hooks",
+          "group": "1_navigation"
+        },
+        {
+          "command": "copilotkit.hooks.copyIdentity",
+          "when": "view == copilotkit.hooks",
+          "group": "2_utility"
         }
       ]
     }

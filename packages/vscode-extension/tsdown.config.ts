@@ -83,4 +83,15 @@ export default defineConfig([
     clean: false,
     plugins: [nodeResolveFallback()],
   },
+  // Hook-preview webview — browser, ESM
+  {
+    entry: { "hook-preview": "src/webview/hook-preview/index.tsx" },
+    outDir: "dist/webview",
+    format: ["esm"],
+    platform: "browser",
+    noExternal: [/.*/],
+    dts: false,
+    clean: false,
+    plugins: [nodeResolveFallback()],
+  },
 ]);
