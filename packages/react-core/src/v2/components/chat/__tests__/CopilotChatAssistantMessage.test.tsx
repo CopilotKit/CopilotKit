@@ -669,7 +669,7 @@ describe("CopilotChatAssistantMessage", () => {
 
       await waitFor(() => {
         expect(consoleSpy).toHaveBeenCalledWith(
-          "Failed to copy message:",
+          "Failed to copy to clipboard:",
           expect.any(Error),
         );
       });

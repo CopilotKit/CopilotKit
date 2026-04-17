@@ -2,37 +2,43 @@
 
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-core/v2";
 import {
-  SalesDashboard,
-  useShowcaseHooks,
-  useShowcaseSuggestions,
-  demonstrationCatalog,
-} from "@copilotkit/showcase-shared";
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 
 export default function SharedStateWriteDemo() {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      agent="shared-state-write"
-      a2ui={{ catalog: demonstrationCatalog }}
-    >
-      <div className="min-h-screen w-full flex items-center justify-center">
-        <DemoContent />
-        <CopilotSidebar
-          defaultOpen={true}
-          labels={{
-            modalHeaderTitle: "Sales Pipeline Assistant",
-          }}
-        />
-      </div>
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-write">
+      <DemoContent />
     </CopilotKit>
   );
 }
 
 function DemoContent() {
-  useShowcaseHooks();
-  useShowcaseSuggestions();
+  // TODO: Implement Shared State (Writing) demo
+  // See the LangGraph Python reference implementation for patterns
+  //
+  // Key hooks available:
+  //   useFrontendTool({ name, description, parameters: z.object({...}), handler })
+  //   useRenderTool({ name: "tool_name", render: ({ args }) => <Component /> })
+  //   useHumanInTheLoop({ name, description, parameters, handler: ({ args, respond }) => ... })
+  //   useAgentContext({ description, value })
+  //   useConfigureSuggestions({ suggestions: [{ title, message }] })
+  //   useInterrupt({ render: ({ event, resolve }) => <Component /> })
 
-  return <SalesDashboard agentId="shared-state-write" />;
+  useConfigureSuggestions({
+    suggestions: [{ title: "Get started", message: "Hello! What can you do?" }],
+  });
+
+  return (
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+      <CopilotChat
+        labels={{
+          title: "Shared State (Writing)",
+          placeholder: "Type a message...",
+        }}
+      />
+    </div>
+  );
 }

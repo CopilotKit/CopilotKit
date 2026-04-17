@@ -76,6 +76,10 @@ function main() {
   console.log("\nBuilding packages...");
   run("pnpm", ["run", "build"]);
 
+  // Run tests before publishing
+  console.log("\nRunning tests...");
+  run("pnpm", ["run", "test"]);
+
   // Publish each package
   console.log("\nPublishing packages...");
   for (const p of getPackagesForScope(scope)) {

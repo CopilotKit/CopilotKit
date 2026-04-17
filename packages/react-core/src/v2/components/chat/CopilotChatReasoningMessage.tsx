@@ -71,17 +71,30 @@ export function CopilotChatReasoningMessage({
     return () => clearInterval(timer);
   }, [isStreaming]);
 
-  // Default to open while streaming, auto-collapse when streaming ends
+  // Default to open while streaming, auto-collapse when streaming ends.
+  // Track whether the user has manually toggled so auto-collapse doesn't
+  // override their explicit intent (prevents flaky test failures on CI
+  // where async forceUpdate timing can race with click handlers).
   const [isOpen, setIsOpen] = useState(isStreaming);
+  const userToggledRef = useRef(false);
 
   useEffect(() => {
     if (isStreaming) {
+      // Reset user-toggle tracking when a new streaming session starts
+      userToggledRef.current = false;
       setIsOpen(true);
-    } else {
-      // Auto-collapse when reasoning finishes
+    } else if (!userToggledRef.current) {
+      // Auto-collapse only if the user hasn't manually toggled
       setIsOpen(false);
     }
   }, [isStreaming]);
+
+  const handleToggle = hasContent
+    ? () => {
+        userToggledRef.current = true;
+        setIsOpen((prev) => !prev);
+      }
+    : undefined;
 
   const label = isStreaming
     ? "Thinking…"
@@ -92,7 +105,7 @@ export function CopilotChatReasoningMessage({
     label,
     hasContent,
     isStreaming,
-    onClick: hasContent ? () => setIsOpen((prev) => !prev) : undefined,
+    onClick: handleToggle,
   });
 
   const boundContent = renderSlot(

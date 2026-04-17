@@ -22,11 +22,12 @@ interaction_modalities:
   - embedded
   - chat
 starter:
-  path: examples/integrations/strands-python
-  name: Investment Analyst (Strands)
-  description: Investment analysis agent built with AWS Strands framework
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/strands-python
-  demo_url: https://showcase-starter-strands-production.up.railway.app
+  path: showcase/starters/strands
+  name: Sales Dashboard
+  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/strands
+  demo_url: https://showcase-starter-strands-production-1114.up.railway.app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/strands my-copilotkit-app
 features:
   - agentic-chat
   - hitl

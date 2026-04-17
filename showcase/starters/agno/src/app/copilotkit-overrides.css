@@ -1,0 +1,10 @@
+/* CopilotKit overrides — EXACTLY matches Dojo, nothing more */
+
+.copilotKitInput {
+  border-radius: 0.75rem;
+  border: 1px solid var(--copilot-kit-separator-color) !important;
+}
+
+.copilotKitChat {
+  background-color: #fff !important;
+}

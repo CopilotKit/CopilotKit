@@ -61,6 +61,7 @@ import {
   convertActionInputToOpenAITool,
   convertMessageToOpenAIMessage,
   limitMessagesToTokenCount,
+  getChatCompletionsForStreaming,
 } from "./utils";
 import { randomUUID } from "@copilotkit/shared";
 import { convertServiceAdapterError, getSdkClientOptions } from "../shared";
@@ -96,6 +97,12 @@ export interface OpenAIAdapterParams {
    * @default false
    */
   keepSystemRole?: boolean;
+
+  /**
+   * Optional maximum input token limit. Overrides the default model-based limit
+   * used when trimming messages to fit the context window.
+   */
+  maxInputTokens?: number;
 }
 
 export class OpenAIAdapter implements CopilotServiceAdapter {
@@ -105,6 +112,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
   private disableParallelToolCalls: boolean = false;
   private _openai: OpenAI;
   private keepSystemRole: boolean = false;
+  private maxInputTokens?: number;
 
   public get openai(): OpenAI {
     return this._openai;
@@ -124,6 +132,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     }
     this.disableParallelToolCalls = params?.disableParallelToolCalls || false;
     this.keepSystemRole = params?.keepSystemRole ?? false;
+    this.maxInputTokens = params?.maxInputTokens;
   }
 
   getLanguageModel(): LanguageModel {
@@ -191,7 +200,12 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     let openaiMessages = filteredMessages.map((m) =>
       convertMessageToOpenAIMessage(m, { keepSystemRole: this.keepSystemRole }),
     );
-    openaiMessages = limitMessagesToTokenCount(openaiMessages, tools, model);
+    openaiMessages = limitMessagesToTokenCount(
+      openaiMessages,
+      tools,
+      model,
+      this.maxInputTokens,
+    );
 
     let toolChoice: any = forwardedParameters?.toolChoice;
     if (forwardedParameters?.toolChoice === "function") {
@@ -203,7 +217,8 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
 
     try {
       const openai = this.ensureOpenAI();
-      const stream = openai.beta.chat.completions.stream({
+      const completions = getChatCompletionsForStreaming(openai);
+      const stream = completions.stream({
         model: model,
         stream: true,
         messages: openaiMessages,
