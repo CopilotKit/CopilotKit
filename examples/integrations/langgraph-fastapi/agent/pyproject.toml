@@ -5,7 +5,7 @@ description = ""
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 dependencies = [
-  "copilotkit==0.1.74",
+  "copilotkit==0.1.87",
   "langchain==1.0.1",
   "langchain-openai==1.0.1",
   "langgraph==1.0.1",
