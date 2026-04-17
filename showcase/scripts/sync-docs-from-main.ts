@@ -11,6 +11,7 @@
  */
 
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { execSync } from "child_process";
 import { fileURLToPath } from "url";
@@ -307,8 +308,94 @@ interface SyncResult {
   copied: string[];
   transformed: string[];
   needsReview: string[];
+  autoMerged: string[];
+  mergeConflict: string[];
   skipped: string[];
   deleted: string[];
+}
+
+// ---------------------------------------------------------------------------
+// 3-way merge for showcase-local modifications
+// ---------------------------------------------------------------------------
+
+/**
+ * Attempt a 3-way merge for a file with showcase-local modifications.
+ *
+ * - base   = clean transform of main file at the last sync sha
+ * - local  = current showcase file on disk
+ * - remote = clean transform of main file at HEAD
+ *
+ * Returns { success: true, content } if `git merge-file` produced a clean
+ * merge (exit 0, no conflict markers).
+ *
+ * Returns { success: false, content: upstreamTransformed } if merge produced
+ * conflicts or failed to compute a base. Caller writes upstream-wins content
+ * and flags the file for manual review in the PR body.
+ */
+function attemptThreeWayMerge(
+  showcasePath: string,
+  mainPath: string,
+  lastSyncSha: string,
+): { success: boolean; content: string } {
+  const upstreamContent = fs.readFileSync(mainPath, "utf-8");
+  const upstreamTransformed = transformContent(upstreamContent, showcasePath);
+
+  if (!fs.existsSync(showcasePath)) {
+    return { success: true, content: upstreamTransformed };
+  }
+
+  const localContent = fs.readFileSync(showcasePath, "utf-8");
+
+  let baseContent: string;
+  try {
+    const mainRelative = path.relative(ROOT, mainPath);
+    const previousMainContent = execSync(
+      `git show ${lastSyncSha}:${mainRelative}`,
+      { encoding: "utf-8", cwd: ROOT },
+    );
+    baseContent = transformContent(previousMainContent, showcasePath);
+  } catch {
+    // No base available — cannot 3-way merge safely
+    return { success: false, content: upstreamTransformed };
+  }
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "docs-sync-"));
+  const localFile = path.join(tmpDir, "local");
+  const baseFile = path.join(tmpDir, "base");
+  const remoteFile = path.join(tmpDir, "remote");
+  try {
+    fs.writeFileSync(localFile, localContent);
+    fs.writeFileSync(baseFile, baseContent);
+    fs.writeFileSync(remoteFile, upstreamTransformed);
+
+    // `git merge-file` writes merged result in-place into `localFile`.
+    // Exit code 0 = clean merge; >0 = number of conflicts remaining.
+    let mergeExitCode = 0;
+    try {
+      execSync(
+        `git merge-file -L showcase -L base -L upstream "${localFile}" "${baseFile}" "${remoteFile}"`,
+        { stdio: "pipe" },
+      );
+    } catch (err: unknown) {
+      if (err instanceof Error && "status" in err) {
+        mergeExitCode = (err as { status: number }).status;
+      } else {
+        return { success: false, content: upstreamTransformed };
+      }
+    }
+
+    if (mergeExitCode === 0) {
+      const merged = fs.readFileSync(localFile, "utf-8");
+      return { success: true, content: merged };
+    }
+    return { success: false, content: upstreamTransformed };
+  } finally {
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 function parseArgs(): { dryRun: boolean; all: boolean } {
@@ -339,6 +426,8 @@ function main(): SyncResult {
     copied: [],
     transformed: [],
     needsReview: [],
+    autoMerged: [],
+    mergeConflict: [],
     skipped: [],
     deleted: [],
   };
@@ -361,12 +450,54 @@ function main(): SyncResult {
       continue;
     }
 
-    // Check for showcase-local modifications
+    // Check for showcase-local modifications — attempt 3-way merge and
+    // always produce file content. Clean merge = auto-applied; conflicting
+    // merge = upstream-wins, flagged for human review in PR body.
     if (
       hasShowcaseLocalModifications(showcaseAbsolute, mainAbsolute, lastSyncSha)
     ) {
       result.needsReview.push(relPath);
-      console.log(`  [REVIEW] ${relPath} (showcase has local modifications)`);
+      const merge = attemptThreeWayMerge(
+        showcaseAbsolute,
+        mainAbsolute,
+        lastSyncSha,
+      );
+
+      // If the result is identical to what's already on disk, nothing to do.
+      const existingContent = fs.existsSync(showcaseAbsolute)
+        ? fs.readFileSync(showcaseAbsolute, "utf-8")
+        : null;
+      if (
+        existingContent !== null &&
+        existingContent.trim() === merge.content.trim()
+      ) {
+        result.skipped.push(relPath);
+        if (merge.success) {
+          console.log(
+            `  [REVIEW/NOOP] ${relPath} (merged content matches existing)`,
+          );
+        } else {
+          console.log(
+            `  [REVIEW/NOOP] ${relPath} (upstream-wins content matches existing)`,
+          );
+        }
+        continue;
+      }
+
+      if (!dryRun) {
+        fs.mkdirSync(path.dirname(showcaseAbsolute), { recursive: true });
+        fs.writeFileSync(showcaseAbsolute, merge.content);
+      }
+
+      if (merge.success) {
+        result.autoMerged.push(relPath);
+        console.log(`  [REVIEW/AUTO-MERGED] ${relPath} (3-way merge clean)`);
+      } else {
+        result.mergeConflict.push(relPath);
+        console.log(
+          `  [REVIEW/CONFLICT] ${relPath} (3-way merge failed; upstream wins — manual review required)`,
+        );
+      }
       continue;
     }
 
@@ -401,8 +532,16 @@ function main(): SyncResult {
     }
   }
 
-  // Update sync marker
-  if (!dryRun && (result.copied.length > 0 || result.transformed.length > 0)) {
+  // Update sync marker only when the merge is clean (no manual-review
+  // conflicts left). If there are conflicts, keep the old sha so the next
+  // run re-attempts the merge once a human has reconciled the conflict PR.
+  if (
+    !dryRun &&
+    result.mergeConflict.length === 0 &&
+    (result.copied.length > 0 ||
+      result.transformed.length > 0 ||
+      result.autoMerged.length > 0)
+  ) {
     fs.writeFileSync(SYNC_MARKER, headSha + "\n");
   }
 
@@ -410,15 +549,23 @@ function main(): SyncResult {
   console.log("\n=== Summary ===");
   console.log(`Copied (identical): ${result.copied.length}`);
   console.log(`Transformed: ${result.transformed.length}`);
-  console.log(`Needs review: ${result.needsReview.length}`);
+  console.log(`Auto-merged (3-way clean): ${result.autoMerged.length}`);
+  console.log(
+    `Merge conflict (upstream-wins, needs review): ${result.mergeConflict.length}`,
+  );
+  console.log(`Needs review (total): ${result.needsReview.length}`);
   console.log(`Skipped (up to date): ${result.skipped.length}`);
   console.log(`Deleted on main: ${result.deleted.length}`);
 
-  if (result.needsReview.length > 0) {
-    console.log("\nFiles needing manual review:");
-    for (const f of result.needsReview) {
-      console.log(`  ${f}`);
-    }
+  if (result.autoMerged.length > 0) {
+    console.log("\nFiles auto-merged (3-way clean):");
+    for (const f of result.autoMerged) console.log(`  ${f}`);
+  }
+  if (result.mergeConflict.length > 0) {
+    console.log(
+      "\nFiles written with upstream-wins (merge conflict — manual review):",
+    );
+    for (const f of result.mergeConflict) console.log(`  ${f}`);
   }
 
   if (result.deleted.length > 0) {
@@ -434,26 +581,40 @@ function main(): SyncResult {
 const result = main();
 
 // Exit codes for CI:
-//   0 = changes auto-applied (clean transforms only, safe to push directly)
-//   2 = nothing changed (CI does nothing)
-//   3 = has review items (CI should open a PR for the needsReview/deleted files)
+//   0 = changes auto-applied (clean transforms / clean 3-way merges); safe to
+//       push + auto-merge
+//   2 = nothing changed
+//   3 = has review items (either 3-way merge conflicts where upstream won,
+//       or files deleted on main); CI opens a PR but does NOT auto-merge
 const hasAutoApplied =
-  result.copied.length > 0 || result.transformed.length > 0;
+  result.copied.length > 0 ||
+  result.transformed.length > 0 ||
+  result.autoMerged.length > 0;
 const hasReviewItems =
-  result.needsReview.length > 0 || result.deleted.length > 0;
+  result.mergeConflict.length > 0 || result.deleted.length > 0;
 
 if (!hasAutoApplied && !hasReviewItems) {
   process.exit(2);
 } else if (hasReviewItems) {
-  // Write review items to a file for CI to include in PR body
+  // Write review items to a file for CI to include in PR body.
+  // These files are already written to disk — CI will commit them and open
+  // a PR flagged "needs review" (no auto-merge).
   const reviewLines: string[] = [];
-  if (result.needsReview.length > 0) {
+  if (result.mergeConflict.length > 0) {
     reviewLines.push(
-      "Files with showcase-local modifications (need manual merge):",
+      "Files where 3-way merge FAILED — upstream content written as-is, local modifications overridden. Manual review REQUIRED before merging this PR:",
     );
-    for (const f of result.needsReview) reviewLines.push(`  - ${f}`);
+    for (const f of result.mergeConflict) reviewLines.push(`  - ${f}`);
+  }
+  if (result.autoMerged.length > 0) {
+    reviewLines.push("");
+    reviewLines.push(
+      "Files auto-merged via 3-way merge (clean, no conflict markers — still worth a glance):",
+    );
+    for (const f of result.autoMerged) reviewLines.push(`  - ${f}`);
   }
   if (result.deleted.length > 0) {
+    reviewLines.push("");
     reviewLines.push(
       "Files deleted on main (review whether to delete in showcase):",
     );
