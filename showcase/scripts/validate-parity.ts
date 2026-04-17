@@ -70,8 +70,9 @@ const EXIT_MUST_FAILURE = 1;
 const EXIT_UNREADABLE = 3;
 const EXIT_INTERNAL = 4;
 
-// Manifest / ManifestDemo now live in ./lib/manifest.ts. Re-exported below
-// for callers that import these types from "../validate-parity.js".
+// Manifest / ManifestDemo now live in ./lib/manifest.ts. Re-exported on
+// the next line for callers that import these types from
+// "../validate-parity.js".
 export type { Manifest, ManifestDemo };
 
 /**
@@ -84,6 +85,20 @@ export class ManifestMalformedError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "ManifestMalformedError";
+  }
+}
+
+/**
+ * Thrown by `auditPackage` when called with an invalid baseline value
+ * (non-positive, non-integer, NaN, Infinity). Defence-in-depth: the
+ * CLI wrapper validates via coerceBaseline, but direct programmatic
+ * callers of auditPackage should also fail fast rather than silently
+ * comparing against NaN / 0.
+ */
+export class InvalidBaselineError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidBaselineError";
   }
 }
 
@@ -112,6 +127,7 @@ export type PackageIssue =
   | { category: "unreadable-manifest"; message: string }
   | { category: "malformed-manifest"; message: string }
   | { category: "missing-demo-dir"; demoId: string; message: string }
+  | { category: "unreadable-demos-dir"; path: string; message: string }
   | { category: "missing-spec"; demoId: string; message: string }
   | { category: "missing-qa"; demoId: string; message: string }
   | { category: "baseline-deviation"; message: string }
@@ -230,9 +246,59 @@ export function auditPackage(
   packagesDir: string = DEFAULT_PACKAGES_DIR,
   baselineDemoCount: number = BASELINE_DEMO_COUNT,
 ): PackageReport {
+  // Defence-in-depth: runParity validates baseline via coerceBaseline,
+  // but auditPackage is exported for direct use by tests / future
+  // callers. A NaN / 0 / negative / non-integer baseline silently
+  // produces nonsense `demoIds.length !== baseline` warnings otherwise.
+  if (
+    typeof baselineDemoCount !== "number" ||
+    !Number.isFinite(baselineDemoCount) ||
+    !Number.isInteger(baselineDemoCount) ||
+    baselineDemoCount <= 0
+  ) {
+    throw new InvalidBaselineError(
+      `baselineDemoCount must be a positive integer, got ${String(baselineDemoCount)}`,
+    );
+  }
+
   const pkgDir = path.join(packagesDir, slug);
   const mustErrors: PackageIssue[] = [];
   const warnings: PackageIssue[] = [];
+
+  // Pre-compute spec/qa/demo-dir listings up-front so the reporter row
+  // still shows accurate counts even if manifest parsing fails. MUST
+  // errors still gate the exit code — this only affects the table.
+  const specResult = listFiles(path.join(pkgDir, "tests", "e2e"), ".spec.ts");
+  const qaResult = listFiles(path.join(pkgDir, "qa"), ".md");
+  const demoDirResult = listDirs(path.join(pkgDir, "src", "app", "demos"));
+
+  const specFiles = specResult.entries;
+  const qaFiles = qaResult.entries;
+  const demoDirs = demoDirResult.entries;
+
+  // R8-2-4: when src/app/demos/ is unreadable, elevate to a MUST error
+  // under category "unreadable-demos-dir" and SUPPRESS the downstream
+  // missing-demo-dir cascade so the EACCES root cause isn't buried.
+  // We detect this by checking whether listDirs returned a
+  // listing-failed warning for the demos/ path specifically.
+  const demosDirPath = path.join(pkgDir, "src", "app", "demos");
+  const demosDirUnreadable = demoDirResult.warnings.find(
+    (w) => w.category === "listing-failed" && w.path === demosDirPath,
+  );
+
+  // Merge spec/qa listing warnings unconditionally. The demo-dir
+  // listing warning is handled specially below — we only merge it if
+  // it was NOT elevated to a MUST error.
+  warnings.push(...specResult.warnings, ...qaResult.warnings);
+  if (!demosDirUnreadable) {
+    warnings.push(...demoDirResult.warnings);
+  } else {
+    mustErrors.push({
+      category: "unreadable-demos-dir",
+      path: demosDirPath,
+      message: `unreadable demos directory: ${demosDirUnreadable.message}`,
+    });
+  }
 
   let manifest: Manifest | null;
   try {
@@ -259,12 +325,15 @@ export function auditPackage(
         message: `unparseable manifest.yaml: ${msg}`,
       });
     }
+    // Don't early-return: we still return the report with spec/qa/demo
+    // dir counts populated so the table row is accurate. MUST error
+    // already gates the exit code.
     return {
       slug,
       demoIds: [],
-      specFiles: [],
-      qaFiles: [],
-      demoDirs: [],
+      specFiles,
+      qaFiles,
+      demoDirs,
       mustErrors,
       warnings,
     };
@@ -278,9 +347,9 @@ export function auditPackage(
     return {
       slug,
       demoIds: [],
-      specFiles: [],
-      qaFiles: [],
-      demoDirs: [],
+      specFiles,
+      qaFiles,
+      demoDirs,
       mustErrors,
       warnings,
     };
@@ -294,31 +363,23 @@ export function auditPackage(
   const demos = manifest.demos ?? [];
   const demoIds = demos.map((d) => d.id);
 
-  const specResult = listFiles(path.join(pkgDir, "tests", "e2e"), ".spec.ts");
-  const qaResult = listFiles(path.join(pkgDir, "qa"), ".md");
-  const demoDirResult = listDirs(path.join(pkgDir, "src", "app", "demos"));
-  warnings.push(
-    ...specResult.warnings,
-    ...qaResult.warnings,
-    ...demoDirResult.warnings,
-  );
-
-  const specFiles = specResult.entries;
-  const qaFiles = qaResult.entries;
-  const demoDirs = demoDirResult.entries;
-
   const demoDirSet = new Set(demoDirs);
   const specIdSet = new Set(specFiles.map((f) => f.replace(/\.spec\.ts$/, "")));
   const qaIdSet = new Set(qaFiles.map((f) => f.replace(/\.md$/, "")));
 
-  // MUST: every declared demo has a demos/<id>/ directory
-  for (const id of demoIds) {
-    if (!demoDirSet.has(id)) {
-      mustErrors.push({
-        category: "missing-demo-dir",
-        demoId: id,
-        message: `demo '${id}' declared in manifest but no src/app/demos/${id}/ directory`,
-      });
+  // MUST: every declared demo has a demos/<id>/ directory. Suppressed
+  // entirely when the demos/ dir itself is unreadable — a single
+  // unreadable-demos-dir MUST is clearer than N cascaded missing-demo-dir
+  // errors that all trace to the same EACCES root cause.
+  if (!demosDirUnreadable) {
+    for (const id of demoIds) {
+      if (!demoDirSet.has(id)) {
+        mustErrors.push({
+          category: "missing-demo-dir",
+          demoId: id,
+          message: `demo '${id}' declared in manifest but no src/app/demos/${id}/ directory`,
+        });
+      }
     }
   }
 
@@ -392,27 +453,60 @@ interface MainOptions {
 }
 
 /**
- * Validate a candidate baseline value. Returns the integer on success,
- * or null for any non-finite / non-integer / non-positive value. Used
- * to guard both `--baseline=N` CLI parsing and
+ * Discriminated union of rejection reasons emitted by `coerceBaseline`.
+ * Consumers map the reason into a specific diagnostic message so bad
+ * input is actionable (e.g. "1.5" → float, "0x10" → hex).
+ */
+export type CoerceBaselineReason =
+  | "empty"
+  | "whitespace"
+  | "zero"
+  | "negative"
+  | "float"
+  | "hex"
+  | "non-numeric";
+
+export type CoerceBaselineResult =
+  | { ok: true; value: number }
+  | { ok: false; reason: CoerceBaselineReason };
+
+/**
+ * Validate a candidate baseline value. Returns a discriminated union so
+ * callers can surface a specific reason in user-facing error messages
+ * (distinguishing e.g. "1.5" from "0x10" from "abc" matters when the
+ * CI operator has to guess what they typed wrong).
+ *
+ * Used to guard both `--baseline=N` CLI parsing and
  * `VALIDATE_PARITY_BASELINE` env-var parsing.
  */
-function coerceBaseline(raw: unknown): number | null {
+export function coerceBaseline(raw: unknown): CoerceBaselineResult {
   if (typeof raw === "number") {
-    if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw <= 0) {
-      return null;
-    }
-    return raw;
+    if (!Number.isFinite(raw)) return { ok: false, reason: "non-numeric" };
+    if (!Number.isInteger(raw)) return { ok: false, reason: "float" };
+    if (raw === 0) return { ok: false, reason: "zero" };
+    if (raw < 0) return { ok: false, reason: "negative" };
+    return { ok: true, value: raw };
   }
-  if (typeof raw !== "string") return null;
+  if (typeof raw !== "string") return { ok: false, reason: "non-numeric" };
+  if (raw.length === 0) return { ok: false, reason: "empty" };
   const trimmed = raw.trim();
-  // Explicit digits-only check — Number("0x10") / Number("1e2") /
-  // Number(" 9 ") would all accept otherwise. Reject leading + and
-  // anything with a decimal point too.
-  if (!/^[1-9]\d*$/.test(trimmed)) return null;
+  if (trimmed.length === 0) return { ok: false, reason: "whitespace" };
+  // Distinguish specific bad shapes so the error message can be clearer.
+  if (/^0x[0-9a-fA-F]+$/.test(trimmed)) return { ok: false, reason: "hex" };
+  if (/^-\d+$/.test(trimmed)) return { ok: false, reason: "negative" };
+  if (/^-?\d+\.\d+$/.test(trimmed)) return { ok: false, reason: "float" };
+  if (trimmed === "0" || /^0+$/.test(trimmed))
+    return { ok: false, reason: "zero" };
+  // Strict digits-only: rejects leading +, exponent (1e2), leading 0,
+  // and anything else Number() would otherwise coerce.
+  if (!/^[1-9]\d*$/.test(trimmed)) return { ok: false, reason: "non-numeric" };
   const n = Number(trimmed);
-  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return null;
-  return n;
+  if (!Number.isFinite(n) || !Number.isInteger(n)) {
+    return { ok: false, reason: "non-numeric" };
+  }
+  if (n === 0) return { ok: false, reason: "zero" };
+  if (n < 0) return { ok: false, reason: "negative" };
+  return { ok: true, value: n };
 }
 
 function parseMainArgs(argv: string[]): MainOptions {
@@ -424,34 +518,101 @@ function parseMainArgs(argv: string[]): MainOptions {
     const m = /^--baseline=(.*)$/.exec(a);
     if (m) {
       const coerced = coerceBaseline(m[1]);
-      if (coerced === null) {
+      if (!coerced.ok) {
         throw new Error(
-          `invalid --baseline value "${m[1]}" (expected a positive integer)`,
+          `invalid --baseline value "${m[1]}" (${coerced.reason}; expected a positive integer)`,
         );
       }
-      opts.baseline = coerced;
+      opts.baseline = coerced.value;
     }
   }
   return opts;
 }
 
-// Header format for the pass/summary table. Column widths are centralised
-// here (not repeated as magic numbers in the divider) so adding/removing
-// columns doesn't require hand-editing a sum further down. Consumers call
-// formatHeader / formatRow / computeDividerWidth.
-const HEADER_COLUMNS = [
-  { label: "package", width: 0 /* derived from slugs at runtime */ },
-  { label: "status", width: 6 },
-  { label: "demos", width: 5 },
-  { label: "specs", width: 5 },
-  { label: "qa", width: 3 },
-  { label: "notes", width: 10 },
+/**
+ * Column spec for the pass/summary table. Both header and data rows
+ * are rendered from this single array so widths can never drift — add
+ * or remove a column here and `buildHeader` / `formatRow` both update
+ * in lockstep.
+ *
+ * `width` is the minimum display width for the column. The first
+ * column ("package") uses a runtime-derived slug width instead.
+ *
+ * `align`: "left" → padEnd, "right" → padStart. Numeric columns align
+ * right so counts line up visually; string labels align left.
+ *
+ * `render(report)` projects a PackageReport into its cell string. The
+ * same cells are emitted for the header (labels padded to `width`) so
+ * both sides are character-for-character identical width per column.
+ */
+export interface HeaderColumn {
+  readonly label: string;
+  readonly width: number;
+  readonly align: "left" | "right";
+  readonly render: (r: PackageReport) => string;
+}
+
+export const HEADER_COLUMNS: readonly HeaderColumn[] = [
+  {
+    label: "package",
+    width: 0 /* derived from slugs at runtime */,
+    align: "left",
+    render: (r) => r.slug,
+  },
+  {
+    label: "status",
+    width: 6,
+    align: "left",
+    render: (r) => (r.mustErrors.length > 0 ? "[FAIL]" : "[PASS]"),
+  },
+  {
+    label: "demos",
+    width: 5,
+    align: "right",
+    render: (r) => String(r.demoIds.length),
+  },
+  {
+    label: "specs",
+    width: 5,
+    align: "right",
+    render: (r) => String(r.specFiles.length),
+  },
+  {
+    label: "qa",
+    width: 3,
+    align: "right",
+    render: (r) => String(r.qaFiles.length),
+  },
+  {
+    label: "notes",
+    width: 10,
+    align: "left",
+    render: (r) => (r.warnings.length > 0 ? `${r.warnings.length} warn` : ""),
+  },
 ] as const;
 
-function buildHeader(slugWidth: number): string {
-  const cols = HEADER_COLUMNS.map((c, i) =>
-    i === 0 ? "package".padEnd(slugWidth) : c.label.padEnd(c.width),
-  );
+function padCell(s: string, width: number, align: "left" | "right"): string {
+  return align === "right" ? s.padStart(width) : s.padEnd(width);
+}
+
+export function buildHeader(slugWidth: number): string {
+  const cols = HEADER_COLUMNS.map((c, i) => {
+    const w = i === 0 ? slugWidth : c.width;
+    return padCell(c.label, w, c.align);
+  });
+  return cols.join("  ");
+}
+
+/**
+ * Render a data row using the same column widths and alignment the
+ * header uses. Driving both from HEADER_COLUMNS guarantees they stay
+ * in sync — changing a width in one place updates both.
+ */
+export function formatRow(report: PackageReport, slugWidth: number): string {
+  const cols = HEADER_COLUMNS.map((c, i) => {
+    const w = i === 0 ? slugWidth : c.width;
+    return padCell(c.render(report), w, c.align);
+  });
   return cols.join("  ");
 }
 
@@ -474,28 +635,37 @@ export function runParity(
       ? path.join(envRoot, "packages")
       : DEFAULT_PACKAGES_DIR);
 
-  // CLI-flag baseline overrides env default; explicit parameter wins.
-  // Both --baseline= and VALIDATE_PARITY_BASELINE are validated as
-  // positive integers — NaN / "abc" / "0" / "-1" are rejected with a
-  // clear error rather than silently coerced.
-  let cliOpts: MainOptions;
-  try {
-    cliOpts = parseMainArgs(process.argv.slice(2));
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[FAIL] ${msg}`);
-    return EXIT_MUST_FAILURE;
-  }
-
-  const envBaseline = process.env.VALIDATE_PARITY_BASELINE;
+  // R8-1-23: only read process.argv when invoked from the top-level
+  // CLI entrypoint (i.e. when no explicit baseline was passed). In-
+  // process callers that hand in an explicit baseline must not have
+  // their behaviour perturbed by argv they didn't write. The env var
+  // (VALIDATE_PARITY_BASELINE) is also skipped when the caller passes
+  // an explicit value — the parameter is the highest-precedence source.
+  let cliOpts: MainOptions = {};
   let envBaselineCoerced: number | null = null;
-  if (envBaseline !== undefined && envBaseline.length > 0) {
-    envBaselineCoerced = coerceBaseline(envBaseline);
-    if (envBaselineCoerced === null) {
-      console.error(
-        `[FAIL] invalid VALIDATE_PARITY_BASELINE value "${envBaseline}" (expected a positive integer)`,
-      );
+  if (baselineDemoCount === undefined) {
+    // CLI-flag baseline overrides env default. Both --baseline= and
+    // VALIDATE_PARITY_BASELINE are validated as positive integers —
+    // NaN / "abc" / "0" / "-1" are rejected with a clear reason rather
+    // than silently coerced.
+    try {
+      cliOpts = parseMainArgs(process.argv.slice(2));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[FAIL] ${msg}`);
       return EXIT_MUST_FAILURE;
+    }
+
+    const envBaseline = process.env.VALIDATE_PARITY_BASELINE;
+    if (envBaseline !== undefined && envBaseline.length > 0) {
+      const coerced = coerceBaseline(envBaseline);
+      if (!coerced.ok) {
+        console.error(
+          `[FAIL] invalid VALIDATE_PARITY_BASELINE value "${envBaseline}" (${coerced.reason}; expected a positive integer)`,
+        );
+        return EXIT_MUST_FAILURE;
+      }
+      envBaselineCoerced = coerced.value;
     }
   }
 
@@ -554,16 +724,11 @@ export function runParity(
   console.log("-".repeat(header.length));
 
   for (const r of reports) {
-    const status = r.mustErrors.length > 0 ? "FAIL" : "PASS";
     if (r.mustErrors.length > 0) hasMustFailure = true;
     totalWarnings += r.warnings.length;
-
-    const notes =
-      r.warnings.length > 0 ? `${r.warnings.length} warning(s)` : "";
-
-    console.log(
-      `${r.slug.padEnd(slugWidth)}  [${status}]  ${String(r.demoIds.length).padStart(4)}   ${String(r.specFiles.length).padStart(4)}   ${String(r.qaFiles.length).padStart(3)}  ${notes}`,
-    );
+    // Drive both header and row from HEADER_COLUMNS so widths / alignment
+    // can never drift (PA-R8-C4 regression guard — see formatRow).
+    console.log(formatRow(r, slugWidth));
   }
 
   // Emit MUST errors to stderr (failures belong on stderr, not stdout —
@@ -599,9 +764,12 @@ function main(packagesDir?: string, baselineDemoCount?: number): void {
 }
 
 // Only invoke main() when this file is run directly (not when imported by
-// tests). Matches the isMain guard pattern used by audit.ts — resolve
-// BOTH sides so tsx/pnpm realpath quirks (symlinks, non-canonical argv[1])
-// don't break the comparison.
+// tests). Matches the isMain guard pattern used by audit.ts. Call
+// path.resolve on BOTH sides to normalise relative segments and ".." /
+// "." quirks in argv[1] / import.meta.url — note this does NOT
+// canonicalise symlinks (use fs.realpathSync for that); the guard
+// tolerates non-canonical-but-equivalent argv shapes, not symlinks
+// pointing at the same inode.
 if (
   process.argv[1] &&
   path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))

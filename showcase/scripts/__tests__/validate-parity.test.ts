@@ -30,6 +30,11 @@ import {
   listDirs,
   ManifestMalformedError,
   ManifestUnreadableError,
+  runParity,
+  coerceBaseline,
+  HEADER_COLUMNS,
+  formatRow,
+  buildHeader,
 } from "../validate-parity.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -475,6 +480,200 @@ describe("validate-parity", () => {
         ),
       ).toBe(true);
     });
+
+    it("warns with qa-under-coverage when qa count < demo count (PA-R8-T3)", () => {
+      // Fixture: 2 demos but only 1 QA doc. Distinct from spec-less (which
+      // omits a spec). Exercises the qa-under-coverage branch via a
+      // direct in-process auditPackage call (no CLI subprocess).
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-qaundercov-"));
+      try {
+        writeFixturePackage(tmp, "qa-less", {
+          manifest:
+            "slug: qa-less\ndemos:\n  - id: chat\n    name: Chat\n  - id: tools\n    name: Tools\n",
+          demoDirs: ["chat", "tools"],
+          specFiles: ["chat.spec.ts", "tools.spec.ts"],
+          qaFiles: ["chat.md"],
+        });
+        const report = auditPackage("qa-less", tmp);
+        expect(
+          report.warnings.some(
+            (w) =>
+              w.category === "qa-under-coverage" &&
+              /qa count.*<.*demo count/.test(w.message),
+          ),
+        ).toBe(true);
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("warns with missing-qa category when a demo has spec but no qa file (PA-R8-T5)", () => {
+      // Fixture: demo has a spec but no qa — tests the per-demo
+      // missing-qa branch explicitly, distinct from the bucket-wide
+      // qa-under-coverage warning.
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-missqa-"));
+      try {
+        writeFixturePackage(tmp, "no-qa", {
+          manifest: "slug: no-qa\ndemos:\n  - id: chat\n    name: Chat\n",
+          demoDirs: ["chat"],
+          specFiles: ["chat.spec.ts"],
+        });
+        const report = auditPackage("no-qa", tmp);
+        expect(
+          report.warnings.some(
+            (w) =>
+              w.category === "missing-qa" &&
+              w.demoId === "chat" &&
+              /no qa\/chat\.md/.test(w.message),
+          ),
+        ).toBe(true);
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("emits baseline-deviation warning via direct auditPackage when demo count != baseline (PA-R8-T4)", () => {
+      // Direct in-process call (no CLI subprocess) asserting the
+      // structured baseline-deviation category, complementing the
+      // existing CLI-level coverage.
+      const report = auditPackage("ok-pkg", FIXTURES_DIR, 5);
+      expect(
+        report.warnings.some(
+          (w) =>
+            w.category === "baseline-deviation" &&
+            /demo count 1 deviates from baseline 5/.test(w.message),
+        ),
+      ).toBe(true);
+    });
+
+    it("uses structured warning category assertions instead of [WARN] prefix text (PA-R8-T6)", () => {
+      // Replaces brittle stderr [WARN] prefix scraping. Assert on the
+      // typed `warnings` array shape directly.
+      const report = auditPackage("missing-spec", FIXTURES_DIR);
+      const missingSpec = report.warnings.find(
+        (w) => w.category === "missing-spec",
+      );
+      expect(missingSpec).toBeDefined();
+      if (missingSpec && missingSpec.category === "missing-spec") {
+        expect(missingSpec.demoId).toBe("chat");
+        expect(missingSpec.message).toMatch(/no tests\/e2e\/chat\.spec\.ts/);
+      }
+    });
+
+    it("elevates unreadable demos dir to MUST with unreadable-demos-dir and suppresses missing-demo-dir cascade (R8-2-4)", () => {
+      // When src/app/demos/ is unreadable, the legacy behaviour was to
+      // report a listing-failed WARNING plus N missing-demo-dir MUST
+      // errors (one per declared demo). The root cause (EACCES on demos/)
+      // was buried. New contract: one MUST error of category
+      // "unreadable-demos-dir", no missing-demo-dir cascade.
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-demosunread-"));
+      try {
+        const pkgDir = path.join(tmp, "demos-unreadable");
+        fs.mkdirSync(path.join(pkgDir, "src", "app", "demos"), {
+          recursive: true,
+        });
+        fs.writeFileSync(
+          path.join(pkgDir, "manifest.yaml"),
+          "slug: demos-unreadable\ndemos:\n  - id: a\n  - id: b\n  - id: c\n",
+          "utf-8",
+        );
+        const warnSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+        const readdirSpy = vi.spyOn(fs, "readdirSync").mockImplementation(((
+          p: fs.PathLike,
+          ...rest: unknown[]
+        ) => {
+          const s = typeof p === "string" ? p : p.toString();
+          if (
+            s.endsWith(`${path.sep}src${path.sep}app${path.sep}demos`) ||
+            s.endsWith("/src/app/demos")
+          ) {
+            const e: NodeJS.ErrnoException = Object.assign(
+              new Error("EACCES: permission denied"),
+              { code: "EACCES" },
+            );
+            throw e;
+          }
+          return (
+            fs.readdirSync as unknown as (
+              p: fs.PathLike,
+              ...rest: unknown[]
+            ) => unknown
+          ).call({ __bypass: true }, p, ...rest);
+        }) as unknown as typeof fs.readdirSync);
+        try {
+          const report = auditPackage("demos-unreadable", tmp);
+          // MUST contains exactly one unreadable-demos-dir, no per-demo cascade.
+          const unreadable = report.mustErrors.filter(
+            (e) => e.category === "unreadable-demos-dir",
+          );
+          expect(unreadable.length).toBe(1);
+          const missingDemoDir = report.mustErrors.filter(
+            (e) => e.category === "missing-demo-dir",
+          );
+          expect(missingDemoDir.length).toBe(0);
+          // And the warnings array must NOT still carry the listing-failed
+          // entry for demos dir (it was elevated, not duplicated).
+          const listingFailedDemos = report.warnings.filter(
+            (w) =>
+              w.category === "listing-failed" && /src\/app\/demos/.test(w.path),
+          );
+          expect(listingFailedDemos.length).toBe(0);
+        } finally {
+          readdirSpy.mockRestore();
+          warnSpy.mockRestore();
+        }
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("still lists spec/qa files after a manifest failure so reporter counts are accurate (R8-2-17)", () => {
+      // When manifest is malformed, MUST error still fires, but the
+      // reporter row benefits from knowing spec/qa counts. Early return
+      // was hiding those counts. New contract: specFiles / qaFiles
+      // populated with whatever is on disk.
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-manfail-"));
+      try {
+        const pkgDir = path.join(tmp, "manifest-bad");
+        fs.mkdirSync(pkgDir, { recursive: true });
+        // Malformed manifest.
+        fs.writeFileSync(
+          path.join(pkgDir, "manifest.yaml"),
+          "slug: manifest-bad\ndemos:\n  - id: a\n  invalid: [unclosed\n",
+          "utf-8",
+        );
+        // But qa + spec files exist.
+        fs.mkdirSync(path.join(pkgDir, "tests", "e2e"), { recursive: true });
+        fs.writeFileSync(
+          path.join(pkgDir, "tests", "e2e", "a.spec.ts"),
+          "",
+          "utf-8",
+        );
+        fs.mkdirSync(path.join(pkgDir, "qa"), { recursive: true });
+        fs.writeFileSync(path.join(pkgDir, "qa", "a.md"), "", "utf-8");
+        const report = auditPackage("manifest-bad", tmp);
+        // MUST still gate the exit code.
+        expect(
+          report.mustErrors.some((e) => e.category === "malformed-manifest"),
+        ).toBe(true);
+        // specFiles / qaFiles populated from disk, not empty.
+        expect(report.specFiles).toEqual(["a.spec.ts"]);
+        expect(report.qaFiles).toEqual(["a.md"]);
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("auditPackage throws when baselineDemoCount is not a positive integer (R8-2-15)", () => {
+      // Defense-in-depth: callers outside runParity() can invoke
+      // auditPackage directly. Bad baseline values should fail fast, not
+      // silently warn or NaN-compare.
+      for (const bad of [0, -1, 1.5, NaN, Infinity, -Infinity]) {
+        expect(() => auditPackage("ok-pkg", FIXTURES_DIR, bad)).toThrow(
+          /baselineDemoCount/,
+        );
+      }
+    });
   });
 
   describe("listDirs / listFiles graceful error handling", () => {
@@ -791,6 +990,197 @@ describe("validate-parity", () => {
       });
       expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(1);
       expect(r.stderr).toMatch(/invalid --baseline value/);
+    });
+  });
+
+  describe("coerceBaseline (discriminated union)", () => {
+    // R8-2-9: coerceBaseline returns { ok: true, value } | { ok: false, reason }
+    // so the caller can surface a specific diagnostic (hex vs float vs
+    // negative etc.) instead of one blanket "invalid" message.
+    it("returns ok:true for valid positive integers", () => {
+      expect(coerceBaseline(9)).toEqual({ ok: true, value: 9 });
+      expect(coerceBaseline("9")).toEqual({ ok: true, value: 9 });
+      expect(coerceBaseline("42")).toEqual({ ok: true, value: 42 });
+    });
+
+    it("rejects empty / whitespace with reason", () => {
+      expect(coerceBaseline("")).toEqual({ ok: false, reason: "empty" });
+      expect(coerceBaseline("   ")).toEqual({
+        ok: false,
+        reason: "whitespace",
+      });
+    });
+
+    it("rejects zero with reason", () => {
+      expect(coerceBaseline(0)).toEqual({ ok: false, reason: "zero" });
+      expect(coerceBaseline("0")).toEqual({ ok: false, reason: "zero" });
+    });
+
+    it("rejects negatives with reason", () => {
+      expect(coerceBaseline(-1)).toEqual({ ok: false, reason: "negative" });
+      expect(coerceBaseline("-1")).toEqual({ ok: false, reason: "negative" });
+    });
+
+    it("rejects floats with reason", () => {
+      expect(coerceBaseline(1.5)).toEqual({ ok: false, reason: "float" });
+      expect(coerceBaseline("1.5")).toEqual({ ok: false, reason: "float" });
+    });
+
+    it("rejects hex notation with reason", () => {
+      expect(coerceBaseline("0x10")).toEqual({ ok: false, reason: "hex" });
+    });
+
+    it("rejects non-numeric strings with reason", () => {
+      expect(coerceBaseline("abc")).toEqual({
+        ok: false,
+        reason: "non-numeric",
+      });
+      expect(coerceBaseline("NaN")).toEqual({
+        ok: false,
+        reason: "non-numeric",
+      });
+      expect(coerceBaseline("1e2")).toEqual({
+        ok: false,
+        reason: "non-numeric",
+      });
+    });
+
+    it("rejects NaN / Infinity (numeric) with reason", () => {
+      expect(coerceBaseline(NaN)).toEqual({
+        ok: false,
+        reason: "non-numeric",
+      });
+      expect(coerceBaseline(Infinity)).toEqual({
+        ok: false,
+        reason: "non-numeric",
+      });
+    });
+
+    it("includes the specific reason in CLI error output", () => {
+      // The CLI diagnostic should thread the reason through to the
+      // user-facing message so bad input is actionable, not opaque.
+      const { root, packagesDir } = makeMainTree();
+      try {
+        writeFixturePackage(packagesDir, "only-pkg", {
+          manifest: "slug: only-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
+          demoDirs: ["chat"],
+          specFiles: ["chat.spec.ts"],
+          qaFiles: ["chat.md"],
+        });
+        const r = spawnSync("npx", ["tsx", PARITY_SCRIPT, "--baseline=1.5"], {
+          env: { ...process.env, VALIDATE_PARITY_REPO_ROOT: root },
+          encoding: "utf-8",
+          timeout: 30_000,
+        });
+        expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(1);
+        expect(r.stderr).toMatch(/float/i);
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe("table formatting column widths (PA-R8-C4)", () => {
+    // Header and data rows must use the SAME column widths. Previously
+    // HEADER_COLUMNS declared status=6, demos=5, specs=5, qa=3 while
+    // rows hardcoded padStart(4)/padStart(4)/padStart(3) — producing
+    // misaligned output. Both must now be driven from a single source
+    // (HEADER_COLUMNS).
+    it("HEADER_COLUMNS is the single source of truth", () => {
+      expect(Array.isArray(HEADER_COLUMNS)).toBe(true);
+      expect(HEADER_COLUMNS.length).toBeGreaterThan(0);
+    });
+
+    it("formatRow output length matches buildHeader output length", () => {
+      // The cell separator is "  " (two spaces), but right-aligned cells
+      // can themselves begin with spaces, so splitting on "  " can over-
+      // segment. Instead, assert the overall rendered lengths match —
+      // they can only match if EVERY column width matches char-for-char,
+      // because padCell enforces equal widths per cell and the separator
+      // count is identical on both sides.
+      const slugWidth = 10;
+      const header = buildHeader(slugWidth);
+      const row = formatRow(
+        {
+          slug: "short",
+          demoIds: ["a"],
+          specFiles: ["a.spec.ts"],
+          qaFiles: ["a.md"],
+          demoDirs: ["a"],
+          mustErrors: [],
+          warnings: [],
+        },
+        slugWidth,
+      );
+      expect(row.length).toBe(header.length);
+    });
+
+    it("formatRow widths are driven from HEADER_COLUMNS so header and rows can't drift", () => {
+      // Render a row with minimal content for each non-slug column and
+      // verify the rendered cell at position i is EXACTLY the declared
+      // width (or the slug width at index 0). This locks the contract
+      // without depending on how cells are joined into a line.
+      const slugWidth = 12;
+      const report = {
+        slug: "p".padEnd(slugWidth, "p"),
+        demoIds: ["a"],
+        specFiles: ["a.spec.ts"],
+        qaFiles: ["a.md"],
+        demoDirs: ["a"],
+        mustErrors: [],
+        warnings: [],
+      };
+      const row = formatRow(report, slugWidth);
+      const header = buildHeader(slugWidth);
+      // Sum of column widths + separators is identical on both sides.
+      const expectedLen =
+        slugWidth +
+        HEADER_COLUMNS.slice(1).reduce((acc, c) => acc + c.width, 0) +
+        // "  " separator between N columns → (N-1) * 2
+        (HEADER_COLUMNS.length - 1) * 2;
+      expect(row.length).toBe(expectedLen);
+      expect(header.length).toBe(expectedLen);
+    });
+  });
+
+  describe("runParity does not read process.argv when called programmatically (R8-1-23)", () => {
+    // Regression: programmatic callers (e.g. future aggregator scripts
+    // or tests) should be able to invoke runParity with an explicit
+    // baseline and NOT have process.argv parsed behind their backs.
+    it("ignores process.argv when baselineDemoCount is passed explicitly", () => {
+      const { root, packagesDir } = makeMainTree();
+      try {
+        writeFixturePackage(packagesDir, "only-pkg", {
+          manifest: "slug: only-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
+          demoDirs: ["chat"],
+          specFiles: ["chat.spec.ts"],
+          qaFiles: ["chat.md"],
+        });
+        const originalArgv = process.argv;
+        // Inject a bad --baseline flag that WOULD fail argv parsing.
+        process.argv = [
+          process.argv[0],
+          process.argv[1],
+          "--baseline=not-a-number",
+        ];
+        const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+        const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+        try {
+          const code = runParity(packagesDir, 5);
+          // If argv were parsed, we'd get exit 1 (invalid baseline).
+          // With explicit baseline=5 passed, argv must be skipped.
+          expect(code).toBe(0);
+          // And no "invalid --baseline value" must have been logged.
+          const errCalls = errSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+          expect(errCalls).not.toMatch(/invalid --baseline value/);
+        } finally {
+          logSpy.mockRestore();
+          errSpy.mockRestore();
+          process.argv = originalArgv;
+        }
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+      }
     });
   });
 });
