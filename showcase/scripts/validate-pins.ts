@@ -312,7 +312,8 @@ function canonicalizePythonName(name: string): string {
  *
  * Rejects:
  *   - Range operators: ^, ~, >=, <=, >, <, ~=, !=
- *   - Dist-tags / wildcards: "latest", "next", "*", "" (empty)
+ *   - X-ranges / wildcards: "1.x", "1.2.x", "1.2.*", "*", "X.X.X"
+ *   - Dist-tags: "latest", "next", "" (empty)
  *   - Workspace/monorepo refs: "workspace:*", "workspace:^", "file:"
  *   - URLs / git refs / paths
  */
@@ -320,6 +321,12 @@ function isExactSpec(spec: string): boolean {
   if (!spec) return false;
   const trimmed = spec.trim();
   if (!trimmed) return false;
+
+  // Reject any wildcard marker anywhere in the string. `*`, `x`, or `X`
+  // appearing as a version component (e.g. "1.x", "1.2.*") is never exact.
+  // The Python `==` form also cannot contain wildcards.
+  if (/(^|[.\-_+])[xX*]([.\-_+]|$)/.test(trimmed)) return false;
+  if (/\*/.test(trimmed)) return false;
 
   // Python == / === exact form.
   const pyMatch = trimmed.match(/^={2,3}\s*(\S+)$/);
@@ -331,8 +338,7 @@ function isExactSpec(spec: string): boolean {
   if (/^[\^~<>!]/.test(trimmed)) return false;
   if (/^(>=|<=|==|~=|!=)/.test(trimmed)) return false;
 
-  // Wildcard, tags, workspace refs, URLs, paths.
-  if (trimmed === "*" || trimmed === "x" || trimmed === "X") return false;
+  // Tags, workspace refs, URLs, paths.
   if (/^[A-Za-z]/.test(trimmed)) {
     // Starts with a letter: dist-tag like "latest" or "next", or
     // "workspace:*", "file:...", "github:user/repo", etc.
@@ -436,12 +442,29 @@ function parsePyprojectToml(file: string): DepMap {
     }
   }
 
-  // --- Poetry: [tool.poetry.dependencies] table ---
-  const poetryBodyRe =
-    /(?:^|\n)\[tool\.poetry\.dependencies\][^\n]*\n([\s\S]*?)(?=\n\[|\n*$)/;
-  const poetryMatch = raw.match(poetryBodyRe);
-  if (poetryMatch) {
-    const body = poetryMatch[1];
+  // --- Poetry: [tool.poetry.dependencies] AND
+  //              [tool.poetry.group.<name>.dependencies] tables ---
+  //
+  // Poetry supports grouped dev/agent/etc. dependency sections under
+  // `[tool.poetry.group.*.dependencies]`. Missing these sections causes the
+  // validator to silently skip group-pinned frameworks, so we walk each
+  // matching table header.
+  //
+  // Poetry version-string semantics: a bare version like `"1.2.3"` means
+  // caret (`^1.2.3`) in Poetry — NOT an exact pin. We prefix such values
+  // with `^` before storing so downstream `isExactSpec` correctly rejects
+  // them. Operator-prefixed strings (`^`, `~`, `>=`, `==`, ...) are stored
+  // verbatim.
+  const poetryHeaderRe =
+    /(?:^|\n)\[tool\.poetry(?:\.group\.[A-Za-z0-9_-]+)?\.dependencies\][^\n]*\n/g;
+  let headerMatch: RegExpExecArray | null;
+  while ((headerMatch = poetryHeaderRe.exec(raw))) {
+    const bodyStart = headerMatch.index + headerMatch[0].length;
+    // Body ends at the next table header ([something]) or end of file.
+    const rest = raw.slice(bodyStart);
+    const nextHeader = rest.match(/\n\[/);
+    const body = nextHeader ? rest.slice(0, nextHeader.index) : rest;
+
     for (const rawLine of body.split(/\r?\n/)) {
       const line = rawLine.replace(/#.*$/, "").trim();
       if (!line) continue;
@@ -469,7 +492,17 @@ function parsePyprojectToml(file: string): DepMap {
         continue;
       }
 
-      out[name] = spec;
+      // Poetry bare-version semantics: `"1.2.3"` means `^1.2.3`. Prefix
+      // with `^` so it is correctly classified as non-exact by
+      // `isExactSpec`. Anything already starting with an operator
+      // character is stored verbatim.
+      if (/^\d/.test(spec)) {
+        spec = "^" + spec;
+      }
+
+      // First-writer-wins within this file (top-level deps declared before
+      // group deps keep their spec).
+      if (!(name in out)) out[name] = spec;
     }
   }
 
@@ -487,9 +520,41 @@ export interface DojoDepSources {
   // walked BEFORE root-level files so that on dep-name collision, the
   // agent-side spec wins (first-writer-wins).
   deps: DepMap;
+  // Subset of `deps` whose source file was a Python manifest
+  // (requirements.txt / pyproject.toml). Used so the validator can apply
+  // Python PEP 503 canonicalization ONLY to Python deps (npm names are
+  // case-sensitive and hyphen-sensitive).
+  pythonDeps: DepMap;
   // Non-fatal parse errors accumulated during collection. Caller should
   // surface these rather than silently emit [OK].
   parseErrors: Array<{ file: string; message: string }>;
+}
+
+// Common candidate list for dep file discovery. App-/agent-specific files
+// come first so they win over root-level fallbacks (first-writer-wins at
+// the file level). Includes apps/web/** so showcase packages that only
+// ship a web app are still scanned.
+const DEP_FILE_CANDIDATES = [
+  "apps/agent/package.json",
+  "apps/agent/pyproject.toml",
+  "apps/agent/requirements.txt",
+  "agent/package.json",
+  "agent/pyproject.toml",
+  "agent/requirements.txt",
+  "apps/web/package.json",
+  "apps/web/pyproject.toml",
+  "apps/web/requirements.txt",
+  "apps/app/package.json",
+  "apps/app/pyproject.toml",
+  "apps/app/requirements.txt",
+  // Root-level files fill in anything not declared above.
+  "package.json",
+  "requirements.txt",
+  "pyproject.toml",
+];
+
+function isPythonManifest(abs: string): boolean {
+  return abs.endsWith("requirements.txt") || abs.endsWith("pyproject.toml");
 }
 
 // The Dojo examples have varied layouts. We walk app-specific paths FIRST
@@ -497,23 +562,13 @@ export interface DojoDepSources {
 // often pins older / generic versions. This implements first-writer-wins
 // at the file level: the first file that declares a dep wins.
 function collectDojoDeps(exampleDir: string): DojoDepSources {
-  const candidates = [
-    // App-/agent-specific files come first so they win over root.
-    "apps/agent/package.json",
-    "apps/agent/pyproject.toml",
-    "apps/agent/requirements.txt",
-    "agent/package.json",
-    "agent/pyproject.toml",
-    "agent/requirements.txt",
-    "apps/web/package.json",
-    "apps/app/package.json",
-    // Root-level files fill in anything not declared above.
-    "package.json",
-    "requirements.txt",
-    "pyproject.toml",
-  ];
-  const result: DojoDepSources = { files: [], deps: {}, parseErrors: [] };
-  for (const rel of candidates) {
+  const result: DojoDepSources = {
+    files: [],
+    deps: {},
+    pythonDeps: {},
+    parseErrors: [],
+  };
+  for (const rel of DEP_FILE_CANDIDATES) {
     const abs = path.join(exampleDir, rel);
     if (!fs.existsSync(abs)) continue;
     let parsed: DepMap = {};
@@ -530,10 +585,14 @@ function collectDojoDeps(exampleDir: string): DojoDepSources {
       continue;
     }
     result.files.push(abs);
+    const fromPython = isPythonManifest(abs);
     for (const [name, spec] of Object.entries(parsed)) {
       // First-writer-wins: agent-side files (walked first) take precedence
       // over root files. This matches the intent documented above.
       if (!(name in result.deps)) result.deps[name] = spec;
+      if (fromPython && !(name in result.pythonDeps)) {
+        result.pythonDeps[name] = spec;
+      }
     }
   }
   return result;
@@ -546,25 +605,20 @@ function collectDojoDeps(exampleDir: string): DojoDepSources {
 export interface ShowcaseDepSources {
   files: string[];
   deps: DepMap;
+  // Same semantics as DojoDepSources.pythonDeps — used so we can apply
+  // Python canonicalization only to deps that came from Python manifests.
+  pythonDeps: DepMap;
   parseErrors: Array<{ file: string; message: string }>;
 }
 
 function collectShowcaseDeps(packageDir: string): ShowcaseDepSources {
-  const result: ShowcaseDepSources = { files: [], deps: {}, parseErrors: [] };
-  // Agent-side files first, then root (same first-writer-wins scheme as
-  // collectDojoDeps).
-  const candidates = [
-    "apps/agent/package.json",
-    "apps/agent/pyproject.toml",
-    "apps/agent/requirements.txt",
-    "agent/package.json",
-    "agent/pyproject.toml",
-    "agent/requirements.txt",
-    "package.json",
-    "requirements.txt",
-    "pyproject.toml",
-  ];
-  for (const rel of candidates) {
+  const result: ShowcaseDepSources = {
+    files: [],
+    deps: {},
+    pythonDeps: {},
+    parseErrors: [],
+  };
+  for (const rel of DEP_FILE_CANDIDATES) {
     const abs = path.join(packageDir, rel);
     if (!fs.existsSync(abs)) continue;
     let parsed: DepMap = {};
@@ -580,11 +634,28 @@ function collectShowcaseDeps(packageDir: string): ShowcaseDepSources {
       continue;
     }
     result.files.push(abs);
+    const fromPython = isPythonManifest(abs);
     for (const [name, spec] of Object.entries(parsed)) {
       if (!(name in result.deps)) result.deps[name] = spec;
+      if (fromPython && !(name in result.pythonDeps)) {
+        result.pythonDeps[name] = spec;
+      }
     }
   }
   return result;
+}
+
+/**
+ * Return a shallow copy of `all` with every key in `subset` removed.
+ * Used by `validateAll` to separate JS deps (`all - pythonDeps`) from
+ * Python deps so each ecosystem's canonicalization rules apply correctly.
+ */
+function diffMaps(all: DepMap, subset: DepMap): DepMap {
+  const out: DepMap = {};
+  for (const [name, spec] of Object.entries(all)) {
+    if (!(name in subset)) out[name] = spec;
+  }
+  return out;
 }
 
 /**
@@ -621,8 +692,12 @@ function validateAll(): Report {
   const report: Report = { fail: [], warn: [], skip: [], ok: [] };
   const { PACKAGES_DIR, EXAMPLES_DIR, REPO_ROOT } = paths();
 
+  // A3: missing packages dir must not produce a silent pass. If the
+  // validator can't see any packages, it has nothing to check, which is
+  // almost certainly a path misconfiguration. Emit a FAIL so the script
+  // exits non-zero.
   if (!fs.existsSync(PACKAGES_DIR)) {
-    report.warn.push(`[WARN] Packages dir not found: ${PACKAGES_DIR}`);
+    report.fail.push(`[FAIL] Packages dir not found: ${PACKAGES_DIR}`);
     return report;
   }
 
@@ -631,6 +706,15 @@ function validateAll(): Report {
     .filter((d) => d.isDirectory())
     .map((d) => d.name)
     .sort();
+
+  // A3: empty packages dir is the same class of error as missing — the
+  // validator produced no results, so we fail loudly rather than exit 0.
+  if (slugs.length === 0) {
+    report.fail.push(
+      `[FAIL] No showcase packages discovered under ${PACKAGES_DIR}`,
+    );
+    return report;
+  }
 
   for (const slug of slugs) {
     const pkgDir = path.join(PACKAGES_DIR, slug);
@@ -661,15 +745,16 @@ function validateAll(): Report {
     const showcase = collectShowcaseDeps(pkgDir);
     const dojo = collectDojoDeps(exampleDir);
 
-    // Surface parse errors as WARN so they are not silently swallowed.
+    // A4: Surface parse errors as FAIL so the process exits non-zero.
+    // A silent WARN lets broken manifests slip through CI with [OK].
     for (const pe of showcase.parseErrors) {
-      report.warn.push(
-        `[WARN] ${slug}: parse error in ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
+      report.fail.push(
+        `[FAIL] ${slug}: parse error in ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
       );
     }
     for (const pe of dojo.parseErrors) {
-      report.warn.push(
-        `[WARN] ${slug}: parse error in ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
+      report.fail.push(
+        `[FAIL] ${slug}: parse error in ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
       );
     }
 
@@ -687,32 +772,81 @@ function validateAll(): Report {
       continue;
     }
 
-    // Build canonical lookups so that Python hyphen/underscore spellings
-    // compare equal.
-    const showcaseCanon = canonicalizeDepMap(
-      showcase.deps,
+    // A1: JS deps must NOT be Python-canonicalized (npm names are
+    // case-sensitive and hyphen-sensitive, so `@Foo/bar` and `@foo/bar`
+    // are DIFFERENT packages). Build two separate lookups per side — a
+    // Python lookup (canonicalized) and a JS lookup (raw names) — then
+    // compare Python-to-Python and JS-to-JS.
+    const showcasePythonCanon = canonicalizeDepMap(
+      showcase.pythonDeps,
       /* isPython */ true,
     );
-    const dojoCanon = canonicalizeDepMap(dojo.deps, /* isPython */ true);
+    const dojoPythonCanon = canonicalizeDepMap(
+      dojo.pythonDeps,
+      /* isPython */ true,
+    );
+    const showcaseJsRaw = canonicalizeDepMap(
+      diffMaps(showcase.deps, showcase.pythonDeps),
+      /* isPython */ false,
+    );
+    const dojoJsRaw = canonicalizeDepMap(
+      diffMaps(dojo.deps, dojo.pythonDeps),
+      /* isPython */ false,
+    );
 
     let pkgHadViolation = false;
 
-    // For each framework dep in EITHER side, compare. We iterate union so
-    // that Dojo-pinned-but-absent-in-showcase drift is also surfaced.
-    const allKeys = new Set<string>([
-      ...Object.keys(showcaseCanon),
-      ...Object.keys(dojoCanon),
-    ]);
-    const sortedKeys = Array.from(allKeys).sort();
+    // Iterate the union of keys per ecosystem so drift where a framework
+    // is pinned on one side but missing on the other is also surfaced.
+    // Python keys live in one namespace, JS keys in another, with no risk
+    // of cross-ecosystem collision.
+    const pythonKeys = Array.from(
+      new Set<string>([
+        ...Object.keys(showcasePythonCanon),
+        ...Object.keys(dojoPythonCanon),
+      ]),
+    ).sort();
+    const jsKeys = Array.from(
+      new Set<string>([
+        ...Object.keys(showcaseJsRaw),
+        ...Object.keys(dojoJsRaw),
+      ]),
+    ).sort();
 
-    for (const key of sortedKeys) {
-      const sc = showcaseCanon[key];
-      const dj = dojoCanon[key];
+    const iterations: Array<{
+      key: string;
+      sc: { name: string; spec: string } | undefined;
+      dj: { name: string; spec: string } | undefined;
+      isPython: boolean;
+    }> = [];
+    for (const key of pythonKeys) {
+      iterations.push({
+        key,
+        sc: showcasePythonCanon[key],
+        dj: dojoPythonCanon[key],
+        isPython: true,
+      });
+    }
+    for (const key of jsKeys) {
+      iterations.push({
+        key,
+        sc: showcaseJsRaw[key],
+        dj: dojoJsRaw[key],
+        isPython: false,
+      });
+    }
+
+    for (const { sc, dj, isPython, key } of iterations) {
       const displayName = sc?.name ?? dj?.name ?? key;
 
-      // We only enforce framework deps. The canonical key may match for
-      // non-framework libs, which we skip.
-      if (!isFrameworkDep(displayName)) continue;
+      // A8: Canonicalize the name before the framework-pattern test when
+      // we are on the Python path so PEP 503 variants (mixed case,
+      // hyphen/underscore/dot) are still recognized as framework deps.
+      // For JS deps the raw name is correct (npm is case-sensitive).
+      const detectionName = isPython
+        ? canonicalizePythonName(displayName)
+        : displayName;
+      if (!isFrameworkDep(detectionName)) continue;
 
       if (sc && !dj) {
         // Showcase has a framework dep that's not in the Dojo example.

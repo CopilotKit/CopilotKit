@@ -52,9 +52,12 @@ describe("parsePyprojectToml", () => {
   it("parses Poetry [tool.poetry.dependencies] table format", () => {
     const file = path.join(FIXTURES_DIR, "pyproject-poetry.toml");
     const deps = parsePyprojectToml(file);
-    expect(deps["langgraph"]).toBe("0.2.14");
-    expect(deps["copilotkit"]).toBe("1.10.0");
-    expect(deps["pydantic-ai"]).toBe("0.0.20");
+    // Poetry bare-version semantics: `"0.2.14"` means `^0.2.14`. The
+    // parser preserves this by prefixing `^` so downstream `isExactSpec`
+    // correctly classifies it as non-exact.
+    expect(deps["langgraph"]).toBe("^0.2.14");
+    expect(deps["copilotkit"]).toBe("^1.10.0");
+    expect(deps["pydantic-ai"]).toBe("^0.0.20");
     // Must not include python marker
     expect(deps["python"]).toBeUndefined();
   });
@@ -457,5 +460,247 @@ describe("FRAMEWORK_PATTERNS coverage", () => {
     expect(isFrameworkDep("ag2")).toBe(true);
     expect(isFrameworkDep("langroid")).toBe(true);
     expect(isFrameworkDep("llama_index")).toBe(true);
+  });
+});
+
+// A2: isExactSpec must reject npm wildcard / x-range specs.
+describe("isExactSpec wildcard rejection (A2)", () => {
+  it("rejects `1.x`, `1.2.x`, `1.2.*`, `*`, `x.x.x`, `1.*`", () => {
+    expect(isExactSpec("1.x")).toBe(false);
+    expect(isExactSpec("1.2.x")).toBe(false);
+    expect(isExactSpec("1.2.*")).toBe(false);
+    expect(isExactSpec("*")).toBe(false);
+    expect(isExactSpec("x.x.x")).toBe(false);
+    expect(isExactSpec("1.X")).toBe(false);
+    expect(isExactSpec("1.*")).toBe(false);
+  });
+});
+
+// A6: Poetry bare versions like "1.2.3" mean ^1.2.3 in Poetry semantics and
+// must NOT be treated as exact pins. Only `==x.y.z` (PEP 440 form) counts.
+describe("parsePyprojectToml Poetry bare version semantics (A6)", () => {
+  it("marks bare Poetry versions as non-exact (Poetry treats them as ^)", () => {
+    const tmp = tmpdir();
+    const file = path.join(tmp, "pyproject.toml");
+    write(
+      file,
+      [
+        "[tool.poetry.dependencies]",
+        'python = "^3.10"',
+        'foo_bare = "1.2.3"',
+        'foo_caret = "^1.2.3"',
+        'foo_tilde = "~1.2"',
+        'foo_range = ">=1.0,<2.0"',
+        'foo_exact = "==1.2.3"',
+      ].join("\n"),
+    );
+    const deps = parsePyprojectToml(file);
+    // Bare Poetry versions must be non-exact per Poetry semantics.
+    expect(isExactSpec(deps["foo_bare"])).toBe(false);
+    // Range operators must always be non-exact.
+    expect(isExactSpec(deps["foo_caret"])).toBe(false);
+    expect(isExactSpec(deps["foo_tilde"])).toBe(false);
+    expect(isExactSpec(deps["foo_range"])).toBe(false);
+    // Explicit PEP 440 `==` pin remains exact.
+    expect(isExactSpec(deps["foo_exact"])).toBe(true);
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+});
+
+// A7: Poetry group dependency tables must be parsed.
+describe("parsePyprojectToml Poetry group sections (A7)", () => {
+  it("parses [tool.poetry.group.<name>.dependencies] tables", () => {
+    const tmp = tmpdir();
+    const file = path.join(tmp, "pyproject.toml");
+    write(
+      file,
+      [
+        "[tool.poetry.dependencies]",
+        'python = "^3.10"',
+        'langgraph = "==0.2.14"',
+        "",
+        "[tool.poetry.group.dev.dependencies]",
+        'pytest = "==8.0.0"',
+        "",
+        "[tool.poetry.group.agent.dependencies]",
+        'copilotkit = "==1.10.0"',
+      ].join("\n"),
+    );
+    const deps = parsePyprojectToml(file);
+    expect(deps["langgraph"]).toBe("==0.2.14");
+    expect(deps["pytest"]).toBe("==8.0.0");
+    expect(deps["copilotkit"]).toBe("==1.10.0");
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+});
+
+// A3, A4, A5, A1, A8 integration tests — verified end-to-end through
+// validateAll rather than at unit-level, because the bugs are in how
+// report states translate to exit-affecting FAILs.
+describe("validateAll exit-code integration (A3, A4, A8, A1, A5)", () => {
+  let repoRoot: string;
+
+  beforeEach(() => {
+    repoRoot = tmpdir();
+    process.env.VALIDATE_PINS_REPO_ROOT = repoRoot;
+  });
+
+  afterEach(() => {
+    delete process.env.VALIDATE_PINS_REPO_ROOT;
+    fs.rmSync(repoRoot, { recursive: true, force: true });
+  });
+
+  // A3: missing PACKAGES_DIR must not result in a green exit.
+  it("A3: missing packages dir produces a FAIL so exit is non-zero", () => {
+    // Do NOT create showcase/packages.
+    const report = validateAll();
+    expect(report.fail.length).toBeGreaterThan(0);
+  });
+
+  // A3: empty PACKAGES_DIR must also not silently pass.
+  it("A3: empty packages dir produces a FAIL so exit is non-zero", () => {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
+      recursive: true,
+    });
+    const report = validateAll();
+    expect(report.fail.length).toBeGreaterThan(0);
+  });
+
+  // A4: parse errors must produce a FAIL (force non-zero exit).
+  it("A4: parse errors produce a FAIL (not just a WARN)", () => {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
+      recursive: true,
+    });
+    const slug = "mastra";
+    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const exDir = path.join(repoRoot, "examples", "integrations", slug);
+    // Deliberately broken JSON.
+    write(path.join(pkgDir, "package.json"), "{ not valid json");
+    write(
+      path.join(exDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@mastra/core": "0.15.0" },
+      }),
+    );
+
+    const report = validateAll();
+    const parseFail = report.fail.some((l) => /parse error/i.test(l));
+    expect(parseFail).toBe(true);
+  });
+
+  // A5: apps/web/package.json in showcase should be scanned.
+  it("A5: apps/web/package.json in a showcase package is scanned", () => {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
+      recursive: true,
+    });
+    const slug = "mastra";
+    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const exDir = path.join(repoRoot, "examples", "integrations", slug);
+
+    // Showcase package has only apps/web/package.json (no root, no agent).
+    write(
+      path.join(pkgDir, "apps", "web", "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@mastra/core": "0.15.0" },
+      }),
+    );
+    // Dojo matches.
+    write(
+      path.join(exDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@mastra/core": "0.15.0" },
+      }),
+    );
+
+    const report = validateAll();
+    // Should NOT say "no dependency files found in showcase package".
+    const noFiles = report.warn.some(
+      (l) =>
+        l.includes(slug) && /no dependency files found in showcase/i.test(l),
+    );
+    expect(noFiles).toBe(false);
+  });
+
+  // A1: JS dep names must NOT be Python-canonicalized. Mixed separators
+  // in npm names like `@mastra/foo.bar` vs `@mastra/foo-bar` are DIFFERENT
+  // packages and must not be collapsed.
+  it("A1: JS package.json deps are compared without Python canonicalization", () => {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
+      recursive: true,
+    });
+    const slug = "mastra";
+    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const exDir = path.join(repoRoot, "examples", "integrations", slug);
+
+    // With isPython=true hardcoded for JS deps, these names would collapse
+    // to the same canonical key and specs get compared incorrectly,
+    // producing a spurious drift FAIL between 0.15.0 and 0.16.0.
+    write(
+      path.join(pkgDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@mastra/foo.bar": "0.15.0" },
+      }),
+    );
+    write(
+      path.join(exDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@mastra/foo-bar": "0.16.0" },
+      }),
+    );
+
+    const report = validateAll();
+    // Under correct JS-side semantics, these are distinct packages. The
+    // `foo.bar`/`foo-bar` names don't match any framework pattern, so
+    // there should be NO drift FAIL linking them together.
+    const incorrectMerge = report.fail.some(
+      (l) =>
+        /foo\.bar|foo-bar/.test(l) &&
+        /(0\.15\.0.*0\.16\.0|0\.16\.0.*0\.15\.0)/.test(l),
+    );
+    expect(incorrectMerge).toBe(false);
+  });
+
+  // A8: framework detection must canonicalize the name before the pattern
+  // check so PEP 503 variants (mixed case) are still recognized.
+  it("A8: framework detection recognizes mixed-case Python framework names", () => {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
+      recursive: true,
+    });
+    const slug = "langgraph-python";
+    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const exDir = path.join(repoRoot, "examples", "integrations", slug);
+
+    // Showcase uses mixed-case `LangGraph` (valid Python distribution name
+    // since PEP 503 normalizes to lowercase). Dojo uses lowercase. Versions
+    // differ — must FAIL. This only works if framework detection
+    // canonicalizes the name on both sides before testing patterns.
+    write(path.join(pkgDir, "requirements.txt"), "LangGraph==0.2.10\n");
+    write(path.join(exDir, "requirements.txt"), "langgraph==0.2.14\n");
+
+    const report = validateAll();
+    const flagged = report.fail.some(
+      (l) => l.includes(slug) && /langgraph/i.test(l),
+    );
+    expect(flagged).toBe(true);
   });
 });
