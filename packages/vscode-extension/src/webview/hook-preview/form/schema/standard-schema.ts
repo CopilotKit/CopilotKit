@@ -1,5 +1,5 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { jsonSchemaToFormSchema } from "./json-schema";
+import { jsonSchemaToFormSchema, type JSONSchemaNode } from "./json-schema";
 import type { FormSchema } from "./types";
 
 interface StandardSchemaLike {
@@ -14,8 +14,8 @@ export function standardSchemaToFormSchema(schema: unknown): FormSchema {
     try {
       const json = zodToJsonSchema(
         schema as Parameters<typeof zodToJsonSchema>[0],
-      ) as Record<string, unknown>;
-      return jsonSchemaToFormSchema(json as any);
+      ) as JSONSchemaNode;
+      return jsonSchemaToFormSchema(json);
     } catch (err) {
       return {
         fields: [

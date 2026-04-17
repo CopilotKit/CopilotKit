@@ -1,6 +1,6 @@
 import type { FormField, FormSchema } from "./types";
 
-interface JSONSchemaNode {
+export interface JSONSchemaNode {
   type?: string;
   enum?: unknown[];
   description?: string;
