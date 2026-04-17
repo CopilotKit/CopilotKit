@@ -266,29 +266,77 @@ jobs:
           fi  # end SHA guard
 
       - name: Trigger rebuild for stale services
+        id: rebuild
         if: steps.image_drift.outputs.has_stale == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           FAILED=""
+          FAILED_COUNT=0
+          : > rebuild-failures.txt
+          COUNT=0
           for SVC in ${{ steps.image_drift.outputs.stale_services }}; do
             echo "Triggering rebuild for ${SVC}..."
-            if ! gh workflow run showcase_deploy.yml -f service="${SVC}"; then
-              echo "::warning::Failed to trigger rebuild for ${SVC}"
+            RC=0
+            ERR_OUTPUT=$(gh workflow run showcase_deploy.yml --repo "${{ github.repository }}" -f service="${SVC}" 2>&1) || RC=$?
+            if [ "$RC" -eq 0 ]; then
+              COUNT=$((COUNT + 1))
+            else
+              echo "::warning::Failed to trigger rebuild for ${SVC}: ${ERR_OUTPUT}"
+              # Collapse whitespace/newlines in the error so it fits on one Slack line
+              REASON=$(echo "$ERR_OUTPUT" | tr '\n' ' ' | sed 's/  */ /g' | sed 's/^ *//;s/ *$//')
+              if [ -z "$REASON" ]; then
+                REASON="unknown error"
+              fi
               FAILED="${FAILED} ${SVC}"
+              FAILED_COUNT=$((FAILED_COUNT + 1))
+              printf ":x: *%s* — %s\n" "$SVC" "$REASON" >> rebuild-failures.txt
             fi
           done
-          if [ -n "$FAILED" ]; then
+          echo "triggered_count=${COUNT}" >> "$GITHUB_OUTPUT"
+          echo "failed_count=${FAILED_COUNT}" >> "$GITHUB_OUTPUT"
+          if [ "$FAILED_COUNT" -gt 0 ]; then
+            # Surface failures via annotation and fail the job so the run shows
+            # RED in GitHub Actions UI / `gh run list`. Slack dedup is handled
+            # by guarding the failure() notifier with
+            # `steps.image_drift.outputs.has_stale != 'true'`, so this exit 1
+            # does NOT cause double-posting — the detailed drift-alert step
+            # covers the drift path.
             echo "::error::Failed to trigger rebuilds for:${FAILED}"
+            echo "has_failures=true" >> "$GITHUB_OUTPUT"
             exit 1
+          else
+            echo "has_failures=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Alert image drift to Slack
         if: always() && steps.image_drift.outputs.has_stale == 'true'
         run: |
-          HEADER=":package: *Image drift detected — rebuilds triggered:*"
-          BODY=$(cat image-drift.txt)
-          printf "%s\n%s" "$HEADER" "$BODY" > drift-message.txt
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          COUNT="${{ steps.rebuild.outputs.triggered_count }}"
+          FAILED_COUNT="${{ steps.rebuild.outputs.failed_count }}"
+          if [ -z "$COUNT" ]; then
+            # Fallback: rebuild step didn't run or didn't set the output; count from stale_services
+            COUNT=$(echo "${{ steps.image_drift.outputs.stale_services }}" | wc -w | tr -d ' ')
+          fi
+          if [ -z "$FAILED_COUNT" ]; then
+            FAILED_COUNT=0
+          fi
+          NOUN="rebuilds"
+          if [ "$COUNT" = "1" ]; then NOUN="rebuild"; fi
+
+          if [ "${{ steps.rebuild.outputs.has_failures }}" = "true" ] && [ -s rebuild-failures.txt ]; then
+            # Failure case: list only the services that failed to rebuild, with reasons.
+            # COUNT reflects only successfully-triggered rebuilds; FAILED_COUNT is the rest.
+            {
+              printf ":package: *Image drift detected — %s %s triggered, %s failed:*\n" "$COUNT" "$NOUN" "$FAILED_COUNT"
+              cat rebuild-failures.txt
+              printf "<%s|Workflow run>\n" "$RUN_URL"
+            } > drift-message.txt
+          else
+            # Success case: just summarize the count with a link to the run
+            printf ":package: Image drift detected — %s %s triggered (<%s|run>)\n" "$COUNT" "$NOUN" "$RUN_URL" > drift-message.txt
+          fi
           jq -n --rawfile text drift-message.txt '{"text": $text}' > drift-payload.json
 
       - name: Post image drift to Slack
@@ -300,7 +348,11 @@ jobs:
           payload-file-path: drift-payload.json
 
       - name: Notify Slack (workflow failure)
-        if: failure()
+        # Suppress when the drift-alert path is active — that step already
+        # posts a detailed Slack message covering per-service rebuild results.
+        # This generic notifier still fires for non-drift failures (e.g., the
+        # smoke-check step itself fails before drift detection runs).
+        if: failure() && steps.image_drift.outputs.has_stale != 'true'
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
