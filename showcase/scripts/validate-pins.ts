@@ -32,6 +32,10 @@
  *   2 — internal error (crash, unexpected exception). Distinct from 1 so
  *       CI callers can distinguish "pin drift" from "validator broken".
  *       Mirrors validate-parity.ts's convention.
+ *   3 — unreadable input (e.g. VALIDATE_PINS_REPO_ROOT points at a
+ *       non-directory or a path the process cannot access). Distinct from
+ *       2 so CI callers can route permissions/misconfig alerts separately
+ *       from true crashes.
  *
  * Output routing:
  *   - [OK] and [SKIP] lines go to stdout.
@@ -67,6 +71,26 @@ import { BORN_IN_SHOWCASE, FALLBACK_MAP, SLUG_MAP } from "./lib/slug-map.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Exit-code constants. See the module docstring for the full taxonomy.
+const EXIT_OK = 0;
+const EXIT_DRIFT = 1;
+const EXIT_INTERNAL = 2;
+const EXIT_UNREADABLE = 3;
+
+/**
+ * Thrown when the repo-root input is present but unreadable or
+ * structurally wrong (e.g. points at a file, EACCES, ENOTDIR). The
+ * top-level catch uses `instanceof` to route these to EXIT_UNREADABLE
+ * instead of EXIT_INTERNAL so CI callers can distinguish a permissions
+ * misconfig from a true validator crash.
+ */
+class UnreadableInputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UnreadableInputError";
+  }
+}
+
 // REPO_ROOT resolution allows tests to override via env var. The override
 // must be an absolute path pointing at an existing directory; a relative
 // or non-existent override silently yielding an empty scan would turn a
@@ -97,8 +121,13 @@ function computeRepoRoot(): string {
         );
       }
       if (err && err.code === "EACCES") {
-        throw new Error(
+        throw new UnreadableInputError(
           `VALIDATE_PINS_REPO_ROOT exists but is not readable (permission denied): ${override}`,
+        );
+      }
+      if (err && err.code === "ENOTDIR") {
+        throw new UnreadableInputError(
+          `VALIDATE_PINS_REPO_ROOT path component is not a directory: ${override}`,
         );
       }
       // Surface the underlying error message so the caller sees the
@@ -112,7 +141,7 @@ function computeRepoRoot(): string {
     // rest of the validator run with a bogus REPO_ROOT and produce
     // misleading "nothing found" output rather than an immediate error.
     if (!st.isDirectory()) {
-      throw new Error(
+      throw new UnreadableInputError(
         `VALIDATE_PINS_REPO_ROOT is not a directory: ${override}`,
       );
     }
@@ -1678,7 +1707,7 @@ function printReport(report: Report): void {
 function main(): void {
   const report = validateAll();
   printReport(report);
-  process.exitCode = report.fail.length > 0 ? 1 : 0;
+  process.exitCode = report.fail.length > 0 ? EXIT_DRIFT : EXIT_OK;
 }
 
 /**
@@ -1701,7 +1730,7 @@ function isMainPath(argv1: string | undefined, scriptPath: string): boolean {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[isMainPath] path.resolve failed: ${msg}`);
-    process.exitCode = 2;
+    process.exitCode = EXIT_INTERNAL;
     return false;
   }
 }
@@ -1715,8 +1744,13 @@ if (isMainPath(process.argv[1], __filename)) {
     main();
   } catch (e) {
     const msg = e instanceof Error ? e.stack || e.message : String(e);
-    console.error(`[INTERNAL ERROR] validate-pins crashed: ${msg}`);
-    process.exitCode = 2;
+    if (e instanceof UnreadableInputError) {
+      console.error(`[UNREADABLE INPUT] validate-pins: ${msg}`);
+      process.exitCode = EXIT_UNREADABLE;
+    } else {
+      console.error(`[INTERNAL ERROR] validate-pins crashed: ${msg}`);
+      process.exitCode = EXIT_INTERNAL;
+    }
   }
 }
 
