@@ -214,7 +214,16 @@ function resolveExampleDirDetailed(
     } catch (e) {
       const err = e as NodeJS.ErrnoException;
       if (err && err.code === "ENOENT") return false;
-      throw e;
+      // EACCES / ENOTDIR / EIO / ELOOP / etc. mean "there is something
+      // at this path, but we can't read it". Route through
+      // UnreadableInputError so the top-level catch maps this to
+      // EXIT_UNREADABLE (3) — a permissions/infra misconfig — rather
+      // than EXIT_INTERNAL (2) which signals a validator crash.
+      const code = err && err.code ? err.code : "unknown";
+      const msg = err && err.message ? err.message : String(e);
+      throw new UnreadableInputError(
+        `cannot stat candidate example dir (${code}): ${p}: ${msg}`,
+      );
     }
   };
 
@@ -652,30 +661,24 @@ function parseRequirementsTxtDetailed(file: string): ParseResult {
  * care about dropped-line or skipped-line diagnostics. Internally
  * delegates to the detailed form.
  *
- * NOTE: This wrapper intentionally discards the `skipped[]` and
- * `dropped[]` fields from the detailed form. Callers that need those
- * diagnostics (e.g. the file collector, which surfaces them as WARNs)
- * must call `parseRequirementsTxtDetailed` directly. To avoid silent
- * data loss when tests or ad-hoc callers use this wrapper, any skipped
- * or dropped entries are logged to stderr with a short summary so the
- * fact of the loss is visible rather than invisible.
+ * NOTE: This wrapper does NOT tolerate silent data loss. If the
+ * underlying detailed parse produces any `skipped[]` or `dropped[]`
+ * entries, this wrapper THROWS so the caller is forced to switch to
+ * `parseRequirementsTxtDetailed` rather than quietly losing those
+ * diagnostics. Callers that may legitimately encounter skipped/dropped
+ * entries MUST call `parseRequirementsTxtDetailed` directly.
  *
  * @throws Error on fs.readFileSync failure.
+ * @throws Error when the file contains skipped or dropped entries
+ *         (use parseRequirementsTxtDetailed instead).
  */
 function parseRequirementsTxt(file: string): DepMap {
   const detailed = parseRequirementsTxtDetailed(file);
-  if (detailed.skipped.length > 0) {
-    console.warn(
-      `[parseRequirementsTxt] ${file}: discarded ${detailed.skipped.length} skipped entr${
-        detailed.skipped.length === 1 ? "y" : "ies"
-      } (use parseRequirementsTxtDetailed to see them)`,
-    );
-  }
-  if (detailed.dropped.length > 0) {
-    console.warn(
-      `[parseRequirementsTxt] ${file}: discarded ${detailed.dropped.length} dropped line${
-        detailed.dropped.length === 1 ? "" : "s"
-      } (use parseRequirementsTxtDetailed to see them)`,
+  if (detailed.skipped.length > 0 || detailed.dropped.length > 0) {
+    throw new Error(
+      `parseRequirementsTxt: ${file} produced ${detailed.skipped.length} skipped and ` +
+        `${detailed.dropped.length} dropped entries; use parseRequirementsTxtDetailed ` +
+        `to access them instead of silently discarding.`,
     );
   }
   return detailed.deps;
@@ -1075,14 +1078,30 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
  * care about skipped-dep diagnostics. Internally delegates to the
  * detailed form.
  *
+ * NOTE: Like `parseRequirementsTxt`, this wrapper THROWS if the
+ * underlying detailed parse produces any `skipped[]` or `dropped[]`
+ * entries, so that silent data loss cannot occur via the wrapper path.
+ * Callers that may legitimately encounter skipped/dropped entries MUST
+ * call `parsePyprojectTomlDetailed` directly.
+ *
  * @throws Error on fs.readFileSync failure, or on the specific narrow
  *         malformation: a top-level `[project] dependencies = [` array
  *         opened but never closed. This parser is NOT a general TOML
  *         validator — many other forms of malformed TOML will produce
  *         an empty DepMap rather than an exception.
+ * @throws Error when the file contains skipped or dropped entries
+ *         (use parsePyprojectTomlDetailed instead).
  */
 function parsePyprojectToml(file: string): DepMap {
-  return parsePyprojectTomlDetailed(file).deps;
+  const detailed = parsePyprojectTomlDetailed(file);
+  if (detailed.skipped.length > 0 || detailed.dropped.length > 0) {
+    throw new Error(
+      `parsePyprojectToml: ${file} produced ${detailed.skipped.length} skipped and ` +
+        `${detailed.dropped.length} dropped entries; use parsePyprojectTomlDetailed ` +
+        `to access them instead of silently discarding.`,
+    );
+  }
+  return detailed.deps;
 }
 
 // ---------------------------------------------------------------------------
@@ -1123,7 +1142,12 @@ export interface DepSources {
   pythonDeps: DepMap;
   // Non-fatal parse errors accumulated during collection. Caller should
   // surface these rather than silently emit [OK].
-  parseErrors: Array<{ file: string; message: string }>;
+  // `infra: true` means the error is a permissions/filesystem problem
+  // (EACCES/ENOTDIR/EIO/…) rather than a content-parse failure. The
+  // caller (validateAll) uses this to route infra errors through
+  // UnreadableInputError → EXIT_UNREADABLE (3) instead of landing them
+  // in report.fail as EXIT_DRIFT (1).
+  parseErrors: Array<{ file: string; message: string; infra?: boolean }>;
   // Count of files this collector attempted to read — used to
   // distinguish "no files found" from "all files parse-errored".
   filesAttempted: number;
@@ -1209,6 +1233,7 @@ function collectDepsFromDir(rootDir: string): DepSources {
       result.parseErrors.push({
         file: abs,
         message: `stat failed (${err.code ?? "unknown"}): ${err.message ?? String(e)}`,
+        infra: true,
       });
       continue;
     }
@@ -1363,17 +1388,21 @@ function validateAll(): Report {
     const err = e as NodeJS.ErrnoException;
     if (err && err.code === "ENOENT") {
       report.fail.push(`[FAIL] Packages dir not found: ${PACKAGES_DIR}`);
-    } else {
-      const msg = err && err.message ? err.message : String(e);
-      report.fail.push(
-        `[FAIL] Packages dir stat failed (${err?.code ?? "unknown"}): ${PACKAGES_DIR}: ${msg}`,
-      );
+      return report;
     }
-    return report;
+    // EACCES / ENOTDIR / EIO / etc. — packages dir exists but is
+    // unreadable by this process. Route through UnreadableInputError
+    // so the top-level catch maps this to EXIT_UNREADABLE (3)
+    // rather than collapsing to EXIT_DRIFT (1) via report.fail.
+    const msg = err && err.message ? err.message : String(e);
+    throw new UnreadableInputError(
+      `Packages dir stat failed (${err?.code ?? "unknown"}): ${PACKAGES_DIR}: ${msg}`,
+    );
   }
   if (!packagesStat.isDirectory()) {
-    report.fail.push(`[FAIL] Packages dir is not a directory: ${PACKAGES_DIR}`);
-    return report;
+    throw new UnreadableInputError(
+      `Packages dir is not a directory: ${PACKAGES_DIR}`,
+    );
   }
 
   const slugs = fs
@@ -1422,6 +1451,18 @@ function validateAll(): Report {
 
     // Parse errors: surface as FAIL so the process exits non-zero. A
     // silent WARN lets broken manifests slip through CI with [OK].
+    //
+    // EXCEPTION: infra errors (stat EACCES/ENOTDIR/…) are NOT drift —
+    // they are permissions/filesystem misconfig. Route them through
+    // UnreadableInputError so the top-level catch maps to
+    // EXIT_UNREADABLE (3) rather than report.fail → EXIT_DRIFT (1).
+    for (const pe of [...showcase.parseErrors, ...dojo.parseErrors]) {
+      if (pe.infra) {
+        throw new UnreadableInputError(
+          `${slug}: unreadable input at ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
+        );
+      }
+    }
     for (const pe of showcase.parseErrors) {
       report.fail.push(
         `[FAIL] ${slug}: parse error in ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
