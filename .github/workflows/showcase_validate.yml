@@ -5,11 +5,21 @@ on:
     paths:
       - "showcase/**"
       - "examples/integrations/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/showcase_validate.yml"
   push:
     branches: [main]
     paths:
       - "showcase/**"
       - "examples/integrations/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/showcase_validate.yml"
+
+# Least-privilege by default. Individual jobs/steps can widen when needed.
+permissions:
+  contents: read
 
 concurrency:
   group: showcase-validate-${{ github.ref }}
@@ -19,7 +29,16 @@ jobs:
   validate:
     name: Validate Showcase
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Cold-cache runs (no pnpm/npm cache hit) with full install + build +
+    # validators + vitest have been observed near 18-20m on GitHub-hosted
+    # runners. 25m gives headroom without masking genuine hangs.
+    timeout-minutes: 25
+    defaults:
+      run:
+        # Pin shell so `set -euo pipefail` + `mapfile` behave the same
+        # across any future runner image changes (default on ubuntu is
+        # already bash, but we lock it explicitly).
+        shell: bash
 
     steps:
       - name: Checkout
@@ -29,9 +48,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          # Cache npm for the showcase/shell `npm ci` step below (shell is
+          # NOT a pnpm workspace member; it ships its own package-lock.json).
+          cache: "npm"
+          cache-dependency-path: showcase/shell/package-lock.json
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        # Pinned to a specific minor rather than floating @v4 so that a
+        # silent upstream major/minor change can't alter install semantics
+        # on a random CI run. Bump deliberately when refreshing the toolchain.
+        uses: pnpm/action-setup@v4.4.0
 
       - name: Verify lockfile is up to date
         run: pnpm install --frozen-lockfile --ignore-scripts
@@ -55,13 +81,17 @@ jobs:
               failed=1
               continue
             fi
-            # Capture `find` exit status directly: piping into `wc -l | tr -d ' '`
-            # hides failures because `tr` always succeeds, defeating pipefail.
-            find_output=$(find "$e2e_dir" -maxdepth 1 -type f -name '*.spec.ts') || {
+            # Capture matches into an array via `mapfile`. Using a pipe to
+            # `wc -l` or `grep -c` hides `find`'s exit code because the
+            # downstream tool always succeeds, defeating pipefail. Process
+            # substitution + mapfile preserves `find`'s exit status in the
+            # parent shell.
+            specs=()
+            if ! mapfile -t specs < <(find "$e2e_dir" -maxdepth 1 -type f -name '*.spec.ts'); then
               echo "::error file=$e2e_dir::find failed while enumerating specs for '$pkg'"
               exit 1
-            }
-            count=$(printf '%s\n' "$find_output" | grep -c . || true)
+            fi
+            count=${#specs[@]}
             if [ "$count" -lt "$MIN" ]; then
               echo "::error file=$e2e_dir::Package '$pkg' has $count e2e spec(s); minimum required is $MIN"
               failed=1
@@ -80,27 +110,38 @@ jobs:
         # MUST failures (missing manifest, missing src/app/demos dir) exit 1 and
         # fail the PR. SHOULD deviations print warnings and exit 0. See
         # showcase/scripts/validate-parity.ts for the full policy.
-        run: npx tsx validate-parity.ts
+        #
+        # `pnpm exec` resolves tsx from the pnpm-lock.yaml-pinned workspace
+        # install; `npx tsx` could fetch a drifting version on a registry
+        # cache miss.
+        run: pnpm exec tsx validate-parity.ts
 
       - name: Run validate-pins (ratchet)
         working-directory: showcase/scripts
         # --- Drift ratchet -------------------------------------------------
         # We cannot yet gate on FAIL=0 because there is a grandfathered
-        # allowlist of pin drift (currently ~111 entries) that needs a
-        # product decision (align showcase -> Dojo vs bump Dojo -> showcase)
-        # before we can flip to strict gating.
+        # allowlist of pin drift that needs a product decision (align
+        # showcase -> Dojo vs bump Dojo -> showcase) before we can flip to
+        # strict gating. The authoritative count + hash live in
+        # `showcase/scripts/fail-baseline.json` — update that file, not
+        # this comment, when the allowlist changes.
         #
-        # Until then, we ratchet: `fail-baseline.json` holds the last known
-        # FAIL count, and this step compares the live count against it.
+        # Until then, we ratchet. `fail-baseline.json` holds the last-known
+        # FAIL count AND a SHA-256 hash of the sorted, deduplicated FAIL
+        # lines. CI compares both:
         #   - count >  baseline  => NEW drift introduced; fail CI.
-        #   - count == baseline  => neutral; pass.
         #   - count <  baseline  => drift reduced; fail CI with an explicit
         #                           instruction to ratchet the baseline down
         #                           (so the number can never creep back up
         #                           silently).
+        #   - count == baseline, hash != baseline => the FAIL *set* drifted
+        #                           (one item healed, another regressed, net
+        #                           zero on the counter). Fail with a diff.
+        #   - count == baseline, hash == baseline => pass.
         #
-        # To adjust the baseline, edit
-        # `showcase/scripts/fail-baseline.json` in the same PR.
+        # To adjust the baseline, edit `showcase/scripts/fail-baseline.json`
+        # in the same PR (bump both `validatePinsFailCount` and
+        # `validatePinsFailHash`; the error output prints the new hash).
         #
         # Reference: Notion "Bugs-Found-During-Blitz-Deferred-Not-Fixed"
         #   https://www.notion.so/3443aa38-1852-812f-b595-c5118dd68818
@@ -109,27 +150,85 @@ jobs:
         # -------------------------------------------------------------------
         run: |
           set -euo pipefail
-          baseline=$(node -e "console.log(require('./fail-baseline.json').validatePinsFailCount)")
-          # validate-pins prints '[FAIL] ...' to stderr and a 'Summary: ... FAIL=N'
-          # line to stdout. It exits 1 whenever FAIL>0, so do not let pipefail
-          # short-circuit the pipeline — we want the summary even on non-zero.
-          output=$(npx tsx validate-pins.ts 2>&1 || true)
+
+          # --- Load + validate baseline -----------------------------------
+          # `node -e` prints either a validated value or an error marker
+          # we match below. We deliberately do NOT let require() throw
+          # out of the subshell; we format a clean CI error instead.
+          baseline_json=$(node -e "
+            const v = require('./fail-baseline.json');
+            const c = v.validatePinsFailCount;
+            const h = v.validatePinsFailHash;
+            if (typeof c !== 'number' || !Number.isInteger(c) || c < 0) {
+              console.error('validatePinsFailCount must be a non-negative integer');
+              process.exit(2);
+            }
+            if (typeof h !== 'string' || !/^[0-9a-f]{64}$/.test(h)) {
+              console.error('validatePinsFailHash must be a 64-char lowercase hex SHA-256');
+              process.exit(2);
+            }
+            console.log(JSON.stringify({ count: c, hash: h }));
+          ") || {
+            echo "::error::fail-baseline.json failed schema validation (see stderr above)"
+            exit 1
+          }
+          baseline=$(node -e "console.log(JSON.parse(process.argv[1]).count)" "$baseline_json")
+          baseline_hash=$(node -e "console.log(JSON.parse(process.argv[1]).hash)" "$baseline_json")
+
+          # --- Run validator; separate internal crash from pin-drift exit -
+          # validate-pins exits 0 when FAIL=0, 1 when FAIL>0. Anything else
+          # (2+, uncaught throw, node crash, SIGSEGV) is an internal failure
+          # we must surface distinctly from a legitimate drift report.
+          set +e
+          output=$(pnpm exec tsx validate-pins.ts 2>&1)
+          rc=$?
+          set -e
           printf '%s\n' "$output"
-          actual=$(printf '%s\n' "$output" | awk -F'FAIL=' '/^Summary:/ {print $2+0; exit}')
-          if [ -z "${actual:-}" ]; then
-            echo "::error::Could not parse validate-pins Summary line"
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
+            echo "::error::validate-pins.ts exited with unexpected code $rc (expected 0 or 1). This indicates an internal failure, not pin drift."
             exit 1
           fi
-          echo "validate-pins FAIL count: actual=$actual baseline=$baseline"
+
+          # --- Parse Summary line (actual FAIL count) ---------------------
+          # awk extracts the integer after 'FAIL=' on the first Summary
+          # line. If awk emits nothing or non-digits (e.g. validator output
+          # format changed), fail loudly instead of silently treating it as
+          # zero.
+          summary_line=$(printf '%s\n' "$output" | grep -E '^Summary:' | head -n 1 || true)
+          if [ -z "$summary_line" ]; then
+            echo "::error::Could not find validate-pins 'Summary:' line in output"
+            exit 1
+          fi
+          actual=$(printf '%s\n' "$summary_line" | grep -oE 'FAIL=[0-9]+' | head -n 1 | cut -d= -f2)
+          if [ -z "${actual:-}" ] || ! [[ "$actual" =~ ^[0-9]+$ ]]; then
+            echo "::error::Could not parse FAIL=<int> from Summary line: $summary_line"
+            exit 1
+          fi
+
+          # --- Compute tuple hash of current FAIL set ---------------------
+          # Hash the sorted, deduplicated `[FAIL] ...` lines. This catches
+          # the "count equal but set drifted" case: one FAIL healed while
+          # another regressed.
+          actual_hash=$(printf '%s\n' "$output" | grep -E '^\[FAIL\]' | LC_ALL=C sort -u | shasum -a 256 | cut -d' ' -f1)
+
+          echo "validate-pins FAIL: actual=$actual baseline=$baseline"
+          echo "validate-pins HASH: actual=$actual_hash baseline=$baseline_hash"
+
           if [ "$actual" -gt "$baseline" ]; then
-            echo "::error::Pin drift increased: $actual FAIL(s) vs baseline $baseline. Fix the new drift or, with explicit sign-off, update showcase/scripts/fail-baseline.json."
+            echo "::error::Pin drift increased: $actual FAIL(s) vs baseline $baseline. Fix the new drift or, with explicit sign-off, update showcase/scripts/fail-baseline.json (bump validatePinsFailCount to $actual and validatePinsFailHash to $actual_hash)."
             exit 1
           fi
           if [ "$actual" -lt "$baseline" ]; then
-            echo "::error::Pin drift decreased: $actual FAIL(s) vs baseline $baseline. Ratchet down the baseline in showcase/scripts/fail-baseline.json to $actual."
+            echo "::error::Pin drift decreased: $actual FAIL(s) vs baseline $baseline. Ratchet down the baseline in showcase/scripts/fail-baseline.json (set validatePinsFailCount=$actual, validatePinsFailHash=$actual_hash)."
             exit 1
           fi
-          echo "Pin drift unchanged at baseline ($baseline)."
+          if [ "$actual_hash" != "$baseline_hash" ]; then
+            echo "::error::Pin drift SET changed (count equal at $actual, hash differs). One FAIL healed while another regressed — net zero on the counter but the failing tuples are not the same set. Update showcase/scripts/fail-baseline.json (validatePinsFailHash=$actual_hash) if this is intentional, or fix the new drift."
+            echo "--- FAIL lines (current) ---"
+            printf '%s\n' "$output" | grep -E '^\[FAIL\]' | LC_ALL=C sort -u
+            exit 1
+          fi
+          echo "Pin drift unchanged at baseline ($baseline, hash $baseline_hash)."
 
       - name: Run build pipeline tests
         working-directory: showcase/scripts
@@ -140,17 +239,19 @@ jobs:
 
       - name: Validate manifests & generate registry
         working-directory: showcase/scripts
-        run: npx tsx generate-registry.ts
+        run: pnpm exec tsx generate-registry.ts
 
       - name: Bundle demo content
         working-directory: showcase/scripts
-        run: npx tsx bundle-demo-content.ts
+        run: pnpm exec tsx bundle-demo-content.ts
 
       - name: Install showcase shell dependencies
         working-directory: showcase/shell
         # `showcase/shell` is NOT a pnpm workspace member (see pnpm-workspace.yaml)
         # and ships its own `package-lock.json`. Use `npm ci` to get a
         # reproducible install; `npm install` would re-resolve ranges.
+        # npm cache is configured at the setup-node step above via
+        # `cache-dependency-path: showcase/shell/package-lock.json`.
         run: npm ci --ignore-scripts
 
       - name: Build showcase shell
