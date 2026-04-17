@@ -24,4 +24,25 @@ describe("installFetchInterceptor", () => {
     expect(spy).toHaveBeenCalled();
     expect(await res.text()).toBe("ok");
   });
+
+  it("returns a disposer that restores the original fetch", async () => {
+    const spy = vi.fn();
+    global.fetch = spy;
+    const uninstall = installFetchInterceptor(["https://mock.local"]);
+    expect(global.fetch).not.toBe(spy);
+    uninstall();
+    expect(global.fetch).toBe(spy);
+  });
+
+  it("is a no-op on double-install (prevents stacked wrappers)", async () => {
+    const spy = vi.fn();
+    global.fetch = spy;
+    installFetchInterceptor(["https://mock.local"]);
+    const afterFirst = global.fetch;
+    const uninstall = installFetchInterceptor(["https://mock.local"]);
+    expect(global.fetch).toBe(afterFirst);
+    uninstall();
+    // Disposer from the second (no-op) call doesn't unwind the first install.
+    expect(global.fetch).toBe(afterFirst);
+  });
 });
