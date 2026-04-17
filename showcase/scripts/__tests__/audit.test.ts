@@ -12,6 +12,8 @@ import {
   readManifest,
   countFiles,
   findExamplesSource,
+  resolveExamplesSource,
+  isProgrammerBug,
   parseArgs,
   anomalyMessage,
   UnreadableDirError,
@@ -412,39 +414,32 @@ describe("findExamplesSource", () => {
   });
 
   it("falls back to a later candidate when only that later candidate exists", () => {
-    // Companion of the first-only case: when the first declared
-    // candidate is absent but a later one exists, findExamplesSource
-    // must traverse past the gap and return the later dir.
-    const slug = "langgraph-typescript";
-    const mapped = SLUG_TO_EXAMPLES[slug];
-    expect(mapped).toBeDefined();
-    if (!mapped || mapped.length < 2) {
-      // Only run the fallback assertion when the live map has >=2
-      // candidates — otherwise there's nothing to fall through to.
-      return;
-    }
-    const later = mapped[mapped.length - 1];
-    makeExampleDir(root, later);
+    // Exercise the multi-candidate fallback path via resolveExamplesSource,
+    // which accepts an explicit `mapped` tuple. All live SLUG_TO_EXAMPLES
+    // entries are single-candidate today, so using findExamplesSource
+    // would short-circuit the fallback loop and leave this codepath
+    // uncovered. Synthetic multi-candidate input makes the assertion
+    // meaningful regardless of the production map's shape.
+    const slug = "synthetic-multi";
+    const mapped = ["missing-first", "real-later"] as const;
+    makeExampleDir(root, "real-later");
     const cfg = makeConfig(root);
-    const r = findExamplesSource(slug, cfg);
-    expect(r).toBe(path.join("examples", "integrations", later));
+    const r = resolveExamplesSource(slug, mapped, cfg);
+    expect(r).toBe(path.join("examples", "integrations", "real-later"));
   });
 
   it("returns the first candidate when both first and later candidates exist (first wins)", () => {
-    // With both a first and a later mapped candidate present, declared
-    // order decides — the first must win regardless of filesystem
-    // enumeration order.
-    const slug = "langgraph-typescript";
-    const mapped = SLUG_TO_EXAMPLES[slug];
-    expect(mapped).toBeDefined();
-    if (!mapped || mapped.length < 2) return;
-    const first = mapped[0];
-    const later = mapped[mapped.length - 1];
-    makeExampleDir(root, first);
-    makeExampleDir(root, later);
+    // Declared order decides — the first present candidate wins
+    // regardless of filesystem enumeration order. Uses synthetic
+    // multi-candidate mapping for the same reason as the fallback test
+    // above: the live map is single-candidate everywhere.
+    const slug = "synthetic-multi";
+    const mapped = ["first-dir", "later-dir"] as const;
+    makeExampleDir(root, "first-dir");
+    makeExampleDir(root, "later-dir");
     const cfg = makeConfig(root);
-    const r = findExamplesSource(slug, cfg);
-    expect(r).toBe(path.join("examples", "integrations", first));
+    const r = resolveExamplesSource(slug, mapped, cfg);
+    expect(r).toBe(path.join("examples", "integrations", "first-dir"));
   });
 });
 
@@ -642,7 +637,8 @@ describe("auditPackage", () => {
     // Contract: even if stderr is captured/redirected (or if the
     // caller renders JSON and swallows stderr entirely), the audit
     // record itself should carry the warning.
-    const mappedSlug = Object.keys(SLUG_TO_EXAMPLES)[0];
+    const mappedSlug = "mastra";
+    expect(SLUG_TO_EXAMPLES[mappedSlug]).toBeDefined();
     writePackage(root, mappedSlug, {
       manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: x\n`,
       specs: ["x.spec.ts"],
@@ -889,27 +885,38 @@ describe("BORN_IN_SHOWCASE set", () => {
     expect(BORN_IN_SHOWCASE.has("spring-ai")).toBe(true);
   });
 
-  it("every BORN_IN_SHOWCASE slug has no counterpart directory under examples/integrations/ in the real repo", () => {
-    // BORN_IN_SHOWCASE is the set of packages that live ONLY under
-    // showcase/ — so each slug MUST NOT have a corresponding directory
-    // under examples/integrations/. Walk the real repo root and assert.
-    const repoExamplesDir = path.resolve(
-      __dirname,
-      "..",
-      "..",
-      "..",
-      "examples",
-      "integrations",
-    );
-    // If examples/integrations doesn't exist (unlikely but possible in
-    // fixture-only CI), the assertion is vacuously true.
-    if (!fs.existsSync(repoExamplesDir)) return;
-    for (const slug of BORN_IN_SHOWCASE) {
-      const candidate = path.join(repoExamplesDir, slug);
-      expect(
-        fs.existsSync(candidate),
-        `BORN_IN_SHOWCASE slug "${slug}" has a directory under examples/integrations — either remove it from BORN_IN_SHOWCASE or remove the dir`,
-      ).toBe(false);
+  it("every BORN_IN_SHOWCASE slug has no counterpart directory under examples/integrations/ (fixture-synthesized invariant)", () => {
+    // Fixture-based version of the real-repo invariant: synthesize a
+    // tmpdir that mimics examples/integrations/ containing only the
+    // slugs that SHOULD be there (i.e. nothing from BORN_IN_SHOWCASE).
+    // This always runs in CI — no `if (!fs.existsSync) return;` bail.
+    //
+    // The invariant asserted: given a clean examples/integrations/
+    // tree that contains no BORN_IN_SHOWCASE slugs, findExamplesSource
+    // must return null for every BORN_IN_SHOWCASE member. If someone
+    // later adds a BORN_IN_SHOWCASE slug to SLUG_TO_EXAMPLES by mistake
+    // this test will fail via the second assertion.
+    const tmp = makeTmpTree();
+    try {
+      // Seed a handful of non-born slugs so the examples dir isn't empty.
+      makeExampleDir(tmp, "mastra");
+      makeExampleDir(tmp, "agno");
+      const cfg = makeConfig(tmp);
+      for (const slug of BORN_IN_SHOWCASE) {
+        // No dir created for this slug — findExamplesSource must return
+        // null and SLUG_TO_EXAMPLES must not carry a mapping for it.
+        const r = findExamplesSource(slug, cfg);
+        expect(
+          r,
+          `BORN_IN_SHOWCASE slug "${slug}" resolved to a non-null examples source — the maps are inconsistent`,
+        ).toBeNull();
+        expect(
+          SLUG_TO_EXAMPLES[slug],
+          `BORN_IN_SHOWCASE slug "${slug}" appears in SLUG_TO_EXAMPLES — remove one or the other`,
+        ).toBeUndefined();
+      }
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
     }
   });
 });
@@ -927,27 +934,36 @@ describe("SLUG_TO_EXAMPLES — dead entries removed", () => {
     },
   );
 
-  it("every mapped target exists as a dir under examples/integrations/ in the real repo", () => {
-    // Dead-entry guard: if any SLUG_TO_EXAMPLES value points at a
-    // non-existent examples/integrations/ dir, the audit will emit
-    // spurious "no examples source" anomalies at runtime.
-    const repoExamplesDir = path.resolve(
-      __dirname,
-      "..",
-      "..",
-      "..",
-      "examples",
-      "integrations",
-    );
-    if (!fs.existsSync(repoExamplesDir)) return;
-    for (const [slug, targets] of Object.entries(SLUG_TO_EXAMPLES)) {
-      for (const target of targets) {
-        const candidate = path.join(repoExamplesDir, target);
-        expect(
-          fs.existsSync(candidate),
-          `SLUG_TO_EXAMPLES[${slug}] points at missing dir ${candidate}`,
-        ).toBe(true);
+  it("every mapped target resolves when its examples/integrations/ dir is present (fixture-synthesized)", () => {
+    // Fixture-based dead-entry guard: synthesize an examples/integrations/
+    // tmpdir containing every target named in SLUG_TO_EXAMPLES, then
+    // assert findExamplesSource returns a non-null path for each slug.
+    // This exercises the positive resolution path deterministically and
+    // always runs in CI — no `if (!fs.existsSync) return;` bail.
+    //
+    // Dead-entry protection: if anyone adds a SLUG_TO_EXAMPLES entry
+    // pointing at a non-existent target and the real repo lacks that
+    // dir, audit would emit a phantom "no examples source" anomaly.
+    // The slug-map.test.ts real-repo invariant (separate file) still
+    // enforces the production tree; this test locks in the runtime
+    // resolution contract.
+    const tmp = makeTmpTree();
+    try {
+      for (const targets of Object.values(SLUG_TO_EXAMPLES)) {
+        for (const target of targets) {
+          makeExampleDir(tmp, target);
+        }
       }
+      const cfg = makeConfig(tmp);
+      for (const [slug, targets] of Object.entries(SLUG_TO_EXAMPLES)) {
+        const r = findExamplesSource(slug, cfg);
+        expect(
+          r,
+          `SLUG_TO_EXAMPLES[${slug}] → [${targets.join(", ")}] failed to resolve against a fixture containing every target`,
+        ).not.toBeNull();
+      }
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
     }
   });
 });
@@ -1008,6 +1024,120 @@ describe("findExamplesSource — sink-based warnings (no global stderr)", () => 
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe("findExamplesSource — unreadable-candidates ERROR branch", () => {
+  // Coverage for audit.ts:429-434: when a mapped slug has multiple
+  // candidates and ALL of them exist but ALL statSync calls fail, the
+  // resolver must emit an ERROR warning (category:
+  // unreadable-candidates) and return null. This is materially
+  // different from the benign "no matching dir" warning because we
+  // can't actually tell whether the provenance is satisfied — the
+  // downstream consumer needs the ERROR level to route differently.
+  let root: string;
+  beforeEach(() => {
+    root = makeTmpTree();
+  });
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it("emits an ERROR (category: unreadable-candidates) when every mapped candidate exists but statSync fails on all of them", () => {
+    const slug = "synthetic-unreadable";
+    const mapped = ["cand-a", "cand-b"] as const;
+    makeExampleDir(root, "cand-a");
+    makeExampleDir(root, "cand-b");
+    const dirA = path.join(root, "examples", "integrations", "cand-a");
+    const dirB = path.join(root, "examples", "integrations", "cand-b");
+    const orig = fs.statSync;
+    const spy = vi.spyOn(fs, "statSync").mockImplementation(((
+      p: fs.PathLike,
+      options?: unknown,
+    ) => {
+      if (typeof p === "string" && (p === dirA || p === dirB)) {
+        const e: NodeJS.ErrnoException = new Error("EACCES: injected");
+        e.code = "EACCES";
+        throw e;
+      }
+      return (orig as unknown as (p: fs.PathLike, o?: unknown) => unknown)(
+        p,
+        options,
+      );
+    }) as typeof fs.statSync);
+    try {
+      const cfg = makeConfig(root);
+      const sink: string[] = [];
+      const r = resolveExamplesSource(slug, mapped, cfg, sink);
+      expect(r).toBeNull();
+      // The ERROR warning must be present, tagged with the category,
+      // and must name the slug so downstream consumers can route it.
+      expect(
+        sink.some((w) => /ERROR/.test(w) && w.includes(slug)),
+        `expected an ERROR warning for slug "${slug}" in sink: ${JSON.stringify(sink)}`,
+      ).toBe(true);
+      expect(sink.some((w) => w.includes("unreadable-candidates"))).toBe(true);
+      // Every candidate should have shown up in a statSync warning too
+      // (companion diagnostic emitted from the loop body).
+      expect(sink.some((w) => w.includes("statSync") && w.includes("cand-a"))).toBe(
+        true,
+      );
+      expect(sink.some((w) => w.includes("statSync") && w.includes("cand-b"))).toBe(
+        true,
+      );
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe("isProgrammerBug classification", () => {
+  // Coverage for audit.ts:1206-1222. The top-level catch in main()
+  // uses isProgrammerBug to decide between "broken invariant, worth a
+  // bug report" diagnostic wording and "infrastructure / I/O" wording.
+  // Both land on EXIT_INTERNAL but the operator-facing message diverges.
+  it("classifies a bare TypeError as a programmer bug", () => {
+    expect(isProgrammerBug(new TypeError("invariant broken"))).toBe(true);
+  });
+
+  it("classifies ReferenceError and RangeError as programmer bugs too", () => {
+    expect(isProgrammerBug(new ReferenceError("x is not defined"))).toBe(true);
+    expect(isProgrammerBug(new RangeError("Maximum call stack"))).toBe(true);
+  });
+
+  it("classifies a plain Error (no .code) as NOT a programmer bug", () => {
+    // A bare Error without `.code` is neither an errno nor one of the
+    // recognised programmer-bug subclasses — falls through the guard
+    // and returns false.
+    expect(isProgrammerBug(new Error("something else"))).toBe(false);
+  });
+
+  it("classifies an ErrnoException-shaped Error as NOT a programmer bug", () => {
+    // Any Error carrying a string `.code` is treated as runtime I/O —
+    // including the rare case where a TypeError also picks up a
+    // `.code` field, in which case the errno check wins.
+    const e: NodeJS.ErrnoException = new Error("EACCES: permission denied");
+    e.code = "EACCES";
+    expect(isProgrammerBug(e)).toBe(false);
+  });
+
+  it("classifies a TypeError carrying a string .code as NOT a programmer bug (errno wins)", () => {
+    // This is the "weird subclass drift" case called out in the
+    // comment at audit.ts:1197-1202 — an errno-bearing TypeError is
+    // biased toward runtime, not programmer.
+    const e = new TypeError("weird drift") as TypeError & { code?: string };
+    e.code = "EIO";
+    expect(isProgrammerBug(e)).toBe(false);
+  });
+
+  it("classifies non-Error values as NOT programmer bugs", () => {
+    // Non-Error throws (strings, numbers, plain objects) don't satisfy
+    // the `instanceof Error` guard and return false.
+    expect(isProgrammerBug("string thrown")).toBe(false);
+    expect(isProgrammerBug(42)).toBe(false);
+    expect(isProgrammerBug({ message: "plain" })).toBe(false);
+    expect(isProgrammerBug(undefined)).toBe(false);
+    expect(isProgrammerBug(null)).toBe(false);
   });
 });
 
@@ -1166,7 +1296,8 @@ describe("main() exit codes via CLI subprocess", () => {
     // double-emit the same information. A consumer redirecting
     // `2>/dev/null` should still get a complete machine-readable
     // report via stdout.
-    const mappedSlug = Object.keys(SLUG_TO_EXAMPLES)[0];
+    const mappedSlug = "mastra";
+    expect(SLUG_TO_EXAMPLES[mappedSlug]).toBeDefined();
     writePackage(root, mappedSlug, {
       manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: a\n`,
       specs: ["a.spec.ts"],
@@ -1194,7 +1325,8 @@ describe("main() exit codes via CLI subprocess", () => {
     // Counterpart: in text mode a terminal user watching stderr should
     // still see the stale-mapping diagnostic — the sink-based warnings
     // must be forwarded, not silently dropped.
-    const mappedSlug = Object.keys(SLUG_TO_EXAMPLES)[0];
+    const mappedSlug = "mastra";
+    expect(SLUG_TO_EXAMPLES[mappedSlug]).toBeDefined();
     writePackage(root, mappedSlug, {
       manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: a\n`,
       specs: ["a.spec.ts"],
