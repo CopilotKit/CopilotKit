@@ -5,15 +5,11 @@ on:
     paths:
       - "showcase/**"
       - "examples/integrations/**"
-      - "examples/integrations/**/fixtures/**"
-      - "scripts/doc-tests/fixtures/**"
   push:
     branches: [main]
     paths:
       - "showcase/**"
       - "examples/integrations/**"
-      - "examples/integrations/**/fixtures/**"
-      - "scripts/doc-tests/fixtures/**"
 
 concurrency:
   group: showcase-validate-${{ github.ref }}
@@ -59,7 +55,13 @@ jobs:
               failed=1
               continue
             fi
-            count=$(find "$e2e_dir" -maxdepth 1 -type f -name '*.spec.ts' | wc -l | tr -d ' ')
+            # Capture `find` exit status directly: piping into `wc -l | tr -d ' '`
+            # hides failures because `tr` always succeeds, defeating pipefail.
+            find_output=$(find "$e2e_dir" -maxdepth 1 -type f -name '*.spec.ts') || {
+              echo "::error file=$e2e_dir::find failed while enumerating specs for '$pkg'"
+              exit 1
+            }
+            count=$(printf '%s\n' "$find_output" | grep -c . || true)
             if [ "$count" -lt "$MIN" ]; then
               echo "::error file=$e2e_dir::Package '$pkg' has $count e2e spec(s); minimum required is $MIN"
               failed=1
@@ -80,30 +82,61 @@ jobs:
         # showcase/scripts/validate-parity.ts for the full policy.
         run: npx tsx validate-parity.ts
 
-      - name: Run validate-pins (advisory; non-gating)
+      - name: Run validate-pins (ratchet)
         working-directory: showcase/scripts
-        # Non-gating: grandfathered drift allowlist (currently 44 entries) from
-        # the original run needs a product decision (align showcase -> Dojo vs
-        # bump Dojo -> showcase) before we can gate. Until then, surface the
-        # drift report without blocking PRs.
+        # --- Drift ratchet -------------------------------------------------
+        # We cannot yet gate on FAIL=0 because there is a grandfathered
+        # allowlist of pin drift (currently ~111 entries) that needs a
+        # product decision (align showcase -> Dojo vs bump Dojo -> showcase)
+        # before we can flip to strict gating.
         #
-        # Rule of engagement for the drift count:
-        #   - If the count DROPS, bump the allowlist / tolerance DOWN to match
-        #     (ratchet-down; never let it creep back up silently).
-        #   - If the count GROWS, file a fix PR. Do NOT bump the tolerance UP
-        #     without an explicit review + sign-off.
+        # Until then, we ratchet: `fail-baseline.json` holds the last known
+        # FAIL count, and this step compares the live count against it.
+        #   - count >  baseline  => NEW drift introduced; fail CI.
+        #   - count == baseline  => neutral; pass.
+        #   - count <  baseline  => drift reduced; fail CI with an explicit
+        #                           instruction to ratchet the baseline down
+        #                           (so the number can never creep back up
+        #                           silently).
+        #
+        # To adjust the baseline, edit
+        # `showcase/scripts/fail-baseline.json` in the same PR.
         #
         # Reference: Notion "Bugs-Found-During-Blitz-Deferred-Not-Fixed"
         #   https://www.notion.so/3443aa38-1852-812f-b595-c5118dd68818
         #
-        # TODO(showcase-drift): drive the allowlist to zero. Re-audit this
-        # allowlist quarterly; see the ADR when scheduled.
-        continue-on-error: true
-        run: npx tsx validate-pins.ts
+        # TODO(showcase-drift): drive the baseline to zero; re-audit quarterly.
+        # -------------------------------------------------------------------
+        run: |
+          set -euo pipefail
+          baseline=$(node -e "console.log(require('./fail-baseline.json').validatePinsFailCount)")
+          # validate-pins prints '[FAIL] ...' to stderr and a 'Summary: ... FAIL=N'
+          # line to stdout. It exits 1 whenever FAIL>0, so do not let pipefail
+          # short-circuit the pipeline — we want the summary even on non-zero.
+          output=$(npx tsx validate-pins.ts 2>&1 || true)
+          printf '%s\n' "$output"
+          actual=$(printf '%s\n' "$output" | awk -F'FAIL=' '/^Summary:/ {print $2+0; exit}')
+          if [ -z "${actual:-}" ]; then
+            echo "::error::Could not parse validate-pins Summary line"
+            exit 1
+          fi
+          echo "validate-pins FAIL count: actual=$actual baseline=$baseline"
+          if [ "$actual" -gt "$baseline" ]; then
+            echo "::error::Pin drift increased: $actual FAIL(s) vs baseline $baseline. Fix the new drift or, with explicit sign-off, update showcase/scripts/fail-baseline.json."
+            exit 1
+          fi
+          if [ "$actual" -lt "$baseline" ]; then
+            echo "::error::Pin drift decreased: $actual FAIL(s) vs baseline $baseline. Ratchet down the baseline in showcase/scripts/fail-baseline.json to $actual."
+            exit 1
+          fi
+          echo "Pin drift unchanged at baseline ($baseline)."
 
       - name: Run build pipeline tests
         working-directory: showcase/scripts
-        run: npx vitest run
+        # Use pnpm to resolve the workspace-installed vitest (pinned via
+        # pnpm-lock.yaml) rather than `npx`, which could fetch a different
+        # version on a registry cache miss.
+        run: pnpm exec vitest run
 
       - name: Validate manifests & generate registry
         working-directory: showcase/scripts
@@ -115,12 +148,20 @@ jobs:
 
       - name: Install showcase shell dependencies
         working-directory: showcase/shell
-        run: npm install --ignore-scripts
+        # `showcase/shell` is NOT a pnpm workspace member (see pnpm-workspace.yaml)
+        # and ships its own `package-lock.json`. Use `npm ci` to get a
+        # reproducible install; `npm install` would re-resolve ranges.
+        run: npm ci --ignore-scripts
 
       - name: Build showcase shell
         working-directory: showcase/shell
         run: npm run build
 
+      # NOTE: Slack failure alert only fires on `push` (i.e. main-branch
+      # merges) by design. PR failures already surface in the PR checks UI
+      # and the PR author's inbox, and we don't want PR-author noise
+      # pinging the OSS alerts channel. Tradeoff: a broken PR that sneaks
+      # past review won't alert Slack until after merge.
       - name: Notify Slack (failure)
         if: failure() && github.event_name == 'push'
         uses: slackapi/slack-github-action@v2.1.0
