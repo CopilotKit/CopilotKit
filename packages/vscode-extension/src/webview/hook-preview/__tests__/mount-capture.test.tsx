@@ -6,6 +6,8 @@ import { invokeRender } from "../adapters";
 import type { CapturedRegistry } from "../harness/registry";
 import TodoActions from "../../../../test-workspace/hooks/TodoActions";
 
+type CapturedAction = { name: string; render: (props: unknown) => unknown };
+
 describe("end-to-end: mount real host, capture config, invoke render", () => {
   it("captures addTodo action and invokes its render with mock args", async () => {
     const onCapture = vi.fn();
@@ -17,26 +19,26 @@ describe("end-to-end: mount real host, capture config, invoke render", () => {
     );
 
     // Wait for the host's registration effect + the reader's deferred capture
-    // to publish a registry that contains addTodo.
-    let addTodo: { render?: unknown; [k: string]: unknown } | undefined;
-    await waitFor(() => {
+    // to publish a registry that contains addTodo. Returning the resolved
+    // value from waitFor (rather than mutating an outer-scope variable)
+    // keeps the happy-path value stable across retries.
+    const addTodo = await waitFor<CapturedAction>(() => {
       const latest: CapturedRegistry | undefined =
         onCapture.mock.calls.at(-1)?.[0];
-      addTodo = latest?.renderToolCalls?.find((r) => r.name === "addTodo") as
-        | { render?: unknown; [k: string]: unknown }
-        | undefined;
-      expect(addTodo).toBeDefined();
-      expect(typeof addTodo!.render).toBe("function");
+      const found = latest?.renderToolCalls?.find((r) => r.name === "addTodo");
+      expect(found).toBeDefined();
+      expect(typeof (found as { render?: unknown }).render).toBe("function");
+      return found as CapturedAction;
     });
 
-    const ui = invokeRender("action", addTodo!, {
+    const ui = invokeRender("action", addTodo, {
       args: { text: "buy milk" },
       status: "complete",
       result: "done",
       onRespond: vi.fn(),
     });
 
-    const { getByTestId } = render(<div>{ui}</div>);
+    const { getByTestId } = render(<div>{ui as React.ReactNode}</div>);
     expect(getByTestId("add-todo-render").textContent).toMatch(/buy milk/);
   });
 });
