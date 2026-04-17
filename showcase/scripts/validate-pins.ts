@@ -86,8 +86,9 @@ function computeRepoRoot(): string {
         `VALIDATE_PINS_REPO_ROOT must be an absolute path; got: ${override}`,
       );
     }
+    let st: fs.Stats;
     try {
-      fs.statSync(override);
+      st = fs.statSync(override);
     } catch (e) {
       const err = e as NodeJS.ErrnoException;
       if (err && err.code === "ENOENT") {
@@ -105,6 +106,14 @@ function computeRepoRoot(): string {
       const msg = err && err.message ? err.message : String(e);
       throw new Error(
         `VALIDATE_PINS_REPO_ROOT stat failed: ${override}: ${msg}`,
+      );
+    }
+    // Override must be a directory — a file override would let the
+    // rest of the validator run with a bogus REPO_ROOT and produce
+    // misleading "nothing found" output rather than an immediate error.
+    if (!st.isDirectory()) {
+      throw new Error(
+        `VALIDATE_PINS_REPO_ROOT is not a directory: ${override}`,
       );
     }
     return override;
@@ -163,13 +172,29 @@ function resolveExampleDirDetailed(
   // Each strategy can "fall through" if its candidate dir does not
   // exist on disk, so that a stale FALLBACK_MAP entry doesn't block a
   // later strategy from resolving correctly.
+  //
+  // Use `fs.statSync` + catch-ENOENT rather than `fs.existsSync` so
+  // that a permission error (EACCES) does not silently collapse to the
+  // "not present" branch. EACCES means "there is something there, but
+  // this process can't read it" — treating it as "absent" hides real
+  // misconfiguration. Other errors re-throw so they're surfaced at the
+  // top level rather than quietly skipped.
+  const existsAsDir = (p: string): boolean => {
+    try {
+      return fs.statSync(p).isDirectory();
+    } catch (e) {
+      const err = e as NodeJS.ErrnoException;
+      if (err && err.code === "ENOENT") return false;
+      throw e;
+    }
+  };
 
   // Strategy 1 — explicit fallback (documents SLUG_MAP staleness).
   const fallback = FALLBACK_MAP[showcaseSlug];
   let missingFallbackTarget: string | undefined;
   if (fallback) {
     const dir = path.join(EXAMPLES_DIR, fallback);
-    if (fs.existsSync(dir)) return { exampleDir: dir };
+    if (existsAsDir(dir)) return { exampleDir: dir };
     // Display relative to REPO_ROOT so the WARN line reads
     // `examples/integrations/<name>` rather than the ambiguous
     // `integrations/<name>` (which hides where the missing dir is).
@@ -180,13 +205,13 @@ function resolveExampleDirDetailed(
   const candidates = REVERSE_MAP[showcaseSlug] || [];
   for (const cand of candidates) {
     const dir = path.join(EXAMPLES_DIR, cand);
-    if (fs.existsSync(dir)) return { exampleDir: dir, missingFallbackTarget };
+    if (existsAsDir(dir)) return { exampleDir: dir, missingFallbackTarget };
   }
 
   // Strategy 3 — direct name match (common case: showcase slug ===
   // examples dir name).
   const direct = path.join(EXAMPLES_DIR, showcaseSlug);
-  if (fs.existsSync(direct))
+  if (existsAsDir(direct))
     return { exampleDir: direct, missingFallbackTarget };
 
   return { exampleDir: null, missingFallbackTarget };
@@ -1296,8 +1321,30 @@ function validateAll(): Report {
   // can't see any packages, it has nothing to check, which is almost
   // certainly a path misconfiguration. Emit a FAIL so the script exits
   // non-zero.
-  if (!fs.existsSync(PACKAGES_DIR)) {
-    report.fail.push(`[FAIL] Packages dir not found: ${PACKAGES_DIR}`);
+  //
+  // Use `fs.statSync` + catch-ENOENT rather than `fs.existsSync` so a
+  // permission error (EACCES) is not silently collapsed into "not
+  // present" and the packages dir not being a directory (i.e. it's a
+  // file) is caught before readdirSync throws a less-obvious error.
+  let packagesStat: fs.Stats;
+  try {
+    packagesStat = fs.statSync(PACKAGES_DIR);
+  } catch (e) {
+    const err = e as NodeJS.ErrnoException;
+    if (err && err.code === "ENOENT") {
+      report.fail.push(`[FAIL] Packages dir not found: ${PACKAGES_DIR}`);
+    } else {
+      const msg = err && err.message ? err.message : String(e);
+      report.fail.push(
+        `[FAIL] Packages dir stat failed (${err?.code ?? "unknown"}): ${PACKAGES_DIR}: ${msg}`,
+      );
+    }
+    return report;
+  }
+  if (!packagesStat.isDirectory()) {
+    report.fail.push(
+      `[FAIL] Packages dir is not a directory: ${PACKAGES_DIR}`,
+    );
     return report;
   }
 
