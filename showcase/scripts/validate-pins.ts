@@ -1634,9 +1634,12 @@ function validateAll(): Report {
         const djSpec = dj.spec;
 
         // Workspace ref on either side: nothing to pin-check. Enrich
-        // the SKIP message with the Dojo pin when showcase side is the
-        // workspace ref and Dojo pins a concrete version — operators
-        // grepping the log for a dep will want to see the target.
+        // the SKIP message with the counterpart pin so operators
+        // grepping the log for a dep see the concrete target version.
+        // Both branches render the same shape —
+        //   `<dep> <showcase-spec> (Dojo pins <dojo-spec>)`
+        // — so downstream log consumers can parse the SKIP line
+        // uniformly regardless of which side holds the workspace ref.
         if (isWorkspaceRef(scSpec) && !isWorkspaceRef(djSpec)) {
           report.skip.push(
             `[SKIP] ${slug}: ${displayName} ${scSpec || "(empty)"} (Dojo pins ${djSpec || "(empty)"})`,
@@ -1645,7 +1648,7 @@ function validateAll(): Report {
         }
         if (isWorkspaceRef(scSpec) || isWorkspaceRef(djSpec)) {
           report.skip.push(
-            `[SKIP] ${slug}: ${displayName} workspace ref (showcase=${scSpec || "(empty)"}, Dojo=${djSpec || "(empty)"})`,
+            `[SKIP] ${slug}: ${displayName} ${scSpec || "(empty)"} (Dojo pins ${djSpec || "(empty)"})`,
           );
           continue;
         }
