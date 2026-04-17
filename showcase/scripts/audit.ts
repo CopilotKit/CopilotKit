@@ -17,8 +17,10 @@
  *
  * Exit codes:
  *   0 — no anomalies found
- *   1 — one or more anomalies
- *   2 — internal error (bad args, unreadable packages dir, parse failure)
+ *   1 — one or more anomalies (deployed=false, count mismatches, etc.)
+ *   2 — invalid content / user input (bad args, unknown slug)
+ *   3 — unreadable (packages dir missing, filesystem failure)
+ *   4 — unexpected internal error (uncaught exception)
  *
  * No new npm deps. Reuses `yaml` which is already declared in
  * showcase/scripts/package.json. Self-sufficient: does not depend on any
@@ -53,7 +55,6 @@ const SLUG_TO_EXAMPLES: Record<string, string[]> = {
   "langgraph-fastapi": ["langgraph-fastapi"],
   mastra: ["mastra"],
   "crewai-crews": ["crewai-crews"],
-  "crewai-flows": ["crewai-flows"],
   "pydantic-ai": ["pydantic-ai"],
   agno: ["agno"],
   llamaindex: ["llamaindex"],
@@ -61,8 +62,6 @@ const SLUG_TO_EXAMPLES: Record<string, string[]> = {
   "ms-agent-dotnet": ["ms-agent-framework-dotnet"],
   "ms-agent-python": ["ms-agent-framework-python"],
   strands: ["strands-python"],
-  "agent-spec-langgraph": ["agent-spec"],
-  "mcp-apps": ["mcp-apps"],
 };
 
 // Packages intentionally without a Dojo counterpart. Mirrors the set
@@ -148,8 +147,15 @@ type CountResult =
 
 /**
  * Build an AuditConfig for real CLI execution. Honors `SHOWCASE_AUDIT_ROOT`
- * to allow test subprocesses to point at a fixture tree. When unset, uses
- * the script's canonical location (showcase/scripts/audit.ts → showcase/).
+ * to allow test subprocesses to point at a fixture tree. When unset,
+ * derives paths by walking up from this script's location:
+ *   __dirname              → showcase/scripts/
+ *   showcaseRoot (..)      → showcase/
+ *   repoRoot (../..)       → repo root
+ * Note: `path.resolve` normalizes but does NOT follow symlinks. If the
+ * repo is accessed through a symlink, the computed paths will reflect
+ * the symlink path rather than the canonical one — which is fine for
+ * our purposes (readdir/statSync happily follow symlinks too).
  */
 function buildCliConfig(): AuditConfig {
   const envRoot = process.env.SHOWCASE_AUDIT_ROOT;
@@ -162,8 +168,8 @@ function buildCliConfig(): AuditConfig {
       repoRoot: envRoot,
     };
   }
-  const showcaseRoot = path.resolve(__dirname, "..");
-  const repoRoot = path.resolve(showcaseRoot, "..");
+  const showcaseRoot = path.resolve(__dirname, ".."); // showcase/scripts → showcase
+  const repoRoot = path.resolve(showcaseRoot, ".."); // showcase → repo root
   return {
     packagesDir: path.join(showcaseRoot, "packages"),
     examplesIntegrationsDir: path.join(repoRoot, "examples", "integrations"),
@@ -213,8 +219,24 @@ function readManifest(slug: string, cfg: AuditConfig): ManifestResult {
     return { kind: "malformed", error: `read failed: ${msg}` };
   }
   try {
-    const parsed = yaml.parse(raw) as Manifest;
-    return { kind: "ok", manifest: parsed };
+    const parsed: unknown = yaml.parse(raw);
+    // `yaml.parse("")` returns null, and `yaml.parse("42")` returns a
+    // bare scalar — neither is a Manifest. Without this guard, downstream
+    // code that reads `.demos` / `.deployed` throws TypeError and crashes
+    // the whole audit for a single empty manifest.yaml.
+    if (
+      parsed === null ||
+      typeof parsed !== "object" ||
+      Array.isArray(parsed)
+    ) {
+      return {
+        kind: "malformed",
+        error: `expected YAML object at top level, got ${
+          parsed === null ? "null (empty file?)" : typeof parsed
+        }`,
+      };
+    }
+    return { kind: "ok", manifest: parsed as Manifest };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { kind: "malformed", error: msg };
@@ -259,7 +281,8 @@ function countFiles(
  * don't want a TOCTOU race to crash the whole audit.
  */
 function findExamplesSource(slug: string, cfg: AuditConfig): string | null {
-  const candidates = SLUG_TO_EXAMPLES[slug] ?? [slug];
+  const mapped = SLUG_TO_EXAMPLES[slug];
+  const candidates = mapped ?? [slug];
   for (const candidate of candidates) {
     const full = path.join(cfg.examplesIntegrationsDir, candidate);
     if (!fs.existsSync(full)) continue;
@@ -272,6 +295,17 @@ function findExamplesSource(slug: string, cfg: AuditConfig): string | null {
       // continue searching the remaining candidates.
       continue;
     }
+  }
+  // If the slug was *explicitly* mapped but none of its mapped
+  // candidates exist, the map is out of sync with the filesystem. Warn
+  // (stderr) rather than error: missing examples counterparts are
+  // reported as audit anomalies downstream, not blocking failures.
+  // Fallback (unmapped slug → [slug]) is intentionally NOT warned —
+  // that's the normal "no mapping needed" path.
+  if (mapped) {
+    process.stderr.write(
+      `audit: warning: SLUG_TO_EXAMPLES entry "${slug}" → [${mapped.join(", ")}] has no matching directory under ${cfg.examplesIntegrationsDir}\n`,
+    );
   }
   return null;
 }
@@ -639,8 +673,21 @@ const HELP_TEXT = [
   "Exit codes:",
   "  0 — no anomalies",
   "  1 — anomalies found (see anomaly section)",
-  "  2 — internal error (bad args, unreadable packages dir, missing fixtures)",
+  "  2 — invalid content / user input (bad args, unknown slug)",
+  "  3 — unreadable (packages dir missing or not a directory)",
+  "  4 — unexpected internal error",
 ].join("\n");
+
+// Distinct exit codes so CI callers can tell failure modes apart:
+//   2 → user/content error (invalid args, unknown slug)
+//   3 → unreadable (packages dir missing)
+//   4 → unexpected internal error (top-level catch)
+// Previously all three collapsed to 2, which made it impossible for the
+// caller to distinguish "nothing to audit" from "I couldn't parse your
+// arguments".
+const EXIT_INVALID_CONTENT = 2;
+const EXIT_UNREADABLE = 3;
+const EXIT_INTERNAL = 4;
 
 function main(): void {
   try {
@@ -655,14 +702,16 @@ function main(): void {
       }
       console.error("");
       console.error(HELP_TEXT);
-      process.exit(2);
+      // Invalid arguments are user/content error.
+      process.exit(EXIT_INVALID_CONTENT);
     }
 
     const cfg = buildCliConfig();
 
     if (!fs.existsSync(cfg.packagesDir)) {
       console.error(`audit: packages dir does not exist: ${cfg.packagesDir}`);
-      process.exit(2);
+      // Missing packages dir is an unreadable/infrastructure failure.
+      process.exit(EXIT_UNREADABLE);
     }
 
     const allSlugs = listShowcasePackageSlugs(cfg);
@@ -672,7 +721,8 @@ function main(): void {
       console.error(
         `audit: available slugs: ${allSlugs.join(", ") || "(none)"}`,
       );
-      process.exit(2);
+      // Unknown slug = invalid user input.
+      process.exit(EXIT_INVALID_CONTENT);
     }
 
     const slugs = parsed.slug ? [parsed.slug] : allSlugs;
@@ -705,7 +755,10 @@ function main(): void {
   } catch (e) {
     const msg = e instanceof Error ? e.stack || e.message : String(e);
     console.error(`audit: internal error: ${msg}`);
-    process.exit(2);
+    // Unexpected exception — distinct from invalid-content and
+    // unreadable so CI can alert differently on "this should never
+    // happen" vs. "user passed bad input".
+    process.exit(EXIT_INTERNAL);
   }
 }
 
