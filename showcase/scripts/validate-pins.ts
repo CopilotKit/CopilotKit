@@ -1047,14 +1047,24 @@ function parsePyprojectToml(file: string): DepMap {
 export interface DepSources {
   // All absolute paths to dependency files that contributed deps.
   files: string[];
-  // Merged dep map. Order: app-specific files (apps/agent, agent/**) are
-  // walked BEFORE root-level files so that on dep-name collision, the
-  // agent-side spec wins (first-writer-wins).
+  // Merged dep map (union of jsDeps ∪ pythonDeps; on cross-ecosystem
+  // name collision the FIRST-writer wins, but that is a quirk — the
+  // comparator in validateAll uses jsDeps and pythonDeps directly so
+  // it is not affected by cross-ecosystem collisions). Retained for
+  // backward compatibility and for external callers that don't care
+  // about the JS vs Python split.
   deps: DepMap;
-  // Subset of `deps` whose source file was a Python manifest
-  // (requirements.txt / pyproject.toml). Used so the validator can apply
-  // Python PEP 503 canonicalization ONLY to Python deps (npm names are
-  // case-sensitive and hyphen-sensitive).
+  // JS deps only (from package.json files). Kept separate from
+  // pythonDeps because npm names are case-sensitive and hyphen-
+  // sensitive; applying PEP 503 canonicalization would merge
+  // distinct npm packages. Before this split the comparator
+  // derived JS deps via `diffMaps(deps, pythonDeps)` which dropped
+  // a JS dep entirely when a same-name Python dep existed in the
+  // same tree (cross-ecosystem name collision).
+  jsDeps: DepMap;
+  // Python deps only (from requirements.txt / pyproject.toml).
+  // Subject to PEP 503 canonicalization (case-insensitive, with `-`,
+  // `_`, `.` treated as equivalent).
   pythonDeps: DepMap;
   // Non-fatal parse errors accumulated during collection. Caller should
   // surface these rather than silently emit [OK].
@@ -1120,6 +1130,7 @@ function collectDepsFromDir(rootDir: string): DepSources {
   const result: DepSources = {
     files: [],
     deps: {},
+    jsDeps: {},
     pythonDeps: {},
     parseErrors: [],
     filesAttempted: 0,
@@ -1200,9 +1211,21 @@ function collectDepsFromDir(rootDir: string): DepSources {
     for (const [name, spec] of Object.entries(parsed)) {
       // First-writer-wins: agent-side files (walked first) take precedence
       // over root files. This matches the intent documented above.
+      // Track JS vs Python in separate maps at parse time so a
+      // cross-ecosystem name collision (e.g. `openai` on both sides)
+      // cannot obliterate one side's spec. Before this change, the
+      // comparator derived JS deps via `diffMaps(deps, pythonDeps)`
+      // which dropped the JS dep ENTIRELY when its name also
+      // appeared in `pythonDeps`.
       if (!(name in result.deps)) result.deps[name] = spec;
-      if (fromPython && !(name in result.pythonDeps)) {
-        result.pythonDeps[name] = spec;
+      if (fromPython) {
+        if (!(name in result.pythonDeps)) {
+          result.pythonDeps[name] = spec;
+        }
+      } else {
+        if (!(name in result.jsDeps)) {
+          result.jsDeps[name] = spec;
+        }
       }
     }
   }
@@ -1228,19 +1251,6 @@ export type ShowcaseDepSources = DepSources;
 
 function collectShowcaseDeps(packageDir: string): ShowcaseDepSources {
   return collectDepsFromDir(packageDir);
-}
-
-/**
- * Return a shallow copy of `all` with every key in `subset` removed.
- * Used by `validateAll` to separate JS deps (`all - pythonDeps`) from
- * Python deps so each ecosystem's canonicalization rules apply correctly.
- */
-function diffMaps(all: DepMap, subset: DepMap): DepMap {
-  const out: DepMap = {};
-  for (const [name, spec] of Object.entries(all)) {
-    if (!(name in subset)) out[name] = spec;
-  }
-  return out;
 }
 
 /**
@@ -1425,12 +1435,18 @@ function validateAll(): Report {
       dojo.pythonDeps,
       /* isPython */ true,
     );
+    // Use `jsDeps` (not `diffMaps(deps, pythonDeps)`): the diff-based
+    // derivation erased a JS dep entirely when the same name appeared
+    // as a Python dep in the same tree, which is a cross-ecosystem
+    // collision (e.g. `openai` with a JS `4.0.0` pin and a Python
+    // `==1.2.3` pin). Sourcing JS and Python from separate maps at
+    // parse time keeps both sides intact for the comparator.
     const showcaseJsRaw = canonicalizeDepMap(
-      diffMaps(showcase.deps, showcase.pythonDeps),
+      showcase.jsDeps,
       /* isPython */ false,
     );
     const dojoJsRaw = canonicalizeDepMap(
-      diffMaps(dojo.deps, dojo.pythonDeps),
+      dojo.jsDeps,
       /* isPython */ false,
     );
 
