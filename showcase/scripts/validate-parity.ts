@@ -290,10 +290,10 @@ export function loadManifest(
   packagesDir: string = DEFAULT_PACKAGES_DIR,
 ): Manifest | null {
   const manifestPath = path.join(packagesDir, slug, "manifest.yaml");
-  // Pass the directory slug to parseManifest so its M-R10-10 slug-
-  // mismatch guard fires: if the manifest's `slug:` field disagrees
-  // with the directory on disk, we get a shape-malformed result
-  // instead of silently validating a copy-paste / rename mistake.
+  // Pass the directory slug to parseManifest so its slug-mismatch
+  // guard fires: if the manifest's `slug:` field disagrees with the
+  // directory on disk, we get a shape-malformed result instead of
+  // silently validating a copy-paste / rename mistake.
   const parsed = parseManifest(manifestPath, slug);
   switch (parsed.kind) {
     case "missing":

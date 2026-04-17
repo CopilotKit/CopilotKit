@@ -742,7 +742,7 @@ describe("validate-parity", () => {
     });
 
     it("rejects manifests whose inner slug disagrees with the directory slug (slug-mismatch guard wired via loadManifest)", () => {
-      // M-R10-10: parseManifest accepts an optional dirSlug and returns
+      // parseManifest accepts an optional dirSlug and returns
       // a shape-malformed result when `slug:` in the YAML differs from
       // the directory name on disk. loadManifest (and by extension
       // auditPackage) must wire that guard in — otherwise a copy-paste
