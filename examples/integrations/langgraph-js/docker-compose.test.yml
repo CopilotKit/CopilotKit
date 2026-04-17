@@ -11,8 +11,8 @@ services:
 
   agent:
     build:
-      context: ./apps/agent
-      dockerfile: ../../docker/Dockerfile.agent
+      context: ./agent
+      dockerfile: ../docker/Dockerfile.agent
     environment:
       - OPENAI_API_KEY=test-key-for-aimock
       - OPENAI_BASE_URL=http://aimock:4010/v1

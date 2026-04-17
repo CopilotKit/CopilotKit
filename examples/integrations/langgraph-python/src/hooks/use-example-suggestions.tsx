@@ -6,11 +6,11 @@
  *
  * Showcase mode (showcase.json) controls which pills are visually highlighted.
  * Highlight styling: globals.css (.a2ui-highlight, .opengenui-highlight)
- * A2UI agent tools: apps/agent/src/a2ui_fixed_schema.py, a2ui_dynamic_schema.py
+ * A2UI agent tools: agent/src/a2ui_fixed_schema.py, a2ui_dynamic_schema.py
  * A2UI catalog: src/app/declarative-generative-ui/
  */
 import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
-import showcaseConfig from "../../../../showcase.json";
+import showcaseConfig from "../../showcase.json";
 
 const showcase = showcaseConfig.showcase;
 
