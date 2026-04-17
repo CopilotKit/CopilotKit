@@ -37,6 +37,25 @@ describe("v1ParametersToFormSchema", () => {
     });
   });
 
+  it("recurses on nested array types like string[][]", () => {
+    const out = v1ParametersToFormSchema([
+      { name: "matrix", type: "string[][]", required: true },
+    ]);
+    expect(out.fields[0]).toMatchObject({
+      kind: "array",
+      name: "matrix",
+      items: {
+        kind: "array",
+        items: { kind: "string" },
+      },
+    });
+  });
+
+  it("omits description from the output when not provided", () => {
+    const out = v1ParametersToFormSchema([{ name: "x", type: "string" }]);
+    expect(out.fields[0]).not.toHaveProperty("description");
+  });
+
   it("maps nested object via attributes", () => {
     const out = v1ParametersToFormSchema([
       {

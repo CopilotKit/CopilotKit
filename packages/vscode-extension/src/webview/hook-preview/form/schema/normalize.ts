@@ -35,12 +35,17 @@ function matchesKind(field: FormField, value: unknown): boolean {
   switch (field.kind) {
     case "string":
       if (typeof value !== "string") return false;
-      if (field.enum) return field.enum.includes(value);
+      // Empty enum is treated as "no constraint" — a required string field
+      // with enum: [] would otherwise be stuck rejecting every value.
+      if (field.enum && field.enum.length > 0) return field.enum.includes(value);
       return true;
     case "number":
       return typeof value === "number";
     case "boolean":
       return typeof value === "boolean";
+    // Array and object are matched shallowly by design for MVP — the merge
+    // pass preserves the raw value if the top-level kind matches and trusts
+    // the caller to have run it through a compatible schema previously.
     case "array":
       return Array.isArray(value);
     case "object":

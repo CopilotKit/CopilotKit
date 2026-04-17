@@ -1,5 +1,15 @@
 import type { FormField, FormSchema } from "./types";
 
+/**
+ * Minimal JSON Schema subset used by this converter.
+ *
+ * MVP scope: only plain `type` + `properties` + `items` + `enum` trees as
+ * produced by `zod-to-json-schema` for simple Zod schemas. Not supported:
+ * - `$ref` (no reference resolution / cycle detection)
+ * - Tuple-style `items: JSONSchemaNode[]`
+ * - `allOf` / `anyOf` / `oneOf`
+ * These all fall through to the raw-json fallback.
+ */
 export interface JSONSchemaNode {
   type?: string;
   enum?: unknown[];

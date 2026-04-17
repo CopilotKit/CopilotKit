@@ -19,6 +19,42 @@ describe("defaultsForSchema", () => {
       color: "red",
     });
   });
+
+  it("produces defaults for array, object (recurses), and raw-json kinds", () => {
+    const s: FormSchema = {
+      fields: [
+        {
+          kind: "array",
+          name: "tags",
+          label: "tags",
+          required: true,
+          items: { kind: "string", name: "item", label: "item", required: true },
+        },
+        {
+          kind: "object",
+          name: "user",
+          label: "user",
+          required: true,
+          fields: [
+            { kind: "string", name: "id", label: "id", required: true },
+            { kind: "boolean", name: "active", label: "active", required: false },
+          ],
+        },
+        {
+          kind: "raw-json",
+          name: "extra",
+          label: "extra",
+          required: true,
+          hint: "raw",
+        },
+      ],
+    };
+    expect(defaultsForSchema(s)).toEqual({
+      tags: [],
+      user: { id: "" },
+      extra: {},
+    });
+  });
 });
 
 describe("mergeValues", () => {
@@ -37,5 +73,15 @@ describe("mergeValues", () => {
     expect(merged.color).toBe("red");
     const kept = mergeValues(schema, { color: "blue" });
     expect(kept.color).toBe("blue");
+  });
+
+  it("treats an empty enum as unconstrained (doesn't reject every value)", () => {
+    const emptyEnumSchema: FormSchema = {
+      fields: [
+        { kind: "string", name: "s", label: "s", required: true, enum: [] },
+      ],
+    };
+    const merged = mergeValues(emptyEnumSchema, { s: "anything" });
+    expect(merged.s).toBe("anything");
   });
 });

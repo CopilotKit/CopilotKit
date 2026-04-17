@@ -17,6 +17,22 @@ describe("jsonSchemaToFormSchema", () => {
     expect(out.fields.find((f) => f.name === "age")!.required).toBe(false);
   });
 
+  it("treats integer as number", () => {
+    const out = jsonSchemaToFormSchema({
+      type: "object",
+      properties: { count: { type: "integer" } },
+    });
+    expect(out.fields[0].kind).toBe("number");
+  });
+
+  it("falls back to raw-json when array is missing items", () => {
+    const out = jsonSchemaToFormSchema({
+      type: "object",
+      properties: { xs: { type: "array" } },
+    });
+    expect(out.fields[0].kind).toBe("raw-json");
+  });
+
   it("maps string enum", () => {
     const out = jsonSchemaToFormSchema({
       type: "object",
