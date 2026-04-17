@@ -169,11 +169,18 @@ jobs:
           CHANGES='${{ steps.filter.outputs.changes }}'
           CHANGES="${CHANGES:-[]}"
 
-          # Filter services: on workflow_dispatch with a specific service, narrow to that service ONLY (ignore paths-filter, which falls back to "all filters matched" when the workflow_dispatch event has no 'before' field). On push or when dispatch=="all"/"", use paths-filter results.
+          # Filter services based on three dispatch modes:
+          #   dispatch == "all": manual "deploy all" — include every service unconditionally
+          #     (paths-filter is unreliable on workflow_dispatch because there is no 'before' SHA,
+          #      so we must NOT consult $changes here — doing so silently produces an empty matrix).
+          #   dispatch == <specific service>: narrow to that service only (skips paths-filter so
+          #     drift-rebuild and manual single-service dispatches work regardless of $changes).
+          #   dispatch == "": push event — include services whose filter_key appears in paths-filter CHANGES.
           MATRIX=$(echo "$ALL_SERVICES" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" '
             [.[] | (.filter_key as $fk | select(
+              $dispatch == "all" or
               ($dispatch != "" and $dispatch != "all" and $dispatch == .dispatch_name) or
-              (($dispatch == "" or $dispatch == "all") and ($changes | index($fk) != null))
+              ($dispatch == "" and ($changes | index($fk) != null))
             ))]
           ')
 
