@@ -31,7 +31,9 @@
  *   1 — one or more FAIL violations (pin drift detected)
  *   2 — internal error (crash, unexpected exception). Distinct from 1 so
  *       CI callers can distinguish "pin drift" from "validator broken".
- *       Mirrors validate-parity.ts's convention.
+ *       Note: validate-parity.ts uses a different exit-code taxonomy
+ *       (2=invalid-input, 3=unreadable, 4=internal); the tools are
+ *       intentionally not aligned on code 2.
  *   3 — unreadable input (e.g. VALIDATE_PINS_REPO_ROOT points at a
  *       non-directory or a path the process cannot access). Distinct from
  *       2 so CI callers can route permissions/misconfig alerts separately
@@ -1624,7 +1626,37 @@ function validateAll(): Report {
 
   for (const slug of slugs) {
     const pkgDir = path.join(PACKAGES_DIR, slug);
-    const resolved = resolveExampleDirDetailed(slug, resolvedPaths);
+
+    // resolveExampleDirDetailed can throw UnreadableInputError when its
+    // internal existsAsDir stat fails with EACCES/ENOTDIR/ELOOP/EIO/…
+    // on a candidate examples dir. An unguarded throw here escapes the
+    // slug loop and orphans every report entry accumulated for preceding
+    // slugs — the same orphan bug the content-parseError branch below
+    // was fixed for (R29-2 C1). Route this through the same
+    // pendingInfraError accumulator so the loop continues, every other
+    // slug still contributes to the report, and the end-of-loop rebuild
+    // attaches partialReport so the top-level catch can print it.
+    let resolved: ResolveResult;
+    try {
+      resolved = resolveExampleDirDetailed(slug, resolvedPaths);
+    } catch (e) {
+      if (!(e instanceof UnreadableInputError)) {
+        // Non-infra throws are genuine bugs — let them bubble to
+        // EXIT_INTERNAL (2) rather than silently swallowing.
+        throw e;
+      }
+      if (pendingInfraError === undefined) {
+        pendingInfraError = new UnreadableInputError(`${slug}: ${e.message}`);
+      }
+      // Leave a per-slug breadcrumb in report.fail so operators see
+      // WHICH slug failed to resolve — a bare end-of-loop throw with
+      // only the first infra error would otherwise hide subsequent
+      // resolve-time infra errors entirely.
+      report.fail.push(
+        `[FAIL] ${slug}: unreadable example dir during resolve: ${e.message}`,
+      );
+      continue;
+    }
     const exampleDir = resolved.exampleDir;
 
     if (exampleDir === null) {
@@ -2036,8 +2068,10 @@ function isMainPath(argv1: string | undefined, scriptPath: string): boolean {
 
 // Only run main when invoked directly (not when imported for tests).
 // Top-level try/catch distinguishes "pin drift" (exit 1, legitimate) from
-// "validator crashed" (exit 2, needs investigation). Mirrors the
-// convention in validate-parity.ts.
+// "validator crashed" (exit 2, needs investigation). validate-parity.ts
+// shares the "top-level try/catch routes crashes to a distinct exit
+// code" pattern, but its exit-code numbering differs — see the header
+// docstring for details.
 if (isMainPath(process.argv[1], __filename)) {
   try {
     main();

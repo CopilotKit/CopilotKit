@@ -3372,3 +3372,187 @@ describe("R29-2 H7: canonicalizeDepMap surfaces conflicting duplicates as WARN",
     ).toBeDefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// R33-2 C1/H1: resolveExampleDirDetailed mid-loop throw must NOT orphan the
+// report.
+//
+// Bug: validateAll iterated slugs alphabetically and called
+// resolveExampleDirDetailed(slug, resolvedPaths) unguarded inside the
+// loop. `resolveExampleDirDetailed` calls `existsAsDir`, which throws
+// UnreadableInputError on EACCES/ENOTDIR/ELOOP/EIO of a candidate
+// examples dir. That throw escaped the slug loop entirely, discarding
+// every report.fail/warn/skip/ok entry accumulated for preceding slugs.
+//
+// This is distinct from R29-2 C1 (content parseError infra routing),
+// which was already gated by the pendingInfraError accumulator. The
+// resolveExampleDirDetailed path was the second, uncovered escape hatch.
+//
+// Fix: wrap the resolveExampleDirDetailed call in try/catch inside the
+// slug loop, accumulate any UnreadableInputError into pendingInfraError
+// (first-infra-wins, matching the existing pattern), record a FAIL entry
+// for this slug so per-slug visibility is preserved, and continue so
+// other slugs still contribute to the report. The end-of-loop
+// pendingInfraError rebuild already attaches partialReport for the
+// top-level catch to print.
+// ---------------------------------------------------------------------------
+describe("R33-2 C1/H1: resolveExampleDirDetailed mid-loop throw preserves partial report", () => {
+  let repoRoot: string;
+  let savedRepoRoot: string | undefined;
+
+  beforeEach(() => {
+    savedRepoRoot = process.env.VALIDATE_PINS_REPO_ROOT;
+    repoRoot = tmpdir();
+    process.env.VALIDATE_PINS_REPO_ROOT = repoRoot;
+    fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+      recursive: true,
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    if (savedRepoRoot === undefined) {
+      delete process.env.VALIDATE_PINS_REPO_ROOT;
+    } else {
+      process.env.VALIDATE_PINS_REPO_ROOT = savedRepoRoot;
+    }
+    fs.rmSync(repoRoot, { recursive: true, force: true });
+  });
+
+  // Set up two slugs in alphabetical order: "agno" (infra error at
+  // candidate examples-dir stat) and "mastra" (normal drift). The
+  // candidate dir EXAMPLES_DIR/agno exists on disk, but `fs.statSync`
+  // is hijacked to throw ENOTDIR specifically for that path — which
+  // routes through `existsAsDir` in resolveExampleDirDetailed and
+  // (before the fix) aborts the slug loop before mastra is processed.
+  function wireResolveInfraOnAgnoPlusDriftOnMastra() {
+    const agnoPkg = path.join(repoRoot, "showcase", "packages", "agno");
+    const agnoEx = path.join(repoRoot, "examples", "integrations", "agno");
+    fs.mkdirSync(agnoPkg, { recursive: true });
+    // Realistic agno manifest so, if the loop WERE to reach content
+    // parsing for agno, it would succeed — the bug we're testing is
+    // specifically the resolveExampleDirDetailed throw path.
+    write(
+      path.join(agnoPkg, "package.json"),
+      JSON.stringify({ name: "agno", dependencies: { agno: "0.1.0" } }),
+    );
+    fs.mkdirSync(agnoEx, { recursive: true });
+    write(
+      path.join(agnoEx, "package.json"),
+      JSON.stringify({ name: "agno", dependencies: { agno: "0.1.0" } }),
+    );
+
+    const mastraPkg = path.join(repoRoot, "showcase", "packages", "mastra");
+    const mastraEx = path.join(repoRoot, "examples", "integrations", "mastra");
+    write(
+      path.join(mastraPkg, "package.json"),
+      JSON.stringify({
+        name: "mastra",
+        dependencies: { "@mastra/core": "0.15.0" },
+      }),
+    );
+    write(
+      path.join(mastraEx, "package.json"),
+      JSON.stringify({
+        name: "mastra",
+        dependencies: { "@mastra/core": "0.16.0" },
+      }),
+    );
+
+    // Hijack statSync ONLY for the agno examples-dir candidate so
+    // existsAsDir inside resolveExampleDirDetailed throws
+    // UnreadableInputError. Pass through everything else so
+    // tmp-probe / packages-dir / mastra stats work normally.
+    const realStatSync = fs.statSync.bind(fs);
+    vi.spyOn(fs, "statSync").mockImplementation((p, opts) => {
+      if (typeof p === "string" && p === agnoEx) {
+        const err = new Error(
+          `ENOTDIR: not a directory, stat '${agnoEx}'`,
+        ) as NodeJS.ErrnoException;
+        err.code = "ENOTDIR";
+        throw err;
+      }
+      return realStatSync(p as fs.PathLike, opts as fs.StatSyncOptions);
+    });
+  }
+
+  it("in-process: validateAll throws UnreadableInputError carrying partialReport with slug-B drift", () => {
+    wireResolveInfraOnAgnoPlusDriftOnMastra();
+    let thrown: unknown;
+    try {
+      validateAll();
+    } catch (e) {
+      thrown = e;
+    }
+    expect(
+      thrown,
+      "validateAll must throw when resolveExampleDirDetailed raises",
+    ).toBeDefined();
+
+    // Must carry the partial report — not a bare Error with no context.
+    const partial = (
+      thrown as {
+        partialReport?: {
+          fail: readonly string[];
+          warn: readonly string[];
+          skip: readonly string[];
+          ok: readonly string[];
+        };
+      }
+    ).partialReport;
+    expect(
+      partial,
+      "UnreadableInputError from resolveExampleDirDetailed must carry a partialReport",
+    ).toBeDefined();
+
+    // Slug B (mastra) must have its drift captured on report.fail even
+    // though slug A (agno) had a resolve-time infra error. This is the
+    // core guarantee: mid-loop resolve failure does not orphan later
+    // slugs' findings.
+    const mastraDrift = partial!.fail.some(
+      (l) =>
+        l.includes("mastra") &&
+        l.includes("@mastra/core") &&
+        /0\.15\.0/.test(l) &&
+        /0\.16\.0/.test(l),
+    );
+    expect(
+      mastraDrift,
+      `expected a mastra drift FAIL in partial.fail; got: ${JSON.stringify(partial!.fail)}`,
+    ).toBe(true);
+  });
+
+  it("in-process: per-slug visibility preserved — agno appears in partial.fail as an infra-class entry", () => {
+    wireResolveInfraOnAgnoPlusDriftOnMastra();
+    let thrown: unknown;
+    try {
+      validateAll();
+    } catch (e) {
+      thrown = e;
+    }
+    const partial = (
+      thrown as {
+        partialReport?: {
+          fail: readonly string[];
+          warn: readonly string[];
+          skip: readonly string[];
+          ok: readonly string[];
+        };
+      }
+    ).partialReport;
+    expect(partial).toBeDefined();
+    // The slug that triggered the resolve-time infra error must leave a
+    // breadcrumb in the report so operators see which slug failed to
+    // resolve — not a silent swallow.
+    const agnoFail = partial!.fail.some(
+      (l) => l.includes("agno") && /unreadable|ENOTDIR|cannot stat/i.test(l),
+    );
+    expect(
+      agnoFail,
+      `expected an agno resolve-infra FAIL breadcrumb; got: ${JSON.stringify(partial!.fail)}`,
+    ).toBe(true);
+  });
+});
