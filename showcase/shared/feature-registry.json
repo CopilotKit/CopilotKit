@@ -86,12 +86,6 @@
       "description": "Full headless UI with messages, tools, gen UI"
     },
     {
-      "id": "agentic-chat-reasoning",
-      "name": "Agentic Chat (Reasoning)",
-      "category": "chat-ui",
-      "description": "Chat with visible reasoning/thinking chain display"
-    },
-    {
       "id": "gen-ui-tool-based",
       "name": "Controlled Gen-UI (Display)",
       "category": "generative-ui",
@@ -144,6 +138,12 @@
       "name": "Tool Rendering",
       "category": "generative-ui",
       "description": "Backend agent tools rendered as UI components"
+    },
+    {
+      "id": "agentic-chat-reasoning",
+      "name": "Reasoning",
+      "category": "generative-ui",
+      "description": "Visible reasoning/thinking chain alongside the final answer"
     },
     {
       "id": "frontend-tools",

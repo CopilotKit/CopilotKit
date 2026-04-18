@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-18T13:24:53.781Z",
+  "generated_at": "2026-04-18T13:27:32.037Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
@@ -88,12 +88,6 @@
         "description": "Full headless UI with messages, tools, gen UI"
       },
       {
-        "id": "agentic-chat-reasoning",
-        "name": "Agentic Chat (Reasoning)",
-        "category": "chat-ui",
-        "description": "Chat with visible reasoning/thinking chain display"
-      },
-      {
         "id": "gen-ui-tool-based",
         "name": "Controlled Gen-UI (Display)",
         "category": "generative-ui",
@@ -146,6 +140,12 @@
         "name": "Tool Rendering",
         "category": "generative-ui",
         "description": "Backend agent tools rendered as UI components"
+      },
+      {
+        "id": "agentic-chat-reasoning",
+        "name": "Reasoning",
+        "category": "generative-ui",
+        "description": "Visible reasoning/thinking chain alongside the final answer"
       },
       {
         "id": "frontend-tools",
@@ -498,9 +498,9 @@
         },
         {
           "id": "agentic-chat-reasoning",
-          "name": "Agentic Chat (Reasoning)",
-          "description": "Chat with visible reasoning/thinking chain",
-          "tags": ["chat-ui"],
+          "name": "Reasoning",
+          "description": "Visible reasoning/thinking chain alongside the final answer",
+          "tags": ["generative-ui"],
           "route": "/demos/agentic-chat-reasoning",
           "animated_preview_url": null
         },

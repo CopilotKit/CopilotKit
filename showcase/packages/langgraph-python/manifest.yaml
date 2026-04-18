@@ -169,10 +169,10 @@ demos:
     route: /demos/headless-complete
     animated_preview_url:
   - id: agentic-chat-reasoning
-    name: Agentic Chat (Reasoning)
-    description: Chat with visible reasoning/thinking chain
+    name: Reasoning
+    description: Visible reasoning/thinking chain alongside the final answer
     tags:
-      - chat-ui
+      - generative-ui
     route: /demos/agentic-chat-reasoning
     animated_preview_url:
   - id: gen-ui-interrupt
