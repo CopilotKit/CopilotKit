@@ -1074,12 +1074,22 @@ describe("isMainPath strict guard", () => {
   it("catch branch: path.resolve failure logs, sets exitCode = 2, returns false", () => {
     const prevExitCode = process.exitCode;
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const resolveSpy = vi.spyOn(path, "resolve").mockImplementationOnce(() => {
+    // Use `mockImplementation` (not `mockImplementationOnce`) so every
+    // path.resolve call inside isMainPath throws, regardless of how
+    // many times the implementation invokes it. With `Once`, an
+    // implementation that resolves twice would pass the first throw,
+    // succeed on the second resolve, and return `false` for the wrong
+    // reason (unrelated mismatch rather than the catch branch we're
+    // trying to exercise).
+    const resolveSpy = vi.spyOn(path, "resolve").mockImplementation(() => {
       throw new Error("synthetic path.resolve failure");
     });
     try {
-      const result = isMainPath("/any/path.ts", "/any/path.ts");
-      expect(result).toBe(false);
+      // Explicit contract: when resolve throws, isMainPath must return
+      // false (not crash, not return true). Pair this with the exitCode
+      // + logging assertions below so the catch branch is pinned on all
+      // three observable side effects.
+      expect(isMainPath("/any/path.ts", "/any/path.ts")).toBe(false);
       expect(process.exitCode).toBe(2);
       expect(errSpy).toHaveBeenCalled();
       const logged = errSpy.mock.calls.map((c) => String(c[0])).join("\n");
