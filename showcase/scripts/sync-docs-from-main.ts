@@ -617,15 +617,17 @@ function main(): SyncResult {
     }
   }
 
-  // Update sync marker only when NOTHING had local modifications (no
-  // merge conflicts AND no auto-merged-with-local-mods files). If any file
-  // had local mods — even an auto-merged one — keep the old sha so the
-  // next run still has the correct base context for 3-way merging until
-  // a human has reviewed/merged the needs-review PR.
+  // Update sync marker whenever all files were successfully resolved:
+  // clean transforms, clean auto-merges, or no changes at all. A successful
+  // 3-way auto-merge means the file IS resolved — its content on disk
+  // reflects the merged state, so the next run should treat HEAD as the
+  // new base. Only outstanding merge conflicts (upstream-wins written to
+  // PR branch only) or deletions (not auto-applied) keep the old sha so
+  // future runs still flag them until a human merges the needs-review PR.
   if (
     !dryRun &&
-    result.needsReview.length === 0 &&
     result.mergeConflict.length === 0 &&
+    result.deleted.length === 0 &&
     (result.copied.length > 0 ||
       result.transformed.length > 0 ||
       result.autoMerged.length > 0)
@@ -678,14 +680,16 @@ const hasAutoApplied =
   result.copied.length > 0 ||
   result.transformed.length > 0 ||
   result.autoMerged.length > 0;
-// Any file that had showcase-local modifications (needsReview) must route
-// through push_and_pr so a human can review — even if the 3-way merge was
-// clean (autoMerged). Silent auto-merging files with local mods would
-// clobber intentional showcase divergence.
+// Only files that still need human attention force push_and_pr:
+// - mergeConflict: 3-way merge failed, upstream-wins content staged to PR
+//   branch, human must reconcile
+// - deleted: files gone on main, not auto-deleted in showcase, human decides
+// Auto-merged files (clean 3-way merge) are considered RESOLVED — they go
+// through the auto_push fast path and the marker advances. `needsReview`
+// is the superset tracker (local-mods detected pre-merge) and is NOT a
+// gating condition on its own.
 const hasReviewItems =
-  result.mergeConflict.length > 0 ||
-  result.needsReview.length > 0 ||
-  result.deleted.length > 0;
+  result.mergeConflict.length > 0 || result.deleted.length > 0;
 
 if (!hasAutoApplied && !hasReviewItems) {
   process.exit(2);
@@ -720,10 +724,18 @@ if (!hasAutoApplied && !hasReviewItems) {
   // ROOT makes the contract explicit: whoever invokes the script picks
   // where these artifacts land, and the workflow invokes from repo root.
   const artifactDir = process.cwd();
-  fs.writeFileSync(
-    path.join(artifactDir, "review-items.txt"),
-    reviewLines.join("\n") + "\n",
-  );
+  const reviewItemsPath = path.join(artifactDir, "review-items.txt");
+  fs.writeFileSync(reviewItemsPath, reviewLines.join("\n") + "\n");
+  // Emit the absolute path to GITHUB_OUTPUT so the workflow's PR-body and
+  // Slack payload steps can read the file without hardcoding a location.
+  // (Downstream steps use `steps.sync.outputs.review_items_file`.) Skipped
+  // outside CI — process.env.GITHUB_OUTPUT is unset for local runs.
+  if (process.env.GITHUB_OUTPUT) {
+    fs.appendFileSync(
+      process.env.GITHUB_OUTPUT,
+      `review_items_file=${reviewItemsPath}\n`,
+    );
+  }
   // Persist the conflict manifest so the workflow can apply upstream-wins
   // content to the PR branch (NOT the current worktree — see
   // conflictManifest comment above).

@@ -59,16 +59,13 @@ jobs:
           elif [ $EXIT_CODE -eq 3 ]; then
             echo "Has review items + clean transforms"
             echo "action=push_and_pr" >> "$GITHUB_OUTPUT"
-            if [ -f review-items.txt ]; then
-              REVIEW_ITEMS=$(cat review-items.txt)
-            else
+            # The sync script writes review-items.txt and emits
+            # review_items_file=<abs-path> directly to GITHUB_OUTPUT.
+            # Verify the file actually exists so downstream steps don't
+            # silently read an empty path.
+            if [ ! -f review-items.txt ]; then
               echo "::warning::review-items.txt not found despite exit code 3 — sync script may have a bug"
-              REVIEW_ITEMS="(review-items.txt not found — check sync script output)"
             fi
-            # Persist review items to a file for downstream jq-based payload building
-            # (avoids unsafe string interpolation of untrusted filenames into JSON).
-            printf '%s' "$REVIEW_ITEMS" > review-items-raw.txt
-            echo "review_items_file=review-items-raw.txt" >> "$GITHUB_OUTPUT"
           else
             echo "Sync failed with exit code $EXIT_CODE"
             exit 1
@@ -119,12 +116,29 @@ jobs:
             # GitHub's PR search syntax has no `head:` qualifier, so that
             # query always returns empty. Use jq on the full list instead
             # to filter by headRefName prefix client-side.
-            EXISTING_PR=$(gh pr list \
-              --state open \
-              --base "$SHOWCASE_BRANCH" \
-              --json number,url,headRefName \
-              --jq '[.[] | select(.headRefName | startswith("docs-sync/needs-review/"))] | .[0].url' \
-              2>/dev/null || echo "")
+            # Fail the step on gh API failure rather than swallowing it —
+            # `|| echo ""` would silently treat a transient 5xx as "no
+            # existing PR" and open a duplicate. Retry once with backoff
+            # to absorb blips; if both attempts fail, exit non-zero.
+            gh_pr_list_existing() {
+              gh pr list \
+                --state open \
+                --base "$SHOWCASE_BRANCH" \
+                --json number,url,headRefName \
+                --jq '[.[] | select(.headRefName | startswith("docs-sync/needs-review/"))] | .[0].url'
+            }
+            if ! EXISTING_PR=$(gh_pr_list_existing 2>gh-err.txt); then
+              echo "::warning::gh pr list failed on first attempt — retrying after 5s"
+              cat gh-err.txt || true
+              sleep 5
+              if ! EXISTING_PR=$(gh_pr_list_existing 2>gh-err.txt); then
+                echo "::error::gh pr list failed twice — aborting to avoid duplicate PR creation"
+                cat gh-err.txt || true
+                rm -f gh-err.txt
+                exit 1
+              fi
+            fi
+            rm -f gh-err.txt
             if [ -n "$EXISTING_PR" ]; then
               echo "Open needs-review PR already exists: $EXISTING_PR"
               echo "Skipping new PR — Slack alert will point at the existing one."
@@ -180,6 +194,15 @@ jobs:
             # Explicit signal: no PR opened, and this is the intended outcome
             # (not an error path). Downstream alerts key on this.
             echo "pr_opened=false" >> "$GITHUB_OUTPUT"
+            # Set needs_review explicitly so downstream `needs_review != 'true'`
+            # gates (notify-auto-sync) don't misfire on this deliberate
+            # no-op. Value depends on why we got here: push_and_pr path =
+            # review still pending; auto_push path = no review needed.
+            if [ "$ACTION" = "push_and_pr" ]; then
+              echo "needs_review=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "needs_review=false" >> "$GITHUB_OUTPUT"
+            fi
             exit 0
           fi
 
