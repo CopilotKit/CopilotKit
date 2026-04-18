@@ -354,23 +354,70 @@ describe("parsePyprojectToml", () => {
     });
   });
 
-  // Non-empty pyproject.toml that produces ZERO extracted deps AND no
-  // skipped/dropped entries is almost certainly malformed in a way the
-  // regex-based parser can't localize — silently returning {} would
-  // render a false-clean [OK] for a file that was never actually
-  // inspected. Surface this as a parseError.
-  it("throws when a non-empty file yields an empty DepMap with no skipped/dropped", () => {
+  // A pyproject.toml that DECLARES `dependencies = …` but produces zero
+  // extracted entries AND no skipped/dropped diagnostics is almost
+  // certainly malformed in a way the regex-based parser can't localize
+  // — silently returning {} would render a false-clean [OK] for a file
+  // the validator never actually inspected. Surface this as a parseError.
+  //
+  // Files that simply do NOT declare a `dependencies` key (tool-only
+  // configs, `[project]` metadata-only blocks) must be accepted silently
+  // as empty DepMaps — that is the correct, intended result, not a bug.
+  it("returns empty DepMap silently for tool-only configs (e.g. [tool.black])", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
-      // Non-empty content with no recognizable section header — no
-      // [project], no [tool.poetry.*dependencies], no optional-deps.
+      // Pure formatter config — no [project], no dependency tables.
       write(
         file,
         [
-          "# just a comment",
-          "some_random_key = 'value'",
-          "[unrelated.section]",
-          'key = "value"',
+          "[tool.black]",
+          "line-length = 100",
+          'target-version = ["py311"]',
+        ].join("\n"),
+      );
+      const result = parsePyprojectTomlDetailed(file);
+      expect(result.deps).toEqual({});
+      expect(result.skipped).toEqual([]);
+      expect(result.dropped).toEqual([]);
+    });
+  });
+
+  it("returns empty DepMap silently for [project] metadata-only blocks (no dependencies key)", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      // Valid PEP 621 metadata-only block — name/version/authors but no
+      // `dependencies` key. This is a legitimate shape for packages that
+      // declare no runtime deps.
+      write(
+        file,
+        [
+          "[project]",
+          'name = "metadata-only"',
+          'version = "0.1.0"',
+          'authors = [{ name = "Jane", email = "jane@example.com" }]',
+        ].join("\n"),
+      );
+      const result = parsePyprojectTomlDetailed(file);
+      expect(result.deps).toEqual({});
+      expect(result.skipped).toEqual([]);
+      expect(result.dropped).toEqual([]);
+    });
+  });
+
+  it("throws when `dependencies = \"malformed\"` is a string (wrong TOML type)", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      // `dependencies` is declared but as a string, not an array. The
+      // targeted regexes don't match this shape, so extraction produces
+      // nothing — which must surface as a parseError rather than a
+      // false-clean [OK].
+      write(
+        file,
+        [
+          "[project]",
+          'name = "bad-deps"',
+          'version = "0.1.0"',
+          'dependencies = "not-an-array"',
         ].join("\n"),
       );
       expect(() => parsePyprojectTomlDetailed(file)).toThrow(/empty DepMap/i);
