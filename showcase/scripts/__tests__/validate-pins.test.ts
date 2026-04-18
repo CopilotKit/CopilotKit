@@ -3150,3 +3150,32 @@ describe("collectShowcaseDeps: falsy throw from fs.statSync", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// R29-2 M3: computeRepoRoot ENOENT and generic fallthroughs must route to
+// EXIT_UNREADABLE (3), not EXIT_INTERNAL (2).
+//
+// Bug: the ENOENT branch and the generic catch-all threw `new Error(...)`
+// instead of `UnreadableInputError`, so a bad VALIDATE_PINS_REPO_ROOT
+// would cause a plain Error to bubble to the top-level catch and get
+// mapped to EXIT_INTERNAL (2) — a misroute, since a missing override
+// path is an infrastructure problem, not a validator crash.
+// ---------------------------------------------------------------------------
+describe("R29-2 M3: computeRepoRoot routes ENOENT to EXIT_UNREADABLE (3)", () => {
+  it("subprocess: nonexistent VALIDATE_PINS_REPO_ROOT exits 3, not 2", () => {
+    const tmp = tmpdir();
+    try {
+      // Path definitely does not exist.
+      const bogus = path.join(tmp, "definitely-not-here-xyz123");
+      const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
+        encoding: "utf-8",
+        env: { ...process.env, VALIDATE_PINS_REPO_ROOT: bogus },
+        timeout: 30_000,
+      });
+      expect(r.status, r.stdout + r.stderr).toBe(3);
+      expect(r.stderr).toMatch(/does not exist/i);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+});

@@ -127,7 +127,10 @@ function computeRepoRoot(): string {
     } catch (e) {
       const err = e as NodeJS.ErrnoException;
       if (err && err.code === "ENOENT") {
-        throw new Error(
+        // ENOENT on the override is a bad-input/configuration error,
+        // not a validator crash — route to EXIT_UNREADABLE (3) so CI
+        // callers can distinguish misconfig from true internal errors.
+        throw new UnreadableInputError(
           `VALIDATE_PINS_REPO_ROOT does not exist on disk: ${override}`,
         );
       }
@@ -142,9 +145,13 @@ function computeRepoRoot(): string {
         );
       }
       // Surface the underlying error message so the caller sees the
-      // actual failure rather than a generic wrapper.
+      // actual failure rather than a generic wrapper. Any stat failure
+      // on the override path is an infra-class problem (the caller
+      // configured a path we can't access), so route through
+      // UnreadableInputError → EXIT_UNREADABLE (3) instead of letting
+      // a plain Error misroute to EXIT_INTERNAL (2).
       const msg = err && err.message ? err.message : String(e);
-      throw new Error(
+      throw new UnreadableInputError(
         `VALIDATE_PINS_REPO_ROOT stat failed: ${override}: ${msg}`,
       );
     }
