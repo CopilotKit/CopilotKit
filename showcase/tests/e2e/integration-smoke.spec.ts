@@ -17,6 +17,20 @@
 import { test, expect } from "@playwright/test";
 import { checkHealth, checkAgentEndpoint, sendChatMessage } from "./helpers";
 import registry from "../../shell/src/data/registry.json";
+import localPorts from "../../shared/local-ports.json";
+
+// LOCAL_PORTS=1 rewrites Railway backend URLs to http://localhost:<port>
+// using showcase/shared/local-ports.json. Lets smoke run against the
+// docker-compose.local.yml stack instead of Railway. Starters are skipped
+// because they're not represented in local-ports.json (local dev only
+// targets the 17 integration backends).
+const USE_LOCAL_PORTS = process.env.LOCAL_PORTS === "1";
+const rewriteBackendUrl = (slug: string, railwayUrl: string): string => {
+  if (!USE_LOCAL_PORTS) return railwayUrl;
+  const port = (localPorts as Record<string, number>)[slug];
+  if (!port) throw new Error(`LOCAL_PORTS=1 but no port for slug '${slug}'`);
+  return `http://localhost:${port}`;
+};
 
 // ---------------------------------------------------------------------------
 // Integration registry — source of truth: showcase/shell/src/data/registry.json
@@ -202,9 +216,9 @@ const INTEGRATIONS: Integration[] = [
 
 // Only test deployed integrations unless SMOKE_ALL=true
 const SMOKE_ALL = process.env.SMOKE_ALL === "true";
-const activeIntegrations = SMOKE_ALL
-  ? INTEGRATIONS
-  : INTEGRATIONS.filter((i) => i.deployed);
+const activeIntegrations = (
+  SMOKE_ALL ? INTEGRATIONS : INTEGRATIONS.filter((i) => i.deployed)
+).map((i) => ({ ...i, backendUrl: rewriteBackendUrl(i.slug, i.backendUrl) }));
 
 // ---------------------------------------------------------------------------
 // Level 1: Health checks (@health) — fast, API-only
@@ -389,6 +403,8 @@ const STARTERS: Starter[] = registry.integrations
   }));
 
 test.describe("Deployed Starters", () => {
+  // Starters don't have local-port mappings; skip them under LOCAL_PORTS=1.
+  test.skip(USE_LOCAL_PORTS, "LOCAL_PORTS=1: starters not mapped");
   for (const starter of STARTERS) {
     // Single test per starter so L2/L3 are naturally skipped when L1 fails.
     // (fullyParallel: true in playwright.config.ts overrides describe.configure serial mode)
