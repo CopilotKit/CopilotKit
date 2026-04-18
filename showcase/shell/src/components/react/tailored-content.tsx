@@ -1,6 +1,13 @@
 "use client";
 
-import React, { ReactNode, Suspense, useCallback, useRef } from "react";
+import React, {
+  ReactNode,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 // Local className-joining helper so this component has no external dep.
@@ -43,58 +50,48 @@ function TailoredContentInner({
   id,
   header,
 }: TailoredContentProps) {
+  // All hooks must run unconditionally to satisfy the Rules of Hooks.
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  // Get options from children
-  const options = React.Children.toArray(children).filter((child) =>
-    React.isValidElement(child),
-  ) as React.ReactElement<TailoredContentOptionProps>[];
-
-  if (options.length === 0) {
-    throw new Error(
-      "TailoredContent requires at least one TailoredContentOption child",
-    );
-  }
-
-  // Get the option IDs for URL handling
-  const optionIds = options.map((option) => option.props.id);
-
-  // Warn (dev-mode friendly) when duplicate option ids would cause ambiguous
-  // URL <-> selection mapping. Warn once per render-of-duplicate set.
+  const tabRefs = useRef<Array<HTMLDivElement | null>>([]);
   const warnedKeyRef = useRef<string | null>(null);
-  const seen = new Set<string>();
-  const duplicates: string[] = [];
-  for (const oid of optionIds) {
-    if (seen.has(oid) && !duplicates.includes(oid)) {
-      duplicates.push(oid);
-    }
-    seen.add(oid);
-  }
-  if (duplicates.length > 0) {
-    const warnKey = duplicates.join(",");
-    if (warnedKeyRef.current !== warnKey) {
-      warnedKeyRef.current = warnKey;
-      // eslint-disable-next-line no-console
-      console.warn(
-        `TailoredContent(id=${id}): duplicate option id(s) detected: ${duplicates
-          .map((d) => `"${d}"`)
-          .join(", ")}. Option ids must be unique.`,
-      );
-    }
-  }
 
-  // Clamp defaultOptionIndex to the valid range.
-  const clampedDefault = Math.min(
-    Math.max(0, defaultOptionIndex),
-    options.length - 1,
+  // Memoize derived arrays so downstream hook deps have stable identities.
+  const options = useMemo(
+    () =>
+      React.Children.toArray(children).filter((child) =>
+        React.isValidElement(child),
+      ) as React.ReactElement<TailoredContentOptionProps>[],
+    [children],
+  );
+  const optionIds = useMemo(
+    () => options.map((option) => option.props.id),
+    [options],
   );
 
-  // Derive selectedIndex from the URL on every render so state stays in sync
-  // with navigation (back/forward, external updates to the search param).
-  const urlParam = searchParams.get(id);
-  const indexFromUrl = urlParam ? optionIds.indexOf(urlParam) : -1;
-  const selectedIndex = indexFromUrl >= 0 ? indexFromUrl : clampedDefault;
+  // Warn (dev-mode friendly) when duplicate option ids would cause ambiguous
+  // URL <-> selection mapping. Runs only when ids change; warnedKeyRef guards
+  // against duplicate warns for the same set (e.g. StrictMode double-invoke).
+  useEffect(() => {
+    const seen = new Set<string>();
+    const duplicates: string[] = [];
+    for (const oid of optionIds) {
+      if (seen.has(oid) && !duplicates.includes(oid)) {
+        duplicates.push(oid);
+      }
+      seen.add(oid);
+    }
+    if (duplicates.length === 0) return;
+    const warnKey = duplicates.join(",");
+    if (warnedKeyRef.current === warnKey) return;
+    warnedKeyRef.current = warnKey;
+    // eslint-disable-next-line no-console
+    console.warn(
+      `TailoredContent(id=${id}): duplicate option id(s) detected: ${duplicates
+        .map((d) => `"${d}"`)
+        .join(", ")}. Option ids must be unique.`,
+    );
+  }, [optionIds, id]);
 
   const updateSelection = useCallback(
     (index: number) => {
@@ -107,7 +104,20 @@ function TailoredContentInner({
     [router, searchParams, id, optionIds, options.length],
   );
 
-  const tabRefs = useRef<Array<HTMLDivElement | null>>([]);
+  // No hooks below this point — safe to short-circuit when there are no options.
+  if (options.length === 0) return null;
+
+  // Clamp defaultOptionIndex to the valid range.
+  const clampedDefault = Math.min(
+    Math.max(0, defaultOptionIndex),
+    options.length - 1,
+  );
+
+  // Derive selectedIndex from the URL on every render so state stays in sync
+  // with navigation (back/forward, external updates to the search param).
+  const urlParam = searchParams.get(id);
+  const indexFromUrl = urlParam ? optionIds.indexOf(urlParam) : -1;
+  const selectedIndex = indexFromUrl >= 0 ? indexFromUrl : clampedDefault;
 
   const focusTab = (index: number) => {
     const el = tabRefs.current[index];
