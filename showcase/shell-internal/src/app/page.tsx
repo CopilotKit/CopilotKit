@@ -12,46 +12,42 @@ export default function InternalMatrixPage() {
   const features = getFeatures();
   const categories = getFeatureCategories();
 
-  const activeFeatures = features.filter((f) =>
-    integrations.some((i) => i.features.includes(f.id)),
-  );
-
+  // Show every declared feature — rows with no support yet are useful signal
+  // (they surface gaps we want to fill).
   const featuresByCategory = categories
     .map((cat) => ({
       ...cat,
-      features: activeFeatures.filter((f) => f.category === cat.id),
+      features: features.filter((f) => f.category === cat.id),
     }))
     .filter((cat) => cat.features.length > 0);
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-light">Internal Feature Matrix</h1>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">
-          {activeFeatures.length} features × {integrations.length} integrations.
-          Demo and code links point to{" "}
-          <code className="text-[var(--accent)]">{SHELL_URL}</code>.
+    <div className="p-8 max-w-[100vw]">
+      <header className="mb-6">
+        <h1 className="text-xl font-semibold tracking-tight">Feature Matrix</h1>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">
+          {features.length} features × {integrations.length} integrations
         </p>
-      </div>
+      </header>
 
-      <div className="overflow-auto rounded-xl border border-[var(--border)] bg-[var(--bg-surface)]">
+      <div className="overflow-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
         <table className="border-collapse text-sm">
           <thead>
-            <tr className="border-b-2 border-[var(--border)]">
-              <th className="sticky left-0 top-0 z-30 bg-[var(--bg-elevated)] px-4 py-3 text-left min-w-[240px]">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-muted)]">
+            <tr>
+              <th className="sticky left-0 top-0 z-30 bg-[var(--bg-muted)] px-4 py-3 text-left min-w-[260px] border-b border-[var(--border)]">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
                   Feature
                 </span>
               </th>
               {integrations.map((integration) => (
                 <th
                   key={integration.slug}
-                  className="sticky top-0 z-20 bg-[var(--bg-elevated)] border-l border-[var(--border)] px-3 py-3 text-left min-w-[180px]"
+                  className="sticky top-0 z-20 bg-[var(--bg-muted)] px-3 py-3 text-left min-w-[160px] border-b border-l border-[var(--border)] font-normal"
                 >
-                  <div className="text-xs font-medium text-[var(--text)]">
+                  <div className="text-xs font-semibold text-[var(--text)]">
                     {integration.name}
                   </div>
-                  <div className="mt-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
+                  <div className="mt-0.5 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
                     {integration.language}
                   </div>
                 </th>
@@ -61,30 +57,25 @@ export default function InternalMatrixPage() {
           <tbody>
             {featuresByCategory.map((cat) => (
               <Fragment key={cat.id}>
-                <tr className="bg-[var(--bg-elevated)]/60">
+                <tr>
                   <td
                     colSpan={integrations.length + 1}
-                    className="sticky left-0 px-4 py-2 text-[10px] font-mono uppercase tracking-widest text-[var(--accent)] border-y border-[var(--border)]"
+                    className="sticky left-0 px-4 pt-5 pb-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)] bg-[var(--bg-surface)]"
                   >
                     {cat.name}
                   </td>
                 </tr>
-                {cat.features.map((feature, rowIdx) => (
+                {cat.features.map((feature) => (
                   <tr
                     key={feature.id}
-                    className={`border-t border-[var(--border)] ${
-                      rowIdx % 2 === 1 ? "bg-[var(--bg)]/30" : ""
-                    }`}
+                    className="border-t border-[var(--border)] hover:bg-[var(--bg-hover)]"
                   >
-                    <td className="sticky left-0 z-10 bg-[var(--bg-surface)] px-4 py-3 border-r border-[var(--border)]">
-                      <div className="font-medium text-[var(--text)]">
-                        {feature.name}
-                      </div>
+                    <td className="sticky left-0 z-10 bg-[var(--bg-surface)] px-4 py-2.5 border-r border-[var(--border)]">
                       <div
-                        className="mt-0.5 text-[11px] text-[var(--text-muted)] leading-tight max-w-[220px]"
+                        className="font-medium text-[var(--text)]"
                         title={feature.description}
                       >
-                        {feature.description}
+                        {feature.name}
                       </div>
                     </td>
                     {integrations.map((integration) => {
@@ -97,39 +88,40 @@ export default function InternalMatrixPage() {
                       return (
                         <td
                           key={integration.slug}
-                          className="border-l border-[var(--border)] px-3 py-3 align-middle text-center"
+                          className="border-l border-[var(--border)] px-3 py-2.5 align-middle text-center"
                         >
                           {supported && demo ? (
-                            <div className="inline-flex gap-1.5">
+                            <div className="inline-flex items-center gap-2 text-xs font-medium">
                               <a
                                 href={`${SHELL_URL}/integrations/${integration.slug}/${feature.id}/preview`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 rounded-md bg-[var(--ok-dim)] px-2 py-1 text-[11px] font-medium text-[var(--ok)] hover:bg-[var(--ok)]/25 transition-colors"
-                                title="Open hosted demo"
+                                className="text-[var(--accent)] hover:text-[var(--accent-hover)] hover:underline"
                               >
-                                ▶ demo
+                                demo
                               </a>
+                              <span className="text-[var(--border-strong)]">
+                                ·
+                              </span>
                               <a
                                 href={`${SHELL_URL}/integrations/${integration.slug}/${feature.id}/code`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 rounded-md bg-[var(--accent-dim)] px-2 py-1 text-[11px] font-medium text-[var(--accent)] hover:bg-[var(--accent)]/25 transition-colors"
-                                title="Open code snippet"
+                                className="text-[var(--accent)] hover:text-[var(--accent-hover)] hover:underline"
                               >
-                                {"</>"} code
+                                code
                               </a>
                             </div>
                           ) : supported ? (
                             <span
-                              className="inline-flex items-center rounded-md bg-[var(--bg-elevated)] px-2 py-1 text-[11px] text-[var(--text-muted)]"
+                              className="text-[11px] text-[var(--text-muted)]"
                               title="Feature supported but no demo yet"
                             >
-                              ○ no demo
+                              –
                             </span>
                           ) : (
                             <span
-                              className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-[var(--danger-dim)] text-[var(--danger)] text-sm font-semibold"
+                              className="text-base text-[var(--danger)]"
                               title="Not supported"
                             >
                               ✗
@@ -146,27 +138,18 @@ export default function InternalMatrixPage() {
         </table>
       </div>
 
-      <div className="mt-4 flex gap-5 text-xs text-[var(--text-muted)]">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center rounded-md bg-[var(--ok-dim)] px-1.5 py-0.5 text-[10px] text-[var(--ok)]">
-            ▶ demo
-          </span>
-          <span className="inline-flex items-center rounded-md bg-[var(--accent-dim)] px-1.5 py-0.5 text-[10px] text-[var(--accent)]">
-            {"</>"} code
-          </span>
-          Supported with live demo + code snippet
+      <div className="mt-4 flex gap-6 text-xs text-[var(--text-muted)]">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[var(--accent)] font-medium">demo · code</span>
+          supported with live links
         </div>
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center rounded-md bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
-            ○ no demo
-          </span>
-          Declared as supported, no demo bundled
+        <div className="flex items-center gap-1.5">
+          <span>–</span>
+          supported, no demo yet
         </div>
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center justify-center w-4 h-4 rounded-md bg-[var(--danger-dim)] text-[var(--danger)] text-[10px] font-semibold">
-            ✗
-          </span>
-          Not supported
+        <div className="flex items-center gap-1.5">
+          <span className="text-[var(--danger)]">✗</span>
+          not supported
         </div>
       </div>
     </div>

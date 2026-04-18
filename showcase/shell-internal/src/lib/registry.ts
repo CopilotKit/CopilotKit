@@ -1,4 +1,5 @@
 import registryData from "../../../shell/src/data/registry.json";
+import { sortOrder } from "./sort-order";
 
 export interface Feature {
   id: string;
@@ -49,9 +50,11 @@ export interface Registry {
 const registry = registryData as unknown as Registry;
 
 export function getIntegrations(): Integration[] {
-  return [...registry.integrations].sort(
-    (a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999),
-  );
+  return [...registry.integrations].sort((a, b) => {
+    const aRank = sortOrder[a.slug] ?? a.sort_order ?? 999;
+    const bRank = sortOrder[b.slug] ?? b.sort_order ?? 999;
+    return aRank - bRank;
+  });
 }
 
 export function getFeatures(): Feature[] {
