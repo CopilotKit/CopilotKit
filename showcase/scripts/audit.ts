@@ -133,7 +133,12 @@ type Anomaly =
       actual: number;
     }
   | { kind: "not-deployed"; state: "unset" | "explicit-false" }
-  | { kind: "missing-examples" };
+  | { kind: "missing-examples" }
+  | {
+      kind: "unreadable-examples";
+      slug: string;
+      candidates: readonly string[];
+    };
 
 /**
  * Per-dimension count state. Distinguishes "count=0 because empty" from
@@ -591,7 +596,28 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
       // Born-in-showcase packages have no Dojo counterpart by design;
       // skip the "missing examples source" check for them.
       if (examplesSource === null && !BORN_IN_SHOWCASE.has(slug)) {
-        anomalies.push({ kind: "missing-examples" });
+        // Distinguish "mapping is stale / dir simply absent" from the
+        // CRITICAL "all mapped candidates exist but none are readable"
+        // case that findExamplesSource records on the warnings sink.
+        // The latter is an infrastructure failure (permissions / I/O),
+        // not a provenance-missing signal — surface it as a separate
+        // anomaly variant so downstream consumers can route it
+        // differently (CI alerting, suggestions, etc.).
+        const unreadableTag = `unreadable-candidates`;
+        const unreadableWarningForSlug = warnings.find(
+          (w) => w.includes(unreadableTag) && w.includes(`"${slug}"`),
+        );
+        if (unreadableWarningForSlug) {
+          anomalies.push({
+            kind: "unreadable-examples",
+            slug,
+            candidates: Object.freeze(
+              (SLUG_TO_EXAMPLES[slug] ?? [slug]).slice(),
+            ) as readonly string[],
+          });
+        } else {
+          anomalies.push({ kind: "missing-examples" });
+        }
       }
       break;
     }
@@ -640,6 +666,8 @@ function anomalyMessage(a: Anomaly): string {
       return `deployed=${a.state === "explicit-false" ? "false" : "unset"}`;
     case "missing-examples":
       return "no examples/integrations counterpart";
+    case "unreadable-examples":
+      return `examples/integrations candidates unreadable for "${a.slug}" → [${a.candidates.join(", ")}]`;
   }
 }
 
@@ -810,8 +838,16 @@ function renderAnomalySection(report: AuditReport): string {
     lines.push("  Unreadable directories:");
     for (const slug of unreadable) {
       const p = bySlug.get(slug);
+      // Prefer the first I/O-category anomaly on the package — any of
+      // unreadable-dir / unreadable-manifest / unreadable-examples may
+      // be present; render whichever we find first.
       const reason =
-        p?.anomalies.find((a) => a.kind === "unreadable-dir") ?? null;
+        p?.anomalies.find(
+          (a) =>
+            a.kind === "unreadable-dir" ||
+            a.kind === "unreadable-manifest" ||
+            a.kind === "unreadable-examples",
+        ) ?? null;
       const msg = reason ? anomalyMessage(reason) : "could not read";
       lines.push(`    - ${slug}: ${msg}`);
     }
@@ -996,7 +1032,10 @@ function buildReport(
   const unreadable = packages
     .filter((p) =>
       p.anomalies.some(
-        (a) => a.kind === "unreadable-dir" || a.kind === "unreadable-manifest",
+        (a) =>
+          a.kind === "unreadable-dir" ||
+          a.kind === "unreadable-manifest" ||
+          a.kind === "unreadable-examples",
       ),
     )
     .map((p) => p.slug);
@@ -1409,25 +1448,30 @@ function main(): void {
  * - ENOENT: silent fallback (legitimate — some test harnesses hand a
  *   synthetic argv[0] that doesn't exist on disk).
  * - Non-ENOENT errno errors (e.g. EACCES, ELOOP): emit a stderr
- *   diagnostic AND set `process.exitCode = EXIT_UNREADABLE` before
- *   falling back to the uncanonicalized resolved path. CI then gets a
- *   distinct signal (exit 3) separable from drift (exit 1) even though
- *   the audit run itself still proceeds on the fallback path.
+ *   diagnostic and terminate the process with EXIT_UNREADABLE via
+ *   `process.exit`. We cannot use `process.exitCode` here because this
+ *   helper runs BEFORE main() during the `isMain` guard; main() later
+ *   overwrites `process.exitCode` with `report.exitCode`, which would
+ *   clobber the EXIT_UNREADABLE signal. `process.exit` ensures CI still
+ *   sees a distinct signal (exit 3) separable from drift (exit 1).
  */
 function canonicalizeForIsMain(p: string): string {
   const resolved = path.resolve(p);
   try {
     return fs.realpathSync(resolved);
   } catch (e) {
-    const code = (e as NodeJS.ErrnoException).code;
+    const code = e instanceof Error ? (e as NodeJS.ErrnoException).code : undefined;
     if (code !== "ENOENT") {
       process.stderr.write(
-        `[canonicalizeForIsMain] realpath failed for ${resolved}: ${(e as Error).message}\n`,
+        `[canonicalizeForIsMain] realpath failed for ${resolved}: ${e instanceof Error ? e.message : String(e)}\n`,
       );
       // Elevate to EXIT_UNREADABLE so CI can distinguish a genuine
       // filesystem-access failure (EACCES/ELOOP/EIO) from benign
       // ENOENT fallback (synthetic argv[0]) and from drift (exit 1).
-      process.exitCode = EXIT_UNREADABLE;
+      // `process.exit` (not `process.exitCode`) so the signal survives
+      // main()'s subsequent `process.exitCode = report.exitCode` write
+      // — this helper runs pre-main during the `isMain` guard.
+      process.exit(EXIT_UNREADABLE);
     }
     return resolved;
   }
