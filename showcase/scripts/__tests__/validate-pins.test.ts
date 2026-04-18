@@ -676,8 +676,8 @@ describe("collectDojoDeps precedence", () => {
       }),
     );
 
-    const { deps } = collectDojoDeps(tmp);
-    expect(deps["@langchain/langgraph"]).toBe("0.2.14");
+    const { jsDeps } = collectDojoDeps(tmp);
+    expect(jsDeps["@langchain/langgraph"]).toBe("0.2.14");
   });
 
   it("agent/pyproject.toml wins over root pyproject.toml", () => {
@@ -689,8 +689,8 @@ describe("collectDojoDeps precedence", () => {
       path.join(tmp, "agent", "pyproject.toml"),
       '[project]\nname = "agent"\ndependencies = ["langgraph==0.2.14"]\n',
     );
-    const { deps } = collectDojoDeps(tmp);
-    expect(deps["langgraph"]).toBe("==0.2.14");
+    const { pythonDeps } = collectDojoDeps(tmp);
+    expect(pythonDeps["langgraph"]).toBe("==0.2.14");
   });
 
   // three-way first-writer-wins root + apps/agent + apps/web.
@@ -716,9 +716,9 @@ describe("collectDojoDeps precedence", () => {
         dependencies: { foo: "0.0.3" },
       }),
     );
-    const { deps } = collectDojoDeps(tmp);
+    const { jsDeps } = collectDojoDeps(tmp);
     // apps/agent is walked first in DEP_FILE_CANDIDATES → wins.
-    expect(deps["foo"]).toBe("0.0.2");
+    expect(jsDeps["foo"]).toBe("0.0.2");
   });
 
   // parse-error resilience — one bad sibling doesn't abort.
@@ -735,10 +735,10 @@ describe("collectDojoDeps precedence", () => {
         dependencies: { "@mastra/core": "0.15.0" },
       }),
     );
-    const { deps, parseErrors } = collectDojoDeps(tmp);
+    const { jsDeps, parseErrors } = collectDojoDeps(tmp);
     expect(parseErrors.length).toBeGreaterThan(0);
     // Sibling still parsed.
-    expect(deps["@mastra/core"]).toBe("0.15.0");
+    expect(jsDeps["@mastra/core"]).toBe("0.15.0");
   });
 });
 

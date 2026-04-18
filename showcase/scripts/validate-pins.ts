@@ -1131,13 +1131,15 @@ function parsePyprojectToml(file: string): DepMap {
 export interface DepSources {
   // All absolute paths to dependency files that contributed deps.
   files: string[];
-  // Merged dep map (union of jsDeps ∪ pythonDeps; on cross-ecosystem
-  // name collision the FIRST-writer wins, but that is a quirk — the
-  // comparator in validateAll uses jsDeps and pythonDeps directly so
-  // it is not affected by cross-ecosystem collisions). Retained for
-  // backward compatibility and for external callers that don't care
-  // about the JS vs Python split.
-  deps: DepMap;
+  // NOTE: the former `deps: DepMap` field was removed — it duplicated
+  // `jsDeps ∪ pythonDeps` with a first-writer-wins cross-ecosystem
+  // merge quirk, and produced two sources of truth for the same data.
+  // Callers that need a merged view should compute it at the call site
+  // (`{ ...pythonDeps, ...jsDeps }` or similar; pick the precedence
+  // that matches their ecosystem). The comparator in validateAll
+  // already uses `jsDeps` and `pythonDeps` directly so it was never
+  // affected.
+  //
   // JS deps only (from package.json files). Kept separate from
   // pythonDeps because npm names are case-sensitive and hyphen-
   // sensitive; applying PEP 503 canonicalization would merge
@@ -1218,7 +1220,6 @@ function isPythonManifest(abs: string): boolean {
 function collectDepsFromDir(rootDir: string): DepSources {
   const result: DepSources = {
     files: [],
-    deps: {},
     jsDeps: {},
     pythonDeps: {},
     parseErrors: [],
@@ -1329,7 +1330,6 @@ function collectDepsFromDir(rootDir: string): DepSources {
       // comparator derived JS deps via `diffMaps(deps, pythonDeps)`
       // which dropped the JS dep ENTIRELY when its name also
       // appeared in `pythonDeps`.
-      if (!(name in result.deps)) result.deps[name] = spec;
       if (fromPython) {
         if (!(name in result.pythonDeps)) {
           result.pythonDeps[name] = spec;
