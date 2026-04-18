@@ -353,6 +353,31 @@ describe("parsePyprojectToml", () => {
       expect(() => parsePyprojectToml(file)).toThrow(/malformed/i);
     });
   });
+
+  // Non-empty pyproject.toml that produces ZERO extracted deps AND no
+  // skipped/dropped entries is almost certainly malformed in a way the
+  // regex-based parser can't localize — silently returning {} would
+  // render a false-clean [OK] for a file that was never actually
+  // inspected. Surface this as a parseError.
+  it("throws when a non-empty file yields an empty DepMap with no skipped/dropped", () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      // Non-empty content with no recognizable section header — no
+      // [project], no [tool.poetry.*dependencies], no optional-deps.
+      write(
+        file,
+        [
+          "# just a comment",
+          "some_random_key = 'value'",
+          "[unrelated.section]",
+          'key = "value"',
+        ].join("\n"),
+      );
+      expect(() => parsePyprojectTomlDetailed(file)).toThrow(
+        /empty DepMap/i,
+      );
+    });
+  });
 });
 
 describe("parseRequirementsLine", () => {
@@ -2312,7 +2337,17 @@ describe("isExactSpec rejects exotic bare forms", () => {
     expect(isExactSpec("1.2.3-beta.1")).toBe(true);
     expect(isExactSpec("0.2.14")).toBe(true);
     expect(isExactSpec("1.2")).toBe(true);
-    expect(isExactSpec("1")).toBe(true);
+  });
+
+  // Bare MAJOR-only specs (e.g. `"1"`) are rejected for symmetry with the
+  // Python `==` form — `==1` was already rejected because the PEP 440
+  // body requires MAJOR.MINOR. Before the tightening, `"1"` passed the
+  // bare npm path while `"==1"` failed, producing asymmetric drift
+  // behavior across ecosystems.
+  it("rejects bare MAJOR-only versions (symmetry with ==1 rejection)", () => {
+    expect(isExactSpec("1")).toBe(false);
+    expect(isExactSpec("2")).toBe(false);
+    expect(isExactSpec("==1")).toBe(false);
   });
 });
 

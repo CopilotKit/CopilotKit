@@ -43,19 +43,20 @@
  *
  * --- NOTE: SLUG_MAP staleness ---
  *
- * The `SLUG_MAP` imported from `./lib/slug-map.js` is KNOWN STALE with
- * respect to the current set of directory names under
- * `showcase/packages/`. The `FALLBACK_MAP` in that shared module documents
- * the overrides (e.g. `strands -> strands-python`, `ms-agent-dotnet ->
+ * The `SLUG_MAP` imported from `./lib/slug-map.js` can drift from the
+ * current set of directory names under `showcase/packages/`. The
+ * `FALLBACK_MAP` in that shared module supplies the overrides
+ * (e.g. `strands -> strands-python`, `ms-agent-dotnet ->
  * ms-agent-framework-dotnet`, `ms-agent-python ->
- * ms-agent-framework-python`). Consult `showcase/scripts/lib/slug-map.ts`
- * for the current set. When SLUG_MAP is refreshed, the FALLBACK_MAP
- * entries will fall through to the direct reverse-map lookup and can be
- * removed at that time.
+ * ms-agent-framework-python`). See
+ * `.github/workflows/showcase_validate.yml` for the drift ratchet
+ * tracking this refresh (#4047). Once SLUG_MAP is refreshed, the
+ * FALLBACK_MAP entries fall through to the direct reverse-map lookup
+ * and can be pruned.
  *
- * Additionally, several showcase packages are "born-in-showcase" — they
- * have no Dojo counterpart and are skipped with [SKIP]. See
- * `BORN_IN_SHOWCASE` in `./lib/slug-map.js`.
+ * Several showcase packages are also "born-in-showcase" — they have no
+ * Dojo counterpart and are skipped with [SKIP]. See `BORN_IN_SHOWCASE`
+ * in `./lib/slug-map.js`.
  */
 
 import fs from "fs";
@@ -63,10 +64,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { BORN_IN_SHOWCASE, FALLBACK_MAP, SLUG_MAP } from "./lib/slug-map.js";
 
-// SLUG_MAP / FALLBACK_MAP / BORN_IN_SHOWCASE live in ./lib/slug-map.ts so
-// audit.ts, validate-parity.ts, and this file agree on the same frozen
-// tables. Re-exported at the bottom of this file for tests that
-// import from "../validate-pins.js".
+// SLUG_MAP / FALLBACK_MAP / BORN_IN_SHOWCASE are the single source of
+// truth shared by audit.ts, validate-parity.ts, and this file. Re-exported
+// at the bottom of this file so tests importing from "../validate-pins.js"
+// see the same frozen tables.
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -556,12 +557,18 @@ function isExactSpec(spec: string): boolean {
   // of two constraints and cannot be a single exact pin.
   if (/,/.test(trimmed)) return false;
 
-  // Bare version shape: MAJOR[.MINOR[.PATCH]] with an optional
+  // Bare version shape: MAJOR.MINOR[.PATCH] with an optional
   // pre-release / build / PEP 440 suffix. Enforced by a concrete
   // semver-shape regex so only digit-dotted-digit forms (plus
   // permitted suffixes) pass, rejecting exotic bare-letter tails
   // like `1x`, `2X`, and `1e2`.
-  if (!/^\d+(?:\.\d+){0,2}(?:[-+.][A-Za-z0-9.-]+)*$/.test(trimmed)) {
+  //
+  // MAJOR.MINOR is required (MAJOR-only like `"1"` is rejected).
+  // This keeps bare-spec acceptance symmetric with the Python `==`
+  // form above, which already requires MAJOR.MINOR in its body —
+  // previously `"1"` passed the bare path while `"==1"` failed,
+  // producing inconsistent drift-report behavior across ecosystems.
+  if (!/^\d+\.\d+(?:\.\d+)?(?:[-+.][A-Za-z0-9.-]+)*$/.test(trimmed)) {
     return false;
   }
 
@@ -1080,6 +1087,24 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
     }
   }
 
+  // Defensive guard: if the raw file has any non-whitespace content but
+  // no dependency was extracted AND nothing was skipped/dropped either,
+  // the regex-based parser likely could not locate a recognizable
+  // section header. Silently accepting this produces a false-clean
+  // [OK] for a file the validator never actually inspected. Throw so
+  // `collectDepsFromDir`'s catch block routes it to `parseErrors` and
+  // the downstream FAIL reporter surfaces it with slug context.
+  if (
+    raw.trim().length > 0 &&
+    Object.keys(out).length === 0 &&
+    skipped.length === 0 &&
+    dropped.length === 0
+  ) {
+    throw new Error(
+      `pyproject.toml produced empty DepMap — likely malformed TOML that the regex parser could not extract.`,
+    );
+  }
+
   return { deps: out, skipped, dropped };
 }
 
@@ -1131,22 +1156,19 @@ function parsePyprojectToml(file: string): DepMap {
 export interface DepSources {
   // All absolute paths to dependency files that contributed deps.
   files: string[];
-  // NOTE: the former `deps: DepMap` field was removed — it duplicated
-  // `jsDeps ∪ pythonDeps` with a first-writer-wins cross-ecosystem
-  // merge quirk, and produced two sources of truth for the same data.
-  // Callers that need a merged view should compute it at the call site
-  // (`{ ...pythonDeps, ...jsDeps }` or similar; pick the precedence
-  // that matches their ecosystem). The comparator in validateAll
-  // already uses `jsDeps` and `pythonDeps` directly so it was never
-  // affected.
+  // Invariant: there is no merged `deps` field. Callers that need a
+  // cross-ecosystem view must compose it explicitly at the call site
+  // (e.g. `{ ...pythonDeps, ...jsDeps }`) and pick a precedence that
+  // matches their ecosystem. The comparator in `validateAll` reads
+  // `jsDeps` and `pythonDeps` directly.
   //
   // JS deps only (from package.json files). Kept separate from
   // pythonDeps because npm names are case-sensitive and hyphen-
-  // sensitive; applying PEP 503 canonicalization would merge
-  // distinct npm packages. Before this split the comparator
-  // derived JS deps via `diffMaps(deps, pythonDeps)` which dropped
-  // a JS dep entirely when a same-name Python dep existed in the
-  // same tree (cross-ecosystem name collision).
+  // sensitive; applying PEP 503 canonicalization would merge distinct
+  // npm packages. Keeping JS and Python in separate maps also
+  // prevents a cross-ecosystem name collision (e.g. `openai` present
+  // in both `package.json` and `requirements.txt`) from erasing one
+  // side's spec in the comparator.
   jsDeps: DepMap;
   // Python deps only (from requirements.txt / pyproject.toml).
   // Subject to PEP 503 canonicalization (case-insensitive, with `-`,
@@ -1620,12 +1642,12 @@ function validateAll(): Report {
       dojo.pythonDeps,
       /* isPython */ true,
     );
-    // Use `jsDeps` (not `diffMaps(deps, pythonDeps)`): the diff-based
-    // derivation erased a JS dep entirely when the same name appeared
-    // as a Python dep in the same tree, which is a cross-ecosystem
-    // collision (e.g. `openai` with a JS `4.0.0` pin and a Python
-    // `==1.2.3` pin). Sourcing JS and Python from separate maps at
-    // parse time keeps both sides intact for the comparator.
+    // Invariant: the comparator reads `jsDeps` and `pythonDeps` directly
+    // from separate parse-time maps. This keeps JS and Python specs
+    // intact even when the same dep name appears in both ecosystems in
+    // the same tree (e.g. `openai` with a JS `4.0.0` pin alongside a
+    // Python `==1.2.3` pin) — neither side should be erased by the
+    // other during comparison.
     const showcaseJsRaw = canonicalizeDepMap(
       showcase.jsDeps,
       /* isPython */ false,
