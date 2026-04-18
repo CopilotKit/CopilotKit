@@ -338,6 +338,7 @@ def test_default_arg_path_no_op_when_unset(monkeypatch):
         "DEPLOY_ENV",
         "PYTHON_ENV",
         "RAILWAY_ENVIRONMENT",
+        "RAILWAY_ENVIRONMENT_NAME",
     ],
 )
 @pytest.mark.parametrize("prod_value", ["production", "prod", "PRODUCTION", " Production "])
@@ -349,8 +350,9 @@ def test_production_env_refuses_toggle_even_with_aimock_url(prod_var, prod_value
 
     Parametrized across NODE_ENV (Node), ENV / ENVIRONMENT / APP_ENV /
     DEPLOY_ENV / PYTHON_ENV (common generic / Python conventions), and
-    RAILWAY_ENVIRONMENT (primary hosting target). New vars added to
-    `_PROD_ENV_VARS` in aimock_toggle.py MUST be added here too.
+    RAILWAY_ENVIRONMENT + RAILWAY_ENVIRONMENT_NAME (primary hosting target;
+    Railway exposes both forms). New vars added to `_PROD_ENV_VARS` in
+    aimock_toggle.py MUST be added here too.
     """
     env = {
         "AIMOCK_URL": "http://localhost:4010/v1",
@@ -388,6 +390,7 @@ def test_production_env_refuses_toggle_even_with_aimock_url(prod_var, prod_value
         "DEPLOY_ENV",
         "PYTHON_ENV",
         "RAILWAY_ENVIRONMENT",
+        "RAILWAY_ENVIRONMENT_NAME",
     ],
 )
 @pytest.mark.parametrize("prod_value", ["production", "prod"])
