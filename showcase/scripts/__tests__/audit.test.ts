@@ -17,6 +17,7 @@ import {
   parseArgs,
   anomalyMessage,
   UnreadableDirError,
+  canonicalizeForIsMain,
   BORN_IN_SHOWCASE,
   SLUG_TO_EXAMPLES,
   type AuditConfig,
@@ -1441,6 +1442,92 @@ describe("UnreadableDirError", () => {
     // message via String(cause).
     const e = new UnreadableDirError("/tmp/x", "bespoke-failure-token");
     expect(e.message).toBe("could not read /tmp/x: bespoke-failure-token");
+  });
+
+  it("includes the errno .code in the rendered message when missing from cause.message", () => {
+    // Some callers/tests construct Errors that attach .code but do not
+    // embed the code in .message. UnreadableDirError surfaces the code
+    // in its rendered message so operators see e.g. EACCES immediately.
+    const cause = Object.assign(new Error("permission denied"), {
+      code: "EACCES",
+    });
+    const e = new UnreadableDirError("/x", cause);
+    expect(e.message).toBe("could not read /x: EACCES: permission denied");
+  });
+
+  it("does not double-prepend errno code when already in cause.message", () => {
+    // Node's fs errors embed the code in .message (e.g.
+    // "EACCES: permission denied, scandir ..."). Avoid "EACCES: EACCES:".
+    const cause = Object.assign(
+      new Error("EACCES: permission denied, scandir '/x'"),
+      { code: "EACCES" },
+    );
+    const e = new UnreadableDirError("/x", cause);
+    expect(e.message).toBe(
+      "could not read /x: EACCES: permission denied, scandir '/x'",
+    );
+    expect(e.message).not.toMatch(/EACCES: EACCES/);
+  });
+});
+
+describe("canonicalizeForIsMain", () => {
+  it("returns a canonical (realpath) path when the file exists", () => {
+    // Realpath should resolve to the same path on a normal file — this
+    // is the happy path, proving we don't accidentally return something
+    // other than realpathSync's result.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "audit-canon-"));
+    try {
+      const f = path.join(root, "a.txt");
+      fs.writeFileSync(f, "x");
+      const canon = canonicalizeForIsMain(f);
+      expect(canon).toBe(fs.realpathSync(f));
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("silently falls back to resolved path on ENOENT (no stderr noise)", () => {
+    // Synthetic argv[0] paths produced by some test harnesses don't
+    // exist on disk; ENOENT must stay quiet so CI logs aren't polluted.
+    const spy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+    try {
+      const missing = path.join(os.tmpdir(), "does-not-exist-xyz-" + Date.now());
+      const out = canonicalizeForIsMain(missing);
+      expect(out).toBe(path.resolve(missing));
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("warns to stderr for non-ENOENT failures (e.g. EACCES) and still returns resolved", () => {
+    // Non-ENOENT realpath failures indicate real problems (permission,
+    // loop, I/O). Previously the bare `catch {}` swallowed them; now we
+    // must see the warning.
+    const realpathSpy = vi
+      .spyOn(fs, "realpathSync")
+      .mockImplementation(((..._args: unknown[]) => {
+        throw Object.assign(new Error("permission denied"), {
+          code: "EACCES",
+        });
+      }) as unknown as typeof fs.realpathSync);
+    const stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+    try {
+      const out = canonicalizeForIsMain("/some/path");
+      expect(out).toBe(path.resolve("/some/path"));
+      expect(stderrSpy).toHaveBeenCalledTimes(1);
+      const msg = String(stderrSpy.mock.calls[0][0]);
+      expect(msg).toContain("[canonicalizeForIsMain] realpath failed for");
+      expect(msg).toContain("/some/path");
+      expect(msg).toContain("permission denied");
+    } finally {
+      realpathSpy.mockRestore();
+      stderrSpy.mockRestore();
+    }
   });
 });
 

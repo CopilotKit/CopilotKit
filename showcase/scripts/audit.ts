@@ -23,8 +23,8 @@
  *   2 — invalid content / user input (bad args, unknown slug)
  *   3 — unreadable (packages dir missing, not-a-directory, or fs failure)
  *   4 — unexpected internal error (uncaught exception)
- *   5 — warnings present under --strict (default exit preserves
- *       behavior; --strict elevates warnings to non-zero)
+ *   5 — --strict and warnings present (default run treats warnings
+ *       as informational)
  *
  * No new npm deps. Reuses `yaml` which is already declared in
  * showcase/scripts/package.json. Self-sufficient: does not depend on any
@@ -70,7 +70,19 @@ class UnreadableDirError extends Error {
     public readonly dir: string,
     cause: unknown,
   ) {
-    const msg = cause instanceof Error ? cause.message : String(cause);
+    const baseMsg =
+      cause instanceof Error ? cause.message : String(cause);
+    const code =
+      cause instanceof Error
+        ? (cause as NodeJS.ErrnoException).code
+        : undefined;
+    // Prepend errno code when present and not already embedded in the
+    // underlying message (Node's fs errors typically already include it,
+    // but custom Errors thrown by stubs/tests may not).
+    const msg =
+      code && !baseMsg.includes(code)
+        ? `${code}: ${baseMsg}`
+        : baseMsg;
     super(`could not read ${dir}: ${msg}`, { cause });
     this.name = "UnreadableDirError";
   }
@@ -136,7 +148,7 @@ type Anomaly =
  */
 type CountState =
   | { state: "ok"; count: number }
-  | { state: "missing" } // count is implicitly 0
+  | { state: "missing" } // no count field; countValue() returns 0, countLabel() returns "0"
   | { state: "unreadable"; error: string };
 
 interface PackageAudit {
@@ -795,7 +807,7 @@ function renderAnomalySection(report: AuditReport): string {
 
   if (countMismatches.length > 0) {
     lines.push("");
-    lines.push("  Count mismatches (demos != specs != qa):");
+    lines.push("  Count mismatches (specs or qa differ from demos):");
     for (const slug of countMismatches) {
       const p = bySlug.get(slug);
       if (!p) continue;
@@ -1387,7 +1399,13 @@ function canonicalizeForIsMain(p: string): string {
   const resolved = path.resolve(p);
   try {
     return fs.realpathSync(resolved);
-  } catch {
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") {
+      process.stderr.write(
+        `[canonicalizeForIsMain] realpath failed for ${resolved}: ${(e as Error).message}\n`,
+      );
+    }
     return resolved;
   }
 }
@@ -1416,6 +1434,7 @@ export {
   parseArgs,
   anomalyMessage,
   UnreadableDirError,
+  canonicalizeForIsMain,
   BORN_IN_SHOWCASE,
   SLUG_TO_EXAMPLES,
 };
