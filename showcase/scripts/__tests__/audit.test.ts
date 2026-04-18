@@ -450,7 +450,9 @@ describe("findExamplesSource", () => {
       sink.some(
         (w) => w.includes("exists but is not a directory") && w.includes(full),
       ),
-      `expected file-not-dir warning for ${full} in sink: ${JSON.stringify(sink)}`,
+      `expected file-not-dir warning for ${full} in sink: ${JSON.stringify(
+        sink,
+      )}`,
     ).toBe(true);
     // Must NOT fire the mapped-entry "no matching directory" warning —
     // the fallback path is explicitly not a mapping.
@@ -1083,7 +1085,9 @@ describe("SLUG_TO_EXAMPLES — dead entries removed", () => {
         const r = findExamplesSource(slug, cfg);
         expect(
           r,
-          `SLUG_TO_EXAMPLES[${slug}] → [${targets.join(", ")}] failed to resolve against a fixture containing every target`,
+          `SLUG_TO_EXAMPLES[${slug}] → [${targets.join(
+            ", ",
+          )}] failed to resolve against a fixture containing every target`,
         ).not.toBeNull();
       }
     } finally {
@@ -1198,7 +1202,9 @@ describe("findExamplesSource — unreadable-candidates ERROR branch", () => {
       // and must name the slug so downstream consumers can route it.
       expect(
         sink.some((w) => /ERROR/.test(w) && w.includes(slug)),
-        `expected an ERROR warning for slug "${slug}" in sink: ${JSON.stringify(sink)}`,
+        `expected an ERROR warning for slug "${slug}" in sink: ${JSON.stringify(
+          sink,
+        )}`,
       ).toBe(true);
       expect(sink.some((w) => w.includes("unreadable-candidates"))).toBe(true);
       // Every candidate should have shown up in a statSync warning too
@@ -1516,6 +1522,50 @@ fs.existsSync = function(...args) {
       expect(r.stderr).toMatch(/bug \(programmer error\)/);
     } finally {
       fs.rmSync(preload, { recursive: true, force: true });
+    }
+  });
+
+  it("exits 3 with a clear error when SHOWCASE_AUDIT_ROOT points to a nonexistent path", () => {
+    // Regression guard: previously an invalid SHOWCASE_AUDIT_ROOT was
+    // accepted silently and users got a confusing downstream error about
+    // the derived `<root>/packages` path. We now validate the env-var
+    // path itself and emit a clear message naming SHOWCASE_AUDIT_ROOT.
+    const missing = path.join(
+      os.tmpdir(),
+      `audit-nonexistent-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    // Paranoia: ensure it really doesn't exist (collision with a prior
+    // run would mask the fix).
+    expect(fs.existsSync(missing)).toBe(false);
+    const r = runCli([], {
+      env: { SHOWCASE_AUDIT_ROOT: missing },
+    });
+    expect(r.status, r.stdout + r.stderr).toBe(3);
+    expect(r.stderr).toMatch(/SHOWCASE_AUDIT_ROOT/);
+    expect(r.stderr).toMatch(/does not exist/i);
+    expect(r.stderr).toContain(missing);
+  });
+
+  it("exits 3 with a clear error when SHOWCASE_AUDIT_ROOT points to a file, not a directory", () => {
+    // Counterpart regression guard: a file-typed SHOWCASE_AUDIT_ROOT used
+    // to flow through to the packages-dir check and emit an unhelpful
+    // "packages dir does not exist: <file>/packages" message. Now the
+    // env-var validation layer catches it first with a precise diagnostic.
+    const filePath = path.join(
+      os.tmpdir(),
+      `audit-root-as-file-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
+    fs.writeFileSync(filePath, "not a dir\n");
+    try {
+      const r = runCli([], {
+        env: { SHOWCASE_AUDIT_ROOT: filePath },
+      });
+      expect(r.status, r.stdout + r.stderr).toBe(3);
+      expect(r.stderr).toMatch(/SHOWCASE_AUDIT_ROOT/);
+      expect(r.stderr).toMatch(/not a directory/i);
+      expect(r.stderr).toContain(filePath);
+    } finally {
+      fs.rmSync(filePath, { force: true });
     }
   });
 });
