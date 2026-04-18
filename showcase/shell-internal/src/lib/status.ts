@@ -17,11 +17,19 @@ export interface HealthResult {
   checked_at: string;
 }
 
+export interface Variant {
+  name: string;
+  e2e: TestResult | null;
+  smoke: TestResult | null;
+  qa: QAResult | null;
+  health: HealthResult;
+}
 export interface DemoStatus {
   e2e: TestResult | null;
   smoke: TestResult | null;
   qa: QAResult | null;
   health: HealthResult;
+  variants?: Variant[];
 }
 
 export interface StatusBundle {
@@ -85,4 +93,48 @@ export function healthBadge(
   if (result.status === "up") return { label: "up", tone: "green" };
   if (result.status === "down") return { label: "down", tone: "red" };
   return { label: "?", tone: "gray" };
+}
+
+// ─────────────── variant helpers ───────────────
+
+export function getDemoVariants(
+  slug: string,
+  demoId: string,
+): Variant[] | null {
+  return getDemoStatus(slug, demoId)?.variants ?? null;
+}
+
+// Aggregate a set of tone strings to a single worst-case tone.
+// Priority: red > amber > gray > green (i.e. anything non-green dominates).
+const TONE_PRIORITY: Record<BadgeTone, number> = {
+  red: 4,
+  amber: 3,
+  gray: 2,
+  green: 1,
+  blue: 0,
+};
+export function worstTone(tones: BadgeTone[]): BadgeTone {
+  if (tones.length === 0) return "gray";
+  return tones.reduce((worst, t) =>
+    TONE_PRIORITY[t] > TONE_PRIORITY[worst] ? t : worst,
+  );
+}
+
+// Count the number of variants whose `getTone` returns a "passing" tone
+// (green or amber — i.e. has a real result, not red/gray).
+export function passCount(
+  variants: Variant[],
+  bundleStale: boolean,
+  kind: "e2e" | "smoke" | "qa" | "health",
+): { pass: number; total: number } {
+  let pass = 0;
+  for (const v of variants) {
+    let tone: BadgeTone = "gray";
+    if (kind === "e2e") tone = testBadge(v.e2e, bundleStale).tone;
+    else if (kind === "smoke") tone = testBadge(v.smoke, bundleStale).tone;
+    else if (kind === "qa") tone = qaBadge(v.qa, bundleStale).tone;
+    else if (kind === "health") tone = healthBadge(v.health, bundleStale).tone;
+    if (tone === "green" || tone === "amber") pass++;
+  }
+  return { pass, total: variants.length };
 }
