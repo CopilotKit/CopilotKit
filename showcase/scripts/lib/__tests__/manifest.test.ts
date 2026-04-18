@@ -499,6 +499,29 @@ describe("parseManifest", () => {
     expect(r.kind).toBe("missing");
   });
 
+  it("returns {kind:'malformed'} when dirSlug is the empty string (caller bug)", () => {
+    // Regression for FX30-C Fix 3 (R29-2 H2): `""` is NOT a valid opt-out
+    // sentinel — `undefined` means "caller opted out of slug-check".
+    // An empty string usually comes from path.basename on a weird path
+    // (trailing slash, etc.) in the caller; silently collapsing it to
+    // undefined hides a caller bug. The parser must surface it.
+    const tmp = fs.mkdtempSync(
+      path.join(os.tmpdir(), "lib-manifest-empty-slug-"),
+    );
+    const f = path.join(tmp, "manifest.yaml");
+    fs.writeFileSync(f, "slug: mypkg\n");
+    try {
+      const r = parseManifest(f, "");
+      expect(r.kind).toBe("malformed");
+      if (r.kind === "malformed") {
+        expect(r.subkind).toBe("shape");
+        expect(r.error).toMatch(/empty.*dirSlug|dirSlug.*empty/i);
+      }
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
   it("returns {kind:'unreadable'} when readFileSync throws (e.g. EACCES)", () => {
     // Simulate a permission error via spy. existsSync returns true but
     // readFileSync throws — the parser must surface this as 'unreadable',
