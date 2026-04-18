@@ -1144,6 +1144,113 @@ describe("validate-parity", () => {
       }
     });
 
+    it("listDirs surfaces EACCES (unreadable) as listing-failed, not as silent 'missing'", () => {
+      // Regression: fs.existsSync returns false for EACCES just as it
+      // does for ENOENT, so using existsSync as the "missing" gate
+      // silently swallows permission errors. Contract: missing paths
+      // return empty entries + NO warning, but unreadable paths return
+      // empty entries + a listing-failed warning so the caller can
+      // surface the real failure.
+      const target = path.join(tmpDir, "eacces-dir");
+      fs.mkdirSync(target);
+
+      // Spy statSync to throw EACCES for our target path only; fall
+      // through for every other path so tsx / vitest internals keep
+      // working. readdirSync isn't reached when the guard still uses
+      // existsSync (old code path), which is what makes this test fail
+      // on the old implementation.
+      const realStatSync = fs.statSync;
+      const statSpy = vi.spyOn(fs, "statSync").mockImplementation(((
+        p: fs.PathLike,
+        ...rest: unknown[]
+      ) => {
+        const s = typeof p === "string" ? p : p.toString();
+        if (s === target) {
+          const e: NodeJS.ErrnoException = Object.assign(
+            new Error("EACCES: permission denied"),
+            { code: "EACCES" },
+          );
+          throw e;
+        }
+        return (
+          realStatSync as unknown as (
+            p: fs.PathLike,
+            ...rest: unknown[]
+          ) => unknown
+        )(p, ...rest);
+      }) as unknown as typeof fs.statSync);
+      try {
+        const result = listDirs(target);
+        expect(result.entries).toEqual([]);
+        // The key regression assertion: EACCES must NOT be silently
+        // collapsed into "missing" (warnings: []). It must surface as
+        // listing-failed so the caller can escalate to
+        // unreadable-demos-dir / unreadable-specs-dir / etc.
+        expect(result.warnings.length, JSON.stringify(result)).toBe(1);
+        expect(result.warnings[0].category).toBe("listing-failed");
+        expect(deriveMessage(result.warnings[0])).toMatch(/EACCES/);
+      } finally {
+        statSpy.mockRestore();
+      }
+    });
+
+    it("listFiles surfaces EACCES (unreadable) as listing-failed, not as silent 'missing'", () => {
+      // Same contract as listDirs above — existsSync returning false on
+      // EACCES masks the permission failure as a legitimately-missing
+      // directory, which silently drops an entire class of validation.
+      const target = path.join(tmpDir, "eacces-files");
+      fs.mkdirSync(target);
+
+      const realStatSync = fs.statSync;
+      const statSpy = vi.spyOn(fs, "statSync").mockImplementation(((
+        p: fs.PathLike,
+        ...rest: unknown[]
+      ) => {
+        const s = typeof p === "string" ? p : p.toString();
+        if (s === target) {
+          const e: NodeJS.ErrnoException = Object.assign(
+            new Error("EACCES: permission denied"),
+            { code: "EACCES" },
+          );
+          throw e;
+        }
+        return (
+          realStatSync as unknown as (
+            p: fs.PathLike,
+            ...rest: unknown[]
+          ) => unknown
+        )(p, ...rest);
+      }) as unknown as typeof fs.statSync);
+      try {
+        const result = listFiles(target, ".md");
+        expect(result.entries).toEqual([]);
+        expect(result.warnings.length, JSON.stringify(result)).toBe(1);
+        expect(result.warnings[0].category).toBe("listing-failed");
+        expect(deriveMessage(result.warnings[0])).toMatch(/EACCES/);
+      } finally {
+        statSpy.mockRestore();
+      }
+    });
+
+    it("listDirs preserves ENOENT contract (missing path → empty entries + no warning)", () => {
+      // Regression guard for the OTHER side of the existsSync → statSync
+      // migration: genuinely-missing paths must still return silently
+      // so callers don't start seeing spurious warnings for packages
+      // that legitimately omit a tests/e2e or qa directory.
+      const result = listDirs(path.join(tmpDir, "definitely-not-there"));
+      expect(result.entries).toEqual([]);
+      expect(result.warnings).toEqual([]);
+    });
+
+    it("listFiles preserves ENOENT contract (missing path → empty entries + no warning)", () => {
+      const result = listFiles(
+        path.join(tmpDir, "definitely-not-there"),
+        ".md",
+      );
+      expect(result.entries).toEqual([]);
+      expect(result.warnings).toEqual([]);
+    });
+
     it("listDirs / listFiles return results in sorted order", () => {
       // Filesystems don't guarantee iteration order, so auditPackage's
       // reports could flake without explicit sorting. Pin sorted output.
@@ -1473,6 +1580,93 @@ Object.freeze = function(o) {
           expect(stderr).toMatch(/audit of boom-pkg crashed/);
           expect(stderr).toMatch(/caused by:/);
           expect(stderr).toMatch(/synthetic non-manifest failure/);
+        } finally {
+          freezeSpy.mockRestore();
+          errSpy.mockRestore();
+          logSpy.mockRestore();
+        }
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("isolates a single crashing slug and continues auditing siblings (per-slug try/catch)", () => {
+      // Regression guard: prior to per-slug isolation, a single
+      // auditPackage throw aborted the entire `slugs.map(auditPackage)`
+      // call and silently dropped every later slug from the report —
+      // masking drift. Contract: one slug may crash, but siblings MUST
+      // still be audited, the crashed slug MUST appear in the report as
+      // a "crashed" PackageIssue, and the run MUST still exit with
+      // EXIT_INTERNAL (4) so the failure is visible to CI.
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-batch-abort-"));
+      try {
+        // Package A: legitimate — should produce a pass row.
+        writeFixturePackage(tmp, "a-ok", {
+          manifest: "slug: a-ok\ndemos:\n  - id: chat\n    name: Chat\n",
+          demoDirs: ["chat"],
+          specFiles: ["chat.spec.ts"],
+          qaFiles: ["chat.md"],
+        });
+        // Package B: will be poisoned to throw via Object.freeze spy.
+        writeFixturePackage(tmp, "b-boom", {
+          manifest: "slug: b-boom\ndemos:\n  - id: poison\n    name: Poison\n",
+          demoDirs: ["poison"],
+          specFiles: ["poison.spec.ts"],
+          qaFiles: ["poison.md"],
+        });
+        // Package C: legitimate — should ALSO produce a pass row and
+        // prove that a crash in B didn't abort the batch.
+        writeFixturePackage(tmp, "c-ok", {
+          manifest: "slug: c-ok\ndemos:\n  - id: chat\n    name: Chat\n",
+          demoDirs: ["chat"],
+          specFiles: ["chat.spec.ts"],
+          qaFiles: ["chat.md"],
+        });
+
+        const originalFreeze = Object.freeze;
+        // Only poison the demo entry whose id is "poison" — the freeze
+        // spy runs for every manifest demo object, so narrowing on id
+        // keeps a-ok and c-ok auditable.
+        const freezeSpy = vi.spyOn(Object, "freeze").mockImplementation(((
+          o: unknown,
+        ) => {
+          if (
+            o !== null &&
+            typeof o === "object" &&
+            (o as Record<string, unknown>).id === "poison" &&
+            typeof (o as Record<string, unknown>).name === "string"
+          ) {
+            throw new TypeError("synthetic b-boom failure");
+          }
+          return originalFreeze(o as object);
+        }) as typeof Object.freeze);
+        const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+        const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+        try {
+          let returned: unknown;
+          let threw = false;
+          try {
+            returned = runParity(tmp, 1);
+          } catch {
+            threw = true;
+          }
+          expect(threw, "runParity must not throw").toBe(false);
+          // Single crashed slug → EXIT_INTERNAL so CI still fails loud.
+          expect(returned).toBe(4);
+
+          // All three slugs must show up in the pass/summary table —
+          // the crashed one with [FAIL], the others with [PASS].
+          const stdout = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
+          expect(stdout, stdout).toMatch(/a-ok\s+\[PASS\]/);
+          expect(stdout, stdout).toMatch(/c-ok\s+\[PASS\]/);
+          expect(stdout, stdout).toMatch(/b-boom\s+\[FAIL\]/);
+
+          // Crashed slug surfaces as a structured issue + emits a
+          // [FAIL] line to stderr (not just the top-level [INTERNAL
+          // ERROR] banner) so operators can scan the per-package list.
+          const stderr = errSpy.mock.calls.map((c) => String(c[0])).join("\n");
+          expect(stderr, stderr).toMatch(/\[FAIL\] b-boom:/);
+          expect(stderr, stderr).toMatch(/synthetic b-boom failure/);
         } finally {
           freezeSpy.mockRestore();
           errSpy.mockRestore();

@@ -211,7 +211,8 @@ export type PackageIssue =
       demoCount: number;
     }
   | { category: "qa-under-coverage"; qaCount: number; demoCount: number }
-  | { category: "listing-failed"; path: string; error: string };
+  | { category: "listing-failed"; path: string; error: string }
+  | { category: "crashed"; error: string };
 
 /**
  * Render a PackageIssue as a user-facing string. Kept as the single
@@ -250,6 +251,8 @@ export function deriveMessage(issue: PackageIssue): string {
       return `qa count ${issue.qaCount} < demo count ${issue.demoCount}`;
     case "listing-failed":
       return `failed to read directory ${issue.path}: ${issue.error}`;
+    case "crashed":
+      return `audit crashed: ${issue.error}`;
   }
 }
 
@@ -279,17 +282,70 @@ export interface ListResult {
 }
 
 /**
- * List subdirectories of `p`. Non-existent paths return { entries: [],
- * warnings: [] }. Read errors (EACCES, I/O, etc.) return empty entries
- * AND a `listing-failed` warning so the caller can include it in the
- * PackageReport's `warnings` array. The caller is responsible for
- * emitting the stderr `[WARN]` line via deriveMessage — helpers do NOT
- * log directly, otherwise operators see a duplicated warning line
- * (once from the helper, once from the caller's iteration over
- * `warnings[]`).
+ * Best-effort "does this path exist and is it readable" probe used by
+ * listDirs/listFiles to distinguish genuinely-missing paths (ENOENT
+ * → silent, return empty) from permission/I/O failures (EACCES et al
+ * → surface as listing-failed so the caller can escalate).
+ *
+ * `fs.existsSync` CONFLATES these: it returns false for ENOENT AND for
+ * EACCES (and every other statSync failure), so a package whose
+ * tests/e2e/ is chmod 0 silently registers as "no tests/e2e/" and the
+ * whole per-slug cascade gets suppressed. That's the bug this probe
+ * exists to close — do NOT replace with existsSync.
+ *
+ * Return value:
+ *   { kind: "missing" }    — ENOENT (or the path resolves to a non-dir)
+ *   { kind: "ok" }         — stat succeeded and the target is a directory
+ *   { kind: "unreadable"; error: string } — any other statSync failure
+ */
+type ProbeResult =
+  | { kind: "missing" }
+  | { kind: "ok" }
+  | { kind: "unreadable"; error: string };
+
+function probeDir(p: string): ProbeResult {
+  try {
+    // Deliberately do NOT check isDirectory() here — a non-directory
+    // at the path (regular file / socket / etc.) should flow through
+    // to the caller's readdirSync, which will throw ENOTDIR and land
+    // in the existing listing-failed / "could not read" path. Doing
+    // the isDirectory check here would reclassify "file at
+    // packages/" as "missing" and produce a confusing "not found"
+    // diagnostic when the real problem is ENOTDIR.
+    fs.statSync(p);
+    return { kind: "ok" };
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException)?.code;
+    if (code === "ENOENT" || code === "ENOTDIR") return { kind: "missing" };
+    const msg = err instanceof Error ? err.message : String(err);
+    return { kind: "unreadable", error: msg };
+  }
+}
+
+/**
+ * List subdirectories of `p`. Non-existent paths (ENOENT) return
+ * { entries: [], warnings: [] }. Read/permission errors (EACCES, I/O,
+ * etc.) return empty entries AND a `listing-failed` warning so the
+ * caller can include it in the PackageReport's `warnings` array. The
+ * caller is responsible for emitting the stderr `[WARN]` line via
+ * deriveMessage — helpers do NOT log directly, otherwise operators
+ * see a duplicated warning line (once from the helper, once from the
+ * caller's iteration over `warnings[]`).
+ *
+ * NB: uses `statSync` (not `existsSync`) to distinguish ENOENT from
+ * EACCES — see probeDir docstring for why that matters.
  */
 export function listDirs(p: string): ListResult {
-  if (!fs.existsSync(p)) return { entries: [], warnings: [] };
+  const probe = probeDir(p);
+  if (probe.kind === "missing") return { entries: [], warnings: [] };
+  if (probe.kind === "unreadable") {
+    const issue: PackageIssue = {
+      category: "listing-failed",
+      path: p,
+      error: probe.error,
+    };
+    return { entries: [], warnings: [issue] };
+  }
   try {
     const entries = fs
       .readdirSync(p, { withFileTypes: true })
@@ -310,8 +366,9 @@ export function listDirs(p: string): ListResult {
 
 /**
  * List files in `p` with the given suffix. Same error-handling contract
- * as listDirs: missing dir → empty ListResult; read error → empty entries
- * + listing-failed warning. Caller emits the stderr `[WARN]` line.
+ * as listDirs: ENOENT → empty ListResult; EACCES / other stat failure
+ * → empty entries + listing-failed warning. Caller emits the stderr
+ * `[WARN]` line.
  *
  * Bare-suffix filenames (e.g. a file literally named `.spec.ts` or
  * `.md`) are silently skipped: after stripping the suffix they would
@@ -319,9 +376,21 @@ export function listDirs(p: string): ListResult {
  * on the empty-string side of the Set comparison. Such files aren't a
  * legitimate package-layout artefact, so dropping them is quieter and
  * safer than warning about them.
+ *
+ * NB: uses `statSync` (not `existsSync`) to distinguish ENOENT from
+ * EACCES — see probeDir docstring.
  */
 export function listFiles(p: string, suffix: string): ListResult {
-  if (!fs.existsSync(p)) return { entries: [], warnings: [] };
+  const probe = probeDir(p);
+  if (probe.kind === "missing") return { entries: [], warnings: [] };
+  if (probe.kind === "unreadable") {
+    const issue: PackageIssue = {
+      category: "listing-failed",
+      path: p,
+      error: probe.error,
+    };
+    return { entries: [], warnings: [issue] };
+  }
   try {
     const entries = fs
       .readdirSync(p, { withFileTypes: true })
@@ -883,9 +952,21 @@ function runParityImpl(
     envBaselineCoerced ??
     BASELINE_DEMO_COUNT;
 
-  if (!fs.existsSync(resolvedPackagesDir)) {
+  // Use statSync (not existsSync) so ENOENT and EACCES surface with
+  // distinct diagnostics — existsSync returns false in both cases and
+  // produces a misleading "not found" message for a perms failure.
+  // Both still exit EXIT_UNREADABLE (3), but the operator-facing
+  // message is actionable.
+  const pkgDirProbe = probeDir(resolvedPackagesDir);
+  if (pkgDirProbe.kind === "missing") {
     console.error(
       `[FAIL] packages directory not found: ${resolvedPackagesDir}`,
+    );
+    return EXIT_UNREADABLE;
+  }
+  if (pkgDirProbe.kind === "unreadable") {
+    console.error(
+      `[FAIL] packages directory ${resolvedPackagesDir} is unreadable: ${pkgDirProbe.error}`,
     );
     return EXIT_UNREADABLE;
   }
@@ -913,9 +994,39 @@ function runParityImpl(
     return EXIT_MUST_FAILURE;
   }
 
-  const reports = slugs.map((s) =>
-    auditPackage(s, resolvedPackagesDir, resolvedBaseline),
-  );
+  // Per-slug isolation: if one auditPackage throws (e.g. a bug surfaces
+  // a non-Manifest{Malformed,Unreadable}Error that the auditPackage
+  // catch-all re-wraps with the slug), we MUST still audit remaining
+  // slugs. Prior to this isolation a single throw aborted the entire
+  // batch via slugs.map and silently dropped every later package —
+  // masking drift. Crashes are captured as a typed "crashed" PackageIssue
+  // on a synthetic PackageReport so they appear in the summary table
+  // and per-slug FAIL lines alongside legitimate failures. `hasCrash`
+  // drives EXIT_INTERNAL so CI still fails loud on an internal bug
+  // (distinct from EXIT_MUST_FAILURE so operators can disambiguate
+  // "tests tell me a demo is missing" from "the tool itself crashed").
+  let hasCrash = false;
+  const reports: PackageReport[] = [];
+  for (const s of slugs) {
+    try {
+      reports.push(auditPackage(s, resolvedPackagesDir, resolvedBaseline));
+    } catch (err) {
+      hasCrash = true;
+      // Surface the full cause chain so the per-slug [FAIL] line still
+      // carries the underlying message (auditPackage wraps throws with
+      // `new Error("audit of <slug> crashed", { cause: err })`).
+      const message = formatErrorChain(err);
+      reports.push({
+        slug: s,
+        demoIds: [],
+        specFiles: [],
+        qaFiles: [],
+        demoDirs: [],
+        mustErrors: [{ category: "crashed", error: message }],
+        warnings: [],
+      });
+    }
+  }
 
   let hasMustFailure = false;
   let totalWarnings = 0;
@@ -958,6 +1069,25 @@ function runParityImpl(
     `\n${reports.length} package(s) checked, ${reports.filter((r) => r.mustErrors.length === 0).length} pass, ${reports.filter((r) => r.mustErrors.length > 0).length} fail, ${totalWarnings} warning(s)`,
   );
 
+  // Ordering of the exit-code checks is deliberate: a slug crash is an
+  // internal defect (EXIT_INTERNAL / 4) and must NOT be downgraded to
+  // EXIT_MUST_FAILURE (1) even if other slugs have legitimate MUST
+  // failures. Operators seeing exit 4 know the tool itself hit an
+  // unexpected code path, distinct from "tests tell me a demo dir is
+  // missing".
+  //
+  // Emit the top-level `[INTERNAL ERROR]` banner in addition to the
+  // per-slug `[FAIL] <slug>: audit crashed: ...` lines so operators
+  // scanning a large log still see a single unambiguous "tool crashed"
+  // signal. The banner is emitted AFTER the summary line so it's the
+  // last thing on stderr — matches the behaviour `runParity`'s outer
+  // try/catch had before per-slug isolation moved the catch inward.
+  if (hasCrash) {
+    console.error(
+      `[INTERNAL ERROR] validate-parity crashed: one or more packages failed to audit; see per-slug [FAIL] lines above`,
+    );
+    return EXIT_INTERNAL;
+  }
   return hasMustFailure ? EXIT_MUST_FAILURE : EXIT_OK;
 }
 
