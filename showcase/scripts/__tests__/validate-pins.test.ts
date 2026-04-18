@@ -985,6 +985,36 @@ describe("isMainPath strict guard", () => {
   it("returns false for undefined argv1", () => {
     expect(isMainPath(undefined, "/any/path.ts")).toBe(false);
   });
+
+  // Catch branch: if `path.resolve` throws for any reason we must log,
+  // set process.exitCode = EXIT_INTERNAL (2), and return false — NOT
+  // crash, and NOT silently swallow. The bare-catch form would pass
+  // arg-validation tests but mask real bugs. Spying on path.resolve
+  // exercises the branch directly without needing to contrive a
+  // real-world input that makes Node throw.
+  it("catch branch: path.resolve failure logs, sets exitCode = 2, returns false", () => {
+    const prevExitCode = process.exitCode;
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const resolveSpy = vi
+      .spyOn(path, "resolve")
+      .mockImplementationOnce(() => {
+        throw new Error("synthetic path.resolve failure");
+      });
+    try {
+      const result = isMainPath("/any/path.ts", "/any/path.ts");
+      expect(result).toBe(false);
+      expect(process.exitCode).toBe(2);
+      expect(errSpy).toHaveBeenCalled();
+      const logged = errSpy.mock.calls.map((c) => String(c[0])).join("\n");
+      expect(logged).toMatch(/\[isMainPath\] path\.resolve failed/);
+    } finally {
+      // Restore so a later test doesn't inherit exitCode = 2 and
+      // mark the whole suite as failed.
+      process.exitCode = prevExitCode;
+      resolveSpy.mockRestore();
+      errSpy.mockRestore();
+    }
+  });
 });
 
 describe("FALLBACK_MAP fallthrough when target missing", () => {
@@ -2420,36 +2450,40 @@ describe("printReport within-stream order", () => {
     stderrSpy.mockRestore();
   });
 
-  it("stdout emits all OK lines before any SKIP line", async () => {
+  it("stdout emits ALL OK lines before any SKIP line", async () => {
     const { printReport } = await import("../validate-pins.js");
     printReport({
       ok: ["[OK] slug-a", "[OK] slug-b"],
-      skip: ["[SKIP] slug-c"],
+      skip: ["[SKIP] slug-c", "[SKIP] slug-d"],
       warn: [],
       fail: [],
     });
     const stdoutLines = stdoutSpy.mock.calls.map((c) => String(c[0]));
-    const okIdx = stdoutLines.findIndex((l) => l.startsWith("[OK]"));
-    const skipIdx = stdoutLines.findIndex((l) => l.startsWith("[SKIP]"));
-    expect(okIdx).toBeGreaterThanOrEqual(0);
-    expect(skipIdx).toBeGreaterThanOrEqual(0);
-    expect(okIdx).toBeLessThan(skipIdx);
+    // Compare LAST OK vs FIRST SKIP so we catch interleaving, not just
+    // first-match ordering. `findIndex` alone would pass even if a
+    // stray [OK] appeared after [SKIP].
+    const firstSkipIdx = stdoutLines.findIndex((l) => l.startsWith("[SKIP]"));
+    const lastOkIdx = stdoutLines.findLastIndex((l) => l.startsWith("[OK]"));
+    expect(firstSkipIdx).toBeGreaterThanOrEqual(0);
+    expect(lastOkIdx).toBeGreaterThanOrEqual(0);
+    expect(lastOkIdx).toBeLessThan(firstSkipIdx);
   });
 
-  it("stderr emits all WARN lines before any FAIL line", async () => {
+  it("stderr emits ALL WARN lines before any FAIL line", async () => {
     const { printReport } = await import("../validate-pins.js");
     printReport({
       ok: [],
       skip: [],
       warn: ["[WARN] slug-a", "[WARN] slug-b"],
-      fail: ["[FAIL] slug-c"],
+      fail: ["[FAIL] slug-c", "[FAIL] slug-d"],
     });
     const stderrLines = stderrSpy.mock.calls.map((c) => String(c[0]));
-    const warnIdx = stderrLines.findIndex((l) => l.startsWith("[WARN]"));
-    const failIdx = stderrLines.findIndex((l) => l.startsWith("[FAIL]"));
-    expect(warnIdx).toBeGreaterThanOrEqual(0);
-    expect(failIdx).toBeGreaterThanOrEqual(0);
-    expect(warnIdx).toBeLessThan(failIdx);
+    // Compare LAST WARN vs FIRST FAIL — see note above.
+    const firstFailIdx = stderrLines.findIndex((l) => l.startsWith("[FAIL]"));
+    const lastWarnIdx = stderrLines.findLastIndex((l) => l.startsWith("[WARN]"));
+    expect(firstFailIdx).toBeGreaterThanOrEqual(0);
+    expect(lastWarnIdx).toBeGreaterThanOrEqual(0);
+    expect(lastWarnIdx).toBeLessThan(firstFailIdx);
   });
 });
 
@@ -2472,19 +2506,21 @@ describe("parseRequirementsTxt wrapper throws on skipped/dropped", () => {
   it("throws when the file contains a dropped (unparseable) line", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "requirements.txt");
-      // A totally bogus line the line-parser cannot make sense of.
-      write(file, ["!!!not a valid req!!!", "langgraph==0.2.14"].join("\n"));
-      // If this particular malformed line doesn't produce a `dropped`
-      // entry, the detailed form will tell us; we only assert the
-      // wrapper-contract: when dropped > 0, throw. Skip the assertion
-      // if the parser tolerated the line (defensive — test intent is
-      // still correct: wrapper must throw IF dropped occurs).
+      // An operator-leading line (spec with no package name) is
+      // GUARANTEED to be dropped: parseRequirementsLine requires a
+      // leading [A-Za-z0-9] identifier, so `==1.0.0` fails the regex
+      // and is pushed to `dropped[]`. This input is load-bearing — it
+      // deterministically exercises the dropped-path rather than
+      // relying on a malformed line the parser might tolerate.
+      write(file, ["==1.0.0", "langgraph==0.2.14"].join("\n"));
+      // Sanity: the fixture must actually produce a drop. If this
+      // invariant ever breaks (parser behavior change), the test must
+      // fail LOUDLY, not silently pass via an early return.
       const detailed = parseRequirementsTxtDetailed(file);
-      if (detailed.dropped.length === 0 && detailed.skipped.length === 0) {
-        // Parser accepted it — nothing to assert for wrapper throw.
-        return;
-      }
-      expect(() => parseRequirementsTxt(file)).toThrow(/parseRequirementsTxt/i);
+      expect(detailed.dropped.length).toBeGreaterThan(0);
+      expect(() => parseRequirementsTxt(file)).toThrow(
+        /parseRequirementsTxt/i,
+      );
     });
   });
 
@@ -2503,9 +2539,11 @@ describe("parsePyprojectToml wrapper throws on skipped/dropped", () => {
   it("throws when the file contains a skipped entry (Poetry git-only)", () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
-      // Poetry git-only deps are routed to `skipped` by the detailed
-      // parser. If they are not in this particular file shape, the
-      // test adapts (see guard).
+      // Poetry git-only inline tables hit the `\bgit\s*=` branch in
+      // ingestPoetryBody and are pushed to `skipped[]` with reason
+      // "Poetry git-only dep (no version)". This input is load-bearing:
+      // it deterministically produces a skipped entry so the wrapper's
+      // throw contract is actually exercised.
       write(
         file,
         [
@@ -2514,13 +2552,11 @@ describe("parsePyprojectToml wrapper throws on skipped/dropped", () => {
           'copilotkit = "1.10.0"',
         ].join("\n"),
       );
+      // Sanity: the fixture must produce a skip. If this invariant
+      // breaks (parser behavior change), the test must fail LOUDLY
+      // rather than silently pass via an early return.
       const detailed = parsePyprojectTomlDetailed(file);
-      if (detailed.skipped.length === 0 && detailed.dropped.length === 0) {
-        // Nothing classified as skipped/dropped — wrapper has nothing
-        // to throw on; test is still informative about current parser
-        // behavior but cannot assert the throw contract here.
-        return;
-      }
+      expect(detailed.skipped.length).toBeGreaterThan(0);
       expect(() => parsePyprojectToml(file)).toThrow(/parsePyprojectToml/i);
     });
   });
@@ -2554,8 +2590,14 @@ describe("parsePyprojectToml wrapper throws on skipped/dropped", () => {
 // effect) — detected by attempting to read a 0000 dir we create.
 // ---------------------------------------------------------------------------
 
+// Root cannot be restricted by chmod — EACCES routing can't be
+// exercised when the process is uid 0. We skip at declaration time so
+// the skip is VISIBLE in the test report rather than a silent early
+// `return` (which makes the guard look like it always passes).
+const isRoot = process.getuid?.() === 0;
+
 describe("EACCES on examples/integrations/<slug> routes to EXIT_UNREADABLE", () => {
-  it("exits with EXIT_UNREADABLE (3) when candidate example dir is unreadable", () => {
+  it.skipIf(isRoot)("exits with EXIT_UNREADABLE (3) when candidate example dir is unreadable", () => {
     withTmp((tmp) => {
       // Build a minimal repo layout:
       //   <tmp>/examples/integrations/<slug>/     (mode 0000)
@@ -2572,23 +2614,26 @@ describe("EACCES on examples/integrations/<slug> routes to EXIT_UNREADABLE", () 
         JSON.stringify({ name: slug, dependencies: {} }),
       );
 
-      // Make example slug dir unreadable. On root, chmod 0 is a no-op
-      // so we detect that and skip.
+      // Make example slug dir unreadable. On some filesystems (e.g.
+      // certain CI mounts) chmod 0 is a no-op — detect and bail loudly
+      // rather than silently pass. `it.skipIf(isRoot)` already handled
+      // the uid 0 case at declaration time.
       fs.chmodSync(exampleSlugDir, 0o000);
-      let rootSkip = false;
+      let permsUnenforced = false;
       try {
         fs.statSync(exampleSlugDir);
-        // If stat succeeded, permissions aren't enforced here — skip.
-        rootSkip = true;
+        permsUnenforced = true;
       } catch (e) {
         const err = e as NodeJS.ErrnoException;
         if (err.code !== "EACCES") {
-          rootSkip = true;
+          permsUnenforced = true;
         }
       }
 
-      if (rootSkip) {
-        // Restore perms so withTmp can clean up.
+      if (permsUnenforced) {
+        console.warn(
+          "[validate-pins test] filesystem does not enforce chmod 0000 — skipping EACCES routing test",
+        );
         try {
           fs.chmodSync(exampleSlugDir, 0o755);
         } catch {
@@ -2598,14 +2643,18 @@ describe("EACCES on examples/integrations/<slug> routes to EXIT_UNREADABLE", () 
       }
 
       try {
-        const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
-          env: {
-            ...process.env,
-            VALIDATE_PINS_REPO_ROOT: tmp,
+        const r = spawnSync(
+          "npx",
+          ["tsx", VALIDATE_PINS_SCRIPT],
+          {
+            env: {
+              ...process.env,
+              VALIDATE_PINS_REPO_ROOT: tmp,
+            },
+            encoding: "utf-8",
+            timeout: 30_000,
           },
-          encoding: "utf-8",
-          timeout: 30_000,
-        });
+        );
         // EXIT_UNREADABLE = 3. Must NOT be 2 (EXIT_INTERNAL) or 1
         // (EXIT_DRIFT). A successful routing yields 3.
         expect(r.status, r.stdout + r.stderr).toBe(3);
@@ -2628,39 +2677,53 @@ describe("EACCES on examples/integrations/<slug> routes to EXIT_UNREADABLE", () 
 // ---------------------------------------------------------------------------
 
 describe("validateAll: infra parse error routes to EXIT_UNREADABLE", () => {
-  it("EACCES on a showcase package.json exits 3, not 1", () => {
+  it.skipIf(isRoot)("EACCES on showcase package dir exits 3, not 1", () => {
     withTmp((tmp) => {
       const slug = "mastra";
-      // Build a minimal repo layout where example dir is fine but the
-      // showcase package.json is unreadable.
+      // Build a minimal repo layout where the example dir is fine but
+      // the SHOWCASE PACKAGE DIR is unreadable. We chmod the parent
+      // dir (not the file) because on Linux/macOS, statSync on your
+      // own mode-0000 file succeeds (metadata is still accessible via
+      // the parent dir). Chmodding the parent forces statSync(abs) in
+      // collectDepsFromDir to throw EACCES, which hits the `infra:
+      // true` branch → UnreadableInputError → EXIT_UNREADABLE (3).
+      // The prior version of this test chmod'd the file, which routed
+      // through readFileSync EACCES → parseErrors (not infra) →
+      // EXIT_DRIFT (1), and then the assertion accepted [1, 3] which
+      // defeated the fix it was meant to guard.
       const examplesDir = path.join(tmp, "examples", "integrations");
       const packagesDir = path.join(tmp, "showcase", "packages");
       const exampleSlugDir = path.join(examplesDir, slug);
       const pkgSlugDir = path.join(packagesDir, slug);
       fs.mkdirSync(exampleSlugDir, { recursive: true });
       fs.mkdirSync(pkgSlugDir, { recursive: true });
-      // Example side has a valid dep file.
       write(
         path.join(exampleSlugDir, "package.json"),
         JSON.stringify({ name: slug, dependencies: {} }),
       );
-      const unreadable = path.join(pkgSlugDir, "package.json");
-      write(unreadable, JSON.stringify({ name: slug, dependencies: {} }));
-      fs.chmodSync(unreadable, 0o000);
+      write(
+        path.join(pkgSlugDir, "package.json"),
+        JSON.stringify({ name: slug, dependencies: {} }),
+      );
+      // Make the package dir itself unreadable so statSync on its
+      // entries fails.
+      fs.chmodSync(pkgSlugDir, 0o000);
 
-      // Root skip detection.
-      let rootSkip = false;
+      let permsUnenforced = false;
       try {
-        fs.readFileSync(unreadable, "utf-8");
-        rootSkip = true;
+        fs.statSync(path.join(pkgSlugDir, "package.json"));
+        permsUnenforced = true;
       } catch (e) {
         const err = e as NodeJS.ErrnoException;
-        if (err.code !== "EACCES") rootSkip = true;
+        if (err.code !== "EACCES") permsUnenforced = true;
       }
 
-      if (rootSkip) {
+      if (permsUnenforced) {
+        console.warn(
+          "[validate-pins test] filesystem does not enforce chmod 0000 on parent dir — skipping infra-routing test",
+        );
         try {
-          fs.chmodSync(unreadable, 0o644);
+          fs.chmodSync(pkgSlugDir, 0o755);
         } catch {
           // best-effort
         }
@@ -2668,26 +2731,25 @@ describe("validateAll: infra parse error routes to EXIT_UNREADABLE", () => {
       }
 
       try {
-        const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
-          env: {
-            ...process.env,
-            VALIDATE_PINS_REPO_ROOT: tmp,
+        const r = spawnSync(
+          "npx",
+          ["tsx", VALIDATE_PINS_SCRIPT],
+          {
+            env: {
+              ...process.env,
+              VALIDATE_PINS_REPO_ROOT: tmp,
+            },
+            encoding: "utf-8",
+            timeout: 30_000,
           },
-          encoding: "utf-8",
-          timeout: 30_000,
-        });
-        // NOTE: fs.statSync may succeed on a mode-0000 file owned by
-        // the current user (metadata is readable even when the file
-        // isn't). In that case the infra branch in collectDepsFromDir
-        // won't fire and the parser will hit an EACCES on readFileSync
-        // — still a parse error, but not marked infra. We assert the
-        // stricter contract only when the stat itself fails. Otherwise
-        // the behavior is the existing EXIT_DRIFT.
-        // If exit is 3, that's the fix working; if 1, at least not 2.
-        expect([1, 3]).toContain(r.status);
+        );
+        // STRICT: the fix is that EACCES on a showcase dep-file path
+        // routes to EXIT_UNREADABLE (3), not EXIT_DRIFT (1) or
+        // EXIT_INTERNAL (2). Accepting [1, 3] defeats the fix.
+        expect(r.status, r.stdout + r.stderr).toBe(3);
       } finally {
         try {
-          fs.chmodSync(unreadable, 0o644);
+          fs.chmodSync(pkgSlugDir, 0o755);
         } catch {
           // best-effort
         }
