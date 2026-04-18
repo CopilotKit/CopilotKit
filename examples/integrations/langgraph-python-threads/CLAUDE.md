@@ -25,11 +25,12 @@ This is a **Turborepo monorepo** with three apps:
 
 ```
 apps/
-├── app/                         # Next.js frontend
+├── app/                         # Vite + React frontend
 │   ├── src/
-│   │   ├── app/
-│   │   │   ├── page.tsx        # Main page - wires up all components
-│   │   │   └── api/copilotkit/ # CopilotKit API route
+│   │   ├── App.tsx             # Main app shell - wires up all components
+│   │   ├── main.tsx            # Vite entrypoint
+│   │   └── app/
+│   │       ├── globals.css     # Global styles
 │   │   ├── components/
 │   │   │   ├── canvas/         # Todo list UI
 │   │   │   │   ├── index.tsx   # Canvas container
@@ -222,33 +223,33 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
 
 ## Tech Stack
 
-- **Frontend**: Next.js 16, React 19, TailwindCSS 4
+- **Frontend**: Vite 7, React 19, TailwindCSS 4
 - **Agent**: LangGraph (Python), OpenAI GPT-5.2
 - **CopilotKit**: React hooks for agent integration (v2)
-- **Monorepo**: Turborepo with pnpm workspaces
+- **Monorepo**: Turborepo with npm workspaces
 - **Other**: MCP (Model Context Protocol) integration, Recharts for generative UI examples
 
 ## Development
 
-This is a Turborepo monorepo using pnpm workspaces.
+This is a Turborepo monorepo using npm workspaces.
 
 ```bash
 # Install dependencies (all apps)
-pnpm install
+npm install
 
 # Start all apps (app, agent, mcp)
-pnpm dev
+npm run dev
 
 # Start individually
-pnpm dev:app    # Next.js frontend on port 3000
-pnpm dev:agent  # LangGraph agent on port 8123
-pnpm dev:mcp    # MCP server
+npm run dev:app    # Vite frontend on port 3000
+npm run dev:agent  # LangGraph agent on port 8123
+npm run dev:mcp    # MCP server
 
 # Build all apps
-pnpm build
+npm run build
 
 # Lint all apps
-pnpm lint
+npm run lint
 ```
 
 ### Environment Setup

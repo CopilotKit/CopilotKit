@@ -1,9 +1,12 @@
 {
   "name": "copilotkit-langgraph-template",
   "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
     "dev:infra": "docker compose up -d --wait",
-    "dev": "pnpm dev:infra && turbo run dev",
+    "dev": "npm run dev:infra && turbo run dev",
     "dev:app": "turbo run dev --filter='app'",
     "dev:agent": "turbo run dev --filter='agent'",
     "dev:bff": "turbo run dev --filter='bff'",
@@ -16,10 +19,8 @@
     "concurrently": "^9.1.2",
     "turbo": "^2.5.4"
   },
-  "packageManager": "pnpm@9.0.0",
-  "pnpm": {
-    "overrides": {
-      "esbuild": "^0.27.3"
-    }
-  }
+  "overrides": {
+    "esbuild": "^0.27.3"
+  },
+  "packageManager": "npm@10.9.2"
 }

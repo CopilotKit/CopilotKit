@@ -1,4 +1,3 @@
-# Dockerfile for the Vite + React frontend
 FROM node:22-alpine AS base
 
 FROM base AS deps
@@ -18,26 +17,18 @@ FROM base AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
-
 COPY . .
 
-RUN npm run build --workspace @repo/app
+RUN npm run build --workspace @repo/bff
 
 FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 appuser
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/apps/bff/dist ./apps/bff/dist
 
-COPY --from=builder --chown=appuser:nodejs /app/apps/app/dist ./apps/app/dist
-COPY --from=builder --chown=appuser:nodejs /app/apps/app/server.mjs ./apps/app/server.mjs
+EXPOSE 4000
 
-USER appuser
-
-EXPOSE 3000
-
-ENV PORT=3000
-
-CMD ["node", "apps/app/server.mjs"]
+CMD ["node", "apps/bff/dist/server.js"]
