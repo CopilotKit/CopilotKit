@@ -407,32 +407,32 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          # Cache pip so the CrewAI-class heavy transitive dep trees don't
-          # reinstall from scratch every PR run. Keyed on every package
-          # requirements.txt in the matrix so a single drift invalidates.
-          cache: "pip"
-          cache-dependency-path: showcase/packages/*/requirements.txt
+          # No pip cache: today's tests install only pytest + typing_extensions
+          # (see "Install minimal test deps" below). Caching would key on a
+          # never-used `requirements.txt` and add overhead for no benefit.
+          # Re-add `cache: "pip"` + `cache-dependency-path` if per-package
+          # requirements.txt installs return (see comment in that step).
 
-      - name: Install pytest
-        run: python -m pip install --quiet pytest
+      - name: Install minimal test deps
+        # Today's python unit tests (`test_aimock_toggle.py`) are stdlib-only
+        # except for the `typing_extensions` fallback path exercised on 3.10.
+        # Installing each package's full `requirements.txt` (CrewAI graph etc.)
+        # on every PR is a ~30-60s tax that buys nothing for stdlib-only tests.
+        # Install only pytest + typing_extensions here.
+        #
+        # If a future `tests/python/` adds cases that import package runtime
+        # deps (e.g. imports `crewai` or `litellm`), that package's test must
+        # install its own `requirements.txt` in an explicit step OR the loop
+        # below should gain a marker file (e.g. `tests/python/requirements.txt`)
+        # that triggers per-package install. Do NOT regress to installing every
+        # package's full requirements.txt unconditionally.
+        run: python -m pip install --quiet pytest typing_extensions
 
       - name: Run showcase package Python unit tests
         # Keep scope narrow: only showcase/packages/*/tests/python/ directories
         # (not e2e, not langgraph which has its own runtime). Each package has
         # its own conftest.py that wires up import paths; we cd into the pkg
         # dir so those apply.
-        #
-        # Install each package's requirements.txt (when present) so pytest
-        # collection does not fail on transitive imports. Today the crewai-crews
-        # unit tests only touch aimock_toggle.py (stdlib-only), but future tests
-        # may exercise modules that pull in package deps — paying the install
-        # cost per-package is cheap and keeps this job future-proof.
-        #
-        # pip install is a HARD FAIL (no `|| warn`): hiding a broken
-        # requirements.txt behind a warning means a package ships a PR green
-        # while its runtime deps are unresolvable. The only acceptable
-        # "skipped install" case is when requirements.txt doesn't exist,
-        # which we handle via the `-f` guard below.
         run: |
           set -euo pipefail
           failed=0
@@ -443,16 +443,6 @@ jobs:
             found=$((found + 1))
             pkg=$(basename "$pkg_dir")
             echo "--- pytest: $pkg ---"
-            if [ -f "${pkg_dir}requirements.txt" ]; then
-              echo "installing ${pkg}/requirements.txt"
-              if ! python -m pip install --quiet -r "${pkg_dir}requirements.txt"; then
-                echo "::error file=${pkg_dir}requirements.txt::pip install failed for $pkg"
-                failed=1
-                # Skip running pytest against a package whose deps failed —
-                # the pytest output would be a confusing collection error.
-                continue
-              fi
-            fi
             (cd "$pkg_dir" && python -m pytest tests/python/ -v) || failed=1
           done
           if [ "$found" -eq 0 ]; then
