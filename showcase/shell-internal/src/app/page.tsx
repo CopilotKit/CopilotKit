@@ -58,9 +58,11 @@ function Badge({
 
 function HealthDot({
   state,
+  href,
   title,
 }: {
   state: { label: string; tone: BadgeTone };
+  href?: string;
   title?: string;
 }) {
   const dotColor: Record<BadgeTone, string> = {
@@ -70,7 +72,7 @@ function HealthDot({
     gray: "bg-[var(--text-muted)]",
     blue: "bg-[var(--accent)]",
   };
-  return (
+  const inner = (
     <span
       className="inline-flex items-center gap-1 whitespace-nowrap"
       title={title}
@@ -82,6 +84,18 @@ function HealthDot({
         {state.label}
       </span>
     </span>
+  );
+  return href ? (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="hover:underline"
+    >
+      {inner}
+    </a>
+  ) : (
+    inner
   );
 }
 
@@ -181,6 +195,7 @@ export default function InternalMatrixPage() {
                               slug={integration.slug}
                               featureId={feature.id}
                               bundleStale={bundleStale}
+                              hostedUrl={`${integration.backend_url}${demo.route}`}
                             />
                           ) : supported ? (
                             <div
@@ -255,10 +270,12 @@ function DemoCell({
   slug,
   featureId,
   bundleStale,
+  hostedUrl,
 }: {
   slug: string;
   featureId: string;
   bundleStale: boolean;
+  hostedUrl: string;
 }) {
   const s = getDemoStatus(slug, featureId);
   const e2e = testBadge(s?.e2e ?? null, bundleStale);
@@ -271,23 +288,23 @@ function DemoCell({
 
   return (
     <div className="flex flex-col gap-1 text-[11px]">
-      <div className="flex items-center gap-2 text-xs font-medium">
+      <div className="flex items-center gap-2.5">
         <a
           href={`${SHELL_URL}/integrations/${slug}/${featureId}/preview`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[var(--accent)] hover:text-[var(--accent-hover)] hover:underline"
+          className="whitespace-nowrap text-[var(--accent)] hover:text-[var(--accent-hover)] hover:underline"
         >
-          demo
+          <span className="text-[var(--text-muted)]">Demo</span> <span>↗</span>
         </a>
-        <span className="text-[var(--border-strong)]">·</span>
         <a
           href={`${SHELL_URL}/integrations/${slug}/${featureId}/code`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[var(--accent)] hover:text-[var(--accent-hover)] hover:underline"
+          className="whitespace-nowrap text-[var(--accent)] hover:text-[var(--accent-hover)] hover:underline"
         >
-          code
+          <span className="text-[var(--text-muted)]">Code</span>{" "}
+          <span>{"</>"}</span>
         </a>
       </div>
       <div className="flex items-center gap-2.5">
@@ -323,10 +340,11 @@ function DemoCell({
         />
         <HealthDot
           state={health}
+          href={hostedUrl}
           title={
             s?.health?.checked_at
-              ? `Health probed ${new Date(s.health.checked_at).toLocaleString()} — ${s.health.status}`
-              : "No health probe"
+              ? `Open hosted deploy — probed ${new Date(s.health.checked_at).toLocaleString()}, ${s.health.status}`
+              : "Open hosted deploy"
           }
         />
       </div>
