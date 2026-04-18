@@ -2870,21 +2870,21 @@ describe("validateAll: infra parse error routes to EXIT_UNREADABLE", () => {
 });
 
 // ---------------------------------------------------------------------------
-// R19-2 #1: TOCTOU on readdirSync(PACKAGES_DIR). The stat+isDirectory
-// guard can succeed and THEN readdir fail (EACCES/EIO/ENOTDIR) between
-// the two calls, or because the dir is traverseable but not readable.
-// That failure must route to EXIT_UNREADABLE (3), not EXIT_INTERNAL (2).
+// TOCTOU on readdirSync(PACKAGES_DIR). The stat+isDirectory guard can
+// succeed and THEN readdir fail (EACCES/EIO/ENOTDIR) between the two
+// calls, or because the dir is traverseable but not readable. That
+// failure must route to EXIT_UNREADABLE (3), not EXIT_INTERNAL (2).
 // Simulated here by chmodding PACKAGES_DIR to 0o111 (--x--x--x):
 // stat+isDirectory succeed but readdir throws EACCES.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// R19-2 #5: readFileSync inside parsePackageJson (and siblings) is
-// unguarded. An EACCES on content-only read (readable parent, mode-0000
-// file) slips past the stat guard in collectDepsFromDir and lands in
-// parseErrors WITHOUT `infra: true`, which routes to report.fail →
-// EXIT_DRIFT (1). The fix classifies errno codes at the catch site so
-// EACCES on read routes to UnreadableInputError → EXIT_UNREADABLE (3).
+// readFileSync inside parsePackageJson (and siblings) is unguarded. An
+// EACCES on content-only read (readable parent, mode-0000 file) slips
+// past the stat guard in collectDepsFromDir and lands in parseErrors
+// WITHOUT `infra: true`, which routes to report.fail → EXIT_DRIFT (1).
+// The fix classifies errno codes at the catch site so EACCES on read
+// routes to UnreadableInputError → EXIT_UNREADABLE (3).
 // ---------------------------------------------------------------------------
 
 describe("validateAll: readFileSync EACCES routes to EXIT_UNREADABLE", () => {
