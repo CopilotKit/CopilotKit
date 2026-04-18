@@ -26,9 +26,7 @@
  *   5 — --strict and warnings present (default run treats warnings
  *       as informational)
  *
- * YAML parsing is delegated to lib/manifest.ts; no new npm deps introduced.
- * Self-sufficient: does not depend on any sibling validator scripts that
- * may or may not exist.
+ * YAML parsing is delegated to lib/manifest.ts.
  *
  * Testability:
  *   All I/O is parameterised by an `AuditConfig` object so tests can point
@@ -271,8 +269,8 @@ function buildCliConfig(): AuditConfig {
       repoRoot: envRoot,
     };
   }
-  const showcaseRoot = path.resolve(__dirname, ".."); // showcase/scripts → showcase
-  const repoRoot = path.resolve(showcaseRoot, ".."); // showcase → repo root
+  const showcaseRoot = path.resolve(__dirname, "..");
+  const repoRoot = path.resolve(showcaseRoot, "..");
   return {
     packagesDir: path.join(showcaseRoot, "packages"),
     examplesIntegrationsDir: path.join(repoRoot, "examples", "integrations"),
@@ -661,7 +659,7 @@ function anomalyMessage(a: Anomaly): string {
     case "not-deployed":
       // Render the string-union state as a familiar label so
       // human-readable output doesn't change. `"explicit-false"` → "false"
-      // preserves the legacy display; the anomaly itself carries the
+      // preserves the historical display; the anomaly itself carries the
       // more explicit string for structured consumers.
       return `deployed=${a.state === "explicit-false" ? "false" : "unset"}`;
     case "missing-examples":
@@ -872,7 +870,7 @@ function renderAnomalySection(report: AuditReport): string {
       const p = bySlug.get(slug);
       const deployed =
         p?.manifest.kind === "ok" ? p.manifest.manifest.deployed : undefined;
-      // Human-readable label: the legacy "false" / "unset" strings —
+      // Human-readable label: the historical "false" / "unset" strings —
       // not the internal Anomaly.state encoding.
       const state = deployed === false ? "false" : "unset";
       lines.push(`    - ${slug} (${state})`);
