@@ -70,10 +70,32 @@ _AIMOCK_DUMMY_KEY = "sk-aimock-dev-ci-only"
 
 # Production guard: environments considered "production" for the purposes of
 # refusing to apply the aimock toggle. A deploy that accidentally exports
-# AIMOCK_URL=... while NODE_ENV=production (or ENV=production) should NOT be
+# AIMOCK_URL=... while any of these is set to a prod-ish value should NOT be
 # silently redirected through aimock — fail safe by logging + skipping.
+#
+# The variable list covers the common PaaS / framework / language conventions:
+#   - NODE_ENV:            Node.js / Next.js
+#   - ENV, ENVIRONMENT:    generic (Django, Flask, and many internal conventions)
+#   - APP_ENV:             Laravel / generic app-level
+#   - DEPLOY_ENV:          common CD-pipeline convention
+#   - PYTHON_ENV:          occasional Python convention
+#   - RAILWAY_ENVIRONMENT: Railway (this project's primary hosting target —
+#                          per CLAUDE.md, "Always Railway for hosting")
+# Only `_PROD_ENV_VALUES` ({"production", "prod"}) trigger the guard, so a
+# value like `RAILWAY_ENVIRONMENT=preview` does NOT refuse the toggle. If a
+# new host / framework introduces another prod-ish env var, append it here —
+# keep the matching set broad (the guard is cheap; a missed var is a
+# production-aimock-leak footgun).
 _PROD_ENV_VALUES = {"production", "prod"}
-_PROD_ENV_VARS = ("NODE_ENV", "ENV")
+_PROD_ENV_VARS = (
+    "NODE_ENV",
+    "ENV",
+    "ENVIRONMENT",
+    "APP_ENV",
+    "DEPLOY_ENV",
+    "PYTHON_ENV",
+    "RAILWAY_ENVIRONMENT",
+)
 
 _TRUTHY = {"1", "true", "yes", "on"}
 _FALSY = {"0", "false", "no", "off"}
@@ -93,25 +115,25 @@ class AimockReport(TypedDict):
 
 
 _EnvClassification = Literal[
-    "missing", "empty", "whitespace", "truthy", "falsy", "unknown"
+    "missing", "blank", "truthy", "falsy", "unknown"
 ]
 
 
 def _classify(value: Optional[str]) -> _EnvClassification:
-    """Classify an env var value into one of six states.
+    """Classify an env var value into one of five states.
 
-    Callers get the full distinction (``missing`` vs ``empty`` vs
-    ``whitespace``) so they don't have to re-derive it by re-reading the raw
-    value. Behaviorally, all three are treated as "no value" by the toggle —
-    the richer classification is there for diagnostics text only.
+    ``missing`` is distinct from ``blank`` because diagnostics care whether
+    the operator set the var at all (unset) vs set it to an empty /
+    whitespace-only value. Empty string and whitespace-only strings are
+    collapsed into ``blank`` because their downstream handling is identical
+    (both treated as "no value") and the two previous distinct labels never
+    produced different behavior — they only added noise to the state machine.
     """
     if value is None:
         return "missing"
-    if value == "":
-        return "empty"
     stripped = value.strip().lower()
     if stripped == "":
-        return "whitespace"
+        return "blank"
     if stripped in _TRUTHY:
         return "truthy"
     if stripped in _FALSY:
@@ -172,10 +194,11 @@ def configure_aimock(
                 }
 
     if not aimock_url:
-        # Map the six-way classification onto a human-readable diagnostic.
-        # "missing" → never set; "empty" → set to ""; "whitespace" → set to
-        # whitespace-only. We lump "empty" and "whitespace" under one label
-        # because they're indistinguishable in most shell / .env contexts.
+        # Map the classification onto a human-readable diagnostic.
+        # "missing" → never set; "blank" → set but empty / whitespace-only.
+        # The two behave the same but the operator-visible reason string
+        # differs so the error message can point at the right fix
+        # (set the var vs fix the existing value).
         url_state = (
             "unset"
             if aimock_url_class == "missing"
