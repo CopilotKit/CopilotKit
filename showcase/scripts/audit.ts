@@ -26,9 +26,9 @@
  *   5 — --strict and warnings present (default run treats warnings
  *       as informational)
  *
- * No new npm deps. Reuses `yaml` which is already declared in
- * showcase/scripts/package.json. Self-sufficient: does not depend on any
- * sibling validator scripts that may or may not exist.
+ * YAML parsing is delegated to lib/manifest.ts; no new npm deps introduced.
+ * Self-sufficient: does not depend on any sibling validator scripts that
+ * may or may not exist.
  *
  * Testability:
  *   All I/O is parameterised by an `AuditConfig` object so tests can point
@@ -52,8 +52,8 @@ const __dirname = path.dirname(__filename);
 
 // Slug map + born-in-showcase set live in ./lib/slug-map.ts.
 // Manifest types + parseManifest live in ./lib/manifest.ts.
-// Both are re-exported at the bottom of this file for backwards
-// compatibility with existing tests that import them from audit.ts.
+// Both are re-exported at the bottom of this file so callers can import
+// them from audit.ts.
 
 /**
  * Thrown when the packages dir cannot be read (EACCES, ENOTDIR, etc.).
@@ -246,9 +246,7 @@ interface AuditReport {
  *   __dirname                   → showcase/scripts/
  *   showcaseRoot = __dirname/.. → showcase/
  *   repoRoot     = showcaseRoot/.. → repo root
- * (Each step is a single `..` applied to the previous resolved path —
- * not `../..` applied to __dirname, which is what the older comment
- * read as.)
+ * Each step is a single `..` applied to the previous resolved path.
  *
  * Note: `path.resolve` normalizes path segments (resolving `..` and
  * collapsing `.`) but does NOT canonicalize symlinks. If any segment of
@@ -437,6 +435,21 @@ function resolveExamplesSource(
     try {
       if (fs.statSync(full).isDirectory()) {
         return path.relative(cfg.repoRoot, full);
+      }
+      // Unmapped slug whose candidate path exists but is a regular file
+      // (or other non-dir entry — symlink-to-file, socket, etc.). This
+      // is almost always a misconfiguration: the integrations dir has a
+      // stray file with the slug's name. Surface it via the sink so
+      // operators aren't left wondering why a seemingly present path
+      // produced a null provenance. Distinct wording ("exists but is
+      // not a directory") from the mapped "no matching directory"
+      // warning emitted below. Mapped slugs intentionally don't fan out
+      // a per-candidate file warning here — the aggregate "no matching
+      // directory" warning already covers the mapping-is-stale case.
+      if (!mapped) {
+        sink.push(
+          `audit: warning: candidate path ${full} exists but is not a directory`,
+        );
       }
     } catch (e) {
       // Race condition or permission issue — record on the warnings
@@ -1396,8 +1409,10 @@ function main(): void {
  * - ENOENT: silent fallback (legitimate — some test harnesses hand a
  *   synthetic argv[0] that doesn't exist on disk).
  * - Non-ENOENT errno errors (e.g. EACCES, ELOOP): emit a stderr
- *   diagnostic before falling back to the uncanonicalized resolved
- *   path, so unusual filesystem conditions aren't swallowed.
+ *   diagnostic AND set `process.exitCode = EXIT_UNREADABLE` before
+ *   falling back to the uncanonicalized resolved path. CI then gets a
+ *   distinct signal (exit 3) separable from drift (exit 1) even though
+ *   the audit run itself still proceeds on the fallback path.
  */
 function canonicalizeForIsMain(p: string): string {
   const resolved = path.resolve(p);
@@ -1409,6 +1424,10 @@ function canonicalizeForIsMain(p: string): string {
       process.stderr.write(
         `[canonicalizeForIsMain] realpath failed for ${resolved}: ${(e as Error).message}\n`,
       );
+      // Elevate to EXIT_UNREADABLE so CI can distinguish a genuine
+      // filesystem-access failure (EACCES/ELOOP/EIO) from benign
+      // ENOENT fallback (synthetic argv[0]) and from drift (exit 1).
+      process.exitCode = EXIT_UNREADABLE;
     }
     return resolved;
   }
