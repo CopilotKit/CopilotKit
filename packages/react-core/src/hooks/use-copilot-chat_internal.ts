@@ -393,8 +393,9 @@ export function useCopilotChatInternal({
       // Abort the HTTP request and detach the active run.
       // This is critical for React StrictMode which unmounts+remounts in dev,
       // preventing duplicate /connect requests from reaching the server.
-      // Reset the ref so remounts always trigger a fresh connect.
-      lastConnectedAgentRef.current = null;
+      // Note: we do NOT reset lastConnectedAgentRef.current here.
+      // If we did, the next render would see agent !== null (always true!)
+      // and trigger an unwanted re-connect for the SAME agent instance.
       detached = true;
       connectAbortController.abort();
       agent?.detachActiveRun();
