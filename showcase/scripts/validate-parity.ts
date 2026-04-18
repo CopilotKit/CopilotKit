@@ -293,10 +293,19 @@ export interface ListResult {
  * whole per-slug cascade gets suppressed. That's the bug this probe
  * exists to close — do NOT replace with existsSync.
  *
+ * ENOTDIR handling: ENOTDIR from statSync means "a component of the
+ * path is a regular file, not a directory" (e.g. stray file committed
+ * at packages/foo/tests so walking to packages/foo/tests/e2e fails).
+ * That is a misconfiguration signal, NOT a legitimately-absent
+ * directory. Classifying it as `missing` silently drops the whole
+ * subtree from parity checks with zero diagnostic. Instead, surface
+ * it as `unreadable` so the caller emits a listing-failed warning
+ * and callers upstream can escalate (unreadable-demos-dir / etc.).
+ *
  * Return value:
- *   { kind: "missing" }    — ENOENT (or the path resolves to a non-dir)
- *   { kind: "ok" }         — stat succeeded and the target is a directory
- *   { kind: "unreadable"; error: string } — any other statSync failure
+ *   { kind: "missing" }    — ENOENT only
+ *   { kind: "ok" }         — stat succeeded (target may be dir or file; caller decides)
+ *   { kind: "unreadable"; error: string } — ENOTDIR or any other statSync failure
  */
 type ProbeResult =
   | { kind: "missing" }
@@ -316,7 +325,11 @@ function probeDir(p: string): ProbeResult {
     return { kind: "ok" };
   } catch (err) {
     const code = (err as NodeJS.ErrnoException)?.code;
-    if (code === "ENOENT" || code === "ENOTDIR") return { kind: "missing" };
+    if (code === "ENOENT") return { kind: "missing" };
+    // ENOTDIR (a path component is a regular file) is a
+    // misconfiguration, not a legitimately-absent path — surface it
+    // as unreadable so it becomes a listing-failed warning rather
+    // than a silent empty result.
     const msg = err instanceof Error ? err.message : String(err);
     return { kind: "unreadable", error: msg };
   }
