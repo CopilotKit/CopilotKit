@@ -109,7 +109,13 @@ jobs:
             echo "::error::validate-pins.ts exited with unexpected code $rc"
             exit 1
           fi
-          summary_line=$(printf '%s\n' "$stdout" | grep -E '^[[:space:]]*Summary:' | head -n 1 || true)
+          # Scope grep's no-match tolerance to grep alone: a trailing
+          # `|| true` on the whole pipeline would defeat `pipefail` (if it
+          # were enabled) and swallow producer/head failures too. Wrapping
+          # just grep in `{ ... || true; }` keeps other stages' errors
+          # visible while still tolerating "Summary line absent" (which is
+          # then reported explicitly by the `[ -z "$summary_line" ]` check).
+          summary_line=$(printf '%s\n' "$stdout" | { grep -E '^[[:space:]]*Summary:' || true; } | head -n 1)
           if [ -z "$summary_line" ]; then
             echo "::error::Could not find validate-pins 'Summary:' line"
             exit 1
