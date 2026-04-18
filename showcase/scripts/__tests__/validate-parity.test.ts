@@ -1552,6 +1552,24 @@ describe("validate-parity", () => {
       expect(r.stderr).toMatch(/--basline=10/);
     });
 
+    it("rejects duplicate --baseline= with exit 2 (EXIT_INVALID_INPUT)", () => {
+      // Mirror audit.ts parseArgs: CI shell concatenation is a common
+      // source of accidental duplicates and "last wins" hides the user's
+      // first intent. Reject duplicates explicitly so the mistake is
+      // visible.
+      writeFixturePackage(tree.packagesDir, "only-pkg", {
+        manifest: "slug: only-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
+        demoDirs: ["chat"],
+        specFiles: ["chat.spec.ts"],
+        qaFiles: ["chat.md"],
+      });
+      const r = runCli(["--baseline=9", "--baseline=12"], {
+        env: { VALIDATE_PARITY_REPO_ROOT: tree.root },
+      });
+      expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(2);
+      expect(r.stderr).toMatch(/specified more than once|duplicate/i);
+    });
+
     it("exits 4 (EXIT_INTERNAL) on unexpected exceptions surfaced from auditPackage", () => {
       // Model: audit.test.ts T7 — preload a shim that forces a
       // downstream TypeError so the top-level CLI catch routes it to

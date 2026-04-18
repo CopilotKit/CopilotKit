@@ -778,13 +778,27 @@ function parseMainArgs(argv: string[]): MainOptions {
   // stray positionals) are flagged loudly instead of being silently
   // ignored — otherwise the user thinks they set baseline but the
   // validator uses the default.
+  //
+  // Track `sawBaseline` and reject duplicate --baseline=. CI shell
+  // concatenation is a common source of accidental duplicates and
+  // "last wins" silently hides the user's first intent — mirror
+  // audit.ts parseArgs which rejects duplicate --json / --slug /
+  // --strict / --columns for the same reason.
   const errors: string[] = [];
+  let sawBaseline = false;
   for (const a of argv) {
     // Match anything after --baseline= (including non-digits) so we can
     // emit a clear error, rather than silently ignoring e.g.
     // `--baseline=abc`.
     const m = /^--baseline=(.*)$/.exec(a);
     if (m) {
+      if (sawBaseline) {
+        errors.push(
+          `--baseline specified more than once (duplicate value "${m[1]}")`,
+        );
+        continue;
+      }
+      sawBaseline = true;
       const coerced = coerceBaseline(m[1]);
       if (!coerced.ok) {
         errors.push(
