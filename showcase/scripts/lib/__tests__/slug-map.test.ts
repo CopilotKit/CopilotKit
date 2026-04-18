@@ -5,8 +5,9 @@
  * born-in-showcase set so all three validators agree.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 import {
@@ -74,6 +75,49 @@ describe("SLUG_TO_EXAMPLES (showcase slug → examples dir names)", () => {
       }
     },
   );
+
+  // Companion to the skipIf test above — runs UNCONDITIONALLY against a
+  // fixture tmpdir so the invariant ("every SLUG_TO_EXAMPLES key has a
+  // matching packages/<slug>/ dir") is still exercised on sparse
+  // checkouts / CI shards / Docker build contexts where the real
+  // showcase/packages/ tree is absent. A skipIf without a contra-positive
+  // assertion is indistinguishable from "test was deleted."
+  describe("fixture-based invariant (runs regardless of checkout layout)", () => {
+    let fixtureDir: string;
+    let fixturePackagesDir: string;
+
+    beforeAll(() => {
+      fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "slug-map-fixture-"));
+      fixturePackagesDir = path.join(fixtureDir, "packages");
+      fs.mkdirSync(fixturePackagesDir, { recursive: true });
+      // Seed a directory for every SLUG_TO_EXAMPLES key. This mirrors the
+      // expected layout of showcase/packages/ — the invariant check below
+      // is identical in spirit to the skipIf test, just pointed at a
+      // fixture whose contents we fully control.
+      for (const slug of Object.keys(SLUG_TO_EXAMPLES)) {
+        fs.mkdirSync(path.join(fixturePackagesDir, slug), { recursive: true });
+      }
+    });
+
+    afterAll(() => {
+      fs.rmSync(fixtureDir, { recursive: true, force: true });
+    });
+
+    it("every SLUG_TO_EXAMPLES key resolves to a real dir in the fixture", () => {
+      const seen: string[] = [];
+      for (const slug of Object.keys(SLUG_TO_EXAMPLES)) {
+        const pkgPath = path.join(fixturePackagesDir, slug);
+        expect(
+          fs.existsSync(pkgPath),
+          `fixture missing packages/${slug}/ — invariant seeding is broken`,
+        ).toBe(true);
+        seen.push(slug);
+      }
+      // Sentinel: assert we actually iterated at least one slug. A silent
+      // empty SLUG_TO_EXAMPLES would otherwise pass vacuously.
+      expect(seen.length).toBeGreaterThan(0);
+    });
+  });
 
   it("does not include the three known dead entries", () => {
     expect(
@@ -157,6 +201,60 @@ describe("SLUG_MAP (examples dir → showcase slug)", () => {
       }
     },
   );
+
+  // Companion to the skipIf test above — runs UNCONDITIONALLY against a
+  // fixture tmpdir so the SLUG_MAP value invariant is exercised even
+  // when showcase/packages/ is absent. Without this, a sparse CI
+  // checkout would silently skip the invariant and a regression
+  // (reintroducing a dead value like `crewai` / `mcp-apps`) would pass.
+  describe("fixture-based SLUG_MAP invariant (runs regardless of checkout layout)", () => {
+    let fixtureDir: string;
+    let fixturePackagesDir: string;
+
+    beforeAll(() => {
+      fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "slug-map-fixture-"));
+      fixturePackagesDir = path.join(fixtureDir, "packages");
+      fs.mkdirSync(fixturePackagesDir, { recursive: true });
+      // Seed the fixture with every unique VALUE in SLUG_MAP plus every
+      // FALLBACK_MAP target — those are the invariants we enforce.
+      const targets = new Set<string>();
+      for (const [, slug] of SLUG_MAP) targets.add(slug);
+      for (const target of Object.values(FALLBACK_MAP)) targets.add(target);
+      for (const slug of targets) {
+        fs.mkdirSync(path.join(fixturePackagesDir, slug), { recursive: true });
+      }
+    });
+
+    afterAll(() => {
+      fs.rmSync(fixtureDir, { recursive: true, force: true });
+    });
+
+    it("every SLUG_MAP value resolves to a real dir in the fixture", () => {
+      let iter = 0;
+      for (const [, slug] of SLUG_MAP) {
+        const pkgPath = path.join(fixturePackagesDir, slug);
+        expect(
+          fs.existsSync(pkgPath),
+          `fixture missing packages/${slug}/ — seeding is broken`,
+        ).toBe(true);
+        iter++;
+      }
+      expect(iter).toBeGreaterThan(0);
+    });
+
+    it("every FALLBACK_MAP target resolves to a real dir in the fixture", () => {
+      let iter = 0;
+      for (const [slug, target] of Object.entries(FALLBACK_MAP)) {
+        const pkgPath = path.join(fixturePackagesDir, target);
+        expect(
+          fs.existsSync(pkgPath),
+          `FALLBACK_MAP['${slug}'] = '${target}' has no matching dir`,
+        ).toBe(true);
+        iter++;
+      }
+      expect(iter).toBeGreaterThan(0);
+    });
+  });
 
   it("is frozen — .set throws", () => {
     const m = SLUG_MAP as unknown as Map<string, string>;
