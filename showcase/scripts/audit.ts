@@ -261,6 +261,32 @@ interface AuditReport {
 function buildCliConfig(): AuditConfig {
   const envRoot = process.env.SHOWCASE_AUDIT_ROOT;
   if (envRoot && envRoot.length > 0) {
+    // Validate the env-var path up front. Without this, a bogus value
+    // (typo, stale fixture, file-typed path) flows through and surfaces
+    // as a confusing downstream error about the derived `<root>/packages`
+    // path — the operator has no hint that SHOWCASE_AUDIT_ROOT itself is
+    // the problem. We stat() here and throw UnreadableDirError, which
+    // main()'s top-level catch maps to EXIT_UNREADABLE (3).
+    try {
+      const st = fs.statSync(envRoot);
+      if (!st.isDirectory()) {
+        throw new UnreadableDirError(
+          envRoot,
+          new Error(`SHOWCASE_AUDIT_ROOT=${envRoot} is not a directory`),
+        );
+      }
+    } catch (e) {
+      if (e instanceof UnreadableDirError) {
+        throw e;
+      }
+      const code =
+        e instanceof Error ? (e as NodeJS.ErrnoException).code : undefined;
+      const msg =
+        code === "ENOENT"
+          ? `SHOWCASE_AUDIT_ROOT=${envRoot} does not exist`
+          : `SHOWCASE_AUDIT_ROOT=${envRoot} is unreadable`;
+      throw new UnreadableDirError(envRoot, new Error(msg, { cause: e }));
+    }
     // Tests: SHOWCASE_AUDIT_ROOT=/tmp/fixture → /tmp/fixture/packages,
     // /tmp/fixture/examples/integrations, repoRoot = /tmp/fixture.
     return {
