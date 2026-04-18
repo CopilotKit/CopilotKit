@@ -4,14 +4,13 @@ name: "Showcase: Drift Report"
 # Complements showcase_validate.yml's ratchet gating by surfacing the
 # current backlog even when no PR is open. Goal: keep the drift count
 # visible so the drift-to-zero commitment stays in front of the team.
-# The TODO(showcase-drift-zero, ...) marker in showcase_validate.yml is
-# a grep-only tag; there is no tracked GitHub issue.
+# Drift-to-zero work is tracked in GitHub issue #4047.
 #
 # Reference: Notion: "Showcase Drift Baseline Runbook" (accessible to
 # copilotkit.ai team members only; not linked here to avoid embedding
 # private URLs in a public workflow).
-# TODO(showcase-drift-zero, owner: @jpr5): confirm the Notion runbook
-# page exists and is current; otherwise create it.
+# TODO(#4047, owner: @jpr5): confirm the Notion runbook page exists and
+# is current; otherwise create it.
 
 on:
   schedule:

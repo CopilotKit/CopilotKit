@@ -155,8 +155,8 @@ jobs:
         # procedure. Weekly backlog visibility is provided by
         # `.github/workflows/showcase_drift-report.yml`.
         #
-        # TODO(showcase-drift-zero, owner: @jpr5): drive baseline to zero;
-        # re-audit quarterly. No tracked issue — tag-only grep marker.
+        # TODO(#4047, owner: @jpr5): drive baseline to zero; re-audit
+        # quarterly.
         run: |
           set -euo pipefail
 
