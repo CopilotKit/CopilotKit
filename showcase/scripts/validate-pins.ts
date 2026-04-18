@@ -1443,19 +1443,54 @@ function collectShowcaseDeps(packageDir: string): ShowcaseDepSources {
  * Build a canonicalized lookup for a DepMap. Keeps the original name for
  * error messages but keys by canonical name so `foo_bar` and `foo-bar`
  * collide.
+ *
+ * When two entries canonicalize to the same key with DIFFERENT specs
+ * (e.g. `langgraph_checkpoint==1.0.0` alongside
+ * `langgraph-checkpoint==2.0.0` in the same requirements.txt) the
+ * first-writer's entry is retained for comparison and a warning is
+ * surfaced so operators see the conflict rather than silently losing
+ * one of the pins. Same-spec collisions are considered redundant and
+ * dropped silently.
  */
+interface CanonicalizeWarning {
+  key: string;
+  firstName: string;
+  firstSpec: string;
+  dupName: string;
+  dupSpec: string;
+}
 function canonicalizeDepMap(
   deps: DepMap,
   isPython: boolean,
-): Record<string, { name: string; spec: string }> {
+): {
+  out: Record<string, { name: string; spec: string }>;
+  warnings: CanonicalizeWarning[];
+} {
   const out: Record<string, { name: string; spec: string }> = {};
+  const warnings: CanonicalizeWarning[] = [];
   for (const [name, spec] of Object.entries(deps)) {
     const key = isPython ? canonicalizePythonName(name) : name;
     // First-writer-wins within this function too (keep name as it was
-    // originally declared).
-    if (!(key in out)) out[key] = { name, spec };
+    // originally declared). If a later entry collides on the canonical
+    // key with a DIFFERENT spec, surface it as a warning — a silent
+    // drop would hide a real drift signal (two entries for the same
+    // distribution, both pinned, to different versions).
+    const prior = out[key];
+    if (prior === undefined) {
+      out[key] = { name, spec };
+      continue;
+    }
+    if (prior.spec !== spec) {
+      warnings.push({
+        key,
+        firstName: prior.name,
+        firstSpec: prior.spec,
+        dupName: name,
+        dupSpec: spec,
+      });
+    }
   }
-  return out;
+  return { out, warnings };
 }
 
 // ---------------------------------------------------------------------------
@@ -1691,25 +1726,53 @@ function validateAll(): Report {
     // are DIFFERENT packages). Build two separate lookups per side — a
     // Python lookup (canonicalized) and a JS lookup (raw names) — then
     // compare Python-to-Python and JS-to-JS.
-    const showcasePythonCanon = canonicalizeDepMap(
+    const showcasePythonCanonResult = canonicalizeDepMap(
       showcase.pythonDeps,
       /* isPython */ true,
     );
-    const dojoPythonCanon = canonicalizeDepMap(
+    const showcasePythonCanon = showcasePythonCanonResult.out;
+    const dojoPythonCanonResult = canonicalizeDepMap(
       dojo.pythonDeps,
       /* isPython */ true,
     );
+    const dojoPythonCanon = dojoPythonCanonResult.out;
     // Invariant: the comparator reads `jsDeps` and `pythonDeps` directly
     // from separate parse-time maps. This keeps JS and Python specs
     // intact even when the same dep name appears in both ecosystems in
     // the same tree (e.g. `openai` with a JS `4.0.0` pin alongside a
     // Python `==1.2.3` pin) — neither side should be erased by the
     // other during comparison.
-    const showcaseJsRaw = canonicalizeDepMap(
+    const showcaseJsRawResult = canonicalizeDepMap(
       showcase.jsDeps,
       /* isPython */ false,
     );
-    const dojoJsRaw = canonicalizeDepMap(dojo.jsDeps, /* isPython */ false);
+    const showcaseJsRaw = showcaseJsRawResult.out;
+    const dojoJsRawResult = canonicalizeDepMap(
+      dojo.jsDeps,
+      /* isPython */ false,
+    );
+    const dojoJsRaw = dojoJsRawResult.out;
+
+    // Surface canonical-key collisions with DIFFERENT specs as WARN so
+    // operators see a real drift signal (two pinned entries for the same
+    // distribution at different versions within a single file) rather
+    // than silently losing one pin to first-writer-wins. Tagged with
+    // the side (showcase vs Dojo) so the report is unambiguous.
+    const emitCanonicalWarnings = (
+      side: "showcase" | "Dojo",
+      warns: CanonicalizeWarning[],
+    ) => {
+      for (const w of warns) {
+        report.warn.push(
+          `[WARN] ${slug}: ${side} has duplicate entries for canonical key '${w.key}' with different specs ` +
+            `(${w.firstName}=${w.firstSpec || "(empty)"} vs ${w.dupName}=${w.dupSpec || "(empty)"})`,
+        );
+      }
+    };
+    emitCanonicalWarnings("showcase", showcasePythonCanonResult.warnings);
+    emitCanonicalWarnings("Dojo", dojoPythonCanonResult.warnings);
+    emitCanonicalWarnings("showcase", showcaseJsRawResult.warnings);
+    emitCanonicalWarnings("Dojo", dojoJsRawResult.warnings);
 
     let pkgHadViolation = pkgHadParseError;
 

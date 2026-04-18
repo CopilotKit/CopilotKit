@@ -3179,3 +3179,66 @@ describe("R29-2 M3: computeRepoRoot routes ENOENT to EXIT_UNREADABLE (3)", () =>
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// R29-2 H7: canonicalizeDepMap must surface duplicate-canonical-key
+// collisions with DIFFERENT specs as a WARN.
+//
+// Bug: the first-writer-wins rule silently dropped later collisions,
+// so `langgraph_checkpoint==1.2.3` and `langgraph-checkpoint==1.2.4`
+// in the same requirements.txt would yield a single canonical entry
+// with no trace of the conflict in the output.
+// ---------------------------------------------------------------------------
+describe("R29-2 H7: canonicalizeDepMap surfaces conflicting duplicates as WARN", () => {
+  let repoRoot: string;
+  let savedRepoRoot: string | undefined;
+
+  beforeEach(() => {
+    savedRepoRoot = process.env.VALIDATE_PINS_REPO_ROOT;
+    repoRoot = tmpdir();
+    process.env.VALIDATE_PINS_REPO_ROOT = repoRoot;
+    fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+      recursive: true,
+    });
+  });
+
+  afterEach(() => {
+    if (savedRepoRoot === undefined) {
+      delete process.env.VALIDATE_PINS_REPO_ROOT;
+    } else {
+      process.env.VALIDATE_PINS_REPO_ROOT = savedRepoRoot;
+    }
+    fs.rmSync(repoRoot, { recursive: true, force: true });
+  });
+
+  it("emits a WARN when two entries canonicalize to the same key with different specs", () => {
+    const slug = "langgraph-python";
+    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const exDir = path.join(repoRoot, "examples", "integrations", slug);
+    // Both lines canonicalize to `langgraph-checkpoint` under PEP 503,
+    // but their version specs differ — a real-world smoke signal.
+    write(
+      path.join(pkgDir, "requirements.txt"),
+      "langgraph_checkpoint==1.0.0\nlanggraph-checkpoint==2.0.0\n",
+    );
+    write(
+      path.join(exDir, "requirements.txt"),
+      "langgraph-checkpoint==1.0.0\n",
+    );
+    const report = validateAll();
+    const collisionWarn = report.warn.find(
+      (l) =>
+        l.includes(slug) &&
+        /langgraph[-_]checkpoint/.test(l) &&
+        /1\.0\.0/.test(l) &&
+        /2\.0\.0/.test(l),
+    );
+    expect(
+      collisionWarn,
+      `expected a canonical-collision WARN mentioning both specs; got warn=${JSON.stringify(report.warn)}`,
+    ).toBeDefined();
+  });
+});
