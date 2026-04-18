@@ -155,8 +155,8 @@ jobs:
         # procedure. Weekly backlog visibility is provided by
         # `.github/workflows/showcase_drift-report.yml`.
         #
-        # TODO(showcase-drift-zero, owner: @jpr5): drive the
-        # baseline to zero; re-audit quarterly.
+        # TODO(showcase-drift-zero, owner: @jpr5): drive baseline to zero;
+        # re-audit quarterly. No tracked issue — tag-only grep marker.
         run: |
           set -euo pipefail
 
@@ -244,7 +244,7 @@ jobs:
           # Summary line is on stdout. If the validator output format
           # changed (missing Summary, non-numeric FAIL), fail loudly
           # instead of silently treating it as zero.
-          summary_line=$(printf '%s\n' "$stdout" | grep -E '^Summary:' | head -n 1 || true)
+          summary_line=$(printf '%s\n' "$stdout" | grep -E '^[[:space:]]*Summary:' | head -n 1 || true)
           if [ -z "$summary_line" ]; then
             echo "::error::Could not find validate-pins 'Summary:' line in output"
             exit 1
