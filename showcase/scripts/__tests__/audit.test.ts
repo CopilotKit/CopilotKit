@@ -291,6 +291,111 @@ describe("countFiles", () => {
       spy.mockRestore();
     }
   });
+
+  it("surfaces { state: 'unreadable' } (not 'missing') when statSync throws EACCES", () => {
+    // Regression guard: the old implementation gated on `fs.existsSync`,
+    // which returns false for EACCES/EPERM/EIO/ELOOP/ENOTDIR just like it
+    // does for ENOENT. That silently classified unreadable dirs as
+    // `missing` (legitimate zero) and triggered phantom count-mismatch
+    // anomalies. The fix replaces existsSync with a statSync + errno
+    // branch so non-ENOENT stat failures surface as `unreadable`.
+    const d = path.join(root, "eacces-stat");
+    fs.mkdirSync(d);
+    const orig = fs.statSync;
+    const spy = vi.spyOn(fs, "statSync").mockImplementation(((
+      p: fs.PathLike,
+      options?: unknown,
+    ) => {
+      if (typeof p === "string" && p === d) {
+        const e: NodeJS.ErrnoException = new Error(
+          "EACCES: permission denied (statSync)",
+        );
+        e.code = "EACCES";
+        throw e;
+      }
+      return (orig as unknown as (p: fs.PathLike, o?: unknown) => unknown)(
+        p,
+        options,
+      );
+    }) as typeof fs.statSync);
+    try {
+      const r = countFiles(d, (n) => n.endsWith(".spec.ts"));
+      // MUST NOT collapse to `missing` — operator needs the unreadable
+      // signal so downstream auditPackage emits `unreadable-dir` instead
+      // of a phantom count-mismatch on a zero count.
+      expect(r.state).toBe("unreadable");
+      if (r.state === "unreadable") {
+        expect(r.error).toContain("EACCES");
+      }
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe("auditPackage — EACCES on spec dir stat → unreadable-dir anomaly (not count-mismatch)", () => {
+  let root: string;
+  beforeEach(() => {
+    root = makeTmpTree();
+  });
+  afterEach(() => {
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it("EACCES on statSync of tests/e2e → unreadable-dir anomaly, no phantom count-mismatch", () => {
+    // End-to-end: when the e2e dir's stat fails with EACCES, the package
+    // must surface an `unreadable-dir` anomaly — NOT a `count-mismatch`
+    // claiming 0 specs against declared demos. Previously the existsSync
+    // gate in countFiles collapsed EACCES to `missing` (count=0), which
+    // then compared unequal against demos and fired a phantom mismatch.
+    writePackage(root, "eacces-e2e", {
+      manifest: `slug: eacces-e2e\ndeployed: true\ndemos:\n  - id: a\n`,
+      specs: ["a.spec.ts"],
+      qaFiles: ["a.md"],
+    });
+    const e2eDir = path.join(root, "packages", "eacces-e2e", "tests", "e2e");
+    const orig = fs.statSync;
+    const spy = vi.spyOn(fs, "statSync").mockImplementation(((
+      p: fs.PathLike,
+      options?: unknown,
+    ) => {
+      if (typeof p === "string" && p === e2eDir) {
+        const e: NodeJS.ErrnoException = new Error("EACCES: injected");
+        e.code = "EACCES";
+        throw e;
+      }
+      return (orig as unknown as (p: fs.PathLike, o?: unknown) => unknown)(
+        p,
+        options,
+      );
+    }) as typeof fs.statSync);
+    try {
+      const cfg = makeConfig(root);
+      const a = auditPackage("eacces-e2e", cfg);
+      // unreadable-dir anomaly MUST surface with an error containing EACCES.
+      const unreadable = a.anomalies.find(
+        (x): x is Extract<Anomaly, { kind: "unreadable-dir" }> =>
+          x.kind === "unreadable-dir",
+      );
+      expect(
+        unreadable,
+        `expected unreadable-dir anomaly, got: ${JSON.stringify(a.anomalies)}`,
+      ).toBeDefined();
+      if (unreadable) {
+        expect(unreadable.error).toContain("EACCES");
+      }
+      // MUST NOT fire a phantom spec count-mismatch (unreadable !== zero).
+      const specMismatch = a.anomalies.find(
+        (x): x is Extract<Anomaly, { kind: "count-mismatch" }> =>
+          x.kind === "count-mismatch" && x.dimension === "spec",
+      );
+      expect(specMismatch).toBeUndefined();
+      // spec CountState must be "unreadable" (not "missing").
+      expect(a.spec.state).toBe("unreadable");
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
 
 describe("findExamplesSource", () => {
@@ -465,6 +570,69 @@ describe("findExamplesSource", () => {
     // Must NOT fire the mapped-entry "no matching directory" warning —
     // the fallback path is explicitly not a mapping.
     expect(sink.some((w) => w.includes("SLUG_TO_EXAMPLES entry"))).toBe(false);
+  });
+
+  it("EACCES on existsSync does NOT silently skip mapped candidate (routes to unreadableForSlug)", () => {
+    // Regression guard: the old implementation used `fs.existsSync` to
+    // pre-filter candidates. existsSync returns false for EACCES just
+    // like it does for ENOENT, so a candidate whose parent dir is
+    // unreadable was silently skipped — not counted in `existedCount`,
+    // not counted in `unreadableCount`. When ALL mapped candidates were
+    // EACCES'd, the resolver returned `unreadableForSlug: false` and the
+    // package silently fell through to `missing-examples`.
+    //
+    // Fix: replace existsSync with a statSync inside try/catch. ENOENT →
+    // continue (absent); EACCES/other errno → increment unreadableCount
+    // and push diagnostic. Result: unreadableForSlug is truthy when every
+    // mapped candidate is EACCES'd.
+    const slug = "synthetic-eacces";
+    const mapped = ["only-cand"] as const;
+    // Do NOT create the candidate path on disk. Mock existsSync so the
+    // old code path would see false (as if ENOENT), while statSync is
+    // configured to throw EACCES for the candidate path — which is the
+    // signal the fixed code must use.
+    const full = path.join(root, "examples", "integrations", "only-cand");
+    const origExists = fs.existsSync;
+    const existsSpy = vi.spyOn(fs, "existsSync").mockImplementation(((
+      p: fs.PathLike,
+    ) => {
+      if (typeof p === "string" && p === full) {
+        // Simulate existsSync hiding EACCES as false — the very bug we
+        // are guarding against.
+        return false;
+      }
+      return (origExists as (p: fs.PathLike) => boolean)(p);
+    }) as typeof fs.existsSync);
+    const origStat = fs.statSync;
+    const statSpy = vi.spyOn(fs, "statSync").mockImplementation(((
+      p: fs.PathLike,
+      options?: unknown,
+    ) => {
+      if (typeof p === "string" && p === full) {
+        const e: NodeJS.ErrnoException = new Error("EACCES: parent unreadable");
+        e.code = "EACCES";
+        throw e;
+      }
+      return (origStat as unknown as (p: fs.PathLike, o?: unknown) => unknown)(
+        p,
+        options,
+      );
+    }) as typeof fs.statSync);
+    try {
+      const cfg = makeConfig(root);
+      const sink: string[] = [];
+      const r = resolveExamplesSource(slug, mapped, cfg, sink);
+      // MUST classify as unreadableForSlug — the operator needs the
+      // infrastructure-failure signal instead of the benign
+      // missing-examples classification.
+      expect(r.source).toBeNull();
+      expect(r.unreadableForSlug).toBe(true);
+      // A diagnostic must land on the sink so the EACCES is not silent.
+      expect(sink.some((w) => w.includes("EACCES"))).toBe(true);
+    } finally {
+      existsSpy.mockRestore();
+      statSpy.mockRestore();
+    }
   });
 
   it("returns the first candidate when both first and later candidates exist (first wins)", () => {
@@ -965,23 +1133,24 @@ describe("auditPackage", () => {
     try {
       const cfg = makeConfig(root);
       const a = auditPackage(mappedSlug, cfg);
-      // Classification: ENOENT race is a soft miss, not infrastructure.
+      // Classification: ENOENT is a soft miss (absent candidate), not
+      // infrastructure. The resolver no longer differentiates "raced"
+      // from "never existed" because the existsSync pre-check is gone
+      // (existsSync conflates EACCES/ENOENT and was the whole source of
+      // the bugs this module fixes). ENOENT → continue, no warning.
       expect(a.anomalies.some((x) => x.kind === "unreadable-examples")).toBe(
         false,
       );
       expect(a.anomalies.some((x) => x.kind === "missing-examples")).toBe(true);
-      // Diagnostic warning should still be on the sink so operators see
-      // the race (ENOENT-specific, not EACCES/EIO lump).
-      expect(
-        a.warnings.some((w) => w.includes("ENOENT") || w.includes("statSync")),
-        `expected ENOENT race diagnostic in warnings: ${JSON.stringify(
-          a.warnings,
-        )}`,
-      ).toBe(true);
       // No ERROR "unreadable-candidates" wording — that's reserved for
       // true infrastructure failures (EACCES/EIO/etc.).
       expect(a.warnings.some((w) => w.includes("unreadable-candidates"))).toBe(
         false,
+      );
+      // The stale-mapping warning (no matching directory) is still the
+      // operator signal for this scenario.
+      expect(a.warnings.some((w) => w.includes("SLUG_TO_EXAMPLES entry"))).toBe(
+        true,
       );
     } finally {
       spy.mockRestore();
@@ -1018,10 +1187,17 @@ describe("auditPackage", () => {
       const sink: string[] = [];
       const r = resolveExamplesSource(slug, mapped, cfg, sink);
       expect(r.source).toBeNull();
-      // Key assertion: ENOENT is a benign race, NOT infrastructure.
+      // Key assertion: ENOENT is a benign absence (soft miss), NOT
+      // infrastructure failure. With existsSync removed from the
+      // candidate gate, ENOENT from statSync is now indistinguishable
+      // from "never existed" — both route as missing-examples without
+      // a warning. The stale-mapping sink entry from the end of
+      // resolveExamplesSource (no matching directory) is the operator
+      // signal.
       expect(r.unreadableForSlug).toBe(false);
-      // Diagnostic is still present so operators can see the race.
-      expect(sink.some((w) => w.includes("ENOENT"))).toBe(true);
+      // Stale-mapping diagnostic at the end of resolveExamplesSource
+      // fires because the mapped slug hit no successful dir.
+      expect(sink.some((w) => w.includes("SLUG_TO_EXAMPLES entry"))).toBe(true);
     } finally {
       spy.mockRestore();
     }
@@ -1263,6 +1439,88 @@ describe("buildReport", () => {
     const report = buildReport(["frozen"], cfg);
     const p = report.packages[0];
     expect(Object.isFrozen(p)).toBe(true);
+  });
+
+  it("routes mapped-candidate-not-directory anomalies to a visible bucket (not invisible)", () => {
+    // Regression guard: the `mapped-candidate-not-directory` Anomaly
+    // variant is emitted by auditPackage for mapped slugs whose
+    // candidate path exists-but-isn't-a-directory. The bucket routing
+    // in buildReport previously had no case for this variant, so a
+    // package whose ONLY anomaly was `mapped-candidate-not-directory`
+    // appeared in `totals.withAnomalies` (exit 1) but was invisible in
+    // every bucket — renderAnomalySection had no section for it, so
+    // operators saw exit 1 with no explanation.
+    //
+    // Fix: route `mapped-candidate-not-directory` into the `unreadable`
+    // bucket (misconfiguration is closer to unreadable than to missing).
+    const slug = "mastra";
+    const candidates = SLUG_TO_EXAMPLES[slug];
+    expect(candidates).toBeDefined();
+    expect(candidates.length).toBeGreaterThan(0);
+    writePackage(root, slug, {
+      manifest: `slug: ${slug}\ndeployed: true\ndemos:\n  - id: x\n`,
+      specs: ["x.spec.ts"],
+      qaFiles: ["x.md"],
+    });
+    // Write a regular file (not a directory) at every candidate path so
+    // `mapped-candidate-not-directory` is the SOLE anomaly on this pkg.
+    for (const c of candidates) {
+      fs.writeFileSync(
+        path.join(root, "examples", "integrations", c),
+        "stray file, not a directory\n",
+      );
+    }
+    const cfg = makeConfig(root);
+    const report = buildReport([slug], cfg);
+    // The package surfaces ONE anomaly: mapped-candidate-not-directory.
+    const pkg = report.packages.find((p) => p.slug === slug)!;
+    expect(
+      pkg.anomalies.some((a) => a.kind === "mapped-candidate-not-directory"),
+    ).toBe(true);
+    // withAnomalies must count this package — which it already does.
+    expect(report.totals.withAnomalies).toBe(1);
+    // Critical: this package MUST show up in at least one indexed bucket
+    // so renderAnomalySection has something to render. We route it into
+    // `unreadable` (misconfiguration closer to unreadable than missing).
+    expect(report.anomalies.unreadable).toContain(slug);
+    // Negative: it must NOT be bucketed as missing-examples (that was
+    // the old silent-degradation behavior; the distinct variant is the
+    // whole point).
+    expect(report.anomalies.missingExamples).not.toContain(slug);
+  });
+
+  it("renderAnomalySection surfaces mapped-candidate-not-directory packages (not hidden)", async () => {
+    // Companion to the bucket-routing test: the text report must
+    // actually mention a package whose only anomaly is
+    // mapped-candidate-not-directory. Previously, such a package hit
+    // withAnomalies=1 but the anomaly section showed "(none)" because
+    // no bucket matched — an infuriating "CI failed but I don't know
+    // why" state.
+    const slug = "mastra";
+    const candidates = SLUG_TO_EXAMPLES[slug];
+    writePackage(root, slug, {
+      manifest: `slug: ${slug}\ndeployed: true\ndemos:\n  - id: x\n`,
+      specs: ["x.spec.ts"],
+      qaFiles: ["x.md"],
+    });
+    for (const c of candidates) {
+      fs.writeFileSync(
+        path.join(root, "examples", "integrations", c),
+        "stray file, not a directory\n",
+      );
+    }
+    const r = spawnSync("npx", ["tsx", AUDIT_SCRIPT], {
+      env: { ...process.env, SHOWCASE_AUDIT_ROOT: root },
+      encoding: "utf-8",
+      timeout: 30_000,
+    });
+    expect(r.status, r.stdout + r.stderr).toBe(1);
+    // The anomaly section must NOT say "(none)" — a package was flagged.
+    const anomalySection = r.stdout.split("Coverage anomalies")[1] ?? "";
+    const healthSection = anomalySection.split("Overall health")[0] ?? "";
+    expect(healthSection).not.toMatch(/\(none\)/);
+    // The slug MUST appear in the anomaly section.
+    expect(healthSection).toContain(slug);
   });
 
   it("deep-freezes PackageAudit inner containers (anomalies, warnings, spec, qa, manifest)", () => {
@@ -1713,8 +1971,82 @@ describe("main() exit codes via CLI subprocess", () => {
       });
       expect(r.status, r.stdout + r.stderr).toBe(3);
       expect(r.stderr).toMatch(/not a directory/i);
+      // Tighten: the diagnostic MUST NOT claim the path "does not exist"
+      // — the file is present, just not a directory. The previous
+      // redundant `existsSync` pre-check produced the misleading "does
+      // not exist" wording for this case. After the fix, the statSync
+      // block produces a precise "is not a directory" message.
+      expect(r.stderr).not.toMatch(/packages dir does not exist/);
     } finally {
       fs.rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  it("exits 3 with a precise EACCES diagnostic when packages dir stat fails (not the misleading 'does not exist' message)", () => {
+    // Regression guard: main()'s redundant `fs.existsSync` pre-check
+    // emitted "packages dir does not exist" for EACCES/EPERM/EIO failures
+    // too — `existsSync` returns false for every statSync failure, not
+    // just ENOENT. The fix removes the redundant pre-check so the
+    // subsequent try/statSync block produces an accurate errno-specific
+    // message.
+    //
+    // Inject an EACCES via a preload script that overrides fs.statSync
+    // only for the target packages dir path (everything else passes
+    // through to the real implementation so tsx/vitest internals keep
+    // working).
+    const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "audit-eacces-"));
+    const preload = fs.mkdtempSync(path.join(os.tmpdir(), "audit-pre-"));
+    const preloadScript = path.join(preload, "eacces.cjs");
+    const pkgDir = path.join(fixture, "packages");
+    // Create the dir so existsSync would return true — the bug is that
+    // statSync failing with EACCES should yield a distinct message. The
+    // old redundant existsSync check short-circuits ENOENT only; EACCES
+    // still falls through to statSync. But we also want to assert the
+    // message doesn't claim "does not exist" — exercise the code path
+    // by making statSync throw EACCES directly.
+    fs.mkdirSync(pkgDir, { recursive: true });
+    fs.writeFileSync(
+      preloadScript,
+      `const fs = require("fs");
+const target = ${JSON.stringify(pkgDir)};
+const origStat = fs.statSync;
+fs.statSync = function(...args) {
+  if (String(args[0]) === target) {
+    const e = new Error("EACCES: permission denied, stat '" + target + "'");
+    e.code = "EACCES";
+    throw e;
+  }
+  return origStat.apply(this, args);
+};
+const origExists = fs.existsSync;
+fs.existsSync = function(...args) {
+  if (String(args[0]) === target) {
+    // Simulate existsSync hiding EACCES as "false" — the bug.
+    return false;
+  }
+  return origExists.apply(this, args);
+};
+`,
+    );
+    try {
+      const r = spawnSync(
+        "npx",
+        ["tsx", "--require", preloadScript, AUDIT_SCRIPT],
+        {
+          env: { ...process.env, SHOWCASE_AUDIT_ROOT: fixture },
+          encoding: "utf-8",
+          timeout: 30_000,
+        },
+      );
+      expect(r.status, r.stdout + r.stderr).toBe(3);
+      // The diagnostic MUST carry the EACCES errno (precise,
+      // actionable) rather than the misleading "does not exist" wording
+      // the redundant existsSync branch used to emit.
+      expect(r.stderr).toMatch(/EACCES/);
+      expect(r.stderr).not.toMatch(/packages dir does not exist/);
+    } finally {
+      fs.rmSync(fixture, { recursive: true, force: true });
+      fs.rmSync(preload, { recursive: true, force: true });
     }
   });
 
@@ -1844,31 +2176,58 @@ describe("main() exit codes via CLI subprocess", () => {
   });
 
   it("exits 4 (internal error) on unexpected exceptions", () => {
-    // Inject a TypeError AFTER the top-level packages dir has been
-    // listed successfully, so the UnreadableDirError fast-path (which
-    // would route to exit 3) does NOT swallow it. We override
-    // `fs.existsSync` so that the initial existence check (on the
-    // packages dir itself) passes, then start throwing TypeError for
-    // every subsequent existsSync call — readManifest's existsSync
-    // call on `<root>/packages/foo/manifest.yaml` is NOT wrapped in
-    // try/catch inside parseManifest, so the TypeError escapes all
-    // downstream handlers and reaches the top-level main() catch,
-    // which routes it to EXIT_INTERNAL (4) via the programmer-bug
-    // branch.
+    // Inject a TypeError into the YAML parser — auditPackage delegates
+    // to parseManifest which calls yaml.parse inside a try/catch that
+    // maps to a `malformed` result. HOWEVER, if we monkey-patch
+    // `yaml.parse` to throw a TypeError AFTER parseManifest has already
+    // read the file, the catch block inside parseManifest catches that
+    // and returns `malformed`. The cleanest way to trigger EXIT_INTERNAL
+    // is to throw a non-Error value from a point that is NOT wrapped
+    // upstream.
+    //
+    // Concretely: override `fs.readFileSync` to throw a TypeError ONLY
+    // for the target manifest.yaml path. readFileSync in parseManifest
+    // IS wrapped — but the catch returns `{kind: "unreadable", error}`
+    // only if `e instanceof Error`. A TypeError IS an Error, so that
+    // catch activates. That means we can't trigger EXIT_INTERNAL via
+    // readFileSync either.
+    //
+    // The actual unwrapped paths are: buildReport's Object.freeze calls,
+    // anomaly bucket operations, renderTable, renderAnomalySection,
+    // renderHealthSection, JSON.stringify. The simplest wedge is to
+    // monkey-patch `JSON.stringify` to throw TypeError when called with
+    // the audit report, which happens only in --json mode. For the
+    // default (text) mode, inject a TypeError through renderTable by
+    // monkey-patching `String.prototype.padEnd` — but that's too
+    // invasive.
+    //
+    // Simpler: force the failure in `Object.freeze` via a Proxy wrapper
+    // around the anomaly array. Actually, the cleanest wedge: override
+    // `Array.prototype.filter` in the preload so the FIRST call after
+    // slug listing throws. But that breaks tsx too.
+    //
+    // Practical solution: use `--json` mode and intercept
+    // `JSON.stringify` to throw once, after the report is built.
     const preload = fs.mkdtempSync(path.join(os.tmpdir(), "audit-preload-"));
     const preloadScript = path.join(preload, "boom.cjs");
     fs.writeFileSync(
       preloadScript,
-      `const fs = require("fs");
-const origExists = fs.existsSync;
-let allowed = 1; // let the top-level packagesDir check through
-fs.existsSync = function(...args) {
-  const p = String(args[0] || "");
-  if (allowed > 0 && p.endsWith("packages")) {
-    allowed--;
-    return origExists.apply(this, args);
+      `const origStringify = JSON.stringify;
+JSON.stringify = function(value, ...rest) {
+  // Only fire when serializing the audit report (has the 'packages'
+  // array + 'anomalies' object shape). Other JSON.stringify callers
+  // (test runner, tsx internals, error formatting) still work.
+  if (
+    value &&
+    typeof value === "object" &&
+    Array.isArray(value.packages) &&
+    value.anomalies &&
+    typeof value.anomalies === "object" &&
+    "countMismatches" in value.anomalies
+  ) {
+    throw new TypeError("simulated bug: should never happen");
   }
-  throw new TypeError("simulated bug: should never happen");
+  return origStringify.call(this, value, ...rest);
 };
 `,
     );
@@ -1880,17 +2239,17 @@ fs.existsSync = function(...args) {
     try {
       const r = spawnSync(
         "npx",
-        ["tsx", "--require", preloadScript, AUDIT_SCRIPT],
+        ["tsx", "--require", preloadScript, AUDIT_SCRIPT, "--json"],
         {
           env: { ...process.env, SHOWCASE_AUDIT_ROOT: root },
           encoding: "utf-8",
           timeout: 30_000,
         },
       );
-      // The injected failure fires from inside parseManifest /
-      // findExamplesSource (downstream of listShowcasePackageSlugs),
-      // so UnreadableDirError does not apply and the top-level catch
-      // must route this to EXIT_INTERNAL (4).
+      // The injected failure fires from JSON.stringify in main()'s
+      // --json branch, which is NOT wrapped in a local try/catch — it
+      // bubbles to the top-level catch, which must route programmer
+      // bugs (TypeError) to EXIT_INTERNAL (4).
       expect(r.status, r.stdout + r.stderr).toBe(4);
       // stderr should use the programmer-bug wording, not the generic
       // "internal error" one.
