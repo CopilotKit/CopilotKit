@@ -519,10 +519,26 @@ function resolveExamplesSource(
         );
       }
     } catch (e) {
-      // Race condition or permission issue — record on the warnings
-      // sink so EACCES / EMFILE / ELOOP don't disappear silently, then
-      // continue searching the remaining candidates.
+      const errCode =
+        e instanceof Error ? (e as NodeJS.ErrnoException).code : undefined;
       const msg = e instanceof Error ? e.message : String(e);
+      if (errCode === "ENOENT") {
+        // TOCTOU race: existsSync saw the path, statSync didn't. The
+        // candidate effectively did not exist by the time we stat'd
+        // it — on a network filesystem with weak coherence, or the
+        // directory was removed between calls. Treat as a soft miss:
+        // back off `existedCount` and do NOT increment
+        // `unreadableCount`, so classification routes to
+        // missing-examples (stale mapping) rather than
+        // unreadable-examples (infrastructure failure). Emit a
+        // diagnostic so operators can see the race was handled.
+        existedCount--;
+        sink.push(`audit: warning: statSync(${full}) raced (ENOENT): ${msg}`);
+        continue;
+      }
+      // Real I/O / permission failure (EACCES / EIO / ELOOP / EPERM /
+      // EMFILE / ...) — record on the warnings sink so it doesn't
+      // disappear silently, increment unreadableCount, continue.
       sink.push(`audit: warning: statSync(${full}) failed: ${msg}`);
       unreadableCount++;
       continue;
