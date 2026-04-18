@@ -41,15 +41,23 @@ const LANGCHAIN_EXCLUSIONS = [
 // ---------------------------------------------------------------------------
 
 /**
- * Strip only a single trailing newline (\n or \r\n). Preserves intentional
- * leading/trailing whitespace inside the content — used for idempotency
- * comparisons where trailing-EOL-only differences should be ignored but
- * other whitespace differences are meaningful.
+ * Normalize trailing-EOL + leading BOM for idempotency comparisons.
+ *
+ * - Strips a leading UTF-8 BOM (U+FEFF) that editors sometimes insert.
+ * - Strips ALL trailing whitespace (including \r\n, extra blank lines,
+ *   trailing spaces, tabs). Editors that re-save a file with an extra
+ *   trailing newline or BOM should not trigger spurious rewrites.
+ *
+ * Intentional internal whitespace (inside the file body) is preserved —
+ * only the edges are normalized.
  */
 function stripTrailingEol(s: string): string {
-  if (s.endsWith("\r\n")) return s.slice(0, -2);
-  if (s.endsWith("\n")) return s.slice(0, -1);
-  return s;
+  // Strip leading BOM if present.
+  if (s.charCodeAt(0) === 0xfeff) {
+    s = s.slice(1);
+  }
+  // Strip all trailing whitespace (newlines, spaces, tabs, \r).
+  return s.replace(/\s+$/, "");
 }
 
 // ---------------------------------------------------------------------------
@@ -254,7 +262,9 @@ function hasShowcaseLocalModifications(
     const cleanTransform = transformContent(previousMainContent, showcasePath);
     const currentShowcase = fs.readFileSync(showcasePath, "utf-8");
 
-    return stripTrailingEol(cleanTransform) !== stripTrailingEol(currentShowcase);
+    return (
+      stripTrailingEol(cleanTransform) !== stripTrailingEol(currentShowcase)
+    );
   } catch (err: unknown) {
     // File didn't exist at last sync — safe to overwrite
     if (err instanceof Error && "status" in err) {
@@ -607,11 +617,14 @@ function main(): SyncResult {
     }
   }
 
-  // Update sync marker only when the merge is clean (no manual-review
-  // conflicts left). If there are conflicts, keep the old sha so the next
-  // run re-attempts the merge once a human has reconciled the conflict PR.
+  // Update sync marker only when NOTHING had local modifications (no
+  // merge conflicts AND no auto-merged-with-local-mods files). If any file
+  // had local mods — even an auto-merged one — keep the old sha so the
+  // next run still has the correct base context for 3-way merging until
+  // a human has reviewed/merged the needs-review PR.
   if (
     !dryRun &&
+    result.needsReview.length === 0 &&
     result.mergeConflict.length === 0 &&
     (result.copied.length > 0 ||
       result.transformed.length > 0 ||
@@ -665,8 +678,14 @@ const hasAutoApplied =
   result.copied.length > 0 ||
   result.transformed.length > 0 ||
   result.autoMerged.length > 0;
+// Any file that had showcase-local modifications (needsReview) must route
+// through push_and_pr so a human can review — even if the 3-way merge was
+// clean (autoMerged). Silent auto-merging files with local mods would
+// clobber intentional showcase divergence.
 const hasReviewItems =
-  result.mergeConflict.length > 0 || result.deleted.length > 0;
+  result.mergeConflict.length > 0 ||
+  result.needsReview.length > 0 ||
+  result.deleted.length > 0;
 
 if (!hasAutoApplied && !hasReviewItems) {
   process.exit(2);
@@ -695,8 +714,14 @@ if (!hasAutoApplied && !hasReviewItems) {
     );
     for (const f of result.deleted) reviewLines.push(`  - ${f}`);
   }
+  // Write manifest + review items at the invocation cwd (the repo root
+  // when run from CI, matching the workflow's `[ -f conflict-manifest.json ]`
+  // and `cat review-items.txt` checks). Using process.cwd() rather than
+  // ROOT makes the contract explicit: whoever invokes the script picks
+  // where these artifacts land, and the workflow invokes from repo root.
+  const artifactDir = process.cwd();
   fs.writeFileSync(
-    path.join(ROOT, "review-items.txt"),
+    path.join(artifactDir, "review-items.txt"),
     reviewLines.join("\n") + "\n",
   );
   // Persist the conflict manifest so the workflow can apply upstream-wins
@@ -704,7 +729,7 @@ if (!hasAutoApplied && !hasReviewItems) {
   // conflictManifest comment above).
   if (result.conflictManifest.length > 0) {
     fs.writeFileSync(
-      path.join(ROOT, "conflict-manifest.json"),
+      path.join(artifactDir, "conflict-manifest.json"),
       JSON.stringify(result.conflictManifest, null, 2) + "\n",
     );
   }

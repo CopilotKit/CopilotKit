@@ -114,22 +114,17 @@ jobs:
             # Dedupe against open needs-review PRs. If one already exists,
             # skip PR creation and let the Slack alert point at the existing
             # one (simpler than re-pushing to its branch).
+            #
+            # NOTE: `gh pr list --search "head:..."` is NOT supported —
+            # GitHub's PR search syntax has no `head:` qualifier, so that
+            # query always returns empty. Use jq on the full list instead
+            # to filter by headRefName prefix client-side.
             EXISTING_PR=$(gh pr list \
               --state open \
               --base "$SHOWCASE_BRANCH" \
-              --search "head:docs-sync/needs-review/ in:title [NEEDS REVIEW]" \
               --json number,url,headRefName \
-              --jq '.[0].url' 2>/dev/null || echo "")
-            # Fallback: gh pr list with a plain head-prefix filter (--search
-            # may not honor head: prefix perfectly across gh versions).
-            if [ -z "$EXISTING_PR" ]; then
-              EXISTING_PR=$(gh pr list \
-                --state open \
-                --base "$SHOWCASE_BRANCH" \
-                --json number,url,headRefName \
-                --jq '[.[] | select(.headRefName | startswith("docs-sync/needs-review/"))] | .[0].url' \
-                2>/dev/null || echo "")
-            fi
+              --jq '[.[] | select(.headRefName | startswith("docs-sync/needs-review/"))] | .[0].url' \
+              2>/dev/null || echo "")
             if [ -n "$EXISTING_PR" ]; then
               echo "Open needs-review PR already exists: $EXISTING_PR"
               echo "Skipping new PR — Slack alert will point at the existing one."
@@ -150,10 +145,15 @@ jobs:
 
           git checkout -b "$BRANCH"
 
-          # For push_and_pr: apply the conflict manifest now (upstream-wins
+          # For push_and_pr: apply the conflict manifest FIRST (upstream-wins
           # content for conflicted files, written ONLY to the PR branch so
           # the main branch worktree stays as-is and future sync runs still
           # flag those files for review until this PR is merged).
+          #
+          # CRITICAL: This MUST run BEFORE `git add` below. `git add` stages
+          # the current working tree, so any manifest files written after
+          # that point would be left un-staged and never make it into the
+          # commit.
           if [ "$ACTION" = "push_and_pr" ] && [ -f conflict-manifest.json ]; then
             CLEANUP_FILES+=("conflict-manifest.json")
             node -e '
@@ -169,6 +169,8 @@ jobs:
             '
           fi
 
+          # Stage AFTER manifest has been applied so conflicted files land
+          # in the commit.
           git add showcase/shell/src/content/ showcase/shell/.docs-sync-sha
           CHANGED=$(git diff --cached --name-only | wc -l | tr -d ' ')
 
