@@ -133,7 +133,17 @@ jobs:
           # matching the identical computation in showcase_validate.yml. This
           # catches the "count equal but set drifted" case: one FAIL healed
           # while another regressed.
-          actual_hash=$(printf '%s\n' "$stderr" | grep -E '^\[FAIL\]' | LC_ALL=C sort -u | shasum -a 256 | cut -d' ' -f1)
+          #
+          # Scope grep's no-match tolerance to grep alone by wrapping just
+          # the grep stage in `{ ... || true; }`. Without this, a zero-FAIL
+          # week (grep exit 1 = no match) either fails the pipeline (if
+          # pipefail is enabled) or — more insidiously — silently yields
+          # the empty-input SHA-256 (`e3b0c44...`), which then mismatches
+          # the recorded baseline hash and spuriously fires a "SET DRIFTED"
+          # alert on a clean week. A trailing `|| true` on the whole
+          # pipeline would defeat `pipefail` and also swallow real
+          # sort/shasum/cut failures; we only tolerate grep's no-match.
+          actual_hash=$(printf '%s\n' "$stderr" | { grep -E '^\[FAIL\]' || true; } | LC_ALL=C sort -u | shasum -a 256 | cut -d' ' -f1)
           # Determine set-drift status for the weekly Slack payload so a
           # count-equal-but-set-changed week is visible, not silently clean.
           if [ "$actual" -eq "${{ steps.baseline.outputs.count }}" ] && [ "$actual_hash" != "${{ steps.baseline.outputs.hash }}" ]; then
