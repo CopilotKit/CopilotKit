@@ -347,6 +347,7 @@ def test_production_env_refuses_toggle_even_with_aimock_url(prod_var, prod_value
     assert result["enabled"] is False
     # Guard must NOT mutate env when refusing.
     assert "OPENAI_BASE_URL" not in env
+    assert "LITELLM_API_BASE" not in env
     assert env["OPENAI_API_KEY"] == "sk-real"
     reason = result.get("reason", "")
     assert prod_var in reason and "production" in reason.lower(), (
@@ -361,16 +362,32 @@ def test_production_env_refuses_toggle_even_with_aimock_url(prod_var, prod_value
     ), f"expected WARNING mentioning {prod_var} + aimock refusal, got {warnings!r}"
 
 
-def test_production_env_without_aimock_url_is_silent_no_op():
+def test_production_env_without_aimock_url_is_silent_no_op(caplog):
     """NODE_ENV=production without AIMOCK_URL: normal production path — no
     warning, no mutation, no reason text about 'refused'. The guard must
     only raise its voice when an actual refusal is happening.
+
+    The ``caplog`` assertion pins the silence contract: a future change that
+    accidentally makes the prod-guard fire even without AIMOCK_URL would
+    emit a WARNING here and fail the test, surfacing the regression instead
+    of silently polluting every prod deploy's logs.
     """
     env = {"NODE_ENV": "production", "OPENAI_API_KEY": "sk-real"}
-    result = configure_aimock(env)
+    with caplog.at_level(logging.WARNING, logger="aimock_toggle"):
+        result = configure_aimock(env)
     assert result["enabled"] is False
     assert "OPENAI_BASE_URL" not in env
+    assert "LITELLM_API_BASE" not in env
     assert env["OPENAI_API_KEY"] == "sk-real"
+    reason = result.get("reason", "")
+    assert "refused" not in reason.lower(), (
+        f"reason must not say 'refused' when nothing was being applied; got {reason!r}"
+    )
+    # Nothing to "refuse" here — must not emit any warning.
+    warnings = [r for r in caplog.records if r.levelno >= logging.WARNING]
+    assert warnings == [], (
+        f"prod-guard must be silent when AIMOCK_URL is unset, got warnings={warnings!r}"
+    )
 
 
 # --- LITELLM_API_BASE override symmetry -----------------------------------
@@ -424,7 +441,8 @@ def test_whitespace_wrapped_falsy_values_for_use_aimock_disable(falsy_padded):
 
 def test_dummy_key_does_not_mislead_with_replace_in_prod_suffix():
     """The dummy key value must NOT contain the misleading 'REPLACE-IN-PROD'
-    string — that name implied operators should substitute a real key, but
+    string or a "DO-NOT-SET" directive — those names implied operators should
+    substitute a real key (or had leaked CI semantics into the key name), but
     the value is only ever injected by the toggle (never by user config) and
     the prod-guard refuses to apply it in production anyway.
     """
@@ -435,8 +453,13 @@ def test_dummy_key_does_not_mislead_with_replace_in_prod_suffix():
     assert "REPLACE-IN-PROD" not in key, (
         f"dummy key still contains misleading suffix: {key!r}"
     )
-    # Must still be identifiable as a dev-only aimock placeholder.
+    assert "DO-NOT-SET" not in key.upper(), (
+        f"dummy key must not contain 'DO-NOT-SET' directive: {key!r}"
+    )
+    # Must still be identifiable as a dev-only aimock placeholder AND satisfy
+    # SDK versions that validate on the `sk-` prefix shape.
     assert "aimock" in key.lower()
+    assert key.startswith("sk-"), f"dummy key must retain sk- prefix: {key!r}"
 
 
 # --- typing_extensions fallback (Python < 3.11) ---------------------------
