@@ -112,15 +112,28 @@ jobs:
               failed=1
               continue
             fi
-            # Capture matches into an array via `mapfile`. Using a pipe to
-            # `wc -l` or `grep -c` hides `find`'s exit code because the
-            # downstream tool always succeeds, defeating pipefail. Process
-            # substitution + mapfile preserves `find`'s exit status in the
-            # parent shell.
-            specs=()
-            if ! mapfile -t specs < <(find "$e2e_dir" -maxdepth 1 -type f -name '*.spec.ts'); then
+            # Capture `find` output into a variable first so we can check
+            # its exit status directly. Bash process substitution (used with
+            # `mapfile < <(cmd)`) does NOT propagate the producer's exit
+            # status to the parent shell — `mapfile` only reports its own
+            # usage errors — so a failing `find` (EACCES on a subdir, ELOOP,
+            # transient I/O) would have been silently treated as "zero
+            # specs" and surfaced as the misleading "minimum required"
+            # error instead of the real root cause. Command substitution
+            # propagates `find`'s status via `$?` on the assignment, which
+            # we check immediately. A zero-spec result is a legitimate
+            # success from `find` and is handled by the `$count -lt $MIN`
+            # check below, not treated as a find failure.
+            if ! find_out=$(find "$e2e_dir" -maxdepth 1 -type f -name '*.spec.ts'); then
               echo "::error file=$e2e_dir::find failed while enumerating specs for '$pkg'"
               exit 1
+            fi
+            specs=()
+            # Only populate the array if `find` produced output; `mapfile
+            # <<< ""` would otherwise create a single empty element and
+            # inflate the count by one.
+            if [ -n "$find_out" ]; then
+              mapfile -t specs <<< "$find_out"
             fi
             count=${#specs[@]}
             if [ "$count" -lt "$MIN" ]; then
@@ -153,10 +166,8 @@ jobs:
         # unique FAIL lines) lives in `showcase/scripts/fail-baseline.json`;
         # see that file for the full ratchet semantics and adjustment
         # procedure. Weekly backlog visibility is provided by
-        # `.github/workflows/showcase_drift-report.yml`.
-        #
-        # TODO(#4047, owner: @jpr5): drive baseline to zero; re-audit
-        # quarterly.
+        # `.github/workflows/showcase_drift-report.yml`. Drift-to-zero work
+        # is tracked in GitHub issue #4047.
         run: |
           set -euo pipefail
 
@@ -236,8 +247,14 @@ jobs:
           printf '%s\n' "$stdout"
           printf '%s\n' "$stderr" >&2
           if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
+            # Preserve validate-pins.ts's distinct exit code (2=EXIT_INTERNAL,
+            # 3=EXIT_UNREADABLE, 4+=future) so downstream consumers can
+            # distinguish "validator crashed" from "pin drift found" (which
+            # would be rc=1). Collapsing to `exit 1` would make an internal
+            # crash indistinguishable from legitimate drift in the PR check
+            # signal.
             echo "::error::validate-pins.ts exited with unexpected code $rc (expected 0 or 1). This indicates an internal failure, not pin drift."
-            exit 1
+            exit "$rc"
           fi
 
           # --- Parse Summary line (actual FAIL count) ---------------------
