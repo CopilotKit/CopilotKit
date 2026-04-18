@@ -125,6 +125,11 @@
           "animated_preview_url": {
             "type": ["string", "null"],
             "description": "URL to animated preview for this specific demo"
+          },
+          "backend_files": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional explicit list of backend files (paths relative to package root) to bundle for this demo. When omitted, the bundler falls back to scanning the full agents/ directory."
           }
         },
         "additionalProperties": false

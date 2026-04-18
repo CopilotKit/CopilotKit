@@ -188,10 +188,11 @@ function main() {
       const demos = (manifest.demos || []) as Array<{
         id: string;
         route: string;
+        backend_files?: string[];
       }>;
 
       const pkgRoot = path.join(PACKAGES_DIR, pkgDir);
-      const backendFiles = discoverBackendFiles(pkgRoot);
+      const discoveredBackendFiles = discoverBackendFiles(pkgRoot);
 
       for (const demo of demos) {
         const routeDir = demo.route.replace(/^\/demos\//, "");
@@ -211,6 +212,28 @@ function main() {
           files: [],
           backend_files: [],
         };
+
+        // Resolve this demo's backend files:
+        //   - If the manifest lists `backend_files` explicitly, use those
+        //     (paths relative to the package root). This keeps per-demo
+        //     bundles minimal: a demo with a dedicated graph only shows
+        //     its own backend file, not every sibling agent in the package.
+        //   - Otherwise, fall back to the legacy full-package scan so
+        //     packages that haven't declared per-demo backends still work.
+        const scopedBackendFiles: DemoFile[] =
+          Array.isArray(demo.backend_files) && demo.backend_files.length > 0
+            ? demo.backend_files
+                .map((rel) => {
+                  const abs = path.join(pkgRoot, rel);
+                  if (!fs.existsSync(abs)) return null;
+                  return {
+                    filename: rel.replace(/^src\//, ""),
+                    language: detectLanguage(rel),
+                    content: fs.readFileSync(abs, "utf-8"),
+                  };
+                })
+                .filter((f): f is DemoFile => f !== null)
+            : discoveredBackendFiles;
 
         const entries = fs.readdirSync(demoDir);
         for (const entry of entries) {
@@ -239,7 +262,7 @@ function main() {
           return a.filename.localeCompare(b.filename);
         });
 
-        content.backend_files = [...backendFiles];
+        content.backend_files = scopedBackendFiles;
 
         bundle.demos[key] = content;
         console.log(
