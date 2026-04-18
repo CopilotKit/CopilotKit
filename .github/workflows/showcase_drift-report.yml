@@ -94,6 +94,14 @@ jobs:
         id: validate
         working-directory: showcase/scripts
         run: |
+          set -euo pipefail
+          # Temporarily disable -e around validate-pins so we can capture its
+          # exit code ourselves (we expect 0 or 1 as legitimate outcomes and
+          # need to distinguish 2+ as an internal crash). pipefail stays on:
+          # the `{ grep || true; }` scoping below relies on pipefail being
+          # enabled to actually deliver on its stated protection (scope no-
+          # match tolerance to grep alone without swallowing producer/head
+          # failures). -u stays on to catch accidental unset-var reads.
           set +e
           stderr_file=$(mktemp)
           stdout=$(pnpm exec tsx validate-pins.ts 2>"$stderr_file")
