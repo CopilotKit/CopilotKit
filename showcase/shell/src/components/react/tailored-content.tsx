@@ -218,7 +218,9 @@ function TailoredContentInner({
                 </div>
                 <div>
                   <p className="font-semibold text-lg">{option.props.title}</p>
-                  <p className="text-xs md:text-sm">{option.props.description}</p>
+                  <p className="text-xs md:text-sm">
+                    {option.props.description}
+                  </p>
                 </div>
               </div>
             );
