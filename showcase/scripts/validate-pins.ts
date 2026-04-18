@@ -1286,7 +1286,25 @@ function collectDepsFromDir(rootDir: string): DepSources {
       fs.statSync(abs);
     } catch (e) {
       const err = e as NodeJS.ErrnoException;
-      if (!err || err.code === "ENOENT") continue;
+      // A falsy throw (`throw null`, `throw undefined`, `throw ""`) carries
+      // zero diagnostic info. The prior version collapsed this into the
+      // ENOENT branch via `if (!err || err.code === "ENOENT") continue`,
+      // silently treating the candidate as absent and hiding whatever
+      // actually went wrong at the fs layer. Log a stderr breadcrumb AND
+      // classify as infra so the caller routes through UnreadableInputError
+      // → EXIT_UNREADABLE (3) rather than producing a false green.
+      if (!err) {
+        console.error(
+          `[validate-pins] statSync on ${abs} threw a falsy value (${String(e)}); treating as unreadable input`,
+        );
+        result.parseErrors.push({
+          file: abs,
+          message: `stat failed with falsy throw: ${String(e)}`,
+          infra: true,
+        });
+        continue;
+      }
+      if (err.code === "ENOENT") continue;
       // EACCES / EIO / ELOOP / etc. — the candidate is "probably
       // there" but we can't read it. Surface as a parse error so the
       // caller emits a FAIL rather than silently passing over it.
