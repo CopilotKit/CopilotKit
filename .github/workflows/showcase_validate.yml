@@ -359,8 +359,15 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
+          # Defensive: wrap dynamic values via toJSON(format(...)) so that
+          # if github.repository ever contains characters that would break
+          # the JSON payload (quotes, backslashes, newlines), the value is
+          # safely JSON-encoded instead of injected as raw text. Matches
+          # the pattern used in showcase_drift-report.yml. github.run_id is
+          # numeric so safe on its own, but we wrap both for consistency
+          # and defense-in-depth.
           payload: |
-            { "text": ":x: *Showcase validate*: failed | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+            { "text": ${{ toJSON(format(':x: *Showcase validate*: failed | <https://github.com/{0}/actions/runs/{1}|View run>', github.repository, github.run_id)) }} }
 
       - name: Log (no Slack — webhook unset)
         if: failure() && github.event_name == 'push' && secrets.SLACK_WEBHOOK_OSS_ALERTS == ''
