@@ -468,12 +468,24 @@ jobs:
             exit 0
           fi
 
+          # Policy: #oss-alerts should only surface actionable state —
+          # failures and state transitions. Per-run success confirmations
+          # are noise, especially during bulk drift rebuilds which fan out
+          # one showcase_deploy.yml run per service (up to ~18). The
+          # top-line ":package: Image drift detected — N rebuilds triggered"
+          # posted by showcase_smoke-monitor.yml is the aggregate success
+          # signal for bulk rebuilds; ad-hoc single-service pushes/dispatches
+          # stay quiet on success (the Actions UI is the source of truth).
           if [ "$DETECT" = "failure" ] || [ "$LOCKFILE" = "failure" ]; then
             MSG=":x: *Showcase deploy*: FAILED (pre-build check)"
           elif [ "$BUILD" = "success" ]; then
-            MSG=":white_check_mark: *Showcase deploy*: ${COUNT} service(s) deployed to Railway (${SERVICES})"
+            echo "Build succeeded — suppressing per-run success notification (policy: actionable-only)"
+            echo "should_post=false" >> "$GITHUB_OUTPUT"
+            exit 0
           elif [ "$BUILD" = "skipped" ] && [ "$DETECT" = "success" ]; then
-            MSG=":white_check_mark: *Showcase deploy*: no changes detected, nothing to deploy"
+            echo "No changes detected — suppressing notification (policy: actionable-only)"
+            echo "should_post=false" >> "$GITHUB_OUTPUT"
+            exit 0
           else
             MSG=":x: *Showcase deploy*: FAILED — ${COUNT} service(s) targeted (${SERVICES})"
           fi
@@ -482,7 +494,9 @@ jobs:
           echo "should_post=true" >> "$GITHUB_OUTPUT"
 
       - name: Post to Slack
-        if: always() && steps.payload.outputs.should_post == 'true'
+        if: always() && steps.payload.outputs.should_post == 'true' && env.SLACK_WEBHOOK_OSS_ALERTS != ''
+        env:
+          SLACK_WEBHOOK_OSS_ALERTS: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
