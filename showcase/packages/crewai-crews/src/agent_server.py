@@ -8,6 +8,17 @@ The Next.js CopilotKit runtime proxies requests here via AG-UI protocol.
 import logging
 import os
 
+# ORDER-CRITICAL: load .env and apply aimock redirection FIRST — before any
+# crewai / litellm / openai module is imported. Those modules can construct
+# clients at import time that latch onto OPENAI_BASE_URL / OPENAI_API_KEY as
+# they were at import, making later mutations invisible. Keep these two lines
+# at the very top of imports (after stdlib), above the crewai import below.
+from dotenv import load_dotenv
+from aimock_toggle import configure_aimock
+
+load_dotenv()
+configure_aimock()
+
 # HARDENING: CrewAI's ChatWithCrewFlow.__init__ (in ag_ui_crewai.crews) makes
 # blocking synchronous LLM calls via generate_crew_chat_inputs, which in turn
 # calls generate_input_description_with_ai and generate_crew_description_with_ai
@@ -83,10 +94,7 @@ import uvicorn
 from ag_ui_crewai.endpoint import add_crewai_crew_fastapi_endpoint
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
 from agents.crew import LatestAiDevelopment
-
-load_dotenv()
 
 app = FastAPI(title="CrewAI (Crews) Agent Server")
 
@@ -106,13 +114,21 @@ async def health():
 
 
 def main():
-    """Run the uvicorn server."""
+    """Run the uvicorn server.
+
+    `RELOAD` defaults to false (production-safe). Set RELOAD=1 / true / yes
+    for the local-dev watch-and-reload loop. Keeping reload off by default
+    prevents a deploy that runs `python agent_server.py` from accidentally
+    spawning uvicorn's reloader in prod (which forks extra workers and
+    breaks certain process supervisors).
+    """
     port = int(os.getenv("PORT", "8000"))
+    reload_flag = os.getenv("RELOAD", "").strip().lower() in {"1", "true", "yes", "on"}
     uvicorn.run(
         "agent_server:app",
         host="0.0.0.0",
         port=port,
-        reload=True,
+        reload=reload_flag,
     )
 
 
