@@ -411,9 +411,38 @@ function countLabel(s: CountState): string {
 }
 
 /**
+ * Structured return of {@link resolveExamplesSource}. The `source` field
+ * carries the resolved path (or null when nothing matched); the
+ * `unreadableForSlug` boolean is the classification signal consumed by
+ * {@link auditPackage}: when true, "all mapped candidates existed but
+ * every stat failed" — an infrastructure failure — and the anomaly
+ * routes to `unreadable-examples`, distinct from a benign stale
+ * mapping (`missing-examples`).
+ *
+ * The classification is carried as a tagged boolean rather than being
+ * re-derived from warning text so a reword of the human-readable
+ * warning (typo fix, i18n, docstring edit) cannot silently change the
+ * audit's behavior. See FX30-C Fix 1.
+ *
+ * Historically, `resolveExamplesSource` returned `string | null` and
+ * auditPackage scanned the warnings[] sink for `unreadable-candidates`
+ * substrings. That fragile coupling has been removed. Callers that
+ * only need the path can read `.source`; the legacy non-structured
+ * accessor has been removed along with the string-scan branch in
+ * auditPackage.
+ */
+interface ExamplesSourceResult {
+  readonly source: string | null;
+  readonly unreadableForSlug: boolean;
+}
+
+/**
  * Resolve a showcase slug to its examples/integrations counterpart.
- * Returns null if no candidate exists (which is OK for born-in-showcase
- * packages).
+ * Returns a structured {@link ExamplesSourceResult} — the `source` is
+ * null if no candidate exists (which is OK for born-in-showcase
+ * packages) and `unreadableForSlug` is the classification signal used
+ * by {@link auditPackage} to distinguish infrastructure failures from
+ * stale mappings.
  *
  * statSync is wrapped in try/catch — between existsSync and statSync
  * there's a real (if rare) race window on network filesystems, and we
@@ -431,7 +460,7 @@ function findExamplesSource(
   slug: string,
   cfg: AuditConfig,
   warnings?: string[],
-): string | null {
+): ExamplesSourceResult {
   return resolveExamplesSource(slug, SLUG_TO_EXAMPLES[slug], cfg, warnings);
 }
 
@@ -441,13 +470,19 @@ function findExamplesSource(
  * without relying on a specific SLUG_TO_EXAMPLES shape. Production
  * callers should use findExamplesSource; tests that need deterministic
  * multi-candidate behavior reach for this helper.
+ *
+ * Returns a structured {@link ExamplesSourceResult}: the `source` path
+ * on a hit, `null` + `unreadableForSlug: true` when all mapped
+ * candidates existed but every stat failed, and `null` +
+ * `unreadableForSlug: false` for a benign stale mapping or unmapped
+ * miss.
  */
 function resolveExamplesSource(
   slug: string,
   mapped: readonly string[] | undefined,
   cfg: AuditConfig,
   warnings?: string[],
-): string | null {
+): ExamplesSourceResult {
   const sink = warnings ?? [];
   const candidates = mapped ?? [slug];
   // Track outcomes per-candidate so we can distinguish "the mapped dirs
@@ -463,7 +498,10 @@ function resolveExamplesSource(
     existedCount++;
     try {
       if (fs.statSync(full).isDirectory()) {
-        return path.relative(cfg.repoRoot, full);
+        return {
+          source: path.relative(cfg.repoRoot, full),
+          unreadableForSlug: false,
+        };
       }
       // Unmapped slug whose candidate path exists but is a regular file
       // (or other non-dir entry — symlink-to-file, socket, etc.). This
@@ -493,12 +531,14 @@ function resolveExamplesSource(
   // Critical: mapped slug with multiple candidates that ALL exist but
   // ALL failed with fs errors. We can't tell whether the provenance is
   // satisfied — elevate to an ERROR warning so CI / JSON consumers can
-  // route this differently from a benign "no matching dir".
+  // route this differently from a benign "no matching dir". The
+  // structured `unreadableForSlug: true` return is the classification
+  // signal consumed by auditPackage — no string-substring scanning.
   if (mapped && existedCount > 0 && unreadableCount === existedCount) {
     sink.push(
       `audit: ERROR: all candidates unreadable for slug "${slug}" (category: unreadable-candidates) → [${mapped.join(", ")}]`,
     );
-    return null;
+    return { source: null, unreadableForSlug: true };
   }
   // If the slug was *explicitly* mapped but none of its mapped
   // candidates exist, the map is out of sync with the filesystem. Warn
@@ -511,7 +551,7 @@ function resolveExamplesSource(
       `audit: warning: SLUG_TO_EXAMPLES entry "${slug}" → [${mapped.join(", ")}] has no matching directory under ${cfg.examplesIntegrationsDir}`,
     );
   }
-  return null;
+  return { source: null, unreadableForSlug: false };
 }
 
 function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
@@ -525,9 +565,14 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
 
   // findExamplesSource records stale SLUG_TO_EXAMPLES / statSync-race
   // warnings on this explicit sink. Callers (main, CI) forward it to
-  // stderr; JSON consumers read it off `audit.warnings`.
+  // stderr; JSON consumers read it off `audit.warnings`. The tuple
+  // result carries the structured `unreadableForSlug` signal consumed
+  // below for anomaly classification — auditPackage NEVER reads the
+  // human-readable warning text to decide between unreadable-examples
+  // and missing-examples (that coupling was fragile; see FX30-C Fix 1).
   const warnings: string[] = [];
-  const examplesSource = findExamplesSource(slug, cfg, warnings);
+  const examplesResult = findExamplesSource(slug, cfg, warnings);
+  const examplesSource = examplesResult.source;
 
   // Pull demosDeclared directly from the validated manifest
   // (parseManifest guarantees demos is an array of objects and deployed,
@@ -622,16 +667,17 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
       if (examplesSource === null && !BORN_IN_SHOWCASE.has(slug)) {
         // Distinguish "mapping is stale / dir simply absent" from the
         // CRITICAL "all mapped candidates exist but none are readable"
-        // case that findExamplesSource records on the warnings sink.
-        // The latter is an infrastructure failure (permissions / I/O),
-        // not a provenance-missing signal — surface it as a separate
-        // anomaly variant so downstream consumers can route it
-        // differently (CI alerting, suggestions, etc.).
-        const unreadableTag = `unreadable-candidates`;
-        const unreadableWarningForSlug = warnings.find(
-          (w) => w.includes(unreadableTag) && w.includes(`"${slug}"`),
-        );
-        if (unreadableWarningForSlug) {
+        // case. The latter is an infrastructure failure (permissions /
+        // I/O), not a provenance-missing signal — surface it as a
+        // separate anomaly variant so downstream consumers can route
+        // it differently (CI alerting, suggestions, etc.).
+        //
+        // Classification is driven by the structured
+        // `unreadableForSlug` boolean on ExamplesSourceResult —
+        // explicitly NOT by substring-matching the human-readable
+        // warning text (pre-fix behavior). A reword of the warning
+        // wording MUST NOT change the anomaly classification.
+        if (examplesResult.unreadableForSlug) {
           anomalies.push({
             kind: "unreadable-examples",
             slug,
@@ -1536,6 +1582,7 @@ export type {
   AuditConfig,
   Anomaly,
   CountState,
+  ExamplesSourceResult,
   Manifest,
   ParsedManifest,
 };
