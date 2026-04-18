@@ -12,7 +12,11 @@
  *   npx tsx showcase/scripts/audit.ts --json --slug <slug> # single package, JSON
  *
  * Output sections (printed in this order):
- *   1. Per-package summary table (slug | demos | specs | qa | deployed | examples-src)
+ *   1. Per-package summary table. Columns render as:
+ *        slug | demos | specs | qa | deployed | examples src
+ *      The last column is addressable via the filter key `examples-src`
+ *      (hyphenated) but its rendered header label is `examples src`
+ *      (space) to keep the table visually consistent.
  *   2. Coverage anomalies (count mismatches, undeployed, missing examples source)
  *   3. Overall health (pass/fail counts + suggestions)
  *

@@ -589,11 +589,10 @@ function isExactSpec(spec: string): boolean {
   // permitted suffixes) pass, rejecting exotic bare-letter tails
   // like `1x`, `2X`, and `1e2`.
   //
-  // MAJOR.MINOR is required (MAJOR-only like `"1"` is rejected).
-  // This keeps bare-spec acceptance symmetric with the Python `==`
-  // form above, which already requires MAJOR.MINOR in its body —
-  // previously `"1"` passed the bare path while `"==1"` failed,
-  // producing inconsistent drift-report behavior across ecosystems.
+  // MAJOR.MINOR is required for bare versions so bare-spec acceptance
+  // is symmetric with the Python `==` form above (which rejects `==1`).
+  // MAJOR-only like `"1"` is rejected on both paths, keeping
+  // drift-report behavior consistent across ecosystems.
   if (!/^\d+\.\d+(?:\.\d+)?(?:[-+.][A-Za-z0-9.-]+)*$/.test(trimmed)) {
     return false;
   }
@@ -1305,12 +1304,12 @@ function collectDepsFromDir(rootDir: string): DepSources {
     } catch (e) {
       const err = e as NodeJS.ErrnoException;
       // A falsy throw (`throw null`, `throw undefined`, `throw ""`) carries
-      // zero diagnostic info. The prior version collapsed this into the
-      // ENOENT branch via `if (!err || err.code === "ENOENT") continue`,
-      // silently treating the candidate as absent and hiding whatever
-      // actually went wrong at the fs layer. Log a stderr breadcrumb AND
-      // classify as infra so the caller routes through UnreadableInputError
-      // → EXIT_UNREADABLE (3) rather than producing a false green.
+      // zero diagnostic info. Do not collapse into the ENOENT branch —
+      // treat as unreadable so the caller routes through
+      // UnreadableInputError → EXIT_UNREADABLE (3). Collapsing a falsy
+      // throw into "candidate absent" would hide fs-layer failures and
+      // produce a false green. Log a stderr breadcrumb AND classify as
+      // infra so operators see what actually went wrong.
       if (!err) {
         console.error(
           `[validate-pins] statSync on ${abs} threw a falsy value (${String(e)}); treating as unreadable input`,
@@ -1411,10 +1410,11 @@ function collectDepsFromDir(rootDir: string): DepSources {
       // over root files. This matches the intent documented above.
       // Track JS vs Python in separate maps at parse time so a
       // cross-ecosystem name collision (e.g. `openai` on both sides)
-      // cannot obliterate one side's spec. Before this change, the
-      // comparator derived JS deps via `diffMaps(deps, pythonDeps)`
-      // which dropped the JS dep ENTIRELY when its name also
-      // appeared in `pythonDeps`.
+      // cannot obliterate one side's spec. A shared map would require
+      // deriving JS deps via `diffMaps(deps, pythonDeps)`, which drops
+      // the JS dep ENTIRELY whenever its name also appears in
+      // `pythonDeps` — unacceptable because both sides must be
+      // compared independently.
       if (fromPython) {
         if (!(name in result.pythonDeps)) {
           result.pythonDeps[name] = spec;
@@ -1728,12 +1728,11 @@ function validateAll(): Report {
     // above and we must not ALSO emit anything because that
     // double-counts and muddles the signal.
     //
-    // Changed from [WARN] to [FAIL]: a showcase package with zero dep
-    // files is structurally wrong — it cannot possibly demonstrate a
-    // framework integration because it has no declared runtime
-    // dependencies. Catching this as a FAIL at CI time is far better
-    // than silently marking the whole package OK because there was
-    // nothing to compare against.
+    // A showcase package with zero dep files is structurally wrong —
+    // it cannot possibly demonstrate a framework integration because
+    // it has no declared runtime dependencies. Emit [FAIL] (not
+    // [WARN]) so CI catches it rather than silently marking the
+    // package OK just because there was nothing to compare against.
     if (showcase.files.length === 0) {
       if (showcase.filesAttempted === 0) {
         report.fail.push(
@@ -1882,8 +1881,9 @@ function validateAll(): Report {
       }
 
       if (!sc && dj) {
-        // Dojo pins a framework dep that's entirely missing in showcase —
-        // silent drift that the old validator would miss.
+        // Dojo pins a framework dep that's entirely missing in showcase.
+        // Surface as FAIL (or WARN for workspace refs below) so the
+        // missing dep is never silently dropped from the drift report.
         if (isWorkspaceRef(dj.spec)) {
           // Dojo uses a workspace ref but showcase has NO entry for this
           // dep at all. A workspace ref does not give us a version to

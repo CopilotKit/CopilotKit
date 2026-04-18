@@ -1009,17 +1009,18 @@ function runParityImpl(
     return EXIT_MUST_FAILURE;
   }
 
-  // Per-slug isolation: if one auditPackage throws (e.g. a bug surfaces
-  // a non-Manifest{Malformed,Unreadable}Error that the auditPackage
-  // catch-all re-wraps with the slug), we MUST still audit remaining
-  // slugs. Prior to this isolation a single throw aborted the entire
-  // batch via slugs.map and silently dropped every later package —
-  // masking drift. Crashes are captured as a typed "crashed" PackageIssue
-  // on a synthetic PackageReport so they appear in the summary table
-  // and per-slug FAIL lines alongside legitimate failures. `hasCrash`
-  // drives EXIT_INTERNAL so CI still fails loud on an internal bug
-  // (distinct from EXIT_MUST_FAILURE so operators can disambiguate
-  // "tests tell me a demo is missing" from "the tool itself crashed").
+  // Per-slug isolation: each slug's audit is wrapped in try/catch so a
+  // crash in one slug (e.g. a bug that surfaces a
+  // non-Manifest{Malformed,Unreadable}Error the auditPackage catch-all
+  // re-wraps with the slug) does not abort the batch. Without isolation
+  // a single throw would propagate through `slugs.map` and silently
+  // drop every later package, masking drift. Crashes surface as a
+  // typed "crashed" PackageIssue on a synthetic PackageReport so they
+  // appear in the summary table and per-slug FAIL lines alongside
+  // legitimate failures. `hasCrash` drives EXIT_INTERNAL so CI fails
+  // loud on an internal bug (distinct from EXIT_MUST_FAILURE so
+  // operators can disambiguate "tests tell me a demo is missing" from
+  // "the tool itself crashed").
   let hasCrash = false;
   const reports: PackageReport[] = [];
   for (const s of slugs) {
