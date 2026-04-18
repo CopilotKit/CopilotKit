@@ -1,211 +1,152 @@
 "use client";
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
+  CopilotKit,
   CopilotChat,
   useAgent,
   UseAgentUpdate,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
-interface AgentState {
-  steps: {
-    description: string;
-    status: "pending" | "completed";
-  }[];
-}
-
+/**
+ * Agentic Generative UI — In-Chat State Rendering
+ *
+ * Demonstrates how to render intermediate agent state inline within the chat
+ * transcript while a long-running agent task is in progress. The previous
+ * v1 API `useCoAgentStateRender` has been replaced: in v2 you subscribe to
+ * state updates via `useAgent({ updates: [OnStateChanged, OnRunStatusChanged] })`
+ * and inject the rendered card through the `messageView.children` slot on
+ * `<CopilotChat />`.
+ */
 export default function GenUiAgentDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-agent">
-      <Chat />
+      <div className="flex justify-center items-center h-screen w-full">
+        <div className="h-full w-full max-w-4xl">
+          <Chat />
+        </div>
+      </div>
     </CopilotKit>
   );
 }
 
+// The agent's state shape is open-ended; we render whatever keys it emits.
+type AgentState = Record<string, unknown> | undefined;
+
 function Chat() {
+  // Subscribe to state + run-status changes so the inline progress card
+  // re-renders whenever the agent emits a state update or toggles isRunning.
   const { agent } = useAgent({
     agentId: "gen-ui-agent",
-    updates: [UseAgentUpdate.OnStateChanged],
+    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
   });
-
-  const agentState = agent.state as AgentState | undefined;
 
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Simple plan",
-        message: "Please build a plan to go to mars in 5 steps.",
+        title: "Run a 3-step task",
+        message:
+          "Run a 3-step task: fetch data, process it, then summarize the result.",
       },
       {
-        title: "Complex plan",
-        message: "Please build a plan to make pizza in 10 steps.",
+        title: "Plan a project",
+        message: "Break this down into steps: planning a small web app launch.",
       },
     ],
     available: "always",
   });
 
-  const steps = agentState?.steps;
+  const agentState = agent.state as AgentState;
+  const isRunning = agent.isRunning;
+
+  const stateEntries = agentState
+    ? Object.entries(agentState).filter(
+        ([, v]) => v !== undefined && v !== null,
+      )
+    : [];
 
   return (
-    <div className="flex justify-center items-center h-full w-full">
-      <div className="h-full w-full md:w-4/5 md:h-4/5 rounded-lg">
-        <CopilotChat
-          agentId="gen-ui-agent"
-          className="h-full rounded-2xl max-w-6xl mx-auto"
-          messageView={{
-            children: ({ messageElements, interruptElement }) => (
-              <div data-testid="copilot-message-list" className="flex flex-col">
-                {messageElements}
-                {steps && steps.length > 0 && (
-                  <div className="my-4">
-                    <TaskProgress steps={steps} />
-                  </div>
-                )}
-                {interruptElement}
-              </div>
-            ),
-          }}
-        />
-      </div>
-    </div>
+    <CopilotChat
+      agentId="gen-ui-agent"
+      className="h-full rounded-2xl"
+      messageView={{
+        children: ({ messageElements, interruptElement }) => (
+          <div
+            data-testid="copilot-message-list"
+            className="flex flex-col gap-2"
+          >
+            {messageElements}
+            {(isRunning || stateEntries.length > 0) && (
+              <InlineAgentStateCard
+                isRunning={isRunning}
+                stateEntries={stateEntries}
+              />
+            )}
+            {interruptElement}
+          </div>
+        ),
+      }}
+    />
   );
 }
 
-function TaskProgress({ steps }: { steps: AgentState["steps"] }) {
-  const completedCount = steps.filter(
-    (step) => step.status === "completed",
-  ).length;
-  const progressPercentage = (completedCount / steps.length) * 100;
-
+function InlineAgentStateCard({
+  isRunning,
+  stateEntries,
+}: {
+  isRunning: boolean;
+  stateEntries: [string, unknown][];
+}) {
   return (
-    <div className="flex justify-center w-full px-4">
-      <div
-        data-testid="task-progress"
-        className="relative rounded-xl w-[700px] p-6 shadow-lg backdrop-blur-sm bg-gradient-to-br from-white via-gray-50 to-white text-gray-800 border border-gray-200/80"
-      >
-        {/* Header */}
-        <div className="mb-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Task Progress
-            </h3>
-            <div className="text-sm text-gray-500">
-              {completedCount}/{steps.length} Complete
-            </div>
-          </div>
-
-          <div className="relative h-2 rounded-full overflow-hidden bg-gray-200">
-            <div
-              className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-1000 ease-out"
-              style={{ width: `${progressPercentage}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Steps */}
-        <div className="space-y-2">
-          {steps.map((step, index) => {
-            const isCompleted = step.status === "completed";
-            const isCurrentPending =
-              step.status === "pending" &&
-              index === steps.findIndex((s) => s.status === "pending");
-
-            return (
-              <div
-                key={index}
-                className={`relative flex items-center p-2.5 rounded-lg transition-all duration-500 ${
-                  isCompleted
-                    ? "bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200/60"
-                    : isCurrentPending
-                      ? "bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200/60 shadow-md shadow-blue-200/50"
-                      : "bg-gray-50/50 border border-gray-200/60"
-                }`}
-              >
-                {/* Connector Line */}
-                {index < steps.length - 1 && (
-                  <div className="absolute left-5 top-full w-0.5 h-2 bg-gradient-to-b from-gray-300 to-gray-400" />
-                )}
-
-                {/* Status Icon */}
-                <div
-                  className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center mr-2 ${
-                    isCompleted
-                      ? "bg-gradient-to-br from-green-500 to-emerald-600 shadow-md shadow-green-200"
-                      : isCurrentPending
-                        ? "bg-gradient-to-br from-blue-500 to-purple-600 shadow-md shadow-blue-200"
-                        : "bg-gray-300 border border-gray-400"
-                  }`}
-                >
-                  {isCompleted ? (
-                    <CheckIcon />
-                  ) : isCurrentPending ? (
-                    <SpinnerIcon />
-                  ) : (
-                    <ClockIcon />
-                  )}
-                </div>
-
-                {/* Step Content */}
-                <div className="flex-1 min-w-0">
-                  <div
-                    data-testid="task-step-text"
-                    className={`font-semibold transition-all duration-300 text-sm ${
-                      isCompleted
-                        ? "text-green-700"
-                        : isCurrentPending
-                          ? "text-blue-700 text-base"
-                          : "text-gray-500"
-                    }`}
-                  >
-                    {step.description}
-                  </div>
-                  {isCurrentPending && (
-                    <div className="text-sm mt-1 animate-pulse text-blue-600">
-                      Processing...
-                    </div>
-                  )}
-                </div>
-
-                {isCurrentPending && (
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-r animate-pulse from-blue-100/50 to-purple-100/50" />
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Decorative Elements */}
-        <div className="absolute top-3 right-3 w-16 h-16 rounded-full blur-xl bg-gradient-to-br from-blue-200/30 to-purple-200/30" />
-        <div className="absolute bottom-3 left-3 w-12 h-12 rounded-full blur-xl bg-gradient-to-br from-green-200/30 to-emerald-200/30" />
-      </div>
-    </div>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      className="w-4 h-4 text-white"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
+    <div
+      data-testid="agent-state-card"
+      className="my-3 mx-4 rounded-xl border border-gray-200 bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4 shadow-sm"
     >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={3}
-        d="M5 13l4 4L19 7"
-      />
-    </svg>
+      <div className="flex items-center gap-2">
+        {isRunning ? <SpinnerIcon /> : <CheckIcon />}
+        <span className="text-sm font-semibold text-gray-800">
+          {isRunning ? "Agent working…" : "Agent idle"}
+        </span>
+      </div>
+
+      {stateEntries.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          {stateEntries.map(([key, value]) => (
+            <div
+              key={key}
+              data-testid="agent-state-entry"
+              className="flex items-start gap-2 text-xs"
+            >
+              <span className="font-medium text-gray-600">{key}:</span>
+              <span className="font-mono text-gray-800 break-all">
+                {formatValue(value)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
+}
+
+function formatValue(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  try {
+    const json = JSON.stringify(value);
+    return json.length > 120 ? json.slice(0, 117) + "…" : json;
+  } catch {
+    return String(value);
+  }
 }
 
 function SpinnerIcon() {
   return (
     <svg
-      className="w-4 h-4 animate-spin text-white"
+      className="w-4 h-4 animate-spin text-blue-600"
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
@@ -227,16 +168,20 @@ function SpinnerIcon() {
   );
 }
 
-function ClockIcon() {
+function CheckIcon() {
   return (
     <svg
-      className="w-3 h-3 text-gray-600"
+      className="w-4 h-4 text-green-600"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
     >
-      <circle cx="12" cy="12" r="10" strokeWidth="2" />
-      <polyline points="12,6 12,12 16,14" strokeWidth="2" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={3}
+        d="M5 13l4 4L19 7"
+      />
     </svg>
   );
 }
