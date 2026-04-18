@@ -316,10 +316,15 @@ jobs:
       # pinging the OSS alerts channel. Tradeoff: a broken PR that sneaks
       # past review won't alert Slack until after merge.
       - name: Notify Slack (failure)
-        if: failure() && github.event_name == 'push'
+        if: failure() && github.event_name == 'push' && secrets.SLACK_WEBHOOK_OSS_ALERTS != ''
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload: |
             { "text": ":x: *Showcase validate*: failed | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+
+      - name: Log (no Slack — webhook unset)
+        if: failure() && github.event_name == 'push' && secrets.SLACK_WEBHOOK_OSS_ALERTS == ''
+        run: |
+          echo "::warning::showcase_validate failed on push but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
