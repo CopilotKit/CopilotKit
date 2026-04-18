@@ -27,8 +27,15 @@ internal sealed class SharedStateAgent : DelegatingAIAgent
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         if (options is not ChatClientAgentRunOptions { ChatOptions.AdditionalProperties: { } properties } chatRunOptions ||
-            !properties.TryGetValue("ag_ui_state", out JsonElement state))
+            !properties.TryGetValue("ag_ui_state", out JsonElement state) ||
+            !StateContainsSalesData(state))
         {
+            // Either there's no AG-UI state attached, or the attached state has no
+            // sales data to synchronize. Either way, skip the structured-output
+            // two-pass flow (which forces ResponseFormat=json) and run the agent
+            // normally so text replies stream through. Forcing JSON output on a
+            // plain chat prompt like "hello" produces an unparseable sales snapshot
+            // and yields nothing to the client — that was the L3 smoke failure.
             await foreach (var update in InnerAgent.RunStreamingAsync(messages, thread, options, cancellationToken).ConfigureAwait(false))
             {
                 yield return update;
@@ -98,5 +105,24 @@ internal sealed class SharedStateAgent : DelegatingAIAgent
         {
             yield return update;
         }
+    }
+
+    // The state-snapshot two-pass flow is only meaningful when the shared state
+    // actually carries sales data (i.e. the page-of-demos that exercises the
+    // sales pipeline). For generic demos like agentic-chat the state payload is
+    // an empty object and we must not force JSON-schema output on the model.
+    private static bool StateContainsSalesData(JsonElement state)
+    {
+        if (state.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        if (!state.TryGetProperty("todos", out var todos))
+        {
+            return false;
+        }
+
+        return todos.ValueKind == JsonValueKind.Array && todos.GetArrayLength() > 0;
     }
 }
