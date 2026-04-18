@@ -388,10 +388,12 @@ describe("validate-parity", () => {
         fs.writeFileSync(path.join(pkgDir, "manifest.yaml"), "", "utf-8");
         const report = auditPackage("empty", tmp);
         expect(report.mustErrors.length).toBeGreaterThan(0);
+        // Pin the CATEGORY (structured field) instead of a regex against
+        // the rendered message — category-level assertions survive
+        // message-text refactors and can't be satisfied by an unrelated
+        // issue that merely contains the string "manifest.yaml".
         expect(
-          report.mustErrors.some((e) =>
-            /manifest\.yaml/.test(deriveMessage(e)),
-          ),
+          report.mustErrors.some((e) => e.category === "malformed-manifest"),
         ).toBe(true);
       } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
@@ -414,10 +416,9 @@ describe("validate-parity", () => {
         );
         const report = auditPackage("scalar", tmp);
         expect(report.mustErrors.length).toBeGreaterThan(0);
+        // Category-level assertion — see rationale above.
         expect(
-          report.mustErrors.some((e) =>
-            /manifest\.yaml/.test(deriveMessage(e)),
-          ),
+          report.mustErrors.some((e) => e.category === "malformed-manifest"),
         ).toBe(true);
       } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
@@ -1411,7 +1412,11 @@ describe("validate-parity", () => {
         env: { VALIDATE_PARITY_REPO_ROOT: tree.root },
       });
       expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(3);
-      expect(r.stderr).toMatch(/packages/i);
+      // Tighten from /packages/i — that would also match log lines that
+      // merely name the string "packages". Pin the actual failure
+      // message so a regression that exits 3 for some other reason
+      // can't slip through.
+      expect(r.stderr).toMatch(/packages directory not found/);
     });
 
     it("exits 3 (unreadable) when readdirSync on packages dir throws", () => {

@@ -1644,6 +1644,21 @@ describe("main() exit codes via CLI subprocess", () => {
       env: { SHOWCASE_AUDIT_ROOT: root },
     });
     expect(r.status, r.stdout + r.stderr).toBe(0);
+    // Positive stdout assertions: a regression that truncates stdout or
+    // drops the summary/table would slip past a r.status-only check.
+    // Pin the column headers as whole tokens, the Overall health
+    // counters, and the clean-state affirmation line.
+    expect(r.stdout).toMatch(/\bslug\b/);
+    expect(r.stdout).toMatch(/\bdemos\b/);
+    expect(r.stdout).toMatch(/\bspecs\b/);
+    expect(r.stdout).toMatch(/\bdeployed\b/);
+    expect(r.stdout).toMatch(/\bexamples src\b/);
+    expect(r.stdout).toMatch(/Packages total:\s+1/);
+    expect(r.stdout).toMatch(/Clean:\s+1/);
+    expect(r.stdout).toMatch(/With anomalies:\s+0/);
+    expect(r.stdout).toMatch(/All packages pass coverage audit/);
+    // The fixture slug must appear as its own row in the table.
+    expect(r.stdout).toMatch(/\bcrewai-crews\b/);
   });
 
   it("exits 1 when anomalies are found", () => {
@@ -1656,6 +1671,13 @@ describe("main() exit codes via CLI subprocess", () => {
       env: { SHOWCASE_AUDIT_ROOT: root },
     });
     expect(r.status, r.stdout + r.stderr).toBe(1);
+    // Positive stdout assertions: the anomaly report must include the
+    // slug and at least one of the expected anomaly categories for the
+    // fixture (count mismatch, not deployed, missing examples).
+    expect(r.stdout).toMatch(/\bbad\b/);
+    expect(r.stdout).toMatch(/Coverage anomalies/);
+    expect(r.stdout).toMatch(/Packages total:\s+1/);
+    expect(r.stdout).toMatch(/With anomalies:\s+1/);
   });
 
   it("exits 3 (unreadable) when SHOWCASE_AUDIT_ROOT points to missing packages dir", () => {
@@ -1667,7 +1689,11 @@ describe("main() exit codes via CLI subprocess", () => {
         env: { SHOWCASE_AUDIT_ROOT: empty },
       });
       expect(r.status, r.stdout + r.stderr).toBe(3);
-      expect(r.stderr).toMatch(/packages/i);
+      // Tighten from /packages/i — that would also match log lines that
+      // merely name the string "packages". Pin the specific diagnostic
+      // phrase so a regression that swallows the reason (and exits 3
+      // for some other cause) can't slip through.
+      expect(r.stderr).toMatch(/packages dir does not exist/);
     } finally {
       fs.rmSync(empty, { recursive: true, force: true });
     }
@@ -1804,7 +1830,17 @@ describe("main() exit codes via CLI subprocess", () => {
     const r = runCli([], {
       env: { SHOWCASE_AUDIT_ROOT: root },
     });
+    // Tighten from bare /audit: warning:/ — that would also accept any
+    // unrelated warning. Pin:
+    //   - the "audit: warning:" prefix (routing)
+    //   - the specific slug ("mastra") that triggered it
+    //   - the SLUG_TO_EXAMPLES phrase that identifies this as the
+    //     stale-mapping diagnostic, not some other warning
     expect(r.stderr).toMatch(/audit: warning:/);
+    expect(r.stderr).toMatch(
+      new RegExp(`audit: warning: SLUG_TO_EXAMPLES entry "${mappedSlug}"`),
+    );
+    expect(r.stderr).toMatch(/has no matching directory/);
   });
 
   it("exits 4 (internal error) on unexpected exceptions", () => {
@@ -2587,10 +2623,18 @@ describe("main() --columns via CLI subprocess", () => {
     });
     expect(r.status, r.stdout + r.stderr).toBe(0);
     // Full columns include "deployed" and "examples src"; filtered
-    // output must NOT include those labels.
-    expect(r.stdout).toContain("slug");
-    expect(r.stdout).toContain("demos");
+    // output must NOT include those labels. Column headers checked
+    // as whole tokens — "slug" naked matches any line with the word
+    // (e.g. "crewai-crews" row) so pin a header-context regex.
+    expect(r.stdout).toMatch(/\bslug\b/);
+    expect(r.stdout).toMatch(/\bdemos\b/);
+    expect(r.stdout).not.toMatch(/\bdeployed\b/);
     expect(r.stdout).not.toContain("examples src");
+    // The fixture slug must appear as its own data row.
+    expect(r.stdout).toMatch(/\bcrewai-crews\b/);
+    // And the Overall health summary must still render even with a
+    // filtered table.
+    expect(r.stdout).toMatch(/Packages total:\s+1/);
   });
 });
 
