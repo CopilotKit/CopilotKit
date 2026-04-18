@@ -216,8 +216,11 @@ export interface ListResult {
  * List subdirectories of `p`. Non-existent paths return { entries: [],
  * warnings: [] }. Read errors (EACCES, I/O, etc.) return empty entries
  * AND a `listing-failed` warning so the caller can include it in the
- * PackageReport's `warnings` array. Also logs to stderr so summary
- * counts and stderr output agree.
+ * PackageReport's `warnings` array. The caller is responsible for
+ * emitting the stderr `[WARN]` line via deriveMessage — helpers do NOT
+ * log directly, otherwise operators see a duplicated warning line
+ * (once from the helper, once from the caller's iteration over
+ * `warnings[]`).
  */
 export function listDirs(p: string): ListResult {
   if (!fs.existsSync(p)) return { entries: [], warnings: [] };
@@ -235,7 +238,6 @@ export function listDirs(p: string): ListResult {
       path: p,
       error: msg,
     };
-    console.error(`[WARN] ${deriveMessage(issue)}`);
     return { entries: [], warnings: [issue] };
   }
 }
@@ -243,7 +245,7 @@ export function listDirs(p: string): ListResult {
 /**
  * List files in `p` with the given suffix. Same error-handling contract
  * as listDirs: missing dir → empty ListResult; read error → empty entries
- * + listing-failed warning, and stderr log.
+ * + listing-failed warning. Caller emits the stderr `[WARN]` line.
  *
  * Bare-suffix filenames (e.g. a file literally named `.spec.ts` or
  * `.md`) are silently skipped: after stripping the suffix they would
@@ -273,7 +275,6 @@ export function listFiles(p: string, suffix: string): ListResult {
       path: p,
       error: msg,
     };
-    console.error(`[WARN] ${deriveMessage(issue)}`);
     return { entries: [], warnings: [issue] };
   }
 }
@@ -427,8 +428,12 @@ export function auditPackage(
       // future loadManifest refactor, etc.) — re-throw so the CLI's
       // top-level catch surfaces [INTERNAL ERROR] with EXIT_INTERNAL.
       // Silently bucketing these as malformed-manifest would hide real
-      // defects behind a legitimate-looking taxonomy entry.
-      throw err;
+      // defects behind a legitimate-looking taxonomy entry. Wrap with
+      // the package slug so operators see which package triggered the
+      // crash; the original error rides along via `cause` so stacks /
+      // errno / etc. remain inspectable.
+      const origMsg = err instanceof Error ? err.message : String(err);
+      throw new Error(`audit of ${slug} crashed: ${origMsg}`, { cause: err });
     }
     // Don't early-return: we still return the report with spec/qa/demo
     // dir counts populated so the table row is accurate. MUST error
@@ -515,8 +520,12 @@ export function auditPackage(
   // SHOULD: spec count >= demo count. Spec count EXCEEDING demo count is
   // legitimate (e.g. a cross-demo spec covers renderer selection for
   // multiple demos and is intentionally not tied to a single declared
-  // demo), so we only warn on UNDER-coverage.
-  if (specFiles.length < demoIds.length) {
+  // demo), so we only warn on UNDER-coverage. Suppressed when the
+  // tests/e2e/ dir itself is unreadable — the elevated
+  // `unreadable-specs-dir` MUST is the authoritative signal; a spurious
+  // "0 < N" coverage warning on top of it would bury the EACCES root
+  // cause, same rationale as the per-demo missing-spec suppression above.
+  if (!specsDirUnreadable && specFiles.length < demoIds.length) {
     warnings.push({
       category: "spec-under-coverage",
       specCount: specFiles.length,
@@ -524,8 +533,9 @@ export function auditPackage(
     });
   }
 
-  // SHOULD: qa count >= demo count
-  if (qaFiles.length < demoIds.length) {
+  // SHOULD: qa count >= demo count. Suppressed when qa/ is unreadable —
+  // see spec-under-coverage rationale above.
+  if (!qaDirUnreadable && qaFiles.length < demoIds.length) {
     warnings.push({
       category: "qa-under-coverage",
       qaCount: qaFiles.length,

@@ -712,6 +712,13 @@ describe("validate-parity", () => {
               w.category === "listing-failed" && /tests\/e2e/.test(w.path),
           );
           expect(listingFailedSpecs.length).toBe(0);
+          // Aggregate spec-under-coverage warning also suppressed —
+          // otherwise operators see "0 < 3" coverage noise on top of
+          // the EACCES root cause, burying the actionable signal.
+          const specUnderCoverage = report.warnings.filter(
+            (w) => w.category === "spec-under-coverage",
+          );
+          expect(specUnderCoverage.length).toBe(0);
           // Sanity: qa cascade NOT suppressed (unrelated dir).
           const missingQa = report.warnings.filter(
             (w) => w.category === "missing-qa",
@@ -791,6 +798,13 @@ describe("validate-parity", () => {
             (w) => w.category === "listing-failed" && /\/qa$/.test(w.path),
           );
           expect(listingFailedQa.length).toBe(0);
+          // Aggregate qa-under-coverage warning also suppressed — an
+          // unreadable qa dir is the root cause; emitting "0 < 2"
+          // coverage noise on top would bury the actionable EACCES.
+          const qaUnderCoverage = report.warnings.filter(
+            (w) => w.category === "qa-under-coverage",
+          );
+          expect(qaUnderCoverage.length).toBe(0);
         } finally {
           readdirSpy.mockRestore();
           warnSpy.mockRestore();
@@ -848,24 +862,28 @@ describe("validate-parity", () => {
       }
     });
 
-    it("re-throws unknown (non-manifest) errors from loadManifest instead of mislabelling them as malformed-manifest", () => {
+    it("re-throws unknown (non-manifest) errors from loadManifest wrapped with the package slug for operator context", () => {
       // If loadManifest throws an error that is NOT a
       // ManifestMalformedError / ManifestUnreadableError — e.g. a
       // TypeError surfaced from a bug — auditPackage must NOT silently
       // bucket it as `malformed-manifest` (which would hide the real
-      // defect). The catch-all branch should re-throw so the top-level
-      // CLI handler surfaces an [INTERNAL ERROR] with EXIT_INTERNAL.
+      // defect). The catch-all branch re-throws (wrapped with the
+      // slug for context, cause chain preserved) so the top-level CLI
+      // handler surfaces an [INTERNAL ERROR] with EXIT_INTERNAL and
+      // operators know which package triggered the crash.
       //
-      // We force loadManifest to throw a TypeError by monkey-patching
-      // fs.readFileSync (which parseManifest calls through
-      // loadManifest) to throw. parseManifest itself catches readFileSync
-      // failures and converts to { kind: "unreadable" }, so we instead
-      // patch fs.readdirSync? — no: loadManifest doesn't call that.
-      // Instead: patch Object.freeze to throw (parseManifest uses it
-      // late, after validation, to seal the result). A TypeError from
-      // Object.freeze is NOT a ManifestMalformed/Unreadable error, so
-      // loadManifest's own switch will not rewrap it — it will propagate
-      // up to auditPackage where the catch-all else lives.
+      // Targeted injection: use vi.spyOn on Object.freeze so vitest
+      // auto-restores at test end even if an assertion throws (the
+      // previous implementation assigned to `Object.freeze` directly
+      // and relied on a try/finally to unwind — a bug in the try block
+      // could leave Object.freeze broken for the whole process).
+      // parseManifest deep-freezes each validated demo object OUTSIDE
+      // the readFileSync / yaml.parse try/catch boundaries, so a
+      // synthetic TypeError thrown from freeze propagates past
+      // parseManifest's classifier and lands in auditPackage's
+      // catch-all re-throw branch — exactly the code path under test.
+      // We scope the freeze-throws to objects with a stringy `id`
+      // field, leaving unrelated freeze calls in the harness alone.
       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-unknown-err-"));
       try {
         const pkgDir = path.join(tmp, "ok-pkg");
@@ -875,13 +893,11 @@ describe("validate-parity", () => {
           "slug: ok-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
           "utf-8",
         );
-        const originalFreeze = Object.freeze;
         const sentinel = new TypeError("synthetic non-manifest failure");
-        try {
-          Object.freeze = ((o: unknown) => {
-            // Only throw once parseManifest is actually freezing demo
-            // objects (they have a stringy id). Leaves other freeze
-            // calls in the test harness untouched.
+        const originalFreeze = Object.freeze;
+        const freezeSpy = vi
+          .spyOn(Object, "freeze")
+          .mockImplementation(((o: unknown) => {
             if (
               o !== null &&
               typeof o === "object" &&
@@ -890,10 +906,25 @@ describe("validate-parity", () => {
               throw sentinel;
             }
             return originalFreeze(o as object);
-          }) as typeof Object.freeze;
-          expect(() => auditPackage("ok-pkg", tmp)).toThrow(sentinel);
+          }) as typeof Object.freeze);
+        try {
+          // Behavioural guarantee: the error propagates (not bucketed as
+          // malformed-manifest) AND carries the slug for operator
+          // context, with the original sentinel preserved via `cause`.
+          let caught: unknown;
+          try {
+            auditPackage("ok-pkg", tmp);
+          } catch (err) {
+            caught = err;
+          }
+          expect(caught).toBeInstanceOf(Error);
+          expect((caught as Error).message).toMatch(/audit of ok-pkg crashed/);
+          expect((caught as Error).message).toContain(
+            "synthetic non-manifest failure",
+          );
+          expect((caught as Error & { cause?: unknown }).cause).toBe(sentinel);
         } finally {
-          Object.freeze = originalFreeze;
+          freezeSpy.mockRestore();
         }
       } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
@@ -957,14 +988,20 @@ describe("validate-parity", () => {
       expect(result.warnings).toEqual([]);
     });
 
-    it("listDirs returns empty entries + a listing-failed warning on readdir failure", () => {
+    it("listDirs returns empty entries + a listing-failed warning on readdir failure without emitting stderr directly", () => {
       // Mock readdirSync to throw — avoids chmod-based tests that fail
       // as root or on Windows and that leave behind tmpdirs that
       // cleanup can't remove.
+      //
+      // Contract: the helper does NOT write to stderr. Downstream
+      // (auditPackage → runParity) is responsible for emitting the
+      // single [WARN] line via deriveMessage. Helpers that log
+      // independently cause duplicate stderr output when the warning
+      // is also iterated by the caller.
       const blocked = path.join(tmpDir, "blocked");
       fs.mkdirSync(blocked);
 
-      const warnSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const readdirSpy = vi
         .spyOn(fs, "readdirSync")
         .mockImplementation((): never => {
@@ -977,13 +1014,10 @@ describe("validate-parity", () => {
       try {
         const result = listDirs(blocked);
         expect(result.entries).toEqual([]);
-        // The stderr log fires — assert on a pattern, not exact call count,
-        // to keep the contract loose enough to survive future refactors.
-        expect(warnSpy).toHaveBeenCalledWith(
-          expect.stringMatching(/\[WARN\] failed to read directory .*blocked/),
-        );
-        // And the warning is ALSO returned in the ListResult — ensures
-        // summary counts match what we emit on stderr.
+        // Helper itself stays silent — caller owns the single emission.
+        expect(errSpy).not.toHaveBeenCalled();
+        // The warning is returned in the ListResult so the caller can
+        // merge it into the PackageReport and surface it exactly once.
         expect(result.warnings.length).toBe(1);
         expect(result.warnings[0].category).toBe("listing-failed");
         expect(deriveMessage(result.warnings[0])).toMatch(
@@ -991,15 +1025,15 @@ describe("validate-parity", () => {
         );
       } finally {
         readdirSpy.mockRestore();
-        warnSpy.mockRestore();
+        errSpy.mockRestore();
       }
     });
 
-    it("listFiles returns empty entries + a listing-failed warning on readdir failure", () => {
+    it("listFiles returns empty entries + a listing-failed warning on readdir failure without emitting stderr directly", () => {
       const blocked = path.join(tmpDir, "blocked-files");
       fs.mkdirSync(blocked);
 
-      const warnSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const readdirSpy = vi
         .spyOn(fs, "readdirSync")
         .mockImplementation((): never => {
@@ -1012,11 +1046,8 @@ describe("validate-parity", () => {
       try {
         const result = listFiles(blocked, ".md");
         expect(result.entries).toEqual([]);
-        expect(warnSpy).toHaveBeenCalledWith(
-          expect.stringMatching(
-            /\[WARN\] failed to read directory .*blocked-files/,
-          ),
-        );
+        // Helper itself stays silent — caller owns the single emission.
+        expect(errSpy).not.toHaveBeenCalled();
         expect(result.warnings.length).toBe(1);
         expect(result.warnings[0].category).toBe("listing-failed");
         expect(deriveMessage(result.warnings[0])).toMatch(
@@ -1024,7 +1055,82 @@ describe("validate-parity", () => {
         );
       } finally {
         readdirSpy.mockRestore();
-        warnSpy.mockRestore();
+        errSpy.mockRestore();
+      }
+    });
+
+    it("runParity emits exactly one [WARN] line per listing failure (no duplicate from helper)", () => {
+      // End-to-end guarantee for the single-emission contract:
+      // auditPackage routes listing-failed through warnings[] and
+      // runParity iterates warnings to emit one line each. The helper
+      // must not also log, otherwise the operator sees N*2 lines.
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-singleemit-"));
+      try {
+        // Build a package with a readable demos dir but unreadable
+        // tests/e2e — listDirs succeeds on demos, listFiles fails on
+        // tests/e2e producing ONE listing-failed warning (which then
+        // gets elevated to unreadable-specs-dir MUST — so we instead
+        // trigger a scenario that leaves listing-failed in warnings).
+        //
+        // Simpler: unreadable a non-elevated path by making demos dir
+        // exist but inaccessible at a non-target sub-location. The
+        // existing elevation only suppresses duplicates for the three
+        // known target paths, so to assert the no-duplicate property we
+        // pick a target path (tests/e2e) and verify elevation path ALSO
+        // emits no duplicate stderr line.
+        const pkgDir = path.join(tmp, "one-warn");
+        fs.mkdirSync(path.join(pkgDir, "src", "app", "demos", "a"), {
+          recursive: true,
+        });
+        fs.mkdirSync(path.join(pkgDir, "tests", "e2e"), { recursive: true });
+        fs.mkdirSync(path.join(pkgDir, "qa"), { recursive: true });
+        fs.writeFileSync(path.join(pkgDir, "qa", "a.md"), "", "utf-8");
+        fs.writeFileSync(
+          path.join(pkgDir, "manifest.yaml"),
+          "slug: one-warn\ndemos:\n  - id: a\n",
+          "utf-8",
+        );
+        const origReaddir = fs.readdirSync;
+        const readdirSpy = vi.spyOn(fs, "readdirSync").mockImplementation(((
+          p: fs.PathLike,
+          ...rest: unknown[]
+        ) => {
+          const s = typeof p === "string" ? p : p.toString();
+          if (
+            s.endsWith(`${path.sep}tests${path.sep}e2e`) ||
+            s.endsWith("/tests/e2e")
+          ) {
+            const e: NodeJS.ErrnoException = Object.assign(
+              new Error("EACCES: permission denied"),
+              { code: "EACCES" },
+            );
+            throw e;
+          }
+          return (
+            origReaddir as unknown as (
+              p: fs.PathLike,
+              ...rest: unknown[]
+            ) => unknown
+          ).call(fs, p, ...rest);
+        }) as unknown as typeof fs.readdirSync);
+        const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+        const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+        try {
+          runParity(tmp, 1);
+          // Count the number of stderr lines that reference the
+          // tests/e2e path — we want exactly one (elevated as
+          // unreadable-specs-dir MUST), not one from the helper + one
+          // from the caller iteration.
+          const lines = errSpy.mock.calls.map((c) => String(c[0]));
+          const e2eRefs = lines.filter((l) => /tests\/e2e/.test(l));
+          expect(e2eRefs.length, lines.join("\n")).toBe(1);
+        } finally {
+          readdirSpy.mockRestore();
+          errSpy.mockRestore();
+          logSpy.mockRestore();
+        }
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
       }
     });
 
@@ -1249,6 +1355,59 @@ describe("validate-parity", () => {
       });
       expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(2);
       expect(r.stderr).toMatch(/invalid --baseline value/);
+    });
+
+    it("exits 4 (EXIT_INTERNAL) on unexpected exceptions surfaced from auditPackage", () => {
+      // Model: audit.test.ts T7 — preload a shim that forces a
+      // downstream TypeError so the top-level CLI catch routes it to
+      // EXIT_INTERNAL. Here we monkey-patch Object.freeze to throw
+      // when parseManifest tries to freeze a validated demo (stringy
+      // `id`). The TypeError is NOT a ManifestMalformed/Unreadable, so
+      // it escapes loadManifest's switch, lands in auditPackage's
+      // catch-all re-throw (which wraps with the package slug), and
+      // bubbles to validate-parity's top-level try/catch → exit 4.
+      writeFixturePackage(tree.packagesDir, "boom-pkg", {
+        manifest: "slug: boom-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
+        demoDirs: ["chat"],
+        specFiles: ["chat.spec.ts"],
+        qaFiles: ["chat.md"],
+      });
+      const preload = fs.mkdtempSync(
+        path.join(os.tmpdir(), "parity-preload-"),
+      );
+      const preloadScript = path.join(preload, "boom.cjs");
+      fs.writeFileSync(
+        preloadScript,
+        `const origFreeze = Object.freeze;
+Object.freeze = function(o) {
+  if (o !== null && typeof o === "object" && "id" in o) {
+    throw new TypeError("synthetic non-manifest failure");
+  }
+  return origFreeze(o);
+};
+`,
+      );
+      try {
+        const r = spawnSync(
+          "npx",
+          ["tsx", "--require", preloadScript, PARITY_SCRIPT],
+          {
+            env: { ...process.env, VALIDATE_PARITY_REPO_ROOT: tree.root },
+            encoding: "utf-8",
+            timeout: 30_000,
+          },
+        );
+        // EXIT_INTERNAL (4) — distinct from MUST failure (1) and
+        // unreadable infra (3), per the taxonomy in validate-parity.ts.
+        expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(4);
+        expect(r.stderr).toMatch(/\[INTERNAL ERROR\] validate-parity crashed/);
+        // Slug context — auditPackage's catch-all wraps the inner
+        // error so operators can identify which package triggered the
+        // crash without diff-ing stacks.
+        expect(r.stderr).toMatch(/audit of boom-pkg crashed/);
+      } finally {
+        fs.rmSync(preload, { recursive: true, force: true });
+      }
     });
   });
 
