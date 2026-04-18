@@ -8,9 +8,9 @@ import {
 } from "@copilotkit/react-core/v2";
 
 // Outer layer — provider + layout chrome.
-export default function AgenticChatDemo() {
+export default function PrebuiltChatDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="agentic_chat">
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="prebuilt-chat">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
@@ -23,11 +23,9 @@ export default function AgenticChatDemo() {
 // The actual view — just the chat.
 function Chat() {
   useConfigureSuggestions({
-    suggestions: [
-      { title: "Write a sonnet", message: "Write a short sonnet about AI." },
-    ],
+    suggestions: [{ title: "Say hi", message: "Say hi!" }],
     available: "always",
   });
 
-  return <CopilotChat agentId="agentic_chat" className="h-full rounded-2xl" />;
+  return <CopilotChat agentId="prebuilt-chat" className="h-full rounded-2xl" />;
 }
