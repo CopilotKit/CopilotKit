@@ -2785,6 +2785,69 @@ describe("validateAll: infra parse error routes to EXIT_UNREADABLE", () => {
 // stat+isDirectory succeed but readdir throws EACCES.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// R19-2 #5: readFileSync inside parsePackageJson (and siblings) is
+// unguarded. An EACCES on content-only read (readable parent, mode-0000
+// file) slips past the stat guard in collectDepsFromDir and lands in
+// parseErrors WITHOUT `infra: true`, which routes to report.fail →
+// EXIT_DRIFT (1). The fix classifies errno codes at the catch site so
+// EACCES on read routes to UnreadableInputError → EXIT_UNREADABLE (3).
+// ---------------------------------------------------------------------------
+
+describe("validateAll: readFileSync EACCES routes to EXIT_UNREADABLE", () => {
+  it.skipIf(cannotEnforceEacces)(
+    "exits 3 when a showcase package.json is statable but unreadable (mode 0000 file, readable parent)",
+    () => {
+      withTmp((tmp) => {
+        const slug = "mastra";
+        const examplesDir = path.join(tmp, "examples", "integrations");
+        const packagesDir = path.join(tmp, "showcase", "packages");
+        const exampleSlugDir = path.join(examplesDir, slug);
+        const pkgSlugDir = path.join(packagesDir, slug);
+        fs.mkdirSync(exampleSlugDir, { recursive: true });
+        fs.mkdirSync(pkgSlugDir, { recursive: true });
+        write(
+          path.join(exampleSlugDir, "package.json"),
+          JSON.stringify({ name: slug, dependencies: {} }),
+        );
+        const pkgFile = path.join(pkgSlugDir, "package.json");
+        write(pkgFile, JSON.stringify({ name: slug, dependencies: {} }));
+
+        // Mode-0000 on the FILE with a normal-mode parent: statSync on
+        // the file succeeds (metadata is in the parent dir inode),
+        // so the stat guard in collectDepsFromDir passes and the
+        // error surfaces from readFileSync instead. This specifically
+        // exercises the classification fix at the parsePackageJson
+        // catch site — an EACCES here used to route to EXIT_DRIFT (1)
+        // because `infra: true` was not set.
+        fs.chmodSync(pkgFile, 0o000);
+
+        try {
+          const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
+            env: {
+              ...process.env,
+              VALIDATE_PINS_REPO_ROOT: tmp,
+            },
+            encoding: "utf-8",
+            timeout: 30_000,
+          });
+          // Must be EXIT_UNREADABLE (3), NOT EXIT_DRIFT (1).
+          expect(r.status, r.stdout + r.stderr).toBe(3);
+        } finally {
+          try {
+            fs.chmodSync(pkgFile, 0o644);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error(
+              `[validate-pins test] failed to restore perms on ${pkgFile} (possible leak): ${msg}`,
+            );
+          }
+        }
+      });
+    },
+  );
+});
+
 describe("validateAll: readdirSync(PACKAGES_DIR) failure routes to EXIT_UNREADABLE", () => {
   it.skipIf(cannotEnforceEacces)(
     "exits 3 when PACKAGES_DIR is traverseable but not readable",

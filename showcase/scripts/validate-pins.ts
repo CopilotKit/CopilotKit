@@ -1277,7 +1277,29 @@ function collectDepsFromDir(rootDir: string): DepSources {
       // Record only — a single downstream [FAIL] line per parse error is
       // emitted by validateAll with slug context. Immediate
       // console.error here would cause duplicate output.
-      result.parseErrors.push({ file: abs, message: msg });
+      //
+      // Detect infra errno codes bubbling up from readFileSync (which is
+      // called unguarded inside parsePackageJson / parseRequirementsTxt /
+      // parsePyprojectToml). Without this classification an EACCES on
+      // the content-only read would be treated as a parse error →
+      // report.fail → EXIT_DRIFT (1), but the correct routing is
+      // UnreadableInputError → EXIT_UNREADABLE (3). The stat guard
+      // above only catches errno at stat time; TOCTOU or a 0000-mode
+      // file on a readable parent (owner can chmod but not read the
+      // file content, e.g. group read on a file you don't own) slips
+      // past stat and errors on read instead.
+      const errno = (e as NodeJS.ErrnoException | undefined)?.code;
+      const isInfra =
+        errno === "EACCES" ||
+        errno === "EIO" ||
+        errno === "ENOTDIR" ||
+        errno === "ELOOP" ||
+        errno === "EPERM";
+      result.parseErrors.push({
+        file: abs,
+        message: msg,
+        ...(isInfra ? { infra: true } : {}),
+      });
       continue;
     }
     result.files.push(abs);
