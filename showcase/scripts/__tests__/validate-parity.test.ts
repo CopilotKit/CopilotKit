@@ -918,10 +918,14 @@ describe("validate-parity", () => {
           }
           expect(caught).toBeInstanceOf(Error);
           expect((caught as Error).message).toMatch(/audit of ok-pkg crashed/);
-          expect((caught as Error).message).toContain(
+          // Outer message is context-only (no origMsg duplication);
+          // inner failure text is preserved via `cause`, which
+          // formatErrorChain unfurls for stderr.
+          const cause = (caught as Error & { cause?: unknown }).cause;
+          expect(cause).toBe(sentinel);
+          expect((cause as Error).message).toContain(
             "synthetic non-manifest failure",
           );
-          expect((caught as Error & { cause?: unknown }).cause).toBe(sentinel);
         } finally {
           freezeSpy.mockRestore();
         }

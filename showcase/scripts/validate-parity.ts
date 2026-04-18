@@ -141,9 +141,9 @@ function formatErrorChain(err: unknown): string {
   return lines.join("\n");
 }
 
-// Manifest / ManifestDemo now live in ./lib/manifest.ts. Re-exported on
-// the next line for callers that import these types from
-// "../validate-parity.js".
+// Re-exported for test callers importing these types from
+// "../validate-parity.js"; the canonical definitions live in
+// ./lib/manifest.ts.
 export type { Manifest, ManifestDemo };
 
 /**
@@ -498,8 +498,9 @@ export function auditPackage(
       // the package slug so operators see which package triggered the
       // crash; the original error rides along via `cause` so stacks /
       // errno / etc. remain inspectable.
-      const origMsg = err instanceof Error ? err.message : String(err);
-      throw new Error(`audit of ${slug} crashed: ${origMsg}`, { cause: err });
+      // Outer message is context-only — formatErrorChain unfurls `cause`
+      // so including the inner message here would render it twice.
+      throw new Error(`audit of ${slug} crashed`, { cause: err });
     }
     // Don't early-return: we still return the report with spec/qa/demo
     // dir counts populated so the table row is accurate. MUST error
