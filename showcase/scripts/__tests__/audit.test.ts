@@ -1850,10 +1850,19 @@ describe("canonicalizeForIsMain", () => {
     // `process.exit(3)` is the only way to guarantee the signal
     // survives. We spy on process.exit to observe the code without
     // actually terminating the test runner.
+    // Filter by path so tsx / vitest internals that call realpathSync
+    // during module resolution or stack-trace symbolication fall
+    // through to the real implementation — only the synthetic test
+    // path triggers the synthesized failure.
+    const origRealpath = fs.realpathSync;
     const realpathSpy = vi.spyOn(fs, "realpathSync").mockImplementation(((
-      ..._args: unknown[]
+      p: fs.PathLike,
+      ...rest: unknown[]
     ) => {
-      throw Object.assign(new Error("I/O error"), { code: "EIO" });
+      if (String(p) === "/some/path") {
+        throw Object.assign(new Error("I/O error"), { code: "EIO" });
+      }
+      return (origRealpath as (...a: unknown[]) => string)(p, ...rest);
     }) as unknown as typeof fs.realpathSync);
     const stderrSpy = vi
       .spyOn(process.stderr, "write")
@@ -1881,10 +1890,17 @@ describe("canonicalizeForIsMain", () => {
   it("does NOT set process.exitCode on ENOENT fallback", () => {
     // ENOENT is the benign synthetic-argv[0] case — must stay quiet
     // and must NOT leak an exit-code elevation to the surrounding run.
+    // Filter by path so only the synthetic test path triggers ENOENT —
+    // tsx / vitest internals continue to use the real implementation.
+    const origRealpath = fs.realpathSync;
     const realpathSpy = vi.spyOn(fs, "realpathSync").mockImplementation(((
-      ..._args: unknown[]
+      p: fs.PathLike,
+      ...rest: unknown[]
     ) => {
-      throw Object.assign(new Error("no such file"), { code: "ENOENT" });
+      if (String(p) === "/some/missing/path") {
+        throw Object.assign(new Error("no such file"), { code: "ENOENT" });
+      }
+      return (origRealpath as (...a: unknown[]) => string)(p, ...rest);
     }) as unknown as typeof fs.realpathSync);
     const priorExitCode = process.exitCode;
     process.exitCode = 0;
@@ -1903,12 +1919,19 @@ describe("canonicalizeForIsMain", () => {
     // to stderr BEFORE calling process.exit so the cause is visible in
     // the terminated run's logs — a silent process.exit would produce
     // a bare exit code with no explanation.
+    // Filter by path so only the synthetic test path raises EACCES —
+    // tsx / vitest internals continue to use the real implementation.
+    const origRealpath = fs.realpathSync;
     const realpathSpy = vi.spyOn(fs, "realpathSync").mockImplementation(((
-      ..._args: unknown[]
+      p: fs.PathLike,
+      ...rest: unknown[]
     ) => {
-      throw Object.assign(new Error("permission denied"), {
-        code: "EACCES",
-      });
+      if (String(p) === "/some/path") {
+        throw Object.assign(new Error("permission denied"), {
+          code: "EACCES",
+        });
+      }
+      return (origRealpath as (...a: unknown[]) => string)(p, ...rest);
     }) as unknown as typeof fs.realpathSync);
     const stderrSpy = vi
       .spyOn(process.stderr, "write")
@@ -1939,12 +1962,19 @@ describe("canonicalizeForIsMain", () => {
     // `(e as NodeJS.ErrnoException).code` from crashing on primitive
     // throws ("string", number, plain object). The helper should treat
     // these as non-ENOENT and terminate with EXIT_UNREADABLE.
+    // Filter by path so only the synthetic test path throws the raw
+    // primitive — tsx / vitest internals continue to use the real impl.
+    const origRealpath = fs.realpathSync;
     const realpathSpy = vi.spyOn(fs, "realpathSync").mockImplementation(((
-      ..._args: unknown[]
+      p: fs.PathLike,
+      ...rest: unknown[]
     ) => {
-      // Intentionally throw a non-Error primitive.
-      // eslint-disable-next-line @typescript-eslint/no-throw-literal
-      throw "raw string failure";
+      if (String(p) === "/some/path") {
+        // Intentionally throw a non-Error primitive.
+        // eslint-disable-next-line @typescript-eslint/no-throw-literal
+        throw "raw string failure";
+      }
+      return (origRealpath as (...a: unknown[]) => string)(p, ...rest);
     }) as unknown as typeof fs.realpathSync);
     const stderrSpy = vi
       .spyOn(process.stderr, "write")

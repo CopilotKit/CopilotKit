@@ -1012,15 +1012,26 @@ describe("validate-parity", () => {
       fs.mkdirSync(blocked);
 
       const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const readdirSpy = vi
-        .spyOn(fs, "readdirSync")
-        .mockImplementation((): never => {
+      // Filter by path so only reads of the synthetic `blocked` dir
+      // raise EACCES — vitest/tsx internals that may call readdirSync
+      // during module resolution fall through to the real impl.
+      const origReaddir = fs.readdirSync;
+      const readdirSpy = vi.spyOn(fs, "readdirSync").mockImplementation(((
+        p: fs.PathLike,
+        ...rest: unknown[]
+      ) => {
+        if (String(p) === blocked) {
           const e: NodeJS.ErrnoException = Object.assign(
             new Error("EACCES: permission denied"),
             { code: "EACCES" },
           );
           throw e;
-        });
+        }
+        return (origReaddir as (...a: unknown[]) => unknown)(
+          p,
+          ...rest,
+        ) as ReturnType<typeof fs.readdirSync>;
+      }) as unknown as typeof fs.readdirSync);
       try {
         const result = listDirs(blocked);
         expect(result.entries).toEqual([]);
@@ -1044,15 +1055,26 @@ describe("validate-parity", () => {
       fs.mkdirSync(blocked);
 
       const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const readdirSpy = vi
-        .spyOn(fs, "readdirSync")
-        .mockImplementation((): never => {
+      // Filter by path so only reads of the synthetic `blocked` dir
+      // raise EACCES — vitest/tsx internals fall through to the real
+      // impl to avoid spurious failures during module resolution.
+      const origReaddir = fs.readdirSync;
+      const readdirSpy = vi.spyOn(fs, "readdirSync").mockImplementation(((
+        p: fs.PathLike,
+        ...rest: unknown[]
+      ) => {
+        if (String(p) === blocked) {
           const e: NodeJS.ErrnoException = Object.assign(
             new Error("EACCES: permission denied"),
             { code: "EACCES" },
           );
           throw e;
-        });
+        }
+        return (origReaddir as (...a: unknown[]) => unknown)(
+          p,
+          ...rest,
+        ) as ReturnType<typeof fs.readdirSync>;
+      }) as unknown as typeof fs.readdirSync);
       try {
         const result = listFiles(blocked, ".md");
         expect(result.entries).toEqual([]);
@@ -2125,25 +2147,35 @@ Object.freeze = function(o) {
           qaFiles: ["chat.md"],
         });
         const originalArgv = process.argv;
-        // Inject a bad --baseline flag that WOULD fail argv parsing.
-        process.argv = [
-          process.argv[0],
-          process.argv[1],
-          "--baseline=not-a-number",
-        ];
-        const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-        const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
         try {
-          const code = runParity(packagesDir, 5);
-          // If argv were parsed, we'd get exit 1 (invalid baseline).
-          // With explicit baseline=5 passed, argv must be skipped.
-          expect(code).toBe(0);
-          // And no "invalid --baseline value" must have been logged.
-          const errCalls = errSpy.mock.calls.map((c) => c.join(" ")).join("\n");
-          expect(errCalls).not.toMatch(/invalid --baseline value/);
+          // Inject a bad --baseline flag that WOULD fail argv parsing.
+          // Mutation + spy setup live INSIDE the try so that a throw
+          // during spy installation cannot leave process.argv permanently
+          // clobbered — the outer finally always restores it.
+          process.argv = [
+            process.argv[0],
+            process.argv[1],
+            "--baseline=not-a-number",
+          ];
+          const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+          const errSpy = vi
+            .spyOn(console, "error")
+            .mockImplementation(() => {});
+          try {
+            const code = runParity(packagesDir, 5);
+            // If argv were parsed, we'd get exit 1 (invalid baseline).
+            // With explicit baseline=5 passed, argv must be skipped.
+            expect(code).toBe(0);
+            // And no "invalid --baseline value" must have been logged.
+            const errCalls = errSpy.mock.calls
+              .map((c) => c.join(" "))
+              .join("\n");
+            expect(errCalls).not.toMatch(/invalid --baseline value/);
+          } finally {
+            logSpy.mockRestore();
+            errSpy.mockRestore();
+          }
         } finally {
-          logSpy.mockRestore();
-          errSpy.mockRestore();
           process.argv = originalArgv;
         }
       } finally {
