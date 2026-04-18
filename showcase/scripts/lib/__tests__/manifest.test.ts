@@ -212,6 +212,22 @@ describe("parseManifest", () => {
     }
   });
 
+  it("returns {kind:'ok', manifest} with deployed:false preserved", () => {
+    // Symmetric to the deployed:true positive test above. `deployed: false`
+    // is a legal boolean and must parse as {kind:"ok"} with the flag
+    // preserved, not collapsed into undefined. The strict boolean guard
+    // rejects stringly-typed "no", "false", etc., but a real boolean false
+    // must round-trip cleanly.
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: mypkg\ndeployed: false\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      expect(r.manifest.slug).toBe("mypkg");
+      expect(r.manifest.deployed).toBe(false);
+    }
+  });
+
   it("returns {kind:'ok'} with an empty demos array when demos is omitted", () => {
     // `demos` is always set by parseManifest: empty readonly
     // array when the manifest omits the field, so callers can iterate

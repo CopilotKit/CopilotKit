@@ -31,6 +31,13 @@ describe("BORN_IN_SHOWCASE", () => {
     expect(BORN_IN_SHOWCASE.has("spring-ai")).toBe(true);
   });
 
+  it("has exactly 5 entries — guards against accidental additions", () => {
+    // Size assertion: if someone adds a new born-in-showcase slug without
+    // updating the test above, this pins the cardinality so the addition
+    // is caught rather than silently accepted.
+    expect(BORN_IN_SHOWCASE.size).toBe(5);
+  });
+
   it("is a frozen / immutable ReadonlySet (add throws)", () => {
     // Callers must not mutate the shared set at runtime. A ReadonlySet type
     // is compile-time only; we back it with a frozen Set so a runtime

@@ -132,15 +132,10 @@ function describeType(v: unknown): string {
 
 /**
  * `Object.hasOwn`-backed predicate that narrows `obj` to a type where
- * `key` is known to exist. Preferred over `(obj as Record<string,
- * unknown>)[key]` casts because:
- *
- *   - the TS predicate lets the caller read `obj[key]` without any
- *     further cast;
- *   - `Object.hasOwn` avoids the inherited-property pitfalls of the
- *     raw `in` operator for YAML-parsed objects (yaml v2 returns plain
- *     objects with a null prototype, but inheriting tests written
- *     elsewhere might not).
+ * `key` is known to exist. `Object.hasOwn` avoids inherited-property
+ * pitfalls of the raw `in` operator for any plain object, and pairs
+ * with the TS predicate so callers read `obj[key]` without further
+ * casts.
  */
 function hasOwnProp<K extends string>(
   obj: object,

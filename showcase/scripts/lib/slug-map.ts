@@ -8,10 +8,11 @@
  *   - validate-parity.ts     (born-in-showcase membership)
  *
  * Everything here is immutable. We freeze the plain-object maps and
- * wrap the Set/Map values in a Proxy (a frozen plain Object is not
- * enough for Map/Set — their `.set`/`.add` methods don't respect
- * Object.freeze). The consequence: any runtime mutation attempt
- * throws, matching the TypeScript `Readonly*` types.
+ * install throwing replacement methods on the Set/Map via
+ * `Object.defineProperty` with `writable:false, configurable:false`
+ * (a frozen plain Object is not enough for Map/Set — their `.set`/`.add`
+ * methods don't respect Object.freeze). The consequence: any runtime
+ * mutation attempt throws, matching the TypeScript `Readonly*` types.
  */
 
 /**
