@@ -3,11 +3,15 @@ name: "Showcase: Drift Report"
 # Weekly report on pin-drift baseline (validate-pins FAIL count).
 # Complements showcase_validate.yml's ratchet gating by surfacing the
 # current backlog even when no PR is open. Goal: keep the drift count
-# visible so the drift-to-zero commitment (tracked in the GitHub issue
-# referenced by showcase_validate.yml's TODO(showcase-drift-zero, ...)) stays
-# in front of the team.
+# visible so the drift-to-zero commitment stays in front of the team.
+# The TODO(showcase-drift-zero, ...) marker in showcase_validate.yml is
+# a grep-only tag; there is no tracked GitHub issue.
 #
-# Reference: Notion: "Showcase Drift Baseline Runbook"
+# Reference: Notion: "Showcase Drift Baseline Runbook" (accessible to
+# copilotkit.ai team members only; not linked here to avoid embedding
+# private URLs in a public workflow).
+# TODO(showcase-drift-zero, owner: @jpr5): confirm the Notion runbook
+# page exists and is current; otherwise create it.
 
 on:
   schedule:
@@ -106,7 +110,7 @@ jobs:
             echo "::error::validate-pins.ts exited with unexpected code $rc"
             exit 1
           fi
-          summary_line=$(printf '%s\n' "$stdout" | grep -E '^Summary:' | head -n 1 || true)
+          summary_line=$(printf '%s\n' "$stdout" | grep -E '^[[:space:]]*Summary:' | head -n 1 || true)
           if [ -z "$summary_line" ]; then
             echo "::error::Could not find validate-pins 'Summary:' line"
             exit 1
@@ -140,8 +144,12 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
+          # Defensive: wrap dynamic values via toJSON(format(...)) so that
+          # if hash/count/set_status ever contains characters that would
+          # break the JSON payload (quotes, backslashes, newlines), the
+          # value is safely JSON-encoded instead of injected as raw text.
           payload: |
-            { "text": ":chart_with_downwards_trend: *Showcase pin-drift (weekly)*: FAIL=${{ steps.validate.outputs.actual }} (baseline ${{ steps.baseline.outputs.count }}) [${{ steps.validate.outputs.set_status }}] | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+            { "text": ${{ toJSON(format(':chart_with_downwards_trend: *Showcase pin-drift (weekly)*: FAIL={0} (baseline {1}) [{2}] | <https://github.com/{3}/actions/runs/{4}|View run>', steps.validate.outputs.actual, steps.baseline.outputs.count, steps.validate.outputs.set_status, github.repository, github.run_id)) }} }
 
       - name: Log result (no Slack)
         if: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS == '' }}
