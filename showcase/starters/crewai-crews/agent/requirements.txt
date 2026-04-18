@@ -1,4 +1,10 @@
-crewai>=0.130.0
+# crewai 1.14 changed the chat Flow method return type to a plain dict; this breaks
+# ag-ui-crewai 0.1.5's EventBus handler for MethodExecutionFinishedEvent, which calls
+# `.messages` on the result and raises AttributeError. The result is that STEP_FINISHED(chat)
+# never emits and RUN_FINISHED arrives with an open step, which Next.js rejects as
+# INCOMPLETE_STREAM on every /api/copilotkit call. Unpin when ag-ui-crewai ships a
+# compatible release or we bump to a compatible pair.
+crewai>=0.130.0,<1.14
 ag-ui-crewai>=0.1.4,<0.1.6
 ag-ui-protocol>=0.1.5
 python-dotenv>=1.0.1
