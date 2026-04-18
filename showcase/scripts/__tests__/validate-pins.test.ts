@@ -576,6 +576,15 @@ describe("isExactSpec", () => {
   it("rejects empty specs", () => {
     expect(isExactSpec("")).toBe(false);
   });
+
+  // The Python `==` body regex must be anchored end-to-end so that
+  // degenerate bodies — non-numeric patch segments, illegal trailing
+  // punctuation — do not sneak through as "starts with MAJOR.MINOR"
+  // and get mis-classified as exact pins.
+  it("rejects Python == specs with malformed bodies", () => {
+    expect(isExactSpec("==1.2.foo")).toBe(false);
+    expect(isExactSpec("==1.2abc!")).toBe(false);
+  });
 });
 
 describe("Unpinned spec rejection in validateAll", () => {
@@ -1363,23 +1372,30 @@ describe("validateAll exit-code integration", () => {
     fs.rmSync(repoRoot, { recursive: true, force: true });
   });
 
-  // missing PACKAGES_DIR must not result in a green exit.
-  it("missing packages dir produces a FAIL so exit is non-zero", () => {
+  // missing PACKAGES_DIR must not result in a green exit. A missing
+  // packages dir is a repo-structure / configuration problem rather
+  // than real drift, so the validator throws UnreadableInputError
+  // (→ EXIT_UNREADABLE, 3) instead of emitting a report.fail entry
+  // (→ EXIT_DRIFT, 1). This keeps the two exit-code buckets clean
+  // for CI triage.
+  it("missing packages dir throws UnreadableInputError (exit 3, not drift)", () => {
     // Do NOT create showcase/packages.
-    const report = validateAll();
-    expect(report.fail.length).toBeGreaterThan(0);
+    expect(() => validateAll()).toThrow(/Packages dir not found/);
   });
 
-  // empty PACKAGES_DIR must also not silently pass.
-  it("empty packages dir produces a FAIL so exit is non-zero", () => {
+  // empty PACKAGES_DIR is the same class of error as missing — also
+  // a config / checkout problem, not drift. Route through
+  // UnreadableInputError for EXIT_UNREADABLE (3).
+  it("empty packages dir throws UnreadableInputError (exit 3, not drift)", () => {
     fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
       recursive: true,
     });
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
-    const report = validateAll();
-    expect(report.fail.length).toBeGreaterThan(0);
+    expect(() => validateAll()).toThrow(
+      /No showcase packages discovered under/,
+    );
   });
 
   // parse errors must produce a FAIL (force non-zero exit).
@@ -1607,7 +1623,30 @@ describe("validate-pins CLI exit codes", () => {
     });
   }
 
-  it("exits 1 when FAIL>0 (e.g. empty packages dir)", () => {
+  it("exits 1 when FAIL>0 (real drift: non-exact pin)", () => {
+    // Create a slug with a non-exact spec on both sides to force a
+    // drift [FAIL] — this exercises the EXIT_DRIFT path rather than
+    // the EXIT_UNREADABLE path that missing/empty packages dirs now
+    // take.
+    const slug = "mastra";
+    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const exDir = path.join(repoRoot, "examples", "integrations", slug);
+    fs.mkdirSync(pkgDir, { recursive: true });
+    fs.mkdirSync(exDir, { recursive: true });
+    write(
+      path.join(pkgDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@mastra/core": "next" },
+      }),
+    );
+    write(
+      path.join(exDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@mastra/core": "next" },
+      }),
+    );
     const r = runCli();
     expect(r.status, r.stdout + r.stderr).toBe(1);
   });
@@ -1869,6 +1908,27 @@ describe("Poetry caret-prefix does not fire on comma-joined ranges", () => {
       );
       const deps = parsePyprojectToml(file);
       expect(deps["foo"]).toBe("1.2.3,>=1.0");
+      expect(isExactSpec(deps["foo"])).toBe(false);
+    });
+  });
+
+  // Pipe-OR / space / range-operator composed specs also start with a
+  // digit but are NOT bare versions. Prefixing any of them with `^`
+  // produces a nonsense value (e.g. `^1.2.3 || 2.0.0`), so they must
+  // be stored verbatim and classified as non-exact on their own merits.
+  it('leaves `"1.2.3 || 2.0.0"` verbatim (no leading `^`)', () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      write(
+        file,
+        [
+          "[tool.poetry.dependencies]",
+          'python = "^3.10"',
+          'foo = "1.2.3 || 2.0.0"',
+        ].join("\n"),
+      );
+      const deps = parsePyprojectToml(file);
+      expect(deps["foo"]).toBe("1.2.3 || 2.0.0");
       expect(isExactSpec(deps["foo"])).toBe(false);
     });
   });
@@ -2808,21 +2868,21 @@ describe("validateAll: infra parse error routes to EXIT_UNREADABLE", () => {
 });
 
 // ---------------------------------------------------------------------------
-// R19-2 #1: TOCTOU on readdirSync(PACKAGES_DIR). The stat+isDirectory
-// guard can succeed and THEN readdir fail (EACCES/EIO/ENOTDIR) between
-// the two calls, or because the dir is traverseable but not readable.
-// That failure must route to EXIT_UNREADABLE (3), not EXIT_INTERNAL (2).
+// TOCTOU on readdirSync(PACKAGES_DIR). The stat+isDirectory guard can
+// succeed and THEN readdir fail (EACCES/EIO/ENOTDIR) between the two
+// calls, or because the dir is traverseable but not readable. That
+// failure must route to EXIT_UNREADABLE (3), not EXIT_INTERNAL (2).
 // Simulated here by chmodding PACKAGES_DIR to 0o111 (--x--x--x):
 // stat+isDirectory succeed but readdir throws EACCES.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// R19-2 #5: readFileSync inside parsePackageJson (and siblings) is
-// unguarded. An EACCES on content-only read (readable parent, mode-0000
-// file) slips past the stat guard in collectDepsFromDir and lands in
-// parseErrors WITHOUT `infra: true`, which routes to report.fail →
-// EXIT_DRIFT (1). The fix classifies errno codes at the catch site so
-// EACCES on read routes to UnreadableInputError → EXIT_UNREADABLE (3).
+// readFileSync inside parsePackageJson (and siblings) is unguarded. An
+// EACCES on content-only read (readable parent, mode-0000 file) slips
+// past the stat guard in collectDepsFromDir and lands in parseErrors
+// WITHOUT `infra: true`, which routes to report.fail → EXIT_DRIFT (1).
+// The fix classifies errno codes at the catch site so EACCES on read
+// routes to UnreadableInputError → EXIT_UNREADABLE (3).
 // ---------------------------------------------------------------------------
 
 describe("validateAll: readFileSync EACCES routes to EXIT_UNREADABLE", () => {
@@ -2923,4 +2983,61 @@ describe("validateAll: readdirSync(PACKAGES_DIR) failure routes to EXIT_UNREADAB
       });
     },
   );
+});
+
+// ---------------------------------------------------------------------------
+// Missing packages dir (ENOENT) and empty packages dir are BOTH
+// repo-structure / configuration problems — almost certainly a wrong
+// VALIDATE_PINS_REPO_ROOT or a bad checkout. They must route through
+// EXIT_UNREADABLE (3), not EXIT_DRIFT (1), so CI can triage real drift
+// findings separately from infra misconfiguration.
+// ---------------------------------------------------------------------------
+
+describe("validateAll: missing packages dir routes to EXIT_UNREADABLE", () => {
+  it("exits 3 when showcase/packages does not exist", () => {
+    withTmp((tmp) => {
+      // Deliberately do NOT create showcase/packages. examples/integrations
+      // exists so paths() resolves cleanly to its usual shape.
+      fs.mkdirSync(path.join(tmp, "examples", "integrations"), {
+        recursive: true,
+      });
+      const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
+        env: {
+          ...process.env,
+          VALIDATE_PINS_REPO_ROOT: tmp,
+        },
+        encoding: "utf-8",
+        timeout: 30_000,
+      });
+      // Must be EXIT_UNREADABLE (3), NOT EXIT_DRIFT (1). A missing
+      // packages dir is not drift — it's a repo-structure error.
+      expect(r.status, r.stdout + r.stderr).toBe(3);
+    });
+  });
+});
+
+describe("validateAll: empty packages dir routes to EXIT_UNREADABLE", () => {
+  it("exits 3 when showcase/packages exists but contains no slugs", () => {
+    withTmp((tmp) => {
+      fs.mkdirSync(path.join(tmp, "examples", "integrations"), {
+        recursive: true,
+      });
+      // Create showcase/packages but leave it empty. readdir returns [].
+      fs.mkdirSync(path.join(tmp, "showcase", "packages"), {
+        recursive: true,
+      });
+      const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
+        env: {
+          ...process.env,
+          VALIDATE_PINS_REPO_ROOT: tmp,
+        },
+        encoding: "utf-8",
+        timeout: 30_000,
+      });
+      // Empty-dir is the same class of error as missing. Classing it
+      // as EXIT_UNREADABLE (3) keeps report.fail (EXIT_DRIFT, 1)
+      // reserved for real drift findings.
+      expect(r.status, r.stdout + r.stderr).toBe(3);
+    });
+  });
 });

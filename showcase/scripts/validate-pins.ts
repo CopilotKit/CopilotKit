@@ -530,12 +530,20 @@ function isExactSpec(spec: string): boolean {
   if (/\*/.test(trimmed)) return false;
 
   // Python == / === exact form.
-  // Body must start with at least MAJOR.MINOR (`\d+\.\d+`) to reject
-  // degenerate specs like `==0` or `===1` that parse as "starts with a
-  // digit" but do not constitute a real pinned version per PEP 440.
+  // Body must match MAJOR.MINOR with optional numeric sub-segments,
+  // an optional PEP 440 pre-release tag (`a1`, `b2`, `rc3`, etc.)
+  // directly attached, an optional `.postN` / `.devN` segment, an
+  // optional `-pre` / `+local` suffix. The regex is anchored end-to-end
+  // so degenerate bodies like `==1.2.foo` (dotted letter segment that
+  // is not a recognized PEP 440 keyword) or `==1.2abc!` (illegal
+  // trailing punctuation) are rejected — a non-anchored `^\d+\.\d+`
+  // or a too-permissive tail like `(?:[-+.A-Za-z0-9]+)*` would accept
+  // those and mis-classify them as exact pins.
   const pyMatch = trimmed.match(/^={2,3}\s*(\S+)$/);
   if (pyMatch) {
-    return /^\d+\.\d+/.test(pyMatch[1]);
+    return /^\d+\.\d+(?:\.\d+)*(?:[A-Za-z]+\d*)?(?:\.(?:post|dev)\d*)?(?:-[A-Za-z0-9.-]+)?(?:\+[A-Za-z0-9.-]+)?$/.test(
+      pyMatch[1],
+    );
   }
 
   // Anything starting with a range operator is NOT exact.
@@ -1071,13 +1079,23 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
       // `isExactSpec`. Anything already starting with an operator
       // character is stored verbatim.
       //
-      // Caveat: a comma-joined range like `"1.2.3,>=1.0"` starts with a
-      // digit but is NOT a bare version — it already composes multiple
-      // constraints. Prefixing such a value with `^` would produce a
-      // nonsense spec (`^1.2.3,>=1.0`). Leave comma-joined values
-      // verbatim; `isExactSpec` will correctly classify them as
-      // non-exact on the range-operator or comma path.
-      if (/^\d/.test(spec) && !spec.includes(",")) {
+      // Caveat: a value that starts with a digit may still be a
+      // composed range that Poetry stores in a single string — e.g.
+      // `"1.2.3,>=1.0"` (comma-joined), `"1.2.3 || 2.0.0"` (pipe OR),
+      // or a space-separated range. Prefixing any of these with `^`
+      // produces a nonsense spec (e.g. `^1.2.3 || 2.0.0`). Only
+      // prefix when the value is a lone bare version — no commas,
+      // whitespace, `||` OR, or any range/PEP 440 operator character
+      // (`<`, `>`, `~`, `^`, `!`). Everything else is stored
+      // verbatim; `isExactSpec` will classify it correctly on the
+      // range-operator / comma / whitespace / pipe paths.
+      if (
+        /^\d/.test(spec) &&
+        !spec.includes(",") &&
+        !spec.includes(" ") &&
+        !spec.includes("||") &&
+        !/[<>~^!]/.test(spec)
+      ) {
         spec = "^" + spec;
       }
 
@@ -1444,8 +1462,9 @@ function validateAll(): Report {
 
   // Missing packages dir must not produce a silent pass. If the validator
   // can't see any packages, it has nothing to check, which is almost
-  // certainly a path misconfiguration. Emit a FAIL so the script exits
-  // non-zero.
+  // certainly a path misconfiguration. Route this as EXIT_UNREADABLE (3)
+  // so it's classed with other repo-structure problems rather than with
+  // real drift findings — mixing the two buckets makes CI triage harder.
   //
   // Use `fs.statSync` + catch-ENOENT rather than `fs.existsSync` so a
   // permission error (EACCES) is not silently collapsed into "not
@@ -1457,8 +1476,9 @@ function validateAll(): Report {
   } catch (e) {
     const err = e as NodeJS.ErrnoException;
     if (err && err.code === "ENOENT") {
-      report.fail.push(`[FAIL] Packages dir not found: ${PACKAGES_DIR}`);
-      return report;
+      throw new UnreadableInputError(
+        `Packages dir not found at ${PACKAGES_DIR}`,
+      );
     }
     // EACCES / ENOTDIR / EIO / etc. — packages dir exists but is
     // unreadable by this process. Route through UnreadableInputError
@@ -1504,11 +1524,14 @@ function validateAll(): Report {
 
   // Empty packages dir is the same class of error as missing — the
   // validator produced no results, so we fail loudly rather than exit 0.
+  // Class this as EXIT_UNREADABLE (3): it's a repo-structure /
+  // configuration problem (wrong VALIDATE_PINS_REPO_ROOT, bad checkout),
+  // not actual pin drift. Keeping it out of report.fail preserves the
+  // contract that EXIT_DRIFT (1) means "real drift findings".
   if (slugs.length === 0) {
-    report.fail.push(
-      `[FAIL] No showcase packages discovered under ${PACKAGES_DIR}`,
+    throw new UnreadableInputError(
+      `No showcase packages discovered under ${PACKAGES_DIR} — is VALIDATE_PINS_REPO_ROOT pointing at the right tree?`,
     );
-    return report;
   }
 
   for (const slug of slugs) {
