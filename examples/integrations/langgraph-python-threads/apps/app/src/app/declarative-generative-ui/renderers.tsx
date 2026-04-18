@@ -7,7 +7,7 @@
  * To add a component: define its schema in definitions.ts, then add a
  * renderer here. See README.md "Adding a custom component" for details.
  *
- * The assembled catalog is registered in layout.tsx via
+ * The assembled catalog is registered in App.tsx via
  * <CopilotKit a2ui={{ catalog: demonstrationCatalog }}>.
  */
 "use client";
@@ -111,7 +111,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
     Title: ({ props }) => {
       const Tag = (
         props.level === "h1" ? "h1" : props.level === "h3" ? "h3" : "h2"
-      ) as keyof JSX.IntrinsicElements;
+      ) as keyof React.JSX.IntrinsicElements;
       const sizes: Record<string, string> = {
         h1: "1.75rem",
         h2: "1.25rem",

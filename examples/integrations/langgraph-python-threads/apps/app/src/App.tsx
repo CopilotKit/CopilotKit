@@ -1,16 +1,16 @@
-"use client";
-
 import { useState } from "react";
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotChat } from "@copilotkit/react-core/v2";
 import { ExampleLayout } from "@/components/example-layout";
 import { ExampleCanvas } from "@/components/example-canvas";
 import { ThreadsDrawer } from "@/components/threads-drawer";
-import { useGenerativeUIExamples, useExampleSuggestions } from "@/hooks";
-
-import { CopilotChat } from "@copilotkit/react-core/v2";
-
+import { ThemeProvider } from "@/hooks/use-theme";
+import { useExampleSuggestions, useGenerativeUIExamples } from "@/hooks";
 import styles from "@/components/threads-drawer/threads-drawer.module.css";
 
-export default function HomePage() {
+const runtimeUrl = "/api/copilotkit";
+
+function HomePage() {
   useGenerativeUIExamples();
   useExampleSuggestions();
 
@@ -36,5 +36,15 @@ export default function HomePage() {
         />
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <CopilotKitProvider runtimeUrl={runtimeUrl}>
+        <HomePage />
+      </CopilotKitProvider>
+    </ThemeProvider>
   );
 }

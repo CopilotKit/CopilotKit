@@ -7,7 +7,7 @@
 #   docker compose up -d --wait
 #
 # Then start the app services on the host:
-#   pnpm dev
+#   npm run dev
 
 name: langgraph-python-intelligence
 
@@ -56,7 +56,7 @@ services:
   # ---------------------------------------------------------------------------
 
   db-migrations:
-    image: public.ecr.aws/cpk/intelligence/db-migrations:0.1.0-rc.5
+    image: ghcr.io/copilotkit/intelligence/db-migrations:0.1.0-rc.7
     environment:
       DATABASE_URL: postgresql://intelligence:intelligence@postgres:5432/intelligence_app
     depends_on:
@@ -71,7 +71,7 @@ services:
   # ---------------------------------------------------------------------------
 
   app-api:
-    image: public.ecr.aws/cpk/intelligence/app-api:0.1.0-rc.5
+    image: ghcr.io/copilotkit/intelligence/app-api:0.1.0-rc.7
     ports:
       - "${APP_API_HOST_PORT:-4201}:4201"
     environment:
@@ -97,7 +97,7 @@ services:
       - intelligence
 
   realtime-gateway:
-    image: public.ecr.aws/cpk/intelligence/realtime-gateway:0.1.0-rc.5
+    image: ghcr.io/copilotkit/intelligence/realtime-gateway:0.1.0-rc.7
     ports:
       - "${REALTIME_GATEWAY_HOST_PORT:-4401}:4401"
     environment:
@@ -120,6 +120,28 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    restart: unless-stopped
+    networks:
+      - intelligence
+
+  thread-culler:
+    image: ghcr.io/copilotkit/intelligence/thread-culler:0.1.0-rc.7
+    command:
+      [
+        "sh",
+        "-lc",
+        "while true; do node dist/apps/thread-culler/main.mjs; sleep 3600; done",
+      ]
+    environment:
+      DATABASE_URL: postgresql://intelligence:intelligence@postgres:5432/intelligence_app
+      COPILOTKIT_LICENSE_TOKEN: "${COPILOTKIT_LICENSE_TOKEN:-}"
+      THREAD_STALE_HOURS: "${THREAD_STALE_HOURS:-3}"
+      THREAD_CULL_BATCH_SIZE: "${THREAD_CULL_BATCH_SIZE:-1000}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-migrations:
+        condition: service_completed_successfully
     restart: unless-stopped
     networks:
       - intelligence

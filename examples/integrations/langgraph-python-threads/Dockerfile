@@ -1,22 +1,21 @@
-# Stage 1: Build Next.js frontend
+# Stage 1: Install Node dependencies and build the frontend + BFF
 FROM node:20-slim AS frontend
 
 WORKDIR /app
-RUN corepack enable
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY package.json package-lock.json ./
 COPY apps/app/package.json ./apps/app/
-RUN pnpm install --no-frozen-lockfile
+COPY apps/agent/package.json ./apps/agent/
+COPY apps/bff/package.json ./apps/bff/
+COPY turbo.json ./
+RUN npm ci --ignore-scripts
 
 COPY apps/app/ ./apps/app/
-
-# Docker override: use AG-UI HttpAgent instead of LangGraphAgent
-# (LangGraphAgent needs Docker-in-Docker which Railway doesn't provide)
-COPY docker-route-override.ts ./apps/app/src/app/api/copilotkit/route.ts
-RUN pnpm --filter @repo/app add @ag-ui/client
+COPY apps/bff/ ./apps/bff/
 
 ENV NODE_OPTIONS="--max-old-space-size=4096"
-RUN pnpm --filter @repo/app build
+RUN npm run build --workspace @repo/app
+RUN npm run build --workspace @repo/bff
 
 # Stage 2: Production image with Python + Node
 FROM python:3.12.10-slim AS runner
@@ -55,10 +54,11 @@ RUN uv pip install --system "ag-ui-langgraph[fastapi]==0.0.22" && \
 # serve.py adapts the original agent for Docker (no langgraph-cli needed)
 COPY serve.py ./
 
-# Copy Next.js standalone build
-COPY --from=frontend /app/apps/app/.next/standalone ./
-COPY --from=frontend /app/apps/app/.next/static ./apps/app/.next/static
-COPY --from=frontend /app/apps/app/public ./apps/app/public
+# Copy frontend build and the BFF runtime.
+COPY --from=frontend /app/node_modules ./node_modules
+COPY --from=frontend /app/apps/app/dist ./apps/app/dist
+COPY --from=frontend /app/apps/app/server.mjs ./apps/app/server.mjs
+COPY --from=frontend /app/apps/bff/dist ./apps/bff/dist
 
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh

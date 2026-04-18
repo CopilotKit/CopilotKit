@@ -16,11 +16,16 @@ AGENT_PID=$!
 
 sleep 3
 
-# Start Next.js standalone
-echo "[entrypoint] Starting Next.js on port ${PORT:-3000}..."
-HOSTNAME=0.0.0.0 PORT=${PORT:-3000} node apps/app/server.js 2>&1 &
-NEXT_PID=$!
+# Start the CopilotKit BFF.
+echo "[entrypoint] Starting BFF on port 4000..."
+LANGGRAPH_DEPLOYMENT_URL=http://127.0.0.1:8123 PORT=4000 node apps/bff/dist/server.js 2>&1 &
+BFF_PID=$!
 
-echo "[entrypoint] Agent=$AGENT_PID Next=$NEXT_PID"
-wait -n $AGENT_PID $NEXT_PID
+# Start the Vite frontend server.
+echo "[entrypoint] Starting frontend on port ${PORT:-3000}..."
+COPILOTKIT_RUNTIME_URL=http://127.0.0.1:4000/api/copilotkit PORT=${PORT:-3000} node apps/app/server.mjs 2>&1 &
+APP_PID=$!
+
+echo "[entrypoint] Agent=$AGENT_PID BFF=$BFF_PID App=$APP_PID"
+wait -n $AGENT_PID $BFF_PID $APP_PID
 exit $?
