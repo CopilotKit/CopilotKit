@@ -36,6 +36,7 @@ import {
   HEADER_COLUMNS,
   formatRow,
   buildHeader,
+  type PackageIssue,
 } from "../validate-parity.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -897,10 +898,16 @@ describe("validate-parity", () => {
         const freezeSpy = vi.spyOn(Object, "freeze").mockImplementation(((
           o: unknown,
         ) => {
+          // Narrow the predicate to only target manifest demo entries —
+          // objects that carry BOTH a stringy `id` and `name`. Matching
+          // on `id` alone would trip on any unrelated internal object
+          // that happens to expose an id field and cause spurious
+          // throws outside the code path under test.
           if (
             o !== null &&
             typeof o === "object" &&
-            "id" in (o as Record<string, unknown>)
+            typeof (o as Record<string, unknown>).id === "string" &&
+            typeof (o as Record<string, unknown>).name === "string"
           ) {
             throw sentinel;
           }
@@ -1159,13 +1166,6 @@ describe("validate-parity", () => {
   });
 
   describe("module exports", () => {
-    it("exports the functions tests need", () => {
-      expect(typeof auditPackage).toBe("function");
-      expect(typeof loadManifest).toBe("function");
-      expect(typeof listFiles).toBe("function");
-      expect(typeof listDirs).toBe("function");
-    });
-
     it("does not invoke main() on import (isMain guard is in place)", () => {
       // A dynamic `await import(...)` in-process is trivially
       // non-throwing because the module was already loaded earlier in
@@ -1412,8 +1412,8 @@ Object.freeze = function(o) {
     });
 
     it("runParity returns EXIT_INTERNAL (4) instead of throwing when auditPackage surfaces an unexpected error", () => {
-      // R19-2 #4 regression guard. In-process callers (tests, composed
-      // CLIs) must receive a numeric exit code, never a raw exception —
+      // In-process callers (tests, composed CLIs) must receive a
+      // numeric exit code, never a raw exception —
       // otherwise callers have to duplicate the top-level try/catch that
       // `main()` uses. Drive the same failure path as the CLI test above
       // (Object.freeze throws a non-manifest TypeError), but call
@@ -1431,10 +1431,16 @@ Object.freeze = function(o) {
         const freezeSpy = vi.spyOn(Object, "freeze").mockImplementation(((
           o: unknown,
         ) => {
+          // Narrow the predicate to only target manifest demo entries —
+          // objects that carry BOTH a stringy `id` and `name`. Matching
+          // on `id` alone would trip on any unrelated internal object
+          // that happens to expose an id field and cause spurious
+          // throws outside the code path under test.
           if (
             o !== null &&
             typeof o === "object" &&
-            "id" in (o as Record<string, unknown>)
+            typeof (o as Record<string, unknown>).id === "string" &&
+            typeof (o as Record<string, unknown>).name === "string"
           ) {
             throw new TypeError("synthetic non-manifest failure");
           }
@@ -1460,7 +1466,8 @@ Object.freeze = function(o) {
           expect(returned).toBe(4);
 
           // Stderr must carry both the outer wrapping context AND the
-          // root cause (cause-chain walk — R19-2 #6 regression guard).
+          // root cause, surfaced by walking the error cause chain so
+          // operators see the underlying failure text.
           const stderr = errSpy.mock.calls.map((c) => String(c[0])).join("\n");
           expect(stderr).toMatch(/\[INTERNAL ERROR\] validate-parity crashed/);
           expect(stderr).toMatch(/audit of boom-pkg crashed/);
@@ -1571,11 +1578,6 @@ Object.freeze = function(o) {
     // rows hardcoded padStart(4)/padStart(4)/padStart(3) — producing
     // misaligned output. Both must now be driven from a single source
     // (HEADER_COLUMNS).
-    it("HEADER_COLUMNS is the single source of truth", () => {
-      expect(Array.isArray(HEADER_COLUMNS)).toBe(true);
-      expect(HEADER_COLUMNS.length).toBeGreaterThan(0);
-    });
-
     it("formatRow output length matches buildHeader output length", () => {
       // The cell separator is "  " (two spaces), but right-aligned cells
       // can themselves begin with spaces, so splitting on "  " can over-
@@ -1848,25 +1850,32 @@ Object.freeze = function(o) {
 
   describe("PackageReport returns independent arrays for each audit call", () => {
     // The `readonly T[]` annotation in PackageReport is a TypeScript-only
-    // enforcement (no runtime freeze). There is no meaningful runtime
-    // assertion for "this is readonly" — `Array.isArray` is trivially
-    // true, and `Object.isFrozen` is false because we don't freeze.
-    //
-    // What IS worth verifying at runtime is that each auditPackage call
-    // returns freshly-built arrays (no accidental shared module-level
-    // state leaking across calls). If two successive audits returned the
-    // same array instance, a caller mutating one would corrupt the next —
-    // exactly the failure mode the readonly type aims to prevent from
-    // the other direction. This test locks that in.
-    it("returns distinct mustErrors / warnings arrays across audit calls", () => {
+    // enforcement (no runtime freeze). What matters at runtime is that
+    // each auditPackage call returns freshly-built arrays (no accidental
+    // shared module-level state leaking across calls). If two successive
+    // audits returned the same array instance, a caller mutating one
+    // would corrupt the next — exactly the failure mode the readonly
+    // type aims to prevent from the other direction. We verify that
+    // behaviourally: mutate the first report's arrays and assert the
+    // second report remains untouched.
+    it("mutations to one report's arrays do not leak into a subsequent audit", () => {
       const r1 = auditPackage("ok-pkg", FIXTURES_DIR);
       const r2 = auditPackage("ok-pkg", FIXTURES_DIR);
-      expect(r1.mustErrors).not.toBe(r2.mustErrors);
-      expect(r1.warnings).not.toBe(r2.warnings);
-      expect(r1.demoIds).not.toBe(r2.demoIds);
-      expect(r1.specFiles).not.toBe(r2.specFiles);
-      expect(r1.qaFiles).not.toBe(r2.qaFiles);
-      expect(r1.demoDirs).not.toBe(r2.demoDirs);
+      const fakeIssue: PackageIssue = {
+        category: "missing-manifest",
+      };
+      (r1.mustErrors as PackageIssue[]).push(fakeIssue);
+      (r1.warnings as PackageIssue[]).push(fakeIssue);
+      (r1.demoIds as string[]).push("__mutated-demo__");
+      (r1.specFiles as string[]).push("__mutated-spec__.ts");
+      (r1.qaFiles as string[]).push("__mutated-qa__.md");
+      (r1.demoDirs as string[]).push("__mutated-demo-dir__");
+      expect(r2.mustErrors).not.toContain(fakeIssue);
+      expect(r2.warnings).not.toContain(fakeIssue);
+      expect(r2.demoIds).not.toContain("__mutated-demo__");
+      expect(r2.specFiles).not.toContain("__mutated-spec__.ts");
+      expect(r2.qaFiles).not.toContain("__mutated-qa__.md");
+      expect(r2.demoDirs).not.toContain("__mutated-demo-dir__");
     });
   });
 
