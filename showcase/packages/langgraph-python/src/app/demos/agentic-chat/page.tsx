@@ -2,13 +2,11 @@
 
 import React from "react";
 import {
-  useRenderTool,
   useAgentContext,
   useConfigureSuggestions,
   CopilotChat,
 } from "@copilotkit/react-core/v2";
 import { CopilotKit } from "@copilotkit/react-core";
-import { z } from "zod";
 
 export default function AgenticChatDemo() {
   return (
@@ -24,36 +22,11 @@ function Chat() {
     value: "Bob",
   });
 
-  useRenderTool({
-    name: "get_weather",
-    parameters: z.object({
-      location: z.string(),
-    }),
-    render: ({ args, result, status }: any) => {
-      if (status !== "complete") {
-        return <div data-testid="weather-info-loading">Loading weather...</div>;
-      }
-      return (
-        <div data-testid="weather-info">
-          <strong>Weather in {result?.city || args.location}</strong>
-          <div>Temperature: {result?.temperature}&deg;C</div>
-          <div>Humidity: {result?.humidity}%</div>
-          <div>Wind Speed: {result?.windSpeed ?? result?.wind_speed} mph</div>
-          <div>Conditions: {result?.conditions}</div>
-        </div>
-      );
-    },
-  });
-
   useConfigureSuggestions({
     suggestions: [
       {
         title: "Generate sonnet",
         message: "Write a short sonnet about AI.",
-      },
-      {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
       },
     ],
     available: "always",

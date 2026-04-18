@@ -88,16 +88,16 @@
       "description": "Chat with visible reasoning/thinking chain display"
     },
     {
-      "id": "gen-ui-display",
+      "id": "gen-ui-tool-based",
       "name": "Controlled Gen-UI (Display)",
       "category": "generative-ui",
-      "description": "Displaying components from the agent"
+      "description": "Agent renders typed React components via the useComponent hook"
     },
     {
-      "id": "gen-ui-interactive",
-      "name": "Controlled Gen-UI (Interactive)",
+      "id": "hitl-in-chat",
+      "name": "Controlled Gen-UI (Interactive) / In-Chat HITL",
       "category": "generative-ui",
-      "description": "Interactive components from the agent"
+      "description": "Interactive components from the agent; user approves actions from within the chat"
     },
     {
       "id": "gen-ui-interrupt",
@@ -106,34 +106,10 @@
       "description": "Interrupt-based component rendering"
     },
     {
-      "id": "gen-ui-tool-based",
-      "name": "Controlled Generative UI",
-      "category": "generative-ui",
-      "description": "Agent renders typed React components via the useComponent hook"
-    },
-    {
       "id": "declarative-gen-ui",
-      "name": "Declarative Generative UI",
+      "name": "Declarative Generative UI (A2UI)",
       "category": "generative-ui",
       "description": "Declarative mapping of agent state to rendered components"
-    },
-    {
-      "id": "gen-ui-agent",
-      "name": "Agentic Generative UI",
-      "category": "generative-ui",
-      "description": "Long-running agent tasks with generated UI"
-    },
-    {
-      "id": "open-gen-ui",
-      "name": "Fully Open-Ended Generative UI",
-      "category": "generative-ui",
-      "description": "Agent-generated UI from arbitrary component libraries"
-    },
-    {
-      "id": "a2ui",
-      "name": "A2UI",
-      "category": "generative-ui",
-      "description": "Agent-to-UI protocol rendering"
     },
     {
       "id": "mcp-apps",
@@ -142,10 +118,16 @@
       "description": "MCP server integration with UI display"
     },
     {
-      "id": "hitl-in-chat",
-      "name": "In-Chat Human in the Loop",
+      "id": "open-gen-ui",
+      "name": "Fully Open-Ended Generative UI",
       "category": "generative-ui",
-      "description": "User approves agent actions from within the chat UI"
+      "description": "Agent-generated UI from arbitrary component libraries"
+    },
+    {
+      "id": "gen-ui-agent",
+      "name": "Agentic Generative UI (In-Chat State Rendering)",
+      "category": "generative-ui",
+      "description": "Long-running agent tasks with generated UI"
     },
     {
       "id": "tool-rendering",
