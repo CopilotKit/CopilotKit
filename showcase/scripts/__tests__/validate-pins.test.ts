@@ -638,9 +638,8 @@ describe("Unpinned spec rejection in validateAll", () => {
   let repoRoot: string;
   // Save-and-restore pattern for VALIDATE_PINS_REPO_ROOT so that if the
   // env var was set at suite entry (e.g. by an outer invocation), it's
-  // preserved rather than silently deleted. `origCwd` is tracked on the
-  // describe level but no test ever calls process.chdir(), so we don't
-  // restore it here either.
+  // preserved rather than silently deleted. No tests in this describe
+  // call process.chdir(), so cwd does not need save/restore either.
   let savedRepoRoot: string | undefined;
 
   beforeEach(() => {
