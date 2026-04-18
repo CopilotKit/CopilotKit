@@ -189,10 +189,17 @@ def configure_aimock(
         for var in _PROD_ENV_VARS:
             raw = target.get(var)
             if raw is not None and raw.strip().lower() in _PROD_ENV_VALUES:
+                # Prefixed, grep-friendly WARNING: `ENV=production` is a common
+                # shell-profile default that can silently disable the toggle in
+                # dev/CI when operators didn't intend to. The
+                # `aimock_toggle: DISABLED (prod-guard: VAR=value)` prefix lets
+                # operators `grep 'aimock_toggle: DISABLED'` in logs to spot
+                # unexpected refusals without reading every WARNING line.
                 logger.warning(
-                    "%s=%r indicates production; refusing to apply aimock "
-                    "toggle even though AIMOCK_URL=%r is set. Unset "
-                    "AIMOCK_URL in prod or set USE_AIMOCK=0.",
+                    "aimock_toggle: DISABLED (prod-guard: %s=%r) — "
+                    "refusing to apply aimock toggle even though "
+                    "AIMOCK_URL=%r is set. Unset AIMOCK_URL in prod or set "
+                    "USE_AIMOCK=0.",
                     var,
                     raw,
                     aimock_url_raw,

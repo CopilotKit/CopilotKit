@@ -20,6 +20,7 @@ import pytest
 from aimock_toggle import (
     _LITELLM_API_BASE,
     _OPENAI_BASE_URL,
+    _PROD_ENV_VARS,
     configure_aimock,
 )
 
@@ -293,6 +294,14 @@ def test_default_arg_path_mutates_os_environ(monkeypatch):
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("LITELLM_API_BASE", raising=False)
     monkeypatch.delenv("USE_AIMOCK", raising=False)
+    # Scrub every prod-guard var from the inherited env so a CI runner that
+    # happens to export e.g. `ENV=production` or `RAILWAY_ENVIRONMENT=production`
+    # (or a developer running pytest inside a shell with `NODE_ENV=production`)
+    # doesn't silently flip this test from "toggle enabled" to "prod-guard
+    # refused toggle" and falsely assert enabled=True. monkeypatch restores
+    # them on teardown so other tests see the original values.
+    for var in _PROD_ENV_VARS:
+        monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("AIMOCK_URL", "http://localhost:4141/v1")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-real")
 
@@ -373,11 +382,23 @@ def test_production_env_refuses_toggle_even_with_aimock_url(prod_var, prod_value
     )
     # Must log WARNING when URL is set but refused (the AIMOCK_URL-unset case
     # doesn't need a warning — that's just the production default path).
+    # The prod-guard must emit EXACTLY ONE warning with the grep-friendly
+    # `aimock_toggle: DISABLED (prod-guard: VAR=value)` prefix. A common
+    # misconfiguration is a stray `ENV=production` in a dev shell profile
+    # silently disabling the toggle; operators need a single, unambiguous,
+    # greppable prefix to find it. Multiple warnings per refusal would mean
+    # iterating `_PROD_ENV_VARS` kept firing past the first match (regression).
     warnings = [r for r in caplog.records if r.levelno >= logging.WARNING]
-    assert any(
-        prod_var in r.getMessage() and "aimock" in r.getMessage().lower()
-        for r in warnings
-    ), f"expected WARNING mentioning {prod_var} + aimock refusal, got {warnings!r}"
+    assert len(warnings) == 1, (
+        f"prod-guard must emit exactly one WARNING on refusal, got {warnings!r}"
+    )
+    msg = warnings[0].getMessage()
+    assert msg.startswith("aimock_toggle: DISABLED (prod-guard: "), (
+        f"WARNING must start with the grep-friendly prefix; got {msg!r}"
+    )
+    assert prod_var in msg, (
+        f"WARNING must name the triggering var ({prod_var}); got {msg!r}"
+    )
 
 
 @pytest.mark.parametrize(

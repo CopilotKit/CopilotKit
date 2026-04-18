@@ -96,6 +96,16 @@ from agents.crew import LatestAiDevelopment
 
 app = FastAPI(title="CrewAI (Crews) Agent Server")
 
+# CORS: `allow_origins=["*"]` is intentional for this LOCAL DEMO / SHOWCASE
+# STARTER package. The agent server binds to localhost:8000 during `pnpm dev`
+# (or :8123 inside a generated starter container) and is reached ONLY by the
+# Next.js frontend on :3000 during development — there is no production
+# deployment surface where a wide-open CORS policy would matter.
+#
+# If this file is copied into a real deployment, replace `["*"]` with a
+# CORS_ORIGIN env-driven allowlist. A `CORS_ORIGIN` env var is NOT wired here
+# today (see .env.example); adding it is a future-work item tracked outside
+# this PR.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
