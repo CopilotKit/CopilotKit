@@ -212,13 +212,44 @@ def before_model_modifier(
 def simple_after_model_modifier(
     callback_context: CallbackContext, llm_response: LlmResponse
 ) -> Optional[LlmResponse]:
-    """Stop the consecutive tool calling of the agent."""
+    """Stop consecutive tool-calling loops after the model produces a
+    terminal text-only response.
+
+    IMPORTANT: we must only terminate on a FINAL, non-partial response that
+    contains TEXT and NO pending function_call. Two Gemini 2.5-flash quirks
+    made the original implementation (check `parts[0].text` only) unsafe:
+
+    1. Partial streaming events: with `PROGRESSIVE_SSE_STREAMING` enabled, the
+       model emits partial events before the final turn_complete event. Ending
+       invocation on a partial event cuts the stream off mid-tool-call and
+       leaves the backend emitting only a "partial" event with no TOOL_CALL_*
+       or TEXT_MESSAGE_* events — so the tool-rendering UI never receives a
+       weather card.
+    2. Mixed text + function_call responses: Gemini sometimes returns a
+       response whose parts contain BOTH text ("I'll check the weather...") AND
+       a function_call. Terminating on text alone would skip the tool call and
+       strand the UI.
+    """
     agent_name = callback_context.agent_name
     if agent_name == "SalesPipelineAgent":
         if llm_response.content and llm_response.content.parts:
+            # Skip partial events — only consider final (turn_complete) LLM
+            # responses. Terminating on a partial interrupts the stream before
+            # tool calls or full text can be emitted.
+            if getattr(llm_response, "partial", False):
+                return None
+
+            has_text = any(
+                getattr(part, "text", None) for part in llm_response.content.parts
+            )
+            has_function_call = any(
+                getattr(part, "function_call", None)
+                for part in llm_response.content.parts
+            )
             if (
                 llm_response.content.role == "model"
-                and llm_response.content.parts[0].text
+                and has_text
+                and not has_function_call
             ):
                 callback_context._invocation_context.end_invocation = True
 
@@ -233,16 +264,17 @@ sales_pipeline_agent = LlmAgent(
     name="SalesPipelineAgent",
     model="gemini-2.5-flash",
     instruction="""
-        You are a helpful sales assistant that helps manage a sales pipeline and answer questions.
+        You are a helpful assistant.
+
+        WEATHER:
+        When the user asks about the weather, call the get_weather tool.
+        If the user does not specify a location, use "Everywhere ever in the whole wide world".
+        After the weather tool returns, briefly summarize the result in one sentence.
 
         SALES TODOS:
         When a user asks you to do anything regarding sales todos or the pipeline, use the manage_sales_todos tool.
         Always pass the COMPLETE LIST of todos to the manage_sales_todos tool.
         After using the tool, provide a brief summary of what you created, removed, or changed.
-
-        WEATHER:
-        Only call the get_weather tool if the user asks about the weather.
-        If the user does not specify a location, use "Everywhere ever in the whole wide world".
 
         QUERY DATA:
         Use the query_data tool when the user asks for financial data, charts, or analytics.
@@ -256,6 +288,8 @@ sales_pipeline_agent = LlmAgent(
 
         GENERATE A2UI:
         Use the generate_a2ui tool to generate dynamic A2UI dashboards from conversation context.
+
+        ALWAYS provide a textual response after any tool call.
         """,
     tools=[get_weather, query_data, manage_sales_todos, get_sales_todos, schedule_meeting, search_flights, generate_a2ui],
     before_agent_callback=on_before_agent,
