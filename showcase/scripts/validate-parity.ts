@@ -63,9 +63,11 @@ const DEFAULT_PACKAGES_DIR = path.join(ROOT, "packages");
  * when enforcing the per-package e2e-spec-count floor — there is no
  * hardcoded MIN in the workflow anymore. Keep this default in sync
  * with `baselineDemoCount` in fail-baseline.json; if one moves,
- * move both.
+ * move both. The sync is enforced by
+ * __tests__/baseline-sync.test.ts so drift is caught in CI rather than
+ * relying on the comment above.
  */
-const BASELINE_DEMO_COUNT = 9;
+export const BASELINE_DEMO_COUNT = 9;
 
 // Exit code taxonomy mirrors audit.ts / validate-pins.ts so CI callers
 // can disambiguate "no anomalies" / "anomalies" / "unreadable" / "internal".
