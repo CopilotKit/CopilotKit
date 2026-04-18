@@ -1105,21 +1105,30 @@ function parsePyprojectTomlDetailed(file: string): ParseResult {
     }
   }
 
-  // Defensive guard: if the raw file has any non-whitespace content but
-  // no dependency was extracted AND nothing was skipped/dropped either,
-  // the regex-based parser likely could not locate a recognizable
-  // section header. Silently accepting this produces a false-clean
-  // [OK] for a file the validator never actually inspected. Throw so
-  // `collectDepsFromDir`'s catch block routes it to `parseErrors` and
-  // the downstream FAIL reporter surfaces it with slug context.
+  // Defensive guard: a file that *declares* a `dependencies = …` key
+  // (under `[project]` or `[tool.poetry*]`) but produced ZERO extracted
+  // entries AND no skipped/dropped diagnostics almost certainly means
+  // the regex-based parser could not destructure that declaration —
+  // e.g. `dependencies = "malformed-string"` (wrong TOML type), an
+  // inline-table form we don't support, or some other shape the
+  // targeted regexes miss. Silently accepting this produces a false-
+  // clean [OK] for a file the validator never actually inspected, so
+  // we throw to route the file to `parseErrors` → FAIL.
+  //
+  // IMPORTANT: we deliberately do NOT throw on files that merely lack
+  // a `dependencies` declaration (tool-only configs like `[tool.black]`,
+  // `[project]` metadata blocks with only `name`/`version`/`authors`,
+  // hatch/uv/maturin configs without PEP 621 deps, etc.). Those produce
+  // an empty DepMap as the correct, intended result.
+  const declaresDependencies = /(?:^|\n)\s*dependencies\s*=/.test(raw);
   if (
-    raw.trim().length > 0 &&
+    declaresDependencies &&
     Object.keys(out).length === 0 &&
     skipped.length === 0 &&
     dropped.length === 0
   ) {
     throw new Error(
-      `pyproject.toml produced empty DepMap — likely malformed TOML that the regex parser could not extract.`,
+      `pyproject.toml produced empty DepMap — a 'dependencies = …' key is declared but the regex parser could not extract any entries (likely malformed TOML or unsupported form).`,
     );
   }
 

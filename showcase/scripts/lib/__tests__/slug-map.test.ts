@@ -55,19 +55,25 @@ describe("BORN_IN_SHOWCASE", () => {
 });
 
 describe("SLUG_TO_EXAMPLES (showcase slug → examples dir names)", () => {
-  it("has no dead entries — every target dir exists under showcase/packages/", () => {
-    // Regression guard: the old audit.ts map contained crewai-flows,
-    // agent-spec-langgraph, and mcp-apps which produced phantom "no
-    // examples source" anomalies. Removing them here is the whole point of
-    // the extraction.
-    for (const slug of Object.keys(SLUG_TO_EXAMPLES)) {
-      const pkgPath = path.join(PACKAGES_DIR, slug);
-      expect(
-        fs.existsSync(pkgPath),
-        `SLUG_TO_EXAMPLES slug '${slug}' has no matching showcase/packages/${slug}/`,
-      ).toBe(true);
-    }
-  });
+  // This test reads the live showcase/packages/ tree. In sparse
+  // checkouts (CI shards, partial clones) the directory may be absent;
+  // skip rather than false-fail when that happens.
+  it.skipIf(!fs.existsSync(PACKAGES_DIR))(
+    "has no dead entries — every target dir exists under showcase/packages/",
+    () => {
+      // Regression guard: the old audit.ts map contained crewai-flows,
+      // agent-spec-langgraph, and mcp-apps which produced phantom "no
+      // examples source" anomalies. Removing them here is the whole point of
+      // the extraction.
+      for (const slug of Object.keys(SLUG_TO_EXAMPLES)) {
+        const pkgPath = path.join(PACKAGES_DIR, slug);
+        expect(
+          fs.existsSync(pkgPath),
+          `SLUG_TO_EXAMPLES slug '${slug}' has no matching showcase/packages/${slug}/`,
+        ).toBe(true);
+      }
+    },
+  );
 
   it("does not include the three known dead entries", () => {
     expect(
@@ -132,20 +138,25 @@ describe("SLUG_MAP (examples dir → showcase slug)", () => {
     }
   });
 
-  it("every VALUE in SLUG_MAP names a real showcase/packages/<slug>/ dir", () => {
-    // Dead-entry guard: the old SLUG_MAP carried values like `crewai`,
-    // `maf-dotnet`, `maf-python`, `aws-strands`, `agent-spec-langgraph`,
-    // `a2a`, `mcp-apps`, `pydanticai` that did NOT exist under
-    // showcase/packages/. Those broke validate-pins.ts's reverse lookup
-    // and forced FALLBACK_MAP to re-express the corrections.
-    for (const [, slug] of SLUG_MAP) {
-      const pkgPath = path.join(PACKAGES_DIR, slug);
-      expect(
-        fs.existsSync(pkgPath),
-        `SLUG_MAP value '${slug}' has no matching showcase/packages/${slug}/`,
-      ).toBe(true);
-    }
-  });
+  // Reads the live showcase/packages/ tree — skip in sparse checkouts
+  // where that directory is not materialized.
+  it.skipIf(!fs.existsSync(PACKAGES_DIR))(
+    "every VALUE in SLUG_MAP names a real showcase/packages/<slug>/ dir",
+    () => {
+      // Dead-entry guard: the old SLUG_MAP carried values like `crewai`,
+      // `maf-dotnet`, `maf-python`, `aws-strands`, `agent-spec-langgraph`,
+      // `a2a`, `mcp-apps`, `pydanticai` that did NOT exist under
+      // showcase/packages/. Those broke validate-pins.ts's reverse lookup
+      // and forced FALLBACK_MAP to re-express the corrections.
+      for (const [, slug] of SLUG_MAP) {
+        const pkgPath = path.join(PACKAGES_DIR, slug);
+        expect(
+          fs.existsSync(pkgPath),
+          `SLUG_MAP value '${slug}' has no matching showcase/packages/${slug}/`,
+        ).toBe(true);
+      }
+    },
+  );
 
   it("is frozen — .set throws", () => {
     const m = SLUG_MAP as unknown as Map<string, string>;
