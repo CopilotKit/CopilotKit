@@ -430,13 +430,13 @@ describe("findExamplesSource", () => {
   });
 
   it("warns and returns null when an unmapped slug's candidate path exists but is a regular file", () => {
-    // Regression guard for R21-1 A3: before this fix, an unmapped slug
-    // whose candidate path happened to resolve to a file (stray file in
-    // examples/integrations, or a name collision) returned null
-    // silently. Operators had no signal that a seemingly-present path
-    // was being skipped. The warning now makes the misconfiguration
-    // visible, with wording ("exists but is not a directory") distinct
-    // from the mapped-entry "no matching directory" warning.
+    // An unmapped slug whose candidate path resolves to a regular file
+    // (stray file in examples/integrations, or a name collision) must
+    // warn rather than return null silently — operators need a signal
+    // that a seemingly-present path was skipped. The warning wording
+    // ("exists but is not a directory") is distinct from the
+    // mapped-entry "no matching directory" warning so the two
+    // misconfiguration modes stay disambiguable.
     const slug = "unmapped-file-slug";
     // Write a regular file at examples/integrations/<slug> (no mkdir).
     const full = path.join(root, "examples", "integrations", slug);
@@ -678,6 +678,102 @@ describe("auditPackage", () => {
     const a = auditPackage(mappedSlug, cfg);
     expect(a.warnings.length).toBeGreaterThan(0);
     expect(a.warnings.some((w) => w.includes(mappedSlug))).toBe(true);
+  });
+
+  it("pushes an unreadable-examples anomaly (not missing-examples) when all mapped candidates exist but are unreadable", () => {
+    // Contract: the "all candidates unreadable" infrastructure failure
+    // must surface as its own Anomaly variant so downstream consumers
+    // can distinguish "provenance is genuinely missing" (missing-examples,
+    // stale mapping) from "we couldn't tell whether provenance is
+    // satisfied" (unreadable-examples, I/O / permissions). Conflating
+    // them would hide real access failures behind a content-shaped signal.
+    const mappedSlug = "mastra";
+    const candidates = SLUG_TO_EXAMPLES[mappedSlug];
+    expect(candidates).toBeDefined();
+    expect(candidates.length).toBeGreaterThan(0);
+    writePackage(root, mappedSlug, {
+      manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: x\n`,
+      specs: ["x.spec.ts"],
+      qaFiles: ["x.md"],
+    });
+    // Create the candidate dirs so existsSync sees them; mock statSync
+    // to throw EACCES on those paths so every candidate registers as
+    // unreadable. Non-candidate statSync calls fall through to the real
+    // implementation so other fixture operations still work.
+    const fullPaths = candidates.map((c) =>
+      path.join(root, "examples", "integrations", c),
+    );
+    for (const c of candidates) makeExampleDir(root, c);
+    const orig = fs.statSync;
+    const spy = vi.spyOn(fs, "statSync").mockImplementation(((
+      p: fs.PathLike,
+      options?: unknown,
+    ) => {
+      if (typeof p === "string" && fullPaths.includes(p)) {
+        const e: NodeJS.ErrnoException = new Error("EACCES: injected");
+        e.code = "EACCES";
+        throw e;
+      }
+      return (orig as unknown as (p: fs.PathLike, o?: unknown) => unknown)(
+        p,
+        options,
+      );
+    }) as typeof fs.statSync);
+    try {
+      const cfg = makeConfig(root);
+      const a = auditPackage(mappedSlug, cfg);
+      // The CRITICAL warning from findExamplesSource must be present.
+      expect(
+        a.warnings.some(
+          (w) => w.includes("unreadable-candidates") && w.includes(mappedSlug),
+        ),
+      ).toBe(true);
+      // No plain missing-examples anomaly.
+      expect(a.anomalies.some((x) => x.kind === "missing-examples")).toBe(
+        false,
+      );
+      // The new variant is present with the mapped candidates echoed.
+      const unreadable = a.anomalies.find(
+        (x) => x.kind === "unreadable-examples",
+      );
+      expect(unreadable).toBeDefined();
+      if (unreadable && unreadable.kind === "unreadable-examples") {
+        expect(unreadable.slug).toBe(mappedSlug);
+        expect([...unreadable.candidates]).toEqual([...candidates]);
+      }
+      // Rendering routes through anomalyMessage without throwing and
+      // carries the slug + candidates in the human-readable output.
+      const messages = anomalyStrings(a);
+      expect(
+        messages.some(
+          (m) =>
+            m.includes(mappedSlug) &&
+            candidates.every((c) => m.includes(c)),
+        ),
+      ).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("still pushes missing-examples (not unreadable-examples) when the mapping is simply stale", () => {
+    // Negative control for the branch above: the same mapped slug with
+    // NO candidate directories on disk must continue to produce
+    // missing-examples — the "unreadable-candidates" warning is
+    // specifically gated on candidates existing-but-unreadable.
+    const mappedSlug = "mastra";
+    writePackage(root, mappedSlug, {
+      manifest: `slug: ${mappedSlug}\ndeployed: true\ndemos:\n  - id: x\n`,
+      specs: ["x.spec.ts"],
+      qaFiles: ["x.md"],
+    });
+    // NOTE: no makeExampleDir — the mapping is stale.
+    const cfg = makeConfig(root);
+    const a = auditPackage(mappedSlug, cfg);
+    expect(a.anomalies.some((x) => x.kind === "missing-examples")).toBe(true);
+    expect(a.anomalies.some((x) => x.kind === "unreadable-examples")).toBe(
+      false,
+    );
   });
 });
 
@@ -1533,12 +1629,15 @@ describe("canonicalizeForIsMain", () => {
     }
   });
 
-  it("sets process.exitCode = EXIT_UNREADABLE on non-ENOENT realpath failure", () => {
-    // Regression guard for R21-2: before this fix, non-ENOENT realpath
-    // failures only emitted a stderr diagnostic and left process.exitCode
-    // unchanged. CI couldn't distinguish this from a clean run (exit 0)
-    // or drift (exit 1). Now operators get exit 3 (EXIT_UNREADABLE) as
-    // a distinct signal for genuine filesystem-access failure.
+  it("terminates the process with EXIT_UNREADABLE on non-ENOENT realpath failure", () => {
+    // Non-ENOENT realpath failures (EACCES/ELOOP/EIO) indicate genuine
+    // filesystem-access problems that CI must surface distinctly from a
+    // clean run (exit 0) or drift (exit 1). The helper runs pre-main
+    // during the isMain guard, so `process.exitCode` would be clobbered
+    // by main()'s later `process.exitCode = report.exitCode` write —
+    // `process.exit(3)` is the only way to guarantee the signal
+    // survives. We spy on process.exit to observe the code without
+    // actually terminating the test runner.
     const realpathSpy = vi.spyOn(fs, "realpathSync").mockImplementation(((
       ..._args: unknown[]
     ) => {
@@ -1547,15 +1646,23 @@ describe("canonicalizeForIsMain", () => {
     const stderrSpy = vi
       .spyOn(process.stderr, "write")
       .mockImplementation(() => true);
-    const priorExitCode = process.exitCode;
-    process.exitCode = 0;
+    const exitSpy = vi
+      .spyOn(process, "exit")
+      .mockImplementation(((_code?: number) => {
+        // Throw a sentinel so the caller's control flow stops — real
+        // process.exit never returns, so code after it expects to be
+        // unreachable.
+        throw new Error(`__EXIT_CALLED__:${_code}`);
+      }) as unknown as typeof process.exit);
     try {
-      canonicalizeForIsMain("/some/path");
-      expect(process.exitCode).toBe(3);
+      expect(() => canonicalizeForIsMain("/some/path")).toThrow(
+        /__EXIT_CALLED__:3/,
+      );
+      expect(exitSpy).toHaveBeenCalledWith(3);
     } finally {
-      process.exitCode = priorExitCode;
       realpathSpy.mockRestore();
       stderrSpy.mockRestore();
+      exitSpy.mockRestore();
     }
   });
 
@@ -1578,10 +1685,12 @@ describe("canonicalizeForIsMain", () => {
     }
   });
 
-  it("warns to stderr for non-ENOENT failures (e.g. EACCES) and still returns resolved", () => {
+  it("warns to stderr for non-ENOENT failures (e.g. EACCES) before terminating the process", () => {
     // Non-ENOENT realpath failures indicate real problems (permission,
-    // loop, I/O). Previously the bare `catch {}` swallowed them; now we
-    // must see the warning.
+    // loop, I/O). The helper must emit an operator-facing diagnostic
+    // to stderr BEFORE calling process.exit so the cause is visible in
+    // the terminated run's logs — a silent process.exit would produce
+    // a bare exit code with no explanation.
     const realpathSpy = vi.spyOn(fs, "realpathSync").mockImplementation(((
       ..._args: unknown[]
     ) => {
@@ -1592,20 +1701,58 @@ describe("canonicalizeForIsMain", () => {
     const stderrSpy = vi
       .spyOn(process.stderr, "write")
       .mockImplementation(() => true);
-    const priorExitCode = process.exitCode;
-    process.exitCode = 0;
+    const exitSpy = vi
+      .spyOn(process, "exit")
+      .mockImplementation(((_code?: number) => {
+        throw new Error(`__EXIT_CALLED__:${_code}`);
+      }) as unknown as typeof process.exit);
     try {
-      const out = canonicalizeForIsMain("/some/path");
-      expect(out).toBe(path.resolve("/some/path"));
+      expect(() => canonicalizeForIsMain("/some/path")).toThrow(
+        /__EXIT_CALLED__:3/,
+      );
       expect(stderrSpy).toHaveBeenCalledTimes(1);
       const msg = String(stderrSpy.mock.calls[0][0]);
       expect(msg).toContain("[canonicalizeForIsMain] realpath failed for");
       expect(msg).toContain("/some/path");
       expect(msg).toContain("permission denied");
     } finally {
-      process.exitCode = priorExitCode;
       realpathSpy.mockRestore();
       stderrSpy.mockRestore();
+      exitSpy.mockRestore();
+    }
+  });
+
+  it("does not crash when a non-Error primitive is thrown by realpathSync", () => {
+    // Hardening: e instanceof Error guard prevents
+    // `(e as NodeJS.ErrnoException).code` from crashing on primitive
+    // throws ("string", number, plain object). The helper should treat
+    // these as non-ENOENT and terminate with EXIT_UNREADABLE.
+    const realpathSpy = vi.spyOn(fs, "realpathSync").mockImplementation(((
+      ..._args: unknown[]
+    ) => {
+      // Intentionally throw a non-Error primitive.
+      // eslint-disable-next-line @typescript-eslint/no-throw-literal
+      throw "raw string failure";
+    }) as unknown as typeof fs.realpathSync);
+    const stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+    const exitSpy = vi
+      .spyOn(process, "exit")
+      .mockImplementation(((_code?: number) => {
+        throw new Error(`__EXIT_CALLED__:${_code}`);
+      }) as unknown as typeof process.exit);
+    try {
+      expect(() => canonicalizeForIsMain("/some/path")).toThrow(
+        /__EXIT_CALLED__:3/,
+      );
+      expect(stderrSpy).toHaveBeenCalledTimes(1);
+      const msg = String(stderrSpy.mock.calls[0][0]);
+      expect(msg).toContain("raw string failure");
+    } finally {
+      realpathSpy.mockRestore();
+      stderrSpy.mockRestore();
+      exitSpy.mockRestore();
     }
   });
 });
