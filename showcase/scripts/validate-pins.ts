@@ -96,9 +96,20 @@ type PinsExitCode =
  * misconfig from a true validator crash.
  */
 class UnreadableInputError extends Error {
-  constructor(message: string) {
+  /**
+   * Optionally carries the partial report built up to the point the
+   * infra error was observed. The top-level catch uses this to print
+   * the FAIL/WARN/SKIP lines for slugs processed before the error so
+   * operators don't lose diagnostic output when a single slug has an
+   * infra problem mid-run. undefined for infra errors raised before
+   * the slug loop started (e.g. bad VALIDATE_PINS_REPO_ROOT, missing
+   * packages dir) where no report exists yet.
+   */
+  readonly partialReport?: Report;
+  constructor(message: string, partialReport?: Report) {
     super(message);
     this.name = "UnreadableInputError";
+    this.partialReport = partialReport;
   }
 }
 
@@ -127,7 +138,10 @@ function computeRepoRoot(): string {
     } catch (e) {
       const err = e as NodeJS.ErrnoException;
       if (err && err.code === "ENOENT") {
-        throw new Error(
+        // ENOENT on the override is a bad-input/configuration error,
+        // not a validator crash — route to EXIT_UNREADABLE (3) so CI
+        // callers can distinguish misconfig from true internal errors.
+        throw new UnreadableInputError(
           `VALIDATE_PINS_REPO_ROOT does not exist on disk: ${override}`,
         );
       }
@@ -142,9 +156,13 @@ function computeRepoRoot(): string {
         );
       }
       // Surface the underlying error message so the caller sees the
-      // actual failure rather than a generic wrapper.
+      // actual failure rather than a generic wrapper. Any stat failure
+      // on the override path is an infra-class problem (the caller
+      // configured a path we can't access), so route through
+      // UnreadableInputError → EXIT_UNREADABLE (3) instead of letting
+      // a plain Error misroute to EXIT_INTERNAL (2).
       const msg = err && err.message ? err.message : String(e);
-      throw new Error(
+      throw new UnreadableInputError(
         `VALIDATE_PINS_REPO_ROOT stat failed: ${override}: ${msg}`,
       );
     }
@@ -1436,19 +1454,54 @@ function collectShowcaseDeps(packageDir: string): ShowcaseDepSources {
  * Build a canonicalized lookup for a DepMap. Keeps the original name for
  * error messages but keys by canonical name so `foo_bar` and `foo-bar`
  * collide.
+ *
+ * When two entries canonicalize to the same key with DIFFERENT specs
+ * (e.g. `langgraph_checkpoint==1.0.0` alongside
+ * `langgraph-checkpoint==2.0.0` in the same requirements.txt) the
+ * first-writer's entry is retained for comparison and a warning is
+ * surfaced so operators see the conflict rather than silently losing
+ * one of the pins. Same-spec collisions are considered redundant and
+ * dropped silently.
  */
+interface CanonicalizeWarning {
+  key: string;
+  firstName: string;
+  firstSpec: string;
+  dupName: string;
+  dupSpec: string;
+}
 function canonicalizeDepMap(
   deps: DepMap,
   isPython: boolean,
-): Record<string, { name: string; spec: string }> {
+): {
+  out: Record<string, { name: string; spec: string }>;
+  warnings: CanonicalizeWarning[];
+} {
   const out: Record<string, { name: string; spec: string }> = {};
+  const warnings: CanonicalizeWarning[] = [];
   for (const [name, spec] of Object.entries(deps)) {
     const key = isPython ? canonicalizePythonName(name) : name;
     // First-writer-wins within this function too (keep name as it was
-    // originally declared).
-    if (!(key in out)) out[key] = { name, spec };
+    // originally declared). If a later entry collides on the canonical
+    // key with a DIFFERENT spec, surface it as a warning — a silent
+    // drop would hide a real drift signal (two entries for the same
+    // distribution, both pinned, to different versions).
+    const prior = out[key];
+    if (prior === undefined) {
+      out[key] = { name, spec };
+      continue;
+    }
+    if (prior.spec !== spec) {
+      warnings.push({
+        key,
+        firstName: prior.name,
+        firstSpec: prior.spec,
+        dupName: name,
+        dupSpec: spec,
+      });
+    }
   }
-  return out;
+  return { out, warnings };
 }
 
 // ---------------------------------------------------------------------------
@@ -1561,6 +1614,14 @@ function validateAll(): Report {
     );
   }
 
+  // Accumulates the first infra-class parseError observed during the
+  // slug loop. We deliberately do NOT throw mid-loop — doing so would
+  // orphan the report entries for preceding slugs AND the remaining
+  // content parseErrors for the current slug, which hides real drift
+  // behind a single infra misconfig. Throw at the end instead, with
+  // the partial report attached so the top-level catch can print it.
+  let pendingInfraError: UnreadableInputError | undefined;
+
   for (const slug of slugs) {
     const pkgDir = path.join(PACKAGES_DIR, slug);
     const resolved = resolveExampleDirDetailed(slug, resolvedPaths);
@@ -1597,19 +1658,32 @@ function validateAll(): Report {
     // they are permissions/filesystem misconfig. Route them through
     // UnreadableInputError so the top-level catch maps to
     // EXIT_UNREADABLE (3) rather than report.fail → EXIT_DRIFT (1).
+    //
+    // CRITICAL: do NOT throw mid-loop here. Accumulate the first infra
+    // error into `pendingInfraError` and let the slug loop finish so
+    // every OTHER slug still contributes to the report. The top-level
+    // catch will print the (partial) report before setting
+    // EXIT_UNREADABLE, so operators see the full FAIL/WARN/SKIP for
+    // every slug that was processed. Content-parse errors for THIS
+    // slug's remaining files still land in report.fail below.
     for (const pe of [...showcase.parseErrors, ...dojo.parseErrors]) {
-      if (pe.infra) {
-        throw new UnreadableInputError(
+      if (pe.infra && pendingInfraError === undefined) {
+        pendingInfraError = new UnreadableInputError(
           `${slug}: unreadable input at ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
         );
       }
     }
+    // Skip content-parse fail emission for entries tagged as infra —
+    // those are routed through pendingInfraError and the top-level
+    // catch, not report.fail.
     for (const pe of showcase.parseErrors) {
+      if (pe.infra) continue;
       report.fail.push(
         `[FAIL] ${slug}: parse error in ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
       );
     }
     for (const pe of dojo.parseErrors) {
+      if (pe.infra) continue;
       report.fail.push(
         `[FAIL] ${slug}: parse error in ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
       );
@@ -1684,25 +1758,53 @@ function validateAll(): Report {
     // are DIFFERENT packages). Build two separate lookups per side — a
     // Python lookup (canonicalized) and a JS lookup (raw names) — then
     // compare Python-to-Python and JS-to-JS.
-    const showcasePythonCanon = canonicalizeDepMap(
+    const showcasePythonCanonResult = canonicalizeDepMap(
       showcase.pythonDeps,
       /* isPython */ true,
     );
-    const dojoPythonCanon = canonicalizeDepMap(
+    const showcasePythonCanon = showcasePythonCanonResult.out;
+    const dojoPythonCanonResult = canonicalizeDepMap(
       dojo.pythonDeps,
       /* isPython */ true,
     );
+    const dojoPythonCanon = dojoPythonCanonResult.out;
     // Invariant: the comparator reads `jsDeps` and `pythonDeps` directly
     // from separate parse-time maps. This keeps JS and Python specs
     // intact even when the same dep name appears in both ecosystems in
     // the same tree (e.g. `openai` with a JS `4.0.0` pin alongside a
     // Python `==1.2.3` pin) — neither side should be erased by the
     // other during comparison.
-    const showcaseJsRaw = canonicalizeDepMap(
+    const showcaseJsRawResult = canonicalizeDepMap(
       showcase.jsDeps,
       /* isPython */ false,
     );
-    const dojoJsRaw = canonicalizeDepMap(dojo.jsDeps, /* isPython */ false);
+    const showcaseJsRaw = showcaseJsRawResult.out;
+    const dojoJsRawResult = canonicalizeDepMap(
+      dojo.jsDeps,
+      /* isPython */ false,
+    );
+    const dojoJsRaw = dojoJsRawResult.out;
+
+    // Surface canonical-key collisions with DIFFERENT specs as WARN so
+    // operators see a real drift signal (two pinned entries for the same
+    // distribution at different versions within a single file) rather
+    // than silently losing one pin to first-writer-wins. Tagged with
+    // the side (showcase vs Dojo) so the report is unambiguous.
+    const emitCanonicalWarnings = (
+      side: "showcase" | "Dojo",
+      warns: CanonicalizeWarning[],
+    ) => {
+      for (const w of warns) {
+        report.warn.push(
+          `[WARN] ${slug}: ${side} has duplicate entries for canonical key '${w.key}' with different specs ` +
+            `(${w.firstName}=${w.firstSpec || "(empty)"} vs ${w.dupName}=${w.dupSpec || "(empty)"})`,
+        );
+      }
+    };
+    emitCanonicalWarnings("showcase", showcasePythonCanonResult.warnings);
+    emitCanonicalWarnings("Dojo", dojoPythonCanonResult.warnings);
+    emitCanonicalWarnings("showcase", showcaseJsRawResult.warnings);
+    emitCanonicalWarnings("Dojo", dojoJsRawResult.warnings);
 
     let pkgHadViolation = pkgHadParseError;
 
@@ -1851,6 +1953,19 @@ function validateAll(): Report {
     }
   }
 
+  // If an infra error was observed mid-loop, throw it NOW that the
+  // slug loop has fully finished. Attach the partial report so the
+  // top-level catch can print every FAIL/WARN/SKIP line for slugs
+  // that completed, then exit 3 (EXIT_UNREADABLE). This preserves the
+  // "infra error → exit 3" contract while no longer discarding drift
+  // findings for unaffected slugs.
+  if (pendingInfraError !== undefined) {
+    // Rebuild a fresh UnreadableInputError carrying the final report
+    // — the one we captured earlier was constructed before all slugs
+    // had been processed, so its partialReport would be stale.
+    throw new UnreadableInputError(pendingInfraError.message, report);
+  }
+
   return report;
 }
 
@@ -1929,6 +2044,14 @@ if (isMainPath(process.argv[1], __filename)) {
   } catch (e) {
     const msg = e instanceof Error ? e.stack || e.message : String(e);
     if (e instanceof UnreadableInputError) {
+      // Print the partial report FIRST (if present) so operators see
+      // FAIL/WARN/SKIP for every slug that was processed before the
+      // infra error. Without this, a single infra error would orphan
+      // all already-collected report entries and produce a bare error
+      // line with no diagnostic context.
+      if (e.partialReport) {
+        printReport(e.partialReport);
+      }
       console.error(`[UNREADABLE INPUT] validate-pins: ${msg}`);
       setExitCode(EXIT_UNREADABLE);
     } else {
