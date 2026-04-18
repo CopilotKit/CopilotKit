@@ -995,11 +995,9 @@ describe("isMainPath strict guard", () => {
   it("catch branch: path.resolve failure logs, sets exitCode = 2, returns false", () => {
     const prevExitCode = process.exitCode;
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const resolveSpy = vi
-      .spyOn(path, "resolve")
-      .mockImplementationOnce(() => {
-        throw new Error("synthetic path.resolve failure");
-      });
+    const resolveSpy = vi.spyOn(path, "resolve").mockImplementationOnce(() => {
+      throw new Error("synthetic path.resolve failure");
+    });
     try {
       const result = isMainPath("/any/path.ts", "/any/path.ts");
       expect(result).toBe(false);
@@ -2480,7 +2478,9 @@ describe("printReport within-stream order", () => {
     const stderrLines = stderrSpy.mock.calls.map((c) => String(c[0]));
     // Compare LAST WARN vs FIRST FAIL — see note above.
     const firstFailIdx = stderrLines.findIndex((l) => l.startsWith("[FAIL]"));
-    const lastWarnIdx = stderrLines.findLastIndex((l) => l.startsWith("[WARN]"));
+    const lastWarnIdx = stderrLines.findLastIndex((l) =>
+      l.startsWith("[WARN]"),
+    );
     expect(firstFailIdx).toBeGreaterThanOrEqual(0);
     expect(lastWarnIdx).toBeGreaterThanOrEqual(0);
     expect(lastWarnIdx).toBeLessThan(firstFailIdx);
@@ -2518,9 +2518,7 @@ describe("parseRequirementsTxt wrapper throws on skipped/dropped", () => {
       // fail LOUDLY, not silently pass via an early return.
       const detailed = parseRequirementsTxtDetailed(file);
       expect(detailed.dropped.length).toBeGreaterThan(0);
-      expect(() => parseRequirementsTxt(file)).toThrow(
-        /parseRequirementsTxt/i,
-      );
+      expect(() => parseRequirementsTxt(file)).toThrow(/parseRequirementsTxt/i);
     });
   });
 

@@ -115,7 +115,9 @@ function formatErrorChain(err: unknown): string {
   let depth = 0;
   while (current !== undefined && current !== null && depth < MAX_DEPTH) {
     const prefix = depth === 0 ? "" : `${"  ".repeat(depth)}caused by: `;
-    lines.push(prefix + render(current).replace(/\n/g, `\n${"  ".repeat(depth)}`));
+    lines.push(
+      prefix + render(current).replace(/\n/g, `\n${"  ".repeat(depth)}`),
+    );
 
     if (typeof current !== "object") break;
     if (seen.has(current as object)) {
@@ -131,7 +133,9 @@ function formatErrorChain(err: unknown): string {
   }
 
   if (depth === MAX_DEPTH) {
-    lines.push(`${"  ".repeat(depth + 1)}[cause chain truncated at depth ${MAX_DEPTH}]`);
+    lines.push(
+      `${"  ".repeat(depth + 1)}[cause chain truncated at depth ${MAX_DEPTH}]`,
+    );
   }
 
   return lines.join("\n");

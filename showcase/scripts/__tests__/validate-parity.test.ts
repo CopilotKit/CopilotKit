@@ -1424,18 +1424,18 @@ Object.freeze = function(o) {
           "utf-8",
         );
         const originalFreeze = Object.freeze;
-        const freezeSpy = vi
-          .spyOn(Object, "freeze")
-          .mockImplementation(((o: unknown) => {
-            if (
-              o !== null &&
-              typeof o === "object" &&
-              "id" in (o as Record<string, unknown>)
-            ) {
-              throw new TypeError("synthetic non-manifest failure");
-            }
-            return originalFreeze(o as object);
-          }) as typeof Object.freeze);
+        const freezeSpy = vi.spyOn(Object, "freeze").mockImplementation(((
+          o: unknown,
+        ) => {
+          if (
+            o !== null &&
+            typeof o === "object" &&
+            "id" in (o as Record<string, unknown>)
+          ) {
+            throw new TypeError("synthetic non-manifest failure");
+          }
+          return originalFreeze(o as object);
+        }) as typeof Object.freeze);
         const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
         const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
         try {
