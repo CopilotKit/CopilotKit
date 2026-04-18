@@ -17,9 +17,18 @@ export function CopilotChatToolCallsView({
     return null;
   }
 
+  // Deduplicate tool calls by id. When connectAgent() replays historic
+  // TOOL_CALL_START events over a pre-populated messages state, the same
+  // toolCallId can appear more than once in the array, which causes React to
+  // emit a duplicate-key warning. Keep the last occurrence so that the most
+  // up-to-date arguments are used.
+  const uniqueToolCalls = [
+    ...new Map(message.toolCalls.map((tc) => [tc.id, tc])).values(),
+  ];
+
   return (
     <>
-      {message.toolCalls.map((toolCall) => {
+      {uniqueToolCalls.map((toolCall) => {
         const toolMessage = messages.find(
           (m) => m.role === "tool" && m.toolCallId === toolCall.id,
         ) as ToolMessage | undefined;
