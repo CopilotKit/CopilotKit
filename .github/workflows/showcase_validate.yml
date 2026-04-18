@@ -244,7 +244,14 @@ jobs:
           # Summary line is on stdout. If the validator output format
           # changed (missing Summary, non-numeric FAIL), fail loudly
           # instead of silently treating it as zero.
-          summary_line=$(printf '%s\n' "$stdout" | grep -E '^[[:space:]]*Summary:' | head -n 1 || true)
+          #
+          # Scope grep's no-match tolerance to grep alone by wrapping just
+          # the grep stage in a `{ ... || true; }` group. A trailing
+          # `|| true` on the whole pipeline would defeat `pipefail` and
+          # swallow producer/head failures too; we only want to tolerate
+          # grep finding no match (which `[ -z "$summary_line" ]` below
+          # already reports with a precise error).
+          summary_line=$(printf '%s\n' "$stdout" | { grep -E '^[[:space:]]*Summary:' || true; } | head -n 1)
           if [ -z "$summary_line" ]; then
             echo "::error::Could not find validate-pins 'Summary:' line in output"
             exit 1
@@ -261,7 +268,14 @@ jobs:
           # Hash the sorted, deduplicated `[FAIL] ...` lines (stderr only).
           # This catches the "count equal but set drifted" case: one FAIL
           # healed while another regressed.
-          actual_hash=$(printf '%s\n' "$stderr" | grep -E '^\[FAIL\]' | LC_ALL=C sort -u | shasum -a 256 | cut -d' ' -f1)
+          #
+          # Scope grep's no-match tolerance to grep alone by wrapping just
+          # the grep stage in a `{ ... || true; }` group. A trailing
+          # `|| true` on the whole pipeline would defeat `pipefail` and
+          # swallow sort/shasum/cut failures too; clean runs with zero
+          # `[FAIL]` lines must not be an error, so we tolerate grep's
+          # no-match here and only here.
+          actual_hash=$(printf '%s\n' "$stderr" | { grep -E '^\[FAIL\]' || true; } | LC_ALL=C sort -u | shasum -a 256 | cut -d' ' -f1)
 
           echo "validate-pins FAIL: actual=$actual baseline=$baseline"
           echo "validate-pins HASH: actual=$actual_hash baseline=$baseline_hash"
