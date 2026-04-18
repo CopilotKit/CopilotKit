@@ -1552,8 +1552,16 @@ describe("validate-parity", () => {
       fs.writeFileSync(
         preloadScript,
         `const origFreeze = Object.freeze;
+// Narrow the predicate to only target manifest demo entries —
+// objects that carry BOTH a stringy \`id\` and \`name\`. Matching
+// on \`id\` alone would trip on any unrelated internal object
+// (V8 intrinsics, Node internals, tsx loader bits) that happens
+// to expose an id field and cause spurious throws outside the
+// code path under test. Keep this in sync with the in-process
+// counterpart below.
 Object.freeze = function(o) {
-  if (o !== null && typeof o === "object" && "id" in o) {
+  if (o !== null && typeof o === "object" &&
+      typeof o.id === "string" && typeof o.name === "string") {
     throw new TypeError("synthetic non-manifest failure");
   }
   return origFreeze(o);
