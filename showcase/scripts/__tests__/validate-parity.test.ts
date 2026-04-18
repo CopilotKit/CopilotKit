@@ -1012,15 +1012,26 @@ describe("validate-parity", () => {
       fs.mkdirSync(blocked);
 
       const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const readdirSpy = vi
-        .spyOn(fs, "readdirSync")
-        .mockImplementation((): never => {
+      // Filter by path so only reads of the synthetic `blocked` dir
+      // raise EACCES — vitest/tsx internals that may call readdirSync
+      // during module resolution fall through to the real impl.
+      const origReaddir = fs.readdirSync;
+      const readdirSpy = vi.spyOn(fs, "readdirSync").mockImplementation(((
+        p: fs.PathLike,
+        ...rest: unknown[]
+      ) => {
+        if (String(p) === blocked) {
           const e: NodeJS.ErrnoException = Object.assign(
             new Error("EACCES: permission denied"),
             { code: "EACCES" },
           );
           throw e;
-        });
+        }
+        return (origReaddir as (...a: unknown[]) => unknown)(
+          p,
+          ...rest,
+        ) as ReturnType<typeof fs.readdirSync>;
+      }) as unknown as typeof fs.readdirSync);
       try {
         const result = listDirs(blocked);
         expect(result.entries).toEqual([]);
@@ -1044,15 +1055,26 @@ describe("validate-parity", () => {
       fs.mkdirSync(blocked);
 
       const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const readdirSpy = vi
-        .spyOn(fs, "readdirSync")
-        .mockImplementation((): never => {
+      // Filter by path so only reads of the synthetic `blocked` dir
+      // raise EACCES — vitest/tsx internals fall through to the real
+      // impl to avoid spurious failures during module resolution.
+      const origReaddir = fs.readdirSync;
+      const readdirSpy = vi.spyOn(fs, "readdirSync").mockImplementation(((
+        p: fs.PathLike,
+        ...rest: unknown[]
+      ) => {
+        if (String(p) === blocked) {
           const e: NodeJS.ErrnoException = Object.assign(
             new Error("EACCES: permission denied"),
             { code: "EACCES" },
           );
           throw e;
-        });
+        }
+        return (origReaddir as (...a: unknown[]) => unknown)(
+          p,
+          ...rest,
+        ) as ReturnType<typeof fs.readdirSync>;
+      }) as unknown as typeof fs.readdirSync);
       try {
         const result = listFiles(blocked, ".md");
         expect(result.entries).toEqual([]);
