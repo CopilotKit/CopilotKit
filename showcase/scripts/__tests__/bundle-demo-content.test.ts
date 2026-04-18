@@ -131,7 +131,7 @@ describe("Content Bundler", () => {
     expect(mastraAgent).toBeDefined();
   });
 
-  it("includes all 9 langgraph-python demos", () => {
+  it("includes all 10 langgraph-python demos", () => {
     const contentPath = path.resolve(
       __dirname,
       "..",
@@ -145,7 +145,8 @@ describe("Content Bundler", () => {
 
     const expectedDemos = [
       "agentic-chat",
-      "hitl",
+      "frontend-tools",
+      "hitl-in-chat",
       "tool-rendering",
       "gen-ui-tool-based",
       "gen-ui-agent",

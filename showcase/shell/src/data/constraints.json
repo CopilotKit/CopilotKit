@@ -3,6 +3,7 @@
     "constrained-declarative": {
       "allowed": [
         "agentic-chat",
+        "frontend-tools",
         "gen-ui-tool-based",
         "useComponent",
         "multi-modal",
@@ -14,15 +15,23 @@
         "subagents",
         "voice"
       ],
-      "excluded": ["tool-rendering", "hitl", "gen-ui-interrupt"]
+      "excluded": [
+        "tool-rendering",
+        "hitl-in-chat",
+        "hitl-in-app",
+        "gen-ui-interrupt",
+        "open-gen-ui"
+      ]
     },
     "constrained-explicit": {
       "allowed": [
         "agentic-chat",
+        "frontend-tools",
         "gen-ui-tool-based",
         "gen-ui-interrupt",
         "gen-ui-agent",
-        "hitl",
+        "hitl-in-chat",
+        "hitl-in-app",
         "tool-rendering",
         "useComponent",
         "multi-modal",
@@ -34,11 +43,33 @@
         "subagents",
         "voice"
       ]
+    },
+    "open": {
+      "allowed": [
+        "open-gen-ui",
+        "frontend-tools",
+        "multi-modal",
+        "suggestions",
+        "shared-state-read",
+        "shared-state-write",
+        "shared-state-streaming",
+        "readables",
+        "subagents",
+        "voice"
+      ],
+      "excluded": [
+        "tool-rendering",
+        "hitl",
+        "gen-ui-tool-based",
+        "gen-ui-interrupt",
+        "useComponent",
+        "agentic-chat"
+      ]
     }
   },
   "interaction_modalities": {
     "headless": {
-      "excluded": ["voice"]
+      "excluded": ["open-gen-ui", "voice"]
     }
   }
 }
