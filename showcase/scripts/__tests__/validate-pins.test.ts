@@ -676,8 +676,8 @@ describe("collectDojoDeps precedence", () => {
       }),
     );
 
-    const { deps } = collectDojoDeps(tmp);
-    expect(deps["@langchain/langgraph"]).toBe("0.2.14");
+    const { jsDeps } = collectDojoDeps(tmp);
+    expect(jsDeps["@langchain/langgraph"]).toBe("0.2.14");
   });
 
   it("agent/pyproject.toml wins over root pyproject.toml", () => {
@@ -689,8 +689,8 @@ describe("collectDojoDeps precedence", () => {
       path.join(tmp, "agent", "pyproject.toml"),
       '[project]\nname = "agent"\ndependencies = ["langgraph==0.2.14"]\n',
     );
-    const { deps } = collectDojoDeps(tmp);
-    expect(deps["langgraph"]).toBe("==0.2.14");
+    const { pythonDeps } = collectDojoDeps(tmp);
+    expect(pythonDeps["langgraph"]).toBe("==0.2.14");
   });
 
   // three-way first-writer-wins root + apps/agent + apps/web.
@@ -716,9 +716,9 @@ describe("collectDojoDeps precedence", () => {
         dependencies: { foo: "0.0.3" },
       }),
     );
-    const { deps } = collectDojoDeps(tmp);
+    const { jsDeps } = collectDojoDeps(tmp);
     // apps/agent is walked first in DEP_FILE_CANDIDATES → wins.
-    expect(deps["foo"]).toBe("0.0.2");
+    expect(jsDeps["foo"]).toBe("0.0.2");
   });
 
   // parse-error resilience — one bad sibling doesn't abort.
@@ -735,10 +735,10 @@ describe("collectDojoDeps precedence", () => {
         dependencies: { "@mastra/core": "0.15.0" },
       }),
     );
-    const { deps, parseErrors } = collectDojoDeps(tmp);
+    const { jsDeps, parseErrors } = collectDojoDeps(tmp);
     expect(parseErrors.length).toBeGreaterThan(0);
     // Sibling still parsed.
-    expect(deps["@mastra/core"]).toBe("0.15.0");
+    expect(jsDeps["@mastra/core"]).toBe("0.15.0");
   });
 });
 
@@ -995,9 +995,11 @@ describe("isMainPath strict guard", () => {
   it("catch branch: path.resolve failure logs, sets exitCode = 2, returns false", () => {
     const prevExitCode = process.exitCode;
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const resolveSpy = vi.spyOn(path, "resolve").mockImplementationOnce(() => {
-      throw new Error("synthetic path.resolve failure");
-    });
+    const resolveSpy = vi
+      .spyOn(path, "resolve")
+      .mockImplementationOnce(() => {
+        throw new Error("synthetic path.resolve failure");
+      });
     try {
       const result = isMainPath("/any/path.ts", "/any/path.ts");
       expect(result).toBe(false);
@@ -2478,9 +2480,7 @@ describe("printReport within-stream order", () => {
     const stderrLines = stderrSpy.mock.calls.map((c) => String(c[0]));
     // Compare LAST WARN vs FIRST FAIL — see note above.
     const firstFailIdx = stderrLines.findIndex((l) => l.startsWith("[FAIL]"));
-    const lastWarnIdx = stderrLines.findLastIndex((l) =>
-      l.startsWith("[WARN]"),
-    );
+    const lastWarnIdx = stderrLines.findLastIndex((l) => l.startsWith("[WARN]"));
     expect(firstFailIdx).toBeGreaterThanOrEqual(0);
     expect(lastWarnIdx).toBeGreaterThanOrEqual(0);
     expect(lastWarnIdx).toBeLessThan(firstFailIdx);
@@ -2518,7 +2518,9 @@ describe("parseRequirementsTxt wrapper throws on skipped/dropped", () => {
       // fail LOUDLY, not silently pass via an early return.
       const detailed = parseRequirementsTxtDetailed(file);
       expect(detailed.dropped.length).toBeGreaterThan(0);
-      expect(() => parseRequirementsTxt(file)).toThrow(/parseRequirementsTxt/i);
+      expect(() => parseRequirementsTxt(file)).toThrow(
+        /parseRequirementsTxt/i,
+      );
     });
   });
 
@@ -2594,8 +2596,62 @@ describe("parsePyprojectToml wrapper throws on skipped/dropped", () => {
 // `return` (which makes the guard look like it always passes).
 const isRoot = process.getuid?.() === 0;
 
+// Some filesystems (e.g. certain CI mounts, network shares) ignore
+// chmod 0000 and keep a dir readable even to non-root processes. We
+// must NOT silently `return` from inside `it()` on those platforms —
+// the test would then "pass" without exercising the EACCES routing
+// under test (anti-pattern called out on lines immediately above this
+// comment). Probe once at module scope and hand the result to
+// `it.skipIf` so the skip is visible in the test report.
+//
+// The probe: create a tmp dir, chmod it 0000, then attempt to read it.
+// If the read succeeds (or fails with something other than EACCES),
+// chmod is not enforced here. We do the probe even when `isRoot` is
+// true (the two conditions are OR'd into `cannotEnforceEacces`).
+function probeChmodEnforced(): boolean {
+  if (isRoot) return false;
+  let probeDir: string | undefined;
+  try {
+    probeDir = fs.mkdtempSync(path.join(os.tmpdir(), "vp-chmod-probe-"));
+    fs.chmodSync(probeDir, 0o000);
+    try {
+      // statSync on the dir itself may still work (metadata is in the
+      // parent). The enforcement check is whether readdir is blocked.
+      fs.readdirSync(probeDir);
+      return false; // readdir succeeded → chmod not enforced
+    } catch (e) {
+      const err = e as NodeJS.ErrnoException;
+      return err.code === "EACCES";
+    }
+  } catch {
+    return false;
+  } finally {
+    if (probeDir) {
+      try {
+        fs.chmodSync(probeDir, 0o755);
+      } catch (err) {
+        // Visible stderr log on leak — operators must see tmpdirs that
+        // may linger at mode 0000 (rmSync would fail silently and the
+        // dir stays forever).
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(
+          `[validate-pins test] failed to restore perms on probe dir ${probeDir} (possible leak): ${msg}`,
+        );
+      }
+      try {
+        fs.rmSync(probeDir, { recursive: true, force: true });
+      } catch {
+        // best-effort
+      }
+    }
+  }
+}
+
+const chmodEnforced = probeChmodEnforced();
+const cannotEnforceEacces = isRoot || !chmodEnforced;
+
 describe("EACCES on examples/integrations/<slug> routes to EXIT_UNREADABLE", () => {
-  it.skipIf(isRoot)(
+  it.skipIf(cannotEnforceEacces)(
     "exits with EXIT_UNREADABLE (3) when candidate example dir is unreadable",
     () => {
       withTmp((tmp) => {
@@ -2614,33 +2670,11 @@ describe("EACCES on examples/integrations/<slug> routes to EXIT_UNREADABLE", () 
           JSON.stringify({ name: slug, dependencies: {} }),
         );
 
-        // Make example slug dir unreadable. On some filesystems (e.g.
-        // certain CI mounts) chmod 0 is a no-op — detect and bail loudly
-        // rather than silently pass. `it.skipIf(isRoot)` already handled
-        // the uid 0 case at declaration time.
+        // Make example slug dir unreadable. The module-scope probe
+        // (`cannotEnforceEacces`) already confirmed the FS enforces
+        // chmod 0000 for this process, so we don't need a second
+        // in-body probe + silent-return dance here.
         fs.chmodSync(exampleSlugDir, 0o000);
-        let permsUnenforced = false;
-        try {
-          fs.statSync(exampleSlugDir);
-          permsUnenforced = true;
-        } catch (e) {
-          const err = e as NodeJS.ErrnoException;
-          if (err.code !== "EACCES") {
-            permsUnenforced = true;
-          }
-        }
-
-        if (permsUnenforced) {
-          console.warn(
-            "[validate-pins test] filesystem does not enforce chmod 0000 — skipping EACCES routing test",
-          );
-          try {
-            fs.chmodSync(exampleSlugDir, 0o755);
-          } catch {
-            // best-effort
-          }
-          return;
-        }
 
         try {
           const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
@@ -2656,10 +2690,15 @@ describe("EACCES on examples/integrations/<slug> routes to EXIT_UNREADABLE", () 
           expect(r.status, r.stdout + r.stderr).toBe(3);
         } finally {
           // Restore perms so the rmSync in withTmp works on Linux.
+          // Log to stderr if restore fails — otherwise the tmp dir
+          // leaks at mode 0000 and operators never see it.
           try {
             fs.chmodSync(exampleSlugDir, 0o755);
-          } catch {
-            // best-effort
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error(
+              `[validate-pins test] failed to restore perms on ${exampleSlugDir} (possible leak): ${msg}`,
+            );
           }
         }
       });
@@ -2674,79 +2713,183 @@ describe("EACCES on examples/integrations/<slug> routes to EXIT_UNREADABLE", () 
 // ---------------------------------------------------------------------------
 
 describe("validateAll: infra parse error routes to EXIT_UNREADABLE", () => {
-  it.skipIf(isRoot)("EACCES on showcase package dir exits 3, not 1", () => {
-    withTmp((tmp) => {
-      const slug = "mastra";
-      // Build a minimal repo layout where the example dir is fine but
-      // the SHOWCASE PACKAGE DIR is unreadable. We chmod the parent
-      // dir (not the file) because on Linux/macOS, statSync on your
-      // own mode-0000 file succeeds (metadata is still accessible via
-      // the parent dir). Chmodding the parent forces statSync(abs) in
-      // collectDepsFromDir to throw EACCES, which hits the `infra:
-      // true` branch → UnreadableInputError → EXIT_UNREADABLE (3).
-      // The prior version of this test chmod'd the file, which routed
-      // through readFileSync EACCES → parseErrors (not infra) →
-      // EXIT_DRIFT (1), and then the assertion accepted [1, 3] which
-      // defeated the fix it was meant to guard.
-      const examplesDir = path.join(tmp, "examples", "integrations");
-      const packagesDir = path.join(tmp, "showcase", "packages");
-      const exampleSlugDir = path.join(examplesDir, slug);
-      const pkgSlugDir = path.join(packagesDir, slug);
-      fs.mkdirSync(exampleSlugDir, { recursive: true });
-      fs.mkdirSync(pkgSlugDir, { recursive: true });
-      write(
-        path.join(exampleSlugDir, "package.json"),
-        JSON.stringify({ name: slug, dependencies: {} }),
-      );
-      write(
-        path.join(pkgSlugDir, "package.json"),
-        JSON.stringify({ name: slug, dependencies: {} }),
-      );
-      // Make the package dir itself unreadable so statSync on its
-      // entries fails.
-      fs.chmodSync(pkgSlugDir, 0o000);
-
-      let permsUnenforced = false;
-      try {
-        fs.statSync(path.join(pkgSlugDir, "package.json"));
-        permsUnenforced = true;
-      } catch (e) {
-        const err = e as NodeJS.ErrnoException;
-        if (err.code !== "EACCES") permsUnenforced = true;
-      }
-
-      if (permsUnenforced) {
-        console.warn(
-          "[validate-pins test] filesystem does not enforce chmod 0000 on parent dir — skipping infra-routing test",
+  it.skipIf(cannotEnforceEacces)(
+    "EACCES on showcase package dir exits 3, not 1",
+    () => {
+      withTmp((tmp) => {
+        const slug = "mastra";
+        // Build a minimal repo layout where the example dir is fine but
+        // the SHOWCASE PACKAGE DIR is unreadable. We chmod the parent
+        // dir (not the file) because on Linux/macOS, statSync on your
+        // own mode-0000 file succeeds (metadata is still accessible via
+        // the parent dir). Chmodding the parent forces statSync(abs) in
+        // collectDepsFromDir to throw EACCES, which hits the `infra:
+        // true` branch → UnreadableInputError → EXIT_UNREADABLE (3).
+        // The prior version of this test chmod'd the file, which routed
+        // through readFileSync EACCES → parseErrors (not infra) →
+        // EXIT_DRIFT (1), and then the assertion accepted [1, 3] which
+        // defeated the fix it was meant to guard.
+        const examplesDir = path.join(tmp, "examples", "integrations");
+        const packagesDir = path.join(tmp, "showcase", "packages");
+        const exampleSlugDir = path.join(examplesDir, slug);
+        const pkgSlugDir = path.join(packagesDir, slug);
+        fs.mkdirSync(exampleSlugDir, { recursive: true });
+        fs.mkdirSync(pkgSlugDir, { recursive: true });
+        write(
+          path.join(exampleSlugDir, "package.json"),
+          JSON.stringify({ name: slug, dependencies: {} }),
         );
-        try {
-          fs.chmodSync(pkgSlugDir, 0o755);
-        } catch {
-          // best-effort
-        }
-        return;
-      }
+        write(
+          path.join(pkgSlugDir, "package.json"),
+          JSON.stringify({ name: slug, dependencies: {} }),
+        );
+        // Make the package dir itself unreadable so statSync on its
+        // entries fails. Module-scope probe (`cannotEnforceEacces`)
+        // already confirmed the FS enforces chmod 0000 here.
+        fs.chmodSync(pkgSlugDir, 0o000);
 
-      try {
-        const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
-          env: {
-            ...process.env,
-            VALIDATE_PINS_REPO_ROOT: tmp,
-          },
-          encoding: "utf-8",
-          timeout: 30_000,
-        });
-        // STRICT: the fix is that EACCES on a showcase dep-file path
-        // routes to EXIT_UNREADABLE (3), not EXIT_DRIFT (1) or
-        // EXIT_INTERNAL (2). Accepting [1, 3] defeats the fix.
-        expect(r.status, r.stdout + r.stderr).toBe(3);
-      } finally {
         try {
-          fs.chmodSync(pkgSlugDir, 0o755);
-        } catch {
-          // best-effort
+          const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
+            env: {
+              ...process.env,
+              VALIDATE_PINS_REPO_ROOT: tmp,
+            },
+            encoding: "utf-8",
+            timeout: 30_000,
+          });
+          // STRICT: the fix is that EACCES on a showcase dep-file path
+          // routes to EXIT_UNREADABLE (3), not EXIT_DRIFT (1) or
+          // EXIT_INTERNAL (2). Accepting [1, 3] defeats the fix.
+          expect(r.status, r.stdout + r.stderr).toBe(3);
+        } finally {
+          try {
+            fs.chmodSync(pkgSlugDir, 0o755);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error(
+              `[validate-pins test] failed to restore perms on ${pkgSlugDir} (possible leak): ${msg}`,
+            );
+          }
         }
-      }
-    });
-  });
+      });
+    },
+  );
+});
+
+// ---------------------------------------------------------------------------
+// R19-2 #1: TOCTOU on readdirSync(PACKAGES_DIR). The stat+isDirectory
+// guard can succeed and THEN readdir fail (EACCES/EIO/ENOTDIR) between
+// the two calls, or because the dir is traverseable but not readable.
+// That failure must route to EXIT_UNREADABLE (3), not EXIT_INTERNAL (2).
+// Simulated here by chmodding PACKAGES_DIR to 0o111 (--x--x--x):
+// stat+isDirectory succeed but readdir throws EACCES.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// R19-2 #5: readFileSync inside parsePackageJson (and siblings) is
+// unguarded. An EACCES on content-only read (readable parent, mode-0000
+// file) slips past the stat guard in collectDepsFromDir and lands in
+// parseErrors WITHOUT `infra: true`, which routes to report.fail →
+// EXIT_DRIFT (1). The fix classifies errno codes at the catch site so
+// EACCES on read routes to UnreadableInputError → EXIT_UNREADABLE (3).
+// ---------------------------------------------------------------------------
+
+describe("validateAll: readFileSync EACCES routes to EXIT_UNREADABLE", () => {
+  it.skipIf(cannotEnforceEacces)(
+    "exits 3 when a showcase package.json is statable but unreadable (mode 0000 file, readable parent)",
+    () => {
+      withTmp((tmp) => {
+        const slug = "mastra";
+        const examplesDir = path.join(tmp, "examples", "integrations");
+        const packagesDir = path.join(tmp, "showcase", "packages");
+        const exampleSlugDir = path.join(examplesDir, slug);
+        const pkgSlugDir = path.join(packagesDir, slug);
+        fs.mkdirSync(exampleSlugDir, { recursive: true });
+        fs.mkdirSync(pkgSlugDir, { recursive: true });
+        write(
+          path.join(exampleSlugDir, "package.json"),
+          JSON.stringify({ name: slug, dependencies: {} }),
+        );
+        const pkgFile = path.join(pkgSlugDir, "package.json");
+        write(pkgFile, JSON.stringify({ name: slug, dependencies: {} }));
+
+        // Mode-0000 on the FILE with a normal-mode parent: statSync on
+        // the file succeeds (metadata is in the parent dir inode),
+        // so the stat guard in collectDepsFromDir passes and the
+        // error surfaces from readFileSync instead. This specifically
+        // exercises the classification fix at the parsePackageJson
+        // catch site — an EACCES here used to route to EXIT_DRIFT (1)
+        // because `infra: true` was not set.
+        fs.chmodSync(pkgFile, 0o000);
+
+        try {
+          const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
+            env: {
+              ...process.env,
+              VALIDATE_PINS_REPO_ROOT: tmp,
+            },
+            encoding: "utf-8",
+            timeout: 30_000,
+          });
+          // Must be EXIT_UNREADABLE (3), NOT EXIT_DRIFT (1).
+          expect(r.status, r.stdout + r.stderr).toBe(3);
+        } finally {
+          try {
+            fs.chmodSync(pkgFile, 0o644);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error(
+              `[validate-pins test] failed to restore perms on ${pkgFile} (possible leak): ${msg}`,
+            );
+          }
+        }
+      });
+    },
+  );
+});
+
+describe("validateAll: readdirSync(PACKAGES_DIR) failure routes to EXIT_UNREADABLE", () => {
+  it.skipIf(cannotEnforceEacces)(
+    "exits 3 when PACKAGES_DIR is traverseable but not readable",
+    () => {
+      withTmp((tmp) => {
+        const packagesDir = path.join(tmp, "showcase", "packages");
+        const examplesDir = path.join(tmp, "examples", "integrations");
+        fs.mkdirSync(packagesDir, { recursive: true });
+        fs.mkdirSync(examplesDir, { recursive: true });
+        // Create one slug inside so the dir isn't legitimately empty —
+        // we want readdir to FAIL, not return [].
+        fs.mkdirSync(path.join(packagesDir, "mastra"), { recursive: true });
+
+        // Mode 0o111: executable (traverseable) but not readable. On
+        // platforms that enforce chmod for non-root, statSync succeeds
+        // (metadata is in the parent) but readdirSync throws EACCES.
+        fs.chmodSync(packagesDir, 0o111);
+
+        try {
+          const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
+            env: {
+              ...process.env,
+              VALIDATE_PINS_REPO_ROOT: tmp,
+            },
+            encoding: "utf-8",
+            timeout: 30_000,
+          });
+          // Must be EXIT_UNREADABLE (3), NOT EXIT_INTERNAL (2) which
+          // is the pre-fix behaviour (unwrapped readdir error
+          // propagating to the generic top-level catch).
+          expect(r.status, r.stdout + r.stderr).toBe(3);
+        } finally {
+          try {
+            fs.chmodSync(packagesDir, 0o755);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error(
+              `[validate-pins test] failed to restore perms on ${packagesDir} (possible leak): ${msg}`,
+            );
+          }
+        }
+      });
+    },
+  );
 });

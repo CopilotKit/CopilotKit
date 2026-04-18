@@ -72,10 +72,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Exit-code constants. See the module docstring for the full taxonomy.
-const EXIT_OK = 0;
-const EXIT_DRIFT = 1;
-const EXIT_INTERNAL = 2;
-const EXIT_UNREADABLE = 3;
+// `as const` narrows each to its literal numeric type; `PinsExitCode` is
+// the closed union so callers (and `process.exitCode` assignments in
+// this file) cannot accidentally drift to an unrelated number. Adding
+// a new exit code is a deliberate edit to both the constant and the
+// union — a pure `const X = 4` cannot participate in the union.
+const EXIT_OK = 0 as const;
+const EXIT_DRIFT = 1 as const;
+const EXIT_INTERNAL = 2 as const;
+const EXIT_UNREADABLE = 3 as const;
+type PinsExitCode =
+  | typeof EXIT_OK
+  | typeof EXIT_DRIFT
+  | typeof EXIT_INTERNAL
+  | typeof EXIT_UNREADABLE;
 
 /**
  * Thrown when the repo-root input is present but unreadable or
@@ -1121,13 +1131,15 @@ function parsePyprojectToml(file: string): DepMap {
 export interface DepSources {
   // All absolute paths to dependency files that contributed deps.
   files: string[];
-  // Merged dep map (union of jsDeps ∪ pythonDeps; on cross-ecosystem
-  // name collision the FIRST-writer wins, but that is a quirk — the
-  // comparator in validateAll uses jsDeps and pythonDeps directly so
-  // it is not affected by cross-ecosystem collisions). Retained for
-  // backward compatibility and for external callers that don't care
-  // about the JS vs Python split.
-  deps: DepMap;
+  // NOTE: the former `deps: DepMap` field was removed — it duplicated
+  // `jsDeps ∪ pythonDeps` with a first-writer-wins cross-ecosystem
+  // merge quirk, and produced two sources of truth for the same data.
+  // Callers that need a merged view should compute it at the call site
+  // (`{ ...pythonDeps, ...jsDeps }` or similar; pick the precedence
+  // that matches their ecosystem). The comparator in validateAll
+  // already uses `jsDeps` and `pythonDeps` directly so it was never
+  // affected.
+  //
   // JS deps only (from package.json files). Kept separate from
   // pythonDeps because npm names are case-sensitive and hyphen-
   // sensitive; applying PEP 503 canonicalization would merge
@@ -1208,7 +1220,6 @@ function isPythonManifest(abs: string): boolean {
 function collectDepsFromDir(rootDir: string): DepSources {
   const result: DepSources = {
     files: [],
-    deps: {},
     jsDeps: {},
     pythonDeps: {},
     parseErrors: [],
@@ -1277,7 +1288,29 @@ function collectDepsFromDir(rootDir: string): DepSources {
       // Record only — a single downstream [FAIL] line per parse error is
       // emitted by validateAll with slug context. Immediate
       // console.error here would cause duplicate output.
-      result.parseErrors.push({ file: abs, message: msg });
+      //
+      // Detect infra errno codes bubbling up from readFileSync (which is
+      // called unguarded inside parsePackageJson / parseRequirementsTxt /
+      // parsePyprojectToml). Without this classification an EACCES on
+      // the content-only read would be treated as a parse error →
+      // report.fail → EXIT_DRIFT (1), but the correct routing is
+      // UnreadableInputError → EXIT_UNREADABLE (3). The stat guard
+      // above only catches errno at stat time; TOCTOU or a 0000-mode
+      // file on a readable parent (owner can chmod but not read the
+      // file content, e.g. group read on a file you don't own) slips
+      // past stat and errors on read instead.
+      const errno = (e as NodeJS.ErrnoException | undefined)?.code;
+      const isInfra =
+        errno === "EACCES" ||
+        errno === "EIO" ||
+        errno === "ENOTDIR" ||
+        errno === "ELOOP" ||
+        errno === "EPERM";
+      result.parseErrors.push({
+        file: abs,
+        message: msg,
+        ...(isInfra ? { infra: true } : {}),
+      });
       continue;
     }
     result.files.push(abs);
@@ -1297,7 +1330,6 @@ function collectDepsFromDir(rootDir: string): DepSources {
       // comparator derived JS deps via `diffMaps(deps, pythonDeps)`
       // which dropped the JS dep ENTIRELY when its name also
       // appeared in `pythonDeps`.
-      if (!(name in result.deps)) result.deps[name] = spec;
       if (fromPython) {
         if (!(name in result.pythonDeps)) {
           result.pythonDeps[name] = spec;
@@ -1356,7 +1388,23 @@ function canonicalizeDepMap(
 // Main
 // ---------------------------------------------------------------------------
 
+// The four buckets are appended-to only while building the report in
+// validateAll(); nothing should mutate them once they're returned to
+// the printer. Marking them readonly string[] prevents drive-by mutation
+// at read sites without paying the cost of a full PackageIssue tagged
+// union + renderer refactor (deferred — the buckets are stringly-typed
+// but that is a self-contained simplification rather than a correctness
+// issue today). The mutation sites inside validateAll type as
+// `string[]` via the inner `ReportBuilder` so .push() still works.
 interface Report {
+  readonly fail: readonly string[];
+  readonly warn: readonly string[];
+  readonly skip: readonly string[];
+  readonly ok: readonly string[];
+}
+// Internal mutable shape used only while building the Report.
+// Narrowed to `Report` (readonly) on return.
+interface ReportBuilder {
   fail: string[];
   warn: string[];
   skip: string[];
@@ -1364,7 +1412,7 @@ interface Report {
 }
 
 function validateAll(): Report {
-  const report: Report = { fail: [], warn: [], skip: [], ok: [] };
+  const report: ReportBuilder = { fail: [], warn: [], skip: [], ok: [] };
   // Compute paths ONCE per run. `paths()` re-validates the
   // VALIDATE_PINS_REPO_ROOT env var every call, so invoking it per
   // slug turns every iteration into an fs.existsSync stat that has
@@ -1405,11 +1453,32 @@ function validateAll(): Report {
     );
   }
 
-  const slugs = fs
-    .readdirSync(PACKAGES_DIR, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
-    .map((d) => d.name)
-    .sort();
+  // readdirSync can fail independently of the statSync above (TOCTOU:
+  // perms or mount state can change between the two calls, and EIO /
+  // ENOTDIR / EACCES are all observable here). Without this wrapper the
+  // error propagates to the top-level catch as a generic Error and is
+  // misrouted to EXIT_INTERNAL (2). We convert infra-class errno codes
+  // into UnreadableInputError so they route to EXIT_UNREADABLE (3),
+  // preserving the same taxonomy as the statSync branch above.
+  let slugs: string[];
+  try {
+    slugs = fs
+      .readdirSync(PACKAGES_DIR, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+      .sort();
+  } catch (e) {
+    const err = e as NodeJS.ErrnoException;
+    const code = err?.code ?? "unknown";
+    const msg = err?.message ?? String(e);
+    // All readdir failures here are infra-class (we already passed the
+    // stat + isDirectory guard above, so the dir did exist and was a
+    // directory). Route to EXIT_UNREADABLE (3) so CI distinguishes
+    // perms/mount state from a validator crash.
+    throw new UnreadableInputError(
+      `Packages dir readdir failed (${code}): ${PACKAGES_DIR}: ${msg}`,
+    );
+  }
 
   // Empty packages dir is the same class of error as missing — the
   // validator produced no results, so we fail loudly rather than exit 0.
@@ -1740,10 +1809,17 @@ function printReport(report: Report): void {
 // the hash-based ratchet in CI compares full summary/table output and a
 // truncated line would silently change the hash. Mirrors the audit.ts
 // pattern.
+// Typed setter for `process.exitCode` — forces every exit-code
+// assignment in this file through the closed `PinsExitCode` union, so
+// a typo like `process.exitCode = 4` becomes a compile error.
+function setExitCode(code: PinsExitCode): void {
+  process.exitCode = code;
+}
+
 function main(): void {
   const report = validateAll();
   printReport(report);
-  process.exitCode = report.fail.length > 0 ? EXIT_DRIFT : EXIT_OK;
+  setExitCode(report.fail.length > 0 ? EXIT_DRIFT : EXIT_OK);
 }
 
 /**
@@ -1766,7 +1842,7 @@ function isMainPath(argv1: string | undefined, scriptPath: string): boolean {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[isMainPath] path.resolve failed: ${msg}`);
-    process.exitCode = EXIT_INTERNAL;
+    setExitCode(EXIT_INTERNAL);
     return false;
   }
 }
@@ -1782,10 +1858,10 @@ if (isMainPath(process.argv[1], __filename)) {
     const msg = e instanceof Error ? e.stack || e.message : String(e);
     if (e instanceof UnreadableInputError) {
       console.error(`[UNREADABLE INPUT] validate-pins: ${msg}`);
-      process.exitCode = EXIT_UNREADABLE;
+      setExitCode(EXIT_UNREADABLE);
     } else {
       console.error(`[INTERNAL ERROR] validate-pins crashed: ${msg}`);
-      process.exitCode = EXIT_INTERNAL;
+      setExitCode(EXIT_INTERNAL);
     }
   }
 }
