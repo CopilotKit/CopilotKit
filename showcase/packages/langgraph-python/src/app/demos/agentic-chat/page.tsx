@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import {
-  useFrontendTool,
   useRenderTool,
   useAgentContext,
   useConfigureSuggestions,
@@ -20,31 +19,9 @@ export default function AgenticChatDemo() {
 }
 
 function Chat() {
-  const [background, setBackground] = useState<string>(
-    "var(--copilot-kit-background-color)",
-  );
-
   useAgentContext({
     description: "Name of the user",
     value: "Bob",
-  });
-
-  useFrontendTool({
-    name: "change_background",
-    description:
-      "Change the background color of the chat. Can be anything that the CSS background attribute accepts. Regular colors, linear or radial gradients etc.",
-    parameters: z.object({
-      background: z
-        .string()
-        .describe("The background. Prefer gradients. Only use when asked."),
-    }),
-    handler: async ({ background }: { background: string }) => {
-      setBackground(background);
-      return {
-        status: "success",
-        message: `Background changed to ${background}`,
-      };
-    },
   });
 
   useRenderTool({
@@ -71,23 +48,19 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Change background",
-        message: "Change the background to something new.",
-      },
-      {
         title: "Generate sonnet",
         message: "Write a short sonnet about AI.",
+      },
+      {
+        title: "Weather in SF",
+        message: "What's the weather in San Francisco?",
       },
     ],
     available: "always",
   });
 
   return (
-    <div
-      className="flex justify-center items-center h-screen w-full"
-      data-testid="background-container"
-      style={{ background }}
-    >
+    <div className="flex justify-center items-center h-screen w-full">
       <div className="h-full w-full max-w-4xl">
         <CopilotChat agentId="agentic_chat" className="h-full rounded-2xl" />
       </div>

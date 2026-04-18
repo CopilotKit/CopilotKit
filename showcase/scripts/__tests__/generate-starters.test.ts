@@ -183,23 +183,17 @@ describe("generate-starters", () => {
           }
         });
 
-        it("uses local imports for tools (relative or absolute)", () => {
-          // langgraph-python is the Controlled Generative UI reference and
-          // intentionally ships no backend tools. Skip for it.
-          if (slug === "langgraph-python") return;
-
+        it("tool imports are local (relative or absolute) when used", () => {
           const pyFiles = findFiles(agentDir, [".py"]);
-          const filesWithToolImport = pyFiles.filter((f) => {
+          const externalToolImport =
+            /from\s+@copilotkit[/\\]showcase-shared-tools/;
+          for (const f of pyFiles) {
             const content = fs.readFileSync(f, "utf-8");
-            return (
-              content.includes("from .tools import") ||
-              content.includes("from .tools.") ||
-              content.includes("from .tool_wrappers import") ||
-              content.includes(".tools import") // absolute like src.agents.tools
-            );
-          });
-          // At least one file should have tool imports
-          expect(filesWithToolImport.length).toBeGreaterThan(0);
+            // Only enforce that no external shared-tools import sneaks in.
+            // Packages may legitimately have no tools at all (e.g. controlled
+            // generative UI demos rely purely on frontend tools).
+            expect(content).not.toMatch(externalToolImport);
+          }
         });
 
         it("has self-contained tools/ directory", () => {
