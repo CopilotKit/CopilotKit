@@ -1595,15 +1595,28 @@ describe("UnreadableDirError", () => {
 
 describe("canonicalizeForIsMain", () => {
   it("returns a canonical (realpath) path when the file exists", () => {
-    // Realpath should resolve to the same path on a normal file — this
-    // is the happy path, proving we don't accidentally return something
-    // other than realpathSync's result.
+    // Two distinct input strings that refer to the same underlying file
+    // (one absolute, one with a redundant `.` segment) must canonicalize
+    // to the same result. This proves the helper normalizes inputs
+    // rather than merely passing them through — a stronger invariant
+    // than `canonicalize(f) === realpathSync(f)`, which would be
+    // trivially true for any pass-through implementation.
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "audit-canon-"));
     try {
       const f = path.join(root, "a.txt");
       fs.writeFileSync(f, "x");
-      const canon = canonicalizeForIsMain(f);
-      expect(canon).toBe(fs.realpathSync(f));
+      // Same file, two different string forms: plain absolute vs.
+      // absolute with a redundant `./` segment injected in the middle.
+      // Concatenate directly rather than via path.join (which would
+      // collapse `.` eagerly) so the inputs are genuinely distinct at
+      // the string level before the helper sees them.
+      const plain = f;
+      const dotted = `${root}${path.sep}.${path.sep}a.txt`;
+      expect(plain).not.toBe(dotted); // sanity: inputs are distinct strings
+      const canonPlain = canonicalizeForIsMain(plain);
+      const canonDotted = canonicalizeForIsMain(dotted);
+      expect(canonPlain).toBe(canonDotted);
+      expect(canonPlain).toBe(fs.realpathSync(f));
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
