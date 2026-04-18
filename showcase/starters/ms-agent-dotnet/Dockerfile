@@ -41,7 +41,12 @@ RUN chown -R app:app /app
 USER app
 
 EXPOSE 10000
-ENV NODE_ENV=production
+# Intentionally NOT setting `ENV NODE_ENV=production` at the image level.
+# NODE_ENV=production at the image level would leak into every child process
+# (.NET agent via `dotnet …`, shell scripts, healthchecks) — most of which
+# don't interpret NODE_ENV the way Next.js does. entrypoint.sh scopes
+# NODE_ENV=production to the Next.js invocation only so non-Next children
+# see the host's environment.
 ENV PORT=10000
 ENV HOSTNAME=0.0.0.0
 CMD ["./entrypoint.sh"]

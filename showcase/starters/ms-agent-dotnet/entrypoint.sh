@@ -40,7 +40,13 @@ echo "[entrypoint] Starting Next.js frontend on port ${PORT:-10000}..."
 echo "========================================="
 
 PORT=${PORT:-10000}
-npx next start --port $PORT 2>&1 | sed 's/^/[nextjs] /' &
+# Scope NODE_ENV=production to the Next.js invocation ONLY, not the whole
+# container environment. `ENV NODE_ENV=production` at the image level would
+# leak into every child process (agent, shell scripts, healthchecks) — most
+# of which don't interpret NODE_ENV the way Next.js does. `env` prefix binds
+# the value to this single exec so the agent spawned above keeps the host
+# environment intact.
+env NODE_ENV=production npx next start --port $PORT 2>&1 | sed 's/^/[nextjs] /' &
 NEXTJS_PID=$!
 
 echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"

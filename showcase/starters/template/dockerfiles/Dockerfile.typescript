@@ -35,7 +35,14 @@ RUN (groupadd --system --gid 1001 app 2>/dev/null || true) \
 USER app
 
 EXPOSE 10000
-ENV NODE_ENV=production
+# Intentionally NOT setting `ENV NODE_ENV=production` at the image level.
+# NODE_ENV=production at the image level would leak into every child process
+# (TS agent via `tsx`, `mastra dev`, `langgraph-cli` dev server, shell
+# scripts, healthchecks) — several of these frameworks change behavior based
+# on NODE_ENV (e.g. `mastra dev` / dev-mode bundlers gate HMR, source maps,
+# telemetry on it) and should NOT see "production" when they're running as
+# an agent backend. entrypoint.sh scopes NODE_ENV=production to the Next.js
+# invocation only so non-Next children see the host's environment.
 ENV PORT=10000
 ENV HOSTNAME=0.0.0.0
 CMD ["./entrypoint.sh"]

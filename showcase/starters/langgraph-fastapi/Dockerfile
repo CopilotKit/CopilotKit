@@ -38,11 +38,16 @@ RUN chmod +x entrypoint.sh
 
 RUN (groupadd --system --gid 1001 app 2>/dev/null || true) && (useradd --system --uid 1001 --gid 1001 --no-create-home app 2>/dev/null || true)
 RUN mkdir -p /home/app && chown app:app /home/app
-RUN mkdir -p /app/.langgraph_api && chown -R app:app /app
+RUN mkdir -p /app/.langgraph_api
+RUN chown -R app:app /app
 USER app
 
 EXPOSE 10000
-ENV NODE_ENV=production
+# Intentionally NOT setting `ENV NODE_ENV=production` at the image level.
+# NODE_ENV=production at the image level would leak into every child process
+# (Python agent, shell scripts, healthchecks) — most of which don't use it
+# the way Next.js does. entrypoint.sh scopes NODE_ENV=production to the
+# Next.js invocation only so non-Next children see the host's environment.
 ENV PORT=10000
 ENV HOSTNAME=0.0.0.0
 CMD ["./entrypoint.sh"]

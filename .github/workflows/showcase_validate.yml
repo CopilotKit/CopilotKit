@@ -381,3 +381,71 @@ jobs:
         if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK == ''
         run: |
           echo "::warning::showcase_validate failed on push but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
+
+  python-unit-tests:
+    name: Python unit tests (${{ matrix.python-version }})
+    # Separate job so pre-existing `validate-parity` failures don't mask new
+    # Python unit-test regressions. pytest runs independently of JS/TS checks.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      # Fail-fast disabled so a 3.10-only regression (e.g. typing_extensions
+      # fallback path breaking) doesn't cancel the 3.12 run and leave us
+      # guessing which version is the actual problem.
+      fail-fast: false
+      matrix:
+        # 3.10 covers the typing_extensions `NotRequired` fallback path used
+        # by aimock_toggle.py (stdlib `NotRequired` only landed in 3.11).
+        # 3.12 is the production/runner default. Pinning both guarantees we
+        # catch a regression in either branch the first time it lands.
+        python-version: ["3.10", "3.12"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          # No pip cache: today's tests install only pytest + typing_extensions
+          # (see "Install minimal test deps" below). Caching would key on a
+          # never-used `requirements.txt` and add overhead for no benefit.
+          # Re-add `cache: "pip"` + `cache-dependency-path` if per-package
+          # requirements.txt installs return (see comment in that step).
+
+      - name: Install minimal test deps
+        # Today's python unit tests (`test_aimock_toggle.py`) are stdlib-only
+        # except for the `typing_extensions` fallback path exercised on 3.10.
+        # Installing each package's full `requirements.txt` (CrewAI graph etc.)
+        # on every PR is a ~30-60s tax that buys nothing for stdlib-only tests.
+        # Install only pytest + typing_extensions here.
+        #
+        # If a future `tests/python/` adds cases that import package runtime
+        # deps (e.g. imports `crewai` or `litellm`), that package's test must
+        # install its own `requirements.txt` in an explicit step OR the loop
+        # below should gain a marker file (e.g. `tests/python/requirements.txt`)
+        # that triggers per-package install. Do NOT regress to installing every
+        # package's full requirements.txt unconditionally.
+        run: python -m pip install --quiet pytest typing_extensions
+
+      - name: Run showcase package Python unit tests
+        # Keep scope narrow: only showcase/packages/*/tests/python/ directories
+        # (not e2e, not langgraph which has its own runtime). Each package has
+        # its own conftest.py that wires up import paths; we cd into the pkg
+        # dir so those apply.
+        run: |
+          set -euo pipefail
+          failed=0
+          found=0
+          for pkg_dir in showcase/packages/*/; do
+            tests_dir="${pkg_dir}tests/python"
+            [ -d "$tests_dir" ] || continue
+            found=$((found + 1))
+            pkg=$(basename "$pkg_dir")
+            echo "--- pytest: $pkg ---"
+            (cd "$pkg_dir" && python -m pytest tests/python/ -v) || failed=1
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "::warning::No showcase/packages/*/tests/python/ directories found"
+          fi
+          exit "$failed"
