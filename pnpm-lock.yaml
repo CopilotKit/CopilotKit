@@ -1107,7 +1107,7 @@ importers:
         specifier: ^4.2.127
         version: 4.2.260(@radix-ui/react-popover@1.1.15(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@types/node@22.19.11)(@types/react@19.2.7)(encoding@0.1.13)(react-dom@19.2.3(react@19.2.3))(ts-node@10.9.2(@swc/core@1.15.8(@swc/helpers@0.5.18))(@types/node@22.19.11)(typescript@5.9.3))(typescript@5.9.3)
 
-  examples/v2/interrupts-langraph:
+  examples/v2/interrupts-langgraph:
     devDependencies:
       '@langchain/langgraph-cli':
         specifier: ^1.0.4
@@ -1116,7 +1116,7 @@ importers:
         specifier: ^2.3.3
         version: 2.7.3
 
-  examples/v2/interrupts-langraph/apps/agent:
+  examples/v2/interrupts-langgraph/apps/agent:
     dependencies:
       '@copilotkit/sdk-js':
         specifier: workspace:*
@@ -1147,7 +1147,7 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  examples/v2/interrupts-langraph/apps/web:
+  examples/v2/interrupts-langgraph/apps/web:
     dependencies:
       '@copilotkit/react-core':
         specifier: workspace:*

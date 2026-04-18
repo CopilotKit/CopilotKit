@@ -49,7 +49,7 @@ Check and remove eslint-related deps from:
 
 - `examples/v1/research-canvas/package.json`
 - `examples/v2/react/demo/package.json`
-- `examples/v2/interrupts-langraph/apps/web/package.json`
+- `examples/v2/interrupts-langgraph/apps/web/package.json`
 - Any other example with eslint in devDependencies
 
 **Step 6: Verify install**
@@ -340,8 +340,8 @@ chore: update all lint/format scripts to use oxlint/oxfmt
 - `examples/v1/_legacy/copilot-openai-mongodb-atlas-vector-search/.eslintrc.json`
 - `examples/v1/_legacy/copilot-fully-custom/eslint.config.mjs`
 - `examples/v2/react/demo/eslint.config.mjs`
-- `examples/v2/interrupts-langraph/eslint.config.mjs`
-- `examples/v2/interrupts-langraph/apps/web/eslint.config.mjs`
+- `examples/v2/interrupts-langgraph/eslint.config.mjs`
+- `examples/v2/interrupts-langgraph/apps/web/eslint.config.mjs`
 
 **Other eslint configs:**
 
@@ -387,8 +387,8 @@ rm -f examples/v1/form-filling/eslint.config.mjs
 rm -f examples/v1/state-machine/eslint.config.mjs
 rm -f examples/v1/_legacy/copilot-fully-custom/eslint.config.mjs
 rm -f examples/v2/react/demo/eslint.config.mjs
-rm -f examples/v2/interrupts-langraph/eslint.config.mjs
-rm -f examples/v2/interrupts-langraph/apps/web/eslint.config.mjs
+rm -f examples/v2/interrupts-langgraph/eslint.config.mjs
+rm -f examples/v2/interrupts-langgraph/apps/web/eslint.config.mjs
 
 # Other
 rm -f src/v1.x/.eslintrc.js
