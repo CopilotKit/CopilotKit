@@ -72,10 +72,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Exit-code constants. See the module docstring for the full taxonomy.
-const EXIT_OK = 0;
-const EXIT_DRIFT = 1;
-const EXIT_INTERNAL = 2;
-const EXIT_UNREADABLE = 3;
+// `as const` narrows each to its literal numeric type; `PinsExitCode` is
+// the closed union so callers (and `process.exitCode` assignments in
+// this file) cannot accidentally drift to an unrelated number. Adding
+// a new exit code is a deliberate edit to both the constant and the
+// union — a pure `const X = 4` cannot participate in the union.
+const EXIT_OK = 0 as const;
+const EXIT_DRIFT = 1 as const;
+const EXIT_INTERNAL = 2 as const;
+const EXIT_UNREADABLE = 3 as const;
+type PinsExitCode =
+  | typeof EXIT_OK
+  | typeof EXIT_DRIFT
+  | typeof EXIT_INTERNAL
+  | typeof EXIT_UNREADABLE;
 
 /**
  * Thrown when the repo-root input is present but unreadable or
@@ -1783,10 +1793,17 @@ function printReport(report: Report): void {
 // the hash-based ratchet in CI compares full summary/table output and a
 // truncated line would silently change the hash. Mirrors the audit.ts
 // pattern.
+// Typed setter for `process.exitCode` — forces every exit-code
+// assignment in this file through the closed `PinsExitCode` union, so
+// a typo like `process.exitCode = 4` becomes a compile error.
+function setExitCode(code: PinsExitCode): void {
+  process.exitCode = code;
+}
+
 function main(): void {
   const report = validateAll();
   printReport(report);
-  process.exitCode = report.fail.length > 0 ? EXIT_DRIFT : EXIT_OK;
+  setExitCode(report.fail.length > 0 ? EXIT_DRIFT : EXIT_OK);
 }
 
 /**
@@ -1809,7 +1826,7 @@ function isMainPath(argv1: string | undefined, scriptPath: string): boolean {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[isMainPath] path.resolve failed: ${msg}`);
-    process.exitCode = EXIT_INTERNAL;
+    setExitCode(EXIT_INTERNAL);
     return false;
   }
 }
@@ -1825,10 +1842,10 @@ if (isMainPath(process.argv[1], __filename)) {
     const msg = e instanceof Error ? e.stack || e.message : String(e);
     if (e instanceof UnreadableInputError) {
       console.error(`[UNREADABLE INPUT] validate-pins: ${msg}`);
-      process.exitCode = EXIT_UNREADABLE;
+      setExitCode(EXIT_UNREADABLE);
     } else {
       console.error(`[INTERNAL ERROR] validate-pins crashed: ${msg}`);
-      process.exitCode = EXIT_INTERNAL;
+      setExitCode(EXIT_INTERNAL);
     }
   }
 }
