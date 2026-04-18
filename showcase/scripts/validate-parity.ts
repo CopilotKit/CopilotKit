@@ -69,11 +69,73 @@ const BASELINE_DEMO_COUNT = 9;
 
 // Exit code taxonomy mirrors audit.ts / validate-pins.ts so CI callers
 // can disambiguate "no anomalies" / "anomalies" / "unreadable" / "internal".
-const EXIT_OK = 0;
-const EXIT_MUST_FAILURE = 1;
-const EXIT_INVALID_INPUT = 2;
-const EXIT_UNREADABLE = 3;
-const EXIT_INTERNAL = 4;
+// `as const` narrows each to its literal type so the union below
+// (`ValidateParityExitCode`) is a literal union — guarding callers that
+// switch on the value from accidentally matching arbitrary numbers.
+const EXIT_OK = 0 as const;
+const EXIT_MUST_FAILURE = 1 as const;
+const EXIT_INVALID_INPUT = 2 as const;
+const EXIT_UNREADABLE = 3 as const;
+const EXIT_INTERNAL = 4 as const;
+
+/**
+ * Literal union of every exit code `runParity` can return. Exposed so
+ * in-process callers (tests, composed CLIs) can pattern-match against
+ * the taxonomy without re-declaring magic numbers.
+ */
+export type ValidateParityExitCode =
+  | typeof EXIT_OK
+  | typeof EXIT_MUST_FAILURE
+  | typeof EXIT_INVALID_INPUT
+  | typeof EXIT_UNREADABLE
+  | typeof EXIT_INTERNAL;
+
+/**
+ * Render an error (and any nested `.cause` chain) for stderr. Walks the
+ * cause chain depth-first and indents each successive cause so operators
+ * see both the outer wrapping context (e.g. "audit of <slug> crashed")
+ * AND the root-cause message/stack without rebuilding the chain by hand.
+ * Rendering only `err.stack || err.message` drops the chain entirely
+ * because `Error#stack` does NOT include causes — this helper is the
+ * missing piece.
+ *
+ * Guards against pathological or malicious cyclic cause graphs by
+ * tracking visited references and capping depth — a self-referential
+ * `.cause` (or a long synthetic chain) can't hang the validator.
+ */
+function formatErrorChain(err: unknown): string {
+  const MAX_DEPTH = 16;
+  const seen = new WeakSet<object>();
+  const lines: string[] = [];
+
+  const render = (e: unknown): string =>
+    e instanceof Error ? e.stack || e.message : String(e);
+
+  let current: unknown = err;
+  let depth = 0;
+  while (current !== undefined && current !== null && depth < MAX_DEPTH) {
+    const prefix = depth === 0 ? "" : `${"  ".repeat(depth)}caused by: `;
+    lines.push(prefix + render(current).replace(/\n/g, `\n${"  ".repeat(depth)}`));
+
+    if (typeof current !== "object") break;
+    if (seen.has(current as object)) {
+      lines.push(`${"  ".repeat(depth + 1)}[cyclic cause — stopping]`);
+      break;
+    }
+    seen.add(current as object);
+
+    const next = (current as { cause?: unknown }).cause;
+    if (next === undefined) break;
+    current = next;
+    depth++;
+  }
+
+  if (depth === MAX_DEPTH) {
+    lines.push(`${"  ".repeat(depth + 1)}[cause chain truncated at depth ${MAX_DEPTH}]`);
+  }
+
+  return lines.join("\n");
+}
 
 // Manifest / ManifestDemo now live in ./lib/manifest.ts. Re-exported on
 // the next line for callers that import these types from
@@ -734,11 +796,39 @@ export function formatRow(report: PackageReport, slugWidth: number): string {
  * below and NOT exported) sets `process.exitCode` from the return
  * value — neither function calls `process.exit` synchronously, which
  * preserves stdout/stderr drain.
+ *
+ * This function is the stable in-process boundary: it NEVER throws.
+ * Any unexpected exception surfaced from inner helpers (auditPackage,
+ * I/O, etc.) is caught, rendered to stderr with the full cause chain,
+ * and converted into `EXIT_INTERNAL`. That way in-process callers
+ * (tests, composed CLIs) always receive a numeric exit code and can
+ * pattern-match on the `ValidateParityExitCode` taxonomy — they don't
+ * have to re-implement the top-level try/catch that `main()` uses.
  */
 export function runParity(
   packagesDir?: string,
   baselineDemoCount?: number,
-): number {
+): ValidateParityExitCode {
+  try {
+    return runParityImpl(packagesDir, baselineDemoCount);
+  } catch (err) {
+    console.error(
+      `[INTERNAL ERROR] validate-parity crashed: ${formatErrorChain(err)}`,
+    );
+    return EXIT_INTERNAL;
+  }
+}
+
+/**
+ * Inner implementation of `runParity`. Separate function (not exported)
+ * so the `try/catch` in `runParity` has a crisp body to guard — keeping
+ * the boundary at a single call site avoids `return` vs `throw`
+ * interleaving if the catch ever grows.
+ */
+function runParityImpl(
+  packagesDir?: string,
+  baselineDemoCount?: number,
+): ValidateParityExitCode {
   // Env-var override keyed to this validator (mirrors SHOWCASE_AUDIT_ROOT
   // in audit.ts and VALIDATE_PINS_REPO_ROOT in validate-pins.ts).
   const envRoot = process.env.VALIDATE_PARITY_REPO_ROOT;
@@ -903,8 +993,14 @@ if (
     // Use `process.exitCode = N` (not `process.exit(N)`) so any buffered
     // stdout/stderr gets a chance to drain — matches audit.ts /
     // validate-pins.ts.
-    const msg = err instanceof Error ? err.stack || err.message : String(err);
-    console.error(`[INTERNAL ERROR] validate-parity crashed: ${msg}`);
+    // Walk the `.cause` chain so wrapped errors (auditPackage throws
+    // `new Error("audit of <slug> crashed", { cause })`) render both
+    // the outer context and the underlying root cause. Bare
+    // `.stack || .message` drops the chain because `Error#stack`
+    // doesn't include causes.
+    console.error(
+      `[INTERNAL ERROR] validate-parity crashed: ${formatErrorChain(err)}`,
+    );
     process.exitCode = EXIT_INTERNAL;
   }
 }

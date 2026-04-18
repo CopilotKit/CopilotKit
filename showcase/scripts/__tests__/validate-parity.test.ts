@@ -1408,6 +1408,71 @@ Object.freeze = function(o) {
         fs.rmSync(preload, { recursive: true, force: true });
       }
     });
+
+    it("runParity returns EXIT_INTERNAL (4) instead of throwing when auditPackage surfaces an unexpected error", () => {
+      // R19-2 #4 regression guard. In-process callers (tests, composed
+      // CLIs) must receive a numeric exit code, never a raw exception —
+      // otherwise callers have to duplicate the top-level try/catch that
+      // `main()` uses. Drive the same failure path as the CLI test above
+      // (Object.freeze throws a non-manifest TypeError), but call
+      // runParity directly in-process and assert on the return value.
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-inproc-err-"));
+      try {
+        const pkgDir = path.join(tmp, "boom-pkg");
+        fs.mkdirSync(pkgDir, { recursive: true });
+        fs.writeFileSync(
+          path.join(pkgDir, "manifest.yaml"),
+          "slug: boom-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
+          "utf-8",
+        );
+        const originalFreeze = Object.freeze;
+        const freezeSpy = vi
+          .spyOn(Object, "freeze")
+          .mockImplementation(((o: unknown) => {
+            if (
+              o !== null &&
+              typeof o === "object" &&
+              "id" in (o as Record<string, unknown>)
+            ) {
+              throw new TypeError("synthetic non-manifest failure");
+            }
+            return originalFreeze(o as object);
+          }) as typeof Object.freeze);
+        const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+        const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+        try {
+          // Must return EXIT_INTERNAL (4) — runParity's outer try/catch
+          // should trap the wrapped Error thrown by auditPackage and
+          // convert it to the numeric taxonomy without letting the
+          // exception escape to the caller.
+          let returned: unknown;
+          let threw = false;
+          try {
+            returned = runParity(tmp, 1);
+          } catch {
+            threw = true;
+          }
+          expect(threw, "runParity must not throw to in-process callers").toBe(
+            false,
+          );
+          expect(returned).toBe(4);
+
+          // Stderr must carry both the outer wrapping context AND the
+          // root cause (cause-chain walk — R19-2 #6 regression guard).
+          const stderr = errSpy.mock.calls.map((c) => String(c[0])).join("\n");
+          expect(stderr).toMatch(/\[INTERNAL ERROR\] validate-parity crashed/);
+          expect(stderr).toMatch(/audit of boom-pkg crashed/);
+          expect(stderr).toMatch(/caused by:/);
+          expect(stderr).toMatch(/synthetic non-manifest failure/);
+        } finally {
+          freezeSpy.mockRestore();
+          errSpy.mockRestore();
+          logSpy.mockRestore();
+        }
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
   });
 
   describe("coerceBaseline (discriminated union)", () => {
