@@ -1026,6 +1026,90 @@ describe("auditPackage", () => {
       spy.mockRestore();
     }
   });
+
+  it("mapped slug whose candidate exists but is NOT a directory surfaces a distinct anomaly (not silent missing-examples)", () => {
+    // For a MAPPED slug whose candidate path exists-but-is-not-a-
+    // directory (regular file / symlink-to-file / socket / FIFO), the
+    // old code existedCount++'d but unreadableCount stayed 0, so the
+    // slug silently fell through to `missing-examples` with NO
+    // diagnostic. Operators had no signal that the integrations dir had
+    // a stray file masquerading as the provenance target. The fix adds
+    // a distinct `mapped-candidate-not-directory` Anomaly kind driven
+    // by a structured `nonDirectoryForSlug` signal — never a warning-
+    // string substring match.
+    const slug = "mastra";
+    const candidates = SLUG_TO_EXAMPLES[slug];
+    expect(candidates).toBeDefined();
+    expect(candidates.length).toBeGreaterThan(0);
+    writePackage(root, slug, {
+      manifest: `slug: ${slug}\ndeployed: true\ndemos:\n  - id: x\n`,
+      specs: ["x.spec.ts"],
+      qaFiles: ["x.md"],
+    });
+    // Write a regular file (not a directory) at every candidate path.
+    for (const c of candidates) {
+      const p = path.join(root, "examples", "integrations", c);
+      fs.writeFileSync(p, "stray file, not a directory\n");
+    }
+    const cfg = makeConfig(root);
+    const a = auditPackage(slug, cfg);
+    // The new distinct anomaly kind must fire.
+    const notDir = a.anomalies.find(
+      (x) => x.kind === "mapped-candidate-not-directory",
+    );
+    expect(
+      notDir,
+      `expected mapped-candidate-not-directory anomaly, got: ${JSON.stringify(a.anomalies)}`,
+    ).toBeDefined();
+    if (notDir && notDir.kind === "mapped-candidate-not-directory") {
+      expect(notDir.slug).toBe(slug);
+      expect([...notDir.candidates]).toEqual([...candidates]);
+    }
+    // And MUST NOT silently degrade to missing-examples — the whole
+    // point of the fix is to make this misconfiguration visible.
+    expect(a.anomalies.some((x) => x.kind === "missing-examples")).toBe(false);
+    // Rendering routes through anomalyMessage without throwing and
+    // carries the slug + candidates in human-readable output.
+    const messages = anomalyStrings(a);
+    expect(
+      messages.some(
+        (m) => m.includes(slug) && candidates.every((c) => m.includes(c)),
+      ),
+    ).toBe(true);
+  });
+
+  it("mapped slug with mixed non-directory + missing candidates still emits mapped-candidate-not-directory", () => {
+    // Variant: one candidate is a stray file, another is simply absent.
+    // Since at least one mapped candidate existed-but-wasn't-a-dir, the
+    // distinct signal must still fire (not silent missing-examples).
+    const slug = "synthetic-mixed";
+    const mapped = ["stray-file", "totally-absent"] as const;
+    // Only create a regular file at the first candidate. The second
+    // candidate does not exist at all.
+    fs.writeFileSync(
+      path.join(root, "examples", "integrations", "stray-file"),
+      "not a dir\n",
+    );
+    const cfg = makeConfig(root);
+    const sink: string[] = [];
+    const r = resolveExamplesSource(slug, mapped, cfg, sink);
+    expect(r.source).toBeNull();
+    // Structural contract: resolver must communicate "candidate existed
+    // but was not a directory" separately from "all unreadable".
+    // unreadableForSlug stays false (no I/O failure). A new structured
+    // signal drives the mapped-candidate-not-directory anomaly.
+    expect(r.unreadableForSlug).toBe(false);
+    expect(r.nonDirectoryForSlug).toBe(true);
+    // A diagnostic warning must be present so operators see the
+    // misconfiguration.
+    expect(
+      sink.some(
+        (w) =>
+          w.includes("stray-file") && /not a directory|non-directory/i.test(w),
+      ),
+      `expected non-directory warning for stray-file in sink: ${JSON.stringify(sink)}`,
+    ).toBe(true);
+  });
 });
 
 describe("buildReport", () => {

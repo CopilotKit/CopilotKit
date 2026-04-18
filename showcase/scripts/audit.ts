@@ -136,6 +136,18 @@ type Anomaly =
       kind: "unreadable-examples";
       slug: string;
       candidates: readonly string[];
+    }
+  | {
+      // Mapped slug whose candidate path(s) exist on disk but are NOT
+      // directories (regular file / symlink-to-file / socket / FIFO).
+      // This is a misconfiguration — the integrations dir has a stray
+      // entry masquerading as the provenance target. Surfaced as its
+      // own Anomaly variant so downstream consumers can route it
+      // distinctly from `missing-examples` (content absent) and
+      // `unreadable-examples` (I/O failure).
+      kind: "mapped-candidate-not-directory";
+      slug: string;
+      candidates: readonly string[];
     };
 
 /**
@@ -434,6 +446,14 @@ function countLabel(s: CountState): string {
 interface ExamplesSourceResult {
   readonly source: string | null;
   readonly unreadableForSlug: boolean;
+  /**
+   * True when at least one mapped candidate exists on disk but is not
+   * a directory (regular file / symlink-to-file / socket / FIFO). Drives
+   * the `mapped-candidate-not-directory` anomaly in auditPackage. Only
+   * set for mapped slugs; unmapped slugs are tracked on the warnings
+   * sink alone since they aren't routed through a dedicated anomaly.
+   */
+  readonly nonDirectoryForSlug: boolean;
 }
 
 /**
@@ -492,6 +512,12 @@ function resolveExamplesSource(
   // link is satisfied.
   let unreadableCount = 0;
   let existedCount = 0;
+  // Count of mapped candidates that exist on disk but are not
+  // directories (regular file / symlink-to-file / socket / FIFO). A
+  // mapped slug with nonDirCount > 0 and no successful directory hit
+  // routes to a distinct `mapped-candidate-not-directory` anomaly
+  // rather than silently degrading to `missing-examples`.
+  let nonDirCount = 0;
   for (const candidate of candidates) {
     const full = path.join(cfg.examplesIntegrationsDir, candidate);
     if (!fs.existsSync(full)) continue;
@@ -501,23 +527,22 @@ function resolveExamplesSource(
         return {
           source: path.relative(cfg.repoRoot, full),
           unreadableForSlug: false,
+          nonDirectoryForSlug: false,
         };
       }
-      // Unmapped slug whose candidate path exists but is a regular file
-      // (or other non-dir entry — symlink-to-file, socket, etc.). This
-      // is almost always a misconfiguration: the integrations dir has a
-      // stray file with the slug's name. Surface it via the sink so
-      // operators aren't left wondering why a seemingly present path
-      // produced a null provenance. Distinct wording ("exists but is
-      // not a directory") from the mapped "no matching directory"
-      // warning emitted below. Mapped slugs intentionally don't fan out
-      // a per-candidate file warning here — the aggregate "no matching
-      // directory" warning already covers the mapping-is-stale case.
-      if (!mapped) {
-        sink.push(
-          `audit: warning: candidate path ${full} exists but is not a directory`,
-        );
-      }
+      // Candidate exists but is not a directory (regular file /
+      // symlink-to-file / socket / FIFO). For BOTH mapped and unmapped
+      // slugs this is a misconfiguration — a stray entry in the
+      // integrations dir masquerading as the provenance target.
+      // Surface a per-candidate "exists but is not a directory"
+      // warning so operators see exactly which path is wrong, and for
+      // mapped slugs bump nonDirCount so auditPackage can route the
+      // `mapped-candidate-not-directory` anomaly instead of silently
+      // degrading to `missing-examples`.
+      sink.push(
+        `audit: warning: candidate path ${full} exists but is not a directory`,
+      );
+      if (mapped) nonDirCount++;
     } catch (e) {
       const errCode =
         e instanceof Error ? (e as NodeJS.ErrnoException).code : undefined;
@@ -554,7 +579,24 @@ function resolveExamplesSource(
     sink.push(
       `audit: ERROR: all candidates unreadable for slug "${slug}" (category: unreadable-candidates) → [${mapped.join(", ")}]`,
     );
-    return { source: null, unreadableForSlug: true };
+    return {
+      source: null,
+      unreadableForSlug: true,
+      nonDirectoryForSlug: false,
+    };
+  }
+  // Mapped slug whose candidate(s) existed-but-weren't-a-directory
+  // (and none of them was a successful dir hit). Route to the
+  // `mapped-candidate-not-directory` anomaly so this misconfiguration
+  // is visible downstream rather than silently degrading to
+  // `missing-examples`. The per-candidate "exists but is not a
+  // directory" warnings pushed above already carry the specific paths.
+  if (mapped && nonDirCount > 0) {
+    return {
+      source: null,
+      unreadableForSlug: false,
+      nonDirectoryForSlug: true,
+    };
   }
   // If the slug was *explicitly* mapped but none of its mapped
   // candidates exist, the map is out of sync with the filesystem. Warn
@@ -567,7 +609,11 @@ function resolveExamplesSource(
       `audit: warning: SLUG_TO_EXAMPLES entry "${slug}" → [${mapped.join(", ")}] has no matching directory under ${cfg.examplesIntegrationsDir}`,
     );
   }
-  return { source: null, unreadableForSlug: false };
+  return {
+    source: null,
+    unreadableForSlug: false,
+    nonDirectoryForSlug: false,
+  };
 }
 
 function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
@@ -701,6 +747,14 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
               (SLUG_TO_EXAMPLES[slug] ?? [slug]).slice(),
             ) as readonly string[],
           });
+        } else if (examplesResult.nonDirectoryForSlug) {
+          anomalies.push({
+            kind: "mapped-candidate-not-directory",
+            slug,
+            candidates: Object.freeze(
+              (SLUG_TO_EXAMPLES[slug] ?? [slug]).slice(),
+            ) as readonly string[],
+          });
         } else {
           anomalies.push({ kind: "missing-examples" });
         }
@@ -754,6 +808,8 @@ function anomalyMessage(a: Anomaly): string {
       return "no examples/integrations counterpart";
     case "unreadable-examples":
       return `examples/integrations candidates unreadable for "${a.slug}" → [${a.candidates.join(", ")}]`;
+    case "mapped-candidate-not-directory":
+      return `examples/integrations candidate(s) for "${a.slug}" exist but are not directories → [${a.candidates.join(", ")}]`;
   }
 }
 
