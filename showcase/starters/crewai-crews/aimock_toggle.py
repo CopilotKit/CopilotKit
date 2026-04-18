@@ -63,8 +63,10 @@ _LITELLM_API_BASE = "LITELLM_API_BASE"
 # The "REPLACE-IN-PROD" suffix used to live here but was misleading: this value
 # is ONLY injected when AIMOCK_URL is set, and the prod-guard below refuses to
 # apply the toggle when NODE_ENV=production / ENV=production — so the key
-# cannot reach real OpenAI. The name now describes the actual semantics.
-_AIMOCK_DUMMY_KEY = "sk-aimock-DO-NOT-SET-AIMOCK-URL-IN-PROD"
+# cannot reach real OpenAI. Use a name that describes the actual semantics
+# (dev / CI only, never production). The `sk-` prefix still satisfies any SDK
+# versions that validate key prefix shape.
+_AIMOCK_DUMMY_KEY = "sk-aimock-dev-ci-only"
 
 # Production guard: environments considered "production" for the purposes of
 # refusing to apply the aimock toggle. A deploy that accidentally exports
@@ -141,14 +143,21 @@ def configure_aimock(
     use_aimock_class = _classify(target.get(_USE_AIMOCK))
 
     # Production guard: if any of the recognized prod env vars is set to a
-    # prod-ish value, refuse to apply the toggle — even if AIMOCK_URL is set.
-    # Rationale: AIMOCK_URL leaking into a prod deploy config should never
-    # silently redirect real traffic through a mock server. Log a loud
-    # WARNING so operators see the misconfiguration.
-    for var in _PROD_ENV_VARS:
-        raw = target.get(var)
-        if raw is not None and raw.strip().lower() in _PROD_ENV_VALUES:
-            if aimock_url_raw and aimock_url_raw.strip():
+    # prod-ish value AND AIMOCK_URL is actually set, refuse to apply the
+    # toggle — even if AIMOCK_URL is set. Rationale: AIMOCK_URL leaking into
+    # a prod deploy config should never silently redirect real traffic through
+    # a mock server. Log a loud WARNING so operators see the misconfiguration.
+    #
+    # Guarded on `aimock_url` being non-empty: if NODE_ENV=production but
+    # AIMOCK_URL is unset, there's nothing to refuse — the toggle is already
+    # going to no-op down the normal `if not aimock_url` path below. Returning
+    # a "refused" reason there would be misleading ("refused" implies the
+    # operator actively tried to enable something; unset + prod is just the
+    # default prod path).
+    if aimock_url:
+        for var in _PROD_ENV_VARS:
+            raw = target.get(var)
+            if raw is not None and raw.strip().lower() in _PROD_ENV_VALUES:
                 logger.warning(
                     "%s=%r indicates production; refusing to apply aimock "
                     "toggle even though AIMOCK_URL=%r is set. Unset "
@@ -157,10 +166,10 @@ def configure_aimock(
                     raw,
                     aimock_url_raw,
                 )
-            return {
-                "enabled": False,
-                "reason": f"{var}={raw!r} indicates production — aimock toggle refused",
-            }
+                return {
+                    "enabled": False,
+                    "reason": f"{var}={raw!r} indicates production — aimock toggle refused",
+                }
 
     if not aimock_url:
         # Map the six-way classification onto a human-readable diagnostic.

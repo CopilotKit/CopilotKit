@@ -6,7 +6,6 @@ The Next.js CopilotKit runtime proxies requests here via AG-UI protocol.
 """
 
 import logging
-import os
 
 # ORDER-CRITICAL: load .env and apply aimock redirection FIRST — before any
 # crewai / litellm / openai module is imported. Those modules can construct
@@ -90,7 +89,6 @@ logging.getLogger(__name__).info(
     "Remove this shim after ag-ui-crewai > 0.1.5 is adopted."
 )
 
-import uvicorn
 from ag_ui_crewai.endpoint import add_crewai_crew_fastapi_endpoint
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -113,24 +111,12 @@ async def health():
     return {"status": "ok"}
 
 
-def main():
-    """Run the uvicorn server.
-
-    `RELOAD` defaults to false (production-safe). Set RELOAD=1 / true / yes
-    for the local-dev watch-and-reload loop. Keeping reload off by default
-    prevents a deploy that runs `python agent_server.py` from accidentally
-    spawning uvicorn's reloader in prod (which forks extra workers and
-    breaks certain process supervisors).
-    """
-    port = int(os.getenv("PORT", "8000"))
-    reload_flag = os.getenv("RELOAD", "").strip().lower() in {"1", "true", "yes", "on"}
-    uvicorn.run(
-        "agent_server:app",
-        host="0.0.0.0",
-        port=port,
-        reload=reload_flag,
-    )
-
-
-if __name__ == "__main__":
-    main()
+# NOTE: intentionally NO `if __name__ == "__main__": main()` block.
+# Every execution path for this module — the package `pnpm dev` script, the
+# generated starter `pnpm dev` script, the Docker entrypoint, and the CI
+# workflow — invokes `python -m uvicorn agent_server:app ...` directly from
+# the command line (with `--host`, `--port`, and optional `--reload` passed
+# as flags). A module-level `main()` wrapper reading PORT / RELOAD from env
+# was dead code that CI never exercised AND whose defaults (PORT=8000) drifted
+# out of sync with the starter's actual binding (8123). Remove it rather than
+# maintain an orphan knob.

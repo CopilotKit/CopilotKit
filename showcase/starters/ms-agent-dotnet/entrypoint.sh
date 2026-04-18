@@ -40,7 +40,14 @@ echo "[entrypoint] Starting Next.js frontend on port ${PORT:-10000}..."
 echo "========================================="
 
 PORT=${PORT:-10000}
-npx next start --port $PORT 2>&1 | sed 's/^/[nextjs] /' &
+# Inject NODE_ENV=production ONLY into the Next.js invocation, not the whole
+# container environment. A global `ENV NODE_ENV=production` in the Dockerfile
+# would silently disable the aimock toggle inside the Python process as well
+# (aimock_toggle.py refuses to apply when NODE_ENV=production) — which breaks
+# Docker-based smoke tests that rely on AIMOCK_URL. The Python agent spawned
+# above inherits no NODE_ENV, so the prod guard only fires when the operator
+# explicitly exports NODE_ENV / ENV on the container.
+NODE_ENV=production npx next start --port $PORT 2>&1 | sed 's/^/[nextjs] /' &
 NEXTJS_PID=$!
 
 echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
