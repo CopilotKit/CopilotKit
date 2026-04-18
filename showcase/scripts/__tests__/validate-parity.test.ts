@@ -449,6 +449,34 @@ describe("validate-parity", () => {
       ).toBe(true);
     });
 
+    it("resolves demo dir from demo.route (not demo.id) when the two differ", () => {
+      // Regression guard: demo.id is the CATALOG identifier (matched to
+      // qa/spec filenames + shell registry); demo.route is the URL +
+      // filesystem path under src/app/demos/. They are DELIBERATELY
+      // separate — e.g. manifest id: "hitl-in-chat" with route:
+      // "/demos/hitl" lives at src/app/demos/hitl/. validate-parity
+      // used to resolve the demo directory from demo.id, which produced
+      // a spurious missing-demo-dir MUST for every such mapping. Fix:
+      // resolve the directory from demo.route (strip the /demos/ prefix).
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-route-"));
+      try {
+        writeFixturePackage(tmp, "route-split", {
+          manifest:
+            "slug: route-split\ndemos:\n  - id: hitl-in-chat\n    name: HITL\n    route: /demos/hitl\n",
+          demoDirs: ["hitl"],
+          specFiles: ["hitl-in-chat.spec.ts"],
+          qaFiles: ["hitl-in-chat.md"],
+        });
+        const report = auditPackage("route-split", tmp);
+        // No missing-demo-dir MUST error: route-resolved dir "hitl" exists.
+        expect(
+          report.mustErrors.filter((e) => e.category === "missing-demo-dir"),
+        ).toEqual([]);
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
     it("flags a demo with no spec file as a WARNING, not a MUST error", () => {
       const report = auditPackage("missing-spec", FIXTURES_DIR);
       expect(report.mustErrors).toEqual([]);
@@ -2062,11 +2090,27 @@ Object.freeze = function(o) {
       ).toBe("unreadable manifest.yaml: EACCES: permission denied");
     });
 
-    it("renders missing-demo-dir including the demo id", () => {
+    it("renders missing-demo-dir including the demo id when id equals expectedDir", () => {
       expect(
-        deriveMessage({ category: "missing-demo-dir", demoId: "chat" }),
+        deriveMessage({
+          category: "missing-demo-dir",
+          demoId: "chat",
+          expectedDir: "chat",
+        }),
       ).toBe(
         "demo 'chat' declared in manifest but no src/app/demos/chat/ directory",
+      );
+    });
+
+    it("renders missing-demo-dir flagging the route-resolved dir when id and expectedDir differ", () => {
+      expect(
+        deriveMessage({
+          category: "missing-demo-dir",
+          demoId: "hitl-in-chat",
+          expectedDir: "hitl",
+        }),
+      ).toBe(
+        "demo 'hitl-in-chat' declared in manifest but no src/app/demos/hitl/ directory (resolved from route)",
       );
     });
 

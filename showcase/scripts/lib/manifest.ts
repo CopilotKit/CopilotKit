@@ -57,6 +57,22 @@ export function createDemoId(s: unknown): DemoId | null {
 export interface ManifestDemo {
   readonly id: DemoId;
   readonly name?: string;
+  /**
+   * Relative URL path for the demo. `id` is the CATALOG identifier
+   * (stable; matched against spec/qa filenames and shell-side registry
+   * entries), whereas `route` is the deliberate URL / filesystem path
+   * (`/demos/<dir>` — resolved to `src/app/demos/<dir>/` by consumers
+   * that need the on-disk location, e.g. bundle-demo-content and
+   * validate-parity). The two are intentionally separate so renaming a
+   * catalog id does not mass-rewrite URLs (and vice versa).
+   *
+   * Optional at the type boundary for backward compatibility with test
+   * fixtures and historical manifests. When present, parseManifest
+   * validates it is a non-empty string starting with "/demos/".
+   * Consumers that need an on-disk demo directory should prefer
+   * `route` when present and fall back to `id`.
+   */
+  readonly route?: string;
 }
 
 /**
@@ -387,13 +403,36 @@ export function parseManifest(
         }
         demoName = d.name;
       }
-      validated.push(
-        Object.freeze(
-          demoName === undefined
-            ? { id: brandedId }
-            : { id: brandedId, name: demoName },
-        ),
-      );
+      // demo-level `route`: optional. When present, must be a non-empty
+      // string beginning with "/demos/" so downstream consumers
+      // (bundle-demo-content, validate-parity) can uniformly strip that
+      // prefix to derive the on-disk demo directory. The `/demos/` guard
+      // catches accidental absolute URLs or bare segments that would
+      // silently point to the wrong directory at runtime.
+      let demoRoute: string | undefined;
+      if (hasOwnProp(d, "route") && d.route !== undefined) {
+        if (typeof d.route !== "string" || d.route.length === 0) {
+          return {
+            kind: "malformed",
+            subkind: "shape",
+            error: `expected demos[${i}].route to be a non-empty string, got ${describeType(d.route)}`,
+          };
+        }
+        if (!d.route.startsWith("/demos/")) {
+          return {
+            kind: "malformed",
+            subkind: "shape",
+            error: `expected demos[${i}].route to start with "/demos/", got "${d.route}"`,
+          };
+        }
+        demoRoute = d.route;
+      }
+      const demoEntry: { id: DemoId; name?: string; route?: string } = {
+        id: brandedId,
+      };
+      if (demoName !== undefined) demoEntry.name = demoName;
+      if (demoRoute !== undefined) demoEntry.route = demoRoute;
+      validated.push(Object.freeze(demoEntry));
     }
     demos = Object.freeze(validated);
   }
