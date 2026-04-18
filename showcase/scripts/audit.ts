@@ -1460,7 +1460,8 @@ function canonicalizeForIsMain(p: string): string {
   try {
     return fs.realpathSync(resolved);
   } catch (e) {
-    const code = e instanceof Error ? (e as NodeJS.ErrnoException).code : undefined;
+    const code =
+      e instanceof Error ? (e as NodeJS.ErrnoException).code : undefined;
     if (code !== "ENOENT") {
       process.stderr.write(
         `[canonicalizeForIsMain] realpath failed for ${resolved}: ${e instanceof Error ? e.message : String(e)}\n`,

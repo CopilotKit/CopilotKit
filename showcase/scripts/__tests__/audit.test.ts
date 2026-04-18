@@ -747,8 +747,7 @@ describe("auditPackage", () => {
       expect(
         messages.some(
           (m) =>
-            m.includes(mappedSlug) &&
-            candidates.every((c) => m.includes(c)),
+            m.includes(mappedSlug) && candidates.every((c) => m.includes(c)),
         ),
       ).toBe(true);
     } finally {
@@ -1646,14 +1645,14 @@ describe("canonicalizeForIsMain", () => {
     const stderrSpy = vi
       .spyOn(process.stderr, "write")
       .mockImplementation(() => true);
-    const exitSpy = vi
-      .spyOn(process, "exit")
-      .mockImplementation(((_code?: number) => {
-        // Throw a sentinel so the caller's control flow stops — real
-        // process.exit never returns, so code after it expects to be
-        // unreachable.
-        throw new Error(`__EXIT_CALLED__:${_code}`);
-      }) as unknown as typeof process.exit);
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
+      _code?: number,
+    ) => {
+      // Throw a sentinel so the caller's control flow stops — real
+      // process.exit never returns, so code after it expects to be
+      // unreachable.
+      throw new Error(`__EXIT_CALLED__:${_code}`);
+    }) as unknown as typeof process.exit);
     try {
       expect(() => canonicalizeForIsMain("/some/path")).toThrow(
         /__EXIT_CALLED__:3/,
@@ -1701,11 +1700,11 @@ describe("canonicalizeForIsMain", () => {
     const stderrSpy = vi
       .spyOn(process.stderr, "write")
       .mockImplementation(() => true);
-    const exitSpy = vi
-      .spyOn(process, "exit")
-      .mockImplementation(((_code?: number) => {
-        throw new Error(`__EXIT_CALLED__:${_code}`);
-      }) as unknown as typeof process.exit);
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
+      _code?: number,
+    ) => {
+      throw new Error(`__EXIT_CALLED__:${_code}`);
+    }) as unknown as typeof process.exit);
     try {
       expect(() => canonicalizeForIsMain("/some/path")).toThrow(
         /__EXIT_CALLED__:3/,
@@ -1737,11 +1736,11 @@ describe("canonicalizeForIsMain", () => {
     const stderrSpy = vi
       .spyOn(process.stderr, "write")
       .mockImplementation(() => true);
-    const exitSpy = vi
-      .spyOn(process, "exit")
-      .mockImplementation(((_code?: number) => {
-        throw new Error(`__EXIT_CALLED__:${_code}`);
-      }) as unknown as typeof process.exit);
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
+      _code?: number,
+    ) => {
+      throw new Error(`__EXIT_CALLED__:${_code}`);
+    }) as unknown as typeof process.exit);
     try {
       expect(() => canonicalizeForIsMain("/some/path")).toThrow(
         /__EXIT_CALLED__:3/,
