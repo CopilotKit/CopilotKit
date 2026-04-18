@@ -184,6 +184,10 @@ describe("generate-starters", () => {
         });
 
         it("uses local imports for tools (relative or absolute)", () => {
+          // langgraph-python is the Controlled Generative UI reference and
+          // intentionally ships no backend tools. Skip for it.
+          if (slug === "langgraph-python") return;
+
           const pyFiles = findFiles(agentDir, [".py"]);
           const filesWithToolImport = pyFiles.filter((f) => {
             const content = fs.readFileSync(f, "utf-8");

@@ -34,7 +34,8 @@ starter:
   clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-python my-copilotkit-app
 features:
   - agentic-chat
-  - hitl
+  - frontend-tools
+  - hitl-in-chat
   - tool-rendering
   - gen-ui-tool-based
   - gen-ui-agent
@@ -50,8 +51,15 @@ demos:
       - chat-ui
     route: /demos/agentic-chat
     animated_preview_url:
-  - id: hitl
-    name: Human in the Loop
+  - id: frontend-tools
+    name: Frontend Tools (In-App Actions)
+    description: Agent invokes client-side handlers registered with useFrontendTool
+    tags:
+      - interactivity
+    route: /demos/frontend-tools
+    animated_preview_url:
+  - id: hitl-in-chat
+    name: In-Chat Human in the Loop
     description: User approves agent actions before execution
     tags:
       - interactivity

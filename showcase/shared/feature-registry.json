@@ -14,12 +14,12 @@
       "name": "Agent Capabilities"
     },
     {
-      "id": "agent-state",
-      "name": "Agent State"
-    },
-    {
       "id": "interactivity",
       "name": "Interactivity"
+    },
+    {
+      "id": "agent-state",
+      "name": "Agent State"
     },
     {
       "id": "multi-agent",
@@ -82,6 +82,12 @@
       "description": "Full headless UI with messages, tools, gen UI"
     },
     {
+      "id": "agentic-chat-reasoning",
+      "name": "Agentic Chat (Reasoning)",
+      "category": "chat-ui",
+      "description": "Chat with visible reasoning/thinking chain display"
+    },
+    {
       "id": "gen-ui-display",
       "name": "Controlled Gen-UI (Display)",
       "category": "generative-ui",
@@ -101,9 +107,15 @@
     },
     {
       "id": "gen-ui-tool-based",
-      "name": "Tool-Based Generative UI",
+      "name": "Controlled Generative UI",
       "category": "generative-ui",
-      "description": "Agent uses tools to trigger UI generation"
+      "description": "Agent renders typed React components via the useComponent hook"
+    },
+    {
+      "id": "declarative-gen-ui",
+      "name": "Declarative Generative UI",
+      "category": "generative-ui",
+      "description": "Declarative mapping of agent state to rendered components"
     },
     {
       "id": "gen-ui-agent",
@@ -112,10 +124,58 @@
       "description": "Long-running agent tasks with generated UI"
     },
     {
+      "id": "open-gen-ui",
+      "name": "Fully Open-Ended Generative UI",
+      "category": "generative-ui",
+      "description": "Agent-generated UI from arbitrary component libraries"
+    },
+    {
+      "id": "a2ui",
+      "name": "A2UI",
+      "category": "generative-ui",
+      "description": "Agent-to-UI protocol rendering"
+    },
+    {
+      "id": "mcp-apps",
+      "name": "MCP Apps",
+      "category": "generative-ui",
+      "description": "MCP server integration with UI display"
+    },
+    {
+      "id": "hitl-in-chat",
+      "name": "In-Chat Human in the Loop",
+      "category": "generative-ui",
+      "description": "User approves agent actions from within the chat UI"
+    },
+    {
       "id": "tool-rendering",
       "name": "Tool Rendering",
-      "category": "agent-capabilities",
+      "category": "generative-ui",
       "description": "Backend agent tools rendered as UI components"
+    },
+    {
+      "id": "frontend-tools",
+      "name": "Frontend Tools (In-app actions)",
+      "category": "interactivity",
+      "description": "Frontend tool execution triggered by the agent"
+    },
+    {
+      "id": "frontend-tools-sync",
+      "name": "Frontend Tools (Sync)",
+      "category": "interactivity",
+      "description": "Synchronous frontend tool execution"
+    },
+    {
+      "id": "frontend-tools-async",
+      "name": "Frontend Tools (Async)",
+      "category": "interactivity",
+      "description": "Asynchronous frontend tool execution"
+    },
+    {
+      "id": "hitl-in-app",
+      "name": "In-App Human in the Loop",
+      "category": "interactivity",
+      "description": "User approves agent actions from in-app UI surfaces outside the chat"
     },
     {
       "id": "state-rendering",
@@ -148,28 +208,16 @@
       "description": "Structured output schemas"
     },
     {
+      "id": "shared-state",
+      "name": "Shared State",
+      "category": "agent-state",
+      "description": "Bidirectional state sharing between agent and UI"
+    },
+    {
       "id": "readables",
       "name": "Readables (Client Context)",
       "category": "agent-state",
       "description": "Passing client-side context to agent"
-    },
-    {
-      "id": "hitl",
-      "name": "Human in the Loop",
-      "category": "interactivity",
-      "description": "User approves agent actions before execution"
-    },
-    {
-      "id": "frontend-tools-sync",
-      "name": "Frontend Tools (Sync)",
-      "category": "interactivity",
-      "description": "Synchronous frontend tool execution"
-    },
-    {
-      "id": "frontend-tools-async",
-      "name": "Frontend Tools (Async)",
-      "category": "interactivity",
-      "description": "Asynchronous frontend tool execution"
     },
     {
       "id": "subagents",
@@ -178,10 +226,10 @@
       "description": "Multiple agents with visible task delegation"
     },
     {
-      "id": "mcp-apps",
-      "name": "MCP Apps",
-      "category": "platform",
-      "description": "MCP server integration with UI display"
+      "id": "a2a-chat",
+      "name": "A2A Chat",
+      "category": "multi-agent",
+      "description": "Agent-to-Agent protocol chat with multi-tab agent communication"
     },
     {
       "id": "auth",
@@ -208,6 +256,12 @@
       "description": "File upload and agent processing"
     },
     {
+      "id": "vnext-chat",
+      "name": "vNext Chat",
+      "category": "platform",
+      "description": "Experimental next-generation chat using CopilotKit vNext runtime"
+    },
+    {
       "id": "a2ui-fixed",
       "name": "A2UI (Fixed Schema)",
       "category": "a2ui",
@@ -224,6 +278,12 @@
       "name": "A2UI (Dynamic Schema)",
       "category": "a2ui",
       "description": "Agent-generated A2UI schemas"
+    },
+    {
+      "id": "a2ui-chat",
+      "name": "A2UI Chat",
+      "category": "a2ui",
+      "description": "Chat with rich A2UI surface rendering using A2UI message renderer"
     },
     {
       "id": "mobile-react-native",
@@ -296,54 +356,6 @@
       "name": "Deep Agents",
       "category": "deep-agents",
       "description": "Deep agent architecture with nested agent orchestration"
-    },
-    {
-      "id": "agentic-chat-reasoning",
-      "name": "Agentic Chat (Reasoning)",
-      "category": "chat-ui",
-      "description": "Chat with visible reasoning/thinking chain display"
-    },
-    {
-      "id": "a2a-chat",
-      "name": "A2A Chat",
-      "category": "multi-agent",
-      "description": "Agent-to-Agent protocol chat with multi-tab agent communication"
-    },
-    {
-      "id": "a2ui-chat",
-      "name": "A2UI Chat",
-      "category": "a2ui",
-      "description": "Chat with rich A2UI surface rendering using A2UI message renderer"
-    },
-    {
-      "id": "vnext-chat",
-      "name": "vNext Chat",
-      "category": "platform",
-      "description": "Experimental next-generation chat using CopilotKit vNext runtime"
-    },
-    {
-      "id": "shared-state",
-      "name": "Shared State",
-      "category": "agent-state",
-      "description": "Bidirectional state sharing between agent and UI"
-    },
-    {
-      "id": "controlled-gen-ui",
-      "name": "Controlled Generative UI",
-      "category": "generative-ui",
-      "description": "Controlled generative UI rendering from agent"
-    },
-    {
-      "id": "a2ui",
-      "name": "A2UI",
-      "category": "a2ui",
-      "description": "Agent-to-UI protocol rendering"
-    },
-    {
-      "id": "frontend-tools",
-      "name": "Frontend Tools",
-      "category": "interactivity",
-      "description": "Frontend tool execution triggered by the agent"
     }
   ]
 }

@@ -40,7 +40,7 @@ describe("Template Generator", () => {
     const { execSync } = await import("child_process");
 
     execSync(
-      `npx tsx create-integration/index.ts --name "Test Integration" --slug ${TEST_SLUG} --category agent-framework --language python --features agentic-chat,hitl`,
+      `npx tsx create-integration/index.ts --name "Test Integration" --slug ${TEST_SLUG} --category agent-framework --language python --features agentic-chat,hitl-in-chat`,
       { cwd: SCRIPTS_DIR, encoding: "utf-8", timeout: 15000 },
     );
 
@@ -106,11 +106,11 @@ describe("Template Generator", () => {
     const { execSync } = await import("child_process");
 
     execSync(
-      `npx tsx create-integration/index.ts --name "Test Integration" --slug ${TEST_SLUG} --category agent-framework --language python --features agentic-chat,hitl,subagents`,
+      `npx tsx create-integration/index.ts --name "Test Integration" --slug ${TEST_SLUG} --category agent-framework --language python --features agentic-chat,hitl-in-chat,subagents`,
       { cwd: SCRIPTS_DIR, encoding: "utf-8", timeout: 15000 },
     );
 
-    const demoIds = ["agentic-chat", "hitl", "subagents"];
+    const demoIds = ["agentic-chat", "hitl-in-chat", "subagents"];
 
     for (const demoId of demoIds) {
       const demoDir = path.join(TEST_DIR, "src", "app", "demos", demoId);
@@ -161,7 +161,12 @@ describe("Template Generator", () => {
     cleanup();
     const { execSync } = await import("child_process");
 
-    const features = ["agentic-chat", "hitl", "tool-rendering", "mcp-apps"];
+    const features = [
+      "agentic-chat",
+      "hitl-in-chat",
+      "tool-rendering",
+      "mcp-apps",
+    ];
 
     execSync(
       `npx tsx create-integration/index.ts --name "Test" --slug ${TEST_SLUG} --category agent-framework --language python --features ${features.join(",")}`,
