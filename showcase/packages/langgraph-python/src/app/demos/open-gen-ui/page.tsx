@@ -1,12 +1,13 @@
 "use client";
 
 import React from "react";
-import { z } from "zod";
 import {
   CopilotKit,
   CopilotChat,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
+import { openGenUiSandboxFunctions } from "./sandbox-functions";
+import { openGenUiSuggestions } from "./suggestions";
 
 /**
  * Open-Ended Generative UI
@@ -22,23 +23,7 @@ export default function OpenGenUiDemo() {
     <CopilotKit
       runtimeUrl="/api/copilotkit-ogui"
       agent="open-gen-ui"
-      openGenerativeUI={{
-        // Host-side functions the generated UI can invoke from inside the
-        // sandbox via `Websandbox.connection.remote.<name>(args)`.
-        sandboxFunctions: [
-          {
-            name: "notifyHost",
-            description:
-              "Send a short string message from the sandboxed UI back to the host page.",
-            parameters: z.object({ message: z.string() }),
-            handler: async ({ message }: { message: string }) => {
-              // eslint-disable-next-line no-console
-              console.log("[open-gen-ui] sandbox -> host:", message);
-              return { ok: true };
-            },
-          },
-        ],
-      }}
+      openGenerativeUI={{ sandboxFunctions: openGenUiSandboxFunctions }}
     >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
@@ -51,20 +36,7 @@ export default function OpenGenUiDemo() {
 
 function Chat() {
   useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Build a greeting card",
-        message: "Build me a simple card that says Hello.",
-      },
-      {
-        title: "Pomodoro timer",
-        message: "Create a Pomodoro timer with start, pause, and reset.",
-      },
-      {
-        title: "Quarterly revenue chart",
-        message: "Generate a bar chart of quarterly revenue.",
-      },
-    ],
+    suggestions: openGenUiSuggestions,
     available: "always",
   });
 

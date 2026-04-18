@@ -25,7 +25,7 @@ import uuid
 from typing import Any, List
 
 from langchain_core.callbacks.manager import adispatch_custom_event
-from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from langgraph.graph import END, START, MessagesState, StateGraph
 
 TOOL_NAME = "generateSandboxedUi"
@@ -100,8 +100,21 @@ async def _call_model(state: MessagesState) -> dict:
     event handled by `@copilotkit/runtime/langgraph` — it fans out into the
     AG-UI TOOL_CALL_START / _ARGS / _END sequence which the runtime's
     `OpenGenerativeUIMiddleware` turns into activity events.
+
+    The CopilotKit frontend registers a built-in `generateSandboxedUi`
+    frontend tool with `followUp: true` whenever `openGenerativeUI` is on.
+    That means after we emit the tool call, the client executes a
+    placeholder handler and posts a `ToolMessage` back, re-invoking the
+    graph. We must detect that follow-up turn and END without re-emitting,
+    otherwise the demo loops forever and renders N duplicate cards.
     """
-    user_text = _last_user_text(state["messages"])
+    messages = state["messages"]
+    if any(isinstance(m, ToolMessage) for m in messages):
+        # Follow-up turn after the client acknowledged the generated UI.
+        # Nothing more to do — end the run so the user can send a new prompt.
+        return {"messages": []}
+
+    user_text = _last_user_text(messages)
     bundle = _build_bundle(user_text)
     tool_call_id = f"tc-{uuid.uuid4().hex[:12]}"
 

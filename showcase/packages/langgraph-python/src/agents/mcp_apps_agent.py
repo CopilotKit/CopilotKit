@@ -24,7 +24,10 @@ from copilotkit import CopilotKitMiddleware
 SYSTEM_PROMPT = (
     "You are a demo assistant for MCP Apps. "
     "When the user asks to see an app or demo, call `show_mcp_app` with "
-    "a short title. Keep any chat reply to one short sentence."
+    "a short generic title like \"Demo App\" (do NOT invent product names "
+    "such as A2UI, CrewAI, etc.). After the tool call, reply with a single "
+    "short sentence like \"Here's the MCP app.\" — do not name frameworks "
+    "or components that weren't mentioned by the user."
 )
 
 
