@@ -1365,23 +1365,30 @@ describe("validateAll exit-code integration", () => {
     fs.rmSync(repoRoot, { recursive: true, force: true });
   });
 
-  // missing PACKAGES_DIR must not result in a green exit.
-  it("missing packages dir produces a FAIL so exit is non-zero", () => {
+  // missing PACKAGES_DIR must not result in a green exit. A missing
+  // packages dir is a repo-structure / configuration problem rather
+  // than real drift, so the validator throws UnreadableInputError
+  // (→ EXIT_UNREADABLE, 3) instead of emitting a report.fail entry
+  // (→ EXIT_DRIFT, 1). This keeps the two exit-code buckets clean
+  // for CI triage.
+  it("missing packages dir throws UnreadableInputError (exit 3, not drift)", () => {
     // Do NOT create showcase/packages.
-    const report = validateAll();
-    expect(report.fail.length).toBeGreaterThan(0);
+    expect(() => validateAll()).toThrow(/Packages dir not found/);
   });
 
-  // empty PACKAGES_DIR must also not silently pass.
-  it("empty packages dir produces a FAIL so exit is non-zero", () => {
+  // empty PACKAGES_DIR is the same class of error as missing — also
+  // a config / checkout problem, not drift. Route through
+  // UnreadableInputError for EXIT_UNREADABLE (3).
+  it("empty packages dir throws UnreadableInputError (exit 3, not drift)", () => {
     fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
       recursive: true,
     });
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
-    const report = validateAll();
-    expect(report.fail.length).toBeGreaterThan(0);
+    expect(() => validateAll()).toThrow(
+      /No showcase packages discovered under/,
+    );
   });
 
   // parse errors must produce a FAIL (force non-zero exit).
@@ -1609,7 +1616,30 @@ describe("validate-pins CLI exit codes", () => {
     });
   }
 
-  it("exits 1 when FAIL>0 (e.g. empty packages dir)", () => {
+  it("exits 1 when FAIL>0 (real drift: non-exact pin)", () => {
+    // Create a slug with a non-exact spec on both sides to force a
+    // drift [FAIL] — this exercises the EXIT_DRIFT path rather than
+    // the EXIT_UNREADABLE path that missing/empty packages dirs now
+    // take.
+    const slug = "mastra";
+    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const exDir = path.join(repoRoot, "examples", "integrations", slug);
+    fs.mkdirSync(pkgDir, { recursive: true });
+    fs.mkdirSync(exDir, { recursive: true });
+    write(
+      path.join(pkgDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@mastra/core": "next" },
+      }),
+    );
+    write(
+      path.join(exDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: { "@mastra/core": "next" },
+      }),
+    );
     const r = runCli();
     expect(r.status, r.stdout + r.stderr).toBe(1);
   });
@@ -2925,4 +2955,61 @@ describe("validateAll: readdirSync(PACKAGES_DIR) failure routes to EXIT_UNREADAB
       });
     },
   );
+});
+
+// ---------------------------------------------------------------------------
+// Missing packages dir (ENOENT) and empty packages dir are BOTH
+// repo-structure / configuration problems — almost certainly a wrong
+// VALIDATE_PINS_REPO_ROOT or a bad checkout. They must route through
+// EXIT_UNREADABLE (3), not EXIT_DRIFT (1), so CI can triage real drift
+// findings separately from infra misconfiguration.
+// ---------------------------------------------------------------------------
+
+describe("validateAll: missing packages dir routes to EXIT_UNREADABLE", () => {
+  it("exits 3 when showcase/packages does not exist", () => {
+    withTmp((tmp) => {
+      // Deliberately do NOT create showcase/packages. examples/integrations
+      // exists so paths() resolves cleanly to its usual shape.
+      fs.mkdirSync(path.join(tmp, "examples", "integrations"), {
+        recursive: true,
+      });
+      const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
+        env: {
+          ...process.env,
+          VALIDATE_PINS_REPO_ROOT: tmp,
+        },
+        encoding: "utf-8",
+        timeout: 30_000,
+      });
+      // Must be EXIT_UNREADABLE (3), NOT EXIT_DRIFT (1). A missing
+      // packages dir is not drift — it's a repo-structure error.
+      expect(r.status, r.stdout + r.stderr).toBe(3);
+    });
+  });
+});
+
+describe("validateAll: empty packages dir routes to EXIT_UNREADABLE", () => {
+  it("exits 3 when showcase/packages exists but contains no slugs", () => {
+    withTmp((tmp) => {
+      fs.mkdirSync(path.join(tmp, "examples", "integrations"), {
+        recursive: true,
+      });
+      // Create showcase/packages but leave it empty. readdir returns [].
+      fs.mkdirSync(path.join(tmp, "showcase", "packages"), {
+        recursive: true,
+      });
+      const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
+        env: {
+          ...process.env,
+          VALIDATE_PINS_REPO_ROOT: tmp,
+        },
+        encoding: "utf-8",
+        timeout: 30_000,
+      });
+      // Empty-dir is the same class of error as missing. Classing it
+      // as EXIT_UNREADABLE (3) keeps report.fail (EXIT_DRIFT, 1)
+      // reserved for real drift findings.
+      expect(r.status, r.stdout + r.stderr).toBe(3);
+    });
+  });
 });

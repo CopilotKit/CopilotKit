@@ -1444,8 +1444,9 @@ function validateAll(): Report {
 
   // Missing packages dir must not produce a silent pass. If the validator
   // can't see any packages, it has nothing to check, which is almost
-  // certainly a path misconfiguration. Emit a FAIL so the script exits
-  // non-zero.
+  // certainly a path misconfiguration. Route this as EXIT_UNREADABLE (3)
+  // so it's classed with other repo-structure problems rather than with
+  // real drift findings — mixing the two buckets makes CI triage harder.
   //
   // Use `fs.statSync` + catch-ENOENT rather than `fs.existsSync` so a
   // permission error (EACCES) is not silently collapsed into "not
@@ -1457,8 +1458,9 @@ function validateAll(): Report {
   } catch (e) {
     const err = e as NodeJS.ErrnoException;
     if (err && err.code === "ENOENT") {
-      report.fail.push(`[FAIL] Packages dir not found: ${PACKAGES_DIR}`);
-      return report;
+      throw new UnreadableInputError(
+        `Packages dir not found at ${PACKAGES_DIR}`,
+      );
     }
     // EACCES / ENOTDIR / EIO / etc. — packages dir exists but is
     // unreadable by this process. Route through UnreadableInputError
@@ -1504,11 +1506,14 @@ function validateAll(): Report {
 
   // Empty packages dir is the same class of error as missing — the
   // validator produced no results, so we fail loudly rather than exit 0.
+  // Class this as EXIT_UNREADABLE (3): it's a repo-structure /
+  // configuration problem (wrong VALIDATE_PINS_REPO_ROOT, bad checkout),
+  // not actual pin drift. Keeping it out of report.fail preserves the
+  // contract that EXIT_DRIFT (1) means "real drift findings".
   if (slugs.length === 0) {
-    report.fail.push(
-      `[FAIL] No showcase packages discovered under ${PACKAGES_DIR}`,
+    throw new UnreadableInputError(
+      `No showcase packages discovered under ${PACKAGES_DIR} — is VALIDATE_PINS_REPO_ROOT pointing at the right tree?`,
     );
-    return report;
   }
 
   for (const slug of slugs) {
