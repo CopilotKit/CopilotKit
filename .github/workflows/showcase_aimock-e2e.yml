@@ -1,5 +1,33 @@
 name: "Showcase: Aimock E2E Tests"
 
+# SECURITY — residual trust model (read before editing):
+#
+# This workflow EXISTS to execute PR-HEAD code (Playwright tests, Next.js dev
+# server, Python agent, pip install of PR-controlled requirements.txt). Several
+# hardening layers reduce blast radius:
+#   - `author_association` gate limits the `issue_comment` trigger to OWNER /
+#     MEMBER / COLLABORATOR (third-party commenters cannot spawn runs).
+#   - workflow-level `permissions: contents: read` means the heavy test job's
+#     GITHUB_TOKEN cannot mutate the repo; the `post-result` job gets write
+#     perms scoped to just the final PR comment.
+#   - `persist-credentials: false` on `actions/checkout` prevents the token
+#     from being left behind in `.git/config` where PR-HEAD build hooks might
+#     read it.
+#   - `pnpm install --ignore-scripts` / `npm install --ignore-scripts` +
+#     `pip install --only-binary :all:` block install-time hooks in
+#     PR-controlled manifests from executing on the runner.
+#   - A strict slug whitelist (`^[a-z0-9-]+$` + existing-dir check) and the
+#     `env:`-based pattern for UNTRUSTED values (comment body, dispatch slug)
+#     prevent shell injection / path traversal.
+#
+# What this is NOT: a security boundary against a malicious trusted commenter.
+# The last line of defense is the SOCIAL CONTRACT that a trusted commenter
+# reviews the PR diff BEFORE typing `/test-aimock` — if a compromised / rogue
+# OWNER/MEMBER/COLLABORATOR comments on an attacker's PR, they get a full
+# runner exec with the job's token. That is an accepted residual risk for the
+# developer-velocity benefit of PR-triggered E2E runs. Do not loosen the
+# `author_association` gate without revisiting the threat model above.
+
 on:
   issue_comment:
     types: [created]
@@ -7,17 +35,21 @@ on:
     inputs:
       slug:
         description: "Package slug to test (must ship aimock_toggle.py)"
-        required: false
+        required: true
         # Only crewai-crews currently ships aimock_toggle.py and exercises
         # the AIMOCK_URL path end-to-end. Restricting the enum here prevents
         # accidental dispatch of a TS-only (mastra) or Java (spring-ai) slug
         # that would skip the Python agent startup step and then fail with a
         # misleading Playwright timeout instead of a clear "no toggle shipped"
         # error. When a new Python slug adds aimock_toggle.py, append it here.
+        #
+        # No `default:` is set — the operator must pick a slug explicitly. A
+        # hidden default would silently bind manual dispatches to whichever
+        # slug happens to be first in the enum, which contradicts the
+        # "no silent fallback" guarantee the comment-path extractor enforces.
         type: choice
         options:
           - crewai-crews
-        default: "crewai-crews"
 
 # Default to read-only at the job level. The only step that needs write access
 # is "Post result to PR" at the end — we grant it write perms inline there.
@@ -39,10 +71,18 @@ jobs:
     # alone (no trailing space) is rejected by design; commenters must pick a
     # slug explicitly — no silent fallback to crewai-crews (see "Determine slug"
     # step below).
+    # `startsWith` (not `contains`) is the Actions-level gate: it requires
+    # `/test-aimock ` to be the FIRST token of the comment, so embedded mentions
+    # (in code blocks, quoted replies, or mid-sentence prose) cannot spin up a
+    # runner. The shell extractor in the "Determine slug" step enforces a proper
+    # word-boundary regex as defense-in-depth; we keep both so a future
+    # loosening of either layer alone cannot bypass validation. Commenters who
+    # want to add narration around the command should put the command on its
+    # own line at the top of the comment.
     if: >
       github.event_name == 'workflow_dispatch' ||
       (github.event.issue.pull_request
-        && contains(github.event.comment.body, '/test-aimock ')
+        && startsWith(github.event.comment.body, '/test-aimock ')
         && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
     # Pinned to ubuntu-latest deliberately: the 'Determine slug' step uses
     # POSIX-only `grep -oE` + `sed` (no `grep -oP` / PCRE) so a future BSD
@@ -65,18 +105,33 @@ jobs:
               repo: context.repo.repo,
               pull_number: context.issue.number,
             });
+            // Refuse to run against a closed / merged PR. A trusted commenter
+            // typing `/test-aimock` on a stale closed PR would otherwise
+            // re-exec the old HEAD — either wasting CI or (if the PR was
+            // closed BECAUSE it was bad) re-running known-bad code. Fail loud.
+            if (pr.state !== 'open') {
+              core.setFailed(`PR #${pr.number} is ${pr.state} (not open). Refusing to run E2E on a non-open PR.`);
+              return;
+            }
             core.setOutput('ref', pr.head.sha);
             core.setOutput('pr_number', pr.number);
 
       - uses: actions/checkout@v4
         with:
           ref: ${{ steps.pr-ref.outputs.ref || github.sha }}
+          # Do NOT leave the workflow's GITHUB_TOKEN in `.git/config` after
+          # checkout. PR-HEAD code (pip build hooks, Next.js dev scripts,
+          # Playwright fixtures) runs on this runner; a credential left in the
+          # working tree could be read by that code and exfiltrated. The job's
+          # `permissions: contents: read` limits blast radius, but defense-in-
+          # depth cheap — disable credential persistence.
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22.x
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4.4.0
         with:
           version: "10.13.1"
 
@@ -176,12 +231,20 @@ jobs:
           # poisons CI for everyone; pinning makes the upgrade explicit and
           # keeps this PR's CI signal reproducible.
           npm install -g "@copilotkit/aimock@^1.14.3" --ignore-scripts
-          # Use the fully-scoped package name in the npx invocation so a
-          # squatter publishing a bare `aimock` package on the public registry
-          # cannot be silently picked up if the global install above ever fails
-          # (npx would otherwise fetch-and-run the unscoped name from the
-          # registry). The caret keeps us on the 1.x patch/minor train.
-          npx -- "@copilotkit/aimock@^1.14.3" --port 4010 --host 127.0.0.1 --fixtures showcase/aimock/feature-parity.json --validate-on-load &
+          # Invoke the installed global binary directly rather than `npx`.
+          # `npx @copilotkit/aimock@^1.14.3` re-resolves the spec against the
+          # registry and MAY re-fetch a package even when an identical global
+          # install exists — which would defeat `--ignore-scripts` on the
+          # npm-install step above (npx's transient install does not inherit
+          # that flag) and would also defeat the caret pin if a new patch
+          # published between those two invocations. `npm bin -g` returns the
+          # directory containing the globally-installed binary.
+          AIMOCK_BIN="$(npm bin -g)/aimock"
+          if [ ! -x "$AIMOCK_BIN" ]; then
+            echo "::error::aimock binary not found at $AIMOCK_BIN after global install"
+            exit 1
+          fi
+          "$AIMOCK_BIN" --port 4010 --host 127.0.0.1 --fixtures showcase/aimock/feature-parity.json --validate-on-load &
           # Wait for aimock to be ready
           for i in $(seq 1 20); do
             curl -sf http://localhost:4010/ > /dev/null 2>&1 && break
@@ -245,13 +308,18 @@ jobs:
           # (45 iterations × 2s) before declaring failure. Mirrors the aimock
           # start pattern: loop + hard-fail so a cryptic Playwright timeout
           # doesn't mask a bind/startup failure here.
+          #
+          # Only probe `/health` — the root `/` of a FastAPI app is typically
+          # a POST endpoint (AG-UI SSE stream) that fails `curl -sf`. Probing
+          # `/` was copy-paste residue from a prior iteration and added no
+          # signal (the check always failed, which made the fallback dead
+          # code). If a future Python agent doesn't expose `/health`, add a
+          # dedicated readiness endpoint instead of reintroducing `/`.
           for i in $(seq 1 45); do
             curl -sf http://localhost:8000/health > /dev/null 2>&1 && break
-            curl -sf http://localhost:8000/ > /dev/null 2>&1 && break
             sleep 2
           done
           curl -sf http://localhost:8000/health > /dev/null 2>&1 \
-            || curl -sf http://localhost:8000/ > /dev/null 2>&1 \
             || { echo "Python agent failed to start on :8000"; exit 1; }
 
       - name: Install package dependencies
@@ -275,8 +343,16 @@ jobs:
           # second uvicorn bind there would fail with EADDRINUSE and silently
           # race the Playwright test against whichever agent happened to win
           # the port. Running Next directly also keeps the AIMOCK_URL env flow
-          # clean (only the Python agent reads AIMOCK_URL; Next reads
-          # OPENAI_BASE_URL).
+          # clean (only the Python agent reads AIMOCK_URL).
+          #
+          # `OPENAI_BASE_URL` + `OPENAI_API_KEY` on Next here are DEFENSIVE ONLY.
+          # In the CrewAI showcase, Next proxies chat traffic to the Python
+          # agent via the CopilotKit runtime — it does not call OpenAI directly.
+          # Setting these on Next still matters if a future route in this
+          # showcase adds a direct OpenAI call (server action, tool call, etc.),
+          # because the default `OPENAI_API_KEY` would fall back to real OpenAI
+          # and the test would pass/fail on real API traffic. The values here
+          # keep that class of leak impossible even if the showcase changes.
           OPENAI_BASE_URL=http://localhost:4010/v1 \
           OPENAI_API_KEY=test-key \
           AGENT_URL=http://localhost:8000 \
@@ -292,6 +368,22 @@ jobs:
         run: |
           cd "showcase/packages/${{ steps.slug.outputs.slug }}"
           npx playwright install chromium --with-deps
+
+      - name: Re-probe aimock liveness
+        # aimock was readiness-checked once right after startup, but several
+        # steps (Python agent start, pnpm install, Next dev startup, Playwright
+        # install) may have run for multiple minutes since. If aimock died
+        # during any of that time, Playwright would silently run against real
+        # OpenAI because OPENAI_BASE_URL=http://localhost:4010/v1 still points
+        # at the (now dead) port — curl would refuse the connection, litellm
+        # would fall through to the default OpenAI endpoint, and the test
+        # would pass/fail on REAL traffic with REAL costs. Fail loud before
+        # Playwright runs.
+        run: |
+          if ! curl -sf http://localhost:4010/ > /dev/null 2>&1; then
+            echo "::error::aimock is no longer responding on :4010. Refusing to run Playwright against a dead aimock (would silently hit real OpenAI)."
+            exit 1
+          fi
 
       - name: Run Playwright tests
         run: |
