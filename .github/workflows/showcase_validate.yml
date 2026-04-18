@@ -112,15 +112,28 @@ jobs:
               failed=1
               continue
             fi
-            # Capture matches into an array via `mapfile`. Using a pipe to
-            # `wc -l` or `grep -c` hides `find`'s exit code because the
-            # downstream tool always succeeds, defeating pipefail. Process
-            # substitution + mapfile preserves `find`'s exit status in the
-            # parent shell.
-            specs=()
-            if ! mapfile -t specs < <(find "$e2e_dir" -maxdepth 1 -type f -name '*.spec.ts'); then
+            # Capture `find` output into a variable first so we can check
+            # its exit status directly. Bash process substitution (used with
+            # `mapfile < <(cmd)`) does NOT propagate the producer's exit
+            # status to the parent shell — `mapfile` only reports its own
+            # usage errors — so a failing `find` (EACCES on a subdir, ELOOP,
+            # transient I/O) would have been silently treated as "zero
+            # specs" and surfaced as the misleading "minimum required"
+            # error instead of the real root cause. Command substitution
+            # propagates `find`'s status via `$?` on the assignment, which
+            # we check immediately. A zero-spec result is a legitimate
+            # success from `find` and is handled by the `$count -lt $MIN`
+            # check below, not treated as a find failure.
+            if ! find_out=$(find "$e2e_dir" -maxdepth 1 -type f -name '*.spec.ts'); then
               echo "::error file=$e2e_dir::find failed while enumerating specs for '$pkg'"
               exit 1
+            fi
+            specs=()
+            # Only populate the array if `find` produced output; `mapfile
+            # <<< ""` would otherwise create a single empty element and
+            # inflate the count by one.
+            if [ -n "$find_out" ]; then
+              mapfile -t specs <<< "$find_out"
             fi
             count=${#specs[@]}
             if [ "$count" -lt "$MIN" ]; then
