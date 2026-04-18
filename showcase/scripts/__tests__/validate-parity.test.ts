@@ -894,18 +894,18 @@ describe("validate-parity", () => {
         );
         const sentinel = new TypeError("synthetic non-manifest failure");
         const originalFreeze = Object.freeze;
-        const freezeSpy = vi
-          .spyOn(Object, "freeze")
-          .mockImplementation(((o: unknown) => {
-            if (
-              o !== null &&
-              typeof o === "object" &&
-              "id" in (o as Record<string, unknown>)
-            ) {
-              throw sentinel;
-            }
-            return originalFreeze(o as object);
-          }) as typeof Object.freeze);
+        const freezeSpy = vi.spyOn(Object, "freeze").mockImplementation(((
+          o: unknown,
+        ) => {
+          if (
+            o !== null &&
+            typeof o === "object" &&
+            "id" in (o as Record<string, unknown>)
+          ) {
+            throw sentinel;
+          }
+          return originalFreeze(o as object);
+        }) as typeof Object.freeze);
         try {
           // Behavioural guarantee: the error propagates (not bucketed as
           // malformed-manifest) AND carries the slug for operator
@@ -1371,9 +1371,7 @@ describe("validate-parity", () => {
         specFiles: ["chat.spec.ts"],
         qaFiles: ["chat.md"],
       });
-      const preload = fs.mkdtempSync(
-        path.join(os.tmpdir(), "parity-preload-"),
-      );
+      const preload = fs.mkdtempSync(path.join(os.tmpdir(), "parity-preload-"));
       const preloadScript = path.join(preload, "boom.cjs");
       fs.writeFileSync(
         preloadScript,

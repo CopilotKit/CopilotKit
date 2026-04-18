@@ -1493,7 +1493,10 @@ describe("canonicalizeForIsMain", () => {
       .spyOn(process.stderr, "write")
       .mockImplementation(() => true);
     try {
-      const missing = path.join(os.tmpdir(), "does-not-exist-xyz-" + Date.now());
+      const missing = path.join(
+        os.tmpdir(),
+        "does-not-exist-xyz-" + Date.now(),
+      );
       const out = canonicalizeForIsMain(missing);
       expect(out).toBe(path.resolve(missing));
       expect(spy).not.toHaveBeenCalled();
@@ -1506,13 +1509,13 @@ describe("canonicalizeForIsMain", () => {
     // Non-ENOENT realpath failures indicate real problems (permission,
     // loop, I/O). Previously the bare `catch {}` swallowed them; now we
     // must see the warning.
-    const realpathSpy = vi
-      .spyOn(fs, "realpathSync")
-      .mockImplementation(((..._args: unknown[]) => {
-        throw Object.assign(new Error("permission denied"), {
-          code: "EACCES",
-        });
-      }) as unknown as typeof fs.realpathSync);
+    const realpathSpy = vi.spyOn(fs, "realpathSync").mockImplementation(((
+      ..._args: unknown[]
+    ) => {
+      throw Object.assign(new Error("permission denied"), {
+        code: "EACCES",
+      });
+    }) as unknown as typeof fs.realpathSync);
     const stderrSpy = vi
       .spyOn(process.stderr, "write")
       .mockImplementation(() => true);

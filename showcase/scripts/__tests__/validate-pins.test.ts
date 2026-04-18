@@ -995,11 +995,9 @@ describe("isMainPath strict guard", () => {
   it("catch branch: path.resolve failure logs, sets exitCode = 2, returns false", () => {
     const prevExitCode = process.exitCode;
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const resolveSpy = vi
-      .spyOn(path, "resolve")
-      .mockImplementationOnce(() => {
-        throw new Error("synthetic path.resolve failure");
-      });
+    const resolveSpy = vi.spyOn(path, "resolve").mockImplementationOnce(() => {
+      throw new Error("synthetic path.resolve failure");
+    });
     try {
       const result = isMainPath("/any/path.ts", "/any/path.ts");
       expect(result).toBe(false);
@@ -2480,7 +2478,9 @@ describe("printReport within-stream order", () => {
     const stderrLines = stderrSpy.mock.calls.map((c) => String(c[0]));
     // Compare LAST WARN vs FIRST FAIL — see note above.
     const firstFailIdx = stderrLines.findIndex((l) => l.startsWith("[FAIL]"));
-    const lastWarnIdx = stderrLines.findLastIndex((l) => l.startsWith("[WARN]"));
+    const lastWarnIdx = stderrLines.findLastIndex((l) =>
+      l.startsWith("[WARN]"),
+    );
     expect(firstFailIdx).toBeGreaterThanOrEqual(0);
     expect(lastWarnIdx).toBeGreaterThanOrEqual(0);
     expect(lastWarnIdx).toBeLessThan(firstFailIdx);
@@ -2518,9 +2518,7 @@ describe("parseRequirementsTxt wrapper throws on skipped/dropped", () => {
       // fail LOUDLY, not silently pass via an early return.
       const detailed = parseRequirementsTxtDetailed(file);
       expect(detailed.dropped.length).toBeGreaterThan(0);
-      expect(() => parseRequirementsTxt(file)).toThrow(
-        /parseRequirementsTxt/i,
-      );
+      expect(() => parseRequirementsTxt(file)).toThrow(/parseRequirementsTxt/i);
     });
   });
 
@@ -2597,77 +2595,76 @@ describe("parsePyprojectToml wrapper throws on skipped/dropped", () => {
 const isRoot = process.getuid?.() === 0;
 
 describe("EACCES on examples/integrations/<slug> routes to EXIT_UNREADABLE", () => {
-  it.skipIf(isRoot)("exits with EXIT_UNREADABLE (3) when candidate example dir is unreadable", () => {
-    withTmp((tmp) => {
-      // Build a minimal repo layout:
-      //   <tmp>/examples/integrations/<slug>/     (mode 0000)
-      //   <tmp>/showcase/packages/<slug>/package.json
-      const slug = "mastra";
-      const examplesDir = path.join(tmp, "examples", "integrations");
-      const packagesDir = path.join(tmp, "showcase", "packages");
-      const exampleSlugDir = path.join(examplesDir, slug);
-      const pkgSlugDir = path.join(packagesDir, slug);
-      fs.mkdirSync(exampleSlugDir, { recursive: true });
-      fs.mkdirSync(pkgSlugDir, { recursive: true });
-      write(
-        path.join(pkgSlugDir, "package.json"),
-        JSON.stringify({ name: slug, dependencies: {} }),
-      );
-
-      // Make example slug dir unreadable. On some filesystems (e.g.
-      // certain CI mounts) chmod 0 is a no-op — detect and bail loudly
-      // rather than silently pass. `it.skipIf(isRoot)` already handled
-      // the uid 0 case at declaration time.
-      fs.chmodSync(exampleSlugDir, 0o000);
-      let permsUnenforced = false;
-      try {
-        fs.statSync(exampleSlugDir);
-        permsUnenforced = true;
-      } catch (e) {
-        const err = e as NodeJS.ErrnoException;
-        if (err.code !== "EACCES") {
-          permsUnenforced = true;
-        }
-      }
-
-      if (permsUnenforced) {
-        console.warn(
-          "[validate-pins test] filesystem does not enforce chmod 0000 — skipping EACCES routing test",
+  it.skipIf(isRoot)(
+    "exits with EXIT_UNREADABLE (3) when candidate example dir is unreadable",
+    () => {
+      withTmp((tmp) => {
+        // Build a minimal repo layout:
+        //   <tmp>/examples/integrations/<slug>/     (mode 0000)
+        //   <tmp>/showcase/packages/<slug>/package.json
+        const slug = "mastra";
+        const examplesDir = path.join(tmp, "examples", "integrations");
+        const packagesDir = path.join(tmp, "showcase", "packages");
+        const exampleSlugDir = path.join(examplesDir, slug);
+        const pkgSlugDir = path.join(packagesDir, slug);
+        fs.mkdirSync(exampleSlugDir, { recursive: true });
+        fs.mkdirSync(pkgSlugDir, { recursive: true });
+        write(
+          path.join(pkgSlugDir, "package.json"),
+          JSON.stringify({ name: slug, dependencies: {} }),
         );
-        try {
-          fs.chmodSync(exampleSlugDir, 0o755);
-        } catch {
-          // best-effort
-        }
-        return;
-      }
 
-      try {
-        const r = spawnSync(
-          "npx",
-          ["tsx", VALIDATE_PINS_SCRIPT],
-          {
+        // Make example slug dir unreadable. On some filesystems (e.g.
+        // certain CI mounts) chmod 0 is a no-op — detect and bail loudly
+        // rather than silently pass. `it.skipIf(isRoot)` already handled
+        // the uid 0 case at declaration time.
+        fs.chmodSync(exampleSlugDir, 0o000);
+        let permsUnenforced = false;
+        try {
+          fs.statSync(exampleSlugDir);
+          permsUnenforced = true;
+        } catch (e) {
+          const err = e as NodeJS.ErrnoException;
+          if (err.code !== "EACCES") {
+            permsUnenforced = true;
+          }
+        }
+
+        if (permsUnenforced) {
+          console.warn(
+            "[validate-pins test] filesystem does not enforce chmod 0000 — skipping EACCES routing test",
+          );
+          try {
+            fs.chmodSync(exampleSlugDir, 0o755);
+          } catch {
+            // best-effort
+          }
+          return;
+        }
+
+        try {
+          const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
             env: {
               ...process.env,
               VALIDATE_PINS_REPO_ROOT: tmp,
             },
             encoding: "utf-8",
             timeout: 30_000,
-          },
-        );
-        // EXIT_UNREADABLE = 3. Must NOT be 2 (EXIT_INTERNAL) or 1
-        // (EXIT_DRIFT). A successful routing yields 3.
-        expect(r.status, r.stdout + r.stderr).toBe(3);
-      } finally {
-        // Restore perms so the rmSync in withTmp works on Linux.
-        try {
-          fs.chmodSync(exampleSlugDir, 0o755);
-        } catch {
-          // best-effort
+          });
+          // EXIT_UNREADABLE = 3. Must NOT be 2 (EXIT_INTERNAL) or 1
+          // (EXIT_DRIFT). A successful routing yields 3.
+          expect(r.status, r.stdout + r.stderr).toBe(3);
+        } finally {
+          // Restore perms so the rmSync in withTmp works on Linux.
+          try {
+            fs.chmodSync(exampleSlugDir, 0o755);
+          } catch {
+            // best-effort
+          }
         }
-      }
-    });
-  });
+      });
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -2731,18 +2728,14 @@ describe("validateAll: infra parse error routes to EXIT_UNREADABLE", () => {
       }
 
       try {
-        const r = spawnSync(
-          "npx",
-          ["tsx", VALIDATE_PINS_SCRIPT],
-          {
-            env: {
-              ...process.env,
-              VALIDATE_PINS_REPO_ROOT: tmp,
-            },
-            encoding: "utf-8",
-            timeout: 30_000,
+        const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
+          env: {
+            ...process.env,
+            VALIDATE_PINS_REPO_ROOT: tmp,
           },
-        );
+          encoding: "utf-8",
+          timeout: 30_000,
+        });
         // STRICT: the fix is that EACCES on a showcase dep-file path
         // routes to EXIT_UNREADABLE (3), not EXIT_DRIFT (1) or
         // EXIT_INTERNAL (2). Accepting [1, 3] defeats the fix.

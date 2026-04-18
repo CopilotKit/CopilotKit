@@ -70,8 +70,7 @@ class UnreadableDirError extends Error {
     public readonly dir: string,
     cause: unknown,
   ) {
-    const baseMsg =
-      cause instanceof Error ? cause.message : String(cause);
+    const baseMsg = cause instanceof Error ? cause.message : String(cause);
     const code =
       cause instanceof Error
         ? (cause as NodeJS.ErrnoException).code
@@ -80,9 +79,7 @@ class UnreadableDirError extends Error {
     // underlying message (Node's fs errors typically already include it,
     // but custom Errors thrown by stubs/tests may not).
     const msg =
-      code && !baseMsg.includes(code)
-        ? `${code}: ${baseMsg}`
-        : baseMsg;
+      code && !baseMsg.includes(code) ? `${code}: ${baseMsg}` : baseMsg;
     super(`could not read ${dir}: ${msg}`, { cause });
     this.name = "UnreadableDirError";
   }
