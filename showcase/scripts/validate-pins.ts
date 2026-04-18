@@ -96,9 +96,20 @@ type PinsExitCode =
  * misconfig from a true validator crash.
  */
 class UnreadableInputError extends Error {
-  constructor(message: string) {
+  /**
+   * Optionally carries the partial report built up to the point the
+   * infra error was observed. The top-level catch uses this to print
+   * the FAIL/WARN/SKIP lines for slugs processed before the error so
+   * operators don't lose diagnostic output when a single slug has an
+   * infra problem mid-run. undefined for infra errors raised before
+   * the slug loop started (e.g. bad VALIDATE_PINS_REPO_ROOT, missing
+   * packages dir) where no report exists yet.
+   */
+  readonly partialReport?: Report;
+  constructor(message: string, partialReport?: Report) {
     super(message);
     this.name = "UnreadableInputError";
+    this.partialReport = partialReport;
   }
 }
 
@@ -1603,6 +1614,14 @@ function validateAll(): Report {
     );
   }
 
+  // Accumulates the first infra-class parseError observed during the
+  // slug loop. We deliberately do NOT throw mid-loop — doing so would
+  // orphan the report entries for preceding slugs AND the remaining
+  // content parseErrors for the current slug, which hides real drift
+  // behind a single infra misconfig. Throw at the end instead, with
+  // the partial report attached so the top-level catch can print it.
+  let pendingInfraError: UnreadableInputError | undefined;
+
   for (const slug of slugs) {
     const pkgDir = path.join(PACKAGES_DIR, slug);
     const resolved = resolveExampleDirDetailed(slug, resolvedPaths);
@@ -1639,19 +1658,32 @@ function validateAll(): Report {
     // they are permissions/filesystem misconfig. Route them through
     // UnreadableInputError so the top-level catch maps to
     // EXIT_UNREADABLE (3) rather than report.fail → EXIT_DRIFT (1).
+    //
+    // CRITICAL: do NOT throw mid-loop here. Accumulate the first infra
+    // error into `pendingInfraError` and let the slug loop finish so
+    // every OTHER slug still contributes to the report. The top-level
+    // catch will print the (partial) report before setting
+    // EXIT_UNREADABLE, so operators see the full FAIL/WARN/SKIP for
+    // every slug that was processed. Content-parse errors for THIS
+    // slug's remaining files still land in report.fail below.
     for (const pe of [...showcase.parseErrors, ...dojo.parseErrors]) {
-      if (pe.infra) {
-        throw new UnreadableInputError(
+      if (pe.infra && pendingInfraError === undefined) {
+        pendingInfraError = new UnreadableInputError(
           `${slug}: unreadable input at ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
         );
       }
     }
+    // Skip content-parse fail emission for entries tagged as infra —
+    // those are routed through pendingInfraError and the top-level
+    // catch, not report.fail.
     for (const pe of showcase.parseErrors) {
+      if (pe.infra) continue;
       report.fail.push(
         `[FAIL] ${slug}: parse error in ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
       );
     }
     for (const pe of dojo.parseErrors) {
+      if (pe.infra) continue;
       report.fail.push(
         `[FAIL] ${slug}: parse error in ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
       );
@@ -1921,6 +1953,19 @@ function validateAll(): Report {
     }
   }
 
+  // If an infra error was observed mid-loop, throw it NOW that the
+  // slug loop has fully finished. Attach the partial report so the
+  // top-level catch can print every FAIL/WARN/SKIP line for slugs
+  // that completed, then exit 3 (EXIT_UNREADABLE). This preserves the
+  // "infra error → exit 3" contract while no longer discarding drift
+  // findings for unaffected slugs.
+  if (pendingInfraError !== undefined) {
+    // Rebuild a fresh UnreadableInputError carrying the final report
+    // — the one we captured earlier was constructed before all slugs
+    // had been processed, so its partialReport would be stale.
+    throw new UnreadableInputError(pendingInfraError.message, report);
+  }
+
   return report;
 }
 
@@ -1999,6 +2044,14 @@ if (isMainPath(process.argv[1], __filename)) {
   } catch (e) {
     const msg = e instanceof Error ? e.stack || e.message : String(e);
     if (e instanceof UnreadableInputError) {
+      // Print the partial report FIRST (if present) so operators see
+      // FAIL/WARN/SKIP for every slug that was processed before the
+      // infra error. Without this, a single infra error would orphan
+      // all already-collected report entries and produce a bare error
+      // line with no diagnostic context.
+      if (e.partialReport) {
+        printReport(e.partialReport);
+      }
       console.error(`[UNREADABLE INPUT] validate-pins: ${msg}`);
       setExitCode(EXIT_UNREADABLE);
     } else {

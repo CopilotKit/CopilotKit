@@ -3152,6 +3152,136 @@ describe("collectShowcaseDeps: falsy throw from fs.statSync", () => {
 });
 
 // ---------------------------------------------------------------------------
+// R29-2 C1: Infra error mid-loop must NOT orphan the report.
+//
+// Bug: validateAll iterated slugs alphabetically. The first slug that
+// hit an infra parseError (EACCES/ENOTDIR/…) threw UnreadableInputError
+// from INSIDE the loop, which aborted the run and lost all report
+// entries accumulated for earlier slugs AND the remaining content
+// parseErrors for the current slug.
+//
+// Fix: finish the full slug loop, accumulate the first infra error
+// into a local, then print the report and throw at the end. Operators
+// see the full FAIL/WARN/SKIP for every slug processed before the
+// throw; exit code is still EXIT_UNREADABLE (3) via the top-level
+// catch.
+// ---------------------------------------------------------------------------
+describe("R29-2 C1: infra error mid-loop does not orphan the report", () => {
+  let repoRoot: string;
+  let savedRepoRoot: string | undefined;
+
+  beforeEach(() => {
+    savedRepoRoot = process.env.VALIDATE_PINS_REPO_ROOT;
+    repoRoot = tmpdir();
+    process.env.VALIDATE_PINS_REPO_ROOT = repoRoot;
+    fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
+      recursive: true,
+    });
+    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+      recursive: true,
+    });
+  });
+
+  afterEach(() => {
+    if (savedRepoRoot === undefined) {
+      delete process.env.VALIDATE_PINS_REPO_ROOT;
+    } else {
+      process.env.VALIDATE_PINS_REPO_ROOT = savedRepoRoot;
+    }
+    fs.rmSync(repoRoot, { recursive: true, force: true });
+  });
+
+  // Set up two slugs in alphabetical order: "agno" (infra error) and
+  // "mastra" (normal drift). Trigger an infra ENOTDIR on agno by
+  // creating `apps/agent` as a FILE (not a directory), so that
+  // `apps/agent/package.json` stats with ENOTDIR → infra=true.
+  function wireInfraOnAgnoPlusDriftOnMastra() {
+    const agnoPkg = path.join(repoRoot, "showcase", "packages", "agno");
+    const agnoEx = path.join(repoRoot, "examples", "integrations", "agno");
+    // Create `apps/agent` as a file so `apps/agent/package.json` stat
+    // fails with ENOTDIR — portable across platforms, no chmod needed.
+    fs.mkdirSync(path.join(agnoPkg, "apps"), { recursive: true });
+    fs.writeFileSync(path.join(agnoPkg, "apps", "agent"), "not-a-dir", "utf-8");
+    fs.mkdirSync(agnoEx, { recursive: true });
+
+    const mastraPkg = path.join(repoRoot, "showcase", "packages", "mastra");
+    const mastraEx = path.join(repoRoot, "examples", "integrations", "mastra");
+    write(
+      path.join(mastraPkg, "package.json"),
+      JSON.stringify({
+        name: "mastra",
+        dependencies: { "@mastra/core": "0.15.0" },
+      }),
+    );
+    write(
+      path.join(mastraEx, "package.json"),
+      JSON.stringify({
+        name: "mastra",
+        dependencies: { "@mastra/core": "0.16.0" },
+      }),
+    );
+  }
+
+  it("in-process: UnreadableInputError carries the fully populated partial report", () => {
+    wireInfraOnAgnoPlusDriftOnMastra();
+    let thrown: unknown;
+    try {
+      validateAll();
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown, "validateAll must throw on infra error").toBeDefined();
+    // The thrown error must carry the partial report so the top-level
+    // catch can print FAIL/WARN/SKIP for every slug that was processed
+    // before the throw.
+    const partial = (
+      thrown as {
+        partialReport?: {
+          fail: readonly string[];
+          warn: readonly string[];
+          skip: readonly string[];
+          ok: readonly string[];
+        };
+      }
+    ).partialReport;
+    expect(
+      partial,
+      "UnreadableInputError must carry a partialReport",
+    ).toBeDefined();
+    // Slug B (mastra) must have its drift captured on report.fail even
+    // though slug A (agno) had an infra error.
+    const mastraDrift = partial!.fail.some(
+      (l) =>
+        l.includes("mastra") &&
+        l.includes("@mastra/core") &&
+        /0\.15\.0/.test(l) &&
+        /0\.16\.0/.test(l),
+    );
+    expect(
+      mastraDrift,
+      `expected a mastra drift FAIL in partial.fail; got: ${JSON.stringify(partial!.fail)}`,
+    ).toBe(true);
+  });
+
+  it("subprocess: CLI exits 3 AND prints slug-B FAIL line on stdout/stderr", () => {
+    wireInfraOnAgnoPlusDriftOnMastra();
+    const r = spawnSync("npx", ["tsx", VALIDATE_PINS_SCRIPT], {
+      encoding: "utf-8",
+      env: { ...process.env, VALIDATE_PINS_REPO_ROOT: repoRoot },
+      timeout: 30_000,
+    });
+    // Exit code must still be EXIT_UNREADABLE (3) — infra error wins.
+    expect(r.status, r.stdout + r.stderr).toBe(3);
+    // AND the partial report for slug B (mastra) must be visible in
+    // the combined output. FAIL lines go to stderr per the output
+    // convention.
+    const combined = `${r.stdout}\n${r.stderr}`;
+    expect(combined).toMatch(/mastra/);
+    expect(combined).toMatch(/@mastra\/core/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // R29-2 M3: computeRepoRoot ENOENT and generic fallthroughs must route to
 // EXIT_UNREADABLE (3), not EXIT_INTERNAL (2).
 //
