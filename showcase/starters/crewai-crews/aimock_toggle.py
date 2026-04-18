@@ -36,10 +36,12 @@ import logging
 import os
 from typing import Literal, MutableMapping, Optional, TypedDict
 
-# NotRequired landed in `typing` in Python 3.11. Local dev on macOS ships
-# Python 3.9, so we try stdlib first and fall back to typing_extensions
-# (listed in requirements.txt) for 3.10 and below. Both are structurally
-# identical and emit the same TypedDict runtime metadata.
+# NotRequired landed in `typing` in Python 3.11. On Python 3.10 (one of the
+# CI matrix entries, and still the default on some distros / Debian stable)
+# the stdlib symbol is absent — try stdlib first and fall back to
+# typing_extensions (marker-gated in requirements.txt to
+# `python_version < "3.11"`). Both are structurally identical and emit the
+# same TypedDict runtime metadata.
 try:
     from typing import NotRequired  # type: ignore[attr-defined]
 except ImportError:  # pragma: no cover - exercised only on Python < 3.11
@@ -74,13 +76,19 @@ _AIMOCK_DUMMY_KEY = "sk-aimock-dev-ci-only"
 # silently redirected through aimock — fail safe by logging + skipping.
 #
 # The variable list covers the common PaaS / framework / language conventions:
-#   - NODE_ENV:            Node.js / Next.js
-#   - ENV, ENVIRONMENT:    generic (Django, Flask, and many internal conventions)
-#   - APP_ENV:             Laravel / generic app-level
-#   - DEPLOY_ENV:          common CD-pipeline convention
-#   - PYTHON_ENV:          occasional Python convention
-#   - RAILWAY_ENVIRONMENT: Railway (this project's primary hosting target —
-#                          per CLAUDE.md, "Always Railway for hosting")
+#   - NODE_ENV:                 Node.js / Next.js
+#   - ENV, ENVIRONMENT:         generic (Django, Flask, and many internal conventions)
+#   - APP_ENV:                  Laravel / generic app-level
+#   - DEPLOY_ENV:               common CD-pipeline convention
+#   - PYTHON_ENV:               occasional Python convention
+#   - RAILWAY_ENVIRONMENT,
+#     RAILWAY_ENVIRONMENT_NAME: Railway (this project's primary hosting
+#                               target — per CLAUDE.md "Always Railway for
+#                               hosting"). Railway exposes BOTH: the legacy
+#                               `RAILWAY_ENVIRONMENT` and the newer canonical
+#                               `RAILWAY_ENVIRONMENT_NAME`. Both can hold the
+#                               literal value "production" on a prod service,
+#                               so both must be guarded.
 # Only `_PROD_ENV_VALUES` ({"production", "prod"}) trigger the guard, so a
 # value like `RAILWAY_ENVIRONMENT=preview` does NOT refuse the toggle. If a
 # new host / framework introduces another prod-ish env var, append it here —
@@ -95,6 +103,7 @@ _PROD_ENV_VARS = (
     "DEPLOY_ENV",
     "PYTHON_ENV",
     "RAILWAY_ENVIRONMENT",
+    "RAILWAY_ENVIRONMENT_NAME",
 )
 
 _TRUTHY = {"1", "true", "yes", "on"}
