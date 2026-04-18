@@ -268,7 +268,7 @@ describe("restoreFromGitHead", () => {
   });
 
   it("handles mixed tracked+untracked lists without masking dirty tracked files", () => {
-    // Regression for the CR4 HIGH finding: a mixed list caused
+    // Regression guard: a mixed tracked/untracked list previously caused
     // `git diff --quiet` to exit 128 (pathspec mismatch from untracked),
     // which the guard treated as "nothing to clobber" and silently
     // overwrote the dirty tracked file.
@@ -354,7 +354,7 @@ describe("execOptsFor", () => {
   });
 });
 
-// --- CR5 HIGH regression guards ---
+// --- Regression guards: narrow-catch + per-basename sweep + drift guard ---
 
 describe("restoreFromGitHead: narrow catch in partitionTrackedPaths", () => {
   let savedCI: string | undefined;
@@ -383,9 +383,10 @@ describe("restoreFromGitHead: narrow catch in partitionTrackedPaths", () => {
       execFileSync("git", ["commit", "-q", "-m", "init"], opts);
 
       // Force PATH to an empty dir so the spawned `git` fails with ENOENT.
-      // Before the CR5 fix, `partitionTrackedPaths` swallowed ENOENT and
-      // treated the path as "untracked", causing `restoreFromGitHead` to
-      // silently no-op and lock in the drifted baseline.
+      // Prior to the narrow-catch fix, `partitionTrackedPaths` swallowed
+      // ENOENT and treated the path as "untracked", causing
+      // `restoreFromGitHead` to silently no-op and lock in the drifted
+      // baseline.
       const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), "fsr-empty-"));
       const savedPath = process.env.PATH;
       process.env.PATH = emptyDir;
@@ -417,9 +418,10 @@ describe("FileSnapshotRestorer: sweepTmpStragglers basename scope", () => {
   it("does NOT sweep same-shaped tmp files for unrelated basenames", () => {
     // Only `a.txt` is in the snapshot scope. A `.b.txt.<hex>.tmp` straggler
     // must survive the sweep — it belongs to a different snapshot target
-    // (possibly run by a different tool in the same directory). Before the
-    // CR5 HIGH tightening, the generic regex `/^\..+\.[0-9a-f]{16}\.tmp$/`
-    // matched and deleted any file of this shape.
+    // (possibly run by a different tool in the same directory). Prior to
+    // the per-basename tightening, the generic regex
+    // `/^\..+\.[0-9a-f]{16}\.tmp$/` matched and deleted any file of this
+    // shape.
     const a = path.join(tmp, "a.txt");
     fs.writeFileSync(a, "x");
 
@@ -449,9 +451,9 @@ describe("FileSnapshotRestorer: double-snapshot guard (flag-based)", () => {
   });
 
   it("throws on second snapshot() even when the path list matched nothing", () => {
-    // Before the CR5 MEDIUM fix, the guard was size-based (`snapshots.size
-    // > 0`); with zero matching paths the size stayed 0 forever and a
-    // second snapshot() would silently succeed.
+    // Prior to the flag-based guard, the check was size-based
+    // (`snapshots.size > 0`); with zero matching paths the size stayed 0
+    // forever and a second snapshot() would silently succeed.
     const r = new FileSnapshotRestorer([path.join(tmp, "never.txt")]);
     r.snapshot();
     expect(r.snapshotMap.size).toBe(0);
@@ -489,8 +491,8 @@ describe("restoreFromGitHead: drifted baseline guard", () => {
   });
 
   it("throws on CI when the input has paths but none are tracked", () => {
-    // Before the CR5 MEDIUM fix, this silently early-returned and the
-    // caller would snapshot whatever drifted content was on disk.
+    // Prior to the drifted-baseline guard, this silently early-returned
+    // and the caller would snapshot whatever drifted content was on disk.
     expect(() => restoreFromGitHead(repo, ["totally-untracked.txt"])).toThrow(
       /no input path is tracked by git/,
     );

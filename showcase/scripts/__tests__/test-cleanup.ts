@@ -26,11 +26,12 @@
 // parallel would race each other. If you enable file parallelism, you must
 // move to per-suite isolation (tmp cwd + env-var-parameterized scripts).
 //
-// WINDOWS: callers that invoke `npx` through `execFileSync` (see sibling
-// test files) are POSIX-only as written — on Windows `npx` is a `.cmd` and
-// `execFileSync("npx", ...)` without `shell: true` fails. Showcase tests
-// currently run on Ubuntu/macOS CI only; if we ever add Windows CI we'll
-// need a `process.platform === "win32"` gate at those call sites.
+// WINDOWS: callers in sibling test files (create-integration.test.ts,
+// generate-registry.test.ts, bundle-demo-content.test.ts) invoke `npx`
+// through `execFileSync` — these will fail on Windows because `npx` is a
+// `.cmd` there and `execFileSync("npx", ...)` without `shell: true` fails.
+// Showcase tests currently run on Ubuntu/macOS CI only; if we ever add
+// Windows CI those call sites need a `process.platform === "win32"` gate.
 
 import fs from "fs";
 import path from "path";
@@ -201,9 +202,12 @@ function partitionTrackedPaths(
  *     stash, commit, or discard (`git checkout HEAD -- <paths>`) first. If
  *     the tree is already clean wrt these paths, we heal.
  *
- * Untracked paths are skipped entirely. Anything else — EACCES, git missing,
- * corrupt worktree — is re-raised so the test suite fails loudly rather than
- * silently seeding a drifted baseline into the subsequent snapshot.
+ * Tracked paths are restored via `git checkout HEAD -- <paths>`; untracked
+ * paths are skipped (off-CI) or throw (on CI) per the drifted-baseline guard.
+ * An entirely-untracked input list throws on CI and logs a warning off-CI.
+ * Anything else — EACCES, git missing, corrupt worktree — is re-raised so the
+ * test suite fails loudly rather than silently seeding a drifted baseline into
+ * the subsequent snapshot.
  */
 export function restoreFromGitHead(
   repoRoot: string,
@@ -344,7 +348,8 @@ export class FileSnapshotRestorer {
     // revisions used a generic `/^\..+\.[0-9a-f]{16}\.tmp$/` regex which
     // would match any same-shaped tmp file in the directory — a landmine in
     // shared dirs like `.github/workflows/` where an unrelated tool could
-    // have created a similarly-named file. CR5 HIGH tightening.
+    // have created a similarly-named file. Tightened to per-basename scope
+    // to preserve unrelated tmp files in shared directories.
     const bucketed = new Map<string, Set<string>>();
     for (const p of this.paths) {
       const dir = path.dirname(p);

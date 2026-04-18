@@ -45,9 +45,6 @@ beforeAll(() => {
   }
 });
 afterEach(() => dataRestorer.restore());
-// afterAll is redundant on the happy path (afterEach already restored after
-// the final test) — kept as a belt-and-braces in case vitest ever changes
-// afterEach semantics, and symmetric with the other two suites.
 afterAll(() => dataRestorer.restore());
 
 // The generator uses __dirname-relative paths, so we test it via the actual

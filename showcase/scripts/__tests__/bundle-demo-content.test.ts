@@ -38,14 +38,11 @@ beforeAll(() => {
   }
   // NOTE: we intentionally do NOT pre-run the bundler here. Test 1 below
   // exercises the bundler AND asserts on stdout, so a pre-run in beforeAll
-  // was redundant (CR5 medium). Tests 2-5 call `runBundlerAndRead()` which
+  // was redundant. Tests 2-5 call `runBundlerAndRead()` which
   // runs the bundler themselves — afterEach restores to HEAD between tests
   // so they must re-invoke rather than read stale committed content.
 });
 afterEach(() => dataRestorer.restore());
-// afterAll is redundant on the happy path (afterEach already restored after
-// the final test) — kept as a belt-and-braces in case vitest ever changes
-// afterEach semantics, and symmetric with the other two suites.
 afterAll(() => dataRestorer.restore());
 
 /** Run the bundler and return the parsed demo-content.json. Tests 3-5 each
