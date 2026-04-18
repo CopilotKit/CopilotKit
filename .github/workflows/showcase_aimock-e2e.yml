@@ -13,9 +13,19 @@ name: "Showcase: Aimock E2E Tests"
 #   - `persist-credentials: false` on `actions/checkout` prevents the token
 #     from being left behind in `.git/config` where PR-HEAD build hooks might
 #     read it.
-#   - `pnpm install --ignore-scripts` / `npm install --ignore-scripts` +
-#     `pip install --only-binary :all:` block install-time hooks in
-#     PR-controlled manifests from executing on the runner.
+#   - `pnpm install --ignore-scripts` / `npm install --ignore-scripts` block
+#     install-time hooks in PR-controlled JS manifests from executing on the
+#     runner. The Python install uses `pip install --prefer-binary` (prefers
+#     wheels, falls back to sdist on transitive deps that lack a wheel for
+#     linux-x86_64/py3.12). We used to use `--only-binary :all:` for a hard
+#     block against source-build hooks, but CrewAI's transitive graph
+#     (tiktoken / chromadb / litellm cadence releases) regularly ships a
+#     sdist-only revision that makes every CI run fail-loud with "Could not
+#     find a version that satisfies the requirement". `--prefer-binary` trades
+#     that hard guarantee for reliability — the `author_association` gate
+#     above still limits WHO can trigger this workflow, so the residual risk
+#     is bounded to a trusted commenter. See also the "Start Python agent"
+#     step for the in-context trade-off rationale.
 #   - A strict slug whitelist (`^[a-z0-9-]+$` + existing-dir check) and the
 #     `env:`-based pattern for UNTRUSTED values (comment body, dispatch slug)
 #     prevent shell injection / path traversal.
@@ -27,6 +37,18 @@ name: "Showcase: Aimock E2E Tests"
 # runner exec with the job's token. That is an accepted residual risk for the
 # developer-velocity benefit of PR-triggered E2E runs. Do not loosen the
 # `author_association` gate without revisiting the threat model above.
+#
+# Known TOCTOU — comment-trigger vs resolved HEAD SHA:
+#   "Resolve PR HEAD ref" below calls `pulls.get` at job start. There is a
+#   window between the trusted commenter typing `/test-aimock` (reviewed diff
+#   D1) and the workflow actually calling `pulls.get` (resolves whatever HEAD
+#   is current — possibly D2 after a force-push). A PR author who force-pushes
+#   malicious content AFTER the trusted comment but BEFORE the resolve call
+#   gets their code executed. GitHub Actions does NOT natively support pinning
+#   the SHA at comment time (no `comment.commit_sha` equivalent), so this gap
+#   is architectural. The `author_association` gate + code-review social
+#   contract are the mitigations; the residual TOCTOU risk is accepted. If
+#   GitHub ever ships a comment-time SHA field, pin to it and drop this note.
 
 on:
   issue_comment:
@@ -237,16 +259,35 @@ jobs:
           # install exists — which would defeat `--ignore-scripts` on the
           # npm-install step above (npx's transient install does not inherit
           # that flag) and would also defeat the caret pin if a new patch
-          # published between those two invocations. `npm bin -g` returns the
-          # directory containing the globally-installed binary.
-          AIMOCK_BIN="$(npm bin -g)/aimock"
+          # published between those two invocations.
+          #
+          # `npm prefix -g` returns the npm global prefix; its `bin/` subdir
+          # holds globally-installed binaries. We deliberately avoid `npm bin
+          # -g` here: the `bin` subcommand was removed in npm 9.0.0 and
+          # `setup-node@v4` with node 22.x ships npm 10+, so `npm bin -g`
+          # would exit with "Unknown command: 'bin'" and the existence check
+          # below would fire every run. `npm prefix -g` has been stable since
+          # npm 7 and returns the prefix on every supported version. The
+          # `$(npm prefix -g)/bin` dir is also on PATH via setup-node, so we
+          # could call `aimock` directly — keeping the absolute-path pattern
+          # + existence check as defense-in-depth against a PATH-shadowing
+          # binary sneaking in from a prior step on the runner.
+          AIMOCK_BIN="$(npm prefix -g)/bin/aimock"
           if [ ! -x "$AIMOCK_BIN" ]; then
             echo "::error::aimock binary not found at $AIMOCK_BIN after global install"
             exit 1
           fi
           "$AIMOCK_BIN" --port 4010 --host 127.0.0.1 --fixtures showcase/aimock/feature-parity.json --validate-on-load &
-          # Wait for aimock to be ready
+          AIMOCK_PID=$!
+          # Wait for aimock to be ready. Capture the PID + `kill -0` inside
+          # the loop so an aimock that crashes on startup (bad fixture path,
+          # port in use, binary import error) fails fast instead of burning
+          # the full 20s polling a dead process.
           for i in $(seq 1 20); do
+            if ! kill -0 "$AIMOCK_PID" 2>/dev/null; then
+              echo "::error::aimock process (PID $AIMOCK_PID) exited before becoming ready — check the preceding aimock stdout/stderr."
+              exit 1
+            fi
             curl -sf http://localhost:4010/ > /dev/null 2>&1 && break
             sleep 1
           done
@@ -273,26 +314,40 @@ jobs:
         run: |
           SLUG="${{ steps.slug.outputs.slug }}"
           cd "showcase/packages/$SLUG"
-          # SECURITY: `pip install` runs setup.py / PEP 517 build hooks from
-          # PR-controlled packages. Unlike npm / pnpm there is no `--ignore-scripts`
-          # flag for pip — the closest equivalent is `--only-binary :all:` which
-          # forces wheel-only installs and blocks source-build hooks from
-          # executing on the runner. If a future requirements.txt legitimately
-          # needs a source build, replace this with `--require-hashes` + a
-          # fully hash-pinned requirements.txt (which blocks swap-in attacks
-          # but still allows the pinned source build to run — a narrower
-          # residual risk that's worth calling out in a new comment here).
-          pip install --only-binary :all: -r requirements.txt
-          # Prefer agent_server:app (FastAPI entrypoint used by non-langgraph
-          # Python showcases). Legacy `agent:app` path retained for any
-          # package that does not ship src/agent_server.py; langgraph-fastapi
-          # uses `langgraph_cli dev` and is NOT exercised by this fallback.
-          if [ -f "src/agent_server.py" ]; then
-            export PYTHONPATH="$PWD/src:${PYTHONPATH:-}"
-            APP_MODULE="agent_server:app"
-          else
-            APP_MODULE="agent:app"
+          # SECURITY / RELIABILITY trade-off: `pip install` runs setup.py /
+          # PEP 517 build hooks from PR-controlled packages. Unlike npm / pnpm
+          # there is no `--ignore-scripts` flag for pip; the closest equivalent
+          # is `--only-binary :all:` (wheel-only, blocks source-build hooks).
+          #
+          # We previously used `--only-binary :all:` but CrewAI's dependency
+          # graph (tiktoken / chromadb / litellm etc.) regularly ships a
+          # sdist-only revision of a transitive dep. That made every CI run
+          # fail with "Could not find a version that satisfies the requirement"
+          # — not a security win but a CI outage. `--prefer-binary` keeps the
+          # wheel-first preference (most installs remain hook-free) and only
+          # falls back to sdist when a wheel isn't published for
+          # linux-x86_64/py3.12. The `author_association` gate at the job
+          # level still restricts WHO can trigger this workflow, so the
+          # residual source-build-hook risk is bounded to a trusted commenter.
+          #
+          # If a future requirements.txt needs an even stronger guarantee,
+          # `--require-hashes` + a fully hash-pinned requirements.txt blocks
+          # swap-in attacks while allowing the pinned source build to run.
+          pip install --prefer-binary -r requirements.txt
+          # All currently-dispatchable slugs (the `workflow_dispatch` enum +
+          # the "ships_toggle" short-circuit in the step above) ship
+          # src/agent_server.py, so the `agent_server:app` entrypoint is the
+          # only path actually exercised by this workflow today. The
+          # existence check below is retained as defense-in-depth: a future
+          # refactor that removes agent_server.py from a supported slug
+          # should fail loudly here rather than silently fall through to a
+          # guessed module name and then die mid-Playwright.
+          if [ ! -f "src/agent_server.py" ]; then
+            echo "::error::Slug '$SLUG' is missing src/agent_server.py — this workflow requires the FastAPI entrypoint. Add the file to the package or widen this step."
+            exit 1
           fi
+          export PYTHONPATH="$PWD/src:${PYTHONPATH:-}"
+          APP_MODULE="agent_server:app"
           # Set AIMOCK_URL ONLY (not OPENAI_BASE_URL). Packages that ship
           # aimock_toggle.py MUST prove the toggle itself wires OPENAI_BASE_URL
           # + LITELLM_API_BASE + dummy key. Pre-setting OPENAI_BASE_URL here
