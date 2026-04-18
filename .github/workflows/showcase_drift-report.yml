@@ -190,5 +190,10 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
+          # Defensive: wrap dynamic values via toJSON(format(...)) so that
+          # if repository/run_id ever contains characters that would break
+          # the JSON payload (quotes, backslashes, newlines), the value is
+          # safely JSON-encoded instead of injected as raw text. Mirrors
+          # the success payload above for consistency.
           payload: |
-            { "text": ":x: *Showcase drift report*: job failed | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+            { "text": ${{ toJSON(format(':x: *Showcase drift report*: job failed | <https://github.com/{0}/actions/runs/{1}|View run>', github.repository, github.run_id)) }} }
