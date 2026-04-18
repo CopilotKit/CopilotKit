@@ -639,6 +639,14 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     dockerExtraCopy += `\n# FastAPI agent server entrypoint\nCOPY ${copyTargets} ./`;
   }
 
+  // Only langgraph starters need `/app/.langgraph_api` (langgraph_cli writes
+  // scratch state there). Non-langgraph Python starters (crewai, agno, etc.)
+  // never touch that dir — creating it was copy-paste residue that burned a
+  // layer per image for nothing. Gate the mkdir to langgraph starters only.
+  const langgraphMkdir = fw.slug.startsWith("langgraph-")
+    ? "RUN mkdir -p /app/.langgraph_api\n"
+    : "";
+
   const vars: Record<string, string> = {
     SLUG: fw.slug,
     NAME: fw.name,
@@ -648,6 +656,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     AGENT_PORT: "8123",
     DEV_SCRIPT_BLOCK: getEntrypointBlock(fw),
     DOCKER_EXTRA_COPY: dockerExtraCopy,
+    LANGGRAPH_MKDIR: langgraphMkdir,
   };
 
   // 1. Copy frontend files into src/
