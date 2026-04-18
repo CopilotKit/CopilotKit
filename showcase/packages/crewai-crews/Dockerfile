@@ -44,5 +44,11 @@ COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
 EXPOSE 10000
-ENV NODE_ENV=production
+# Intentionally NOT setting `ENV NODE_ENV=production` at the image level.
+# The Python agent spawned by entrypoint.sh would inherit NODE_ENV and silently
+# disable the aimock toggle (aimock_toggle.py refuses to apply the toggle when
+# NODE_ENV=production / ENV=production), which would break any Docker-based
+# smoke test that relies on AIMOCK_URL. entrypoint.sh sets NODE_ENV=production
+# ONLY on the Next.js invocation line, keeping the Python process's guard
+# predicated solely on explicit operator config.
 CMD ["./entrypoint.sh"]
