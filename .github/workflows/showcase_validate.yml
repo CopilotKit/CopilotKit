@@ -35,6 +35,12 @@ concurrency:
 jobs:
   validate:
     name: Validate Showcase
+    # Hoist the Slack webhook into an env var so step-level `if:`
+    # expressions can reference it — `secrets.*` is not a valid
+    # named-value inside `if:` and causes a workflow startup failure
+    # on push events.
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
     # Depot (Startup plan, unlimited minutes) for persistent pnpm/npm
     # cache across runs — cold ubuntu-latest runs were ~18-20m; Depot
     # typically reduces to ~5-8m. 25m timeout retained as headroom.
@@ -356,7 +362,7 @@ jobs:
       # pinging the OSS alerts channel. Tradeoff: a broken PR that sneaks
       # past review won't alert Slack until after merge.
       - name: Notify Slack (failure)
-        if: failure() && github.event_name == 'push' && secrets.SLACK_WEBHOOK_OSS_ALERTS != ''
+        if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK != ''
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
@@ -372,6 +378,6 @@ jobs:
             { "text": ${{ toJSON(format(':x: *Showcase validate*: failed | <https://github.com/{0}/actions/runs/{1}|View run>', github.repository, github.run_id)) }} }
 
       - name: Log (no Slack — webhook unset)
-        if: failure() && github.event_name == 'push' && secrets.SLACK_WEBHOOK_OSS_ALERTS == ''
+        if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK == ''
         run: |
           echo "::warning::showcase_validate failed on push but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."

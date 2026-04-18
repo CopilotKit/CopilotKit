@@ -26,6 +26,11 @@ permissions:
 jobs:
   report:
     name: Weekly Pin-Drift Report
+    # Hoist the Slack webhook into an env var so step-level `if:`
+    # expressions can reference it — `secrets.*` is not a valid
+    # named-value inside `if:` and causes a workflow startup failure.
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
     # Depot (Startup plan, unlimited minutes) for pnpm cache across
     # scheduled runs — keeps the weekly ratchet cheap.
     runs-on: depot-ubuntu-24.04-4
@@ -168,7 +173,7 @@ jobs:
       - name: Notify Slack (weekly drift report)
         # Skip cleanly when the webhook secret is unset (forks / pre-provision)
         # rather than failing the job. Counts still appear in the job log.
-        if: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS != '' }}
+        if: ${{ env.SLACK_WEBHOOK != '' }}
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
@@ -181,7 +186,7 @@ jobs:
             { "text": ${{ toJSON(format(':chart_with_downwards_trend: *Showcase pin-drift (weekly)*: FAIL={0} (baseline {1}) [{2}] | <https://github.com/{3}/actions/runs/{4}|View run>', steps.validate.outputs.actual, steps.baseline.outputs.count, steps.validate.outputs.set_status, github.repository, github.run_id)) }} }
 
       - name: Log result (no Slack)
-        if: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS == '' }}
+        if: ${{ env.SLACK_WEBHOOK == '' }}
         run: |
           echo "::warning::SLACK_WEBHOOK_OSS_ALERTS not set; weekly drift report not sent to Slack."
           echo "Weekly pin-drift report: FAIL=${{ steps.validate.outputs.actual }} baseline=${{ steps.baseline.outputs.count }} set_status=${{ steps.validate.outputs.set_status }} actual_hash=${{ steps.validate.outputs.actual_hash }} baseline_hash=${{ steps.baseline.outputs.hash }}"
@@ -189,7 +194,7 @@ jobs:
       - name: Notify Slack (job failure)
         # Surface silent crashes (baseline read, validate-pins internal error,
         # Slack post failure) so the weekly report doesn't fail invisibly.
-        if: ${{ failure() && secrets.SLACK_WEBHOOK_OSS_ALERTS != '' }}
+        if: ${{ failure() && env.SLACK_WEBHOOK != '' }}
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
