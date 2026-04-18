@@ -3,7 +3,7 @@ import {
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { MastraAgent } from "@ag-ui/mastra";
+import { MastraAgent, getLocalAgent } from "@ag-ui/mastra";
 import { NextRequest } from "next/server";
 import { mastra } from "@/mastra";
 
@@ -34,20 +34,36 @@ const demoAgentNames = [
 ];
 
 function buildAgents() {
-  // resourceId is typed as required. We pass "" because these demo agents are
-  // stateless — scoping memory to an empty resource bucket is acceptable here.
-  // This is a behavioral change from the pre-aliasing code which omitted the
-  // field entirely; not a no-op.
-  const localAgents = MastraAgent.getLocalAgents({ mastra, resourceId: "" });
-  const weatherAgent = localAgents.weatherAgent;
-  if (!weatherAgent) {
+  // Mastra Memory requires a non-empty resourceId whenever a threadId is
+  // supplied (the CopilotKit runtime always supplies threadId). Passing an
+  // empty string causes Mastra to throw AGENT_MEMORY_MISSING_RESOURCE_ID on
+  // every chat turn, which breaks the agentic-chat and tool-rendering demos.
+  //
+  // Give each demo its own stable resourceId so working-memory buckets don't
+  // cross-contaminate between demos. `weatherAgent` keeps a baseline id for
+  // direct smoke-test traffic that hits the underlying agent name.
+  const localAgents = MastraAgent.getLocalAgents({
+    mastra,
+    resourceId: "mastra-weatherAgent",
+  });
+  if (!localAgents.weatherAgent) {
     throw new Error(
       "weatherAgent missing from Mastra config — required for demo aliases",
     );
   }
+  const demoAliases = Object.fromEntries(
+    demoAgentNames.map((name) => [
+      name,
+      getLocalAgent({
+        mastra,
+        agentId: "weatherAgent",
+        resourceId: `mastra-${name}`,
+      }),
+    ]),
+  );
   return {
     ...localAgents,
-    ...Object.fromEntries(demoAgentNames.map((name) => [name, weatherAgent])),
+    ...demoAliases,
   };
 }
 
