@@ -185,7 +185,20 @@ export function parseManifest(
   filePath: string,
   dirSlug?: string,
 ): ParsedManifest {
-  if (!fs.existsSync(filePath)) return { kind: "missing" };
+  // Use statSync instead of fs.existsSync so ENOENT and non-ENOENT
+  // errno values (EACCES, ENOTDIR, etc.) are distinguished. existsSync
+  // CONFLATES these: a manifest whose parent dir is 0700 owned by
+  // another user returns false from existsSync, which would collapse
+  // an infrastructure failure into a benign "missing" signal. The
+  // long docstring on probeDir in validate-parity.ts explains the
+  // same anti-pattern — the fix is to stat + inspect errno.
+  try {
+    fs.statSync(filePath);
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException)?.code;
+    if (code === "ENOENT") return { kind: "missing" };
+    return { kind: "unreadable", error: errMsg(e) };
+  }
 
   let raw: string;
   try {
