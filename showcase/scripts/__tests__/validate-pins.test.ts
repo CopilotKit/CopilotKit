@@ -404,7 +404,7 @@ describe("parsePyprojectToml", () => {
     });
   });
 
-  it("throws when `dependencies = \"malformed\"` is a string (wrong TOML type)", () => {
+  it('throws when `dependencies = "malformed"` is a string (wrong TOML type)', () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
       // `dependencies` is declared but as a string, not an array. The
