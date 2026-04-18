@@ -373,9 +373,7 @@ describe("parsePyprojectToml", () => {
           'key = "value"',
         ].join("\n"),
       );
-      expect(() => parsePyprojectTomlDetailed(file)).toThrow(
-        /empty DepMap/i,
-      );
+      expect(() => parsePyprojectTomlDetailed(file)).toThrow(/empty DepMap/i);
     });
   });
 });

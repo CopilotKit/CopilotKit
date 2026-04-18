@@ -448,8 +448,7 @@ describe("findExamplesSource", () => {
     expect(r).toBeNull();
     expect(
       sink.some(
-        (w) =>
-          w.includes("exists but is not a directory") && w.includes(full),
+        (w) => w.includes("exists but is not a directory") && w.includes(full),
       ),
       `expected file-not-dir warning for ${full} in sink: ${JSON.stringify(sink)}`,
     ).toBe(true);
