@@ -1405,11 +1405,32 @@ function validateAll(): Report {
     );
   }
 
-  const slugs = fs
-    .readdirSync(PACKAGES_DIR, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
-    .map((d) => d.name)
-    .sort();
+  // readdirSync can fail independently of the statSync above (TOCTOU:
+  // perms or mount state can change between the two calls, and EIO /
+  // ENOTDIR / EACCES are all observable here). Without this wrapper the
+  // error propagates to the top-level catch as a generic Error and is
+  // misrouted to EXIT_INTERNAL (2). We convert infra-class errno codes
+  // into UnreadableInputError so they route to EXIT_UNREADABLE (3),
+  // preserving the same taxonomy as the statSync branch above.
+  let slugs: string[];
+  try {
+    slugs = fs
+      .readdirSync(PACKAGES_DIR, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+      .sort();
+  } catch (e) {
+    const err = e as NodeJS.ErrnoException;
+    const code = err?.code ?? "unknown";
+    const msg = err?.message ?? String(e);
+    // All readdir failures here are infra-class (we already passed the
+    // stat + isDirectory guard above, so the dir did exist and was a
+    // directory). Route to EXIT_UNREADABLE (3) so CI distinguishes
+    // perms/mount state from a validator crash.
+    throw new UnreadableInputError(
+      `Packages dir readdir failed (${code}): ${PACKAGES_DIR}: ${msg}`,
+    );
+  }
 
   // Empty packages dir is the same class of error as missing — the
   // validator produced no results, so we fail loudly rather than exit 0.
