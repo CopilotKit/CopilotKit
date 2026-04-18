@@ -3,7 +3,6 @@ title: State Rendering
 icon: "lucide/Bot"
 description: Render the state of your agent with custom UI components.
 ---
-
 <IframeSwitcher
   id="agent-state-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/aws-strands/feature/agentic_generative_ui?sidebar=false&chatDefaultOpen=false"
@@ -35,6 +34,8 @@ is a situation where a user and an agent are working together to solve a problem
     Configure your Strands agent to maintain state. Here's an example that tracks searches:
 
     ```python title="agent/main.py"
+    import os
+    import json
     from ag_ui_strands import StrandsAgent, StrandsAgentConfig, ToolBehavior, create_strands_app
     from strands import Agent, tool
     from strands.models.openai import OpenAIModel
@@ -84,7 +85,7 @@ is a situation where a user and an agent are working together to solve a problem
 
     agui_agent = StrandsAgent(
         agent=strands_agent,
-        name="searchAgent",
+        name="strands_agent",
         description="A helpful assistant for storing searches",
         config=config,
     )
@@ -100,6 +101,7 @@ is a situation where a user and an agent are working together to solve a problem
 
     ```tsx title="app/page.tsx"
     // ...
+    import { useAgent } from "@copilotkit/react-core/v2";
     // ...
 
     // Define the state of the agent, should match the state schema of your Strands Agent.
@@ -116,7 +118,7 @@ is a situation where a user and an agent are working together to solve a problem
       // [!code highlight:13]
       // styles omitted for brevity
       useAgent({
-        agentId: "searchAgent",
+        agentId: "strands_agent",
         render: ({ state }) => (
           <div>
             {state.searches?.map((search, index) => (
@@ -146,6 +148,7 @@ is a situation where a user and an agent are working together to solve a problem
     other than the chat.
 
     ```tsx title="app/page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
     // ...
 
     // Define the state of the agent, should match the state schema of your Strands Agent.
@@ -161,7 +164,7 @@ is a situation where a user and an agent are working together to solve a problem
 
       // [!code highlight:3]
       const { agent } = useAgent({
-        agentId: "searchAgent",
+        agentId: "strands_agent",
       })
 
       // ...
@@ -201,6 +204,5 @@ is a situation where a user and an agent are working together to solve a problem
       autoPlay
       muted
     />
-
   </Step>
 </Steps>
