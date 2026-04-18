@@ -346,7 +346,9 @@ function countFiles(
     return { state: "ok", count };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    process.stderr.write(`audit: could not read ${dir}: ${msg}\n`);
+    // Do NOT write to stderr here — the caller (auditPackage) pushes an
+    // `unreadable-dir` anomaly which is rendered by renderAnomalySection
+    // (single source of truth). Writing here would double-emit.
     return { state: "unreadable", error: msg };
   }
 }
@@ -493,7 +495,7 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
   // read it through `p.manifest.kind === "ok" ? p.manifest.manifest.deployed : undefined`
   // so the manifest variant is the single source of truth.
   const demosDeclared =
-    manifestRes.kind === "ok" ? (manifestRes.manifest.demos?.length ?? 0) : 0;
+    manifestRes.kind === "ok" ? manifestRes.manifest.demos.length : 0;
 
   // Accumulate anomalies in a local array, then hand the frozen snapshot
   // to the PackageAudit below. Deriving the final shape in one place
@@ -1388,9 +1390,14 @@ function main(): void {
  * Uses `fs.realpathSync` so a symlink to audit.ts (e.g. a globally
  * linked CLI, or a node_modules symlink hop under pnpm) on either side
  * of the comparison still matches the canonical source path. Falls back
- * to `path.resolve` when `realpathSync` fails (e.g. the path doesn't
- * exist on disk — which can legitimately happen during some test
- * harness setups that hand a synthetic argv[0]).
+ * to the `path.resolve`-d path when `realpathSync` fails.
+ *
+ * Failure modes:
+ * - ENOENT: silent fallback (legitimate — some test harnesses hand a
+ *   synthetic argv[0] that doesn't exist on disk).
+ * - Non-ENOENT errno errors (e.g. EACCES, ELOOP): emit a stderr
+ *   diagnostic before falling back to the uncanonicalized resolved
+ *   path, so unusual filesystem conditions aren't swallowed.
  */
 function canonicalizeForIsMain(p: string): string {
   const resolved = path.resolve(p);
