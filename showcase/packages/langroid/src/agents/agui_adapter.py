@@ -136,6 +136,28 @@ async def handle_run(request: Request) -> StreamingResponse:
             if tool_name not in FRONTEND_TOOL_NAMES:
                 result = await asyncio.to_thread(tool_msg.handle)
 
+                # AG-UI protocol requires TextMessageContentEvent.delta to be
+                # non-empty; skip the whole text-message block if the tool
+                # handler returned nothing.
+                if result:
+                    yield _sse_line(TextMessageStartEvent(
+                        type=EventType.TEXT_MESSAGE_START,
+                        message_id=message_id,
+                    ))
+                    yield _sse_line(TextMessageContentEvent(
+                        type=EventType.TEXT_MESSAGE_CONTENT,
+                        message_id=message_id,
+                        delta=result,
+                    ))
+                    yield _sse_line(TextMessageEndEvent(
+                        type=EventType.TEXT_MESSAGE_END,
+                        message_id=message_id,
+                    ))
+        else:
+            # Plain text response — stream it. AG-UI requires a non-empty
+            # delta, so skip emission when the LLM returned no text (e.g.
+            # a pure tool-call turn where content was stripped to "").
+            if content:
                 yield _sse_line(TextMessageStartEvent(
                     type=EventType.TEXT_MESSAGE_START,
                     message_id=message_id,
@@ -143,27 +165,12 @@ async def handle_run(request: Request) -> StreamingResponse:
                 yield _sse_line(TextMessageContentEvent(
                     type=EventType.TEXT_MESSAGE_CONTENT,
                     message_id=message_id,
-                    delta=result,
+                    delta=content,
                 ))
                 yield _sse_line(TextMessageEndEvent(
                     type=EventType.TEXT_MESSAGE_END,
                     message_id=message_id,
                 ))
-        else:
-            # Plain text response — stream it
-            yield _sse_line(TextMessageStartEvent(
-                type=EventType.TEXT_MESSAGE_START,
-                message_id=message_id,
-            ))
-            yield _sse_line(TextMessageContentEvent(
-                type=EventType.TEXT_MESSAGE_CONTENT,
-                message_id=message_id,
-                delta=content,
-            ))
-            yield _sse_line(TextMessageEndEvent(
-                type=EventType.TEXT_MESSAGE_END,
-                message_id=message_id,
-            ))
 
         # RUN_FINISHED
         yield _sse_line(RunFinishedEvent(
