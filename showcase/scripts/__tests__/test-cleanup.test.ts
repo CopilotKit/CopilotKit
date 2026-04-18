@@ -37,23 +37,29 @@ function cleanGitEnv(): NodeJS.ProcessEnv {
   return out;
 }
 
+/** Exec options shared by every `git` subprocess spawned from this test file.
+ *  Stdio is explicitly piped (not inherited) so child stdout/stderr can't
+ *  interleave with the vitest worker's stdio streams — inherited stdio on a
+ *  thread/fork vitest worker disrupts the worker→parent RPC channel on Node
+ *  20 and surfaces as "Timeout calling onTaskUpdate" during teardown. */
+const TEST_GIT_STDIO = ["ignore", "pipe", "pipe"] as const;
+
 function mkTmpRepo(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "test-cleanup-"));
   const env = cleanGitEnv();
-  execFileSync("git", ["init", "-q"], { cwd: dir, env });
-  execFileSync("git", ["config", "user.email", "t@t"], { cwd: dir, env });
-  execFileSync("git", ["config", "user.name", "t"], { cwd: dir, env });
-  execFileSync("git", ["config", "commit.gpgsign", "false"], {
-    cwd: dir,
-    env,
-  });
+  const opts = { cwd: dir, env, stdio: TEST_GIT_STDIO } as const;
+  execFileSync("git", ["init", "-q"], opts);
+  execFileSync("git", ["config", "user.email", "t@t"], opts);
+  execFileSync("git", ["config", "user.name", "t"], opts);
+  execFileSync("git", ["config", "commit.gpgsign", "false"], opts);
   return dir;
 }
 
 function commitAll(repo: string, msg: string): void {
   const env = cleanGitEnv();
-  execFileSync("git", ["add", "-A"], { cwd: repo, env });
-  execFileSync("git", ["commit", "-q", "-m", msg], { cwd: repo, env });
+  const opts = { cwd: repo, env, stdio: TEST_GIT_STDIO } as const;
+  execFileSync("git", ["add", "-A"], opts);
+  execFileSync("git", ["commit", "-q", "-m", msg], opts);
 }
 
 describe("FileSnapshotRestorer", () => {
@@ -367,16 +373,14 @@ describe("restoreFromGitHead: narrow catch in partitionTrackedPaths", () => {
     const repo = fs.mkdtempSync(path.join(os.tmpdir(), "fsr-nogit-"));
     try {
       const env = cleanGitEnv();
-      execFileSync("git", ["init", "-q"], { cwd: repo, env });
+      const opts = { cwd: repo, env, stdio: TEST_GIT_STDIO } as const;
+      execFileSync("git", ["init", "-q"], opts);
       fs.writeFileSync(path.join(repo, "a.txt"), "x");
-      execFileSync("git", ["config", "user.email", "t@t"], { cwd: repo, env });
-      execFileSync("git", ["config", "user.name", "t"], { cwd: repo, env });
-      execFileSync("git", ["config", "commit.gpgsign", "false"], {
-        cwd: repo,
-        env,
-      });
-      execFileSync("git", ["add", "-A"], { cwd: repo, env });
-      execFileSync("git", ["commit", "-q", "-m", "init"], { cwd: repo, env });
+      execFileSync("git", ["config", "user.email", "t@t"], opts);
+      execFileSync("git", ["config", "user.name", "t"], opts);
+      execFileSync("git", ["config", "commit.gpgsign", "false"], opts);
+      execFileSync("git", ["add", "-A"], opts);
+      execFileSync("git", ["commit", "-q", "-m", "init"], opts);
 
       // Force PATH to an empty dir so the spawned `git` fails with ENOENT.
       // Before the CR5 fix, `partitionTrackedPaths` swallowed ENOENT and
