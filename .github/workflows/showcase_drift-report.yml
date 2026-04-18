@@ -18,8 +18,10 @@ on:
     - cron: "0 10 * * 1"
   workflow_dispatch:
 
+# id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   report:
