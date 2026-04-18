@@ -36,6 +36,7 @@ import {
   HEADER_COLUMNS,
   formatRow,
   buildHeader,
+  routeToDirName,
   type PackageIssue,
 } from "../validate-parity.js";
 
@@ -469,6 +470,64 @@ describe("validate-parity", () => {
         });
         const report = auditPackage("route-split", tmp);
         // No missing-demo-dir MUST error: route-resolved dir "hitl" exists.
+        expect(
+          report.mustErrors.filter((e) => e.category === "missing-demo-dir"),
+        ).toEqual([]);
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("reports missing-demo-dir whose expectedDir is route-derived (not demo.id) when route exists and dir is missing", () => {
+      // Negative-case regression for the route-based resolution: when the
+      // manifest specifies demo.route, the MUST error's expectedDir must be
+      // derived from the route (not from demo.id). Otherwise a rename where
+      // id and route diverge produces a misleading error pointing at a
+      // directory that was never the intended target.
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-route-miss-"));
+      try {
+        writeFixturePackage(tmp, "route-missdir", {
+          manifest:
+            "slug: route-missdir\ndemos:\n  - id: hitl-in-chat\n    route: /demos/hitl\n",
+          // Intentionally create a directory that matches the catalog id but
+          // NOT the route. Without route-aware resolution, the walker would
+          // see "hitl-in-chat/" and pass; the fix makes it look for "hitl/"
+          // which is absent, surfacing the real drift.
+          demoDirs: ["hitl-in-chat"],
+          specFiles: ["hitl-in-chat.spec.ts"],
+          qaFiles: ["hitl-in-chat.md"],
+        });
+        const report = auditPackage("route-missdir", tmp);
+        const missing = report.mustErrors.filter(
+          (e) => e.category === "missing-demo-dir",
+        );
+        expect(missing.length).toBe(1);
+        // The issue carries the structured fields, not just a rendered line;
+        // assert the route-derived expectedDir is what we expect.
+        const issue = missing[0];
+        if (issue.category === "missing-demo-dir") {
+          expect(issue.demoId).toBe("hitl-in-chat");
+          expect(issue.expectedDir).toBe("hitl");
+        }
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("falls back to demo.id for directory resolution when route is omitted", () => {
+      // Fallback-path regression: without demo.route, the resolver must use
+      // demo.id as the expectedDir (pre-route-field behaviour). A demo whose
+      // id matches the on-disk dir must pass clean with no missing-demo-dir
+      // error even though no route field is declared.
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "parity-route-fall-"));
+      try {
+        writeFixturePackage(tmp, "route-fallback", {
+          manifest: "slug: route-fallback\ndemos:\n  - id: agentic-chat\n",
+          demoDirs: ["agentic-chat"],
+          specFiles: ["agentic-chat.spec.ts"],
+          qaFiles: ["agentic-chat.md"],
+        });
+        const report = auditPackage("route-fallback", tmp);
         expect(
           report.mustErrors.filter((e) => e.category === "missing-demo-dir"),
         ).toEqual([]);
@@ -2277,5 +2336,24 @@ Object.freeze = function(o) {
         fs.rmSync(root, { recursive: true, force: true });
       }
     });
+  });
+});
+
+describe("routeToDirName", () => {
+  // Minimal branch coverage for the exported helper. Paired with the
+  // fixture-based tests above that exercise it through auditPackage; these
+  // nail down the three input branches without the parity-walk overhead.
+
+  it("returns undefined when route is undefined", () => {
+    expect(routeToDirName(undefined)).toBeUndefined();
+  });
+
+  it("returns undefined for a bare /demos/ with no tail segment", () => {
+    expect(routeToDirName("/demos/")).toBeUndefined();
+  });
+
+  it("strips the /demos/ prefix and returns the tail segment", () => {
+    expect(routeToDirName("/demos/hitl")).toBe("hitl");
+    expect(routeToDirName("/demos/agentic-chat")).toBe("agentic-chat");
   });
 });
