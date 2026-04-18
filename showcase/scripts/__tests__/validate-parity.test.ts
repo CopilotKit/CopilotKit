@@ -1251,6 +1251,44 @@ describe("validate-parity", () => {
       expect(result.warnings).toEqual([]);
     });
 
+    it("listDirs surfaces ENOTDIR (path component is a file) as listing-failed, not silent 'missing'", () => {
+      // Regression: ENOTDIR means "a component in the path is a
+      // regular file, not a directory" — e.g. someone committed a
+      // stray file at packages/foo/tests and we try to walk into
+      // packages/foo/tests/e2e. That's a misconfiguration (not a
+      // legitimately-absent directory), and collapsing it into
+      // { kind: "missing" } silently drops the entire subtree from
+      // parity checks with zero warning, zero anomaly surfaced.
+      // Contract: ENOTDIR must produce a listing-failed warning so
+      // the caller can escalate (unreadable-*-dir / listing-failed).
+      const stray = path.join(tmpDir, "stray-file");
+      fs.writeFileSync(stray, "not a directory", "utf-8");
+      // Probe a path that tries to descend *through* the regular
+      // file — statSync on "stray-file/e2e" throws ENOTDIR because
+      // a path component (stray-file) isn't a directory.
+      const target = path.join(stray, "e2e");
+      const result = listDirs(target);
+      expect(result.entries).toEqual([]);
+      expect(result.warnings.length, JSON.stringify(result)).toBe(1);
+      expect(result.warnings[0].category).toBe("listing-failed");
+      expect(result.warnings[0].path).toBe(target);
+      expect(deriveMessage(result.warnings[0])).toMatch(/ENOTDIR/);
+    });
+
+    it("listFiles surfaces ENOTDIR (path component is a file) as listing-failed, not silent 'missing'", () => {
+      // Same contract as listDirs above. ENOTDIR from a non-dir path
+      // component is a misconfiguration signal, not "missing".
+      const stray = path.join(tmpDir, "stray-file-files");
+      fs.writeFileSync(stray, "not a directory", "utf-8");
+      const target = path.join(stray, "specs");
+      const result = listFiles(target, ".md");
+      expect(result.entries).toEqual([]);
+      expect(result.warnings.length, JSON.stringify(result)).toBe(1);
+      expect(result.warnings[0].category).toBe("listing-failed");
+      expect(result.warnings[0].path).toBe(target);
+      expect(deriveMessage(result.warnings[0])).toMatch(/ENOTDIR/);
+    });
+
     it("listDirs / listFiles return results in sorted order", () => {
       // Filesystems don't guarantee iteration order, so auditPackage's
       // reports could flake without explicit sorting. Pin sorted output.
