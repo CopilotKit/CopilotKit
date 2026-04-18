@@ -371,6 +371,15 @@ type RegistryIntegration = (typeof registry)["integrations"][number];
 
 const STARTER_SLUG = process.env.STARTER_SLUG;
 
+// Registry uses integration-level `deployed` as the single deployment flag.
+// An earlier iteration had `starter.deployed` as a per-starter override, but
+// the manifest→registry bundler (showcase/scripts/bundle-demo-content.ts +
+// generate-registry.ts) doesn't carry that field forward from the source YAML
+// manifests, so any value written there is dropped on regen. Gating on
+// `i.deployed === true` matches how the INTEGRATIONS array above filters
+// `activeIntegrations` and keeps both filters anchored to the same source of
+// truth. Without this, the Deployed Starters describe block yields zero tests
+// and Playwright's --grep fails with "No tests found."
 const STARTERS: Starter[] = registry.integrations
   .filter(
     (
@@ -380,7 +389,7 @@ const STARTERS: Starter[] = registry.integrations
     } =>
       Boolean(i.starter?.demo_url) &&
       (!STARTER_SLUG || i.slug === STARTER_SLUG) &&
-      (SMOKE_ALL || i.starter?.deployed === true),
+      (SMOKE_ALL || i.deployed === true),
   )
   .map((i) => ({
     slug: i.slug,
