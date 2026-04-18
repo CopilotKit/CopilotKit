@@ -59,16 +59,13 @@ jobs:
           elif [ $EXIT_CODE -eq 3 ]; then
             echo "Has review items + clean transforms"
             echo "action=push_and_pr" >> "$GITHUB_OUTPUT"
-            if [ -f review-items.txt ]; then
-              REVIEW_ITEMS=$(cat review-items.txt)
-            else
+            # The sync script writes review-items.txt and emits
+            # review_items_file=<abs-path> directly to GITHUB_OUTPUT.
+            # Verify the file actually exists so downstream steps don't
+            # silently read an empty path.
+            if [ ! -f review-items.txt ]; then
               echo "::warning::review-items.txt not found despite exit code 3 — sync script may have a bug"
-              REVIEW_ITEMS="(review-items.txt not found — check sync script output)"
             fi
-            # Persist review items to a file for downstream jq-based payload building
-            # (avoids unsafe string interpolation of untrusted filenames into JSON).
-            printf '%s' "$REVIEW_ITEMS" > review-items-raw.txt
-            echo "review_items_file=review-items-raw.txt" >> "$GITHUB_OUTPUT"
           else
             echo "Sync failed with exit code $EXIT_CODE"
             exit 1
@@ -83,20 +80,111 @@ jobs:
           app-id: 1108748
           private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
 
-      # Create PR and auto-merge via devops bot (bypasses branch protection)
-      - name: Create and merge PR for clean transforms
+      # Create PR. For action=auto_push (no review items) the PR is
+      # auto-merged via the devops bot (bypasses branch protection). For
+      # action=push_and_pr the sync script has already written best-effort
+      # 3-way merged content to disk — this step commits it and opens a PR
+      # tagged [NEEDS REVIEW]. Auto-merge is DISABLED for needs-review PRs
+      # so a human reconciles any upstream-wins overrides.
+      - name: Create PR for docs sync
         id: push
         if: steps.sync.outputs.action == 'auto_push' || steps.sync.outputs.action == 'push_and_pr'
         env:
           GH_TOKEN: ${{ steps.bot-token.outputs.token }}
+          ACTION: ${{ steps.sync.outputs.action }}
+          REVIEW_ITEMS_FILE: ${{ steps.sync.outputs.review_items_file }}
         run: |
+          # Trap-based cleanup so temp files are removed even on signal kill.
+          CLEANUP_FILES=()
+          cleanup() {
+            for f in "${CLEANUP_FILES[@]}"; do
+              [ -n "$f" ] && [ -e "$f" ] && rm -f "$f" || true
+            done
+          }
+          trap cleanup EXIT INT TERM
+
           git config user.name "copilotkit-devops-bot[bot]"
           git config user.email "copilotkit-devops-bot[bot]@users.noreply.github.com"
 
           SHORT_SHA=$(git rev-parse --short origin/main)
-          BRANCH="docs-sync/auto/${SHORT_SHA}-$(date +%s)"
+          if [ "$ACTION" = "push_and_pr" ]; then
+            # Dedupe against open needs-review PRs. If one already exists,
+            # skip PR creation and let the Slack alert point at the existing
+            # one (simpler than re-pushing to its branch).
+            #
+            # NOTE: `gh pr list --search "head:..."` is NOT supported —
+            # GitHub's PR search syntax has no `head:` qualifier, so that
+            # query always returns empty. Use jq on the full list instead
+            # to filter by headRefName prefix client-side.
+            # Fail the step on gh API failure rather than swallowing it —
+            # `|| echo ""` would silently treat a transient 5xx as "no
+            # existing PR" and open a duplicate. Retry once with backoff
+            # to absorb blips; if both attempts fail, exit non-zero.
+            gh_pr_list_existing() {
+              gh pr list \
+                --state open \
+                --base "$SHOWCASE_BRANCH" \
+                --json number,url,headRefName \
+                --jq '[.[] | select(.headRefName | startswith("docs-sync/needs-review/"))] | .[0].url'
+            }
+            if ! EXISTING_PR=$(gh_pr_list_existing 2>gh-err.txt); then
+              echo "::warning::gh pr list failed on first attempt — retrying after 5s"
+              cat gh-err.txt || true
+              sleep 5
+              if ! EXISTING_PR=$(gh_pr_list_existing 2>gh-err.txt); then
+                echo "::error::gh pr list failed twice — aborting to avoid duplicate PR creation"
+                cat gh-err.txt || true
+                rm -f gh-err.txt
+                exit 1
+              fi
+            fi
+            rm -f gh-err.txt
+            if [ -n "$EXISTING_PR" ]; then
+              echo "Open needs-review PR already exists: $EXISTING_PR"
+              echo "Skipping new PR — Slack alert will point at the existing one."
+              echo "files_changed=0" >> "$GITHUB_OUTPUT"
+              echo "pr_url=${EXISTING_PR}" >> "$GITHUB_OUTPUT"
+              echo "pr_opened=false" >> "$GITHUB_OUTPUT"
+              echo "needs_review=true" >> "$GITHUB_OUTPUT"
+              echo "existing_pr=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            BRANCH="docs-sync/needs-review/${SHORT_SHA}-$(date +%s)"
+            COMMIT_SUBJECT="chore: docs sync from main — needs review ($(date +%Y-%m-%d))"
+          else
+            BRANCH="docs-sync/auto/${SHORT_SHA}-$(date +%s)"
+            COMMIT_SUBJECT="chore: auto-sync docs from main ($(date +%Y-%m-%d))"
+          fi
 
           git checkout -b "$BRANCH"
+
+          # For push_and_pr: apply the conflict manifest FIRST (upstream-wins
+          # content for conflicted files, written ONLY to the PR branch so
+          # the main branch worktree stays as-is and future sync runs still
+          # flag those files for review until this PR is merged).
+          #
+          # CRITICAL: This MUST run BEFORE `git add` below. `git add` stages
+          # the current working tree, so any manifest files written after
+          # that point would be left un-staged and never make it into the
+          # commit.
+          if [ "$ACTION" = "push_and_pr" ] && [ -f conflict-manifest.json ]; then
+            CLEANUP_FILES+=("conflict-manifest.json")
+            node -e '
+              const fs = require("fs");
+              const path = require("path");
+              const manifest = JSON.parse(fs.readFileSync("conflict-manifest.json", "utf-8"));
+              for (const entry of manifest) {
+                const target = path.resolve(entry.showcasePath);
+                fs.mkdirSync(path.dirname(target), { recursive: true });
+                fs.writeFileSync(target, entry.content);
+                console.log("Applied upstream-wins to PR branch: " + entry.showcasePath);
+              }
+            '
+          fi
+
+          # Stage AFTER manifest has been applied so conflicted files land
+          # in the commit.
           git add showcase/shell/src/content/ showcase/shell/.docs-sync-sha
           CHANGED=$(git diff --cached --name-only | wc -l | tr -d ' ')
 
@@ -106,30 +194,93 @@ jobs:
             # Explicit signal: no PR opened, and this is the intended outcome
             # (not an error path). Downstream alerts key on this.
             echo "pr_opened=false" >> "$GITHUB_OUTPUT"
+            # Set needs_review explicitly so downstream `needs_review != 'true'`
+            # gates (notify-auto-sync) don't misfire on this deliberate
+            # no-op. Value depends on why we got here: push_and_pr path =
+            # review still pending; auto_push path = no review needed.
+            if [ "$ACTION" = "push_and_pr" ]; then
+              echo "needs_review=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "needs_review=false" >> "$GITHUB_OUTPUT"
+            fi
             exit 0
           fi
 
-          git commit --no-verify -m "chore: auto-sync docs from main ($(date +%Y-%m-%d))"
+          git commit --no-verify -m "$COMMIT_SUBJECT"
 
           # Override git credential to use bot token (checkout configured GITHUB_TOKEN)
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
           git push origin "$BRANCH"
 
-          PR_URL=$(gh pr create \
-            --title "chore: auto-sync docs from main (${SHORT_SHA})" \
-            --body "Automated docs sync. Clean transforms only." \
-            --base "$SHOWCASE_BRANCH" \
-            --head "$BRANCH")
+          if [ "$ACTION" = "push_and_pr" ]; then
+            # Build the PR body from review-items.txt plus a clear callout.
+            REVIEW_ITEMS_CONTENT="(no review-items file produced)"
+            if [ -n "${REVIEW_ITEMS_FILE:-}" ] && [ -f "$REVIEW_ITEMS_FILE" ]; then
+              REVIEW_ITEMS_CONTENT=$(cat "$REVIEW_ITEMS_FILE")
+            fi
+            PR_BODY_FILE=$(mktemp)
+            CLEANUP_FILES+=("$PR_BODY_FILE")
+            {
+              printf '%s\n' ':warning: **Docs sync — MANUAL REVIEW REQUIRED**'
+              printf '\n'
+              printf '%s\n' 'This PR was auto-opened because the docs-sync script detected'
+              printf '%s\n' 'showcase-local modifications overlapping with upstream changes.'
+              printf '\n'
+              printf '%s\n' 'The script attempted a best-effort 3-way merge:'
+              printf '\n'
+              printf '%s\n' '- Where `git merge-file` produced a clean merge, the merged content was written.'
+              printf '%s\n' '- Where `git merge-file` produced conflict markers, **upstream content was written as-is** and showcase-local modifications were overridden. **Manual review required.**'
+              printf '\n'
+              printf '%s\n' '### Review items'
+              printf '\n'
+              printf '%s\n' '```'
+              # printf '%s\n' avoids running command substitution / backticks
+              # embedded in review-items content (cat "$REVIEW_ITEMS_FILE"
+              # would also work; printf is equivalent here since we already
+              # captured the content).
+              printf '%s\n' "$REVIEW_ITEMS_CONTENT"
+              printf '%s\n' '```'
+              printf '\n'
+              printf '%s\n' '### Source'
+              printf '\n'
+              printf '%s\n' "- Upstream ref: [\`${SHORT_SHA}\`](https://github.com/${{ github.repository }}/commit/${SHORT_SHA})"
+              printf '%s\n' "- Workflow run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              printf '\n'
+              printf '%s\n' '**Review before merging.** Auto-merge is intentionally disabled'
+              printf '%s\n' 'for `needs-review` PRs — confirm the upstream-wins sections'
+              printf '%s\n' 'preserve any intentional showcase-local divergence you want to'
+              printf '%s\n' 'keep, then merge manually.'
+            } > "$PR_BODY_FILE"
 
-          echo "Created PR: $PR_URL"
-          echo "files_changed=${CHANGED}" >> "$GITHUB_OUTPUT"
-          echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
-          # Only set pr_opened=true after the PR URL is captured. Any earlier
-          # failure (push, gh pr create) will leave this unset so downstream
-          # alerts fall through to failure() instead of a falsely-benign path.
-          echo "pr_opened=true" >> "$GITHUB_OUTPUT"
+            PR_URL=$(gh pr create \
+              --title "docs-sync(needs-review): sync from main (${SHORT_SHA}) [NEEDS REVIEW]" \
+              --body-file "$PR_BODY_FILE" \
+              --base "$SHOWCASE_BRANCH" \
+              --head "$BRANCH")
 
-          gh pr merge "$PR_URL" --merge
+            echo "Created NEEDS-REVIEW PR: $PR_URL"
+            echo "files_changed=${CHANGED}" >> "$GITHUB_OUTPUT"
+            echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
+            # Only set after URL captured — error paths leave this unset so
+            # downstream alerts fall through to failure().
+            echo "pr_opened=true" >> "$GITHUB_OUTPUT"
+            echo "needs_review=true" >> "$GITHUB_OUTPUT"
+            # Intentionally no `gh pr merge` — human must review & merge.
+          else
+            PR_URL=$(gh pr create \
+              --title "chore: auto-sync docs from main (${SHORT_SHA})" \
+              --body "Automated docs sync. Clean transforms / clean 3-way merges only." \
+              --base "$SHOWCASE_BRANCH" \
+              --head "$BRANCH")
+
+            echo "Created PR: $PR_URL"
+            echo "files_changed=${CHANGED}" >> "$GITHUB_OUTPUT"
+            echo "pr_url=${PR_URL}" >> "$GITHUB_OUTPUT"
+            echo "pr_opened=true" >> "$GITHUB_OUTPUT"
+            echo "needs_review=false" >> "$GITHUB_OUTPUT"
+
+            gh pr merge "$PR_URL" --merge
+          fi
 
       # Build all Slack payloads via jq into tmpfiles. This guarantees any
       # review-item filename containing ", \, or control chars is safely
@@ -174,13 +325,26 @@ jobs:
             --arg items "$REVIEW_ITEMS" \
             --arg pr_url "${PR_URL:-}" \
             --arg run_url "$RUN_URL" \
-            '{text: (":warning: *Docs sync*: files needing manual review\n```" + $items + "```\nReview: " + $pr_url + "\n<" + $run_url + "|View run>")}' \
+            '{text: (":warning: *Docs sync*: auto-opened *NEEDS REVIEW* PR (best-effort 3-way merge; upstream-wins where conflicts) — human must review + merge\n```" + $items + "```\nReview: " + $pr_url + "\n<" + $run_url + "|View run>")}' \
             > slack-payloads/review-with-pr.json
 
+          # Collision path: new review items flagged but an existing open
+          # needs-review PR already covers the territory; we did NOT open a
+          # new PR. Point reviewers at the existing one.
+          jq -n \
+            --arg items "$REVIEW_ITEMS" \
+            --arg pr_url "${PR_URL:-}" \
+            --arg run_url "$RUN_URL" \
+            '{text: (":warning: *Docs sync*: new review items detected, but an open *NEEDS REVIEW* PR already exists — skipped new PR creation to avoid collision. Please resolve the existing PR.\n```" + $items + "```\nExisting PR: " + $pr_url + "\n<" + $run_url + "|View run>")}' \
+            > slack-payloads/review-existing-pr.json
+
+          # Fallback path: review items flagged but no PR opened (e.g. 3-way
+          # merge produced bit-for-bit identical content to what's already on
+          # disk so nothing to commit). Keep an alert so it's visible.
           jq -n \
             --arg items "$REVIEW_ITEMS" \
             --arg run_url "$RUN_URL" \
-            '{text: (":warning: *Docs sync*: files needing manual review (no auto-PR opened)\n```" + $items + "```\n<" + $run_url + "|View run>")}' \
+            '{text: (":warning: *Docs sync*: review items flagged but produced no diff (no PR opened)\n```" + $items + "```\n<" + $run_url + "|View run>")}' \
             > slack-payloads/review-no-pr.json
 
           # failure alert
@@ -200,7 +364,7 @@ jobs:
 
       - name: Notify Slack (auto-sync)
         id: notify-auto-sync
-        if: always() && steps.push.outcome == 'success' && steps.push.outputs.files_changed != '0'
+        if: always() && steps.push.outcome == 'success' && steps.push.outputs.files_changed != '0' && steps.push.outputs.needs_review != 'true'
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
@@ -209,7 +373,7 @@ jobs:
 
       - name: Notify Slack (merge failed)
         id: notify-merge-failed
-        if: failure() && steps.push.outputs.pr_opened == 'true'
+        if: failure() && steps.push.outputs.pr_opened == 'true' && steps.push.outputs.needs_review != 'true'
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
@@ -223,7 +387,7 @@ jobs:
       # PR URL (not on any error path that leaves pr_url empty).
       - name: Notify Slack (review needed, with PR)
         id: notify-review-with-pr
-        if: always() && steps.sync.outputs.action == 'push_and_pr' && steps.push.outputs.pr_opened == 'true'
+        if: always() && steps.push.outputs.needs_review == 'true' && steps.push.outputs.pr_opened == 'true'
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
@@ -232,15 +396,27 @@ jobs:
 
       # Review items but the clean-transform portion was empty so no PR was
       # opened. Gated on pr_opened == 'false' (deliberate no-PR path) — not
-      # empty pr_url, which would also match error paths.
+      # empty pr_url, which would also match error paths. Explicitly excludes
+      # the existing-PR collision path, which gets its own step below.
       - name: Notify Slack (review needed, no PR)
         id: notify-review-no-pr
-        if: always() && steps.sync.outputs.action == 'push_and_pr' && steps.push.outputs.pr_opened == 'false'
+        if: always() && steps.sync.outputs.action == 'push_and_pr' && steps.push.outputs.pr_opened == 'false' && steps.push.outputs.existing_pr != 'true'
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload-file-path: slack-payloads/review-no-pr.json
+
+      # Collision path: new review items flagged but an existing open
+      # needs-review PR already exists — point reviewers at it.
+      - name: Notify Slack (review needed, existing PR)
+        id: notify-review-existing-pr
+        if: always() && steps.push.outputs.existing_pr == 'true'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload-file-path: slack-payloads/review-existing-pr.json
 
       - name: Notify Slack (failure)
         id: notify-failure
@@ -269,6 +445,7 @@ jobs:
             steps.notify-merge-failed.outcome == 'failure' ||
             steps.notify-review-with-pr.outcome == 'failure' ||
             steps.notify-review-no-pr.outcome == 'failure' ||
+            steps.notify-review-existing-pr.outcome == 'failure' ||
             steps.notify-failure.outcome == 'failure'
           )
         env:
