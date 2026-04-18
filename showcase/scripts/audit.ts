@@ -382,7 +382,24 @@ function countFiles(
   dir: string,
   extFilter: (name: string) => boolean,
 ): CountState {
-  if (!fs.existsSync(dir)) return { state: "missing" };
+  // Use statSync + errno branching instead of `fs.existsSync`. existsSync
+  // returns false for every statSync failure (ENOENT, EACCES, EPERM,
+  // ENOTDIR, EIO, ELOOP, …), so an unreadable dir would silently
+  // classify as `missing` (legitimate zero) and trigger phantom
+  // count-mismatch anomalies downstream. Branching on err.code lets
+  // ENOENT keep the "missing" classification while non-ENOENT errno
+  // conditions propagate as "unreadable" — the caller (auditPackage)
+  // turns that into an `unreadable-dir` anomaly. Mirrors probeDir in
+  // validate-parity.ts.
+  try {
+    fs.statSync(dir);
+  } catch (e) {
+    const code =
+      e instanceof Error ? (e as NodeJS.ErrnoException).code : undefined;
+    if (code === "ENOENT") return { state: "missing" };
+    const msg = e instanceof Error ? e.message : String(e);
+    return { state: "unreadable", error: msg };
+  }
   try {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     const count = entries.filter((d) => d.isFile() && extFilter(d.name)).length;
@@ -525,54 +542,62 @@ function resolveExamplesSource(
   let nonDirCount = 0;
   for (const candidate of candidates) {
     const full = path.join(cfg.examplesIntegrationsDir, candidate);
-    if (!fs.existsSync(full)) continue;
-    existedCount++;
+    // Do NOT gate on `fs.existsSync(full)`. existsSync returns false for
+    // every statSync failure — including EACCES/EPERM/EIO on a parent
+    // dir — not just ENOENT. With the old existsSync pre-check, an
+    // EACCES'd candidate was silently skipped (not counted in
+    // existedCount, not counted in unreadableCount), and when ALL
+    // mapped candidates were EACCES'd, the resolver returned
+    // `unreadableForSlug: false` and the package silently degraded to
+    // `missing-examples`. The fix: let statSync inside the try block
+    // be the sole source of truth. ENOENT → `continue` (absent);
+    // EACCES/other errno → increment unreadableCount AND push sink
+    // diagnostic so the infrastructure failure is visible.
+    let st: fs.Stats;
     try {
-      if (fs.statSync(full).isDirectory()) {
-        return {
-          source: path.relative(cfg.repoRoot, full),
-          unreadableForSlug: false,
-          nonDirectoryForSlug: false,
-        };
-      }
-      // Candidate exists but is not a directory (regular file /
-      // symlink-to-file / socket / FIFO). For BOTH mapped and unmapped
-      // slugs this is a misconfiguration — a stray entry in the
-      // integrations dir masquerading as the provenance target.
-      // Surface a per-candidate "exists but is not a directory"
-      // warning so operators see exactly which path is wrong, and for
-      // mapped slugs bump nonDirCount so auditPackage can route the
-      // `mapped-candidate-not-directory` anomaly instead of silently
-      // degrading to `missing-examples`.
-      sink.push(
-        `audit: warning: candidate path ${full} exists but is not a directory`,
-      );
-      if (mapped) nonDirCount++;
+      st = fs.statSync(full);
     } catch (e) {
       const errCode =
         e instanceof Error ? (e as NodeJS.ErrnoException).code : undefined;
       const msg = e instanceof Error ? e.message : String(e);
       if (errCode === "ENOENT") {
-        // TOCTOU race: existsSync saw the path, statSync didn't. The
-        // candidate effectively did not exist by the time we stat'd
-        // it — on a network filesystem with weak coherence, or the
-        // directory was removed between calls. Treat as a soft miss:
-        // back off `existedCount` and do NOT increment
-        // `unreadableCount`, so classification routes to
-        // missing-examples (stale mapping) rather than
-        // unreadable-examples (infrastructure failure). Emit a
-        // diagnostic so operators can see the race was handled.
-        existedCount--;
-        sink.push(`audit: warning: statSync(${full}) raced (ENOENT): ${msg}`);
+        // Absent candidate — stale mapping or never-existed. Do NOT
+        // bump existedCount or unreadableCount; classification will
+        // route to missing-examples (benign).
         continue;
       }
       // Real I/O / permission failure (EACCES / EIO / ELOOP / EPERM /
-      // EMFILE / ...) — record on the warnings sink so it doesn't
-      // disappear silently, increment unreadableCount, continue.
-      sink.push(`audit: warning: statSync(${full}) failed: ${msg}`);
+      // EMFILE / ENOTDIR / ...) — record on the warnings sink so it
+      // doesn't disappear silently, treat as "existed but unreadable"
+      // so `unreadableForSlug` fires when all mapped candidates land
+      // here.
+      existedCount++;
       unreadableCount++;
+      sink.push(`audit: warning: statSync(${full}) failed: ${msg}`);
       continue;
     }
+    // stat succeeded — the path resolves to something (dir or not).
+    existedCount++;
+    if (st.isDirectory()) {
+      return {
+        source: path.relative(cfg.repoRoot, full),
+        unreadableForSlug: false,
+        nonDirectoryForSlug: false,
+      };
+    }
+    // Candidate exists but is not a directory (regular file /
+    // symlink-to-file / socket / FIFO). For BOTH mapped and unmapped
+    // slugs this is a misconfiguration — a stray entry in the
+    // integrations dir masquerading as the provenance target.
+    // Surface a per-candidate "exists but is not a directory"
+    // warning so operators see exactly which path is wrong, and for
+    // mapped slugs bump nonDirCount so auditPackage can route the
+    // `mapped-candidate-not-directory` anomaly instead of silently
+    // degrading to `missing-examples`.
+    sink.push(
+      `audit: warning: candidate path ${full} exists but is not a directory`,
+    );
+    if (mapped) nonDirCount++;
   }
   // Critical: mapped slug with multiple candidates that ALL exist but
   // ALL failed with fs errors. We can't tell whether the provenance is
@@ -994,14 +1019,19 @@ function renderAnomalySection(report: AuditReport): string {
     for (const slug of unreadable) {
       const p = bySlug.get(slug);
       // Prefer the first I/O-category anomaly on the package — any of
-      // unreadable-dir / unreadable-manifest / unreadable-examples may
-      // be present; render whichever we find first.
+      // unreadable-dir / unreadable-manifest / unreadable-examples /
+      // mapped-candidate-not-directory may be present; render whichever
+      // we find first. `mapped-candidate-not-directory` is included here
+      // (rather than under missing-examples) because it's a
+      // misconfiguration of the integrations dir (a stray file where a
+      // directory should be), not a legitimately-absent provenance link.
       const reason =
         p?.anomalies.find(
           (a) =>
             a.kind === "unreadable-dir" ||
             a.kind === "unreadable-manifest" ||
-            a.kind === "unreadable-examples",
+            a.kind === "unreadable-examples" ||
+            a.kind === "mapped-candidate-not-directory",
         ) ?? null;
       const msg = reason ? anomalyMessage(reason) : "could not read";
       lines.push(`    - ${slug}: ${msg}`);
@@ -1139,6 +1169,70 @@ function computeExitCode(input: {
   return EXIT_OK;
 }
 
+/**
+ * Bucket names used by the `AuditReport.anomalies` object. Keeping this
+ * as a string-literal union — rather than free-form strings — lets
+ * `bucketFor` below drive an exhaustive `switch(a.kind)` that turns
+ * "adding a new Anomaly variant and forgetting to route it" into a
+ * compile-time error in buildReport, rather than the silent "invisible
+ * in every bucket" runtime footgun that hid `mapped-candidate-not-directory`
+ * for a full release cycle.
+ */
+type BucketName =
+  | "countMismatches"
+  | "notDeployed"
+  | "missingExamples"
+  | "missingManifest"
+  | "malformedManifest"
+  | "unreadable";
+
+/**
+ * Map an Anomaly to its corresponding bucket in `AuditReport.anomalies`.
+ * The compiler enforces exhaustiveness via the `never` branch — a newly
+ * added Anomaly variant that is NOT routed here will fail the build
+ * instead of silently falling through unrouted (and thus unrendered by
+ * renderAnomalySection, which is what happened with FX32-A).
+ *
+ * Routing rationale:
+ * - `mapped-candidate-not-directory` is a MISCONFIGURATION of the
+ *   integrations directory (a stray file where a directory should be);
+ *   it's closer to "infrastructure is wrong" than "content is absent",
+ *   so it lands in `unreadable` alongside the other I/O-category
+ *   anomalies rather than `missingExamples` (where it would imply the
+ *   provenance is legitimately absent).
+ * - `missing-examples` is ONLY for actually-absent mapped candidates
+ *   (stale SLUG_TO_EXAMPLES entry, never-existed path).
+ */
+function bucketFor(a: Anomaly): BucketName {
+  switch (a.kind) {
+    case "count-mismatch":
+      return "countMismatches";
+    case "not-deployed":
+      return "notDeployed";
+    case "missing-examples":
+      return "missingExamples";
+    case "missing-manifest":
+      return "missingManifest";
+    case "malformed-manifest":
+      return "malformedManifest";
+    case "unreadable-dir":
+    case "unreadable-manifest":
+    case "unreadable-examples":
+    case "mapped-candidate-not-directory":
+      return "unreadable";
+    default: {
+      // Exhaustiveness guard. If a new Anomaly kind is added above and
+      // not routed here, this assignment fails to compile — forcing
+      // the author to decide which bucket it belongs to (or add a new
+      // one) rather than silently producing an invisible anomaly.
+      const _exhaustive: never = a;
+      throw new Error(
+        `bucketFor: unrouted Anomaly kind ${JSON.stringify(_exhaustive)}`,
+      );
+    }
+  }
+}
+
 function buildReport(
   slugs: string[],
   cfg: AuditConfig,
@@ -1146,8 +1240,13 @@ function buildReport(
 ): AuditReport {
   const packages = slugs.map((s) => auditPackage(s, cfg));
 
-  // Classify via tagged-union `Anomaly.kind` for stable, typo-proof
-  // bucket routing.
+  // Classify via tagged-union `Anomaly.kind` through the exhaustive
+  // `bucketFor` helper — a new Anomaly variant that isn't routed fails
+  // to compile instead of silently disappearing from every bucket
+  // (the original FX32-A regression). Each bucket collects unique
+  // slugs; buckets deliberately overlap (a package with both a count
+  // mismatch and not-deployed appears in both), so we de-duplicate
+  // per-bucket via a Set.
   //
   // Invariant: auditPackage only emits a count-mismatch anomaly when
   // the underlying count is readable (see `specCount !== null` /
@@ -1155,45 +1254,62 @@ function buildReport(
   // `count-mismatch` anomaly in `p.anomalies` already implies the
   // relevant dimension was readable, so no secondary suppression is
   // needed here.
-  const countMismatches = packages
-    .filter((p) => p.manifest.kind === "ok")
-    .filter((p) => p.anomalies.some((a) => a.kind === "count-mismatch"))
-    .map((p) => p.slug);
+  const bucketSets: Record<BucketName, Set<string>> = {
+    countMismatches: new Set(),
+    notDeployed: new Set(),
+    missingExamples: new Set(),
+    missingManifest: new Set(),
+    malformedManifest: new Set(),
+    unreadable: new Set(),
+  };
+  for (const p of packages) {
+    for (const a of p.anomalies) {
+      bucketSets[bucketFor(a)].add(p.slug);
+    }
+    // The `missing-examples` bucket must also include packages whose
+    // `examplesSource === null` but who do NOT carry a `missing-examples`
+    // Anomaly — e.g. packages with no manifest, where the Anomaly list
+    // short-circuits before the examples check. Prior behavior derived
+    // this bucket from `p.examplesSource === null && p.manifest.kind === "ok"`;
+    // preserved here so JSON consumers relying on it don't regress.
+    if (
+      p.manifest.kind === "ok" &&
+      p.examplesSource === null &&
+      !BORN_IN_SHOWCASE.has(p.slug)
+    ) {
+      // Only add to missingExamples when the package did NOT already get
+      // routed into unreadable via a mapped-candidate-not-directory or
+      // unreadable-examples Anomaly. This keeps the old "missing-examples
+      // vs unreadable" split stable for JSON consumers.
+      const routedElsewhere =
+        bucketSets.unreadable.has(p.slug) &&
+        p.anomalies.some(
+          (x) =>
+            x.kind === "mapped-candidate-not-directory" ||
+            x.kind === "unreadable-examples",
+        );
+      if (!routedElsewhere) {
+        bucketSets.missingExamples.add(p.slug);
+      }
+    }
+  }
+  const countMismatches = [...bucketSets.countMismatches];
   // `deployed` is read through the manifest variant — the single
   // source of truth. A package with no manifest or a malformed one is
   // surfaced via its own anomaly and does not double-count here.
-  const notDeployed = packages
-    .filter(
-      (p) => p.manifest.kind === "ok" && p.manifest.manifest.deployed !== true,
-    )
-    .map((p) => p.slug);
-  const missingExamples = packages
-    .filter(
-      (p) =>
-        p.manifest.kind === "ok" &&
-        p.examplesSource === null &&
-        !BORN_IN_SHOWCASE.has(p.slug),
-    )
-    .map((p) => p.slug);
-  const missingManifest = packages
-    .filter((p) => p.manifest.kind === "missing")
-    .map((p) => p.slug);
+  // (bucketFor routes `not-deployed` anomalies, which auditPackage
+  // only emits for ok-manifest packages with deployed !== true.)
+  const notDeployed = [...bucketSets.notDeployed];
+  const missingExamples = [...bucketSets.missingExamples];
+  const missingManifest = [...bucketSets.missingManifest];
   // `malformedManifest` groups content-shape problems. `unreadable-manifest`
   // is a distinct I/O condition classified under `unreadable` alongside
-  // spec/qa-dir read failures (infrastructure, not content).
-  const malformedManifest = packages
-    .filter((p) => p.manifest.kind === "malformed")
-    .map((p) => p.slug);
-  const unreadable = packages
-    .filter((p) =>
-      p.anomalies.some(
-        (a) =>
-          a.kind === "unreadable-dir" ||
-          a.kind === "unreadable-manifest" ||
-          a.kind === "unreadable-examples",
-      ),
-    )
-    .map((p) => p.slug);
+  // spec/qa-dir read failures (infrastructure, not content). The
+  // `mapped-candidate-not-directory` variant (FX32-A) is also routed
+  // here — it's a misconfiguration of the integrations dir, closer to
+  // unreadable than to missing.
+  const malformedManifest = [...bucketSets.malformedManifest];
+  const unreadable = [...bucketSets.unreadable];
 
   const withAnomalies = packages.filter((p) => p.anomalies.length > 0).length;
 
@@ -1490,15 +1606,22 @@ function main(): void {
 
     const cfg = buildCliConfig();
 
-    if (!fs.existsSync(cfg.packagesDir)) {
-      console.error(`audit: packages dir does not exist: ${cfg.packagesDir}`);
-      process.exitCode = EXIT_UNREADABLE;
-      return;
-    }
-    // stat the packages path to distinguish "exists as a file" from
-    // "exists as a dir". Without this explicit check, readdirSync's
-    // ENOTDIR would be caught and collapsed into "empty packages" (exit
-    // 1), masking the real cause — map it to EXIT_UNREADABLE instead.
+    // Stat the packages path to distinguish every failure mode:
+    //   - ENOENT → "packages dir does not exist"
+    //   - non-dir → "packages path is not a directory"
+    //   - any other errno (EACCES/EIO/ELOOP/EPERM/...) → "could not stat"
+    //     with the errno string verbatim so operators see the real cause.
+    //
+    // An earlier revision pre-checked `fs.existsSync(cfg.packagesDir)`
+    // and short-circuited with "packages dir does not exist" for a
+    // false return. That was wrong: existsSync returns false for EVERY
+    // statSync failure (EACCES, EPERM, EIO, ELOOP, ENOTDIR, …), so
+    // EACCES surfaced as the misleading "does not exist" message —
+    // operators couldn't tell permission failure from actual absence.
+    // The pre-check has been removed; the statSync block below produces
+    // accurate errno-specific diagnostics. Without this explicit check,
+    // readdirSync's ENOTDIR would be caught and collapsed into "empty
+    // packages" (exit 1), masking the real cause.
     try {
       if (!fs.statSync(cfg.packagesDir).isDirectory()) {
         console.error(
@@ -1508,8 +1631,14 @@ function main(): void {
         return;
       }
     } catch (e) {
+      const code =
+        e instanceof Error ? (e as NodeJS.ErrnoException).code : undefined;
       const msg = e instanceof Error ? e.message : String(e);
-      console.error(`audit: could not stat ${cfg.packagesDir}: ${msg}`);
+      if (code === "ENOENT") {
+        console.error(`audit: packages dir does not exist: ${cfg.packagesDir}`);
+      } else {
+        console.error(`audit: could not stat ${cfg.packagesDir}: ${msg}`);
+      }
       process.exitCode = EXIT_UNREADABLE;
       return;
     }
