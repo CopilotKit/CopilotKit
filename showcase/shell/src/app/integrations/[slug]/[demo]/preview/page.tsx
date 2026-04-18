@@ -28,7 +28,13 @@ export default function StandalonePreviewPage() {
     );
   }
 
-  const src = `${integration.backend_url}${demo.route}`;
+  let localBackends: Record<string, string> = {};
+  try {
+    const raw = process.env.NEXT_PUBLIC_LOCAL_BACKENDS;
+    if (raw) localBackends = JSON.parse(raw);
+  } catch {}
+  const base = localBackends[integration.slug] ?? integration.backend_url;
+  const src = `${base}${demo.route}`;
 
   return (
     <div className="h-[calc(100vh-52px)] w-full">
