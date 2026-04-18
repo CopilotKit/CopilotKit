@@ -1191,7 +1191,8 @@ type BucketName =
  * The compiler enforces exhaustiveness via the `never` branch — a newly
  * added Anomaly variant that is NOT routed here will fail the build
  * instead of silently falling through unrouted (and thus unrendered by
- * renderAnomalySection, which is what happened with FX32-A).
+ * renderAnomalySection, a prior regression where a new Anomaly variant
+ * silently fell through every bucket).
  *
  * Routing rationale:
  * - `mapped-candidate-not-directory` is a MISCONFIGURATION of the
@@ -1243,10 +1244,10 @@ function buildReport(
   // Classify via tagged-union `Anomaly.kind` through the exhaustive
   // `bucketFor` helper — a new Anomaly variant that isn't routed fails
   // to compile instead of silently disappearing from every bucket
-  // (the original FX32-A regression). Each bucket collects unique
-  // slugs; buckets deliberately overlap (a package with both a count
-  // mismatch and not-deployed appears in both), so we de-duplicate
-  // per-bucket via a Set.
+  // (the prior regression where a new kind fell through unrouted).
+  // Each bucket collects unique slugs; buckets deliberately overlap
+  // (a package with both a count mismatch and not-deployed appears in
+  // both), so we de-duplicate per-bucket via a Set.
   //
   // Invariant: auditPackage only emits a count-mismatch anomaly when
   // the underlying count is readable (see `specCount !== null` /
@@ -1305,7 +1306,7 @@ function buildReport(
   // `malformedManifest` groups content-shape problems. `unreadable-manifest`
   // is a distinct I/O condition classified under `unreadable` alongside
   // spec/qa-dir read failures (infrastructure, not content). The
-  // `mapped-candidate-not-directory` variant (FX32-A) is also routed
+  // `mapped-candidate-not-directory` variant is also routed
   // here — it's a misconfiguration of the integrations dir, closer to
   // unreadable than to missing.
   const malformedManifest = [...bucketSets.malformedManifest];

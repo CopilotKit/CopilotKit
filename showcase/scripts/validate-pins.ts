@@ -1537,7 +1537,7 @@ function validateAll(): Report {
   const report: ReportBuilder = { fail: [], warn: [], skip: [], ok: [] };
   // Compute paths ONCE per run. `paths()` re-validates the
   // VALIDATE_PINS_REPO_ROOT env var every call, so invoking it per
-  // slug turns every iteration into an fs.existsSync stat that has
+  // slug turns every iteration into an fs.statSync call that has
   // already been performed.
   const resolvedPaths = paths();
   const { PACKAGES_DIR, EXAMPLES_DIR, REPO_ROOT } = resolvedPaths;
@@ -1631,8 +1631,8 @@ function validateAll(): Report {
     // internal existsAsDir stat fails with EACCES/ENOTDIR/ELOOP/EIO/…
     // on a candidate examples dir. An unguarded throw here escapes the
     // slug loop and orphans every report entry accumulated for preceding
-    // slugs — the same orphan bug the content-parseError branch below
-    // was fixed for (R29-2 C1). Route this through the same
+    // slugs — the same orphan bug already guarded against in the
+    // content-parseError branch below. Route this through the same
     // pendingInfraError accumulator so the loop continues, every other
     // slug still contributes to the report, and the end-of-loop rebuild
     // attaches partialReport so the top-level catch can print it.
