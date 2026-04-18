@@ -9,8 +9,6 @@ name: "Showcase: Drift Report"
 # Reference: Notion: "Showcase Drift Baseline Runbook" (accessible to
 # copilotkit.ai team members only; not linked here to avoid embedding
 # private URLs in a public workflow).
-# TODO(#4047, owner: @jpr5): confirm the Notion runbook page exists and
-# is current; otherwise create it.
 
 on:
   schedule:

@@ -166,10 +166,8 @@ jobs:
         # unique FAIL lines) lives in `showcase/scripts/fail-baseline.json`;
         # see that file for the full ratchet semantics and adjustment
         # procedure. Weekly backlog visibility is provided by
-        # `.github/workflows/showcase_drift-report.yml`.
-        #
-        # TODO(#4047, owner: @jpr5): drive baseline to zero; re-audit
-        # quarterly.
+        # `.github/workflows/showcase_drift-report.yml`. Drift-to-zero work
+        # is tracked in GitHub issue #4047.
         run: |
           set -euo pipefail
 
