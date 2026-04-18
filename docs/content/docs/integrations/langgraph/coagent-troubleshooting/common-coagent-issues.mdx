@@ -264,6 +264,7 @@ persisted at the end of a node.
             <Tab value="Python">
                 ```python
                 from copilotkit.langgraph import copilotkit_customize_config
+                from langchain_core.runnables import RunnableConfig
 
                 async def chat_node(state: AgentState, config: RunnableConfig):
                     # 1) Call the model with CopilotKit's modified config
@@ -302,6 +303,7 @@ persisted at the end of a node.
             <Tab value="Python">
                 ```python
                 from copilotkit.langgraph import copilotkit_customize_config
+                from langchain_core.runnables import RunnableConfig
 
                 async def chat_node(state: AgentState, config: RunnableConfig):
                     # 1) Configure CopilotKit not to emit messages

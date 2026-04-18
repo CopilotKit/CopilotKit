@@ -66,6 +66,8 @@ Now you can simply pull the values from the provided config argument in any agen
 <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
     <Tab value="Python">
         ```python
+        from langchain_core.runnables import RunnableConfig
+
         async def agent_node(state: AgentState, config: RunnableConfig):
 
             auth_token = config['configurable'].get('authToken', None)
