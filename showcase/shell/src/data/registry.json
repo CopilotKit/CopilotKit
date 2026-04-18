@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-18T12:48:09.222Z",
+  "generated_at": "2026-04-18T13:24:53.781Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
@@ -34,14 +34,6 @@
       {
         "id": "a2ui",
         "name": "A2UI"
-      },
-      {
-        "id": "mobile",
-        "name": "Mobile"
-      },
-      {
-        "id": "web-frameworks",
-        "name": "Web Frameworks"
       },
       {
         "id": "byoc",
@@ -286,48 +278,6 @@
         "name": "A2UI Chat",
         "category": "a2ui",
         "description": "Chat with rich A2UI surface rendering using A2UI message renderer"
-      },
-      {
-        "id": "mobile-react-native",
-        "name": "Mobile (React Native)",
-        "category": "mobile",
-        "description": "React Native support"
-      },
-      {
-        "id": "mobile-swiftui",
-        "name": "Mobile (SwiftUI)",
-        "category": "mobile",
-        "description": "SwiftUI support"
-      },
-      {
-        "id": "mobile-android",
-        "name": "Mobile (Android)",
-        "category": "mobile",
-        "description": "Android support"
-      },
-      {
-        "id": "web-angular",
-        "name": "Web (Angular)",
-        "category": "web-frameworks",
-        "description": "Angular support"
-      },
-      {
-        "id": "web-svelte",
-        "name": "Web (Svelte)",
-        "category": "web-frameworks",
-        "description": "Svelte support"
-      },
-      {
-        "id": "web-vue",
-        "name": "Web (Vue)",
-        "category": "web-frameworks",
-        "description": "Vue support"
-      },
-      {
-        "id": "web-tanstack",
-        "name": "Web (TanStack)",
-        "category": "web-frameworks",
-        "description": "TanStack Start support"
       },
       {
         "id": "byoc-hashbrown",
