@@ -6,18 +6,15 @@
   ],
   "scripts": {
     "dev:infra": "docker compose up -d --wait",
-    "dev": "npm run dev:infra && turbo run dev",
-    "dev:app": "turbo run dev --filter='app'",
-    "dev:agent": "turbo run dev --filter='agent'",
-    "dev:bff": "turbo run dev --filter='bff'",
-    "dev:mcp": "turbo run dev --filter='mcp'",
-    "build": "turbo run build",
-    "lint": "turbo run lint",
-    "clean": "turbo run clean"
+    "dev": "npm run dev:infra && concurrently -k -n app,bff,agent -c auto \"npm run dev:app\" \"npm run dev:bff\" \"npm run dev:agent\"",
+    "dev:app": "npm run dev --workspace @repo/app",
+    "dev:agent": "npm run dev --workspace @repo/agent",
+    "dev:bff": "npm run dev --workspace @repo/bff",
+    "build": "npm run build --workspace @repo/bff && npm run build --workspace @repo/app",
+    "clean": "rm -rf apps/app/dist apps/bff/dist"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2",
-    "turbo": "^2.5.4"
+    "concurrently": "^9.1.2"
   },
   "overrides": {
     "esbuild": "^0.27.3"

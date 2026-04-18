@@ -69,6 +69,14 @@ npm run dev
 
 This starts the frontend, BFF, and agent concurrently.
 
+You can also run each piece directly:
+
+```bash
+npm run dev:app
+npm run dev:bff
+npm run dev:agent
+```
+
 ## Removing Threads
 
 To strip out threads/intelligence and use this as a plain CopilotKit + LangGraph demo:

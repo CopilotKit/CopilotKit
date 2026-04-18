@@ -19,7 +19,7 @@ This uses CopilotKit's **v2 agent state pattern** where state lives in the agent
 
 ## Architecture
 
-This is a **Turborepo monorepo** with three apps:
+This is a small **npm workspaces monorepo** with three apps:
 
 ### Repository Structure
 
@@ -47,7 +47,6 @@ apps/
 │   └── src/
 │       ├── todos.py             # Todo tools and state schema
 │       └── query.py             # Example data query tool
-└── mcp/                         # MCP (Model Context Protocol) integration
 ```
 
 ## Key Pattern: Agent State with CopilotKit v2
@@ -226,24 +225,24 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
 - **Frontend**: Vite 7, React 19, TailwindCSS 4
 - **Agent**: LangGraph (Python), OpenAI GPT-5.2
 - **CopilotKit**: React hooks for agent integration (v2)
-- **Monorepo**: Turborepo with npm workspaces
-- **Other**: MCP (Model Context Protocol) integration, Recharts for generative UI examples
+- **Monorepo**: npm workspaces + concurrently
+- **Other**: Recharts for generative UI examples
 
 ## Development
 
-This is a Turborepo monorepo using npm workspaces.
+This is an npm workspaces monorepo.
 
 ```bash
 # Install dependencies (all apps)
 npm install
 
-# Start all apps (app, agent, mcp)
+# Start all apps (app, bff, agent)
 npm run dev
 
 # Start individually
 npm run dev:app    # Vite frontend on port 3000
+npm run dev:bff    # CopilotKit runtime BFF on port 4000
 npm run dev:agent  # LangGraph agent on port 8123
-npm run dev:mcp    # MCP server
 
 # Build all apps
 npm run build
