@@ -1388,7 +1388,23 @@ function canonicalizeDepMap(
 // Main
 // ---------------------------------------------------------------------------
 
+// The four buckets are appended-to only while building the report in
+// validateAll(); nothing should mutate them once they're returned to
+// the printer. Marking them readonly string[] prevents drive-by mutation
+// at read sites without paying the cost of a full PackageIssue tagged
+// union + renderer refactor (deferred — the buckets are stringly-typed
+// but that is a self-contained simplification rather than a correctness
+// issue today). The mutation sites inside validateAll type as
+// `string[]` via the inner `ReportBuilder` so .push() still works.
 interface Report {
+  readonly fail: readonly string[];
+  readonly warn: readonly string[];
+  readonly skip: readonly string[];
+  readonly ok: readonly string[];
+}
+// Internal mutable shape used only while building the Report.
+// Narrowed to `Report` (readonly) on return.
+interface ReportBuilder {
   fail: string[];
   warn: string[];
   skip: string[];
@@ -1396,7 +1412,7 @@ interface Report {
 }
 
 function validateAll(): Report {
-  const report: Report = { fail: [], warn: [], skip: [], ok: [] };
+  const report: ReportBuilder = { fail: [], warn: [], skip: [], ok: [] };
   // Compute paths ONCE per run. `paths()` re-validates the
   // VALIDATE_PINS_REPO_ROOT env var every call, so invoking it per
   // slug turns every iteration into an fs.existsSync stat that has
