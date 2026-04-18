@@ -773,6 +773,12 @@ export function coerceBaseline(raw: unknown): CoerceBaselineResult {
 
 function parseMainArgs(argv: string[]): MainOptions {
   const opts: MainOptions = {};
+  // Collect all parse errors, mirroring audit.ts parseArgs. Unrecognised
+  // arguments (typos like `--basline=10`, space-separated `--baseline 9`,
+  // stray positionals) are flagged loudly instead of being silently
+  // ignored — otherwise the user thinks they set baseline but the
+  // validator uses the default.
+  const errors: string[] = [];
   for (const a of argv) {
     // Match anything after --baseline= (including non-digits) so we can
     // emit a clear error, rather than silently ignoring e.g.
@@ -781,12 +787,21 @@ function parseMainArgs(argv: string[]): MainOptions {
     if (m) {
       const coerced = coerceBaseline(m[1]);
       if (!coerced.ok) {
-        throw new Error(
+        errors.push(
           `invalid --baseline value "${m[1]}" (${coerced.reason}; expected a positive integer)`,
         );
+        continue;
       }
       opts.baseline = coerced.value;
+    } else {
+      errors.push(`unrecognised argument: ${a}`);
     }
+  }
+  if (errors.length > 0) {
+    // Join all errors so the user sees every problem at once, rather
+    // than fixing them one at a time across reruns. Matches audit.ts's
+    // error-collection pattern.
+    throw new Error(errors.join("; "));
   }
   return opts;
 }

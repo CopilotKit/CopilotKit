@@ -1532,6 +1532,26 @@ describe("validate-parity", () => {
       expect(r.stderr).toMatch(/invalid --baseline value/);
     });
 
+    it("rejects unrecognised args (e.g. typo --basline=10) with exit 2 (EXIT_INVALID_INPUT)", () => {
+      // Mirror audit.ts parseArgs: unknown arguments must be flagged
+      // loudly, not silently ignored. A typo like `--basline=10` (or a
+      // space-separated `--baseline 9` that accidentally splits) would
+      // previously run the validator with the default baseline while the
+      // user believed they had set one. Surface the mistake instead.
+      writeFixturePackage(tree.packagesDir, "only-pkg", {
+        manifest: "slug: only-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
+        demoDirs: ["chat"],
+        specFiles: ["chat.spec.ts"],
+        qaFiles: ["chat.md"],
+      });
+      const r = runCli(["--baseline=9", "--basline=10"], {
+        env: { VALIDATE_PARITY_REPO_ROOT: tree.root },
+      });
+      expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(2);
+      expect(r.stderr).toMatch(/unrecognised argument|unknown argument/i);
+      expect(r.stderr).toMatch(/--basline=10/);
+    });
+
     it("exits 4 (EXIT_INTERNAL) on unexpected exceptions surfaced from auditPackage", () => {
       // Model: audit.test.ts T7 — preload a shim that forces a
       // downstream TypeError so the top-level CLI catch routes it to
