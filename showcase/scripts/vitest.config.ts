@@ -7,11 +7,12 @@ export default defineConfig({
     // Under Node 20, when a test file has spawned a large number of
     // subprocesses (validate-pins runs 134 subprocesses; create-integration /
     // generate-registry / bundle-demo-content each spawn `npx tsx`), vitest's
-    // worker-RPC channel ("Timeout calling 'onTaskUpdate'") times out during
-    // teardown under the combined load. Known upstream bug:
+    // per-hook timeouts can fire during slow teardown under the combined
+    // load. Bumping to 30s matches our testTimeout. Note: the vitest
+    // worker-RPC "onTaskUpdate" timeout is a SEPARATE, hardcoded 60s in
+    // birpc (DEFAULT_TIMEOUT = 6e4 in index.B521nVV-.js) — these knobs
+    // do NOT influence it. The RPC timeout is tracked upstream:
     //   https://github.com/vitest-dev/vitest/issues/6129
-    // The 30s budget matches our testTimeout so a slow teardown can't be the
-    // bottleneck that kills the run.
     teardownTimeout: 30000,
     hookTimeout: 30000,
     // Run test files sequentially — several suites mutate process env and temp dirs
@@ -30,21 +31,16 @@ export default defineConfig({
     // threads) for the RPC, which is robust under the same load.
     // Node 22/24 are unaffected either way.
     //
-    // `singleFork: true` — one fork shared across ALL test files (combined
-    // with fileParallelism: false, files still run sequentially). A
-    // previous revision used fork-per-file (the default under pool:
-    // "forks"), but unit (20.x) CI still emitted the onTaskUpdate timeout
-    // mid-run (see run 24602657301). With one long-lived fork, the
-    // parent↔child RPC channel stays warm instead of being torn down and
-    // re-established between every file — each teardown is one of the
-    // moments the Node-20 RPC race surfaces. This is the most conservative
-    // setting short of dropping to a single-thread pool entirely.
+    // ONE FORK PER FILE (the fork-pool default), combined with
+    // fileParallelism: false — files still run sequentially so shared-env
+    // mutations don't race, but each file gets a fresh process with a
+    // fresh RPC channel. A previous revision tried `singleFork: true` (one
+    // long-lived fork across all files) but observed run 24602985507 went
+    // STRICTLY WORSE: only 1/14 files completed before the RPC timeout
+    // fired, because validate-pins on its own takes 60s on Node 20 CI and
+    // blocks the fork's single RPC channel for that entire duration. With
+    // fork-per-file, each file gets its own fresh 60s RPC budget.
     pool: "forks",
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
     // Exclude Playwright E2E tests — they use @playwright/test, not vitest.
     // Also exclude fixture *.spec.ts files under __tests__/fixtures/** —
     // these are inert data files consumed by validate-parity tests, not
