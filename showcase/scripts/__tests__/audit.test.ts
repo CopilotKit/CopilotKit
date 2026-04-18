@@ -429,6 +429,35 @@ describe("findExamplesSource", () => {
     expect(r).toBe(path.join("examples", "integrations", "real-later"));
   });
 
+  it("warns and returns null when an unmapped slug's candidate path exists but is a regular file", () => {
+    // Regression guard for R21-1 A3: before this fix, an unmapped slug
+    // whose candidate path happened to resolve to a file (stray file in
+    // examples/integrations, or a name collision) returned null
+    // silently. Operators had no signal that a seemingly-present path
+    // was being skipped. The warning now makes the misconfiguration
+    // visible, with wording ("exists but is not a directory") distinct
+    // from the mapped-entry "no matching directory" warning.
+    const slug = "unmapped-file-slug";
+    // Write a regular file at examples/integrations/<slug> (no mkdir).
+    const full = path.join(root, "examples", "integrations", slug);
+    fs.writeFileSync(full, "not a directory\n");
+    const cfg = makeConfig(root);
+    const sink: string[] = [];
+    // mapped = undefined exercises the unmapped-slug branch.
+    const r = resolveExamplesSource(slug, undefined, cfg, sink);
+    expect(r).toBeNull();
+    expect(
+      sink.some(
+        (w) =>
+          w.includes("exists but is not a directory") && w.includes(full),
+      ),
+      `expected file-not-dir warning for ${full} in sink: ${JSON.stringify(sink)}`,
+    ).toBe(true);
+    // Must NOT fire the mapped-entry "no matching directory" warning —
+    // the fallback path is explicitly not a mapping.
+    expect(sink.some((w) => w.includes("SLUG_TO_EXAMPLES entry"))).toBe(false);
+  });
+
   it("returns the first candidate when both first and later candidates exist (first wins)", () => {
     // Declared order decides — the first present candidate wins
     // regardless of filesystem enumeration order. Uses synthetic
@@ -1505,6 +1534,51 @@ describe("canonicalizeForIsMain", () => {
     }
   });
 
+  it("sets process.exitCode = EXIT_UNREADABLE on non-ENOENT realpath failure", () => {
+    // Regression guard for R21-2: before this fix, non-ENOENT realpath
+    // failures only emitted a stderr diagnostic and left process.exitCode
+    // unchanged. CI couldn't distinguish this from a clean run (exit 0)
+    // or drift (exit 1). Now operators get exit 3 (EXIT_UNREADABLE) as
+    // a distinct signal for genuine filesystem-access failure.
+    const realpathSpy = vi.spyOn(fs, "realpathSync").mockImplementation(((
+      ..._args: unknown[]
+    ) => {
+      throw Object.assign(new Error("I/O error"), { code: "EIO" });
+    }) as unknown as typeof fs.realpathSync);
+    const stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+    const priorExitCode = process.exitCode;
+    process.exitCode = 0;
+    try {
+      canonicalizeForIsMain("/some/path");
+      expect(process.exitCode).toBe(3);
+    } finally {
+      process.exitCode = priorExitCode;
+      realpathSpy.mockRestore();
+      stderrSpy.mockRestore();
+    }
+  });
+
+  it("does NOT set process.exitCode on ENOENT fallback", () => {
+    // ENOENT is the benign synthetic-argv[0] case — must stay quiet
+    // and must NOT leak an exit-code elevation to the surrounding run.
+    const realpathSpy = vi.spyOn(fs, "realpathSync").mockImplementation(((
+      ..._args: unknown[]
+    ) => {
+      throw Object.assign(new Error("no such file"), { code: "ENOENT" });
+    }) as unknown as typeof fs.realpathSync);
+    const priorExitCode = process.exitCode;
+    process.exitCode = 0;
+    try {
+      canonicalizeForIsMain("/some/missing/path");
+      expect(process.exitCode).toBe(0);
+    } finally {
+      process.exitCode = priorExitCode;
+      realpathSpy.mockRestore();
+    }
+  });
+
   it("warns to stderr for non-ENOENT failures (e.g. EACCES) and still returns resolved", () => {
     // Non-ENOENT realpath failures indicate real problems (permission,
     // loop, I/O). Previously the bare `catch {}` swallowed them; now we
@@ -1519,6 +1593,8 @@ describe("canonicalizeForIsMain", () => {
     const stderrSpy = vi
       .spyOn(process.stderr, "write")
       .mockImplementation(() => true);
+    const priorExitCode = process.exitCode;
+    process.exitCode = 0;
     try {
       const out = canonicalizeForIsMain("/some/path");
       expect(out).toBe(path.resolve("/some/path"));
@@ -1528,6 +1604,7 @@ describe("canonicalizeForIsMain", () => {
       expect(msg).toContain("/some/path");
       expect(msg).toContain("permission denied");
     } finally {
+      process.exitCode = priorExitCode;
       realpathSpy.mockRestore();
       stderrSpy.mockRestore();
     }
