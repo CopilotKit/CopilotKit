@@ -19,21 +19,30 @@ on:
           - crewai-crews
         default: "crewai-crews"
 
+# Default to read-only at the job level. The only step that needs write access
+# is "Post result to PR" at the end — we grant it write perms inline there.
+# Keeping the workflow-level perms read-only means every intermediate step
+# (including `pip install` on attacker-controlled requirements.txt) runs with
+# a token that cannot mutate the repo.
 permissions:
   contents: read
-  pull-requests: write
-  issues: write
 
 jobs:
   aimock-e2e:
-    # Only run on PR comments matching /test-aimock (from trusted authors), or manual dispatch.
-    # The author_association gate prevents arbitrary third-party commenters from
-    # triggering runs with attacker-controlled comment bodies (which the
-    # 'Determine slug' step then parses — see env-based shell interpolation below).
+    # Only run on PR comments matching `/test-aimock ` (trailing space REQUIRED)
+    # from trusted authors, or manual dispatch. The trailing space tightens
+    # the match so unrelated text like `/test-aimocker` or `don't /test-aimock-like-this`
+    # does NOT trigger the workflow. The author_association gate additionally
+    # prevents arbitrary third-party commenters from triggering runs with
+    # attacker-controlled comment bodies (which the 'Determine slug' step then
+    # parses — see env-based shell interpolation below). A bare `/test-aimock`
+    # alone (no trailing space) is rejected by design; commenters must pick a
+    # slug explicitly — no silent fallback to crewai-crews (see "Determine slug"
+    # step below).
     if: >
       github.event_name == 'workflow_dispatch' ||
       (github.event.issue.pull_request
-        && contains(github.event.comment.body, '/test-aimock')
+        && contains(github.event.comment.body, '/test-aimock ')
         && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
     # Pinned to ubuntu-latest deliberately: the 'Determine slug' step uses
     # POSIX-only `grep -oE` + `sed` (no `grep -oP` / PCRE) so a future BSD
@@ -87,22 +96,28 @@ jobs:
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             SLUG="$DISPATCH_SLUG"
           else
-            # POSIX-safe extraction (no `grep -oP` / PCRE `\K`): pull the
-            # whole `/test-aimock <slug>` match with `grep -oE`, then strip
-            # the prefix via `sed`. Works on both GNU grep (ubuntu-latest) and
-            # BSD grep (macOS / Alpine busybox) in case the runner image
-            # changes out from under us.
+            # POSIX-safe extraction (no `grep -oP` / PCRE `\K`): match
+            # `/test-aimock` as a whole token (line-start or whitespace on
+            # BOTH sides of the command) followed by a slug. This blocks
+            # `/test-aimocker` or `/test-aimock-like-this` from matching —
+            # the job-level `if:` guard already requires a trailing space,
+            # but the shell-level extraction is defense-in-depth in case a
+            # future `if:` edit loosens the gate. Works on both GNU grep
+            # (ubuntu-latest) and BSD grep (macOS / Alpine busybox).
             SLUG=$(printf '%s' "$COMMENT_BODY" \
-              | grep -oE '/test-aimock[[:space:]]+[^[:space:]]+' \
+              | grep -oE '(^|[[:space:]])/test-aimock[[:space:]]+[^[:space:]]+' \
               | head -n1 \
-              | sed 's|^/test-aimock[[:space:]]*||' \
+              | sed 's|^[[:space:]]*/test-aimock[[:space:]]*||' \
               || true)
-            # Fallback when the comment is bare `/test-aimock` (no slug).
-            # crewai-crews is the only package currently shipping aimock_toggle.py
-            # and exercising the AIMOCK_URL path end-to-end; langgraph-python
-            # does not, so we fall back to crewai-crews (NOT langgraph-python).
+            # No default slug fallback. A bare `/test-aimock` (no slug) or a
+            # match that only skimmed our boundary (e.g. `/test-aimocker x`)
+            # FAILS the workflow rather than silently running against
+            # crewai-crews. A hidden default is a footgun: a trusted commenter
+            # typing `don't /test-aimock-like-this` would otherwise spawn a
+            # full CI run against the wrong package.
             if [ -z "$SLUG" ]; then
-              SLUG="crewai-crews"
+              echo "::error::No slug provided. Usage: '/test-aimock <slug>' (e.g. '/test-aimock crewai-crews')"
+              exit 1
             fi
           fi
           # Strict slug whitelist: lowercase alphanumerics + hyphens only. This
@@ -122,6 +137,15 @@ jobs:
           fi
           echo "slug=$SLUG" >> "$GITHUB_OUTPUT"
 
+      # NOTE on `${{ steps.slug.outputs.slug }}` vs `env:` pattern:
+      # Downstream steps interpolate `steps.slug.outputs.slug` directly into
+      # the shell script body. This is SAFE here because the "Determine slug"
+      # step above whitelists the value against `^[a-z0-9-]+$` AND rejects any
+      # slug that doesn't map to an existing package directory — so the value
+      # that reaches these interpolations is always a trusted, validated
+      # identifier. We still use the `env:`-based defensive default for
+      # downstream script bodies that handle anything else UNTRUSTED (see the
+      # `actions/github-script` step at the bottom of the workflow).
       - name: Detect package type
         id: pkg-type
         run: |
@@ -152,7 +176,12 @@ jobs:
           # poisons CI for everyone; pinning makes the upgrade explicit and
           # keeps this PR's CI signal reproducible.
           npm install -g "@copilotkit/aimock@^1.14.3" --ignore-scripts
-          npx aimock --port 4010 --host 127.0.0.1 --fixtures showcase/aimock/feature-parity.json --validate-on-load &
+          # Use the fully-scoped package name in the npx invocation so a
+          # squatter publishing a bare `aimock` package on the public registry
+          # cannot be silently picked up if the global install above ever fails
+          # (npx would otherwise fetch-and-run the unscoped name from the
+          # registry). The caret keeps us on the 1.x patch/minor train.
+          npx -- "@copilotkit/aimock@^1.14.3" --port 4010 --host 127.0.0.1 --fixtures showcase/aimock/feature-parity.json --validate-on-load &
           # Wait for aimock to be ready
           for i in $(seq 1 20); do
             curl -sf http://localhost:4010/ > /dev/null 2>&1 && break
@@ -181,7 +210,16 @@ jobs:
         run: |
           SLUG="${{ steps.slug.outputs.slug }}"
           cd "showcase/packages/$SLUG"
-          pip install -r requirements.txt
+          # SECURITY: `pip install` runs setup.py / PEP 517 build hooks from
+          # PR-controlled packages. Unlike npm / pnpm there is no `--ignore-scripts`
+          # flag for pip — the closest equivalent is `--only-binary :all:` which
+          # forces wheel-only installs and blocks source-build hooks from
+          # executing on the runner. If a future requirements.txt legitimately
+          # needs a source build, replace this with `--require-hashes` + a
+          # fully hash-pinned requirements.txt (which blocks swap-in attacks
+          # but still allows the pinned source build to run — a narrower
+          # residual risk that's worth calling out in a new comment here).
+          pip install --only-binary :all: -r requirements.txt
           # Prefer agent_server:app (FastAPI entrypoint used by non-langgraph
           # Python showcases). Legacy `agent:app` path retained for any
           # package that does not ship src/agent_server.py; langgraph-fastapi
@@ -231,14 +269,18 @@ jobs:
         run: |
           SLUG="${{ steps.slug.outputs.slug }}"
           cd "showcase/packages/$SLUG"
-          # The Next.js runtime consumes OPENAI_BASE_URL (not AIMOCK_URL), so
-          # we only export what the runtime actually reads. A future Node-side
-          # aimock toggle can be added later; until that lands there's no
-          # reason to export dead config.
+          # Invoke `next dev` directly instead of `pnpm dev` — the package's
+          # `pnpm dev` script spawns a SECOND uvicorn on :8000 via concurrently,
+          # but the previous "Start Python agent" step already bound :8000. A
+          # second uvicorn bind there would fail with EADDRINUSE and silently
+          # race the Playwright test against whichever agent happened to win
+          # the port. Running Next directly also keeps the AIMOCK_URL env flow
+          # clean (only the Python agent reads AIMOCK_URL; Next reads
+          # OPENAI_BASE_URL).
           OPENAI_BASE_URL=http://localhost:4010/v1 \
           OPENAI_API_KEY=test-key \
           AGENT_URL=http://localhost:8000 \
-          pnpm dev &
+          npx next dev --turbopack &
           # Wait for dev server
           for i in $(seq 1 30); do
             curl -sf http://localhost:3000 > /dev/null 2>&1 && break
@@ -272,19 +314,35 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+    outputs:
+      slug: ${{ steps.slug.outputs.slug }}
+
+  # Post the final status as a PR comment. Separated into its own job so
+  # the write perms (pull-requests + issues) are scoped to JUST this job —
+  # the heavy test job above runs with `contents: read` only, so a compromised
+  # transitive dep in `pip install` on a PR-controlled requirements.txt
+  # cannot mutate PRs / issues with the workflow's token.
+  post-result:
+    needs: aimock-e2e
+    if: github.event_name == 'issue_comment' && always() && needs.aimock-e2e.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
       - name: Post result to PR
-        if: github.event_name == 'issue_comment' && always()
         uses: actions/github-script@v7
         # Pass dynamic values through env (NOT `${{ ... }}` interpolation into
         # the script body). Even though the slug is whitelisted upstream, the
         # env-var pattern is the defensive default: any future additions that
         # aren't pre-validated cannot accidentally reach script text.
         env:
-          SLUG: ${{ steps.slug.outputs.slug }}
-          JOB_STATUS: ${{ job.status }}
+          SLUG: ${{ needs.aimock-e2e.outputs.slug }}
+          JOB_STATUS: ${{ needs.aimock-e2e.result }}
         with:
           script: |
-            const slug = process.env.SLUG;
+            const slug = process.env.SLUG || '(unknown)';
             const jobStatus = process.env.JOB_STATUS;
             const status = jobStatus === 'success' ? '✅' : '❌';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
