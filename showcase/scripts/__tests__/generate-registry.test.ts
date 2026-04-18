@@ -79,6 +79,12 @@ describe("Registry Generator", () => {
   });
 
   it("sorts integrations by sort_order", () => {
+    // Run the generator explicitly — afterEach restores shell/src/data JSONs
+    // to HEAD between tests, so we can't rely on test 1's side effect to
+    // leave registry.json populated. Mirrors the `runBundlerAndRead` pattern
+    // in bundle-demo-content.test.ts tests 2-5.
+    runGenerator();
+
     const registryPath = path.join(SHELL_DATA_DIR, "registry.json");
     const registry = JSON.parse(fs.readFileSync(registryPath, "utf-8"));
 
