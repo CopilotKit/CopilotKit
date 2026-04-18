@@ -1860,11 +1860,33 @@ describe("main() exit codes via CLI subprocess", () => {
     fs.writeFileSync(
       preloadScript,
       `const fs = require("fs");
+const path = require("path");
 const origExists = fs.existsSync;
-let allowed = 1; // let the top-level packagesDir check through
+// Scope this spy to the audit's packages tree, identified by the
+// absolute path derived from SHOWCASE_AUDIT_ROOT. Unfiltered patches
+// trip on Node/tsx bootstrap calls (module resolution, etc.) — any
+// future load-order change would convert this test into a startup
+// crash for reasons unrelated to the behavior under test. A substring
+// match like endsWith("packages") would also match unrelated paths
+// such as "/tmp/bar-packages" on other disks. We match the target
+// packagesDir exactly OR any descendant of it (so downstream
+// readManifest/findExamplesSource existsSync calls on
+// "<root>/packages/foo/manifest.yaml" still fire the injected bug),
+// and fall through to origExists for everything else so runtime
+// bootstrap proceeds normally. The first call on the exact
+// packagesDir is allowed through so listShowcasePackageSlugs can
+// enumerate it; subsequent calls (all descendants) throw, landing
+// in the top-level catch as a programmer-bug TypeError.
+const targetPkgDir = path.join(process.env.SHOWCASE_AUDIT_ROOT, "packages");
+const targetPrefix = targetPkgDir + path.sep;
+let allowed = 1;
 fs.existsSync = function(...args) {
   const p = String(args[0] || "");
-  if (allowed > 0 && p.endsWith("packages")) {
+  const inScope = p === targetPkgDir || p.startsWith(targetPrefix);
+  if (!inScope) {
+    return origExists.apply(this, args);
+  }
+  if (p === targetPkgDir && allowed > 0) {
     allowed--;
     return origExists.apply(this, args);
   }
