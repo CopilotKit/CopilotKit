@@ -328,13 +328,29 @@ def test_default_arg_path_no_op_when_unset(monkeypatch):
 # --- Production-env guard -------------------------------------------------
 
 
-@pytest.mark.parametrize("prod_var", ["NODE_ENV", "ENV"])
+@pytest.mark.parametrize(
+    "prod_var",
+    [
+        "NODE_ENV",
+        "ENV",
+        "ENVIRONMENT",
+        "APP_ENV",
+        "DEPLOY_ENV",
+        "PYTHON_ENV",
+        "RAILWAY_ENVIRONMENT",
+    ],
+)
 @pytest.mark.parametrize("prod_value", ["production", "prod", "PRODUCTION", " Production "])
 def test_production_env_refuses_toggle_even_with_aimock_url(prod_var, prod_value, caplog):
-    """NODE_ENV=production (or ENV=production) must refuse the aimock toggle
-    even when AIMOCK_URL is set — a misconfigured deploy that accidentally
-    exports AIMOCK_URL should never silently redirect real traffic through
-    a mock. Logs a WARNING so operators notice.
+    """Any of the recognized prod env vars set to a prod-ish value must refuse
+    the aimock toggle even when AIMOCK_URL is set — a misconfigured deploy
+    that accidentally exports AIMOCK_URL should never silently redirect real
+    traffic through a mock. Logs a WARNING so operators notice.
+
+    Parametrized across NODE_ENV (Node), ENV / ENVIRONMENT / APP_ENV /
+    DEPLOY_ENV / PYTHON_ENV (common generic / Python conventions), and
+    RAILWAY_ENVIRONMENT (primary hosting target). New vars added to
+    `_PROD_ENV_VARS` in aimock_toggle.py MUST be added here too.
     """
     env = {
         "AIMOCK_URL": "http://localhost:4010/v1",
@@ -362,17 +378,32 @@ def test_production_env_refuses_toggle_even_with_aimock_url(prod_var, prod_value
     ), f"expected WARNING mentioning {prod_var} + aimock refusal, got {warnings!r}"
 
 
-def test_production_env_without_aimock_url_is_silent_no_op(caplog):
-    """NODE_ENV=production without AIMOCK_URL: normal production path — no
+@pytest.mark.parametrize(
+    "prod_var",
+    [
+        "NODE_ENV",
+        "ENV",
+        "ENVIRONMENT",
+        "APP_ENV",
+        "DEPLOY_ENV",
+        "PYTHON_ENV",
+        "RAILWAY_ENVIRONMENT",
+    ],
+)
+@pytest.mark.parametrize("prod_value", ["production", "prod"])
+def test_production_env_without_aimock_url_is_silent_no_op(prod_var, prod_value, caplog):
+    """<prod_var>=production without AIMOCK_URL: normal production path — no
     warning, no mutation, no reason text about 'refused'. The guard must
     only raise its voice when an actual refusal is happening.
 
     The ``caplog`` assertion pins the silence contract: a future change that
     accidentally makes the prod-guard fire even without AIMOCK_URL would
     emit a WARNING here and fail the test, surfacing the regression instead
-    of silently polluting every prod deploy's logs.
+    of silently polluting every prod deploy's logs. Parametrized over all
+    the same vars as the refusal test so the "silent" contract has the same
+    coverage as the "loud" contract.
     """
-    env = {"NODE_ENV": "production", "OPENAI_API_KEY": "sk-real"}
+    env = {prod_var: prod_value, "OPENAI_API_KEY": "sk-real"}
     with caplog.at_level(logging.WARNING, logger="aimock_toggle"):
         result = configure_aimock(env)
     assert result["enabled"] is False
