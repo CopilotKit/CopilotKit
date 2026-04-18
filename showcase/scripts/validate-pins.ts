@@ -31,7 +31,9 @@
  *   1 — one or more FAIL violations (pin drift detected)
  *   2 — internal error (crash, unexpected exception). Distinct from 1 so
  *       CI callers can distinguish "pin drift" from "validator broken".
- *       Mirrors validate-parity.ts's convention.
+ *       Note: validate-parity.ts uses a different exit-code taxonomy
+ *       (2=invalid-input, 3=unreadable, 4=internal); the tools are
+ *       intentionally not aligned on code 2.
  *   3 — unreadable input (e.g. VALIDATE_PINS_REPO_ROOT points at a
  *       non-directory or a path the process cannot access). Distinct from
  *       2 so CI callers can route permissions/misconfig alerts separately
@@ -2066,8 +2068,10 @@ function isMainPath(argv1: string | undefined, scriptPath: string): boolean {
 
 // Only run main when invoked directly (not when imported for tests).
 // Top-level try/catch distinguishes "pin drift" (exit 1, legitimate) from
-// "validator crashed" (exit 2, needs investigation). Mirrors the
-// convention in validate-parity.ts.
+// "validator crashed" (exit 2, needs investigation). validate-parity.ts
+// shares the "top-level try/catch routes crashes to a distinct exit
+// code" pattern, but its exit-code numbering differs — see the header
+// docstring for details.
 if (isMainPath(process.argv[1], __filename)) {
   try {
     main();
