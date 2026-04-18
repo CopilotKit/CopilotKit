@@ -2,7 +2,13 @@
 set -e
 
 echo "[entrypoint] Starting Spring Boot agent backend..."
-java -jar /app/agent.jar &
+# jdk.httpclient.keepalive.timeout=0 disables JDK HttpClient connection pooling.
+# Required because Spring-AI streams via WebClient + JdkClientHttpConnector and a
+# pooled connection can be half-closed by some upstreams (aimock/Prism) between
+# SSE responses, which trips `Connection reset` on the follow-up tool-result
+# request. Setting this as a JVM arg guarantees it lands before any
+# java.net.http.HttpClient is constructed.
+java -Djdk.httpclient.keepalive.timeout=0 -jar /app/agent.jar &
 JAVA_PID=$!
 
 # Wait for Spring Boot to be ready (up to 30 seconds)
