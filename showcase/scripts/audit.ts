@@ -424,24 +424,25 @@ function countLabel(s: CountState): string {
 
 /**
  * Structured return of {@link resolveExamplesSource}. The `source` field
- * carries the resolved path (or null when nothing matched); the
- * `unreadableForSlug` boolean is the classification signal consumed by
- * {@link auditPackage}: when true, "all mapped candidates existed but
- * every stat failed" — an infrastructure failure — and the anomaly
- * routes to `unreadable-examples`, distinct from a benign stale
- * mapping (`missing-examples`).
+ * carries the resolved path (or null when nothing matched); the tagged
+ * booleans are classification signals consumed by {@link auditPackage}
+ * to route each "no resolved path" case to the correct anomaly variant:
  *
- * The classification is carried as a tagged boolean rather than being
- * re-derived from warning text so a reword of the human-readable
- * warning (typo fix, i18n, docstring edit) cannot silently change the
- * audit's behavior. See FX30-C Fix 1.
+ * - `unreadableForSlug: true` — for a mapped slug, every candidate
+ *   existed on disk but every stat call failed with a non-ENOENT error
+ *   (EACCES/EIO/ELOOP/EPERM/...). Infrastructure failure; routes to
+ *   `unreadable-examples`.
+ * - `nonDirectoryForSlug: true` — for a mapped slug, at least one
+ *   candidate path exists but is not a directory. Misconfiguration;
+ *   routes to `mapped-candidate-not-directory`.
+ * - Both false with `source: null` — benign stale mapping, ENOENT
+ *   TOCTOU race, or unmapped miss. Routes to `missing-examples`.
  *
- * Historically, `resolveExamplesSource` returned `string | null` and
- * auditPackage scanned the warnings[] sink for `unreadable-candidates`
- * substrings. That fragile coupling has been removed. Callers that
- * only need the path can read `.source`; the legacy non-structured
- * accessor has been removed along with the string-scan branch in
- * auditPackage.
+ * Invariant: classification is driven exclusively by these structured
+ * booleans. Callers must NEVER substring-match the human-readable
+ * warning text to decide between anomaly variants — the sink wording
+ * is free to change (typo fix, i18n, docstring edit) without altering
+ * routing.
  */
 interface ExamplesSourceResult {
   readonly source: string | null;
@@ -628,10 +629,11 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
   // findExamplesSource records stale SLUG_TO_EXAMPLES / statSync-race
   // warnings on this explicit sink. Callers (main, CI) forward it to
   // stderr; JSON consumers read it off `audit.warnings`. The tuple
-  // result carries the structured `unreadableForSlug` signal consumed
-  // below for anomaly classification — auditPackage NEVER reads the
-  // human-readable warning text to decide between unreadable-examples
-  // and missing-examples (that coupling was fragile; see FX30-C Fix 1).
+  // result carries structured `unreadableForSlug` and
+  // `nonDirectoryForSlug` booleans consumed below for anomaly
+  // classification. Invariant: auditPackage NEVER reads the
+  // human-readable warning text to decide between anomaly variants —
+  // classification is driven exclusively by those structured signals.
   const warnings: string[] = [];
   const examplesResult = findExamplesSource(slug, cfg, warnings);
   const examplesSource = examplesResult.source;
@@ -727,18 +729,25 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
       // Born-in-showcase packages have no Dojo counterpart by design;
       // skip the "missing examples source" check for them.
       if (examplesSource === null && !BORN_IN_SHOWCASE.has(slug)) {
-        // Distinguish "mapping is stale / dir simply absent" from the
-        // CRITICAL "all mapped candidates exist but none are readable"
-        // case. The latter is an infrastructure failure (permissions /
-        // I/O), not a provenance-missing signal — surface it as a
-        // separate anomaly variant so downstream consumers can route
-        // it differently (CI alerting, suggestions, etc.).
+        // Three distinct failure modes for a mapped slug with no
+        // resolved directory, ordered by specificity:
         //
-        // Classification is driven by the structured
-        // `unreadableForSlug` boolean on ExamplesSourceResult —
-        // explicitly NOT by substring-matching the human-readable
-        // warning text (pre-fix behavior). A reword of the warning
-        // wording MUST NOT change the anomaly classification.
+        //   1. `unreadable-examples` — all mapped candidates existed
+        //      but every stat failed with a non-ENOENT error
+        //      (EACCES/EIO/ELOOP/EPERM/...). Infrastructure failure;
+        //      we cannot tell whether provenance is satisfied.
+        //   2. `mapped-candidate-not-directory` — at least one mapped
+        //      candidate exists but is not a directory (stray file /
+        //      symlink-to-file / socket / FIFO). Misconfiguration; the
+        //      integrations dir has an entry masquerading as the
+        //      provenance target.
+        //   3. `missing-examples` — the catch-all: stale mapping,
+        //      benign TOCTOU race (ENOENT), or plain absence.
+        //
+        // Invariant: classification is driven exclusively by structured
+        // booleans on ExamplesSourceResult. Never substring-match
+        // warning text — sink wording is free to change without
+        // altering anomaly routing.
         if (examplesResult.unreadableForSlug) {
           anomalies.push({
             kind: "unreadable-examples",
