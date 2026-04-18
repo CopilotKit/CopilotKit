@@ -9,10 +9,20 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { FRAMEWORKS } from "../generate-starters";
+import { AGENT_URL_LOCALHOST_8000_RE, FRAMEWORKS } from "../generate-starters";
+
+// Mirror the generator's narrow host pattern for the POST-rewrite assertion.
+// Must stay in lockstep with AGENT_URL_LOCALHOST_8000_RE but match the 8123
+// port instead of 8000. Derived at import time from the shared regex source
+// so a single edit to the host allowlist propagates to both sides.
+const AGENT_URL_LOCALHOST_8123_RE = new RegExp(
+  AGENT_URL_LOCALHOST_8000_RE.source.replace(/8000\\b/, "8123\\b"),
+  AGENT_URL_LOCALHOST_8000_RE.flags,
+);
 
 const ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 const STARTERS_DIR = path.join(ROOT, "showcase", "starters");
+const PACKAGES_DIR = path.join(ROOT, "showcase", "packages");
 const TEMPLATE_DIR = path.join(STARTERS_DIR, "template", "frontend");
 const EXPECTED_SLUGS = FRAMEWORKS.map((f) => f.slug);
 
@@ -243,6 +253,100 @@ describe("Cross-starter consistency", () => {
           : [];
         expect(csprojFiles.length).toBeGreaterThan(0);
       });
+    }
+  });
+
+  describe("aimock_toggle.py + .env.example propagation", () => {
+    // When a package ships src/aimock_toggle.py, the starter must ship an
+    // identical byte-for-byte copy at the root so `from aimock_toggle import
+    // configure_aimock` resolves the same module in both layouts.
+    for (const fw of FRAMEWORKS) {
+      if (fw.language !== "python") continue;
+      if (fw.slug === "langgraph-python" || fw.slug === "langgraph-fastapi")
+        continue;
+      const pkgToggle = path.join(
+        PACKAGES_DIR,
+        fw.slug,
+        "src",
+        "aimock_toggle.py",
+      );
+      if (!fs.existsSync(pkgToggle)) continue;
+
+      it(`${fw.slug}: aimock_toggle.py mirrors byte-for-byte`, () => {
+        const starterToggle = path.join(
+          STARTERS_DIR,
+          fw.slug,
+          "aimock_toggle.py",
+        );
+        expect(
+          fs.existsSync(starterToggle),
+          `${fw.slug} starter missing aimock_toggle.py even though package ships one`,
+        ).toBe(true);
+        const pkgContent = fs.readFileSync(pkgToggle, "utf-8");
+        const starterContent = fs.readFileSync(starterToggle, "utf-8");
+        expect(
+          starterContent,
+          `${fw.slug} aimock_toggle.py drifted between package and starter`,
+        ).toBe(pkgContent);
+      });
+
+      it(`${fw.slug}: Dockerfile COPYs aimock_toggle.py`, () => {
+        const dockerfile = fs.readFileSync(
+          path.join(STARTERS_DIR, fw.slug, "Dockerfile"),
+          "utf-8",
+        );
+        expect(
+          dockerfile,
+          `${fw.slug} Dockerfile must COPY aimock_toggle.py so the agent can import it`,
+        ).toContain("aimock_toggle.py");
+      });
+    }
+
+    // Every package that ships .env.example must propagate it to the starter,
+    // regardless of language — langgraph-python/fastapi, TS, Java, .NET, etc.
+    for (const fw of FRAMEWORKS) {
+      const pkgEnv = path.join(PACKAGES_DIR, fw.slug, ".env.example");
+      if (!fs.existsSync(pkgEnv)) continue;
+
+      it(`${fw.slug}: .env.example propagates from package to starter`, () => {
+        const starterEnv = path.join(STARTERS_DIR, fw.slug, ".env.example");
+        expect(
+          fs.existsSync(starterEnv),
+          `${fw.slug} starter missing .env.example even though package ships one`,
+        ).toBe(true);
+      });
+
+      // If the package .env.example documents AGENT_URL=http://...:8000
+      // at a LOCALHOST host, starters MUST rewrite the port to 8123 because
+      // the starter devscript binds the agent on 8123. A mismatched port =
+      // scaffolded ECONNREFUSED. The regex is the exact one the generator
+      // uses (AGENT_URL_LOCALHOST_8000_RE) — scoping to localhost /
+      // 127.0.0.1 so a future package documenting AGENT_URL=https://api.corp
+      // .example:8000 does NOT trigger a spurious test failure while the
+      // generator correctly preserves the non-localhost hostname.
+      const pkgEnvContent = fs.readFileSync(pkgEnv, "utf-8");
+      if (AGENT_URL_LOCALHOST_8000_RE.test(pkgEnvContent)) {
+        // `test()` on a /g regex advances lastIndex; reset so downstream
+        // `.test()` / `.replace()` calls start from the beginning.
+        AGENT_URL_LOCALHOST_8000_RE.lastIndex = 0;
+        it(`${fw.slug}: starter .env.example rewrites AGENT_URL port to 8123`, () => {
+          const starterEnv = path.join(STARTERS_DIR, fw.slug, ".env.example");
+          const content = fs.readFileSync(starterEnv, "utf-8");
+          expect(
+            content,
+            `${fw.slug} starter .env.example still points AGENT_URL at :8000 — starter dev script binds :8123`,
+          ).toMatch(AGENT_URL_LOCALHOST_8123_RE);
+          AGENT_URL_LOCALHOST_8123_RE.lastIndex = 0;
+          expect(
+            content,
+            `${fw.slug} starter .env.example must not retain AGENT_URL=...:8000`,
+          ).not.toMatch(AGENT_URL_LOCALHOST_8000_RE);
+          AGENT_URL_LOCALHOST_8000_RE.lastIndex = 0;
+        });
+      } else {
+        // Reset lastIndex regardless — `.test()` on a /g regex mutates it.
+        AGENT_URL_LOCALHOST_8000_RE.lastIndex = 0;
+      }
     }
   });
 

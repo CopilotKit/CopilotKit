@@ -12,6 +12,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { execSync } from "node:child_process";
 import * as os from "node:os";
+import { pathToFileURL } from "node:url";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -24,6 +25,15 @@ const STARTERS_DIR = path.join(SHOWCASE, "starters");
 const PACKAGES_DIR = path.join(SHOWCASE, "packages");
 const SHARED_PYTHON_DIR = path.join(SHOWCASE, "shared", "python");
 const SHARED_TS_DIR = path.join(SHOWCASE, "shared", "typescript", "tools");
+
+// Shared regex for rewriting AGENT_URL port 8000 -> 8123 during .env.example
+// propagation from packages/ to starters/. Exported so the consistency test
+// (showcase/scripts/__tests__/starter-consistency.test.ts) can import this
+// exact pattern instead of duplicating a near-copy that drifts. The host
+// portion is deliberately scoped to localhost / 127.0.0.1 so documented
+// corporate gateways or Azure endpoints on port 8000 are never clobbered.
+const AGENT_URL_LOCALHOST_8000_RE =
+  /^(AGENT_URL\s*=\s*https?:\/\/(?:localhost|127\.0\.0\.1):)8000\b/gm;
 
 // Replace floating dist-tags (like 'beta', 'next') with known-good version
 // ranges for reproducible Docker installs. The monorepo lockfile keeps the
@@ -606,14 +616,27 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
           .join("")
       : "";
 
-  // Non-langgraph Python starters need agent_server.py at the root
+  // Non-langgraph Python starters need agent_server.py at the root. When the
+  // package ships a sibling aimock_toggle.py (required by agent_server.py's
+  // `from aimock_toggle import configure_aimock`), bundle both files into a
+  // single COPY layer — they always move together, so splitting them into two
+  // layers just doubled the rebuild cache churn.
   if (
     fw.language === "python" &&
     fw.slug !== "langgraph-python" &&
     fw.slug !== "langgraph-fastapi"
   ) {
-    dockerExtraCopy +=
-      "\n# FastAPI agent server entrypoint\nCOPY agent_server.py ./";
+    const aimockToggleSrc = path.join(
+      PACKAGES_DIR,
+      fw.slug,
+      "src",
+      "aimock_toggle.py",
+    );
+    const hasAimockToggle = fs.existsSync(aimockToggleSrc);
+    const copyTargets = hasAimockToggle
+      ? "agent_server.py aimock_toggle.py"
+      : "agent_server.py";
+    dockerExtraCopy += `\n# FastAPI agent server entrypoint\nCOPY ${copyTargets} ./`;
   }
 
   const vars: Record<string, string> = {
@@ -819,7 +842,33 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
           `  [warn] agent_server.py missing for ${fw.slug}: ${agentServerSrc} — skipping`,
         );
       }
+
+      // Copy aimock_toggle.py sibling if the package ships one. agent_server.py
+      // imports from aimock_toggle so they must move together to keep starter
+      // parity with the demo package.
+      const aimockToggleSrc = path.join(pkgDir, "src", "aimock_toggle.py");
+      if (fs.existsSync(aimockToggleSrc)) {
+        fs.copyFileSync(aimockToggleSrc, path.join(outDir, "aimock_toggle.py"));
+      }
     }
+  }
+
+  // Copy .env.example (when the package ships one) for ALL starters, not just
+  // non-langgraph Python. Every framework benefits from the scaffolded env
+  // docs; gating this in the Python branch was a propagation gap.
+  //
+  // Starter dev scripts bind the agent on port 8123 (see FRAMEWORKS devScript).
+  // Package .env.example files list AGENT_URL=http://localhost:8000 because
+  // the package's own dev script uses 8000. Rewrite the port during the copy
+  // so a scaffolded `cp .env.example .env && npm run dev` actually connects.
+  const envExampleSrc = path.join(pkgDir, ".env.example");
+  if (fs.existsSync(envExampleSrc)) {
+    let envContent = fs.readFileSync(envExampleSrc, "utf-8");
+    // Rewrite AGENT_URL port 8000 -> 8123 to match the starter's dev script.
+    // Uses the exported shared regex (AGENT_URL_LOCALHOST_8000_RE) so the
+    // starter-consistency test and the generator cannot drift.
+    envContent = envContent.replace(AGENT_URL_LOCALHOST_8000_RE, "$18123");
+    fs.writeFileSync(path.join(outDir, ".env.example"), envContent);
   }
 
   // For TypeScript: copy shared tools and rewrite imports
@@ -1110,9 +1159,23 @@ function generateStarterToDir(fw: FrameworkDef, startersBase: string): void {
   generateStarterImpl(fw, path.join(startersBase, fw.slug));
 }
 
-main();
+// Only execute main() when this file is run directly (e.g. `tsx
+// generate-starters.ts` or via the npm script). Tests that `import` from this
+// module must NOT trigger generation — previously `import { ... } from
+// "../generate-starters"` was re-running main() and effectively asserting
+// against its own output, masking regressions in the generator itself.
+const invokedAsScript =
+  typeof process !== "undefined" &&
+  Array.isArray(process.argv) &&
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (invokedAsScript) {
+  main();
+}
 
 export {
+  AGENT_URL_LOCALHOST_8000_RE,
   FRAMEWORKS,
   PIN_OVERRIDES,
   generateStarter,
