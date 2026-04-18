@@ -404,7 +404,7 @@ describe("parsePyprojectToml", () => {
     });
   });
 
-  it("throws when `dependencies = \"malformed\"` is a string (wrong TOML type)", () => {
+  it('throws when `dependencies = "malformed"` is a string (wrong TOML type)', () => {
     withTmp((tmp) => {
       const file = path.join(tmp, "pyproject.toml");
       // `dependencies` is declared but as a string, not an array. The
@@ -3085,6 +3085,68 @@ describe("validateAll: empty packages dir routes to EXIT_UNREADABLE", () => {
       // as EXIT_UNREADABLE (3) keeps report.fail (EXIT_DRIFT, 1)
       // reserved for real drift findings.
       expect(r.status, r.stdout + r.stderr).toBe(3);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FX28-A: falsy-throw from fs.statSync inside collectDepsFromDir. Before
+// the fix, `if (!err || err.code === "ENOENT") continue` silently
+// collapsed a falsy throw (e.g. `throw null`, `throw undefined`) into
+// the "missing file" branch, hiding whatever actually went wrong. The
+// fix treats a falsy throw as an infra-class error: it logs a stderr
+// diagnostic AND records a parseError with `infra: true` so the caller
+// routes through UnreadableInputError → EXIT_UNREADABLE (3).
+// ---------------------------------------------------------------------------
+
+describe("collectShowcaseDeps: falsy throw from fs.statSync", () => {
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    stderrSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("records an infra parse error and logs a stderr diagnostic when statSync throws null", () => {
+    withTmp((tmp) => {
+      // Arrange: package dir containing a package.json that would normally
+      // be stat'd then parsed. We force fs.statSync to throw `null` for
+      // exactly this path to simulate a misbehaving fs layer (primitive
+      // throw, no error metadata at all).
+      const pkgDir = path.join(tmp, "showcase", "packages", "mastra");
+      fs.mkdirSync(pkgDir, { recursive: true });
+      const pkgJsonPath = path.join(pkgDir, "package.json");
+      write(pkgJsonPath, JSON.stringify({ name: "mastra", dependencies: {} }));
+
+      const realStatSync = fs.statSync.bind(fs);
+      vi.spyOn(fs, "statSync").mockImplementation((p, opts) => {
+        // Only hijack the one specific lookup the test cares about — leave
+        // other stat calls (tmp dir probes, etc.) unaffected so collateral
+        // lookups inside collectDepsFromDir don't blow up on infrastructure.
+        if (typeof p === "string" && p === pkgJsonPath) {
+          // eslint-disable-next-line @typescript-eslint/no-throw-literal
+          throw null;
+        }
+        return realStatSync(p as fs.PathLike, opts as fs.StatSyncOptions);
+      });
+
+      const res = collectShowcaseDeps(pkgDir);
+
+      // The fix must surface the problem. A missing-file skip (the old
+      // silent behaviour) would leave parseErrors empty.
+      const falsyPe = res.parseErrors.find((pe) => pe.file === pkgJsonPath);
+      expect(falsyPe, JSON.stringify(res.parseErrors)).toBeDefined();
+      expect(falsyPe!.infra).toBe(true);
+      expect(falsyPe!.message).toMatch(/falsy/i);
+
+      // And a diagnostic must land on stderr — we literally don't know
+      // what happened, so we leave a breadcrumb for the operator.
+      const stderrCalls = stderrSpy.mock.calls.flat().join("\n");
+      expect(stderrCalls).toMatch(/falsy/i);
+      expect(stderrCalls).toContain(pkgJsonPath);
     });
   });
 });
