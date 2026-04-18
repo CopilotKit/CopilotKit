@@ -58,10 +58,22 @@
       "description": "Natural conversation with frontend tool execution"
     },
     {
-      "id": "chat-prebuilt",
-      "name": "Pre-built Chat Components",
+      "id": "prebuilt-chat",
+      "name": "Pre-Built: CopilotChat",
       "category": "chat-ui",
-      "description": "Using CopilotKit's pre-built chat components"
+      "description": "Full-screen/embedded chat via <CopilotChat />"
+    },
+    {
+      "id": "prebuilt-sidebar",
+      "name": "Pre-Built: Sidebar",
+      "category": "chat-ui",
+      "description": "Docked sidebar chat via <CopilotSidebar />"
+    },
+    {
+      "id": "prebuilt-popup",
+      "name": "Pre-Built: Popup",
+      "category": "chat-ui",
+      "description": "Floating popup chat via <CopilotPopup />"
     },
     {
       "id": "chat-slots",
@@ -107,9 +119,15 @@
     },
     {
       "id": "declarative-gen-ui",
-      "name": "Declarative Generative UI (A2UI)",
+      "name": "Declarative Generative UI (A2UI — Dynamic Schema)",
       "category": "generative-ui",
-      "description": "Declarative mapping of agent state to rendered components"
+      "description": "A2UI rendering where the agent emits schema at runtime"
+    },
+    {
+      "id": "a2ui-fixed-schema",
+      "name": "Declarative Generative UI (A2UI — Fixed Schema)",
+      "category": "generative-ui",
+      "description": "A2UI rendering against a known, fixed client-side schema"
     },
     {
       "id": "mcp-apps",

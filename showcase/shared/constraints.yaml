@@ -27,12 +27,23 @@ generative_ui:
   constrained-explicit:
     allowed:
       - agentic-chat
+      - agentic-chat-reasoning
+      - prebuilt-chat
+      - prebuilt-sidebar
+      - prebuilt-popup
+      - chat-slots
+      - headless-simple
+      - headless-complete
       - frontend-tools
       - gen-ui-tool-based
       - gen-ui-interrupt
       - gen-ui-agent
       - hitl-in-chat
       - hitl-in-app
+      - declarative-gen-ui
+      - a2ui-fixed-schema
+      - mcp-apps
+      - open-gen-ui
       - tool-rendering
       - useComponent
       - multi-modal
