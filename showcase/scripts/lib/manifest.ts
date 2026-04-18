@@ -185,7 +185,34 @@ export function parseManifest(
   filePath: string,
   dirSlug?: string,
 ): ParsedManifest {
-  if (!fs.existsSync(filePath)) return { kind: "missing" };
+  // Empty-string dirSlug is a caller bug: `undefined` is the opt-out
+  // sentinel ("caller did not supply a dir slug"). If a caller's
+  // path.basename or similar produced `""` (trailing-slash path,
+  // typo), silently collapsing to undefined would hide the bug and
+  // skip the slug-mismatch guard. Surface as malformed-shape so the
+  // caller sees the error at the parser boundary.
+  if (dirSlug === "") {
+    return {
+      kind: "malformed",
+      subkind: "shape",
+      error: `caller passed empty dirSlug (use undefined to opt out of the slug-check)`,
+    };
+  }
+
+  // Use statSync instead of fs.existsSync so ENOENT and non-ENOENT
+  // errno values (EACCES, ENOTDIR, etc.) are distinguished. existsSync
+  // CONFLATES these: a manifest whose parent dir is 0700 owned by
+  // another user returns false from existsSync, which would collapse
+  // an infrastructure failure into a benign "missing" signal. The
+  // long docstring on probeDir in validate-parity.ts explains the
+  // same anti-pattern — the fix is to stat + inspect errno.
+  try {
+    fs.statSync(filePath);
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException)?.code;
+    if (code === "ENOENT") return { kind: "missing" };
+    return { kind: "unreadable", error: errMsg(e) };
+  }
 
   let raw: string;
   try {
@@ -250,13 +277,14 @@ export function parseManifest(
   // report the drift the same way.
   //
   // Opt-in: callers pass the expected dir slug via the `dirSlug`
-  // parameter. When omitted (or the explicit string ""), the check is
-  // skipped so existing tests and programmatic callers that don't
-  // operate against the packages tree continue to work. The two
-  // production callers (audit.ts, validate-parity.ts) pass the slug
-  // they used to build the filePath.
-  const expectedDirSlug =
-    typeof dirSlug === "string" && dirSlug.length > 0 ? dirSlug : undefined;
+  // parameter. When omitted (undefined), the check is skipped so
+  // existing tests and programmatic callers that don't operate against
+  // the packages tree continue to work. An explicit empty string is
+  // rejected at the top of the function as a caller bug — `undefined`
+  // is the opt-out sentinel; `""` is never a valid dir slug.
+  // The two production callers (audit.ts, validate-parity.ts) pass the
+  // slug they used to build the filePath.
+  const expectedDirSlug = typeof dirSlug === "string" ? dirSlug : undefined;
   if (expectedDirSlug !== undefined && expectedDirSlug !== slug) {
     return {
       kind: "malformed",

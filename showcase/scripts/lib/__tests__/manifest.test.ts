@@ -12,6 +12,43 @@ import os from "os";
 import path from "path";
 import { parseManifest, createDemoId, type DemoId } from "../manifest.js";
 
+// chmod-enforcement probe so tests that rely on EACCES can be cleanly
+// skipped on CI runners that ignore chmod (running as root, certain
+// network mounts). Mirrors the probe in validate-pins.test.ts.
+const isRoot = process.getuid?.() === 0;
+function probeChmodEnforced(): boolean {
+  if (isRoot) return false;
+  let probe: string | undefined;
+  try {
+    probe = fs.mkdtempSync(path.join(os.tmpdir(), "lib-manifest-chmod-probe-"));
+    fs.chmodSync(probe, 0o000);
+    try {
+      fs.readdirSync(probe);
+      return false;
+    } catch (e) {
+      const err = e as NodeJS.ErrnoException;
+      return err.code === "EACCES";
+    }
+  } catch {
+    return false;
+  } finally {
+    if (probe) {
+      try {
+        fs.chmodSync(probe, 0o755);
+      } catch {
+        // best-effort restore
+      }
+      try {
+        fs.rmSync(probe, { recursive: true, force: true });
+      } catch {
+        // best-effort
+      }
+    }
+  }
+}
+const chmodEnforced = probeChmodEnforced();
+const cannotEnforceEacces = isRoot || !chmodEnforced;
+
 function tmpdir(prefix = "lib-manifest-"): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
@@ -380,6 +417,108 @@ describe("parseManifest", () => {
     if (r.kind === "ok") {
       expect(r.manifest.demos).toEqual([]);
       expect(Object.isFrozen(r.manifest.demos)).toBe(true);
+    }
+  });
+
+  it.skipIf(cannotEnforceEacces)(
+    "returns {kind:'unreadable'} when the parent dir is unreadable (EACCES on stat)",
+    () => {
+      // Regression for FX30-C Fix 2 (R29-2 H3): parseManifest used
+      // fs.existsSync which CONFLATES ENOENT with EACCES — a manifest
+      // whose parent dir is 0700 owned by another user collapses to
+      // "missing" instead of surfacing as "unreadable". That's the
+      // exact anti-pattern probeDir in validate-parity.ts was written
+      // to avoid. parseManifest must use statSync + errno inspection
+      // so EACCES/ENOTDIR/etc route to `{kind:"unreadable"}`.
+      const root = fs.mkdtempSync(
+        path.join(os.tmpdir(), "lib-manifest-parent-eacces-"),
+      );
+      const parentDir = path.join(root, "locked");
+      fs.mkdirSync(parentDir);
+      const manifestFile = path.join(parentDir, "manifest.yaml");
+      fs.writeFileSync(manifestFile, "slug: ok\n");
+      fs.chmodSync(parentDir, 0o000);
+      try {
+        const r = parseManifest(manifestFile);
+        expect(r.kind).toBe("unreadable");
+      } finally {
+        try {
+          fs.chmodSync(parentDir, 0o755);
+        } catch {
+          // best-effort
+        }
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it("returns {kind:'unreadable'} when statSync throws a non-ENOENT errno", () => {
+    // Deterministic variant of the chmod-based test above: stub statSync
+    // to throw EACCES so the behavior is verified even on FS layers that
+    // ignore chmod. Pre-ENOENT semantics (via fs.existsSync) would have
+    // collapsed this to {kind:"missing"}.
+    const tmp = fs.mkdtempSync(
+      path.join(os.tmpdir(), "lib-manifest-stat-spy-"),
+    );
+    const f = path.join(tmp, "manifest.yaml");
+    fs.writeFileSync(f, "slug: ok\n");
+    const orig = fs.statSync;
+    const spy = vi.spyOn(fs, "statSync").mockImplementation(((
+      p: fs.PathLike,
+      options?: unknown,
+    ) => {
+      if (typeof p === "string" && p === f) {
+        const e: NodeJS.ErrnoException = new Error("EACCES: injected");
+        e.code = "EACCES";
+        throw e;
+      }
+      return (orig as unknown as (p: fs.PathLike, o?: unknown) => unknown)(
+        p,
+        options,
+      );
+    }) as typeof fs.statSync);
+    try {
+      const r = parseManifest(f);
+      expect(r.kind).toBe("unreadable");
+      if (r.kind === "unreadable") {
+        expect(r.error).toContain("EACCES");
+      }
+    } finally {
+      spy.mockRestore();
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("returns {kind:'missing'} (not 'unreadable') when statSync throws ENOENT", () => {
+    // ENOENT is the legitimate "file absent" signal and must continue to
+    // route to {kind:"missing"}. Only non-ENOENT errno values escalate
+    // to "unreadable".
+    const r = parseManifest(
+      path.join(os.tmpdir(), "definitely-absent-xyz", "manifest.yaml"),
+    );
+    expect(r.kind).toBe("missing");
+  });
+
+  it("returns {kind:'malformed'} when dirSlug is the empty string (caller bug)", () => {
+    // Regression for FX30-C Fix 3 (R29-2 H2): `""` is NOT a valid opt-out
+    // sentinel — `undefined` means "caller opted out of slug-check".
+    // An empty string usually comes from path.basename on a weird path
+    // (trailing slash, etc.) in the caller; silently collapsing it to
+    // undefined hides a caller bug. The parser must surface it.
+    const tmp = fs.mkdtempSync(
+      path.join(os.tmpdir(), "lib-manifest-empty-slug-"),
+    );
+    const f = path.join(tmp, "manifest.yaml");
+    fs.writeFileSync(f, "slug: mypkg\n");
+    try {
+      const r = parseManifest(f, "");
+      expect(r.kind).toBe("malformed");
+      if (r.kind === "malformed") {
+        expect(r.subkind).toBe("shape");
+        expect(r.error).toMatch(/empty.*dirSlug|dirSlug.*empty/i);
+      }
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
     }
   });
 

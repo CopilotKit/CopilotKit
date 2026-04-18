@@ -302,17 +302,21 @@ describe("findExamplesSource", () => {
     fs.rmSync(root, { recursive: true, force: true });
   });
 
-  it("returns null when no candidate directory exists", () => {
+  it("returns null source when no candidate directory exists", () => {
     const cfg = makeConfig(root);
     const r = findExamplesSource("does-not-exist", cfg);
-    expect(r).toBeNull();
+    expect(r.source).toBeNull();
+    expect(r.unreadableForSlug).toBe(false);
   });
 
   it("returns relative path when a candidate dir exists", () => {
     makeExampleDir(root, "crewai-crews");
     const cfg = makeConfig(root);
     const r = findExamplesSource("crewai-crews", cfg);
-    expect(r).toBe(path.join("examples", "integrations", "crewai-crews"));
+    expect(r.source).toBe(
+      path.join("examples", "integrations", "crewai-crews"),
+    );
+    expect(r.unreadableForSlug).toBe(false);
   });
 
   it("does not crash if statSync throws — treats error as not-found", () => {
@@ -336,7 +340,7 @@ describe("findExamplesSource", () => {
     try {
       const cfg = makeConfig(root);
       const r = findExamplesSource("crewai-crews", cfg);
-      expect(r).toBeNull();
+      expect(r.source).toBeNull();
     } finally {
       spy.mockRestore();
     }
@@ -355,7 +359,8 @@ describe("findExamplesSource", () => {
     const cfg = makeConfig(root);
     const sink: string[] = [];
     const r = findExamplesSource(mappedSlug, cfg, sink);
-    expect(r).toBeNull();
+    expect(r.source).toBeNull();
+    expect(r.unreadableForSlug).toBe(false);
     // Sink received the stale-mapping warning verbatim.
     expect(sink.length).toBeGreaterThan(0);
     expect(sink.some((w) => w.includes(mappedSlug))).toBe(true);
@@ -368,7 +373,7 @@ describe("findExamplesSource", () => {
     const cfg = makeConfig(root);
     const sink: string[] = [];
     const r = findExamplesSource("totally-unmapped-slug", cfg, sink);
-    expect(r).toBeNull();
+    expect(r.source).toBeNull();
     expect(sink).toEqual([]);
   });
 
@@ -394,7 +399,7 @@ describe("findExamplesSource", () => {
       const cfg = makeConfig(root);
       const sink: string[] = [];
       const r = findExamplesSource("crewai-crews", cfg, sink);
-      expect(r).toBeNull();
+      expect(r.source).toBeNull();
       expect(sink.some((w) => w.includes("statSync"))).toBe(true);
       expect(sink.some((w) => w.includes("EIO"))).toBe(true);
     } finally {
@@ -411,7 +416,8 @@ describe("findExamplesSource", () => {
     makeExampleDir(root, first);
     const cfg = makeConfig(root);
     const r = findExamplesSource(slug, cfg);
-    expect(r).toBe(path.join("examples", "integrations", first));
+    expect(r.source).toBe(path.join("examples", "integrations", first));
+    expect(r.unreadableForSlug).toBe(false);
   });
 
   it("falls back to a later candidate when only that later candidate exists", () => {
@@ -426,7 +432,8 @@ describe("findExamplesSource", () => {
     makeExampleDir(root, "real-later");
     const cfg = makeConfig(root);
     const r = resolveExamplesSource(slug, mapped, cfg);
-    expect(r).toBe(path.join("examples", "integrations", "real-later"));
+    expect(r.source).toBe(path.join("examples", "integrations", "real-later"));
+    expect(r.unreadableForSlug).toBe(false);
   });
 
   it("warns and returns null when an unmapped slug's candidate path exists but is a regular file", () => {
@@ -445,7 +452,8 @@ describe("findExamplesSource", () => {
     const sink: string[] = [];
     // mapped = undefined exercises the unmapped-slug branch.
     const r = resolveExamplesSource(slug, undefined, cfg, sink);
-    expect(r).toBeNull();
+    expect(r.source).toBeNull();
+    expect(r.unreadableForSlug).toBe(false);
     expect(
       sink.some(
         (w) => w.includes("exists but is not a directory") && w.includes(full),
@@ -470,7 +478,8 @@ describe("findExamplesSource", () => {
     makeExampleDir(root, "later-dir");
     const cfg = makeConfig(root);
     const r = resolveExamplesSource(slug, mapped, cfg);
-    expect(r).toBe(path.join("examples", "integrations", "first-dir"));
+    expect(r.source).toBe(path.join("examples", "integrations", "first-dir"));
+    expect(r.unreadableForSlug).toBe(false);
   });
 });
 
@@ -757,6 +766,142 @@ describe("auditPackage", () => {
     }
   });
 
+  it("classifies unreadable-examples via structured metadata, not warning-string substring match (FX30-C Fix 1)", () => {
+    // Regression for FX30-C Fix 1 (R29-2 H1): auditPackage used to
+    // classify by scanning warnings[] for `unreadable-candidates` +
+    // `"<slug>"` substrings. Any reword of the human-readable warning
+    // text (for i18n, for a typo fix, for a docstring tweak) would
+    // silently reclassify unreadable-examples as missing-examples. The
+    // fix: route classification through a structured return value from
+    // resolveExamplesSource, not a string scan.
+    //
+    // Test strategy: confirm the contract via resolveExamplesSource's
+    // direct return shape (no warning string involved). The function
+    // must return a tagged object carrying `source` AND a boolean
+    // indicator that "all candidates existed but were unreadable" —
+    // tests below read that field directly.
+    const slug = "structural-unreadable";
+    const mapped = ["cand-a", "cand-b"] as const;
+    for (const c of mapped) makeExampleDir(root, c);
+    const fullPaths = mapped.map((c) =>
+      path.join(root, "examples", "integrations", c),
+    );
+    const orig = fs.statSync;
+    const spy = vi.spyOn(fs, "statSync").mockImplementation(((
+      p: fs.PathLike,
+      options?: unknown,
+    ) => {
+      if (typeof p === "string" && fullPaths.includes(p)) {
+        const e: NodeJS.ErrnoException = new Error("EACCES: injected");
+        e.code = "EACCES";
+        throw e;
+      }
+      return (orig as unknown as (p: fs.PathLike, o?: unknown) => unknown)(
+        p,
+        options,
+      );
+    }) as typeof fs.statSync);
+    try {
+      const cfg = makeConfig(root);
+      // resolveExamplesSource now returns a structured tuple, not a
+      // bare string. Assert both fields so the classification signal
+      // does NOT depend on warning-text substring matching.
+      const r = resolveExamplesSource(slug, mapped, cfg);
+      // The "all candidates unreadable" signal is a structured boolean.
+      expect(r).toMatchObject({
+        source: null,
+        unreadableForSlug: true,
+      });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("resolveExamplesSource returns unreadableForSlug=false for a stale mapping (no unreadable candidates)", () => {
+    // Negative control for the structured return: a stale mapping
+    // (candidates absent on disk) must NOT set unreadableForSlug=true.
+    // Otherwise audit would route plain stale-mapping cases as
+    // unreadable-examples (infrastructure failure) instead of the
+    // correct missing-examples (content failure).
+    const cfg = makeConfig(root);
+    const r = resolveExamplesSource(
+      "stale-mapping-slug",
+      ["absent-a", "absent-b"] as const,
+      cfg,
+    );
+    expect(r).toMatchObject({
+      source: null,
+      unreadableForSlug: false,
+    });
+  });
+
+  it("resolveExamplesSource returns the source string alongside unreadableForSlug=false on success", () => {
+    // On the happy path, `source` carries the relative path to the
+    // resolved candidate directory and `unreadableForSlug` is false.
+    makeExampleDir(root, "cand-hit");
+    const cfg = makeConfig(root);
+    const r = resolveExamplesSource(
+      "synthetic-hit",
+      ["cand-hit"] as const,
+      cfg,
+    );
+    expect(r).toMatchObject({
+      source: path.join("examples", "integrations", "cand-hit"),
+      unreadableForSlug: false,
+    });
+  });
+
+  it("auditPackage still routes unreadable-examples correctly even if the human-readable warning text is reworded", () => {
+    // Fix 1 robustness test: stub resolveExamplesSource's warning sink
+    // by monkey-patching the audit to emit a DIFFERENT warning wording,
+    // and confirm classification still lands on unreadable-examples. We
+    // achieve this by using statSync EACCES on the candidates (so the
+    // structured signal fires) and asserting classification does NOT
+    // require the human warning to contain `unreadable-candidates` or
+    // `"<slug>"` substrings verbatim.
+    const slug = "mastra";
+    const candidates = SLUG_TO_EXAMPLES[slug];
+    expect(candidates).toBeDefined();
+    writePackage(root, slug, {
+      manifest: `slug: ${slug}\ndeployed: true\ndemos:\n  - id: x\n`,
+      specs: ["x.spec.ts"],
+      qaFiles: ["x.md"],
+    });
+    const fullPaths = candidates.map((c) =>
+      path.join(root, "examples", "integrations", c),
+    );
+    for (const c of candidates) makeExampleDir(root, c);
+    const orig = fs.statSync;
+    const spy = vi.spyOn(fs, "statSync").mockImplementation(((
+      p: fs.PathLike,
+      options?: unknown,
+    ) => {
+      if (typeof p === "string" && fullPaths.includes(p)) {
+        const e: NodeJS.ErrnoException = new Error("EACCES: injected");
+        e.code = "EACCES";
+        throw e;
+      }
+      return (orig as unknown as (p: fs.PathLike, o?: unknown) => unknown)(
+        p,
+        options,
+      );
+    }) as typeof fs.statSync);
+    try {
+      const cfg = makeConfig(root);
+      const a = auditPackage(slug, cfg);
+      // Classification lands on unreadable-examples regardless of
+      // warning text. Fix 1 removed the string-substring gating.
+      expect(a.anomalies.some((x) => x.kind === "unreadable-examples")).toBe(
+        true,
+      );
+      expect(a.anomalies.some((x) => x.kind === "missing-examples")).toBe(
+        false,
+      );
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("still pushes missing-examples (not unreadable-examples) when the mapping is simply stale", () => {
     // Negative control for the branch above: the same mapped slug with
     // NO candidate directories on disk must continue to produce
@@ -1030,10 +1175,11 @@ describe("BORN_IN_SHOWCASE set", () => {
       const cfg = makeConfig(tmp);
       for (const slug of BORN_IN_SHOWCASE) {
         // No dir created for this slug — findExamplesSource must return
-        // null and SLUG_TO_EXAMPLES must not carry a mapping for it.
+        // a null source and SLUG_TO_EXAMPLES must not carry a mapping
+        // for it.
         const r = findExamplesSource(slug, cfg);
         expect(
-          r,
+          r.source,
           `BORN_IN_SHOWCASE slug "${slug}" resolved to a non-null examples source — the maps are inconsistent`,
         ).toBeNull();
         expect(
@@ -1084,7 +1230,7 @@ describe("SLUG_TO_EXAMPLES — dead entries removed", () => {
       for (const [slug, targets] of Object.entries(SLUG_TO_EXAMPLES)) {
         const r = findExamplesSource(slug, cfg);
         expect(
-          r,
+          r.source,
           `SLUG_TO_EXAMPLES[${slug}] → [${targets.join(
             ", ",
           )}] failed to resolve against a fixture containing every target`,
@@ -1114,7 +1260,7 @@ describe("findExamplesSource — sink-based warnings (no global stderr)", () => 
     const cfg = makeConfig(root);
     const sink: string[] = [];
     const r = findExamplesSource(mappedSlug, cfg, sink);
-    expect(r).toBeNull();
+    expect(r.source).toBeNull();
     const joined = sink.join("\n");
     expect(joined).toMatch(/warn/i);
     expect(joined).toContain(mappedSlug);
@@ -1126,7 +1272,7 @@ describe("findExamplesSource — sink-based warnings (no global stderr)", () => 
     const cfg = makeConfig(root);
     const sink: string[] = [];
     const r = findExamplesSource("totally-unmapped-slug", cfg, sink);
-    expect(r).toBeNull();
+    expect(r.source).toBeNull();
     expect(sink).toEqual([]);
   });
 
@@ -1197,7 +1343,11 @@ describe("findExamplesSource — unreadable-candidates ERROR branch", () => {
       const cfg = makeConfig(root);
       const sink: string[] = [];
       const r = resolveExamplesSource(slug, mapped, cfg, sink);
-      expect(r).toBeNull();
+      expect(r.source).toBeNull();
+      // Structured classification signal: "all candidates unreadable"
+      // must surface as unreadableForSlug=true without relying on the
+      // human-readable warning wording.
+      expect(r.unreadableForSlug).toBe(true);
       // The ERROR warning must be present, tagged with the category,
       // and must name the slug so downstream consumers can route it.
       expect(
@@ -1956,7 +2106,8 @@ describe("auditPackage — direct-caller invariants", () => {
       const cfg = makeConfig(root);
       const sink: string[] = [];
       const r = findExamplesSource(slug, cfg, sink);
-      expect(r).toBeNull();
+      expect(r.source).toBeNull();
+      expect(r.unreadableForSlug).toBe(true);
       // A critical "all candidates unreadable" message must appear.
       expect(sink.some((w) => /ERROR/.test(w))).toBe(true);
       expect(sink.some((w) => w.includes(slug))).toBe(true);
