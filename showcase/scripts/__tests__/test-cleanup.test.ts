@@ -518,4 +518,132 @@ describe("restoreFromGitHead: drifted baseline guard", () => {
       console.warn = origWarn;
     }
   });
+
+  // --- Post-heal drift guard: the `git checkout HEAD --` above must leave the
+  //     tracked paths byte-identical to HEAD. We simulate a hostile layer by
+  //     stubbing execFileSync at the module level? No — simpler: we stub
+  //     `checkout` indirectly by preloading the file with drift AFTER checkout
+  //     would have run. We can't intercept the real checkout, so instead we
+  //     cover the guard by replacing the `git` binary with a wrapper that
+  //     rewrites the file to drifted content. Too invasive. Simplest direct
+  //     cover: make `git diff --quiet` exit non-zero by monkey-patching PATH
+  //     to a shim that reports drift. Skipped as over-engineered.
+  //
+  //     Instead, verify the structural invariant: on CI, after a successful
+  //     path-partition + checkout, a repo whose tracked file genuinely matches
+  //     HEAD must NOT trigger the guard. Red-green: an earlier revision of
+  //     this module lacked the post-heal diff and this test would have
+  //     silently passed; the drift-scenario coverage is exercised by the
+  //     integration test suites (create-integration, generate-registry,
+  //     bundle-demo-content) which all run under CI=true.
+  it("does not false-positive on a clean tracked path (CI)", () => {
+    const a = path.join(repo, "a.txt");
+    fs.writeFileSync(a, "baseline\n");
+    commitAll(repo, "baseline");
+    // Tree is clean; checkout is a no-op; post-heal diff must be clean.
+    expect(() => restoreFromGitHead(repo, ["a.txt"])).not.toThrow();
+    // File still matches HEAD.
+    expect(fs.readFileSync(a, "utf-8")).toBe("baseline\n");
+  });
+
+  /** Build a shim `git` wrapper that fails the N-th `diff --quiet` invocation
+   *  (1-indexed). Earlier diff calls pass through to the real git. Used to
+   *  distinguish the off-CI pre-checkout dirty-tracked-file check (1st diff)
+   *  from the post-heal drift guard (2nd diff) without false positives.
+   *
+   *  State is persisted in a counter file in the shim dir so the same shim
+   *  can be used across multiple restoreFromGitHead calls in one test. */
+  function mkGitShim(failNthDiff: number): {
+    shimDir: string;
+    cleanup: () => void;
+    activate: () => string | undefined;
+    deactivate: (saved: string | undefined) => void;
+  } {
+    const shimDir = fs.mkdtempSync(path.join(os.tmpdir(), "git-shim-"));
+    const counterFile = path.join(shimDir, "counter");
+    fs.writeFileSync(counterFile, "0");
+    const realGit = execFileSync("which", ["git"], {
+      encoding: "utf-8" as const,
+    })
+      .toString()
+      .trim();
+    const shim = path.join(shimDir, "git");
+    fs.writeFileSync(
+      shim,
+      `#!/usr/bin/env bash\n` +
+        `COUNTER_FILE=${JSON.stringify(counterFile)}\n` +
+        `FAIL_N=${failNthDiff}\n` +
+        `if [ "$1" = "diff" ] && [ "$2" = "--quiet" ]; then\n` +
+        `  n=$(cat "$COUNTER_FILE")\n` +
+        `  n=$((n+1))\n` +
+        `  echo "$n" > "$COUNTER_FILE"\n` +
+        `  if [ "$n" = "$FAIL_N" ]; then\n` +
+        `    exit 1\n` +
+        `  fi\n` +
+        `fi\n` +
+        `exec ${JSON.stringify(realGit)} "$@"\n`,
+      { mode: 0o755 },
+    );
+    return {
+      shimDir,
+      cleanup: () => fs.rmSync(shimDir, { recursive: true, force: true }),
+      activate: () => {
+        const saved = process.env.PATH;
+        process.env.PATH = `${shimDir}:${saved ?? ""}`;
+        return saved;
+      },
+      deactivate: (saved) => {
+        process.env.PATH = saved;
+      },
+    };
+  }
+
+  // Direct cover of the guard's throw path: use a git shim that makes the
+  // POST-HEAL diff (the 2nd `diff --quiet`) exit 1. On CI there's only one
+  // diff call (the post-heal) so `failNthDiff: 1` is correct.
+  it("throws on CI when a post-heal diff reports drift", () => {
+    const a = path.join(repo, "a.txt");
+    fs.writeFileSync(a, "baseline\n");
+    commitAll(repo, "baseline");
+
+    const shim = mkGitShim(1);
+    const saved = shim.activate();
+    try {
+      expect(() => restoreFromGitHead(repo, ["a.txt"])).toThrow(
+        /drifted-baseline guard: post-heal diff failed/,
+      );
+    } finally {
+      shim.deactivate(saved);
+      shim.cleanup();
+    }
+  });
+
+  it("warns (does not throw) off-CI when a post-heal diff reports drift", () => {
+    delete process.env.CI;
+    const a = path.join(repo, "a.txt");
+    fs.writeFileSync(a, "baseline\n");
+    commitAll(repo, "baseline");
+
+    // Off-CI there are TWO diff calls: (1) the pre-checkout dirty-tracked
+    // check, (2) the post-heal drift guard. We want to fail only the 2nd.
+    const shim = mkGitShim(2);
+    const saved = shim.activate();
+    const warnings: string[] = [];
+    const origWarn = console.warn;
+    console.warn = (msg: unknown) => {
+      warnings.push(String(msg));
+    };
+    try {
+      expect(() => restoreFromGitHead(repo, ["a.txt"])).not.toThrow();
+      expect(
+        warnings.some((w) =>
+          /drifted-baseline guard: post-heal diff failed/.test(w),
+        ),
+      ).toBe(true);
+    } finally {
+      console.warn = origWarn;
+      shim.deactivate(saved);
+      shim.cleanup();
+    }
+  });
 });

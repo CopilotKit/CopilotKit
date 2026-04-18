@@ -280,11 +280,15 @@ export function restoreFromGitHead(
       stdio: ["ignore", "pipe", "pipe"],
     });
   } catch (err) {
-    // Narrow: pathspec-did-not-match on untracked files is benign. Git
-    // produces this as `error: pathspec '…' did not match any file(s) known
-    // to git` (exit 1) OR `fatal: … is outside repository` (exit 128).
-    // Anything else — EACCES, git missing, corrupt worktree — bubble up so
-    // the suite fails loudly instead of seeding a drifted baseline.
+    // Belt-and-braces: handles a race where a tracked file is removed
+    // between partitionTrackedPaths and this checkout (e.g. a parallel
+    // rm from another harness touching the same tree). Realistically
+    // unreachable in this suite — we run with fileParallelism: false and
+    // no concurrent harness — but cheap to tolerate. Git produces this as
+    // `error: pathspec '…' did not match any file(s) known to git`
+    // (exit 1). Anything else — EACCES, git missing, corrupt worktree —
+    // bubbles up so the suite fails loudly instead of seeding a drifted
+    // baseline.
     const stderr =
       // SAFE_EXEC_OPTS pins `encoding: "utf-8"`, so stderr is a string here.
       (err as { stderr?: string }).stderr ?? "";
@@ -298,6 +302,35 @@ export function restoreFromGitHead(
         { cause: err },
       );
     }
+  }
+
+  // Drifted-baseline guard (post-heal): after the `git checkout HEAD --`
+  // above, every tracked path we just healed MUST now be byte-identical
+  // to HEAD. If it isn't, something is mutating these files between our
+  // checkout and here — an external process, a filesystem layer, or
+  // (most likely in practice) a parallel test suite we haven't accounted
+  // for. That's a drifted baseline: our subsequent snapshot would bake
+  // in the drift and the restore loop would happily maintain it forever.
+  // On CI this is a hard error; off-CI we let the snapshot proceed but
+  // warn, since a developer may be iterating on a dirty tree.
+  try {
+    execFileSync("git", ["diff", "--quiet", "HEAD", "--", ...tracked], {
+      ...gitExecOpts(repoRoot),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (err) {
+    const code = (err as { status?: number }).status;
+    const stderr = (err as { stderr?: string }).stderr ?? "";
+    const msg =
+      `restoreFromGitHead: drifted-baseline guard: post-heal diff failed` +
+      ` (exit ${code ?? "?"}) for:\n` +
+      tracked.map((p) => `  ${p}`).join("\n") +
+      (stderr.trim() ? `\ngit stderr: ${stderr.trim()}` : "");
+    if (isCI()) {
+      throw new Error(msg, { cause: err });
+    }
+    // eslint-disable-next-line no-console
+    console.warn(`[test-cleanup] ${msg}`);
   }
 }
 
