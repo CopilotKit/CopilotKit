@@ -69,6 +69,15 @@ on:
         # hidden default would silently bind manual dispatches to whichever
         # slug happens to be first in the enum, which contradicts the
         # "no silent fallback" guarantee the comment-path extractor enforces.
+        #
+        # Single-choice enum UX note: the GitHub Actions UI pre-selects the
+        # only option when a `choice` has one entry. That IS the intended
+        # experience here — with exactly one valid slug today, showing a
+        # disabled dropdown matches what "the operator must pick a slug"
+        # reduces to when the valid set has size one. Do not add a sentinel
+        # option (e.g. "--choose--") to force a picker — sentinel values
+        # would need separate validation and re-introduce the silent-fallback
+        # class of bug the comment-path extractor was hardened against.
         type: choice
         options:
           - crewai-crews
@@ -96,9 +105,10 @@ jobs:
     # `startsWith` (not `contains`) is the Actions-level gate: it requires
     # `/test-aimock ` to be the FIRST token of the comment, so embedded mentions
     # (in code blocks, quoted replies, or mid-sentence prose) cannot spin up a
-    # runner. The shell extractor in the "Determine slug" step enforces a proper
-    # word-boundary regex as defense-in-depth; we keep both so a future
-    # loosening of either layer alone cannot bypass validation. Commenters who
+    # runner. The shell extractor in the "Determine slug" step uses the same
+    # leading anchor (`^/test-aimock[[:space:]]+…`) as defense-in-depth; both
+    # layers agree on "first token only" so a future edit that loosens either
+    # layer alone cannot bypass validation. Commenters who
     # want to add narration around the command should put the command on its
     # own line at the top of the comment.
     if: >
@@ -174,17 +184,19 @@ jobs:
             SLUG="$DISPATCH_SLUG"
           else
             # POSIX-safe extraction (no `grep -oP` / PCRE `\K`): match
-            # `/test-aimock` as a whole token (line-start or whitespace on
-            # BOTH sides of the command) followed by a slug. This blocks
-            # `/test-aimocker` or `/test-aimock-like-this` from matching —
-            # the job-level `if:` guard already requires a trailing space,
-            # but the shell-level extraction is defense-in-depth in case a
-            # future `if:` edit loosens the gate. Works on both GNU grep
-            # (ubuntu-latest) and BSD grep (macOS / Alpine busybox).
+            # `/test-aimock` ONLY at the start of the comment body, followed
+            # by whitespace + a slug. The leading anchor (^) matches exactly
+            # what the job-level `if:` gate enforces via
+            # `startsWith(github.event.comment.body, '/test-aimock ')` — both
+            # layers agree that the command must be the FIRST token of the
+            # body, so an edit that loosens either layer cannot accidentally
+            # desynchronize from the other. This blocks
+            # `/test-aimocker` or mid-line mentions from matching.
+            # Works on both GNU grep (ubuntu-latest) and BSD grep.
             SLUG=$(printf '%s' "$COMMENT_BODY" \
-              | grep -oE '(^|[[:space:]])/test-aimock[[:space:]]+[^[:space:]]+' \
+              | grep -oE '^/test-aimock[[:space:]]+[^[:space:]]+' \
               | head -n1 \
-              | sed 's|^[[:space:]]*/test-aimock[[:space:]]*||' \
+              | sed 's|^/test-aimock[[:space:]]*||' \
               || true)
             # No default slug fallback. A bare `/test-aimock` (no slug) or a
             # match that only skimmed our boundary (e.g. `/test-aimocker x`)
@@ -279,19 +291,28 @@ jobs:
           fi
           "$AIMOCK_BIN" --port 4010 --host 127.0.0.1 --fixtures showcase/aimock/feature-parity.json --validate-on-load &
           AIMOCK_PID=$!
+          echo "AIMOCK_PID=$AIMOCK_PID" >> "$GITHUB_ENV"
           # Wait for aimock to be ready. Capture the PID + `kill -0` inside
           # the loop so an aimock that crashes on startup (bad fixture path,
           # port in use, binary import error) fails fast instead of burning
           # the full 20s polling a dead process.
+          #
+          # Probe `/__aimock/health` — aimock's actual readiness endpoint.
+          # Root `/` returns HTTP 404 (aimock serves `/__aimock/*` and `/v1/*`
+          # only), and `curl -sf` treats 404 as failure, so probing `/` would
+          # loop until the budget expired and then hard-fail every run.
+          #
+          # `--max-time 2 --connect-timeout 1` caps each probe so a hung
+          # socket cannot blow the loop's 20-iteration budget.
           for i in $(seq 1 20); do
             if ! kill -0 "$AIMOCK_PID" 2>/dev/null; then
               echo "::error::aimock process (PID $AIMOCK_PID) exited before becoming ready — check the preceding aimock stdout/stderr."
               exit 1
             fi
-            curl -sf http://localhost:4010/ > /dev/null 2>&1 && break
+            curl -sf --max-time 2 --connect-timeout 1 http://localhost:4010/__aimock/health > /dev/null 2>&1 && break
             sleep 1
           done
-          curl -sf http://localhost:4010/ || { echo "aimock failed to start"; exit 1; }
+          curl -sf --max-time 2 --connect-timeout 1 http://localhost:4010/__aimock/health || { echo "aimock failed to start"; exit 1; }
 
       - name: Setup Python agent
         if: steps.pkg-type.outputs.has_python == 'true'
@@ -371,10 +392,10 @@ jobs:
           # code). If a future Python agent doesn't expose `/health`, add a
           # dedicated readiness endpoint instead of reintroducing `/`.
           for i in $(seq 1 45); do
-            curl -sf http://localhost:8000/health > /dev/null 2>&1 && break
+            curl -sf --max-time 2 --connect-timeout 1 http://localhost:8000/health > /dev/null 2>&1 && break
             sleep 2
           done
-          curl -sf http://localhost:8000/health > /dev/null 2>&1 \
+          curl -sf --max-time 2 --connect-timeout 1 http://localhost:8000/health > /dev/null 2>&1 \
             || { echo "Python agent failed to start on :8000"; exit 1; }
 
       - name: Install package dependencies
@@ -412,12 +433,13 @@ jobs:
           OPENAI_API_KEY=test-key \
           AGENT_URL=http://localhost:8000 \
           npx next dev --turbopack &
-          # Wait for dev server
+          # Wait for dev server. `--max-time 2 --connect-timeout 1` caps each
+          # probe so a hung socket can't blow the loop budget.
           for i in $(seq 1 30); do
-            curl -sf http://localhost:3000 > /dev/null 2>&1 && break
+            curl -sf --max-time 2 --connect-timeout 1 http://localhost:3000 > /dev/null 2>&1 && break
             sleep 2
           done
-          curl -sf http://localhost:3000 || { echo "Dev server failed to start"; exit 1; }
+          curl -sf --max-time 2 --connect-timeout 1 http://localhost:3000 || { echo "Dev server failed to start"; exit 1; }
 
       - name: Install Playwright
         run: |
@@ -435,7 +457,7 @@ jobs:
         # would pass/fail on REAL traffic with REAL costs. Fail loud before
         # Playwright runs.
         run: |
-          if ! curl -sf http://localhost:4010/ > /dev/null 2>&1; then
+          if ! curl -sf --max-time 2 --connect-timeout 1 http://localhost:4010/__aimock/health > /dev/null 2>&1; then
             echo "::error::aimock is no longer responding on :4010. Refusing to run Playwright against a dead aimock (would silently hit real OpenAI)."
             exit 1
           fi
@@ -447,10 +469,25 @@ jobs:
           BASE_URL=http://localhost:3000 npx playwright test --reporter=list
         env:
           CI: "true"
-          # Only export env the Next.js runtime actually reads (same as the
-          # dev-server step above). AIMOCK_URL is a Python-side toggle.
-          OPENAI_BASE_URL: http://localhost:4010/v1
-          OPENAI_API_KEY: test-key
+          # Dead env — Next.js is already running from the "Start dev server"
+          # step above (which set these inline on that process). Env set here
+          # would only affect the `npx playwright test` process, which does not
+          # read OPENAI_BASE_URL / OPENAI_API_KEY. Leaving unset to avoid the
+          # false impression that these values flow to the running Next server.
+
+      - name: Re-check aimock liveness after Playwright
+        if: always()
+        # Defense-in-depth: aimock might have OOM'd DURING the Playwright run.
+        # If that happened, the test either silently used stale fixtures (no-op
+        # after aimock died if responses were cached) or fell through to real
+        # OpenAI. Fail the job loudly so a dead aimock cannot masquerade as a
+        # green run. Keeps the 4010-is-still-alive invariant symmetric with the
+        # pre-Playwright re-probe above.
+        run: |
+          if [ -n "${AIMOCK_PID:-}" ] && ! kill -0 "$AIMOCK_PID" 2>/dev/null; then
+            echo "::error::aimock process (PID $AIMOCK_PID) died during the Playwright run. Playwright results are untrusted — it may have hit real OpenAI or returned stale fixtures."
+            exit 1
+          fi
 
       - name: Upload test artifacts
         if: always()
