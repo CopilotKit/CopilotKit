@@ -30,7 +30,7 @@ COPY --from=frontend /app/package.json ./
 COPY agent/ ./agent/
 
 # FastAPI agent server entrypoint
-COPY agent_server.py ./
+COPY agent_server.py aimock_toggle.py ./
 
 # Entrypoint
 COPY entrypoint.sh ./
