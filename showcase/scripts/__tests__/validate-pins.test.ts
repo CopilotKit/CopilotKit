@@ -578,6 +578,15 @@ describe("isExactSpec", () => {
   it("rejects empty specs", () => {
     expect(isExactSpec("")).toBe(false);
   });
+
+  // The Python `==` body regex must be anchored end-to-end so that
+  // degenerate bodies — non-numeric patch segments, illegal trailing
+  // punctuation — do not sneak through as "starts with MAJOR.MINOR"
+  // and get mis-classified as exact pins.
+  it("rejects Python == specs with malformed bodies", () => {
+    expect(isExactSpec("==1.2.foo")).toBe(false);
+    expect(isExactSpec("==1.2abc!")).toBe(false);
+  });
 });
 
 describe("Unpinned spec rejection in validateAll", () => {
@@ -1901,6 +1910,27 @@ describe("Poetry caret-prefix does not fire on comma-joined ranges", () => {
       );
       const deps = parsePyprojectToml(file);
       expect(deps["foo"]).toBe("1.2.3,>=1.0");
+      expect(isExactSpec(deps["foo"])).toBe(false);
+    });
+  });
+
+  // Pipe-OR / space / range-operator composed specs also start with a
+  // digit but are NOT bare versions. Prefixing any of them with `^`
+  // produces a nonsense value (e.g. `^1.2.3 || 2.0.0`), so they must
+  // be stored verbatim and classified as non-exact on their own merits.
+  it('leaves `"1.2.3 || 2.0.0"` verbatim (no leading `^`)', () => {
+    withTmp((tmp) => {
+      const file = path.join(tmp, "pyproject.toml");
+      write(
+        file,
+        [
+          "[tool.poetry.dependencies]",
+          'python = "^3.10"',
+          'foo = "1.2.3 || 2.0.0"',
+        ].join("\n"),
+      );
+      const deps = parsePyprojectToml(file);
+      expect(deps["foo"]).toBe("1.2.3 || 2.0.0");
       expect(isExactSpec(deps["foo"])).toBe(false);
     });
   });
