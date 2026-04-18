@@ -249,8 +249,14 @@ jobs:
           printf '%s\n' "$stdout"
           printf '%s\n' "$stderr" >&2
           if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
+            # Preserve validate-pins.ts's distinct exit code (2=EXIT_INTERNAL,
+            # 3=EXIT_UNREADABLE, 4+=future) so downstream consumers can
+            # distinguish "validator crashed" from "pin drift found" (which
+            # would be rc=1). Collapsing to `exit 1` would make an internal
+            # crash indistinguishable from legitimate drift in the PR check
+            # signal.
             echo "::error::validate-pins.ts exited with unexpected code $rc (expected 0 or 1). This indicates an internal failure, not pin drift."
-            exit 1
+            exit "$rc"
           fi
 
           # --- Parse Summary line (actual FAIL count) ---------------------

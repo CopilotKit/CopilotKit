@@ -106,8 +106,12 @@ jobs:
           printf '%s\n' "$stdout"
           printf '%s\n' "$stderr" >&2
           if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
+            # Preserve validate-pins.ts's distinct exit code (2=EXIT_INTERNAL,
+            # 3=EXIT_UNREADABLE, 4+=future) so the weekly job signal
+            # distinguishes "validator crashed" from "pin drift found"
+            # (rc=1). Matches the same pattern in showcase_validate.yml.
             echo "::error::validate-pins.ts exited with unexpected code $rc"
-            exit 1
+            exit "$rc"
           fi
           # Scope grep's no-match tolerance to grep alone: a trailing
           # `|| true` on the whole pipeline would defeat `pipefail` (if it
