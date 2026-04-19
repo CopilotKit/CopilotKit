@@ -1,7 +1,20 @@
 // Bundle Demo Content
 //
-// Reads demo source files and READMEs from all integration packages
-// and produces a JSON bundle for the shell's Code and Docs tabs.
+// Reads demo source files from all integration packages and produces a JSON
+// bundle for the shell's Code tab. The resulting shape is flat:
+//
+//   demos: Record<"<slug>::<demo-id>", {
+//     readme: string | null,
+//     files: { filename, language, content, highlighted? }[],
+//   }>
+//
+// Files are scanned from the demo folder (`src/app/demos/<routeDir>/`)
+// recursively, and any files listed in the manifest's `highlight:` field
+// that sit OUTSIDE the demo folder (typically `src/agents/<agent>.py`) are
+// merged in with their column-relative paths.
+//
+// Every path in `highlight:` must point to a real bundled file — otherwise
+// the bundle fails. This keeps stale references from silently rotting.
 //
 // Usage: npx tsx showcase/scripts/bundle-demo-content.ts
 
@@ -27,12 +40,12 @@ interface DemoFile {
   filename: string;
   language: string;
   content: string;
+  highlighted?: boolean;
 }
 
 interface DemoContent {
   readme: string | null;
   files: DemoFile[];
-  backend_files: DemoFile[];
 }
 
 interface BundledContent {
@@ -59,104 +72,51 @@ function detectLanguage(filename: string): string {
   return map[ext] || "text";
 }
 
-const BACKEND_EXTENSIONS = new Set([".py", ".ts", ".js", ".cs"]);
-const SKIP_FILES = new Set(["__init__.py"]);
+// Skip generated / OS noise when walking demo folders.
+const SKIP_EXACT = new Set([".DS_Store", "Thumbs.db"]);
+const SKIP_DIRS = new Set(["__pycache__", "node_modules", ".next"]);
 const SKIP_EXTENSIONS = new Set([".pyc"]);
 
-function isBackendFile(filename: string): boolean {
-  if (SKIP_FILES.has(filename)) return false;
-  const ext = path.extname(filename).toLowerCase();
-  if (SKIP_EXTENSIONS.has(ext)) return false;
-  return BACKEND_EXTENSIONS.has(ext);
-}
+function collectDemoFiles(
+  demoDir: string,
+  relPrefix: string,
+): { readme: string | null; files: DemoFile[] } {
+  const out: DemoFile[] = [];
+  let readme: string | null = null;
 
-function readFilesFromDir(dir: string, prefix: string): DemoFile[] {
-  if (!fs.existsSync(dir)) return [];
-  const results: DemoFile[] = [];
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isFile() && isBackendFile(entry.name)) {
-      results.push({
-        filename: prefix ? `${prefix}/${entry.name}` : entry.name,
-        language: detectLanguage(entry.name),
-        content: fs.readFileSync(fullPath, "utf-8"),
-      });
-    } else if (entry.isDirectory() && entry.name !== "__pycache__") {
-      // Recurse one level into subdirectories
-      const subEntries = fs.readdirSync(fullPath, { withFileTypes: true });
-      for (const sub of subEntries) {
-        if (sub.isFile() && isBackendFile(sub.name)) {
-          const subPath = path.join(fullPath, sub.name);
-          results.push({
-            filename: prefix
-              ? `${prefix}/${entry.name}/${sub.name}`
-              : `${entry.name}/${sub.name}`,
-            language: detectLanguage(sub.name),
-            content: fs.readFileSync(subPath, "utf-8"),
-          });
+  const walk = (absDir: string, currentRel: string) => {
+    const entries = fs.readdirSync(absDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (SKIP_EXACT.has(entry.name)) continue;
+      const abs = path.join(absDir, entry.name);
+      const rel = currentRel ? `${currentRel}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        if (SKIP_DIRS.has(entry.name)) continue;
+        walk(abs, rel);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      if (SKIP_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) continue;
+      const content = fs.readFileSync(abs, "utf-8");
+      if (entry.name === "README.md" || entry.name === "README.mdx") {
+        // Use the demo-dir root README as the readme; nested READMEs show
+        // up as regular files.
+        if (!currentRel && readme === null) {
+          readme = content;
+          continue;
         }
       }
-    }
-  }
-  return results;
-}
-
-function discoverBackendFiles(pkgRoot: string): DemoFile[] {
-  const files: DemoFile[] = [];
-  const srcDir = path.join(pkgRoot, "src");
-
-  // Pattern 1: src/agent_server.py or src/agent_server.ts
-  for (const serverFile of ["agent_server.py", "agent_server.ts"]) {
-    const serverPath = path.join(srcDir, serverFile);
-    if (fs.existsSync(serverPath)) {
-      files.push({
-        filename: serverFile,
-        language: detectLanguage(serverFile),
-        content: fs.readFileSync(serverPath, "utf-8"),
+      out.push({
+        filename: relPrefix ? `${relPrefix}/${rel}` : rel,
+        language: detectLanguage(entry.name),
+        content,
       });
     }
-  }
+  };
 
-  // Pattern 2: src/agents/ directory
-  files.push(...readFilesFromDir(path.join(srcDir, "agents"), "agents"));
+  walk(demoDir, "");
 
-  // Pattern 3: src/mastra/ — index.ts + agents/ + tools/
-  const mastraDir = path.join(srcDir, "mastra");
-  if (fs.existsSync(mastraDir)) {
-    const mastraIndex = path.join(mastraDir, "index.ts");
-    if (fs.existsSync(mastraIndex)) {
-      files.push({
-        filename: "mastra/index.ts",
-        language: "typescript",
-        content: fs.readFileSync(mastraIndex, "utf-8"),
-      });
-    }
-    files.push(
-      ...readFilesFromDir(path.join(mastraDir, "agents"), "mastra/agents"),
-    );
-    files.push(
-      ...readFilesFromDir(path.join(mastraDir, "tools"), "mastra/tools"),
-    );
-  }
-
-  // Pattern 4: src/agent/ directory (e.g. langgraph-typescript)
-  files.push(...readFilesFromDir(path.join(srcDir, "agent"), "agent"));
-
-  // Pattern 5: agent/ at package root (e.g. ms-agent-dotnet)
-  files.push(...readFilesFromDir(path.join(pkgRoot, "agent"), "agent"));
-
-  // Deduplicate by filename (patterns may overlap for agent/ at root vs src)
-  const seen = new Set<string>();
-  const deduped: DemoFile[] = [];
-  for (const f of files) {
-    if (!seen.has(f.filename)) {
-      seen.add(f.filename);
-      deduped.push(f);
-    }
-  }
-
-  return deduped;
+  return { readme, files: out };
 }
 
 function main() {
@@ -188,89 +148,89 @@ function main() {
       const demos = (manifest.demos || []) as Array<{
         id: string;
         route: string;
-        backend_files?: string[];
+        highlight?: string[];
       }>;
 
       const pkgRoot = path.join(PACKAGES_DIR, pkgDir);
-      const discoveredBackendFiles = discoverBackendFiles(pkgRoot);
 
       for (const demo of demos) {
         const routeDir = demo.route.replace(/^\/demos\//, "");
-        const demoDir = path.join(
-          PACKAGES_DIR,
-          pkgDir,
-          "src",
-          "app",
-          "demos",
-          routeDir,
-        );
-        if (!fs.existsSync(demoDir)) continue;
-
-        const key = `${slug}::${demo.id}`;
-        const content: DemoContent = {
-          readme: null,
-          files: [],
-          backend_files: [],
-        };
-
-        // Resolve this demo's backend files:
-        //   - If the manifest lists `backend_files` explicitly, use those
-        //     (paths relative to the package root). This keeps per-demo
-        //     bundles minimal: a demo with a dedicated graph only shows
-        //     its own backend file, not every sibling agent in the package.
-        //   - Otherwise, fall back to the legacy full-package scan so
-        //     packages that haven't declared per-demo backends still work.
-        const scopedBackendFiles: DemoFile[] =
-          Array.isArray(demo.backend_files) && demo.backend_files.length > 0
-            ? demo.backend_files
-                .map((rel) => {
-                  const abs = path.join(pkgRoot, rel);
-                  if (!fs.existsSync(abs)) return null;
-                  return {
-                    filename: rel.replace(/^src\//, ""),
-                    language: detectLanguage(rel),
-                    content: fs.readFileSync(abs, "utf-8"),
-                  };
-                })
-                .filter((f): f is DemoFile => f !== null)
-            : discoveredBackendFiles;
-
-        const entries = fs.readdirSync(demoDir);
-        for (const entry of entries) {
-          const filePath = path.join(demoDir, entry);
-          if (!fs.statSync(filePath).isFile()) continue;
-
-          const fileContent = fs.readFileSync(filePath, "utf-8");
-
-          if (entry === "README.md" || entry === "README.mdx") {
-            content.readme = fileContent;
-          } else {
-            content.files.push({
-              filename: entry,
-              language: detectLanguage(entry),
-              content: fileContent,
-            });
-          }
+        const demoDir = path.join(pkgRoot, "src", "app", "demos", routeDir);
+        if (!fs.existsSync(demoDir)) {
+          throw new Error(
+            `${slug}::${demo.id}: demo folder does not exist at ${demoDir}.`,
+          );
         }
 
-        // Sort files: page.tsx first, then agent files, then others
-        content.files.sort((a, b) => {
-          if (a.filename.startsWith("page")) return -1;
-          if (b.filename.startsWith("page")) return 1;
-          if (a.filename.startsWith("agent")) return -1;
-          if (b.filename.startsWith("agent")) return 1;
+        const key = `${slug}::${demo.id}`;
+
+        // 1. Collect the demo folder's contents.
+        //    The bundled `filename` for each is prefixed with the
+        //    column-relative path so highlight: entries can be matched as
+        //    full column-relative paths.
+        const demoRelPrefix = `src/app/demos/${routeDir}`;
+        const { readme, files } = collectDemoFiles(demoDir, demoRelPrefix);
+
+        // 2. Pull in any highlight: entries that sit OUTSIDE the demo folder
+        //    (typically backend agents under src/agents/*). Error if a
+        //    highlight path doesn't resolve to a real file.
+        const highlightList = demo.highlight ?? [];
+        const demoPathSet = new Set(files.map((f) => f.filename));
+        for (const hlPath of highlightList) {
+          if (demoPathSet.has(hlPath)) continue;
+          const absExternal = path.join(pkgRoot, hlPath);
+          if (!fs.existsSync(absExternal)) {
+            throw new Error(
+              `${key}: highlight path "${hlPath}" not found in demo folder nor at ${absExternal}.`,
+            );
+          }
+          if (!fs.statSync(absExternal).isFile()) {
+            throw new Error(
+              `${key}: highlight path "${hlPath}" exists but is not a regular file.`,
+            );
+          }
+          files.push({
+            filename: hlPath,
+            language: detectLanguage(hlPath),
+            content: fs.readFileSync(absExternal, "utf-8"),
+          });
+        }
+
+        // 3. Apply highlights. All `highlight:` entries must now resolve to
+        //    bundled files (the step above guarantees that for external
+        //    files; for files inside the demo folder we check here).
+        const highlightSet = new Set(highlightList);
+        const bundled = new Set(files.map((f) => f.filename));
+        for (const h of highlightSet) {
+          if (!bundled.has(h)) {
+            throw new Error(
+              `${key}: manifest.highlight lists "${h}" but that file isn't in the bundle.`,
+            );
+          }
+        }
+        for (const f of files) {
+          if (highlightSet.has(f.filename)) f.highlighted = true;
+        }
+
+        // Stable order: page.* first, then everything else alphabetical.
+        files.sort((a, b) => {
+          const aIsPage = /(^|\/)page\.[tj]sx?$/.test(a.filename);
+          const bIsPage = /(^|\/)page\.[tj]sx?$/.test(b.filename);
+          if (aIsPage !== bIsPage) return aIsPage ? -1 : 1;
           return a.filename.localeCompare(b.filename);
         });
 
-        content.backend_files = scopedBackendFiles;
-
-        bundle.demos[key] = content;
+        bundle.demos[key] = { readme, files };
+        const hlCount = files.filter((f) => f.highlighted).length;
         console.log(
-          `  ${key}: ${content.files.length} files, ${content.backend_files.length} backend, readme: ${content.readme ? "yes" : "no"}`,
+          `  ${key}: ${files.length} files${hlCount ? ` (${hlCount} highlighted)` : ""}${readme ? " + README" : ""}`,
         );
       }
     } catch (err) {
-      console.error(`[bundle] Error processing package "${pkgDir}":`, err);
+      // Propagate: a broken manifest must fail the bundle, not silently skip.
+      throw new Error(
+        `[bundle] Failed while processing package "${pkgDir}": ${(err as Error).message}`,
+      );
     }
   }
 
@@ -281,7 +241,12 @@ function main() {
   );
 }
 
-main();
+try {
+  main();
+} catch (err) {
+  console.error((err as Error).message);
+  process.exit(1);
+}
 
 if (process.argv.includes("--watch")) {
   let timer: NodeJS.Timeout | null = null;
@@ -298,9 +263,12 @@ if (process.argv.includes("--watch")) {
   console.log("[watch] watching packages/ for changes...\n");
   fs.watch(PACKAGES_DIR, { recursive: true }, (_event, filename) => {
     if (!filename) return;
-    // Only rebundle for demo sources, agent sources, and READMEs
+    // Rebundle for demo sources, agent sources, READMEs, and — critically —
+    // manifest.yaml edits.
     if (
-      /(\/demos\/|\/agents\/|\/agent\/|\/mastra\/|README\.md$)/.test(filename)
+      /(\/demos\/|\/agents\/|\/agent\/|\/mastra\/|README\.md$|manifest\.yaml$)/.test(
+        filename,
+      )
     ) {
       rebundle();
     }
