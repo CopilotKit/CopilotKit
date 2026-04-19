@@ -106,6 +106,7 @@ development environment, it enables AI assistants to:
     **Expected Output:**
     ```
     Added HTTP MCP server copilotkit-mcp with URL: https://mcp.copilotkit.ai/mcp to local config
+    File modified: /home/[username]/.claude.json [project: /path/to/your/project]
     ```
   </Step>
   <Step>
@@ -120,10 +121,14 @@ development environment, it enables AI assistants to:
     ```
     Checking MCP server health...
 
-    copilotkit-mcp: https://mcp.copilotkit.ai/mcp (HTTP) - Connected
+    copilotkit-mcp: https://mcp.copilotkit.ai/mcp (HTTP) - ✓ Connected
     ```
 
-    Server names can only contain letters, numbers, hyphens, and underscores. Avoid spaces in server names.
+    <Callout type="info">
+      **Server Name Requirements** — server names can only contain
+      letters, numbers, hyphens, and underscores. Avoid spaces in
+      server names.
+    </Callout>
   </Step>
   <Step>
     ### Using MCP Tools in Claude Code
