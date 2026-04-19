@@ -44,10 +44,23 @@ import os from "os";
 import path from "path";
 import crypto from "crypto";
 import { execFileSync } from "child_process";
+import type { StdioOptions } from "child_process";
 
 /** Escape a string for inclusion as a literal in a `RegExp`. */
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Construct an Error with `cause` attached, without relying on the ES2022
+ *  two-argument `Error` constructor (which the TS lib used in this workspace
+ *  does not declare). Runtime behaviour is identical — Node has supported
+ *  `Error.cause` since v16.9 — but the TypeScript signature for our target
+ *  lib (ES2020) only accepts a message, so assigning after construction
+ *  keeps the type-checker happy without dropping diagnostic context. */
+function errorWithCause(message: string, cause: unknown): Error {
+  const err = new Error(message);
+  (err as Error & { cause?: unknown }).cause = cause;
+  return err;
 }
 
 /** Shared exec options for all child_process calls in the test harness.
@@ -63,11 +76,16 @@ function escapeRegExp(s: string): string {
  *  `timeout: 30000` — generators shell out to npx/tsx which cold-boots on
  *  first run; 15s produced flakes on slow CI runners.
  */
-const SAFE_STDIO = Object.freeze([
+// Frozen at runtime (the test-cleanup.test.ts unit asserts the inner array
+// is frozen so suites can't mutate it) but typed as `StdioOptions` — NOT a
+// narrower `readonly` tuple — so spreading `SAFE_EXEC_OPTS` into
+// `execFileSync(..., opts)` doesn't trip the readonly-vs-mutable-array
+// mismatch in the node `@types/node` `StdioOptions` signature.
+const SAFE_STDIO: StdioOptions = Object.freeze([
   "ignore",
   "pipe",
   "pipe",
-] as const) as readonly ["ignore", "pipe", "pipe"];
+]) as StdioOptions;
 
 export const SAFE_EXEC_OPTS = Object.freeze({
   encoding: "utf-8" as const,
@@ -243,10 +261,10 @@ function partitionTrackedPaths(
         untracked.push(p);
         continue;
       }
-      throw new Error(
+      throw errorWithCause(
         `partitionTrackedPaths: unexpected git ls-files failure for ${p}` +
           ` (exit ${code ?? "?"}, errno ${errno ?? "n/a"}): ${stderr.trim()}`,
-        { cause: err },
+        err,
       );
     }
   }
@@ -346,20 +364,20 @@ function restoreFromGitHeadLocked(
       const stderr = (err as { stderr?: string }).stderr ?? "";
       if (code === 1) {
         // `git diff --quiet` exits 1 when there ARE differences.
-        throw new Error(
+        throw errorWithCause(
           `restoreFromGitHead: refusing to overwrite uncommitted changes to:\n` +
             tracked.map((p) => `  ${p}`).join("\n") +
             `\nStash, commit, or discard these changes before running the test` +
             ` suite (e.g. \`git checkout HEAD -- <paths>\`).`,
-          { cause: err },
+          err,
         );
       }
       // Any other failure is unexpected now that we've pre-filtered to
       // tracked paths. Re-raise with stderr attached so the caller sees
       // what git actually said.
-      throw new Error(
+      throw errorWithCause(
         `restoreFromGitHead: unexpected git diff failure (exit ${code ?? "?"}): ${stderr.trim()}`,
-        { cause: err },
+        err,
       );
     }
   }
@@ -387,9 +405,9 @@ function restoreFromGitHeadLocked(
     );
     if (!isBenignPathspec) {
       const code = (err as { status?: number }).status;
-      throw new Error(
+      throw errorWithCause(
         `restoreFromGitHead: git checkout failed (exit ${code ?? "?"}): ${stderr.trim()}`,
-        { cause: err },
+        err,
       );
     }
   }
@@ -417,7 +435,7 @@ function restoreFromGitHeadLocked(
       tracked.map((p) => `  ${p}`).join("\n") +
       (stderr.trim() ? `\ngit stderr: ${stderr.trim()}` : "");
     if (isCI()) {
-      throw new Error(msg, { cause: err });
+      throw errorWithCause(msg, err);
     }
     // eslint-disable-next-line no-console
     console.warn(`[test-cleanup] ${msg}`);

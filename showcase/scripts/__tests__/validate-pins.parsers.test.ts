@@ -37,7 +37,7 @@ describe("parsePackageJson", () => {
 
   // when the SAME dep name appears in all three buckets, dev wins.
   it("dev > peer > runtime precedence when same dep appears in all three", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "package.json");
       write(
         file,
@@ -56,7 +56,7 @@ describe("parsePackageJson", () => {
 
   // parsePackageJson must reject arrays / null / scalars as top-level.
   it("throws when JSON top-level is an array (not an object)", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "package.json");
       write(file, "[1, 2, 3]");
       expect(() => parsePackageJson(file)).toThrow(/object/i);
@@ -64,7 +64,7 @@ describe("parsePackageJson", () => {
   });
 
   it("throws when JSON top-level is null", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "package.json");
       write(file, "null");
       expect(() => parsePackageJson(file)).toThrow(/object/i);
@@ -72,7 +72,7 @@ describe("parsePackageJson", () => {
   });
 
   it("throws when JSON top-level is a scalar", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "package.json");
       write(file, "42");
       expect(() => parsePackageJson(file)).toThrow(/object/i);
@@ -84,7 +84,7 @@ describe("parsePackageJson", () => {
   // tooling emits) would otherwise flow into the DepMap as an object
   // and crash downstream comparisons with a non-obvious error.
   it("throws when a dependency value is not a string", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "package.json");
       write(
         file,
@@ -98,7 +98,7 @@ describe("parsePackageJson", () => {
   });
 
   it("throws when devDependencies value is a number", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "package.json");
       write(
         file,
@@ -112,7 +112,7 @@ describe("parsePackageJson", () => {
   });
 
   it("throws when dependencies is a non-object", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "package.json");
       write(
         file,
@@ -162,7 +162,7 @@ describe("parsePyprojectToml", () => {
 
   // PEP 621 [project.optional-dependencies] subsections must be scanned.
   it("scans [project.optional-dependencies] arrays (PEP 621 extras)", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -188,7 +188,7 @@ describe("parsePyprojectToml", () => {
 
   // Poetry inline-table forms must be classified correctly.
   it("parses Poetry inline-table version = '...' form", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -214,7 +214,7 @@ describe("parsePyprojectToml", () => {
   // Poetry inline-table `version = '...'` single-quoted form must
   // also parse. Previously the regex only handled double-quoted.
   it("parses Poetry inline-table version = '...' with single quotes", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -237,7 +237,7 @@ describe("parsePyprojectToml", () => {
   // in every real-world Poetry pyproject.toml and must be silently
   // ignored (it is not a runtime dependency).
   it("skips the Poetry `python` interpreter constraint", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -261,7 +261,7 @@ describe("parsePyprojectToml", () => {
   // surface in `skipped` so operators know the manifest is broken
   // rather than silently admitting the dep with an empty spec.
   it("Poetry empty version string surfaces in skipped[]", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -282,7 +282,7 @@ describe("parsePyprojectToml", () => {
   // Poetry git-only / path-only / version-less inline tables must be
   // RECORDED in `skipped` rather than silently dropped.
   it("records Poetry git-only / path-only / version-less deps in skipped[]", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -310,7 +310,7 @@ describe("parsePyprojectToml", () => {
 
   // unterminated `dependencies = [` must throw, not silently parse {}.
   it("throws on unterminated dependencies = [ array (malformed TOML)", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       // Open bracket, no close bracket anywhere in file.
       write(
@@ -337,7 +337,7 @@ describe("parsePyprojectToml", () => {
   // configs, `[project]` metadata-only blocks) must be accepted silently
   // as empty DepMaps — that is the correct, intended result, not a bug.
   it("returns empty DepMap silently for tool-only configs (e.g. [tool.black])", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       // Pure formatter config — no [project], no dependency tables.
       write(
@@ -356,7 +356,7 @@ describe("parsePyprojectToml", () => {
   });
 
   it("returns empty DepMap silently for [project] metadata-only blocks (no dependencies key)", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       // Valid PEP 621 metadata-only block — name/version/authors but no
       // `dependencies` key. This is a legitimate shape for packages that
@@ -378,7 +378,7 @@ describe("parsePyprojectToml", () => {
   });
 
   it('throws when `dependencies = "malformed"` is a string (wrong TOML type)', () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       // `dependencies` is declared but as a string, not an array. The
       // targeted regexes don't match this shape, so extraction produces
@@ -452,7 +452,7 @@ describe("parseRequirementsLine", () => {
 });
 describe("parseRequirementsTxt (file-level)", () => {
   it("handles multi-line files with comments, blanks, extras, and flags", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "requirements.txt");
       write(
         file,
@@ -474,7 +474,7 @@ describe("parseRequirementsTxt (file-level)", () => {
   });
 
   it("skips editable (`-e`) and URL-based installs (not dropped)", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "requirements.txt");
       write(
         file,
@@ -493,7 +493,7 @@ describe("parseRequirementsTxt (file-level)", () => {
   });
 
   it("first-writer-wins when same dep appears twice in a file", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "requirements.txt");
       write(file, ["langgraph==0.2.14", "langgraph==0.3.0"].join("\n"));
       const deps = parseRequirementsTxt(file);
@@ -507,7 +507,7 @@ describe("parseRequirementsTxt (file-level)", () => {
   // operators that the manifest has an unpinned dep, rather than the
   // dep being silently admitted to the DepMap with an empty spec.
   it("name-only requirement surfaces in skipped[] (not deps)", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "requirements.txt");
       write(file, ["langgraph", "copilotkit==1.10.0"].join("\n"));
       const { deps, skipped } = parseRequirementsTxtDetailed(file);
@@ -523,7 +523,7 @@ describe("parseRequirementsTxt (file-level)", () => {
 
   // truly unparseable lines (not editable, not URL) must be reported.
   it("records unparseable lines in dropped[]", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "requirements.txt");
       write(
         file,
@@ -626,7 +626,7 @@ describe("isExactSpec wildcard rejection", () => {
 });
 describe("parsePyprojectToml Poetry bare version semantics", () => {
   it("marks bare Poetry versions as non-exact (Poetry treats them as ^)", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -654,7 +654,7 @@ describe("parsePyprojectToml Poetry bare version semantics", () => {
 });
 describe("parsePyprojectToml Poetry group sections", () => {
   it("parses [tool.poetry.group.<name>.dependencies] tables", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -679,7 +679,7 @@ describe("parsePyprojectToml Poetry group sections", () => {
 });
 describe("parsePyprojectToml [project] terminates at dotted top-level headers", () => {
   it("does not bleed content after [tool.poetry] into [project] dependencies array", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       // [project] has NO dependencies key. A later Poetry group subtable
       // contains `dependencies = [ "poetry-only-dep==9.9.9" ]`.
@@ -713,7 +713,7 @@ describe("parsePyprojectToml [project] terminates at dotted top-level headers", 
 });
 describe("parsePyprojectToml precedence: [project] before Poetry", () => {
   it("PEP 621 [project] deps win over Poetry for the same name", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -735,7 +735,7 @@ describe("parsePyprojectToml precedence: [project] before Poetry", () => {
 });
 describe("[project].dependencies extras-syntax handling", () => {
   it("does NOT truncate at `]` embedded in `langchain[all]==1.2.3`", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -759,7 +759,7 @@ describe("[project].dependencies extras-syntax handling", () => {
   });
 
   it("handles multiple extras entries in a row", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -778,7 +778,7 @@ describe("[project].dependencies extras-syntax handling", () => {
 });
 describe("[project.optional-dependencies] extras-syntax handling", () => {
   it("extras-syntax does not truncate optional-dependencies subkey arrays", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -803,7 +803,7 @@ describe("[project.optional-dependencies] extras-syntax handling", () => {
 });
 describe("balanced-bracket unterminated-array enforcement", () => {
   it("throws on `dependencies = [` with no closing `]` (even when another `]` appears later in the file)", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       // A dangling `]` appears under a later unrelated section; this
       // previously satisfied the `body.includes("]")` no-op check and
@@ -866,7 +866,7 @@ describe("pip flag stripping is order-independent", () => {
 });
 describe("Poetry array-form dep surfaces in skipped[]", () => {
   it('records `foo = ["^1.0", "^2.0"]` as skipped with a reason', () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -888,7 +888,7 @@ describe("Poetry array-form dep surfaces in skipped[]", () => {
 });
 describe("Poetry caret-prefix does not fire on comma-joined ranges", () => {
   it('leaves `"1.2.3,>=1.0"` verbatim (no leading `^`)', () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -909,7 +909,7 @@ describe("Poetry caret-prefix does not fire on comma-joined ranges", () => {
   // produces a nonsense value (e.g. `^1.2.3 || 2.0.0`), so they must
   // be stored verbatim and classified as non-exact on their own merits.
   it('leaves `"1.2.3 || 2.0.0"` verbatim (no leading `^`)', () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -970,7 +970,7 @@ describe("isExactSpec rejects exotic bare forms", () => {
 });
 describe("Poetry non-string dep value surfaces in skipped[]", () => {
   it("records `foo = true` as skipped with a reason naming the type", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -996,7 +996,7 @@ describe("Poetry non-string dep value surfaces in skipped[]", () => {
 });
 describe("Poetry unterminated string value is distinguished from empty", () => {
   it('reports `foo = "1.2.3` as unterminated, not empty', () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -1020,7 +1020,7 @@ describe("Poetry unterminated string value is distinguished from empty", () => {
 });
 describe("unterminated optional-dependencies subkey array is a parseError", () => {
   it("throws on unterminated optional-dependencies subkey array", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -1044,7 +1044,7 @@ describe("unterminated optional-dependencies subkey array is a parseError", () =
 });
 describe("pyproject name-only dep surfaces in skipped[]", () => {
   it('records `["foo"]` as skipped, not admitted to deps with empty spec', () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,
@@ -1066,7 +1066,7 @@ describe("pyproject name-only dep surfaces in skipped[]", () => {
 });
 describe("parseRequirementsTxt wrapper throws on skipped/dropped", () => {
   it("throws when the file contains a skipped (name-only) entry", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "requirements.txt");
       // name-only line becomes `skipped` in the detailed form.
       write(file, ["langgraph", "copilotkit==1.10.0"].join("\n"));
@@ -1077,7 +1077,7 @@ describe("parseRequirementsTxt wrapper throws on skipped/dropped", () => {
   });
 
   it("throws when the file contains a dropped (unparseable) line", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "requirements.txt");
       // An operator-leading line (spec with no package name) is
       // GUARANTEED to be dropped: parseRequirementsLine requires a
@@ -1096,7 +1096,7 @@ describe("parseRequirementsTxt wrapper throws on skipped/dropped", () => {
   });
 
   it("returns DepMap cleanly when no skipped/dropped entries", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "requirements.txt");
       write(file, ["langgraph==0.2.14", "copilotkit==1.10.0"].join("\n"));
       const deps = parseRequirementsTxt(file);
@@ -1107,7 +1107,7 @@ describe("parseRequirementsTxt wrapper throws on skipped/dropped", () => {
 });
 describe("parsePyprojectToml wrapper throws on skipped/dropped", () => {
   it("throws when the file contains a skipped entry (Poetry git-only)", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       // Poetry git-only inline tables hit the `\bgit\s*=` branch in
       // ingestPoetryBody and are pushed to `skipped[]` with reason
@@ -1132,7 +1132,7 @@ describe("parsePyprojectToml wrapper throws on skipped/dropped", () => {
   });
 
   it("returns DepMap cleanly when no skipped/dropped entries", () => {
-    withTmp((tmp) => {
+    withTmp((tmp: string) => {
       const file = path.join(tmp, "pyproject.toml");
       write(
         file,

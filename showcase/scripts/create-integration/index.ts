@@ -178,11 +178,6 @@ function generateManifest(args: CLIArgs, features: Feature[]): string {
 }
 
 function generatePackageJson(args: CLIArgs): string {
-  const devCmd =
-    args.language === "typescript"
-      ? '"dev": "next dev --turbopack"'
-      : '"dev": "concurrently \\"next dev --turbopack\\" \\"python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload\\""';
-
   return (
     JSON.stringify(
       {
@@ -328,7 +323,6 @@ ${demoLinks}
 function generateDemoPage(
   featureId: string,
   feature: Feature | undefined,
-  args: CLIArgs,
 ): string {
   return `"use client";
 
@@ -1348,7 +1342,7 @@ async function main() {
     const feature = features.find((f) => f.id === featureId);
     writeFile(
       path.join(packageDir, "src", "app", "demos", featureId, "page.tsx"),
-      generateDemoPage(featureId, feature, args),
+      generateDemoPage(featureId, feature),
     );
     writeFile(
       path.join(packageDir, "src", "app", "demos", featureId, "README.md"),
