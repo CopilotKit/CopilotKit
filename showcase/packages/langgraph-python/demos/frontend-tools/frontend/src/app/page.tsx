@@ -23,6 +23,7 @@ function Chat() {
   );
 
   // @region[frontend-tool]
+  // @region[frontend-tool-registration]
   useFrontendTool({
     name: "change_background",
     description:
@@ -32,6 +33,7 @@ function Chat() {
         .string()
         .describe("The CSS background value. Prefer gradients."),
     }),
+    // @region[frontend-tool-handler]
     handler: async ({ background }: { background: string }) => {
       setBackground(background);
       return {
@@ -39,7 +41,9 @@ function Chat() {
         message: `Background changed to ${background}`,
       };
     },
+    // @endregion[frontend-tool-handler]
   });
+  // @endregion[frontend-tool-registration]
   // @endregion[frontend-tool]
 
   useConfigureSuggestions({
