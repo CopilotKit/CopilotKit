@@ -11,7 +11,6 @@ so import failures are localized and testable.
 import json
 import logging
 import os
-import sys
 import threading
 from collections.abc import Mapping
 from typing import Optional, TypedDict
