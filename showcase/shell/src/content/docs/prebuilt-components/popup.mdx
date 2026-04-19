@@ -7,65 +7,74 @@ snippet_framework: langgraph-python
 snippet_cell: prebuilt-popup
 ---
 
-## What is this?
+CopilotKit ships three prebuilt chat components that connect directly to your LangChain agent. Each is a wrapper around `CopilotChat` with a different layout — pick the one that fits your app and you're done.
 
-`<CopilotPopup>` is a prebuilt floating launcher that opens an overlay chat
-window on top of your page content. It's the lightest-weight way to add a
-copilot to an existing app — drop it in once, and a bubble appears in the
-corner ready to chat.
-
-## When should I use this?
-
-Use the popup when you want:
-
-- A minimal-footprint copilot that overlays existing content on demand
-- A launcher you can place on top of any page without reflowing the layout
-- A quick assistant bubble that users open for short, task-focused chats
-
-If you need chat to live alongside your content rather than on top of it,
-use [CopilotSidebar](/prebuilt-components/sidebar). For a fully embedded
-chat pane, use [`<CopilotChat>`](/prebuilt-components) directly.
+<Callout type="info">
+  If you've completed the [quickstart](/quickstart), you already have one of these set up.
+</Callout>
 
 <InlineDemo integration="langgraph-python" demo="prebuilt-popup" />
 
-## Basic setup
+## Setup
 
-Wrap your app in `<CopilotKit>` once — the provider wires the runtime,
-session, and agent registry — then render `<CopilotPopup>` as a sibling of
-your main content. The showcase cell opens the popup by default and
-customizes the input placeholder via `labels`:
+Import the default styles in your root layout:
 
-<Snippet region="popup-basic-setup" title="frontend/src/app/page.tsx — CopilotPopup wired up" />
+```tsx title="layout.tsx"
+import "@copilotkit/react-ui/v2/styles.css";
+```
 
-## Configuring the popup
+### CopilotPopup
 
-`<CopilotPopup>` accepts the same props as `<CopilotChat>` plus a few of
-its own. Commonly used options:
-
-| Prop | Description |
-|------|-------------|
-| `defaultOpen` | Whether the popup starts open on first render. |
-| `agentId` | Agent slug the popup should talk to (must match an agent configured on the runtime). |
-| `labels` | User-facing copy for the header, placeholder, and disclaimer. |
-| `header` | Slot for the popup header bar — see the [slot system](/custom-look-and-feel/slots). |
-| `toggleButton` | Slot for the floating launcher button. |
-
-## Styling
-
-`CopilotPopup` participates in the slot system, so every piece of its UI
-is customizable — from Tailwind classes on the message view to a full
-component swap for the header or toggle button. See
-[custom look and feel](/custom-look-and-feel/slots) for the full slot
-reference.
+A floating chat bubble that sits alongside your content and toggles open/closed.
 
 ```tsx title="page.tsx"
-<CopilotPopup
-  agentId="my-agent"
-  defaultOpen={false}
-  labels={{
-    modalHeaderTitle: "Popup Assistant",
-    welcomeMessageText: "Need any help?",
-    chatInputPlaceholder: "Ask the popup anything...",
+// [!code word:CopilotPopup]
+import { CopilotPopup } from "@copilotkit/react-core/v2";
+
+export function YourApp() {
+  return (
+    <>
+      <YourMainContent />
+      <CopilotPopup
+        labels={{
+          modalHeaderTitle: "Popup Assistant",
+          welcomeMessageText: "Need any help?",
+        }}
+      />
+    </>
+  );
+}
+```
+
+<img src="https://cdn.copilotkit.ai/docs/copilotkit/images/popup-example.gif" alt="CopilotPopup example" className="w-full rounded-lg my-4" />
+
+## Customization
+
+All three components support the [slot system](/custom-look-and-feel/slots) for deep customization — from Tailwind classes to full component replacement:
+
+```tsx title="page.tsx"
+<CopilotChat
+  // Style slots with Tailwind classes
+  input={{
+    textArea: "text-lg",
+    sendButton: "bg-blue-600 hover:bg-blue-700",
+  }}
+  // Customize nested message slots
+  messageView={{
+    assistantMessage: {
+      className: "bg-gray-50 rounded-xl p-4",
+      toolbar: "border-t mt-2",
+    },
+    userMessage: "bg-blue-100 rounded-xl",
+  }}
+  // Hide elements by returning null
+  scrollView={{
+    feather: () => null,
   }}
 />
 ```
+
+## Next Steps
+
+- [Custom Look & Feel](/custom-look-and-feel) — Theme, restyle, or go fully headless with the slot system
+- [Programmatic Control](/programmatic-control) — Drive your agent from code with `useAgent` and `copilotkit.runAgent()`
