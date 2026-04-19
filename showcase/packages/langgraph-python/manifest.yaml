@@ -166,7 +166,6 @@ demos:
       - src/app/demos/tool-rendering/page.tsx
       - src/app/demos/tool-rendering/weather-card.tsx
       - src/app/demos/tool-rendering/flight-list-card.tsx
-      - src/app/demos/tool-rendering/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-tool-based
     name: Tool-Based Generative UI
@@ -179,7 +178,6 @@ demos:
       - src/agents/gen_ui_tool_based.py
       - src/app/demos/gen-ui-tool-based/page.tsx
       - src/app/demos/gen-ui-tool-based/bar-chart.tsx
-      - src/app/demos/gen-ui-tool-based/pie-chart.tsx
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent
     name: Agentic Generative UI
@@ -274,8 +272,6 @@ demos:
       - src/agents/main.py
       - src/app/demos/chat-slots/page.tsx
       - src/app/demos/chat-slots/custom-welcome-screen.tsx
-      - src/app/demos/chat-slots/custom-assistant-message.tsx
-      - src/app/demos/chat-slots/custom-disclaimer.tsx
       - src/app/api/copilotkit/route.ts
   - id: headless-simple
     name: Headless Chat (Simple)
@@ -300,14 +296,6 @@ demos:
       - src/app/demos/headless-complete/page.tsx
       - src/app/demos/headless-complete/message-list.tsx
       - src/app/demos/headless-complete/use-rendered-messages.tsx
-      - src/app/demos/headless-complete/tool-renderers.tsx
-      - src/app/demos/headless-complete/weather-card.tsx
-      - src/app/demos/headless-complete/stock-card.tsx
-      - src/app/demos/headless-complete/highlight-note.tsx
-      - src/app/demos/headless-complete/user-bubble.tsx
-      - src/app/demos/headless-complete/assistant-bubble.tsx
-      - src/app/demos/headless-complete/input-bar.tsx
-      - src/app/demos/headless-complete/typing-indicator.tsx
       - src/app/api/copilotkit-mcp-apps/route.ts
   - id: agentic-chat-reasoning
     name: Reasoning
@@ -396,7 +384,6 @@ demos:
       - src/agents/open_gen_ui_advanced_agent.py
       - src/app/demos/open-gen-ui-advanced/page.tsx
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
-      - src/app/demos/open-gen-ui-advanced/suggestions.ts
       - src/app/api/copilotkit-ogui/route.ts
   - id: declarative-gen-ui-hardcoded
     name: Declarative Generative UI (A2UI — Custom Catalog)
@@ -453,10 +440,8 @@ demos:
     highlight:
       - src/agents/tool_rendering_reasoning_chain_agent.py
       - src/app/demos/tool-rendering-reasoning-chain/page.tsx
-      - src/app/demos/tool-rendering-reasoning-chain/reasoning-block.tsx
       - src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx
       - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
-      - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
   - id: beautiful-chat
     name: Beautiful Chat
@@ -467,34 +452,11 @@ demos:
     animated_preview_url:
     highlight:
       - src/agents/beautiful_chat.py
-      - src/agents/beautiful_chat_data/db.csv
-      - src/agents/beautiful_chat_data/schemas/flight_schema.json
       - src/app/demos/beautiful-chat/page.tsx
       - src/app/demos/beautiful-chat/components/example-layout/index.tsx
-      - src/app/demos/beautiful-chat/components/example-layout/mode-toggle.tsx
       - src/app/demos/beautiful-chat/components/example-canvas/index.tsx
-      - src/app/demos/beautiful-chat/components/example-canvas/todo-card.tsx
-      - src/app/demos/beautiful-chat/components/example-canvas/todo-column.tsx
-      - src/app/demos/beautiful-chat/components/example-canvas/todo-list.tsx
       - src/app/demos/beautiful-chat/components/generative-ui/charts/bar-chart.tsx
-      - src/app/demos/beautiful-chat/components/generative-ui/charts/config.ts
       - src/app/demos/beautiful-chat/components/generative-ui/charts/pie-chart.tsx
-      - src/app/demos/beautiful-chat/components/generative-ui/meeting-time-picker.tsx
-      - src/app/demos/beautiful-chat/components/headless-chat.tsx
-      - src/app/demos/beautiful-chat/components/tool-rendering.tsx
-      - src/app/demos/beautiful-chat/components/ui/badge.tsx
-      - src/app/demos/beautiful-chat/components/ui/button.tsx
-      - src/app/demos/beautiful-chat/components/ui/card.tsx
-      - src/app/demos/beautiful-chat/components/ui/checkbox.tsx
-      - src/app/demos/beautiful-chat/components/ui/input.tsx
-      - src/app/demos/beautiful-chat/components/ui/separator.tsx
-      - src/app/demos/beautiful-chat/components/ui/spinner.tsx
-      - src/app/demos/beautiful-chat/declarative-generative-ui/definitions.ts
-      - src/app/demos/beautiful-chat/declarative-generative-ui/renderers.tsx
-      - src/app/demos/beautiful-chat/hooks/index.ts
       - src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx
       - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
-      - src/app/demos/beautiful-chat/hooks/use-theme.tsx
-      - src/app/demos/beautiful-chat/lib/a2ui-theme.css
-      - src/app/demos/beautiful-chat/lib/utils.ts
       - src/app/api/copilotkit-beautiful-chat/route.ts
