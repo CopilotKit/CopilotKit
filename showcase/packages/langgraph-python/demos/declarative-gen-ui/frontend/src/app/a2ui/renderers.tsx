@@ -25,6 +25,7 @@ const badgePalette: Record<
   info: { bg: "#eff6ff", fg: "#1d4ed8" },
 };
 
+// @region[renderers-react]
 export const myRenderers: CatalogRenderers<MyDefinitions> = {
   Card: ({ props, children }) => (
     <div
@@ -143,3 +144,4 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     </button>
   ),
 };
+// @endregion[renderers-react]

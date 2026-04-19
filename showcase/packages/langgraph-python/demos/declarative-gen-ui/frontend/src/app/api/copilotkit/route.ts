@@ -27,6 +27,7 @@ const agent = new LangGraphAgent({
   langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
 });
 
+// @region[runtime-inject-tool]
 const runtime = new CopilotRuntime({
   // @ts-ignore
   agents: { "declarative-gen-ui": agent },
@@ -40,6 +41,7 @@ const runtime = new CopilotRuntime({
     agents: ["declarative-gen-ui"],
   },
 });
+// @endregion[runtime-inject-tool]
 
 export const POST = async (req: NextRequest) => {
   try {

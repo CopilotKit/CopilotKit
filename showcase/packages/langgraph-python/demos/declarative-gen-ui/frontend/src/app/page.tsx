@@ -33,6 +33,7 @@ import { myCatalog } from "./a2ui/catalog";
 
 export default function DeclarativeGenUIDemo() {
   return (
+    // @region[provider-a2ui-prop]
     <CopilotKit
       runtimeUrl="/api/copilotkit"
       agent="declarative-gen-ui"
@@ -44,6 +45,7 @@ export default function DeclarativeGenUIDemo() {
         </div>
       </div>
     </CopilotKit>
+    // @endregion[provider-a2ui-prop]
   );
 }
 

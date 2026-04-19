@@ -14,6 +14,7 @@
 import { z } from "zod";
 import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
 
+// @region[definitions-zod]
 export const myDefinitions = {
   Card: {
     description:
@@ -62,5 +63,6 @@ export const myDefinitions = {
     }),
   },
 } satisfies CatalogDefinitions;
+// @endregion[definitions-zod]
 
 export type MyDefinitions = typeof myDefinitions;
