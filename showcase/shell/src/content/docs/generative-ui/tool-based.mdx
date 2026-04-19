@@ -59,6 +59,37 @@ donut for the pie chart; neither knows anything about CopilotKit.
 
 <FeatureIntegrations feature="generative-ui-tool-based" />
 
+## Without parameters
+
+For simple components that don't need typed parameters, skip the Zod
+schema — the render function still receives whatever props the agent
+passes through:
+
+```tsx
+useComponent({
+  name: "showGreeting",
+  render: ({ message }: { message: string }) => (
+    <div className="rounded border p-3 bg-blue-50">
+      <p>{message}</p>
+    </div>
+  ),
+});
+```
+
+## Scoping to a specific agent
+
+In multi-agent setups, pin a component to a single agent so it only
+appears in that agent's thread:
+
+```tsx
+useComponent({
+  name: "renderProfile",
+  parameters: z.object({ userId: z.string() }),
+  render: ProfileCard,
+  agentId: "support-agent",
+});
+```
+
 ## Choose your AI backend
 
 <IntegrationGrid path="generative-ui/tool-based" />
