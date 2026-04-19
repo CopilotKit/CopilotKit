@@ -111,12 +111,14 @@ public class SalesAgentFactory
     private readonly object _stateLock = new();
     private readonly OpenAIClient _openAiClient;
     private readonly ILogger _logger;
+    private readonly ILoggerFactory _loggerFactory;
     private readonly JsonSerializerOptions _jsonSerializerOptions;
 
     public SalesAgentFactory(IConfiguration configuration, ILoggerFactory loggerFactory, JsonSerializerOptions jsonSerializerOptions)
     {
         _configuration = configuration;
         _state = new();
+        _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<SalesAgentFactory>();
         _jsonSerializerOptions = jsonSerializerOptions;
 
@@ -155,7 +157,7 @@ public class SalesAgentFactory
                 AIFunctionFactory.Create(GenerateA2ui, options: new() { Name = "generate_a2ui", SerializerOptions = _jsonSerializerOptions })
             ]);
 
-        return new SharedStateAgent(chatClientAgent, _jsonSerializerOptions);
+        return new SharedStateAgent(chatClientAgent, _jsonSerializerOptions, _loggerFactory.CreateLogger<SharedStateAgent>());
     }
 
     // =================
