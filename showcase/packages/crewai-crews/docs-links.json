@@ -1,0 +1,37 @@
+{
+  "framework": "crewai-crews",
+  "features": {
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/prebuilt-components",
+      "shell_docs_path": "unselected/prebuilt-components"
+    },
+    "hitl-in-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/human-in-the-loop",
+      "shell_docs_path": "unselected/generative-ui/your-components/interactive"
+    },
+    "tool-rendering": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/tool-rendering",
+      "shell_docs_path": "unselected/generative-ui/tool-rendering"
+    },
+    "gen-ui-tool-based": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/your-components/display-only",
+      "shell_docs_path": "unselected/generative-ui/your-components/display-only"
+    },
+    "gen-ui-agent": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/state-rendering",
+      "shell_docs_path": "generative-ui/state-rendering"
+    },
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/shared-state/in-app-agent-write",
+      "shell_docs_path": "unselected/shared-state"
+    },
+    "shared-state-streaming": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/shared-state/predictive-state-updates",
+      "shell_docs_path": "shared-state/streaming"
+    },
+    "subagents": {
+      "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/multi-agent-flows",
+      "shell_docs_path": "multi-agent/subagents"
+    }
+  }
+}

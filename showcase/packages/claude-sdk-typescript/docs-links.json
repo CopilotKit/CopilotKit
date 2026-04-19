@@ -1,0 +1,37 @@
+{
+  "framework": "claude-sdk-typescript",
+  "features": {
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/prebuilt-components",
+      "shell_docs_path": "/claude-sdk-typescript/unselected/prebuilt-components"
+    },
+    "hitl-in-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/generative-ui/your-components/interactive",
+      "shell_docs_path": "/claude-sdk-typescript/unselected/generative-ui/your-components/interactive"
+    },
+    "tool-rendering": {
+      "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/generative-ui/tool-rendering",
+      "shell_docs_path": "/claude-sdk-typescript/unselected/generative-ui/tool-rendering"
+    },
+    "gen-ui-tool-based": {
+      "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/generative-ui/your-components/display-only",
+      "shell_docs_path": "/claude-sdk-typescript/unselected/generative-ui/your-components/display-only"
+    },
+    "gen-ui-agent": {
+      "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/generative-ui/state-rendering",
+      "shell_docs_path": "/claude-sdk-typescript/generative-ui/state-rendering"
+    },
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/shared-state",
+      "shell_docs_path": "/claude-sdk-typescript/unselected/shared-state"
+    },
+    "shared-state-streaming": {
+      "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/shared-state/predictive-state-updates",
+      "shell_docs_path": "/claude-sdk-typescript/shared-state/streaming"
+    },
+    "subagents": {
+      "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/multi-agent/subagents",
+      "shell_docs_path": "/claude-sdk-typescript/multi-agent/subagents"
+    }
+  }
+}
