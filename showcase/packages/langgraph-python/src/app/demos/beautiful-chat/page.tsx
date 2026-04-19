@@ -1,57 +1,59 @@
 "use client";
 
 /**
- * Beautiful Chat demo — CopilotKit showcase.
+ * Beautiful Chat — the flagship CopilotKit showcase cell, ported verbatim
+ * from the 4084 reference clone. The 4084 version lived as its own Next.js
+ * frontend at `demos/beautiful-chat/frontend/` with a full `src/components`
+ * tree + A2UI catalog. Here the same tree is colocated under the cell and
+ * re-wired with relative imports.
  *
- * This is a port-scaffold for the verbatim beautiful-chat cell from 4084
- * (which itself ports examples/integrations/langgraph-python). The full
- * cell ships:
- *   - ExampleLayout + ExampleCanvas + mode-toggle
- *   - Todo list with HIGHLIGHT components (useComponent)
- *   - A2UI dynamic + fixed-schema catalogs
- *   - Tool rendering (get_weather + search_flights)
- *   - meeting-time-picker (useHumanInTheLoop)
- *   - Suggestions rotation
+ * Providers: layout-level `CopilotKit` + `ThemeProvider` wrappers from the
+ * original 4084 root layout are applied here instead, because the unified
+ * 4085 shell does not give each cell its own layout.tsx.
  *
- * To keep the port incremental, this scaffold renders a vanilla CopilotChat
- * against the sample_agent so the /langgraph-python/beautiful-chat route
- * exists. The rich canvas and renderers can be layered in next.
+ * Runtime: this cell uses its own dedicated runtime endpoint
+ * (`/api/copilotkit-beautiful-chat`) so it can enable `openGenerativeUI`,
+ * `a2ui` with `injectA2UITool: false`, and `mcpApps` simultaneously — the
+ * same combined-runtime shape the canonical starter uses — without bleeding
+ * those global flags into other cells sharing the main `/api/copilotkit`
+ * endpoint. The backend graph is `beautiful_chat` (src/agents/beautiful_chat.py).
  */
 
 import React from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 
-export default function BeautifulChatDemo() {
+import { ExampleLayout } from "./components/example-layout";
+import { ExampleCanvas } from "./components/example-canvas";
+import { useGenerativeUIExamples, useExampleSuggestions } from "./hooks";
+import { ThemeProvider } from "./hooks/use-theme";
+import { demonstrationCatalog } from "./declarative-generative-ui/renderers";
+
+export default function BeautifulChatPage() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="default">
-      <div className="flex h-screen w-full items-center justify-center bg-gradient-to-br from-slate-50 to-indigo-50">
-        <div className="h-full w-full max-w-5xl p-4">
-          <Chat />
-        </div>
-      </div>
-    </CopilotKit>
+    <ThemeProvider>
+      <CopilotKit
+        runtimeUrl="/api/copilotkit-beautiful-chat"
+        agent="beautiful-chat"
+        a2ui={{ catalog: demonstrationCatalog }}
+        openGenerativeUI={{}}
+        useSingleEndpoint={false}
+      >
+        <HomePage />
+      </CopilotKit>
+    </ThemeProvider>
   );
 }
 
-function Chat() {
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Show me a demo",
-        message: "Give me a quick tour of what you can do.",
-      },
-      {
-        title: "Weather + flight to Tokyo",
-        message: "What's the weather in Tokyo? Then find flights.",
-      },
-    ],
-    available: "always",
-  });
+function HomePage() {
+  useGenerativeUIExamples();
+  useExampleSuggestions();
+
   return (
-    <CopilotChat agentId="default" className="h-full rounded-3xl shadow-xl" />
+    <ExampleLayout
+      chatContent={
+        <CopilotChat input={{ disclaimer: () => null, className: "pb-6" }} />
+      }
+      appContent={<ExampleCanvas />}
+    />
   );
 }
