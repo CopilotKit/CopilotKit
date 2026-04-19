@@ -55,6 +55,38 @@ export const flightDefinitions = {
       amount: DynString,
     }),
   },
+  /**
+   * Button override: swaps in an ActionButton renderer that tracks
+   * its own `done` state so clicking "Book flight" visually updates to
+   * a "Booked ✓" confirmation. The basic catalog's Button is stateless,
+   * so without this override the click fires the action but the button
+   * looks unchanged. Mirrors the pattern in beautiful-chat
+   * (src/app/demos/beautiful-chat/declarative-generative-ui/renderers.tsx).
+   */
+  Button: {
+    description:
+      "An interactive button with an action event. Use 'child' with a Text component ID for the label. After click, the button shows a confirmation state.",
+    props: z.object({
+      child: z
+        .string()
+        .describe(
+          "The ID of the child component (e.g. a Text component for the label).",
+        ),
+      variant: z.enum(["primary", "secondary", "ghost"]).optional(),
+      // Union with { event } so GenericBinder resolves this as ACTION → callable () => void.
+      action: z
+        .union([
+          z.object({
+            event: z.object({
+              name: z.string(),
+              context: z.record(z.any()).optional(),
+            }),
+          }),
+          z.null(),
+        ])
+        .optional(),
+    }),
+  },
 } satisfies CatalogDefinitions;
 // @endregion[definitions-types]
 
