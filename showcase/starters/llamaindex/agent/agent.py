@@ -10,7 +10,6 @@ the full AG-UI protocol surface automatically.
 
 import json
 import os
-import sys
 from typing import Annotated
 
 from llama_index.llms.openai import OpenAI

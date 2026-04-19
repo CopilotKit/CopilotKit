@@ -31,7 +31,7 @@ else
 fi
 
 echo "[entrypoint] Starting Python agent server on port 8123..."
-cd /app && python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 &> >(awk '{print "[agent] " $0; fflush()}') &
+cd /app && python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 2>&1 | sed 's/^/[agent] /' &
 AGENT_PID=$!
 sleep 2
 if kill -0 $AGENT_PID 2>/dev/null; then

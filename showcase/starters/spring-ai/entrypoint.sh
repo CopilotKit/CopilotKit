@@ -31,7 +31,7 @@ else
 fi
 
 echo "[entrypoint] Starting Spring AI agent on port 8123..."
-java -jar agent/app.jar --server.port=8123 &> >(awk '{print "[agent] " $0; fflush()}') &
+java -jar agent/app.jar --server.port=8123 2>&1 | sed 's/^/[agent] /' &
 AGENT_PID=$!
 sleep 5
 if kill -0 $AGENT_PID 2>/dev/null; then

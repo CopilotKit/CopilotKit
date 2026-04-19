@@ -11,7 +11,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from src.agents.tools.types import Flight
+from src.agents.types import Flight
 
 _logger = logging.getLogger(__name__)
 
