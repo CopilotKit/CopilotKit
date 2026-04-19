@@ -1,78 +1,127 @@
 ---
-title: Interactive Components
-icon: "lucide/MousePointer"
-description: Register interactive React components that users can click, type into, or manipulate in the chat — results flow back to the agent as tool results.
-hideTOC: true
+title: Interactive
+icon: "lucide/Wrench"
+description: Create components that your agent can use to interact with the user.
 snippet_framework: langgraph-python
 snippet_cell: hitl-in-chat
 ---
 
-## What is this?
-
-Interactive generative UI extends display components with user interaction. Your agent renders components that users can click, type into, or manipulate — and the results flow back to the agent as tool results.
-
-This is how you build **human-in-the-loop** flows: the agent requests a decision, the user responds, and the agent continues with that response as input.
-
 <InlineDemo integration="langgraph-python" demo="hitl-in-chat" />
 
+## What is this?
+Frontend tools enable you to define client-side functions that your LangChain agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized for to let [your agent control the UI](/langgraph/frontend-tools), [generative UI](/langgraph/frontend-tools), or for Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools for Human-in-the-loop.
+
 ## When should I use this?
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
 
-Use interactive generative UI when you want to:
+## Implementation
 
-- Let users confirm or modify agent suggestions inline
-- Build form-like interactions within the chat
-- Create approval workflows where users can accept/reject agent actions
-- Add interactive controls (sliders, toggles, selectors) to agent outputs
+<Steps>
+    <Step>
+      ### Run and connect your agent
+      <RunAndConnect />
+    </Step>
 
-## How it works in code
+    <Step>
+        ### Create a frontend human-in-the-loop tool
 
-The primitive is `useHumanInTheLoop`. Unlike `useComponent` (display-only) or `useFrontendTool` (handler-driven), `useHumanInTheLoop` exposes a `respond` callback to your render function. When the user clicks a button or submits a form, you call `respond(value)` — that value becomes the tool's result and the agent continues the turn.
+        Frontend tools can be leveraged in a variety of ways. One of those ways is to have a human-in-the-loop flow where the response
+        of the tool is gated by a user's decision.
 
-```tsx title="page.tsx"
-import { z } from "zod";
-import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+        In this example we will simulate a "approval" flow for executing a command. First, use the `useHumanInTheLoop` hook to create a tool that
+        prompts the user for approval.
 
-useHumanInTheLoop({
-  name: "humanApprovedCommand",
-  description: "Ask a human for approval to run a command.",
-  parameters: z.object({
-    command: z.string().describe("The command to run"),
-  }),
-  render: ({ args, respond, status }) => {
-    if (status !== "executing") return null;
+        ```tsx title="page.tsx"
+        import { useHumanInTheLoop } from "@copilotkit/react-core/v2" // [!code highlight]
+        import { z } from "zod";
 
-    return (
-      <div>
-        <pre>{args.command}</pre>
-        <button onClick={() => respond?.("Command is APPROVED")}>Approve</button>
-        <button onClick={() => respond?.("Command is DENIED")}>Deny</button>
-      </div>
-    );
-  },
-});
-```
+        export function Page() {
+          // ...
 
-Statuses:
+          // [!code highlight:20]
+          useHumanInTheLoop({
+            name: "humanApprovedCommand",
+            description: "Ask human for approval to run a command.",
+            parameters: z.object({
+              command: z.string().describe("The command to run"),
+            }),
+            render: ({ args, respond, status }) => {
+              if (status !== "executing") return <></>;
+              return (
+                <div>
+                  <pre>{args.command}</pre>
+                  {/* [!code highlight:2] */}
+                  <button onClick={() => respond?.(`Command is APPROVED`)}>Approve</button>
+                  <button onClick={() => respond?.(`Command is DENIED`)}>Deny</button>
+                </div>
+              );
+            },
+          });
 
-- `"inProgress"` — the LLM is still streaming arguments; don't render anything irreversible yet.
-- `"executing"` — the agent is waiting for the user's response. Show your form / buttons.
-- `"complete"` — the user has responded (or the call was cancelled). Collapse to a confirmation view.
+          // ...
+        }
+        ```
+    </Step>
+    <Step>
+        ### Install the CopilotKit SDK
 
-## Working with the Built-in Agent
+        Now, we'll need to modify the agent to access these frontend tools. In your terminal, navigate to your agent's folder and continue from there!
 
-No backend wiring needed — the Built-in Agent sees the interactive tool in its tool list the same way it sees a regular frontend tool, and `respond(value)` feeds the result straight back into the next agent turn.
+        <InstallSDKSnippet />
+    </Step>
+    <Step>
+        ### Inheriting from CopilotKitState
 
-## Pattern: approval flow
+        To access the frontend tools provided by CopilotKit, you can inherit from CopilotKitState in your agent's state definition:
 
-The cell above demonstrates a command-approval flow:
+        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+            <Tab value="Python">
+                ```python title="agent.py"
+                from copilotkit import CopilotKitState # [!code highlight]
 
-1. The agent proposes a command (e.g. `rm -rf ./cache`)
-2. The UI renders an **Approve / Deny** pair
-3. `respond(...)` sends `"APPROVED"` or `"DENIED"` back
-4. The agent reads the result and either executes or bails
+                class YourAgentState(CopilotKitState): # [!code highlight]
+                    your_additional_properties: str
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                ```typescript title="agent-js/src/agent.ts"
+                import { Annotation } from "@langchain/langgraph";
+                import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
 
-## Related
+                export const YourAgentStateAnnotation = Annotation.Root({
+                    yourAdditionalProperty: Annotation<string>,
+                    ...CopilotKitStateAnnotation.spec, // [!code highlight]
+                });
+                export type YourAgentState = typeof YourAgentStateAnnotation.State;
+                ```
+            </Tab>
+        </Tabs>
 
-- [Display Components](./display-only) — when you don't need user interaction, just rich rendering.
-- [Frontend Tools](../../frontend-tools) — handler-driven tools (no UI, just logic).
-- [Tool Rendering](../tool-rendering) — wrap a real backend tool in custom UI.
+        By doing this, your agent's state will include the `copilotkit` property, which contains the frontend tools that can be accessed and invoked.
+    </Step>
+    <Step>
+        ### Accessing Frontend Tools
+
+        Once your agent's state includes the `copilotkit` property, you can access the frontend tools and utilize them within your agent's logic.
+
+        Here's how you can call a frontend tool from your agent:
+
+        <FrontEndToolsImpl />
+
+        These tools are automatically populated by CopilotKit and are compatible with LangChain's tool call definitions, making it straightforward to integrate them into your agent's workflow.
+    </Step>
+    <Step>
+        ### Give it a try!
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+    </Step>
+</Steps>
