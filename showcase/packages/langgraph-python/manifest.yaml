@@ -81,8 +81,9 @@ demos:
     route: /demos/agentic-chat
     animated_preview_url:
     highlight:
-      - src/agents/main.py
+      - src/agents/agentic_chat.py
       - src/app/demos/agentic-chat/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: chat-customization-css
     name: Chat Customization (CSS)
     description: Default CopilotChat re-themed via CopilotKitCSSProperties
@@ -94,6 +95,7 @@ demos:
       - src/agents/main.py
       - src/app/demos/chat-customization-css/page.tsx
       - src/app/demos/chat-customization-css/theme.css
+      - src/app/api/copilotkit/route.ts
   - id: tool-rendering-default-catchall
     name: Tool Rendering (Default Catch-all)
     description: Out-of-the-box tool rendering — backend defines the tools; the frontend adds zero custom renderers and relies on CopilotKit's built-in default UI
@@ -104,6 +106,7 @@ demos:
     highlight:
       - src/app/demos/tool-rendering-default-catchall/page.tsx
       - src/agents/tool_rendering_agent.py
+      - src/app/api/copilotkit/route.ts
   - id: tool-rendering-custom-catchall
     name: Tool Rendering (Custom Catch-all)
     description: Single branded wildcard renderer via useDefaultRenderTool — the same app-designed card paints every tool call
@@ -115,6 +118,7 @@ demos:
       - src/app/demos/tool-rendering-custom-catchall/page.tsx
       - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
       - src/agents/tool_rendering_agent.py
+      - src/app/api/copilotkit/route.ts
   - id: tool-rendering-frontend-tools
     name: Tool Rendering (frontend tools) (testing)
     description: Tool is defined on the frontend via useFrontendTool; backend has no tools
@@ -125,6 +129,8 @@ demos:
     highlight:
       - src/app/demos/tool-rendering-frontend-tools/page.tsx
       - src/app/demos/tool-rendering-frontend-tools/weather-card.tsx
+      - src/agents/tool_rendering_frontend_tools.py
+      - src/app/api/copilotkit/route.ts
   - id: frontend-tools
     name: Frontend Tools (In-App Actions)
     description: Agent invokes client-side handlers registered with useFrontendTool
@@ -133,8 +139,9 @@ demos:
     route: /demos/frontend-tools
     animated_preview_url:
     highlight:
-      - src/agents/main.py
+      - src/agents/frontend_tools.py
       - src/app/demos/frontend-tools/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: hitl-in-chat
     name: In-Chat Human in the Loop
     description: User approves agent actions before execution
@@ -143,8 +150,10 @@ demos:
     route: /demos/hitl-in-chat
     animated_preview_url:
     highlight:
-      - src/agents/main.py
+      - src/agents/hitl_in_chat_agent.py
       - src/app/demos/hitl-in-chat/page.tsx
+      - src/app/demos/hitl-in-chat/time-picker-card.tsx
+      - src/app/api/copilotkit/route.ts
   - id: tool-rendering
     name: Tool Rendering
     description: Custom per-tool renderers (WeatherCard, FlightListCard) plus a wildcard catch-all for every other tool
@@ -155,6 +164,10 @@ demos:
     highlight:
       - src/agents/tool_rendering_agent.py
       - src/app/demos/tool-rendering/page.tsx
+      - src/app/demos/tool-rendering/weather-card.tsx
+      - src/app/demos/tool-rendering/flight-list-card.tsx
+      - src/app/demos/tool-rendering/custom-catchall-renderer.tsx
+      - src/app/api/copilotkit/route.ts
   - id: gen-ui-tool-based
     name: Tool-Based Generative UI
     description: Agent uses tools to trigger UI generation
@@ -163,8 +176,11 @@ demos:
     route: /demos/gen-ui-tool-based
     animated_preview_url:
     highlight:
-      - src/agents/main.py
+      - src/agents/gen_ui_tool_based.py
       - src/app/demos/gen-ui-tool-based/page.tsx
+      - src/app/demos/gen-ui-tool-based/bar-chart.tsx
+      - src/app/demos/gen-ui-tool-based/pie-chart.tsx
+      - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent
     name: Agentic Generative UI
     description: Long-running agent tasks with inline state rendering in-chat
@@ -174,7 +190,9 @@ demos:
     animated_preview_url:
     highlight:
       - src/app/demos/gen-ui-agent/page.tsx
-      - src/agents/main.py
+      - src/app/demos/gen-ui-agent/InlineAgentStateCard.tsx
+      - src/agents/gen_ui_agent.py
+      - src/app/api/copilotkit/route.ts
   - id: shared-state-read-write
     name: Shared State (Read + Write)
     description: Bidirectional agent state — UI writes preferences, agent writes notes back
@@ -183,7 +201,11 @@ demos:
     route: /demos/shared-state-read-write
     animated_preview_url:
     highlight:
+      - src/agents/shared_state_read_write.py
       - src/app/demos/shared-state-read-write/page.tsx
+      - src/app/demos/shared-state-read-write/preferences-card.tsx
+      - src/app/demos/shared-state-read-write/notes-card.tsx
+      - src/app/api/copilotkit/route.ts
   - id: shared-state-streaming
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
@@ -194,6 +216,8 @@ demos:
     highlight:
       - src/agents/shared_state_streaming.py
       - src/app/demos/shared-state-streaming/page.tsx
+      - src/app/demos/shared-state-streaming/document-view.tsx
+      - src/app/api/copilotkit/route.ts
   - id: subagents
     name: Sub-Agents
     description: Multiple agents with visible task delegation
@@ -204,6 +228,8 @@ demos:
     highlight:
       - src/agents/subagents.py
       - src/app/demos/subagents/page.tsx
+      - src/app/demos/subagents/delegation-log.tsx
+      - src/app/api/copilotkit/route.ts
   - id: prebuilt-sidebar
     name: "Pre-Built: Sidebar"
     description: Docked sidebar chat via <CopilotSidebar />
@@ -214,6 +240,7 @@ demos:
     highlight:
       - src/agents/main.py
       - src/app/demos/prebuilt-sidebar/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: prebuilt-popup
     name: "Pre-Built: Popup"
     description: Floating popup chat via <CopilotPopup />
@@ -224,6 +251,7 @@ demos:
     highlight:
       - src/agents/main.py
       - src/app/demos/prebuilt-popup/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: prebuilt-chat
     name: "Pre-Built: Chat"
     description: Default docked chat via <CopilotChat />
@@ -234,6 +262,7 @@ demos:
     highlight:
       - src/agents/main.py
       - src/app/demos/prebuilt-chat/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: chat-slots
     name: Chat Customization (Slots)
     description: Customize CopilotChat via its slot system
@@ -244,6 +273,10 @@ demos:
     highlight:
       - src/agents/main.py
       - src/app/demos/chat-slots/page.tsx
+      - src/app/demos/chat-slots/custom-welcome-screen.tsx
+      - src/app/demos/chat-slots/custom-assistant-message.tsx
+      - src/app/demos/chat-slots/custom-disclaimer.tsx
+      - src/app/api/copilotkit/route.ts
   - id: headless-simple
     name: Headless Chat (Simple)
     description: Minimal custom chat surface built on useAgent
@@ -254,6 +287,7 @@ demos:
     highlight:
       - src/agents/main.py
       - src/app/demos/headless-simple/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: headless-complete
     name: Headless Chat (Complete)
     description: Full chat implementation built from scratch on useAgent
@@ -262,8 +296,19 @@ demos:
     route: /demos/headless-complete
     animated_preview_url:
     highlight:
-      - src/agents/main.py
+      - src/agents/headless_complete.py
       - src/app/demos/headless-complete/page.tsx
+      - src/app/demos/headless-complete/message-list.tsx
+      - src/app/demos/headless-complete/use-rendered-messages.tsx
+      - src/app/demos/headless-complete/tool-renderers.tsx
+      - src/app/demos/headless-complete/weather-card.tsx
+      - src/app/demos/headless-complete/stock-card.tsx
+      - src/app/demos/headless-complete/highlight-note.tsx
+      - src/app/demos/headless-complete/user-bubble.tsx
+      - src/app/demos/headless-complete/assistant-bubble.tsx
+      - src/app/demos/headless-complete/input-bar.tsx
+      - src/app/demos/headless-complete/typing-indicator.tsx
+      - src/app/api/copilotkit-mcp-apps/route.ts
   - id: agentic-chat-reasoning
     name: Reasoning
     description: Visible reasoning/thinking chain alongside the final answer
@@ -273,7 +318,9 @@ demos:
     animated_preview_url:
     highlight:
       - src/app/demos/agentic-chat-reasoning/page.tsx
+      - src/app/demos/agentic-chat-reasoning/reasoning-block.tsx
       - src/agents/reasoning_agent.py
+      - src/app/api/copilotkit/route.ts
   - id: gen-ui-interrupt
     name: Controlled Gen-UI (Interrupt)
     description: Render UI in response to agent interrupts via useInterrupt
@@ -284,6 +331,8 @@ demos:
     highlight:
       - src/agents/interrupt_agent.py
       - src/app/demos/gen-ui-interrupt/page.tsx
+      - src/app/demos/gen-ui-interrupt/time-picker-card.tsx
+      - src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui
     name: Declarative Generative UI (A2UI)
     description: Canonical A2UI BYOC — custom catalog (Card/StatusBadge/Metric/InfoRow/PrimaryButton) wired via a2ui.catalog on the provider; runtime injects the render_a2ui tool automatically
@@ -294,6 +343,9 @@ demos:
     highlight:
       - src/agents/a2ui_dynamic.py
       - src/app/demos/declarative-gen-ui/page.tsx
+      - src/app/demos/declarative-gen-ui/a2ui/catalog.ts
+      - src/app/demos/declarative-gen-ui/a2ui/definitions.ts
+      - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
       - src/app/api/copilotkit/route.ts
   - id: a2ui-fixed-schema
     name: Declarative Generative UI (A2UI — Fixed Schema)
@@ -304,10 +356,13 @@ demos:
     animated_preview_url:
     highlight:
       - src/agents/a2ui_fixed.py
+      - src/agents/a2ui_schemas/flight_schema.json
+      - src/agents/a2ui_schemas/booked_schema.json
       - src/app/demos/a2ui-fixed-schema/page.tsx
       - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
+      - src/app/api/copilotkit/route.ts
   - id: mcp-apps
     name: MCP Apps
     description: MCP server-driven UI via activity renderers
@@ -341,6 +396,7 @@ demos:
       - src/agents/open_gen_ui_advanced_agent.py
       - src/app/demos/open-gen-ui-advanced/page.tsx
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
+      - src/app/demos/open-gen-ui-advanced/suggestions.ts
       - src/app/api/copilotkit-ogui/route.ts
   - id: declarative-gen-ui-hardcoded
     name: Declarative Generative UI (A2UI — Custom Catalog)
@@ -353,6 +409,7 @@ demos:
       - src/agents/a2ui_dynamic_hardcoded.py
       - src/app/demos/declarative-gen-ui-hardcoded/page.tsx
       - src/app/demos/declarative-gen-ui-hardcoded/catalog.tsx
+      - src/app/api/copilotkit/route.ts
   - id: interrupt-headless
     name: Headless Interrupt (testing)
     description: Resolve langgraph interrupts from a plain button grid — no chat, no useInterrupt render prop
@@ -363,6 +420,7 @@ demos:
     highlight:
       - src/agents/interrupt_agent.py
       - src/app/demos/interrupt-headless/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: readonly-state-agent-context
     name: Readonly State (Agent Context)
     description: Frontend provides read-only context to the agent via useAgentContext
@@ -373,6 +431,7 @@ demos:
     highlight:
       - src/agents/readonly_state_agent_context.py
       - src/app/demos/readonly-state-agent-context/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: reasoning-default-render
     name: Reasoning (Default Render)
     description: Built-in CopilotChatReasoningMessage renders without a custom slot
@@ -383,6 +442,7 @@ demos:
     highlight:
       - src/agents/reasoning_agent.py
       - src/app/demos/reasoning-default-render/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: tool-rendering-reasoning-chain
     name: Tool Rendering + Reasoning Chain (testing)
     description: Sequential tool calls with reasoning tokens rendered side-by-side
@@ -397,6 +457,7 @@ demos:
       - src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx
       - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
       - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
+      - src/app/api/copilotkit/route.ts
   - id: beautiful-chat
     name: Beautiful Chat
     description: Canonical polished starter chat — brand fonts, theme tokens, suggestion pills
@@ -405,4 +466,35 @@ demos:
     route: /demos/beautiful-chat
     animated_preview_url:
     highlight:
+      - src/agents/beautiful_chat.py
+      - src/agents/beautiful_chat_data/db.csv
+      - src/agents/beautiful_chat_data/schemas/flight_schema.json
       - src/app/demos/beautiful-chat/page.tsx
+      - src/app/demos/beautiful-chat/components/example-layout/index.tsx
+      - src/app/demos/beautiful-chat/components/example-layout/mode-toggle.tsx
+      - src/app/demos/beautiful-chat/components/example-canvas/index.tsx
+      - src/app/demos/beautiful-chat/components/example-canvas/todo-card.tsx
+      - src/app/demos/beautiful-chat/components/example-canvas/todo-column.tsx
+      - src/app/demos/beautiful-chat/components/example-canvas/todo-list.tsx
+      - src/app/demos/beautiful-chat/components/generative-ui/charts/bar-chart.tsx
+      - src/app/demos/beautiful-chat/components/generative-ui/charts/config.ts
+      - src/app/demos/beautiful-chat/components/generative-ui/charts/pie-chart.tsx
+      - src/app/demos/beautiful-chat/components/generative-ui/meeting-time-picker.tsx
+      - src/app/demos/beautiful-chat/components/headless-chat.tsx
+      - src/app/demos/beautiful-chat/components/tool-rendering.tsx
+      - src/app/demos/beautiful-chat/components/ui/badge.tsx
+      - src/app/demos/beautiful-chat/components/ui/button.tsx
+      - src/app/demos/beautiful-chat/components/ui/card.tsx
+      - src/app/demos/beautiful-chat/components/ui/checkbox.tsx
+      - src/app/demos/beautiful-chat/components/ui/input.tsx
+      - src/app/demos/beautiful-chat/components/ui/separator.tsx
+      - src/app/demos/beautiful-chat/components/ui/spinner.tsx
+      - src/app/demos/beautiful-chat/declarative-generative-ui/definitions.ts
+      - src/app/demos/beautiful-chat/declarative-generative-ui/renderers.tsx
+      - src/app/demos/beautiful-chat/hooks/index.ts
+      - src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx
+      - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
+      - src/app/demos/beautiful-chat/hooks/use-theme.tsx
+      - src/app/demos/beautiful-chat/lib/a2ui-theme.css
+      - src/app/demos/beautiful-chat/lib/utils.ts
+      - src/app/api/copilotkit-beautiful-chat/route.ts
