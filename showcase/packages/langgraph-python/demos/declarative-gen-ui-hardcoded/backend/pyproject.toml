@@ -1,5 +1,5 @@
 [project]
-name = "cell-declarative_gen_ui"
+name = "cell-declarative_gen_ui_hardcoded"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [

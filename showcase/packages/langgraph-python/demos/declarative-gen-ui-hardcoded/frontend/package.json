@@ -1,5 +1,5 @@
 {
-  "name": "@copilotkit/showcase-cell-langgraph-python-declarative-gen-ui",
+  "name": "@copilotkit/showcase-cell-langgraph-python-declarative-gen-ui-hardcoded",
   "version": "0.1.0",
   "private": true,
   "scripts": {

@@ -1,4 +1,4 @@
-// CopilotKit runtime for the Declarative Gen-UI (A2UI dynamic) cell.
+// CopilotKit runtime for the Declarative Gen-UI (A2UI dynamic — hardcoded catalog) cell.
 
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -19,10 +19,10 @@ const agent = new LangGraphAgent({
 
 const runtime = new CopilotRuntime({
   // @ts-ignore
-  agents: { "declarative-gen-ui": agent },
+  agents: { "declarative-gen-ui-hardcoded": agent },
   a2ui: {
     injectA2UITool: true,
-    agents: ["declarative-gen-ui"],
+    agents: ["declarative-gen-ui-hardcoded"],
   },
 });
 

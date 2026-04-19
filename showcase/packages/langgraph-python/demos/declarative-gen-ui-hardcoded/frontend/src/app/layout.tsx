@@ -3,7 +3,7 @@ import "@copilotkit/react-core/v2/styles.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Declarative Generative UI",
+  title: "Declarative Generative UI (Hardcoded Catalog)",
 };
 
 export default function RootLayout({

@@ -31,7 +31,7 @@ export default function DeclarativeGenUIDemo() {
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit"
-      agent="declarative-gen-ui"
+      agent="declarative-gen-ui-hardcoded"
       a2ui={{ catalog: demoCatalog }}
     >
       <div className="flex justify-center items-center h-screen w-full">
@@ -59,6 +59,9 @@ function Chat() {
   });
 
   return (
-    <CopilotChat agentId="declarative-gen-ui" className="h-full rounded-2xl" />
+    <CopilotChat
+      agentId="declarative-gen-ui-hardcoded"
+      className="h-full rounded-2xl"
+    />
   );
 }
