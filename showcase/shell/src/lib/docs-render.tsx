@@ -178,6 +178,8 @@ export const SNIPPET_MAP: Record<string, string> = {
   CodingAgents: "shared/coding-agents.mdx",
   CommonIssues: "shared/troubleshooting/common-issues.mdx",
   CopilotRuntime: "copilot-runtime.mdx",
+  CustomAgent: "shared/backend/custom-agent.mdx",
+  DebugMode: "shared/troubleshooting/debug-mode.mdx",
   DisplayOnly: "shared/generative-ui/display-only.mdx",
   ErrorDebugging: "shared/troubleshooting/error-debugging.mdx",
   FrontendTools: "shared/app-control/frontend-tools.mdx",
@@ -239,11 +241,27 @@ export function inlineSnippets(content: string, slugPath: string = ""): string {
       let snippetRel = SNIPPET_MAP[componentName];
 
       if (!snippetRel && componentName === "SharedContent" && slugPath) {
-        const subPathMatch = slugPath.match(/^integrations\/[^/]+\/(.+)$/);
-        if (subPathMatch) {
-          const resolvedComponent = SUBPATH_TO_COMPONENT[subPathMatch[1]];
+        // The docs page could live at any of these URL shapes:
+        //   - integrations/<framework>/<subpath>    (legacy per-framework docs)
+        //   - built-in-agent/<subpath>              (new built-in-agent tree)
+        //   - <subpath>                             (framework-scoped
+        //                                            /<framework>/<subpath>,
+        //                                            which arrives with no
+        //                                            prefix here)
+        // Try each shape in order to find a SUBPATH_TO_COMPONENT match.
+        const candidateSubpaths: string[] = [];
+        const integrationsMatch = slugPath.match(/^integrations\/[^/]+\/(.+)$/);
+        if (integrationsMatch) candidateSubpaths.push(integrationsMatch[1]);
+        if (slugPath.startsWith("built-in-agent/")) {
+          candidateSubpaths.push(slugPath.slice("built-in-agent/".length));
+        }
+        candidateSubpaths.push(slugPath);
+
+        for (const sub of candidateSubpaths) {
+          const resolvedComponent = SUBPATH_TO_COMPONENT[sub];
           if (resolvedComponent) {
             snippetRel = SNIPPET_MAP[resolvedComponent];
+            if (snippetRel) break;
           }
         }
       }

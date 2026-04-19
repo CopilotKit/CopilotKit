@@ -299,6 +299,15 @@ export const docsComponents = {
   CodingAgents: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
+  CustomAgent: ({ children }: { children?: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DebugMode: ({ children }: { children?: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  NewLookAndFeelPreview: ({ children }: { children?: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
   Slots: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
