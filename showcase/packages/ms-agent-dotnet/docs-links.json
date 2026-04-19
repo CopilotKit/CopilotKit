@@ -1,0 +1,84 @@
+{
+  "framework": "ms-agent-dotnet",
+  "generated_at": "2026-04-19",
+  "notes": [
+    "og_docs_url validation: checked MDX source-of-truth under docs/content/docs/integrations/microsoft-agent-framework (primary) with fallback to docs/content/docs/(root). docs.copilotkit.ai always returns HTTP 200 (SPA) and is unreliable as a sole existence signal.",
+    "shell_docs_url validation: curl against http://localhost:3000/ms-agent-dotnet/<slug>; shell serves MDX from showcase/shell/src/content/docs."
+  ],
+  "features": [
+    {
+      "id": "agentic-chat",
+      "og_docs_url": "https://docs.copilotkit.ai/agentic-chat-ui",
+      "og_docs_source": "docs/content/docs/(root)/agentic-chat-ui.mdx",
+      "og_docs_status": "ok-root-fallback",
+      "shell_docs_url": "http://localhost:3000/ms-agent-dotnet/agentic-chat-ui",
+      "shell_docs_status": "ok"
+    },
+    {
+      "id": "hitl-in-chat",
+      "og_docs_url": "https://docs.copilotkit.ai/integrations/microsoft-agent-framework/human-in-the-loop",
+      "og_docs_source": "docs/content/docs/integrations/microsoft-agent-framework/human-in-the-loop.mdx",
+      "og_docs_status": "ok",
+      "shell_docs_url": "http://localhost:3000/ms-agent-dotnet/human-in-the-loop",
+      "shell_docs_status": "ok"
+    },
+    {
+      "id": "tool-rendering",
+      "og_docs_url": "https://docs.copilotkit.ai/integrations/microsoft-agent-framework/generative-ui/tool-rendering",
+      "og_docs_source": "docs/content/docs/integrations/microsoft-agent-framework/generative-ui/tool-rendering.mdx",
+      "og_docs_status": "ok",
+      "shell_docs_url": "http://localhost:3000/ms-agent-dotnet/generative-ui/tool-rendering",
+      "shell_docs_status": "ok"
+    },
+    {
+      "id": "gen-ui-tool-based",
+      "og_docs_url": "https://docs.copilotkit.ai/integrations/microsoft-agent-framework/generative-ui/your-components/display-only",
+      "og_docs_source": "docs/content/docs/integrations/microsoft-agent-framework/generative-ui/your-components/display-only.mdx",
+      "og_docs_status": "ok",
+      "shell_docs_url": "http://localhost:3000/ms-agent-dotnet/generative-ui/your-components/display-only",
+      "shell_docs_status": "ok"
+    },
+    {
+      "id": "gen-ui-agent",
+      "og_docs_url": "https://docs.copilotkit.ai/integrations/microsoft-agent-framework/generative-ui/state-rendering",
+      "og_docs_source": "docs/content/docs/integrations/microsoft-agent-framework/generative-ui/state-rendering.mdx",
+      "og_docs_status": "ok",
+      "shell_docs_url": "http://localhost:3000/ms-agent-dotnet/generative-ui/state-rendering",
+      "shell_docs_status": "ok"
+    },
+    {
+      "id": "shared-state-read-write",
+      "og_docs_url": "https://docs.copilotkit.ai/integrations/microsoft-agent-framework/shared-state/in-app-agent-write",
+      "og_docs_source": "docs/content/docs/integrations/microsoft-agent-framework/shared-state/in-app-agent-write.mdx",
+      "og_docs_status": "ok",
+      "shell_docs_url": "http://localhost:3000/ms-agent-dotnet/shared-state",
+      "shell_docs_status": "ok"
+    },
+    {
+      "id": "shared-state-streaming",
+      "og_docs_url": "https://docs.copilotkit.ai/integrations/microsoft-agent-framework/shared-state/predictive-state-updates",
+      "og_docs_source": "docs/content/docs/integrations/microsoft-agent-framework/shared-state/predictive-state-updates.mdx",
+      "og_docs_status": "ok",
+      "shell_docs_url": "http://localhost:3000/ms-agent-dotnet/shared-state/streaming",
+      "shell_docs_status": "ok"
+    },
+    {
+      "id": "subagents",
+      "og_docs_url": null,
+      "og_docs_source": null,
+      "og_docs_status": "red-x",
+      "shell_docs_url": "http://localhost:3000/ms-agent-dotnet/multi-agent/subagents",
+      "shell_docs_status": "ok"
+    }
+  ],
+  "missing": [
+    {
+      "feature": "subagents",
+      "reason": "No upstream MDX exists at docs/content/docs/integrations/microsoft-agent-framework/multi-agent/subagents.mdx and no root fallback at docs/content/docs/(root)/multi-agent/subagents.mdx; shell serves a local showcase/shell/src/content/docs/multi-agent/subagents.mdx but docs.copilotkit.ai has no page."
+    },
+    {
+      "feature": "agentic-chat",
+      "reason": "No microsoft-agent-framework-specific MDX. Using root fallback docs/content/docs/(root)/agentic-chat-ui.mdx; og URL points to generic /agentic-chat-ui which is published but not MS-Framework-scoped."
+    }
+  ]
+}
