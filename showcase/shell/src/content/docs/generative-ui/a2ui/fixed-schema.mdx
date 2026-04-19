@@ -18,13 +18,14 @@ nothing has to be generated at runtime.
 ## How it works
 
 1. The schema is loaded from a JSON file at startup via
-   `a2ui.load_schema(...)`.
-2. The agent tool receives data from the primary LLM (e.g. a flight
-   search result).
+   `a2ui.load_schema(...)` — a thin `json.load` wrapper.
+2. The agent's `display_flight` tool receives data from the primary LLM
+   (origin / destination / airline / price).
 3. The tool returns `a2ui.render(...)` with `createSurface` +
    `updateComponents` + `updateDataModel` operations.
 4. The A2UI middleware intercepts the tool result and the frontend
-   renders the surface using the matching client catalog.
+   renders the surface using the matching 5-component client catalog
+   (Title, Airport, Arrow, AirlineBadge, PriceTag — plus the built-ins).
 
 ## Schemas as JSON: compositional trees
 
