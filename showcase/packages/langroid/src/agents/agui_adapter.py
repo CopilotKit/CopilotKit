@@ -36,7 +36,7 @@ from ag_ui.core import (
     RunAgentInput,
 )
 from fastapi import Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from agents.agent import (
     create_agent,
@@ -66,13 +66,17 @@ _tool_by_name_mutable: dict[str, type[ToolMessage]] = {
 }
 if len(_tool_by_name_mutable) != len(ALL_TOOLS):
     # Collisions are a programmer error — don't try to recover.
-    seen: set[str] = set()
-    dupes: list[str] = []
+    # Build a name -> [qualified class identities] map so the error
+    # names the *actual* classes involved. Seeing a bare string like
+    # ``"get_weather"`` in the stacktrace forces the developer to grep
+    # the whole repo; emitting ``module.Class`` pairs points them
+    # directly at the two definitions that need to be reconciled.
+    by_name: dict[str, list[str]] = {}
     for cls in ALL_TOOLS:
         name = cls.default_value("request")
-        if name in seen:
-            dupes.append(name)
-        seen.add(name)
+        ident = f"{cls.__module__}.{cls.__qualname__}"
+        by_name.setdefault(name, []).append(ident)
+    dupes = {name: idents for name, idents in by_name.items() if len(idents) > 1}
     raise RuntimeError(
         f"Duplicate tool request names in ALL_TOOLS: {dupes!r}"
     )
@@ -246,20 +250,73 @@ async def _run_backend_tool(
 
 async def handle_run(request: Request) -> StreamingResponse:
     """Handle an AG-UI /run endpoint — parse input, run agent, stream events."""
-    body = await request.json()
-    run_input = RunAgentInput(**body)
+    # Parse request body defensively. A malformed body (bad JSON, missing
+    # required fields, wrong types) previously propagated up as a raw
+    # FastAPI 422/500 with no correlation id — hard to match back to a
+    # client-side failure. Generate a stable ``error_id`` and return a
+    # structured JSON body so the caller gets something actionable.
+    error_id = str(uuid.uuid4())
+    try:
+        body = await request.json()
+    except (json.JSONDecodeError, ValueError) as exc:
+        logger.exception("Failed to parse request body (error_id=%s)", error_id)
+        return JSONResponse(
+            {
+                "error": "Invalid JSON body",
+                "errorId": error_id,
+                "class": exc.__class__.__name__,
+            },
+            status_code=400,
+        )
+    try:
+        run_input = RunAgentInput(**body)
+    except (pydantic.ValidationError, TypeError, ValueError) as exc:
+        logger.exception(
+            "Failed to coerce body into RunAgentInput (error_id=%s)", error_id
+        )
+        return JSONResponse(
+            {
+                "error": "Invalid RunAgentInput payload",
+                "errorId": error_id,
+                "class": exc.__class__.__name__,
+            },
+            status_code=422,
+        )
 
     agent = create_agent()
 
-    # Build conversation history from all messages so multi-turn works
+    # Build conversation history from all messages so multi-turn works.
+    # Each ``msg.role`` / ``msg.content`` must be a string — silently
+    # f-stringifying ``None`` or a complex object produces garbage like
+    # "None: {'foo': 'bar'}" that the LLM then tries to interpret as
+    # conversation. Drop non-string entries and log a warning so the
+    # shape drift is at least visible in ops logs.
     conversation_parts: list[str] = []
     if run_input.messages:
         for msg in run_input.messages:
             if hasattr(msg, "role") and hasattr(msg, "content"):
-                conversation_parts.append(f"{msg.role}: {msg.content}")
+                role = getattr(msg, "role", None)
+                content = getattr(msg, "content", None)
+                if not isinstance(role, str) or not isinstance(content, str):
+                    logger.warning(
+                        "Skipping message with non-string role/content "
+                        "(role=%s, content=%s)",
+                        type(role).__name__,
+                        type(content).__name__,
+                    )
+                    continue
+                conversation_parts.append(f"{role}: {content}")
             elif isinstance(msg, dict):
                 role = msg.get("role", "user")
                 content = msg.get("content", "")
+                if not isinstance(role, str) or not isinstance(content, str):
+                    logger.warning(
+                        "Skipping dict message with non-string role/content "
+                        "(role=%s, content=%s)",
+                        type(role).__name__,
+                        type(content).__name__,
+                    )
+                    continue
                 conversation_parts.append(f"{role}: {content}")
     user_message = "\n".join(conversation_parts) if conversation_parts else ""
 
@@ -305,8 +362,29 @@ async def handle_run(request: Request) -> StreamingResponse:
             run_id=run_id,
         ))
 
-        # Run the Langroid agent
-        response = await agent.llm_response_async(user_message)
+        # Run the Langroid agent. Any failure here happens *after*
+        # RUN_STARTED was emitted, so the frontend is already waiting
+        # for a RUN_FINISHED. If we let the exception escape here, the
+        # generator dies mid-stream and the UI hangs forever. Emit a
+        # sanitized TEXT_MESSAGE triple (so the user sees *something*)
+        # and then RUN_FINISHED to close out the run cleanly. The
+        # full traceback is preserved server-side via
+        # ``logger.exception``.
+        try:
+            response = await agent.llm_response_async(user_message)
+        except Exception as exc:
+            logger.exception("agent.llm_response_async failed mid-stream")
+            err_payload = json.dumps({
+                "error": f"Agent run failed: {exc.__class__.__name__}"
+            })
+            for line in emit_text_block(str(uuid.uuid4()), err_payload):
+                yield line
+            yield _sse_line(RunFinishedEvent(
+                type=EventType.RUN_FINISHED,
+                thread_id=thread_id,
+                run_id=run_id,
+            ))
+            return
 
         if response is None:
             # Empty response — just finish
@@ -453,10 +531,41 @@ async def handle_run(request: Request) -> StreamingResponse:
             # came from ``_try_parse_tool``), so bypass the construction
             # step and go straight through ``_execute_backend_tool`` —
             # shares the sanitization contract with the oai path above.
+            #
+            # Wrap the ``to_thread`` call itself in a broad try/except:
+            # ``_execute_backend_tool`` already sanitizes narrowed
+            # data-errors, but the scheduler call (thread-pool full,
+            # cancellation, loop shutdown) can raise *outside* that
+            # contract. Letting such an exception escape aborts the SSE
+            # generator after events have already been emitted, which
+            # hangs the UI. Emit a sanitized error + RUN_FINISHED and
+            # then re-raise so the framework still sees the real bug.
             if tool_name not in FRONTEND_TOOL_NAMES:
-                result = await asyncio.to_thread(
-                    _execute_backend_tool, tool_msg, tool_name
-                )
+                try:
+                    result = await asyncio.to_thread(
+                        _execute_backend_tool, tool_msg, tool_name
+                    )
+                except Exception as exc:
+                    logger.exception(
+                        "asyncio.to_thread failed executing backend tool %s",
+                        tool_name,
+                    )
+                    err_payload = json.dumps({
+                        "error": (
+                            f"Tool {tool_name} failed: "
+                            f"{exc.__class__.__name__}"
+                        )
+                    })
+                    for line in emit_text_block(
+                        str(uuid.uuid4()), err_payload
+                    ):
+                        yield line
+                    yield _sse_line(RunFinishedEvent(
+                        type=EventType.RUN_FINISHED,
+                        thread_id=thread_id,
+                        run_id=run_id,
+                    ))
+                    raise
                 if result:
                     for line in emit_text_block(message_id, result):
                         yield line
@@ -558,7 +667,14 @@ def _try_parse_tool(content: str, agent: lr.ChatAgent) -> ToolMessage | None:
         name = data.get("name") or (data.get("function", {}) or {}).get("name")
         args = data.get("arguments") or (data.get("function", {}) or {}).get("arguments", {})
         if name:
-            if isinstance(args, str):
+            if isinstance(args, (str, bytes, bytearray)):
+                # Mirror ``_parse_tool_args``: real OpenAI/httpx stacks can
+                # deliver ``arguments`` as bytes on the wire; a narrow
+                # ``isinstance(args, str)`` guard would fall through to
+                # ``tool_cls(**args)`` with a raw bytes object and blow up
+                # with a TypeError that the outer handler then silently
+                # swallows. Accept the same (str, bytes, bytearray) trio
+                # that ``json.loads`` itself accepts.
                 try:
                     args = json.loads(args)
                 except json.JSONDecodeError as exc:

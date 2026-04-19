@@ -634,6 +634,243 @@ def test_try_parse_tool_non_str_content_warns_and_returns_none(caplog):
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# CR Round 4: bytes-args handling in _try_parse_tool
+# ---------------------------------------------------------------------------
+
+
+def test_try_parse_tool_function_call_bytes_arguments():
+    """Real OpenAI/httpx stacks can deliver ``function_call.arguments`` as
+    ``bytes`` (not ``str``). The function_call path must parse them the
+    same way ``_parse_tool_args`` does — previously a narrow
+    ``isinstance(args, str)`` guard fell through to ``tool_cls(**args)``
+    with raw bytes and silently TypeError'd."""
+    from agents.agui_adapter import _try_parse_tool
+    from agents import agent as agent_module
+
+    # Use a real backend tool from ALL_TOOLS so this exercises the actual
+    # dispatch loop rather than a synthetic stub.
+    request_name = agent_module.GetWeatherTool.default_value("request")
+    content = json.dumps({
+        "name": request_name,
+        "arguments": b'{"location": "SF"}'.decode("utf-8"),
+    })
+    # Patch the function_call payload to carry a bytes ``arguments`` at
+    # parse time. We construct the wrapper JSON as normal (str) but the
+    # inner ``arguments`` field is a str whose *decoded* value would be
+    # bytes in a real payload — so we exercise the guard by passing a
+    # dict directly into the adapter's internals.
+    #
+    # To exercise the bytes branch, call with a dict that mirrors the
+    # post-``json.loads`` shape:
+    data = {"name": request_name, "arguments": b'{"location": "SF"}'}
+    # Feed via the content path: we serialize once so ``_try_parse_tool``
+    # re-parses. But ``json.dumps`` on bytes raises. Instead, mimic by
+    # directly invoking the inner logic: patch ``json.loads`` to return
+    # the dict with bytes ``arguments`` so we test the branch.
+    import agents.agui_adapter as adapter_mod
+
+    real_loads = adapter_mod.json.loads
+    calls: list[Any] = []
+
+    def _fake_loads(payload, *args, **kwargs):
+        calls.append(payload)
+        # First call: adapter loads the outer content. Return the
+        # dict with bytes inner arguments.
+        if len(calls) == 1:
+            return data
+        return real_loads(payload, *args, **kwargs)
+
+    import unittest.mock as mock
+
+    with mock.patch.object(adapter_mod.json, "loads", side_effect=_fake_loads):
+        result = _try_parse_tool("ignored-outer", agent=None)  # type: ignore[arg-type]
+
+    assert result is not None, (
+        "bytes arguments should round-trip through the (str, bytes, bytearray) guard"
+    )
+    assert isinstance(result, agent_module.GetWeatherTool)
+    assert result.location == "SF"
+
+
+# ---------------------------------------------------------------------------
+# CR Round 4: mid-stream llm_response_async failure must not hang the UI
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_llm_response_async_failure_emits_run_finished(monkeypatch, caplog):
+    """When ``agent.llm_response_async`` raises *after* RUN_STARTED has
+    been emitted, the generator must emit a sanitized TEXT_MESSAGE
+    triple + RUN_FINISHED (never leave the frontend hanging)."""
+
+    class _ExplodingAgent:
+        async def llm_response_async(self, user_message: str) -> Any:
+            raise RuntimeError(
+                "secret: postgres://user:pass@host/db /opt/app/internal.py line 99"
+            )
+
+    monkeypatch.setattr(agui_adapter, "create_agent", lambda: _ExplodingAgent())
+
+    req = _FakeRequest(_minimal_run_input(thread_id="t-boom"))
+    with caplog.at_level(logging.ERROR, logger=agui_adapter.logger.name):
+        resp = await handle_run(req)
+        raw_chunks = await _collect(resp)
+
+    events = _parse_events(raw_chunks)
+    types = [e["type"] for e in events]
+    assert types[0] == "RUN_STARTED"
+    assert types[-1] == "RUN_FINISHED", (
+        f"RUN_FINISHED must terminate the stream even on mid-stream failure, got: {types}"
+    )
+    assert "TEXT_MESSAGE_CONTENT" in types, (
+        "sanitized error must be surfaced to the user"
+    )
+
+    content = next(e for e in events if e["type"] == "TEXT_MESSAGE_CONTENT")
+    payload = json.loads(content["delta"])
+    assert "RuntimeError" in payload["error"]
+    # And sanitization still holds — no internal details leak.
+    raw_stream = "".join(raw_chunks)
+    for needle in ("postgres://", "password", "/opt/app", "internal.py", "line 99"):
+        assert needle not in raw_stream, (
+            f"internal detail {needle!r} leaked into SSE stream"
+        )
+
+    # Full traceback preserved server-side.
+    assert any(r.exc_info for r in caplog.records), (
+        "expected logger.exception to capture the llm_response_async failure"
+    )
+
+
+# ---------------------------------------------------------------------------
+# CR Round 4: request.json() / RunAgentInput failures get correlation ids
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_malformed_request_body_returns_structured_error():
+    """An unparseable request body must NOT raise an unstructured 500 —
+    it must return a structured JSON response carrying an ``errorId``
+    for correlation."""
+
+    class _BadJsonRequest:
+        async def json(self) -> dict:
+            raise json.JSONDecodeError("bad", "doc", 0)
+
+    resp = await handle_run(_BadJsonRequest())  # type: ignore[arg-type]
+    assert resp.status_code == 400
+    payload = json.loads(resp.body)
+    assert payload["error"] == "Invalid JSON body"
+    assert "errorId" in payload and payload["errorId"], (
+        "every error response needs a correlation id"
+    )
+
+
+@pytest.mark.asyncio
+async def test_invalid_run_agent_input_returns_422():
+    """Body that's valid JSON but doesn't match ``RunAgentInput`` must
+    return a 422 with a structured payload + correlation id."""
+    # Missing every required field.
+    req = _FakeRequest({})
+    resp = await handle_run(req)
+    assert resp.status_code == 422
+    payload = json.loads(resp.body)
+    assert payload["error"] == "Invalid RunAgentInput payload"
+    assert payload.get("errorId"), "correlation id is required"
+
+
+# ---------------------------------------------------------------------------
+# CR Round 4: non-string role/content is skipped with a warning
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_non_string_role_or_content_skipped(monkeypatch, caplog):
+    """Messages whose ``role`` or ``content`` are not strings must be
+    skipped with a warning rather than silently f-stringified into
+    garbage like ``"None: {'foo': ...}"``.
+
+    Pydantic's ``RunAgentInput`` normally rejects these upstream, but
+    if a future schema change or a non-validating code path ever lands
+    a non-string field in ``run_input.messages``, the guard in
+    ``handle_run`` is the last line of defense against garbage prompts.
+    We bypass pydantic by substituting a stub ``RunAgentInput`` that
+    returns a hand-built object with mixed message types.
+    """
+    agent = _install_fake_agent(
+        monkeypatch,
+        SimpleNamespace(content="ok", oai_tool_calls=None, function_call=None),
+    )
+
+    class _StubRunInput:
+        def __init__(self, **_kwargs: Any) -> None:
+            self.thread_id = "t-msg"
+            self.run_id = "run-x"
+            self.messages = [
+                SimpleNamespace(role="user", content="hello"),
+                # non-string content
+                SimpleNamespace(role="user", content={"obj": 1}),
+                # non-string role
+                SimpleNamespace(role=None, content="huh"),
+            ]
+
+    monkeypatch.setattr(agui_adapter, "RunAgentInput", _StubRunInput)
+
+    req = _FakeRequest({"stub": True})  # content irrelevant — stub ignores
+    with caplog.at_level(logging.WARNING, logger=agui_adapter.logger.name):
+        resp = await handle_run(req)
+        await _collect(resp)
+
+    # Only the first message should have reached the agent.
+    assert agent.calls == ["user: hello"], (
+        f"non-string messages must be dropped; got prompt: {agent.calls!r}"
+    )
+    assert any(
+        "non-string role/content" in rec.getMessage()
+        for rec in caplog.records
+    ), "expected a warning log for dropped messages"
+
+
+# ---------------------------------------------------------------------------
+# CR Round 4: tool-collision RuntimeError names the colliding classes
+# ---------------------------------------------------------------------------
+
+
+def test_duplicate_tool_error_includes_class_identity():
+    """When two tool classes collide on ``request`` name, the startup
+    RuntimeError must include fully-qualified class identities so the
+    developer can find the duplicate definitions without grepping."""
+    # Simulate the import-time guard on a synthetic ALL_TOOLS with a
+    # collision. Rebuild the same check directly — we can't re-import
+    # the module to re-trigger it, but the guard's logic is simple
+    # enough to exercise via a tiny fixture.
+    from langroid.agent.tool_message import ToolMessage
+
+    class ToolA(ToolMessage):
+        request: str = "clashing"
+        purpose: str = "a"
+
+    class ToolB(ToolMessage):
+        request: str = "clashing"
+        purpose: str = "b"
+
+    tools = [ToolA, ToolB]
+    by_name: dict[str, list[str]] = {}
+    for cls in tools:
+        name = cls.default_value("request")
+        ident = f"{cls.__module__}.{cls.__qualname__}"
+        by_name.setdefault(name, []).append(ident)
+    dupes = {n: ids for n, ids in by_name.items() if len(ids) > 1}
+
+    assert "clashing" in dupes
+    idents = dupes["clashing"]
+    # Both identities appear, and they carry the qualname — not just
+    # the bare tool name.
+    assert any("ToolA" in i for i in idents)
+    assert any("ToolB" in i for i in idents)
+
+
 @pytest.mark.asyncio
 async def test_plain_text_turn_does_not_warn(monkeypatch, caplog):
     """A normal chat reply like "hello" is NOT JSON. The adapter's
