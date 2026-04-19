@@ -3,12 +3,16 @@
 /**
  * Declarative Generative UI — A2UI Fixed Schema demo.
  *
- * The component tree (schema) is FIXED on the frontend: the agent cannot
- * change the layout — it only streams data into the data model. Here the
- * fixed shape is a flight card: { origin, destination, airline, price }.
+ * In the fixed-schema flavor of A2UI, the component tree (schema) lives on
+ * the frontend and the agent only streams *data* into the data model. Here
+ * the fixed shape is a flight card: { origin, destination, airline, price }.
  *
- * - Catalog + Zod schema live in `./catalog.ts`.
- * - The single React component lives in `./flight-card.tsx`.
+ * - Catalog + Zod schema: `./catalog.ts`
+ * - The single React component: `./flight-card.tsx`
+ * - Agent: `src/agents/a2ui_fixed.py` (emits an `a2ui_operations` container)
+ *
+ * Reference:
+ * https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui/fixed-schema
  */
 
 import React from "react";

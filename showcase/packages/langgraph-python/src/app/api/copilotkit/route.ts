@@ -44,10 +44,10 @@ const agentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
-  "prebuilt-chat",
   "prebuilt-sidebar",
   "prebuilt-popup",
   "chat-slots",
+  "chat-customization-css",
   "headless-simple",
   "headless-complete",
   "hitl-in-chat",
@@ -60,8 +60,14 @@ const agents: Record<string, LangGraphAgent> = {};
 for (const name of agentNames) {
   agents[name] = createAgent();
 }
-// Tool Rendering demo uses its own graph with a backend `get_weather` tool.
+// Tool Rendering demos (three variants) — all three frontend variants
+// share the same backend graph. Only the frontend rendering differs.
 agents["tool-rendering"] = createAgent("tool_rendering");
+agents["tool-rendering-default-catchall"] = createAgent("tool_rendering");
+agents["tool-rendering-custom-catchall"] = createAgent("tool_rendering");
+// Frontend-tools variant: no backend tools; the frontend owns the tool.
+// The generic sample_agent keeps the chat flowing.
+agents["tool-rendering-frontend-tools"] = createAgent();
 // Declarative Generative UI (A2UI — Dynamic Schema) demo uses its own graph
 // that emits `a2ui_operations` via the `generate_a2ui` tool.
 agents["declarative-gen-ui"] = createAgent("a2ui_dynamic");

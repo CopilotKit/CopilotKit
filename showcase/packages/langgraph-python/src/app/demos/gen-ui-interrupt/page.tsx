@@ -7,9 +7,15 @@ import {
   useInterrupt,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
-import { InterruptCard, InterruptPayload } from "./InterruptCard";
+import { TimePickerCard, TimeSlot } from "./time-picker-card";
 
-// Outer layer — provider + layout chrome.
+const DEFAULT_SLOTS: TimeSlot[] = [
+  { label: "Tomorrow 10:00 AM", iso: "2026-04-19T10:00:00-07:00" },
+  { label: "Tomorrow 2:00 PM", iso: "2026-04-19T14:00:00-07:00" },
+  { label: "Monday 9:00 AM", iso: "2026-04-21T09:00:00-07:00" },
+  { label: "Monday 3:30 PM", iso: "2026-04-21T15:30:00-07:00" },
+];
+
 export default function GenUiInterruptDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-interrupt">
@@ -22,17 +28,16 @@ export default function GenUiInterruptDemo() {
   );
 }
 
-// The actual view — chat + an in-chat interrupt UI.
 function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Book a flight",
-        message: "Book me a flight from SFO to JFK next Friday.",
+        title: "Book a call with sales",
+        message: "Book an intro call with the sales team to discuss pricing.",
       },
       {
-        title: "Delete my account",
-        message: "Please delete my account — I know, this needs confirmation.",
+        title: "Schedule a 1:1 with Alice",
+        message: "Schedule a 1:1 with Alice next week to review Q2 goals.",
       },
     ],
     available: "always",
@@ -41,13 +46,20 @@ function Chat() {
   useInterrupt({
     agentId: "gen-ui-interrupt",
     renderInChat: true,
-    render: ({ event, resolve }) => (
-      <InterruptCard
-        payload={(event.value ?? {}) as InterruptPayload}
-        onApprove={() => resolve({ approved: true })}
-        onCancel={() => resolve({ approved: false })}
-      />
-    ),
+    render: ({ event, resolve }) => {
+      const payload = (event.value ?? {}) as {
+        topic?: string;
+        attendee?: string;
+      };
+      return (
+        <TimePickerCard
+          topic={payload.topic ?? "a call"}
+          attendee={payload.attendee}
+          slots={DEFAULT_SLOTS}
+          onSubmit={(result) => resolve(result)}
+        />
+      );
+    },
   });
 
   return (

@@ -8,7 +8,14 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { ApprovalCard } from "./approval-card";
+import { TimePickerCard, TimeSlot } from "./time-picker-card";
+
+const DEFAULT_SLOTS: TimeSlot[] = [
+  { label: "Tomorrow 10:00 AM", iso: "2026-04-19T10:00:00-07:00" },
+  { label: "Tomorrow 2:00 PM", iso: "2026-04-19T14:00:00-07:00" },
+  { label: "Monday 9:00 AM", iso: "2026-04-21T09:00:00-07:00" },
+  { label: "Monday 3:30 PM", iso: "2026-04-21T15:30:00-07:00" },
+];
 
 export default function HitlInChatDemo() {
   return (
@@ -26,12 +33,13 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Delete my account",
-        message: "Please delete my account — the email is user@example.com.",
+        title: "Book a call with sales",
+        message:
+          "Please book an intro call with the sales team to discuss pricing.",
       },
       {
-        title: "Clear all data",
-        message: "Wipe all of my stored data.",
+        title: "Schedule a 1:1 with Alice",
+        message: "Schedule a 1:1 with Alice next week to review Q2 goals.",
       },
     ],
     available: "always",
@@ -39,19 +47,25 @@ function Chat() {
 
   useHumanInTheLoop({
     agentId: "hitl-in-chat",
-    name: "confirm_destructive_action",
+    name: "book_call",
     description:
-      "Ask the user to approve or reject a destructive action before proceeding.",
+      "Ask the user to pick a time slot for a call. The picker UI presents fixed candidate slots; the user's choice is returned to the agent.",
     parameters: z.object({
-      action: z
+      topic: z
         .string()
-        .describe("Short label of the action, e.g. 'delete account'"),
-      target: z
+        .describe("What the call is about (e.g. 'Intro with sales')"),
+      attendee: z
         .string()
-        .describe("What will be affected, e.g. the email or resource"),
+        .describe("Who the call is with (e.g. 'Alice from Sales')"),
     }),
     render: ({ args, status, respond }: any) => (
-      <ApprovalCard args={args} status={status} respond={respond} />
+      <TimePickerCard
+        topic={args?.topic ?? "a call"}
+        attendee={args?.attendee}
+        slots={DEFAULT_SLOTS}
+        status={status}
+        onSubmit={(result) => respond?.(result)}
+      />
     ),
   });
 
