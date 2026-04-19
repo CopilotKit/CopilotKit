@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from collections.abc import AsyncIterator
 from textwrap import dedent
 from typing import Any
