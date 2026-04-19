@@ -56,7 +56,7 @@ demos:
     description: User approves agent actions before execution
     tags:
       - interactivity
-    route: /demos/hitl
+    route: /demos/hitl-in-chat
     animated_preview_url:
   - id: tool-rendering
     name: Tool Rendering

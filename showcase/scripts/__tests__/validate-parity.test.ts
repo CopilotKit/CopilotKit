@@ -2066,7 +2066,7 @@ Object.freeze = function(o) {
       expect(
         deriveMessage({ category: "missing-demo-dir", demoId: "chat" }),
       ).toBe(
-        "demo 'chat' declared in manifest but no src/app/demos/chat/ directory",
+        "demo 'chat' declared in manifest but no demos/chat/ (or legacy src/app/demos/chat/) directory",
       );
     });
 
