@@ -6,10 +6,14 @@
  * A full chat implementation built from scratch on `useAgent`, without using
  * `<CopilotChat />`. Demonstrates:
  *   - scrollable messages area with auto-scroll to bottom on new messages
- *   - distinct user vs assistant bubbles
+ *   - distinct user vs assistant bubbles (headless shells)
  *   - text input + send button, disabled while running
- *   - inline tool-call rendering via `useRenderToolCall`
  *   - stop button to cancel a running agent turn
+ *   - the FULL generative UI composition — markdown text, reasoning cards,
+ *     tool-call renderings (`useRenderTool` / `useDefaultRenderTool` /
+ *     `useComponent` / `useFrontendTool`), A2UI activity messages, MCP Apps
+ *     activity messages, and custom-message renderers — delegated to the
+ *     canonical primitive `<CopilotChatMessageView>` from react-core v2.
  *
  * This file is orchestration only — the provider, the agent wiring, and the
  * top-level send/stop handlers. Presentational pieces (message list, bubbles,
@@ -17,7 +21,12 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { CopilotKit, useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChatConfigurationProvider,
+  useAgent,
+  useCopilotKit,
+} from "@copilotkit/react-core/v2";
 import type { Message } from "@ag-ui/core";
 import { MessageList } from "./message-list";
 import { InputBar } from "./input-bar";
@@ -105,17 +114,26 @@ function Chat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent]);
 
+  // Wrap the chat body in a CopilotChatConfigurationProvider so that the
+  // rendering primitives (useRenderToolCall, useRenderActivityMessage,
+  // useRenderCustomMessages) see a matching (agentId, threadId) pair — without
+  // it, activity-message renderers wouldn't scope to this agent and custom
+  // message renderers would early-return null. This provider is independent
+  // of the <CopilotChat /> component; using it here keeps the surface fully
+  // headless while still unlocking the full generative-UI composition.
   return (
-    <div className="flex flex-col flex-1 min-h-0">
-      <MessageList messages={messages} isRunning={isRunning} />
-      <InputBar
-        value={input}
-        onChange={setInput}
-        onSubmit={handleSubmit}
-        onStop={handleStop}
-        isRunning={isRunning}
-        canStop={isRunning && messages.length > 0}
-      />
-    </div>
+    <CopilotChatConfigurationProvider agentId={AGENT_ID} threadId={threadId}>
+      <div className="flex flex-col flex-1 min-h-0">
+        <MessageList messages={messages} isRunning={isRunning} />
+        <InputBar
+          value={input}
+          onChange={setInput}
+          onSubmit={handleSubmit}
+          onStop={handleStop}
+          isRunning={isRunning}
+          canStop={isRunning && messages.length > 0}
+        />
+      </div>
+    </CopilotChatConfigurationProvider>
   );
 }

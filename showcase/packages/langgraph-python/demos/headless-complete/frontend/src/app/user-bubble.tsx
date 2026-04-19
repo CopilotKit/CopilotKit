@@ -4,10 +4,12 @@ import React from "react";
 import type { UserMessage } from "@ag-ui/core";
 
 /**
- * Right-aligned user message bubble.
+ * Right-aligned user bubble.
  *
- * Handles both plain-string content and AG-UI's structured content-parts
- * (only the `text` parts are rendered; non-text parts are ignored).
+ * This is the `userMessage` slot passed to `<CopilotChatMessageView>`. Kept
+ * headless/minimal (no attachments UI) — renders only the text parts of the
+ * user message. If richer rendering is needed, you can swap in the default
+ * `<CopilotChatUserMessage>` from `@copilotkit/react-core/v2`.
  */
 export function UserBubble({ message }: { message: UserMessage }) {
   const text =
