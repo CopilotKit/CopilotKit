@@ -192,7 +192,7 @@ demos:
     route: /demos/shared-state-streaming
     animated_preview_url:
     highlight:
-      - src/agents/main.py
+      - src/agents/shared_state_streaming.py
       - src/app/demos/shared-state-streaming/page.tsx
   - id: subagents
     name: Sub-Agents
@@ -202,7 +202,7 @@ demos:
     route: /demos/subagents
     animated_preview_url:
     highlight:
-      - src/agents/main.py
+      - src/agents/subagents.py
       - src/app/demos/subagents/page.tsx
   - id: prebuilt-sidebar
     name: "Pre-Built: Sidebar"
@@ -294,6 +294,7 @@ demos:
     highlight:
       - src/agents/a2ui_dynamic.py
       - src/app/demos/declarative-gen-ui/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: a2ui-fixed-schema
     name: Declarative Generative UI (A2UI — Fixed Schema)
     description: A2UI rendering against a known client-side schema
@@ -317,6 +318,7 @@ demos:
     highlight:
       - src/agents/mcp_apps_agent.py
       - src/app/demos/mcp-apps/page.tsx
+      - src/app/api/copilotkit-mcp-apps/route.ts
   - id: open-gen-ui
     name: Open-Ended Generative UI
     description: Minimal — enable open-ended gen UI in the runtime, nothing else
@@ -327,6 +329,7 @@ demos:
     highlight:
       - src/agents/open_gen_ui_agent.py
       - src/app/demos/open-gen-ui/page.tsx
+      - src/app/api/copilotkit-ogui/route.ts
   - id: open-gen-ui-advanced
     name: Open-Ended Generative UI (Advanced — With App Tool Calling)
     description: Advanced — sandbox invokes app tools via bridge functions
@@ -338,6 +341,7 @@ demos:
       - src/agents/open_gen_ui_advanced_agent.py
       - src/app/demos/open-gen-ui-advanced/page.tsx
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
+      - src/app/api/copilotkit-ogui/route.ts
   - id: declarative-gen-ui-hardcoded
     name: Declarative Generative UI (A2UI — Custom Catalog)
     description: A2UI with a hardcoded client catalog (Card/Title/Metric/PrimaryButton) registered via a2ui.catalog on the provider

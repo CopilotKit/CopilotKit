@@ -107,8 +107,14 @@ export const POST = async (req: NextRequest) => {
       runtime: new CopilotRuntime({
         // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
-        // A2UI middleware — scoped to only the A2UI demos so non-A2UI agents
-        // don't get the A2UI tool injected.
+        // @region[runtime-inject-tool]
+        // injectA2UITool wires the A2UI middleware and adds `render_a2ui` +
+        // usage guidelines to each listed agent's tool list. The middleware
+        // also serialises the registered client catalog (see the frontend
+        // `a2ui/renderers` directory) into the agent's `copilotkit.context`
+        // so the LLM knows which components + props are available.
+        // Scoped to only the A2UI demos so non-A2UI agents don't get the
+        // A2UI tool injected.
         a2ui: {
           injectA2UITool: true,
           agents: [
@@ -117,6 +123,7 @@ export const POST = async (req: NextRequest) => {
             "a2ui-fixed-schema",
           ],
         },
+        // @endregion[runtime-inject-tool]
         // NOTE: OpenGenerativeUI is intentionally NOT enabled here — it
         // lives in /api/copilotkit-ogui so non-OGUI agents keep their
         // per-demo `useFrontendTool` / `useComponent` registrations.
