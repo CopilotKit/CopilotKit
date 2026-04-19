@@ -9,6 +9,11 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/showcase_validate.yml"
+      # Also re-run when starter/workflow files change — the
+      # validate-workflow-starters step below verifies parity between
+      # showcase/starters/* and the SERVICES/options lists in these files.
+      - ".github/workflows/showcase_deploy.yml"
+      - ".github/workflows/showcase_smoke-monitor.yml"
   push:
     branches: [main]
     paths:
@@ -18,6 +23,8 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/showcase_validate.yml"
+      - ".github/workflows/showcase_deploy.yml"
+      - ".github/workflows/showcase_smoke-monitor.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
 # id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
@@ -174,6 +181,17 @@ jobs:
         # install; `npx tsx` could fetch a drifting version on a registry
         # cache miss.
         run: pnpm exec tsx validate-parity.ts
+
+      - name: Run validate-workflow-starters (parity with workflows)
+        working-directory: showcase/scripts
+        # Gate: for every directory under showcase/starters/ (excluding
+        # template/), verify `starter-<slug>` is registered in
+        # showcase_deploy.yml (workflow_dispatch options AND the
+        # ALL_SERVICES matrix) and in showcase_smoke-monitor.yml's
+        # SERVICES array. Catches the silent-drift failure mode where a
+        # new starter ships on disk but is invisible to deploy dispatch
+        # or drift detection.
+        run: pnpm exec tsx validate-workflow-starters.ts
 
       - name: Run validate-pins (ratchet)
         working-directory: showcase/scripts
