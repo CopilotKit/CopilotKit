@@ -41,17 +41,26 @@ const ACTIVITIES = [
 ];
 
 function DemoContent() {
-  // Example read-only context the UI publishes to the agent.
+  // @region[context-provider-sketch]
+  // Example shape: a parent component owns the values you want the agent
+  // to "see" — here, the current user's profile — and re-publishes them
+  // via useAgentContext every render. You could just as easily wire
+  // these to a React Context, Redux, a query cache, anything. What
+  // matters is that the values the agent reads are the live ones.
   const [userName, setUserName] = useState("Atai");
   const [userTimezone, setUserTimezone] = useState("America/Los_Angeles");
   const [recentActivity, setRecentActivity] = useState<string[]>([
     ACTIVITIES[0],
     ACTIVITIES[2],
   ]);
+  // @endregion[context-provider-sketch]
 
+  // @region[use-agent-context-call]
   // Publish each slice as its own named context. Each call registers a
   // dynamic context entry with the runtime; the entry is automatically
   // removed on unmount, and refreshed whenever the value changes.
+  // The agent READS these every turn but cannot write them back — this
+  // is a one-way (UI -> agent) channel.
   useAgentContext({
     description: "The currently logged-in user's display name",
     value: userName,
@@ -64,6 +73,7 @@ function DemoContent() {
     description: "The user's recent activity in the app, newest first",
     value: recentActivity,
   });
+  // @endregion[use-agent-context-call]
 
   useConfigureSuggestions({
     suggestions: [
