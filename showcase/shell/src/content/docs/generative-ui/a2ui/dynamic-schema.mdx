@@ -7,147 +7,160 @@ snippet_framework: langgraph-python
 snippet_cell: declarative-gen-ui
 ---
 
-In the dynamic-schema approach, a secondary LLM generates the entire
-UI — schema, data, and layout — based on the conversation context.
-It's the most flexible A2UI flavor: the agent can render any UI for
-any request without pre-defined schemas.
-
-<InlineDemo integration="langgraph-python" demo="declarative-gen-ui" />
+In the dynamic-schema approach, a secondary LLM generates the entire UI — schema, data, and layout — based on the conversation context. This is the most flexible approach: the agent can render any UI for any request without pre-defined schemas.
 
 ## How it works
 
-1. The primary LLM decides to call `render_a2ui` (the tool the runtime
-   auto-injects when `injectA2UITool: true`).
-2. The runtime serializes your client-side catalog (component names +
-   Zod prop schemas) into the agent's `copilotkit.context` so the LLM
-   knows which components it may emit.
-3. The tool call streams through LangGraph as `TOOL_CALL_ARGS` events.
-4. The A2UI middleware intercepts the stream and renders cards
-   progressively as data items arrive.
+1. The primary LLM decides to call `generate_a2ui`
+2. Inside the tool, a secondary LLM generates a `render_a2ui` tool call with components, data, and layout
+3. The tool call arguments stream through LangGraph as `TOOL_CALL_ARGS` events
+4. The A2UI middleware intercepts these events and renders cards progressively as they stream in
 
-## The 3-file split
-
-The canonical Bring-Your-Own-Catalog (BYOC) layout keeps three files
-side-by-side under `frontend/src/app/a2ui/`:
-
-| File | What lives there |
-|---|---|
-| `definitions.ts` | Zod props schema + human-readable descriptions for each custom component — platform-agnostic so the runtime can serialise it to the LLM. |
-| `renderers.tsx` | React implementations keyed by the same names. TypeScript enforces that every definition has a renderer. |
-| `catalog.ts` | `createCatalog(definitions, renderers, { includeBasicCatalog: true })` — merges your custom components with CopilotKit's built-in primitives. |
-
-<Callout type="info">
-Prefer a single-file prototype? The showcase also ships the
-`declarative-gen-ui-hardcoded` cell — the same Card / Title / Metric /
-PrimaryButton vocabulary, but definitions + renderers + catalog all in
-one `catalog.tsx`. Useful for a quick demo; graduate to the 3-file
-split the moment more than one surface needs the catalog.
-</Callout>
+## Implementation
 
 <Steps>
 <Step>
-### Declare your custom component definitions
+### Define the render tool schema (Python)
 
-Each entry pairs a Zod prop schema with a description. The description
-is crucial — the LLM reads it to decide which component to emit. The
-showcase's `declarative-gen-ui` cell ships a small dashboard catalog
-(Card / StatusBadge / Metric / InfoRow / PrimaryButton):
+This LangChain tool defines the shape the secondary LLM must produce. It's never actually executed — it's just a schema for `bind_tools`:
 
-<Snippet region="definitions-zod" />
+```python title="apps/agent/src/a2ui_dynamic_schema.py"
+from langchain.tools import tool
+
+@tool
+def render_a2ui(
+    surfaceId: str,
+    components: list[dict],
+    root: str,
+    items: list[dict],
+    actionHandlers: dict | None = None,
+) -> str:
+    """Render a dynamic A2UI surface with progressive streaming."""
+    return "rendered"
+```
 </Step>
 
 <Step>
-### Implement the React renderers
+### Define the generation tool
 
-Every key in `myDefinitions` must have a matching renderer. Props are
-statically typed against the Zod schema, so refactors stay safe:
+This is the tool the primary LLM calls. It invokes a secondary LLM that generates the full A2UI:
 
-<Snippet region="renderers-react" />
+```python title="apps/agent/src/a2ui_dynamic_schema.py"
+from langchain.tools import tool, ToolRuntime
+from langchain_core.messages import SystemMessage
+from langchain_openai import ChatOpenAI
+from copilotkit.a2ui import a2ui_prompt
+
+A2UI_GENERATION_PROMPT = a2ui_prompt()
+
+@tool()
+def generate_a2ui(runtime: ToolRuntime) -> str:
+    """Generate dynamic A2UI components based on the conversation."""
+    messages = runtime.state["messages"][:-1]
+
+    model = ChatOpenAI(model="gpt-4.1")
+    model_with_tool = model.bind_tools(
+        [render_a2ui],
+        tool_choice="render_a2ui",
+    )
+
+    response = model_with_tool.invoke(
+        [SystemMessage(content=A2UI_GENERATION_PROMPT), *messages],
+    )
+
+    tool_call = response.tool_calls[0]
+    args = tool_call["args"]
+    return f"Rendered A2UI surface '{args.get('surfaceId')}'."
+```
+
+The `a2ui_prompt()` helper builds a system prompt with the A2UI JSON schema reference and design guidelines. You can customize it:
+
+```python
+# Custom design guidelines
+prompt = a2ui_prompt(design_guidelines="Use a minimal, monochrome aesthetic.")
+```
 </Step>
 
 <Step>
-### Wire definitions × renderers into a catalog
+### Register the tool
 
-`createCatalog` is what you hand to the provider. Flip
-`includeBasicCatalog: true` to merge CopilotKit's built-ins
-(Column, Row, Text, Image, Card, Button, List, Tabs, …), so the LLM
-can compose custom + basic components interchangeably:
+```python title="apps/agent/main.py"
+from src.a2ui_dynamic_schema import generate_a2ui
 
-<Snippet region="create-catalog" />
+agent = create_agent(
+    tools=[generate_a2ui, ...],
+    ...
+)
+```
 </Step>
 
 <Step>
-### Pass the catalog to the provider
+### Configure the runtime (TypeScript)
 
-A single prop (`a2ui={{ catalog }}`) is all the frontend needs — the
-provider registers the catalog and wires up the built-in A2UI
-activity-message renderer:
+Enable A2UI in your CopilotRuntime. The middleware auto-detects `render_a2ui` tool calls:
 
-<Snippet region="provider-a2ui-prop" />
-</Step>
-
-<Step>
-### Inject the render tool on the runtime
-
-On the TypeScript runtime, `injectA2UITool: true` tells CopilotKit to
-add the `render_a2ui` tool to the agent's tool list *at request time*
-and serialise your client catalog into the agent's
-`copilotkit.context`. No backend code to write — the agent can be an
-empty `create_agent(tools=[])`:
-
-<Snippet region="runtime-inject-tool" />
+```typescript title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  a2ui: {
+    injectA2UITool: true,
+  },
+});
+```
 </Step>
 </Steps>
 
 ## Progressive streaming
 
-The secondary LLM's `render_a2ui` tool call streams through LangGraph
-as `TOOL_CALL_ARGS` events. The A2UI middleware:
+The secondary LLM's `render_a2ui` tool call streams through LangGraph as `TOOL_CALL_ARGS` events. The A2UI middleware:
 
-1. Waits for the full `components` array before emitting anything —
-   the schema must be complete before rendering starts.
-2. Extracts `surfaceId` + `root` from the partial JSON.
-3. Emits `surfaceUpdate` + `beginRendering` once the schema is
-   complete.
-4. Extracts complete `items` objects progressively and emits a
-   `dataModelUpdate` for each — cards appear one by one as data
-   streams in.
+1. Extracts the `components` array as it streams — waits for the full schema before rendering
+2. Extracts `surfaceId` and `root` from the partial JSON
+3. Once the schema is complete, emits `surfaceUpdate` + `beginRendering`
+4. Extracts complete `items` objects progressively and emits `dataModelUpdate` for each
+5. Cards appear one by one as data streams in
 
-A built-in progress indicator shows while the schema is still
-generating and hides automatically once data items start arriving.
+## Built-in progress indicator
 
-## Customising the generation prompt
+CopilotKit includes a built-in progress indicator that shows while the schema is being generated. It appears automatically and hides once data items start streaming.
 
-The `a2ui_prompt()` helper builds the system prompt handed to the
-secondary LLM — it bundles the full A2UI JSON schema reference plus
-default generation and design guidelines. Pass overrides to tighten
-the output to your product's style:
+To replace it with a custom component, see the [Advanced — Custom A2UI Progress Renderer](./advanced#custom-a2ui-progress-renderer) guide.
+
+## Action handlers in dynamic schemas
+
+With dynamic schemas, the secondary LLM can generate action handlers as part of the `render_a2ui` tool call. The `actionHandlers` parameter is optional — if the LLM includes buttons with actions in the component tree, it can also include matching handlers:
+
+```python
+# The render_a2ui tool schema includes actionHandlers
+@lc_tool
+def render_a2ui(
+    surfaceId: str,
+    components: list[dict],
+    root: str,
+    items: list[dict],
+    actionHandlers: dict | None = None,  # LLM can generate these
+) -> str:
+    """Render a dynamic A2UI surface with progressive streaming."""
+    return "rendered"
+```
+
+The `a2ui_prompt()` generation guidelines instruct the LLM on how to produce valid action handlers alongside buttons. You don't need to configure anything extra — if the LLM generates them, they work automatically.
+
+For frontend-side action handling with `useA2UIActionHandler`, see [Advanced — Action Handlers](./advanced#action-handlers).
+
+## Customizing the generation prompt
+
+The `a2ui_prompt()` function accepts two optional arguments:
 
 ```python
 from copilotkit.a2ui import a2ui_prompt
 
 prompt = a2ui_prompt(
-    generation_guidelines="...",   # How to call the tool, path rules, data format
-    design_guidelines="Use a minimal, monochrome aesthetic.",
+    generation_guidelines="...",  # How to call the tool, path rules, data format
+    design_guidelines="...",       # Visual design rules, component hierarchy
 )
 ```
 
-The showcase cell ships with the defaults; swap in your own guidelines
-to lock the generated UI to a specific component vocabulary or visual
-language.
-
-## When should I use dynamic schemas?
-
-- You don't know the UI shape ahead of time — the agent decides what
-  to show based on the user's request.
-- You want to prototype A2UI without committing to a schema file yet.
-- You're building a conversational dashboard where the layout varies
-  per turn.
-
-If the surface is well-known (e.g. a product card, a flight result),
-prefer a **[fixed schema](./fixed-schema)** — it's faster, cheaper,
-and the UI is deterministic.
-
-## Choose your AI backend
-
-<IntegrationGrid path="generative-ui/a2ui" />
+<Callout type="info">
+The generation prompt includes the full A2UI JSON schema reference and guidelines for producing valid A2UI output. The secondary LLM uses this to generate components, data bindings, and action handlers.
+</Callout>
