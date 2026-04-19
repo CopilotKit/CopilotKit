@@ -16,10 +16,14 @@ export default function ReasoningDefaultRenderDemo() {
     <CopilotKit runtimeUrl="/api/copilotkit" agent="reasoning-default-render">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
+          {/* @region[default-reasoning-zero-config] */}
+          {/* No `messageView` override — reasoning events use CopilotKit's
+              built-in `CopilotChatReasoningMessage` (Thinking… / Thought for Xs). */}
           <CopilotChat
             agentId="reasoning-default-render"
             className="h-full rounded-2xl"
           />
+          {/* @endregion[default-reasoning-zero-config] */}
         </div>
       </div>
     </CopilotKit>
