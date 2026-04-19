@@ -1,11 +1,19 @@
 {
-  "generated_at": "2026-04-19T01:22:38.866Z",
+  "generated_at": "2026-04-19T18:25:17.688Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
       {
+        "id": "dev-ex",
+        "name": "Dev Ex"
+      },
+      {
         "id": "chat-ui",
         "name": "Chat & UI"
+      },
+      {
+        "id": "platform",
+        "name": "Platform"
       },
       {
         "id": "controlled-generative-ui",
@@ -24,10 +32,6 @@
         "name": "Operational Generative UI"
       },
       {
-        "id": "agent-capabilities",
-        "name": "Agent Capabilities"
-      },
-      {
         "id": "interactivity",
         "name": "Interactivity"
       },
@@ -40,23 +44,25 @@
         "name": "Multi-Agent"
       },
       {
-        "id": "platform",
-        "name": "Platform"
-      },
-      {
-        "id": "a2ui",
-        "name": "A2UI"
-      },
-      {
         "id": "byoc",
         "name": "BYOC (Bring Your Own Components)"
-      },
-      {
-        "id": "deep-agents",
-        "name": "Deep Agents"
       }
     ],
     "features": [
+      {
+        "id": "beautiful-chat",
+        "name": "Beautiful Chat",
+        "category": "dev-ex",
+        "description": "Canonical polished starter chat (same as /examples/integrations/langgraph-python)",
+        "kind": "primary"
+      },
+      {
+        "id": "cli-start",
+        "name": "CLI Start Command",
+        "category": "dev-ex",
+        "description": "One-liner to scaffold a new CopilotKit app via the official CLI",
+        "kind": "primary"
+      },
       {
         "id": "agentic-chat",
         "name": "Pre-Built CopilotChat",
@@ -102,81 +108,128 @@
         "id": "headless-simple",
         "name": "Headless Chat (Simple)",
         "category": "chat-ui",
-        "description": "Simple headless UI getting started"
+        "description": "Simple headless UI getting started",
+        "og_docs_url": "https://docs.copilotkit.ai/features/headless-simple",
+        "shell_docs_url": "/docs/features/headless-simple"
       },
       {
         "id": "headless-complete",
         "name": "Headless Chat (Complete)",
         "category": "chat-ui",
-        "description": "Full headless UI with messages, tools, gen UI"
+        "description": "Full headless UI with messages, tools, gen UI",
+        "og_docs_url": "https://docs.copilotkit.ai/features/headless-complete",
+        "shell_docs_url": "/docs/features/headless-complete"
       },
       {
         "id": "gen-ui-tool-based",
         "name": "Controlled Gen-UI (Display)",
         "category": "controlled-generative-ui",
-        "description": "Agent renders typed React components via the useComponent hook"
+        "description": "Agent renders typed React components via the useComponent hook",
+        "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-tool-based",
+        "shell_docs_url": "/docs/features/gen-ui-tool-based"
       },
       {
         "id": "hitl-in-chat",
         "name": "Controlled Gen-UI (Interactive) / In-Chat HITL",
         "category": "controlled-generative-ui",
-        "description": "Interactive components from the agent; user approves actions from within the chat"
+        "description": "Interactive components from the agent; user approves actions from within the chat",
+        "og_docs_url": "https://docs.copilotkit.ai/features/hitl-in-chat",
+        "shell_docs_url": "/docs/features/hitl-in-chat"
       },
       {
         "id": "gen-ui-interrupt",
         "name": "Controlled Gen-UI (Interrupt)",
         "category": "controlled-generative-ui",
-        "description": "Interrupt-based component rendering"
+        "description": "Interrupt-based component rendering",
+        "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-interrupt",
+        "shell_docs_url": "/docs/features/gen-ui-interrupt"
+      },
+      {
+        "id": "interrupt-headless",
+        "name": "Headless Interrupt",
+        "category": "controlled-generative-ui",
+        "description": "Resolve langgraph interrupts headlessly via agent.subscribe + copilotkit.runAgent — no chat, no useInterrupt render prop",
+        "kind": "testing"
       },
       {
         "id": "declarative-gen-ui",
         "name": "Declarative Generative UI (A2UI — Dynamic Schema)",
         "category": "declarative-generative-ui",
-        "description": "A2UI rendering where the agent emits schema at runtime"
+        "description": "Canonical A2UI BYOC — custom catalog wired via a2ui.catalog; runtime injects render_a2ui automatically",
+        "og_docs_url": "https://docs.copilotkit.ai/features/declarative-gen-ui",
+        "shell_docs_url": "/docs/features/declarative-gen-ui"
+      },
+      {
+        "id": "declarative-gen-ui-hardcoded",
+        "name": "Declarative Generative UI (A2UI — Custom Catalog)",
+        "category": "declarative-generative-ui",
+        "description": "A2UI with a hardcoded client catalog (BYOC) wired via a2ui.catalog",
+        "kind": "testing"
       },
       {
         "id": "a2ui-fixed-schema",
         "name": "Declarative Generative UI (A2UI — Fixed Schema)",
         "category": "declarative-generative-ui",
-        "description": "A2UI rendering against a known, fixed client-side schema"
+        "description": "A2UI rendering against a known, fixed client-side schema",
+        "og_docs_url": "https://docs.copilotkit.ai/features/a2ui-fixed-schema",
+        "shell_docs_url": "/docs/features/a2ui-fixed-schema"
       },
       {
         "id": "mcp-apps",
         "name": "MCP Apps",
         "category": "open-generative-ui",
-        "description": "MCP server integration with UI display"
+        "description": "MCP server integration with UI display",
+        "og_docs_url": "https://docs.copilotkit.ai/features/mcp-apps",
+        "shell_docs_url": "/docs/features/mcp-apps"
       },
       {
         "id": "open-gen-ui",
         "name": "Fully Open-Ended Generative UI",
         "category": "open-generative-ui",
-        "description": "Agent-generated UI from arbitrary component libraries"
+        "description": "Agent-generated UI from arbitrary component libraries",
+        "og_docs_url": "https://docs.copilotkit.ai/features/open-gen-ui",
+        "shell_docs_url": "/docs/features/open-gen-ui"
+      },
+      {
+        "id": "open-gen-ui-advanced",
+        "name": "Open-Ended Generative UI (Advanced)",
+        "category": "open-generative-ui",
+        "description": "Sandbox invokes app tools via bridge functions"
       },
       {
         "id": "gen-ui-agent",
         "name": "Agentic Generative UI (In-Chat State Rendering)",
         "category": "operational-generative-ui",
-        "description": "Long-running agent tasks with generated UI"
+        "description": "Long-running agent tasks with generated UI",
+        "kind": "testing",
+        "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-agent",
+        "shell_docs_url": "/docs/features/gen-ui-agent"
       },
       {
         "id": "tool-rendering-default-catchall",
         "name": "Tool Rendering (Default Catch-all)",
         "category": "operational-generative-ui",
         "description": "Out-of-the-box rendering: backend tools surfaced via CopilotKit's built-in default catch-all renderer; no frontend customization",
-        "kind": "primary"
+        "kind": "primary",
+        "og_docs_url": "https://docs.copilotkit.ai/features/tool-rendering",
+        "shell_docs_url": "/docs/features/tool-rendering"
       },
       {
         "id": "tool-rendering-custom-catchall",
         "name": "Tool Rendering (Custom Catch-all)",
         "category": "operational-generative-ui",
         "description": "Single branded wildcard renderer that paints every tool call — one card handles them all",
-        "kind": "primary"
+        "kind": "primary",
+        "og_docs_url": "https://docs.copilotkit.ai/features/tool-rendering",
+        "shell_docs_url": "/docs/features/tool-rendering"
       },
       {
         "id": "tool-rendering",
         "name": "Tool Rendering",
         "category": "operational-generative-ui",
-        "description": "Custom per-tool renderers for the tools you care about, plus a wildcard catch-all for the rest"
+        "description": "Custom per-tool renderers for the tools you care about, plus a wildcard catch-all for the rest",
+        "og_docs_url": "https://docs.copilotkit.ai/features/tool-rendering",
+        "shell_docs_url": "/docs/features/tool-rendering"
       },
       {
         "id": "tool-rendering-frontend-tools",
@@ -186,172 +239,134 @@
         "kind": "testing"
       },
       {
+        "id": "tool-rendering-reasoning-chain",
+        "name": "Tool Rendering + Reasoning Chain",
+        "category": "operational-generative-ui",
+        "description": "Sequential tool calls with reasoning tokens rendered side-by-side",
+        "kind": "testing"
+      },
+      {
         "id": "agentic-chat-reasoning",
         "name": "Reasoning",
         "category": "operational-generative-ui",
-        "description": "Visible reasoning/thinking chain alongside the final answer"
+        "description": "Visible reasoning/thinking chain alongside the final answer",
+        "og_docs_url": "https://docs.copilotkit.ai/features/agentic-chat-reasoning",
+        "shell_docs_url": "/docs/features/agentic-chat-reasoning"
+      },
+      {
+        "id": "reasoning-default-render",
+        "name": "Reasoning (Default Render)",
+        "category": "operational-generative-ui",
+        "description": "Built-in CopilotChatReasoningMessage renders without a custom slot",
+        "kind": "testing"
       },
       {
         "id": "frontend-tools",
         "name": "Frontend Tools (In-app actions)",
         "category": "interactivity",
-        "description": "Frontend tool execution triggered by the agent"
+        "description": "Frontend tool execution triggered by the agent",
+        "og_docs_url": "https://docs.copilotkit.ai/features/frontend-tools",
+        "shell_docs_url": "/docs/features/frontend-tools"
       },
       {
         "id": "frontend-tools-sync",
         "name": "Frontend Tools (Sync)",
         "category": "interactivity",
-        "description": "Synchronous frontend tool execution"
+        "description": "Synchronous frontend tool execution",
+        "og_docs_url": "https://docs.copilotkit.ai/features/frontend-tools-sync",
+        "shell_docs_url": "/docs/features/frontend-tools-sync"
       },
       {
         "id": "frontend-tools-async",
         "name": "Frontend Tools (Async)",
         "category": "interactivity",
-        "description": "Asynchronous frontend tool execution"
+        "description": "Asynchronous frontend tool execution",
+        "og_docs_url": "https://docs.copilotkit.ai/features/frontend-tools-async",
+        "shell_docs_url": "/docs/features/frontend-tools-async"
       },
       {
         "id": "hitl-in-app",
         "name": "In-App Human in the Loop",
         "category": "interactivity",
-        "description": "User approves agent actions from in-app UI surfaces outside the chat"
+        "description": "User approves agent actions from in-app UI surfaces outside the chat",
+        "og_docs_url": "https://docs.copilotkit.ai/features/hitl-in-app",
+        "shell_docs_url": "/docs/features/hitl-in-app"
       },
       {
-        "id": "state-rendering",
-        "name": "State Rendering",
+        "id": "shared-state-read-write",
+        "name": "Shared State (Read + Write)",
         "category": "agent-state",
-        "description": "Rendering agent execution state"
-      },
-      {
-        "id": "shared-state-read",
-        "name": "Shared State (Reading)",
-        "category": "agent-state",
-        "description": "Reading agent state from UI"
-      },
-      {
-        "id": "shared-state-write",
-        "name": "Shared State (Writing)",
-        "category": "agent-state",
-        "description": "Writing to agent state from UI"
+        "description": "Bidirectional agent state — UI writes preferences, agent writes notes back"
       },
       {
         "id": "shared-state-streaming",
         "name": "State Streaming",
         "category": "agent-state",
-        "description": "Per-token state delta streaming from agent to UI"
+        "description": "Per-token state delta streaming from agent to UI",
+        "og_docs_url": "https://docs.copilotkit.ai/features/shared-state-streaming",
+        "shell_docs_url": "/docs/features/shared-state-streaming"
       },
       {
-        "id": "shared-state-io",
-        "name": "Shared State (I/O Schemas)",
+        "id": "readonly-state-agent-context",
+        "name": "Readonly State (Agent Context)",
         "category": "agent-state",
-        "description": "Structured output schemas"
-      },
-      {
-        "id": "shared-state",
-        "name": "Shared State",
-        "category": "agent-state",
-        "description": "Bidirectional state sharing between agent and UI"
-      },
-      {
-        "id": "readables",
-        "name": "Readables (Client Context)",
-        "category": "agent-state",
-        "description": "Passing client-side context to agent"
+        "description": "Frontend provides read-only context to the agent via useAgentContext"
       },
       {
         "id": "subagents",
         "name": "Sub-Agents",
         "category": "multi-agent",
-        "description": "Multiple agents with visible task delegation"
-      },
-      {
-        "id": "a2a-chat",
-        "name": "A2A Chat",
-        "category": "multi-agent",
-        "description": "Agent-to-Agent protocol chat with multi-tab agent communication"
+        "description": "Multiple agents with visible task delegation",
+        "og_docs_url": "https://docs.copilotkit.ai/features/subagents",
+        "shell_docs_url": "/docs/features/subagents"
       },
       {
         "id": "auth",
         "name": "Authentication",
         "category": "platform",
-        "description": "Framework-native authentication"
+        "description": "Framework-native authentication",
+        "og_docs_url": "https://docs.copilotkit.ai/features/auth",
+        "shell_docs_url": "/docs/features/auth"
       },
       {
         "id": "agent-config",
         "name": "Agent Config Object",
         "category": "platform",
-        "description": "Forwarded props / config objects"
+        "description": "Forwarded props / config objects",
+        "og_docs_url": "https://docs.copilotkit.ai/features/agent-config",
+        "shell_docs_url": "/docs/features/agent-config"
       },
       {
         "id": "voice",
         "name": "Voice",
         "category": "platform",
-        "description": "Real-time voice interaction"
+        "description": "Real-time voice interaction",
+        "og_docs_url": "https://docs.copilotkit.ai/features/voice",
+        "shell_docs_url": "/docs/features/voice"
       },
       {
         "id": "multimodal",
         "name": "Multi-modal / File Uploads",
         "category": "platform",
-        "description": "File upload and agent processing"
-      },
-      {
-        "id": "vnext-chat",
-        "name": "vNext Chat",
-        "category": "platform",
-        "description": "Experimental next-generation chat using CopilotKit vNext runtime"
-      },
-      {
-        "id": "a2ui-fixed",
-        "name": "A2UI (Fixed Schema)",
-        "category": "a2ui",
-        "description": "Static A2UI schema rendering"
-      },
-      {
-        "id": "a2ui-fixed-streaming",
-        "name": "A2UI (Fixed Schema Streaming)",
-        "category": "a2ui",
-        "description": "Streaming static A2UI"
-      },
-      {
-        "id": "a2ui-dynamic",
-        "name": "A2UI (Dynamic Schema)",
-        "category": "a2ui",
-        "description": "Agent-generated A2UI schemas"
-      },
-      {
-        "id": "a2ui-chat",
-        "name": "A2UI Chat",
-        "category": "a2ui",
-        "description": "Chat with rich A2UI surface rendering using A2UI message renderer"
+        "description": "File upload and agent processing",
+        "og_docs_url": "https://docs.copilotkit.ai/features/multimodal",
+        "shell_docs_url": "/docs/features/multimodal"
       },
       {
         "id": "byoc-hashbrown",
         "name": "BYOC Hashbrown",
         "category": "byoc",
-        "description": "Hashbrown-style generative UI"
-      },
-      {
-        "id": "byoc-a2ui",
-        "name": "BYOC A2UI v0.9",
-        "category": "byoc",
-        "description": "Hashbrown-style generative UI on top of A2UI 0.9"
+        "description": "Hashbrown-style generative UI",
+        "og_docs_url": "https://docs.copilotkit.ai/features/byoc-hashbrown",
+        "shell_docs_url": "/docs/features/byoc-hashbrown"
       },
       {
         "id": "byoc-json-render",
         "name": "BYOC json-render",
         "category": "byoc",
-        "description": "Hashbrown-style generative UI built on json-render"
-      },
-      {
-        "id": "byoc-tambo",
-        "name": "BYOC Tambo",
-        "category": "byoc",
-        "description": "Hashbrown-style generative UI built on Tambo"
-      },
-      {
-        "id": "deep-agents",
-        "name": "Deep Agents",
-        "category": "deep-agents",
-        "description": "Deep agent architecture with nested agent orchestration"
+        "description": "Hashbrown-style generative UI built on json-render",
+        "og_docs_url": "https://docs.copilotkit.ai/features/byoc-json-render",
+        "shell_docs_url": "/docs/features/byoc-json-render"
       }
     ]
   },
@@ -388,6 +403,8 @@
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-python my-copilotkit-app"
       },
       "features": [
+        "beautiful-chat",
+        "cli-start",
         "agentic-chat",
         "prebuilt-sidebar",
         "prebuilt-popup",
@@ -396,25 +413,37 @@
         "headless-simple",
         "headless-complete",
         "agentic-chat-reasoning",
+        "reasoning-default-render",
         "frontend-tools",
         "gen-ui-tool-based",
         "hitl-in-chat",
         "gen-ui-interrupt",
+        "interrupt-headless",
         "declarative-gen-ui",
+        "declarative-gen-ui-hardcoded",
         "a2ui-fixed-schema",
         "mcp-apps",
         "open-gen-ui",
+        "open-gen-ui-advanced",
         "gen-ui-agent",
         "tool-rendering-default-catchall",
         "tool-rendering-custom-catchall",
         "tool-rendering",
         "tool-rendering-frontend-tools",
-        "shared-state-read",
-        "shared-state-write",
+        "tool-rendering-reasoning-chain",
+        "shared-state-read-write",
         "shared-state-streaming",
+        "readonly-state-agent-context",
         "subagents"
       ],
       "demos": [
+        {
+          "id": "cli-start",
+          "name": "CLI Start Command",
+          "description": "Copy-paste command to clone the canonical starter",
+          "tags": ["chat-ui"],
+          "command": "npx copilotkit@latest init --framework langgraph-python"
+        },
         {
           "id": "agentic-chat",
           "name": "Agentic Chat",
@@ -498,8 +527,7 @@
           "animated_preview_url": null,
           "highlight": [
             "src/agents/main.py",
-            "src/app/demos/hitl-in-chat/page.tsx",
-            "src/app/demos/hitl-in-chat/time-picker-card.tsx"
+            "src/app/demos/hitl-in-chat/page.tsx"
           ]
         },
         {
@@ -511,10 +539,7 @@
           "animated_preview_url": null,
           "highlight": [
             "src/agents/tool_rendering_agent.py",
-            "src/app/demos/tool-rendering/page.tsx",
-            "src/app/demos/tool-rendering/weather-card.tsx",
-            "src/app/demos/tool-rendering/flight-list-card.tsx",
-            "src/app/demos/tool-rendering/custom-catchall-renderer.tsx"
+            "src/app/demos/tool-rendering/page.tsx"
           ]
         },
         {
@@ -542,28 +567,13 @@
           ]
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
+          "route": "/demos/shared-state-read-write",
           "animated_preview_url": null,
-          "highlight": [
-            "src/agents/main.py",
-            "src/app/demos/shared-state-read/page.tsx"
-          ]
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
-          "animated_preview_url": null,
-          "highlight": [
-            "src/agents/main.py",
-            "src/app/demos/shared-state-write/page.tsx"
-          ]
+          "highlight": ["src/app/demos/shared-state-read-write/page.tsx"]
         },
         {
           "id": "shared-state-streaming",
@@ -670,8 +680,7 @@
           "animated_preview_url": null,
           "highlight": [
             "src/agents/interrupt_agent.py",
-            "src/app/demos/gen-ui-interrupt/page.tsx",
-            "src/app/demos/gen-ui-interrupt/time-picker-card.tsx"
+            "src/app/demos/gen-ui-interrupt/page.tsx"
           ]
         },
         {
@@ -695,11 +704,10 @@
           "animated_preview_url": null,
           "highlight": [
             "src/agents/a2ui_fixed.py",
-            "src/agents/a2ui_schemas/flight_schema.json",
-            "src/agents/a2ui_schemas/booked_schema.json",
             "src/app/demos/a2ui-fixed-schema/page.tsx",
-            "src/app/demos/a2ui-fixed-schema/flight-card.tsx",
-            "src/app/demos/a2ui-fixed-schema/catalog.ts"
+            "src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts",
+            "src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts",
+            "src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx"
           ]
         },
         {
@@ -765,8 +773,7 @@
         "tool-rendering",
         "gen-ui-tool-based",
         "gen-ui-agent",
-        "shared-state-read",
-        "shared-state-write",
+        "shared-state-read-write",
         "shared-state-streaming",
         "subagents"
       ],
@@ -812,19 +819,11 @@
           "animated_preview_url": null
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
-          "animated_preview_url": null
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
+          "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
         {
@@ -882,8 +881,7 @@
         "hitl-in-chat",
         "gen-ui-tool-based",
         "gen-ui-agent",
-        "shared-state-read",
-        "shared-state-write",
+        "shared-state-read-write",
         "shared-state-streaming",
         "subagents"
       ],
@@ -929,19 +927,11 @@
           "animated_preview_url": null
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
-          "animated_preview_url": null
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
+          "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
         {
@@ -995,8 +985,7 @@
         "tool-rendering",
         "gen-ui-tool-based",
         "gen-ui-agent",
-        "shared-state-read",
-        "shared-state-write",
+        "shared-state-read-write",
         "shared-state-streaming",
         "subagents"
       ],
@@ -1042,19 +1031,11 @@
           "animated_preview_url": null
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
-          "animated_preview_url": null
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
+          "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
         {
@@ -1112,8 +1093,7 @@
         "tool-rendering",
         "gen-ui-tool-based",
         "gen-ui-agent",
-        "shared-state-read",
-        "shared-state-write",
+        "shared-state-read-write",
         "shared-state-streaming",
         "subagents"
       ],
@@ -1159,19 +1139,11 @@
           "animated_preview_url": null
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
-          "animated_preview_url": null
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
+          "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
         {
@@ -1229,8 +1201,7 @@
         "tool-rendering",
         "gen-ui-tool-based",
         "gen-ui-agent",
-        "shared-state-read",
-        "shared-state-write",
+        "shared-state-read-write",
         "shared-state-streaming",
         "subagents"
       ],
@@ -1276,19 +1247,11 @@
           "animated_preview_url": null
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
-          "animated_preview_url": null
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
+          "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
         {
@@ -1342,8 +1305,7 @@
         "tool-rendering",
         "gen-ui-tool-based",
         "gen-ui-agent",
-        "shared-state-read",
-        "shared-state-write",
+        "shared-state-read-write",
         "shared-state-streaming",
         "subagents"
       ],
@@ -1389,19 +1351,11 @@
           "animated_preview_url": null
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
-          "animated_preview_url": null
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
+          "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
         {
@@ -1447,8 +1401,7 @@
         "tool-rendering",
         "gen-ui-tool-based",
         "gen-ui-agent",
-        "shared-state-read",
-        "shared-state-write",
+        "shared-state-read-write",
         "shared-state-streaming",
         "subagents"
       ],
@@ -1494,19 +1447,11 @@
           "animated_preview_url": null
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
-          "animated_preview_url": null
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
+          "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
         {
@@ -1560,8 +1505,7 @@
         "tool-rendering",
         "gen-ui-tool-based",
         "gen-ui-agent",
-        "shared-state-read",
-        "shared-state-write",
+        "shared-state-read-write",
         "shared-state-streaming",
         "subagents"
       ],
@@ -1607,19 +1551,11 @@
           "animated_preview_url": null
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
-          "animated_preview_url": null
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
+          "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
         {
@@ -1681,8 +1617,7 @@
         "tool-rendering",
         "gen-ui-tool-based",
         "gen-ui-agent",
-        "shared-state-read",
-        "shared-state-write",
+        "shared-state-read-write",
         "shared-state-streaming",
         "subagents"
       ],
@@ -1728,19 +1663,11 @@
           "animated_preview_url": null
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
-          "animated_preview_url": null
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
+          "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
         {
@@ -1790,8 +1717,7 @@
         "tool-rendering",
         "gen-ui-tool-based",
         "gen-ui-agent",
-        "shared-state-read",
-        "shared-state-write",
+        "shared-state-read-write",
         "shared-state-streaming",
         "subagents"
       ],
@@ -1837,19 +1763,11 @@
           "animated_preview_url": null
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
-          "animated_preview_url": null
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
+          "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
         {
@@ -1915,8 +1833,7 @@
         "tool-rendering",
         "gen-ui-tool-based",
         "gen-ui-agent",
-        "shared-state-read",
-        "shared-state-write",
+        "shared-state-read-write",
         "shared-state-streaming",
         "subagents"
       ],
@@ -1962,19 +1879,11 @@
           "animated_preview_url": null
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
-          "animated_preview_url": null
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
+          "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
         {
@@ -2032,8 +1941,7 @@
         "tool-rendering",
         "gen-ui-tool-based",
         "gen-ui-agent",
-        "shared-state-read",
-        "shared-state-write",
+        "shared-state-read-write",
         "shared-state-streaming",
         "subagents"
       ],
@@ -2079,19 +1987,11 @@
           "animated_preview_url": null
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
-          "animated_preview_url": null
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
+          "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
         {
@@ -2137,8 +2037,7 @@
         "tool-rendering",
         "gen-ui-tool-based",
         "gen-ui-agent",
-        "shared-state-read",
-        "shared-state-write",
+        "shared-state-read-write",
         "shared-state-streaming",
         "subagents"
       ],
@@ -2184,19 +2083,11 @@
           "animated_preview_url": null
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
-          "animated_preview_url": null
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
+          "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
         {
@@ -2258,8 +2149,7 @@
         "tool-rendering",
         "gen-ui-tool-based",
         "gen-ui-agent",
-        "shared-state-read",
-        "shared-state-write",
+        "shared-state-read-write",
         "shared-state-streaming",
         "subagents"
       ],
@@ -2305,19 +2195,11 @@
           "animated_preview_url": null
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
-          "animated_preview_url": null
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
+          "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
         {
@@ -2371,8 +2253,7 @@
         "tool-rendering",
         "gen-ui-tool-based",
         "gen-ui-agent",
-        "shared-state-read",
-        "shared-state-write",
+        "shared-state-read-write",
         "shared-state-streaming",
         "subagents"
       ],
@@ -2418,19 +2299,11 @@
           "animated_preview_url": null
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
-          "animated_preview_url": null
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
+          "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
         {
@@ -2476,8 +2349,7 @@
         "tool-rendering",
         "gen-ui-tool-based",
         "gen-ui-agent",
-        "shared-state-read",
-        "shared-state-write",
+        "shared-state-read-write",
         "shared-state-streaming",
         "subagents"
       ],
@@ -2523,19 +2395,11 @@
           "animated_preview_url": null
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
-          "animated_preview_url": null
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
+          "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
         {
