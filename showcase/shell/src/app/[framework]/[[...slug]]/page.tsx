@@ -19,6 +19,7 @@ import React from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { DocsPageView } from "@/components/docs-page-view";
+import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import {
   CONTENT_DIR,
   buildNavTree,
@@ -166,7 +167,8 @@ function FrameworkLandingPage({ framework }: { framework: string }) {
 
   return (
     <div className="flex" style={{ height: "calc(100vh - 52px)" }}>
-      <aside className="w-[220px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+      <aside className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+        <SidebarFrameworkSelector />
         <Link
           href="/docs"
           className="block text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] mb-3 transition-colors"

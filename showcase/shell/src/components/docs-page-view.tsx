@@ -14,6 +14,7 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { SidebarLink } from "@/components/sidebar-link";
+import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { Snippet } from "@/components/snippet";
 import { docsComponents } from "@/lib/mdx-registry";
 import {
@@ -146,7 +147,8 @@ export async function DocsPageView({
 
   return (
     <div className="flex" style={{ height: "calc(100vh - 52px)" }}>
-      <SidebarNav className="w-[220px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+      <SidebarNav className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+        <SidebarFrameworkSelector />
         {backLink && (
           <Link
             href={backLink.href}

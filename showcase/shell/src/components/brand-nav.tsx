@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SearchTrigger } from "./search-trigger";
-import { FrameworkSelector, type FrameworkOption } from "./framework-selector";
 
 function CopilotKitIcon({ className }: { className?: string }) {
   return (
@@ -143,16 +142,15 @@ function activeBrandFromPath(pathname: string): Brand {
 }
 
 export interface BrandNavProps {
-  /** Integrations from the registry, used for the framework selector. */
-  frameworkOptions?: FrameworkOption[];
-  /** Ordered category metadata for grouping entries in the selector. */
-  frameworkCategoryOrder?: { id: string; name: string }[];
+  // Note: the framework selector previously lived in the top bar. It's
+  // now rendered at the top of the docs sidebar instead — mirroring the
+  // docs.copilotkit.ai reference. Props preserved for API compatibility
+  // with the current call site but intentionally unused here.
+  frameworkOptions?: unknown;
+  frameworkCategoryOrder?: unknown;
 }
 
-export function BrandNav({
-  frameworkOptions,
-  frameworkCategoryOrder,
-}: BrandNavProps = {}) {
+export function BrandNav(_props: BrandNavProps = {}) {
   const pathname = usePathname();
   const active = activeBrandFromPath(pathname);
   const links = active === "copilotkit" ? COPILOTKIT_LINKS : AG_UI_LINKS;
@@ -198,20 +196,6 @@ export function BrandNav({
             )}
           </Link>
         </div>
-
-        {/* Framework selector — anchored in the center of the top bar so
-            the "agentic backend" choice reads as the primary axis of the
-            docs experience. Only rendered for the CopilotKit brand. */}
-        {active === "copilotkit" &&
-          frameworkOptions &&
-          frameworkCategoryOrder && (
-            <div className="hidden sm:flex items-center">
-              <FrameworkSelector
-                options={frameworkOptions}
-                categoryOrder={frameworkCategoryOrder}
-              />
-            </div>
-          )}
 
         {/* Context-dependent nav links (desktop) */}
         <div className="hidden sm:flex items-center gap-1">

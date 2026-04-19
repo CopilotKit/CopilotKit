@@ -28,6 +28,13 @@ export interface FrameworkSelectorProps {
   categoryOrder: { id: string; name: string }[];
   /** Extra wrapper class (positioning). */
   className?: string;
+  /**
+   * Presentation flavor.
+   * - `topbar` (default, legacy): compact pill sized for a horizontal bar.
+   * - `sidebar`: full-width pill with integration logo left, name center,
+   *   chevron right — styled to match the docs.copilotkit.ai sidebar header.
+   */
+  variant?: "topbar" | "sidebar";
 }
 
 /**
@@ -55,6 +62,7 @@ export function FrameworkSelector({
   options,
   categoryOrder,
   className,
+  variant = "topbar",
 }: FrameworkSelectorProps) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
@@ -122,6 +130,23 @@ export function FrameworkSelector({
     grouped.get(bucket)!.push(opt);
   }
 
+  const isSidebar = variant === "sidebar";
+
+  // Sidebar variant: full-width pill with integration logo on the left,
+  // framework name centered, chevron right. Violet accent border when a
+  // framework is active — matches the docs.copilotkit.ai reference.
+  const sidebarBtnClasses = [
+    "w-full flex items-center gap-2 px-3 py-2 rounded-lg border",
+    "bg-[var(--bg-surface)] transition-colors cursor-pointer",
+    "text-[13px] font-medium text-[var(--text)]",
+    current
+      ? "border-[var(--accent)] shadow-[0_0_0_1px_var(--accent-light)] hover:bg-[var(--accent-light)]"
+      : "border-dashed border-[var(--border)] hover:border-[var(--accent)]",
+  ].join(" ");
+
+  const topbarBtnClasses =
+    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--border)] bg-[var(--bg-surface)] text-[12px] font-medium text-[var(--text)] hover:border-[var(--accent)] transition-colors cursor-pointer max-w-[220px]";
+
   return (
     <div className={`relative ${className ?? ""}`}>
       <button
@@ -130,41 +155,86 @@ export function FrameworkSelector({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--border)] bg-[var(--bg-surface)] text-[12px] font-medium text-[var(--text)] hover:border-[var(--accent)] transition-colors cursor-pointer max-w-[220px]"
+        className={isSidebar ? sidebarBtnClasses : topbarBtnClasses}
       >
-        <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shrink-0" />
-        <span className="truncate">
-          {current ? (
-            <>
-              <span className="text-[var(--text-faint)] font-mono text-[10px] uppercase tracking-wider mr-1">
-                Backend
+        {isSidebar ? (
+          <>
+            {current?.logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={current.logo} alt="" className="w-5 h-5 shrink-0" />
+            ) : (
+              <span
+                className="w-5 h-5 shrink-0 rounded-full bg-[var(--accent)] opacity-70"
+                aria-hidden="true"
+              />
+            )}
+            <span className="flex-1 min-w-0 text-left">
+              {current ? (
+                <span className="block truncate">{current.name}</span>
+              ) : (
+                <span className="block truncate text-[var(--text-muted)]">
+                  Pick a backend
+                </span>
+              )}
+              <span className="block text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)]">
+                Agentic backend
               </span>
-              {label}
-            </>
-          ) : (
-            <span className="text-[var(--text-muted)]">{label}</span>
-          )}
-        </span>
-        <svg
-          className="w-3 h-3 shrink-0 text-[var(--text-muted)]"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
+            </span>
+            <svg
+              className="w-3.5 h-3.5 shrink-0 text-[var(--text-muted)]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </>
+        ) : (
+          <>
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shrink-0" />
+            <span className="truncate">
+              {current ? (
+                <>
+                  <span className="text-[var(--text-faint)] font-mono text-[10px] uppercase tracking-wider mr-1">
+                    Backend
+                  </span>
+                  {label}
+                </>
+              ) : (
+                <span className="text-[var(--text-muted)]">{label}</span>
+              )}
+            </span>
+            <svg
+              className="w-3 h-3 shrink-0 text-[var(--text-muted)]"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </>
+        )}
       </button>
 
       {open && (
         <div
           ref={panelRef}
           role="listbox"
-          className="absolute top-full left-0 mt-1 w-[340px] max-h-[70vh] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] shadow-lg z-50 p-2"
+          className={
+            isSidebar
+              ? "absolute top-full left-0 right-0 mt-1 max-h-[60vh] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] shadow-lg z-50 p-2"
+              : "absolute top-full left-0 mt-1 w-[340px] max-h-[70vh] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] shadow-lg z-50 p-2"
+          }
         >
           {framework && (
             <button
