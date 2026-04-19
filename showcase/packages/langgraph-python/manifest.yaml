@@ -86,7 +86,7 @@ demos:
     description: Copy-paste command to clone the canonical starter
     tags:
       - chat-ui
-    command: "npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-python my-copilotkit-app"
+    command: "npx copilotkit@latest init --framework langgraph-python"
   - id: agentic-chat
     name: Agentic Chat
     description: Natural conversation with frontend tool execution

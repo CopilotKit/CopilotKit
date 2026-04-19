@@ -6,6 +6,10 @@
       "name": "Chat & UI"
     },
     {
+      "id": "dev-ex",
+      "name": "Dev Ex"
+    },
+    {
       "id": "platform",
       "name": "Platform"
     },
@@ -46,15 +50,15 @@
     {
       "id": "beautiful-chat",
       "name": "Beautiful Chat",
-      "category": "chat-ui",
+      "category": "dev-ex",
       "description": "Canonical polished starter chat (same as /examples/integrations/langgraph-python)",
       "kind": "primary"
     },
     {
       "id": "cli-start",
       "name": "CLI Start Command",
-      "category": "chat-ui",
-      "description": "Copy-paste command to clone the canonical starter",
+      "category": "dev-ex",
+      "description": "One-liner to scaffold a new CopilotKit app via the official CLI",
       "kind": "primary"
     },
     {
