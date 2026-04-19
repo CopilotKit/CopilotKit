@@ -86,11 +86,13 @@ internal sealed class SharedStateAgent : DelegatingAIAgent
         ArgumentNullException.ThrowIfNull(messages);
 
         // Materialize the input messages exactly once. The original method body
-        // enumerated `messages` twice: once at firstRunMessages (line ~90) and
-        // again at secondRunMessages (line ~160). A caller passing a single-use
-        // iterator (e.g. a `yield return`-based generator) would silently yield
-        // nothing on the second pass, and the "concise summary" request would
-        // run without any user context. Materialize up-front to be safe.
+        // enumerated `messages` twice: once to build `firstRunMessages` on the
+        // structured-output pass (gated by `ShouldForceStructuredOutput`) and
+        // again to build `secondRunMessages` on the summary pass (gated by
+        // `ShouldEmitStateSnapshot`). A caller passing a single-use iterator
+        // (e.g. a `yield return`-based generator) would silently yield nothing
+        // on the second pass, and the "concise summary" request would run
+        // without any user context. Materialize up-front to be safe.
         var messageList = messages as IReadOnlyList<ChatMessage> ?? messages.ToList();
 
         if (options is not ChatClientAgentRunOptions { ChatOptions.AdditionalProperties: { } properties } chatRunOptions ||

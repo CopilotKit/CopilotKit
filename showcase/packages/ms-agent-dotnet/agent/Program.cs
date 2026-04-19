@@ -463,10 +463,11 @@ public class SalesAgentFactory
         // Correlation id so server logs can be tied to the structured error
         // we return to the caller / LLM. Callers can quote this in bug
         // reports without leaking stack traces or internal paths. 16 hex
-        // chars = 64 bits of entropy — matches SalesTodo.Id (see lines ~99-102
-        // for the rationale); 8 chars (~32 bits) has a non-trivial collision
-        // risk at operational scale and we want errorIds to uniquely correlate
-        // log lines even across busy deployments.
+        // chars = 64 bits of entropy — matches ``SalesTodo.NewPending``'s
+        // ``Id`` field for the same rationale; 8 chars (~32 bits) has a
+        // non-trivial collision risk at operational scale and we want
+        // errorIds to uniquely correlate log lines even across busy
+        // deployments.
         var errorId = Guid.NewGuid().ToString("n")[..16];
         _logger.LogInformation("Generating A2UI (errorId={ErrorId}) for: {Request}", errorId, userRequest);
 

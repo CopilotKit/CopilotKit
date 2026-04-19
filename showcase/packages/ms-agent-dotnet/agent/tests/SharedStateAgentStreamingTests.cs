@@ -65,19 +65,23 @@ public class SharedStateAgentStreamingTests
         }
     }
 
-    // IEnumerable wrapper that tracks how many times GetEnumerator is called.
-    // A single-use iterator (yield return) would produce nothing on a second
-    // pass; this fake is stricter — it asserts at most one enumeration, so a
-    // bug that enumerated twice fails loudly rather than silently producing
-    // empty results.
-    private sealed class SingleUseMessages : IEnumerable<ChatMessage>
+    // IEnumerable wrapper that records how many times GetEnumerator is called
+    // so tests can assert the expected enumeration count.
+    //
+    // NOTE: this tracker does NOT enforce a single-use contract at the
+    // iterator level — a second `GetEnumerator()` call still returns a fresh,
+    // valid enumerator over the same backing array. Tests must explicitly
+    // `Assert.Equal(1, messages.EnumerationCount)` to catch double-enumeration
+    // regressions. The name reflects what the type actually does (counts
+    // enumerations) rather than what it does not do (enforce single use).
+    private sealed class EnumerationCountingMessages : IEnumerable<ChatMessage>
     {
         private readonly ChatMessage[] _messages;
         private int _enumerations;
 
         public int EnumerationCount => _enumerations;
 
-        public SingleUseMessages(params ChatMessage[] messages)
+        public EnumerationCountingMessages(params ChatMessage[] messages)
         {
             _messages = messages;
         }
@@ -101,7 +105,7 @@ public class SharedStateAgentStreamingTests
         // agent.
         var inner = new RecordingAgent();
         var agent = new SSA(inner, CreateSerializerOptions());
-        var messages = new SingleUseMessages(new ChatMessage(ChatRole.User, "hi"));
+        var messages = new EnumerationCountingMessages(new ChatMessage(ChatRole.User, "hi"));
 
         await foreach (var _ in agent.RunStreamingAsync(messages).ConfigureAwait(false))
         {
@@ -123,7 +127,7 @@ public class SharedStateAgentStreamingTests
         // without user context.
         var inner = new RecordingAgent();
         var agent = new SSA(inner, CreateSerializerOptions());
-        var messages = new SingleUseMessages(new ChatMessage(ChatRole.User, "update my pipeline"));
+        var messages = new EnumerationCountingMessages(new ChatMessage(ChatRole.User, "update my pipeline"));
 
         // Attach sales-shaped ag_ui_state so the structured-output path runs.
         var statePayload = JsonDocument.Parse("{\"todos\":[{\"id\":\"a\",\"title\":\"Deal 1\"}]}").RootElement;
