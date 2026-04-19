@@ -15,24 +15,24 @@ set -e
 # guard runs regardless. Both layers are intentional.
 export ADK_DISABLE_PROGRESSIVE_SSE_STREAMING=1
 
-# Warn (default) or fail-fast when OPENAI_API_KEY is missing. Only
-# `generate_a2ui` depends on it; other demos (weather, sales todos,
-# query_data, search_flights, schedule_meeting) in this container continue to
-# work without it. Default behavior is warn-and-continue so operators can
-# bring the container up for non-A2UI demos. generate_a2ui itself returns a
-# structured `a2ui_llm_error` dict at request time when the key is missing,
-# so callers see a clean error surface.
+# Warn (default) or fail-fast when GOOGLE_API_KEY is missing. This package is
+# Gemini end-to-end: the primary LlmAgent uses Gemini, and the secondary
+# generate_a2ui planner call also uses google.genai. Without the key, every
+# tool call in the container will fail. Default behavior is warn-and-continue
+# so operators can still bring the container up for inspection / smoke
+# testing; generate_a2ui itself returns a structured `a2ui_llm_error` dict at
+# request time when the key is missing, so callers see a clean error surface.
 #
 # For production deployments that MUST have the key, set
-# `REQUIRE_OPENAI_API_KEY=1` to escalate to fail-fast: the entrypoint exits
+# `REQUIRE_GOOGLE_API_KEY=1` to escalate to fail-fast: the entrypoint exits
 # non-zero immediately instead of surfacing the problem lazily at request
 # time. Railway / compose overrides should set this in prod environments.
-if [ -z "${OPENAI_API_KEY:-}" ]; then
-    if [ "${REQUIRE_OPENAI_API_KEY:-0}" = "1" ]; then
-        echo "[entrypoint] FATAL: OPENAI_API_KEY not set and REQUIRE_OPENAI_API_KEY=1 — refusing to start" >&2
+if [ -z "${GOOGLE_API_KEY:-}" ]; then
+    if [ "${REQUIRE_GOOGLE_API_KEY:-0}" = "1" ]; then
+        echo "[entrypoint] FATAL: GOOGLE_API_KEY not set and REQUIRE_GOOGLE_API_KEY=1 — refusing to start" >&2
         exit 1
     fi
-    echo "[entrypoint] WARN: OPENAI_API_KEY not set — generate_a2ui demo will return a structured error at request time (other demos unaffected)" >&2
+    echo "[entrypoint] WARN: GOOGLE_API_KEY not set — all Gemini-backed tools (chat + generate_a2ui) will return structured errors at request time" >&2
 fi
 
 # Start agent backend.
