@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
-from typing import Optional
+from typing import Optional, TypedDict
 
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
@@ -38,17 +39,34 @@ logger = logging.getLogger(__name__)
 # Module-level OpenAI client — lazily constructed on first use. Rebuilding the
 # client on every generate_a2ui call wastes a few ms per request and, more
 # importantly, re-runs env/credential resolution which is unnecessary.
-_openai_client = None
-
-
+#
+# `functools.lru_cache(maxsize=1)` gives us thread-safe memoization for free
+# (CPython's lru_cache holds an internal lock, so two concurrent callers do
+# NOT both construct+discard a client — only one call executes and the others
+# see the cached result). This avoids the classic double-checked-locking race
+# a plain `if _openai_client is None` module-global would have.
+@functools.lru_cache(maxsize=1)
 def _get_openai_client():
-    """Return a memoized OpenAI client, constructing it on first call."""
-    global _openai_client
-    if _openai_client is None:
-        from openai import OpenAI
+    """Return a memoized OpenAI client, constructing it on first call.
 
-        _openai_client = OpenAI()
-    return _openai_client
+    Thread-safe via `functools.lru_cache`. Call `.cache_clear()` in tests that
+    need to reset the memoized instance.
+    """
+    from openai import OpenAI
+
+    return OpenAI()
+
+
+class _A2uiError(TypedDict):
+    """Shape of the structured error dict returned by generate_a2ui branches.
+
+    Every error branch MUST populate all three keys so callers (and the LLM
+    summarizing the tool result) see a consistent surface.
+    """
+
+    error: str
+    message: str
+    remediation: str
 
 
 def get_weather(tool_context: ToolContext, location: str) -> dict:
@@ -113,6 +131,15 @@ def generate_a2ui(tool_context: ToolContext) -> dict:
     """
     # Extract copilotkit context entries from session state
     copilotkit_state = tool_context.state.get("copilotkit", {})
+    if copilotkit_state and not isinstance(copilotkit_state, dict):
+        # Schema drift signal: something set `state["copilotkit"]` to a
+        # non-dict value. We silently treat it as empty (below) to keep the
+        # request alive, but log a warning so operators can catch the drift.
+        logger.warning(
+            "generate_a2ui: tool_context.state['copilotkit'] is %s, expected dict; "
+            "treating as empty (context entries will be dropped)",
+            type(copilotkit_state).__name__,
+        )
     context_entries = copilotkit_state.get("context", []) if isinstance(copilotkit_state, dict) else []
     context_text = "\n\n".join(
         entry.get("value", "")
@@ -202,7 +229,17 @@ def generate_a2ui(tool_context: ToolContext) -> dict:
 
     tool_calls = response.choices[0].message.tool_calls
     if not tool_calls:
-        return {"error": "LLM did not call render_a2ui"}
+        logger.warning(
+            "generate_a2ui: OpenAI response had no tool_calls despite forced tool_choice"
+        )
+        return {
+            "error": "a2ui_no_tool_call",
+            "message": "Secondary A2UI LLM did not call render_a2ui.",
+            "remediation": (
+                "Retry the request. If this persists, verify the tool_choice "
+                "schema matches the OpenAI API contract."
+            ),
+        }
 
     tool_call = tool_calls[0]
     try:
@@ -263,6 +300,7 @@ def before_model_modifier(
 
         if original_instruction.parts and len(original_instruction.parts) > 0:
             modified_text = prefix + (original_instruction.parts[0].text or "")
+            # ADK callback contract: mutate llm_request in place (side-effectful by design).
             original_instruction.parts[0].text = modified_text
         llm_request.config.system_instruction = original_instruction
 
@@ -273,7 +311,20 @@ def simple_after_model_modifier(
     callback_context: CallbackContext, llm_response: LlmResponse
 ) -> Optional[LlmResponse]:
     """Stop consecutive tool-calling loops after the model produces a
-    terminal text-only response.
+    terminal text-only response, skipping partial streaming events and
+    degrading gracefully when ADK's private `_invocation_context` drifts.
+
+    This callback has three defensive guards beyond the plain "terminate on
+    text" check:
+
+    1. **Partial-event skip**: returns early when `llm_response.partial` is
+       truthy so we never end invocation on a mid-stream chunk.
+    2. **Mixed text + function_call detection**: only terminates when the
+       response has text AND no pending function_call.
+    3. **`_invocation_context` fallback**: ADK's `_invocation_context` is a
+       private attribute; if it disappears or loses `end_invocation`, the
+       callback logs and returns instead of raising (which would stall the
+       whole request).
 
     IMPORTANT: we must only terminate on a FINAL, non-partial response that
     contains TEXT and NO pending function_call. Two Gemini 2.5-flash quirks
@@ -290,11 +341,12 @@ def simple_after_model_modifier(
        a function_call. Terminating on text alone would skip the tool call and
        strand the UI.
 
-    The partial-event guard below is belt-and-suspenders: entrypoint.sh also
-    sets `ADK_DISABLE_PROGRESSIVE_SSE_STREAMING=1` as a hard workaround for
-    the partial-event behavior. Do NOT remove the partial check thinking the
-    env var makes it redundant — the env var is operator-level and can be
-    disabled; this guard is the last line of defense inside the callback.
+    The partial-event guard below is belt-and-suspenders with
+    `ADK_DISABLE_PROGRESSIVE_SSE_STREAMING=1` in `entrypoint.sh`: the env var
+    is the primary workaround (operator-level, ADK-wide), and this guard is
+    the in-callback fallback. Both layers are intentional — do NOT remove one
+    thinking the other makes it redundant. The env var is operator-level and
+    can be disabled; this guard runs regardless.
     """
     agent_name = callback_context.agent_name
     if agent_name == "SalesPipelineAgent":

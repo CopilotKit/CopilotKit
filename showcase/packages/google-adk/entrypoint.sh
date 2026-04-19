@@ -9,15 +9,20 @@ set -e
 # With it OFF the ADK falls back to simple text accumulation and always
 # produces a coherent final response.
 #
-# See also: simple_after_model_modifier in src/agents/main.py which carries a
-# redundant partial-event guard. Both layers are intentional.
+# This env var is belt-and-suspenders with `simple_after_model_modifier` in
+# `src/agents/main.py`, which carries an in-callback partial-event guard. The
+# env var is the primary (operator-level, ADK-wide) workaround; the callback
+# guard runs regardless. Both layers are intentional.
 export ADK_DISABLE_PROGRESSIVE_SSE_STREAMING=1
 
-# Warn (don't fail) when OPENAI_API_KEY is missing — generate_a2ui depends on
-# it; other demos in this container do not. Missing the key here means L4
-# smoke tests that exercise A2UI generation will fail.
+# Warn (don't fail) when OPENAI_API_KEY is missing — only `generate_a2ui`
+# depends on it; other demos (weather, sales todos, query_data, search_flights,
+# schedule_meeting) in this container continue to work. We intentionally warn
+# rather than `exit 1` so operators can bring the container up for non-A2UI
+# demos. generate_a2ui itself returns a structured `a2ui_llm_error` dict at
+# request time when the key is missing, so callers see a clean error surface.
 if [ -z "${OPENAI_API_KEY:-}" ]; then
-    echo "[entrypoint] WARN: OPENAI_API_KEY not set — generate_a2ui / L4 smoke tests will fail" >&2
+    echo "[entrypoint] WARN: OPENAI_API_KEY not set — generate_a2ui demo will return a structured error at request time (other demos unaffected)" >&2
 fi
 
 # Start agent backend.
@@ -34,6 +39,11 @@ npx next start --port ${PORT:-10000} &
 NEXT_PID=$!
 
 # Wait for either process to exit; then figure out which one.
+# set +e for wait -n; exit code captured explicitly into EXIT_CODE. The
+# subsequent `kill -0` / `echo` calls run without errexit — that is fine
+# because the final `exit "$EXIT_CODE"` uses the captured value, so the
+# container exits with the dying child's status regardless. Restoration of
+# `set -e` is intentionally omitted.
 set +e
 wait -n
 EXIT_CODE=$?
