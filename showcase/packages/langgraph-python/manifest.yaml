@@ -79,8 +79,14 @@ demos:
       - frontend/src/app/page.tsx
       - frontend/src/app/layout.tsx
       - frontend/src/app/globals.css
+      - frontend/src/app/api/copilotkit/[[...slug]]/route.ts
+      - frontend/src/components/example-layout/index.tsx
+      - frontend/src/components/example-canvas/index.tsx
+      - frontend/src/hooks/use-generative-ui-examples.tsx
+      - frontend/src/hooks/use-example-suggestions.tsx
       - frontend/src/hooks/use-theme.tsx
-      - frontend/src/components/mode-toggle.tsx
+      - frontend/src/app/declarative-generative-ui/definitions.ts
+      - frontend/src/app/declarative-generative-ui/renderers.tsx
   - id: cli-start
     name: CLI Start Command
     description: Copy-paste command to clone the canonical starter

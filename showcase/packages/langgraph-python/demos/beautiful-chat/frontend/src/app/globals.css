@@ -1,4 +1,4 @@
-/* CopilotKit brand fonts — ported verbatim from the canonical starter */
+/* CopilotKit brand fonts */
 @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300..800&family=Spline+Sans+Mono:wght@400;500;600&display=swap");
 
 @import "tailwindcss";
@@ -25,6 +25,11 @@
   --border: #dbdbe5;
   --input: #dbdbe5;
   --ring: #bec2ff;
+
+  /* Chart tokens */
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-border: #dbdbe5;
+  --chart-axis: #57575b;
 
   --radius: 0.75rem;
 
@@ -70,22 +75,36 @@
   --border: #303136;
   --input: #303136;
   --ring: #bec2ff;
-}
 
-* {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
+  --chart-tooltip-bg: #191a1e;
+  --chart-tooltip-border: #303136;
+  --chart-axis: #adadb2;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-body);
-  -webkit-font-smoothing: antialiased;
+}
+
+body,
+html {
+  height: 100%;
+}
+
+/*
+ * Showcase highlight for suggestion pills.
+ * Applied via className in use-example-suggestions.tsx when showcase.json
+ * is set to a non-default mode (e.g. "a2ui", "opengenui"). Uses CopilotKit
+ * brand colors with a subtle tinted background.
+ * Add new showcase variants here following the same pattern.
+ */
+[data-copilotkit] button[data-slot="suggestion-pill"].a2ui-highlight {
+  border-color: var(--cpk-lilac-400);
+  background: color-mix(in srgb, var(--cpk-lilac-400) 15%, var(--background));
+}
+
+[data-copilotkit] button[data-slot="suggestion-pill"].opengenui-highlight {
+  border-color: var(--cpk-mint-400);
+  background: color-mix(in srgb, var(--cpk-mint-400) 15%, var(--background));
 }

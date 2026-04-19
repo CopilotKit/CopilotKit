@@ -3,7 +3,7 @@ name = "cell-beautiful_chat"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-  "copilotkit>=0.1.86",
+  "copilotkit>=0.1.87",
   "langchain>=1.2.0,<2.0.0",
   "langchain-openai>=1.1.0,<2.0.0",
   "langgraph>=1.1.0,<2.0.0",

@@ -1,14 +1,12 @@
 "use client";
 
-// Beautiful Chat — mirrors the canonical polished starter at
-// /examples/integrations/langgraph-python. The CopilotKit provider lives in
-// the layout so brand fonts + theme tokens are applied app-wide.
-
 import "./globals.css";
 import "@copilotkit/react-core/v2/styles.css";
 
 import { CopilotKit } from "@copilotkit/react-core/v2";
 import { ThemeProvider } from "@/hooks/use-theme";
+// A2UI catalog: definitions + renderers in ./declarative-generative-ui/
+import { demonstrationCatalog } from "./declarative-generative-ui/renderers";
 
 export default function RootLayout({
   children,
@@ -16,16 +14,22 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <title>Beautiful Chat</title>
+        <title>CopilotKit</title>
         <link
           rel="icon"
           type="image/svg+xml"
           href="/copilotkit-logo-mark.svg"
         />
       </head>
-      <body className="antialiased">
+      <body className={`antialiased`}>
         <ThemeProvider>
-          <CopilotKit runtimeUrl="/api/copilotkit" agent="beautiful-chat">
+          <CopilotKit
+            runtimeUrl="/api/copilotkit"
+            inspectorDefaultAnchor={{ horizontal: "right", vertical: "top" }}
+            a2ui={{ catalog: demonstrationCatalog }}
+            openGenerativeUI={{}}
+            useSingleEndpoint={false}
+          >
             {children}
           </CopilotKit>
         </ThemeProvider>

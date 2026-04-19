@@ -1,8 +1,5 @@
 "use client";
 
-// Ported verbatim from the canonical starter.
-// Controls the `.dark` class on the document root and follows the system
-// preference by default.
 import { createContext, useContext, useEffect, useState } from "react";
 
 type Theme = "dark" | "light" | "system";

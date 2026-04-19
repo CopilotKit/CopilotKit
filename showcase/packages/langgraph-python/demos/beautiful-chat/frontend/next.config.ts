@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["@copilotkit/runtime"],
   // Allow iframe embedding from the showcase shell.
   async headers() {
     return [
