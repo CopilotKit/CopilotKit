@@ -87,6 +87,12 @@
       "shell_docs_url": "/docs/features/prebuilt-popup"
     },
     {
+      "id": "prebuilt-chat",
+      "name": "Pre-Built: Chat",
+      "category": "chat-ui",
+      "description": "Default docked chat via <CopilotChat />"
+    },
+    {
       "id": "chat-slots",
       "name": "Chat Customization (Slots)",
       "category": "chat-ui",
