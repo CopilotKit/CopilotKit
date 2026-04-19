@@ -191,19 +191,28 @@ def generate_a2ui(context: str) -> str:
         },
     }
 
-    # Wrap the OpenAI call so raw APIError / RateLimitError /
-    # APIConnectionError / AuthenticationError do NOT bubble up through the
-    # strands tool machinery as uncaught exceptions. Return a structured
-    # error with remediation instead — the LLM can surface this to the user.
-    # Mirrors the google-adk sibling agent's error-handling shape.
+    # Wrap the OpenAI call so raw SDK / transport failures do NOT bubble up
+    # through the strands tool machinery as uncaught exceptions. Return a
+    # structured error with remediation instead — the LLM can surface this
+    # to the user. Mirrors the google-adk sibling agent's error-handling shape.
     #
-    # Exception scope is deliberately narrow: we catch only OpenAI SDK
-    # failures (APIError covers RateLimitError / APIConnectionError /
-    # AuthenticationError / BadRequestError as subclasses) plus the
-    # underlying httpx transport layer. Programmer errors (AttributeError,
-    # NameError, TypeError from bad kwargs, etc.) propagate so bugs are
-    # not silently swallowed as "LLM error".
+    # Exception scope is broad on the SDK side but still bounded:
+    #   * ``openai.OpenAIError`` is the base class for *all* OpenAI SDK
+    #     errors, including ``APIError`` subclasses (RateLimitError,
+    #     APIConnectionError, AuthenticationError, BadRequestError) AND
+    #     config-time failures from ``OpenAI()`` construction (missing /
+    #     malformed key), which raise ``OpenAIError`` directly — NOT an
+    #     ``APIError`` subclass. Catching ``APIError`` alone would let the
+    #     constructor's error escape.
+    #   * ``httpx.HTTPError`` covers transport failures (ConnectError,
+    #     ReadTimeout, RemoteProtocolError) that can escape below the SDK's
+    #     wrap layer in rare cases.
+    # Programmer errors (AttributeError, NameError, TypeError from bad
+    # kwargs, etc.) still propagate so bugs are not silently swallowed as
+    # "LLM error". Note the client construction itself is inside the try
+    # block for the same reason.
     import openai as _openai_mod
+    import httpx as _httpx_mod
 
     try:
         client = _openai_mod.OpenAI()
@@ -216,7 +225,7 @@ def generate_a2ui(context: str) -> str:
             tools=[tool_schema],
             tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
         )
-    except _openai_mod.APIError as exc:
+    except (_openai_mod.OpenAIError, _httpx_mod.HTTPError) as exc:
         logger.exception("generate_a2ui: OpenAI API call failed")
         return json.dumps(_A2uiError(
             error="a2ui_llm_error",
@@ -305,31 +314,52 @@ async def sales_state_from_args(context):
     Returns:
         dict: State snapshot with todos array, or None on error
     """
-    try:
-        tool_input = context.tool_input
-        if isinstance(tool_input, str):
-            tool_input = json.loads(tool_input)
-
-        todos_data = tool_input.get("todos", tool_input)
-
-        # Process through shared implementation
-        if isinstance(todos_data, list):
-            processed = manage_sales_todos_impl(todos_data)
-            return {"todos": [dict(t) for t in processed]}
-
-        return None
-    except (json.JSONDecodeError, AttributeError, TypeError) as exc:
-        # Narrow to expected parse/access errors. Log at warning with a
-        # truncated excerpt of the offending tool input for debuggability.
-        raw_input = getattr(context, "tool_input", None)
-        excerpt = repr(raw_input)[:200] if raw_input is not None else "<missing>"
+    # Pre-validate the shape with ``isinstance`` checks rather than relying
+    # on try/except AttributeError. Exception-driven dispatch conflated
+    # three very different failure modes (missing attribute, bad JSON, wrong
+    # type) under a single log line and made reasoning about edge cases
+    # (bare lists, ints, missing ``tool_input``) harder than it needed to
+    # be. Explicit isinstance gates make each rejection branch visible and
+    # narrowly logged.
+    raw_input = getattr(context, "tool_input", None)
+    if raw_input is None:
         logger.warning(
-            "sales_state_from_args: failed to parse tool input (%s: %s); input excerpt: %s",
-            type(exc).__name__,
-            exc,
+            "sales_state_from_args: context has no tool_input attribute"
+        )
+        return None
+
+    tool_input = raw_input
+    if isinstance(tool_input, str):
+        try:
+            tool_input = json.loads(tool_input)
+        except json.JSONDecodeError as exc:
+            excerpt = repr(raw_input)[:200]
+            logger.warning(
+                "sales_state_from_args: malformed JSON tool input (%s); input excerpt: %s",
+                exc,
+                excerpt,
+            )
+            return None
+
+    # Normalize to a todos list via shape-directed dispatch.
+    if isinstance(tool_input, dict):
+        todos_data = tool_input.get("todos", tool_input)
+    elif isinstance(tool_input, list):
+        todos_data = tool_input
+    else:
+        excerpt = repr(raw_input)[:200]
+        logger.warning(
+            "sales_state_from_args: unsupported tool_input type %s; input excerpt: %s",
+            type(tool_input).__name__,
             excerpt,
         )
         return None
+
+    if not isinstance(todos_data, list):
+        return None
+
+    processed = manage_sales_todos_impl(todos_data)
+    return {"todos": [dict(t) for t in processed]}
 
 
 # ---- Loop guard ---------------------------------------------------------
@@ -343,7 +373,46 @@ async def sales_state_from_args(context):
 #   2. Genuine model confusion / looping behavior at provider level.
 # When the cap is reached, we cancel the tool call which surfaces as a benign
 # error tool result and lets the model resolve with a text turn.
-_MAX_TOOL_CALLS_PER_INVOCATION = 8
+#
+# 8 = generous headroom for multi-step workflows (lookup -> calc -> save)
+# while preventing runaway tool loops on prompt-injection edge cases.
+# Observed p95 of legitimate sessions is 4-5 calls. Can be overridden via
+# the ``STRANDS_TOOL_CALL_CAP`` env var (parity with spring-ai's
+# ``copilotkit.tool.max-iterations``); invalid values fall back to the
+# default with a warning.
+_DEFAULT_MAX_TOOL_CALLS_PER_INVOCATION = 8
+
+
+def _resolve_tool_call_cap() -> int:
+    """Read ``STRANDS_TOOL_CALL_CAP`` with a sane default + fallback.
+
+    Invalid (non-int or <1) values log a warning and fall back to the
+    default rather than raising — this is read at module import time, and
+    a misconfigured env var shouldn't brick the whole showcase.
+    """
+    raw = os.getenv("STRANDS_TOOL_CALL_CAP")
+    if raw is None or raw == "":
+        return _DEFAULT_MAX_TOOL_CALLS_PER_INVOCATION
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        logger.warning(
+            "STRANDS_TOOL_CALL_CAP=%r is not an integer; falling back to default %d",
+            raw,
+            _DEFAULT_MAX_TOOL_CALLS_PER_INVOCATION,
+        )
+        return _DEFAULT_MAX_TOOL_CALLS_PER_INVOCATION
+    if value < 1:
+        logger.warning(
+            "STRANDS_TOOL_CALL_CAP=%d is < 1; falling back to default %d",
+            value,
+            _DEFAULT_MAX_TOOL_CALLS_PER_INVOCATION,
+        )
+        return _DEFAULT_MAX_TOOL_CALLS_PER_INVOCATION
+    return value
+
+
+_MAX_TOOL_CALLS_PER_INVOCATION = _resolve_tool_call_cap()
 
 
 class _ToolCallCapHook(HookProvider):

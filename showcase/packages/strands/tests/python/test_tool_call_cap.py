@@ -77,10 +77,14 @@ def test_after_tool_sets_stop_event_loop_sentinel(hook_cls):
     the ``stop_event_loop`` sentinel on the invocation state so strands halts
     the event loop at the end of the current cycle.
 
-    Note: the sentinel fires at ``_count >= _max_calls`` (one call earlier
-    than the cancellation, which fires at ``_count > _max_calls``). This is
-    intentional — it lets the final permitted call run normally and then
-    halts, preventing a superfluous cancelled call when possible.
+    Note on sentinel timing: the sentinel fires at ``_count >= _max_calls``
+    (one call earlier than the cancellation, which fires at
+    ``_count > _max_calls``). The sentinel and the cancellation are
+    orthogonal mechanisms: the sentinel halts the event loop before a
+    potential (N+1)-th call is ever attempted, and the cancellation is a
+    belt-and-suspenders guard for the case where strands dispatches the
+    (N+1)-th call anyway (e.g. because the sentinel was set too late in
+    the cycle, or the tool dispatch was already in flight).
     """
     hook = hook_cls(max_calls=3)
 
@@ -112,6 +116,48 @@ def test_default_cap_matches_module_constant(hook_cls):
 
     hook = hook_cls()
     assert hook._max_calls == _MAX_TOOL_CALLS_PER_INVOCATION
+
+
+def test_concurrent_before_tool_calls_respect_cap(hook_cls):
+    """Fire 100 concurrent ``_on_before_tool`` calls against a cap of 50
+    and assert the cap holds: exactly 50 calls pass through and 50 are
+    cancelled.
+
+    The hook's ``_lock`` guards ``_count`` mutation so that under
+    concurrent invocation (e.g. strands dispatching tools on a
+    ThreadPoolExecutor, or misuse via two concurrent requests on the same
+    thread_id) we degrade gracefully rather than race silently. Without
+    the lock, the classic read-modify-write race would allow more than 50
+    calls to pass the ``current > max_calls`` gate.
+    """
+    import threading
+
+    max_calls = 50
+    total = 100
+    hook = hook_cls(max_calls=max_calls)
+
+    events = [_make_before_event() for _ in range(total)]
+    barrier = threading.Barrier(total)
+
+    def _fire(ev):
+        barrier.wait()
+        hook._on_before_tool(ev)
+
+    threads = [threading.Thread(target=_fire, args=(ev,)) for ev in events]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    passed = sum(1 for ev in events if ev.cancel_tool is None)
+    cancelled = sum(1 for ev in events if ev.cancel_tool is not None)
+
+    assert passed == max_calls, f"expected exactly {max_calls} passes, got {passed}"
+    assert cancelled == total - max_calls, (
+        f"expected exactly {total - max_calls} cancellations, got {cancelled}"
+    )
+    # And the internal counter should land at ``total`` (every call was counted).
+    assert hook._count == total
 
 
 def test_tool_call_cap_validates_max_calls(hook_cls):

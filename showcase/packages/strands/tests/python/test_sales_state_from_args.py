@@ -2,18 +2,22 @@
 
 ``sales_state_from_args`` runs as a tool-result callback for
 ``manage_sales_todos`` and emits a ``{"todos": [...]}`` snapshot for the
-UI. It must handle three realistic input shapes:
+UI. The function uses shape-directed dispatch (``isinstance`` checks on
+``tool_input``), not try/except-AttributeError, to support three
+realistic input shapes:
 
   * ``tool_input`` as a ``dict`` with a ``"todos"`` key (the usual path
     when the LLM calls the tool through the strands machinery),
-  * ``tool_input`` as a JSON ``str`` (alternate path when upstream hands
-    us the raw arguments),
+  * ``tool_input`` as a JSON ``str`` (parsed via ``json.loads``; the only
+    exception-guarded branch, catching ``json.JSONDecodeError``),
   * ``tool_input`` as the bare list (the LLM occasionally inlines the
-    list without the ``"todos"`` wrapper).
+    list without the ``"todos"`` wrapper — the ``isinstance(_, list)``
+    branch treats it as the todos payload directly).
 
-Every parse / access failure is a *warning, not a raise*, because
-silently dropping the state snapshot is preferable to blowing up the
-tool response pipeline over malformed input.
+Unsupported types (int, None, missing attribute) short-circuit with a
+warning log and a ``None`` return — silently dropping the state snapshot
+is preferable to blowing up the tool response pipeline over malformed
+input.
 """
 
 from __future__ import annotations
@@ -79,15 +83,9 @@ def test_json_string_tool_input(_patched_impl):
 
 def test_bare_list_tool_input(_patched_impl):
     """When the LLM inlines the list directly (no ``"todos"`` wrapper),
-    the function still emits the state snapshot. The code path uses
-    ``tool_input.get("todos", tool_input)`` — but ``tool_input`` here is
-    a list, not a dict, so ``.get`` would AttributeError. The actual
-    function currently handles this by catching AttributeError; verify
-    that behavior explicitly.
-
-    Note: the current implementation returns ``None`` for this case
-    because ``list.get`` raises AttributeError, which is caught as
-    expected. We pin that documented behavior.
+    the function emits the state snapshot. The shape-directed dispatch
+    uses ``isinstance(tool_input, list)`` to treat the bare list as the
+    todos payload — no ``.get``, no exception handling for this branch.
     """
     from agents.agent import sales_state_from_args
 
@@ -96,9 +94,8 @@ def test_bare_list_tool_input(_patched_impl):
 
     result = _run(sales_state_from_args(ctx))
 
-    # tool_input is a list; .get raises AttributeError; caught and logged.
-    # Current behavior: returns None.
-    assert result is None
+    # isinstance(tool_input, list) path: bare list IS the todos payload.
+    assert result == {"todos": todos}
 
 
 def test_malformed_json_string_returns_none(_patched_impl):
@@ -113,12 +110,16 @@ def test_malformed_json_string_returns_none(_patched_impl):
 
 
 def test_missing_tool_input_attribute_returns_none(_patched_impl):
-    """If the context lacks ``tool_input`` entirely, we fall back to None
-    (``getattr`` path) rather than raising."""
+    """If the context lacks ``tool_input`` entirely, we fall back to None.
+
+    The function uses ``getattr(context, "tool_input", None)`` for the
+    initial fetch and short-circuits on ``None`` via an explicit check —
+    no exception is raised or caught for this branch.
+    """
     from agents.agent import sales_state_from_args
 
-    # An object without ``tool_input`` at all. Accessing the attribute
-    # raises AttributeError, which is caught.
+    # An object without ``tool_input`` at all. getattr returns None, which
+    # the function handles via an explicit None check (no AttributeError).
     class _Ctx:
         pass
 
@@ -135,7 +136,8 @@ def test_non_dict_non_string_tool_input_returns_none(_patched_impl):
 
     result = _run(sales_state_from_args(ctx))
 
-    # 42.get("todos") raises AttributeError → caught → returns None.
+    # Shape-directed dispatch: int is neither dict, list, nor str; the
+    # unsupported-type branch logs a warning and returns None.
     assert result is None
 
 

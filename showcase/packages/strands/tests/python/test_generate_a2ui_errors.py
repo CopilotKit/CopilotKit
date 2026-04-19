@@ -36,7 +36,11 @@ def _install_openai_stub():
         return
     m = types.ModuleType("openai")
 
-    class APIError(Exception):
+    class OpenAIError(Exception):
+        """Base class for all openai-SDK errors. Matches the real SDK's hierarchy."""
+        pass
+
+    class APIError(OpenAIError):
         pass
 
     class RateLimitError(APIError):
@@ -54,6 +58,7 @@ def _install_openai_stub():
         def __init__(self, *a, **kw):
             raise AssertionError("tests must override openai.OpenAI")
 
+    m.OpenAIError = OpenAIError
     m.APIError = APIError
     m.RateLimitError = RateLimitError
     m.APIConnectionError = APIConnectionError
@@ -62,7 +67,29 @@ def _install_openai_stub():
     sys.modules["openai"] = m
 
 
+def _install_httpx_stub():
+    if "httpx" in sys.modules:
+        return
+    m = types.ModuleType("httpx")
+
+    class HTTPError(Exception):
+        """Base class for all httpx transport errors."""
+        pass
+
+    class ConnectError(HTTPError):
+        pass
+
+    class ReadTimeout(HTTPError):
+        pass
+
+    m.HTTPError = HTTPError
+    m.ConnectError = ConnectError
+    m.ReadTimeout = ReadTimeout
+    sys.modules["httpx"] = m
+
+
 _install_openai_stub()
+_install_httpx_stub()
 
 
 # ---- Helpers ------------------------------------------------------------
@@ -206,6 +233,78 @@ def test_malformed_tool_args_returns_structured_error(monkeypatch):
 
     assert result["error"] == "a2ui_invalid_arguments"
     assert "parse" in result["message"].lower() or "arguments" in result["message"].lower()
+    assert result["remediation"]
+
+
+def test_openai_base_error_returns_structured(monkeypatch):
+    """``OpenAIError`` is the base class the SDK raises from the
+    ``OpenAI()`` constructor when the API key is missing or malformed —
+    it is NOT a subclass of ``APIError``. The except clause must catch
+    ``OpenAIError`` (or broader) so config-time failures become a
+    structured tool result, not an uncaught exception.
+    """
+    import openai
+
+    class _ConfigError(openai.OpenAIError):
+        def __init__(self, msg):
+            Exception.__init__(self, msg)
+
+    def _raise(**_kwargs):
+        raise _ConfigError("simulated missing/malformed API key")
+
+    FakeOpenAI = _make_fake_openai_client(create_behavior=_raise)
+    monkeypatch.setattr(openai, "OpenAI", FakeOpenAI)
+
+    result = _invoke_generate_a2ui()
+
+    assert result["error"] == "a2ui_llm_error"
+    assert "ConfigError" in result["message"] or "OpenAIError" in result["message"]
+    assert "OPENAI_API_KEY" in result["remediation"]
+
+
+def test_openai_constructor_openai_error_caught(monkeypatch):
+    """Analog of the above but the ``OpenAIError`` is raised from the
+    ``OpenAI()`` constructor itself (missing env var path). The client
+    construction must sit inside the try block; otherwise the error
+    bypasses the except clause and escapes.
+    """
+    import openai
+
+    class _ConstructorError(openai.OpenAIError):
+        def __init__(self, msg):
+            Exception.__init__(self, msg)
+
+    class _FailingOpenAI:
+        def __init__(self, *a, **kw):
+            raise _ConstructorError("OPENAI_API_KEY must be set")
+
+    monkeypatch.setattr(openai, "OpenAI", _FailingOpenAI)
+
+    result = _invoke_generate_a2ui()
+
+    assert result["error"] == "a2ui_llm_error"
+    assert "ConstructorError" in result["message"] or "OpenAIError" in result["message"]
+
+
+def test_httpx_transport_error_returns_structured(monkeypatch):
+    """``httpx.HTTPError`` (and subclasses like ``ConnectError`` /
+    ``ReadTimeout``) can escape below the OpenAI SDK's wrap layer in some
+    failure modes. The except clause must catch them so transport
+    failures surface as a structured tool result.
+    """
+    import httpx
+    import openai
+
+    def _raise(**_kwargs):
+        raise httpx.ConnectError("simulated DNS failure")
+
+    FakeOpenAI = _make_fake_openai_client(create_behavior=_raise)
+    monkeypatch.setattr(openai, "OpenAI", FakeOpenAI)
+
+    result = _invoke_generate_a2ui()
+
+    assert result["error"] == "a2ui_llm_error"
+    assert "ConnectError" in result["message"]
     assert result["remediation"]
 
 

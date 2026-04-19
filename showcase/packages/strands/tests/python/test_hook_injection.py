@@ -184,15 +184,12 @@ def test_update_with_dict_items_view(patched_agent):
 
 
 def test_update_with_mapping_subtype(patched_agent):
-    """``collections.ChainMap`` is a ``collections.abc.Mapping`` subtype
-    where ``__getitem__`` traverses maps in order. If our ``update`` loops
-    over ``.keys()`` + subscripts, we pay the chained-lookup cost twice
-    per key; iterating ``.items()`` is semantically cleaner and cheaper.
+    """``collections.ChainMap`` is a ``collections.abc.Mapping`` subtype.
+    The ``update`` override must correctly route it through the Mapping
+    branch so every contained Agent gets a cap hook attached.
 
-    The observable behavior we assert is that every value in the chain
-    lands in the injecting dict with a cap hook attached, which works
-    regardless of iteration style — but this test pins the semantic
-    expectation so a future "optimize with ``.keys()``" regression fails.
+    The assertions pin correctness only: every value in the chain lands
+    in the injecting dict with exactly one cap hook.
     """
     from collections import ChainMap
 
