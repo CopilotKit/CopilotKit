@@ -51,17 +51,43 @@ NODE_PID=$!
 # bash >= 4.3 (align with other showcase entrypoints such as google-adk);
 # the PID-args form requires bash 5.1+ which isn't guaranteed in minimal
 # container images.
+#
+# Disable errexit for the wait + post-mortem block. With `set -e` still active,
+# a non-zero child-exit code from `wait -n` would terminate the shell BEFORE we
+# get a chance to run the diagnostic `kill -0` probes below — meaning the
+# container log would never carry the "which died" line that operators rely on.
+# We capture the exit code explicitly into EXIT_CODE and the final
+# `exit "$EXIT_CODE"` propagates the dying child's status, so skipping errexit
+# here doesn't change the container exit semantics. Restoration of `set -e` is
+# intentionally omitted (mirrors google-adk's entrypoint).
+set +e
 wait -n
 EXIT_CODE=$?
 
-# Identify which process exited so the container log makes the failure mode
-# obvious (java crash vs. next crash vs. clean shutdown).
+# Identify which process exited AND kill the surviving sibling so it doesn't
+# get orphan-reparented to PID 1 when the container exits. Without this
+# explicit cleanup, a Java crash would leave Next.js alive (and vice versa)
+# consuming resources until the container runtime tears down the whole
+# process tree.
+SURVIVOR_PID=""
 if ! kill -0 "$JAVA_PID" 2>/dev/null; then
     echo "[entrypoint] Java process (pid=${JAVA_PID}) exited (code=${EXIT_CODE})"
+    if kill -0 "$NODE_PID" 2>/dev/null; then
+        SURVIVOR_PID="$NODE_PID"
+    fi
 elif ! kill -0 "$NODE_PID" 2>/dev/null; then
     echo "[entrypoint] Node.js process (pid=${NODE_PID}) exited (code=${EXIT_CODE})"
+    if kill -0 "$JAVA_PID" 2>/dev/null; then
+        SURVIVOR_PID="$JAVA_PID"
+    fi
 else
     echo "[entrypoint] A child exited (code=${EXIT_CODE}); both PIDs still resolve — race between wait and kill -0"
+fi
+
+if [ -n "$SURVIVOR_PID" ]; then
+    echo "[entrypoint] Terminating surviving sibling (pid=${SURVIVOR_PID}) to avoid orphan-reparent"
+    kill "$SURVIVOR_PID" 2>/dev/null
+    wait "$SURVIVOR_PID" 2>/dev/null || true
 fi
 
 exit "$EXIT_CODE"

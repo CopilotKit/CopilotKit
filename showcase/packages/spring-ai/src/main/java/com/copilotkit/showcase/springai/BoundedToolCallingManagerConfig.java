@@ -126,9 +126,17 @@ public class BoundedToolCallingManagerConfig {
      *
      * <h4>Counter storage and eviction</h4>
      *
-     * <p>The counter is stored in a {@link Caffeine} {@link Cache} keyed by
-     * identity (the {@code ChatOptions} reference). Caffeine gives us three
-     * guarantees we need:
+     * <p>The counter is stored in a {@link Caffeine} {@link Cache} configured
+     * with {@link Caffeine#weakKeys()}, which is what actually forces identity
+     * comparison ({@code ==} / {@code System.identityHashCode}) rather than
+     * {@code equals}/{@code hashCode}. This matters: some Spring-AI
+     * {@code ChatOptions} implementations have value-based equality, so two
+     * concurrent turns with <em>equivalent but distinct</em> options instances
+     * would otherwise SHARE a counter — causing the cap to fire early on the
+     * second turn (an observed bug). {@code weakKeys()} also means abandoned
+     * counters are GC-eligible once the caller drops the {@code ChatOptions}
+     * reference, complementing the explicit eviction paths below. Caffeine
+     * gives us three further guarantees we need:
      * <ul>
      *   <li>atomic read-modify-write via {@link Cache#asMap()} {@code compute},
      *       avoiding the {@code getOrDefault + put} race;</li>
@@ -178,6 +186,13 @@ public class BoundedToolCallingManagerConfig {
             this.delegate = delegate;
             this.maxIterationsBeforeReturnDirect = maxIterationsBeforeReturnDirect;
             this.iterations = Caffeine.newBuilder()
+                    // weakKeys() forces identity comparison (== / identity
+                    // hash code) for keys — without it, Caffeine uses
+                    // Object.equals/hashCode, which for some Spring-AI
+                    // ChatOptions impls is value-based. Two concurrent turns
+                    // with equivalent options would then share one counter
+                    // and the cap would fire early on the second turn.
+                    .weakKeys()
                     .maximumSize(MAX_CACHE_SIZE)
                     .expireAfterAccess(EXPIRE_AFTER_ACCESS)
                     .build();
@@ -202,10 +217,11 @@ public class BoundedToolCallingManagerConfig {
                 log.debug("[BoundedTCM] prompt.getOptions() is null; delegating without cap");
                 try {
                     return delegate.executeToolCalls(prompt, chatResponse);
-                } catch (Throwable ex) {
-                    // Catch Throwable so Errors (OOM, StackOverflow) also log
-                    // context before unwinding. No counter state to clean on
-                    // the null-options path, so nothing else to do.
+                } catch (Exception ex) {
+                    // Narrow to Exception: VirtualMachineError (OOM,
+                    // StackOverflow) leaves the JVM in an undefined state —
+                    // there's no safe action to take besides propagating. We
+                    // deliberately do NOT catch Throwable here.
                     log.error("[BoundedTCM] delegate.executeToolCalls threw (null-options path)", ex);
                     throw ex;
                 }
@@ -214,10 +230,15 @@ public class BoundedToolCallingManagerConfig {
             ToolExecutionResult delegated;
             try {
                 delegated = delegate.executeToolCalls(prompt, chatResponse);
-            } catch (Throwable ex) {
-                // Never leak counter state across failed turns. Catch Throwable
-                // so an Error (OOM, etc.) also clears the counter; we rethrow
-                // unchanged so the caller sees the original failure.
+            } catch (Exception ex) {
+                // Never leak counter state across failed turns. We narrowed
+                // from Throwable to Exception deliberately: catching
+                // VirtualMachineError (OOM, StackOverflow) is unsafe — the
+                // JVM is in an undefined state and running arbitrary cleanup
+                // code (like cache.invalidate()) can make things worse.
+                // Let Errors unwind unhandled. Runtime/checked exceptions get
+                // the cleanup + rethrow so the caller sees the original
+                // failure with no lingering counter state.
                 iterations.invalidate(options);
                 log.error("[BoundedTCM] delegate.executeToolCalls threw; cleared iteration counter for options", ex);
                 throw ex;

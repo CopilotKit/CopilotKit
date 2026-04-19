@@ -9,16 +9,20 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Fail-fast validator for the Spring-AI OpenAI API key.
  *
- * <p>Spring's {@code PropertyPlaceholderHelper} (used for {@code ${VAR:default}}
+ * <p>Spring treats {@code ?OPENAI_API_KEY must be set} as the default VALUE
+ * when {@code OPENAI_API_KEY} is unset — it's non-blank, so a naïve
+ * {@code isBlank()} check would silently accept the literal string
+ * {@code "?OPENAI_API_KEY must be set"} as the api-key. The underlying cause:
+ * Spring's {@code PropertyPlaceholderHelper} (used for {@code ${VAR:default}}
  * expansion in {@code application.properties}) only recognises {@code ':'} as
- * the separator between the placeholder name and its default value. The
- * shell-style {@code ${VAR:?message}} fail-fast syntax is NOT supported — the
- * {@code ?} and everything after it becomes the literal default. That means a
- * previous configuration of
+ * the separator between the placeholder name and its default value — the
+ * shell-style {@code ${VAR:?message}} fail-fast syntax is NOT supported, and
+ * the {@code ?} plus everything after it is parsed as the default, not as a
+ * fail-fast directive. A previous configuration of
  * {@code spring.ai.openai.api-key=${OPENAI_API_KEY:?OPENAI_API_KEY must be set}}
- * silently produced the API key {@code "?OPENAI_API_KEY must be set"} when the
- * env var was unset — the OPPOSITE of fail-fast, and the resulting 401s from
- * OpenAI happened far downstream of the real misconfiguration.
+ * therefore silently produced the literal api-key
+ * {@code "?OPENAI_API_KEY must be set"} — the OPPOSITE of fail-fast, with
+ * opaque 401s from OpenAI appearing far downstream of the real misconfiguration.
  *
  * <p>Instead, we let the placeholder default to the empty string and assert
  * non-blank at startup here. Throwing {@link IllegalStateException} from a

@@ -227,10 +227,12 @@ class BoundedToolCallingManagerConfigTest {
     }
 
     @Test
-    void delegateError_clearsCounterAndRethrows() {
-        // Errors (OOM, StackOverflow, etc.) also get the cleanup-and-rethrow
-        // path; we catch Throwable specifically so a JVM-level failure
-        // doesn't leave the counter map in a corrupted state.
+    void delegateError_propagatesWithoutCatching() {
+        // VirtualMachineError (OOM, StackOverflow) leaves the JVM in an
+        // undefined state — we deliberately do NOT catch Throwable here
+        // because running arbitrary cleanup code (cache.invalidate, etc.)
+        // against a broken JVM can make things worse. Errors unwind unhandled;
+        // only RuntimeException/checked Exception get the cleanup+rethrow path.
         ToolCallingManager delegate = mock(ToolCallingManager.class);
         Error err = new OutOfMemoryError("simulated");
 
@@ -245,8 +247,6 @@ class BoundedToolCallingManagerConfigTest {
         assertThatThrownBy(() ->
                 mgr.executeToolCalls(promptWithOptions(options), emptyChatResponse()))
                 .isSameAs(err);
-
-        assertThat(mgr.hasCounter(options)).isFalse();
     }
 
     @Test
@@ -263,6 +263,62 @@ class BoundedToolCallingManagerConfigTest {
         assertThat(mgr.hasCounter(null)).isFalse();
         // Failed null-options path must have zero counter-cache side effects.
         assertThat(mgr.counterCacheSize()).isZero();
+    }
+
+    /**
+     * Test-only {@link ChatOptions} with value-based equals/hashCode. Without
+     * {@code Caffeine.weakKeys()} (which forces identity comparison), two
+     * distinct instances that are {@code equals} would collapse onto a single
+     * cache entry — causing the iteration cap to fire early on the second
+     * concurrent turn.
+     */
+    private static final class EqualsBasedChatOptions implements ChatOptions {
+        private final String marker;
+        EqualsBasedChatOptions(String marker) { this.marker = marker; }
+        @Override public boolean equals(Object o) {
+            if (!(o instanceof EqualsBasedChatOptions)) return false;
+            return marker.equals(((EqualsBasedChatOptions) o).marker);
+        }
+        @Override public int hashCode() { return marker.hashCode(); }
+        @Override public String getModel() { return null; }
+        @Override public Double getFrequencyPenalty() { return null; }
+        @Override public Integer getMaxTokens() { return null; }
+        @Override public Double getPresencePenalty() { return null; }
+        @Override public java.util.List<String> getStopSequences() { return null; }
+        @Override public Double getTemperature() { return null; }
+        @Override public Integer getTopK() { return null; }
+        @Override public Double getTopP() { return null; }
+        @Override public <T extends ChatOptions> T copy() {
+            @SuppressWarnings("unchecked")
+            T t = (T) new EqualsBasedChatOptions(marker);
+            return t;
+        }
+    }
+
+    @Test
+    void equalButNotSameChatOptions_trackSeparateCounters() {
+        // Identity-keyed cache: two ChatOptions instances that are equals()
+        // but not == must NOT share a counter. If they did, two concurrent
+        // turns with equivalent options would collapse onto one counter and
+        // the cap would trip early on the second turn.
+        ToolCallingManager delegate = mock(ToolCallingManager.class);
+        when(delegate.executeToolCalls(any(), any())).thenReturn(passThroughResult());
+
+        BoundedToolCallingManager mgr = new BoundedToolCallingManager(delegate, 5);
+
+        EqualsBasedChatOptions a = new EqualsBasedChatOptions("same");
+        EqualsBasedChatOptions b = new EqualsBasedChatOptions("same");
+
+        // Sanity: our test fixture really does have value equality.
+        assertThat(a).isEqualTo(b);
+        assertThat(a).isNotSameAs(b);
+
+        mgr.executeToolCalls(promptWithOptions(a), emptyChatResponse());
+        mgr.executeToolCalls(promptWithOptions(a), emptyChatResponse());
+        mgr.executeToolCalls(promptWithOptions(b), emptyChatResponse());
+
+        assertThat(mgr.iterationCount(a)).isEqualTo(2);
+        assertThat(mgr.iterationCount(b)).isEqualTo(1);
     }
 
     @Test

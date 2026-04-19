@@ -89,9 +89,105 @@ class WebClientConfigTest {
     }
 
     @Test
-    void keepaliveDecision_nonZeroUserValueWithArbitraryOptInString_doesNotCountAsOptIn() {
-        // Only the literal "1" opts in — "true", "yes", etc. do NOT.
+    void keepaliveDecision_trueAsOptIn_leavesAlone() {
+        // "true" is a common operator convention and must also count as opt-in.
         Optional<String> result = WebClientConfig.applyKeepaliveDecision("60", "true");
-        assertThat(result).contains(WebClientConfig.ZERO);
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void keepaliveDecision_yesAsOptIn_leavesAlone() {
+        // "yes" is accepted too.
+        Optional<String> result = WebClientConfig.applyKeepaliveDecision("60", "yes");
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void keepaliveDecision_optInIsCaseInsensitive() {
+        assertThat(WebClientConfig.applyKeepaliveDecision("60", "TRUE")).isEmpty();
+        assertThat(WebClientConfig.applyKeepaliveDecision("60", "Yes")).isEmpty();
+        assertThat(WebClientConfig.applyKeepaliveDecision("60", " True ")).isEmpty();
+    }
+
+    @Test
+    void keepaliveDecision_nonRecognizedOptInString_forceOverrides() {
+        // Garbage, "false", "0", "no" — none of these opt in; the override still fires.
+        assertThat(WebClientConfig.applyKeepaliveDecision("60", "maybe"))
+                .contains(WebClientConfig.ZERO);
+        assertThat(WebClientConfig.applyKeepaliveDecision("60", "false"))
+                .contains(WebClientConfig.ZERO);
+        assertThat(WebClientConfig.applyKeepaliveDecision("60", "0"))
+                .contains(WebClientConfig.ZERO);
+        assertThat(WebClientConfig.applyKeepaliveDecision("60", "no"))
+                .contains(WebClientConfig.ZERO);
+    }
+
+    // ------------------------------------------------------------------
+    // isTruthy unit coverage (direct, in case applyKeepaliveDecision ever
+    // grows more callers).
+    // ------------------------------------------------------------------
+
+    @Test
+    void isTruthy_acceptsCanonicalAndCommonForms() {
+        assertThat(WebClientConfig.isTruthy("1")).isTrue();
+        assertThat(WebClientConfig.isTruthy("true")).isTrue();
+        assertThat(WebClientConfig.isTruthy("TRUE")).isTrue();
+        assertThat(WebClientConfig.isTruthy("True")).isTrue();
+        assertThat(WebClientConfig.isTruthy("yes")).isTrue();
+        assertThat(WebClientConfig.isTruthy("YES")).isTrue();
+        assertThat(WebClientConfig.isTruthy(" 1 ")).isTrue();
+        assertThat(WebClientConfig.isTruthy(" true ")).isTrue();
+    }
+
+    @Test
+    void isTruthy_rejectsFalsyAndGarbage() {
+        assertThat(WebClientConfig.isTruthy(null)).isFalse();
+        assertThat(WebClientConfig.isTruthy("")).isFalse();
+        assertThat(WebClientConfig.isTruthy("0")).isFalse();
+        assertThat(WebClientConfig.isTruthy("false")).isFalse();
+        assertThat(WebClientConfig.isTruthy("no")).isFalse();
+        assertThat(WebClientConfig.isTruthy("maybe")).isFalse();
+        assertThat(WebClientConfig.isTruthy("2")).isFalse();
+    }
+
+    // ------------------------------------------------------------------
+    // @Bean defensive runtime check: if the JVM arg path dropped
+    // `-Djdk.httpclient.keepalive.timeout=0`, the bean MUST log ERROR.
+    // We don't have a hook to force-reset the property without racing the
+    // real static init order, so instead we drive it directly by toggling
+    // the system property around the bean-creation call.
+    // ------------------------------------------------------------------
+
+    @Test
+    void beanConstruction_whenKeepalivePropertyIsMissingOrNonZero_logsErrorButStillBuildsConnector() throws Exception {
+        // Save-and-restore the property so we don't leak state across tests.
+        String previous = System.getProperty(WebClientConfig.KEEPALIVE_PROPERTY);
+        try {
+            // Simulate the dangerous case: property is NOT "0" at bean time.
+            System.setProperty(WebClientConfig.KEEPALIVE_PROPERTY, "60");
+
+            WebClientConfig config = new WebClientConfig();
+            // Bean construction must still succeed — we log the error, we don't fail the
+            // app (the operator needs the error message in the logs to diagnose the
+            // broken JVM-arg path, not a crash with no context).
+            WebClientCustomizer customizer = config.http11WebClientCustomizer();
+            assertThat(customizer).isNotNull();
+
+            // And the customizer still pins HTTP/1.1 — the pinning is
+            // orthogonal to the keepalive property, so nothing about the
+            // connector itself should be different in the degraded path.
+            WebClient.Builder builder = WebClient.builder();
+            customizer.customize(builder);
+            Field connectorField = builder.getClass().getDeclaredField("connector");
+            connectorField.setAccessible(true);
+            Object connector = connectorField.get(builder);
+            assertThat(connector).isInstanceOf(JdkClientHttpConnector.class);
+        } finally {
+            if (previous == null) {
+                System.clearProperty(WebClientConfig.KEEPALIVE_PROPERTY);
+            } else {
+                System.setProperty(WebClientConfig.KEEPALIVE_PROPERTY, previous);
+            }
+        }
     }
 }

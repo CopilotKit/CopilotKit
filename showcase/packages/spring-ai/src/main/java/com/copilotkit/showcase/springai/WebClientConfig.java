@@ -32,6 +32,15 @@ import java.util.Optional;
  * {@code Connection reset}. Setting {@code jdk.httpclient.keepalive.timeout=0}
  * before the first HttpClient is created forces a fresh connection per request.
  *
+ * <p><b>JVM-arg authority note:</b> static initializer ordering across Spring
+ * {@code @Configuration} classes is fragile. If the JVM arg path is ever
+ * dropped AND this class happens to load after a {@link HttpClient} has
+ * already been constructed elsewhere, keepalive will silently stay pooled —
+ * the static block writes a property that's already been read. The
+ * {@code @Bean} method below therefore re-checks the property at bean
+ * construction time and logs an ERROR if it wasn't set to {@code "0"} by
+ * then — that's the authoritative signal that the operator config is broken.
+ *
  * <p><b>Authoritative path:</b> {@code entrypoint.sh} passes
  * {@code -Djdk.httpclient.keepalive.timeout=0} as a JVM arg, which guarantees
  * the property is set before any class — including this one — is loaded. The
@@ -47,8 +56,10 @@ import java.util.Optional;
  * resurrects the half-closed-socket bug. By default we force-override it back
  * to {@code 0} with a prominent {@code ERROR} log. To opt out of the override
  * (e.g. for a deployment that has verified its upstream doesn't half-close
- * sockets), set the {@code COPILOTKIT_ALLOW_KEEPALIVE=1} environment variable,
- * at which point we warn loudly and honor the operator's choice.
+ * sockets), set {@code COPILOTKIT_ALLOW_KEEPALIVE} to any of
+ * {@code "1"} / {@code "true"} / {@code "yes"} (case-insensitive — common
+ * operator conventions are all accepted), at which point we warn loudly and
+ * honor the operator's choice.
  */
 @Configuration
 public class WebClientConfig {
@@ -85,8 +96,12 @@ public class WebClientConfig {
      * @param existing current value of the system property, or {@code null}
      *                 if unset
      * @param allowKeepaliveEnv value of {@link #ALLOW_KEEPALIVE_ENV}, or
-     *                          {@code null} if unset. The string {@code "1"}
-     *                          opts in to honoring a non-zero user value.
+     *                          {@code null} if unset. Any of the strings
+     *                          {@code "1"} / {@code "true"} / {@code "yes"}
+     *                          (case-insensitive, after trimming) opts in to
+     *                          honoring a non-zero user value. Other values
+     *                          (including {@code "0"}, {@code "false"},
+     *                          garbage) do NOT opt in.
      */
     static Optional<String> applyKeepaliveDecision(String existing, String allowKeepaliveEnv) {
         if (existing == null) {
@@ -102,7 +117,7 @@ public class WebClientConfig {
             return Optional.empty();
         }
 
-        boolean allowKeepalive = "1".equals(allowKeepaliveEnv);
+        boolean allowKeepalive = isTruthy(allowKeepaliveEnv);
         if (allowKeepalive) {
             log.warn(
                     "[WebClientConfig] {}='{}' is non-zero AND {}=1 was set; honoring operator override. Note: keep-alive reuse can trigger 'Connection reset' against aimock/Prism upstreams. Set {} to 0 (or unset it) to re-enable the safe default.",
@@ -111,13 +126,48 @@ public class WebClientConfig {
         }
 
         log.error(
-                "[WebClientConfig] {}='{}' is non-zero and {} is not '1'; force-overriding to 0 to prevent 'Connection reset' against half-closed upstream sockets. Set {}=1 to opt out of the override.",
+                "[WebClientConfig] {}='{}' is non-zero and {} is not a recognized opt-in value (accepted: 1/true/yes, case-insensitive); force-overriding to 0 to prevent 'Connection reset' against half-closed upstream sockets. Set {}=1 (or true/yes) to opt out of the override.",
                 KEEPALIVE_PROPERTY, existing, ALLOW_KEEPALIVE_ENV, ALLOW_KEEPALIVE_ENV);
         return Optional.of(ZERO);
     }
 
+    /**
+     * Case-insensitive truthiness check. Accepts {@code "1"}, {@code "true"},
+     * {@code "yes"} (each trimmed) as truthy; everything else — including
+     * {@code null}, empty, {@code "0"}, {@code "false"}, garbage — is falsy.
+     * Package-private for test coverage.
+     */
+    static boolean isTruthy(String raw) {
+        if (raw == null) {
+            return false;
+        }
+        String normalized = raw.trim().toLowerCase(java.util.Locale.ROOT);
+        return normalized.equals("1") || normalized.equals("true") || normalized.equals("yes");
+    }
+
     @Bean
     public WebClientCustomizer http11WebClientCustomizer() {
+        // Defensive runtime check: by bean construction time, the JVM arg path
+        // (`-Djdk.httpclient.keepalive.timeout=0` in entrypoint.sh) should
+        // have rendered the property "0". If it's anything else, either:
+        //   (a) the JVM arg was dropped from entrypoint.sh, OR
+        //   (b) this class loaded AFTER an HttpClient was already constructed
+        //       elsewhere — in which case our static block's setProperty
+        //       would have had no effect on that pre-existing client's pool.
+        // Either way it's an operator-visible misconfiguration that silently
+        // resurrects the half-closed-socket bug. Emit an ERROR so the issue
+        // surfaces in the container logs instead of as mysterious downstream
+        // `Connection reset` failures.
+        String observed = System.getProperty(KEEPALIVE_PROPERTY);
+        if (!ZERO.equals(observed)) {
+            log.error(
+                    "[WebClientConfig] At bean construction time, {}={} (expected '0'). " +
+                    "The JVM arg -D{}=0 (set in entrypoint.sh) must land before any java.net.http.HttpClient is constructed — " +
+                    "if it didn't, pooled half-closed sockets WILL cause 'Connection reset' against aimock/Prism streams. " +
+                    "Verify entrypoint.sh passes -D{}=0, and that no earlier class-init path constructed an HttpClient before this bean ran.",
+                    KEEPALIVE_PROPERTY, observed, KEEPALIVE_PROPERTY, KEEPALIVE_PROPERTY);
+        }
+
         HttpClient jdkClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
                 .build();
