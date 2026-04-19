@@ -38,10 +38,15 @@ export default function SharedStateReadWriteDemo() {
 
 function DemoContent() {
   // @region[use-agent]
+  // @region[use-agent-read]
+  // Subscribe the component to agent state changes. Any time the agent
+  // mutates its state (e.g. via its `set_notes` tool) this hook fires,
+  // we re-render, and the sidebar panels reflect the new values.
   const { agent } = useAgent({
     agentId: "shared-state-read-write",
     updates: [UseAgentUpdate.OnStateChanged],
   });
+  // @endregion[use-agent-read]
   // @endregion[use-agent]
 
   useConfigureSuggestions({
@@ -77,13 +82,18 @@ function DemoContent() {
   }, []);
 
   // @region[set-state]
+  // @region[use-agent-write]
   // WRITE: every edit in the sidebar goes straight into agent state.
+  // On the agent's next turn, `PreferencesInjectorMiddleware` reads this
+  // back out of state and adds it to the system prompt — so the UI's
+  // writes visibly steer the model.
   const handlePreferencesChange = (next: Preferences) => {
     agent.setState({
       preferences: next,
       notes, // preserve what the agent has written
     } as RWAgentState);
   };
+  // @endregion[use-agent-write]
   // @endregion[set-state]
 
   // WRITE: let the user clear the agent-authored notes from the UI.
