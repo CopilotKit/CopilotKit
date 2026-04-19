@@ -2,65 +2,36 @@
   "framework": "llamaindex",
   "features": {
     "agentic-chat": {
-      "og_docs_url": "https://docs.copilotkit.ai/llamaindex/quickstart",
-      "og_docs_status": "ok",
-      "shell_docs_url": "/llamaindex/quickstart",
-      "shell_docs_status": "ok",
-      "notes": "No dedicated agentic-chat page under llamaindex; quickstart covers the CopilotChat-driven baseline."
+      "og_docs_url": "https://docs.copilotkit.ai/llamaindex/frontend-tools",
+      "shell_docs_path": "unselected/frontend-tools"
     },
     "hitl-in-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/llamaindex/human-in-the-loop",
-      "og_docs_status": "ok",
-      "shell_docs_url": "/llamaindex/human-in-the-loop",
-      "shell_docs_status": "ok"
+      "shell_docs_path": "human-in-the-loop"
     },
     "tool-rendering": {
       "og_docs_url": "https://docs.copilotkit.ai/llamaindex/generative-ui/tool-rendering",
-      "og_docs_status": "ok",
-      "shell_docs_url": "/llamaindex/generative-ui/tool-rendering",
-      "shell_docs_status": "ok"
+      "shell_docs_path": "unselected/generative-ui/tool-rendering"
     },
     "gen-ui-tool-based": {
       "og_docs_url": "https://docs.copilotkit.ai/llamaindex/generative-ui/your-components/display-only",
-      "og_docs_status": "ok",
-      "shell_docs_url": "/llamaindex/generative-ui/your-components/display-only",
-      "shell_docs_status": "ok"
+      "shell_docs_path": "unselected/generative-ui/your-components/display-only"
     },
     "gen-ui-agent": {
       "og_docs_url": "https://docs.copilotkit.ai/llamaindex/generative-ui/state-rendering",
-      "og_docs_status": "ok",
-      "shell_docs_url": "/llamaindex/generative-ui/state-rendering",
-      "shell_docs_status": "ok"
+      "shell_docs_path": "generative-ui/state-rendering"
     },
     "shared-state-read-write": {
-      "og_docs_url": "https://docs.copilotkit.ai/llamaindex/shared-state",
-      "og_docs_status": "ok",
-      "shell_docs_url": "/llamaindex/shared-state",
-      "shell_docs_status": "ok"
+      "og_docs_url": "https://docs.copilotkit.ai/llamaindex/shared-state/in-app-agent-write",
+      "shell_docs_path": "unselected/shared-state"
     },
     "shared-state-streaming": {
       "og_docs_url": "https://docs.copilotkit.ai/llamaindex/shared-state/predictive-state-updates",
-      "og_docs_status": "ok",
-      "shell_docs_url": "/llamaindex/shared-state/predictive-state-updates",
-      "shell_docs_status": "missing",
-      "notes": "og_docs resolves; shell route 404s even though the mdx file exists at docs/content/docs/integrations/llamaindex/shared-state/predictive-state-updates.mdx — appears to be a shell routing/bundling gap for nested shared-state pages."
+      "shell_docs_path": "shared-state/streaming"
     },
     "subagents": {
       "og_docs_url": null,
-      "og_docs_status": "missing",
-      "shell_docs_url": null,
-      "shell_docs_status": "missing",
-      "notes": "No llamaindex-specific subagents/multi-agent-flows page (docs.copilotkit.ai/llamaindex/multi-agent-flows falls back to Introduction). Root /multi-agent-flows and /subagents also 404."
+      "shell_docs_path": "multi-agent/subagents"
     }
-  },
-  "missing": [
-    {
-      "feature": "subagents",
-      "reason": "No dedicated llamaindex page for subagents / multi-agent-flows. The llamaindex docs tree has no multi-agent-flows.mdx, and docs.copilotkit.ai/llamaindex/multi-agent-flows resolves to the framework Introduction page (not a real subagents doc). Root-level /multi-agent-flows and /subagents return 404 on docs.copilotkit.ai."
-    },
-    {
-      "feature": "shared-state-streaming",
-      "reason": "Partial: og_docs_url (docs.copilotkit.ai/llamaindex/shared-state/predictive-state-updates) resolves, but the equivalent shell route /llamaindex/shared-state/predictive-state-updates returns 404. The source mdx exists in both docs/content and showcase/shell/src/content trees, so this looks like a shell routing bug affecting nested shared-state pages (in-app-agent-read, in-app-agent-write, workflow-execution, state-inputs-outputs all 404 on the shell as well)."
-    }
-  ]
+  }
 }

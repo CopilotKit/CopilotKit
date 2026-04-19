@@ -3,57 +3,35 @@
   "features": {
     "agentic-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/agno/frontend-tools",
-      "shell_docs_url": "http://localhost:3000/agno/frontend-tools"
+      "shell_docs_path": "/frontend-tools"
     },
     "hitl-in-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/agno/human-in-the-loop",
-      "shell_docs_url": "http://localhost:3000/agno/human-in-the-loop"
+      "shell_docs_path": "/generative-ui/your-components/interactive"
     },
     "tool-rendering": {
       "og_docs_url": "https://docs.copilotkit.ai/agno/generative-ui/tool-rendering",
-      "shell_docs_url": "http://localhost:3000/agno/generative-ui/tool-rendering"
+      "shell_docs_path": "/generative-ui/tool-rendering"
     },
     "gen-ui-tool-based": {
-      "og_docs_url": "https://docs.copilotkit.ai/agno/generative-ui/tool-based",
-      "shell_docs_url": "http://localhost:3000/agno/generative-ui/tool-based"
+      "og_docs_url": "https://docs.copilotkit.ai/agno/generative-ui/your-components/display-only",
+      "shell_docs_path": "/generative-ui/your-components/display-only"
     },
     "gen-ui-agent": {
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/state-rendering",
-      "shell_docs_url": "http://localhost:3000/agno/generative-ui/state-rendering"
+      "shell_docs_path": null
     },
     "shared-state-read-write": {
       "og_docs_url": "https://docs.copilotkit.ai/shared-state",
-      "shell_docs_url": "http://localhost:3000/agno/shared-state"
+      "shell_docs_path": "/shared-state"
     },
     "shared-state-streaming": {
       "og_docs_url": "https://docs.copilotkit.ai/shared-state",
-      "shell_docs_url": "http://localhost:3000/agno/shared-state"
+      "shell_docs_path": "/shared-state"
     },
     "subagents": {
       "og_docs_url": null,
-      "shell_docs_url": null
+      "shell_docs_path": null
     }
-  },
-  "missing": [
-    {
-      "feature": "subagents",
-      "reason": "No agno-scoped or root-scoped docs page exists for sub-agents/multi-agent. Shell route /agno/multi-agent and /agno/subagents both 404. Checked fallbacks: multi-agent-flows, subgraphs, agents, coordinate-agents, sub-agents."
-    },
-    {
-      "feature": "gen-ui-agent",
-      "reason": "Agno-scoped og page /agno/generative-ui/state-rendering returns 404; using root /generative-ui/state-rendering as fallback (og only). Shell route is valid."
-    },
-    {
-      "feature": "shared-state-read-write",
-      "reason": "Agno-scoped og page /agno/shared-state returns 404; using root /shared-state as fallback (og only). Shell route is valid."
-    },
-    {
-      "feature": "shared-state-streaming",
-      "reason": "Agno-scoped og page /agno/shared-state returns 404; using root /shared-state as fallback (og only). Shell route is valid."
-    },
-    {
-      "feature": "agentic-chat",
-      "reason": "No dedicated agentic-chat doc exists. /agno/agentic-chat returns 404 (og and shell). Using /agno/frontend-tools as the closest semantic match (demo uses frontend tool execution in chat). Consider adding a dedicated agentic-chat or conversational-chat doc."
-    }
-  ]
+  }
 }

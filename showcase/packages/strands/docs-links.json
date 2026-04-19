@@ -1,108 +1,37 @@
 {
   "framework": "strands",
-  "generated_at": "2026-04-19",
-  "notes": "Per-feature docs link audit. og = https://docs.copilotkit.ai/<path>; shell = http://localhost:3000/docs/<path> (strands column demos live at /strands/* but docs are served shell-wide). Priority: integrations/aws-strands/<path> -> root fallback. Soft-404s on docs.copilotkit.ai detected via x-matched-path header (catch-all segments treated as missing).",
-  "features": [
-    {
-      "id": "agentic-chat",
-      "og_docs_url": "https://docs.copilotkit.ai/integrations/aws-strands/prebuilt-components",
-      "og_status": "ok",
-      "shell_docs_url": "http://localhost:3000/docs/prebuilt-components",
-      "shell_status": "ok",
-      "source": "root-fallback-shell",
-      "note": "Strands-specific prebuilt-components.mdx exists in docs/ but is not yet synced to shell; shell falls back to root /docs/prebuilt-components."
+  "features": {
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/aws-strands/prebuilt-components",
+      "shell_docs_path": "/strands/unselected/prebuilt-components"
     },
-    {
-      "id": "hitl-in-chat",
+    "hitl-in-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop",
-      "og_status": "ok",
-      "shell_docs_url": "http://localhost:3000/docs/human-in-the-loop",
-      "shell_status": "ok",
-      "source": "root-only",
-      "note": "No strands-specific HITL page exists in either docs/ or shell/; using root fallback."
+      "shell_docs_path": null
     },
-    {
-      "id": "tool-rendering",
-      "og_docs_url": "https://docs.copilotkit.ai/integrations/aws-strands/generative-ui/tool-rendering",
-      "og_status": "ok",
-      "shell_docs_url": "http://localhost:3000/docs/integrations/aws-strands/generative-ui/tool-rendering",
-      "shell_status": "ok",
-      "source": "strands"
+    "tool-rendering": {
+      "og_docs_url": "https://docs.copilotkit.ai/aws-strands/generative-ui/tool-rendering",
+      "shell_docs_path": "/strands/unselected/generative-ui/tool-rendering"
     },
-    {
-      "id": "gen-ui-tool-based",
-      "og_docs_url": "https://docs.copilotkit.ai/integrations/aws-strands/generative-ui/your-components/interactive",
-      "og_status": "ok",
-      "shell_docs_url": "http://localhost:3000/docs/generative-ui/your-components/interactive",
-      "shell_status": "ok",
-      "source": "strands-og-root-shell",
-      "note": "OG has strands-specific your-components/interactive; shell does not, falls back to root."
+    "gen-ui-tool-based": {
+      "og_docs_url": "https://docs.copilotkit.ai/aws-strands/generative-ui/your-components/interactive",
+      "shell_docs_path": "/strands/unselected/generative-ui/your-components/interactive"
     },
-    {
-      "id": "gen-ui-agent",
-      "og_docs_url": "https://docs.copilotkit.ai/integrations/aws-strands/generative-ui/state-rendering",
-      "og_status": "ok",
-      "shell_docs_url": "http://localhost:3000/docs/integrations/aws-strands/generative-ui/state-rendering",
-      "shell_status": "ok",
-      "source": "strands"
+    "gen-ui-agent": {
+      "og_docs_url": "https://docs.copilotkit.ai/aws-strands/generative-ui/state-rendering",
+      "shell_docs_path": null
     },
-    {
-      "id": "shared-state-read-write",
-      "og_docs_url": "https://docs.copilotkit.ai/integrations/aws-strands/shared-state/in-app-agent-write",
-      "og_status": "ok",
-      "shell_docs_url": "http://localhost:3000/docs/integrations/aws-strands/shared-state/in-app-agent-write",
-      "shell_status": "ok",
-      "source": "strands"
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/aws-strands/shared-state/in-app-agent-write",
+      "shell_docs_path": null
     },
-    {
-      "id": "shared-state-streaming",
+    "shared-state-streaming": {
       "og_docs_url": "https://docs.copilotkit.ai/shared-state",
-      "og_status": "ok",
-      "shell_docs_url": "http://localhost:3000/docs/shared-state",
-      "shell_status": "ok",
-      "source": "root-only",
-      "note": "No streaming-specific or strands-specific shared-state-streaming page; closest match is the generic /shared-state page."
+      "shell_docs_path": "/strands/unselected/shared-state"
     },
-    {
-      "id": "subagents",
+    "subagents": {
       "og_docs_url": null,
-      "og_status": "missing",
-      "shell_docs_url": null,
-      "shell_status": "missing",
-      "source": "none",
-      "note": "No dedicated subagents/multi-agent page exists at the strands integration level or at the root on docs.copilotkit.ai. Shell also lacks a /docs/multi-agent/subagents strands override; soft-404 on OG."
+      "shell_docs_path": null
     }
-  ],
-  "missing": [
-    {
-      "feature": "agentic-chat",
-      "missing_on": "shell",
-      "expected_path": "/docs/integrations/aws-strands/prebuilt-components",
-      "reason": "prebuilt-components.mdx present in docs/content/docs/integrations/aws-strands but not synced into showcase/shell/src/content/docs/integrations/aws-strands"
-    },
-    {
-      "feature": "hitl-in-chat",
-      "missing_on": "both",
-      "expected_path": "/integrations/aws-strands/human-in-the-loop",
-      "reason": "No strands-specific HITL doc; only root /human-in-the-loop exists"
-    },
-    {
-      "feature": "gen-ui-tool-based",
-      "missing_on": "shell",
-      "expected_path": "/docs/integrations/aws-strands/generative-ui/your-components/interactive",
-      "reason": "OG has the strands variant at generative-ui/your-components/interactive; shell is missing the your-components subdirectory under integrations/aws-strands"
-    },
-    {
-      "feature": "shared-state-streaming",
-      "missing_on": "both",
-      "expected_path": "/integrations/aws-strands/shared-state/streaming",
-      "reason": "No streaming-specific shared-state doc at strands level or root; feature is undocumented as a dedicated page"
-    },
-    {
-      "feature": "subagents",
-      "missing_on": "both",
-      "expected_path": "/integrations/aws-strands/multi-agent/subagents",
-      "reason": "No sub-agents/multi-agent page exists at strands integration or at root; subagents is mentioned only inside reference hook docs and whats-new entries"
-    }
-  ]
+  }
 }
