@@ -285,6 +285,13 @@ export default function StandaloneCodePage() {
               fontSize: "13px",
               lineHeight: "1.6",
             }}
+            // oneLight sets a near-white background on both <pre> and the
+            // inner <code>. `customStyle` overrides the outer <pre>, but
+            // the <code> child keeps its own background — and since <code>
+            // renders inline, that bg hugs each line of text and shows as
+            // a pale per-line rectangle against the page chrome. Unset it
+            // so the chosen <pre> background reads as a flat block.
+            codeTagProps={{ style: { background: "transparent" } }}
             showLineNumbers
             wrapLines={highlightedLines.size > 0}
             lineNumberStyle={{
