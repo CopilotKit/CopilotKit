@@ -204,16 +204,29 @@ jobs:
           )
           # Starter slugs are derived from showcase/starters/*/ so adding a
           # new starter directory automatically extends drift detection.
-          # `template/` is scaffolding, not a deployed service.
+          # `template/` is scaffolding, not a deployed service — keep in sync
+          # with showcase/scripts/validate-workflow-starters.ts EXCLUDED_DIRS.
+          # nullglob guards against an empty showcase/starters/ tree expanding
+          # the literal "showcase/starters/*/" pattern into the iteration,
+          # which would corrupt SERVICES with a "starter-*" entry.
+          shopt -s nullglob
           for dir in showcase/starters/*/; do
             slug=$(basename "$dir")
             [ "$slug" = "template" ] && continue
             SERVICES+=("starter-$slug")
           done
-          if [ "${#SERVICES[@]}" -eq 19 ]; then
-            # 19 = non-starters only. Sparse checkout failed to populate
-            # showcase/starters/ — fail loudly instead of silently under-checking.
-            echo "::error::No starter directories found under showcase/starters/ — drift check would be incomplete"
+          shopt -u nullglob
+          # Count appended starter-* entries independently of the non-starter
+          # list size. Using a magic `-eq 19` sentinel tied us to a specific
+          # non-starter count; any add/remove there would have silently
+          # disabled this guard. `grep -c '^starter-'` stays correct under
+          # arbitrary churn to the literal non-starter list.
+          STARTER_COUNT=$(printf '%s\n' "${SERVICES[@]}" | grep -c '^starter-' || true)
+          if [ "$STARTER_COUNT" -eq 0 ]; then
+            # Sparse checkout failed to populate showcase/starters/, or every
+            # directory under it was `template/` — fail loudly instead of
+            # silently under-checking.
+            echo "::error::No starter directories found under showcase/starters/ — sparse checkout failed?"
             exit 1
           fi
           # Compare against the last commits that touched showcase-related paths,
