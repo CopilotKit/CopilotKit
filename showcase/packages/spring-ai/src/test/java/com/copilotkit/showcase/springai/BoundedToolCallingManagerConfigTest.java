@@ -11,6 +11,11 @@ import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.model.tool.ToolExecutionResult;
 
 import java.util.Collections;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -338,5 +343,121 @@ class BoundedToolCallingManagerConfigTest {
     void springAiClasspathSanityCheck() {
         AssistantMessage m = new AssistantMessage("hi");
         assertThat(m.getText()).isEqualTo("hi");
+    }
+
+    @Test
+    void concurrentCallsOnSameOptions_honorCapInvariant() throws Exception {
+        // Race-contention test: N threads concurrently exercise executeToolCalls
+        // on the SAME ChatOptions instance. The cap invariant is:
+        //   "at most 1 call should see returnDirect=true flipped; all others
+        //    should see returnDirect=false, AND the total number of flips must
+        //    equal exactly 1".
+        // Without atomic increment + single-flip logic, two threads could both
+        // observe next>=cap and both flip returnDirect (double-terminate), or
+        // both miss the cap (runaway loop). Caffeine's compute semantics +
+        // AtomicInteger.incrementAndGet guarantee the single-writer property.
+        ToolCallingManager delegate = mock(ToolCallingManager.class);
+        when(delegate.executeToolCalls(any(), any())).thenReturn(passThroughResult());
+
+        // Cap = 1: the very first increment hits cap; every other concurrent
+        // caller (which observes next > 1 after the cap-hitter invalidated
+        // the counter, re-seeded it, and re-incremented) must see the
+        // cap-hit branch too and flip returnDirect. To make the invariant
+        // stricter we use cap = N threads: exactly N flips total.
+        final int threads = 16;
+        final int callsPerThread = 50;
+        BoundedToolCallingManager mgr = new BoundedToolCallingManager(delegate, 1);
+        ChatOptions options = mock(ChatOptions.class);
+
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        CountDownLatch start = new CountDownLatch(1);
+        AtomicInteger flips = new AtomicInteger(0);
+        AtomicInteger total = new AtomicInteger(0);
+        AtomicInteger failures = new AtomicInteger(0);
+        try {
+            for (int t = 0; t < threads; t++) {
+                pool.submit(() -> {
+                    try {
+                        start.await();
+                        for (int i = 0; i < callsPerThread; i++) {
+                            ToolExecutionResult r = mgr.executeToolCalls(
+                                    promptWithOptions(options), emptyChatResponse());
+                            total.incrementAndGet();
+                            if (r.returnDirect()) {
+                                flips.incrementAndGet();
+                            }
+                        }
+                    } catch (Throwable ex) {
+                        failures.incrementAndGet();
+                    }
+                });
+            }
+            start.countDown();
+            pool.shutdown();
+            assertThat(pool.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            if (!pool.isTerminated()) {
+                pool.shutdownNow();
+            }
+        }
+
+        assertThat(failures.get()).as("no thread should have thrown").isZero();
+        assertThat(total.get()).isEqualTo(threads * callsPerThread);
+
+        // Invariant: at cap=1 EVERY call must flip returnDirect, because the
+        // cap-hit branch invalidates the counter after flipping, so each
+        // fresh increment re-hits the cap. Crucially, no call should see
+        // returnDirect=false — that would indicate a lost update in the
+        // counter (two threads both incrementing to 1 when only one should
+        // have crossed the threshold first).
+        assertThat(flips.get())
+                .as("with cap=1, every concurrent call must observe the cap and flip returnDirect (no lost updates)")
+                .isEqualTo(total.get());
+    }
+
+    @Test
+    void concurrentCallsOnSameOptions_noTwoThreadsExceedCapMinusOneConcurrently() throws Exception {
+        // Stronger invariant: with cap=N and N concurrent threads each doing
+        // one call, we must see EXACTLY one returnDirect=true flip across the
+        // batch (the Nth thread to increment) — no two threads can both
+        // observe "next >= N" and both flip, no two can both miss it.
+        ToolCallingManager delegate = mock(ToolCallingManager.class);
+        when(delegate.executeToolCalls(any(), any())).thenReturn(passThroughResult());
+
+        final int cap = 8;
+        BoundedToolCallingManager mgr = new BoundedToolCallingManager(delegate, cap);
+        ChatOptions options = mock(ChatOptions.class);
+
+        ExecutorService pool = Executors.newFixedThreadPool(cap);
+        CountDownLatch start = new CountDownLatch(1);
+        AtomicInteger flips = new AtomicInteger(0);
+        try {
+            for (int t = 0; t < cap; t++) {
+                pool.submit(() -> {
+                    try {
+                        start.await();
+                        ToolExecutionResult r = mgr.executeToolCalls(
+                                promptWithOptions(options), emptyChatResponse());
+                        if (r.returnDirect()) {
+                            flips.incrementAndGet();
+                        }
+                    } catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+            }
+            start.countDown();
+            pool.shutdown();
+            assertThat(pool.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            if (!pool.isTerminated()) {
+                pool.shutdownNow();
+            }
+        }
+
+        // Exactly one thread hit the cap; the cap was not exceeded (no
+        // double-flip) nor missed (no zero-flip). This is the race-safety
+        // invariant the atomic compute primitive buys us.
+        assertThat(flips.get()).isEqualTo(1);
     }
 }

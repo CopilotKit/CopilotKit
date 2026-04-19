@@ -10,6 +10,7 @@ import java.net.http.HttpClient;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link WebClientConfig}.
@@ -96,16 +97,18 @@ class WebClientConfigTest {
     }
 
     @Test
-    void keepaliveDecision_yesAsOptIn_leavesAlone() {
-        // "yes" is accepted too.
+    void keepaliveDecision_yesIsNotAcceptedAsOptIn() {
+        // "yes" is deliberately NOT a recognized opt-in value — the
+        // vocabulary is narrowed to 1/true since Spring and the wider Java
+        // ecosystem canonicalize on true/false. Force-override still fires.
         Optional<String> result = WebClientConfig.applyKeepaliveDecision("60", "yes");
-        assertThat(result).isEmpty();
+        assertThat(result).contains(WebClientConfig.ZERO);
     }
 
     @Test
     void keepaliveDecision_optInIsCaseInsensitive() {
         assertThat(WebClientConfig.applyKeepaliveDecision("60", "TRUE")).isEmpty();
-        assertThat(WebClientConfig.applyKeepaliveDecision("60", "Yes")).isEmpty();
+        assertThat(WebClientConfig.applyKeepaliveDecision("60", "True")).isEmpty();
         assertThat(WebClientConfig.applyKeepaliveDecision("60", " True ")).isEmpty();
     }
 
@@ -128,54 +131,78 @@ class WebClientConfigTest {
     // ------------------------------------------------------------------
 
     @Test
-    void isTruthy_acceptsCanonicalAndCommonForms() {
+    void isTruthy_acceptsCanonicalForms() {
         assertThat(WebClientConfig.isTruthy("1")).isTrue();
         assertThat(WebClientConfig.isTruthy("true")).isTrue();
         assertThat(WebClientConfig.isTruthy("TRUE")).isTrue();
         assertThat(WebClientConfig.isTruthy("True")).isTrue();
-        assertThat(WebClientConfig.isTruthy("yes")).isTrue();
-        assertThat(WebClientConfig.isTruthy("YES")).isTrue();
         assertThat(WebClientConfig.isTruthy(" 1 ")).isTrue();
         assertThat(WebClientConfig.isTruthy(" true ")).isTrue();
     }
 
     @Test
-    void isTruthy_rejectsFalsyAndGarbage() {
+    void isTruthy_rejectsFalsyGarbageAndYes() {
+        // Narrow vocabulary: only 1/true (case-insensitive). "yes"/"no" are
+        // shell-idiomatic and deliberately not accepted here — Spring and
+        // Java config canonicalize on true/false.
         assertThat(WebClientConfig.isTruthy(null)).isFalse();
         assertThat(WebClientConfig.isTruthy("")).isFalse();
         assertThat(WebClientConfig.isTruthy("0")).isFalse();
         assertThat(WebClientConfig.isTruthy("false")).isFalse();
+        assertThat(WebClientConfig.isTruthy("yes")).isFalse();
+        assertThat(WebClientConfig.isTruthy("YES")).isFalse();
         assertThat(WebClientConfig.isTruthy("no")).isFalse();
         assertThat(WebClientConfig.isTruthy("maybe")).isFalse();
         assertThat(WebClientConfig.isTruthy("2")).isFalse();
     }
 
     // ------------------------------------------------------------------
-    // @Bean defensive runtime check: if the JVM arg path dropped
-    // `-Djdk.httpclient.keepalive.timeout=0`, the bean MUST log ERROR.
-    // We don't have a hook to force-reset the property without racing the
-    // real static init order, so instead we drive it directly by toggling
-    // the system property around the bean-creation call.
+    // @Bean fail-fast runtime check: if the JVM arg path dropped
+    // `-Djdk.httpclient.keepalive.timeout=0`, bean construction MUST throw
+    // IllegalStateException (matching OpenAiApiKeyValidator's philosophy) —
+    // UNLESS the COPILOTKIT_ALLOW_KEEPALIVE opt-in env var is present, in
+    // which case we log loudly and proceed.
+    //
+    // We can only manipulate the system property in-process; the env var is
+    // observed via System.getenv() which we cannot mutate portably. The
+    // opt-in branch is therefore covered by applyKeepaliveDecision +
+    // isTruthy unit tests above — here we assert only the fail-fast throw.
     // ------------------------------------------------------------------
 
     @Test
-    void beanConstruction_whenKeepalivePropertyIsMissingOrNonZero_logsErrorButStillBuildsConnector() throws Exception {
-        // Save-and-restore the property so we don't leak state across tests.
+    void beanConstruction_whenKeepalivePropertyIsNonZeroAndNotOptedIn_throwsIllegalState() throws Exception {
         String previous = System.getProperty(WebClientConfig.KEEPALIVE_PROPERTY);
         try {
-            // Simulate the dangerous case: property is NOT "0" at bean time.
             System.setProperty(WebClientConfig.KEEPALIVE_PROPERTY, "60");
 
             WebClientConfig config = new WebClientConfig();
-            // Bean construction must still succeed — we log the error, we don't fail the
-            // app (the operator needs the error message in the logs to diagnose the
-            // broken JVM-arg path, not a crash with no context).
+            // Fail-fast: mirror OpenAiApiKeyValidator's philosophy. An
+            // operator running without the -D arg silently resurrects the
+            // half-closed-socket bug; we'd rather abort context refresh
+            // than serve 500s downstream.
+            assertThatThrownBy(config::http11WebClientCustomizer)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining(WebClientConfig.KEEPALIVE_PROPERTY)
+                    .hasMessageContaining(WebClientConfig.ALLOW_KEEPALIVE_ENV);
+        } finally {
+            if (previous == null) {
+                System.clearProperty(WebClientConfig.KEEPALIVE_PROPERTY);
+            } else {
+                System.setProperty(WebClientConfig.KEEPALIVE_PROPERTY, previous);
+            }
+        }
+    }
+
+    @Test
+    void beanConstruction_whenKeepalivePropertyIsZero_succeedsAndPinsHttp11() throws Exception {
+        String previous = System.getProperty(WebClientConfig.KEEPALIVE_PROPERTY);
+        try {
+            System.setProperty(WebClientConfig.KEEPALIVE_PROPERTY, "0");
+
+            WebClientConfig config = new WebClientConfig();
             WebClientCustomizer customizer = config.http11WebClientCustomizer();
             assertThat(customizer).isNotNull();
 
-            // And the customizer still pins HTTP/1.1 — the pinning is
-            // orthogonal to the keepalive property, so nothing about the
-            // connector itself should be different in the degraded path.
             WebClient.Builder builder = WebClient.builder();
             customizer.customize(builder);
             Field connectorField = builder.getClass().getDeclaredField("connector");

@@ -38,8 +38,12 @@ import java.util.Optional;
  * already been constructed elsewhere, keepalive will silently stay pooled —
  * the static block writes a property that's already been read. The
  * {@code @Bean} method below therefore re-checks the property at bean
- * construction time and logs an ERROR if it wasn't set to {@code "0"} by
- * then — that's the authoritative signal that the operator config is broken.
+ * construction time and <em>throws {@link IllegalStateException}</em> if it
+ * isn't {@code "0"} (matching the fail-fast philosophy of
+ * {@link OpenAiApiKeyValidator}). The opt-in env var
+ * {@link #ALLOW_KEEPALIVE_ENV} suppresses the throw — in that case we log a
+ * prominent warning and proceed, trusting the operator who explicitly
+ * opted in.
  *
  * <p><b>Authoritative path:</b> {@code entrypoint.sh} passes
  * {@code -Djdk.httpclient.keepalive.timeout=0} as a JVM arg, which guarantees
@@ -56,10 +60,11 @@ import java.util.Optional;
  * resurrects the half-closed-socket bug. By default we force-override it back
  * to {@code 0} with a prominent {@code ERROR} log. To opt out of the override
  * (e.g. for a deployment that has verified its upstream doesn't half-close
- * sockets), set {@code COPILOTKIT_ALLOW_KEEPALIVE} to any of
- * {@code "1"} / {@code "true"} / {@code "yes"} (case-insensitive — common
- * operator conventions are all accepted), at which point we warn loudly and
- * honor the operator's choice.
+ * sockets), set {@code COPILOTKIT_ALLOW_KEEPALIVE} to {@code "1"} or
+ * {@code "true"} (case-insensitive), at which point we warn loudly and
+ * honor the operator's choice. "yes" is deliberately NOT accepted — Spring
+ * and the broader Java ecosystem canonicalize on {@code true}/{@code false},
+ * so keeping the opt-in vocabulary narrow avoids surprise.
  */
 @Configuration
 public class WebClientConfig {
@@ -96,12 +101,12 @@ public class WebClientConfig {
      * @param existing current value of the system property, or {@code null}
      *                 if unset
      * @param allowKeepaliveEnv value of {@link #ALLOW_KEEPALIVE_ENV}, or
-     *                          {@code null} if unset. Any of the strings
-     *                          {@code "1"} / {@code "true"} / {@code "yes"}
-     *                          (case-insensitive, after trimming) opts in to
+     *                          {@code null} if unset. The strings
+     *                          {@code "1"} or {@code "true"}
+     *                          (case-insensitive, after trimming) opt in to
      *                          honoring a non-zero user value. Other values
      *                          (including {@code "0"}, {@code "false"},
-     *                          garbage) do NOT opt in.
+     *                          {@code "yes"}, garbage) do NOT opt in.
      */
     static Optional<String> applyKeepaliveDecision(String existing, String allowKeepaliveEnv) {
         if (existing == null) {
@@ -126,15 +131,18 @@ public class WebClientConfig {
         }
 
         log.error(
-                "[WebClientConfig] {}='{}' is non-zero and {} is not a recognized opt-in value (accepted: 1/true/yes, case-insensitive); force-overriding to 0 to prevent 'Connection reset' against half-closed upstream sockets. Set {}=1 (or true/yes) to opt out of the override.",
+                "[WebClientConfig] {}='{}' is non-zero and {} is not a recognized opt-in value (accepted: 1/true, case-insensitive); force-overriding to 0 to prevent 'Connection reset' against half-closed upstream sockets. Set {}=1 (or true) to opt out of the override.",
                 KEEPALIVE_PROPERTY, existing, ALLOW_KEEPALIVE_ENV, ALLOW_KEEPALIVE_ENV);
         return Optional.of(ZERO);
     }
 
     /**
-     * Case-insensitive truthiness check. Accepts {@code "1"}, {@code "true"},
-     * {@code "yes"} (each trimmed) as truthy; everything else — including
-     * {@code null}, empty, {@code "0"}, {@code "false"}, garbage — is falsy.
+     * Case-insensitive truthiness check. Accepts {@code "1"} and {@code "true"}
+     * (each trimmed) as truthy; everything else — including {@code null},
+     * empty, {@code "0"}, {@code "false"}, {@code "yes"}, garbage — is falsy.
+     * The vocabulary is deliberately narrow: Spring and the broader Java
+     * ecosystem canonicalize on {@code true}/{@code false}, so accepting
+     * shell-idiomatic variants like {@code "yes"} would be non-standard here.
      * Package-private for test coverage.
      */
     static boolean isTruthy(String raw) {
@@ -142,7 +150,7 @@ public class WebClientConfig {
             return false;
         }
         String normalized = raw.trim().toLowerCase(java.util.Locale.ROOT);
-        return normalized.equals("1") || normalized.equals("true") || normalized.equals("yes");
+        return normalized.equals("1") || normalized.equals("true");
     }
 
     @Bean
@@ -155,17 +163,31 @@ public class WebClientConfig {
         //       elsewhere — in which case our static block's setProperty
         //       would have had no effect on that pre-existing client's pool.
         // Either way it's an operator-visible misconfiguration that silently
-        // resurrects the half-closed-socket bug. Emit an ERROR so the issue
-        // surfaces in the container logs instead of as mysterious downstream
-        // `Connection reset` failures.
+        // resurrects the half-closed-socket bug. Fail fast with
+        // IllegalStateException — matching OpenAiApiKeyValidator's philosophy
+        // of aborting context refresh on broken config rather than limping
+        // on and serving 500s downstream. The COPILOTKIT_ALLOW_KEEPALIVE
+        // env var is the explicit operator opt-out: when set to a truthy
+        // value, we log loudly and proceed.
         String observed = System.getProperty(KEEPALIVE_PROPERTY);
         if (!ZERO.equals(observed)) {
-            log.error(
-                    "[WebClientConfig] At bean construction time, {}={} (expected '0'). " +
-                    "The JVM arg -D{}=0 (set in entrypoint.sh) must land before any java.net.http.HttpClient is constructed — " +
-                    "if it didn't, pooled half-closed sockets WILL cause 'Connection reset' against aimock/Prism streams. " +
-                    "Verify entrypoint.sh passes -D{}=0, and that no earlier class-init path constructed an HttpClient before this bean ran.",
-                    KEEPALIVE_PROPERTY, observed, KEEPALIVE_PROPERTY, KEEPALIVE_PROPERTY);
+            boolean optedIn = isTruthy(System.getenv(ALLOW_KEEPALIVE_ENV));
+            if (optedIn) {
+                log.warn(
+                        "[WebClientConfig] At bean construction time, {}={} (expected '0') — but {} is set, honoring operator opt-in. " +
+                        "Note: keep-alive reuse can trigger 'Connection reset' against aimock/Prism upstreams.",
+                        KEEPALIVE_PROPERTY, observed, ALLOW_KEEPALIVE_ENV);
+            } else {
+                throw new IllegalStateException(
+                        "[WebClientConfig] At bean construction time, " + KEEPALIVE_PROPERTY + "=" + observed +
+                        " (expected '0'). The JVM arg -D" + KEEPALIVE_PROPERTY + "=0 (set in entrypoint.sh) must land " +
+                        "before any java.net.http.HttpClient is constructed — if it didn't, pooled half-closed sockets " +
+                        "WILL cause 'Connection reset' against aimock/Prism streams. " +
+                        "Refusing to start: verify entrypoint.sh passes -D" + KEEPALIVE_PROPERTY + "=0, and that no earlier " +
+                        "class-init path constructed an HttpClient before this bean ran. To bypass this check (e.g. because " +
+                        "your upstream does not half-close sockets), set " + ALLOW_KEEPALIVE_ENV + "=1."
+                );
+            }
         }
 
         HttpClient jdkClient = HttpClient.newBuilder()

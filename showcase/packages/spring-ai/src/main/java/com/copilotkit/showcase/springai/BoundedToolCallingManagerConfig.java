@@ -192,6 +192,12 @@ public class BoundedToolCallingManagerConfig {
                     // ChatOptions impls is value-based. Two concurrent turns
                     // with equivalent options would then share one counter
                     // and the cap would fire early on the second turn.
+                    //
+                    // NB: weakKeys() forces identity (==) not equals().
+                    // Intentional here (per-request ChatOptions instance)
+                    // but DO NOT feed canonicalized/interned keys through
+                    // this cache — they'd all share one counter and the
+                    // cap would trip across unrelated turns.
                     .weakKeys()
                     .maximumSize(MAX_CACHE_SIZE)
                     .expireAfterAccess(EXPIRE_AFTER_ACCESS)

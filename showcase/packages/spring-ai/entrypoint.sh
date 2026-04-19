@@ -85,8 +85,30 @@ else
 fi
 
 if [ -n "$SURVIVOR_PID" ]; then
-    echo "[entrypoint] Terminating surviving sibling (pid=${SURVIVOR_PID}) to avoid orphan-reparent"
-    kill "$SURVIVOR_PID" 2>/dev/null
+    # Bounded grace window. A plain `wait` on the survivor could hang
+    # indefinitely (e.g. Node.js stuck flushing a response, Java caught in a
+    # finalizer) — which would push us past the platform's SIGKILL grace
+    # period (typically 10s on Railway/ECS) and cause the runtime to reap
+    # us mid-log-write, losing the structured "who died" line we just
+    # emitted. SIGTERM first, poll `kill -0` for up to SURVIVOR_GRACE_SECS,
+    # then SIGKILL as last resort. Mirrors what the comment above this
+    # block already promised.
+    SURVIVOR_GRACE_SECS=10
+    echo "[entrypoint] Terminating surviving sibling (pid=${SURVIVOR_PID}) to avoid orphan-reparent (grace=${SURVIVOR_GRACE_SECS}s)"
+    kill -TERM "$SURVIVOR_PID" 2>/dev/null
+    for _ in $(seq 1 "$SURVIVOR_GRACE_SECS"); do
+        if ! kill -0 "$SURVIVOR_PID" 2>/dev/null; then
+            break
+        fi
+        sleep 1
+    done
+    if kill -0 "$SURVIVOR_PID" 2>/dev/null; then
+        echo "[entrypoint] Survivor (pid=${SURVIVOR_PID}) did not exit within ${SURVIVOR_GRACE_SECS}s; sending SIGKILL"
+        kill -KILL "$SURVIVOR_PID" 2>/dev/null || true
+    fi
+    # Reap the (now-dead) child so it doesn't become a zombie. wait may
+    # return non-zero; we don't care — we've already captured EXIT_CODE
+    # from the first-to-die child.
     wait "$SURVIVOR_PID" 2>/dev/null || true
 fi
 
