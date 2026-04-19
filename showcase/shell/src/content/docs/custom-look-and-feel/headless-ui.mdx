@@ -9,139 +9,234 @@ snippet_cell: headless-simple
 
 ## What is this?
 
-A headless UI gives you full control over the chat experience — you bring
-your own components, layout, and styling while CopilotKit handles agent
-communication, message management, and streaming. This is built on top of
-the same primitives (`useAgent` and `useCopilotKit`) that power the
-prebuilt components.
+A headless UI gives you full control over the chat experience — you bring your own components, layout, and styling while CopilotKit handles agent communication, message management, and streaming. This is built on top of the same primitives (`useAgent` and `useCopilotKit`) covered in [Programmatic Control](/langgraph/programmatic-control).
 
 ## When should I use this?
 
-Use headless UI when the [slot system](/custom-look-and-feel/slots) isn't
-enough — for example, when you need a completely different layout, want to
-embed the chat into an existing UI, or are building a non-chat interface
-that still communicates with an agent.
+Use headless UI when the [slot system](/langgraph/custom-look-and-feel/slots) isn't enough — for example, when you need a completely different layout, want to embed the chat into an existing UI, or are building a non-chat interface that still communicates with an agent.
 
-<InlineDemo integration="langgraph-python" demo="headless-simple" />
+## Implementation
 
-## Access the agent and CopilotKit
+<Steps>
+<Step>
+### Access the agent and CopilotKit
 
-Use `useAgent` to get the agent instance (messages, state, execution
-status) and `useCopilotKit` to run it. Both hooks come from the same
-`@copilotkit/react-core/v2` package that the prebuilt components use
-under the hood.
+Use `useAgent` to get the agent instance (messages, state, execution status) and `useCopilotKit` to run the agent.
 
-<Snippet region="headless-hooks" title="frontend/src/app/page.tsx — headless hooks" />
+```tsx title="components/custom-chat.tsx"
+import { useAgent } from "@copilotkit/react-core/v2";
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+import { randomUUID } from "@copilotkit/shared/v2";
 
-## Display messages
+export function CustomChat() {
+  // [!code highlight:2]
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
 
-The agent's messages are available via `agent.messages`. Each message has
-an `id`, `role` (`"user"` or `"assistant"`), and `content`. Render them
-however you want — a flat list, grouped conversations, a transcript view.
+  return <div>{/* Your custom UI */}</div>;
+}
+```
+</Step>
 
-<Snippet region="message-list-simple" title="frontend/src/app/page.tsx — bare-bones message list" />
+<Step>
+### Display messages
 
-## Send messages and run the agent
+The agent's messages are available via `agent.messages`. Each message has an `id`, `role` (`"user"` or `"assistant"`), and `content`.
 
-Add a message to the agent's conversation, then call `copilotkit.runAgent()`
-to trigger execution. This is the same method the prebuilt
-`<CopilotChat />` uses internally.
+```tsx title="components/custom-chat.tsx"
+export function CustomChat() {
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* [!code highlight:12] */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {agent.messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={msg.role === "user" ? "ml-auto bg-blue-100 rounded-lg p-3 max-w-md" : "bg-gray-100 rounded-lg p-3 max-w-md"}
+          >
+            <p className="text-sm font-medium">{msg.role}</p>
+            <p>{msg.content}</p>
+          </div>
+        ))}
+        {agent.isRunning && <div className="text-gray-400">Thinking...</div>}
+      </div>
+    </div>
+  );
+}
+```
+</Step>
+
+<Step>
+### Send messages and run the agent
+
+Add a message to the agent's conversation, then call `copilotkit.runAgent()` to trigger execution. This is the same method CopilotKit's built-in `<CopilotChat />` uses internally.
 
 ```tsx title="components/custom-chat.tsx"
 import { useState, useCallback } from "react";
-import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
-import { randomUUID } from "@copilotkit/shared/v2";
 
 export function CustomChat() {
   const { agent } = useAgent();
   const { copilotkit } = useCopilotKit();
   const [input, setInput] = useState("");
 
+  // [!code highlight:14]
   const sendMessage = useCallback(async () => {
     if (!input.trim()) return;
+
     agent.addMessage({
       id: randomUUID(),
       role: "user",
       content: input,
     });
+
     setInput("");
+
     await copilotkit.runAgent({ agent });
   }, [input, agent, copilotkit]);
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }}>
-      <input
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        placeholder="Type a message..."
-      />
-      <button type="submit" disabled={agent.isRunning}>Send</button>
-    </form>
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {agent.messages.map((msg) => (
+          <div key={msg.id} className={msg.role === "user" ? "ml-auto bg-blue-100 rounded-lg p-3 max-w-md" : "bg-gray-100 rounded-lg p-3 max-w-md"}>
+            <p>{msg.content}</p>
+          </div>
+        ))}
+        {agent.isRunning && <div className="text-gray-400">Thinking...</div>}
+      </div>
+
+      {/* [!code highlight:12] */}
+      <form
+        className="border-t p-4 flex gap-2"
+        onSubmit={(e) => { e.preventDefault(); sendMessage(); }}
+      >
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Type a message..."
+          className="flex-1 border rounded-lg px-3 py-2"
+        />
+        <button type="submit" disabled={agent.isRunning}>Send</button>
+      </form>
+    </div>
   );
 }
 ```
+</Step>
 
-## Stop the agent
+<Step>
+### Stop the agent
 
-`copilotkit.stopAgent()` cancels a running agent. Pair it with
-`agent.isRunning` so the stop button only appears while a run is in flight.
+Use `copilotkit.stopAgent()` to cancel a running agent:
 
 ```tsx title="components/custom-chat.tsx"
 const stopAgent = useCallback(() => {
+  // [!code highlight:1]
   copilotkit.stopAgent({ agent });
 }, [agent, copilotkit]);
 
+// In your JSX:
 {agent.isRunning && (
-  <button onClick={stopAgent} className="text-red-500">Stop</button>
+  <button onClick={stopAgent} className="text-red-500">
+    Stop
+  </button>
 )}
 ```
+</Step>
 
-## Subscribe to agent events
+<Step>
+### Subscribe to agent events
 
-Use `agent.subscribe()` to listen for lifecycle events — useful for
-progress indicators, error handling, or responding to custom events like
-LangGraph interrupts.
+Use `agent.subscribe()` to listen for lifecycle events — useful for showing progress indicators, handling errors, or responding to custom events like LangGraph interrupts.
 
 ```tsx title="components/custom-chat.tsx"
 import { useEffect, useState } from "react";
 import type { AgentSubscriber } from "@ag-ui/client";
 
-const [interrupt, setInterrupt] = useState<string | null>(null);
+export function CustomChat() {
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+  const [interrupt, setInterrupt] = useState<string | null>(null);
 
-useEffect(() => {
-  const subscriber: AgentSubscriber = {
-    onCustomEvent: ({ event }) => {
-      if (event.name === "on_interrupt") setInterrupt(event.value);
-    },
+  // [!code highlight:16]
+  useEffect(() => {
+    const subscriber: AgentSubscriber = {
+      onCustomEvent: ({ event }) => {
+        if (event.name === "on_interrupt") {
+          setInterrupt(event.value);
+        }
+      },
+    };
+
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => unsubscribe();
+  }, [agent]);
+
+  const resolveInterrupt = (response: string) => {
+    agent.runAgent({
+      forwardedProps: { command: { resume: response } },
+    });
+    setInterrupt(null);
   };
-  const { unsubscribe } = agent.subscribe(subscriber);
-  return () => unsubscribe();
-}, [agent]);
+
+  return (
+    <div>
+      {/* Messages and input... */}
+
+      {interrupt && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-6 max-w-md">
+            <p className="font-medium mb-4">{interrupt}</p>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              resolveInterrupt(formData.get("response") as string);
+            }}>
+              <input name="response" className="border rounded px-3 py-2 w-full mb-3" />
+              <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
+                Submit
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 ```
+</Step>
 
-## Access shared state
+<Step>
+### Access shared state
 
-If your agent shares state with the frontend, access it via `agent.state`.
-It re-renders on every change, so you can drive custom dashboards, status
-indicators, or parallel views without a chat UI at all.
+If your LangChain agent shares state with the frontend, access it via `agent.state`:
 
-```tsx title="components/agent-dashboard.tsx"
-const { agent } = useAgent();
-const currentNode = agent.state.currentNode as string | undefined;
-const progress = agent.state.progress as number | undefined;
+```tsx title="components/custom-chat.tsx"
+export function AgentDashboard() {
+  const { agent } = useAgent();
+
+  // [!code highlight:3]
+  const currentNode = agent.state.currentNode;
+  const progress = agent.state.progress;
+  const results = agent.state.results;
+
+  return (
+    <div>
+      {currentNode && <div className="text-sm text-gray-500">Current step: {currentNode}</div>}
+      {progress && <div className="w-full bg-gray-200 rounded"><div className="bg-blue-500 h-2 rounded" style={{ width: `${progress}%` }} /></div>}
+      {results && <pre className="bg-gray-50 p-4 rounded">{JSON.stringify(results, null, 2)}</pre>}
+    </div>
+  );
+}
 ```
-
-## Putting it together
-
-The showcase ships two headless examples — a minimal "bare bones" version
-that shows the smallest possible wiring, and a "complete" version with
-custom bubbles, activity messages, and tool-call rendering. Swap the demo
-source in your project to match the level of control you need.
-
-<Snippet region="use-agent-simple" title="frontend/src/app/page.tsx — minimal send-message handler" />
+</Step>
+</Steps>
 
 ## See Also
 
-- [Slot system](/custom-look-and-feel/slots) — Customize the built-in UI without going fully headless
-- [Reasoning messages](/custom-look-and-feel/reasoning-messages) — Swap or rearrange the built-in thinking card
-- [Prebuilt components](/prebuilt-components) — When you want `<CopilotChat>` / `<CopilotSidebar>` / `<CopilotPopup>` instead
+- [Programmatic Control](/langgraph/programmatic-control) — Full `useAgent` reference and advanced patterns
+- [Component Slots](/langgraph/custom-look-and-feel/slots) — Customize the built-in UI without going fully headless
+- [useAgent API Reference](/reference/v2/hooks/useAgent) — Complete API documentation
