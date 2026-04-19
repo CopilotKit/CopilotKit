@@ -1,0 +1,63 @@
+{
+  "framework": "ag2",
+  "features": {
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/agentic-chat-ui",
+      "og_docs_status": "ok",
+      "og_docs_source": "root-fallback",
+      "shell_docs_url": "http://localhost:3000/ag2/agentic-chat-ui",
+      "shell_docs_status": "ok"
+    },
+    "hitl-in-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/human-in-the-loop",
+      "og_docs_status": "ok",
+      "og_docs_source": "integrations/ag2/human-in-the-loop.mdx",
+      "shell_docs_url": "http://localhost:3000/ag2/human-in-the-loop",
+      "shell_docs_status": "ok"
+    },
+    "tool-rendering": {
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/generative-ui/tool-rendering",
+      "og_docs_status": "ok",
+      "og_docs_source": "integrations/ag2/generative-ui/tool-rendering.mdx",
+      "shell_docs_url": "http://localhost:3000/ag2/generative-ui/tool-rendering",
+      "shell_docs_status": "ok"
+    },
+    "gen-ui-tool-based": {
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/generative-ui/tool-rendering",
+      "og_docs_status": "ok",
+      "og_docs_source": "integrations/ag2/generative-ui/tool-rendering.mdx",
+      "shell_docs_url": "http://localhost:3000/ag2/generative-ui/tool-rendering",
+      "shell_docs_status": "ok"
+    },
+    "gen-ui-agent": {
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/generative-ui/state-rendering",
+      "og_docs_status": "ok",
+      "og_docs_source": "integrations/ag2/generative-ui/state-rendering.mdx",
+      "shell_docs_url": "http://localhost:3000/ag2/generative-ui/state-rendering",
+      "shell_docs_status": "ok"
+    },
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/shared-state",
+      "og_docs_status": "ok",
+      "og_docs_source": "integrations/ag2/shared-state/index.mdx",
+      "shell_docs_url": "http://localhost:3000/ag2/shared-state",
+      "shell_docs_status": "ok"
+    },
+    "shared-state-streaming": {
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/shared-state/write",
+      "og_docs_status": "ok",
+      "og_docs_source": "integrations/ag2/shared-state/write.mdx",
+      "shell_docs_url": "http://localhost:3000/ag2/shared-state",
+      "shell_docs_status": "ok",
+      "shell_docs_note": "subpath /ag2/shared-state/write returns 404 in shell; parent page used as fallback"
+    },
+    "subagents": {
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/multi-agent/subagents",
+      "og_docs_status": "unknown",
+      "og_docs_source": "root-fallback",
+      "shell_docs_url": "http://localhost:3000/ag2/multi-agent/subagents",
+      "shell_docs_status": "ok"
+    }
+  },
+  "missing": []
+}
