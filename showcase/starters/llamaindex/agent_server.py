@@ -13,12 +13,28 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 
 from agent.agent import agent_router
 
 load_dotenv()
 
 app = FastAPI(title="LlamaIndex Agent Server")
+
+
+# Serve /health via middleware so it short-circuits BEFORE route resolution.
+# `agent_router` can (now or in the future) register a catch-all at "/" that
+# would shadow a `@app.get("/health")` decorator. Middleware runs above the
+# routing layer, so /health stays reachable regardless.
+class HealthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.url.path == "/health" and request.method == "GET":
+            return JSONResponse({"status": "ok"})
+        return await call_next(request)
+
+
+app.add_middleware(HealthMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,11 +44,6 @@ app.add_middleware(
 )
 
 app.include_router(agent_router)
-
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
 
 
 def main():

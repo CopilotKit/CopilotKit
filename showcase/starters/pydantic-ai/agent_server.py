@@ -9,6 +9,8 @@ import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 from dotenv import load_dotenv
 
 from agent.agent import SalesTodosState, StateDeps, agent
@@ -17,17 +19,28 @@ load_dotenv()
 
 app = FastAPI(title="PydanticAI Agent Server")
 
+
+# Serve /health via middleware so it short-circuits BEFORE route resolution.
+# `app.mount("/", ag_ui_app)` installs a Starlette Mount at the root that
+# matches every path (including /health). A plain `@app.get("/health")`
+# decorator registered before the mount was still shadowed in practice because
+# Mount at "/" is a prefix match rather than an exact one. Middleware runs
+# above the routing layer, which guarantees /health stays reachable.
+class HealthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.url.path == "/health" and request.method == "GET":
+            return JSONResponse({"status": "ok"})
+        return await call_next(request)
+
+
+app.add_middleware(HealthMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Health endpoint MUST be registered BEFORE app.mount("/") — mount creates a catch-all
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
 
 # Mount the PydanticAI AG-UI endpoint at the root
 ag_ui_app = agent.to_ag_ui(deps=StateDeps(SalesTodosState()))

@@ -1,5 +1,5 @@
 # Docker Compose stack for e2e smoke testing with aimock.
-# Mirrors the user experience: Next.js frontend + langgraph dev agent + aimock as LLM.
+# Mirrors the user experience: Vite frontend + BFF + langgraph dev agent + aimock as LLM.
 # Usage: docker compose -f docker-compose.test.yml up -d
 services:
   aimock:
@@ -32,14 +32,36 @@ services:
       retries: 30
       start_period: 30s
 
+  bff:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.bff
+    environment:
+      - LANGGRAPH_DEPLOYMENT_URL=http://agent:8123
+    depends_on:
+      agent:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const net = require('net'); const socket = net.connect(4000, '127.0.0.1', () => { socket.end(); process.exit(0); }); socket.on('error', () => process.exit(1)); socket.setTimeout(2000, () => { socket.destroy(); process.exit(1); });",
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
+
   app:
     build:
       context: .
       dockerfile: docker/Dockerfile.app
     environment:
-      - LANGGRAPH_DEPLOYMENT_URL=http://agent:8123
+      - COPILOTKIT_RUNTIME_URL=http://bff:4000/api/copilotkit
     depends_on:
-      agent:
+      bff:
         condition: service_healthy
     healthcheck:
       test:

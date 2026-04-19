@@ -81,6 +81,24 @@ const EXIT_UNREADABLE = 3 as const;
 const EXIT_INTERNAL = 4 as const;
 
 /**
+ * Strip the leading "/demos/" prefix from a demo route and return the
+ * on-disk directory name (the segment under src/app/demos/). Returns
+ * `undefined` when the route is `undefined` OR when the resulting
+ * segment is empty (a route of exactly "/demos/" is malformed — but
+ * parseManifest already enforces a non-empty tail, so this fallback
+ * is a defence-in-depth guard, not a primary validation).
+ *
+ * Keep in sync with bundle-demo-content.ts, which applies the same
+ * route → dir transformation when copying per-demo READMEs into the
+ * bundled content payload.
+ */
+export function routeToDirName(route: string | undefined): string | undefined {
+  if (route === undefined) return undefined;
+  const stripped = route.replace(/^\/demos\//, "");
+  return stripped.length > 0 ? stripped : undefined;
+}
+
+/**
  * Literal union of every exit code `runParity` can return. Exposed so
  * in-process callers (tests, composed CLIs) can pattern-match against
  * the taxonomy without re-declaring magic numbers.
@@ -200,7 +218,7 @@ export type PackageIssue =
   | { category: "missing-manifest" }
   | { category: "unreadable-manifest"; error: string }
   | { category: "malformed-manifest"; error: string }
-  | { category: "missing-demo-dir"; demoId: string }
+  | { category: "missing-demo-dir"; demoId: string; expectedDir: string }
   | { category: "unreadable-demos-dir"; path: string; error: string }
   | { category: "unreadable-specs-dir"; path: string; error: string }
   | { category: "unreadable-qa-dir"; path: string; error: string }
@@ -234,7 +252,18 @@ export function deriveMessage(issue: PackageIssue): string {
     case "malformed-manifest":
       return `unparseable manifest.yaml: ${issue.error}`;
     case "missing-demo-dir":
-      return `demo '${issue.demoId}' declared in manifest but no demos/${issue.demoId}/ (or legacy src/app/demos/${issue.demoId}/) directory`;
+      // Include both the catalog id AND the expected on-disk directory
+      // because they can differ: `id` is the catalog key (matched
+      // against qa/spec filenames) while the on-disk directory comes
+      // from `demo.route` ("/demos/<dir>" → `src/app/demos/<dir>/`).
+      // Rendering only the id here hid route/id mismatches — operators
+      // saw the error but not the path the validator actually probed.
+      // Mention both the new per-column layout (<pkg>/demos/<dir>/) and
+      // the legacy shared-tree layout (<pkg>/src/app/demos/<dir>/) since
+      // auditPackage unions both locations when checking existence.
+      return issue.demoId === issue.expectedDir
+        ? `demo '${issue.demoId}' declared in manifest but no demos/${issue.expectedDir}/ (or legacy src/app/demos/${issue.expectedDir}/) directory`
+        : `demo '${issue.demoId}' declared in manifest but no demos/${issue.expectedDir}/ (or legacy src/app/demos/${issue.expectedDir}/) directory (resolved from route)`;
     case "unreadable-demos-dir":
       return `unreadable demos directory: failed to read directory ${issue.path}: ${issue.error}`;
     case "unreadable-specs-dir":
@@ -663,14 +692,25 @@ export function auditPackage(
   const specIdSet = new Set(specFiles.map((f) => f.replace(/\.spec\.ts$/, "")));
   const qaIdSet = new Set(qaFiles.map((f) => f.replace(/\.md$/, "")));
 
-  // MUST: every declared demo has a demos/<id>/ directory. Suppressed
-  // entirely when the demos/ dir itself is unreadable — a single
-  // unreadable-demos-dir MUST is clearer than N cascaded missing-demo-dir
-  // errors that all trace to the same EACCES root cause.
+  // MUST: every declared demo has a demos/<dir>/ directory. The
+  // expected directory is resolved from `demo.route` ("/demos/<dir>")
+  // when present, falling back to `demo.id` when absent. `id` is the
+  // CATALOG identifier (matched against qa/spec filenames); `route`
+  // is the URL + filesystem path. They are DELIBERATELY separate — a
+  // manifest with `id: hitl-in-chat` and `route: /demos/hitl` resolves
+  // to `src/app/demos/hitl/`. bundle-demo-content.ts uses the same
+  // idiom. Suppressed entirely when the demos/ dir itself is unreadable
+  // — a single unreadable-demos-dir MUST is clearer than N cascaded
+  // missing-demo-dir errors that all trace to the same EACCES root cause.
   if (!demosDirUnreadable) {
-    for (const id of demoIds) {
-      if (!demoDirSet.has(id)) {
-        mustErrors.push({ category: "missing-demo-dir", demoId: id });
+    for (const demo of demos) {
+      const expectedDir = routeToDirName(demo.route) ?? demo.id;
+      if (!demoDirSet.has(expectedDir)) {
+        mustErrors.push({
+          category: "missing-demo-dir",
+          demoId: demo.id,
+          expectedDir,
+        });
       }
     }
   }

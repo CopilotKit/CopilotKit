@@ -13,6 +13,8 @@ import os
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 from dotenv import load_dotenv
 
 from agent.agui_adapter import handle_run
@@ -20,6 +22,19 @@ from agent.agui_adapter import handle_run
 load_dotenv()
 
 app = FastAPI(title="Langroid Agent Server")
+
+
+# Serve /health via middleware so it short-circuits BEFORE route resolution.
+# Applied uniformly across every showcase FastAPI agent server so /health
+# remains reachable even if future changes introduce a catch-all mount at "/".
+class HealthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.url.path == "/health" and request.method == "GET":
+            return JSONResponse({"status": "ok"})
+        return await call_next(request)
+
+
+app.add_middleware(HealthMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,11 +48,6 @@ app.add_middleware(
 async def run_agent(request: Request):
     """AG-UI /run endpoint — streams SSE events."""
     return await handle_run(request)
-
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
 
 
 def main():

@@ -12,3 +12,9 @@ test-results/
 # Shared modules (copied by CI)
 shared_frontend/
 shared_python/
+
+# .NET build outputs
+bin/
+obj/
+*.user
+*.suo
