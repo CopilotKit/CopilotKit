@@ -399,4 +399,42 @@ public class GenerateA2uiErrorBranchTests
             new HashSet<string> { "error", "message", "remediation", "errorId" },
             keys);
     }
+
+    [Fact]
+    public void NullContent_ReturnsStructuredError_EmptyLlmOutput()
+    {
+        // result.Text from the upstream chat client can legitimately be null
+        // (content filter tripped, empty completion, model refusal). The old
+        // code propagated that straight into BuildA2uiResponseFromContent,
+        // which did ArgumentNullException.ThrowIfNull(content) — escaping as
+        // an uncaught NRE that broke the structured-error contract. Now the
+        // helper returns a structured empty_llm_output error instead.
+        var output = SalesAgentFactory.BuildA2uiResponseFromContent(
+            null,
+            ErrorId,
+            NewLogger());
+
+        var doc = ParseToElement(output);
+        Assert.Equal("empty_llm_output", doc.GetProperty("error").GetString());
+        Assert.Equal(ErrorId, doc.GetProperty("errorId").GetString());
+        Assert.False(string.IsNullOrEmpty(doc.GetProperty("message").GetString()));
+        Assert.False(string.IsNullOrEmpty(doc.GetProperty("remediation").GetString()));
+    }
+
+    [Fact]
+    public void EmptyContent_ReturnsStructuredError_EmptyLlmOutput()
+    {
+        // Empty string is treated the same as null: the upstream produced no
+        // usable text content. JsonDocument.Parse("") would throw JsonException
+        // and be reported as malformed_llm_output, which is less accurate — an
+        // empty string isn't malformed, it's absent. Guard it up-front.
+        var output = SalesAgentFactory.BuildA2uiResponseFromContent(
+            string.Empty,
+            ErrorId,
+            NewLogger());
+
+        var doc = ParseToElement(output);
+        Assert.Equal("empty_llm_output", doc.GetProperty("error").GetString());
+        Assert.Equal(ErrorId, doc.GetProperty("errorId").GetString());
+    }
 }

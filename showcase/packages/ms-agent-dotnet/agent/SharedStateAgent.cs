@@ -65,6 +65,18 @@ internal sealed class SharedStateAgent : DelegatingAIAgent
         return RunStreamingAsync(messages, thread, options, cancellationToken).ToAgentRunResponseAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Streams updates from the inner agent, optionally wrapped in a
+    /// two-pass JSON-schema state-sync flow when the caller's AG-UI state
+    /// carries sales data. On the success path the emitted stream contains
+    /// a <see cref="DataContent"/> update carrying the JSON state snapshot
+    /// (application/json). On the deserialize-failure fallback path the
+    /// stream contains ONLY the buffered text updates from the first pass —
+    /// no <see cref="DataContent"/> is emitted, and no user-facing notice is
+    /// injected. Consumers that need to detect the fallback (e.g. to surface
+    /// "[state sync unavailable]" in the UI) should observe the absence of
+    /// any <see cref="DataContent"/> update in the emitted stream.
+    /// </summary>
     public override async IAsyncEnumerable<AgentRunResponseUpdate> RunStreamingAsync(
         IEnumerable<ChatMessage> messages,
         AgentThread? thread = null,
@@ -125,6 +137,11 @@ internal sealed class SharedStateAgent : DelegatingAIAgent
         var bufferedTextUpdates = new List<AgentRunResponseUpdate>();
         var bufferedTextCharCount = 0;
         var bufferCapWarned = false;
+        // Total chars we dropped after hitting the cap. Logged as a final
+        // summary on stream completion so operators can see the true drop
+        // volume — not just "we hit the cap" (the one-shot warning) but
+        // "we dropped N additional chars after that".
+        var droppedAfterCapChars = 0;
         await foreach (var update in InnerAgent.RunStreamingAsync(firstRunMessages, thread, firstRunOptions, cancellationToken).ConfigureAwait(false))
         {
             allUpdates.Add(update);
@@ -147,21 +164,39 @@ internal sealed class SharedStateAgent : DelegatingAIAgent
                 // Cap memory usage of the buffered replay. Once we exceed the
                 // cap we stop retaining new text-only updates; deserialize
                 // fallback will replay only what we managed to buffer. We log
-                // exactly once to avoid spam.
+                // exactly once on first drop to avoid spam, and emit a final
+                // summary with the total dropped chars below.
                 var incomingChars = update.Contents.OfType<TextContent>().Sum(tc => tc.Text?.Length ?? 0);
                 if (bufferedTextCharCount + incomingChars <= MaxBufferedTextChars)
                 {
                     bufferedTextUpdates.Add(update);
                     bufferedTextCharCount += incomingChars;
                 }
-                else if (!bufferCapWarned)
+                else
                 {
-                    bufferCapWarned = true;
-                    _logger.LogWarning(
-                        "SharedStateAgent: buffered text updates exceeded {Cap} chars; dropping subsequent text updates for deserialize-failure fallback.",
-                        MaxBufferedTextChars);
+                    droppedAfterCapChars += incomingChars;
+                    if (!bufferCapWarned)
+                    {
+                        bufferCapWarned = true;
+                        _logger.LogWarning(
+                            "SharedStateAgent: buffered text updates exceeded {Cap} chars; dropping subsequent text updates for deserialize-failure fallback.",
+                            MaxBufferedTextChars);
+                    }
                 }
             }
+        }
+
+        // Final summary for the buffer cap. Emitted only when the cap was
+        // actually hit, so quiet streams don't produce noisy logs. Reports
+        // buffered chars vs. dropped chars so operators can size the cap
+        // against real traffic rather than guess.
+        if (bufferCapWarned)
+        {
+            _logger.LogWarning(
+                "SharedStateAgent: first-pass stream complete. Buffered {Buffered} chars (cap {Cap}); dropped {Dropped} additional chars after cap was hit.",
+                bufferedTextCharCount,
+                MaxBufferedTextChars,
+                droppedAfterCapChars);
         }
 
         var response = allUpdates.ToAgentRunResponse();

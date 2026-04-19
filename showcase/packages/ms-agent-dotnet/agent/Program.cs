@@ -462,8 +462,12 @@ public class SalesAgentFactory
 
         // Correlation id so server logs can be tied to the structured error
         // we return to the caller / LLM. Callers can quote this in bug
-        // reports without leaking stack traces or internal paths.
-        var errorId = Guid.NewGuid().ToString("n")[..8];
+        // reports without leaking stack traces or internal paths. 16 hex
+        // chars = 64 bits of entropy — matches SalesTodo.Id (see lines ~99-102
+        // for the rationale); 8 chars (~32 bits) has a non-trivial collision
+        // risk at operational scale and we want errorIds to uniquely correlate
+        // log lines even across busy deployments.
+        var errorId = Guid.NewGuid().ToString("n")[..16];
         _logger.LogInformation("Generating A2UI (errorId={ErrorId}) for: {Request}", errorId, userRequest);
 
         var secondaryChatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
@@ -499,7 +503,7 @@ Available components: Row, Column, Text, Card, Button, Badge, Table, Chart.";
         // ex.Message verbatim — we log the full exception server-side with
         // the correlation id so operators can correlate without exposing
         // provider internals to the caller.
-        string content;
+        string? content;
         try
         {
             var result = await secondaryChatClient.GetResponseAsync(messages, cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -529,21 +533,44 @@ Available components: Row, Column, Text, Card, Button, Badge, Table, Chart.";
             throw;
         }
 
+        // result.Text can legitimately return null (upstream returned no text
+        // content — e.g. model refused, empty completion, content filter).
+        // BuildA2uiResponseFromContent requires non-null input; catching the
+        // null here returns a structured error instead of letting an NRE
+        // escape uncaught and break the structured-error contract.
+        if (string.IsNullOrEmpty(content))
+        {
+            _logger.LogError("GenerateA2ui (errorId={ErrorId}): upstream returned no text content", errorId);
+            return StructuredError("empty_llm_output", "Model returned no text content", "Retry or check model availability", errorId);
+        }
+
         return BuildA2uiResponseFromContent(content, errorId, _logger);
     }
 
     /// <summary>
     /// Parses an LLM-produced string into an A2UI operations payload, or a
-    /// structured error if the content is malformed. Exposed as
-    /// <c>internal static</c> so unit tests can exercise each error branch
-    /// (JsonException, shape mismatch, ArgumentException) directly without
-    /// standing up an OpenAI client.
+    /// structured error if the content is malformed, null, or empty. Exposed
+    /// as <c>internal static</c> so unit tests can exercise each error branch
+    /// (empty_llm_output, JsonException, shape mismatch, ArgumentException)
+    /// directly without standing up an OpenAI client.
     /// </summary>
-    internal static string BuildA2uiResponseFromContent(string content, string errorId, ILogger logger)
+    /// <remarks>
+    /// Null/empty content is reported as a structured <c>empty_llm_output</c>
+    /// error rather than thrown as an NRE. This matches the contract of the
+    /// <see cref="GenerateA2ui"/> caller (which guards null at the call site)
+    /// and ensures the helper itself is robust to defensive / test callers
+    /// that pass through whatever the upstream produced.
+    /// </remarks>
+    internal static string BuildA2uiResponseFromContent(string? content, string errorId, ILogger logger)
     {
-        ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(errorId);
         ArgumentNullException.ThrowIfNull(logger);
+
+        if (string.IsNullOrEmpty(content))
+        {
+            logger.LogError("GenerateA2ui (errorId={ErrorId}): content was null or empty", errorId);
+            return StructuredError("empty_llm_output", "Model returned no text content", "Retry or check model availability", errorId);
+        }
 
         // JsonDocument.Parse can throw JsonException on malformed input.
         // This is isolated from the parse-the-shape errors below so we can

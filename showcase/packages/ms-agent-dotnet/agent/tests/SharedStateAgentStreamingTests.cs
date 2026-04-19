@@ -224,10 +224,13 @@ public class SharedStateAgentStreamingTests
             }
         }
 
-        // Replay must be bounded by the cap. We allow up to chunkSize of
-        // slack because the buffering admission check is pre-increment
-        // (i.e. a chunk that would cross the cap is rejected; already-
-        // admitted chunks are kept).
+        // Replay must be bounded strictly by the cap. The buffering admission
+        // check is pre-increment: a chunk that WOULD cross the cap is rejected
+        // in full (no partial admission), and already-admitted chunks are
+        // kept. So the replayed total is always <= MaxBufferedTextChars — no
+        // slack. If enforcement ever becomes post-increment (admit first, then
+        // check), the bound would loosen to <= MaxBufferedTextChars + chunkSize
+        // and this assertion would need to relax accordingly.
         Assert.True(
             totalReplayedChars <= SSA.MaxBufferedTextChars,
             $"Replayed {totalReplayedChars} chars; cap is {SSA.MaxBufferedTextChars}.");
