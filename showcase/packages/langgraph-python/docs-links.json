@@ -22,12 +22,12 @@
       "shell_docs_path": "/prebuilt-components"
     },
     "chat-slots": {
-      "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/slots",
+      "og_docs_url": "https://docs.copilotkit.ai/langgraph/custom-look-and-feel/slots",
       "shell_docs_path": "/custom-look-and-feel/slots"
     },
     "chat-customization-css": {
       "og_docs_url": null,
-      "shell_docs_path": null
+      "shell_docs_path": "/custom-look-and-feel/css"
     },
     "headless-simple": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/custom-look-and-feel/headless-ui",
@@ -38,12 +38,12 @@
       "shell_docs_path": "/custom-look-and-feel/headless-ui"
     },
     "agentic-chat-reasoning": {
-      "og_docs_url": null,
-      "shell_docs_path": null
+      "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/reasoning-messages",
+      "shell_docs_path": "/custom-look-and-feel/reasoning-messages"
     },
     "reasoning-default-render": {
-      "og_docs_url": null,
-      "shell_docs_path": null
+      "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/reasoning-messages",
+      "shell_docs_path": "/custom-look-and-feel/reasoning-messages"
     },
     "frontend-tools": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/frontend-tools",
@@ -59,23 +59,23 @@
     },
     "gen-ui-interrupt": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/your-components/interrupt-based",
-      "shell_docs_path": null
+      "shell_docs_path": "/generative-ui/your-components/interrupt-based"
     },
     "interrupt-headless": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/human-in-the-loop/interrupt-flow",
-      "shell_docs_path": null
+      "shell_docs_path": "/human-in-the-loop/headless"
     },
     "declarative-gen-ui": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/a2ui/dynamic-schema",
-      "shell_docs_path": "/generative-ui/a2ui"
+      "shell_docs_path": "/generative-ui/a2ui/dynamic-schema"
     },
     "declarative-gen-ui-hardcoded": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/a2ui/dynamic-schema",
-      "shell_docs_path": "/generative-ui/a2ui"
+      "shell_docs_path": "/generative-ui/a2ui/dynamic-schema"
     },
     "a2ui-fixed-schema": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/a2ui/fixed-schema",
-      "shell_docs_path": "/generative-ui/a2ui"
+      "shell_docs_path": "/generative-ui/a2ui/fixed-schema"
     },
     "mcp-apps": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/mcp-apps",
@@ -83,15 +83,15 @@
     },
     "open-gen-ui": {
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
-      "shell_docs_path": null
+      "shell_docs_path": "/generative-ui/open-generative-ui"
     },
     "open-gen-ui-advanced": {
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
-      "shell_docs_path": null
+      "shell_docs_path": "/generative-ui/open-generative-ui"
     },
     "gen-ui-agent": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/state-rendering",
-      "shell_docs_path": null
+      "shell_docs_path": "/generative-ui/state-rendering"
     },
     "tool-rendering-default-catchall": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/tool-rendering",
@@ -127,7 +127,7 @@
     },
     "subagents": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/multi-agent-flows",
-      "shell_docs_path": null
+      "shell_docs_path": "/multi-agent/subagents"
     }
   }
 }
