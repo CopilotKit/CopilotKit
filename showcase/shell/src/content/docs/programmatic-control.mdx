@@ -1,89 +1,624 @@
 ---
 title: Programmatic Control
-icon: "lucide/Terminal"
-description: Drive agent runs directly from code — no chat UI required.
-hideTOC: true
-snippet_framework: langgraph-python
-snippet_cell: headless-complete
+icon: "lucide/SendHorizontal"
+description: Chat with an agent using CopilotKit's UI components.
 ---
 
-## What is this?
+## Overview
 
-Programmatic control is what you reach for when you want to drive an
-agent run from code rather than from a chat composer — a button, a
-form, a cron job, a keyboard shortcut, a graph callback. CopilotKit
-exposes three primitives that cover every triggering pattern:
+The `useAgent` hook provides direct access to your LangChain agent from any React component. It gives you real-time access to the agent's state, messages, execution status, and allows you to subscribe to custom events like interrupts.
 
-- `agent.addMessage(...)` — append a message to the conversation without running the agent. Pair with `copilotkit.runAgent({ agent })` when you want the appended message to kick off a turn.
-- `copilotkit.runAgent({ agent })` — the same entry point `<CopilotChat />` calls under the hood. Orchestrates frontend tools, follow-up runs, and the subscriber lifecycle.
-- `agent.subscribe(subscriber)` — low-level AG-UI event subscription (`onCustomEvent`, `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, …). Pairs with `agent.runAgent({ forwardedProps: { command: { resume, interruptEvent } } })` to drive interrupt resolution from arbitrary UI.
+This enables you to build custom agent dashboards, monitoring tools, and interactive features that respond to your agent's behavior.
 
-Every example on this page is pulled from two live cells:
-`headless-complete` (full chat surface, shown here for the message-send
-path) and `interrupt-headless` (button-driven interrupt resolver, shown
-here for the subscribe + resume path).
+## Navigation
 
-## When should I use this?
+This page covers everything you need to know about using `useAgent` with LangChain. Select where you'd like to get started below.
 
-Use programmatic control when you want to:
+<Cards className="gap-6">
+  <Card
+    icon={<MessageCircle className="text-primary" />}
+    className="p-6 rounded-xl text-base md:col-span-2"
+    title="Getting started"
+    description="Learn the basics of accessing your agent and displaying its properties."
+    href="#getting-started"
+  />
+  <Card
+    icon={<Play className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="Running the Agent"
+    description="Trigger your agent programmatically with copilotkit.runAgent()."
+    href="#running-the-agent-programmatically"
+  />
+  <Card
+    icon={<Database className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="Working with State"
+    description="Access and update shared state between your app and agent."
+    href="#working-with-state"
+  />
+  <Card
+    icon={<Zap className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="Agent Events"
+    description="Subscribe to agent lifecycle events and custom events."
+    href="#subscribing-to-agent-events"
+  />
+  <Card
+    icon={<AlertCircle className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="LangGraph Interrupts"
+    description="Handle interrupt() calls from your LangChain agent."
+    href="#handling-langgraph-interrupts"
+  />
+  <Card
+    icon={<Settings className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="Fully Headless UI"
+    description="Build a completely custom chat interface from the ground up using CopilotKit's headless hooks."
+    href="custom-look-and-feel/headless-ui"
+  />
+  <Card
+    icon={<BookOpen className="text-primary" />}
+    className="p-6 rounded-xl text-base"
+    title="Reference"
+    description="Complete API reference documentation for useAgent."
+    href="/reference/v2/hooks/useAgent"
+  />
+</Cards>
 
-- Trigger agent runs from buttons, forms, or other UI elements
-- Execute specific tools directly from UI interactions (without an LLM turn)
-- Build agent features without a chat window
-- Access agent state and results programmatically
-- Create fully custom agent-driven workflows
+## Getting started
 
-## Sending a message from code
+Let's start by building a simple component that displays agent information.
 
-The message-send path in `headless-complete` is the canonical pattern:
-append a user message with `agent.addMessage`, then call
-`copilotkit.runAgent({ agent })`. The same `handleStop` calls
-`copilotkit.stopAgent({ agent })` to cancel mid-run. Note the
-`connectAgent` effect at the top — it opens the backend session on
-mount so the very first `runAgent` doesn't race the handshake.
+<Steps>
+  <Step>
+    ### Import the hook
 
-<Snippet region="page-send-message" title="frontend/src/app/page.tsx — connect, send, stop" />
+    First, import `useAgent` from the v2 package:
+
+    ```tsx title="page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    ```
+  </Step>
+
+  <Step>
+    ### Access your agent
+
+    Call the hook to get a reference to your agent:
+
+    ```tsx title="page.tsx"
+    export function AgentInfo() {
+      const { agent } = useAgent(); // [!code highlight]
+
+      return (
+        <div>
+          {/* [!code highlight:4] */}
+          <p>Agent ID: {agent.id}</p>
+          <p>Thread ID: {agent.threadId}</p>
+          <p>Status: {agent.isRunning ? "Running" : "Idle"}</p>
+          <p>Messages: {agent.messages.length}</p>
+        </div>
+      );
+    }
+    ```
+
+    The hook will throw an error if no agent is configured, so you can safely use `agent` without null checks.
+  </Step>
+
+  <Step>
+    ### Display messages
+
+    Access the agent's conversation history:
+
+    ```tsx title="page.tsx"
+    export function MessageList() {
+      const { agent } = useAgent();
+
+      return (
+        <div>
+          {/* [!code highlight:6] */}
+          {agent.messages.map((msg) => (
+            <div key={msg.id}>
+              <strong>{msg.role}:</strong>
+              <span>{msg.content}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    ```
+  </Step>
+
+  <Step>
+    ### Show running status
+
+    Add a loading indicator when the agent is processing:
+
+    ```tsx title="page.tsx"
+    export function AgentStatus() {
+      const { agent } = useAgent();
+
+      return (
+        <div>
+          {/* [!code highlight:8] */}
+          {agent.isRunning ? (
+            <div>
+              <div className="spinner" />
+              <span>Agent is processing...</span>
+            </div>
+          ) : (
+            <span>Ready</span>
+          )}
+        </div>
+      );
+    }
+    ```
+  </Step>
+
+  <Step>
+    ### Run the agent
+
+    Use `copilotkit.runAgent()` to trigger your agent programmatically:
+
+    ```tsx title="page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2";
+    import { useCopilotKit } from "@copilotkit/react-core/v2";
+    import { randomUUID } from "@copilotkit/shared/v2";
+
+    export function RunAgent() {
+      const { agent } = useAgent();
+      // [!code highlight:1]
+      const { copilotkit } = useCopilotKit();
+
+      const handleRun = async () => {
+        agent.addMessage({
+          id: randomUUID(),
+          role: "user",
+          content: "Hello, agent!",
+        });
+
+        // [!code highlight:1]
+        await copilotkit.runAgent({ agent });
+      };
+
+      return <button onClick={handleRun}>Send</button>;
+    }
+    ```
+
+    `copilotkit.runAgent()` orchestrates the full agent lifecycle — executing frontend tools, handling follow-up runs, and streaming results. This is the same method `<CopilotChat />` uses internally.
+  </Step>
+</Steps>
+
+## Working with State
+
+Agents expose their state through the `agent.state` property. This state is shared between your application and the agent - both can read and modify it.
+
+### Reading State
+
+Access your agent's current state:
+
+```tsx title="page.tsx"
+export function StateDisplay() {
+  const { agent } = useAgent();
+
+  return (
+    <div>
+      <h3>Agent State</h3>
+      {/* [!code highlight:1] */}
+      <pre>{JSON.stringify(agent.state, null, 2)}</pre>
+
+      {/* Access specific properties */}
+      {/* [!code highlight:2] */}
+      {agent.state.user_name && <p>User: {agent.state.user_name}</p>}
+      {agent.state.preferences && <p>Preferences: {JSON.stringify(agent.state.preferences)}</p>}
+    </div>
+  );
+}
+```
+
+Your component automatically re-renders when the agent's state changes.
+
+### Updating State
+
+Update state that your agent can access:
+
+```tsx title="page.tsx"
+export function ThemeSelector() {
+  const { agent } = useAgent();
+
+  const updateTheme = (theme: string) => {
+    // [!code highlight:4]
+    agent.setState({
+      ...agent.state,
+      user_theme: theme,
+    });
+  };
+
+  return (
+    <div>
+      {/* [!code highlight:2] */}
+      <button onClick={() => updateTheme("dark")}>Dark Mode</button>
+      <button onClick={() => updateTheme("light")}>Light Mode</button>
+      <p>Current: {agent.state.user_theme || "default"}</p>
+    </div>
+  );
+}
+```
+
+State updates are immediately available to your agent in its next execution.
+
+## Subscribing to Agent Events
+
+You can subscribe to agent events using the `subscribe()` method. This is useful for logging, monitoring, or responding to specific agent behaviors.
+
+### Basic Event Subscription
+
+```tsx title="page.tsx"
+import { useEffect } from "react";
+import { useAgent } from "@copilotkit/react-core/v2";
+import type { AgentSubscriber } from "@ag-ui/client";
+
+export function EventLogger() {
+  const { agent } = useAgent();
+
+  useEffect(() => {
+    // [!code highlight:15]
+    const subscriber: AgentSubscriber = {
+      onCustomEvent: ({ event }) => {
+        console.log("Custom event:", event.name, event.value);
+      },
+      onRunStartedEvent: () => {
+        console.log("Agent started running");
+      },
+      onRunFinalized: () => {
+        console.log("Agent finished running");
+      },
+      onStateChanged: (state) => {
+        console.log("State changed:", state);
+      },
+    };
+
+    // [!code highlight:2]
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => unsubscribe();
+  }, []);
+
+  return null;
+}
+```
+
+### Available Events
+
+The `AgentSubscriber` interface provides:
+
+- **`onCustomEvent`** - Custom events emitted by the agent
+- **`onRunStartedEvent`** - Agent starts executing
+- **`onRunFinalized`** - Agent completes execution
+- **`onStateChanged`** - Agent's state changes
+- **`onMessagesChanged`** - Messages are added or modified
+
+## Rendering Tool Calls
+
+You can customize how agent tool calls are displayed in your UI. First, define your tool renderers:
+
+```tsx title="components/weather-tool.tsx"
+import { defineToolCallRenderer } from "@copilotkit/react-core/v2";
+
+// [!code highlight:6]
+export const weatherToolRender = defineToolCallRenderer({
+  name: "get_weather",
+  render: ({ args, status }) => {
+    return <WeatherCard location={args.location} status={status} />;
+  },
+});
+
+function WeatherCard({ location, status }: { location?: string; status: string }) {
+  return (
+    <div className="rounded-lg border p-6 shadow-sm">
+      <h3 className="text-xl font-semibold">Weather in {location}</h3>
+      <div className="mt-4">
+        <span className="text-5xl font-light">70°F</span>
+      </div>
+      {status === "executing" && <div className="spinner">Loading...</div>}
+    </div>
+  );
+}
+```
+
+Register your tool renderers with CopilotKit:
+
+```tsx title="layout.tsx"
+import { CopilotKit } from "@copilotkit/react-core";
+import { weatherToolRender } from "./components/weather-tool";
+
+export default function RootLayout({ children }) {
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      {/* [!code highlight:1] */}
+      renderToolCalls={[weatherToolRender]}
+    >
+      {children}
+    </CopilotKit>
+  );
+}
+```
+
+Then use `useRenderToolCall` to render tool calls from agent messages:
+
+```tsx title="components/message-list.tsx"
+import { useAgent, useRenderToolCall } from "@copilotkit/react-core/v2";
+
+export function MessageList() {
+  const { agent } = useAgent();
+  const renderToolCall = useRenderToolCall();
+
+  return (
+    <div className="messages">
+      {agent.messages.map((message) => (
+        <div key={message.id}>
+          {/* Display message content */}
+          {message.content && <p>{message.content}</p>}
+
+          {/* Render tool calls if present */}
+          {/* [!code highlight:9] */}
+          {message.role === "assistant" && message.toolCalls?.map((toolCall) => {
+            const toolMessage = agent.messages.find(
+              (m) => m.role === "tool" && m.toolCallId === toolCall.id
+            );
+            return (
+              <div key={toolCall.id}>
+                {renderToolCall({ toolCall, toolMessage })}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Building a Complete Dashboard
+
+Here's a full example combining all concepts into an interactive agent dashboard:
+
+```tsx title="page.tsx"
+"use client";
+
+import { useAgent } from "@copilotkit/react-core/v2";
+
+export default function AgentDashboard() {
+  const { agent } = useAgent();
+
+  return (
+    <div className="p-8 max-w-4xl mx-auto space-y-6">
+      {/* Status */}
+      <div className="p-6 bg-white rounded-lg shadow">
+        <h2 className="text-xl font-bold mb-4">Agent Status</h2>
+        <div className="space-y-2">
+          {/* [!code highlight:6] */}
+          <div className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${
+              agent.isRunning ? "bg-yellow-500 animate-pulse" : "bg-green-500"
+            }`} />
+            <span>{agent.isRunning ? "Running" : "Idle"}</span>
+          </div>
+          <div>Thread: {agent.threadId}</div>
+          <div>Messages: {agent.messages.length}</div>
+        </div>
+      </div>
+
+      {/* State */}
+      <div className="p-6 bg-white rounded-lg shadow">
+        <h2 className="text-xl font-bold mb-4">Agent State</h2>
+        {/* [!code highlight:3] */}
+        <pre className="bg-gray-50 p-4 rounded text-sm overflow-auto">
+          {JSON.stringify(agent.state, null, 2)}
+        </pre>
+      </div>
+
+      {/* Messages */}
+      <div className="p-6 bg-white rounded-lg shadow">
+        <h2 className="text-xl font-bold mb-4">Conversation</h2>
+        <div className="space-y-3">
+          {/* [!code highlight:11] */}
+          {agent.messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`p-3 rounded-lg ${
+                msg.role === "user" ? "bg-blue-50 ml-8" : "bg-gray-50 mr-8"
+              }`}
+            >
+              <div className="font-semibold text-sm mb-1">
+                {msg.role === "user" ? "You" : "Agent"}
+              </div>
+              <div>{msg.content}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+### Node-Specific State
+
+If your LangChain agent tracks which node it's in, you can show contextual UI:
+
+```tsx title="page.tsx"
+export function NodeStatus() {
+  const { agent } = useAgent();
+
+  // [!code highlight:1]
+  const currentNode = agent.state.currentNode;
+
+  return (
+    <div>
+      {/* [!code highlight:6] */}
+      {currentNode === "research_node" && (
+        <div className="alert">Agent is researching your query...</div>
+      )}
+      {currentNode === "summarize_node" && (
+        <div className="alert">Agent is summarizing findings...</div>
+      )}
+    </div>
+  );
+}
+```
+
+## Running the Agent Programmatically
+
+Use `copilotkit.runAgent()` to trigger your agent from any component — no chat UI required. This is the same method CopilotKit's built-in `<CopilotChat />` uses internally.
+
+```tsx title="page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2";
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+import { randomUUID } from "@copilotkit/shared/v2";
+
+export function AgentTrigger() {
+  const { agent } = useAgent();
+  // [!code highlight:1]
+  const { copilotkit } = useCopilotKit();
+
+  const handleRun = async () => {
+    // Add a user message to the agent's conversation
+    agent.addMessage({
+      id: randomUUID(),
+      role: "user",
+      content: "Summarize the latest sales data",
+    });
+
+    // [!code highlight:2]
+    // Run the agent — handles tool execution, follow-ups, and streaming
+    await copilotkit.runAgent({ agent });
+  };
+
+  return <button onClick={handleRun}>Run Agent</button>;
+}
+```
 
 ### `copilotkit.runAgent()` vs `agent.runAgent()`
 
 Both methods trigger the agent, but they operate at different levels:
 
-- **`copilotkit.runAgent({ agent })`** — the recommended default. Orchestrates the full lifecycle: executes frontend tools, handles follow-up runs, and routes errors through the subscriber system.
-- **`agent.runAgent(options)`** — low-level method on the agent instance. Sends the request to the runtime but does **not** execute frontend tools or chain follow-ups. Reach for this only when you need direct control — the canonical example is resuming from an interrupt with `forwardedProps.command`.
+- **`copilotkit.runAgent({ agent })`** — The recommended approach. Orchestrates the full agent lifecycle: executes frontend tools, handles follow-up runs when tools request them, and manages errors through the subscriber system.
+- **`agent.runAgent()`** — Low-level method on the agent instance. Sends the request to the runtime but does **not** execute frontend tools or handle follow-ups. Use this only when you need direct control over the agent execution (e.g., resuming from an interrupt with `forwardedProps`).
 
-## Subscribing to agent events
+### Stopping a Run
 
-`agent.subscribe(subscriber)` returns `{ unsubscribe }`. The subscriber
-object accepts every AG-UI lifecycle callback — `onCustomEvent`,
-`onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, and the streaming
-deltas. Use it to drive custom progress UI, forward events to
-analytics, or — the pattern below — catch LangGraph `interrupt(...)`
-events and resume with a payload.
+You can stop a running agent using `copilotkit.stopAgent()`:
 
-## Resolving a LangGraph interrupt from a button
+```tsx title="page.tsx"
+const handleStop = () => {
+  copilotkit.stopAgent({ agent });
+};
+```
 
-The `interrupt-headless` cell demonstrates the full pattern without
-`useInterrupt` or a chat surface. A plain hook subscribes to
-`on_interrupt` custom events, buffers the payload until the run
-finalizes (so the UI doesn't flash mid-stream), and exposes a
-`resolve(response)` callback that calls `copilotkit.runAgent({ agent,
-forwardedProps: { command: { resume, interruptEvent } } })` to unblock
-the graph:
+## Handling LangGraph Interrupts
 
-<Snippet region="headless-useinterrupt-primitives" cell="interrupt-headless" title="frontend/src/app/page.tsx — subscribe + resume" />
+LangGraph's `interrupt()` function emits custom events that you can capture and respond to.
 
-The resulting `{ pending, resolve }` tuple is pure data — any UI can
-drive it. The cell itself renders a simple button grid, but the same
-hook would power a modal, a toast, a sidebar form, or a voice UI.
+### Simple Interrupt Handler
 
-## See also
+```tsx title="page.tsx"
+import { useEffect } from "react";
+import { useAgent } from "@copilotkit/react-core/v2";
+import type { AgentSubscriber } from "@ag-ui/client";
 
-- [Headless UI](./headless) — the full `useRenderedMessages` composition
-  that mirrors `<CopilotChatMessageView>` line-for-line.
-- [Human-in-the-Loop](./human-in-the-loop) — the `useHumanInTheLoop` and
-  `useInterrupt` hooks with their render-prop contracts, for the
-  "paused mid-chat" pattern this page's headless variant replaces.
+export function InterruptHandler() {
+  const { agent } = useAgent();
 
-## Get started by choosing your AI backend
+  useEffect(() => {
+    const subscriber: AgentSubscriber = {
+      // [!code highlight:12]
+      onCustomEvent: ({ event }) => {
+        if (event.name === "on_interrupt") {
+          // LangGraph interrupt() was called
+          const response = prompt(event.value);
 
-<IntegrationGrid path="programmatic-control" />
+          if (response) {
+            // Resume the agent with the user's response
+            agent.runAgent({
+              forwardedProps: {
+                command: { resume: response },
+              },
+            });
+          }
+        }
+      },
+    };
+
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => unsubscribe();
+  }, []);
+
+  return null;
+}
+```
+
+### Custom Interrupt UI
+
+For a more sophisticated UI, you can render a custom component:
+
+```tsx title="page.tsx"
+import { useEffect, useState } from "react";
+import { useAgent } from "@copilotkit/react-core/v2";
+import type { AgentSubscriber } from "@ag-ui/client";
+
+export function CustomInterruptHandler() {
+  const { agent } = useAgent();
+  const [interrupt, setInterrupt] = useState<{ message: string } | null>(null);
+
+  useEffect(() => {
+    const subscriber: AgentSubscriber = {
+      onCustomEvent: ({ event }) => {
+        // [!code highlight:3]
+        if (event.name === "on_interrupt") {
+          setInterrupt({ message: event.value });
+        }
+      },
+    };
+
+    const { unsubscribe } = agent.subscribe(subscriber);
+    return () => unsubscribe();
+  }, []);
+
+  const handleResponse = (response: string) => {
+    // [!code highlight:5]
+    agent.runAgent({
+      forwardedProps: {
+        command: { resume: response },
+      },
+    });
+    setInterrupt(null);
+  };
+
+  if (!interrupt) return null;
+
+  return (
+    <div className="interrupt-modal">
+      <h3>Agent Needs Your Input</h3>
+      <p>{interrupt.message}</p>
+      <form onSubmit={(e) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        handleResponse(formData.get("response") as string);
+      }}>
+        <input type="text" name="response" placeholder="Your response" />
+        <button type="submit">Submit</button>
+      </form>
+    </div>
+  );
+}
+```
+
+For a more declarative approach, see [useInterrupt](/reference/v2/hooks/useInterrupt).
+
+## See Also
+
+- [Shared State](/langgraph/shared-state) - Deep dive into state management
+- [Human-in-the-Loop](/langgraph/human-in-the-loop) - Approval workflows
+- [Agent App Context](/langgraph/agent-app-context) - Pass context to your agent
+- [useAgent API Reference](/reference/v2/hooks/useAgent) - Complete API documentation
