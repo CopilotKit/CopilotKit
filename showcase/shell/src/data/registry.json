@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-19T23:05:12.387Z",
+  "generated_at": "2026-04-19T23:10:46.699Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
@@ -924,7 +924,7 @@
           },
           "gen-ui-interrupt": {
             "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/your-components/interrupt-based",
-            "shell_docs_path": "/generative-ui/your-components/interrupt-based"
+            "shell_docs_path": null
           },
           "interrupt-headless": {
             "og_docs_url": "https://docs.copilotkit.ai/langgraph/human-in-the-loop/interrupt-flow",
@@ -980,7 +980,7 @@
           },
           "readonly-state-agent-context": {
             "og_docs_url": "https://docs.copilotkit.ai/langgraph/agent-app-context",
-            "shell_docs_path": "/agent-app-context"
+            "shell_docs_path": null
           },
           "subagents": {
             "og_docs_url": "https://docs.copilotkit.ai/langgraph/multi-agent-flows",
@@ -1384,7 +1384,7 @@
         "features": {
           "agentic-chat": {
             "og_docs_url": "https://docs.copilotkit.ai/adk",
-            "shell_docs_path": "quickstart"
+            "shell_docs_path": null
           },
           "hitl-in-chat": {
             "og_docs_url": "https://docs.copilotkit.ai/adk/human-in-the-loop",
@@ -1392,11 +1392,11 @@
           },
           "tool-rendering": {
             "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/tool-rendering",
-            "shell_docs_path": "generative-ui/tool-rendering"
+            "shell_docs_path": null
           },
           "gen-ui-tool-based": {
             "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/your-components/display-only",
-            "shell_docs_path": "generative-ui/your-components/display-only"
+            "shell_docs_path": null
           },
           "gen-ui-agent": {
             "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/state-rendering",
@@ -1404,14 +1404,14 @@
           },
           "shared-state-read-write": {
             "og_docs_url": "https://docs.copilotkit.ai/adk/shared-state/in-app-agent-write",
-            "shell_docs_path": "shared-state"
+            "shell_docs_path": null
           },
           "shared-state-streaming": {
             "og_docs_url": "https://docs.copilotkit.ai/adk/shared-state/predictive-state-updates",
-            "shell_docs_path": "shared-state"
+            "shell_docs_path": null
           },
           "subagents": {
-            "og_docs_url": "https://docs.copilotkit.ai/adk",
+            "og_docs_url": null,
             "shell_docs_path": null
           }
         }
@@ -1536,11 +1536,11 @@
           },
           "tool-rendering": {
             "og_docs_url": "https://docs.copilotkit.ai/mastra/generative-ui/tool-rendering",
-            "shell_docs_path": "http://localhost:3000/mastra/unselected/generative-ui/tool-rendering"
+            "shell_docs_path": "/generative-ui/tool-rendering"
           },
           "gen-ui-tool-based": {
             "og_docs_url": "https://docs.copilotkit.ai/mastra/generative-ui/your-components/display-only",
-            "shell_docs_path": "http://localhost:3000/mastra/unselected/generative-ui/your-components/display-only"
+            "shell_docs_path": "/generative-ui/your-components/display-only"
           },
           "gen-ui-agent": {
             "og_docs_url": "https://docs.copilotkit.ai/mastra/generative-ui/state-rendering",
@@ -1548,11 +1548,11 @@
           },
           "shared-state-read-write": {
             "og_docs_url": "https://docs.copilotkit.ai/mastra/shared-state",
-            "shell_docs_path": "http://localhost:3000/mastra/unselected/shared-state"
+            "shell_docs_path": "/shared-state"
           },
           "shared-state-streaming": {
             "og_docs_url": "https://docs.copilotkit.ai/mastra/shared-state/in-app-agent-write",
-            "shell_docs_path": "http://localhost:3000/mastra/unselected/shared-state"
+            "shell_docs_path": "/shared-state"
           },
           "subagents": {
             "og_docs_url": "https://docs.copilotkit.ai/mastra",
@@ -1671,36 +1671,36 @@
       "docs_links": {
         "features": {
           "agentic-chat": {
-            "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/prebuilt-components",
-            "shell_docs_path": "unselected/prebuilt-components"
+            "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/prebuilt-components",
+            "shell_docs_path": "/prebuilt-components"
           },
           "hitl-in-chat": {
-            "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/human-in-the-loop",
-            "shell_docs_path": "unselected/generative-ui/your-components/interactive"
+            "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/human-in-the-loop",
+            "shell_docs_path": "/generative-ui/your-components/interactive"
           },
           "tool-rendering": {
-            "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/tool-rendering",
-            "shell_docs_path": "unselected/generative-ui/tool-rendering"
+            "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
           },
           "gen-ui-tool-based": {
-            "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/your-components/display-only",
-            "shell_docs_path": "unselected/generative-ui/your-components/display-only"
+            "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/generative-ui/your-components/display-only",
+            "shell_docs_path": "/generative-ui/your-components/display-only"
           },
           "gen-ui-agent": {
-            "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/generative-ui/state-rendering",
-            "shell_docs_path": "generative-ui/state-rendering"
+            "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/generative-ui/state-rendering",
+            "shell_docs_path": "/generative-ui/state-rendering"
           },
           "shared-state-read-write": {
-            "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/shared-state/in-app-agent-write",
-            "shell_docs_path": "unselected/shared-state"
+            "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/shared-state/in-app-agent-write",
+            "shell_docs_path": "/shared-state"
           },
           "shared-state-streaming": {
-            "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/shared-state/predictive-state-updates",
-            "shell_docs_path": "shared-state/streaming"
+            "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/shared-state/predictive-state-updates",
+            "shell_docs_path": "/shared-state"
           },
           "subagents": {
-            "og_docs_url": "https://docs.copilotkit.ai/crewai-flows/multi-agent-flows",
-            "shell_docs_path": "multi-agent/subagents"
+            "og_docs_url": null,
+            "shell_docs_path": null
           }
         }
       }
@@ -1812,19 +1812,19 @@
         "features": {
           "agentic-chat": {
             "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/prebuilt-components",
-            "shell_docs_path": "/pydantic-ai/unselected/prebuilt-components"
+            "shell_docs_path": "/prebuilt-components"
           },
           "hitl-in-chat": {
             "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/generative-ui/your-components/interactive",
-            "shell_docs_path": "/pydantic-ai/unselected/generative-ui/your-components/interactive"
+            "shell_docs_path": "/generative-ui/your-components/interactive"
           },
           "tool-rendering": {
             "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/generative-ui/tool-rendering",
-            "shell_docs_path": "/pydantic-ai/unselected/generative-ui/tool-rendering"
+            "shell_docs_path": "/generative-ui/tool-rendering"
           },
           "gen-ui-tool-based": {
             "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/generative-ui/your-components/display-only",
-            "shell_docs_path": "/pydantic-ai/unselected/generative-ui/your-components/display-only"
+            "shell_docs_path": "/generative-ui/your-components/display-only"
           },
           "gen-ui-agent": {
             "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/generative-ui/state-rendering",
@@ -1832,11 +1832,11 @@
           },
           "shared-state-read-write": {
             "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/shared-state/in-app-agent-write",
-            "shell_docs_path": "/pydantic-ai/unselected/shared-state"
+            "shell_docs_path": "/shared-state"
           },
           "shared-state-streaming": {
             "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/shared-state/predictive-state-updates",
-            "shell_docs_path": "/pydantic-ai/unselected/shared-state"
+            "shell_docs_path": "/shared-state"
           },
           "subagents": {
             "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/multi-agent-flows",
@@ -2091,36 +2091,36 @@
       "docs_links": {
         "features": {
           "agentic-chat": {
-            "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/prebuilt-components",
-            "shell_docs_path": "/claude-sdk-typescript/unselected/prebuilt-components"
+            "og_docs_url": "https://docs.copilotkit.ai/agentic-chat-ui",
+            "shell_docs_path": "/prebuilt-components"
           },
           "hitl-in-chat": {
-            "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/generative-ui/your-components/interactive",
-            "shell_docs_path": "/claude-sdk-typescript/unselected/generative-ui/your-components/interactive"
+            "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop",
+            "shell_docs_path": "/generative-ui/your-components/interactive"
           },
           "tool-rendering": {
-            "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/generative-ui/tool-rendering",
-            "shell_docs_path": "/claude-sdk-typescript/unselected/generative-ui/tool-rendering"
+            "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
           },
           "gen-ui-tool-based": {
-            "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/generative-ui/your-components/display-only",
-            "shell_docs_path": "/claude-sdk-typescript/unselected/generative-ui/your-components/display-only"
+            "og_docs_url": "https://docs.copilotkit.ai/generative-ui/your-components/display-only",
+            "shell_docs_path": "/generative-ui/your-components/display-only"
           },
           "gen-ui-agent": {
-            "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/generative-ui/state-rendering",
-            "shell_docs_path": "/claude-sdk-typescript/generative-ui/state-rendering"
+            "og_docs_url": "https://docs.copilotkit.ai/generative-ui/state-rendering",
+            "shell_docs_path": null
           },
           "shared-state-read-write": {
-            "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/shared-state",
-            "shell_docs_path": "/claude-sdk-typescript/unselected/shared-state"
+            "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+            "shell_docs_path": "/shared-state"
           },
           "shared-state-streaming": {
-            "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/shared-state/predictive-state-updates",
-            "shell_docs_path": "/claude-sdk-typescript/shared-state/streaming"
+            "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+            "shell_docs_path": "/shared-state"
           },
           "subagents": {
-            "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/multi-agent/subagents",
-            "shell_docs_path": "/claude-sdk-typescript/multi-agent/subagents"
+            "og_docs_url": null,
+            "shell_docs_path": null
           }
         }
       }
@@ -2380,19 +2380,19 @@
         "features": {
           "agentic-chat": {
             "og_docs_url": "https://docs.copilotkit.ai/ag2/prebuilt-components",
-            "shell_docs_path": "prebuilt-components"
+            "shell_docs_path": "/prebuilt-components"
           },
           "hitl-in-chat": {
             "og_docs_url": "https://docs.copilotkit.ai/ag2/human-in-the-loop",
-            "shell_docs_path": "generative-ui/your-components/interactive"
+            "shell_docs_path": "/generative-ui/your-components/interactive"
           },
           "tool-rendering": {
             "og_docs_url": "https://docs.copilotkit.ai/ag2/generative-ui/tool-rendering",
-            "shell_docs_path": "generative-ui/tool-rendering"
+            "shell_docs_path": "/generative-ui/tool-rendering"
           },
           "gen-ui-tool-based": {
             "og_docs_url": "https://docs.copilotkit.ai/ag2/generative-ui/your-components/display-only",
-            "shell_docs_path": "generative-ui/your-components/display-only"
+            "shell_docs_path": "/generative-ui/your-components/display-only"
           },
           "gen-ui-agent": {
             "og_docs_url": "https://docs.copilotkit.ai/ag2/generative-ui/state-rendering",
@@ -2400,14 +2400,14 @@
           },
           "shared-state-read-write": {
             "og_docs_url": "https://docs.copilotkit.ai/ag2/shared-state",
-            "shell_docs_path": "shared-state"
+            "shell_docs_path": "/shared-state"
           },
           "shared-state-streaming": {
             "og_docs_url": "https://docs.copilotkit.ai/ag2/shared-state/write",
-            "shell_docs_path": "shared-state"
+            "shell_docs_path": "/shared-state"
           },
           "subagents": {
-            "og_docs_url": "https://docs.copilotkit.ai/ag2/multi-agent/subagents",
+            "og_docs_url": null,
             "shell_docs_path": null
           }
         }
@@ -2520,35 +2520,35 @@
         "features": {
           "agentic-chat": {
             "og_docs_url": "https://docs.copilotkit.ai/llamaindex/frontend-tools",
-            "shell_docs_path": "unselected/frontend-tools"
+            "shell_docs_path": "/frontend-tools"
           },
           "hitl-in-chat": {
             "og_docs_url": "https://docs.copilotkit.ai/llamaindex/human-in-the-loop",
-            "shell_docs_path": "human-in-the-loop"
+            "shell_docs_path": "/human-in-the-loop"
           },
           "tool-rendering": {
             "og_docs_url": "https://docs.copilotkit.ai/llamaindex/generative-ui/tool-rendering",
-            "shell_docs_path": "unselected/generative-ui/tool-rendering"
+            "shell_docs_path": "/generative-ui/tool-rendering"
           },
           "gen-ui-tool-based": {
             "og_docs_url": "https://docs.copilotkit.ai/llamaindex/generative-ui/your-components/display-only",
-            "shell_docs_path": "unselected/generative-ui/your-components/display-only"
+            "shell_docs_path": "/generative-ui/your-components/display-only"
           },
           "gen-ui-agent": {
             "og_docs_url": "https://docs.copilotkit.ai/llamaindex/generative-ui/state-rendering",
-            "shell_docs_path": "generative-ui/state-rendering"
+            "shell_docs_path": "/generative-ui/state-rendering"
           },
           "shared-state-read-write": {
             "og_docs_url": "https://docs.copilotkit.ai/llamaindex/shared-state/in-app-agent-write",
-            "shell_docs_path": "unselected/shared-state"
+            "shell_docs_path": "/shared-state"
           },
           "shared-state-streaming": {
             "og_docs_url": "https://docs.copilotkit.ai/llamaindex/shared-state/predictive-state-updates",
-            "shell_docs_path": "shared-state/streaming"
+            "shell_docs_path": "/shared-state"
           },
           "subagents": {
             "og_docs_url": null,
-            "shell_docs_path": "multi-agent/subagents"
+            "shell_docs_path": "/multi-agent/subagents"
           }
         }
       }
@@ -2664,7 +2664,7 @@
         "features": {
           "agentic-chat": {
             "og_docs_url": "https://docs.copilotkit.ai/aws-strands/prebuilt-components",
-            "shell_docs_path": "/strands/unselected/prebuilt-components"
+            "shell_docs_path": "/prebuilt-components"
           },
           "hitl-in-chat": {
             "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop",
@@ -2672,11 +2672,11 @@
           },
           "tool-rendering": {
             "og_docs_url": "https://docs.copilotkit.ai/aws-strands/generative-ui/tool-rendering",
-            "shell_docs_path": "/strands/unselected/generative-ui/tool-rendering"
+            "shell_docs_path": "/generative-ui/tool-rendering"
           },
           "gen-ui-tool-based": {
-            "og_docs_url": "https://docs.copilotkit.ai/aws-strands/generative-ui/your-components/interactive",
-            "shell_docs_path": "/strands/unselected/generative-ui/your-components/interactive"
+            "og_docs_url": "https://docs.copilotkit.ai/aws-strands/generative-ui/your-components/display-only",
+            "shell_docs_path": "/generative-ui/your-components/display-only"
           },
           "gen-ui-agent": {
             "og_docs_url": "https://docs.copilotkit.ai/aws-strands/generative-ui/state-rendering",
@@ -2688,7 +2688,7 @@
           },
           "shared-state-streaming": {
             "og_docs_url": "https://docs.copilotkit.ai/shared-state",
-            "shell_docs_path": "/strands/unselected/shared-state"
+            "shell_docs_path": "/shared-state"
           },
           "subagents": {
             "og_docs_url": null,
@@ -3191,7 +3191,7 @@
         "features": {
           "agentic-chat": {
             "og_docs_url": "https://docs.copilotkit.ai/agentic-chat-ui",
-            "shell_docs_path": "/unselected/prebuilt-components"
+            "shell_docs_path": "/prebuilt-components"
           },
           "hitl-in-chat": {
             "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop",
@@ -3199,11 +3199,11 @@
           },
           "tool-rendering": {
             "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",
-            "shell_docs_path": "/unselected/generative-ui/tool-rendering"
+            "shell_docs_path": "/generative-ui/tool-rendering"
           },
           "gen-ui-tool-based": {
             "og_docs_url": "https://docs.copilotkit.ai/generative-ui/your-components/display-only",
-            "shell_docs_path": "/unselected/generative-ui/your-components/display-only"
+            "shell_docs_path": "/generative-ui/your-components/display-only"
           },
           "gen-ui-agent": {
             "og_docs_url": "https://docs.copilotkit.ai/generative-ui/state-rendering",
@@ -3211,11 +3211,11 @@
           },
           "shared-state-read-write": {
             "og_docs_url": "https://docs.copilotkit.ai/shared-state",
-            "shell_docs_path": "/unselected/shared-state"
+            "shell_docs_path": "/shared-state"
           },
           "shared-state-streaming": {
             "og_docs_url": "https://docs.copilotkit.ai/shared-state",
-            "shell_docs_path": "/unselected/shared-state"
+            "shell_docs_path": "/shared-state"
           },
           "subagents": {
             "og_docs_url": null,

@@ -3,7 +3,7 @@
   "features": {
     "agentic-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/agentic-chat-ui",
-      "shell_docs_path": "/unselected/prebuilt-components"
+      "shell_docs_path": "/prebuilt-components"
     },
     "hitl-in-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop",
@@ -11,11 +11,11 @@
     },
     "tool-rendering": {
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",
-      "shell_docs_path": "/unselected/generative-ui/tool-rendering"
+      "shell_docs_path": "/generative-ui/tool-rendering"
     },
     "gen-ui-tool-based": {
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/your-components/display-only",
-      "shell_docs_path": "/unselected/generative-ui/your-components/display-only"
+      "shell_docs_path": "/generative-ui/your-components/display-only"
     },
     "gen-ui-agent": {
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/state-rendering",
@@ -23,11 +23,11 @@
     },
     "shared-state-read-write": {
       "og_docs_url": "https://docs.copilotkit.ai/shared-state",
-      "shell_docs_path": "/unselected/shared-state"
+      "shell_docs_path": "/shared-state"
     },
     "shared-state-streaming": {
       "og_docs_url": "https://docs.copilotkit.ai/shared-state",
-      "shell_docs_path": "/unselected/shared-state"
+      "shell_docs_path": "/shared-state"
     },
     "subagents": {
       "og_docs_url": null,

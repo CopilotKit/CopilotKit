@@ -3,7 +3,7 @@
   "features": {
     "agentic-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/aws-strands/prebuilt-components",
-      "shell_docs_path": "/strands/unselected/prebuilt-components"
+      "shell_docs_path": "/prebuilt-components"
     },
     "hitl-in-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop",
@@ -11,11 +11,11 @@
     },
     "tool-rendering": {
       "og_docs_url": "https://docs.copilotkit.ai/aws-strands/generative-ui/tool-rendering",
-      "shell_docs_path": "/strands/unselected/generative-ui/tool-rendering"
+      "shell_docs_path": "/generative-ui/tool-rendering"
     },
     "gen-ui-tool-based": {
-      "og_docs_url": "https://docs.copilotkit.ai/aws-strands/generative-ui/your-components/interactive",
-      "shell_docs_path": "/strands/unselected/generative-ui/your-components/interactive"
+      "og_docs_url": "https://docs.copilotkit.ai/aws-strands/generative-ui/your-components/display-only",
+      "shell_docs_path": "/generative-ui/your-components/display-only"
     },
     "gen-ui-agent": {
       "og_docs_url": "https://docs.copilotkit.ai/aws-strands/generative-ui/state-rendering",
@@ -27,11 +27,17 @@
     },
     "shared-state-streaming": {
       "og_docs_url": "https://docs.copilotkit.ai/shared-state",
-      "shell_docs_path": "/strands/unselected/shared-state"
+      "shell_docs_path": "/shared-state"
     },
     "subagents": {
       "og_docs_url": null,
       "shell_docs_path": null
     }
-  }
+  },
+  "missing": [
+    {
+      "feature": "all",
+      "reason": "4085 shell has no strands-scoped docs tree. Shell paths point at framework-agnostic pages that render under the strands URL (with snippets resolved for the framework when tagged)."
+    }
+  ]
 }

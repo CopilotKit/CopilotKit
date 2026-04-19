@@ -3,7 +3,7 @@
   "features": {
     "agentic-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/adk",
-      "shell_docs_path": "quickstart"
+      "shell_docs_path": null
     },
     "hitl-in-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/adk/human-in-the-loop",
@@ -11,11 +11,11 @@
     },
     "tool-rendering": {
       "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/tool-rendering",
-      "shell_docs_path": "generative-ui/tool-rendering"
+      "shell_docs_path": null
     },
     "gen-ui-tool-based": {
       "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/your-components/display-only",
-      "shell_docs_path": "generative-ui/your-components/display-only"
+      "shell_docs_path": null
     },
     "gen-ui-agent": {
       "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/state-rendering",
@@ -23,15 +23,21 @@
     },
     "shared-state-read-write": {
       "og_docs_url": "https://docs.copilotkit.ai/adk/shared-state/in-app-agent-write",
-      "shell_docs_path": "shared-state"
+      "shell_docs_path": null
     },
     "shared-state-streaming": {
       "og_docs_url": "https://docs.copilotkit.ai/adk/shared-state/predictive-state-updates",
-      "shell_docs_path": "shared-state"
+      "shell_docs_path": null
     },
     "subagents": {
-      "og_docs_url": "https://docs.copilotkit.ai/adk",
+      "og_docs_url": null,
       "shell_docs_path": null
     }
-  }
+  },
+  "missing": [
+    {
+      "feature": "all",
+      "reason": "4085 shell does not have a google-adk-scoped docs tree. Shell paths set to null rather than linking to framework-agnostic pages that would be misleading under the google-adk URL. OG URLs point at the real /adk/... pages on docs.copilotkit.ai."
+    }
+  ]
 }

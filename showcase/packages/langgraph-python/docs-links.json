@@ -63,7 +63,7 @@
     },
     "gen-ui-interrupt": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/your-components/interrupt-based",
-      "shell_docs_path": "/generative-ui/your-components/interrupt-based"
+      "shell_docs_path": null
     },
     "interrupt-headless": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/human-in-the-loop/interrupt-flow",
@@ -119,7 +119,7 @@
     },
     "readonly-state-agent-context": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/agent-app-context",
-      "shell_docs_path": "/agent-app-context"
+      "shell_docs_path": null
     },
     "subagents": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/multi-agent-flows",
