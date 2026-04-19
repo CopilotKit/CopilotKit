@@ -264,7 +264,7 @@ demos:
       - frontend/src/app/page.tsx
   - id: headless-complete
     name: Headless Chat (Complete)
-    description: Full chat implementation built from scratch on useAgent
+    description: Full chat implementation built from scratch on useAgent, with manual per-message renderedContent composition (text + tool calls + activity messages + reasoning)
     tags:
       - chat-ui
     route: /demos/headless-complete
@@ -273,6 +273,7 @@ demos:
       - backend/agent.py
       - frontend/src/app/page.tsx
       - frontend/src/app/message-list.tsx
+      - frontend/src/app/use-rendered-messages.tsx
       - frontend/src/app/user-bubble.tsx
       - frontend/src/app/assistant-bubble.tsx
       - frontend/src/app/input-bar.tsx
