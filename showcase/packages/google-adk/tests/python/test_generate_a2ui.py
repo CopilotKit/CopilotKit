@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agents.main import _get_openai_client, generate_a2ui
+from agents.main import _a2ui_error, _get_openai_client, generate_a2ui
 
 
 # ---------------------------------------------------------------------------
@@ -94,9 +94,16 @@ def _assert_full_error_shape(result: dict) -> None:
 
 
 def test_generate_a2ui_openai_exception_returns_full_error_shape():
-    """OpenAI client .create() raising an exception → a2ui_llm_error with all keys."""
+    """OpenAI client .create() raising an openai.APIError subclass →
+    a2ui_llm_error with all keys. We use APIConnectionError (a real
+    subclass) to exercise the narrowed except clause."""
+    import openai
+
     fake_client = MagicMock()
-    fake_client.chat.completions.create.side_effect = RuntimeError("boom")
+    # APIConnectionError requires a request kwarg; build a minimal stub.
+    fake_client.chat.completions.create.side_effect = openai.APIConnectionError(
+        request=MagicMock()
+    )
     with patch("agents.main._get_openai_client", return_value=fake_client):
         result = generate_a2ui(FakeToolContext())
     _assert_full_error_shape(result)
@@ -215,3 +222,76 @@ def test_missing_copilotkit_state_does_not_log_warning(caplog):
             generate_a2ui(ctx)
     for rec in caplog.records:
         assert "expected dict" not in rec.getMessage()
+
+
+def test_non_list_context_entries_logs_warning(caplog):
+    """When state['copilotkit']['context'] is present but not a list, emit
+    a WARNING about the schema drift (CR round 3 finding #6)."""
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.return_value = _openai_response(choices=[])
+    ctx = FakeToolContext(state={"copilotkit": {"context": "not-a-list"}})
+    with patch("agents.main._get_openai_client", return_value=fake_client):
+        with caplog.at_level(logging.WARNING, logger="agents.main"):
+            generate_a2ui(ctx)
+    warnings = [
+        rec
+        for rec in caplog.records
+        if rec.levelno == logging.WARNING
+        and "context" in rec.getMessage()
+        and "expected list" in rec.getMessage()
+    ]
+    assert warnings, (
+        f"expected a WARNING about non-list context entries, got: "
+        f"{[r.getMessage() for r in caplog.records]}"
+    )
+
+
+def test_list_context_entries_does_not_log_warning(caplog):
+    """When state['copilotkit']['context'] IS a list, no schema-drift warning."""
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.return_value = _openai_response(choices=[])
+    ctx = FakeToolContext(state={"copilotkit": {"context": [{"value": "hi"}]}})
+    with patch("agents.main._get_openai_client", return_value=fake_client):
+        with caplog.at_level(logging.WARNING, logger="agents.main"):
+            generate_a2ui(ctx)
+    for rec in caplog.records:
+        assert "expected list" not in rec.getMessage(), (
+            f"unexpected schema-drift warning when context was a proper list: {rec.getMessage()}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# _a2ui_error contract check (CR round 3 finding #1)
+# ---------------------------------------------------------------------------
+
+
+def test_a2ui_error_accepts_full_shape():
+    err = _a2ui_error(error="e", message="m", remediation="r")
+    assert err == {"error": "e", "message": "m", "remediation": "r"}
+
+
+def test_a2ui_error_rejects_empty_values():
+    """Empty-string values for any required key must blow up at construction
+    time, not silently produce a malformed error surface."""
+    with pytest.raises(AssertionError):
+        _a2ui_error(error="", message="m", remediation="r")
+    with pytest.raises(AssertionError):
+        _a2ui_error(error="e", message="", remediation="r")
+    with pytest.raises(AssertionError):
+        _a2ui_error(error="e", message="m", remediation="")
+
+
+# ---------------------------------------------------------------------------
+# Narrowed except (CR round 3 finding #4): programmer errors must propagate.
+# ---------------------------------------------------------------------------
+
+
+def test_generate_a2ui_lets_programmer_errors_propagate():
+    """A bare RuntimeError from the OpenAI call is NOT in the narrowed
+    (openai.APIError, ...) hierarchy — it should propagate rather than be
+    silently converted to an a2ui_llm_error dict."""
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.side_effect = RuntimeError("programmer bug")
+    with patch("agents.main._get_openai_client", return_value=fake_client):
+        with pytest.raises(RuntimeError, match="programmer bug"):
+            generate_a2ui(FakeToolContext())

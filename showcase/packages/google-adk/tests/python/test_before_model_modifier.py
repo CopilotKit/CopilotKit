@@ -120,3 +120,57 @@ def test_non_sales_pipeline_agent_is_noop():
 
     # system_instruction should be untouched (still None).
     assert request.config.system_instruction is None
+
+
+# ---------------------------------------------------------------------------
+# Prefix stacking regression (CR round 3 finding #2): calling the callback
+# twice with the SAME request MUST NOT stack the prefix twice. The fix builds
+# a fresh types.Content each call and assigns it, rather than mutating the
+# previous parts[0].text in place.
+# ---------------------------------------------------------------------------
+
+
+def test_before_model_modifier_does_not_stack_prefix_on_repeated_calls():
+    todos = [{"id": "1", "title": "Call Acme", "status": "open"}]
+    ctx = FakeCallbackContext(state={"todos": todos})
+    request = _make_request()
+
+    # Call twice with the SAME request object.
+    before_model_modifier(ctx, request)
+    first_text = _system_text(request)
+    before_model_modifier(ctx, request)
+    second_text = _system_text(request)
+
+    # Prefix signature must appear exactly once after each call, not twice
+    # after the second.
+    prefix_signature = "You are a helpful sales assistant for managing a sales pipeline."
+    assert first_text.count(prefix_signature) == 1, (
+        f"expected prefix once on first call, got {first_text.count(prefix_signature)}: {first_text!r}"
+    )
+    assert second_text.count(prefix_signature) == 1, (
+        f"expected prefix once on second call (no stacking), got "
+        f"{second_text.count(prefix_signature)}: {second_text!r}"
+    )
+
+
+def test_before_model_modifier_does_not_mutate_shared_original_instruction():
+    """If system_instruction is a pre-existing shared Content, the callback
+    must NOT mutate it in place. Mutation would cause N requests sharing the
+    same base instruction to stack the prefix N times across requests."""
+    shared = types.Content(role="system", parts=[types.Part(text="BASE")])
+    ctx = FakeCallbackContext(state={"todos": []})
+    request = SimpleNamespace(config=SimpleNamespace(system_instruction=shared))
+
+    before_model_modifier(ctx, request)
+
+    # Shared instance must be untouched — callback should have assigned a
+    # fresh Content to request.config.system_instruction.
+    assert shared.parts[0].text == "BASE", (
+        f"shared system_instruction was mutated in place: {shared.parts[0].text!r}"
+    )
+    # And the request got a new Content, not the shared one.
+    assert request.config.system_instruction is not shared
+    # The new instruction still contains BASE appended to the prefix.
+    new_text = _system_text(request)
+    assert "BASE" in new_text
+    assert "You are a helpful sales assistant" in new_text

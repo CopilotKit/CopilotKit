@@ -5,8 +5,9 @@ from __future__ import annotations
 import functools
 import json
 import logging
-from typing import Optional, TypedDict
+from typing import Any, Optional, TypedDict, Union
 
+import openai
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
 from google.adk.agents.callback_context import CallbackContext
@@ -40,17 +41,21 @@ logger = logging.getLogger(__name__)
 # client on every generate_a2ui call wastes a few ms per request and, more
 # importantly, re-runs env/credential resolution which is unnecessary.
 #
-# `functools.lru_cache(maxsize=1)` gives us thread-safe memoization for free
-# (CPython's lru_cache holds an internal lock, so two concurrent callers do
-# NOT both construct+discard a client — only one call executes and the others
-# see the cached result). This avoids the classic double-checked-locking race
-# a plain `if _openai_client is None` module-global would have.
+# `functools.lru_cache(maxsize=1)` provides thread-safe cache bookkeeping
+# (the dict-lookup / insertion path is guarded), but it does NOT hold a lock
+# around execution of the wrapped function body. On a cold cache, two
+# concurrent callers CAN both enter `OpenAI()` — one result wins and is
+# retained; the other is garbage-collected. This is acceptable here because
+# `OpenAI()` is idempotent and cheap (just reads env/config and builds a
+# client object with no network I/O), so the worst case is a single wasted
+# object construction on a race that only happens during cold start.
 @functools.lru_cache(maxsize=1)
 def _get_openai_client():
     """Return a memoized OpenAI client, constructing it on first call.
 
-    Thread-safe via `functools.lru_cache`. Call `.cache_clear()` in tests that
-    need to reset the memoized instance.
+    Cache bookkeeping is thread-safe via `functools.lru_cache`; see the
+    module-level comment above for the cold-cache race caveat. Call
+    `.cache_clear()` in tests that need to reset the memoized instance.
     """
     from openai import OpenAI
 
@@ -67,6 +72,27 @@ class _A2uiError(TypedDict):
     error: str
     message: str
     remediation: str
+
+
+def _a2ui_error(*, error: str, message: str, remediation: str) -> _A2uiError:
+    """Construct and contract-check an `_A2uiError`.
+
+    Centralizing construction lets us enforce at runtime that every error
+    return from `generate_a2ui` carries all three required keys with non-empty
+    string values. Typos ("remediaton") or accidental omissions blow up here
+    rather than silently produce a malformed error surface.
+    """
+    err: _A2uiError = {
+        "error": error,
+        "message": message,
+        "remediation": remediation,
+    }
+    missing = [k for k in ("error", "message", "remediation") if not err.get(k)]
+    if missing:
+        raise AssertionError(
+            f"_a2ui_error missing required non-empty keys: {missing}; got {err!r}"
+        )
+    return err
 
 
 def get_weather(tool_context: ToolContext, location: str) -> dict:
@@ -123,11 +149,15 @@ def search_flights(tool_context: ToolContext, flights: list[dict]) -> dict:
     return search_flights_impl(flights)
 
 
-def generate_a2ui(tool_context: ToolContext) -> dict:
+def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]]:
     """Generate dynamic A2UI components based on the conversation.
 
     A secondary LLM designs the UI schema and data. The result is
     returned as an a2ui_operations container for the middleware to detect.
+
+    Returns either a successful `dict[str, Any]` (the a2ui_operations
+    container from `build_a2ui_operations_from_tool_call`) or an `_A2uiError`
+    describing what failed, with remediation guidance for the caller / LLM.
     """
     # Extract copilotkit context entries from session state
     copilotkit_state = tool_context.state.get("copilotkit", {})
@@ -140,7 +170,22 @@ def generate_a2ui(tool_context: ToolContext) -> dict:
             "treating as empty (context entries will be dropped)",
             type(copilotkit_state).__name__,
         )
-    context_entries = copilotkit_state.get("context", []) if isinstance(copilotkit_state, dict) else []
+    if isinstance(copilotkit_state, dict):
+        context_entries_raw = copilotkit_state.get("context", [])
+        if not isinstance(context_entries_raw, list):
+            # Schema drift: `copilotkit.context` is supposed to be a list of
+            # {value: ...} dicts. Warn and coerce to empty rather than crash
+            # or silently iterate over a string / dict.
+            logger.warning(
+                "generate_a2ui: tool_context.state['copilotkit']['context'] is %s, "
+                "expected list; treating as empty (context entries will be dropped)",
+                type(context_entries_raw).__name__,
+            )
+            context_entries = []
+        else:
+            context_entries = context_entries_raw
+    else:
+        context_entries = []
     context_text = "\n\n".join(
         entry.get("value", "")
         for entry in context_entries
@@ -148,12 +193,20 @@ def generate_a2ui(tool_context: ToolContext) -> dict:
     )
 
     # Extract conversation messages from session history.
-    # NOTE: `_invocation_context` is an ADK private attribute — narrow the
-    # except to AttributeError so unrelated bugs are not silently swallowed,
-    # and debug-log drift so operators can spot when the ADK shape changes.
+    # NOTE: `_invocation_context` is an ADK private attribute. Rather than
+    # wrap the whole extraction in `try/except AttributeError` (which would
+    # also swallow typos and programmer errors inside the body), we look the
+    # attribute up via `getattr` and only run the body when present. If ADK
+    # renames / drops the attribute, we log-and-skip instead of crashing.
     conversation_messages: list[dict] = []
-    try:
-        session = tool_context._invocation_context.session
+    invocation_context = getattr(tool_context, "_invocation_context", None)
+    if invocation_context is None:
+        logger.debug(
+            "generate_a2ui: tool_context has no _invocation_context attribute; "
+            "ADK private-API shape may have drifted. Skipping session history."
+        )
+    else:
+        session = getattr(invocation_context, "session", None)
         if session and hasattr(session, "events"):
             for event in session.events:
                 if hasattr(event, "content") and event.content and hasattr(event.content, "parts"):
@@ -166,12 +219,6 @@ def generate_a2ui(tool_context: ToolContext) -> dict:
                         if text_parts:
                             oai_role = "assistant" if role_str == "model" else "user"
                             conversation_messages.append({"role": oai_role, "content": "".join(text_parts)})
-    except AttributeError as exc:
-        logger.debug(
-            "generate_a2ui: could not read session history from _invocation_context (%s). "
-            "ADK private-API shape may have drifted.",
-            exc,
-        )
 
     tool_schema = {
         "type": "function",
@@ -196,10 +243,13 @@ def generate_a2ui(tool_context: ToolContext) -> dict:
     ]
     llm_messages.extend(conversation_messages)
 
-    # Wrap the OpenAI call so raw APIError / RateLimitError / AuthenticationError
-    # / timeouts do not bubble up through the ADK tool machinery as uncaught
-    # exceptions. Return a structured error with remediation instead — the LLM
-    # can surface this to the user.
+    # Wrap the OpenAI call so expected transport / auth / rate-limit failures
+    # do not bubble up through the ADK tool machinery as uncaught exceptions.
+    # Return a structured error with remediation instead — the LLM can surface
+    # this to the user. We deliberately narrow the except to the openai
+    # exception hierarchy: programmer errors (AttributeError, TypeError from
+    # bad call shape, etc.) should propagate so they are caught in test and
+    # not silently masked as an LLM error.
     try:
         client = _get_openai_client()
         response = client.chat.completions.create(
@@ -208,38 +258,43 @@ def generate_a2ui(tool_context: ToolContext) -> dict:
             tools=[tool_schema],
             tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
         )
-    except Exception as exc:  # noqa: BLE001 — openai raises a variety of subclasses
+    except (
+        openai.APIError,
+        openai.APIConnectionError,
+        openai.AuthenticationError,
+        openai.RateLimitError,
+    ) as exc:
         logger.exception("generate_a2ui: OpenAI API call failed")
-        return {
-            "error": "a2ui_llm_error",
-            "message": f"Secondary A2UI LLM call failed: {exc.__class__.__name__}",
-            "remediation": (
+        return _a2ui_error(
+            error="a2ui_llm_error",
+            message=f"Secondary A2UI LLM call failed: {exc.__class__.__name__}",
+            remediation=(
                 "Verify OPENAI_API_KEY is set and the OpenAI service is reachable. "
                 "See server logs for the full traceback."
             ),
-        }
+        )
 
     if not response.choices:
         logger.warning("generate_a2ui: OpenAI response contained no choices")
-        return {
-            "error": "a2ui_empty_response",
-            "message": "Secondary A2UI LLM returned no choices.",
-            "remediation": "Retry; if this persists, check OpenAI status.",
-        }
+        return _a2ui_error(
+            error="a2ui_empty_response",
+            message="Secondary A2UI LLM returned no choices.",
+            remediation="Retry; if this persists, check OpenAI status.",
+        )
 
     tool_calls = response.choices[0].message.tool_calls
     if not tool_calls:
         logger.warning(
             "generate_a2ui: OpenAI response had no tool_calls despite forced tool_choice"
         )
-        return {
-            "error": "a2ui_no_tool_call",
-            "message": "Secondary A2UI LLM did not call render_a2ui.",
-            "remediation": (
+        return _a2ui_error(
+            error="a2ui_no_tool_call",
+            message="Secondary A2UI LLM did not call render_a2ui.",
+            remediation=(
                 "Retry the request. If this persists, verify the tool_choice "
                 "schema matches the OpenAI API contract."
             ),
-        }
+        )
 
     tool_call = tool_calls[0]
     try:
@@ -248,11 +303,11 @@ def generate_a2ui(tool_context: ToolContext) -> dict:
         logger.exception(
             "generate_a2ui: failed to parse render_a2ui tool arguments as JSON"
         )
-        return {
-            "error": "a2ui_invalid_arguments",
-            "message": f"Could not parse render_a2ui arguments: {exc}",
-            "remediation": "Retry the request; the secondary LLM emitted malformed JSON.",
-        }
+        return _a2ui_error(
+            error="a2ui_invalid_arguments",
+            message=f"Could not parse render_a2ui arguments: {exc}",
+            remediation="Retry the request; the secondary LLM emitted malformed JSON.",
+        )
     return build_a2ui_operations_from_tool_call(args)
 
 
@@ -285,24 +340,52 @@ def before_model_modifier(
                     "falling back to neutral placeholder"
                 )
                 todos_json = "No sales todos yet"
-        original_instruction = llm_request.config.system_instruction or types.Content(
-            role="system", parts=[]
-        )
-        prefix = f"""You are a helpful sales assistant for managing a sales pipeline.
+        original_instruction = llm_request.config.system_instruction
+        # Stable prefix signature — used both to detect idempotent re-entry
+        # and to strip a previously-inserted prefix so we don't stack it
+        # when ADK calls the before_model_callback on the same request more
+        # than once (observed in retry / reprompt paths).
+        PREFIX_SIGNATURE = "You are a helpful sales assistant for managing a sales pipeline."
+        prefix = f"""{PREFIX_SIGNATURE}
         This is the current state of the sales todos: {todos_json}
         When you modify the sales todos (whether to add, remove, or modify one or more todos), use the manage_sales_todos tool to update the list."""
-        if not isinstance(original_instruction, types.Content):
-            original_instruction = types.Content(
-                role="system", parts=[types.Part(text=str(original_instruction))]
-            )
-        if not original_instruction.parts:
-            original_instruction.parts = [types.Part(text="")]
+        # Read the original instruction text without mutating the source
+        # object. If `system_instruction` is a shared module-level
+        # `types.Content` (or any object reused across requests), mutating
+        # `parts[0].text` in place would re-prepend the prefix on every
+        # call, stacking N times. Instead we build a fresh Content + Part
+        # on every invocation and assign it to the request.
+        if original_instruction is None:
+            original_text = ""
+        elif isinstance(original_instruction, types.Content):
+            parts = original_instruction.parts or []
+            original_text = (parts[0].text or "") if parts else ""
+        else:
+            original_text = str(original_instruction)
 
-        if original_instruction.parts and len(original_instruction.parts) > 0:
-            modified_text = prefix + (original_instruction.parts[0].text or "")
-            # ADK callback contract: mutate llm_request in place (side-effectful by design).
-            original_instruction.parts[0].text = modified_text
-        llm_request.config.system_instruction = original_instruction
+        # Strip any previously-prepended block (same signature → same block)
+        # so repeated invocations on the same request do not stack. We look
+        # for the signature and discard from the start of the string up to
+        # and including the end of the most recent full prefix block.
+        sig_idx = original_text.find(PREFIX_SIGNATURE)
+        if sig_idx != -1:
+            # Find the end of the already-inserted prefix — it terminates
+            # with the known trailing sentence. If that sentence is missing
+            # we fall back to chopping at the signature to avoid an
+            # unbounded retention of stale text.
+            end_marker = "use the manage_sales_todos tool to update the list."
+            end_idx = original_text.find(end_marker, sig_idx)
+            if end_idx != -1:
+                original_text = original_text[end_idx + len(end_marker) :]
+            else:
+                original_text = original_text[:sig_idx]
+
+        modified_text = prefix + original_text
+        # ADK callback contract: assign a freshly constructed Content so we
+        # never mutate a potentially shared instance across requests.
+        llm_request.config.system_instruction = types.Content(
+            role="system", parts=[types.Part(text=modified_text)]
+        )
 
     return None
 
