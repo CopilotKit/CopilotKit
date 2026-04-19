@@ -2,12 +2,12 @@
   "version": "1.0.0",
   "categories": [
     {
-      "id": "chat-ui",
-      "name": "Chat & UI"
-    },
-    {
       "id": "dev-ex",
       "name": "Dev Ex"
+    },
+    {
+      "id": "chat-ui",
+      "name": "Chat & UI"
     },
     {
       "id": "platform",
