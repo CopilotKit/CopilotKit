@@ -37,7 +37,9 @@ const neutralAssistantCells = [
   "chat-slots",
   "chat-customization-css",
   "headless-simple",
-  "beautiful-chat",
+  // NOTE: `beautiful-chat` is NOT in this list — it has its own dedicated
+  // runtime at /api/copilotkit-beautiful-chat (needed for openGenerativeUI +
+  // a2ui + mcpApps combined-runtime shape). See the beautiful-chat page.tsx.
 ];
 
 const agents: Record<string, LangGraphAgent> = {};

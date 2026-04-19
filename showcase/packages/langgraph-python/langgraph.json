@@ -22,6 +22,7 @@
     "frontend_tools": "./src/agents/frontend_tools.py:graph",
     "gen_ui_agent": "./src/agents/gen_ui_agent.py:graph",
     "tool_rendering_frontend_tools": "./src/agents/tool_rendering_frontend_tools.py:graph",
-    "gen_ui_tool_based": "./src/agents/gen_ui_tool_based.py:graph"
+    "gen_ui_tool_based": "./src/agents/gen_ui_tool_based.py:graph",
+    "beautiful_chat": "./src/agents/beautiful_chat.py:graph"
   }
 }
