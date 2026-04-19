@@ -58,6 +58,11 @@ def _install_stub_modules() -> None:
 
             get = post = put = delete = patch = _decorator
 
+            # agent_server.py also calls ``app.add_middleware(...)`` to
+            # install HealthMiddleware; accept that on the stub too.
+            def add_middleware(self, *a, **k):
+                return None
+
         m.create_strands_app = lambda *a, **k: _FakeFastAPI()  # type: ignore[attr-defined]
         sys.modules["ag_ui_strands"] = m
 
