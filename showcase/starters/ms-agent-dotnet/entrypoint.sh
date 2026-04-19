@@ -31,7 +31,7 @@ else
 fi
 
 echo "[entrypoint] Starting .NET agent on port 8123..."
-cd agent && dotnet ProverbsAgent.dll --urls http://0.0.0.0:8123 2>&1 | sed 's/^/[agent] /' &
+cd agent && dotnet ProverbsAgent.dll --urls http://0.0.0.0:8123 &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
 cd /app
 sleep 3
