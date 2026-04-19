@@ -35,7 +35,7 @@ npx @langchain/langgraph-cli dev \
   --config agent/langgraph.json \
   --host 0.0.0.0 \
   --port 8123 \
-  --no-browser 2>&1 | sed 's/^/[agent] /' &
+  --no-browser &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
 sleep 3
 if kill -0 $AGENT_PID 2>/dev/null; then
