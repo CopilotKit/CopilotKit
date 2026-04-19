@@ -5,9 +5,21 @@ import {
 } from "@copilotkit/runtime";
 import { MastraAgent, getLocalAgent } from "@ag-ui/mastra";
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "node:crypto";
 import { mastra } from "@/mastra";
 
+// We use ExperimentalEmptyAdapter because Mastra agents drive the LLM
+// themselves — the CopilotKit runtime only brokers AG-UI events between
+// the frontend and the agent. A real adapter (OpenAI/Anthropic/etc.) would
+// try to issue its own LLM calls and conflict with the agent's own loop.
 const serviceAdapter = new ExperimentalEmptyAdapter();
+
+// Startup log: make the adapter choice visible in boot logs so operators
+// debugging "why is the runtime not calling the LLM?" can find the answer
+// without reading source.
+console.log(
+  "[copilotkit route] init: serviceAdapter=ExperimentalEmptyAdapter (Mastra agents drive the LLM)",
+);
 
 // The Mastra config registers a single local agent (`weatherAgent`), but the
 // demo pages request a variety of agent names (`agentic_chat`,
@@ -37,7 +49,21 @@ export const demoAgentNames = [
   "subagents",
 ] as const;
 
-export type BuiltAgents = Record<string, ReturnType<typeof getLocalAgent>>;
+export type DemoAgentName = (typeof demoAgentNames)[number];
+
+// Narrowed agent-map type. Keys are exactly the demo aliases plus
+// `weatherAgent`; values are the non-null result of `getLocalAgent`. If
+// someone drops `as const` on `demoAgentNames` or widens this type back to
+// `Record<string, ...>`, the type-level test under tests/vitest/builtAgents.types.test.ts
+// should break `tsc --noEmit`.
+export type BuiltAgents = Record<
+  DemoAgentName | "weatherAgent",
+  NonNullable<ReturnType<typeof getLocalAgent>>
+>;
+
+// Baseline resourceId for weatherAgent. Kept as a named const so tests and
+// future refactors don't have to hardcode the string.
+const weatherResourceId = "mastra-weatherAgent";
 
 // Exported for tests; production callers should use `getAgents()` below so the
 // result is memoized across requests.
@@ -54,7 +80,7 @@ export function buildAgents(
   // for direct smoke-test traffic that hits the underlying agent name.
   const localAgents = MastraAgent.getLocalAgents({
     mastra: mastraInstance,
-    resourceId: "mastra-weatherAgent",
+    resourceId: weatherResourceId,
   });
   if (!localAgents.weatherAgent) {
     throw new Error(
@@ -76,9 +102,9 @@ export function buildAgents(
   // Track every resourceId we hand out so we can fail loudly if two demos
   // accidentally share one (would cause cross-demo working-memory contamination).
   const resourceIdByAgent = new Map<string, string>();
-  resourceIdByAgent.set("weatherAgent", "mastra-weatherAgent");
+  resourceIdByAgent.set("weatherAgent", weatherResourceId);
 
-  const demoAliases: BuiltAgents = {};
+  const demoAliases: Record<string, NonNullable<ReturnType<typeof getLocalAgent>>> = {};
   for (const name of demoAgentNames) {
     const resourceId = `mastra-${name}`;
     const agent = getLocalAgent({
@@ -105,18 +131,26 @@ export function buildAgents(
     seen.set(resourceId, agentName);
   }
 
-  // Spread demoAliases FIRST so localAgents win on any future collision. The
-  // explicit collision check above makes this defensive rather than load-bearing,
-  // but keep both so the guard-rail doesn't depend on spread order alone.
+  // Belt-and-suspenders: we already threw above on any collision between
+  // demo alias names and locally-registered Mastra agent names, so in
+  // practice neither spread can clobber the other. We still spread
+  // `localAgents` LAST as a defensive fallback — if the collision guard is
+  // ever weakened in a future refactor, the real Mastra-registered agent
+  // (here, `weatherAgent`) wins over any accidental demo-alias of the same
+  // name. Removing either half of this (the collision check OR the spread
+  // order) leaves us one edit away from a silent shadowing bug.
   return {
     ...demoAliases,
     ...localAgents,
-  };
+  } as BuiltAgents;
 }
 
-// Memoize buildAgents() so we don't rebuild the agent map on every request.
-// The Mastra instance is module-scoped and effectively immutable at runtime,
-// so one-time construction is safe.
+// RUNTIME ASSUMPTION: This module assumes the Next.js App Router Node runtime
+// (not Edge). `cachedAgents` is a module-scoped singleton; in Node the module
+// is evaluated once per server process, so the cache lives for the lifetime
+// of the process. Under Edge runtime the module could be re-evaluated per
+// request in some deployments, defeating memoization — if we ever switch this
+// route to `export const runtime = "edge"`, revisit this cache.
 let cachedAgents: BuiltAgents | null = null;
 function getAgents(): BuiltAgents {
   if (cachedAgents === null) {
@@ -149,15 +183,19 @@ export const POST = async (req: NextRequest) => {
     return await handleRequest(req);
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
+    const errorId = crypto.randomUUID();
+    // Structured JSON log so operators can cross-reference the errorId.
     console.error(
-      "[copilotkit route] handleRequest failed:",
-      error.stack ?? error.message,
+      JSON.stringify({
+        at: new Date().toISOString(),
+        level: "error",
+        errorId,
+        message: error.message,
+        stack: error.stack,
+      }),
     );
     return NextResponse.json(
-      {
-        error: "CopilotKit runtime error",
-        message: error.message,
-      },
+      { error: "internal runtime error", errorId },
       { status: 500 },
     );
   }
