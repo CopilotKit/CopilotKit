@@ -46,6 +46,7 @@ SYSTEM_PROMPT = (
 )
 
 
+# @region[weather-tool-backend]
 @tool
 def get_weather(location: str) -> dict:
     """Get the current weather for a given location.
@@ -62,6 +63,7 @@ def get_weather(location: str) -> dict:
         "wind_speed": 10,
         "conditions": "Sunny",
     }
+# @endregion[weather-tool-backend]
 
 
 @tool

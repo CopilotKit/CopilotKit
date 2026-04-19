@@ -64,6 +64,7 @@ export default function ToolRenderingDemo() {
 }
 
 function Chat() {
+  // @region[render-weather-tool]
   // Per-tool renderer #1: get_weather → branded WeatherCard.
   useRenderTool(
     {
@@ -88,7 +89,9 @@ function Chat() {
     },
     [],
   );
+  // @endregion[render-weather-tool]
 
+  // @region[render-flight-tool]
   // Per-tool renderer #2: search_flights → branded FlightListCard.
   useRenderTool(
     {
@@ -112,7 +115,9 @@ function Chat() {
     },
     [],
   );
+  // @endregion[render-flight-tool]
 
+  // @region[catchall-renderer]
   // Wildcard catch-all for every remaining tool (get_stock_price,
   // roll_dice, anything the agent might add later).
   useDefaultRenderTool(
@@ -128,6 +133,7 @@ function Chat() {
     },
     [],
   );
+  // @endregion[catchall-renderer]
 
   useConfigureSuggestions({
     suggestions: [
