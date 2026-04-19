@@ -63,6 +63,13 @@ interface FrameworkDef {
   devScript: string;
   extraFiles?: Record<string, string>; // destPath -> sourcePath (relative to package dir)
   extraDependencies?: Record<string, string>; // Additional npm dependencies to merge into package.json
+  // When true, the generator preserves the slug's existing
+  // ``showcase/starters/<slug>/entrypoint.sh`` verbatim across regeneration
+  // instead of overwriting it with the shared ``entrypoint.template.sh``
+  // output. Used by multi-provider starters (e.g. langroid) whose boot
+  // sequence diverges from the OpenAI-hardcoded template UX. The existing
+  // file IS the source of truth — editing it is how you change behavior.
+  entrypointOverride?: boolean;
 }
 
 const FRAMEWORKS: FrameworkDef[] = [
@@ -148,6 +155,10 @@ const FRAMEWORKS: FrameworkDef[] = [
     agentDir: "agent",
     devScript:
       'concurrently "next dev --turbopack" "python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 --reload"',
+    // langroid is multi-provider: the starter entrypoint selects the
+    // credential env var from LANGROID_MODEL rather than hard-coding
+    // OPENAI_API_KEY. Keep the committed file as the source of truth.
+    entrypointOverride: true,
   },
   {
     slug: "llamaindex",
@@ -298,6 +309,14 @@ function substituteVars(content: string, vars: Record<string, string>): string {
   }
   const remaining = result.match(/\{\{[A-Z_]+\}\}/g);
   if (remaining) {
+    // NOTE: warn-and-pass-through rather than throw. Callers of
+    // substituteVars include partial-vars callers (tests,
+    // processTemplateVarsInDir scanning JSON/CSS/HTML that may contain
+    // ``{{literal}}`` tokens unrelated to our template vars). The
+    // callers that REQUIRE full replacement — e.g. the Dockerfile and
+    // entrypoint.template.sh writes in generateStarterImpl — already
+    // feed a complete ``vars`` map; unreplaced tokens there surface in
+    // integration tests or the ``diff -r`` drift check.
     console.warn(
       `  [warn] Unreplaced template variables: ${remaining.join(", ")}`,
     );
@@ -364,6 +383,33 @@ function rewritePythonImports(filePath: string): void {
       // Keep import os lines — don't skip them
       for (const idx of osImportIndices) {
         skipIndices.delete(idx);
+      }
+    }
+  }
+
+  // After stripping the sys.path.insert block, any remaining top-level
+  // `import sys` becomes unused — the shared-tools bootstrap was the ONLY
+  // use of `sys` in these generated files. Mirror the `osUsed` logic:
+  // scan non-skipped lines for a reference to ``sys`` and, if none exists,
+  // mark every standalone ``import sys`` line for removal too. This keeps
+  // the regenerated starter import block tidy (no dead ``import sys``
+  // lingering once generate-starters is re-run).
+  const sysImportIndices: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (skipIndices.has(i)) continue;
+    if (lines[i].trim() === "import sys") {
+      sysImportIndices.push(i);
+    }
+  }
+  if (sysImportIndices.length > 0) {
+    const sysImportSet = new Set(sysImportIndices);
+    const sysUsed = lines.some(
+      (line, i) =>
+        !skipIndices.has(i) && !sysImportSet.has(i) && /\bsys\b/.test(line),
+    );
+    if (!sysUsed) {
+      for (const idx of sysImportIndices) {
+        skipIndices.add(idx);
       }
     }
   }
@@ -463,6 +509,12 @@ function rewriteTypeScriptSharedImports(
 function extractUvicornModule(fw: FrameworkDef): string {
   const match = fw.devScript.match(/uvicorn\s+([\w.:]+)/);
   if (!match) {
+    // Non-uvicorn devScripts (e.g. langgraph-python uses langgraph_cli)
+    // legitimately have no uvicorn module — fall back to the conventional
+    // default. This helper is currently called only by tests; the real
+    // entrypoint block is built by getEntrypointBlock with a hardcoded
+    // module path per language. If future callers require strict
+    // extraction, gate that at the call site rather than here.
     console.warn(
       `  [warn] Could not extract uvicorn module from devScript for ${fw.slug}, using default "agent.main:app"`,
     );
@@ -477,30 +529,6 @@ else
   exit 1
 fi`;
 
-// Prefix each line of the agent's stdout/stderr with [agent] AND capture the
-// real PID of the agent process. Previously this used:
-//
-//   cmd 2>&1 | sed 's/^/[agent] /' &
-//   AGENT_PID=$!
-//
-// That has two bugs:
-//   1. `$!` after a pipeline points to the LAST command in the pipe (the
-//      `sed` process), not the agent. `kill -0 $AGENT_PID` and
-//      `wait -n $AGENT_PID` therefore monitored `sed`, not the agent, which
-//      always looked alive until sed closed stdin — by which time the agent
-//      had already crashed and Railway was mid-restart.
-//   2. `sed` buffers by default, so Python stack traces at crash time could
-//      be discarded when the pipe closed, hiding the real error.
-//
-// Process substitution (`&> >(awk …)`) redirects both streams without
-// creating a pipeline, so `$!` remains the agent's PID. `awk` with
-// `fflush()` line-flushes each prefixed line, so crash output reaches the
-// container logs immediately.
-//
-// Also export PYTHONUNBUFFERED=1 at the entrypoint level so Python-based
-// agents don't buffer their own writes before they reach awk.
-const AGENT_LOG_PREFIX = `&> >(awk '{print "[agent] " $0; fflush()}')`;
-
 function getEntrypointBlock(fw: FrameworkDef): string {
   switch (fw.language) {
     case "python":
@@ -510,13 +538,13 @@ python -m langgraph_cli dev \\
   --config langgraph.json \\
   --host 0.0.0.0 \\
   --port 8123 \\
-  --no-browser ${AGENT_LOG_PREFIX} &
+  --no-browser 2>&1 | sed 's/^/[agent] /' &
 AGENT_PID=$!
 sleep 3
 ${AGENT_HEALTH_CHECK}`;
       }
       return `echo "[entrypoint] Starting Python agent server on port 8123..."
-cd /app && python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 ${AGENT_LOG_PREFIX} &
+cd /app && python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 2>&1 | sed 's/^/[agent] /' &
 AGENT_PID=$!
 sleep 2
 ${AGENT_HEALTH_CHECK}`;
@@ -527,32 +555,32 @@ npx @langchain/langgraph-cli dev \\
   --config agent/langgraph.json \\
   --host 0.0.0.0 \\
   --port 8123 \\
-  --no-browser ${AGENT_LOG_PREFIX} &
+  --no-browser 2>&1 | sed 's/^/[agent] /' &
 AGENT_PID=$!
 sleep 3
 ${AGENT_HEALTH_CHECK}`;
       }
       if (fw.slug === "mastra") {
         return `echo "[entrypoint] Starting Mastra agent on port 8123..."
-PORT=8123 npx mastra dev ${AGENT_LOG_PREFIX} &
+PORT=8123 npx mastra dev 2>&1 | sed 's/^/[agent] /' &
 AGENT_PID=$!
 sleep 3
 ${AGENT_HEALTH_CHECK}`;
       }
       return `echo "[entrypoint] Starting TypeScript agent on port 8123..."
-npx tsx agent/index.ts ${AGENT_LOG_PREFIX} &
+npx tsx agent/index.ts 2>&1 | sed 's/^/[agent] /' &
 AGENT_PID=$!
 sleep 2
 ${AGENT_HEALTH_CHECK}`;
     case "java":
       return `echo "[entrypoint] Starting Spring AI agent on port 8123..."
-java -jar agent/app.jar --server.port=8123 ${AGENT_LOG_PREFIX} &
+java -jar agent/app.jar --server.port=8123 2>&1 | sed 's/^/[agent] /' &
 AGENT_PID=$!
 sleep 5
 ${AGENT_HEALTH_CHECK}`;
     case "csharp":
       return `echo "[entrypoint] Starting .NET agent on port 8123..."
-cd agent && dotnet ProverbsAgent.dll --urls http://0.0.0.0:8123 ${AGENT_LOG_PREFIX} &
+cd agent && dotnet ProverbsAgent.dll --urls http://0.0.0.0:8123 2>&1 | sed 's/^/[agent] /' &
 AGENT_PID=$!
 cd /app
 sleep 3
@@ -625,6 +653,43 @@ function copySharedTypeScriptTools(agentDestDir: string): void {
  * Writes a fully self-contained starter into `outDir`.
  */
 function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
+  // Preserve the per-slug entrypoint.sh override (if any) across the
+  // rmSync+regen cycle. ``entrypointOverride: true`` declares that the
+  // slug's committed ``entrypoint.sh`` is canonical; snapshot it from the
+  // canonical committed location (``STARTERS_DIR/<slug>/entrypoint.sh``)
+  // before wiping outDir and restore it after the template-based
+  // entrypoint write step below.
+  //
+  // Reading from the canonical committed path (NOT ``outDir``) matters for
+  // --check mode: runCheckMode writes each starter to a *fresh* temp
+  // directory, so ``path.join(outDir, "entrypoint.sh")`` doesn't exist
+  // there. Sourcing from STARTERS_DIR means --check reads the same
+  // canonical override that a normal regen does, which is exactly what the
+  // drift test needs. Without this, every --check would regenerate langroid
+  // against the generic OpenAI-hardcoded template and falsely flag drift.
+  let preservedEntrypoint: { content: Buffer; mode: number } | null = null;
+  if (fw.entrypointOverride) {
+    const canonicalEntrypoint = path.join(
+      STARTERS_DIR,
+      fw.slug,
+      "entrypoint.sh",
+    );
+    if (fs.existsSync(canonicalEntrypoint)) {
+      preservedEntrypoint = {
+        content: fs.readFileSync(canonicalEntrypoint),
+        mode: fs.statSync(canonicalEntrypoint).mode,
+      };
+    } else {
+      // A declared override with no committed file is a repo-integrity
+      // failure, not a degradable warning — silently falling back to the
+      // shared template would reintroduce the OpenAI-hardcoded entrypoint
+      // on the next regen and quietly revert provider-agnostic behavior.
+      throw new Error(
+        `${fw.slug} declares entrypointOverride=true but the canonical override file ${canonicalEntrypoint} does not exist. Commit the override file before regenerating.`,
+      );
+    }
+  }
+
   if (fs.existsSync(outDir)) {
     fs.rmSync(outDir, { recursive: true });
   }
@@ -765,8 +830,14 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
           if (pkg.dependencies[dep]) {
             pkg.dependencies[dep] = version;
           } else {
-            console.warn(
-              `  [warn] PIN_OVERRIDES: ${dep} not found in ${fw.slug} dependencies — pin ignored`,
+            // A PIN_OVERRIDES entry for a dep that isn't in the package's
+            // dependencies is stale config — the package was updated and
+            // the pin wasn't cleaned up, OR the pin targets the wrong
+            // package. Silently warning means the dep keeps floating (the
+            // whole point of PIN_OVERRIDES is reproducibility) without any
+            // CI signal. Fail loudly so the pin gets removed or corrected.
+            throw new Error(
+              `PIN_OVERRIDES: ${dep} not found in ${fw.slug} dependencies — pin is stale, remove or correct the entry in PIN_OVERRIDES`,
             );
           }
         }
@@ -841,28 +912,15 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     }
 
     // For langgraph starters: convert relative imports to absolute
-    // because langgraph_cli loads modules standalone, not as packages.
-    //
-    // Subdir-aware: `from .X import ...` resolves to the CURRENT package,
-    // which is the directory the file lives in, not `agentDir` flat. A file
-    // at `<agentDir>/tools/get_weather.py` saying `from .types import X` must
-    // become `from <agentDir>.tools.types import X`, not `from <agentDir>.types`.
-    // The previous flat rewrite dropped the `tools` segment and produced
-    // `ModuleNotFoundError: No module named '<agentDir>.types'` at startup,
-    // killing langgraph-fastapi silently inside the entrypoint `sed` pipe.
+    // because langgraph_cli loads modules standalone, not as packages
     if (fw.slug.startsWith("langgraph-")) {
       const lgAgentMod = fw.agentDir.replace(/\//g, ".");
       forEachPyFile(agentDest, (fp) => {
         let content = fs.readFileSync(fp, "utf-8");
-        // Compute the file's containing Python package path:
-        // <agentDir>.<relative-subdirs-joined-with-.>
-        const relFromAgent = path.relative(agentDest, path.dirname(fp));
-        const subPkg = relFromAgent.split(path.sep).filter(Boolean).join(".");
-        const filePkg = subPkg ? `${lgAgentMod}.${subPkg}` : lgAgentMod;
-        // from .X import -> from <filePkg>.X import
+        // from .X import -> from <agentMod>.X import
         content = content.replace(
           /^from \.([\w.]+) import/gm,
-          `from ${filePkg}.$1 import`,
+          `from ${lgAgentMod}.$1 import`,
         );
         fs.writeFileSync(fp, content);
       });
@@ -890,8 +948,15 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
         );
         fs.writeFileSync(path.join(outDir, "agent_server.py"), serverContent);
       } else {
-        console.warn(
-          `  [warn] agent_server.py missing for ${fw.slug}: ${agentServerSrc} — skipping`,
+        // Non-langgraph Python starters all depend on ``agent_server.py``
+        // being present at the starter root — the Dockerfile COPYs it in
+        // and the generated entrypoint execs ``uvicorn agent_server:app``.
+        // A missing source file is a repo-integrity failure (either the
+        // package was deleted or FRAMEWORKS needs to add this slug to the
+        // langgraph-exempt allowlist); silently skipping produces a
+        // starter that won't boot.
+        throw new Error(
+          `agent_server.py missing for ${fw.slug}: expected ${agentServerSrc} to exist. Add the file or extend the langgraph-exempt slug list if this starter does not need a FastAPI shim.`,
         );
       }
 
@@ -935,10 +1000,13 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
       const srcPath = path.join(pkgDir, src);
       const destPath = path.join(outDir, dest);
       if (!fs.existsSync(srcPath)) {
-        console.warn(
-          `  [warn] Extra file missing for ${fw.slug}: ${srcPath} — skipping`,
+        // ``fw.extraFiles`` is an explicit declaration that this file is
+        // required by the starter (e.g. langgraph.json for langgraph-*).
+        // A missing source is a repo-integrity failure — silently skipping
+        // produces a generator-good but runtime-broken starter.
+        throw new Error(
+          `Extra file missing for ${fw.slug}: ${srcPath} was declared in fw.extraFiles but does not exist. Add the source file or remove the extraFiles entry.`,
         );
-        continue;
       }
       fs.mkdirSync(path.dirname(destPath), { recursive: true });
       fs.copyFileSync(srcPath, destPath);
@@ -974,14 +1042,34 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
   fs.writeFileSync(path.join(outDir, "Dockerfile"), dockerfileContent);
 
   // 6. Generate entrypoint.sh
-  const entrypointTemplate = fs.readFileSync(
-    path.join(TEMPLATE_DIR, "entrypoint.template.sh"),
-    "utf-8",
-  );
-  const entrypoint = substituteVars(entrypointTemplate, vars);
-  fs.writeFileSync(path.join(outDir, "entrypoint.sh"), entrypoint, {
-    mode: 0o755,
-  });
+  //
+  // Slugs with ``entrypointOverride: true`` opt out of the shared template
+  // and carry their own ``entrypoint.sh`` in the committed starter tree.
+  // For those slugs, restore the pre-rmSync snapshot (captured above) and
+  // skip the template substitution entirely — otherwise every regeneration
+  // would silently overwrite the provider-aware entrypoint with the
+  // generic OpenAI-hardcoded template.
+  if (preservedEntrypoint) {
+    // Force executable mode on the restored override regardless of the
+    // source mode. Editors, filesystem copies across platforms, and
+    // archive round-trips can strip the +x bit — trusting the source mode
+    // would ship a non-executable entrypoint.sh into the starter output
+    // and break container startup with a permission-denied at exec time.
+    fs.writeFileSync(
+      path.join(outDir, "entrypoint.sh"),
+      preservedEntrypoint.content,
+      { mode: 0o755 },
+    );
+  } else {
+    const entrypointTemplate = fs.readFileSync(
+      path.join(TEMPLATE_DIR, "entrypoint.template.sh"),
+      "utf-8",
+    );
+    const entrypoint = substituteVars(entrypointTemplate, vars);
+    fs.writeFileSync(path.join(outDir, "entrypoint.sh"), entrypoint, {
+      mode: 0o755,
+    });
+  }
 
   // 7. Generate showcase.json
   const showcaseJson = {
@@ -1231,6 +1319,10 @@ export {
   FRAMEWORKS,
   PIN_OVERRIDES,
   generateStarter,
+  // Exported so tests can regenerate a single starter into a temp directory
+  // and diff against the committed canonical tree — specifically used to
+  // regression-guard the ``entrypointOverride`` branch of generateStarterImpl.
+  generateStarterToDir,
   substituteVars,
   rewritePythonImports,
   forEachPyFile,
