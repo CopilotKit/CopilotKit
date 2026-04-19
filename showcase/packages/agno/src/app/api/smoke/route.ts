@@ -55,16 +55,80 @@ export async function GET() {
       );
     }
 
-    // Response is SSE stream — just verify we got content
-    const body = await res.text();
-    if (body.length === 0) {
+    // Response is SSE stream. The agno agent is known to drop the terminal
+    // event (TEXT_MESSAGE_END / RUN_FINISHED / RUN_ERROR), leaving the stream
+    // open until the client timeout fires — which surfaces as a 502 even
+    // though the agent produced valid output. Read the stream incrementally
+    // and bail as soon as we see TEXT_MESSAGE_CONTENT with "OK" in the delta,
+    // regardless of whether the agent ever closes the stream. See PR
+    // description for root-cause details.
+    const reader = res.body?.getReader();
+    if (!reader) {
+      return NextResponse.json(
+        {
+          status: "error",
+          integration: INTEGRATION_SLUG,
+          stage: "response_empty",
+          error: "Runtime returned no response body",
+          latency_ms: latency,
+          timestamp: new Date().toISOString(),
+        },
+        { status: 502 },
+      );
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let gotOk = false;
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        if (
+          buffer.includes('"type":"TEXT_MESSAGE_CONTENT"') &&
+          buffer.includes('"OK"')
+        ) {
+          gotOk = true;
+          // Drop the connection; don't await a stream close that may never come.
+          await reader.cancel().catch(() => {});
+          break;
+        }
+      }
+    } finally {
+      try {
+        reader.releaseLock();
+      } catch {
+        // reader may already be released via cancel(); ignore.
+      }
+    }
+
+    const finalLatency = Date.now() - start;
+
+    if (!gotOk && buffer.length === 0) {
       return NextResponse.json(
         {
           status: "error",
           integration: INTEGRATION_SLUG,
           stage: "response_empty",
           error: "Runtime returned empty response body",
-          latency_ms: latency,
+          latency_ms: finalLatency,
+          timestamp: new Date().toISOString(),
+        },
+        { status: 502 },
+      );
+    }
+
+    if (!gotOk) {
+      return NextResponse.json(
+        {
+          status: "error",
+          integration: INTEGRATION_SLUG,
+          stage: "response_incomplete",
+          error:
+            "Stream ended without TEXT_MESSAGE_CONTENT 'OK': " +
+            buffer.slice(0, 200),
+          latency_ms: finalLatency,
           timestamp: new Date().toISOString(),
         },
         { status: 502 },
@@ -74,7 +138,7 @@ export async function GET() {
     return NextResponse.json({
       status: "ok",
       integration: INTEGRATION_SLUG,
-      latency_ms: latency,
+      latency_ms: finalLatency,
       timestamp: new Date().toISOString(),
     });
   } catch (e: unknown) {
