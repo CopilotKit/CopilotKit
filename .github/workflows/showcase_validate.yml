@@ -502,13 +502,18 @@ jobs:
             showcase/packages/*/requirements.txt
 
       - name: Install minimal test deps
-        # Always need pytest + typing_extensions. Per-package `requirements.txt`
-        # is installed inside the run loop below so tests that import runtime
-        # deps (openai, google.genai, httpx, opentelemetry, etc.) don't fail at
-        # collection time with ModuleNotFoundError. Conftest-based stub finders
-        # can't help because test_*.py imports the target deps BEFORE conftest
-        # runs.
-        run: python -m pip install --quiet pytest typing_extensions
+        # Always need pytest + typing_extensions. pytest-asyncio is required
+        # by langroid's test_agui_adapter.py (16 tests use
+        # `@pytest.mark.asyncio`); without it, pytest reports
+        # "async def functions are not natively supported" and skips them.
+        # pytest-mock is installed pre-emptively as it's commonly used by
+        # showcase package tests and is cheap to install.
+        # Per-package `requirements.txt` is installed inside the run loop
+        # below so tests that import runtime deps (openai, google.genai,
+        # httpx, opentelemetry, etc.) don't fail at collection time with
+        # ModuleNotFoundError. Conftest-based stub finders can't help
+        # because test_*.py imports the target deps BEFORE conftest runs.
+        run: python -m pip install --quiet pytest pytest-asyncio pytest-mock typing_extensions
 
       - name: Run showcase package Python unit tests
         # Keep scope narrow: only showcase/packages/*/tests/python/ directories
@@ -524,11 +529,29 @@ jobs:
           set -euo pipefail
           failed=0
           found=0
+          # Current interpreter major.minor (e.g. "3.10", "3.12"). Used
+          # below to skip packages whose runtime deps are incompatible
+          # with the matrix Python on this job.
+          py_mm=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
           for pkg_dir in showcase/packages/*/; do
             tests_dir="${pkg_dir}tests/python"
             [ -d "$tests_dir" ] || continue
             found=$((found + 1))
             pkg=$(basename "$pkg_dir")
+            # --- Per-package Python-version gates -------------------------
+            # Skip packages whose `requirements.txt` pins a dep whose
+            # `requires-python` excludes this interpreter. Surgical skip
+            # (not matrix exclusion) so the rest of the packages continue
+            # to exercise the 3.10 typing_extensions fallback path.
+            #
+            # strands: ag_ui_strands==0.1.0 declares `requires-python >=3.12,<3.14`,
+            # so `pip install` fails on 3.10 before pytest even runs.
+            # Revisit when ag_ui_strands relaxes its floor or when 3.10
+            # is dropped from the matrix.
+            if [ "$pkg" = "strands" ] && [ "$py_mm" = "3.10" ]; then
+              echo "--- pytest: $pkg --- SKIPPED on Python $py_mm (ag_ui_strands requires >=3.12)"
+              continue
+            fi
             echo "--- pytest: $pkg ---"
             if [ -f "${pkg_dir}requirements.txt" ]; then
               echo "Installing ${pkg_dir}requirements.txt"
