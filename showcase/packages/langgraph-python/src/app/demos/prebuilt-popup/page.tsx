@@ -10,6 +10,7 @@ import {
 // Outer layer — provider + main content + floating popup launcher.
 export default function PrebuiltPopupDemo() {
   return (
+    // @region[popup-basic-setup]
     <CopilotKit runtimeUrl="/api/copilotkit" agent="prebuilt-popup">
       <MainContent />
       <CopilotPopup
@@ -21,6 +22,7 @@ export default function PrebuiltPopupDemo() {
       />
       <Suggestions />
     </CopilotKit>
+    // @endregion[popup-basic-setup]
   );
 }
 

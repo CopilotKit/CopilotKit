@@ -41,6 +41,7 @@ export default function AgenticChatReasoningDemo() {
 // Inner — wires a custom `reasoningMessage` slot that makes the thinking
 // chain visually prominent, then renders the chat.
 function Chat() {
+  // @region[reasoning-block-render]
   return (
     <CopilotChat
       agentId="agentic-chat-reasoning"
@@ -50,4 +51,5 @@ function Chat() {
       }}
     />
   );
+  // @endregion[reasoning-block-render]
 }
