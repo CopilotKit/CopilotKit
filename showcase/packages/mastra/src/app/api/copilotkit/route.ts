@@ -41,7 +41,9 @@ export type BuiltAgents = Record<string, ReturnType<typeof getLocalAgent>>;
 
 // Exported for tests; production callers should use `getAgents()` below so the
 // result is memoized across requests.
-export function buildAgents(mastraInstance: typeof mastra = mastra): BuiltAgents {
+export function buildAgents(
+  mastraInstance: typeof mastra = mastra,
+): BuiltAgents {
   // Mastra Memory requires a non-empty resourceId whenever a threadId is
   // supplied (the CopilotKit runtime always supplies threadId). Passing an
   // empty string causes Mastra to throw AGENT_MEMORY_MISSING_RESOURCE_ID on
@@ -147,7 +149,10 @@ export const POST = async (req: NextRequest) => {
     return await handleRequest(req);
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
-    console.error("[copilotkit route] handleRequest failed:", error.stack ?? error.message);
+    console.error(
+      "[copilotkit route] handleRequest failed:",
+      error.stack ?? error.message,
+    );
     return NextResponse.json(
       {
         error: "CopilotKit runtime error",

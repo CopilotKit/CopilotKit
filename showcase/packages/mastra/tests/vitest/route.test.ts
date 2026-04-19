@@ -50,7 +50,9 @@ async function importRoute() {
 }
 
 function makeAgent(tag: string, resourceId?: string) {
-  return { __agent: tag, resourceId } as unknown as ReturnType<typeof getLocalAgent>;
+  return { __agent: tag, resourceId } as unknown as ReturnType<
+    typeof getLocalAgent
+  >;
 }
 
 beforeEach(() => {
@@ -71,7 +73,9 @@ describe("buildAgents", () => {
     );
 
     const { buildAgents } = await importRoute();
-    expect(() => buildAgents()).toThrow(/weatherAgent missing from Mastra config/);
+    expect(() => buildAgents()).toThrow(
+      /weatherAgent missing from Mastra config/,
+    );
   });
 
   it("produces a unique resourceId for every demo name", async () => {
@@ -109,7 +113,9 @@ describe("buildAgents", () => {
     });
 
     const { buildAgents } = await importRoute();
-    expect(() => buildAgents()).toThrow(/getLocalAgent returned null for agentic_chat/);
+    expect(() => buildAgents()).toThrow(
+      /getLocalAgent returned null for agentic_chat/,
+    );
   });
 
   it("fails loudly when a local agent name collides with a demo alias", async () => {
@@ -123,7 +129,9 @@ describe("buildAgents", () => {
     );
 
     const { buildAgents } = await importRoute();
-    expect(() => buildAgents()).toThrow(/collide with existing Mastra local agents.*agentic_chat/);
+    expect(() => buildAgents()).toThrow(
+      /collide with existing Mastra local agents.*agentic_chat/,
+    );
   });
 
   it("does not collide on a clean Mastra config with only weatherAgent", async () => {
