@@ -1,87 +1,54 @@
 """Minimal LangGraph agent for the Open-Ended Generative UI demo.
 
-This is the simplest possible example that exercises the open-ended
-generative UI pipeline. All the interesting work happens in the
-CopilotKit runtime middleware (enabled via `openGenerativeUI` on the
-runtime): it converts a streamed `generateSandboxedUi` tool call into
-`open-generative-ui` activity events that the built-in renderer mounts
-inside a sandboxed iframe.
+The simplest possible example that exercises the open-ended generative UI
+pipeline. All the interesting work happens outside the agent:
 
-We don't rely on a real LLM here — the graph deterministically emits ONE
-hand-authored UI bundle via `copilotkit_manually_emit_tool_call`, so the
-demo is visibly working without any API keys. The "advanced" sibling
-cell (`open-gen-ui-advanced`) adds sandbox functions and app-side tool
-calling on top of this same base.
+- `CopilotKitMiddleware` merges the frontend-registered `generateSandboxedUi`
+  tool (auto-registered by `CopilotKitProvider` when the runtime has
+  `openGenerativeUI` enabled) into the agent's tool list. The LLM then sees
+  the tool via the normal AG-UI flow.
+- When the LLM calls `generateSandboxedUi`, the runtime's
+  `OpenGenerativeUIMiddleware` (enabled via `openGenerativeUI` on the
+  runtime — see `src/app/api/copilotkit-ogui/route.ts`) converts that
+  streaming tool call into `open-generative-ui` activity events that the
+  built-in renderer mounts inside a sandboxed iframe.
+
+This is the minimal variant: no sandbox functions, no app-side tools. The
+agent simply asks the LLM to design and emit a single-shot sandboxed UI.
+The "advanced" sibling (`open_gen_ui_advanced_agent.py`) builds on this
+with sandbox-to-host function calling via `openGenerativeUI.sandboxFunctions`.
 """
 
 from __future__ import annotations
 
-import json
-import uuid
-from typing import List
-
-from langchain_core.callbacks.manager import adispatch_custom_event
-from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
-from langgraph.graph import END, START, MessagesState, StateGraph
-
-TOOL_NAME = "generateSandboxedUi"
-
-# A tiny hand-authored UI bundle. The parameter shape is what the
-# runtime middleware parses out of the `generateSandboxedUi` tool call:
-# { initialHeight, css, html, placeholderMessages }.
-BUNDLE = {
-    "initialHeight": 140,
-    "placeholderMessages": ["Building your UI..."],
-    "css": (
-        ".card{font-family:-apple-system,BlinkMacSystemFont,sans-serif;"
-        "background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;"
-        "padding:20px 24px;border-radius:12px;text-align:center}"
-        ".card h1{margin:0 0 6px 0;font-size:20px}"
-        ".card p{margin:0;font-size:14px;opacity:.9}"
-    ),
-    "html": (
-        '<div class="card">'
-        "<h1>Hello!</h1>"
-        "<p>Agent-authored UI, rendered inside a sandboxed iframe.</p>"
-        "</div>"
-    ),
-}
+from copilotkit import CopilotKitMiddleware
+from langchain.agents import create_agent
+from langchain_openai import ChatOpenAI
 
 
-async def _call_model(state: MessagesState) -> dict:
-    messages: List[BaseMessage] = state["messages"]
+SYSTEM_PROMPT = """You are a UI-generating assistant for an Open Generative UI demo.
 
-    if any(isinstance(m, ToolMessage) for m in messages):
-        return {"messages": []}
+On every user turn you MUST call the `generateSandboxedUi` frontend tool
+exactly once. Design a visually polished, self-contained HTML + CSS
+widget that answers the user's request — a greeting card, a calculator,
+a chart (using Chart.js from a CDN), a timer, or anything else the user
+asks for.
 
-    tool_call_id = f"tc-{uuid.uuid4().hex[:12]}"
-
-    await adispatch_custom_event(
-        "copilotkit_manually_emit_tool_call",
-        {
-            "id": tool_call_id,
-            "name": TOOL_NAME,
-            "args": json.dumps(BUNDLE),
-        },
-    )
-
-    persisted = AIMessage(
-        content="",
-        tool_calls=[
-            {
-                "name": TOOL_NAME,
-                "args": BUNDLE,
-                "id": tool_call_id,
-                "type": "tool_call",
-            }
-        ],
-    )
-    return {"messages": [persisted]}
+Generation guidance:
+- Emit `initialHeight` and a short `placeholderMessages` array first.
+- Then CSS (complete), then HTML (streams live so keep it tidy).
+- Use CDN scripts (Chart.js, D3, etc.) via <script> tags in the HTML head
+  when you need libraries. The sandbox CAN load external CDN resources.
+- Do NOT use fetch/XHR, localStorage, or document.cookie — the sandbox has
+  no same-origin access.
+- Keep your own chat message brief (1 sentence max) since the real output
+  is the rendered UI.
+"""
 
 
-_builder = StateGraph(MessagesState)
-_builder.add_node("call_model", _call_model)
-_builder.add_edge(START, "call_model")
-_builder.add_edge("call_model", END)
-
-graph = _builder.compile()
+graph = create_agent(
+    model=ChatOpenAI(model="gpt-4.1", model_kwargs={"parallel_tool_calls": False}),
+    tools=[],
+    middleware=[CopilotKitMiddleware()],
+    system_prompt=SYSTEM_PROMPT,
+)

@@ -1,133 +1,74 @@
-"""LangGraph agent for the Open-Ended Generative UI (advanced) demo.
+"""LangGraph agent for the Open-Ended Generative UI (Advanced) demo.
 
-The CopilotKit frontend wires up the built-in
-`OpenGenerativeUIActivityRenderer` which subscribes to `activity` messages
-of type `"open-generative-ui"`. Those activity events are produced by the
-runtime's `OpenGenerativeUIMiddleware` whenever it sees a streaming tool
-call named `generateSandboxedUi` — the middleware converts the tool-call
-argument stream into `ACTIVITY_SNAPSHOT` / `ACTIVITY_DELTA` events.
+This is the "advanced" variant of the Open Generative UI demo. The key
+distinguishing feature: the agent-authored, sandboxed UI can invoke
+frontend-registered **sandbox functions** — functions the app defines on
+the host page (see `src/app/demos/open-gen-ui-advanced/sandbox-functions.ts`)
+and makes callable from inside the iframe via
+`await Websandbox.connection.remote.<name>(args)`.
 
-For this demo we do NOT rely on a secondary LLM to author the UI. The
-graph dispatches ONE `copilotkit_manually_emit_tool_call` custom event
-carrying a tiny hand-authored bundle (html + css). The CopilotKit
-LangGraph adapter turns that into the expected AG-UI
-TOOL_CALL_START / _ARGS / _END sequence, and the runtime middleware
-converts it into `open-generative-ui` activity events.
+How it works end-to-end:
+- The frontend passes `openGenerativeUI={{ sandboxFunctions }}` to the
+  `CopilotKitProvider`. The provider injects a JSON descriptor of those
+  functions into the agent context.
+- `CopilotKitMiddleware` here picks up both the frontend-registered
+  `generateSandboxedUi` tool (auto-registered by the provider when OGUI
+  is enabled on the runtime) AND the sandbox-function descriptors (via
+  `copilotkit.context`), and merges them into what the LLM sees.
+- The LLM then generates HTML + JS that calls
+  `Websandbox.connection.remote.<name>(...)` in response to user
+  interactions.
+- The runtime's `OpenGenerativeUIMiddleware` converts the streaming
+  `generateSandboxedUi` tool call into `open-generative-ui` activity
+  events that the built-in renderer mounts inside a sandboxed iframe.
+- The renderer wires each `sandboxFunctions` entry as a `localApi`
+  method on the websandbox connection so in-iframe code can call it.
 
-This keeps the demo deterministic and visibly working without depending
-on model capability or prompt engineering.
+The "minimal" sibling (`open_gen_ui_agent.py`) uses the same OGUI
+pipeline without sandbox functions.
 """
 
 from __future__ import annotations
 
-import json
-import uuid
-from typing import Any, List
-
-from langchain_core.callbacks.manager import adispatch_custom_event
-from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
-from langgraph.graph import END, START, MessagesState, StateGraph
-
-TOOL_NAME = "generateSandboxedUi"
+from copilotkit import CopilotKitMiddleware
+from langchain.agents import create_agent
+from langchain_openai import ChatOpenAI
 
 
-def _build_bundle(user_prompt: str) -> dict[str, Any]:
-    """A tiny hand-authored UI bundle.
+SYSTEM_PROMPT = """You are a UI-generating assistant for the Open Generative UI (Advanced) demo.
 
-    Uses the parameter shape the runtime middleware parses out of the
-    `generateSandboxedUi` tool call: { initialHeight, css, html,
-    placeholderMessages }.
-    """
-    prompt_preview = (user_prompt or "your request").strip().replace("\n", " ")
-    if len(prompt_preview) > 120:
-        prompt_preview = prompt_preview[:117] + "..."
+On every user turn you MUST call the `generateSandboxedUi` frontend tool
+exactly once. The generated UI must be INTERACTIVE and must invoke the
+available host-side sandbox functions described in your agent context
+(delivered via `copilotkit.context`) in response to user interactions.
 
-    css = (
-        ".ck-card{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',"
-        "Roboto,sans-serif;background:linear-gradient(135deg,#6366f1,#8b5cf6);"
-        "color:#fff;padding:20px 24px;border-radius:12px;"
-        "box-shadow:0 10px 30px rgba(99,102,241,.3)}"
-        ".ck-card h1{margin:0 0 8px 0;font-size:22px;font-weight:700}"
-        ".ck-card p{margin:0;font-size:14px;opacity:.92;line-height:1.5}"
-        ".ck-card .ck-tag{display:inline-block;margin-top:12px;padding:4px 10px;"
-        "background:rgba(255,255,255,.2);border-radius:999px;font-size:12px}"
-    )
-    html = (
-        '<div class="ck-card">'
-        "<h1>Hello from Open Generative UI</h1>"
-        f"<p>You asked: <em>{_html_escape(prompt_preview)}</em></p>"
-        '<span class="ck-tag">sandboxed &middot; agent-authored</span>'
-        "</div>"
-    )
-    return {
-        "initialHeight": 180,
-        "placeholderMessages": ["Building your UI..."],
-        "css": css,
-        "html": html,
-    }
+Sandbox-function calling contract (inside the generated iframe):
+- Call a host function with:
+      await Websandbox.connection.remote.<functionName>(args)
+  The call returns a Promise; await it.
+- Descriptions, names, and JSON-schema parameter shapes for every
+  available sandbox function are listed in your context. Read them
+  carefully and wire at least one interactive UI element to call one.
+
+Generation guidance:
+- Emit `initialHeight` and `placeholderMessages` first, then CSS, then
+  HTML, then `jsFunctions` / `jsExpressions` if helpful.
+- Always include a visible result element (e.g. an output div) that you
+  UPDATE after the sandbox function resolves, so the user can *see* the
+  round-trip: "Button clicked -> remote call -> visible result".
+- Use CDN scripts (Chart.js, D3, etc.) via <script> tags in the HTML head
+  when you need libraries.
+- Do NOT use fetch/XHR, localStorage, or document.cookie — the sandbox has
+  no same-origin access. ONLY use `Websandbox.connection.remote.*` for
+  host-page interactions.
+- Keep your own chat message brief (1 sentence max); the rendered UI is
+  the real output.
+"""
 
 
-def _html_escape(text: str) -> str:
-    return (
-        text.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
-
-
-def _last_user_text(messages: List[BaseMessage]) -> str:
-    for msg in reversed(messages):
-        if getattr(msg, "type", None) == "human":
-            content = msg.content
-            if isinstance(content, str):
-                return content
-            if isinstance(content, list):
-                parts: List[str] = []
-                for block in content:
-                    if isinstance(block, dict) and block.get("type") == "text":
-                        parts.append(str(block.get("text", "")))
-                    elif isinstance(block, str):
-                        parts.append(block)
-                return "".join(parts)
-    return ""
-
-
-async def _call_model(state: MessagesState) -> dict:
-    messages = state["messages"]
-    if any(isinstance(m, ToolMessage) for m in messages):
-        return {"messages": []}
-
-    user_text = _last_user_text(messages)
-    bundle = _build_bundle(user_text)
-    tool_call_id = f"tc-{uuid.uuid4().hex[:12]}"
-
-    await adispatch_custom_event(
-        "copilotkit_manually_emit_tool_call",
-        {
-            "id": tool_call_id,
-            "name": TOOL_NAME,
-            "args": json.dumps(bundle),
-        },
-    )
-
-    persisted = AIMessage(
-        content="",
-        tool_calls=[
-            {
-                "name": TOOL_NAME,
-                "args": bundle,
-                "id": tool_call_id,
-                "type": "tool_call",
-            }
-        ],
-    )
-    return {"messages": [persisted]}
-
-
-_builder = StateGraph(MessagesState)
-_builder.add_node("call_model", _call_model)
-_builder.add_edge(START, "call_model")
-_builder.add_edge("call_model", END)
-
-graph = _builder.compile()
+graph = create_agent(
+    model=ChatOpenAI(model="gpt-4.1", model_kwargs={"parallel_tool_calls": False}),
+    tools=[],
+    middleware=[CopilotKitMiddleware()],
+    system_prompt=SYSTEM_PROMPT,
+)

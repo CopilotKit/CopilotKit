@@ -1,19 +1,30 @@
 /**
- * Suggestion prompts surfaced in the chat composer. Each one exercises the
- * open-ended generative UI pipeline by asking the agent to author a new
- * sandboxed UI from scratch.
+ * Suggestion prompts surfaced in the chat composer. Each suggestion
+ * explicitly asks the agent to produce an interactive sandboxed UI that
+ * calls one of the host-side sandbox functions (see `sandbox-functions.ts`),
+ * so the demo visibly exercises the iframe <-> host bridge end-to-end.
  */
 export const openGenUiSuggestions = [
   {
-    title: "Build a greeting card",
-    message: "Build me a simple card that says Hello.",
+    title: "Calculator (calls evaluateExpression)",
+    message:
+      "Build a modern calculator UI. When the user presses '=', the button handler MUST call " +
+      "`await Websandbox.connection.remote.evaluateExpression({ expression })` with the current " +
+      "display expression, then update the display to the returned numeric value. Show the " +
+      "history of computed values below the display.",
   },
   {
-    title: "Pomodoro timer",
-    message: "Create a Pomodoro timer with start, pause, and reset.",
+    title: "Ping the host (calls notifyHost)",
+    message:
+      "Build a simple card with a 'Say hi to the host' button. When clicked, the button handler " +
+      "MUST call `await Websandbox.connection.remote.notifyHost({ message: 'Hi from the sandbox!' })` " +
+      "and then display the returned confirmation (including receivedAt timestamp) inside the card.",
   },
   {
-    title: "Quarterly revenue chart",
-    message: "Generate a bar chart of quarterly revenue.",
+    title: "Inline expression evaluator",
+    message:
+      "Build a tiny form with a text input and an 'Evaluate' button. When the user clicks " +
+      "'Evaluate', call `await Websandbox.connection.remote.evaluateExpression({ expression })` with " +
+      "the input value and render the returned result (or error.ok=false message) below the input.",
   },
 ];

@@ -10,13 +10,34 @@
  * inside a sandboxed iframe. No custom sandbox functions, no custom
  * tools — just chat.
  *
- * Ask the agent to "Build me a simple greeting card." to see it work.
- *
  * Reference: https://docs.copilotkit.ai/generative-ui/open-generative-ui
  */
 
 import React from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
+
+const minimalSuggestions = [
+  {
+    title: "Greeting card",
+    message: "Build me a simple greeting card that says hello.",
+  },
+  {
+    title: "Pomodoro timer",
+    message:
+      "Build a Pomodoro timer UI with a circular progress ring and start / pause / reset buttons. " +
+      "Drive the countdown with jsExpressions / setInterval inside the sandbox.",
+  },
+  {
+    title: "Quarterly revenue chart",
+    message:
+      "Using Chart.js loaded from a CDN, render a bar chart of synthetic quarterly revenue " +
+      "(Q1 through Q4) inside the sandbox.",
+  },
+];
 
 export default function OpenGenUiDemo() {
   // @region[minimal-provider-setup]
@@ -27,10 +48,19 @@ export default function OpenGenUiDemo() {
     <CopilotKit runtimeUrl="/api/copilotkit-ogui" agent="open-gen-ui">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl flex flex-col p-3">
-          <CopilotChat agentId="open-gen-ui" className="flex-1 rounded-2xl" />
+          <Chat />
         </div>
       </div>
     </CopilotKit>
   );
   // @endregion[minimal-provider-setup]
+}
+
+function Chat() {
+  useConfigureSuggestions({
+    suggestions: minimalSuggestions,
+    available: "always",
+  });
+
+  return <CopilotChat agentId="open-gen-ui" className="flex-1 rounded-2xl" />;
 }
