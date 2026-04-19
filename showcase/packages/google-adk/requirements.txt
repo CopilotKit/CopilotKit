@@ -5,3 +5,8 @@ pydantic
 google-adk
 google-genai
 ag-ui-adk
+# generate_a2ui tool uses the OpenAI SDK for a secondary LLM call (A2UI
+# planner) independent of the main google-adk agent. httpx is pulled in
+# by openai but listed here so CI + container both install it deterministically.
+openai>=1.0.0
+httpx>=0.27.0

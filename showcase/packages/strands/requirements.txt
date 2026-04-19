@@ -5,3 +5,8 @@ strands-agents-tools>=0.2.14
 fastapi>=0.115.0
 uvicorn>=0.34.0
 python-dotenv>=1.0.1
+# generate_a2ui tool and narrowed except clauses reference openai + httpx.
+# strands-agents[OpenAI] pulls openai transitively but we pin explicitly
+# so the import works even if strands-agents changes its extras.
+openai>=1.0.0
+httpx>=0.27.0

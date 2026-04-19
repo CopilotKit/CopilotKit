@@ -3,3 +3,8 @@ uvicorn>=0.34.0
 langroid>=0.53.0
 ag-ui-protocol==0.1.9
 python-dotenv>=1.0.0
+# agui_adapter narrows handle_run's except clause to (openai.APIError,
+# httpx.HTTPError, asyncio.TimeoutError, pydantic.ValidationError) — the
+# module-level imports of openai + httpx need to resolve at container start.
+openai>=1.0.0
+httpx>=0.27.0
