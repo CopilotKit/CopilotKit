@@ -15,6 +15,7 @@ In all other cases, end_invocation must not be flipped.
 
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 
 import pytest
@@ -191,3 +192,61 @@ def test_missing_invocation_context_does_not_crash():
     result = simple_after_model_modifier(ctx, response)
 
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# error_message branch must log at WARNING (CR round 4 finding #2).
+#
+# Gemini surfaces quota/safety-filter/context-overflow errors via
+# llm_response.error_message. The prior implementation silently returned
+# None, making these failures invisible in the server log. The fix logs at
+# WARNING with the agent name before returning.
+# ---------------------------------------------------------------------------
+
+
+def test_error_message_logs_warning_with_agent_name(caplog):
+    """When llm_response.error_message is set (no content), the callback
+    must emit a WARNING that includes the agent name and the error text."""
+    ctx = FakeCallbackContext(agent_name="SalesPipelineAgent")
+    response = SimpleNamespace(
+        content=None,
+        partial=False,
+        error_message="RESOURCE_EXHAUSTED: quota exceeded",
+    )
+
+    with caplog.at_level(logging.WARNING, logger="agents.main"):
+        result = simple_after_model_modifier(ctx, response)
+
+    assert result is None
+    warnings = [
+        rec
+        for rec in caplog.records
+        if rec.levelno == logging.WARNING
+        and "error_message" in rec.getMessage()
+        and "SalesPipelineAgent" in rec.getMessage()
+        and "RESOURCE_EXHAUSTED" in rec.getMessage()
+    ]
+    assert warnings, (
+        f"expected WARNING log with agent name and error text, got: "
+        f"{[r.getMessage() for r in caplog.records]}"
+    )
+
+
+def test_error_message_on_non_sales_agent_is_noop(caplog):
+    """For non-SalesPipelineAgent agents the whole callback is a no-op,
+    so the error_message branch is never reached and no warning is logged."""
+    ctx = FakeCallbackContext(agent_name="SomeOtherAgent")
+    response = SimpleNamespace(
+        content=None,
+        partial=False,
+        error_message="quota exceeded",
+    )
+
+    with caplog.at_level(logging.WARNING, logger="agents.main"):
+        simple_after_model_modifier(ctx, response)
+
+    # No error_message WARNING for non-matching agents.
+    for rec in caplog.records:
+        assert "error_message" not in rec.getMessage(), (
+            f"unexpected error_message warning for non-matching agent: {rec.getMessage()}"
+        )

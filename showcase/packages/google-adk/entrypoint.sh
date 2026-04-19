@@ -73,15 +73,49 @@ esac
 
 # `kill -0 <pid>` returns 0 if the process is still alive, nonzero if it is
 # gone. Whichever one is gone is the one that died; log both statuses so the
-# platform's log stream carries enough info to diagnose.
+# platform's log stream carries enough info to diagnose. We also capture the
+# surviving sibling's PID so we can terminate it explicitly below — without
+# that, the survivor would be orphan-reparented to PID 1 and keep consuming
+# resources until the container runtime tears down the whole process tree.
+# This mirrors the spring-ai entrypoint pattern.
+SURVIVOR_PID=""
 if ! kill -0 "$AGENT_PID" 2>/dev/null; then
     echo "[entrypoint] agent backend (uvicorn, pid=$AGENT_PID) exited with code $EXIT_CODE — $EXIT_MEANING" >&2
+    if kill -0 "$NEXT_PID" 2>/dev/null; then
+        SURVIVOR_PID="$NEXT_PID"
+    fi
 elif ! kill -0 "$NEXT_PID" 2>/dev/null; then
     echo "[entrypoint] next.js frontend (pid=$NEXT_PID) exited with code $EXIT_CODE — $EXIT_MEANING" >&2
+    if kill -0 "$AGENT_PID" 2>/dev/null; then
+        SURVIVOR_PID="$AGENT_PID"
+    fi
 else
-    # Both still running somehow — wait -n returned but both pids are alive.
-    # This should not happen, but report it instead of silently exiting.
-    echo "[entrypoint] wait -n returned exit=$EXIT_CODE ($EXIT_MEANING) but both agent ($AGENT_PID) and next.js ($NEXT_PID) appear alive" >&2
+    # `wait -n` returned but both pids still resolve. This most commonly
+    # happens when a child was reaped before we ran `kill -0` (race), which
+    # means one IS actually dead — we just can't tell which. Escalate to
+    # ERROR + exit 1 so this path does not silently mask the real death.
+    # Under no-children-dead the shell would never reach this block.
+    echo "[entrypoint] ERROR: wait -n returned exit=$EXIT_CODE ($EXIT_MEANING) but both agent ($AGENT_PID) and next.js ($NEXT_PID) appear alive — treating as fatal race; the actual dying child's status has already been reaped" >&2
+    exit 1
+fi
+
+# Terminate the surviving sibling with a bounded grace window so it shuts
+# down cleanly rather than getting SIGKILL'd by the container runtime at
+# teardown. 5s matches the spring-ai pattern and is comfortably under the
+# typical container stop-grace (10s+).
+if [ -n "$SURVIVOR_PID" ]; then
+    echo "[entrypoint] Terminating surviving sibling (pid=${SURVIVOR_PID}) to avoid orphan-reparent" >&2
+    kill "$SURVIVOR_PID" 2>/dev/null
+    # Bounded wait: poll for up to 5s, then SIGKILL if still alive.
+    for _ in 1 2 3 4 5; do
+        kill -0 "$SURVIVOR_PID" 2>/dev/null || break
+        sleep 1
+    done
+    if kill -0 "$SURVIVOR_PID" 2>/dev/null; then
+        echo "[entrypoint] Survivor (pid=${SURVIVOR_PID}) did not exit within 5s — sending SIGKILL" >&2
+        kill -9 "$SURVIVOR_PID" 2>/dev/null
+    fi
+    wait "$SURVIVOR_PID" 2>/dev/null || true
 fi
 
 exit "$EXIT_CODE"

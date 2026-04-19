@@ -174,3 +174,43 @@ def test_before_model_modifier_does_not_mutate_shared_original_instruction():
     new_text = _system_text(request)
     assert "BASE" in new_text
     assert "You are a helpful sales assistant" in new_text
+
+
+# ---------------------------------------------------------------------------
+# Suffix preservation when prefix signature is present but end_marker is
+# missing (mangled / drifted prefix) (CR round 4 finding #1).
+#
+# Prior behavior chopped `original_text[:sig_idx]` when the end_marker was
+# absent, discarding ALL content after the signature — including legitimate
+# user content that happened to follow a corrupted prefix. The fix leaves
+# `original_text` as-is in that case; at worst we get one duplicated
+# signature (single-shot, non-stacking) instead of data loss.
+# ---------------------------------------------------------------------------
+
+
+def test_before_model_modifier_preserves_suffix_when_end_marker_missing():
+    """When system_instruction starts with the PREFIX_SIGNATURE but does NOT
+    contain the end_marker, the callback must NOT chop the user suffix.
+    Instead it should leave `original_text` untouched and prepend a fresh
+    prefix. Worst case is a single duplicated signature — that is explicitly
+    preferred over data loss."""
+    prefix_signature = "You are a helpful sales assistant for managing a sales pipeline."
+    # Build a mangled system_instruction: starts with the signature (so the
+    # `find(PREFIX_SIGNATURE)` branch fires), but DOES NOT contain the end
+    # marker sentence. A real-world user suffix follows that should survive.
+    user_suffix = "IMPORTANT: Always respond in French."
+    mangled_base = f"{prefix_signature} (but the end marker is missing!) {user_suffix}"
+    shared = types.Content(role="system", parts=[types.Part(text=mangled_base)])
+    ctx = FakeCallbackContext(state={"todos": []})
+    request = SimpleNamespace(config=SimpleNamespace(system_instruction=shared))
+
+    before_model_modifier(ctx, request)
+
+    new_text = _system_text(request)
+    # User suffix MUST survive — it was legitimate content after a
+    # corrupted prefix.
+    assert user_suffix in new_text, (
+        f"user suffix was dropped when end_marker was missing: {new_text!r}"
+    )
+    # A fresh prefix is prepended, so the signature appears at least once.
+    assert prefix_signature in new_text

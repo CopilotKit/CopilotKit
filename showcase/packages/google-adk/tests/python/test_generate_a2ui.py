@@ -159,8 +159,11 @@ def test_generate_a2ui_unparseable_arguments_returns_full_error_shape():
 def test_generate_a2ui_missing_invocation_context_still_completes_cleanly():
     """Tool context without _invocation_context must not crash — generate_a2ui
     falls through to the OpenAI call with an empty conversation history. The
-    AttributeError handler in generate_a2ui must swallow the missing attr and
-    the OpenAI mock below then drives the normal branch."""
+    implementation uses `getattr(tool_context, '_invocation_context', None)`
+    with an explicit `if value is None` guard (rather than a bare try/except
+    AttributeError), so the missing attribute is detected and session-history
+    extraction is skipped. The OpenAI mock below then drives the normal
+    branch."""
     fake_client = MagicMock()
     fake_client.chat.completions.create.return_value = _openai_response(choices=[])
     with patch("agents.main._get_openai_client", return_value=fake_client):

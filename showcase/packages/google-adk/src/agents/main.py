@@ -67,6 +67,11 @@ class _A2uiError(TypedDict):
 
     Every error branch MUST populate all three keys so callers (and the LLM
     summarizing the tool result) see a consistent surface.
+
+    NOTE: An identical TypedDict lives in
+    `showcase/packages/strands/src/agents/agent.py`. Keep the two in sync —
+    any key additions / removals must land in both places so the A2UI error
+    surface stays consistent across showcase adapters.
     """
 
     error: str
@@ -371,14 +376,18 @@ def before_model_modifier(
         if sig_idx != -1:
             # Find the end of the already-inserted prefix — it terminates
             # with the known trailing sentence. If that sentence is missing
-            # we fall back to chopping at the signature to avoid an
-            # unbounded retention of stale text.
+            # (mangled / drifted prefix), leave `original_text` as-is rather
+            # than chopping at the signature: chopping would discard every
+            # character after the signature, including legitimate user
+            # content that followed a corrupted prefix. Worst case of the
+            # no-op path is one duplicated signature on this single call
+            # (non-stacking, because the next invocation will find an
+            # end_marker since the freshly-prepended prefix has one).
             end_marker = "use the manage_sales_todos tool to update the list."
             end_idx = original_text.find(end_marker, sig_idx)
             if end_idx != -1:
                 original_text = original_text[end_idx + len(end_marker) :]
-            else:
-                original_text = original_text[:sig_idx]
+            # else: leave original_text untouched — preserve user suffix.
 
         modified_text = prefix + original_text
         # ADK callback contract: assign a freshly constructed Content so we
@@ -475,6 +484,17 @@ def simple_after_model_modifier(
                     )
 
         elif llm_response.error_message:
+            # Gemini surfaced an error (quota exhausted, safety-filter block,
+            # context-overflow, etc.). Previously this branch returned None
+            # silently, making these failures invisible in the server log.
+            # Log at WARNING with agent name so operators can correlate the
+            # failure to the request.
+            logger.warning(
+                "simple_after_model_modifier: Gemini returned error_message "
+                "for agent=%s: %s",
+                agent_name,
+                llm_response.error_message,
+            )
             return None
         else:
             return None
