@@ -9,7 +9,10 @@ We verify:
   * ``ThreadingInstrumentor.instrument`` has been replaced,
   * the replacement returns ``self`` (not ``None``) so fluent callers
     don't AttributeError,
-  * calling ``.instrument()`` is a no-op (doesn't actually wrap anything).
+  * calling ``.instrument()`` is a no-op (doesn't actually wrap anything),
+  * the import-order guard is implemented as ``if/raise`` (NOT ``assert``)
+    so it survives ``python -O``,
+  * pre-imported strands is detected and raises.
 """
 
 from __future__ import annotations
@@ -63,6 +66,65 @@ def test_patch_replaces_original_method():
     assert ThreadingInstrumentor.instrument is sentinel
 
 
+def test_agent_server_guards_use_if_raise_not_assert():
+    """The import-order guards in agent_server.py must be implemented as
+    ``if not ...: raise RuntimeError(...)``, NOT as ``assert`` statements.
+
+    Why this matters: ``assert`` is stripped when Python runs with ``-O``
+    (some Docker base images, optimized CPython builds). If the guards
+    use ``assert``, they silently vanish under ``-O`` and the documented
+    RecursionError returns with no signal.
+
+    This test reads the source of ``agent_server.py`` and fails if any
+    guard is written as ``assert``.
+    """
+    import importlib.util
+
+    spec = importlib.util.find_spec("agent_server")
+    if spec is None or spec.origin is None:
+        pytest.skip("agent_server module not locatable on sys.path")
+
+    with open(spec.origin, "r", encoding="utf-8") as fh:
+        source = fh.read()
+
+    # The guards we care about are named functions. The invariant we
+    # enforce: their bodies must raise, not assert. We grep for the
+    # former and reject the latter.
+    assert "_assert_strands_not_preimported" in source, (
+        "agent_server.py must expose _assert_strands_not_preimported() "
+        "so tests can monkey-patch the guard cleanly"
+    )
+    assert "_assert_instrumentor_patched" in source, (
+        "agent_server.py must expose _assert_instrumentor_patched() "
+        "for the same reason"
+    )
+
+    # Check that neither of the guard strings appears behind an ``assert``.
+    # We match ``assert "strands" not in sys.modules`` and ``assert
+    # _ThreadingInstrumentor.instrument is``. Both are the shapes that
+    # existed before the -O fix. If either regex matches, we've regressed.
+    import re
+
+    forbidden_patterns = [
+        r'^\s*assert\s+"strands"\s+not\s+in\s+sys\.modules\b',
+        r'^\s*assert\s+_ThreadingInstrumentor\.instrument\s+is\b',
+    ]
+    for pat in forbidden_patterns:
+        assert not re.search(pat, source, flags=re.MULTILINE), (
+            f"agent_server.py contains a raw ``assert`` guard matching {pat!r}; "
+            "these are stripped under ``python -O``. Use ``if/raise RuntimeError`` instead."
+        )
+
+    # Positive assertion: the named functions must raise RuntimeError
+    # (not AssertionError) so the guard survives -O and also so callers
+    # don't need ``__debug__`` to be true.
+    assert "raise RuntimeError(" in source, (
+        "agent_server.py guards must use ``raise RuntimeError(...)`` — "
+        "RuntimeError (not AssertionError) so the semantics are identical "
+        "under ``python -O``"
+    )
+
+
 def test_agent_server_module_installs_patch():
     """Importing ``agent_server`` must leave the instrumentor patched.
 
@@ -81,17 +143,25 @@ def test_agent_server_module_installs_patch():
             self.kwargs = kwargs
             self._agents_by_thread: dict = {}
 
+    class _FakeFastAPI:
+        """Accepts the decorator calls agent_server applies to ``app``."""
+
+        def _decorator(self, *a, **k):
+            def _wrap(fn):
+                return fn
+            return _wrap
+
+        get = post = put = delete = patch = _decorator
+
     fake_ag_ui_strands = types.ModuleType("ag_ui_strands")
-    fake_ag_ui_strands.create_strands_app = lambda *a, **k: None  # type: ignore[attr-defined]
+    fake_ag_ui_strands.create_strands_app = lambda *a, **k: _FakeFastAPI()  # type: ignore[attr-defined]
     fake_ag_ui_strands.StrandsAgent = _AcceptsAnything  # type: ignore[attr-defined]
     fake_ag_ui_strands.StrandsAgentConfig = _AcceptsAnything  # type: ignore[attr-defined]
     fake_ag_ui_strands.ToolBehavior = _AcceptsAnything  # type: ignore[attr-defined]
-    sys.modules.setdefault("ag_ui_strands", fake_ag_ui_strands)
 
     fake_strands = types.ModuleType("strands")
     fake_strands.Agent = _AcceptsAnything  # type: ignore[attr-defined]
     fake_strands.tool = lambda f=None, **_: (f if callable(f) else (lambda g: g))  # type: ignore[attr-defined]
-    sys.modules.setdefault("strands", fake_strands)
 
     fake_hooks = types.ModuleType("strands.hooks")
     for name in (
@@ -102,7 +172,6 @@ def test_agent_server_module_installs_patch():
         "HookRegistry",
     ):
         setattr(fake_hooks, name, type(name, (), {}))
-    sys.modules.setdefault("strands.hooks", fake_hooks)
 
     fake_openai_mod = types.ModuleType("strands.models.openai")
 
@@ -113,8 +182,6 @@ def test_agent_server_module_installs_patch():
 
     fake_openai_mod.OpenAIModel = _FakeOpenAIModel  # type: ignore[attr-defined]
     fake_models = types.ModuleType("strands.models")
-    sys.modules.setdefault("strands.models", fake_models)
-    sys.modules.setdefault("strands.models.openai", fake_openai_mod)
 
     # uvicorn is imported at module level but only invoked from ``main()``.
     if "uvicorn" not in sys.modules:
@@ -134,49 +201,80 @@ def test_agent_server_module_installs_patch():
 
     _os.environ.setdefault("OPENAI_API_KEY", "test-key-for-instrumentor-patch")
 
-    # agent_server.py contains an ``assert 'strands' not in sys.modules``
-    # guard BEFORE the patch. This is the correct behavior — but in the
-    # unit-test harness a prior test may have already imported strands
-    # (directly or via ``agents.agent``). The separate
-    # ``test_import_order_assert_catches_preimported_strands`` test
-    # exercises the guard; THIS test cares only about the patch effect.
-    #
-    # Strategy: execute agent_server's source with the import-order
-    # assert line neutralized. Downstream imports still use the stubs
-    # we installed above.
+    # Drop any pre-existing strands / agent_server entries so the
+    # import-order guard passes cleanly. After the guard runs, install
+    # the stubs via a meta-path finder so the post-patch
+    # ``from ag_ui_strands import ...`` lines resolve.
     sys.modules.pop("agent_server", None)
-    # Ensure strands stubs are present for agent_server's post-patch
-    # imports (both stubs and real package tolerated).
-    sys.modules.setdefault("strands", fake_strands)
-    sys.modules.setdefault("strands.hooks", fake_hooks)
-    sys.modules.setdefault("strands.models", fake_models)
-    sys.modules.setdefault("strands.models.openai", fake_openai_mod)
-    sys.modules.setdefault("ag_ui_strands", fake_ag_ui_strands)
+    for _stale in (
+        "strands",
+        "strands.hooks",
+        "strands.models",
+        "strands.models.openai",
+        "ag_ui_strands",
+    ):
+        sys.modules.pop(_stale, None)
+
+    _STUB_MAP = {
+        "strands": fake_strands,
+        "strands.hooks": fake_hooks,
+        "strands.models": fake_models,
+        "strands.models.openai": fake_openai_mod,
+        "ag_ui_strands": fake_ag_ui_strands,
+    }
+
+    class _StubLoader:
+        """Minimal loader that returns a pre-built module object."""
+
+        def __init__(self, module):
+            self._module = module
+
+        def create_module(self, spec):
+            return self._module
+
+        def exec_module(self, module):
+            # Module body already populated; nothing to execute.
+            return None
+
+    class _LazyStubFinder:
+        """Serves stub modules for strands / ag_ui_strands names on demand.
+
+        agent_server's ``_assert_strands_not_preimported()`` runs BEFORE
+        any of these modules are referenced, so sys.modules is clean at
+        guard time. The first post-patch ``from ag_ui_strands import ...``
+        triggers this finder, which returns a proper ModuleSpec whose
+        loader yields our pre-built stub.
+        """
+
+        @classmethod
+        def find_spec(cls, name, path, target=None):
+            mod = _STUB_MAP.get(name)
+            if mod is None:
+                return None
+            import importlib.util as _u
+
+            return _u.spec_from_loader(name, _StubLoader(mod))
 
     import importlib.util as _util
 
     spec = _util.find_spec("agent_server")
     if spec is None or spec.origin is None:
         pytest.skip("agent_server module not locatable on sys.path")
-    with open(spec.origin, "r", encoding="utf-8") as fh:
-        source = fh.read()
-    # The import-order guard spans multiple lines (assert + parenthesized
-    # error message). Neutralize the entire block with a regex that
-    # matches from ``assert "strands"`` through the closing parenthesis.
-    import re
 
-    neutralized = re.sub(
-        r'assert "strands" not in sys\.modules,\s*\([^)]*\)',
-        'True  # neutralized: separate test covers the guard path',
-        source,
-        count=1,
-        flags=re.DOTALL,
-    )
-    module_ns: dict = {
-        "__name__": "agent_server_under_test",
-        "__file__": spec.origin,
-    }
-    exec(compile(neutralized, spec.origin, "exec"), module_ns)
+    sys.meta_path.insert(0, _LazyStubFinder)
+    try:
+        with open(spec.origin, "r", encoding="utf-8") as fh:
+            source = fh.read()
+        module_ns: dict = {
+            "__name__": "agent_server_under_test",
+            "__file__": spec.origin,
+        }
+        # Execute agent_server's source verbatim — no regex surgery. The
+        # guard runs against an empty-of-strands ``sys.modules`` and passes;
+        # downstream imports hit the lazy stub finder.
+        exec(compile(source, spec.origin, "exec"), module_ns)
+    finally:
+        sys.meta_path.remove(_LazyStubFinder)
 
     from opentelemetry.instrumentation.threading import ThreadingInstrumentor
 
@@ -185,14 +283,16 @@ def test_agent_server_module_installs_patch():
     assert instance.instrument() is instance
 
 
-def test_import_order_assert_catches_preimported_strands():
-    """agent_server.py contains an ``assert 'strands' not in sys.modules``
+def test_import_order_guard_catches_preimported_strands():
+    """agent_server.py contains a ``_assert_strands_not_preimported()``
     guard BEFORE the ThreadingInstrumentor patch. If strands was already
     imported (directly or transitively) above that line, the OTel patch
     would be too late — strands' Tracer may have already been constructed.
 
     Simulate the failure mode: pre-seed ``sys.modules['strands']``, then
-    try to import agent_server, and verify the AssertionError fires.
+    try to import agent_server, and verify the guard raises ``RuntimeError``
+    (NOT ``AssertionError`` — the latter would silently disappear under
+    ``python -O``).
     """
     import sys
     import types
@@ -200,16 +300,18 @@ def test_import_order_assert_catches_preimported_strands():
     # Install a fake 'strands' before agent_server imports. In the real
     # failure mode this would be the genuine package that already ran
     # ThreadingInstrumentor().instrument() — here the presence alone is
-    # what the assert checks.
+    # what the guard checks.
     preexisting_strands = types.ModuleType("strands")
     sys.modules["strands"] = preexisting_strands
 
     # Ensure agent_server is re-imported fresh so the module-level
-    # assert executes.
+    # guard executes.
     sys.modules.pop("agent_server", None)
 
     try:
-        with pytest.raises(AssertionError, match="strands imported before"):
+        # RuntimeError, NOT AssertionError — the guard is an explicit
+        # ``raise`` so ``python -O`` doesn't strip it.
+        with pytest.raises(RuntimeError, match="strands imported before"):
             import agent_server  # noqa: F401
     finally:
         # Cleanup: remove the fake strands so subsequent tests can
@@ -229,7 +331,6 @@ def test_real_strands_agent_signature_integration():
     default in the unit-test venv; it's available in the Docker image
     and CI integration environments).
     """
-    import os
     import sys
     import types
 
@@ -264,7 +365,7 @@ def test_real_strands_agent_signature_integration():
         return
 
     # The minimal constructor should at least accept a ``tools`` kwarg
-    # (which our factory relies on). We don't need a real model here —
+    # (which our factory relies on). We don't need a real model here --
     # just verify the signature accepts the shape we use.
     try:
         agent = Agent(tools=[])  # type: ignore[call-arg]

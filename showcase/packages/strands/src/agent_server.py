@@ -39,10 +39,26 @@ from opentelemetry.instrumentation.threading import (  # noqa: E402  (must prece
 # the original ``instrument`` — and patching the class now has no effect
 # on the already-wrapped ThreadPoolExecutor. Fail loudly at import rather
 # than silently recursing at request time.
-assert "strands" not in sys.modules, (
-    "strands imported before OTel patch applied — "
-    "remove any strands / ag_ui_strands import that precedes this line in agent_server.py"
-)
+#
+# NOTE: these guards are implemented as ``if not ...: raise RuntimeError``
+# rather than ``assert`` on purpose. ``assert`` statements are stripped
+# when Python runs with ``-O`` (some Docker base images and optimized
+# CPython builds do this), which would silently re-expose the recursion
+# bug. Using an explicit raise keeps the guard active under ``-O``.
+def _assert_strands_not_preimported() -> None:
+    """Raise RuntimeError if ``strands`` was imported before this patch ran.
+
+    Extracted to a named function so tests can monkey-patch it cleanly
+    (rather than having to regex-neutralize an inline assert in the source).
+    """
+    if "strands" in sys.modules:
+        raise RuntimeError(
+            "strands imported before OTel patch applied — "
+            "remove any strands / ag_ui_strands import that precedes this line in agent_server.py"
+        )
+
+
+_assert_strands_not_preimported()
 
 
 def _disabled_instrument(self, *args, **kwargs):
@@ -56,14 +72,22 @@ def _disabled_instrument(self, *args, **kwargs):
 
 _ThreadingInstrumentor.instrument = _disabled_instrument  # type: ignore[method-assign]
 
-# Runtime assertion: ensure the patch is actually in effect. If a future
-# refactor accidentally imports strands/ag_ui_strands above this line, the
-# Tracer may have already been constructed with the original implementation.
-# The marker attribute check confirms our replacement is what's installed.
-assert _ThreadingInstrumentor.instrument is _disabled_instrument, (
-    "ThreadingInstrumentor.instrument patch was not applied — "
-    "check import order in agent_server.py"
-)
+
+def _assert_instrumentor_patched() -> None:
+    """Raise RuntimeError if the ThreadingInstrumentor patch is not in effect.
+
+    Extracted to a named function for the same reason as
+    ``_assert_strands_not_preimported`` — survives ``python -O`` and is
+    cleanly monkey-patchable from tests.
+    """
+    if _ThreadingInstrumentor.instrument is not _disabled_instrument:
+        raise RuntimeError(
+            "ThreadingInstrumentor.instrument patch was not applied — "
+            "check import order in agent_server.py"
+        )
+
+
+_assert_instrumentor_patched()
 
 import uvicorn  # noqa: E402  (kept after patch for consistent import-ordering policy)
 from dotenv import load_dotenv  # noqa: E402

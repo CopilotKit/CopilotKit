@@ -156,20 +156,23 @@ def search_flights(flights: list[dict]):
 
 
 @tool
-def generate_a2ui(context: str):
+def generate_a2ui(context: str) -> str:
     """Generate dynamic A2UI components based on the conversation.
 
     A secondary LLM designs the UI schema and data. The result is
     returned as an a2ui_operations container for the middleware to detect.
 
+    Error branches return a JSON-serialized ``_A2uiError`` dict rather
+    than raising, so OpenAI transport / quota / auth failures surface to
+    the LLM as a structured tool result (not an uncaught exception in the
+    strands tool machinery). See ``_A2uiError`` above.
+
     Args:
         context: Conversation context to generate UI from
 
     Returns:
-        A2UI operations as JSON string
+        A2UI operations (or ``_A2uiError``) as JSON string
     """
-    from openai import OpenAI
-
     tool_schema = {
         "type": "function",
         "function": {
@@ -193,8 +196,17 @@ def generate_a2ui(context: str):
     # strands tool machinery as uncaught exceptions. Return a structured
     # error with remediation instead — the LLM can surface this to the user.
     # Mirrors the google-adk sibling agent's error-handling shape.
+    #
+    # Exception scope is deliberately narrow: we catch only OpenAI SDK
+    # failures (APIError covers RateLimitError / APIConnectionError /
+    # AuthenticationError / BadRequestError as subclasses) plus the
+    # underlying httpx transport layer. Programmer errors (AttributeError,
+    # NameError, TypeError from bad kwargs, etc.) propagate so bugs are
+    # not silently swallowed as "LLM error".
+    import openai as _openai_mod
+
     try:
-        client = OpenAI()
+        client = _openai_mod.OpenAI()
         response = client.chat.completions.create(
             model="gpt-4.1",
             messages=[
@@ -204,38 +216,38 @@ def generate_a2ui(context: str):
             tools=[tool_schema],
             tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
         )
-    except Exception as exc:  # noqa: BLE001 — openai raises a variety of subclasses
+    except _openai_mod.APIError as exc:
         logger.exception("generate_a2ui: OpenAI API call failed")
-        return json.dumps({
-            "error": "a2ui_llm_error",
-            "message": f"Secondary A2UI LLM call failed: {exc.__class__.__name__}",
-            "remediation": (
+        return json.dumps(_A2uiError(
+            error="a2ui_llm_error",
+            message=f"Secondary A2UI LLM call failed: {exc.__class__.__name__}",
+            remediation=(
                 "Verify OPENAI_API_KEY is set and the OpenAI service is reachable. "
                 "See server logs for the full traceback."
             ),
-        })
+        ))
 
     if not response.choices:
         logger.warning("generate_a2ui: OpenAI response contained no choices")
-        return json.dumps({
-            "error": "a2ui_empty_response",
-            "message": "Secondary A2UI LLM returned no choices.",
-            "remediation": "Retry; if this persists, check OpenAI status.",
-        })
+        return json.dumps(_A2uiError(
+            error="a2ui_empty_response",
+            message="Secondary A2UI LLM returned no choices.",
+            remediation="Retry; if this persists, check OpenAI status.",
+        ))
 
     tool_calls = response.choices[0].message.tool_calls
     if not tool_calls:
         logger.warning(
             "generate_a2ui: OpenAI response had no tool_calls despite forced tool_choice"
         )
-        return json.dumps({
-            "error": "a2ui_no_tool_call",
-            "message": "Secondary A2UI LLM did not call render_a2ui.",
-            "remediation": (
+        return json.dumps(_A2uiError(
+            error="a2ui_no_tool_call",
+            message="Secondary A2UI LLM did not call render_a2ui.",
+            remediation=(
                 "Retry the request. If this persists, verify the tool_choice "
                 "schema matches the OpenAI API contract."
             ),
-        })
+        ))
 
     tool_call = tool_calls[0]
     try:
@@ -244,11 +256,11 @@ def generate_a2ui(context: str):
         logger.exception(
             "generate_a2ui: failed to parse render_a2ui tool arguments as JSON"
         )
-        return json.dumps({
-            "error": "a2ui_invalid_arguments",
-            "message": f"Could not parse render_a2ui arguments: {exc}",
-            "remediation": "Retry the request; the secondary LLM emitted malformed JSON.",
-        })
+        return json.dumps(_A2uiError(
+            error="a2ui_invalid_arguments",
+            message=f"Could not parse render_a2ui arguments: {exc}",
+            remediation="Retry the request; the secondary LLM emitted malformed JSON.",
+        ))
 
     result = build_a2ui_operations_from_tool_call(args)
     return json.dumps(result)
@@ -353,8 +365,12 @@ class _ToolCallCapHook(HookProvider):
     for the case where strands doesn't honor the sentinel (e.g. because
     the tool dispatch was already in flight when the sentinel was set).
 
-    Concurrency note: ag_ui_strands creates one Agent (and therefore one
-    ``_ToolCallCapHook``) per ``thread_id``. A single AG-UI thread is
+    Concurrency note: ``_HookInjectingAgentDict`` enforces one
+    ``_ToolCallCapHook`` per ``Agent`` instance (via the
+    ``_CAP_HOOK_SENTINEL_ATTR`` guard in ``_inject_cap_hook``); ag_ui_strands
+    happens to construct one Agent per ``thread_id``, so in practice that
+    is also the per-thread granularity — but the invariant this hook
+    depends on is per-Agent, not per-thread. A single AG-UI thread is
     invoked sequentially (one request at a time), so under normal use there
     is no concurrent access to ``_count``. We still hold a lock around
     mutations defensively because (a) strands may dispatch tool execution
@@ -509,6 +525,22 @@ class _HookInjectingAgentDict(dict):
         # ``dict | other`` returns a new dict; preserve injection semantics.
         new = _HookInjectingAgentDict(self)
         new.update(other)
+        return new
+
+    def __ror__(self, other):  # type: ignore[override]
+        # ``plain_dict | hook_dict`` invokes ``plain_dict.__or__(hook_dict)``
+        # first, which returns a plain ``dict`` — losing our hook injection
+        # semantics. Python falls back to ``hook_dict.__ror__(plain_dict)``
+        # only when ``__or__`` returns ``NotImplemented``, which plain dicts
+        # don't do for dict-subclass RHS. Defining ``__ror__`` still matters
+        # for the case where ``other`` is a type whose ``__or__`` returns
+        # ``NotImplemented`` (custom mappings, etc.), and documents the
+        # intended semantics: the RESULT of merging into a
+        # ``_HookInjectingAgentDict`` must itself be one, with every Agent
+        # value getting its hook.
+        new = _HookInjectingAgentDict()
+        new.update(other)
+        new.update(self)
         return new
 
 
