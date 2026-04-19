@@ -61,6 +61,7 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
 export function Chat() {
   return (
     <CopilotChat
+      // [!code highlight:2]
       messageView="bg-gray-50 dark:bg-gray-900 p-4"
       input="border-2 border-blue-400 rounded-xl"
     />
@@ -74,6 +75,7 @@ Pass an object to override specific props on the default component. This is usef
 
 ```tsx title="page.tsx"
 <CopilotChat
+  // [!code highlight:4]
   messageView={{
     className: "my-custom-messages",
     "data-testid": "message-view",
@@ -89,6 +91,7 @@ For full control, pass your own React component. It receives all the same props 
 ```tsx title="page.tsx"
 import { CopilotChat } from "@copilotkit/react-core/v2";
 
+// [!code highlight:8]
 const CustomMessageView = ({ messages, isRunning }) => (
   <div className="space-y-4 p-6">
     {messages?.map((msg) => (
@@ -101,7 +104,10 @@ const CustomMessageView = ({ messages, isRunning }) => (
 );
 
 export function Chat() {
-  return <CopilotChat messageView={CustomMessageView} />;
+  return (
+    // [!code highlight:1]
+    <CopilotChat messageView={CustomMessageView} />
+  );
 }
 ```
 
@@ -115,6 +121,7 @@ Override the assistant message's toolbar within the message view:
 
 ```tsx title="page.tsx"
 <CopilotChat
+  // [!code highlight:7]
   messageView={{
     assistantMessage: {
       toolbar: CustomToolbar,
@@ -132,6 +139,7 @@ Override a specific button inside the assistant message toolbar:
 ```tsx title="page.tsx"
 <CopilotChat
   messageView={{
+    // [!code highlight:5]
     assistantMessage: {
       copyButton: ({ onClick }) => (
         <button onClick={onClick}>Copy</button>
@@ -146,6 +154,7 @@ Override a specific button inside the assistant message toolbar:
 ```tsx title="page.tsx"
 <CopilotChat
   input={{
+    // [!code highlight:2]
     textArea: CustomTextArea,
     sendButton: CustomSendButton,
   }}
@@ -157,6 +166,7 @@ Override a specific button inside the assistant message toolbar:
 ```tsx title="page.tsx"
 <CopilotChat
   scrollView={{
+    // [!code highlight:2]
     feather: CustomFeather,
     scrollToBottomButton: CustomScrollButton,
   }}
@@ -168,6 +178,7 @@ Override a specific button inside the assistant message toolbar:
 ```tsx title="page.tsx"
 <CopilotChat
   suggestionView={{
+    // [!code highlight:2]
     suggestion: CustomSuggestionPill,
     container: CustomSuggestionContainer,
   }}
@@ -184,6 +195,7 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
 export function Chat() {
   return (
     <CopilotChat>
+      {/* [!code highlight:8] */}
       {({ messageView, input, scrollView, suggestionView }) => (
         <div className="flex flex-col h-full">
           <header className="p-4 border-b font-semibold">My Agent</header>
@@ -202,6 +214,7 @@ Customize any text string in the UI via the `labels` prop. This does not use the
 
 ```tsx title="page.tsx"
 <CopilotChat
+  // [!code highlight:5]
   labels={{
     chatInputPlaceholder: "Ask your agent anything...",
     welcomeMessageText: "How can I help you today?",
