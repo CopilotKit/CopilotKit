@@ -48,9 +48,10 @@ logger = logging.getLogger(__name__)
 class _A2uiError(TypedDict):
     """Shape of the structured error dict returned by generate_a2ui branches.
 
-    Mirrors the google-adk sibling agent's error shape. Every error branch
-    MUST populate all three keys so callers (and the LLM summarizing the
-    tool result) see a consistent surface.
+    Mirrors the google-adk and langroid sibling agents' error shape — keep
+    all three in sync. Every error branch MUST populate all three keys so
+    callers (and the LLM summarizing the tool result) see a consistent
+    surface.
     """
 
     error: str
@@ -194,16 +195,16 @@ def generate_a2ui(context: str) -> str:
     # Wrap the OpenAI call so raw SDK / transport failures do NOT bubble up
     # through the strands tool machinery as uncaught exceptions. Return a
     # structured error with remediation instead — the LLM can surface this
-    # to the user. Mirrors the google-adk sibling agent's error-handling shape.
+    # to the user. Mirrors the google-adk and langroid sibling agents'
+    # error-handling shape — keep all three in sync.
     #
     # Exception scope is broad on the SDK side but still bounded:
-    #   * ``openai.OpenAIError`` is the base class for *all* OpenAI SDK
-    #     errors, including ``APIError`` subclasses (RateLimitError,
-    #     APIConnectionError, AuthenticationError, BadRequestError) AND
-    #     config-time failures from ``OpenAI()`` construction (missing /
-    #     malformed key), which raise ``OpenAIError`` directly — NOT an
-    #     ``APIError`` subclass. Catching ``APIError`` alone would let the
-    #     constructor's error escape.
+    #   * ``openai.OpenAIError`` covers config-time failures (e.g. from
+    #     ``OpenAI()`` constructor when ``OPENAI_API_KEY`` is unset).
+    #     ``APIError`` subclasses (RateLimitError, APIConnectionError,
+    #     AuthenticationError, BadRequestError, etc.) are also caught via
+    #     the broader ``except`` tuple. Verified against ``openai>=1.0`` —
+    #     re-check hierarchy on major version bumps.
     #   * ``httpx.HTTPError`` covers transport failures (ConnectError,
     #     ReadTimeout, RemoteProtocolError) that can escape below the SDK's
     #     wrap layer in rare cases.
@@ -505,8 +506,10 @@ class _ToolCallCapHook(HookProvider):
 # We subclass ``dict`` and override every mutation entry-point (``__setitem__``,
 # ``update``, ``setdefault``, ``__ior__``) to ensure hook injection happens
 # unconditionally, regardless of how ag_ui_strands populates the mapping.
-# ``dict.update`` and friends bypass ``__setitem__`` in CPython's C paths, so
-# a single ``__setitem__`` override is not sufficient.
+# ``dict.update`` with a non-Mapping iterable-of-pairs DOES call ``__setitem__``
+# in CPython, but ``setdefault``, ``|=``, ``|``, and ``|=``-on-ChainMap-like
+# inputs do NOT. Override all four to keep the hook-injection invariant
+# uniform across mutation vectors.
 
 
 _CAP_HOOK_SENTINEL_ATTR = "_cap_hook_attached"
