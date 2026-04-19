@@ -276,9 +276,9 @@
     },
     {
       "id": "hitl-in-app",
-      "name": "In-App Human in the Loop",
+      "name": "In-App Human in the Loop (Frontend Tools + async HITL)",
       "category": "interactivity",
-      "description": "User approves agent actions from in-app UI surfaces outside the chat",
+      "description": "Agent calls useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision",
       "og_docs_url": "https://docs.copilotkit.ai/features/hitl-in-app",
       "shell_docs_url": "/docs/features/hitl-in-app"
     },
