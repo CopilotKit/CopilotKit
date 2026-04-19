@@ -68,9 +68,10 @@ class _A2uiError(TypedDict):
     Every error branch MUST populate all three keys so callers (and the LLM
     summarizing the tool result) see a consistent surface.
 
-    NOTE: An identical TypedDict lives in
-    `showcase/packages/strands/src/agents/agent.py`. Keep the two in sync —
-    any key additions / removals must land in both places so the A2UI error
+    NOTE: Identical TypedDicts live in
+    `showcase/packages/strands/src/agents/agent.py` and
+    `showcase/packages/langroid/src/agents/agent.py`. Keep all three in sync —
+    any key additions / removals must land in every sibling so the A2UI error
     surface stays consistent across showcase adapters.
     """
 
@@ -139,7 +140,7 @@ def schedule_meeting(tool_context: ToolContext, reason: str, duration_minutes: i
 
 
 def search_flights(tool_context: ToolContext, flights: list[dict]) -> dict:
-    """Search for flights and display the results as rich cards. Return exactly 2 flights.
+    """Search for flights and display the results as rich cards. Return 2-3 flights.
 
     Each flight must have: airline, airlineLogo, flightNumber, origin, destination,
     date (short readable format like "Tue, Mar 18" -- use near-future dates),
@@ -255,6 +256,15 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
     # exception hierarchy: programmer errors (AttributeError, TypeError from
     # bad call shape, etc.) should propagate so they are caught in test and
     # not silently masked as an LLM error.
+    #
+    # `openai.OpenAIError` is the SDK's base class for ALL errors, including
+    # both `APIError` subclasses (RateLimitError, APIConnectionError,
+    # AuthenticationError, BadRequestError) AND config-time failures raised
+    # from `OpenAI()` construction when `OPENAI_API_KEY` is unset/malformed —
+    # which are NOT `APIError` subclasses. Catching only `APIError` would let
+    # the constructor's error escape. `_get_openai_client()` therefore sits
+    # inside the try block, and `openai.OpenAIError` is in the except tuple.
+    # Mirrors the strands sibling agent's exception scope.
     try:
         client = _get_openai_client()
         response = client.chat.completions.create(
@@ -264,6 +274,7 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
             tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
         )
     except (
+        openai.OpenAIError,
         openai.APIError,
         openai.APIConnectionError,
         openai.AuthenticationError,

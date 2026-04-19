@@ -298,3 +298,31 @@ def test_generate_a2ui_lets_programmer_errors_propagate():
     with patch("agents.main._get_openai_client", return_value=fake_client):
         with pytest.raises(RuntimeError, match="programmer bug"):
             generate_a2ui(FakeToolContext())
+
+
+# ---------------------------------------------------------------------------
+# OpenAIError base-class catch (parity with strands R4 fix).
+# ---------------------------------------------------------------------------
+
+
+def test_generate_a2ui_openai_base_error_returns_structured():
+    """`openai.OpenAIError` is the base class raised from the `OpenAI()`
+    constructor when `OPENAI_API_KEY` is missing/malformed — it is NOT an
+    `APIError` subclass. The except clause must catch `OpenAIError` so
+    config-time failures become a structured tool result, not an uncaught
+    exception that bypasses the a2ui_error contract."""
+    import openai
+
+    # Clear lru_cache so the patched OpenAI constructor is actually called.
+    _get_openai_client.cache_clear()
+
+    def _raise(*_a, **_kw):
+        raise openai.OpenAIError("missing key")
+
+    with patch("openai.OpenAI", side_effect=_raise):
+        result = generate_a2ui(FakeToolContext())
+
+    _assert_full_error_shape(result)
+    assert result["error"] == "a2ui_llm_error"
+    assert "OpenAIError" in result["message"] or "missing key" in result["message"]
+    assert "OPENAI_API_KEY" in result["remediation"]
