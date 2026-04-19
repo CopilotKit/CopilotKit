@@ -1,0 +1,71 @@
+---
+title: "CopilotPopup"
+icon: "lucide/MessageCircle"
+description: "Floating chat bubble that toggles open an overlay chat window."
+hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: prebuilt-popup
+---
+
+## What is this?
+
+`<CopilotPopup>` is a prebuilt floating launcher that opens an overlay chat
+window on top of your page content. It's the lightest-weight way to add a
+copilot to an existing app — drop it in once, and a bubble appears in the
+corner ready to chat.
+
+## When should I use this?
+
+Use the popup when you want:
+
+- A minimal-footprint copilot that overlays existing content on demand
+- A launcher you can place on top of any page without reflowing the layout
+- A quick assistant bubble that users open for short, task-focused chats
+
+If you need chat to live alongside your content rather than on top of it,
+use [CopilotSidebar](/prebuilt-components/sidebar). For a fully embedded
+chat pane, use [`<CopilotChat>`](/prebuilt-components) directly.
+
+<InlineDemo integration="langgraph-python" demo="prebuilt-popup" />
+
+## Basic setup
+
+Wrap your app in `<CopilotKit>` once — the provider wires the runtime,
+session, and agent registry — then render `<CopilotPopup>` as a sibling of
+your main content. The showcase cell opens the popup by default and
+customizes the input placeholder via `labels`:
+
+<Snippet region="popup-basic-setup" title="frontend/src/app/page.tsx — CopilotPopup wired up" />
+
+## Configuring the popup
+
+`<CopilotPopup>` accepts the same props as `<CopilotChat>` plus a few of
+its own. Commonly used options:
+
+| Prop | Description |
+|------|-------------|
+| `defaultOpen` | Whether the popup starts open on first render. |
+| `agentId` | Agent slug the popup should talk to (must match an agent configured on the runtime). |
+| `labels` | User-facing copy for the header, placeholder, and disclaimer. |
+| `header` | Slot for the popup header bar — see the [slot system](/custom-look-and-feel/slots). |
+| `toggleButton` | Slot for the floating launcher button. |
+
+## Styling
+
+`CopilotPopup` participates in the slot system, so every piece of its UI
+is customizable — from Tailwind classes on the message view to a full
+component swap for the header or toggle button. See
+[custom look and feel](/custom-look-and-feel/slots) for the full slot
+reference.
+
+```tsx title="page.tsx"
+<CopilotPopup
+  agentId="my-agent"
+  defaultOpen={false}
+  labels={{
+    modalHeaderTitle: "Popup Assistant",
+    welcomeMessageText: "Need any help?",
+    chatInputPlaceholder: "Ask the popup anything...",
+  }}
+/>
+```

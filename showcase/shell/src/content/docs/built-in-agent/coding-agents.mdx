@@ -1,7 +1,157 @@
 ---
 title: "Coding Agents"
 icon: "lucide/Code"
-description: "Use our MCP server to connect your Built-in Agent to CopilotKit."
+description: "Connect your AI coding agent (Cursor, Claude Code, Windsurf, …) to the CopilotKit MCP server so it can write accurate, idiomatic CopilotKit code for you."
 ---
 
-<SharedContent />
+## Overview
+
+The **CopilotKit MCP server** teaches any MCP-capable coding agent about CopilotKit's APIs, patterns, and best practices. Once connected it can:
+
+- Answer CopilotKit questions with up-to-date reference material
+- Generate accurate code for hooks, providers, chat components, and runtimes
+- Give your agents a CopilotKit UI in a couple of prompts
+- Flag anti-patterns and suggest idiomatic implementations
+
+The server speaks MCP over HTTP at:
+
+```
+https://mcp.copilotkit.ai/mcp
+```
+
+Point your editor's MCP configuration at that URL — that's the whole setup.
+
+## Cursor
+
+[Cursor](https://cursor.sh/) supports custom MCP servers via `mcp.json`.
+
+<Steps>
+<Step>
+### Open MCP settings
+
+1. Press `Shift+Command+J` (macOS) or `Shift+Ctrl+J` (Windows/Linux)
+2. Pick **MCP Tools** in the sidebar
+3. Click **Add Custom MCP** — Cursor opens `mcp.json` for you
+</Step>
+
+<Step>
+### Add the server
+
+```json
+{
+  "mcpServers": {
+    "CopilotKit MCP": {
+      "url": "https://mcp.copilotkit.ai/mcp"
+    }
+  }
+}
+```
+
+Save the file — Cursor picks up the new server automatically.
+</Step>
+</Steps>
+
+## Claude Code
+
+[Claude Code](https://docs.claude.com/en/docs/claude-code) adds MCP servers through the CLI:
+
+<Steps>
+<Step>
+### Register the server
+
+```bash
+claude mcp add --transport http copilotkit-mcp https://mcp.copilotkit.ai/mcp
+```
+</Step>
+
+<Step>
+### Verify
+
+```bash
+claude mcp list
+```
+
+You should see `copilotkit-mcp: https://mcp.copilotkit.ai/mcp (HTTP) - ✓ Connected`.
+</Step>
+</Steps>
+
+<Callout type="info">
+Server names may contain letters, numbers, hyphens, and underscores — no spaces.
+</Callout>
+
+## Claude Web & Desktop
+
+[Claude](https://claude.ai) supports **Connectors** (MCP under the hood).
+
+<Steps>
+<Step>Navigate to [Settings → Connectors](https://claude.ai/settings/connectors).</Step>
+<Step>Click **Add custom connector**.</Step>
+<Step>
+Fill in:
+
+- **Name**: `CopilotKit`
+- **URL**: `https://mcp.copilotkit.ai/mcp`
+</Step>
+<Step>Click **Add** — the connector becomes available in any new Claude conversation.</Step>
+</Steps>
+
+## Windsurf
+
+[Windsurf](https://codeium.com/windsurf) ships MCP support under its Cascade assistant. Add the server via the Cascade settings → **Model Context Protocol** panel, or drop this into `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "CopilotKit MCP": {
+      "url": "https://mcp.copilotkit.ai/mcp",
+      "disabled": false,
+      "timeout": 30
+    }
+  }
+}
+```
+
+After adding, reference it in chat with `@CopilotKit MCP` or let Cascade pick the tool automatically.
+
+## GitHub Copilot (VS Code)
+
+1. Enable the `chat.mcp.enabled` setting in VS Code
+2. Create `.vscode/mcp.json` in your project:
+
+```json
+{
+  "servers": {
+    "CopilotKit MCP": {
+      "url": "https://mcp.copilotkit.ai/mcp"
+    }
+  }
+}
+```
+
+3. In Copilot Chat switch to **Agent mode** and click the 🔧 **Tools** icon — the CopilotKit MCP tools are listed there and Copilot uses them automatically.
+
+## Cline / any other MCP-capable client
+
+Any MCP client takes the same URL. Use the HTTP transport when available, or fall back to stdio via `npx mcp-remote`:
+
+```json
+{
+  "mcpServers": {
+    "CopilotKit MCP": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://mcp.copilotkit.ai/mcp"]
+    }
+  }
+}
+```
+
+## What the server provides
+
+Once connected, your coding agent gains:
+
+- **Expert guidance** on architecture, hook choice, and runtime wiring
+- **Accurate code generation** for `CopilotKitProvider`, chat components, `useAgent`, `useFrontendTool`, `useComponent`, `useRenderTool`, and the rest of the v2 surface
+- **Best-practice patterns** pulled directly from the CopilotKit reference docs
+- **Deep API knowledge** so generated code compiles and runs against the current release
+
+Ask it something like *"Add a CopilotKit sidebar that calls a `setTheme` frontend tool"* and it will produce idiomatic, runnable code.

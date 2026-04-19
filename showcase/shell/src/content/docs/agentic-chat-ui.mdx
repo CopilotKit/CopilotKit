@@ -3,6 +3,8 @@ title: Chat Components
 icon: "lucide/MessageSquare"
 description: Customizable, drop-in components for building AI-powered chat interfaces
 hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: agentic-chat
 ---
 
 ## Pre-built components for agentic chat
@@ -21,6 +23,20 @@ They handle streaming, generative UI, and deep customization — so you can focu
 />
 
 <InlineDemo integration="langgraph-python" demo="agentic-chat" />
+
+## What it looks like in code
+
+The live `agentic-chat` cell above is built from a single, small page. Wrap
+your UI in `<CopilotKit>` once — it wires the runtime, session, and agent
+registry — and drop `<CopilotChat>` wherever the chat should go:
+
+<Snippet region="provider-setup" title="frontend/src/app/page.tsx — CopilotKit provider" />
+
+Inside the chat, the `useConfigureSuggestions` hook lets you show contextual
+starter prompts. The showcase cell uses it to seed a simple "Write a sonnet"
+suggestion:
+
+<Snippet region="configure-suggestions" title="frontend/src/app/page.tsx — starter suggestions" />
 
 ## Get started by choosing your AI backend
 

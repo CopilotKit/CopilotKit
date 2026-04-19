@@ -1,7 +1,51 @@
 ---
 title: Migrate to 1.8.2
-description: Migration guide for CopilotKit 1.8.2
+description: CopilotKit 1.8.2 — new default look and feel, first-class thumbs up/down handlers, and built-in dark mode.
 icon: "lucide/RefreshCw"
 ---
 
-<MigrateTo182 />
+## What's changed?
+
+### New look and feel
+
+CopilotKit 1.8.2 introduces a new default look and feel. This includes updated theming variables, fresh components, and a generally more polished appearance across `CopilotChat`, `CopilotPopup`, and `CopilotSidebar`.
+
+No code change required — if you're on the default styles, upgrading the package is all you need.
+
+### Thumbs up / down handlers
+
+The chat components now accept first-class `onThumbsUp` and `onThumbsDown` handlers. When you pass them, per-message feedback icons appear on hover:
+
+```tsx
+<CopilotChat
+  onThumbsUp={(message) => console.log("👍", message)}
+  onThumbsDown={(message) => console.log("👎", message)}
+/>
+```
+
+Previously this was achievable, but only via custom slots — it's a first-class prop now. Use it to collect feedback, fine-tune a model, or just track engagement.
+
+### `ResponseButton` prop removed
+
+The `ResponseButton` prop has been removed. In its place, each message now renders a toolbar with:
+
+- Thumbs up
+- Thumbs down
+- Copy
+- Regenerate
+
+Icons, styling, and behavior for each button can be customized through slots — see the [Slots](../custom-look-and-feel/slots) guide.
+
+### Dark mode out of the box
+
+CopilotKit now ships built-in dark mode support. It's controlled by the `.dark` class (Tailwind-compatible) and the CSS `color-scheme` selector — no extra configuration.
+
+If you want a fully custom theme, check out the [custom look and feel](../custom-look-and-feel/slots) guides.
+
+## Upgrading
+
+```bash
+npm install @copilotkit/react-core@1.8.2 @copilotkit/react-ui@1.8.2 @copilotkit/runtime@1.8.2
+```
+
+No code migration required for most users — the new look applies automatically, and the removed `ResponseButton` prop is the only breaking surface. If you were using `ResponseButton`, move its content into a slot override on the new toolbar buttons.

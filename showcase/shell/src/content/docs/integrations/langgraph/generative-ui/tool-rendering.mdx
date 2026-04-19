@@ -3,6 +3,7 @@ title: Tool Rendering
 icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 hideTOC: true
+snippet_cell: tool-rendering
 ---
 
 <IframeSwitcher
@@ -46,70 +47,15 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 <Step>
 ### Give your agent a tool to call
 
-<Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
-    <Tab value="Python">
-        ```python title="agent.py"
-        from langchain_openai import ChatOpenAI
-        from langchain.tools import tool
-        # ...
+The agent in the live showcase exposes a mock `get_weather` tool. This is the
+definition straight from the `tool-rendering` cell's Python backend:
 
-        # [!code highlight:6]
-        @tool
-        def get_weather(location: str):
-            """
-            Get the weather for a given location.
-            """
-            return f"The weather for {location} is 70 degrees."
+<Snippet region="weather-tool-backend" />
 
-        # ...
-
-        async def chat_node(state: AgentState, config: RunnableConfig):
-            model = ChatOpenAI(model="gpt-5.2")
-            model_with_tools = model.bind_tools([get_weather]) # [!code highlight]
-
-            response = await model_with_tools.ainvoke([
-                SystemMessage(content=f"You are a helpful assistant."),
-                *state["messages"],
-            ], config)
-
-            # ...
-        ```
-    </Tab>
-    <Tab value="TypeScript">
-        ```typescript title="agent-js/src/agent.ts"
-
-        // [!code highlight:12]
-        const get_weather = tool(
-          (args) => {
-            return `The weather for ${args.location} is 70 degrees.`;
-          },
-          {
-            name: "get_weather",
-            description: "Get the weather for a given location.",
-            schema: z.object({
-              location: z.string().describe("The location to get weather for"),
-            }),
-          }
-        );
-
-        async function chat_node(state: AgentState, config: RunnableConfig) {
-          const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.2" });
-          const modelWithTools = model.bindTools([get_weather]); // [!code highlight]
-
-          const response = await modelWithTools.invoke([
-            new SystemMessage("You are a helpful assistant."),
-            ...state.messages,
-          ], config);
-
-          // ...
-        }
-        ```
-    </Tab>
-
-</Tabs>
 </Step>
 <Step>
 ### Render the tool call in your frontend
+
 At this point, your agent will be able to call the `get_weather` tool. Now
 we just need to add a `useRenderTool` hook to render the tool call in
 the UI.
@@ -119,32 +65,22 @@ the UI.
   tool.
 </Callout>
 
-```tsx title="app/page.tsx"
-// ...
+The showcase's `tool-rendering` cell uses a branded `<WeatherCard />`
+component to render the call — same pattern as the minimal example above,
+just wired to a richer UI:
 
-const weatherParams = z.object({
-  location: z.string().describe("The location to get weather for"),
-});
+<Snippet region="render-weather-tool" />
 
-const YourMainContent = () => {
-  // ...
-  // [!code highlight:14]
-  useRenderTool({
-    name: "get_weather",
-    parameters: weatherParams,
-    render: ({ status, parameters }) => {
-      return (
-        <p className="text-gray-500 mt-2">
-          {status !== "complete" && "Calling weather API..."}
-          {status === "complete" &&
-            `Called the weather API for ${parameters.location}.`}
-        </p>
-      );
-    },
-  });
-  // ...
-};
-```
+</Step>
+<Step>
+### Add a catch-all renderer (optional)
+
+For every other tool the agent calls, a single `useDefaultRenderTool`
+hook can provide a uniform fallback UI — this is exactly how the showcase
+handles `get_stock_price`, `roll_dice`, and any tool the agent might add
+later without a dedicated renderer:
+
+<Snippet region="catchall-renderer" />
 
 </Step>
 <Step>

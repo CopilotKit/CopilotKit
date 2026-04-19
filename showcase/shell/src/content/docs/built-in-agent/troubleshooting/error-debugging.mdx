@@ -1,7 +1,107 @@
 ---
 title: "Error Debugging & Observability"
-description: "Learn how to debug errors in CopilotKit with dev console and set up error observability for monitoring services."
+description: "Surface errors visually in development, and wire programmatic error handlers for Sentry / Datadog / your analytics pipeline in production."
 icon: "lucide/TriangleAlert"
 ---
 
-<ErrorDebugging />
+# How to debug errors
+
+CopilotKit provides a visual error console for local development and a programmatic `onError` callback for production observability. The visual console is completely free and requires no API keys.
+
+## Quick setup
+
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+export default function App() {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      showDevConsole={true} // [!code highlight]
+    >
+      {/* your app */}
+    </CopilotKitProvider>
+  );
+}
+```
+
+<Callout type="warn">
+Avoid showing the dev console in production — it exposes internal error details to end users.
+</Callout>
+
+## When to use development debugging
+
+- **Local development** — errors appear immediately in your UI
+- **Quick debugging** — no setup required, works out of the box
+- **Testing** — verify error handling during development
+
+## Programmatic error handling
+
+The v2 API provides an `onError` callback on both `CopilotKitProvider` and `CopilotChat`. No `publicApiKey` is required.
+
+### Provider-level error handling
+
+Catches every error across the entire application:
+
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  onError={(event) => {
+    // event.code    — error type (e.g. "runtime_info_fetch_failed", "agent_run_failed")
+    // event.error   — the Error object
+    // event.context — additional context (agentId, toolName, etc.)
+    console.error(`[CopilotKit ${event.code}]`, event.error.message);
+    errorTracker.capture(event);
+  }}
+>
+  <App />
+</CopilotKitProvider>;
+```
+
+### Chat-level error handling
+
+Scoped to a specific chat's agent — fires **in addition to** the provider-level handler:
+
+```tsx
+import { CopilotChat } from "@copilotkit/react-core/v2";
+
+<CopilotChat
+  agentId="my-agent"
+  onError={(event) => {
+    showToast(`Agent error: ${event.error.message}`);
+  }}
+/>;
+```
+
+### Error codes
+
+| Code | Description |
+|------|-------------|
+| `runtime_info_fetch_failed` | Could not reach the runtime's `/info` endpoint |
+| `agent_connect_failed` | Agent connection (thread setup) failed |
+| `agent_run_failed` | Agent run rejected (e.g. network error) |
+| `agent_run_failed_event` | The agent's `onRunFailed` subscriber fired |
+| `agent_run_error_event` | Agent emitted a `RUN_ERROR` event |
+| `tool_argument_parse_failed` | Tool call arguments were not valid JSON |
+| `tool_handler_failed` | A frontend tool handler threw |
+
+<Callout type="info">
+Need to see the full event pipeline — what events your agent emits, whether they reach the client, and where they're dropped? See the [Inspector](../inspector) for a live AG-UI event view.
+</Callout>
+
+## Troubleshooting
+
+### Dev console not showing
+
+- Confirm `showDevConsole={true}`
+- Check for JavaScript errors in the browser console
+- Ensure no CSS is hiding the error banner
+
+### Production error pipeline checklist
+
+- Provider-level `onError` is wired and forwards to your error tracker
+- `showDevConsole` is **false** in production builds
+- Agent IDs in errors match the agents registered on your runtime
+- Critical error codes (`agent_run_failed`, `tool_handler_failed`) are alerted on, not just logged

@@ -1,0 +1,45 @@
+---
+title: Prebuilt Components
+icon: "lucide/MessageSquare"
+description: Customizable, drop-in components for building AI-powered chat interfaces
+hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: agentic-chat
+---
+
+## Pre-built components for agentic chat
+
+CopilotKit's chat components give you a fully functional, customizable AI chat interface out of the box.
+They handle streaming, generative UI, and deep customization — so you can focus on your agent's behavior, not UI plumbing.
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-chat-ui.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+
+<InlineDemo integration="langgraph-python" demo="agentic-chat" />
+
+## Drop-in chat in a few lines
+
+Wrap your app in `<CopilotKit>` and drop `<CopilotChat>` where the
+chat should live. The provider wires the runtime, the session, and
+the agent registry — everything else is optional configuration:
+
+<Snippet region="provider-setup" title="frontend/src/app/page.tsx — provider + chat" />
+
+## Starter suggestions
+
+`useConfigureSuggestions` lets you seed the chat with contextual
+prompts the moment a user arrives. The showcase cell uses a single
+"Write a sonnet" suggestion:
+
+<Snippet region="configure-suggestions" title="frontend/src/app/page.tsx — suggestions" />
+
+## Get started by choosing your AI backend
+
+<IntegrationGrid path="prebuilt-components" />
