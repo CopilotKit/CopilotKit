@@ -264,7 +264,7 @@ demos:
       - frontend/src/app/page.tsx
   - id: headless-complete
     name: Headless Chat (Complete)
-    description: Full chat implementation built from scratch on useAgent, with manual per-message renderedContent composition (text + tool calls + activity messages + reasoning)
+    description: Full chat on useAgent with manual renderedContent composition (text + tool calls + useComponent + MCP Apps + activity messages + reasoning)
     tags:
       - chat-ui
     route: /demos/headless-complete
@@ -272,8 +272,13 @@ demos:
     highlight:
       - backend/agent.py
       - frontend/src/app/page.tsx
+      - frontend/src/app/api/copilotkit/route.ts
       - frontend/src/app/message-list.tsx
       - frontend/src/app/use-rendered-messages.tsx
+      - frontend/src/app/tool-renderers.tsx
+      - frontend/src/app/weather-card.tsx
+      - frontend/src/app/stock-card.tsx
+      - frontend/src/app/highlight-note.tsx
       - frontend/src/app/user-bubble.tsx
       - frontend/src/app/assistant-bubble.tsx
       - frontend/src/app/input-bar.tsx
