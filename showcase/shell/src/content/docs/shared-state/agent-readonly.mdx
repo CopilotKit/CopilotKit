@@ -1,84 +1,270 @@
 ---
-title: Agent Read-Only Context
-description: Publish UI values to the agent as a one-way read-only channel via useAgentContext.
-icon: "lucide/ArrowRight"
+title: Readables
+icon: "lucide/BookA"
+description: Share app specific context with your agent.
 hideTOC: true
 snippet_framework: langgraph-python
 snippet_cell: readonly-state-agent-context
 ---
 
-## What is this?
+One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.
+This way, you can notify CopilotKit of what is going on in your app in real time.
+Some examples might be: the current user, the current page, etc.
 
-Sometimes you want the agent to *know* something about the current UI
-— the logged-in user, the current page, a recent activity log — but
-you don't want the agent to be able to modify it. That's what
-`useAgentContext` is for: a one-way **UI → agent** channel for
-read-only context.
+This context can then be shared with your LangChain agent.
 
-Unlike full shared state (where the agent can call tools that mutate
-the state back to the UI), `useAgentContext` values are pure inputs.
-The agent sees them on every turn via the runtime's context injection,
-but it has no setter and no tool to write them back.
+## Implementation
+<Callout>
+    Check out the [Frontend Data documentation](/built-in-agent/agent-app-context) to understand what this is and how to use it.
+</Callout>
 
-<InlineDemo integration="langgraph-python" demo="readonly-state-agent-context" />
+<TailoredContent
+    className="step"
+    id="impl"
+>
+    <TailoredContentOption
+        id="graph"
+        title="Custom graph"
+        description="I'm using a custom graph, where I define the nodes and edges myself."
+    >
+        <Steps>
+            <Step>
+                ### Add the data to the Copilot
 
-## When should I use this?
+                The `useAgentContext` hook is used to add data as context to the agent.
 
-Reach for `useAgentContext` instead of full shared state when:
+                ```tsx title="YourComponent.tsx"
+                "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
+                import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { useState } from 'react';
 
-- The value is **UI-owned** and has no meaning to the agent beyond
-  "what the user is looking at right now".
-- The agent should read but never write (user identity, feature flags,
-  selected record, scroll position).
-- You want the value to automatically unregister on unmount (e.g. the
-  "current record" context disappears when you leave the page).
+                export function YourComponent() {
+                  // Create colleagues state with some sample data
+                  const [colleagues, setColleagues] = useState([
+                    { id: 1, name: "John Doe", role: "Developer" },
+                    { id: 2, name: "Jane Smith", role: "Designer" },
+                    { id: 3, name: "Bob Wilson", role: "Product Manager" }
+                  ]);
 
-Think of it as "props for the agent".
+                  // Share context with the agent
+                  // [!code highlight:4]
+                  useAgentContext({
+                    description: "The current user's colleagues",
+                    value: colleagues,
+                  });
+                  return (
+                    // Your custom UI component
+                    <>...</>
+                  );
+                }
+                ```
+            </Step>
 
-## How it works in code
+            <Step>
+                ### Set up your agent state
+                Make sure your agent state inherits from CopilotKit state definition
 
-Call `useAgentContext({ description, value })` once per value you want
-to publish. Each call registers a dynamic context entry with the
-runtime that is:
+                <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+                    <Tab value="Python">
+                        ```python title="agent.py"
+                        # ...
+                        from copilotkit import CopilotKitState # extends MessagesState
+                        # ...
 
-- Refreshed whenever `value` changes (React re-renders).
-- Automatically removed when the component unmounts.
-- Surfaced to the agent via the backend's `CopilotKitMiddleware`, which
-  threads the entries into the model's message history on every turn.
+                        # This is the state of the agent.
+                        # It inherits from the CopilotKitState properties from CopilotKit.
+                        class AgentState(CopilotKitState):
+                            # ... Your defined state properties
+                        ```
+                    </Tab>
+                    <Tab value="TypeScript">
+                        ```typescript title="agent-js/src/agent.ts"
+                        // ...
+                        import { Annotation } from "@langchain/langgraph";
+                        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+                        // ...
 
-<Snippet region="use-agent-context-call" title="frontend/src/app/page.tsx — useAgentContext" />
+                        // This is the state of the agent.
+                        // It inherits from the CopilotKitState properties from CopilotKit.
+                        export const AgentStateAnnotation = Annotation.Root({
+                          // ... Your defined state properties
+                          ...CopilotKitStateAnnotation.spec,
+                        });
+                        export type AgentState = typeof AgentStateAnnotation.State;
+                        ```
+                    </Tab>
+                </Tabs>
 
-The `description` is important — it's a short human-readable label the
-agent sees alongside the value, so it knows what to do with it. Treat
-it like a parameter docstring.
+            </Step>
 
-## Wire it to your own state
+            <Step>
+                ### Consume the data in your LangChain agent
+                The state of a LangChain agent is the "hub" for applicative information used by the agent.
+                Naturally, the context from CopilotKit will be injected there.
 
-`useAgentContext` doesn't care where the value comes from — local
-state, a React Context, Redux, a query cache, anything. The only
-requirement is that the identity of the value is stable enough for
-React to avoid a render loop. In the demo we use a handful of
-`useState` hooks; in a real app these would likely come from an auth
-provider, a router hook, and your domain state stores.
+                <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+                    <Tab value="Python">
+                        ```python title="agent.py"
+                        from langchain_core.messages import SystemMessage
+                        from langchain_openai import ChatOpenAI
+                        from copilotkit import CopilotKitState
 
-<Snippet region="context-provider-sketch" title="frontend/src/app/page.tsx — sourcing context values" />
+                        # add the agent state definition from the previous step
+                        class AgentState(CopilotKitState):
+                            # ... Your defined state properties
 
-## Read-only, by design
+                        def chat_node(state: AgentState, config: RunnableConfig):
+                            # Extract the colleagues from CopilotKit context
+                            colleagues_context_item = next(
+                                (item for item in state["copilotkit"]["context"] if item.get("description") == "The current user's colleagues"),
+                                None
+                            )
+                            colleagues = colleagues_context_item.get("value") if colleagues_context_item else []
 
-Because the agent never sees a setter or a mutation tool for these
-values, there's no way for a confused LLM to "update" them. That
-makes `useAgentContext` the right tool whenever the value in question
-is an input, not a field — the "context object passed to the agent on
-every turn", rather than "shared workspace you both edit".
+                            # Provide the list of colleagues to the LLM
+                            system_message = SystemMessage(
+                                content=f"""You are a helpful assistant that can help emailing colleagues.
+                                The user's colleagues are: {colleagues}"""
+                            )
 
-When you need both reads *and* writes, you want full
-**[shared state](/docs/shared-state)** instead.
+                            response = ChatOpenAI(model="gpt-5.4").invoke(
+                                [system_message, *state["messages"]],
+                                config
+                            )
 
-## Related
+                            return {
+                                **state,
+                                "messages": response,
+                            }
+                        ```
+                    </Tab>
+                    <Tab value="TypeScript">
+                        ```typescript title="agent-js/src/agent.ts"
+                        import { SystemMessage } from "@langchain/core/messages";
+                        import { ChatOpenAI } from "@langchain/openai";
 
-- **[Shared State (overview)](/docs/shared-state)** — bidirectional
-  reads + writes.
-- **[State streaming](/docs/shared-state/streaming)** — stream
-  agent-written state back to the UI during a run.
+                        // add the agent state definition from the previous step
+                        export const AgentStateAnnotation = Annotation.Root({
+                          // ... Your defined state properties
+                          ...CopilotKitStateAnnotation.spec,
+                        });
+                        export type AgentState = typeof AgentStateAnnotation.State;
+
+                        async function chat_node(state: AgentState, config: RunnableConfig) {
+                          // Extract the colleagues from CopilotKit context
+                          const copilotKitContext = state.copilotKit.context
+                          const colleaguesContextItem = copilotKitContext.find(contextItem => contextItem.description === 'The current user\'s colleagues"')
+
+                          // Provide the list of colleagues to the LLM
+                          const systemMessage = new SystemMessage({
+                            content: `
+                              You are a helpful assistant that can help emailing colleagues.
+                              The user's colleagues are: ${colleaguesContextItem.value}
+                            `,
+                          });
+
+                          const response = await new ChatOpenAI({ model: "gpt-5.4" }).invoke(
+                            [systemMessage, ...state.messages],
+                            config
+                          );
+
+                          return {
+                            ...state,
+                            messages: response,
+                          };
+                        }
+                        ```
+                    </Tab>
+                </Tabs>
+            </Step>
+
+            <Step>
+                ### Give it a try!
+                Ask your agent a question about the context. It should be able to answer!
+            </Step>
+        </Steps>
+    </TailoredContentOption>
+    <TailoredContentOption
+        id="prebuilt"
+        title="Prebuilt agent"
+        description={`I'm using a prebuilt agent like "create_agent" by LangGraph`}
+    >
+        <Steps>
+            <Step>
+                ### Add the data to the Copilot
+
+                The `useAgentContext` hook is used to add data as context to the agent.
+
+                ```tsx title="YourComponent.tsx"
+                "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
+                import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import { useState } from 'react';
+
+                export function YourComponent() {
+                  // Create colleagues state with some sample data
+                  const [colleagues, setColleagues] = useState([
+                    { id: 1, name: "John Doe", role: "Developer" },
+                    { id: 2, name: "Jane Smith", role: "Designer" },
+                    { id: 3, name: "Bob Wilson", role: "Product Manager" }
+                  ]);
+
+                  // Share context with the agent
+                  // [!code highlight:4]
+                  useAgentContext({
+                    description: "The current user's colleagues",
+                    value: colleagues,
+                  });
+                  return (
+                    // Your custom UI component
+                    <>...</>
+                  );
+                }
+                ```
+            </Step>
+
+            <Step>
+                ### Consume the data in your LangChain agent
+                The state of a LangChain agent is the "hub" for applicative information used by the agent.
+                Naturally, the context from CopilotKit will be injected there.
+                In addition, the CopilotKitMiddleware is what takes context, and passes it on to your agent
+
+                <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+                    <Tab value="Python">
+                        ```python title="agent.py"
+                        from langchain.agents import create_agent
+                        from copilotkit import CopilotKitMiddleware, CopilotKitState # [!code highlight]
+
+                        graph = create_agent( # Works the same for "create_react_agent" or similar options
+                            model="openai:gpt-5.4",
+                            tools=[],  # Backend tools go here
+                            middleware=[CopilotKitMiddleware()], # [!code highlight]
+                            system_prompt="You are a helpful assistant.",
+                            state_schema=CopilotKitState # [!code highlight]
+                        )
+                        ```
+                    </Tab>
+                    <Tab value="TypeScript">
+                        ```typescript title="agent-js/src/agent.ts"
+                        import { createAgent } from "langchain";
+                        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+
+                        export const agenticChatGraph = createAgent({ // Works the same for "create_react_agent" or similar options
+                          model: "openai:gpt-5.4",
+                          tools: [],  // Backend tools go here
+                          middleware: [copilotkitMiddleware], // [!code highlight]
+                          systemPrompt: "You are a helpful assistant.",
+                        });
+                        ```
+                    </Tab>
+                </Tabs>
+            </Step>
+
+            <Step>
+                ### Give it a try!
+                Ask your agent a question about the context. It should be able to answer!
+            </Step>
+        </Steps>
+    </TailoredContentOption>
+</TailoredContent>
 
 <FeatureIntegrations feature="readonly-state-agent-context" />

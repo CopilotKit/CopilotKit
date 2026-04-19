@@ -8,103 +8,109 @@ snippet_cell: open-gen-ui
 
 ## What is this?
 
-Open Generative UI lets the agent generate complete, sandboxed UI on the fly —
-HTML, CSS, and JavaScript — and stream it live into the chat. The user sees
-the interface build in real time: styles apply first, then HTML streams in
-progressively, and finally JavaScript expressions execute one by one.
+Open Generative UI lets the agent generate complete, sandboxed UI on the fly — HTML, CSS, and JavaScript — and stream it live into the chat. The user sees the interface build in real time: styles apply first, then HTML streams in progressively, and finally JavaScript expressions execute one by one.
 
 Key benefits:
-
 - **No predefined components** — the agent creates any UI it needs, on demand
 - **Live streaming** — HTML streams into a preview as it's generated
-- **CDN libraries** — the generated UI can load Chart.js, D3, Three.js, etc. via `<script>` tags
+- **CDN libraries** — the generated UI can load external libraries (Chart.js, D3, Three.js, etc.) via `<script>` tags
 - **Secure sandboxing** — content runs in an isolated iframe without same-origin access
-- **Sandbox functions** — optionally expose host functions to the generated UI for two-way communication
+- **Sandbox functions** — expose host application functions to the sandboxed UI for two-way communication
 
 <InlineDemo integration="langgraph-python" demo="open-gen-ui" />
 
-## Minimal setup
+## Basic setup
 
-Turning on Open Generative UI takes one flag in the runtime plus a plain
-`<CopilotChat />` on the frontend — the built-in activity renderer is
-auto-registered by `CopilotKitProvider`, so no extra wiring is needed.
+Enable Open Generative UI by setting `openGenerativeUI: true` in your runtime configuration. That's it — the middleware handles the rest.
 
-### Enable it in the runtime
+<Steps>
+  <Step>
+    ### Add the dependencies
 
-<Snippet region="minimal-runtime-flag" />
+    ```npm
+    npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
+    ```
+  </Step>
+  <Step>
+    ### Configure the runtime
 
-The `OpenGenerativeUIMiddleware` then converts the agent's streamed
-`generateSandboxedUi` tool call into `open-generative-ui` activity events,
-which the built-in `OpenGenerativeUIActivityRenderer` mounts inside a
-sandboxed iframe.
+    <Snippet region="minimal-runtime-flag" />
 
-### Drop `<CopilotChat />` into the page
+    You can also pass options instead of `true`:
 
-<Snippet region="minimal-provider-setup" />
+    ```typescript
+    openGenerativeUI: {
+      instructions: "Always use a dark color scheme.",
+    }
+    ```
 
-That's it. Ask the agent "build me a simple greeting card" to see HTML
-stream into a sandboxed preview live.
+    The `instructions` string is appended to the tool description, letting you customize what the agent generates.
+  </Step>
+  <Step>
+    ### Configure the frontend
 
-## Advanced: With app tool calling
+    <Snippet region="minimal-provider-setup" />
 
-Sandbox functions let the generated UI call back into your host application
-— a generated settings panel can toggle your app's theme, a product card can
-push items into your cart, or a data view can ask the host to fetch data the
-iframe can't reach directly.
+    No special frontend prop is needed — Open Generative UI rendering is built in.
+  </Step>
+</Steps>
+
+That's it. Ask the agent to "build a calculator" or "show me a bar chart of sales data" and it will generate and stream the UI live.
+
+## Advanced: Sandbox functions
+
+Sandbox functions let the generated UI call back into your host application. This enables two-way communication — for example, a generated settings panel that can toggle your app's theme, or a product card that adds items to your cart.
 
 <InlineDemo integration="langgraph-python" demo="open-gen-ui-advanced" />
 
-### Runtime is unchanged
+### Defining sandbox functions
 
-The server-side flag is identical to the minimal cell — the advanced
-behaviour is a pure frontend addition.
-
-<Snippet region="advanced-runtime-config" cell="open-gen-ui-advanced" />
-
-### Register sandbox functions on the provider
-
-Each sandbox function is a Zod-validated, host-side bridge the agent can
-invoke from inside the generated iframe via
-`Websandbox.connection.remote.<name>(args)`. The handler runs in the host
-page and its description is appended to the agent's context, so the agent
-knows which bridges are available when generating HTML/JS.
+Pass `sandboxFunctions` to the `openGenerativeUI` prop on `CopilotKit`:
 
 <Snippet region="sandbox-function-registration" cell="open-gen-ui-advanced" />
 
-<Callout type="info" title="How the sandbox calls you back">
-  Inside the generated UI, the agent writes JS that calls
-  `await Websandbox.connection.remote.notifyHost({ message: "hi" })`.
-  The call is proxied back to the host page, where your `handler` runs
-  with the validated args.
-</Callout>
+### How sandbox functions work
 
-### Common use cases
+Each sandbox function has:
+
+| Property | Type | Description |
+|---|---|---|
+| `name` | `string` | Function name, callable from the sandbox |
+| `description` | `string` | Tells the agent what this function does |
+| `parameters` | Zod schema | Validates arguments passed from the sandbox |
+| `handler` | `(args) => Promise<string>` | Runs in the host app, returns a result string |
+
+Inside the generated UI, the agent calls these functions via:
+
+```javascript
+// Inside the sandboxed iframe
+const result = await Websandbox.connection.remote.setTheme({ mode: "dark" });
+```
+
+The function descriptions are automatically included in the agent's context, so it knows which functions are available and how to use them.
+
+### Use cases
 
 - **Theme toggling** — generated UI controls your app's appearance
-- **Cart / state management** — product cards push items into host state
-- **Navigation** — generated UI triggers route changes in the host app
-- **Data fetching** — sandbox asks the host to fetch data the iframe can't reach directly
+- **Cart / state management** — product cards that add items to the host app's state
+- **Navigation** — generated UI that triggers route changes in the host app
+- **Data fetching** — sandbox calls the host to fetch data the iframe can't access directly (due to same-origin restrictions)
 
 ## How streaming works
 
-The agent generates the tool call's parameters in an order optimized for the
-user experience:
+The agent generates parameters in a specific order optimized for the user experience:
 
 1. **`placeholderMessages`** — shown immediately while generating
-2. **`css`** — all styles first; the preview starts once CSS is complete
+2. **`css`** — all styles generated first; the preview starts once CSS is complete
 3. **`html`** — streams live into the preview as it's generated
-4. **`jsFunctions`** — reusable helpers injected before expressions
+4. **`jsFunctions`** — reusable helper functions injected before expressions
 5. **`jsExpressions`** — executed one by one; the user sees each take effect
 
-The middleware parses the tool-call arguments incrementally and emits
-activity events as each parameter completes, so the preview updates
-progressively.
+The middleware parses the tool call arguments incrementally and emits activity events as each parameter completes, so the frontend can show progressive updates.
 
 ## Using CDN libraries
 
-The sandboxed iframe can load external libraries from CDNs — just include
-`<script>` or `<link>` tags in the generated HTML `<head>`. Chart.js, D3,
-Three.js, and any other CDN-hosted library work out of the box.
+The sandboxed iframe can load external libraries from CDNs. Include `<script>` or `<link>` tags in the generated HTML `<head>`:
 
 ```html
 <head>
@@ -115,6 +121,21 @@ Three.js, and any other CDN-hosted library work out of the box.
 </body>
 ```
 
-## Choose your AI backend
+Libraries like Chart.js, D3, Three.js, x-data-spreadsheet, and any other CDN-hosted library work out of the box.
 
-<IntegrationGrid path="generative-ui/open-generative-ui" />
+## Middleware API
+
+If you prefer to apply the middleware to specific agents rather than globally, use `OpenGenerativeUIMiddleware` directly:
+
+```typescript
+import { OpenGenerativeUIMiddleware } from "@copilotkit/runtime";
+
+const agent = new BuiltInAgent({
+  model: "openai/gpt-5.4",
+  prompt: "You are a helpful assistant.",
+}).use(
+  new OpenGenerativeUIMiddleware({
+    instructions: "Use a modern, minimal design.",
+  }),
+);
+```

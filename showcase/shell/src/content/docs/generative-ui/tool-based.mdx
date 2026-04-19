@@ -1,7 +1,7 @@
 ---
-title: Tool-based Generative UI
-icon: "lucide/LayoutDashboard"
-description: Let your agent render rich React components directly in the chat by calling them as tools.
+title: "Display-only"
+icon: "lucide/Eye"
+description: "Register React components that your agent can render in the chat."
 hideTOC: true
 snippet_framework: langgraph-python
 snippet_cell: gen-ui-tool-based
@@ -9,61 +9,178 @@ snippet_cell: gen-ui-tool-based
 
 ## What is this?
 
-Tool-based Generative UI is the simplest form of Generative UI: you register
-a React component with `useComponent`, and CopilotKit exposes it to the
-agent as a tool. When the agent calls the tool, CopilotKit renders your
-component inline in the chat, passing the tool's arguments straight through
-as typed props.
+`useComponent` lets you register a React component as a tool your agent can invoke. When the agent calls the tool, CopilotKit renders your component directly in the chat with the tool's arguments as props.
 
-Unlike [tool rendering](/docs/generative-ui/tool-rendering) — which wraps a
-real backend tool in a custom UI — tool-based GenUI is the component. There
-is no handler, no user interaction, no server-side execution. The agent
-decides when to show it, populates the data, and CopilotKit paints it.
-
-<InlineDemo integration="langgraph-python" demo="gen-ui-tool-based" />
+This is the simplest form of Generative UI — your agent decides when to show a component, and CopilotKit renders it. No handler logic, no user interaction required.
 
 ## When should I use this?
 
 Use `useComponent` when you want to:
-
-- Display rich UI (cards, charts, tables, dashboards) inline in the chat
-- Show structured data the agent has derived from its reasoning
-- Render previews, status indicators, or visual summaries
+- Display rich UI (cards, charts, tables) inline in the chat
+- Show structured data from agent responses
+- Render previews, status indicators, or visual feedback
 - Let the agent present information beyond plain text
 
-For components that need user interaction, see
-[Human-in-the-loop](/docs/human-in-the-loop). For operational transparency
-around a real backend tool, see [Tool rendering](/docs/generative-ui/tool-rendering).
+For components that need user interaction, see [Interactive](/langgraph/generative-ui/your-components/interactive) or [Interrupt-based](/langgraph/generative-ui/your-components/interrupt-based).
 
-## How it works in code
+## Implementation
 
-`useComponent` takes a name, a Zod schema for its props, and the component
-to render. The runtime registers it as a frontend tool so the agent can
-discover it, and Zod validates the LLM's arguments before they reach your
-component.
+<Steps>
+  <Step>
+    ### Run and connect your agent
 
-<Snippet region="bar-chart-renderer" title="frontend/src/app/page.tsx — bar chart component" />
+    You'll need to run your agent and connect it to CopilotKit before proceeding.
 
-<Snippet region="pie-chart-renderer" title="frontend/src/app/page.tsx — pie chart component" />
+    If you don't already have CopilotKit and your agent connected, choose one of the following options:
 
-The component itself is ordinary React — it reads only its props and can
-stream in as the agent fills the payload. The showcase cell uses
-[Recharts](https://recharts.org) for the bar chart and a hand-rolled SVG
-donut for the pie chart; neither knows anything about CopilotKit.
+    <Accordions>
+      <Accordion title="I already have an agent">
+        You can follow the instructions in the [quickstart](/langgraph/quickstart) guide.
+      </Accordion>
+      <Accordion title="I want to start from scratch">
+        Run the following command to create a brand new project with a pre-configured agent:
 
-<Callout type="info">
-  The `name` you pass to `useComponent` is what the agent sees as the tool
-  name. Make it a verb like `render_bar_chart` or `show_weather` so the LLM
-  reliably picks it when the user asks for that visualization.
-</Callout>
+        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+          <Tab value="Python">
+            ```bash
+            npx copilotkit@latest create -f langgraph-py
+            ```
+          </Tab>
+          <Tab value="TypeScript">
+            ```bash
+            npx copilotkit@latest create -f langgraph-js
+            ```
+          </Tab>
+        </Tabs>
+      </Accordion>
+    </Accordions>
+  </Step>
+  <Step>
+    ### Register a component
 
-<FeatureIntegrations feature="generative-ui-tool-based" />
+    Use the `useComponent` hook to register a React component. The agent will be able to call it by name, and CopilotKit will render it with the tool arguments as props.
+
+    ```tsx title="app/page.tsx"
+    import { useComponent } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { z } from "zod";
+
+    const weatherSchema = z.object({
+      city: z.string().describe("City name"),
+      temperature: z.number().describe("Temperature in Fahrenheit"),
+      condition: z.string().describe("Weather condition"),
+    });
+
+    function WeatherCard({ city, temperature, condition }: z.infer<typeof weatherSchema>) {
+      return (
+        <div className="rounded-lg border p-4">
+          <h3 className="font-semibold">{city}</h3>
+          <p className="text-2xl">{temperature}°F</p>
+          <p className="text-sm text-gray-500">{condition}</p>
+        </div>
+      );
+    }
+
+    function YourMainContent() {
+      // [!code highlight:9]
+      useComponent({
+        name: "showWeather",
+        description: "Display a weather card for a city.",
+        parameters: weatherSchema,
+        render: WeatherCard,
+      });
+
+      return <div>{/* ... */}</div>;
+    }
+    ```
+  </Step>
+  <Step>
+    ### Install the CopilotKit SDK
+
+    Now, we'll need to make sure your agent can access frontend tools. In your terminal, navigate to your agent's folder and continue from there.
+
+    Any LangChain agent can be used with CopilotKit. However, creating deep agentic experiences with CopilotKit requires our LangChain SDK.
+
+    <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
+      <Tab value="Python">
+        ```bash
+        pip install copilotkit
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```bash
+        npm install @copilotkit/sdk-js
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Inherit from CopilotKitState
+
+    To access the frontend tools provided by CopilotKit, inherit from `CopilotKitState` in your agent's state definition:
+
+    <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+      <Tab value="Python">
+        ```python title="agent.py"
+        from copilotkit import CopilotKitState # [!code highlight]
+
+        class AgentState(CopilotKitState): # [!code highlight]
+            pass
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```typescript title="agent-js/src/agent.ts"
+        import { Annotation } from "@langchain/langgraph";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+
+        export const AgentStateAnnotation = Annotation.Root({
+          ...CopilotKitStateAnnotation.spec, // [!code highlight]
+        });
+        export type AgentState = typeof AgentStateAnnotation.State;
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Agent calls the component
+
+    When your agent's LLM decides to use the tool, CopilotKit automatically renders your component in the chat. The tool is registered as a frontend tool that the agent can discover and call.
+
+    <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+      <Tab value="Python">
+        ```python title="agent.py"
+        async def agent_node(state: YourAgentState, config: RunnableConfig):
+        # Access the tools from the copilotkit property
+
+        tools = state.get("copilotkit", {}).get("actions", []) # [!code highlight]
+        model = ChatOpenAI(model="gpt-5.4").bind_tools(tools)
+
+        # ...
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```typescript title="agent-js/src/agent.ts"
+        async function agentNode(state: YourAgentState, config: RunnableConfig): Promise<YourAgentState> {
+        // Access the tools from the copilotkit property
+
+        const tools = state.copilotkit?.actions; // [!code highlight]
+        const model = ChatOpenAI({ model: 'gpt-5.4' }).bindTools(tools);
+
+        // ...
+        }
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Give it a try!
+
+    Ask your agent something that would trigger the component (e.g. "What's the weather in San Francisco?"). You should see your `WeatherCard` rendered directly in the chat.
+  </Step>
+</Steps>
 
 ## Without parameters
 
-For simple components that don't need typed parameters, skip the Zod
-schema — the render function still receives whatever props the agent
-passes through:
+For simple components that don't need typed parameters:
 
 ```tsx
 useComponent({
@@ -76,10 +193,9 @@ useComponent({
 });
 ```
 
-## Scoping to a specific agent
+## Scoping to an agent
 
-In multi-agent setups, pin a component to a single agent so it only
-appears in that agent's thread:
+In multi-agent setups, scope a component to a specific agent:
 
 ```tsx
 useComponent({
@@ -89,7 +205,3 @@ useComponent({
   agentId: "support-agent",
 });
 ```
-
-## Choose your AI backend
-
-<IntegrationGrid path="generative-ui/tool-based" />
