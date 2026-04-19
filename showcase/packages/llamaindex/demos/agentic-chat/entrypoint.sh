@@ -6,7 +6,7 @@ echo "[entrypoint] PORT=${PORT:-10000}"
 
 python -m uvicorn agent_server:app \
   --host 0.0.0.0 \
-  --port 8000 2>&1 | sed 's/^/[llamaindex] /' &
+  --port 8000 > >(sed 's/^/[llamaindex] /') 2>&1 &
 AGENT_PID=$!
 sleep 2
 
@@ -15,7 +15,7 @@ if ! kill -0 $AGENT_PID 2>/dev/null; then
 fi
 
 PORT=${PORT:-10000}
-npx next start --port $PORT 2>&1 | sed 's/^/[nextjs] /' &
+npx next start --port $PORT > >(sed 's/^/[nextjs] /') 2>&1 &
 NEXTJS_PID=$!
 
 wait -n
