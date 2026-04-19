@@ -4,7 +4,7 @@ set -e
 echo "[entrypoint] cell: claude-sdk-python / shared-state-write"
 echo "[entrypoint] PORT=${PORT:-10000}"
 
-python -u -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 2>&1 | sed 's/^/[agent] /' &
+python -u -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 > >(sed 's/^/[agent] /') 2>&1 &
 AGENT_PID=$!
 sleep 2
 
@@ -13,7 +13,7 @@ if ! kill -0 $AGENT_PID 2>/dev/null; then
 fi
 
 PORT=${PORT:-10000}
-npx next start --port $PORT 2>&1 | sed 's/^/[nextjs] /' &
+npx next start --port $PORT > >(sed 's/^/[nextjs] /') 2>&1 &
 
 wait -n
 EXIT_CODE=$?
