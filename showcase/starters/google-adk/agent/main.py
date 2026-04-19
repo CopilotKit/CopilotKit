@@ -5,16 +5,20 @@ from __future__ import annotations
 import functools
 import json
 import logging
+import os
 from typing import Any, Optional, TypedDict, Union
 
-import openai
 from dotenv import load_dotenv
+from google import genai
 from google.adk.agents import LlmAgent
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.adk.tools import ToolContext
+from google.genai import errors as genai_errors
 from google.genai import types
+
+import os
 
 from .tools import (
     get_weather_impl,
@@ -30,29 +34,35 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Module-level OpenAI client — lazily constructed on first use. Rebuilding the
-# client on every generate_a2ui call wastes a few ms per request and, more
-# importantly, re-runs env/credential resolution which is unnecessary.
+# Model used for the secondary A2UI planner call. Overridable via A2UI_MODEL
+# env var. gemini-2.5-flash is cheap, fast, and supports forced tool-calling
+# via ToolConfig.function_calling_config.mode="ANY".
+_DEFAULT_A2UI_MODEL = "gemini-2.5-flash"
+
+def _a2ui_model() -> str:
+    """Return the Gemini model for the A2UI planner, overridable via env."""
+    return os.environ.get("A2UI_MODEL") or _DEFAULT_A2UI_MODEL
+
+# Module-level google.genai client — lazily constructed on first use.
+# Rebuilding the client on every generate_a2ui call re-runs env/credential
+# resolution unnecessarily.
 #
 # `functools.lru_cache(maxsize=1)` provides thread-safe cache bookkeeping
 # (the dict-lookup / insertion path is guarded), but it does NOT hold a lock
 # around execution of the wrapped function body. On a cold cache, two
-# concurrent callers CAN both enter `OpenAI()` — one result wins and is
+# concurrent callers CAN both enter `genai.Client()` — one result wins and is
 # retained; the other is garbage-collected. This is acceptable here because
-# `OpenAI()` is idempotent and cheap (just reads env/config and builds a
-# client object with no network I/O), so the worst case is a single wasted
-# object construction on a race that only happens during cold start.
+# `genai.Client()` is idempotent and cheap (just reads env/config), so the
+# worst case is a single wasted object construction on a cold-start race.
 @functools.lru_cache(maxsize=1)
-def _get_openai_client():
-    """Return a memoized OpenAI client, constructing it on first call.
+def _get_genai_client():
+    """Return a memoized google.genai client, constructing it on first call.
 
     Cache bookkeeping is thread-safe via `functools.lru_cache`; see the
     module-level comment above for the cold-cache race caveat. Call
     `.cache_clear()` in tests that need to reset the memoized instance.
     """
-    from openai import OpenAI
-
-    return OpenAI()
+    return genai.Client()
 
 class _A2uiError(TypedDict):
     """Shape of the structured error dict returned by generate_a2ui branches.
@@ -62,9 +72,13 @@ class _A2uiError(TypedDict):
 
     NOTE: Identical TypedDicts live in
     `showcase/packages/strands/src/agents/agent.py` and
-    `showcase/packages/langroid/src/agents/agent.py`. Keep all three in sync —
-    any key additions / removals must land in every sibling so the A2UI error
-    surface stays consistent across showcase adapters.
+    `showcase/packages/langroid/src/agents/agent.py`. Those siblings call
+    OpenAI directly; the google-adk sibling intentionally uses google.genai
+    (forced-function-call via ToolConfig) to avoid a cross-provider openai
+    dependency in a Gemini-primary package. The ERROR SHAPE still mirrors the
+    siblings — keep all three in sync. Any key additions / removals must land
+    in every sibling so the A2UI error surface stays consistent across
+    showcase adapters.
     """
 
     error: str
@@ -142,8 +156,18 @@ def search_flights(tool_context: ToolContext, flights: list[dict]) -> dict:
 def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]]:
     """Generate dynamic A2UI components based on the conversation.
 
-    A secondary LLM designs the UI schema and data. The result is
-    returned as an a2ui_operations container for the middleware to detect.
+    A secondary LLM designs the UI schema and data. The result is returned as
+    an a2ui_operations container for the middleware to detect. The A2UI
+    planner is a structured-output tool call that is intentionally separate
+    from the primary chat turn — the primary agent decides WHEN to invoke a
+    UI, and this call decides WHAT UI to render.
+
+    Implementation: uses `google.genai.Client.models.generate_content` with a
+    forced tool call (`tool_config.function_calling_config.mode="ANY"` +
+    `allowed_function_names=["render_a2ui"]`). This keeps the google-adk
+    package on Gemini end-to-end; the sibling strands / langroid adapters
+    use OpenAI for the equivalent call but the ERROR SHAPE and user-facing
+    contract are identical.
 
     Returns either a successful `dict[str, Any]` (the a2ui_operations
     container from `build_a2ui_operations_from_tool_call`) or an `_A2uiError`
@@ -188,7 +212,11 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
     # also swallow typos and programmer errors inside the body), we look the
     # attribute up via `getattr` and only run the body when present. If ADK
     # renames / drops the attribute, we log-and-skip instead of crashing.
-    conversation_messages: list[dict] = []
+    #
+    # Gemini accepts `contents=` as a list of `types.Content` with role
+    # `"user"` or `"model"` (no "system" role — system prompt goes via
+    # `system_instruction` in the GenerateContentConfig).
+    conversation_contents: list[types.Content] = []
     invocation_context = getattr(tool_context, "_invocation_context", None)
     if invocation_context is None:
         logger.debug(
@@ -207,106 +235,166 @@ def generate_a2ui(tool_context: ToolContext) -> Union[_A2uiError, dict[str, Any]
                             if hasattr(part, "text") and part.text:
                                 text_parts.append(part.text)
                         if text_parts:
-                            oai_role = "assistant" if role_str == "model" else "user"
-                            conversation_messages.append({"role": oai_role, "content": "".join(text_parts)})
+                            conversation_contents.append(
+                                types.Content(
+                                    role=role_str,
+                                    parts=[types.Part(text="".join(text_parts))],
+                                )
+                            )
 
-    tool_schema = {
-        "type": "function",
-        "function": {
-            "name": "render_a2ui",
-            "description": "Render a dynamic A2UI v0.9 surface.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "surfaceId": {"type": "string"},
-                    "catalogId": {"type": "string"},
-                    "components": {"type": "array", "items": {"type": "object"}},
-                    "data": {"type": "object"},
-                },
-                "required": ["surfaceId", "catalogId", "components"],
+    # Build the render_a2ui function declaration. `parametersJsonSchema` lets
+    # us pass a raw JSON schema dict directly — google.genai converts it
+    # internally — instead of constructing a `types.Schema` object tree.
+    render_a2ui_declaration = types.FunctionDeclaration(
+        name="render_a2ui",
+        description="Render a dynamic A2UI v0.9 surface.",
+        parametersJsonSchema={
+            "type": "object",
+            "properties": {
+                "surfaceId": {"type": "string"},
+                "catalogId": {"type": "string"},
+                "components": {"type": "array", "items": {"type": "object"}},
+                "data": {"type": "object"},
             },
+            "required": ["surfaceId", "catalogId", "components"],
         },
-    }
+    )
+    render_a2ui_tool = types.Tool(function_declarations=[render_a2ui_declaration])
 
-    llm_messages: list[dict] = [
-        {"role": "system", "content": context_text or "Generate a useful dashboard UI."},
-    ]
-    llm_messages.extend(conversation_messages)
+    # Force the model to call render_a2ui. mode="ANY" + allowed_function_names
+    # constrains the model to exactly one of the listed tools; with a single
+    # entry that's equivalent to OpenAI's tool_choice={"type": "function",
+    # "function": {"name": "render_a2ui"}}.
+    tool_config = types.ToolConfig(
+        function_calling_config=types.FunctionCallingConfig(
+            mode="ANY",
+            allowed_function_names=["render_a2ui"],
+        ),
+    )
 
-    # Wrap the OpenAI call so expected transport / auth / rate-limit failures
+    generate_config = types.GenerateContentConfig(
+        tools=[render_a2ui_tool],
+        tool_config=tool_config,
+        system_instruction=context_text or "Generate a useful dashboard UI.",
+    )
+
+    # Wrap the Gemini call so expected transport / auth / rate-limit failures
     # do not bubble up through the ADK tool machinery as uncaught exceptions.
     # Return a structured error with remediation instead — the LLM can surface
-    # this to the user. We deliberately narrow the except to the openai
+    # this to the user. We deliberately narrow the except to the google.genai
     # exception hierarchy: programmer errors (AttributeError, TypeError from
-    # bad call shape, etc.) should propagate so they are caught in test and
+    # bad call shape, etc.) should propagate so they are caught in tests and
     # not silently masked as an LLM error.
     #
-    # `openai.OpenAIError` is the SDK's base class for ALL errors, including
-    # both `APIError` subclasses (RateLimitError, APIConnectionError,
-    # AuthenticationError, BadRequestError) AND config-time failures raised
-    # from `OpenAI()` construction when `OPENAI_API_KEY` is unset/malformed —
-    # which are NOT `APIError` subclasses. Catching only `APIError` would let
-    # the constructor's error escape. `_get_openai_client()` therefore sits
-    # inside the try block, and `openai.OpenAIError` is in the except tuple.
-    # Mirrors the strands sibling agent's exception scope.
+    # `genai_errors.APIError` is the base class for `ClientError` (4xx) and
+    # `ServerError` (5xx). Listing all three is belt-and-suspenders in case
+    # the hierarchy changes; `APIError` alone catches both today. Config-time
+    # failures from `genai.Client()` construction (e.g. missing
+    # `GOOGLE_API_KEY`) can raise either `ValueError` or `genai_errors.*`
+    # depending on the SDK path, so `_get_genai_client()` sits inside the try
+    # block and `ValueError` is also in the except tuple.
     try:
-        client = _get_openai_client()
-        response = client.chat.completions.create(
-            model="gpt-4.1",
-            messages=llm_messages,
-            tools=[tool_schema],
-            tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+        client = _get_genai_client()
+        response = client.models.generate_content(
+            model=_a2ui_model(),
+            contents=conversation_contents or None,
+            config=generate_config,
         )
     except (
-        openai.OpenAIError,
-        openai.APIError,
-        openai.APIConnectionError,
-        openai.AuthenticationError,
-        openai.RateLimitError,
+        genai_errors.APIError,
+        genai_errors.ClientError,
+        genai_errors.ServerError,
+        ValueError,
     ) as exc:
-        logger.exception("generate_a2ui: OpenAI API call failed")
+        logger.exception("generate_a2ui: Gemini API call failed")
         return _a2ui_error(
             error="a2ui_llm_error",
-            message=f"Secondary A2UI LLM call failed: {exc.__class__.__name__}",
+            message=f"Secondary A2UI LLM call failed: {exc.__class__.__name__}: {exc}",
             remediation=(
-                "Verify OPENAI_API_KEY is set and the OpenAI service is reachable. "
+                "Verify GOOGLE_API_KEY is set and the Gemini service is reachable. "
                 "See server logs for the full traceback."
             ),
         )
 
-    if not response.choices:
-        logger.warning("generate_a2ui: OpenAI response contained no choices")
+    # Read the function call back from the first candidate's first part.
+    # Gemini returns `candidates[].content.parts[].function_call` with `.args`
+    # already parsed into a dict (no JSON-decode step required). mode="ANY"
+    # with allowed_function_names should guarantee exactly one function_call,
+    # but we still defend against empty candidates / empty parts / non-
+    # function-call parts in case the model returns a refusal or the SDK
+    # shape drifts.
+    candidates = getattr(response, "candidates", None) or []
+    if not candidates:
+        logger.warning("generate_a2ui: Gemini response contained no candidates")
         return _a2ui_error(
             error="a2ui_empty_response",
-            message="Secondary A2UI LLM returned no choices.",
-            remediation="Retry; if this persists, check OpenAI status.",
+            message="Secondary A2UI LLM returned no candidates.",
+            remediation="Retry; if this persists, check Gemini service status.",
         )
 
-    tool_calls = response.choices[0].message.tool_calls
-    if not tool_calls:
+    first_content = getattr(candidates[0], "content", None)
+    parts = getattr(first_content, "parts", None) or [] if first_content else []
+    if not parts:
+        logger.warning("generate_a2ui: Gemini response had no parts in first candidate")
+        return _a2ui_error(
+            error="a2ui_empty_response",
+            message="Secondary A2UI LLM returned no parts.",
+            remediation="Retry; if this persists, check Gemini service status.",
+        )
+
+    function_call = None
+    for part in parts:
+        fc = getattr(part, "function_call", None)
+        if fc is not None and getattr(fc, "name", None) == "render_a2ui":
+            function_call = fc
+            break
+
+    if function_call is None:
         logger.warning(
-            "generate_a2ui: OpenAI response had no tool_calls despite forced tool_choice"
+            "generate_a2ui: Gemini response had no render_a2ui function_call "
+            "despite forced tool_config mode=ANY"
         )
         return _a2ui_error(
             error="a2ui_no_tool_call",
             message="Secondary A2UI LLM did not call render_a2ui.",
             remediation=(
-                "Retry the request. If this persists, verify the tool_choice "
-                "schema matches the OpenAI API contract."
+                "Retry the request. If this persists, verify the tool_config "
+                "schema matches the google.genai API contract."
             ),
         )
 
-    tool_call = tool_calls[0]
-    try:
-        args = json.loads(tool_call.function.arguments)
-    except (ValueError, TypeError) as exc:
-        logger.exception(
-            "generate_a2ui: failed to parse render_a2ui tool arguments as JSON"
+    # `function_call.args` is a dict (google.genai parses the JSON for us).
+    # If the SDK ever returned a raw string we'd need to json.loads it — guard
+    # against that by coercing / reporting an invalid_arguments error.
+    args = getattr(function_call, "args", None)
+    if args is None:
+        logger.warning("generate_a2ui: render_a2ui function_call had no args")
+        return _a2ui_error(
+            error="a2ui_invalid_arguments",
+            message="render_a2ui function_call returned no arguments.",
+            remediation="Retry the request; the secondary LLM emitted an empty tool call.",
+        )
+    if isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except (ValueError, TypeError) as exc:
+            logger.exception(
+                "generate_a2ui: failed to parse render_a2ui args string as JSON"
+            )
+            return _a2ui_error(
+                error="a2ui_invalid_arguments",
+                message=f"Could not parse render_a2ui arguments: {exc}",
+                remediation="Retry the request; the secondary LLM emitted malformed JSON.",
+            )
+    if not isinstance(args, dict):
+        logger.warning(
+            "generate_a2ui: render_a2ui args was %s, expected dict",
+            type(args).__name__,
         )
         return _a2ui_error(
             error="a2ui_invalid_arguments",
-            message=f"Could not parse render_a2ui arguments: {exc}",
-            remediation="Retry the request; the secondary LLM emitted malformed JSON.",
+            message=f"render_a2ui arguments had unexpected type: {type(args).__name__}",
+            remediation="Retry the request; the secondary LLM emitted a non-dict payload.",
         )
     return build_a2ui_operations_from_tool_call(args)
 

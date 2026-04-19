@@ -613,8 +613,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
       ? Object.keys(fw.extraFiles)
           .filter((dest) => !dest.includes("/"))
           .map(
-            (dest) =>
-              `\n# Framework config\nCOPY --chown=app:app ${dest} ./`,
+            (dest) => `\n# Framework config\nCOPY --chown=app:app ${dest} ./`,
           )
           .join("")
       : "";

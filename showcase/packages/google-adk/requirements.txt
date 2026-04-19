@@ -3,5 +3,8 @@ uvicorn[standard]>=0.34.0
 python-dotenv
 pydantic
 google-adk
-google-genai
+# google-genai is required by both the primary LlmAgent (via google-adk) and
+# the secondary generate_a2ui planner call. Explicit pin keeps the version
+# floor independent of google-adk's transitive resolution.
+google-genai>=0.8.0
 ag-ui-adk
