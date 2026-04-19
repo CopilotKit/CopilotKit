@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-19T00:51:46.598Z",
+  "generated_at": "2026-04-19T01:18:38.029Z",
   "demos": {
     "ag2::agentic-chat": {
       "readme": null,
@@ -3949,7 +3949,7 @@
         {
           "filename": "backend/agent.py",
           "language": "python",
-          "content": "\"\"\"LangGraph agent backing the Chat Customization (CSS) demo.\n\nThe demo is about CSS — the agent has no custom tools or behavior.\nCopilotKitMiddleware is attached so CopilotKit-specific context is\npicked up if the frontend ever registers suggestions/components.\n\"\"\"\n\nfrom langchain.agents import create_agent\nfrom langchain_openai import ChatOpenAI\nfrom copilotkit import CopilotKitMiddleware\n\ngraph = create_agent(\n    model=ChatOpenAI(model=\"gpt-4o-mini\"),\n    tools=[],\n    middleware=[CopilotKitMiddleware()],\n    system_prompt=\"You are a helpful, concise assistant.\",\n)\n",
+          "content": "\"\"\"LangGraph agent backing the In-Chat HITL (useHumanInTheLoop) demo.\n\nThe `book_call` tool is defined on the frontend via `useHumanInTheLoop`,\nso there is no backend tool here. CopilotKitMiddleware is attached so the\nfrontend suggestions and the time-picker render hook are picked up.\n\"\"\"\n\nfrom langchain.agents import create_agent\nfrom langchain_openai import ChatOpenAI\nfrom copilotkit import CopilotKitMiddleware\n\ngraph = create_agent(\n    model=ChatOpenAI(model=\"gpt-4o-mini\"),\n    tools=[],\n    middleware=[CopilotKitMiddleware()],\n    system_prompt=(\n        \"You help users book an onboarding call with the sales team. \"\n        \"When they ask to book a call, call the frontend-provided \"\n        \"`book_call` tool with a short topic and the user's name. \"\n        \"Keep any chat reply to one short sentence.\"\n    ),\n)\n",
           "highlighted": true
         },
         {

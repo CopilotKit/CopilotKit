@@ -1,9 +1,10 @@
-// Feature matrix: one row per feature × integration. Flat — no variants.
+// Feature matrix: one row per feature × integration. Each feature's
+// `kind` (primary | testing) determines its visual grouping.
 // "testing"-kind features render muted and skip the docs row.
 import { healthBadge, qaBadge, testBadge, getDemoStatus } from "@/lib/status";
 import { FeatureGrid, type CellContext } from "@/components/feature-grid";
 import { Badge, HealthDot } from "@/components/badges";
-import { DocsRow, urlsFor } from "@/components/variant-pieces";
+import { DocsRow, urlsFor } from "@/components/cell-pieces";
 
 function Cell(ctx: CellContext) {
   const isTesting = ctx.feature.kind === "testing";
