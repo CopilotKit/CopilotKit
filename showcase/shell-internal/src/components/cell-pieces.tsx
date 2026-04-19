@@ -35,7 +35,7 @@ export function DocsRow({
   feature: Feature;
   shellUrl: string;
 }) {
-  const { og, shell } = getDocsStatus(feature.id);
+  const probed = getDocsStatus(feature.id);
   const override = integration.docs_links?.features?.[feature.id];
 
   const ogHref = override?.og_docs_url ?? feature.og_docs_url ?? undefined;
@@ -44,10 +44,27 @@ export function DocsRow({
     ? `${shellUrl}/${integration.slug}/unselected${shellPath}`
     : undefined;
 
+  // When a per-column override is curated, trust the curator — the probe
+  // data (`docs-status.json`) was generated against legacy URLs and lags
+  // behind the override. Fall back to probe state only when no override
+  // exists for this cell.
+  const hasOgOverride = override?.og_docs_url !== undefined;
+  const hasShellOverride = override?.shell_docs_path !== undefined;
+  const ogState: DocState = hasOgOverride
+    ? ogHref
+      ? "ok"
+      : "missing"
+    : probed.og;
+  const shellState: DocState = hasShellOverride
+    ? shellHref
+      ? "ok"
+      : "missing"
+    : probed.shell;
+
   return (
     <div className="flex items-center gap-2.5">
-      <DocsLink label="docs-og" href={ogHref} state={og} />
-      <DocsLink label="docs-shell" href={shellHref} state={shell} />
+      <DocsLink label="docs-og" href={ogHref} state={ogState} />
+      <DocsLink label="docs-shell" href={shellHref} state={shellState} />
     </div>
   );
 }
