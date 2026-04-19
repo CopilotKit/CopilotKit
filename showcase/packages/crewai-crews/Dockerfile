@@ -49,4 +49,11 @@ EXPOSE 10000
 # (Python agent, shell scripts, healthchecks) — most of which don't use it
 # the way Next.js does. entrypoint.sh scopes NODE_ENV=production to the
 # Next.js invocation only so non-Next children see the host's environment.
+
+# Drop root before runtime: platforms like Railway enforce non-root by policy,
+# and `chown -R` covers every writable path the runtime process touches.
+RUN groupadd -g 1001 app && useradd -u 1001 -g 1001 -m -d /home/app -s /bin/bash app && \
+    chown -R app:app /app
+USER app
+
 CMD ["./entrypoint.sh"]
