@@ -46,6 +46,13 @@ export interface DocsPageViewProps {
   bannerSlot?: React.ReactNode;
   /** When set, hide the main MDX body (used by pivot-only pages). */
   hideBody?: boolean;
+  /**
+   * Optional client component that wraps the MDX body — used by the
+   * `/docs/<feature>` router pages to conditionally hide code when no
+   * framework is selected. Must accept `children` and render them
+   * (or suppress them) based on its own state.
+   */
+  ContentWrapper?: React.ComponentType<{ children: React.ReactNode }>;
 }
 
 export async function DocsPageView({
@@ -57,6 +64,7 @@ export async function DocsPageView({
   navTree,
   bannerSlot,
   hideBody = false,
+  ContentWrapper,
 }: DocsPageViewProps) {
   const doc = loadDoc(slugPath);
   if (!doc) {
@@ -180,29 +188,36 @@ export async function DocsPageView({
 
         {bannerSlot}
 
-        {!hideBody && (
-          <div className="reference-content">
-            <MDXRemote
-              source={content}
-              components={{
-                ...docsComponents,
-                Snippet: (props: Record<string, unknown>) => (
-                  <Snippet
-                    {...(props as { region: string })}
-                    defaultFramework={defaultFramework}
-                    defaultCell={defaultCell}
-                  />
-                ),
-              }}
-              options={{
-                mdxOptions: {
-                  remarkPlugins: [remarkGfm],
-                  rehypePlugins: [rehypeHighlight],
-                },
-              }}
-            />
-          </div>
-        )}
+        {!hideBody &&
+          (() => {
+            const body = (
+              <div className="reference-content">
+                <MDXRemote
+                  source={content}
+                  components={{
+                    ...docsComponents,
+                    Snippet: (props: Record<string, unknown>) => (
+                      <Snippet
+                        {...(props as { region: string })}
+                        defaultFramework={defaultFramework}
+                        defaultCell={defaultCell}
+                      />
+                    ),
+                  }}
+                  options={{
+                    mdxOptions: {
+                      remarkPlugins: [remarkGfm],
+                      rehypePlugins: [rehypeHighlight],
+                    },
+                  }}
+                />
+              </div>
+            );
+            if (ContentWrapper) {
+              return <ContentWrapper>{body}</ContentWrapper>;
+            }
+            return body;
+          })()}
       </main>
     </div>
   );
