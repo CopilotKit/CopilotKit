@@ -5,6 +5,8 @@
 generative_ui:
   constrained-declarative:
     allowed:
+      - beautiful-chat
+      - cli-start
       - agentic-chat
       - chat-customization-css
       - tool-rendering-default-catchall
@@ -29,6 +31,8 @@ generative_ui:
 
   constrained-explicit:
     allowed:
+      - beautiful-chat
+      - cli-start
       - agentic-chat
       - chat-customization-css
       - tool-rendering-default-catchall

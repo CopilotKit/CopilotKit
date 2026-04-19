@@ -44,6 +44,20 @@
   ],
   "features": [
     {
+      "id": "beautiful-chat",
+      "name": "Beautiful Chat",
+      "category": "chat-ui",
+      "description": "Canonical polished starter chat (same as /examples/integrations/langgraph-python)",
+      "kind": "primary"
+    },
+    {
+      "id": "cli-start",
+      "name": "CLI Start Command",
+      "category": "chat-ui",
+      "description": "Copy-paste command to clone the canonical starter",
+      "kind": "primary"
+    },
+    {
       "id": "agentic-chat",
       "name": "Pre-Built CopilotChat",
       "category": "chat-ui",

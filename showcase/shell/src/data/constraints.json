@@ -2,6 +2,8 @@
   "generative_ui": {
     "constrained-declarative": {
       "allowed": [
+        "beautiful-chat",
+        "cli-start",
         "agentic-chat",
         "chat-customization-css",
         "tool-rendering-default-catchall",
@@ -28,6 +30,8 @@
     },
     "constrained-explicit": {
       "allowed": [
+        "beautiful-chat",
+        "cli-start",
         "agentic-chat",
         "chat-customization-css",
         "tool-rendering-default-catchall",
@@ -90,7 +94,10 @@
   },
   "interaction_modalities": {
     "headless": {
-      "excluded": ["open-gen-ui", "voice"]
+      "excluded": [
+        "open-gen-ui",
+        "voice"
+      ]
     }
   }
 }

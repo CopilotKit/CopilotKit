@@ -133,9 +133,11 @@ async function main() {
   const mockHealth = process.env.GENERATE_STATUS_MOCK_HEALTH === "1";
 
   // Flatten to (slug, demoId, url) tuples for parallel probing.
+  // Informational demos (e.g. cli-start) have no route — skip probing.
   const jobs: Array<{ slug: string; demoId: string; url: string }> = [];
   for (const integ of registry.integrations) {
     for (const demo of integ.demos) {
+      if (!demo.route) continue;
       jobs.push({
         slug: integ.slug,
         demoId: demo.id,

@@ -651,7 +651,13 @@ export function auditPackage(
   // to be `ManifestDemo[]` with string `id` on every entry — no need
   // to re-guard here.
   const demos = manifest.demos ?? [];
-  const demoIds = demos.map((d) => d.id);
+  // Informational-only demos (e.g. cli-start with a `command:` field)
+  // live in the registry but have no on-disk folder to audit. They're
+  // identified by the `command` field; exclude them from parity checks.
+  const auditableDemos = demos.filter(
+    (d) => !(d as { command?: string }).command,
+  );
+  const demoIds = auditableDemos.map((d) => d.id);
 
   const demoDirSet = new Set(demoDirs);
   const specIdSet = new Set(specFiles.map((f) => f.replace(/\.spec\.ts$/, "")));
