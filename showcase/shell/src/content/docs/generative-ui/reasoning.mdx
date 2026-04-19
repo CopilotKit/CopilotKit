@@ -53,6 +53,33 @@ appears automatically:
 
 <InlineDemo integration="langgraph-python" demo="reasoning-default-render" />
 
+## Tweaking just one piece — slot sub-components
+
+The reasoning card is composed of three sub-slots. Pass an object (not
+a component) to `reasoningMessage` to override just the parts you want
+and keep the rest of the built-in card:
+
+| Sub-component | Slot prop | Description |
+| --- | --- | --- |
+| `Header` | `header` | The clickable bar with the brain icon, label, and chevron |
+| `Content` | `contentView` | The reasoning text area (Markdown) |
+| `Toggle` | `toggle` | The expand/collapse animation wrapper |
+
+```tsx
+<CopilotChat
+  messageView={{
+    reasoningMessage: {
+      header: CustomHeader,
+      contentView: CustomContent,
+    },
+  }}
+/>
+```
+
+`CustomHeader` receives `{ isOpen, label, hasContent, isStreaming,
+onClick }`; `CustomContent` receives `{ isStreaming, hasContent,
+children }` (the raw reasoning text). Swap only what you need.
+
 ## Custom reasoning rendering
 
 For full control over the reasoning card, pass a component to the
