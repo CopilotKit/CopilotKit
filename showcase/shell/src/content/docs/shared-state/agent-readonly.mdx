@@ -15,7 +15,7 @@ This context can then be shared with your LangChain agent.
 
 ## Implementation
 <Callout>
-    Check out the [Frontend Data documentation](/built-in-agent/agent-app-context) to understand what this is and how to use it.
+    Check out the [Frontend Data documentation](/unselected/agent-app-context) to understand what this is and how to use it.
 </Callout>
 
 <TailoredContent
@@ -33,31 +33,8 @@ This context can then be shared with your LangChain agent.
 
                 The `useAgentContext` hook is used to add data as context to the agent.
 
-                ```tsx title="YourComponent.tsx"
-                "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-                import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
-                import { useState } from 'react';
-
-                export function YourComponent() {
-                  // Create colleagues state with some sample data
-                  const [colleagues, setColleagues] = useState([
-                    { id: 1, name: "John Doe", role: "Developer" },
-                    { id: 2, name: "Jane Smith", role: "Designer" },
-                    { id: 3, name: "Bob Wilson", role: "Product Manager" }
-                  ]);
-
-                  // Share context with the agent
-                  // [!code highlight:4]
-                  useAgentContext({
-                    description: "The current user's colleagues",
-                    value: colleagues,
-                  });
-                  return (
-                    // Your custom UI component
-                    <>...</>
-                  );
-                }
-                ```
+                <Snippet region="context-provider-sketch" title="YourComponent.tsx — owning the values" />
+                <Snippet region="use-agent-context-call" title="YourComponent.tsx — useAgentContext" />
             </Step>
 
             <Step>
@@ -195,31 +172,8 @@ This context can then be shared with your LangChain agent.
 
                 The `useAgentContext` hook is used to add data as context to the agent.
 
-                ```tsx title="YourComponent.tsx"
-                "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
-                import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
-                import { useState } from 'react';
-
-                export function YourComponent() {
-                  // Create colleagues state with some sample data
-                  const [colleagues, setColleagues] = useState([
-                    { id: 1, name: "John Doe", role: "Developer" },
-                    { id: 2, name: "Jane Smith", role: "Designer" },
-                    { id: 3, name: "Bob Wilson", role: "Product Manager" }
-                  ]);
-
-                  // Share context with the agent
-                  // [!code highlight:4]
-                  useAgentContext({
-                    description: "The current user's colleagues",
-                    value: colleagues,
-                  });
-                  return (
-                    // Your custom UI component
-                    <>...</>
-                  );
-                }
-                ```
+                <Snippet region="context-provider-sketch" title="YourComponent.tsx — owning the values" />
+                <Snippet region="use-agent-context-call" title="YourComponent.tsx — useAgentContext" />
             </Step>
 
             <Step>
