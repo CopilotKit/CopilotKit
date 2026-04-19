@@ -8,7 +8,6 @@
 // itself a docs route under the catch-all).
 
 import React, { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useFramework } from "./framework-provider";
 
