@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-19T22:43:12.542Z",
+  "generated_at": "2026-04-19T22:59:36.153Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
@@ -224,13 +224,6 @@
         "shell_docs_url": "/docs/features/tool-rendering"
       },
       {
-        "id": "tool-rendering-frontend-tools",
-        "name": "Tool Rendering (frontend tools)",
-        "category": "operational-generative-ui",
-        "description": "Testing row: exercises frontend-tool render path",
-        "kind": "testing"
-      },
-      {
         "id": "tool-rendering-reasoning-chain",
         "name": "Tool Rendering + Reasoning Chain",
         "category": "operational-generative-ui",
@@ -261,26 +254,18 @@
         "shell_docs_url": "/docs/features/frontend-tools"
       },
       {
-        "id": "frontend-tools-sync",
-        "name": "Frontend Tools (Sync)",
-        "category": "interactivity",
-        "description": "Synchronous frontend tool execution",
-        "og_docs_url": "https://docs.copilotkit.ai/features/frontend-tools-sync",
-        "shell_docs_url": "/docs/features/frontend-tools-sync"
-      },
-      {
         "id": "frontend-tools-async",
         "name": "Frontend Tools (Async)",
         "category": "interactivity",
-        "description": "Asynchronous frontend tool execution",
-        "og_docs_url": "https://docs.copilotkit.ai/features/frontend-tools-async",
-        "shell_docs_url": "/docs/features/frontend-tools-async"
+        "description": "useFrontendTool with an async handler — agent awaits a client-side async operation (e.g. DB query) and uses the returned result",
+        "og_docs_url": "https://docs.copilotkit.ai/features/frontend-tools",
+        "shell_docs_url": "/docs/features/frontend-tools"
       },
       {
         "id": "hitl-in-app",
-        "name": "In-App Human in the Loop",
+        "name": "In-App Human in the Loop (Frontend Tools + async HITL)",
         "category": "interactivity",
-        "description": "User approves agent actions from in-app UI surfaces outside the chat",
+        "description": "Agent calls useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision",
         "og_docs_url": "https://docs.copilotkit.ai/features/hitl-in-app",
         "shell_docs_url": "/docs/features/hitl-in-app"
       },
@@ -407,8 +392,10 @@
         "agentic-chat-reasoning",
         "reasoning-default-render",
         "frontend-tools",
+        "frontend-tools-async",
         "gen-ui-tool-based",
         "hitl-in-chat",
+        "hitl-in-app",
         "gen-ui-interrupt",
         "interrupt-headless",
         "declarative-gen-ui",
@@ -420,7 +407,6 @@
         "tool-rendering-default-catchall",
         "tool-rendering-custom-catchall",
         "tool-rendering",
-        "tool-rendering-frontend-tools",
         "tool-rendering-reasoning-chain",
         "shared-state-read-write",
         "shared-state-streaming",
@@ -490,20 +476,6 @@
           ]
         },
         {
-          "id": "tool-rendering-frontend-tools",
-          "name": "Tool Rendering (frontend tools) (testing)",
-          "description": "Tool is defined on the frontend via useFrontendTool; backend has no tools",
-          "tags": ["generative-ui"],
-          "route": "/demos/tool-rendering-frontend-tools",
-          "animated_preview_url": null,
-          "highlight": [
-            "src/app/demos/tool-rendering-frontend-tools/page.tsx",
-            "src/app/demos/tool-rendering-frontend-tools/weather-card.tsx",
-            "src/agents/tool_rendering_frontend_tools.py",
-            "src/app/api/copilotkit/route.ts"
-          ]
-        },
-        {
           "id": "frontend-tools",
           "name": "Frontend Tools (In-App Actions)",
           "description": "Agent invokes client-side handlers registered with useFrontendTool",
@@ -513,6 +485,20 @@
           "highlight": [
             "src/agents/frontend_tools.py",
             "src/app/demos/frontend-tools/page.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "frontend-tools-async",
+          "name": "Frontend Tools (Async)",
+          "description": "useFrontendTool with an async handler — agent awaits a client-side async operation (simulated notes DB query) and uses the returned result",
+          "tags": ["interactivity"],
+          "route": "/demos/frontend-tools-async",
+          "animated_preview_url": null,
+          "highlight": [
+            "src/agents/frontend_tools_async.py",
+            "src/app/demos/frontend-tools-async/page.tsx",
+            "src/app/demos/frontend-tools-async/notes-card.tsx",
             "src/app/api/copilotkit/route.ts"
           ]
         },
@@ -527,6 +513,20 @@
             "src/agents/hitl_in_chat_agent.py",
             "src/app/demos/hitl-in-chat/page.tsx",
             "src/app/demos/hitl-in-chat/time-picker-card.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "hitl-in-app",
+          "name": "In-App Human in the Loop (Frontend Tools + async HITL)",
+          "description": "Agent requests approval via useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision",
+          "tags": ["interactivity"],
+          "route": "/demos/hitl-in-app",
+          "animated_preview_url": null,
+          "highlight": [
+            "src/agents/hitl_in_app.py",
+            "src/app/demos/hitl-in-app/page.tsx",
+            "src/app/demos/hitl-in-app/approval-dialog.tsx",
             "src/app/api/copilotkit/route.ts"
           ]
         },
@@ -910,6 +910,10 @@
             "og_docs_url": "https://docs.copilotkit.ai/langgraph/frontend-tools",
             "shell_docs_path": "/frontend-tools"
           },
+          "frontend-tools-async": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/frontend-tools",
+            "shell_docs_path": "/frontend-tools"
+          },
           "gen-ui-tool-based": {
             "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/your-components/display-only",
             "shell_docs_path": "/generative-ui/your-components/display-only"
@@ -959,10 +963,6 @@
             "shell_docs_path": "/generative-ui/tool-rendering"
           },
           "tool-rendering": {
-            "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/tool-rendering",
-            "shell_docs_path": "/generative-ui/tool-rendering"
-          },
-          "tool-rendering-frontend-tools": {
             "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/tool-rendering",
             "shell_docs_path": "/generative-ui/tool-rendering"
           },

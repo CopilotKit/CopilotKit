@@ -20,8 +20,8 @@
     "headless_complete": "./src/agents/headless_complete.py:graph",
     "agentic_chat": "./src/agents/agentic_chat.py:graph",
     "frontend_tools": "./src/agents/frontend_tools.py:graph",
+    "frontend_tools_async": "./src/agents/frontend_tools_async.py:graph",
     "gen_ui_agent": "./src/agents/gen_ui_agent.py:graph",
-    "tool_rendering_frontend_tools": "./src/agents/tool_rendering_frontend_tools.py:graph",
     "gen_ui_tool_based": "./src/agents/gen_ui_tool_based.py:graph",
     "beautiful_chat": "./src/agents/beautiful_chat.py:graph"
   }

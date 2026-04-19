@@ -49,6 +49,10 @@
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/frontend-tools",
       "shell_docs_path": "/frontend-tools"
     },
+    "frontend-tools-async": {
+      "og_docs_url": "https://docs.copilotkit.ai/langgraph/frontend-tools",
+      "shell_docs_path": "/frontend-tools"
+    },
     "gen-ui-tool-based": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/your-components/display-only",
       "shell_docs_path": "/generative-ui/your-components/display-only"
@@ -98,10 +102,6 @@
       "shell_docs_path": "/generative-ui/tool-rendering"
     },
     "tool-rendering": {
-      "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/tool-rendering",
-      "shell_docs_path": "/generative-ui/tool-rendering"
-    },
-    "tool-rendering-frontend-tools": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/tool-rendering",
       "shell_docs_path": "/generative-ui/tool-rendering"
     },

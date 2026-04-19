@@ -222,13 +222,6 @@
       "shell_docs_url": "/docs/features/tool-rendering"
     },
     {
-      "id": "tool-rendering-frontend-tools",
-      "name": "Tool Rendering (frontend tools)",
-      "category": "operational-generative-ui",
-      "description": "Testing row: exercises frontend-tool render path",
-      "kind": "testing"
-    },
-    {
       "id": "tool-rendering-reasoning-chain",
       "name": "Tool Rendering + Reasoning Chain",
       "category": "operational-generative-ui",
@@ -259,20 +252,12 @@
       "shell_docs_url": "/docs/features/frontend-tools"
     },
     {
-      "id": "frontend-tools-sync",
-      "name": "Frontend Tools (Sync)",
-      "category": "interactivity",
-      "description": "Synchronous frontend tool execution",
-      "og_docs_url": "https://docs.copilotkit.ai/features/frontend-tools-sync",
-      "shell_docs_url": "/docs/features/frontend-tools-sync"
-    },
-    {
       "id": "frontend-tools-async",
       "name": "Frontend Tools (Async)",
       "category": "interactivity",
-      "description": "Asynchronous frontend tool execution",
-      "og_docs_url": "https://docs.copilotkit.ai/features/frontend-tools-async",
-      "shell_docs_url": "/docs/features/frontend-tools-async"
+      "description": "useFrontendTool with an async handler — agent awaits a client-side async operation (e.g. DB query) and uses the returned result",
+      "og_docs_url": "https://docs.copilotkit.ai/features/frontend-tools",
+      "shell_docs_url": "/docs/features/frontend-tools"
     },
     {
       "id": "hitl-in-app",

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-19T22:42:34.101Z",
+  "generated_at": "2026-04-19T22:59:38.066Z",
   "features": {
     "beautiful-chat": {
       "og": "missing",
@@ -89,10 +89,6 @@
       "og": "notfound",
       "shell": "notfound"
     },
-    "tool-rendering-frontend-tools": {
-      "og": "missing",
-      "shell": "missing"
-    },
     "tool-rendering-reasoning-chain": {
       "og": "missing",
       "shell": "missing"
@@ -106,10 +102,6 @@
       "shell": "missing"
     },
     "frontend-tools": {
-      "og": "notfound",
-      "shell": "notfound"
-    },
-    "frontend-tools-sync": {
       "og": "notfound",
       "shell": "notfound"
     },

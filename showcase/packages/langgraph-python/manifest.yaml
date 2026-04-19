@@ -45,6 +45,7 @@ features:
   - agentic-chat-reasoning
   - reasoning-default-render
   - frontend-tools
+  - frontend-tools-async
   - gen-ui-tool-based
   - hitl-in-chat
   - hitl-in-app
@@ -59,7 +60,6 @@ features:
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
   - tool-rendering
-  - tool-rendering-frontend-tools
   - tool-rendering-reasoning-chain
   - shared-state-read-write
   - shared-state-streaming
@@ -118,18 +118,6 @@ demos:
       - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
       - src/agents/tool_rendering_agent.py
       - src/app/api/copilotkit/route.ts
-  - id: tool-rendering-frontend-tools
-    name: Tool Rendering (frontend tools) (testing)
-    description: Tool is defined on the frontend via useFrontendTool; backend has no tools
-    tags:
-      - generative-ui
-    route: /demos/tool-rendering-frontend-tools
-    animated_preview_url:
-    highlight:
-      - src/app/demos/tool-rendering-frontend-tools/page.tsx
-      - src/app/demos/tool-rendering-frontend-tools/weather-card.tsx
-      - src/agents/tool_rendering_frontend_tools.py
-      - src/app/api/copilotkit/route.ts
   - id: frontend-tools
     name: Frontend Tools (In-App Actions)
     description: Agent invokes client-side handlers registered with useFrontendTool
@@ -140,6 +128,18 @@ demos:
     highlight:
       - src/agents/frontend_tools.py
       - src/app/demos/frontend-tools/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: frontend-tools-async
+    name: Frontend Tools (Async)
+    description: useFrontendTool with an async handler — agent awaits a client-side async operation (simulated notes DB query) and uses the returned result
+    tags:
+      - interactivity
+    route: /demos/frontend-tools-async
+    animated_preview_url:
+    highlight:
+      - src/agents/frontend_tools_async.py
+      - src/app/demos/frontend-tools-async/page.tsx
+      - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: hitl-in-chat
     name: In-Chat Human in the Loop

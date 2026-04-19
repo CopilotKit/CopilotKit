@@ -11,8 +11,8 @@ generative_ui:
       - chat-customization-css
       - tool-rendering-default-catchall
       - tool-rendering-custom-catchall
-      - tool-rendering-frontend-tools
       - frontend-tools
+      - frontend-tools-async
       - gen-ui-tool-based
       - useComponent
       - multi-modal
@@ -37,7 +37,6 @@ generative_ui:
       - chat-customization-css
       - tool-rendering-default-catchall
       - tool-rendering-custom-catchall
-      - tool-rendering-frontend-tools
       - tool-rendering-reasoning-chain
       - agentic-chat-reasoning
       - reasoning-default-render
@@ -47,6 +46,7 @@ generative_ui:
       - headless-simple
       - headless-complete
       - frontend-tools
+      - frontend-tools-async
       - gen-ui-tool-based
       - gen-ui-interrupt
       - interrupt-headless
@@ -73,6 +73,7 @@ generative_ui:
       - open-gen-ui
       - open-gen-ui-advanced
       - frontend-tools
+      - frontend-tools-async
       - multi-modal
       - suggestions
       - shared-state-read-write
