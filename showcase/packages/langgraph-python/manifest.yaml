@@ -301,7 +301,7 @@ demos:
       - frontend/src/app/time-picker-card.tsx
   - id: declarative-gen-ui
     name: Declarative Generative UI (A2UI)
-    description: Minimal injectA2UITool setup — agent renders dynamic A2UI surfaces against the built-in basicCatalog (no custom client components)
+    description: Canonical A2UI BYOC — custom catalog (Card/StatusBadge/Metric/InfoRow/PrimaryButton) wired via a2ui.catalog on the provider; runtime injects the render_a2ui tool automatically
     tags:
       - generative-ui
     route: /demos/declarative-gen-ui
@@ -309,6 +309,8 @@ demos:
     highlight:
       - backend/agent.py
       - frontend/src/app/page.tsx
+      - frontend/src/app/a2ui/definitions.ts
+      - frontend/src/app/a2ui/renderers.tsx
       - frontend/src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui-hardcoded
     name: Declarative Generative UI (A2UI — Custom Catalog)

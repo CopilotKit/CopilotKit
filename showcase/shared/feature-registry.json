@@ -6,6 +6,10 @@
       "name": "Chat & UI"
     },
     {
+      "id": "platform",
+      "name": "Platform"
+    },
+    {
       "id": "controlled-generative-ui",
       "name": "Controlled Generative UI"
     },
@@ -32,10 +36,6 @@
     {
       "id": "multi-agent",
       "name": "Multi-Agent"
-    },
-    {
-      "id": "platform",
-      "name": "Platform"
     },
     {
       "id": "byoc",
@@ -135,7 +135,7 @@
       "id": "declarative-gen-ui",
       "name": "Declarative Generative UI (A2UI — Dynamic Schema)",
       "category": "declarative-generative-ui",
-      "description": "A2UI with the built-in basic catalog — minimal injectA2UITool setup",
+      "description": "Canonical A2UI BYOC — custom catalog wired via a2ui.catalog; runtime injects render_a2ui automatically",
       "og_docs_url": "https://docs.copilotkit.ai/features/declarative-gen-ui",
       "shell_docs_url": "/docs/features/declarative-gen-ui"
     },
@@ -271,14 +271,6 @@
       "description": "User approves agent actions from in-app UI surfaces outside the chat",
       "og_docs_url": "https://docs.copilotkit.ai/features/hitl-in-app",
       "shell_docs_url": "/docs/features/hitl-in-app"
-    },
-    {
-      "id": "state-rendering",
-      "name": "State Rendering",
-      "category": "agent-state",
-      "description": "Rendering agent execution state",
-      "og_docs_url": "https://docs.copilotkit.ai/features/state-rendering",
-      "shell_docs_url": "/docs/features/state-rendering"
     },
     {
       "id": "shared-state-read-write",
