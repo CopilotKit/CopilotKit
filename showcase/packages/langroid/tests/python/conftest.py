@@ -1,8 +1,11 @@
 """Pytest config for langroid adapter tests.
 
-Adds the package's `src/` to sys.path so `from agents.agui_adapter import ...`
-resolves exactly the same way the runtime entry point does
-(see `src/agent_server.py`).
+Adds the package's ``src/`` to ``sys.path`` so imports like
+``from agents.agui_adapter import ...`` resolve identically to the
+runtime path used by the FastAPI entry point in ``src/agent_server.py``
+(which likewise imports ``agents.agui_adapter``). Keeping these import
+paths aligned means a regression in the adapter surfaces in tests the
+same way it would at runtime.
 """
 
 from __future__ import annotations

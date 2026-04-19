@@ -20,7 +20,13 @@ from typing import Any
 import pytest
 
 from agents import agui_adapter
-from agents.agui_adapter import _parse_tool_args, _TOOL_BY_NAME, handle_run
+from agents.agui_adapter import (
+    ParsedArgs,
+    _execute_backend_tool,
+    _parse_tool_args,
+    _TOOL_BY_NAME,
+    handle_run,
+)
 from agents.agent import ALL_TOOLS, FRONTEND_TOOL_NAMES
 
 
@@ -297,48 +303,93 @@ def test_tool_class_uniqueness():
 
 
 def test_parse_tool_args_dict_passthrough():
-    assert _parse_tool_args({"a": 1}) == {"a": 1}
+    parsed = _parse_tool_args({"a": 1})
+    assert isinstance(parsed, ParsedArgs)
+    assert parsed.status == "ok"
+    assert parsed.usable is True
+    assert parsed.args == {"a": 1}
 
 
-def test_parse_tool_args_empty_string():
-    assert _parse_tool_args("") == {}
+def test_parse_tool_args_empty_string_is_malformed():
+    """Empty string is treated as DEGRADED, not "ok with {}".
+    Consistent with the oai-path rationale: firing a tool with no
+    arguments produces a meaningless UI card, so we skip it the same
+    way we skip unparseable JSON."""
+    parsed = _parse_tool_args("")
+    assert parsed.status == "malformed"
+    assert parsed.usable is False
+    assert parsed.args == {}
 
 
 def test_parse_tool_args_valid_json_string():
-    assert _parse_tool_args('{"x": 2}') == {"x": 2}
+    parsed = _parse_tool_args('{"x": 2}')
+    assert parsed.status == "ok"
+    assert parsed.usable is True
+    assert parsed.args == {"x": 2}
 
 
-def test_parse_tool_args_malformed_returns_none(caplog):
-    """Malformed JSON returns ``None`` (DEGRADED) — callers must skip
-    the tool call rather than fire it with empty args."""
+def test_parse_tool_args_malformed_returns_malformed_status(caplog):
+    """Malformed JSON returns ``status="malformed"`` — callers must
+    skip the tool call rather than fire it with empty args."""
     with caplog.at_level(logging.WARNING, logger=agui_adapter.logger.name):
-        assert _parse_tool_args("not json {") is None
+        parsed = _parse_tool_args("not json {")
+    assert parsed.status == "malformed"
+    assert parsed.usable is False
     assert any(
         "Failed to JSON-decode tool-call arguments" in rec.getMessage()
         for rec in caplog.records
     )
 
 
-def test_parse_tool_args_non_dict_json_returns_none(caplog):
+def test_parse_tool_args_non_dict_json_is_malformed(caplog):
     """Valid JSON but not a dict (e.g. an array) is likewise DEGRADED."""
     with caplog.at_level(logging.WARNING, logger=agui_adapter.logger.name):
-        assert _parse_tool_args("[1, 2, 3]") is None
+        parsed = _parse_tool_args("[1, 2, 3]")
+    assert parsed.status == "malformed"
+    assert parsed.usable is False
     assert any(
         "parsed to non-dict" in rec.getMessage() for rec in caplog.records
     )
 
 
+def test_parse_tool_args_unknown_type_is_empty():
+    """Unknown non-dict / non-str / non-bytes types (e.g. ``None``,
+    ``int``) produce ``status="empty"`` — not a parse failure, just
+    nothing to try. Callers still skip (``usable == False``)."""
+    for val in (None, 42, 3.14, object()):
+        parsed = _parse_tool_args(val)
+        assert parsed.status == "empty", f"for {val!r}"
+        assert parsed.usable is False
+
+
+def test_parse_tool_args_bytes_input():
+    """Bytes input is valid (``json.loads`` accepts bytes) and should
+    round-trip identically to str input."""
+    parsed = _parse_tool_args(b'{"y": 3}')
+    assert parsed.status == "ok"
+    assert parsed.args == {"y": 3}
+
+
 def test_parse_tool_args_returns_copy():
-    """The dict returned by ``_parse_tool_args`` must be a fresh copy —
-    callers must be free to mutate without affecting the original
-    payload (which may be shared across tool calls)."""
+    """The dict on a successful parse must be a fresh copy — callers
+    must be free to mutate without affecting the original payload
+    (which may be shared across tool calls)."""
     original = {"a": 1, "b": 2}
-    returned = _parse_tool_args(original)
-    assert returned == original
-    returned["c"] = 3
-    returned["a"] = 999
+    parsed = _parse_tool_args(original)
+    assert parsed.status == "ok"
+    assert parsed.args == original
+    parsed.args["c"] = 3
+    parsed.args["a"] = 999
     assert "c" not in original, "caller's mutation leaked into original dict"
     assert original["a"] == 1, "caller's mutation leaked into original dict"
+
+
+def test_tool_by_name_is_frozen():
+    """``_TOOL_BY_NAME`` must be immutable post-import — assignment
+    should raise ``TypeError``. Mutating this map at runtime would
+    silently shadow tool dispatch for the rest of the process."""
+    with pytest.raises(TypeError):
+        _TOOL_BY_NAME["brand_new_tool"] = object  # type: ignore[index]
 
 
 # ---------------------------------------------------------------------------
@@ -392,9 +443,26 @@ async def test_backend_tool_execution_happy_path(monkeypatch):
     assert content["delta"] == '{"location": "SF", "temp_f": 68}'
 
 
+# The sensitive substring shared by several tests — asserting that
+# none of it survives sanitization is the sanitization contract.
+_SENSITIVE_EXC_MESSAGE = (
+    "DB connection failed at /opt/app/secret/internal.py line 42 "
+    "postgres://user:password@host:5432/db traceback frame ..."
+)
+_FORBIDDEN_SUBSTRINGS = (
+    "/opt/app",
+    "internal.py",
+    "line 42",
+    "postgres://",
+    "password",
+    "traceback",
+)
+
+
 @pytest.mark.asyncio
 async def test_backend_tool_exception_returns_sanitized_error(monkeypatch, caplog):
-    """When a backend tool raises, the error payload streamed to the
+    """When a backend tool raises a narrowed data-error (``ValueError``
+    or ``pydantic.ValidationError``), the error payload streamed to the
     user must be SANITIZED — no stack frames, no file paths, no
     ``str(exc)`` (which commonly embeds internal details). Only the
     tool name and the exception class leak. The full traceback must
@@ -402,10 +470,7 @@ async def test_backend_tool_exception_returns_sanitized_error(monkeypatch, caplo
     from agents import agent as agent_module
 
     def _raise_handle(self):
-        raise RuntimeError(
-            "DB connection failed at /opt/app/secret/internal.py line 42 "
-            "postgres://user:password@host:5432/db traceback frame ..."
-        )
+        raise ValueError(_SENSITIVE_EXC_MESSAGE)
 
     monkeypatch.setattr(agent_module.GetWeatherTool, "handle", _raise_handle)
 
@@ -432,19 +497,11 @@ async def test_backend_tool_exception_returns_sanitized_error(monkeypatch, caplo
 
     # The sanitized error contains the tool name and the exception class.
     assert "get_weather" in err
-    assert "RuntimeError" in err
+    assert "ValueError" in err
 
     # And MUST NOT contain any of the internal details from the exception
     # message: file paths, connection strings, stack-frame markers.
-    forbidden = [
-        "/opt/app",
-        "internal.py",
-        "line 42",
-        "postgres://",
-        "password",
-        "traceback",
-    ]
-    for needle in forbidden:
+    for needle in _FORBIDDEN_SUBSTRINGS:
         assert needle not in err, (
             f"sanitized error leaked internal detail {needle!r}: {err!r}"
         )
@@ -453,6 +510,123 @@ async def test_backend_tool_exception_returns_sanitized_error(monkeypatch, caplo
     # attaches exc_info with the traceback).
     exc_records = [r for r in caplog.records if r.exc_info]
     assert exc_records, "expected logger.exception to capture traceback server-side"
+
+
+@pytest.mark.asyncio
+async def test_str_exc_never_appears_in_sse_stream(monkeypatch, caplog):
+    """Sanitization contract: the FULL ``str(exc)`` must never appear
+    anywhere in the SSE stream bytes — not just in the ``error`` field.
+    A regression that accidentally echoed ``str(exc)`` into a TEXT
+    delta or a TOOL_CALL_ARGS payload would still leak internals.
+    """
+    from agents import agent as agent_module
+
+    def _raise_handle(self):
+        raise ValueError(_SENSITIVE_EXC_MESSAGE)
+
+    monkeypatch.setattr(agent_module.GetWeatherTool, "handle", _raise_handle)
+
+    tool_call = SimpleNamespace(
+        id="call-bad-sse",
+        function=SimpleNamespace(
+            name="get_weather",
+            arguments='{"location": "SF"}',
+        ),
+    )
+    response = SimpleNamespace(content="", oai_tool_calls=[tool_call], function_call=None)
+    _install_fake_agent(monkeypatch, response)
+
+    req = _FakeRequest(_minimal_run_input(thread_id="t-sse-sanit"))
+    with caplog.at_level(logging.ERROR, logger=agui_adapter.logger.name):
+        resp = await handle_run(req)
+        raw_chunks = await _collect(resp)
+
+    raw_stream = "".join(raw_chunks)
+
+    # Absolute: the full sensitive message, byte-for-byte, must not appear.
+    assert _SENSITIVE_EXC_MESSAGE not in raw_stream, (
+        "full str(exc) leaked into SSE stream"
+    )
+    # And no substring of the private bits either.
+    for needle in _FORBIDDEN_SUBSTRINGS:
+        assert needle not in raw_stream, (
+            f"forbidden internal detail {needle!r} leaked into SSE stream"
+        )
+
+
+@pytest.mark.asyncio
+async def test_backend_tool_executes_via_unified_helper(monkeypatch):
+    """Both the oai-path and the content-JSON path go through the same
+    ``_execute_backend_tool`` helper. This test exercises the happy
+    path through that helper to lock in the contract."""
+    from agents import agent as agent_module
+
+    def _fake_handle(self):
+        return '{"ok": true}'
+
+    monkeypatch.setattr(agent_module.GetWeatherTool, "handle", _fake_handle)
+
+    # Instantiate directly and invoke the helper synchronously — this
+    # is the non-awaited unit under test (``to_thread`` is orthogonal).
+    tool = agent_module.GetWeatherTool(location="SF")
+    assert _execute_backend_tool(tool, "get_weather") == '{"ok": true}'
+
+
+def test_execute_backend_tool_sanitizes_narrowed_exception(caplog):
+    """``_execute_backend_tool`` sanitizes ``ValueError`` /
+    ``pydantic.ValidationError`` into a JSON payload — and logs the
+    full traceback server-side."""
+    from agents import agent as agent_module
+
+    class _BoomTool(agent_module.GetWeatherTool):
+        def handle(self) -> str:
+            raise ValueError(_SENSITIVE_EXC_MESSAGE)
+
+    tool = _BoomTool(location="SF")
+    with caplog.at_level(logging.ERROR, logger=agui_adapter.logger.name):
+        result = _execute_backend_tool(tool, "get_weather")
+
+    payload = json.loads(result)
+    assert payload == {"error": "Tool get_weather failed: ValueError"}
+
+    # Traceback captured server-side.
+    assert any(r.exc_info for r in caplog.records), (
+        "expected logger.exception to capture traceback server-side"
+    )
+
+
+def test_execute_backend_tool_propagates_unhandled_exception():
+    """Non-narrowed exceptions (``RuntimeError``, ``KeyError``, ...)
+    must NOT be caught by the helper — they indicate real bugs or
+    config drift and must propagate up so the outer framework can
+    log/flag them. Silently sanitizing them hides real signal.
+    """
+    from agents import agent as agent_module
+
+    class _BugTool(agent_module.GetWeatherTool):
+        def handle(self) -> str:
+            raise RuntimeError("internal library bug, not data-shape error")
+
+    tool = _BugTool(location="SF")
+    with pytest.raises(RuntimeError, match="internal library bug"):
+        _execute_backend_tool(tool, "get_weather")
+
+
+def test_try_parse_tool_non_str_content_warns_and_returns_none(caplog):
+    """The ``isinstance(content, (str, bytes, bytearray))`` guard in
+    ``_try_parse_tool`` must surface a WARNING (programmer bug signal)
+    rather than silently swallowing the case under a plain-text fallback.
+    """
+    from agents.agui_adapter import _try_parse_tool
+
+    with caplog.at_level(logging.WARNING, logger=agui_adapter.logger.name):
+        result = _try_parse_tool(12345, agent=None)  # type: ignore[arg-type]
+
+    assert result is None
+    assert any(
+        "non-str/bytes content" in rec.getMessage()
+        for rec in caplog.records
+    ), f"expected type-guard warning, got: {[r.getMessage() for r in caplog.records]}"
 
 
 # ---------------------------------------------------------------------------

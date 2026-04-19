@@ -17,7 +17,9 @@ import asyncio
 import json
 import logging
 import uuid
-from typing import Any, AsyncGenerator
+from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Any, AsyncGenerator, Literal, Mapping
 
 import pydantic
 from ag_ui.core import (
@@ -59,10 +61,10 @@ logger = logging.getLogger(__name__)
 # module has been imported will NOT be discoverable by ``handle_run`` —
 # the adapter will treat them as unknown and skip backend execution.
 # If you need to register tools dynamically, rebuild this map explicitly.
-_TOOL_BY_NAME: dict[str, type[ToolMessage]] = {
+_tool_by_name_mutable: dict[str, type[ToolMessage]] = {
     cls.default_value("request"): cls for cls in ALL_TOOLS
 }
-if len(_TOOL_BY_NAME) != len(ALL_TOOLS):
+if len(_tool_by_name_mutable) != len(ALL_TOOLS):
     # Collisions are a programmer error — don't try to recover.
     seen: set[str] = set()
     dupes: list[str] = []
@@ -75,6 +77,14 @@ if len(_TOOL_BY_NAME) != len(ALL_TOOLS):
         f"Duplicate tool request names in ALL_TOOLS: {dupes!r}"
     )
 
+# Freeze the lookup table. Post-import mutation would silently corrupt
+# dispatch (e.g. a test monkeypatching one entry could shadow a real
+# tool class at runtime). ``MappingProxyType`` makes the map read-only
+# at the interpreter level — attempts to assign raise ``TypeError``.
+_TOOL_BY_NAME: Mapping[str, type[ToolMessage]] = MappingProxyType(
+    _tool_by_name_mutable
+)
+
 
 def _sse_line(event: Any) -> str:
     """Format an AG-UI event as an SSE data line (camelCase keys per AG-UI protocol)."""
@@ -85,45 +95,153 @@ def _sse_line(event: Any) -> str:
     return f"data: {json.dumps(data)}\n\n"
 
 
-def _parse_tool_args(raw_args: Any) -> dict | None:
-    """Coerce tool-call arguments into a dict.
+@dataclass(frozen=True)
+class ParsedArgs:
+    """Discriminated result from :func:`_parse_tool_args`.
+
+    Using a small dataclass with an explicit ``status`` eliminates the
+    three-way overloading of a bare ``dict | None`` return (where the
+    caller had to remember which of ``{}`` / ``None`` / ``dict`` meant
+    "empty", "malformed", or "ok"). Each call site now pattern-matches
+    on ``status`` explicitly.
+
+    * ``status == "ok"``: ``args`` is a fresh dict safe to mutate.
+    * ``status == "empty"``: ``args`` is ``{}``. Kept for completeness;
+      callers currently coerce this to DEGRADED (see below).
+    * ``status == "malformed"``: parsing was attempted and failed.
+      ``args`` is ``{}`` but callers MUST treat this as DEGRADED and
+      skip emitting the tool call — firing a tool with empty args
+      produces a meaningless UI card.
+    """
+
+    args: dict
+    status: Literal["ok", "empty", "malformed"]
+
+    @property
+    def usable(self) -> bool:
+        """True iff the caller should actually fire the tool call."""
+        return self.status == "ok"
+
+
+def _parse_tool_args(raw_args: Any) -> ParsedArgs:
+    """Coerce tool-call arguments into a :class:`ParsedArgs`.
 
     OpenAI-style arguments arrive as a JSON string; Langroid sometimes
-    passes a pre-parsed dict. Returns a fresh dict on success so callers
-    are free to mutate without affecting the original payload.
+    passes a pre-parsed dict. On ``"ok"`` the ``args`` dict is a fresh
+    copy so callers are free to mutate without affecting the original.
 
-    Returns:
-        * ``{}`` when input is genuinely empty (``""``, ``None``, or an
-          unknown non-dict/non-str type that has no arguments to parse).
-        * A fresh ``dict`` copy on successful parse.
-        * ``None`` when parsing was attempted but failed (malformed JSON
-          or non-dict JSON payload). Callers should treat ``None`` as a
-          DEGRADED signal and skip emitting the tool call — firing a
-          tool with empty args produces a meaningless UI card.
+    Empty-string input (legacy ``function_call`` path) is normalized to
+    ``"malformed"`` — firing a tool with no arguments produces a
+    meaningless UI card, so we skip it the same way we skip unparseable
+    JSON.
     """
     if isinstance(raw_args, dict):
-        # Return a shallow copy so callers may mutate safely.
-        return dict(raw_args)
-    if isinstance(raw_args, str):
+        # Shallow copy so callers may mutate safely.
+        return ParsedArgs(args=dict(raw_args), status="ok")
+    if isinstance(raw_args, (str, bytes)):
         if not raw_args:
-            return {}
+            # Empty string/bytes — treat as DEGRADED, not "ok with {}".
+            # This is consistent with the oai-path rationale: no args
+            # means the UI card has nothing to render.
+            return ParsedArgs(args={}, status="malformed")
         try:
             parsed = json.loads(raw_args)
         except json.JSONDecodeError as exc:
+            # ``raw_args`` may be bytes here; ``repr`` handles both.
             truncated = raw_args[:200]
             logger.warning(
                 "Failed to JSON-decode tool-call arguments (%s): %r", exc, truncated
             )
-            return None
+            return ParsedArgs(args={}, status="malformed")
         if isinstance(parsed, dict):
-            return parsed
+            return ParsedArgs(args=parsed, status="ok")
         logger.warning(
             "Tool-call arguments parsed to non-dict (%s): %r",
             type(parsed).__name__,
             str(parsed)[:200],
         )
-        return None
-    return {}
+        return ParsedArgs(args={}, status="malformed")
+    # Unknown non-dict / non-str / non-bytes type — no parse attempted.
+    # Preserved as ``"empty"`` (not a parse failure) so callers can
+    # distinguish "we tried and failed" from "nothing to try".
+    return ParsedArgs(args={}, status="empty")
+
+
+def _execute_backend_tool(
+    tool_instance: ToolMessage,
+    tool_name: str,
+) -> str:
+    """Run a backend tool's ``.handle()`` in a worker thread and return
+    its result as a string, sanitizing any exception into a user-safe
+    JSON payload.
+
+    Contract (both the oai_tool_calls path and the content-JSON path
+    share this so the SSE stream behaves identically):
+
+      * On success, returns ``.handle()``'s return value unchanged.
+        (Callers wrap it in a ``TEXT_MESSAGE_*`` triple.)
+      * On failure, logs the full traceback server-side via
+        ``logger.exception`` and returns a JSON string of the form
+        ``{"error": "Tool {name} failed: {ClassName}"}``. The
+        exception message itself (``str(exc)``) is intentionally
+        OMITTED — it commonly embeds file paths, connection strings,
+        secrets, or stack frames. Only the tool name and the
+        exception class name leak to the caller.
+
+    Exception scope: narrowed to ``(pydantic.ValidationError, ValueError)``
+    which together cover the realistic data-shape failures we see from
+    backend tools (bad payloads, schema drift, arithmetic/format
+    errors). Broader exceptions (``RuntimeError``, ``KeyError``,
+    ``TypeError``, arbitrary third-party errors) are NOT sanitized —
+    they propagate up and are logged as unexpected by the outer
+    framework, which is what we want for real bugs / config drift.
+    """
+    try:
+        return tool_instance.handle()
+    except (pydantic.ValidationError, ValueError) as exc:
+        # Full traceback server-side (``logger.exception`` attaches
+        # ``exc_info`` automatically). User-facing payload is sanitized:
+        # only the tool name and the exception class name leak — never
+        # ``str(exc)`` (which commonly embeds file paths, connection
+        # strings, secrets, or stack frames).
+        logger.exception("Tool %s execution failed", tool_name)
+        return json.dumps(
+            {
+                "error": (
+                    f"Tool {tool_name} failed: {exc.__class__.__name__}"
+                )
+            }
+        )
+
+
+async def _run_backend_tool(
+    tool_cls: type[ToolMessage],
+    tool_name: str,
+    tool_args: dict,
+) -> str | None:
+    """Instantiate a backend tool and run it off-thread with sanitized
+    errors. Returns ``None`` only when construction failed before a
+    runtime handler could even be invoked (in which case a sanitized
+    error payload is returned instead — never ``None`` from a live
+    call).
+    """
+    try:
+        tool_instance = tool_cls(**tool_args)
+    except (pydantic.ValidationError, ValueError, TypeError) as exc:
+        # Instantiation failures are almost always bad/missing fields
+        # from the LLM's tool arguments — treat identically to runtime
+        # sanitized errors so the UI shows a clear, non-leaky failure.
+        logger.exception("Tool %s construction failed", tool_name)
+        return json.dumps(
+            {
+                "error": (
+                    f"Tool {tool_name} failed: {exc.__class__.__name__}"
+                )
+            }
+        )
+    return await asyncio.to_thread(
+        _execute_backend_tool, tool_instance, tool_name
+    )
 
 
 async def handle_run(request: Request) -> StreamingResponse:
@@ -224,26 +342,31 @@ async def handle_run(request: Request) -> StreamingResponse:
                     fn = getattr(tc, "function", None)
                     name = getattr(fn, "name", None) if fn is not None else None
                     raw_args = getattr(fn, "arguments", {}) if fn is not None else {}
-                    args_dict = _parse_tool_args(raw_args)
+                    parsed = _parse_tool_args(raw_args)
                     call_id = getattr(tc, "id", None) or str(uuid.uuid4())
-                    if name and args_dict is not None:
-                        calls_to_emit.append((call_id, name, args_dict))
+                    if name and parsed.usable:
+                        calls_to_emit.append((call_id, name, parsed.args))
                     elif name:
                         logger.warning(
-                            "Skipping tool call %s: arguments could not be parsed",
+                            "Skipping tool call %s: arguments could not be parsed (status=%s)",
                             name,
+                            parsed.status,
                         )
             elif function_call is not None:
-                # Legacy function_call shape: single call.
+                # Legacy function_call shape: single call. Empty-string
+                # ``arguments`` is normalized to ``"malformed"`` by
+                # ``_parse_tool_args`` so this path behaves identically
+                # to a malformed-JSON oai call (skip + warn).
                 name = getattr(function_call, "name", None)
-                raw_args = getattr(function_call, "arguments", {}) or {}
-                args_dict = _parse_tool_args(raw_args)
-                if name and args_dict is not None:
-                    calls_to_emit.append((str(uuid.uuid4()), name, args_dict))
+                raw_args = getattr(function_call, "arguments", "") or ""
+                parsed = _parse_tool_args(raw_args)
+                if name and parsed.usable:
+                    calls_to_emit.append((str(uuid.uuid4()), name, parsed.args))
                 elif name:
                     logger.warning(
-                        "Skipping tool call %s: arguments could not be parsed",
+                        "Skipping tool call %s: arguments could not be parsed (status=%s)",
                         name,
+                        parsed.status,
                     )
 
             for call_id, tool_name, tool_args in calls_to_emit:
@@ -265,36 +388,16 @@ async def handle_run(request: Request) -> StreamingResponse:
                 ))
 
                 # For backend tools, execute and stream the result as text.
+                # Both the oai-path and the content-JSON path below fan
+                # out through ``_run_backend_tool`` so sanitization and
+                # off-thread execution behave identically.
                 if tool_name not in FRONTEND_TOOL_NAMES:
                     tool_cls = _TOOL_BY_NAME.get(tool_name)
                     result: str | None = None
                     if tool_cls is not None:
-                        try:
-                            tool_instance = tool_cls(**tool_args)
-                            result = await asyncio.to_thread(tool_instance.handle)
-                        except (
-                            RuntimeError,
-                            ValueError,
-                            TypeError,
-                            KeyError,
-                            pydantic.ValidationError,
-                        ) as exc:
-                            # Log the full traceback server-side (logger.exception
-                            # captures it automatically) so we can debug tool
-                            # failures, but keep the user-facing payload
-                            # sanitized — no stack, no internals, no ``str(exc)``
-                            # (which often embeds file paths, connection strings,
-                            # or full frames). Only the tool name and the
-                            # exception class name leak.
-                            logger.exception(
-                                "Tool %s execution failed", tool_name
-                            )
-                            result = json.dumps({
-                                "error": (
-                                    f"Tool {tool_name} failed: "
-                                    f"{exc.__class__.__name__}"
-                                )
-                            })
+                        result = await _run_backend_tool(
+                            tool_cls, tool_name, tool_args
+                        )
 
                     if result:
                         msg_id = str(uuid.uuid4())
@@ -345,11 +448,18 @@ async def handle_run(request: Request) -> StreamingResponse:
                 tool_call_id=tool_call_id,
             ))
 
-            # If it's a backend tool, execute it and stream the result as text
+            # If it's a backend tool, execute it and stream the result
+            # as text. We already have the instantiated ``tool_msg`` (it
+            # came from ``_try_parse_tool``), so bypass the construction
+            # step and go straight through ``_execute_backend_tool`` —
+            # shares the sanitization contract with the oai path above.
             if tool_name not in FRONTEND_TOOL_NAMES:
-                result = await asyncio.to_thread(tool_msg.handle)
-                for line in emit_text_block(message_id, result):
-                    yield line
+                result = await asyncio.to_thread(
+                    _execute_backend_tool, tool_msg, tool_name
+                )
+                if result:
+                    for line in emit_text_block(message_id, result):
+                        yield line
         else:
             # Plain text response — stream it. emit_text_block handles the
             # empty-delta guard (AG-UI requires non-empty deltas, e.g. a
@@ -395,9 +505,21 @@ def _try_parse_tool(content: str, agent: lr.ChatAgent) -> ToolMessage | None:
         attention — the model tried to call a tool and the payload
         was bad.
     """
+    # Guard: ``json.loads`` only accepts ``str``/``bytes``/``bytearray``.
+    # Anything else here would be a programmer bug (we promised callers
+    # the common "plain text" path is silent, so we shouldn't lump that
+    # kind of type bug into the silent JSONDecodeError bucket).
+    if not isinstance(content, (str, bytes, bytearray)):
+        logger.warning(
+            "_try_parse_tool called with non-str/bytes content (%s); "
+            "skipping tool parse",
+            type(content).__name__,
+        )
+        return None
+
     try:
         data = json.loads(content)
-    except (json.JSONDecodeError, TypeError):
+    except json.JSONDecodeError:
         # Common case: plain text (e.g. "hello"). Silent — logging
         # every chat turn as a warning drowns the real signal.
         return None
@@ -415,8 +537,12 @@ def _try_parse_tool(content: str, agent: lr.ChatAgent) -> ToolMessage | None:
                     ValueError,
                     KeyError,
                     pydantic.ValidationError,
-                    pydantic.errors.PydanticUserError,
                 ) as exc:
+                    # NOTE: ``PydanticUserError`` is intentionally NOT
+                    # caught here. It signals a malformed model *class
+                    # definition* (programmer bug in ``ALL_TOOLS``), not
+                    # a runtime data error, and should surface loudly
+                    # at startup rather than be silenced as "bad input".
                     logger.warning(
                         "Failed to instantiate tool %s from parsed content "
                         "(%s: %s): %r",
@@ -451,8 +577,10 @@ def _try_parse_tool(content: str, agent: lr.ChatAgent) -> ToolMessage | None:
                         ValueError,
                         KeyError,
                         pydantic.ValidationError,
-                        pydantic.errors.PydanticUserError,
                     ) as exc:
+                        # See note above: PydanticUserError is a
+                        # class-definition bug, not a runtime data
+                        # error — do not swallow it here.
                         logger.warning(
                             "Failed to instantiate tool %s from "
                             "function_call (%s: %s): %r",
