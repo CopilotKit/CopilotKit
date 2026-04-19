@@ -188,6 +188,13 @@ jobs:
             mastra crewai-crews pydantic-ai google-adk ag2 agno llamaindex
             strands ms-agent-python ms-agent-dotnet claude-sdk-python
             claude-sdk-typescript langroid spring-ai aimock
+            starter-ag2 starter-agno starter-claude-sdk-python
+            starter-claude-sdk-typescript starter-crewai-crews
+            starter-google-adk starter-langgraph-fastapi
+            starter-langgraph-python starter-langgraph-typescript
+            starter-langroid starter-llamaindex starter-mastra
+            starter-ms-agent-dotnet starter-ms-agent-python
+            starter-pydantic-ai starter-spring-ai starter-strands
           )
           # Compare against the last commits that touched showcase-related paths,
           # NOT main HEAD. Deploys only trigger on showcase/ and examples/integrations/
