@@ -33,14 +33,11 @@ const agentNames = [
   "gen-ui-agent",
   "shared-state-read",
   "shared-state-write",
-  "shared-state-streaming",
-  "subagents",
   "prebuilt-sidebar",
   "prebuilt-popup",
   "chat-slots",
   "chat-customization-css",
   "headless-simple",
-  "headless-complete",
 ];
 
 const agents: Record<string, LangGraphAgent> = {};
@@ -64,6 +61,9 @@ agents["declarative-gen-ui"] = createAgent("a2ui_dynamic");
 agents["declarative-gen-ui-hardcoded"] = createAgent("a2ui_dynamic_hardcoded");
 // Declarative Generative UI (A2UI — Fixed Schema) demo.
 agents["a2ui-fixed-schema"] = createAgent("a2ui_fixed");
+// Dedicated graphs for stub cells (ported from 4084).
+agents["shared-state-streaming"] = createAgent("shared_state_streaming");
+agents["subagents"] = createAgent("subagents");
 // Reasoning variants.
 agents["agentic-chat-reasoning"] = createAgent("reasoning_agent");
 agents["reasoning-default-render"] = createAgent("reasoning_agent");

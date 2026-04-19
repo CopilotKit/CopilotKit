@@ -20,9 +20,15 @@ import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 const LANGGRAPH_URL =
   process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
 
-const agent = new LangGraphAgent({
+const mcpAppsAgent = new LangGraphAgent({
   deploymentUrl: LANGGRAPH_URL,
   graphId: "mcp_apps",
+  langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
+});
+
+const headlessCompleteAgent = new LangGraphAgent({
+  deploymentUrl: LANGGRAPH_URL,
+  graphId: "headless_complete",
   langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
 });
 
@@ -34,7 +40,13 @@ const agent = new LangGraphAgent({
 // inline in the chat.
 const runtime = new CopilotRuntime({
   // @ts-ignore
-  agents: { "mcp-apps": agent },
+  agents: {
+    "mcp-apps": mcpAppsAgent,
+    // headless-complete shares this runtime because its cell also exercises
+    // MCP Apps rendering (via a hand-rolled `useRenderActivityMessage` in
+    // `use-rendered-messages.tsx`).
+    "headless-complete": headlessCompleteAgent,
+  },
   mcpApps: {
     servers: [
       {

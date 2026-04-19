@@ -14,6 +14,9 @@
     "mcp_apps": "./src/agents/mcp_apps_agent.py:graph",
     "hitl_in_chat": "./src/agents/hitl_in_chat_agent.py:graph",
     "shared_state_read_write": "./src/agents/shared_state_read_write.py:graph",
-    "readonly_state_agent_context": "./src/agents/readonly_state_agent_context.py:graph"
+    "readonly_state_agent_context": "./src/agents/readonly_state_agent_context.py:graph",
+    "shared_state_streaming": "./src/agents/shared_state_streaming.py:graph",
+    "subagents": "./src/agents/subagents.py:graph",
+    "headless_complete": "./src/agents/headless_complete.py:graph"
   }
 }
