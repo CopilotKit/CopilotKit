@@ -1,6 +1,19 @@
 import type { Metadata } from "next";
+import { Plus_Jakarta_Sans, Spline_Sans_Mono } from "next/font/google";
 import { BrandNav } from "@/components/brand-nav";
 import "./globals.css";
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-prose",
+  display: "swap",
+});
+
+const splineSansMono = Spline_Sans_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "CopilotKit Docs",
@@ -13,7 +26,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      className={`${plusJakartaSans.variable} ${splineSansMono.variable}`}
+    >
       <body className="min-h-screen">
         <BrandNav />
         <main>{children}</main>
