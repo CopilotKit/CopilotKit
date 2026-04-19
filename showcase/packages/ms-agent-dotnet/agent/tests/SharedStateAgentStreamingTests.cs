@@ -10,10 +10,10 @@ using SSA = SharedStateAgent;
 namespace MsAgentDotnet.AgentTests;
 
 /// <summary>
-/// Tests covering the SharedStateAgent streaming path — specifically that the
-/// caller-supplied IEnumerable&lt;ChatMessage&gt; is enumerated exactly once
-/// (finding 1) so that single-use iterators (e.g. yield-based generators)
-/// behave correctly.
+/// Tests covering the SharedStateAgent streaming path. Specifically that the
+/// caller-supplied IEnumerable&lt;ChatMessage&gt; is enumerated exactly once,
+/// so single-use iterators (e.g. yield-based generators) don't silently yield
+/// nothing on a second pass and lose user context on the summary request.
 /// </summary>
 public class SharedStateAgentStreamingTests
 {
@@ -145,5 +145,126 @@ public class SharedStateAgentStreamingTests
         // once, regardless of how many times SharedStateAgent needs to compose
         // derived message lists internally.
         Assert.Equal(1, messages.EnumerationCount);
+    }
+
+    // Inner agent that emits a controllable sequence of text-only updates on
+    // the first RunStreamingAsync call and nothing on subsequent calls. Used
+    // to exercise the buffered-text cap and the deserialize-success paths.
+    private sealed class TextEmittingAgent : AIAgent
+    {
+        private readonly IReadOnlyList<string> _firstPassChunks;
+        private readonly string? _secondPassChunk;
+        private int _callCount;
+
+        public TextEmittingAgent(IReadOnlyList<string> firstPassChunks, string? secondPassChunk = null)
+        {
+            _firstPassChunks = firstPassChunks;
+            _secondPassChunk = secondPassChunk;
+        }
+
+        public override AgentThread GetNewThread() => throw new NotImplementedException();
+
+        public override AgentThread DeserializeThread(JsonElement serializedThread, JsonSerializerOptions? jsonSerializerOptions = null)
+            => throw new NotImplementedException();
+
+        public override Task<AgentRunResponse> RunAsync(IEnumerable<ChatMessage> messages, AgentThread? thread = null, AgentRunOptions? options = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(new AgentRunResponse());
+
+        public override async IAsyncEnumerable<AgentRunResponseUpdate> RunStreamingAsync(
+            IEnumerable<ChatMessage> messages,
+            AgentThread? thread = null,
+            AgentRunOptions? options = null,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            var call = Interlocked.Increment(ref _callCount);
+            var chunks = call == 1 ? _firstPassChunks : (_secondPassChunk is null ? Array.Empty<string>() : new[] { _secondPassChunk });
+            foreach (var chunk in chunks)
+            {
+                yield return new AgentRunResponseUpdate
+                {
+                    Role = ChatRole.Assistant,
+                    Contents = [new TextContent(chunk)],
+                };
+            }
+            await Task.CompletedTask;
+        }
+    }
+
+    [Fact]
+    public async Task RunStreamingAsync_BufferedTextCap_DropsUpdatesBeyondCap()
+    {
+        // Pathological first-pass response: emit many text chunks whose total
+        // length exceeds MaxBufferedTextChars. The deserialize will fail
+        // (plain text is not valid JSON for SalesStateSnapshot), so we fall
+        // back to replaying the buffered text updates. The total replayed
+        // character count must NOT exceed the cap plus the largest single
+        // chunk size — anything beyond that signals the cap isn't enforced.
+        const int chunkSize = 10_000;
+        const int chunkCount = 150; // 1.5 MB total — exceeds the 1 MB cap.
+        var chunks = Enumerable.Range(0, chunkCount).Select(_ => new string('x', chunkSize)).ToArray();
+        var inner = new TextEmittingAgent(chunks);
+        var agent = new SSA(inner, CreateSerializerOptions());
+
+        var statePayload = JsonDocument.Parse("{\"todos\":[{\"id\":\"a\",\"title\":\"Deal 1\"}]}").RootElement;
+        var chatOptions = new ChatOptions
+        {
+            AdditionalProperties = new AdditionalPropertiesDictionary
+            {
+                ["ag_ui_state"] = statePayload,
+            },
+        };
+        var options = new ChatClientAgentRunOptions { ChatOptions = chatOptions };
+
+        var totalReplayedChars = 0;
+        await foreach (var update in agent.RunStreamingAsync(new[] { new ChatMessage(ChatRole.User, "hi") }, options: options))
+        {
+            foreach (var c in update.Contents.OfType<TextContent>())
+            {
+                totalReplayedChars += c.Text?.Length ?? 0;
+            }
+        }
+
+        // Replay must be bounded by the cap. We allow up to chunkSize of
+        // slack because the buffering admission check is pre-increment
+        // (i.e. a chunk that would cross the cap is rejected; already-
+        // admitted chunks are kept).
+        Assert.True(
+            totalReplayedChars <= SSA.MaxBufferedTextChars,
+            $"Replayed {totalReplayedChars} chars; cap is {SSA.MaxBufferedTextChars}.");
+    }
+
+    [Fact]
+    public async Task RunStreamingAsync_DeserializeSuccess_NoSalesData_SkipsDataContentEmit()
+    {
+        // First-pass produces a syntactically valid SalesStateSnapshot with
+        // an empty todos array. TryDeserialize succeeds, but
+        // ShouldEmitStateSnapshot returns false because todos is empty, so no
+        // DataContent is emitted. The second pass (for the summary) is
+        // allowed to run; we assert the absence of DataContent across the
+        // full output rather than counting exact updates.
+        var firstPass = new[] { "{\"todos\":[]}" };
+        var inner = new TextEmittingAgent(firstPass, secondPassChunk: "ok");
+        var agent = new SSA(inner, CreateSerializerOptions());
+
+        var statePayload = JsonDocument.Parse("{\"todos\":[{\"id\":\"a\",\"title\":\"Deal 1\"}]}").RootElement;
+        var chatOptions = new ChatOptions
+        {
+            AdditionalProperties = new AdditionalPropertiesDictionary
+            {
+                ["ag_ui_state"] = statePayload,
+            },
+        };
+        var options = new ChatClientAgentRunOptions { ChatOptions = chatOptions };
+
+        var hasDataContent = false;
+        await foreach (var update in agent.RunStreamingAsync(new[] { new ChatMessage(ChatRole.User, "hi") }, options: options))
+        {
+            if (update.Contents.Any(c => c is DataContent))
+            {
+                hasDataContent = true;
+            }
+        }
+
+        Assert.False(hasDataContent, "Empty-todos snapshot must not be emitted as DataContent.");
     }
 }

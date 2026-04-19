@@ -39,7 +39,7 @@ await app.RunAsync();
 
 // Stage of a deal in the sales pipeline. Modeled as an enum so callers and
 // the LLM's structured output both get a closed set of legal values, rather
-// than a free-form string that can drift (finding 11). Serialized as the
+// than a free-form string that can drift. Serialized as the
 // enum member name via JsonStringEnumConverter on the JsonSerializerOptions.
 public enum SalesStage
 {
@@ -53,7 +53,7 @@ public enum SalesStage
 
 // Currency code for deal values. Small closed set covers the demo use cases.
 // Previously `Value` was an `int` with no currency indication at all; we now
-// carry currency + decimal amount together (finding 11).
+// carry currency + decimal amount together.
 public enum Currency
 {
     USD,
@@ -64,13 +64,49 @@ public enum Currency
 
 public record SalesTodo
 {
-    // Previously `Id = ""` was the default, allowing "invalid" empty-id todos
-    // to exist. ManageSalesTodos would then fill one in via Guid.NewGuid().
-    // Making Id `required` keeps construction explicit, and callers that
-    // genuinely want server-assigned ids should construct with an empty
-    // string and let ReplaceTodos() backfill — that path is preserved.
+    /// <summary>
+    /// The stable identifier for this todo.
+    /// </summary>
+    /// <remarks>
+    /// The empty string is a load-bearing sentinel meaning "no id yet;
+    /// server should assign one". <see cref="SalesState.ReplaceTodos"/>
+    /// backfills any todo with <c>Id == ""</c> by generating a fresh Guid
+    /// (see that method's documentation). Callers that want to express
+    /// "pending, please assign" should use <see cref="NewPending"/> rather
+    /// than constructing with an arbitrary placeholder string.
+    ///
+    /// <see langword="required"/> is retained for compile-time presence so
+    /// callers have to acknowledge the id contract, but runtime validation
+    /// does NOT reject the empty-string sentinel — that would break the
+    /// server-assigned-id path described above.
+    /// </remarks>
     [JsonPropertyName("id")]
     public required string Id { get; init; }
+
+    /// <summary>
+    /// Factory for "pending" todos: creates a SalesTodo with a
+    /// freshly-generated Guid-derived id so the empty-string sentinel never
+    /// leaks into code that doesn't understand the backfill contract.
+    /// </summary>
+    public static SalesTodo NewPending(
+        string title = "",
+        SalesStage stage = SalesStage.Prospect,
+        decimal value = 0m,
+        Currency currency = Currency.USD,
+        DateOnly? dueDate = null,
+        string assignee = "") => new()
+        {
+            // 16 hex chars = 64 bits of entropy. 8 chars was ~32 bits and
+            // has a non-trivial collision risk at tens of thousands of
+            // todos; 16 pushes collision risk well past demo scale.
+            Id = Guid.NewGuid().ToString("n")[..16],
+            Title = title,
+            Stage = stage,
+            Value = value,
+            Currency = currency,
+            DueDate = dueDate,
+            Assignee = assignee,
+        };
 
     [JsonPropertyName("title")]
     public string Title { get; init; } = "";
@@ -79,9 +115,26 @@ public record SalesTodo
     public SalesStage Stage { get; init; } = SalesStage.Prospect;
 
     // Deal value as a decimal (money) with explicit currency. Previously an
-    // `int` with no sign or currency semantics.
+    // `int` with no sign or currency semantics. The init accessor validates
+    // non-negative — negative deal values are not a legal business state in
+    // this demo.
     [JsonPropertyName("value")]
-    public decimal Value { get; init; }
+    public decimal Value
+    {
+        get => _value;
+        init
+        {
+            if (value < 0m)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(value),
+                    value,
+                    "SalesTodo.Value must be non-negative.");
+            }
+            _value = value;
+        }
+    }
+    private readonly decimal _value;
 
     [JsonPropertyName("currency")]
     public Currency Currency { get; init; } = Currency.USD;
@@ -94,47 +147,62 @@ public record SalesTodo
     [JsonPropertyName("assignee")]
     public string Assignee { get; init; } = "";
 
+    /// <summary>
+    /// Whether this deal is finished (won or lost). Derived from
+    /// <see cref="Stage"/> so that the pair cannot disagree: a Prospect deal
+    /// cannot be "completed", and a ClosedWon/ClosedLost deal cannot be
+    /// "incomplete". Previously <c>Completed</c> was an independent bool and
+    /// contradictions like <c>{Stage=ClosedWon, Completed=false}</c> were
+    /// representable.
+    /// </summary>
     [JsonPropertyName("completed")]
-    public bool Completed { get; init; }
+    public bool Completed => Stage is SalesStage.ClosedWon or SalesStage.ClosedLost;
 }
 
 // SalesState is the server-side in-memory store, SalesStateSnapshot is the
 // wire-format JSON Schema sent to the model. Previously both carried near-
-// identical List<SalesTodo> (finding 9). We consolidate: SalesState holds a
-// read-only list behind an encapsulated replacement API (finding 10), and
+// identical List<SalesTodo>. We consolidate: SalesState holds a
+// read-only list behind an encapsulated replacement API, and
 // SalesStateSnapshot is a minimal record that wraps the same list for
 // serialization.
 public sealed class SalesState
 {
-    private readonly object _stateLock = new();
     private IReadOnlyList<SalesTodo> _todos = Array.Empty<SalesTodo>();
 
-    public IReadOnlyList<SalesTodo> Todos
-    {
-        get
-        {
-            lock (_stateLock)
-            {
-                return _todos;
-            }
-        }
-    }
+    /// <summary>
+    /// Current published todo list. Reads are lock-free: reference reads of
+    /// a field are atomic on .NET, and the single writer
+    /// (<see cref="ReplaceTodos"/>) publishes a new fully-materialized list
+    /// by a single reference assignment. We use <see cref="Volatile.Read{T}"/>
+    /// to prevent the JIT from hoisting the read past a synchronization
+    /// boundary on the reader side.
+    /// </summary>
+    public IReadOnlyList<SalesTodo> Todos => Volatile.Read(ref _todos);
 
-    // Atomically replaces the todo list, assigning a server-side id to any
-    // incoming todo whose Id is empty. Called from ManageSalesTodos; the
-    // lock moves inside this method so callers don't need to coordinate.
+    /// <summary>
+    /// Atomically replaces the todo list, backfilling any todo whose
+    /// <see cref="SalesTodo.Id"/> is empty (or null) with a freshly-generated
+    /// Guid-derived id. This is the explicit contract for callers that want
+    /// server-assigned ids: pass a SalesTodo with <c>Id = ""</c> and this
+    /// method generates a stable id for it. Non-empty ids are preserved as-is.
+    /// </summary>
+    /// <remarks>
+    /// Generated ids are 16 hex chars (64 bits of entropy), derived from a
+    /// fresh <see cref="Guid"/>. The write is a single reference assignment
+    /// via <see cref="Volatile.Write{T}"/>, which is atomic and visible to
+    /// readers without a lock.
+    /// </remarks>
     public void ReplaceTodos(IEnumerable<SalesTodo> todos)
     {
         ArgumentNullException.ThrowIfNull(todos);
         var materialized = todos.Select(t => t with
         {
-            Id = string.IsNullOrEmpty(t.Id) ? Guid.NewGuid().ToString()[..8] : t.Id,
+            // 16 hex chars = 64 bits. Previously 8 (32 bits) had a non-
+            // trivial collision probability at tens of thousands of todos.
+            Id = string.IsNullOrEmpty(t.Id) ? Guid.NewGuid().ToString("n")[..16] : t.Id,
         }).ToArray();
 
-        lock (_stateLock)
-        {
-            _todos = materialized;
-        }
+        Volatile.Write(ref _todos, materialized);
     }
 }
 
@@ -143,7 +211,7 @@ public sealed class SalesState
 // =================
 
 // Flight operational status. StatusColor was previously a separate string
-// field that could disagree with Status (finding 12); we now derive color
+// field that could disagree with Status; we now derive color
 // from this enum deterministically in FlightInfo.StatusColor.
 public enum FlightStatus
 {
@@ -182,7 +250,7 @@ public record FlightInfo
     [JsonPropertyName("duration")]
     public string Duration { get; init; } = "";
 
-    // Status as enum (finding 12). Previously `Status` and `StatusColor` were
+    // Status as enum. Previously `Status` and `StatusColor` were
     // independent free-form strings that could disagree (e.g. "On Time" with
     // color "red"). Now StatusColor is derived from Status and the pair is
     // guaranteed consistent.
@@ -199,7 +267,7 @@ public record FlightInfo
         _ => "gray",
     };
 
-    // Price as decimal (money) + separate Currency enum (finding 12). The
+    // Price as decimal (money) + separate Currency enum. The
     // old shape carried both a display string like "$342" AND a currency
     // code "USD" — redundant and easy to get out of sync.
     [JsonPropertyName("price")]
@@ -238,7 +306,7 @@ public class SalesAgentFactory
                 "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
                 "or get it using: gh auth token");
 
-        // Finding 8: log the resolved endpoint at startup so operators can tell
+        // Log the resolved OpenAI endpoint at startup so operators can tell
         // whether we're hitting a custom OPENAI_BASE_URL or falling back to the
         // GitHub Models / Azure default. Previously the fallback was silent.
         var endpointEnv = Environment.GetEnvironmentVariable("OPENAI_BASE_URL");
@@ -394,7 +462,7 @@ public class SalesAgentFactory
 
         // Correlation id so server logs can be tied to the structured error
         // we return to the caller / LLM. Callers can quote this in bug
-        // reports without leaking stack traces or internal paths (finding 5).
+        // reports without leaking stack traces or internal paths.
         var errorId = Guid.NewGuid().ToString("n")[..8];
         _logger.LogInformation("Generating A2UI (errorId={ErrorId}) for: {Request}", errorId, userRequest);
 
@@ -417,13 +485,20 @@ Available components: Row, Column, Text, Card, Button, Badge, Table, Chart.";
             new(ChatRole.User, userRequest),
         };
 
-        // Finding 6: no more `.GetAwaiter().GetResult()` — await directly so
-        // we don't block a thread-pool thread on the outbound LLM call.
-        // Finding 5 + 7: catch only the expected failure modes; programmer
-        // errors (NullReferenceException, OutOfMemoryException, etc.) should
-        // propagate. Return a user-facing structured error that does NOT
-        // include ex.Message verbatim — log the full exception server-side
-        // with the correlation id.
+        // The outbound LLM call is awaited directly rather than blocked via
+        // .GetAwaiter().GetResult(), which would tie up a thread-pool thread
+        // for the full network round-trip.
+        //
+        // Exception handling is deliberately narrow: we catch only the
+        // expected failure modes (transport, upstream non-success, malformed
+        // JSON, shape mismatch, cancellation). Programmer errors like
+        // NullReferenceException or resource-exhaustion errors like
+        // OutOfMemoryException propagate unchanged so they surface in logs
+        // rather than being silently remapped to "upstream error". The
+        // user-facing structured error we return does NOT include
+        // ex.Message verbatim — we log the full exception server-side with
+        // the correlation id so operators can correlate without exposing
+        // provider internals to the caller.
         string content;
         try
         {
@@ -446,15 +521,33 @@ Available components: Row, Column, Text, Card, Button, Badge, Table, Chart.";
         }
         catch (OperationCanceledException)
         {
-            // Cancellation is a normal signal — don't log as error; caller
-            // decides how to handle. Return a minimal structured error so the
-            // LLM doesn't spin re-trying.
+            // Cancellation is a normal control-flow signal. Log at Information
+            // level with the correlation id so operators can tie the log entry
+            // to any client-side retry, but don't treat it as an error. Rethrow
+            // to preserve ambient cancellation semantics for the caller.
+            _logger.LogInformation("GenerateA2ui (errorId={ErrorId}): cancelled", errorId);
             throw;
         }
 
-        // JsonDocument.Parse can throw JsonException on malformed input
-        // (finding 7). Previously unguarded; now isolated from parse-the-
-        // shape errors below so we can return a precise remediation.
+        return BuildA2uiResponseFromContent(content, errorId, _logger);
+    }
+
+    /// <summary>
+    /// Parses an LLM-produced string into an A2UI operations payload, or a
+    /// structured error if the content is malformed. Exposed as
+    /// <c>internal static</c> so unit tests can exercise each error branch
+    /// (JsonException, shape mismatch, ArgumentException) directly without
+    /// standing up an OpenAI client.
+    /// </summary>
+    internal static string BuildA2uiResponseFromContent(string content, string errorId, ILogger logger)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        ArgumentNullException.ThrowIfNull(errorId);
+        ArgumentNullException.ThrowIfNull(logger);
+
+        // JsonDocument.Parse can throw JsonException on malformed input.
+        // This is isolated from the parse-the-shape errors below so we can
+        // return a precise remediation message for each failure mode.
         JsonDocument? jsonDoc;
         try
         {
@@ -462,7 +555,7 @@ Available components: Row, Column, Text, Card, Button, Badge, Table, Chart.";
         }
         catch (JsonException ex)
         {
-            _logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): LLM returned malformed JSON", errorId);
+            logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): LLM returned malformed JSON", errorId);
             return StructuredError("malformed_llm_output", "The UI generator produced output that wasn't valid JSON.", "Ask the user to rephrase their request — the model sometimes adds explanatory text around the JSON.", errorId);
         }
 
@@ -474,7 +567,7 @@ Available components: Row, Column, Text, Card, Button, Badge, Table, Chart.";
 
                 if (args.ValueKind != JsonValueKind.Object)
                 {
-                    _logger.LogError("GenerateA2ui (errorId={ErrorId}): LLM output was JSON but not an object (kind={Kind})", errorId, args.ValueKind);
+                    logger.LogError("GenerateA2ui (errorId={ErrorId}): LLM output was JSON but not an object (kind={Kind})", errorId, args.ValueKind);
                     return StructuredError("malformed_llm_output", "The UI generator output was JSON but not the expected object shape.", "Retry or adjust the prompt.", errorId);
                 }
 
@@ -483,7 +576,7 @@ Available components: Row, Column, Text, Card, Button, Badge, Table, Chart.";
 
                 if (!args.TryGetProperty("components", out var componentsElement) || componentsElement.ValueKind != JsonValueKind.Array)
                 {
-                    _logger.LogError("GenerateA2ui (errorId={ErrorId}): LLM output missing 'components' array", errorId);
+                    logger.LogError("GenerateA2ui (errorId={ErrorId}): LLM output missing 'components' array", errorId);
                     return StructuredError("malformed_llm_output", "The UI generator output didn't include a components array.", "Retry the request.", errorId);
                 }
 
@@ -512,12 +605,12 @@ Available components: Row, Column, Text, Card, Button, Badge, Table, Chart.";
             }
             catch (JsonException ex)
             {
-                _logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): shape deserialization failed", errorId);
+                logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): shape deserialization failed", errorId);
                 return StructuredError("malformed_llm_output", "The UI generator output didn't match the expected structure.", "Retry the request.", errorId);
             }
             catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): argument validation failed", errorId);
+                logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): argument validation failed", errorId);
                 return StructuredError("invalid_argument", "One of the arguments was invalid.", "Check the request shape and retry.", errorId);
             }
         }
@@ -526,7 +619,7 @@ Available components: Row, Column, Text, Card, Button, Badge, Table, Chart.";
     // Structured error payload returned to the LLM/caller. We deliberately
     // keep this short and categorical — no raw exception messages, no paths,
     // no internal identifiers beyond the correlation id.
-    private static string StructuredError(string category, string message, string remediation, string errorId) =>
+    internal static string StructuredError(string category, string message, string remediation, string errorId) =>
         JsonSerializer.Serialize(new
         {
             error = category,
@@ -543,7 +636,7 @@ Available components: Row, Column, Text, Card, Button, Badge, Table, Chart.";
 // SalesStateSnapshot is the wire-format shape: what the model emits via
 // JSON Schema and what we serialize as DataContent on the outbound side.
 // Previously this was a separate mutable class that duplicated SalesState.
-// Finding 9: make it an immutable record wrapping the same list type as
+// To avoid the previous duplication, this is an immutable record wrapping the same list type as
 // SalesState exposes, with explicit JsonPropertyName so the schema name
 // doesn't drift from PascalCase to camelCase under default policies.
 public sealed record SalesStateSnapshot(

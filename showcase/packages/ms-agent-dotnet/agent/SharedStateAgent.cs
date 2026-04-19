@@ -34,8 +34,22 @@ internal sealed class SharedStateAgent : DelegatingAIAgent
         {
             _ = jsonSerializerOptions.GetTypeInfo(typeof(JsonElement));
         }
-        catch (Exception ex)
+        catch (InvalidOperationException ex)
         {
+            // Thrown when the attached TypeInfoResolver is incapable of
+            // producing metadata for JsonElement (e.g. a locked context-only
+            // resolver). Narrow the catch deliberately: programmer errors
+            // like NullReferenceException or environment failures like
+            // TypeLoadException/FileNotFoundException are NOT misattributed to
+            // "resolver can't handle JsonElement" — they bubble up unchanged.
+            throw new ArgumentException(
+                "JsonSerializerOptions must provide a type resolver that can handle JsonElement.",
+                nameof(jsonSerializerOptions),
+                ex);
+        }
+        catch (NotSupportedException ex)
+        {
+            // Thrown when the resolver explicitly refuses to handle the type.
             throw new ArgumentException(
                 "JsonSerializerOptions must provide a type resolver that can handle JsonElement.",
                 nameof(jsonSerializerOptions),
@@ -69,7 +83,7 @@ internal sealed class SharedStateAgent : DelegatingAIAgent
 
         if (options is not ChatClientAgentRunOptions { ChatOptions.AdditionalProperties: { } properties } chatRunOptions ||
             !properties.TryGetValue("ag_ui_state", out JsonElement state) ||
-            !StateContainsSalesData(state))
+            !ShouldForceStructuredOutput(state))
         {
             // Either there's no AG-UI state attached, or the attached state has no
             // sales data to synchronize. Either way, skip the structured-output
@@ -154,18 +168,7 @@ internal sealed class SharedStateAgent : DelegatingAIAgent
 
         if (response.TryDeserialize(_jsonSerializerOptions, out JsonElement stateSnapshot))
         {
-            // StateContainsSalesData is applied symmetrically as a predicate but
-            // serves different purposes on the inbound vs outbound sides:
-            //   - Inbound (top of method): don't FORCE the two-pass JSON-schema
-            //     flow when caller state is trivial (empty/no todos). Running a
-            //     non-sales prompt like "hello" with ResponseFormat=json yields
-            //     garbage.
-            //   - Outbound (here): don't EMIT a trivial snapshot that would
-            //     stomp rich client state with `{todos: []}`. If the model
-            //     returned nothing meaningful, preserve whatever the client
-            //     already has locally.
-            // Same predicate, different action per direction.
-            if (StateContainsSalesData(stateSnapshot))
+            if (ShouldEmitStateSnapshot(stateSnapshot))
             {
                 byte[] stateBytes = JsonSerializer.SerializeToUtf8Bytes(
                     stateSnapshot,
@@ -214,6 +217,37 @@ internal sealed class SharedStateAgent : DelegatingAIAgent
             yield return update;
         }
     }
+
+    /// <summary>
+    /// Inbound predicate: should we FORCE the two-pass JSON-schema flow for
+    /// this request? We only do so when the caller's shared state already
+    /// carries sales data; otherwise a plain chat prompt like "hello" would
+    /// be forced into <c>ResponseFormat=json</c> and yield unparseable garbage.
+    /// </summary>
+    /// <remarks>
+    /// Currently delegates to <see cref="StateContainsSalesData"/>; the
+    /// inbound and outbound decisions happen to share the same predicate
+    /// today but are conceptually distinct (see
+    /// <see cref="ShouldEmitStateSnapshot"/>). Keeping them as separate named
+    /// helpers documents the intent and lets the two policies diverge later
+    /// without re-auditing every call site.
+    /// </remarks>
+    internal static bool ShouldForceStructuredOutput(JsonElement state)
+        => StateContainsSalesData(state);
+
+    /// <summary>
+    /// Outbound predicate: should we EMIT a <c>DataContent</c> state snapshot
+    /// to the client? A trivial snapshot (empty/no todos) would stomp rich
+    /// client state with <c>{todos: []}</c>; we only emit when the model
+    /// actually produced meaningful sales data.
+    /// </summary>
+    /// <remarks>
+    /// Currently delegates to <see cref="StateContainsSalesData"/>; see
+    /// <see cref="ShouldForceStructuredOutput"/> for why the two policies
+    /// are named separately despite sharing an implementation today.
+    /// </remarks>
+    internal static bool ShouldEmitStateSnapshot(JsonElement stateSnapshot)
+        => StateContainsSalesData(stateSnapshot);
 
     // The state-snapshot two-pass flow is only meaningful when the shared state
     // actually carries sales data (i.e. the shared-state / sales-pipeline demos:
