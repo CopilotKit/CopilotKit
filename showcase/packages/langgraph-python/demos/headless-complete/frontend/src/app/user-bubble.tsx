@@ -9,6 +9,7 @@ import React from "react";
  * `useRenderedMessages`). For user messages that's just the text content of
  * the message (attachments etc. are stripped in the headless composer).
  */
+// @region[custom-bubbles]
 export function UserBubble({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex justify-end">
@@ -18,3 +19,4 @@ export function UserBubble({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+// @endregion[custom-bubbles]

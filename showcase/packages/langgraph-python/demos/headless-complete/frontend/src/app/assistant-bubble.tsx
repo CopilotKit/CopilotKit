@@ -15,6 +15,7 @@ import React from "react";
  * calls yet) is suppressed so the bubble doesn't flash an empty rounded
  * box while streaming hasn't started.
  */
+// @region[custom-bubbles]
 export function AssistantBubble({ children }: { children: React.ReactNode }) {
   if (isEmpty(children)) return null;
 
@@ -28,6 +29,7 @@ export function AssistantBubble({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+// @endregion[custom-bubbles]
 
 function isEmpty(node: React.ReactNode): boolean {
   if (node == null || node === false) return true;

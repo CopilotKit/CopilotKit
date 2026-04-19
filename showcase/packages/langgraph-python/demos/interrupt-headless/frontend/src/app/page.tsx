@@ -60,6 +60,7 @@ export default function InterruptHeadlessDemo() {
   );
 }
 
+// @region[headless-useinterrupt-primitives]
 /**
  * Headless interrupt listener — the `useInterrupt` "equivalent" without a
  * `render` prop. Returns `{ pending, resolve }` so any UI can drive resolution.
@@ -121,6 +122,7 @@ function useHeadlessInterrupt(agentId: string): {
 
   return { pending, resolve };
 }
+// @endregion[headless-useinterrupt-primitives]
 
 function HeadlessInterruptPanel() {
   const { copilotkit } = useCopilotKit();
