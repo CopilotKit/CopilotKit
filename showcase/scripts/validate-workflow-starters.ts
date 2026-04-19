@@ -30,6 +30,7 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { parse as parseYaml } from "yaml";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // ROOT = showcase/ (NOT the repo root). This script lives at
@@ -52,6 +53,8 @@ const DEPLOY_WORKFLOW = path.join(
 
 // Directories under showcase/starters/ that are NOT starter services
 // (skeletons, scaffolding, docs). Add new non-service siblings here.
+// Keep in sync with `.github/workflows/showcase_smoke-monitor.yml` —
+// the drift detector applies the same exclusion at enumeration time.
 const EXCLUDED_DIRS = new Set(["template"]);
 
 const EXIT_OK = 0 as const;
@@ -104,45 +107,133 @@ function readTextFile(absPath: string): string {
 }
 
 /**
- * Regex-based presence checks — not a full YAML parse. The workflow
- * files are authoritative for their own syntax (github actions parses
- * them), so we only need to confirm the literal slug appears in the
- * expected region(s). We use word-boundary (`\b`) anchoring so
- * `starter-ag2` can't accidentally match `starter-ag2-extended`.
+ * Parse a workflow YAML string. Thrown errors carry the underlying
+ * parser message so CI logs identify the exact cause.
+ */
+function parseWorkflowYaml(deployYaml: string): unknown {
+  try {
+    return parseYaml(deployYaml);
+  } catch (err) {
+    throw new Error(
+      `Cannot parse showcase_deploy.yml as YAML: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+}
+
+/**
+ * Navigate parsed YAML to `on.workflow_dispatch.inputs.service.options`
+ * and return the options array (as strings) or null if any hop is absent
+ * or mistyped. We accept either `on` or `true` at the top level because
+ * the YAML spec bool-coerces bare `on:` keys — the `yaml` package (like
+ * github's own parser) parses `on: { ... }` as key `true`. Real-world
+ * workflow files hit this in the wild.
+ */
+function getWorkflowDispatchOptions(parsed: unknown): string[] | null {
+  if (!parsed || typeof parsed !== "object") return null;
+  const root = parsed as Record<string, unknown>;
+  // `on:` gets YAML 1.1 bool-coerced to `true` by the `yaml` package.
+  // GitHub Actions' own parser treats the key as the literal string "on"
+  // because the workflow schema pre-binds it, but at the library level we
+  // have to look both places.
+  const onNode = (root["on"] ?? root[true as unknown as string]) as
+    | Record<string, unknown>
+    | undefined;
+  if (!onNode || typeof onNode !== "object") return null;
+  const dispatch = onNode["workflow_dispatch"];
+  if (!dispatch || typeof dispatch !== "object") return null;
+  const inputs = (dispatch as Record<string, unknown>)["inputs"];
+  if (!inputs || typeof inputs !== "object") return null;
+  const service = (inputs as Record<string, unknown>)["service"];
+  if (!service || typeof service !== "object") return null;
+  const options = (service as Record<string, unknown>)["options"];
+  if (!Array.isArray(options)) return null;
+  // options may contain non-string literals in a malformed workflow —
+  // coerce to string defensively so includes() is well-defined.
+  return options.map((v) => String(v));
+}
+
+/**
+ * Locate the shell step that builds ALL_SERVICES and return its run
+ * script body so we can extract the embedded JSON matrix. The matrix
+ * itself lives inside a bash heredoc-style single-quoted variable, so
+ * it is NOT a YAML sub-structure — we navigate to the step via YAML,
+ * then the JSON block is lifted out of the run body textually.
+ */
+function getDetectChangesRunBody(parsed: unknown): string | null {
+  if (!parsed || typeof parsed !== "object") return null;
+  const root = parsed as Record<string, unknown>;
+  const jobs = root["jobs"];
+  if (!jobs || typeof jobs !== "object") return null;
+  const detect = (jobs as Record<string, unknown>)["detect-changes"];
+  if (!detect || typeof detect !== "object") return null;
+  const steps = (detect as Record<string, unknown>)["steps"];
+  if (!Array.isArray(steps)) return null;
+  // Find any step whose run body references ALL_SERVICES — this is the
+  // step we care about. Keyed on the variable name rather than the step
+  // `name:` so renaming the step doesn't break validation.
+  for (const step of steps) {
+    if (!step || typeof step !== "object") continue;
+    const run = (step as Record<string, unknown>)["run"];
+    if (typeof run !== "string") continue;
+    if (run.includes("ALL_SERVICES")) return run;
+  }
+  return null;
+}
+
+/**
+ * Extract every `dispatch_name` value from the embedded ALL_SERVICES
+ * JSON array inside a run body. Regex scan because the JSON is
+ * interpolated inside a shell heredoc and can contain `${{ ... }}`
+ * Actions expressions that make JSON.parse unsafe — but the
+ * `"dispatch_name":"<value>"` shape is unambiguous.
+ */
+function extractDispatchNames(runBody: string): string[] {
+  const names: string[] = [];
+  const re = /"dispatch_name"\s*:\s*"([^"]+)"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(runBody)) !== null) {
+    names.push(m[1]);
+  }
+  return names;
+}
+
+/**
+ * YAML-aware presence check for workflow_dispatch options. Parses the
+ * workflow document and navigates to `on.workflow_dispatch.inputs.
+ * service.options`, then tests for exact membership. Immune to
+ * reformat / reorder / comment churn that would have defeated the
+ * previous regex-based implementation. Word-boundary semantics are
+ * preserved by `Array#includes`: "starter-ag2" is distinct from
+ * "starter-ag2-extended" at the array level.
  */
 export function isSlugInWorkflowDispatch(
   deployYaml: string,
   registeredName: string,
 ): boolean {
-  // Match `- starter-<slug>` as a standalone list entry under
-  // `options:`. We locate the options block first so a stray mention
-  // elsewhere (comments, ALL_SERVICES) can't spoof the check.
-  const optionsMatch = deployYaml.match(
-    /inputs:\s*\n\s+service:[\s\S]*?options:\s*\n([\s\S]*?)(?:^\S|\n\s*\w+:\s*\n\s{6,}\w+:|\nconcurrency:)/m,
-  );
-  if (!optionsMatch) return false;
-  const optionsBlock = optionsMatch[1];
-  const entryPattern = new RegExp(
-    `^\\s*-\\s+${escapeRegex(registeredName)}\\s*$`,
-    "m",
-  );
-  return entryPattern.test(optionsBlock);
+  const parsed = parseWorkflowYaml(deployYaml);
+  const options = getWorkflowDispatchOptions(parsed);
+  if (options === null) return false;
+  return options.includes(registeredName);
 }
 
+/**
+ * YAML-aware presence check for the ALL_SERVICES matrix. Parses the
+ * workflow, locates the `detect-changes` job's step that defines
+ * ALL_SERVICES, and extracts every `dispatch_name` from the embedded
+ * JSON via a targeted regex (full JSON.parse is unsafe because the
+ * matrix interpolates ${{ github.sha }} and similar expressions at
+ * workflow-execution time). Membership is then checked by equality.
+ */
 export function isSlugInDeployMatrix(
   deployYaml: string,
   registeredName: string,
 ): boolean {
-  // ALL_SERVICES entries look like:
-  //   {"dispatch_name":"starter-foo","filter_key":"starter_foo",...}
-  const pattern = new RegExp(
-    `"dispatch_name"\\s*:\\s*"${escapeRegex(registeredName)}"`,
-  );
-  return pattern.test(deployYaml);
-}
-
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parsed = parseWorkflowYaml(deployYaml);
+  const runBody = getDetectChangesRunBody(parsed);
+  if (runBody === null) return false;
+  return extractDispatchNames(runBody).includes(registeredName);
 }
 
 /**
@@ -224,11 +315,9 @@ export function runValidation(): number {
 }
 
 // CLI entry point — skipped when this module is imported by tests.
-// `import.meta.url` is a file:// URL; `process.argv[1]` is a plain path.
-if (
-  import.meta.url === `file://${process.argv[1]}` ||
-  fileURLToPath(import.meta.url) === process.argv[1]
-) {
+// `fileURLToPath(import.meta.url)` is the canonical path form on Node 20+;
+// compare directly with `process.argv[1]` which is the script path.
+if (fileURLToPath(import.meta.url) === process.argv[1]) {
   try {
     process.exit(runValidation());
   } catch (err) {
