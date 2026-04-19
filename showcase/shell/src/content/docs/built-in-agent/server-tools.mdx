@@ -17,6 +17,9 @@ Server tools are functions that run on your backend that the Built-in Agent can 
 ## Defining a tool
 
 ```typescript title="src/copilotkit.ts"
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
+import { z } from "zod";
+
 const getWeather = defineTool({
   name: "getWeather",
   description: "Get the current weather for a city",
@@ -30,7 +33,7 @@ const getWeather = defineTool({
 });
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.2",
+  model: "openai:gpt-5.4",
   tools: [getWeather],
 });
 ```
@@ -71,7 +74,7 @@ const createTicket = defineTool({
 });
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.2",
+  model: "openai:gpt-5.4",
   tools: [searchDocs, createTicket], // [!code highlight]
 });
 ```
@@ -90,14 +93,12 @@ const bookFlight = defineTool({
       destination: z.string().describe("Destination airport code (e.g., JFK)"),
       date: z.string().describe("Departure date in YYYY-MM-DD format"),
     }),
-    passengers: z
-      .array(
-        z.object({
-          name: z.string(),
-          seatPreference: z.enum(["window", "middle", "aisle"]).optional(),
-        }),
-      )
-      .describe("List of passengers"),
+    passengers: z.array(
+      z.object({
+        name: z.string(),
+        seatPreference: z.enum(["window", "middle", "aisle"]).optional(),
+      })
+    ).describe("List of passengers"),
     class: z.enum(["economy", "business", "first"]).default("economy"),
   }),
   execute: async ({ trip, passengers, class: seatClass }) => {
@@ -134,20 +135,22 @@ By default, the agent performs a single step. If your agent needs to chain tool 
 
 ```typescript
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.2",
+  model: "openai:gpt-5.4",
   maxSteps: 5, // [!code highlight]
   tools: [searchDocs, createTicket, getUser],
 });
 ```
 
 With `maxSteps: 5`, the agent can:
-
 1. Call `searchDocs` to find relevant info
 2. Process the result
 3. Call `createTicket` with details from the search
 4. Continue until done (up to 5 iterations)
 
 <Callout type="info">
-  See [Advanced Configuration](/built-in-agent/advanced-configuration) for more
-  options like `toolChoice`, `temperature`, and `providerOptions`.
+See [Advanced Configuration](/built-in-agent/advanced-configuration) for more options like `toolChoice`, `temperature`, and `providerOptions`.
+</Callout>
+
+<Callout type="info" title="Using a custom backend?">
+  If you're using the [Custom Agent](/built-in-agent/custom-agent) instead of `BuiltInAgent`, see the "With Tools" examples for how to wire tools with AI SDK, TanStack AI, or custom backends.
 </Callout>

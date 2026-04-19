@@ -5,11 +5,14 @@ icon: "lucide/Play"
 hideTOC: true
 ---
 
-WrenchIcon,
-PlugIcon,
-CpuIcon,
-MonitorIcon,
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import {
+  WrenchIcon,
+  PlugIcon,
+  CpuIcon,
+  MonitorIcon,
 } from "lucide-react";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
@@ -68,12 +71,15 @@ Before you begin, you'll need the following:
         Create an API route with the `BuiltInAgent` and `CopilotRuntime`:
 
         ```ts title="app/api/copilotkit/route.ts"
+        import {
           CopilotRuntime,
           copilotRuntimeNextJSAppRouterEndpoint,
         } from "@copilotkit/runtime";
+        import { BuiltInAgent } from "@copilotkit/runtime/v2"; // [!code highlight]
+        import { NextRequest } from "next/server";
 
         const builtInAgent = new BuiltInAgent({ // [!code highlight:3]
-          model: "openai:gpt-5.2",
+          model: "openai:gpt-5.4",
         });
 
         const runtime = new CopilotRuntime({
@@ -96,6 +102,9 @@ Before you begin, you'll need the following:
         Wrap your application with the CopilotKit provider:
 
         ```tsx title="app/layout.tsx"
+        import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+        import "@copilotkit/react-ui/v2/styles.css"; // [!code highlight]
+        import './globals.css';
 
         // ...
 
@@ -119,6 +128,7 @@ Before you begin, you'll need the following:
         Add the CopilotSidebar component to your page:
 
         ```tsx title="app/page.tsx"
+        import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight]
 
         export default function Page() {
           return (
@@ -183,7 +193,6 @@ Before you begin, you'll need the following:
         </Accordions>
 
     </Step>
-
 </Steps>
 
 ## What's next?

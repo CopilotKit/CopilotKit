@@ -286,7 +286,7 @@ const agent = new BuiltInAgent({
 });
 ```
 
-With `type: "custom"`, you yield AG-UI events directly. See the [AG-UI event reference](/backend/ag-ui) for all available event types.
+With `type: "custom"`, you yield AG-UI events directly. See the [AG-UI event reference](/built-in-agent/ag-ui) for all available event types.
 </Tab>
 </Tabs>
 
@@ -494,6 +494,161 @@ Forward props from the frontend using the `CopilotKit` provider's `properties` p
   <CopilotChat />
 </CopilotKit>
 ```
+
+### With State Tools
+
+Factory mode does not inject state management tools automatically. If your app uses shared state (`useCoAgent` with state), add the tools yourself:
+
+<Tabs items={["AI SDK", "TanStack AI"]}>
+<Tab value="AI SDK">
+```typescript title="src/copilotkit.ts"
+import {
+  BuiltInAgent,
+  convertMessagesToVercelAISDKMessages,
+  convertToolsToVercelAITools,
+} from "@copilotkit/runtime/v2";
+import { streamText, tool } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { z } from "zod";
+
+const agent = new BuiltInAgent({
+  type: "aisdk",
+  factory: ({ input, abortSignal }) => {
+    const inputTools = convertToolsToVercelAITools(input.tools);
+    const stateTools = {
+      AGUISendStateSnapshot: tool({
+        description: "Replace the entire application state",
+        parameters: z.object({ snapshot: z.any() }),
+        execute: async ({ snapshot }) => ({ success: true, snapshot }),
+      }),
+      AGUISendStateDelta: tool({
+        description: "Apply incremental state updates via JSON Patch",
+        parameters: z.object({
+          delta: z.array(
+            z.object({
+              op: z.enum(["add", "replace", "remove"]),
+              path: z.string(),
+              value: z.any().optional(),
+            }),
+          ),
+        }),
+        execute: async ({ delta }) => ({ success: true, delta }),
+      }),
+    };
+
+    return streamText({
+      model: openai("gpt-4o"),
+      messages: convertMessagesToVercelAISDKMessages(input.messages),
+      tools: { ...inputTools, ...stateTools },
+      abortSignal,
+    });
+  },
+});
+```
+</Tab>
+<Tab value="TanStack AI">
+```typescript title="src/copilotkit.ts"
+import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import { chat, toolDefinition } from "@tanstack/ai";
+import { openaiText } from "@tanstack/ai-openai";
+import { z } from "zod";
+
+const sendStateSnapshot = toolDefinition({
+  name: "AGUISendStateSnapshot",
+  description: "Replace the entire application state",
+  inputSchema: z.object({ snapshot: z.any() }),
+}).server(async ({ snapshot }) => ({ success: true, snapshot }));
+
+const sendStateDelta = toolDefinition({
+  name: "AGUISendStateDelta",
+  description: "Apply incremental state updates via JSON Patch",
+  inputSchema: z.object({
+    delta: z.array(
+      z.object({
+        op: z.enum(["add", "replace", "remove"]),
+        path: z.string(),
+        value: z.any().optional(),
+      }),
+    ),
+  }),
+}).server(async ({ delta }) => ({ success: true, delta }));
+
+const agent = new BuiltInAgent({
+  type: "tanstack",
+  factory: ({ input, abortController }) => {
+    const { messages, systemPrompts } = convertInputToTanStackAI(input);
+    return chat({
+      adapter: openaiText("gpt-4o"),
+      messages,
+      systemPrompts,
+      tools: [sendStateSnapshot, sendStateDelta],
+      abortController,
+    });
+  },
+});
+```
+</Tab>
+</Tabs>
+
+### With Structured Output
+
+<Tabs items={["AI SDK", "TanStack AI"]}>
+<Tab value="AI SDK">
+```typescript title="src/copilotkit.ts"
+import {
+  BuiltInAgent,
+  convertMessagesToVercelAISDKMessages,
+} from "@copilotkit/runtime/v2";
+import { streamText, tool } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { z } from "zod";
+
+const agent = new BuiltInAgent({
+  type: "aisdk",
+  factory: ({ input, abortSignal }) =>
+    streamText({
+      model: openai("gpt-4o", { structuredOutputs: true }),
+      messages: convertMessagesToVercelAISDKMessages(input.messages),
+      tools: {
+        getWeather: tool({
+          description: "Get weather for a location",
+          parameters: z.object({ city: z.string() }),
+          execute: async ({ city }) => ({ temp: 72, city }),
+        }),
+      },
+      toolChoice: "required",
+      abortSignal,
+    }),
+});
+```
+</Tab>
+<Tab value="TanStack AI">
+```typescript title="src/copilotkit.ts"
+import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import { chat } from "@tanstack/ai";
+import { openaiText } from "@tanstack/ai-openai";
+import { z } from "zod";
+
+const agent = new BuiltInAgent({
+  type: "tanstack",
+  factory: ({ input, abortController }) => {
+    const { messages, systemPrompts } = convertInputToTanStackAI(input);
+    return chat({
+      adapter: openaiText("gpt-4o"),
+      messages,
+      systemPrompts,
+      outputSchema: z.object({
+        summary: z.string(),
+        keyPoints: z.array(z.string()),
+        sentiment: z.enum(["positive", "neutral", "negative"]),
+      }),
+      abortController,
+    });
+  },
+});
+```
+</Tab>
+</Tabs>
 
 ## Helper Utilities
 

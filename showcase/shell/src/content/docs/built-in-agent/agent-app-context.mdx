@@ -27,6 +27,8 @@ Use `useAgentContext` to share any data with the agent:
 
 ```tsx title="components/Dashboard.tsx"
 "use client"; // only necessary for Next.js App Router // [!code highlight]
+import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useState } from "react";
 
 export function Dashboard() {
   const [user] = useState({
@@ -57,7 +59,6 @@ export function Dashboard() {
   return <div>{/* Your dashboard UI */}</div>;
 }
 ```
-
 </Step>
 
 <Step>
@@ -71,7 +72,6 @@ Agent: "You're working on two projects:
   1. Auth Redesign (in progress)
   2. API v2 (planning)"
 ```
-
 </Step>
 </Steps>
 

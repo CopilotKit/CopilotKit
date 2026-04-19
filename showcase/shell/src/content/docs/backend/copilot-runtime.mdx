@@ -52,7 +52,7 @@ For setup with other backend frameworks (Express, NestJS, Node.js HTTP), see the
 The runtime supports multiple agent types. `BuiltInAgent` is the primary agent class:
 
 - **Simple mode** — pass a model string, CopilotKit handles everything. Best for quick setup. See [Quickstart](/built-in-agent/quickstart).
-- **Factory mode** — bring your own AI SDK, TanStack AI, or custom LLM backend. Best when you need full control. See [Factory Mode](/backend/custom-agent).
+- **Factory mode** — bring your own AI SDK, TanStack AI, or custom LLM backend. Best when you need full control. See [Factory Mode](/built-in-agent/custom-agent).
 
 ## The Default Agent
 
@@ -77,7 +77,7 @@ The runtime runs on your server, which means agent communication stays server-si
 
 ### AG-UI Middleware
 
-The [AG-UI protocol](/backend/ag-ui) supports a middleware layer (`agent.use`) for logging, guardrails, request transformation, and more. Because the runtime runs server-side, this middleware executes in a trusted environment where it cannot be tampered with by the client.
+The [AG-UI protocol](/ag-ui-protocol) supports a middleware layer (`agent.use`) for logging, guardrails, request transformation, and more. Because the runtime runs server-side, this middleware executes in a trusted environment where it cannot be tampered with by the client.
 
 ### Agent Routing
 
@@ -85,7 +85,7 @@ When you register multiple agents with the runtime, it handles discovery and rou
 
 ### Premium Features
 
-Features like threads, observability, and the inspector are provided through the runtime. These give you conversation persistence, monitoring, and debugging capabilities out of the box.
+Features like [threads](/premium/threads), [observability](/premium/observability), and the [inspector](/premium/inspector) are provided through the runtime. These give you conversation persistence, monitoring, and debugging capabilities out of the box.
 
 ## Built-in Middleware
 
@@ -135,7 +135,7 @@ Each server entry optionally accepts an `agentId` field to scope that server to 
 
 ## What If I Want to Connect to My AG-UI Agent Directly?
 
-CopilotKit is built on the [AG-UI protocol](/backend/ag-ui), which is an open standard. If you want to connect your frontend directly to an AG-UI-compatible agent without the runtime, you can do so by passing agent instances directly to the `CopilotKit` provider:
+CopilotKit is built on the [AG-UI protocol](/ag-ui-protocol), which is an open standard. If you want to connect your frontend directly to an AG-UI-compatible agent without the runtime, you can do so by passing agent instances directly to the `CopilotKit` provider:
 
 ```tsx
 import { HttpAgent } from "@ag-ui/client";
@@ -157,7 +157,7 @@ There are important things to understand before going this route:
 
 1. **Authentication is your responsibility.** When you use the Copilot Runtime, safe defaults are put in place so that your agent endpoints are not exposed to unauthenticated access. When you connect directly, it is entirely up to you to secure your agent endpoint and manage authentication.
 
-2. **Many ecosystem features won't work.** The AG-UI protocol supports a middleware layer designed to run on the backend. Many features in the CopilotKit ecosystem depend on this server-side middleware. Without the runtime, these features — including threads, observability, and other capabilities — will not be available.
+2. **Many ecosystem features won't work.** The AG-UI protocol supports a middleware layer designed to run on the backend. Many features in the CopilotKit ecosystem depend on this server-side middleware. Without the runtime, these features — including [threads](/premium/threads), [observability](/premium/observability), and other capabilities — will not be available.
 
 ### Comparison
 
