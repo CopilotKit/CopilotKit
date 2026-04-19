@@ -7,7 +7,6 @@ COPY package.json package-lock.json ./
 COPY apps/app/package.json ./apps/app/
 COPY apps/agent/package.json ./apps/agent/
 COPY apps/bff/package.json ./apps/bff/
-COPY turbo.json ./
 RUN npm ci --ignore-scripts
 
 COPY apps/app/ ./apps/app/
