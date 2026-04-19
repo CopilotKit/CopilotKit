@@ -3,7 +3,7 @@ import "@copilotkit/react-core/v2/styles.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Shared State (Writing)",
+  title: "Shared State (Read + Write)",
 };
 
 export default function RootLayout({

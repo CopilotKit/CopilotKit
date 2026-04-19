@@ -1,5 +1,5 @@
 {
-  "name": "@copilotkit/showcase-cell-langgraph-python-shared-state-write",
+  "name": "@copilotkit/showcase-cell-langgraph-python-shared-state-read-write",
   "version": "0.1.0",
   "private": true,
   "scripts": {

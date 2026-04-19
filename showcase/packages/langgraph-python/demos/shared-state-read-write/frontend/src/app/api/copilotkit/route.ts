@@ -1,4 +1,4 @@
-// CopilotKit runtime for the shared-state-write cell.
+// CopilotKit runtime for the shared-state-read-write cell.
 
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -19,7 +19,7 @@ const agent = new LangGraphAgent({
 
 const runtime = new CopilotRuntime({
   // @ts-ignore
-  agents: { "shared-state-write": agent },
+  agents: { "shared-state-read-write": agent },
 });
 
 export const POST = async (req: NextRequest) => {
