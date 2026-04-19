@@ -1,3 +1,24 @@
+// Test-environment invariant (DO NOT remove without understanding it):
+//
+// The route module under test (`src/app/api/copilotkit/route.ts`) holds a
+// module-level `cachedAgents` singleton. To get deterministic tests we need
+// BOTH:
+//
+//   1. `vi.resetModules()` — forces the next dynamic `await import(...)` to
+//      re-evaluate route.ts, which resets the `cachedAgents` closure back to
+//      `null`. Without this the second test in a file would see the previous
+//      test's cached agents and `getLocalAgents` call counts would accumulate.
+//
+//   2. `mockReset()` on each mocked function from `@ag-ui/mastra` — forgets
+//      every prior `.mockImplementation(...)` / `.mockReturnValue(...)` AND
+//      clears call history. This matters because `vi.mock(...)` factories are
+//      hoisted and memoized by Vitest: the SAME mock function object is
+//      returned across `resetModules()` boundaries. `resetModules()` alone
+//      leaves stale implementations attached.
+//
+// Together they give each test a fresh route module AND fresh mock behavior.
+// Removing either one reintroduces order-dependent test failures.
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Stub the mastra module ahead of any imports that transitively load it,
@@ -40,9 +61,11 @@ vi.mock("next/server", () => ({
 }));
 
 import { MastraAgent, getLocalAgent } from "@ag-ui/mastra";
+import { CopilotRuntime } from "@copilotkit/runtime";
 
 const mockedGetLocalAgents = vi.mocked(MastraAgent.getLocalAgents);
 const mockedGetLocalAgent = vi.mocked(getLocalAgent);
+const mockedCopilotRuntime = vi.mocked(CopilotRuntime);
 
 // Dynamic import AFTER vi.mock calls so the module sees the mocks.
 async function importRoute() {
@@ -59,6 +82,7 @@ beforeEach(() => {
   vi.resetModules();
   mockedGetLocalAgents.mockReset();
   mockedGetLocalAgent.mockReset();
+  mockedCopilotRuntime.mockClear();
 });
 
 afterEach(() => {
@@ -188,8 +212,39 @@ describe("agent cache memoization", () => {
   });
 });
 
+describe("POST happy path", () => {
+  it("instantiates CopilotRuntime with every demo agent and weatherAgent present", async () => {
+    mockedGetLocalAgents.mockReturnValue({
+      weatherAgent: makeAgent("weather", "mastra-weatherAgent"),
+    });
+    mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
+      makeAgent("demo", resourceId),
+    );
+
+    const route = await importRoute();
+    route.__resetAgentsCacheForTests();
+
+    const fakeReq = {} as unknown as Parameters<typeof route.POST>[0];
+    await route.POST(fakeReq);
+
+    // Build the shape of `agents` we expect the runtime to have seen.
+    const expectedAgents: Record<string, unknown> = {
+      weatherAgent: expect.anything(),
+    };
+    for (const name of route.demoAgentNames) {
+      expectedAgents[name] = expect.anything();
+    }
+
+    expect(mockedCopilotRuntime).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agents: expect.objectContaining(expectedAgents),
+      }),
+    );
+  });
+});
+
 describe("POST error handling", () => {
-  it("returns a 500 JSON response when buildAgents throws", async () => {
+  it("returns a 500 JSON response with an errorId (not the raw message) when buildAgents throws", async () => {
     mockedGetLocalAgents.mockReturnValue({}); // no weatherAgent → throws
     mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
       makeAgent("demo", resourceId),
@@ -201,8 +256,46 @@ describe("POST error handling", () => {
     const fakeReq = {} as unknown as Parameters<typeof route.POST>[0];
     const res = await route.POST(fakeReq);
     expect(res.status).toBe(500);
-    const body = (await res.json()) as { error: string; message: string };
-    expect(body.error).toBe("CopilotKit runtime error");
-    expect(body.message).toMatch(/weatherAgent missing/);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).toEqual({
+      error: "internal runtime error",
+      errorId: expect.stringMatching(/[0-9a-f-]{36}/i),
+    });
+    // Critically: the raw error message must NOT appear in the response body.
+    expect(JSON.stringify(body)).not.toMatch(/weatherAgent missing/);
+  });
+
+  it("does not leak a contrived sensitive error message to the client", async () => {
+    const sensitive =
+      "OPENAI_API_KEY=sk-SECRET-VALUE path=/Users/jpr5/.claude/secrets.txt";
+    mockedGetLocalAgents.mockImplementation(() => {
+      throw new Error(sensitive);
+    });
+    mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
+      makeAgent("demo", resourceId),
+    );
+
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const route = await importRoute();
+    route.__resetAgentsCacheForTests();
+
+    const fakeReq = {} as unknown as Parameters<typeof route.POST>[0];
+    const res = await route.POST(fakeReq);
+
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as Record<string, unknown>;
+    // Body contains an errorId but not the raw sensitive message.
+    expect(body.error).toBe("internal runtime error");
+    expect(typeof body.errorId).toBe("string");
+    expect(JSON.stringify(body)).not.toContain("sk-SECRET-VALUE");
+    expect(JSON.stringify(body)).not.toContain("OPENAI_API_KEY");
+    expect(JSON.stringify(body)).not.toContain("/Users/jpr5");
+
+    // Server-side log DOES include the full message (operators need it).
+    const loggedArgs = consoleErrorSpy.mock.calls.flat().join(" ");
+    expect(loggedArgs).toContain("sk-SECRET-VALUE");
+
+    consoleErrorSpy.mockRestore();
   });
 });
