@@ -24,6 +24,7 @@ export default function SharedStateStreamingDemo() {
 }
 
 function DemoContent() {
+  // @region[frontend-use-coagent-state]
   // Subscribe to BOTH state changes and run-status changes. The former
   // drives the per-token document rerender; the latter toggles the
   // "LIVE" badge when the agent starts / stops.
@@ -31,6 +32,7 @@ function DemoContent() {
     agentId: "shared-state-streaming",
     updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
   });
+  // @endregion[frontend-use-coagent-state]
 
   useConfigureSuggestions({
     suggestions: [

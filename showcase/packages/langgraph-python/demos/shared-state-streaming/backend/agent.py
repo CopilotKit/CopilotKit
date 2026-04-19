@@ -54,6 +54,7 @@ def write_document(content: str, runtime: ToolRuntime) -> Command:
     )
 
 
+# @region[state-streaming-middleware]
 graph = create_agent(
     model=ChatOpenAI(model="gpt-4o-mini"),
     tools=[write_document],
@@ -81,3 +82,4 @@ graph = create_agent(
         "you type."
     ),
 )
+# @endregion[state-streaming-middleware]
