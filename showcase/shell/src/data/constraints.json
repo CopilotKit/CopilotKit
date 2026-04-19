@@ -3,6 +3,10 @@
     "constrained-declarative": {
       "allowed": [
         "agentic-chat",
+        "chat-customization-css",
+        "tool-rendering-default-catchall",
+        "tool-rendering-custom-catchall",
+        "tool-rendering-frontend-tools",
         "frontend-tools",
         "gen-ui-tool-based",
         "useComponent",
@@ -26,8 +30,11 @@
     "constrained-explicit": {
       "allowed": [
         "agentic-chat",
+        "chat-customization-css",
+        "tool-rendering-default-catchall",
+        "tool-rendering-custom-catchall",
+        "tool-rendering-frontend-tools",
         "agentic-chat-reasoning",
-        "prebuilt-chat",
         "prebuilt-sidebar",
         "prebuilt-popup",
         "chat-slots",

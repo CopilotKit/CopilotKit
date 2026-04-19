@@ -230,7 +230,10 @@ describe("Template Generator", () => {
       featureRegistry.categories.map((c: any) => c.id),
     );
     expect(categories.has("chat-ui")).toBe(true);
-    expect(categories.has("generative-ui")).toBe(true);
+    expect(categories.has("controlled-generative-ui")).toBe(true);
+    expect(categories.has("declarative-generative-ui")).toBe(true);
+    expect(categories.has("open-generative-ui")).toBe(true);
+    expect(categories.has("operational-generative-ui")).toBe(true);
     expect(categories.has("agent-state")).toBe(true);
     expect(categories.has("interactivity")).toBe(true);
     expect(categories.has("multi-agent")).toBe(true);

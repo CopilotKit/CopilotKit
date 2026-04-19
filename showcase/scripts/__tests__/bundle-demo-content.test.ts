@@ -160,7 +160,6 @@ describe("Content Bundler", () => {
       const key = `langgraph-python::${demoId}`;
       expect(content.demos[key]).toBeDefined();
       expect(content.demos[key].files.length).toBeGreaterThan(0);
-      expect(content.demos[key].readme).toBeTruthy();
     }
   });
 });

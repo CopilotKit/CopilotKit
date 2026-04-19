@@ -6,8 +6,20 @@
       "name": "Chat & UI"
     },
     {
-      "id": "generative-ui",
-      "name": "Generative UI"
+      "id": "controlled-generative-ui",
+      "name": "Controlled Generative UI"
+    },
+    {
+      "id": "declarative-generative-ui",
+      "name": "Declarative Generative UI"
+    },
+    {
+      "id": "open-generative-ui",
+      "name": "Open-Ended Generative UI"
+    },
+    {
+      "id": "operational-generative-ui",
+      "name": "Operational Generative UI"
     },
     {
       "id": "agent-capabilities",
@@ -45,33 +57,44 @@
   "features": [
     {
       "id": "agentic-chat",
-      "name": "Agentic Chat",
+      "name": "Pre-Built CopilotChat",
       "category": "chat-ui",
-      "description": "Natural conversation with frontend tool execution"
-    },
-    {
-      "id": "prebuilt-chat",
-      "name": "Pre-Built: CopilotChat",
-      "category": "chat-ui",
-      "description": "Full-screen/embedded chat via <CopilotChat />"
+      "description": "Pre-built <CopilotChat /> component for full-screen/embedded chat",
+      "kind": "primary",
+      "og_docs_url": "https://docs.copilotkit.ai/features/agentic-chat",
+      "shell_docs_url": "/docs/features/agentic-chat"
     },
     {
       "id": "prebuilt-sidebar",
       "name": "Pre-Built: Sidebar",
       "category": "chat-ui",
-      "description": "Docked sidebar chat via <CopilotSidebar />"
+      "description": "Docked sidebar chat via <CopilotSidebar />",
+      "og_docs_url": "https://docs.copilotkit.ai/features/prebuilt-sidebar",
+      "shell_docs_url": "/docs/features/prebuilt-sidebar"
     },
     {
       "id": "prebuilt-popup",
       "name": "Pre-Built: Popup",
       "category": "chat-ui",
-      "description": "Floating popup chat via <CopilotPopup />"
+      "description": "Floating popup chat via <CopilotPopup />",
+      "og_docs_url": "https://docs.copilotkit.ai/features/prebuilt-popup",
+      "shell_docs_url": "/docs/features/prebuilt-popup"
     },
     {
       "id": "chat-slots",
       "name": "Chat Customization (Slots)",
       "category": "chat-ui",
-      "description": "Customizing chat components via the slot system"
+      "description": "Customizing chat components via the slot system",
+      "og_docs_url": "https://docs.copilotkit.ai/features/chat-slots",
+      "shell_docs_url": "/docs/features/chat-slots"
+    },
+    {
+      "id": "chat-customization-css",
+      "name": "Chat Customization (CSS)",
+      "category": "chat-ui",
+      "description": "Customizing chat components via CSS",
+      "og_docs_url": "https://docs.copilotkit.ai/features/chat-customization-css",
+      "shell_docs_url": "/docs/features/chat-customization-css"
     },
     {
       "id": "headless-simple",
@@ -88,61 +111,82 @@
     {
       "id": "gen-ui-tool-based",
       "name": "Controlled Gen-UI (Display)",
-      "category": "generative-ui",
+      "category": "controlled-generative-ui",
       "description": "Agent renders typed React components via the useComponent hook"
     },
     {
       "id": "hitl-in-chat",
       "name": "Controlled Gen-UI (Interactive) / In-Chat HITL",
-      "category": "generative-ui",
+      "category": "controlled-generative-ui",
       "description": "Interactive components from the agent; user approves actions from within the chat"
     },
     {
       "id": "gen-ui-interrupt",
       "name": "Controlled Gen-UI (Interrupt)",
-      "category": "generative-ui",
+      "category": "controlled-generative-ui",
       "description": "Interrupt-based component rendering"
     },
     {
       "id": "declarative-gen-ui",
       "name": "Declarative Generative UI (A2UI — Dynamic Schema)",
-      "category": "generative-ui",
+      "category": "declarative-generative-ui",
       "description": "A2UI rendering where the agent emits schema at runtime"
     },
     {
       "id": "a2ui-fixed-schema",
       "name": "Declarative Generative UI (A2UI — Fixed Schema)",
-      "category": "generative-ui",
+      "category": "declarative-generative-ui",
       "description": "A2UI rendering against a known, fixed client-side schema"
     },
     {
       "id": "mcp-apps",
       "name": "MCP Apps",
-      "category": "generative-ui",
+      "category": "open-generative-ui",
       "description": "MCP server integration with UI display"
     },
     {
       "id": "open-gen-ui",
       "name": "Fully Open-Ended Generative UI",
-      "category": "generative-ui",
+      "category": "open-generative-ui",
       "description": "Agent-generated UI from arbitrary component libraries"
     },
     {
       "id": "gen-ui-agent",
       "name": "Agentic Generative UI (In-Chat State Rendering)",
-      "category": "generative-ui",
+      "category": "operational-generative-ui",
       "description": "Long-running agent tasks with generated UI"
+    },
+    {
+      "id": "tool-rendering-default-catchall",
+      "name": "Tool Rendering (Default Catch-all)",
+      "category": "operational-generative-ui",
+      "description": "Out-of-the-box rendering: backend tools surfaced via CopilotKit's built-in default catch-all renderer; no frontend customization",
+      "kind": "primary"
+    },
+    {
+      "id": "tool-rendering-custom-catchall",
+      "name": "Tool Rendering (Custom Catch-all)",
+      "category": "operational-generative-ui",
+      "description": "Single branded wildcard renderer that paints every tool call — one card handles them all",
+      "kind": "primary"
     },
     {
       "id": "tool-rendering",
       "name": "Tool Rendering",
-      "category": "generative-ui",
-      "description": "Backend agent tools rendered as UI components"
+      "category": "operational-generative-ui",
+      "description": "Custom per-tool renderers for the tools you care about, plus a wildcard catch-all for the rest"
+    },
+    {
+      "id": "tool-rendering-frontend-tools",
+      "name": "Tool Rendering (frontend tools)",
+      "category": "operational-generative-ui",
+      "description": "Testing row: exercises frontend-tool render path",
+      "kind": "testing"
     },
     {
       "id": "agentic-chat-reasoning",
       "name": "Reasoning",
-      "category": "generative-ui",
+      "category": "operational-generative-ui",
       "description": "Visible reasoning/thinking chain alongside the final answer"
     },
     {

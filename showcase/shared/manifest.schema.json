@@ -129,7 +129,12 @@
           "backend_files": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "Optional explicit list of backend files (paths relative to package root) to bundle for this demo. When omitted, the bundler falls back to scanning the full agents/ directory."
+            "description": "DEPRECATED. Use `highlight` to pin core files (and drive backend scoping). Will be removed."
+          },
+          "highlight": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Core files to visually highlight in /code. Paths are relative to the package root (e.g. 'src/app/demos/agentic-chat/page.tsx', 'src/agents/sample_agent.py'). Files outside the demo folder (typically backend agent files) are included in the bundle for this demo when listed here."
           }
         },
         "additionalProperties": false
