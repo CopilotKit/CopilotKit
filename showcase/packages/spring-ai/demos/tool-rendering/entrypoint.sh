@@ -5,7 +5,7 @@ echo "[entrypoint] cell: spring-ai / tool-rendering"
 echo "[entrypoint] PORT=${PORT:-10000}"
 
 echo "[entrypoint] Starting Spring Boot agent backend on :8000..."
-java -jar /app/agent.jar 2>&1 | sed 's/^/[spring] /' &
+java -jar /app/agent.jar > >(sed 's/^/[spring] /') 2>&1 &
 JAVA_PID=$!
 
 # Wait for Spring Boot (up to 60s)
@@ -27,7 +27,7 @@ if ! curl -sf http://localhost:8000/health > /dev/null 2>&1; then
 fi
 
 echo "[entrypoint] Starting Next.js on :${PORT:-10000}..."
-npx next start --port ${PORT:-10000} 2>&1 | sed 's/^/[nextjs] /' &
+npx next start --port ${PORT:-10000} > >(sed 's/^/[nextjs] /') 2>&1 &
 NODE_PID=$!
 
 wait -n $JAVA_PID $NODE_PID
