@@ -46,6 +46,21 @@ export interface Integration {
   sort_order?: number;
   features: string[];
   demos: Demo[];
+  /**
+   * Per-column docs link overrides sourced from
+   * `showcase/packages/<slug>/docs-links.json`. The `shell_docs_path` is a
+   * path relative to the shell root; callers combine it with the framework
+   * slug to build framework-scoped URLs.
+   */
+  docs_links?: {
+    features: Record<
+      string,
+      {
+        og_docs_url: string | null;
+        shell_docs_path: string | null;
+      }
+    >;
+  };
 }
 
 export interface Registry {
