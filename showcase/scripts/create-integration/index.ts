@@ -846,7 +846,7 @@ function generateSmokeRoute(args: CLIArgs): string {
 const INTEGRATION_SLUG = "${args.slug}";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 export async function GET() {
     const start = Date.now();
@@ -877,7 +877,7 @@ export async function GET() {
                     forwardedProps: {},
                 },
             }),
-            signal: AbortSignal.timeout(25000),
+            signal: AbortSignal.timeout(45000),
         });
 
         const latency = Date.now() - start;
