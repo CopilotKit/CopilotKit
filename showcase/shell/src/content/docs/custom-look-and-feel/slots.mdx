@@ -1,22 +1,177 @@
 ---
 title: "Slots"
 icon: "lucide/Brush"
-description: "Customize CopilotKit's built-in UI components using the slot system."
+description: "Customize any part of the chat UI by overriding individual sub-components via slots."
 hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: chat-slots
 ---
 
 ## What is this?
 
-Slots let you customize CopilotKit's pre-built chat components without building everything from scratch. Override specific parts of the UI — message bubbles, input areas, headers — while keeping the rest of the default behavior.
+Every CopilotKit chat component is built from composable **slots** — named sub-components that you can override individually. The slot system gives you three levels of customization without needing to rebuild the entire UI:
 
-## When should I use this?
+1. **Tailwind classes** — pass a string to add/override CSS classes
+2. **Props override** — pass an object to override specific props on the default component
+3. **Custom component** — pass your own React component to fully replace a slot
 
-Use slots when you want to:
+Slots are recursive — you can drill into nested sub-components at any depth.
 
-- Customize specific parts of the chat UI (e.g. message rendering, input area)
-- Match your app's design system without building a fully custom chat
-- Add custom elements like typing indicators, avatars, or action buttons
+<InlineDemo integration="langgraph-python" demo="chat-slots" />
 
-## Get started by choosing your AI backend
+## What it looks like in code
 
-<IntegrationGrid path="custom-look-and-feel/slots" />
+The `chat-slots` cell above overrides three slots on a single `<CopilotChat>` —
+the welcome screen, the assistant message card, and the input's disclaimer.
+Each slot is just a prop; the demo extracts them into locals so the override
+points are easy to see.
+
+### Welcome screen slot
+
+The `welcomeScreen` prop replaces the empty-state view shown before the first
+message is sent. The demo swaps in a gradient card that still renders the
+default input and suggestions:
+
+<Snippet region="register-welcome-slot" title="frontend/src/app/page.tsx — welcomeScreen slot" />
+
+### Assistant message slot
+
+Drill into `messageView={{ assistantMessage: ... }}` to wrap every assistant
+response. The cell wraps the default component with a tinted card and a small
+"slot" badge so you can see the override is active during the message flow:
+
+<Snippet region="register-assistant-message-slot" title="frontend/src/app/page.tsx — assistantMessage slot" />
+
+### Disclaimer slot
+
+The `input={{ disclaimer: ... }}` sub-slot lets you replace the small text
+shown below the input. The demo uses it to display a visibly tagged disclaimer
+so reviewers can tell the override is still in effect once the welcome screen
+is gone:
+
+<Snippet region="register-disclaimer-slot" title="frontend/src/app/page.tsx — disclaimer slot" />
+
+## Tailwind Classes
+
+The simplest way to customize a slot. Pass a Tailwind class string and it will be merged with the default component's classes.
+
+```tsx title="page.tsx"
+import { CopilotChat } from "@copilotkit/react-core/v2";
+
+export function Chat() {
+  return (
+    <CopilotChat
+      messageView="bg-gray-50 dark:bg-gray-900 p-4"
+      input="border-2 border-blue-400 rounded-xl"
+    />
+  );
+}
+```
+
+## Props Override
+
+Pass an object to override specific props on the default component. This is useful for adding `className`, event handlers, data attributes, or any other prop the default component accepts.
+
+```tsx title="page.tsx"
+<CopilotChat
+  messageView={{
+    className: "my-custom-messages",
+    "data-testid": "message-view",
+  }}
+  input={{ autoFocus: true }}
+/>
+```
+
+## Custom Components
+
+For full control, pass your own React component. It receives all the same props as the default component.
+
+```tsx title="page.tsx"
+import { CopilotChat } from "@copilotkit/react-core/v2";
+
+const CustomMessageView = ({ messages, isRunning }) => (
+  <div className="space-y-4 p-6">
+    {messages?.map((msg) => (
+      <div key={msg.id} className={msg.role === "user" ? "text-right" : "text-left"}>
+        {msg.content}
+      </div>
+    ))}
+    {isRunning && <div className="animate-pulse">Thinking...</div>}
+  </div>
+);
+
+export function Chat() {
+  return <CopilotChat messageView={CustomMessageView} />;
+}
+```
+
+## Nested Slots (Drill-Down)
+
+Slots are recursive. You can customize sub-components at any depth by nesting objects.
+
+### Two levels deep
+
+Override the assistant message's toolbar within the message view:
+
+```tsx title="page.tsx"
+<CopilotChat
+  messageView={{
+    assistantMessage: {
+      toolbar: CustomToolbar,
+      copyButton: CustomCopyButton,
+    },
+    userMessage: CustomUserMessage,
+  }}
+/>
+```
+
+### Three levels deep
+
+Override a specific button inside the assistant message toolbar:
+
+```tsx title="page.tsx"
+<CopilotChat
+  messageView={{
+    assistantMessage: {
+      copyButton: ({ onClick }) => (
+        <button onClick={onClick}>Copy</button>
+      ),
+    },
+  }}
+/>
+```
+
+## Labels
+
+Customize any text string in the UI via the `labels` prop. This does not use the slot system — it's a separate convenience prop on `CopilotChat`, `CopilotSidebar`, and `CopilotPopup`.
+
+```tsx title="page.tsx"
+<CopilotChat
+  labels={{
+    chatInputPlaceholder: "Ask your agent anything...",
+    welcomeMessageText: "How can I help you today?",
+    chatDisclaimerText: "AI responses may be inaccurate.",
+  }}
+/>
+```
+
+## Available Slots
+
+### `CopilotChat` / `CopilotSidebar` / `CopilotPopup`
+
+These are the root-level slot props available on all chat components:
+
+| Slot | Description |
+|------|-------------|
+| `messageView` | The message list container. |
+| `scrollView` | The scroll container with auto-scroll behavior. |
+| `input` | The text input area with send/transcribe controls. |
+| `suggestionView` | The suggestion pills shown below messages. |
+| `welcomeScreen` | The initial empty-state screen (pass `false` to disable). |
+
+`CopilotSidebar` and `CopilotPopup` also have:
+
+| Slot | Description |
+|------|-------------|
+| `header` | The modal header bar. |
+| `toggleButton` | The open/close toggle button. |

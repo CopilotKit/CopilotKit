@@ -14,13 +14,21 @@ import {
   FrameworkGuardedContent,
   RouterPivot,
 } from "@/components/router-pivot";
+import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
+import { SidebarNav } from "@/components/sidebar-nav";
 import {
   CONTENT_DIR,
   buildNavTree,
   loadDoc,
   readMeta,
+  type NavNode,
 } from "@/lib/docs-render";
-import { getIntegrations, getFeature } from "@/lib/registry";
+import {
+  getIntegrations,
+  getFeature,
+  getCategoryLabel,
+  type Integration,
+} from "@/lib/registry";
 import demoContent from "@/data/demo-content.json";
 
 interface DemoRecord {
@@ -38,85 +46,274 @@ function findFrameworksWithCell(cell: string): string[] {
   return matches;
 }
 
-function DocsOverview() {
-  return (
-    <div className="mx-auto max-w-3xl px-6 py-16 text-center">
-      <h1 className="text-3xl font-semibold text-[var(--text)] tracking-tight mb-3">
-        CopilotKit Documentation
-      </h1>
-      <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-10">
-        Guides, tutorials, and integration documentation for building AI-powered
-        applications with CopilotKit.
-      </p>
+// Category ordering for the framework picker grid — mirrors the
+// integrations page and the sidebar dropdown so the UX reads the same
+// everywhere.
+const FRAMEWORK_CATEGORY_ORDER = [
+  "popular",
+  "agent-framework",
+  "provider-sdk",
+  "enterprise-platform",
+  "protocol",
+  "emerging",
+  "starter",
+] as const;
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left mb-10">
+// Docs-section cards shown beneath the framework picker. Each href
+// targets the framework-agnostic route under `/docs/<slug>` — when the
+// user already has a framework stored, `<RouterPivot>` on the
+// destination page redirects them into the scoped view.
+const DOCS_SECTIONS: {
+  href: string;
+  title: string;
+  description: string;
+  category: string;
+}[] = [
+  {
+    href: "/docs/quickstart",
+    title: "Quickstart",
+    description: "Five-minute setup for a working copilot",
+    category: "Getting Started",
+  },
+  {
+    href: "/docs/coding-agents",
+    title: "Coding Agents",
+    description: "Bootstrap with Claude Code, Cursor, Windsurf, and friends",
+    category: "Getting Started",
+  },
+  {
+    href: "/docs/agentic-chat-ui",
+    title: "Chat Components",
+    description: "Drop-in CopilotChat & CopilotSidebar for agentic chat",
+    category: "Basics",
+  },
+  {
+    href: "/docs/custom-look-and-feel",
+    title: "Custom Look & Feel",
+    description: "Theme, slot, and fully-headless chat UI",
+    category: "Basics",
+  },
+  {
+    href: "/docs/generative-ui",
+    title: "Generative UI",
+    description: "Render live React components from the agent's stream",
+    category: "Generative UI",
+  },
+  {
+    href: "/docs/frontend-tools",
+    title: "Frontend Tools",
+    description: "Expose client-side actions to the agent",
+    category: "App Control",
+  },
+  {
+    href: "/docs/shared-state",
+    title: "Shared State",
+    description: "Two-way state binding between the UI and the agent",
+    category: "App Control",
+  },
+  {
+    href: "/docs/human-in-the-loop",
+    title: "Human-in-the-Loop",
+    description: "Intercept tool calls for explicit user approval",
+    category: "App Control",
+  },
+];
+
+function DocsOverview() {
+  const integrations = getIntegrations()
+    .slice()
+    .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
+
+  // Bucket integrations by category, honoring the canonical ordering.
+  const buckets = new Map<string, Integration[]>();
+  for (const cat of FRAMEWORK_CATEGORY_ORDER) buckets.set(cat, []);
+  buckets.set("other", []);
+  for (const i of integrations) {
+    const key = buckets.has(i.category) ? i.category : "other";
+    buckets.get(key)!.push(i);
+  }
+
+  const navTree = buildNavTree(CONTENT_DIR);
+
+  // Preserve insertion order while grouping section cards by category.
+  const sectionsByCategory = new Map<string, typeof DOCS_SECTIONS>();
+  for (const s of DOCS_SECTIONS) {
+    if (!sectionsByCategory.has(s.category))
+      sectionsByCategory.set(s.category, []);
+    sectionsByCategory.get(s.category)!.push(s);
+  }
+
+  return (
+    <div className="flex" style={{ height: "calc(100vh - 52px)" }}>
+      <SidebarNav className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+        <SidebarFrameworkSelector />
         <Link
-          href="/docs/agentic-chat-ui"
-          className="group p-5 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-all"
+          href="/docs"
+          className="block text-xs font-mono uppercase tracking-widest text-[var(--accent)] mb-4"
         >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
-            Agentic Chat UI
-          </h3>
-          <p className="text-xs text-[var(--text-muted)]">
-            Build chat interfaces with CopilotKit components
-          </p>
+          CopilotKit Docs
         </Link>
-        <Link
-          href="/docs/frontend-tools"
-          className="group p-5 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-all"
-        >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
-            Frontend Tools
-          </h3>
-          <p className="text-xs text-[var(--text-muted)]">
-            Define tools your agent can call on the frontend
+        {navTree.map((node) => (
+          <OverviewNavItem key={nodeKey(node)} node={node} />
+        ))}
+      </SidebarNav>
+
+      <main className="flex-1 max-w-4xl px-8 py-10 overflow-y-auto">
+        <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
+          Documentation
+        </div>
+        <h1 className="text-[2.25rem] font-bold text-[var(--text)] tracking-tight mb-3 leading-tight">
+          Build AI-powered apps with CopilotKit
+        </h1>
+        <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-10 max-w-2xl">
+          CopilotKit ships deep integrations across every major agent framework
+          and SDK. Pick your <em>agentic backend</em> below — the rest of the
+          docs adapt every snippet and code sample to that framework.
+        </p>
+
+        {/* Framework picker — big grid of all integrations, grouped by category */}
+        <section className="mb-12">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
+            Step 1
+          </div>
+          <h2 className="text-xl font-semibold text-[var(--text)] mb-1">
+            Pick an agentic backend
+          </h2>
+          <p className="text-sm text-[var(--text-secondary)] mb-5">
+            We store your choice locally so every page renders the right code.
           </p>
-        </Link>
-        <Link
-          href="/docs/generative-ui"
-          className="group p-5 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-all"
-        >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
-            Generative UI
-          </h3>
-          <p className="text-xs text-[var(--text-muted)]">
-            Let your agent generate interactive UI components
-          </p>
-        </Link>
-        <Link
-          href="/docs/backend/copilot-runtime"
-          className="group p-5 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-all"
-        >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
-            Copilot Runtime
-          </h3>
-          <p className="text-xs text-[var(--text-muted)]">
-            Server-side runtime for connecting agents
-          </p>
-        </Link>
-        <Link
-          href="/docs/integrations"
-          className="group p-5 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-all"
-        >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
-            Integrations
-          </h3>
-          <p className="text-xs text-[var(--text-muted)]">
-            LangGraph, Mastra, CrewAI, and more
-          </p>
-        </Link>
-        <Link
-          href="/docs/learn"
-          className="group p-5 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-all"
-        >
-          <h3 className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
-            Learn
-          </h3>
-          <p className="text-xs text-[var(--text-muted)]">
-            Tutorials and learning resources
-          </p>
-        </Link>
+
+          {[...buckets.entries()].map(([catId, items]) => {
+            if (items.length === 0) return null;
+            const label = catId === "other" ? "Other" : getCategoryLabel(catId);
+            return (
+              <div key={catId} className="mb-6">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-3">
+                  {label}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {items.map((i) => (
+                    <Link
+                      key={i.slug}
+                      href={`/${i.slug}`}
+                      className={`group flex items-center gap-2 p-3 rounded-lg border transition-all ${
+                        i.deployed
+                          ? "border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm"
+                          : "border-[var(--border-dim)] bg-[var(--bg-elevated)] opacity-70"
+                      }`}
+                    >
+                      {i.logo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={i.logo} alt="" className="w-5 h-5 shrink-0" />
+                      ) : (
+                        <span className="w-5 h-5 shrink-0" />
+                      )}
+                      <span className="flex-1 min-w-0 truncate text-sm font-medium text-[var(--text)] group-hover:text-[var(--accent)]">
+                        {i.name}
+                      </span>
+                      {!i.deployed && (
+                        <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--text-faint)]">
+                          soon
+                        </span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </section>
+
+        {/* Section cards — grouped by broad topic. Clicking any of
+            these before picking a framework lands on the per-feature
+            pivot; once a framework is stored the destination's
+            <RouterPivot /> redirects into the scoped view. */}
+        <section>
+          <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
+            Step 2
+          </div>
+          <h2 className="text-xl font-semibold text-[var(--text)] mb-5">
+            Or jump into a topic
+          </h2>
+
+          {[...sectionsByCategory.entries()].map(([catLabel, sections]) => (
+            <div key={catLabel} className="mb-6">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-3">
+                {catLabel}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {sections.map((s) => (
+                  <Link
+                    key={s.href}
+                    href={s.href}
+                    className="group p-4 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-all"
+                  >
+                    <div className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
+                      {s.title}
+                    </div>
+                    <div className="text-xs text-[var(--text-muted)] leading-relaxed">
+                      {s.description}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+      </main>
+    </div>
+  );
+}
+
+// Render a single nav node for the overview sidebar. Unlike
+// `<DocsPageView>`, there is no active slug here — this is the docs
+// root — so every page link is rendered in its idle state.
+function nodeKey(node: NavNode): string {
+  if (node.type === "section") return `section-${node.title}`;
+  if (node.type === "page") return `page-${node.slug}`;
+  return `group-${node.slug}`;
+}
+
+function OverviewNavItem({
+  node,
+  depth = 0,
+}: {
+  node: NavNode;
+  depth?: number;
+}) {
+  const indent = depth * 16;
+  if (node.type === "section") {
+    return (
+      <div
+        className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mt-4 mb-2"
+        style={{ paddingLeft: `${indent}px` }}
+      >
+        {node.title}
       </div>
+    );
+  }
+  if (node.type === "page") {
+    return (
+      <Link
+        href={`/docs/${node.slug}`}
+        className="block py-[5px] text-[13px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+        style={{ paddingLeft: `${indent}px` }}
+      >
+        {node.title}
+      </Link>
+    );
+  }
+  return (
+    <div className="mt-1">
+      <div
+        className="py-[5px] text-[13px] font-medium text-[var(--text-secondary)]"
+        style={{ paddingLeft: `${indent}px` }}
+      >
+        {node.title}
+      </div>
+      {node.children.map((child) => (
+        <OverviewNavItem key={nodeKey(child)} node={child} depth={depth + 1} />
+      ))}
     </div>
   );
 }
