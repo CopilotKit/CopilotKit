@@ -141,6 +141,61 @@ Override a specific button inside the assistant message toolbar:
 />
 ```
 
+### Input sub-slots
+
+```tsx title="page.tsx"
+<CopilotChat
+  input={{
+    textArea: CustomTextArea,
+    sendButton: CustomSendButton,
+  }}
+/>
+```
+
+### Scroll view sub-slots
+
+```tsx title="page.tsx"
+<CopilotChat
+  scrollView={{
+    feather: CustomFeather,
+    scrollToBottomButton: CustomScrollButton,
+  }}
+/>
+```
+
+### Suggestion view sub-slots
+
+```tsx title="page.tsx"
+<CopilotChat
+  suggestionView={{
+    suggestion: CustomSuggestionPill,
+    container: CustomSuggestionContainer,
+  }}
+/>
+```
+
+## Children Render Function
+
+For complete layout control, use the `children` render function pattern. This gives you pre-built slot elements that you can arrange however you want.
+
+```tsx title="page.tsx"
+import { CopilotChat } from "@copilotkit/react-core/v2";
+
+export function Chat() {
+  return (
+    <CopilotChat>
+      {({ messageView, input, scrollView, suggestionView }) => (
+        <div className="flex flex-col h-full">
+          <header className="p-4 border-b font-semibold">My Agent</header>
+          {scrollView}
+          <div className="border-t p-4">{input}</div>
+        </div>
+      )}
+    </CopilotChat>
+  );
+}
+```
+
 ## Labels
 
 Customize any text string in the UI via the `labels` prop. This does not use the slot system — it's a separate convenience prop on `CopilotChat`, `CopilotSidebar`, and `CopilotPopup`.
@@ -175,3 +230,110 @@ These are the root-level slot props available on all chat components:
 |------|-------------|
 | `header` | The modal header bar. |
 | `toggleButton` | The open/close toggle button. |
+
+### `messageView` sub-slots
+
+Available via `messageView={{ ... }}`:
+
+| Slot | Description |
+|------|-------------|
+| `assistantMessage` | Renders assistant responses. Has its own sub-slots (see below). |
+| `userMessage` | Renders user messages. Has its own sub-slots (see below). |
+| `reasoningMessage` | Renders model reasoning/thinking steps. Has its own sub-slots (see below). |
+| `cursor` | The streaming cursor indicator shown while the agent is responding. |
+
+### `assistantMessage` sub-slots
+
+Available via `messageView={{ assistantMessage: { ... } }}`:
+
+| Slot | Description |
+|------|-------------|
+| `markdownRenderer` | The markdown rendering component. |
+| `toolbar` | The action toolbar below messages. |
+| `copyButton` | Copy message button. |
+| `thumbsUpButton` | Thumbs up feedback button. |
+| `thumbsDownButton` | Thumbs down feedback button. |
+| `readAloudButton` | Read aloud button. |
+| `regenerateButton` | Regenerate response button. |
+| `toolCallsView` | Tool call visualization. |
+
+### `userMessage` sub-slots
+
+Available via `messageView={{ userMessage: { ... } }}`:
+
+| Slot | Description |
+|------|-------------|
+| `messageRenderer` | The text rendering component for user messages. |
+| `toolbar` | The action toolbar on hover. |
+| `copyButton` | Copy message button. |
+| `editButton` | Edit message button. |
+| `branchNavigation` | Navigation between message branches (after editing). |
+
+### `reasoningMessage` sub-slots
+
+Available via `messageView={{ reasoningMessage: { ... } }}`:
+
+| Slot | Description |
+|------|-------------|
+| `header` | The collapsible header (click to expand/collapse). |
+| `contentView` | The reasoning content area. |
+| `toggle` | The expand/collapse toggle wrapper. |
+
+### `input` sub-slots
+
+Available via `input={{ ... }}`:
+
+| Slot | Description |
+|------|-------------|
+| `textArea` | The text input element. |
+| `sendButton` | The send/submit button. |
+| `addMenuButton` | The attachment/tools menu button. |
+| `startTranscribeButton` | Button to start voice transcription. |
+| `cancelTranscribeButton` | Button to cancel transcription. |
+| `finishTranscribeButton` | Button to finish transcription. |
+| `audioRecorder` | The audio recorder component. |
+| `disclaimer` | The disclaimer text below the input. |
+
+### `scrollView` sub-slots
+
+Available via `scrollView={{ ... }}`:
+
+| Slot | Description |
+|------|-------------|
+| `feather` | The gradient overlay at the bottom of the scroll area. |
+| `scrollToBottomButton` | The button that appears when scrolled up. |
+
+### `suggestionView` sub-slots
+
+Available via `suggestionView={{ ... }}`:
+
+| Slot | Description |
+|------|-------------|
+| `suggestion` | Individual suggestion pill/button. |
+| `container` | The container wrapping all suggestion pills. |
+
+### `welcomeScreen` sub-slots
+
+Available via `welcomeScreen={{ ... }}`:
+
+| Slot | Description |
+|------|-------------|
+| `welcomeMessage` | The welcome text shown on the empty state. |
+
+### `header` sub-slots (Sidebar/Popup only)
+
+Available via `header={{ ... }}`:
+
+| Slot | Description |
+|------|-------------|
+| `titleContent` | The title text in the header. |
+| `closeButton` | The close/minimize button. |
+
+### `toggleButton` sub-slots (Sidebar/Popup only)
+
+Available via `toggleButton={{ ... }}`:
+
+| Slot | Description |
+|------|-------------|
+| `openIcon` | Icon shown when the chat is closed. |
+| `closeIcon` | Icon shown when the chat is open. |
