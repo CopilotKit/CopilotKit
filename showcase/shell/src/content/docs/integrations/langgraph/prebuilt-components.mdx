@@ -11,21 +11,14 @@ CopilotKit ships three prebuilt chat components that connect directly to your La
   one of these set up.
 </Callout>
 
-<IframeSwitcher
-  id="agentic-chat-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat?view=code&sidebar=false&codeLayout=tabs"
-  exampleLabel="Demo"
-  codeLabel="Code"
-  height="700px"
-/>
+<InlineDemo integration="langgraph-python" demo="agentic-chat" />
 
 ## Setup
 
 Import the default styles in your root layout:
 
 ```tsx title="layout.tsx"
-
+import "@copilotkit/react-ui/v2/styles.css";
 ```
 
 ### CopilotChat
@@ -34,8 +27,9 @@ A flexible chat component that can be placed anywhere in your app and sized as n
 
 ```tsx title="page.tsx"
 // [!code word:CopilotChat]
+import { CopilotChat } from "@copilotkit/react-core/v2";
 
-export function YourComponent() {
+export default function YourComponent() {
   return (
     <CopilotChat
       labels={{
@@ -59,6 +53,7 @@ Wraps your main content and provides a collapsible sidebar chat.
 
 ```tsx title="page.tsx"
 // [!code word:CopilotSidebar]
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
 
 export function YourApp() {
   return (
@@ -87,6 +82,7 @@ A floating chat bubble that sits alongside your content and toggles open/closed.
 
 ```tsx title="page.tsx"
 // [!code word:CopilotPopup]
+import { CopilotPopup } from "@copilotkit/react-core/v2";
 
 export function YourApp() {
   return (
