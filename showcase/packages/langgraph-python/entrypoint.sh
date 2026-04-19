@@ -30,7 +30,7 @@ for cell in $(ls demos/ | LC_ALL=C sort); do
         --config langgraph.json \
         --host 0.0.0.0 \
         --port "$lg_port" \
-        --no-browser 2>&1 | sed "s|^|[$cell-lg] |"
+        --no-browser > >(sed "s|^|[$cell-lg] |") 2>&1
       echo "[$cell-lg] exited with $? — respawning in 2s"
       sleep 2
     done
@@ -42,7 +42,7 @@ for cell in $(ls demos/ | LC_ALL=C sort); do
     cd "/app/demos/$cell/frontend"
     while true; do
       LANGGRAPH_DEPLOYMENT_URL="http://localhost:$lg_port" \
-        npx next dev -p "$next_port" 2>&1 | sed "s|^|[$cell-next] |"
+        npx next dev -p "$next_port" > >(sed "s|^|[$cell-next] |") 2>&1
       echo "[$cell-next] exited with $? — respawning in 2s"
       sleep 2
     done
