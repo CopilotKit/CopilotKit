@@ -1,18 +1,147 @@
 ---
-title: "Fully Headless UI"
-description: "Fully customize your Copilot's UI from the ground up using headless UI"
+title: "Headless UI"
+description: "Build a completely custom chat interface from scratch using useAgent and useCopilotKit"
 icon: "lucide/Settings"
 hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: headless-simple
 ---
 
 ## What is this?
 
-A headless UI gives you full control over the chat experience — you bring your own components, layout, and styling while CopilotKit handles agent communication, message management, and streaming.
+A headless UI gives you full control over the chat experience — you bring
+your own components, layout, and styling while CopilotKit handles agent
+communication, message management, and streaming. This is built on top of
+the same primitives (`useAgent` and `useCopilotKit`) that power the
+prebuilt components.
 
 ## When should I use this?
 
-Use headless UI when the [slot system](/custom-look-and-feel/slots) isn't enough — for example, when you need a completely different layout, want to embed the chat into an existing UI, or are building a non-chat interface that still communicates with an agent.
+Use headless UI when the [slot system](/custom-look-and-feel/slots) isn't
+enough — for example, when you need a completely different layout, want to
+embed the chat into an existing UI, or are building a non-chat interface
+that still communicates with an agent.
 
-## Get started by choosing your AI backend
+<InlineDemo integration="langgraph-python" demo="headless-simple" />
 
-<IntegrationGrid path="custom-look-and-feel/headless-ui" />
+## Access the agent and CopilotKit
+
+Use `useAgent` to get the agent instance (messages, state, execution
+status) and `useCopilotKit` to run it. Both hooks come from the same
+`@copilotkit/react-core/v2` package that the prebuilt components use
+under the hood.
+
+<Snippet region="headless-hooks" title="frontend/src/app/page.tsx — headless hooks" />
+
+## Display messages
+
+The agent's messages are available via `agent.messages`. Each message has
+an `id`, `role` (`"user"` or `"assistant"`), and `content`. Render them
+however you want — a flat list, grouped conversations, a transcript view.
+
+<Snippet region="message-list-simple" title="frontend/src/app/page.tsx — bare-bones message list" />
+
+## Send messages and run the agent
+
+Add a message to the agent's conversation, then call `copilotkit.runAgent()`
+to trigger execution. This is the same method the prebuilt
+`<CopilotChat />` uses internally.
+
+```tsx title="components/custom-chat.tsx"
+import { useState, useCallback } from "react";
+import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+import { randomUUID } from "@copilotkit/shared/v2";
+
+export function CustomChat() {
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+  const [input, setInput] = useState("");
+
+  const sendMessage = useCallback(async () => {
+    if (!input.trim()) return;
+    agent.addMessage({
+      id: randomUUID(),
+      role: "user",
+      content: input,
+    });
+    setInput("");
+    await copilotkit.runAgent({ agent });
+  }, [input, agent, copilotkit]);
+
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }}>
+      <input
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder="Type a message..."
+      />
+      <button type="submit" disabled={agent.isRunning}>Send</button>
+    </form>
+  );
+}
+```
+
+## Stop the agent
+
+`copilotkit.stopAgent()` cancels a running agent. Pair it with
+`agent.isRunning` so the stop button only appears while a run is in flight.
+
+```tsx title="components/custom-chat.tsx"
+const stopAgent = useCallback(() => {
+  copilotkit.stopAgent({ agent });
+}, [agent, copilotkit]);
+
+{agent.isRunning && (
+  <button onClick={stopAgent} className="text-red-500">Stop</button>
+)}
+```
+
+## Subscribe to agent events
+
+Use `agent.subscribe()` to listen for lifecycle events — useful for
+progress indicators, error handling, or responding to custom events like
+LangGraph interrupts.
+
+```tsx title="components/custom-chat.tsx"
+import { useEffect, useState } from "react";
+import type { AgentSubscriber } from "@ag-ui/client";
+
+const [interrupt, setInterrupt] = useState<string | null>(null);
+
+useEffect(() => {
+  const subscriber: AgentSubscriber = {
+    onCustomEvent: ({ event }) => {
+      if (event.name === "on_interrupt") setInterrupt(event.value);
+    },
+  };
+  const { unsubscribe } = agent.subscribe(subscriber);
+  return () => unsubscribe();
+}, [agent]);
+```
+
+## Access shared state
+
+If your agent shares state with the frontend, access it via `agent.state`.
+It re-renders on every change, so you can drive custom dashboards, status
+indicators, or parallel views without a chat UI at all.
+
+```tsx title="components/agent-dashboard.tsx"
+const { agent } = useAgent();
+const currentNode = agent.state.currentNode as string | undefined;
+const progress = agent.state.progress as number | undefined;
+```
+
+## Putting it together
+
+The showcase ships two headless examples — a minimal "bare bones" version
+that shows the smallest possible wiring, and a "complete" version with
+custom bubbles, activity messages, and tool-call rendering. Swap the demo
+source in your project to match the level of control you need.
+
+<Snippet region="use-agent-simple" title="frontend/src/app/page.tsx — minimal send-message handler" />
+
+## See Also
+
+- [Slot system](/custom-look-and-feel/slots) — Customize the built-in UI without going fully headless
+- [Reasoning messages](/custom-look-and-feel/reasoning-messages) — Swap or rearrange the built-in thinking card
+- [Prebuilt components](/prebuilt-components) — When you want `<CopilotChat>` / `<CopilotSidebar>` / `<CopilotPopup>` instead
