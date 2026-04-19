@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-04-19T10:23:37.141Z",
+  "generated_at": "2026-04-19T10:33:59.436Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
       {
-        "id": "chat-ui",
-        "name": "Chat & UI"
-      },
-      {
         "id": "dev-ex",
         "name": "Dev Ex"
+      },
+      {
+        "id": "chat-ui",
+        "name": "Chat & UI"
       },
       {
         "id": "platform",
@@ -449,8 +449,14 @@
             "frontend/src/app/page.tsx",
             "frontend/src/app/layout.tsx",
             "frontend/src/app/globals.css",
+            "frontend/src/app/api/copilotkit/[[...slug]]/route.ts",
+            "frontend/src/components/example-layout/index.tsx",
+            "frontend/src/components/example-canvas/index.tsx",
+            "frontend/src/hooks/use-generative-ui-examples.tsx",
+            "frontend/src/hooks/use-example-suggestions.tsx",
             "frontend/src/hooks/use-theme.tsx",
-            "frontend/src/components/mode-toggle.tsx"
+            "frontend/src/app/declarative-generative-ui/definitions.ts",
+            "frontend/src/app/declarative-generative-ui/renderers.tsx"
           ]
         },
         {
