@@ -40,6 +40,114 @@ prompts the moment a user arrives. The showcase cell uses a single
 
 <Snippet region="configure-suggestions" title="frontend/src/app/page.tsx — suggestions" />
 
+## The three prebuilt surfaces
+
+CopilotKit ships three prebuilt chat components — all wrappers around
+`CopilotChat` with different layouts. Pick the one that fits your app
+and you're done.
+
+### CopilotChat
+
+A flexible chat component that can be placed anywhere in your app and
+sized as needed. Use it for fully embedded chat panes.
+
+```tsx title="page.tsx"
+import { CopilotChat } from "@copilotkit/react-core/v2";
+
+export default function YourComponent() {
+  return (
+    <CopilotChat
+      labels={{
+        modalHeaderTitle: "Your Assistant",
+        welcomeMessageText: "Hi! How can I assist you today?",
+      }}
+    />
+  );
+}
+```
+
+### CopilotSidebar
+
+Wraps your main content and provides a collapsible side panel chat.
+Great for in-app copilots that need to stay accessible without taking
+over the viewport. See [CopilotSidebar →](/prebuilt-components/sidebar).
+
+```tsx title="page.tsx"
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+export function YourApp() {
+  return (
+    <CopilotSidebar
+      defaultOpen={true}
+      labels={{
+        modalHeaderTitle: "Sidebar Assistant",
+        welcomeMessageText: "How can I help you today?",
+      }}
+    >
+      <YourMainContent />
+    </CopilotSidebar>
+  );
+}
+```
+
+### CopilotPopup
+
+A floating chat bubble that sits alongside your content and toggles an
+overlay chat window. The lightest-weight way to add a copilot to an
+existing app. See [CopilotPopup →](/prebuilt-components/popup).
+
+```tsx title="page.tsx"
+import { CopilotPopup } from "@copilotkit/react-core/v2";
+
+export function YourApp() {
+  return (
+    <>
+      <YourMainContent />
+      <CopilotPopup
+        labels={{
+          modalHeaderTitle: "Popup Assistant",
+          welcomeMessageText: "Need any help?",
+        }}
+      />
+    </>
+  );
+}
+```
+
+## Customization
+
+All three components support the [slot system](/custom-look-and-feel/slots)
+for deep customization — from Tailwind classes to full component
+replacement:
+
+```tsx title="page.tsx"
+<CopilotChat
+  // Style slots with Tailwind classes
+  input={{
+    textArea: "text-lg",
+    sendButton: "bg-blue-600 hover:bg-blue-700",
+  }}
+  // Customize nested message slots
+  messageView={{
+    assistantMessage: {
+      className: "bg-gray-50 rounded-xl p-4",
+      toolbar: "border-t mt-2",
+    },
+    userMessage: "bg-blue-100 rounded-xl",
+  }}
+  // Hide elements by returning null
+  scrollView={{
+    feather: () => null,
+  }}
+/>
+```
+
+## Next steps
+
+- **[Custom look & feel](/custom-look-and-feel/slots)** — Theme, restyle, or go fully headless via the slot system.
+- **[CSS customization](/custom-look-and-feel/css)** — Re-tint the whole UI via CSS variables and class overrides.
+- **[Programmatic control](/programmatic-control)** — Drive your agent from code with `useAgent` and `copilotkit.runAgent()`.
+
 ## Get started by choosing your AI backend
 
 <IntegrationGrid path="prebuilt-components" />
