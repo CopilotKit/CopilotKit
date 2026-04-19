@@ -5,12 +5,15 @@ import {
   getFeatureCategories,
   type Integration,
   type Feature,
+  type Demo,
 } from "@/lib/registry";
 import { bundleGeneratedAt, isBundleStale } from "@/lib/status";
 
 export interface CellContext {
   integration: Integration;
   feature: Feature;
+  demo: Demo;
+  /** Hosted URL for runnable demos; empty string for informational (command) demos. */
   hostedUrl: string;
   bundleStale: boolean;
   shellUrl: string;
@@ -134,7 +137,10 @@ export function FeatureGrid({
                               renderCell({
                                 integration,
                                 feature,
-                                hostedUrl: `${integration.backend_url}${demo.route}`,
+                                demo,
+                                hostedUrl: demo.route
+                                  ? `${integration.backend_url}${demo.route}`
+                                  : "",
                                 bundleStale,
                                 shellUrl,
                               })

@@ -23,8 +23,14 @@ export interface Demo {
   name: string;
   description: string;
   tags: string[];
-  route: string;
+  route?: string;
   animated_preview_url?: string | null;
+  /**
+   * Informational demos (e.g. `cli-start`) have no runnable route — they just
+   * surface a copy-pasteable shell command. When `command` is set, the shell
+   * renders a code block with a copy button instead of Demo/Code links.
+   */
+  command?: string;
 }
 
 export interface Integration {

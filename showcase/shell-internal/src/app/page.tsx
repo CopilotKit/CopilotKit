@@ -5,9 +5,17 @@ import { healthBadge, qaBadge, testBadge, getDemoStatus } from "@/lib/status";
 import { FeatureGrid, type CellContext } from "@/components/feature-grid";
 import { Badge, HealthDot } from "@/components/badges";
 import { DocsRow, urlsFor } from "@/components/cell-pieces";
+import { CommandCell } from "@/components/command-cell";
 
 function Cell(ctx: CellContext) {
   const isTesting = ctx.feature.kind === "testing";
+
+  // Informational demo (e.g. cli-start) — renders a copy-pasteable command
+  // block instead of Demo/Code links + status badges.
+  if (ctx.demo.command) {
+    return <CommandCell command={ctx.demo.command} />;
+  }
+
   const s = getDemoStatus(ctx.integration.slug, ctx.feature.id);
   const e2e = testBadge(s?.e2e ?? null, ctx.bundleStale);
   const smoke = testBadge(s?.smoke ?? null, ctx.bundleStale);
