@@ -9,43 +9,91 @@ snippet_cell: tool-rendering
 
 ## What is this?
 
-Tool rendering lets you customize how your agent's backend tool calls appear in the chat. Instead of showing raw tool execution, you can render custom React components that display tool arguments, progress, and results.
+Tools are how an LLM invokes predefined, typically-deterministic functions.
+Tool rendering lets you decide how each of those tool calls appears in the
+chat. Instead of showing raw JSON, you register a React component that draws
+a branded card for the call — arguments, live status, and the eventual
+result. This is the **Generative UI** variant CopilotKit calls **tool
+rendering**.
 
 <InlineDemo integration="langgraph-python" demo="tool-rendering" />
 
-## The shape of a tool renderer
+## When should I use this?
 
-A tool renderer is just a React component registered via `useToolRenderer`.
-It receives the tool-call name, arguments, and (once the agent returns)
-the result. The showcase `tool-rendering` cell wires two of them — one
-for a weather lookup and one for a flight lookup:
+Render tool calls when you want to:
+
+- Show users exactly what tools the agent is invoking and with what arguments
+- Display live progress indicators while a tool executes
+- Render rich, polished results once a tool completes
+- Give tool-heavy agents a transparent, on-brand chat experience
+
+## Default tool rendering (zero-config)
+
+The simplest entry point: call `useDefaultRenderTool()` with no arguments.
+CopilotKit registers its built-in `DefaultToolCallRenderer` as the `*`
+wildcard — every tool call renders as a tidy status card (tool name, live
+**Running → Done** pill, collapsible arguments/result) without you writing
+any UI.
+
+Without this hook the runtime has no `*` renderer and tool calls are
+invisible — the user only sees the assistant's final text summary.
+
+<Snippet
+  cell="tool-rendering-default-catchall"
+  region="default-catchall-zero-config"
+  title="frontend/src/app/page.tsx — useDefaultRenderTool()"
+/>
+
+<InlineDemo integration="langgraph-python" demo="tool-rendering-default-catchall" />
+
+## Custom catch-all
+
+Once you want on-brand chrome, pass a `render` function to
+`useDefaultRenderTool`. It's a convenience wrapper around
+`useRenderTool({ name: "*", ... })` — one wildcard renderer handles every
+tool call, named or not:
+
+<Snippet
+  cell="tool-rendering-custom-catchall"
+  region="use-default-render-tool-wildcard"
+  title="frontend/src/app/page.tsx — custom wildcard renderer"
+/>
+
+<InlineDemo integration="langgraph-python" demo="tool-rendering-custom-catchall" />
+
+## Per-tool renderers
+
+The most expressive path is one renderer per tool name. The primary
+`tool-rendering` cell wires two: `get_weather` draws a branded
+`WeatherCard`, `search_flights` draws a `FlightListCard`. Each renderer
+receives the tool's parsed arguments, a live `status`, and — once the agent
+returns — the `result`:
 
 <Snippet region="render-weather-tool" title="frontend/src/app/page.tsx — weather renderer" />
 
 <Snippet region="render-flight-tool" title="frontend/src/app/page.tsx — flight renderer" />
 
-## A catch-all renderer
+<Callout type="info">
+  The `name` you pass to `useRenderTool` must match the tool name the agent
+  exposes — that's how the runtime routes the call to your component.
+</Callout>
 
-When you want every tool call to render through a single component
-(great for a uniform "calling tool" card), register a catch-all:
+Per-tool renderers compose with a catch-all: named renderers claim the
+"interesting" tools and a wildcard handles everything else. In the primary
+cell, the same `CustomCatchallRenderer` from above catches `get_stock_price`
+and `roll_dice`:
 
-<Snippet region="catchall-renderer" title="frontend/src/app/page.tsx — catch-all" />
+<Snippet region="catchall-renderer" title="frontend/src/app/page.tsx — per-tool + catch-all" />
 
 ## The backend tool definition
 
 The frontend renderer only sees what the agent sends down. Here's the
-matching Python definition the agent exposes for `get_weather`:
+matching Python definition for `get_weather` — a standard LangChain tool,
+no CopilotKit-specific plumbing required:
 
 <Snippet region="weather-tool-backend" title="backend/agent.py — weather tool" />
 
-## When should I use this?
-
-Use tool rendering when you want to:
-
-- Show users what tools your agent is calling and with what arguments
-- Display progress indicators while tools execute
-- Render custom results when tools complete
-- Create a polished, transparent agent experience
+<FeatureIntegrations feature="tool-rendering" />
 
 ## Choose your AI backend
 

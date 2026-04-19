@@ -36,6 +36,7 @@ export default function ToolRenderingCustomCatchallDemo() {
 }
 
 function Chat() {
+  // @region[use-default-render-tool-wildcard]
   // `useDefaultRenderTool` is a convenience wrapper around
   // `useRenderTool({ name: "*", ... })` — a single wildcard renderer
   // that handles every tool call not claimed by a named renderer.
@@ -52,6 +53,7 @@ function Chat() {
     },
     [],
   );
+  // @endregion[use-default-render-tool-wildcard]
 
   useConfigureSuggestions({
     suggestions: [
