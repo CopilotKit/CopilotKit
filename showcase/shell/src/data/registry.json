@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-19T22:33:14.804Z",
+  "generated_at": "2026-04-19T22:43:12.542Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
@@ -185,16 +185,15 @@
       },
       {
         "id": "open-gen-ui-advanced",
-        "name": "Open-Ended Generative UI (Advanced)",
+        "name": "Open-Ended Gen UI (Advanced: with frontend function calling)",
         "category": "open-generative-ui",
-        "description": "Sandbox invokes app tools via bridge functions"
+        "description": "Agent-authored UI that can invoke frontend sandbox functions from inside the iframe"
       },
       {
         "id": "gen-ui-agent",
         "name": "Agentic Generative UI (In-Chat State Rendering)",
         "category": "operational-generative-ui",
-        "description": "Long-running agent tasks with generated UI",
-        "kind": "testing",
+        "description": "Agent-state-driven inline UI: the agent emits a live `steps` plan via copilotkit_emit_state and the frontend renders it with useCoAgentStateRender (v1 hook)",
         "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-agent",
         "shell_docs_url": "/docs/features/gen-ui-agent"
       },
@@ -563,14 +562,14 @@
         {
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
-          "description": "Long-running agent tasks with inline state rendering in-chat",
+          "description": "Canonical agent-state-driven Gen UI — the agent plans a live step list and emits it via copilotkit_emit_state; the frontend renders it with the v1 useCoAgentStateRender hook",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null,
           "highlight": [
+            "src/agents/gen_ui_agent.py",
             "src/app/demos/gen-ui-agent/page.tsx",
             "src/app/demos/gen-ui-agent/InlineAgentStateCard.tsx",
-            "src/agents/gen_ui_agent.py",
             "src/app/api/copilotkit/route.ts"
           ]
         },
@@ -775,8 +774,8 @@
         },
         {
           "id": "open-gen-ui-advanced",
-          "name": "Open-Ended Generative UI (Advanced — With App Tool Calling)",
-          "description": "Advanced — sandbox invokes app tools via bridge functions",
+          "name": "Open-Ended Gen UI (Advanced: with frontend function calling)",
+          "description": "Agent-authored UI that can invoke frontend sandbox functions from inside the iframe",
           "tags": ["generative-ui"],
           "route": "/demos/open-gen-ui-advanced",
           "animated_preview_url": null,

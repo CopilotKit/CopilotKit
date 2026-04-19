@@ -179,15 +179,15 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent
     name: Agentic Generative UI
-    description: Long-running agent tasks with inline state rendering in-chat
+    description: "Canonical agent-state-driven Gen UI — the agent plans a live step list and emits it via copilotkit_emit_state; the frontend renders it with the v1 useCoAgentStateRender hook"
     tags:
       - generative-ui
     route: /demos/gen-ui-agent
     animated_preview_url:
     highlight:
+      - src/agents/gen_ui_agent.py
       - src/app/demos/gen-ui-agent/page.tsx
       - src/app/demos/gen-ui-agent/InlineAgentStateCard.tsx
-      - src/agents/gen_ui_agent.py
       - src/app/api/copilotkit/route.ts
   - id: shared-state-read-write
     name: Shared State (Read + Write)
@@ -361,8 +361,8 @@ demos:
       - src/app/demos/open-gen-ui/page.tsx
       - src/app/api/copilotkit-ogui/route.ts
   - id: open-gen-ui-advanced
-    name: Open-Ended Generative UI (Advanced — With App Tool Calling)
-    description: Advanced — sandbox invokes app tools via bridge functions
+    name: "Open-Ended Gen UI (Advanced: with frontend function calling)"
+    description: Agent-authored UI that can invoke frontend sandbox functions from inside the iframe
     tags:
       - generative-ui
     route: /demos/open-gen-ui-advanced

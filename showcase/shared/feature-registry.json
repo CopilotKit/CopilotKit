@@ -183,16 +183,15 @@
     },
     {
       "id": "open-gen-ui-advanced",
-      "name": "Open-Ended Generative UI (Advanced)",
+      "name": "Open-Ended Gen UI (Advanced: with frontend function calling)",
       "category": "open-generative-ui",
-      "description": "Sandbox invokes app tools via bridge functions"
+      "description": "Agent-authored UI that can invoke frontend sandbox functions from inside the iframe"
     },
     {
       "id": "gen-ui-agent",
       "name": "Agentic Generative UI (In-Chat State Rendering)",
       "category": "operational-generative-ui",
-      "description": "Long-running agent tasks with generated UI",
-      "kind": "testing",
+      "description": "Agent-state-driven inline UI: the agent emits a live `steps` plan via copilotkit_emit_state and the frontend renders it with useCoAgentStateRender (v1 hook)",
       "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-agent",
       "shell_docs_url": "/docs/features/gen-ui-agent"
     },
