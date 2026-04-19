@@ -14,6 +14,8 @@ We verify:
 
 from __future__ import annotations
 
+import pytest
+
 
 def _install_patch_without_imports():
     """Apply the same patch agent_server.py applies, without importing
@@ -132,13 +134,150 @@ def test_agent_server_module_installs_patch():
 
     _os.environ.setdefault("OPENAI_API_KEY", "test-key-for-instrumentor-patch")
 
-    # Import agent_server. This triggers the patch.
-    # Re-import defensively in case a prior test already loaded it.
+    # agent_server.py contains an ``assert 'strands' not in sys.modules``
+    # guard BEFORE the patch. This is the correct behavior — but in the
+    # unit-test harness a prior test may have already imported strands
+    # (directly or via ``agents.agent``). The separate
+    # ``test_import_order_assert_catches_preimported_strands`` test
+    # exercises the guard; THIS test cares only about the patch effect.
+    #
+    # Strategy: execute agent_server's source with the import-order
+    # assert line neutralized. Downstream imports still use the stubs
+    # we installed above.
     sys.modules.pop("agent_server", None)
-    import agent_server  # noqa: F401
+    # Ensure strands stubs are present for agent_server's post-patch
+    # imports (both stubs and real package tolerated).
+    sys.modules.setdefault("strands", fake_strands)
+    sys.modules.setdefault("strands.hooks", fake_hooks)
+    sys.modules.setdefault("strands.models", fake_models)
+    sys.modules.setdefault("strands.models.openai", fake_openai_mod)
+    sys.modules.setdefault("ag_ui_strands", fake_ag_ui_strands)
+
+    import importlib.util as _util
+
+    spec = _util.find_spec("agent_server")
+    if spec is None or spec.origin is None:
+        pytest.skip("agent_server module not locatable on sys.path")
+    with open(spec.origin, "r", encoding="utf-8") as fh:
+        source = fh.read()
+    # The import-order guard spans multiple lines (assert + parenthesized
+    # error message). Neutralize the entire block with a regex that
+    # matches from ``assert "strands"`` through the closing parenthesis.
+    import re
+
+    neutralized = re.sub(
+        r'assert "strands" not in sys\.modules,\s*\([^)]*\)',
+        'True  # neutralized: separate test covers the guard path',
+        source,
+        count=1,
+        flags=re.DOTALL,
+    )
+    module_ns: dict = {
+        "__name__": "agent_server_under_test",
+        "__file__": spec.origin,
+    }
+    exec(compile(neutralized, spec.origin, "exec"), module_ns)
 
     from opentelemetry.instrumentation.threading import ThreadingInstrumentor
 
     # The replacement must return self.
     instance = ThreadingInstrumentor()
     assert instance.instrument() is instance
+
+
+def test_import_order_assert_catches_preimported_strands():
+    """agent_server.py contains an ``assert 'strands' not in sys.modules``
+    guard BEFORE the ThreadingInstrumentor patch. If strands was already
+    imported (directly or transitively) above that line, the OTel patch
+    would be too late — strands' Tracer may have already been constructed.
+
+    Simulate the failure mode: pre-seed ``sys.modules['strands']``, then
+    try to import agent_server, and verify the AssertionError fires.
+    """
+    import sys
+    import types
+
+    # Install a fake 'strands' before agent_server imports. In the real
+    # failure mode this would be the genuine package that already ran
+    # ThreadingInstrumentor().instrument() — here the presence alone is
+    # what the assert checks.
+    preexisting_strands = types.ModuleType("strands")
+    sys.modules["strands"] = preexisting_strands
+
+    # Ensure agent_server is re-imported fresh so the module-level
+    # assert executes.
+    sys.modules.pop("agent_server", None)
+
+    try:
+        with pytest.raises(AssertionError, match="strands imported before"):
+            import agent_server  # noqa: F401
+    finally:
+        # Cleanup: remove the fake strands so subsequent tests can
+        # install their own stubs.
+        sys.modules.pop("strands", None)
+        sys.modules.pop("agent_server", None)
+
+
+def test_real_strands_agent_signature_integration():
+    """Integration-style test: when the real ``strands-agents`` package
+    IS installed, construct a real ``strands.Agent`` via the shapes the
+    conftest stubs cover. This catches drift between our stubs and the
+    real signature — if strands renames an Agent kwarg, the stub still
+    passes the unit tests but this integration test fails.
+
+    Skipped gracefully when ``strands-agents`` isn't installed (the
+    default in the unit-test venv; it's available in the Docker image
+    and CI integration environments).
+    """
+    import os
+    import sys
+    import types
+
+    # Don't touch the stub modules installed by conftest unless we're
+    # actually going to use the real package. Probe without importing.
+    try:
+        import importlib.util
+
+        spec = importlib.util.find_spec("strands")
+    except Exception:
+        spec = None
+
+    if spec is None:
+        pytest.skip("strands-agents not installed; integration test skipped")
+
+    # If the stub is already in sys.modules, drop it so the real package
+    # gets imported fresh.
+    for mod_name in [
+        "strands",
+        "strands.hooks",
+        "strands.models",
+        "strands.models.openai",
+    ]:
+        mod = sys.modules.get(mod_name)
+        if mod is not None and isinstance(mod, types.ModuleType) and not getattr(mod, "__file__", None):
+            sys.modules.pop(mod_name, None)
+
+    try:
+        from strands import Agent  # type: ignore[import-not-found]
+    except Exception as exc:  # pragma: no cover - defensive
+        pytest.skip(f"strands package present but not importable cleanly: {exc}")
+        return
+
+    # The minimal constructor should at least accept a ``tools`` kwarg
+    # (which our factory relies on). We don't need a real model here —
+    # just verify the signature accepts the shape we use.
+    try:
+        agent = Agent(tools=[])  # type: ignore[call-arg]
+    except TypeError as exc:
+        # TypeError here == real strands Agent signature drifted from
+        # what the factory passes in build_showcase_agent.
+        pytest.fail(
+            f"real strands.Agent no longer accepts the kwargs build_showcase_agent "
+            f"relies on: {exc}"
+        )
+    except Exception:
+        # Any other exception (e.g. model required) is fine — the point
+        # is that the Agent class accepted the kwargs.
+        pass
+    else:
+        assert agent is not None

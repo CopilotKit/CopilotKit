@@ -12,6 +12,7 @@ implementation and causes recursive ThreadPoolExecutor wrapping.
 """
 
 import os
+import sys
 
 # HACK: strands-agents (observed on 1.35.0, requirements.txt floors at 1.15.0)
 # unconditionally calls ``ThreadingInstrumentor().instrument()`` when its
@@ -26,10 +27,21 @@ import os
 # directly, bypassing the entry_point-based autoloader.
 #
 # Neutralize the instrument() call before strands imports the module.
-# Upstream issue: not yet filed against strands-agents. Once strands fixes
-# the issue (or makes instrumentation opt-in), this block can be removed.
+# Remove this block once ``strands-agents >= X.Y.Z`` is pinned in
+# requirements.txt, where X.Y.Z is the version that makes OTel
+# instrumentation opt-in (not yet released as of strands-agents 1.35.0).
 from opentelemetry.instrumentation.threading import (  # noqa: E402  (must precede ag_ui_strands / strands imports)
     ThreadingInstrumentor as _ThreadingInstrumentor,
+)
+
+# Import-order guard: if ``strands`` was already imported above this line
+# (directly or transitively), the Tracer may have been constructed with
+# the original ``instrument`` — and patching the class now has no effect
+# on the already-wrapped ThreadPoolExecutor. Fail loudly at import rather
+# than silently recursing at request time.
+assert "strands" not in sys.modules, (
+    "strands imported before OTel patch applied — "
+    "remove any strands / ag_ui_strands import that precedes this line in agent_server.py"
 )
 
 

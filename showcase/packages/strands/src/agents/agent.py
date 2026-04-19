@@ -13,7 +13,8 @@ import logging
 import os
 import sys
 import threading
-from typing import Optional
+from collections.abc import Mapping
+from typing import Optional, TypedDict
 
 from ag_ui_strands import (
     StrandsAgent,
@@ -42,6 +43,19 @@ from tools import (  # noqa: E402
 )
 
 logger = logging.getLogger(__name__)
+
+
+class _A2uiError(TypedDict):
+    """Shape of the structured error dict returned by generate_a2ui branches.
+
+    Mirrors the google-adk sibling agent's error shape. Every error branch
+    MUST populate all three keys so callers (and the LLM summarizing the
+    tool result) see a consistent surface.
+    """
+
+    error: str
+    message: str
+    remediation: str
 
 
 # ---- Tools --------------------------------------------------------------
@@ -156,7 +170,6 @@ def generate_a2ui(context: str):
     """
     from openai import OpenAI
 
-    client = OpenAI()
     tool_schema = {
         "type": "function",
         "function": {
@@ -175,21 +188,68 @@ def generate_a2ui(context: str):
         },
     }
 
-    response = client.chat.completions.create(
-        model="gpt-4.1",
-        messages=[
-            {"role": "system", "content": context or "Generate a useful dashboard UI."},
-            {"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."},
-        ],
-        tools=[tool_schema],
-        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
-    )
+    # Wrap the OpenAI call so raw APIError / RateLimitError /
+    # APIConnectionError / AuthenticationError do NOT bubble up through the
+    # strands tool machinery as uncaught exceptions. Return a structured
+    # error with remediation instead — the LLM can surface this to the user.
+    # Mirrors the google-adk sibling agent's error-handling shape.
+    try:
+        client = OpenAI()
+        response = client.chat.completions.create(
+            model="gpt-4.1",
+            messages=[
+                {"role": "system", "content": context or "Generate a useful dashboard UI."},
+                {"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."},
+            ],
+            tools=[tool_schema],
+            tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+        )
+    except Exception as exc:  # noqa: BLE001 — openai raises a variety of subclasses
+        logger.exception("generate_a2ui: OpenAI API call failed")
+        return json.dumps({
+            "error": "a2ui_llm_error",
+            "message": f"Secondary A2UI LLM call failed: {exc.__class__.__name__}",
+            "remediation": (
+                "Verify OPENAI_API_KEY is set and the OpenAI service is reachable. "
+                "See server logs for the full traceback."
+            ),
+        })
 
-    if not response.choices[0].message.tool_calls:
-        return json.dumps({"error": "LLM did not call render_a2ui"})
+    if not response.choices:
+        logger.warning("generate_a2ui: OpenAI response contained no choices")
+        return json.dumps({
+            "error": "a2ui_empty_response",
+            "message": "Secondary A2UI LLM returned no choices.",
+            "remediation": "Retry; if this persists, check OpenAI status.",
+        })
 
-    tool_call = response.choices[0].message.tool_calls[0]
-    args = json.loads(tool_call.function.arguments)
+    tool_calls = response.choices[0].message.tool_calls
+    if not tool_calls:
+        logger.warning(
+            "generate_a2ui: OpenAI response had no tool_calls despite forced tool_choice"
+        )
+        return json.dumps({
+            "error": "a2ui_no_tool_call",
+            "message": "Secondary A2UI LLM did not call render_a2ui.",
+            "remediation": (
+                "Retry the request. If this persists, verify the tool_choice "
+                "schema matches the OpenAI API contract."
+            ),
+        })
+
+    tool_call = tool_calls[0]
+    try:
+        args = json.loads(tool_call.function.arguments)
+    except (ValueError, TypeError) as exc:
+        logger.exception(
+            "generate_a2ui: failed to parse render_a2ui tool arguments as JSON"
+        )
+        return json.dumps({
+            "error": "a2ui_invalid_arguments",
+            "message": f"Could not parse render_a2ui arguments: {exc}",
+            "remediation": "Retry the request; the secondary LLM emitted malformed JSON.",
+        })
+
     result = build_a2ui_operations_from_tool_call(args)
     return json.dumps(result)
 
@@ -277,6 +337,22 @@ _MAX_TOOL_CALLS_PER_INVOCATION = 8
 class _ToolCallCapHook(HookProvider):
     """Cap total tool calls per Agent invocation to prevent runaway loops.
 
+    Two-mechanism halt, with an intentional off-by-one split:
+
+    * ``_on_before_tool`` uses ``>`` (strict greater-than). It cancels the
+      *(N+1)-th* call — i.e. the first call that would exceed the cap is
+      refused. Calls 1..N all run normally.
+    * ``_on_after_tool`` uses ``>=`` (greater-than-or-equal). It sets the
+      ``stop_event_loop`` sentinel as soon as ``_count`` reaches the cap,
+      which is *one call earlier* than the cancellation fires.
+
+    Why the asymmetry? We want the final *permitted* call (the N-th) to
+    run to completion and produce a real result, THEN halt the event loop
+    before the model can issue an (N+1)-th call that would only be
+    cancelled. The sentinel halts cleanly; the cancellation is a backstop
+    for the case where strands doesn't honor the sentinel (e.g. because
+    the tool dispatch was already in flight when the sentinel was set).
+
     Concurrency note: ag_ui_strands creates one Agent (and therefore one
     ``_ToolCallCapHook``) per ``thread_id``. A single AG-UI thread is
     invoked sequentially (one request at a time), so under normal use there
@@ -288,6 +364,12 @@ class _ToolCallCapHook(HookProvider):
     """
 
     def __init__(self, max_calls: int = _MAX_TOOL_CALLS_PER_INVOCATION):
+        # Validate up front: ``max_calls=0`` would silently cancel every
+        # tool call (since ``_count`` starts at 0 and ``_on_before_tool``
+        # increments-then-compares with ``>``; the first call goes to 1 > 0
+        # and is cancelled). Negative values are even more broken.
+        if max_calls < 1:
+            raise ValueError("max_calls must be >= 1")
         self._max_calls = max_calls
         self._count = 0
         self._lock = threading.Lock()
@@ -342,21 +424,22 @@ class _ToolCallCapHook(HookProvider):
 # a single ``__setitem__`` override is not sufficient.
 
 
+_CAP_HOOK_SENTINEL_ATTR = "_cap_hook_attached"
+
+
 def _agent_has_cap_hook(agent: Agent) -> bool:
     """Return True if ``agent`` already has a ``_ToolCallCapHook`` registered.
 
     Used to guard against double-injection when the same ``thread_id`` is
     re-inserted (otherwise a second hook would effectively halve the cap).
+
+    We attach a sentinel attribute directly to the Agent rather than
+    inspecting HookRegistry privates (``_hook_providers``/``hook_providers``).
+    Spelunking private attrs means any upstream rename silently reintroduces
+    double-injection; the sentinel we control is robust to HookRegistry
+    refactoring.
     """
-    hooks = getattr(agent, "hooks", None)
-    if hooks is None:
-        return False
-    # ``HookRegistry`` exposes registered providers via ``_hook_providers``
-    # (a list). Fall back to iterating attributes if the API changes.
-    providers = getattr(hooks, "_hook_providers", None) or getattr(hooks, "hook_providers", None)
-    if providers is None:
-        return False
-    return any(isinstance(p, _ToolCallCapHook) for p in providers)
+    return bool(getattr(agent, _CAP_HOOK_SENTINEL_ATTR, False))
 
 
 def _inject_cap_hook(agent: Agent) -> None:
@@ -364,6 +447,9 @@ def _inject_cap_hook(agent: Agent) -> None:
     if _agent_has_cap_hook(agent):
         return
     agent.hooks.add_hook(_ToolCallCapHook())
+    # Mark the agent after successful registration so re-inserts into the
+    # per-thread dict skip this branch.
+    setattr(agent, _CAP_HOOK_SENTINEL_ATTR, True)
 
 
 class _HookInjectingAgentDict(dict):
@@ -382,13 +468,26 @@ class _HookInjectingAgentDict(dict):
     def update(self, *args, **kwargs):  # type: ignore[override]
         # Normalize all inputs to (key, value) pairs and route through
         # ``self[key] = value`` so our injection logic runs uniformly.
+        #
+        # For ``Mapping`` subtypes we iterate ``.items()`` rather than
+        # ``.keys()`` + subscript. The latter calls ``__getitem__`` a second
+        # time per key — which for arbitrary ``collections.abc.Mapping``
+        # implementations (e.g. ``ChainMap``, proxy objects, lazy views)
+        # may be expensive or semantically different from the key-view
+        # iteration. ``.items()`` guarantees a single fetch of each pair.
         if args:
             if len(args) > 1:
                 raise TypeError(
                     f"update expected at most 1 positional argument, got {len(args)}"
                 )
             other = args[0]
-            if hasattr(other, "keys"):
+            if isinstance(other, Mapping):
+                for k, v in other.items():
+                    self[k] = v
+            elif hasattr(other, "keys"):
+                # Duck-typed mapping-like without registering as Mapping
+                # (e.g. some dict-views). Keep the legacy path for
+                # compatibility.
                 for k in other.keys():
                     self[k] = other[k]
             else:

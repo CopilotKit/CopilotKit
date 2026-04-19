@@ -112,3 +112,19 @@ def test_default_cap_matches_module_constant(hook_cls):
 
     hook = hook_cls()
     assert hook._max_calls == _MAX_TOOL_CALLS_PER_INVOCATION
+
+
+def test_tool_call_cap_validates_max_calls(hook_cls):
+    """``max_calls < 1`` silently cancels every tool call because the
+    first ``_on_before_tool`` increment-then-compare ends up with
+    ``1 > 0`` -> cancel. Constructor must reject this up front."""
+    with pytest.raises(ValueError, match="max_calls must be >= 1"):
+        hook_cls(max_calls=0)
+
+    with pytest.raises(ValueError, match="max_calls must be >= 1"):
+        hook_cls(max_calls=-1)
+
+    # Boundary: 1 is valid. The very next call would cancel, but the
+    # hook itself must construct without error.
+    hook = hook_cls(max_calls=1)
+    assert hook._max_calls == 1

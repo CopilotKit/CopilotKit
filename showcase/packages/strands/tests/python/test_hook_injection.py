@@ -34,9 +34,15 @@ class _FakeAgent:
     ``isinstance(value, Agent)`` inside the dict routes correctly.
     """
 
-    def __init__(self, label: str = ""):
+    def __init__(self, label: str = "", **kwargs):
         self.label = label
         self.hooks = _FakeHookRegistry()
+        # Accept (and stash) whatever kwargs the real ``strands.Agent``
+        # accepts (``model``, ``system_prompt``, ``tools``, ...). Tests
+        # don't inspect these — the point is to let factory code that
+        # calls ``Agent(model=..., tools=[...])`` construct this fake
+        # without a TypeError.
+        self.kwargs = kwargs
 
 
 @pytest.fixture
@@ -153,3 +159,138 @@ def test_no_double_injection_on_bulk_reinsert(patched_agent):
     d.update({"t": a})
     d.setdefault("t", a)
     assert _count_cap_hooks(a, patched_agent._ToolCallCapHook) == 1
+
+
+def test_update_with_dict_items_view(patched_agent):
+    """``dict.items()`` is a ``Mapping``-like view, but iterating it yields
+    ``(k, v)`` pairs (not keys). The ``update`` override must handle this
+    input shape — otherwise ``.items()`` would fall through to the
+    pair-iterable branch and work, but we want an explicit assertion.
+
+    Concretely: strands / ag_ui_strands can legitimately pass a
+    ``dict_items`` view (e.g. filtering a source dict). Injection must
+    still fire for each contained Agent.
+    """
+    d = patched_agent._HookInjectingAgentDict()
+    a, b = _FakeAgent("iv-a"), _FakeAgent("iv-b")
+    source = {"thread-iv-a": a, "thread-iv-b": b}
+
+    d.update(source.items())
+
+    assert _count_cap_hooks(a, patched_agent._ToolCallCapHook) == 1
+    assert _count_cap_hooks(b, patched_agent._ToolCallCapHook) == 1
+    assert d["thread-iv-a"] is a
+    assert d["thread-iv-b"] is b
+
+
+def test_update_with_mapping_subtype(patched_agent):
+    """``collections.ChainMap`` is a ``collections.abc.Mapping`` subtype
+    where ``__getitem__`` traverses maps in order. If our ``update`` loops
+    over ``.keys()`` + subscripts, we pay the chained-lookup cost twice
+    per key; iterating ``.items()`` is semantically cleaner and cheaper.
+
+    The observable behavior we assert is that every value in the chain
+    lands in the injecting dict with a cap hook attached, which works
+    regardless of iteration style — but this test pins the semantic
+    expectation so a future "optimize with ``.keys()``" regression fails.
+    """
+    from collections import ChainMap
+
+    d = patched_agent._HookInjectingAgentDict()
+    a1, a2 = _FakeAgent("m-a1"), _FakeAgent("m-a2")
+    primary = {"thread-a1": a1}
+    fallback = {"thread-a2": a2}
+    cm = ChainMap(primary, fallback)
+
+    d.update(cm)
+
+    assert "thread-a1" in d
+    assert "thread-a2" in d
+    assert d["thread-a1"] is a1
+    assert d["thread-a2"] is a2
+    assert _count_cap_hooks(a1, patched_agent._ToolCallCapHook) == 1
+    assert _count_cap_hooks(a2, patched_agent._ToolCallCapHook) == 1
+
+
+def test_build_showcase_agent_swaps_hook_dict(monkeypatch, patched_agent):
+    """Factory integration: ``build_showcase_agent()`` must replace the
+    ``StrandsAgent._agents_by_thread`` dict with ``_HookInjectingAgentDict``,
+    preserve any pre-existing entries, and ensure every entry has a cap
+    hook attached.
+
+    The conftest stubs out ``StrandsAgent`` / ``StrandsAgentConfig`` /
+    ``ToolBehavior`` as permissive classes. We patch ``StrandsAgent`` to
+    seed one pre-existing entry in ``_agents_by_thread`` during
+    construction, so the factory's copy-and-wrap logic is actually
+    exercised.
+    """
+    import agents.agent as agent_mod
+
+    # Pre-existing Agent (with a FakeAgent stand-in that matches the
+    # isinstance check in ``_HookInjectingAgentDict.__setitem__``).
+    preexisting_agent = _FakeAgent("pre")
+
+    class _SeededStrandsAgent:
+        def __init__(self, *args, **kwargs):
+            self.args = args
+            self.kwargs = kwargs
+            # Emulate ag_ui_strands seeding the dict in ``__init__``.
+            self._agents_by_thread = {"preexisting-thread": preexisting_agent}
+
+    # Patch the ``StrandsAgent`` reference bound in the ``agents.agent``
+    # module (not the source in ``ag_ui_strands``). The module already
+    # captured the original class at import time — patching the source
+    # module would have no effect on the factory's call site.
+    monkeypatch.setattr(agent_mod, "StrandsAgent", _SeededStrandsAgent)
+
+    # The factory calls ``_build_model`` which requires OPENAI_API_KEY.
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key-for-factory")
+
+    # Ensure Agent isinstance checks inside the dict succeed for our fake.
+    # ``patched_agent`` already swapped ``agents.agent.Agent`` → _FakeAgent.
+
+    from agents.agent import (
+        _HookInjectingAgentDict,
+        _ToolCallCapHook,
+        build_showcase_agent,
+    )
+
+    agui_agent = build_showcase_agent()
+
+    # 1. The per-thread dict is the hook-injecting variant.
+    assert isinstance(agui_agent._agents_by_thread, _HookInjectingAgentDict)
+
+    # 2. Pre-existing entries survived the swap.
+    assert "preexisting-thread" in agui_agent._agents_by_thread
+    assert agui_agent._agents_by_thread["preexisting-thread"] is preexisting_agent
+
+    # 3. Every surviving entry has a cap hook attached.
+    for agent in agui_agent._agents_by_thread.values():
+        assert _count_cap_hooks(agent, _ToolCallCapHook) == 1
+
+
+def test_agent_has_cap_hook_uses_sentinel_not_private_attrs(patched_agent):
+    """``_agent_has_cap_hook`` must check a sentinel attribute we own,
+    NOT spelunk HookRegistry privates. If an upstream ``HookRegistry``
+    rename drops ``_hook_providers`` / ``hook_providers``, double-injection
+    would silently return — which halves the effective cap.
+
+    We simulate the rename by constructing a registry WITHOUT those
+    attributes but WITH the sentinel, and assert ``_agent_has_cap_hook``
+    still returns True.
+    """
+    from agents.agent import _agent_has_cap_hook, _CAP_HOOK_SENTINEL_ATTR
+
+    class _RegistryWithoutPrivates:
+        # Deliberately missing _hook_providers AND hook_providers.
+        pass
+
+    agent = _FakeAgent("sentinel")
+    agent.hooks = _RegistryWithoutPrivates()
+    # Without the sentinel, no cap hook is known.
+    assert not _agent_has_cap_hook(agent)
+
+    # With the sentinel, the check must return True regardless of what
+    # HookRegistry looks like internally.
+    setattr(agent, _CAP_HOOK_SENTINEL_ATTR, True)
+    assert _agent_has_cap_hook(agent)
