@@ -29,7 +29,7 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
-import { myCatalog } from "./a2ui/renderers";
+import { myCatalog } from "./a2ui/catalog";
 
 export default function DeclarativeGenUIDemo() {
   return (

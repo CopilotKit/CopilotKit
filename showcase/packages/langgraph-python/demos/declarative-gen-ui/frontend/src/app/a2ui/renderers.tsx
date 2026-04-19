@@ -1,24 +1,19 @@
 "use client";
 
 /**
- * A2UI catalog RENDERERS + assembled catalog.
+ * A2UI catalog RENDERERS.
  *
  * React implementations for each definition in `./definitions.ts`.
- * `createCatalog` wires them together; `includeBasicCatalog: true` merges
- * CopilotKit's built-in A2UI primitives (Column, Row, Text, Image, Card,
- * Button, List, Tabs, …) so the agent can compose custom + basic
- * components interchangeably.
+ * The assembled catalog (definitions × renderers via `createCatalog`)
+ * lives in `./catalog.ts`.
  *
  * Reference:
  *   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui
  */
 import React from "react";
-import {
-  createCatalog,
-  type CatalogRenderers,
-} from "@copilotkit/a2ui-renderer";
+import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
 
-import { myDefinitions, type MyDefinitions } from "./definitions";
+import type { MyDefinitions } from "./definitions";
 
 const badgePalette: Record<
   "success" | "warning" | "error" | "info",
@@ -30,7 +25,7 @@ const badgePalette: Record<
   info: { bg: "#eff6ff", fg: "#1d4ed8" },
 };
 
-const myRenderers: CatalogRenderers<MyDefinitions> = {
+export const myRenderers: CatalogRenderers<MyDefinitions> = {
   Card: ({ props, children }) => (
     <div
       style={{
@@ -148,8 +143,3 @@ const myRenderers: CatalogRenderers<MyDefinitions> = {
     </button>
   ),
 };
-
-export const myCatalog = createCatalog(myDefinitions, myRenderers, {
-  catalogId: "declarative-gen-ui-catalog",
-  includeBasicCatalog: true,
-});

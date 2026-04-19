@@ -311,6 +311,7 @@ demos:
       - frontend/src/app/page.tsx
       - frontend/src/app/a2ui/definitions.ts
       - frontend/src/app/a2ui/renderers.tsx
+      - frontend/src/app/a2ui/catalog.ts
       - frontend/src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui-hardcoded
     name: Declarative Generative UI (A2UI — Custom Catalog)
