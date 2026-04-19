@@ -3,40 +3,8 @@ title: How does CopilotKit work?
 description: CopilotKit is thoughtfully architected to scale with you, your teams, and your product.
 ---
 
-<ImageZoom
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/architecture-diagram.png"
-  className="rounded-2xl"
-  width={1000}
-  height={1000}
-/>
+# How does CopilotKit work?
 
-## The Three Layers
+CopilotKit is thoughtfully architected to scale with you, your teams, and your product.
 
-CopilotKit cleanly separates concerns across three layers so you can swap any one
-of them without touching the others:
-
-- **Frontend** — React components and hooks (`CopilotChat`, `useAgent`, `useFrontendTool`)
-  that render the chat UI, expose client-side actions, and synchronize app state
-  with the running agent.
-- **Runtime** — A thin Node.js runtime (Express, Hono, Next.js App Router) that
-  brokers requests between the frontend and the agent over the AG-UI protocol.
-  It handles auth, message history, streaming, and tool routing.
-- **Agent** — Any AG-UI-compatible agent: LangGraph, Mastra, Pydantic AI, CrewAI,
-  the built-in `BasicAgent`, or a custom one you wrote yourself. A2A meshes and
-  MCP servers plug in here through AG-UI handshakes.
-
-The three layers talk to each other through the **[AG-UI protocol](/docs/learn/ag-ui-protocol)** —
-an open, event-based SSE format developed by the CopilotKit team and several
-framework partners.
-
-## Why the split matters
-
-- **Interchangeable UI** — swap frameworks (LangGraph → Mastra → Pydantic AI)
-  without rewriting a single component.
-- **Plug-in backends** — the same chat UI talks to a LangGraph DAG, a Pydantic AI
-  agent, or a raw BasicAgent with zero code changes.
-- **Controlled surface area** — the runtime is the single security boundary: auth,
-  rate limits, persistence, and observability all live in one place.
-
-See the [Agentic Protocols](/docs/learn/agentic-protocols) page for how AG-UI,
-MCP, and A2A compose across these three layers.
+<ImageZoom src="https://cdn.copilotkit.ai/docs/copilotkit/images/architecture-diagram.png" className="rounded-2xl" width={1000} height={1000}/>
