@@ -1,5 +1,7 @@
 package com.copilotkit.showcase.springai;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -20,15 +22,15 @@ import org.slf4j.LoggerFactory;
 
 import io.micrometer.observation.ObservationRegistry;
 
+import java.time.Duration;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Caps Spring-AI's internal tool-execution loop by wrapping the default
  * {@link ToolCallingManager} and flipping {@code returnDirect=true} on the
- * result once {@link #maxToolIterationsBeforeReturnDirect} iterations have
- * executed on the current conversation turn.
+ * result once the configured iteration cap is hit on the current conversation
+ * turn.
  *
  * <p>Spring-AI's default loop re-invokes the model whenever a response carries
  * {@code finish_reason=tool_calls}, with no iteration limit. Under
@@ -54,7 +56,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>Override the cap at runtime via the
  * {@code copilotkit.tool.max-iterations} property (or the
  * {@code COPILOTKIT_TOOL_MAX_ITERATIONS} env var). Raise this if demos need
- * multi-step tool chains.
+ * multi-step tool chains. The value is interpreted inclusively: a value of
+ * {@code N} allows <em>exactly N</em> tool iterations before {@code returnDirect}
+ * is flipped on the Nth result. For example, {@code N=1} means the very first
+ * tool execution is the last one for that turn; {@code N=3} allows three tool
+ * rounds before forcing completion.
  */
 @Configuration
 public class BoundedToolCallingManagerConfig {
@@ -65,15 +71,26 @@ public class BoundedToolCallingManagerConfig {
      * Default cap: one tool iteration is plenty for the CopilotKit showcase
      * demos (weather, single chart, meeting scheduling) and ensures a
      * deterministic aimock fixture can't pull the agent into an infinite
-     * tool-call loop. Override via {@code copilotkit.tool.max-iterations}.
+     * tool-call loop.
+     *
+     * <p>Interpretation: {@code N=1} allows exactly one tool round per turn;
+     * Spring-AI executes the tool, we flip {@code returnDirect=true}, and the
+     * outer loop terminates. Override via {@code copilotkit.tool.max-iterations}.
      */
-    static final int DEFAULT_MAX_TOOL_ITERATIONS_BEFORE_RETURN_DIRECT = 1;
+    static final int DEFAULT_TOOL_ITERATION_CAP_INCLUSIVE = 1;
 
-    private final int maxToolIterationsBeforeReturnDirect;
+    private final int toolIterationCapInclusive;
 
     public BoundedToolCallingManagerConfig(
-            @Value("${copilotkit.tool.max-iterations:" + DEFAULT_MAX_TOOL_ITERATIONS_BEFORE_RETURN_DIRECT + "}") int maxToolIterationsBeforeReturnDirect) {
-        this.maxToolIterationsBeforeReturnDirect = maxToolIterationsBeforeReturnDirect;
+            @Value("${copilotkit.tool.max-iterations:" + DEFAULT_TOOL_ITERATION_CAP_INCLUSIVE + "}") int toolIterationCapInclusive) {
+        if (toolIterationCapInclusive < 1) {
+            throw new IllegalArgumentException(
+                    "copilotkit.tool.max-iterations must be >= 1 (got " + toolIterationCapInclusive +
+                    "). A value of 0 would short-circuit every tool call before execution; " +
+                    "negative values are meaningless."
+            );
+        }
+        this.toolIterationCapInclusive = toolIterationCapInclusive;
     }
 
     @Bean
@@ -81,8 +98,8 @@ public class BoundedToolCallingManagerConfig {
             ObjectProvider<ObservationRegistry> observationRegistryProvider,
             List<ToolCallback> toolCallbacks) {
 
-        log.info("[BoundedTCM] Installing bounded ToolCallingManager (maxToolIterationsBeforeReturnDirect={}) with {} tool callbacks",
-                maxToolIterationsBeforeReturnDirect, toolCallbacks.size());
+        log.info("[BoundedTCM] Installing bounded ToolCallingManager (toolIterationCapInclusive={}) with {} tool callbacks",
+                toolIterationCapInclusive, toolCallbacks.size());
         ObservationRegistry observationRegistry =
                 observationRegistryProvider.getIfUnique(() -> ObservationRegistry.NOOP);
 
@@ -93,7 +110,7 @@ public class BoundedToolCallingManagerConfig {
                         DefaultToolExecutionExceptionProcessor.builder().build())
                 .build();
 
-        return new BoundedToolCallingManager(delegate, maxToolIterationsBeforeReturnDirect);
+        return new BoundedToolCallingManager(delegate, toolIterationCapInclusive);
     }
 
     /**
@@ -105,31 +122,65 @@ public class BoundedToolCallingManagerConfig {
      *
      * <p>Verified against Spring-AI 1.0.1 (see {@code pom.xml}). The invariant
      * relied upon is "same ChatOptions instance across all iterations of a
-     * single streaming tool-calling turn". A {@link ConcurrentHashMap} keyed
-     * by identity (via the {@code ChatOptions} reference) is used for
-     * thread-safe atomic updates. We clear the map entry both on cap-hit
-     * (below) and after any delegate exception (in a finally) so failures
-     * don't leak counter state.
+     * single streaming tool-calling turn".
      *
-     * <p>Historical note: an earlier revision used a
-     * {@code Collections.synchronizedMap(new WeakHashMap<>())} to auto-GC
-     * entries. That was swapped out because (a) {@code getOrDefault + put} is
-     * not atomic under concurrency, and (b) {@code WeakHashMap} uses
-     * {@code .equals()}/{@code .hashCode()} which for {@code ChatOptions} is
-     * identity-based anyway. A {@code ConcurrentHashMap} with explicit
-     * remove-on-completion gives us atomicity without the leak risk, since
-     * every conversation turn either hits the cap (we {@code remove}) or
-     * completes/errors normally (we {@code remove} in finally).
+     * <h4>Counter storage and eviction</h4>
+     *
+     * <p>The counter is stored in a {@link Caffeine} {@link Cache} keyed by
+     * identity (the {@code ChatOptions} reference). Caffeine gives us three
+     * guarantees we need:
+     * <ul>
+     *   <li>atomic read-modify-write via {@link Cache#asMap()} {@code compute},
+     *       avoiding the {@code getOrDefault + put} race;</li>
+     *   <li>bounded maximum size ({@value #MAX_CACHE_SIZE}) so a pathological
+     *       volume of concurrent turns can't exhaust heap;</li>
+     *   <li>{@code expireAfterAccess(5m)} so counters abandoned on the happy
+     *       path (turn completes naturally without hitting the cap, and
+     *       Spring-AI never calls {@code executeToolCalls} again for that
+     *       turn) are evicted without relying on GC or explicit cleanup.</li>
+     * </ul>
+     *
+     * <p>Historical note: earlier revisions used
+     * {@code Collections.synchronizedMap(new WeakHashMap<>())} and later a
+     * raw {@link java.util.concurrent.ConcurrentHashMap}. WeakHashMap was
+     * wrong because {@code ChatOptions} uses identity-based hashing anyway and
+     * {@code getOrDefault+put} isn't atomic. A bare ConcurrentHashMap was
+     * correct for atomicity but leaked memory on the happy path — Spring-AI's
+     * outer loop never notifies the ToolCallingManager that a turn has
+     * finished, so natural-completion counters stayed in the map forever
+     * (held by the live ChatOptions reference elsewhere). Caffeine fixes both
+     * the atomicity and the residency bound in one primitive.
      */
     static final class BoundedToolCallingManager implements ToolCallingManager {
 
+        /**
+         * Upper bound on simultaneous in-flight counters. Calibrated well
+         * above any plausible concurrent-turn count for the showcase; the cap
+         * exists to protect against pathological misuse, not to throttle
+         * steady-state traffic.
+         */
+        static final long MAX_CACHE_SIZE = 10_000L;
+
+        /**
+         * Inactivity window after which a counter is evicted. Covers "slow
+         * clients" and "turn completed naturally on a below-cap iteration"
+         * without holding memory indefinitely. Tool-calling turns that take
+         * longer than 5 minutes between iterations are already broken in
+         * other ways.
+         */
+        static final Duration EXPIRE_AFTER_ACCESS = Duration.ofMinutes(5);
+
         private final ToolCallingManager delegate;
         private final int maxIterationsBeforeReturnDirect;
-        private final Map<ChatOptions, Integer> iterations = new ConcurrentHashMap<>();
+        private final Cache<ChatOptions, AtomicInteger> iterations;
 
         BoundedToolCallingManager(ToolCallingManager delegate, int maxIterationsBeforeReturnDirect) {
             this.delegate = delegate;
             this.maxIterationsBeforeReturnDirect = maxIterationsBeforeReturnDirect;
+            this.iterations = Caffeine.newBuilder()
+                    .maximumSize(MAX_CACHE_SIZE)
+                    .expireAfterAccess(EXPIRE_AFTER_ACCESS)
+                    .build();
         }
 
         @Override
@@ -145,12 +196,16 @@ public class BoundedToolCallingManagerConfig {
             // than collapse every concurrent null-options prompt onto a shared
             // counter (cross-contamination), pass through to the delegate
             // with no cap. Showcase demos always supply ChatOptions, so this
-            // is a defensive short-circuit.
+            // is a defensive short-circuit — and crucially has NO counter
+            // side effect (no cache insert, no increment).
             if (options == null) {
                 log.debug("[BoundedTCM] prompt.getOptions() is null; delegating without cap");
                 try {
                     return delegate.executeToolCalls(prompt, chatResponse);
-                } catch (RuntimeException ex) {
+                } catch (Throwable ex) {
+                    // Catch Throwable so Errors (OOM, StackOverflow) also log
+                    // context before unwinding. No counter state to clean on
+                    // the null-options path, so nothing else to do.
                     log.error("[BoundedTCM] delegate.executeToolCalls threw (null-options path)", ex);
                     throw ex;
                 }
@@ -159,27 +214,41 @@ public class BoundedToolCallingManagerConfig {
             ToolExecutionResult delegated;
             try {
                 delegated = delegate.executeToolCalls(prompt, chatResponse);
-            } catch (RuntimeException ex) {
-                // Never leak counter state across failed turns.
-                iterations.remove(options);
+            } catch (Throwable ex) {
+                // Never leak counter state across failed turns. Catch Throwable
+                // so an Error (OOM, etc.) also clears the counter; we rethrow
+                // unchanged so the caller sees the original failure.
+                iterations.invalidate(options);
                 log.error("[BoundedTCM] delegate.executeToolCalls threw; cleared iteration counter for options", ex);
                 throw ex;
             }
 
-            // Atomic read-modify-write: avoids the getOrDefault+put race that
-            // could lose increments under concurrent tool-execution callbacks.
-            int next = iterations.compute(options, (k, v) -> (v == null ? 0 : v) + 1);
+            // Atomic read-modify-write via Caffeine's asMap compute. AtomicInteger
+            // is used as the value type so we never have to replace the map entry
+            // (keeps Caffeine's recency tracking clean and avoids redundant writes).
+            AtomicInteger counter = iterations.get(options, k -> new AtomicInteger(0));
+            int next = counter.incrementAndGet();
 
+            // Cap hit: flip returnDirect and evict the counter so a subsequent
+            // turn that happens to reuse this ChatOptions reference starts fresh.
             if (next >= maxIterationsBeforeReturnDirect && !delegated.returnDirect()) {
                 log.warn(
                         "Tool-execution loop cap hit (iteration {} >= {}); flipping returnDirect=true to terminate the loop after this tool call.",
                         next, maxIterationsBeforeReturnDirect);
-                iterations.remove(options);
+                iterations.invalidate(options);
                 return DefaultToolExecutionResult.builder()
                         .conversationHistory(delegated.conversationHistory())
                         .returnDirect(true)
                         .build();
             }
+
+            // Delegate already signalled end-of-turn (e.g. a tool declared
+            // returnDirect). Evict so we don't leak memory for turns that
+            // completed below the cap via the delegate's own signalling.
+            if (delegated.returnDirect()) {
+                iterations.invalidate(options);
+            }
+
             return delegated;
         }
 
@@ -188,17 +257,25 @@ public class BoundedToolCallingManagerConfig {
             if (options == null) {
                 return 0;
             }
-            return iterations.getOrDefault(options, 0);
+            AtomicInteger counter = iterations.getIfPresent(options);
+            return counter == null ? 0 : counter.get();
         }
 
         // Visible for tests.
         boolean hasCounter(ChatOptions options) {
             if (options == null) {
-                // The null-options path never populates the map (see
+                // The null-options path never populates the cache (see
                 // executeToolCalls); report "no counter" to match.
                 return false;
             }
-            return iterations.containsKey(options);
+            return iterations.getIfPresent(options) != null;
+        }
+
+        // Visible for tests: estimated live counter count. Caffeine may briefly
+        // over-report pending inserts/evictions; tests tolerate a small delta.
+        long counterCacheSize() {
+            iterations.cleanUp();
+            return iterations.estimatedSize();
         }
     }
 }

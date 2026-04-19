@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.JdkClientHttpConnector;
 
 import java.net.http.HttpClient;
+import java.util.Optional;
 
 /**
  * Forces Spring-AI's WebClient to use the JDK HttpClient pinned to HTTP/1.1
@@ -38,28 +39,81 @@ import java.net.http.HttpClient;
  * direct {@code java -jar agent.jar} invocations (e.g. IDE debugging or
  * Maven failsafe) where {@code entrypoint.sh} isn't in play. Because static
  * initializer ordering across Spring {@code @Configuration} classes is
- * fragile (this class may be loaded *after* the first {@link HttpClient} is
- * constructed elsewhere), always prefer the JVM-arg path in production.
+ * fragile (this class may be loaded <em>after</em> the first {@link HttpClient}
+ * is constructed elsewhere), always prefer the JVM-arg path in production.
+ *
+ * <p><b>Operator-hostile configuration:</b> a user-supplied non-zero
+ * {@code jdk.httpclient.keepalive.timeout} re-enables connection pooling and
+ * resurrects the half-closed-socket bug. By default we force-override it back
+ * to {@code 0} with a prominent {@code ERROR} log. To opt out of the override
+ * (e.g. for a deployment that has verified its upstream doesn't half-close
+ * sockets), set the {@code COPILOTKIT_ALLOW_KEEPALIVE=1} environment variable,
+ * at which point we warn loudly and honor the operator's choice.
  */
 @Configuration
 public class WebClientConfig {
 
     private static final Logger log = LoggerFactory.getLogger(WebClientConfig.class);
 
+    /** Property name we manage. */
+    static final String KEEPALIVE_PROPERTY = "jdk.httpclient.keepalive.timeout";
+
+    /** Value we force the property to in the default override path. */
+    static final String ZERO = "0";
+
+    /** Env var operators set to opt-in to honoring a non-zero value. */
+    static final String ALLOW_KEEPALIVE_ENV = "COPILOTKIT_ALLOW_KEEPALIVE";
+
     static {
-        // Must be set before the first java.net.http.HttpClient is built.
-        // Value is in seconds; 0 disables connection keep-alive entirely.
-        String existing = System.getProperty("jdk.httpclient.keepalive.timeout");
+        applyKeepaliveDecision(
+                System.getProperty(KEEPALIVE_PROPERTY),
+                System.getenv(ALLOW_KEEPALIVE_ENV))
+                .ifPresent(newValue -> System.setProperty(KEEPALIVE_PROPERTY, newValue));
+    }
+
+    /**
+     * Pure function that computes whether (and how) to rewrite
+     * {@code jdk.httpclient.keepalive.timeout}. Returns {@code Optional.empty()}
+     * to mean "leave the existing value alone"; returns a non-empty value that
+     * should be written into {@link System#setProperty(String, String)}.
+     *
+     * <p>Extracted as a static method so it can be unit-tested without the
+     * awkward "re-trigger the static initializer" dance (classes only
+     * initialize once per classloader, so the static block itself is
+     * effectively untestable in-process).
+     *
+     * @param existing current value of the system property, or {@code null}
+     *                 if unset
+     * @param allowKeepaliveEnv value of {@link #ALLOW_KEEPALIVE_ENV}, or
+     *                          {@code null} if unset. The string {@code "1"}
+     *                          opts in to honoring a non-zero user value.
+     */
+    static Optional<String> applyKeepaliveDecision(String existing, String allowKeepaliveEnv) {
         if (existing == null) {
-            System.setProperty("jdk.httpclient.keepalive.timeout", "0");
-        } else if (!"0".equals(existing.trim())) {
-            // Respect the user's override but warn loudly — a non-zero value
-            // re-enables keep-alive and can resurrect the half-closed-socket
-            // bug the JVM-arg + static-init pair is meant to prevent.
-            log.warn(
-                    "jdk.httpclient.keepalive.timeout is already set to '{}' (non-zero); leaving it alone, but note that keep-alive reuse can trigger 'Connection reset' against aimock/Prism upstreams. Set it to 0 to disable pooling.",
-                    existing);
+            log.info(
+                    "[WebClientConfig] {} was unset; defaulting to 0 to disable JDK HttpClient connection pooling (prevents 'Connection reset' against half-closed upstream sockets).",
+                    KEEPALIVE_PROPERTY);
+            return Optional.of(ZERO);
         }
+
+        String trimmed = existing.trim();
+        if (ZERO.equals(trimmed)) {
+            // Already the value we would have set — nothing to do.
+            return Optional.empty();
+        }
+
+        boolean allowKeepalive = "1".equals(allowKeepaliveEnv);
+        if (allowKeepalive) {
+            log.warn(
+                    "[WebClientConfig] {}='{}' is non-zero AND {}=1 was set; honoring operator override. Note: keep-alive reuse can trigger 'Connection reset' against aimock/Prism upstreams. Set {} to 0 (or unset it) to re-enable the safe default.",
+                    KEEPALIVE_PROPERTY, existing, ALLOW_KEEPALIVE_ENV, KEEPALIVE_PROPERTY);
+            return Optional.empty();
+        }
+
+        log.error(
+                "[WebClientConfig] {}='{}' is non-zero and {} is not '1'; force-overriding to 0 to prevent 'Connection reset' against half-closed upstream sockets. Set {}=1 to opt out of the override.",
+                KEEPALIVE_PROPERTY, existing, ALLOW_KEEPALIVE_ENV, ALLOW_KEEPALIVE_ENV);
+        return Optional.of(ZERO);
     }
 
     @Bean

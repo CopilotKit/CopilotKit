@@ -25,7 +25,9 @@ import static org.mockito.Mockito.when;
  *
  * <p>Covers: first-call pass-through, Nth-call returnDirect flip, counter
  * reset on fresh options, null-options short-circuit, counter eviction after
- * cap, and counter eviction on delegate exception.
+ * cap, counter eviction on delegate-signalled returnDirect, counter eviction
+ * on delegate exception, constructor validation, and bounded-size invariant
+ * on the happy path (sub-cap iterations).
  */
 class BoundedToolCallingManagerConfigTest {
 
@@ -33,6 +35,13 @@ class BoundedToolCallingManagerConfigTest {
         return DefaultToolExecutionResult.builder()
                 .conversationHistory(Collections.emptyList())
                 .returnDirect(false)
+                .build();
+    }
+
+    private static ToolExecutionResult returnDirectResult() {
+        return DefaultToolExecutionResult.builder()
+                .conversationHistory(Collections.emptyList())
+                .returnDirect(true)
                 .build();
     }
 
@@ -107,6 +116,8 @@ class BoundedToolCallingManagerConfigTest {
             assertThat(result.returnDirect()).isFalse();
         }
         assertThat(mgr.hasCounter(null)).isFalse();
+        // Null-options path must have zero counter-cache side effects.
+        assertThat(mgr.counterCacheSize()).isZero();
     }
 
     @Test
@@ -121,6 +132,74 @@ class BoundedToolCallingManagerConfigTest {
         ToolExecutionResult first = mgr.executeToolCalls(promptWithOptions(options), emptyChatResponse());
         assertThat(first.returnDirect()).isTrue();
         assertThat(mgr.hasCounter(options)).isFalse();
+    }
+
+    @Test
+    void delegateReturnDirect_evictsCounterToPreventHappyPathLeak() {
+        ToolCallingManager delegate = mock(ToolCallingManager.class);
+
+        BoundedToolCallingManager mgr = new BoundedToolCallingManager(delegate, 5);
+        ChatOptions options = mock(ChatOptions.class);
+
+        // Delegate signals end-of-turn via returnDirect=true (e.g. a tool
+        // declared returnDirect). The cap is nowhere near hit, but we should
+        // still evict the counter so memory doesn't accumulate on the happy
+        // path.
+        doReturn(returnDirectResult()).when(delegate).executeToolCalls(any(), any());
+        ToolExecutionResult result = mgr.executeToolCalls(promptWithOptions(options), emptyChatResponse());
+
+        assertThat(result.returnDirect()).isTrue();
+        assertThat(mgr.hasCounter(options)).isFalse();
+    }
+
+    @Test
+    void happyPathNaturalCompletion_keepsCounterBoundedUnderCapAndCacheSizeBounded() {
+        // Simulates the leak scenario: a high cap (so returnDirect is never
+        // flipped) and a delegate that returns returnDirect=false every time.
+        // Without the bounded-cache fix, the map would accumulate one entry
+        // per distinct ChatOptions reference forever. With Caffeine's
+        // maxSize bound, the cache cannot exceed its capacity regardless of
+        // traffic.
+        ToolCallingManager delegate = mock(ToolCallingManager.class);
+        when(delegate.executeToolCalls(any(), any())).thenReturn(passThroughResult());
+
+        BoundedToolCallingManager mgr = new BoundedToolCallingManager(delegate, 1_000_000);
+
+        // Each iteration uses a DIFFERENT ChatOptions reference (what you'd
+        // see across many independent concurrent conversation turns).
+        int turns = 200;
+        for (int i = 0; i < turns; i++) {
+            ChatOptions perTurn = mock(ChatOptions.class);
+            mgr.executeToolCalls(promptWithOptions(perTurn), emptyChatResponse());
+        }
+
+        // The cache should hold at most MAX_CACHE_SIZE entries. In this test
+        // we're well under that bound, but the real invariant we care about
+        // is "the count tracks what a bounded cache gives us" — assert it's
+        // at most the number of distinct turns (i.e. we didn't double-insert
+        // per iteration).
+        long size = mgr.counterCacheSize();
+        assertThat(size).isLessThanOrEqualTo(turns);
+        assertThat(size).isLessThanOrEqualTo(BoundedToolCallingManager.MAX_CACHE_SIZE);
+    }
+
+    @Test
+    void tenSubCapIterationsOnSameOptions_doNotCauseMapGrowth() {
+        // 10 non-cap iterations on the same ChatOptions should produce at
+        // most ONE cache entry — the counter increments in place rather than
+        // allocating a new entry per iteration.
+        ToolCallingManager delegate = mock(ToolCallingManager.class);
+        when(delegate.executeToolCalls(any(), any())).thenReturn(passThroughResult());
+
+        BoundedToolCallingManager mgr = new BoundedToolCallingManager(delegate, 1_000_000);
+        ChatOptions options = mock(ChatOptions.class);
+
+        for (int i = 0; i < 10; i++) {
+            mgr.executeToolCalls(promptWithOptions(options), emptyChatResponse());
+        }
+
+        assertThat(mgr.iterationCount(options)).isEqualTo(10);
+        assertThat(mgr.counterCacheSize()).isEqualTo(1L);
     }
 
     @Test
@@ -148,6 +227,29 @@ class BoundedToolCallingManagerConfigTest {
     }
 
     @Test
+    void delegateError_clearsCounterAndRethrows() {
+        // Errors (OOM, StackOverflow, etc.) also get the cleanup-and-rethrow
+        // path; we catch Throwable specifically so a JVM-level failure
+        // doesn't leave the counter map in a corrupted state.
+        ToolCallingManager delegate = mock(ToolCallingManager.class);
+        Error err = new OutOfMemoryError("simulated");
+
+        BoundedToolCallingManager mgr = new BoundedToolCallingManager(delegate, 5);
+        ChatOptions options = mock(ChatOptions.class);
+
+        doReturn(passThroughResult()).when(delegate).executeToolCalls(any(), any());
+        mgr.executeToolCalls(promptWithOptions(options), emptyChatResponse());
+        assertThat(mgr.iterationCount(options)).isEqualTo(1);
+
+        doThrow(err).when(delegate).executeToolCalls(any(), any());
+        assertThatThrownBy(() ->
+                mgr.executeToolCalls(promptWithOptions(options), emptyChatResponse()))
+                .isSameAs(err);
+
+        assertThat(mgr.hasCounter(options)).isFalse();
+    }
+
+    @Test
     void nullOptionsDelegateException_rethrowsAndLogsWithoutTouchingCounter() {
         ToolCallingManager delegate = mock(ToolCallingManager.class);
         RuntimeException boom = new RuntimeException("boom-null");
@@ -159,6 +261,18 @@ class BoundedToolCallingManagerConfigTest {
                 mgr.executeToolCalls(promptWithOptions(null), emptyChatResponse()))
                 .isSameAs(boom);
         assertThat(mgr.hasCounter(null)).isFalse();
+        // Failed null-options path must have zero counter-cache side effects.
+        assertThat(mgr.counterCacheSize()).isZero();
+    }
+
+    @Test
+    void constructorRejectsZeroOrNegativeCap() {
+        assertThatThrownBy(() -> new BoundedToolCallingManagerConfig(0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("max-iterations must be >= 1");
+        assertThatThrownBy(() -> new BoundedToolCallingManagerConfig(-3))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("max-iterations must be >= 1");
     }
 
     // AssistantMessage import present to force test compile against Spring-AI

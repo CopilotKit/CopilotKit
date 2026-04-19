@@ -7,6 +7,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.lang.reflect.Field;
 import java.net.http.HttpClient;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -17,6 +18,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * {@link JdkClientHttpConnector} whose underlying {@link HttpClient} is
  * pinned to HTTP/1.1 — the key invariant that keeps aimock/Prism fixtures
  * from rejecting an HTTP/2 upgrade negotiation.
+ *
+ * <p>Also exercises the pure {@link WebClientConfig#applyKeepaliveDecision}
+ * function that backs the static initializer's keep-alive override logic.
+ * The static block itself is untestable in-process (classes initialize once
+ * per classloader) — extracting the decision into a pure function is the
+ * ergonomic workaround.
  */
 class WebClientConfigTest {
 
@@ -45,19 +52,46 @@ class WebClientConfigTest {
         assertThat(httpClient.version()).isEqualTo(HttpClient.Version.HTTP_1_1);
     }
 
+    // ------------------------------------------------------------------
+    // applyKeepaliveDecision pure-function tests.
+    // ------------------------------------------------------------------
+
     @Test
-    void staticInitDoesNotOverrideExplicitUserTimeout() {
-        // The static initializer runs once at class load; simulate the
-        // "user already set a non-zero value" path by writing the property
-        // first, reloading, and confirming we don't stomp it.
-        //
-        // NOTE: we can't actually re-trigger the static initializer in-process
-        // (classes initialize once per classloader), so we assert the
-        // *current* property state is sane: if anything set it, it should be
-        // "0" (our default) or whatever the user/JVM-arg path chose.
-        String actual = System.getProperty("jdk.httpclient.keepalive.timeout");
-        assertThat(actual).as(
-                "keepalive timeout must be either our default '0' or a user/JVM-arg-supplied value; never unset if WebClientConfig has been loaded"
-        ).isNotNull();
+    void keepaliveDecision_unsetProperty_defaultsToZero() {
+        Optional<String> result = WebClientConfig.applyKeepaliveDecision(null, null);
+        assertThat(result).contains(WebClientConfig.ZERO);
+    }
+
+    @Test
+    void keepaliveDecision_alreadyZero_leavesAlone() {
+        Optional<String> result = WebClientConfig.applyKeepaliveDecision("0", null);
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void keepaliveDecision_zeroWithWhitespace_leavesAlone() {
+        // Trim-tolerance: "0 " shouldn't trigger an override.
+        Optional<String> result = WebClientConfig.applyKeepaliveDecision("0 ", null);
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void keepaliveDecision_nonZeroUserValueWithoutOptIn_forceOverridesToZero() {
+        Optional<String> result = WebClientConfig.applyKeepaliveDecision("60", null);
+        assertThat(result).contains(WebClientConfig.ZERO);
+    }
+
+    @Test
+    void keepaliveDecision_nonZeroUserValueWithAllowKeepaliveOptIn_leavesAlone() {
+        // Operator has explicitly opted in via COPILOTKIT_ALLOW_KEEPALIVE=1.
+        Optional<String> result = WebClientConfig.applyKeepaliveDecision("60", "1");
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void keepaliveDecision_nonZeroUserValueWithArbitraryOptInString_doesNotCountAsOptIn() {
+        // Only the literal "1" opts in — "true", "yes", etc. do NOT.
+        Optional<String> result = WebClientConfig.applyKeepaliveDecision("60", "true");
+        assertThat(result).contains(WebClientConfig.ZERO);
     }
 }
