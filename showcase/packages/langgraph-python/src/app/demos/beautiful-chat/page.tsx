@@ -36,7 +36,15 @@ export default function BeautifulChatPage() {
         agent="beautiful-chat"
         a2ui={{ catalog: demonstrationCatalog }}
         openGenerativeUI={{}}
-        useSingleEndpoint={false}
+        /*
+         * `useSingleEndpoint` defaults to true (the single-POST-endpoint
+         * protocol). The canonical reference sets it to false to use the
+         * v2 multi-endpoint protocol (GET /info + POST /agent/{name}/connect),
+         * which requires a Hono-based endpoint via `createCopilotEndpoint`.
+         * The 4085 showcase uses `copilotRuntimeNextJSAppRouterEndpoint`
+         * (single-endpoint), which matches the other 4085 cells — so we
+         * use its default behavior here. Functionally equivalent for this demo.
+         */
       >
         <HomePage />
       </CopilotKit>

@@ -31,7 +31,14 @@ const beautifulChatAgent = new LangGraphAgent({
 });
 
 const agents: Record<string, LangGraphAgent> = {
+  // The page's <CopilotKit agent="beautiful-chat"> resolves here.
   "beautiful-chat": beautifulChatAgent,
+  // Internal components (headless-chat, example-canvas) call `useAgent()`
+  // with no args, which defaults to agentId "default". Alias to the same
+  // graph so those component hooks resolve instead of throwing
+  // "Agent 'default' not found". This matches the canonical's
+  // `agents: { default: defaultAgent }` shape.
+  default: beautifulChatAgent,
 };
 
 const runtime = new CopilotRuntime({
