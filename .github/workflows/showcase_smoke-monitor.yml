@@ -260,8 +260,15 @@ jobs:
             # and 404 as "no versions yet" (quiet continue), and warn on any
             # other non-200 so the run log shows a ::warning:: without
             # failing the whole drift detector over one flaky service.
+            # Capture stderr separately from stdout. Merging them with 2>&1
+            # can splice gh error lines (auth failures, rate limits, network
+            # errors) ahead of the HTTP header block, which then corrupts
+            # HTTP_STATUS and API_BODY parsing — a drift run can look "clean"
+            # while actually failing every call. Keep stderr in a temp file
+            # and surface it only when we need to diagnose a non-zero RC.
+            API_STDERR=$(mktemp)
             set +e
-            API_RESPONSE=$(gh api -i "/orgs/copilotkit/packages/container/${PKG}/versions?per_page=1" 2>&1)
+            API_RESPONSE=$(gh api -i "/orgs/copilotkit/packages/container/${PKG}/versions?per_page=1" 2>"$API_STDERR")
             API_RC=$?
             set -e
             # gh api -i emits HTTP headers on stdout followed by a blank
@@ -275,9 +282,12 @@ jobs:
               # gh itself failed (network, missing binary) with no response
               # at all — surface as a warning and move on. A brief outage
               # shouldn't mark every service stale on the next clean run.
-              echo "::warning::${SVC}: gh api call failed (rc=$API_RC), skipping drift check"
+              GH_ERR=$(tr '\n' ' ' < "$API_STDERR" | sed 's/  */ /g' | sed 's/^ *//;s/ *$//')
+              rm -f "$API_STDERR"
+              echo "::warning::${SVC}: gh api call failed (rc=$API_RC): ${GH_ERR:-no stderr captured}, skipping drift check"
               continue
             fi
+            rm -f "$API_STDERR"
 
             case "$HTTP_STATUS" in
               200)
