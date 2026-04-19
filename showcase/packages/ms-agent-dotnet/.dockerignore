@@ -9,3 +9,13 @@ __pycache__
 **/*.test.tsx
 **/*.spec.ts
 **/*.spec.tsx
+# .NET build outputs. Mirrors .gitignore — Docker uses .dockerignore
+# exclusively and without these entries a stale local `dotnet build`
+# (under agent/bin, agent/obj, agent/tests/bin, etc.) gets shipped into
+# the build context on every image build. Wasted bytes and occasionally
+# a stale-artifact cache hit that masks real breakage.
+**/bin
+**/obj
+agent/tests
+*.user
+*.suo

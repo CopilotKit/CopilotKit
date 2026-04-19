@@ -497,42 +497,72 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          # No pip cache: today's tests install only pytest + typing_extensions
-          # (see "Install minimal test deps" below). Caching would key on a
-          # never-used `requirements.txt` and add overhead for no benefit.
-          # Re-add `cache: "pip"` + `cache-dependency-path` if per-package
-          # requirements.txt installs return (see comment in that step).
+          cache: "pip"
+          cache-dependency-path: |
+            showcase/packages/*/requirements.txt
 
       - name: Install minimal test deps
-        # Today's python unit tests (`test_aimock_toggle.py`) are stdlib-only
-        # except for the `typing_extensions` fallback path exercised on 3.10.
-        # Installing each package's full `requirements.txt` (CrewAI graph etc.)
-        # on every PR is a ~30-60s tax that buys nothing for stdlib-only tests.
-        # Install only pytest + typing_extensions here.
-        #
-        # If a future `tests/python/` adds cases that import package runtime
-        # deps (e.g. imports `crewai` or `litellm`), that package's test must
-        # install its own `requirements.txt` in an explicit step OR the loop
-        # below should gain a marker file (e.g. `tests/python/requirements.txt`)
-        # that triggers per-package install. Do NOT regress to installing every
-        # package's full requirements.txt unconditionally.
-        run: python -m pip install --quiet pytest typing_extensions
+        # Always need pytest + typing_extensions. pytest-asyncio is required
+        # by langroid's test_agui_adapter.py (16 tests use
+        # `@pytest.mark.asyncio`); without it, pytest reports
+        # "async def functions are not natively supported" and skips them.
+        # pytest-mock is installed pre-emptively as it's commonly used by
+        # showcase package tests and is cheap to install.
+        # Per-package `requirements.txt` is installed inside the run loop
+        # below so tests that import runtime deps (openai, google.genai,
+        # httpx, opentelemetry, etc.) don't fail at collection time with
+        # ModuleNotFoundError. Conftest-based stub finders can't help
+        # because test_*.py imports the target deps BEFORE conftest runs.
+        run: python -m pip install --quiet pytest pytest-asyncio pytest-mock typing_extensions
 
       - name: Run showcase package Python unit tests
         # Keep scope narrow: only showcase/packages/*/tests/python/ directories
         # (not e2e, not langgraph which has its own runtime). Each package has
         # its own conftest.py that wires up import paths; we cd into the pkg
         # dir so those apply.
+        #
+        # Before running pytest in a package we install that package's own
+        # `requirements.txt` (if present) so runtime-dep imports in test modules
+        # resolve. Keeps CI parity with real runtime and avoids the fragile
+        # stub-finder dance conftest.py would need to do otherwise.
         run: |
           set -euo pipefail
           failed=0
           found=0
+          # Current interpreter major.minor (e.g. "3.10", "3.12"). Used
+          # below to skip packages whose runtime deps are incompatible
+          # with the matrix Python on this job.
+          py_mm=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
           for pkg_dir in showcase/packages/*/; do
             tests_dir="${pkg_dir}tests/python"
             [ -d "$tests_dir" ] || continue
             found=$((found + 1))
             pkg=$(basename "$pkg_dir")
+            # --- Per-package Python-version gates -------------------------
+            # Skip packages whose `requirements.txt` pins a dep whose
+            # `requires-python` excludes this interpreter. Surgical skip
+            # (not matrix exclusion) so the rest of the packages continue
+            # to exercise the 3.10 typing_extensions fallback path.
+            #
+            # strands: ag_ui_strands==0.1.0 declares `requires-python >=3.12,<3.14`,
+            # so `pip install` fails on 3.10 before pytest even runs.
+            # langroid: tests import `typing.Self` (3.11+); on 3.10 the import fails
+            # at collection time. typing_extensions.Self would fix it but the tests
+            # are tightly coupled to the modern typing module.
+            # Revisit when ag_ui_strands relaxes its floor or when 3.10 is dropped.
+            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ]; }; then
+              echo "--- pytest: $pkg --- SKIPPED on Python $py_mm (requires >=3.11/3.12)"
+              continue
+            fi
             echo "--- pytest: $pkg ---"
+            if [ -f "${pkg_dir}requirements.txt" ]; then
+              echo "Installing ${pkg_dir}requirements.txt"
+              python -m pip install --quiet -r "${pkg_dir}requirements.txt" || {
+                echo "::error::pip install failed for $pkg"
+                failed=1
+                continue
+              }
+            fi
             (cd "$pkg_dir" && python -m pytest tests/python/ -v) || failed=1
           done
           if [ "$found" -eq 0 ]; then

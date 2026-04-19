@@ -32,3 +32,9 @@ __pycache__/
 *$py.class
 .venv/
 venv/
+
+# .NET build outputs
+bin/
+obj/
+*.user
+*.suo
