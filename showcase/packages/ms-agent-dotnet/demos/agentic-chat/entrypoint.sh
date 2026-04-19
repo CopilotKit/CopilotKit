@@ -12,7 +12,7 @@ if [ -z "$AGENT_DLL" ]; then
 fi
 echo "[entrypoint] launching .NET agent: $AGENT_DLL"
 
-dotnet "$AGENT_DLL" --urls "http://0.0.0.0:8000" 2>&1 | sed 's/^/[dotnet] /' &
+dotnet "$AGENT_DLL" --urls "http://0.0.0.0:8000" > >(sed 's/^/[dotnet] /') 2>&1 &
 DOTNET_PID=$!
 sleep 3
 
@@ -21,7 +21,7 @@ if ! kill -0 $DOTNET_PID 2>/dev/null; then
 fi
 
 PORT=${PORT:-10000}
-npx next start --port $PORT 2>&1 | sed 's/^/[nextjs] /' &
+npx next start --port $PORT > >(sed 's/^/[nextjs] /') 2>&1 &
 NEXTJS_PID=$!
 
 wait -n
