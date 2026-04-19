@@ -99,6 +99,26 @@ empty `create_agent(tools=[])`:
 </Step>
 </Steps>
 
+## Customising the generation prompt
+
+The `a2ui_prompt()` helper builds the system prompt handed to the
+secondary LLM — it bundles the full A2UI JSON schema reference plus
+default generation and design guidelines. Pass overrides to tighten
+the output to your product's style:
+
+```python
+from copilotkit.a2ui import a2ui_prompt
+
+prompt = a2ui_prompt(
+    generation_guidelines="...",   # How to call the tool, path rules, data format
+    design_guidelines="Use a minimal, monochrome aesthetic.",
+)
+```
+
+The showcase cell ships with the defaults; swap in your own guidelines
+to lock the generated UI to a specific component vocabulary or visual
+language.
+
 ## Progressive streaming
 
 The secondary LLM's `render_a2ui` tool call streams through LangGraph
