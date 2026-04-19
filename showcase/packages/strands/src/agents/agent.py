@@ -2,20 +2,24 @@
 Strands agent with sales pipeline state, weather tool, and HITL support.
 
 Adapted from examples/integrations/strands-python/agent/main.py
+
+All module-level side effects (agent construction, model init,
+``_agents_by_thread`` patching) are deferred to ``build_showcase_agent()``
+so import failures are localized and testable.
 """
 
 import json
+import logging
 import os
 import sys
+import threading
+from typing import Optional
 
 from ag_ui_strands import (
     StrandsAgent,
     StrandsAgentConfig,
     ToolBehavior,
-    create_strands_app,
 )
-from dotenv import load_dotenv
-from pydantic import BaseModel, Field
 from strands import Agent, tool
 from strands.hooks import (
     AfterToolCallEvent,
@@ -26,11 +30,9 @@ from strands.hooks import (
 )
 from strands.models.openai import OpenAIModel
 
-load_dotenv()
-
 # Import shared tool implementations
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"))
-from tools import (
+from tools import (  # noqa: E402
     get_weather_impl,
     query_data_impl,
     manage_sales_todos_impl,
@@ -39,10 +41,12 @@ from tools import (
     build_a2ui_operations_from_tool_call,
 )
 
+logger = logging.getLogger(__name__)
 
-# =====
-# Tools
-# =====
+
+# ---- Tools --------------------------------------------------------------
+
+
 @tool
 def get_weather(location: str):
     """Get current weather for a location.
@@ -100,6 +104,9 @@ def get_sales_todos():
 @tool
 def schedule_meeting(reason: str):
     """Schedule a meeting with user approval.
+
+    Duration is intentionally defaulted in this showcase to keep the
+    demo HITL flow minimal; callers only supply a reason.
 
     Args:
         reason: Reason for the meeting
@@ -200,9 +207,9 @@ def set_theme_color(theme_color: str):
     return None
 
 
-# =====
-# State management
-# =====
+# ---- State management ---------------------------------------------------
+
+
 def build_sales_prompt(input_data, user_message: str) -> str:
     """Inject the current sales pipeline state into the prompt."""
     state_dict = getattr(input_data, "state", None)
@@ -239,18 +246,28 @@ async def sales_state_from_args(context):
             return {"todos": [dict(t) for t in processed]}
 
         return None
-    except Exception:
+    except (json.JSONDecodeError, AttributeError, TypeError) as exc:
+        # Narrow to expected parse/access errors. Log at warning with a
+        # truncated excerpt of the offending tool input for debuggability.
+        raw_input = getattr(context, "tool_input", None)
+        excerpt = repr(raw_input)[:200] if raw_input is not None else "<missing>"
+        logger.warning(
+            "sales_state_from_args: failed to parse tool input (%s: %s); input excerpt: %s",
+            type(exc).__name__,
+            exc,
+            excerpt,
+        )
         return None
 
 
-# =====
-# Loop guard
-# =====
+# ---- Loop guard ---------------------------------------------------------
+
 # Upstream strands Agent has no max-iterations knob, so we enforce one via a
 # BeforeToolCallEvent hook. This protects against two real failure modes:
-#   1. LLM fixation loops (e.g. aimock's fuzzy `userMessage: "weather"` fixture
-#      returns the same get_weather tool call on every cycle because the last
-#      user message in history never changes, causing unbounded recursion).
+#   1. LLM fixation loops (e.g. aimock's fuzzy ``userMessage: "weather"``
+#      fixture returns the same get_weather tool call on every cycle because
+#      the last user message in history never changes, causing unbounded
+#      recursion).
 #   2. Genuine model confusion / looping behavior at provider level.
 # When the cap is reached, we cancel the tool call which surfaces as a benign
 # error tool result and lets the model resolve with a text turn.
@@ -258,11 +275,22 @@ _MAX_TOOL_CALLS_PER_INVOCATION = 8
 
 
 class _ToolCallCapHook(HookProvider):
-    """Cap total tool calls per Agent invocation to prevent runaway loops."""
+    """Cap total tool calls per Agent invocation to prevent runaway loops.
+
+    Concurrency note: ag_ui_strands creates one Agent (and therefore one
+    ``_ToolCallCapHook``) per ``thread_id``. A single AG-UI thread is
+    invoked sequentially (one request at a time), so under normal use there
+    is no concurrent access to ``_count``. We still hold a lock around
+    mutations defensively because (a) strands may dispatch tool execution
+    onto its own ThreadPoolExecutor and (b) misuse (e.g. two concurrent
+    requests on the same thread_id) should degrade gracefully rather than
+    race silently.
+    """
 
     def __init__(self, max_calls: int = _MAX_TOOL_CALLS_PER_INVOCATION):
         self._max_calls = max_calls
         self._count = 0
+        self._lock = threading.Lock()
 
     def register_hooks(self, registry: HookRegistry, **_: object) -> None:
         registry.add_callback(BeforeInvocationEvent, self._on_invocation_start)
@@ -270,11 +298,19 @@ class _ToolCallCapHook(HookProvider):
         registry.add_callback(AfterToolCallEvent, self._on_after_tool)
 
     def _on_invocation_start(self, _event: BeforeInvocationEvent) -> None:
-        self._count = 0
+        with self._lock:
+            self._count = 0
 
     def _on_before_tool(self, event: BeforeToolCallEvent) -> None:
-        self._count += 1
-        if self._count > self._max_calls:
+        with self._lock:
+            self._count += 1
+            current = self._count
+        if current > self._max_calls:
+            logger.warning(
+                "tool call cap reached after %d calls (max=%d); cancelling tool call to break loop",
+                current,
+                self._max_calls,
+            )
             event.cancel_tool = (
                 f"Tool call cap reached ({self._max_calls}). "
                 "Respond to the user with the information you already have."
@@ -283,43 +319,117 @@ class _ToolCallCapHook(HookProvider):
     def _on_after_tool(self, event: AfterToolCallEvent) -> None:
         # Once we've hit the cap, force the event loop to stop after this
         # tool's cancellation result is appended. Strands checks
-        # `request_state["stop_event_loop"]` at the end of each cycle.
-        if self._count >= self._max_calls:
+        # ``request_state["stop_event_loop"]`` at the end of each cycle.
+        with self._lock:
+            current = self._count
+        if current >= self._max_calls:
             request_state = event.invocation_state.setdefault("request_state", {})
             request_state["stop_event_loop"] = True
 
 
-# =====
-# Agent configuration
-# =====
-shared_state_config = StrandsAgentConfig(
-    state_context_builder=build_sales_prompt,
-    tool_behaviors={
-        "manage_sales_todos": ToolBehavior(
-            skip_messages_snapshot=True,
-            state_from_args=sales_state_from_args,
-        ),
-        # get_weather is used by the tool-rendering demo. The frontend renders
-        # a weather card from the tool result via useRenderTool. There is no
-        # need for the agent to continue streaming a text summary afterwards —
-        # the card IS the response. Halting after the first tool result also
-        # protects against upstream LLM/mock loops (e.g. aimock's fuzzy
-        # fixture matching on "weather" returns the same get_weather tool
-        # call every turn, which would otherwise recurse indefinitely).
-        "get_weather": ToolBehavior(
-            stop_streaming_after_result=True,
-        ),
-    },
-)
+# ---- Per-thread hook injection -----------------------------------------
 
-# Initialize OpenAI model
-api_key = os.getenv("OPENAI_API_KEY", "")
-model = OpenAIModel(
-    client_args={"api_key": api_key},
-    model_id="gpt-4o",
-)
+# ag_ui_strands constructs a fresh Agent per thread_id from the template and
+# does NOT copy hooks (see site-packages/ag_ui_strands/agent.py). We patch the
+# per-thread dict so every Agent instance it constructs gets its own
+# ``_ToolCallCapHook`` attached before the first invocation. The hook keeps
+# per-instance state (call count), so we give each thread its own instance.
+#
+# We subclass ``dict`` and override every mutation entry-point (``__setitem__``,
+# ``update``, ``setdefault``, ``__ior__``) to ensure hook injection happens
+# unconditionally, regardless of how ag_ui_strands populates the mapping.
+# ``dict.update`` and friends bypass ``__setitem__`` in CPython's C paths, so
+# a single ``__setitem__`` override is not sufficient.
 
-system_prompt = (
+
+def _agent_has_cap_hook(agent: Agent) -> bool:
+    """Return True if ``agent`` already has a ``_ToolCallCapHook`` registered.
+
+    Used to guard against double-injection when the same ``thread_id`` is
+    re-inserted (otherwise a second hook would effectively halve the cap).
+    """
+    hooks = getattr(agent, "hooks", None)
+    if hooks is None:
+        return False
+    # ``HookRegistry`` exposes registered providers via ``_hook_providers``
+    # (a list). Fall back to iterating attributes if the API changes.
+    providers = getattr(hooks, "_hook_providers", None) or getattr(hooks, "hook_providers", None)
+    if providers is None:
+        return False
+    return any(isinstance(p, _ToolCallCapHook) for p in providers)
+
+
+def _inject_cap_hook(agent: Agent) -> None:
+    """Attach a fresh ``_ToolCallCapHook`` unless one is already present."""
+    if _agent_has_cap_hook(agent):
+        return
+    agent.hooks.add_hook(_ToolCallCapHook())
+
+
+class _HookInjectingAgentDict(dict):
+    """``dict`` subclass that attaches a ``_ToolCallCapHook`` to every inserted Agent.
+
+    All mutation paths (``__setitem__``, ``update``, ``setdefault``, ``__ior__``)
+    are overridden so hook injection cannot be bypassed by CPython's bulk
+    update C paths.
+    """
+
+    def __setitem__(self, key, value):
+        if isinstance(value, Agent):
+            _inject_cap_hook(value)
+        super().__setitem__(key, value)
+
+    def update(self, *args, **kwargs):  # type: ignore[override]
+        # Normalize all inputs to (key, value) pairs and route through
+        # ``self[key] = value`` so our injection logic runs uniformly.
+        if args:
+            if len(args) > 1:
+                raise TypeError(
+                    f"update expected at most 1 positional argument, got {len(args)}"
+                )
+            other = args[0]
+            if hasattr(other, "keys"):
+                for k in other.keys():
+                    self[k] = other[k]
+            else:
+                for k, v in other:
+                    self[k] = v
+        for k, v in kwargs.items():
+            self[k] = v
+
+    def setdefault(self, key, default=None):  # type: ignore[override]
+        if key not in self:
+            self[key] = default
+        return self[key]
+
+    def __ior__(self, other):  # type: ignore[override]
+        self.update(other)
+        return self
+
+    def __or__(self, other):  # type: ignore[override]
+        # ``dict | other`` returns a new dict; preserve injection semantics.
+        new = _HookInjectingAgentDict(self)
+        new.update(other)
+        return new
+
+
+# ---- Factory ------------------------------------------------------------
+
+
+def _build_model() -> OpenAIModel:
+    """Construct the OpenAI model, failing fast on missing credentials."""
+    api_key = os.getenv("OPENAI_API_KEY", "")
+    if not api_key:
+        raise RuntimeError(
+            "OPENAI_API_KEY must be set for the strands showcase agent"
+        )
+    return OpenAIModel(
+        client_args={"api_key": api_key},
+        model_id="gpt-4o",
+    )
+
+
+SYSTEM_PROMPT = (
     "You are a polished, professional demo assistant for CopilotKit. "
     "Keep responses brief and clear -- 1 to 2 sentences max.\n\n"
     "You can:\n"
@@ -336,34 +446,70 @@ system_prompt = (
     "mentioning, updating, or discussing todos with the user."
 )
 
-# Create Strands agent with tools.
-# The _ToolCallCapHook is attached to each per-thread Agent via
-# _HookInjectingAgentDict below (ag_ui_strands doesn't copy hooks from the
-# template when it spawns per-thread instances).
-strands_agent = Agent(
-    model=model,
-    system_prompt=system_prompt,
-    tools=[get_sales_todos, manage_sales_todos, get_weather, query_data, schedule_meeting, search_flights, generate_a2ui, set_theme_color],
-)
 
-# Wrap with AG-UI integration
-agui_agent = StrandsAgent(
-    agent=strands_agent,
-    name="strands_agent",
-    description="A sales assistant that collaborates with you to manage a sales pipeline",
-    config=shared_state_config,
-)
+def build_showcase_agent(
+    model: Optional[OpenAIModel] = None,
+) -> StrandsAgent:
+    """Construct the ``StrandsAgent`` used by the showcase server.
 
+    Wrapping construction in a factory keeps all module-level side effects
+    (env-var reads, model initialization, per-thread hook patching) out of
+    import time, so failures surface at a single well-defined call site
+    (``agent_server.py``) rather than at arbitrary import order.
+    """
+    resolved_model = model if model is not None else _build_model()
 
-# ag_ui_strands constructs a fresh Agent per thread_id from the template and
-# does NOT copy hooks (see site-packages/ag_ui_strands/agent.py). Patch the
-# per-thread dict so every Agent instance it constructs gets its own
-# _ToolCallCapHook attached before the first invocation. The hook keeps
-# per-instance state (call count), so we give each thread its own instance.
-class _HookInjectingAgentDict(dict):
-    def __setitem__(self, key: str, value: Agent) -> None:
-        value.hooks.add_hook(_ToolCallCapHook())
-        super().__setitem__(key, value)
+    shared_state_config = StrandsAgentConfig(
+        state_context_builder=build_sales_prompt,
+        tool_behaviors={
+            "manage_sales_todos": ToolBehavior(
+                skip_messages_snapshot=True,
+                state_from_args=sales_state_from_args,
+            ),
+            # get_weather is used by the tool-rendering demo. The frontend
+            # renders a weather card from the tool result via useRenderTool.
+            # There is no need for the agent to continue streaming a text
+            # summary afterwards -- the card IS the response. Halting after
+            # the first tool result also protects against upstream LLM/mock
+            # loops (e.g. aimock's fuzzy fixture matching on "weather"
+            # returns the same get_weather tool call every turn, which would
+            # otherwise recurse indefinitely).
+            "get_weather": ToolBehavior(
+                stop_streaming_after_result=True,
+            ),
+        },
+    )
 
+    strands_agent = Agent(
+        model=resolved_model,
+        system_prompt=SYSTEM_PROMPT,
+        tools=[
+            get_sales_todos,
+            manage_sales_todos,
+            get_weather,
+            query_data,
+            schedule_meeting,
+            search_flights,
+            generate_a2ui,
+            set_theme_color,
+        ],
+    )
 
-agui_agent._agents_by_thread = _HookInjectingAgentDict()
+    agui_agent = StrandsAgent(
+        agent=strands_agent,
+        name="strands_agent",
+        description="A sales assistant that collaborates with you to manage a sales pipeline",
+        config=shared_state_config,
+    )
+
+    # Replace the per-thread agent dict with our hook-injecting variant.
+    # Preserve any entries ag_ui_strands created in ``__init__`` by copying
+    # them into the new dict first (which re-runs injection to guarantee
+    # every existing Agent also has the cap hook attached).
+    existing = getattr(agui_agent, "_agents_by_thread", None) or {}
+    hook_dict = _HookInjectingAgentDict()
+    if existing:
+        hook_dict.update(existing)
+    agui_agent._agents_by_thread = hook_dict
+
+    return agui_agent
