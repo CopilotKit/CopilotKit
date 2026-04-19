@@ -1,55 +1,118 @@
 ---
 title: Frontend Tools
 icon: "lucide/Wrench"
-description: Let your agent interact with and update your application's UI.
+description: Create frontend tools and use them within your LangChain agent.
 hideTOC: true
-snippet_framework: langgraph-python
-snippet_cell: frontend-tools
 ---
-
-## What is this?
-
-Frontend tools let your agent define and invoke client-side functions — logic
-that runs entirely in the user's browser. Because the handler executes in the
-frontend, it has direct access to component state, browser APIs, and any
-third-party UI library the page already uses. That's how an agent can "reach
-into" the app: update React state, trigger animations, read `localStorage`,
-pop a toast, or steer the user's view.
-
-This page covers the "agent drives the UI" shape of frontend tools. (The same
-primitive also powers Generative UI and Human-in-the-loop — see those pages
-for interaction patterns.)
 
 <InlineDemo integration="langgraph-python" demo="frontend-tools" />
 
+## What is this?
+Frontend tools enable you to define client-side functions that your LangChain agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized to let your agent control the UI, for generative UI, or for Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools driving and interacting with the UI.
+
 ## When should I use this?
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
 
-Use frontend tools when your agent needs to:
+## Implementation
 
-- Read or modify React component state
-- Access browser APIs like `localStorage`, `sessionStorage`, or cookies
-- Trigger UI updates, animations, or transitions
-- Show alerts, toasts, or notifications
-- Interact with third-party frontend libraries
-- Perform anything that requires the user's immediate browser context
+<Steps>
+    <Step>
+        ### Run and connect your agent
+       <RunAndConnect />
+    </Step>
 
-## How it works in code
+    <Step>
+        ### Create a frontend tool
 
-Register a frontend tool with `useFrontendTool`. Give it a name, a Zod schema
-for parameters, and a handler — the agent can then call it like any other
-tool and your frontend runs it in the browser.
+        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/v2/hooks/useFrontendTool) hook. Here's a simple one to get you started
+        that says hello to the user.
 
-<Snippet region="frontend-tool-registration" title="frontend/src/app/page.tsx — useFrontendTool" />
+        ```tsx title="page.tsx"
+        import { z } from "zod";
+        import { useFrontendTool } from "@copilotkit/react-core/v2" // [!code highlight]
 
-The handler receives the parsed, type-safe parameters and can do anything
-the browser can: update state, call an API, touch the DOM. Its return value
-is sent back to the agent as the tool result so the model can reason about
-what happened.
+        export function Page() {
+          // ...
 
-<Snippet region="frontend-tool-handler" title="frontend/src/app/page.tsx — handler body" />
+          // [!code highlight:12]
+          useFrontendTool({
+            name: "sayHello",
+            description: "Say hello to the user",
+            parameters: z.object({
+              name: z.string().describe("The name of the user to say hello to"),
+            }),
+            handler: async ({ name }) => {
+              alert(`Hello, ${name}!`);
+              return `Said hello to ${name}!`;
+            },
+          });
 
-<FeatureIntegrations feature="frontend-tools-sync" />
+          // ...
+        }
+        ```
+    </Step>
+    <Step>
+        ### Install the CopilotKit SDK
 
-## Get started by choosing your AI backend
+        Now, we'll need to modify the agent to access these frontend tools. In your terminal, navigate to your agent's folder and continue from there!
 
-<IntegrationGrid path="frontend-tools" />
+        <InstallSDKSnippet />
+    </Step>
+    <Step>
+        ### Inheriting from CopilotKitState
+
+        To access the frontend tools provided by CopilotKit, you can inherit from CopilotKitState in your agent's state definition:
+
+        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+            <Tab value="Python">
+                ```python title="agent.py"
+                from copilotkit import CopilotKitState # [!code highlight]
+
+                class YourAgentState(CopilotKitState): # [!code highlight]
+                    your_additional_properties: str
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                ```typescript title="agent-js/src/agent.ts"
+                import { Annotation } from "@langchain/langgraph";
+                import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+
+                export const YourAgentStateAnnotation = Annotation.Root({
+                    yourAdditionalProperty: Annotation<string>,
+                    ...CopilotKitStateAnnotation.spec, // [!code highlight]
+                });
+                export type YourAgentState = typeof YourAgentStateAnnotation.State;
+                ```
+            </Tab>
+        </Tabs>
+
+        By doing this, your agent's state will include the `copilotkit` property, which contains the frontend tools that can be accessed and invoked.
+    </Step>
+    <Step>
+        ### Accessing Frontend Tools
+
+        Once your agent's state includes the `copilotkit` property, you can access the frontend tools and utilize them within your agent's logic.
+
+        Here's how you can call a frontend tool from your agent:
+
+        <FrontEndToolsImpl />
+
+        These tools are automatically populated by CopilotKit and are compatible with LangChain's tool call definitions, making it straightforward to integrate them into your agent's workflow.
+    </Step>
+    <Step>
+        ### Give it a try!
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+
+        <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+    </Step>
+</Steps>
