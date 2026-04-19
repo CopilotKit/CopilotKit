@@ -1,87 +1,29 @@
 ---
-title: "A2UI"
+title: "Overview"
 icon: "lucide/FileJson"
-description: "Render rich, declarative UI surfaces from your agent using the A2UI protocol."
-hideTOC: true
+description: "Render rich, declarative UI surfaces from your LangGraph agent using the A2UI protocol."
 ---
 
-## What is this?
+import { Callout } from "fumadocs-ui/components/callout"
 
-[A2UI](https://a2ui.org) (Agent-to-UI) is a declarative Generative UI
-specification — led by Google with CopilotKit as a launch and design
-partner. It lets your agent render structured UI components through a
-JSON-based schema instead of plain text: cards, rows, columns, badges,
-price tags — all composed from a catalog of components you (or the
-platform) define.
+[A2UI](https://a2ui.org) (Agent-to-UI) is a Declarative Generative UI specification led by Google, with CopilotKit as a launch and design partner. It lets your agent render structured UI components using a JSON-based schema. Instead of sending plain text, the agent produces surfaces — cards, lists, buttons, images — that render natively in the chat.
 
-You can design and preview A2UI schemas visually using the
-[A2UI Composer](https://a2ui-composer.ag-ui.com/).
-
-## The two approaches
-
-CopilotKit's showcase ships two complementary A2UI cells:
-
-- **[Dynamic Schema](./a2ui/dynamic-schema)** — a secondary LLM
-  generates both the schema *and* the data. Maximum flexibility —
-  the agent can produce any UI for any prompt. Backed by the
-  `declarative-gen-ui` cell.
-
-- **[Fixed Schema](./a2ui/fixed-schema)** — the component tree is
-  authored ahead of time as JSON. The agent only streams *data* into
-  the data model at runtime. Fastest — no LLM schema generation.
-  Backed by the `a2ui-fixed-schema` cell.
-
-Both approaches share the same A2UI wire protocol and the same
-frontend renderer. The difference is *where the schema comes from* and
-*how data reaches the client*.
-
-### When to use which?
-
-| Approach | Schema source | Rendering | Best for |
-|---|---|---|---|
-| **Fixed Schema** | JSON file | Instant (all at once) | Known UI patterns (flight cards, product tiles, dashboards) |
-| **Dynamic Schema** | LLM-generated | Progressive (card by card) | Unknown / varied UI — the agent decides what to show |
-
-## How it works
-
-Every A2UI surface is assembled from three kinds of operations emitted
-by the agent and consumed by the frontend renderer:
-
-1. **`createSurface` / `surfaceUpdate`** — declares (or pins) the
-   component tree (the schema) for a surface.
-2. **`updateComponents` / `dataModelUpdate`** — supplies the data that
-   populates the components via JSON Pointer paths.
-3. **`beginRendering`** — tells the client the first frame is ready.
-
-The CopilotKit Python SDK provides helpers for each:
-
-```python
-from copilotkit import a2ui
-
-a2ui.create_surface(surface_id, catalog_id=...)
-a2ui.update_components(surface_id, components)
-a2ui.update_data_model(surface_id, {"items": data})
-a2ui.begin_rendering(surface_id, root_id)
-a2ui.render(operations=[...])  # wraps and serializes for a tool result
-```
+You can design and preview A2UI schemas visually using the [A2UI Composer](https://a2ui-composer.ag-ui.com/).
 
 ## Setup
 
-Enable A2UI in your CopilotRuntime by adding `a2ui: true`, or pass an
-object to customise. The middleware handles the wire protocol
-automatically — it intercepts tool results containing A2UI operations
-and renders them as rich surfaces in the chat:
+Enable A2UI in your CopilotRuntime by adding `a2ui: true`, or pass an object to customise:
 
 ```typescript title="app/api/copilotkit/route.ts"
 import { CopilotRuntime } from "@copilotkit/runtime";
 
-// Simple — enable with defaults (good for fixed-schema flows)
+// Simple — enable with defaults
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
   a2ui: true,
 });
 
-// Or customise — e.g. auto-inject the render tool for dynamic schemas
+// Or customise — e.g. inject a render tool into the agent
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
   a2ui: {
@@ -90,25 +32,52 @@ const runtime = new CopilotRuntime({
 });
 ```
 
+This tells the runtime to apply the A2UI middleware to your agents. The middleware intercepts tool results containing A2UI operations and renders them as rich UI surfaces in the chat.
+
 <Callout type="warn">
-Without `a2ui` configured on the CopilotRuntime, A2UI surfaces will
-not render — the operations will fall through as plain tool results.
+Without `a2ui` configured in your CopilotRuntime, A2UI surfaces will not render — tool results will appear as plain text.
 </Callout>
 
-## Choose your approach
+## Approaches
 
-<Cards>
-  <Card
-    title="Dynamic Schema"
-    href="./a2ui/dynamic-schema"
-    description="A secondary LLM generates both the schema and data. Any UI from any prompt."
-  />
-  <Card
-    title="Fixed Schema"
-    href="./a2ui/fixed-schema"
-    description="Pre-authored JSON schema, agent streams data. Fastest path to production-quality UI."
-  />
-</Cards>
+CopilotKit supports three approaches to A2UI, each with different tradeoffs:
+
+- **[Fixed Schema](./a2ui/fixed-schema)** — Pre-defined schema loaded from JSON. Agent provides data only. Fastest — no LLM schema generation.
+- **[Fixed Schema (Streaming)](./a2ui/fixed-schema-streaming)** — Same pre-defined schema, but cards appear one-by-one as the LLM streams data. Great for lists.
+- **[Dynamic Schema](./a2ui/dynamic-schema)** — A secondary LLM generates both the schema and data. Fully flexible — any UI from any prompt.
+
+## When to use which?
+
+| Approach | Schema source | Rendering | Best for |
+|---|---|---|---|
+| **Fixed Schema** | JSON file | Instant (all at once) | Known UI patterns (flight cards, product lists) |
+| **Fixed Schema Streaming** | JSON file | Progressive (card by card) | Long lists where you want immediate feedback |
+| **Dynamic Schema** | LLM-generated | Progressive (card by card) | Unknown/varied UI — the agent decides what to show |
+
+<Callout type="info">
+All three approaches use the same A2UI protocol and renderer. The difference is where the schema comes from and how data reaches the client.
+</Callout>
+
+## How it works
+
+Every A2UI surface is built from three operations:
+
+1. **`surfaceUpdate`** — defines the component tree (the schema)
+2. **`dataModelUpdate`** — provides the data that populates the components
+3. **`beginRendering`** — tells the client to start rendering
+
+The CopilotKit Python SDK provides helpers to build these operations:
+
+```python
+from copilotkit import a2ui
+
+a2ui.surface_update(surface_id, components)
+a2ui.data_model_update(surface_id, {"items": data})
+a2ui.begin_rendering(surface_id, root_id)
+a2ui.render(operations)  # wraps and serializes
+```
+
+Continue to one of the approach guides above to see the full implementation.
 
 ## Choose your AI backend
 
