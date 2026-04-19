@@ -14,57 +14,22 @@ import java.util.Optional;
  * Forces Spring-AI's WebClient to use the JDK HttpClient pinned to HTTP/1.1
  * with connection pooling disabled.
  *
- * <p>Spring-AI 1.0.1 builds its OpenAI {@code WebClient} from the auto-configured
- * {@code WebClient.Builder}. Without reactor-netty on the classpath, that builder
- * defaults to {@link JdkClientHttpConnector} with a {@link HttpClient} whose
- * {@code Version} is unset — so the client advertises {@code Upgrade: h2c} on
- * every cleartext HTTP/1.1 request. Some HTTP fixtures (e.g. aimock) reject the
- * upgrade negotiation with 404, breaking chat + tool calls even though the
- * underlying endpoint is reachable by curl. Pinning to HTTP/1.1 drops the
- * {@code Connection: Upgrade, HTTP2-Settings} + {@code Upgrade: h2c} headers
- * and restores compatibility (TLS paths use ALPN so real OpenAI still
- * negotiates HTTP/2 when supported).
+ * <p>Pinning HTTP/1.1 prevents cleartext {@code Upgrade: h2c} negotiation
+ * (which aimock/Prism reject with 404). Disabling keepalive via
+ * {@code jdk.httpclient.keepalive.timeout=0} prevents reuse of half-closed
+ * pooled sockets, which would otherwise trip {@code Connection reset} on
+ * follow-up tool-result requests.
  *
- * <p>On top of that, the JDK HttpClient pools connections by default. When the
- * first streaming SSE response finishes, the pooled socket can be half-closed
- * by the upstream (Prism/aimock do this between fixtures), but the client
- * will happily reuse it for the follow-up tool-result request and trip over
- * {@code Connection reset}. Setting {@code jdk.httpclient.keepalive.timeout=0}
- * before the first HttpClient is created forces a fresh connection per request.
- *
- * <p><b>JVM-arg authority note:</b> static initializer ordering across Spring
- * {@code @Configuration} classes is fragile. If the JVM arg path is ever
- * dropped AND this class happens to load after a {@link HttpClient} has
- * already been constructed elsewhere, keepalive will silently stay pooled —
- * the static block writes a property that's already been read. The
- * {@code @Bean} method below therefore re-checks the property at bean
- * construction time and <em>throws {@link IllegalStateException}</em> if it
- * isn't {@code "0"} (matching the fail-fast philosophy of
- * {@link OpenAiApiKeyValidator}). The opt-in env var
- * {@link #ALLOW_KEEPALIVE_ENV} suppresses the throw — in that case we log a
- * prominent warning and proceed, trusting the operator who explicitly
- * opted in.
- *
- * <p><b>Authoritative path:</b> {@code entrypoint.sh} passes
- * {@code -Djdk.httpclient.keepalive.timeout=0} as a JVM arg, which guarantees
- * the property is set before any class — including this one — is loaded. The
- * static initializer below is a defensive belt-and-suspenders fallback for
- * direct {@code java -jar agent.jar} invocations (e.g. IDE debugging or
- * Maven failsafe) where {@code entrypoint.sh} isn't in play. Because static
- * initializer ordering across Spring {@code @Configuration} classes is
- * fragile (this class may be loaded <em>after</em> the first {@link HttpClient}
- * is constructed elsewhere), always prefer the JVM-arg path in production.
- *
- * <p><b>Operator-hostile configuration:</b> a user-supplied non-zero
- * {@code jdk.httpclient.keepalive.timeout} re-enables connection pooling and
- * resurrects the half-closed-socket bug. By default we force-override it back
- * to {@code 0} with a prominent {@code ERROR} log. To opt out of the override
- * (e.g. for a deployment that has verified its upstream doesn't half-close
- * sockets), set {@code COPILOTKIT_ALLOW_KEEPALIVE} to {@code "1"} or
- * {@code "true"} (case-insensitive), at which point we warn loudly and
- * honor the operator's choice. "yes" is deliberately NOT accepted — Spring
- * and the broader Java ecosystem canonicalize on {@code true}/{@code false},
- * so keeping the opt-in vocabulary narrow avoids surprise.
+ * <p><b>Canonical rationale:</b> see {@code entrypoint.sh} — it carries the
+ * authoritative JVM-arg wiring ({@code -Djdk.httpclient.keepalive.timeout=0})
+ * and the full explanation of why we pin HTTP/1.1 and disable pooling. This
+ * class is a defensive belt-and-suspenders: a static initializer for direct
+ * {@code java -jar agent.jar} invocations where {@code entrypoint.sh} isn't
+ * in play, plus a fail-fast {@code @Bean} check that throws
+ * {@link IllegalStateException} (mirroring {@link OpenAiApiKeyValidator}'s
+ * philosophy) if the property isn't {@code "0"} by bean construction time.
+ * Set {@link #ALLOW_KEEPALIVE_ENV}={@code 1} (or {@code true}) to suppress
+ * the override/throw — we warn and honor the operator's opt-in.
  */
 @Configuration
 public class WebClientConfig {
@@ -155,20 +120,9 @@ public class WebClientConfig {
 
     @Bean
     public WebClientCustomizer http11WebClientCustomizer() {
-        // Defensive runtime check: by bean construction time, the JVM arg path
-        // (`-Djdk.httpclient.keepalive.timeout=0` in entrypoint.sh) should
-        // have rendered the property "0". If it's anything else, either:
-        //   (a) the JVM arg was dropped from entrypoint.sh, OR
-        //   (b) this class loaded AFTER an HttpClient was already constructed
-        //       elsewhere — in which case our static block's setProperty
-        //       would have had no effect on that pre-existing client's pool.
-        // Either way it's an operator-visible misconfiguration that silently
-        // resurrects the half-closed-socket bug. Fail fast with
-        // IllegalStateException — matching OpenAiApiKeyValidator's philosophy
-        // of aborting context refresh on broken config rather than limping
-        // on and serving 500s downstream. The COPILOTKIT_ALLOW_KEEPALIVE
-        // env var is the explicit operator opt-out: when set to a truthy
-        // value, we log loudly and proceed.
+        // Defensive runtime check. See class Javadoc + entrypoint.sh for the
+        // authoritative rationale. COPILOTKIT_ALLOW_KEEPALIVE is the
+        // operator opt-out.
         String observed = System.getProperty(KEEPALIVE_PROPERTY);
         if (!ZERO.equals(observed)) {
             boolean optedIn = isTruthy(System.getenv(ALLOW_KEEPALIVE_ENV));
