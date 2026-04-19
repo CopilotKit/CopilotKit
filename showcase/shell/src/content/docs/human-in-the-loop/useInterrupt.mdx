@@ -35,6 +35,14 @@ than an LLM-initiated tool call. Typical cases:
 For LLM-initiated pauses — where the model decides on the fly to ask
 the user — prefer [`useHumanInTheLoop`](../human-in-the-loop).
 
+<Callout type="info">
+  Your agent won't be aware of the `interrupt` interaction by default — to
+  LangGraph, `interrupt()` returns the resume value and the model sees only
+  the tool's final return. If you want the model to see the human exchange
+  as part of its conversation, have the tool append the resolution into a
+  message it returns.
+</Callout>
+
 ## The backend: `interrupt()` inside a tool
 
 The showcase `gen-ui-interrupt` cell exposes a `schedule_meeting` tool.
@@ -60,6 +68,12 @@ On the client you register a `useInterrupt` hook per agent. When the
 paused run arrives, its payload is handed to `render` as `event.value`,
 and `resolve(...)` is how you resume the run:
 
+<Callout type="warn">
+  **`agentId` must match a runtime-registered agent.** If you omit
+  `agentId`, the hook assumes `"default"`. If the IDs don't match, the
+  interrupt will never fire.
+</Callout>
+
 <Snippet region="frontend-useinterrupt-render" title="frontend/src/app/page.tsx — useInterrupt" />
 
 Whatever you pass to `resolve` is round-tripped back to the agent as
@@ -67,8 +81,8 @@ the return value of the matching `interrupt(...)` call.
 
 ### Key props
 
-- **`agentId`** — must match a runtime-registered agent. If omitted, the
-  hook assumes `"default"`. A mismatch means the interrupt never fires.
+- **`agentId`** — the runtime-registered agent whose interrupts this hook
+  handles.
 - **`render`** — receives `{ event, resolve }`. `event.value` is the
   payload you passed to `interrupt(...)` on the server.
 - **`renderInChat`** — when `true` (as above), the picker appears inline
