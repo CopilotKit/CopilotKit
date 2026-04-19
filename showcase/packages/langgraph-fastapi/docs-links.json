@@ -1,0 +1,78 @@
+{
+  "framework": "langgraph-fastapi",
+  "features": [
+    {
+      "id": "agentic-chat",
+      "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/prebuilt-components",
+      "og_docs_status": 200,
+      "shell_docs_url": "/docs/integrations/langgraph/prebuilt-components",
+      "shell_docs_status": 200,
+      "shell_docs_ok": true
+    },
+    {
+      "id": "tool-rendering",
+      "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/generative-ui/tool-rendering",
+      "og_docs_status": 200,
+      "shell_docs_url": "/docs/integrations/langgraph/generative-ui/tool-rendering",
+      "shell_docs_status": 200,
+      "shell_docs_ok": true
+    },
+    {
+      "id": "hitl-in-chat",
+      "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/generative-ui/your-components/interactive",
+      "og_docs_status": 200,
+      "shell_docs_url": "/docs/integrations/langgraph/generative-ui/your-components/interactive",
+      "shell_docs_status": 200,
+      "shell_docs_ok": true
+    },
+    {
+      "id": "gen-ui-tool-based",
+      "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/generative-ui/your-components/display-only",
+      "og_docs_status": 200,
+      "shell_docs_url": "/docs/integrations/langgraph/generative-ui/your-components/display-only",
+      "shell_docs_status": 200,
+      "shell_docs_ok": true
+    },
+    {
+      "id": "gen-ui-agent",
+      "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/generative-ui/state-rendering",
+      "og_docs_status": 200,
+      "shell_docs_url": "/docs/integrations/langgraph/generative-ui/state-rendering",
+      "shell_docs_status": 200,
+      "shell_docs_ok": true
+    },
+    {
+      "id": "shared-state-read-write",
+      "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/shared-state/in-app-agent-read",
+      "og_docs_status": 200,
+      "shell_docs_url": "/docs/integrations/langgraph/shared-state/in-app-agent-read",
+      "shell_docs_status": 200,
+      "shell_docs_ok": true
+    },
+    {
+      "id": "shared-state-streaming",
+      "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/shared-state/predictive-state-updates",
+      "og_docs_status": 200,
+      "shell_docs_url": "/docs/integrations/langgraph/shared-state/predictive-state-updates",
+      "shell_docs_status": 200,
+      "shell_docs_ok": true
+    },
+    {
+      "id": "subagents",
+      "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/multi-agent-flows",
+      "og_docs_status": 200,
+      "shell_docs_url": "/docs/integrations/langgraph/multi-agent-flows",
+      "shell_docs_status": 200,
+      "shell_docs_ok": true
+    }
+  ],
+  "missing": [],
+  "notes": [
+    "langgraph-fastapi shares the LangChain/LangGraph canonical docs tree at docs/content/docs/integrations/langgraph/*.",
+    "Registry template URLs (/features/<id>) do not exist on docs.copilotkit.ai or the shell; replaced with verified integration-scoped paths.",
+    "shared-state-read-write points to in-app-agent-read (the 'read' side); in-app-agent-write is the 'write' counterpart and is available at docs/integrations/langgraph/shared-state/in-app-agent-write.",
+    "shared-state-streaming maps to predictive-state-updates (LangGraph's per-token state delta streaming doc).",
+    "subagents maps to multi-agent-flows; subgraphs.mdx is a closely related secondary reference.",
+    "All og_docs_url and shell_docs_url validated: 200 OK for all 8 features."
+  ]
+}

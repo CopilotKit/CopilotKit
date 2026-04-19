@@ -1,0 +1,110 @@
+{
+  "framework": "mastra",
+  "shell_base_url": "http://localhost:3000/mastra",
+  "og_docs_base_url": "https://docs.copilotkit.ai",
+  "reference_docs_dir": "docs/content/docs/integrations/mastra",
+  "notes": [
+    "mastra has a dedicated reference-docs folder at docs/content/docs/integrations/mastra/; no fallback to (root)/ was needed for any manifest feature.",
+    "All 7 registered og_docs_url paths return HTTP 200 via curl against production docs site (docs.copilotkit.ai is a client-rendered SPA, so WebFetch reports empty bodies; HTTP status is the authoritative signal).",
+    "All shell_docs_url paths return HTTP 404 on the local shell — the shell does not currently serve /docs/features/* routes (mastra-scoped docs live at /mastra/<section>/<slug>, e.g. /mastra/generative-ui/tool-rendering).",
+    "shared-state-read-write has neither og_docs_url nor shell_docs_url in feature-registry.json and is flagged red-x."
+  ],
+  "features": [
+    {
+      "id": "agentic-chat",
+      "og_docs_url": "https://docs.copilotkit.ai/features/agentic-chat",
+      "og_docs_status": 200,
+      "og_docs_ok": true,
+      "shell_docs_url": "/docs/features/agentic-chat",
+      "shell_docs_status": 404,
+      "shell_docs_ok": false,
+      "framework_mdx": "docs/content/docs/integrations/mastra/prebuilt-components.mdx",
+      "status": "partial"
+    },
+    {
+      "id": "hitl-in-chat",
+      "og_docs_url": "https://docs.copilotkit.ai/features/hitl-in-chat",
+      "og_docs_status": 200,
+      "og_docs_ok": true,
+      "shell_docs_url": "/docs/features/hitl-in-chat",
+      "shell_docs_status": 404,
+      "shell_docs_ok": false,
+      "framework_mdx": "docs/content/docs/integrations/mastra/human-in-the-loop/tool-based.mdx",
+      "status": "partial"
+    },
+    {
+      "id": "tool-rendering",
+      "og_docs_url": "https://docs.copilotkit.ai/features/tool-rendering",
+      "og_docs_status": 200,
+      "og_docs_ok": true,
+      "shell_docs_url": "/docs/features/tool-rendering",
+      "shell_docs_status": 404,
+      "shell_docs_ok": false,
+      "framework_mdx": "docs/content/docs/integrations/mastra/generative-ui/tool-rendering.mdx",
+      "status": "partial"
+    },
+    {
+      "id": "gen-ui-tool-based",
+      "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-tool-based",
+      "og_docs_status": 200,
+      "og_docs_ok": true,
+      "shell_docs_url": "/docs/features/gen-ui-tool-based",
+      "shell_docs_status": 404,
+      "shell_docs_ok": false,
+      "framework_mdx": "docs/content/docs/integrations/mastra/generative-ui/your-components/display-only.mdx",
+      "status": "partial"
+    },
+    {
+      "id": "gen-ui-agent",
+      "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-agent",
+      "og_docs_status": 200,
+      "og_docs_ok": true,
+      "shell_docs_url": "/docs/features/gen-ui-agent",
+      "shell_docs_status": 404,
+      "shell_docs_ok": false,
+      "framework_mdx": "docs/content/docs/integrations/mastra/generative-ui/state-rendering.mdx",
+      "status": "partial"
+    },
+    {
+      "id": "shared-state-read-write",
+      "og_docs_url": null,
+      "og_docs_status": null,
+      "og_docs_ok": false,
+      "shell_docs_url": null,
+      "shell_docs_status": null,
+      "shell_docs_ok": false,
+      "framework_mdx": "docs/content/docs/integrations/mastra/shared-state/index.mdx",
+      "status": "red-x",
+      "reason": "No og_docs_url or shell_docs_url registered in feature-registry.json for shared-state-read-write."
+    },
+    {
+      "id": "shared-state-streaming",
+      "og_docs_url": "https://docs.copilotkit.ai/features/shared-state-streaming",
+      "og_docs_status": 200,
+      "og_docs_ok": true,
+      "shell_docs_url": "/docs/features/shared-state-streaming",
+      "shell_docs_status": 404,
+      "shell_docs_ok": false,
+      "framework_mdx": "docs/content/docs/integrations/mastra/shared-state/in-app-agent-write.mdx",
+      "status": "partial"
+    },
+    {
+      "id": "subagents",
+      "og_docs_url": "https://docs.copilotkit.ai/features/subagents",
+      "og_docs_status": 200,
+      "og_docs_ok": true,
+      "shell_docs_url": "/docs/features/subagents",
+      "shell_docs_status": 404,
+      "shell_docs_ok": false,
+      "framework_mdx": null,
+      "status": "partial",
+      "reason_framework_mdx": "No mastra-specific subagents/multi-agent MDX exists under docs/content/docs/integrations/mastra/."
+    }
+  ],
+  "missing": [
+    {
+      "id": "shared-state-read-write",
+      "reason": "No og_docs_url or shell_docs_url in feature-registry.json"
+    }
+  ]
+}
