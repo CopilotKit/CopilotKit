@@ -137,6 +137,13 @@
       "shell_docs_url": "/docs/features/gen-ui-interrupt"
     },
     {
+      "id": "interrupt-headless",
+      "name": "Headless Interrupt",
+      "category": "controlled-generative-ui",
+      "description": "Resolve langgraph interrupts headlessly via agent.subscribe + copilotkit.runAgent — no chat, no useInterrupt render prop",
+      "kind": "testing"
+    },
+    {
       "id": "declarative-gen-ui",
       "name": "Declarative Generative UI (A2UI — Dynamic Schema)",
       "category": "declarative-generative-ui",
@@ -167,6 +174,12 @@
       "description": "Agent-generated UI from arbitrary component libraries",
       "og_docs_url": "https://docs.copilotkit.ai/features/open-gen-ui",
       "shell_docs_url": "/docs/features/open-gen-ui"
+    },
+    {
+      "id": "open-gen-ui-advanced",
+      "name": "Open-Ended Generative UI (Advanced)",
+      "category": "open-generative-ui",
+      "description": "Sandbox invokes app tools via bridge functions"
     },
     {
       "id": "gen-ui-agent",
@@ -211,12 +224,26 @@
       "kind": "testing"
     },
     {
+      "id": "tool-rendering-reasoning-chain",
+      "name": "Tool Rendering + Reasoning Chain",
+      "category": "operational-generative-ui",
+      "description": "Sequential tool calls with reasoning tokens rendered side-by-side",
+      "kind": "testing"
+    },
+    {
       "id": "agentic-chat-reasoning",
       "name": "Reasoning",
       "category": "operational-generative-ui",
       "description": "Visible reasoning/thinking chain alongside the final answer",
       "og_docs_url": "https://docs.copilotkit.ai/features/agentic-chat-reasoning",
       "shell_docs_url": "/docs/features/agentic-chat-reasoning"
+    },
+    {
+      "id": "reasoning-default-render",
+      "name": "Reasoning (Default Render)",
+      "category": "operational-generative-ui",
+      "description": "Built-in CopilotChatReasoningMessage renders without a custom slot",
+      "kind": "testing"
     },
     {
       "id": "frontend-tools",
@@ -259,20 +286,10 @@
       "shell_docs_url": "/docs/features/state-rendering"
     },
     {
-      "id": "shared-state-read",
-      "name": "Shared State (Reading)",
+      "id": "shared-state-read-write",
+      "name": "Shared State (Read + Write)",
       "category": "agent-state",
-      "description": "Reading agent state from UI",
-      "og_docs_url": "https://docs.copilotkit.ai/features/shared-state-read",
-      "shell_docs_url": "/docs/features/shared-state-read"
-    },
-    {
-      "id": "shared-state-write",
-      "name": "Shared State (Writing)",
-      "category": "agent-state",
-      "description": "Writing to agent state from UI",
-      "og_docs_url": "https://docs.copilotkit.ai/features/shared-state-write",
-      "shell_docs_url": "/docs/features/shared-state-write"
+      "description": "Bidirectional agent state — UI writes preferences, agent writes notes back"
     },
     {
       "id": "shared-state-streaming",
@@ -281,6 +298,13 @@
       "description": "Per-token state delta streaming from agent to UI",
       "og_docs_url": "https://docs.copilotkit.ai/features/shared-state-streaming",
       "shell_docs_url": "/docs/features/shared-state-streaming"
+    },
+    {
+      "id": "shared-state-agent-readonly",
+      "name": "Shared State (Agent Read-Only)",
+      "category": "agent-state",
+      "description": "Frontend provides read-only context to the agent via useAgentContext",
+      "kind": "testing"
     },
     {
       "id": "shared-state-io",

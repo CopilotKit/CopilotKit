@@ -15,8 +15,8 @@ generative_ui:
       - useComponent
       - multi-modal
       - suggestions
-      - shared-state-read
-      - shared-state-write
+      - shared-state-read-write
+      - shared-state-agent-readonly
       - shared-state-streaming
       - readables
       - subagents
@@ -35,7 +35,9 @@ generative_ui:
       - tool-rendering-default-catchall
       - tool-rendering-custom-catchall
       - tool-rendering-frontend-tools
+      - tool-rendering-reasoning-chain
       - agentic-chat-reasoning
+      - reasoning-default-render
       - prebuilt-sidebar
       - prebuilt-popup
       - chat-slots
@@ -44,6 +46,7 @@ generative_ui:
       - frontend-tools
       - gen-ui-tool-based
       - gen-ui-interrupt
+      - interrupt-headless
       - gen-ui-agent
       - hitl-in-chat
       - hitl-in-app
@@ -51,12 +54,13 @@ generative_ui:
       - a2ui-fixed-schema
       - mcp-apps
       - open-gen-ui
+      - open-gen-ui-advanced
       - tool-rendering
       - useComponent
       - multi-modal
       - suggestions
-      - shared-state-read
-      - shared-state-write
+      - shared-state-read-write
+      - shared-state-agent-readonly
       - shared-state-streaming
       - readables
       - subagents
@@ -65,11 +69,12 @@ generative_ui:
   open:
     allowed:
       - open-gen-ui
+      - open-gen-ui-advanced
       - frontend-tools
       - multi-modal
       - suggestions
-      - shared-state-read
-      - shared-state-write
+      - shared-state-read-write
+      - shared-state-agent-readonly
       - shared-state-streaming
       - readables
       - subagents

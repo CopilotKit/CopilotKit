@@ -1,6 +1,0 @@
-ag2[openai,ag-ui]>=0.9.0
-ag-ui-protocol>=0.1.10
-fastapi>=0.115.0
-uvicorn>=0.34.0
-httpx>=0.27.0
-python-dotenv==1.0.1

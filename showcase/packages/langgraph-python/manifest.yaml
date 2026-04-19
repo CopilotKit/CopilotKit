@@ -42,22 +42,26 @@ features:
   - headless-simple
   - headless-complete
   - agentic-chat-reasoning
+  - reasoning-default-render
   - frontend-tools
   - gen-ui-tool-based
   - hitl-in-chat
   - gen-ui-interrupt
+  - interrupt-headless
   - declarative-gen-ui
   - a2ui-fixed-schema
   - mcp-apps
   - open-gen-ui
+  - open-gen-ui-advanced
   - gen-ui-agent
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
   - tool-rendering
   - tool-rendering-frontend-tools
-  - shared-state-read
-  - shared-state-write
+  - tool-rendering-reasoning-chain
+  - shared-state-read-write
   - shared-state-streaming
+  - shared-state-agent-readonly
   - subagents
 demos:
   - id: agentic-chat
@@ -170,27 +174,28 @@ demos:
       - frontend/src/app/page.tsx
       - frontend/src/app/InlineAgentStateCard.tsx
       - backend/agent.py
-  - id: shared-state-read
-    name: Shared State (Reading)
-    description: Reading agent state from UI
+  - id: shared-state-read-write
+    name: Shared State (Read + Write)
+    description: Bidirectional agent state — UI writes preferences, agent writes notes back
     tags:
       - agent-state
-    route: /demos/shared-state-read
-    animated_preview_url:
-    highlight:
-      - backend/agent.py
-      - frontend/src/app/page.tsx
-  - id: shared-state-write
-    name: Shared State (Writing)
-    description: Writing to agent state from UI
-    tags:
-      - agent-state
-    route: /demos/shared-state-write
+    route: /demos/shared-state-read-write
     animated_preview_url:
     highlight:
       - backend/agent.py
       - frontend/src/app/page.tsx
       - frontend/src/app/preferences-card.tsx
+      - frontend/src/app/notes-card.tsx
+  - id: shared-state-agent-readonly
+    name: Shared State (Agent Read-Only)
+    description: Frontend provides read-only context to the agent via useAgentContext
+    tags:
+      - agent-state
+    route: /demos/shared-state-agent-readonly
+    animated_preview_url:
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
   - id: shared-state-streaming
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
@@ -295,7 +300,7 @@ demos:
       - frontend/src/app/time-picker-card.tsx
   - id: declarative-gen-ui
     name: Declarative Generative UI (A2UI — Dynamic Schema)
-    description: Agent emits A2UI schema at runtime
+    description: Agent emits an A2UI component tree at runtime against a client catalog
     tags:
       - generative-ui
     route: /demos/declarative-gen-ui
@@ -303,6 +308,7 @@ demos:
     highlight:
       - backend/agent.py
       - frontend/src/app/page.tsx
+      - frontend/src/app/catalog.tsx
       - frontend/src/app/api/copilotkit/route.ts
   - id: a2ui-fixed-schema
     name: Declarative Generative UI (A2UI — Fixed Schema)
@@ -331,8 +337,8 @@ demos:
       - frontend/src/app/page.tsx
       - frontend/src/app/api/copilotkit/route.ts
   - id: open-gen-ui
-    name: Fully Open-Ended Generative UI
-    description: Agent-generated UI from arbitrary component libraries
+    name: Open-Ended Generative UI
+    description: Minimal — enable open-ended gen UI in the runtime, nothing else
     tags:
       - generative-ui
     route: /demos/open-gen-ui
@@ -340,6 +346,51 @@ demos:
     highlight:
       - backend/agent.py
       - frontend/src/app/page.tsx
+      - frontend/src/app/api/copilotkit/route.ts
+  - id: open-gen-ui-advanced
+    name: Open-Ended Generative UI (Advanced — With App Tool Calling)
+    description: Advanced — sandbox invokes app tools via bridge functions
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui-advanced
+    animated_preview_url:
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
       - frontend/src/app/sandbox-functions.ts
       - frontend/src/app/suggestions.ts
       - frontend/src/app/api/copilotkit/route.ts
+  - id: reasoning-default-render
+    name: Reasoning (Default Render)
+    description: Built-in CopilotChatReasoningMessage renders without a custom slot
+    tags:
+      - generative-ui
+    route: /demos/reasoning-default-render
+    animated_preview_url:
+    highlight:
+      - frontend/src/app/page.tsx
+      - backend/agent.py
+  - id: interrupt-headless
+    name: Headless Interrupt (testing)
+    description: Resolve langgraph interrupts from a plain button grid — no chat, no useInterrupt render prop
+    tags:
+      - interactivity
+    route: /demos/interrupt-headless
+    animated_preview_url:
+    highlight:
+      - frontend/src/app/page.tsx
+      - backend/agent.py
+  - id: tool-rendering-reasoning-chain
+    name: Tool Rendering + Reasoning Chain (testing)
+    description: Sequential tool calls with reasoning tokens rendered side-by-side
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering-reasoning-chain
+    animated_preview_url:
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/reasoning-block.tsx
+      - frontend/src/app/weather-card.tsx
+      - frontend/src/app/flight-list-card.tsx
+      - frontend/src/app/custom-catchall-renderer.tsx

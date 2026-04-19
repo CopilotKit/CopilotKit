@@ -150,9 +150,7 @@ describe("Content Bundler", () => {
       "hitl-in-chat",
       "tool-rendering",
       "gen-ui-tool-based",
-      "gen-ui-agent",
-      "shared-state-read",
-      "shared-state-write",
+      "shared-state-read-write",
       "shared-state-streaming",
       "subagents",
     ];

@@ -1,7 +1,0 @@
-agent-framework-ag-ui>=1.0.0b251117
-agent-framework-openai>=1.0.0rc6
-fastapi>=0.115.0
-python-dotenv==1.0.1
-pydantic>=2.0.0
-starlette<1.0.0
-uvicorn==0.37.0
