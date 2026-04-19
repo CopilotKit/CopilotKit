@@ -1,7 +1,11 @@
-// CopilotKit runtime for the Declarative Gen-UI (A2UI) primary cell.
+// CopilotKit runtime for the Declarative Gen-UI (A2UI) cell.
 //
-// Canonical "injectA2UITool only" setup — no custom catalog on the frontend,
-// so the agent generates A2UI surfaces against the built-in basic catalog.
+// Canonical Bring-Your-Own-Catalog (BYOC) setup: the frontend registers
+// `myCatalog` via `<CopilotKit a2ui={{ catalog }}>` (see `../../page.tsx`),
+// and this runtime flips `a2ui.injectA2UITool: true` so the A2UI middleware
+// auto-injects the `render_a2ui` tool + the catalog schema into the agent.
+// The backend agent (`backend/agent.py`) stays minimal — no tools, no
+// secondary LLM.
 //
 // Reference:
 //   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui
@@ -27,9 +31,10 @@ const runtime = new CopilotRuntime({
   // @ts-ignore
   agents: { "declarative-gen-ui": agent },
   // injectA2UITool wires the A2UI middleware and adds `render_a2ui` +
-  // usage guidelines to the agent's tool list. With no custom catalog on
-  // the frontend, the middleware injects the basic-catalog schema as
-  // `copilotkit.context` so the LLM knows what it can render.
+  // usage guidelines to the agent's tool list. The middleware also
+  // serialises the registered client catalog (see `../../a2ui/renderers`)
+  // into the agent's `copilotkit.context` so the LLM knows which
+  // components + props are available.
   a2ui: {
     injectA2UITool: true,
     agents: ["declarative-gen-ui"],

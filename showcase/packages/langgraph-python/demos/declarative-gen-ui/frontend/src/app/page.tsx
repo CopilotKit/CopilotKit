@@ -1,24 +1,25 @@
 "use client";
 
 /**
- * Declarative Generative UI (A2UI) — primary / minimal demo.
+ * Declarative Generative UI (A2UI) — canonical Bring-Your-Own-Catalog demo.
  *
- * This is the canonical "injectA2UITool only" pattern:
- * - The runtime has `a2ui: { injectA2UITool: true, agents: [...] }`
- *   (see `./api/copilotkit/route.ts`).
- * - The frontend registers NO custom component catalog — the A2UI renderer
- *   falls back to the built-in `basicCatalog` (Text, Image, Row, Column,
- *   Card, Button, List, Tabs, TextField, CheckBox, Slider, Modal, …).
- * - The agent (see `backend/agent.py`) uses a secondary LLM to emit an
- *   A2UI component tree at runtime, against the basic catalog schema that
- *   the middleware injects as `copilotkit.context`.
- *
- * For the "bring your own catalog" variant (branded Card/Metric/PrimaryButton
- * renderers), see the sibling cell `declarative-gen-ui-hardcoded`.
+ * Pattern (straight from the docs):
+ *   1. Define a small set of branded React components + Zod schemas in
+ *      `./a2ui/definitions.ts` and `./a2ui/renderers.tsx` (the latter calls
+ *      `createCatalog(..., { includeBasicCatalog: true })` and exports
+ *      `myCatalog`).
+ *   2. Pass that catalog to the provider via
+ *      `<CopilotKit a2ui={{ catalog: myCatalog }}>`.
+ *   3. Configure the runtime with
+ *      `a2ui: { injectA2UITool: true, agents: [...] }` in
+ *      `./api/copilotkit/route.ts`. The runtime auto-injects the
+ *      `render_a2ui` tool + the catalog schema into the agent's context.
+ *   4. The backend agent (`backend/agent.py`) is just a plain
+ *      `create_agent` with `CopilotKitMiddleware` and `tools=[]` — no
+ *      secondary LLM, no hand-written `render_a2ui` tool.
  *
  * Reference:
  *   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui
- *   https://docs.copilotkit.ai/docs/snippets/shared/generative-ui/a2ui
  */
 
 import React from "react";
@@ -28,9 +29,15 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
+import { myCatalog } from "./a2ui/renderers";
+
 export default function DeclarativeGenUIDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="declarative-gen-ui">
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      agent="declarative-gen-ui"
+      a2ui={{ catalog: myCatalog }}
+    >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
@@ -44,19 +51,19 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Show me a welcome card",
+        title: "Show a KPI dashboard",
         message:
-          "Show me a welcome card with a title, a short description, and a primary button.",
+          "Show me a quick KPI dashboard with 3-4 metrics (revenue, signups, churn).",
       },
       {
-        title: "Render a simple form",
+        title: "Status report",
         message:
-          "Render a feedback form with a name field, a rating slider, and a submit button.",
+          "Give me a status report on system health — API, database, and background workers.",
       },
       {
-        title: "List a few items",
+        title: "Service summary card",
         message:
-          "Show me a list of three book recommendations with titles and authors.",
+          "Summarise our checkout service: owner, region, uptime, and a 'View runbook' button.",
       },
     ],
     available: "always",
