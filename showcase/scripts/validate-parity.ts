@@ -234,7 +234,7 @@ export function deriveMessage(issue: PackageIssue): string {
     case "malformed-manifest":
       return `unparseable manifest.yaml: ${issue.error}`;
     case "missing-demo-dir":
-      return `demo '${issue.demoId}' declared in manifest but no src/app/demos/${issue.demoId}/ directory`;
+      return `demo '${issue.demoId}' declared in manifest but no demos/${issue.demoId}/ (or legacy src/app/demos/${issue.demoId}/) directory`;
     case "unreadable-demos-dir":
       return `unreadable demos directory: failed to read directory ${issue.path}: ${issue.error}`;
     case "unreadable-specs-dir":
@@ -494,9 +494,35 @@ export function auditPackage(
   // Pre-compute spec/qa/demo-dir listings up-front so the reporter row
   // still shows accurate counts even if manifest parsing fails. MUST
   // errors still gate the exit code — this only affects the table.
+  //
+  // Demos can live at either <pkg>/demos/<cell>/ (per-column container
+  // layout with one folder per cell containing frontend/ + backend/) OR
+  // <pkg>/src/app/demos/<cell>/ (legacy shared-tree layout). Union the
+  // two listings so the check is permissive during the transition — a
+  // cell declared in manifest passes as long as either directory exists.
   const specResult = listFiles(path.join(pkgDir, "tests", "e2e"), ".spec.ts");
   const qaResult = listFiles(path.join(pkgDir, "qa"), ".md");
-  const demoDirResult = listDirs(path.join(pkgDir, "src", "app", "demos"));
+  const topLevelDemosDir = path.join(pkgDir, "demos");
+  const legacyDemosDir = path.join(pkgDir, "src", "app", "demos");
+  const topLevelDemoDirResult = listDirs(topLevelDemosDir);
+  const legacyDemoDirResult = listDirs(legacyDemosDir);
+  const demoDirResult: ListResult = {
+    entries: Array.from(
+      new Set([
+        ...topLevelDemoDirResult.entries,
+        ...legacyDemoDirResult.entries,
+      ]),
+    ),
+    warnings: [
+      // Only emit listing warnings if NEITHER directory is readable — a
+      // missing top-level demos/ is normal for columns still on the
+      // legacy layout, and vice versa.
+      ...(topLevelDemoDirResult.entries.length === 0 &&
+      legacyDemoDirResult.entries.length === 0
+        ? [...topLevelDemoDirResult.warnings, ...legacyDemoDirResult.warnings]
+        : []),
+    ],
+  };
 
   const specFiles = specResult.entries;
   const qaFiles = qaResult.entries;
@@ -508,7 +534,10 @@ export function auditPackage(
   // EACCES root cause isn't buried. We detect this by checking whether
   // the respective list call returned a listing-failed warning for the
   // target path specifically (not an unrelated path).
-  const demosDirPath = path.join(pkgDir, "src", "app", "demos");
+  // For the unreadable-demos-dir elevation, accept a listing-failed
+  // warning at EITHER candidate path (new top-level demos/ or legacy
+  // src/app/demos/). Report the failing path verbatim so the operator
+  // sees which location couldn't be read.
   const specsDirPath = path.join(pkgDir, "tests", "e2e");
   const qaDirPath = path.join(pkgDir, "qa");
   const findListingFailed = (
@@ -519,7 +548,10 @@ export function auditPackage(
       (w): w is Extract<PackageIssue, { category: "listing-failed" }> =>
         w.category === "listing-failed" && w.path === target,
     );
-  const demosDirUnreadable = findListingFailed(demoDirResult, demosDirPath);
+  const demosDirUnreadable =
+    findListingFailed(demoDirResult, topLevelDemosDir) ??
+    findListingFailed(demoDirResult, legacyDemosDir);
+  const demosDirPath = demosDirUnreadable?.path ?? topLevelDemosDir;
   const specsDirUnreadable = findListingFailed(specResult, specsDirPath);
   const qaDirUnreadable = findListingFailed(qaResult, qaDirPath);
 
@@ -619,7 +651,13 @@ export function auditPackage(
   // to be `ManifestDemo[]` with string `id` on every entry — no need
   // to re-guard here.
   const demos = manifest.demos ?? [];
-  const demoIds = demos.map((d) => d.id);
+  // Informational-only demos (e.g. cli-start with a `command:` field)
+  // live in the registry but have no on-disk folder to audit. They're
+  // identified by the `command` field; exclude them from parity checks.
+  const auditableDemos = demos.filter(
+    (d) => !(d as { command?: string }).command,
+  );
+  const demoIds = auditableDemos.map((d) => d.id);
 
   const demoDirSet = new Set(demoDirs);
   const specIdSet = new Set(specFiles.map((f) => f.replace(/\.spec\.ts$/, "")));

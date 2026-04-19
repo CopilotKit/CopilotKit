@@ -125,7 +125,7 @@ describe("Content Bundler", () => {
     expect(lgAgent.language).toBe("python");
   });
 
-  it("includes all 10 langgraph-python demos", () => {
+  it("includes core langgraph-python demos", () => {
     const contentPath = path.resolve(
       __dirname,
       "..",
@@ -144,8 +144,7 @@ describe("Content Bundler", () => {
       "tool-rendering",
       "gen-ui-tool-based",
       "gen-ui-agent",
-      "shared-state-read",
-      "shared-state-write",
+      "shared-state-read-write",
       "shared-state-streaming",
       "subagents",
     ];

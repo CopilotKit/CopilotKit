@@ -104,7 +104,7 @@ describe("Registry Generator", () => {
     expect(langgraph.name).toBe("LangGraph (Python)");
     expect(langgraph.category).toBe("popular");
     expect(langgraph.language).toBe("python");
-    expect(langgraph.features.length).toBe(25);
+    expect(langgraph.features.length).toBe(32);
     expect(langgraph.demos.length).toBe(25);
   });
 

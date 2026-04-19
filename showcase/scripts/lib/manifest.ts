@@ -57,6 +57,12 @@ export function createDemoId(s: unknown): DemoId | null {
 export interface ManifestDemo {
   readonly id: DemoId;
   readonly name?: string;
+  /**
+   * Informational demos (e.g. cli-start): when set, the row surfaces this
+   * copy-pasteable command in the dashboard instead of a live preview.
+   * Such demos have no on-disk folder — parity / bundling skip them.
+   */
+  readonly command?: string;
 }
 
 /**
@@ -387,12 +393,23 @@ export function parseManifest(
         }
         demoName = d.name;
       }
+      let demoCommand: string | undefined;
+      if (hasOwnProp(d, "command") && d.command !== undefined) {
+        if (typeof d.command !== "string") {
+          return {
+            kind: "malformed",
+            subkind: "shape",
+            error: `expected demos[${i}].command to be a string, got ${describeType(d.command)}`,
+          };
+        }
+        demoCommand = d.command;
+      }
       validated.push(
-        Object.freeze(
-          demoName === undefined
-            ? { id: brandedId }
-            : { id: brandedId, name: demoName },
-        ),
+        Object.freeze({
+          id: brandedId,
+          ...(demoName !== undefined && { name: demoName }),
+          ...(demoCommand !== undefined && { command: demoCommand }),
+        }),
       );
     }
     demos = Object.freeze(validated);
