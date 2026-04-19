@@ -275,7 +275,9 @@ describe("POST error handling", () => {
       makeAgent("demo", resourceId),
     );
 
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
 
     const route = await importRoute();
     route.__resetAgentsCacheForTests();

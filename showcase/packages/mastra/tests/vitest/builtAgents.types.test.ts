@@ -39,9 +39,10 @@ import {
 } from "../../src/app/api/copilotkit/route";
 
 // Helper: "these two types are assignable in both directions" (i.e. equal).
-type Equals<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
-  ? true
-  : false;
+type Equals<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+    ? true
+    : false;
 type Assert<T extends true> = T;
 
 // 1. `DemoAgentName` must be the literal union of the entries in `demoAgentNames`,

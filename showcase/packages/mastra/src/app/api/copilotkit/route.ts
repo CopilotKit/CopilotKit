@@ -104,7 +104,10 @@ export function buildAgents(
   const resourceIdByAgent = new Map<string, string>();
   resourceIdByAgent.set("weatherAgent", weatherResourceId);
 
-  const demoAliases: Record<string, NonNullable<ReturnType<typeof getLocalAgent>>> = {};
+  const demoAliases: Record<
+    string,
+    NonNullable<ReturnType<typeof getLocalAgent>>
+  > = {};
   for (const name of demoAgentNames) {
     const resourceId = `mastra-${name}`;
     const agent = getLocalAgent({
