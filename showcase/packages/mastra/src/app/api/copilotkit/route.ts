@@ -167,11 +167,18 @@ export function __resetAgentsCacheForTests(): void {
   cachedAgents = null;
 }
 
-// Emit a structured error log with a correlation id. Extracted so both the
-// pre-stream (try/catch) and mid-stream (body wrapper) paths use identical
-// shape — operators grep for `errorId` regardless of where the failure
-// occurred. Returns the generated errorId so callers can include it in
-// client-facing responses when appropriate.
+// Emit a structured error log with a correlation id. Extracted so every
+// failure path uses an identical shape — operators grep for `errorId`
+// regardless of where the failure occurred. Phases:
+//   - "setup": everything that happens BEFORE headers flush. Covers agent
+//     cache construction, runtime instantiation, and synchronous failures
+//     inside `wrapStreamingResponse` (malformed Response from handleRequest,
+//     etc.) — all of which still allow us to return a 500 JSON envelope.
+//   - "stream": mid-stream failures observed by the body wrapper AFTER
+//     headers have been committed — we can no longer change the status, only
+//     log.
+// Returns the generated errorId so callers can include it in client-facing
+// responses when appropriate.
 function logRouteError(err: unknown, phase: "setup" | "stream"): string {
   const error = err instanceof Error ? err : new Error(String(err));
   const errorId = crypto.randomUUID();
@@ -245,10 +252,19 @@ function wrapStreamingResponse(response: Response): Response {
 }
 
 // Next.js App Router POST handler for CopilotKit runtime requests. Wraps the
-// runtime's handler so both synchronous construction errors (bad mastra
-// config, missing weatherAgent, etc.) AND mid-stream errors (thrown after
-// response headers have been flushed) are logged with a correlation id.
+// runtime's handler so three classes of failure are logged with a
+// correlation id:
+//   1. Synchronous construction errors (bad mastra config, missing
+//      weatherAgent, etc.) — caught by the outer try/catch, 500 returned.
+//   2. Synchronous wrap-time errors (e.g. malformed Response from
+//      handleRequest that makes `wrapStreamingResponse` itself throw) —
+//      caught separately so we can cancel the upstream body before the 500
+//      goes out. Without this cancel, the ReadableStream returned by
+//      handleRequest leaks (no consumer ever reads it).
+//   3. Mid-stream errors (thrown after response headers have been flushed)
+//      — caught inside the TransformStream in `wrapStreamingResponse`.
 export const POST = async (req: NextRequest) => {
+  let response: Response | undefined;
   try {
     const runtime = new CopilotRuntime({
       agents: getAgents(),
@@ -260,9 +276,28 @@ export const POST = async (req: NextRequest) => {
       endpoint: "/api/copilotkit",
     });
 
-    const response = await handleRequest(req);
+    response = await handleRequest(req);
+  } catch (err) {
+    const errorId = logRouteError(err, "setup");
+    return NextResponse.json(
+      { error: "internal runtime error", errorId },
+      { status: 500 },
+    );
+  }
+
+  try {
     return wrapStreamingResponse(response);
   } catch (err) {
+    // `wrapStreamingResponse` threw synchronously (e.g. malformed
+    // `response.headers`). The upstream ReadableStream has been produced
+    // but nobody is going to consume it — cancel it explicitly to release
+    // whatever resources the runtime holds open behind the body. Swallow
+    // errors from cancel itself; we're already on the 500 path.
+    try {
+      await response.body?.cancel();
+    } catch {
+      // best-effort cleanup; the primary error is already being logged below
+    }
     const errorId = logRouteError(err, "setup");
     return NextResponse.json(
       { error: "internal runtime error", errorId },

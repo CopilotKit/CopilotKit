@@ -340,6 +340,83 @@ describe("POST error handling", () => {
     consoleErrorSpy.mockRestore();
   });
 
+  // Regression guard: when `wrapStreamingResponse` throws SYNCHRONOUSLY
+  // (e.g. because `response.headers` is malformed), the outer handler must
+  // (a) cancel the upstream body so the ReadableStream doesn't leak, and
+  // (b) still return a 500 JSON envelope with an errorId. Prior to the fix
+  // the cancel never happened — the body just hung, waiting for a reader
+  // that never arrived.
+  it("cancels the upstream body and returns 500 when wrapStreamingResponse throws", async () => {
+    mockedGetLocalAgents.mockReturnValue({
+      weatherAgent: makeAgent("weather", "mastra-weatherAgent"),
+    });
+    mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
+      makeAgent("demo", resourceId),
+    );
+
+    // Build a Response whose body exists and whose cancel() we can observe,
+    // but whose headers getter throws — this is what forces the synchronous
+    // failure inside `wrapStreamingResponse` (it constructs a new Response
+    // from `response.headers` last, after reading `response.body`).
+    const cancelSpy = vi.fn(async () => undefined);
+    const body = new ReadableStream<Uint8Array>({
+      start() {
+        // never emits; we just need a valid, non-null ReadableStream
+      },
+      cancel(reason) {
+        return cancelSpy(reason);
+      },
+    });
+    // Intercept cancel at the stream level too — some runtimes route
+    // Response#body.cancel() through the underlying source's cancel; others
+    // forward it via the reader. Spying on the stream's own cancel() is the
+    // most direct observation.
+    const originalCancel = body.cancel.bind(body);
+    const bodyCancelSpy = vi.fn((reason?: unknown) => originalCancel(reason));
+    Object.defineProperty(body, "cancel", {
+      value: bodyCancelSpy,
+      writable: true,
+    });
+
+    const malformed = new Response(body, { status: 200 });
+    // Force `.headers` to throw synchronously when `wrapStreamingResponse`
+    // reads it to construct the wrapped Response.
+    Object.defineProperty(malformed, "headers", {
+      get() {
+        throw new Error("malformed-headers-7a91");
+      },
+    });
+
+    mockedEndpointFactory.mockReturnValueOnce({
+      handleRequest: vi.fn(async () => malformed),
+    } as unknown as ReturnType<typeof copilotRuntimeNextJSAppRouterEndpoint>);
+
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const route = await importRoute();
+    route.__resetAgentsCacheForTests();
+
+    const fakeReq = {} as unknown as Parameters<typeof route.POST>[0];
+    const res = await route.POST(fakeReq);
+
+    // 500 JSON envelope, not a half-baked 200.
+    expect(res.status).toBe(500);
+    const jsonBody = (await res.json()) as Record<string, unknown>;
+    expect(jsonBody.error).toBe("internal runtime error");
+    expect(typeof jsonBody.errorId).toBe("string");
+
+    // Upstream body was explicitly cancelled — no ReadableStream leak.
+    expect(bodyCancelSpy).toHaveBeenCalledTimes(1);
+
+    // Server-side log captured the synchronous wrap failure.
+    const loggedArgs = consoleErrorSpy.mock.calls.flat().join(" ");
+    expect(loggedArgs).toContain("malformed-headers-7a91");
+
+    consoleErrorSpy.mockRestore();
+  });
+
   // Regression guard: when handleRequest returns a streaming Response that
   // errors AFTER headers flush (typical SSE / AG-UI failure mode), the error
   // must be logged server-side with an errorId even though we can no longer
