@@ -7,16 +7,22 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import Link from "next/link";
 import {
-  Callout,
   Cards,
   Card,
   Accordions,
   Accordion,
 } from "@/components/mdx-components";
+import { Callout as DocsCallout } from "@/components/docs-callout";
+import { Steps as DocsSteps, Step as DocsStep } from "@/components/docs-steps";
+import { Tabs as DocsTabs, Tab as DocsTab } from "@/components/docs-tabs";
+import { FrameworkTabs } from "@/components/framework-tabs";
 import { PropertyReference } from "@/components/property-reference";
 import { getRegistry } from "@/lib/registry";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { Snippet } from "@/components/snippet";
+
+// Callout alias kept for backward-compatibility with the rest of this file.
+const Callout = DocsCallout;
 
 const CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
 // Resolve snippets relative to CONTENT_DIR (which is known to work for filesystem reads)
@@ -518,40 +524,12 @@ const components = {
   Tip: ({ children }: { children: React.ReactNode }) => (
     <Callout type="info">{children}</Callout>
   ),
-  Steps: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Step: ({
-    children,
-    title,
-  }: {
-    children: React.ReactNode;
-    title?: string;
-  }) => (
-    <div style={{ marginBottom: "1rem" }}>
-      {title && (
-        <h4 style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{title}</h4>
-      )}
-      {children}
-    </div>
-  ),
+  Steps: DocsSteps,
+  Step: DocsStep,
   CardGroup: Cards,
-  Tabs: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Tab: ({ children, title }: { children: React.ReactNode; title?: string }) => (
-    <div style={{ marginBottom: "1rem" }}>
-      {title && (
-        <div
-          style={{
-            fontWeight: 600,
-            fontSize: "0.875rem",
-            marginBottom: "0.5rem",
-            color: "var(--text-secondary)",
-          }}
-        >
-          {title}
-        </div>
-      )}
-      {children}
-    </div>
-  ),
+  Tabs: DocsTabs,
+  Tab: DocsTab,
+  FrameworkTabs,
   Frame: ({ children }: { children: React.ReactNode }) => (
     <div
       style={{
@@ -1326,6 +1304,8 @@ export default async function DocsPage({
   const fm = fmMatch?.[1] ?? "";
   const snippetFrameworkMatch = fm.match(/snippet_framework:\s*(.+?)\s*$/m);
   const snippetCellMatch = fm.match(/snippet_cell:\s*(.+?)\s*$/m);
+  const descriptionMatch = fm.match(/^description:\s*(.+?)\s*$/m);
+  const description = descriptionMatch?.[1]?.replace(/^["']|["']$/g, "");
   const integrationFrameworkMatch = slugPath.match(/^integrations\/([^/]+)/);
   const frameworkSlugMap: Record<string, string> = {
     // The content directory uses `langgraph` as a prefix, but the showcase
@@ -1460,9 +1440,14 @@ export default async function DocsPage({
           ))}
         </nav>
 
-        <h1 className="text-2xl font-semibold text-[var(--text)] tracking-tight mb-6">
+        <h1 className="text-[2rem] font-bold text-[var(--text)] tracking-tight mb-2 leading-tight">
           {title}
         </h1>
+        {description && (
+          <p className="text-base text-[var(--text-muted)] mb-8 leading-relaxed">
+            {description}
+          </p>
+        )}
         <div className="reference-content">
           <MDXRemote
             source={content}
