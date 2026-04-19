@@ -483,15 +483,13 @@ jobs:
           # the leg name from parentheses; anything that doesn't match is
           # ignored. jq -r emits one SLUG<TAB>CONCLUSION pair per line so
           # we can bucket in shell without re-parsing JSON.
+          # Single-pass pipeline: iterate .jobs directly and emit on the
+          # matching branch — avoids the map-then-flatten indirection that
+          # made the previous version harder to read.
           pairs=$(printf '%s' "$jobs_json" | jq -r '
-            .jobs // []
-            | map(select(.name | test("^build \\(.+\\)$")))
-            | map({
-                slug: (.name | capture("^build \\((?<s>.+)\\)$").s),
-                conclusion: (.conclusion // "unknown")
-              })
-            | .[]
-            | "\(.slug)\t\(.conclusion)"
+            .jobs[]?
+            | select(.name | test("^build \\(.+\\)$"))
+            | "\(.name | capture("^build \\((?<s>.+)\\)$").s)\t\(.conclusion // "unknown")"
           ' 2>/dev/null)
           if [ -z "$pairs" ]; then
             echo "::warning::No matrix-leg jobs found in run; notify will use softer wording"
