@@ -36,6 +36,14 @@ side-by-side under `frontend/src/app/a2ui/`:
 | `renderers.tsx` | React implementations keyed by the same names. TypeScript enforces that every definition has a renderer. |
 | `catalog.ts` | `createCatalog(definitions, renderers, { includeBasicCatalog: true })` — merges your custom components with CopilotKit's built-in primitives. |
 
+<Callout type="info">
+Prefer a single-file prototype? The showcase also ships the
+`declarative-gen-ui-hardcoded` cell — the same Card / Title / Metric /
+PrimaryButton vocabulary, but definitions + renderers + catalog all in
+one `catalog.tsx`. Useful for a quick demo; graduate to the 3-file
+split the moment more than one surface needs the catalog.
+</Callout>
+
 <Steps>
 <Step>
 ### Declare your custom component definitions
