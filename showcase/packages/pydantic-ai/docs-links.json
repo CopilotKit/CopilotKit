@@ -1,110 +1,37 @@
 {
   "framework": "pydantic-ai",
-  "shell_base_url": "http://localhost:3000/pydantic-ai",
-  "og_docs_base_url": "https://docs.copilotkit.ai",
-  "reference_docs_dir": "docs/content/docs/integrations/pydantic-ai",
-  "notes": [
-    "og_docs_url values come from showcase/shared/feature-registry.json (shape: /features/<id>) and are validated via curl -L against docs.copilotkit.ai.",
-    "shell_docs_url values come from the registry (shape: /docs/features/<id>) and are validated via curl against http://localhost:3000/pydantic-ai<path>.",
-    "All 7 og_docs_url paths return HTTP 200 on production docs site.",
-    "All shell_docs_url paths return HTTP 404 on local shell — the shell does not currently host /docs/features/* routes for any framework.",
-    "shared-state-read-write has no og_docs_url or shell_docs_url declared in feature-registry.json; flagged in `missing`.",
-    "Framework-specific docs tree exists at docs/content/docs/integrations/pydantic-ai/ and mirrors root content; the shell renders those under /pydantic-ai/<path> (e.g. /pydantic-ai/human-in-the-loop, /pydantic-ai/generative-ui/tool-rendering) rather than /docs/features/<id>."
-  ],
-  "features": [
-    {
-      "id": "agentic-chat",
-      "og_docs_url": "https://docs.copilotkit.ai/features/agentic-chat",
-      "og_docs_status": 200,
-      "og_docs_ok": true,
-      "shell_docs_url": "/docs/features/agentic-chat",
-      "shell_docs_status": 404,
-      "shell_docs_ok": false,
-      "framework_mdx": "docs/content/docs/integrations/pydantic-ai/prebuilt-components.mdx",
-      "status": "partial"
+  "features": {
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/prebuilt-components",
+      "shell_docs_path": "/pydantic-ai/unselected/prebuilt-components"
     },
-    {
-      "id": "hitl-in-chat",
-      "og_docs_url": "https://docs.copilotkit.ai/features/hitl-in-chat",
-      "og_docs_status": 200,
-      "og_docs_ok": true,
-      "shell_docs_url": "/docs/features/hitl-in-chat",
-      "shell_docs_status": 404,
-      "shell_docs_ok": false,
-      "framework_mdx": "docs/content/docs/integrations/pydantic-ai/human-in-the-loop.mdx",
-      "status": "partial"
+    "hitl-in-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/generative-ui/your-components/interactive",
+      "shell_docs_path": "/pydantic-ai/unselected/generative-ui/your-components/interactive"
     },
-    {
-      "id": "tool-rendering",
-      "og_docs_url": "https://docs.copilotkit.ai/features/tool-rendering",
-      "og_docs_status": 200,
-      "og_docs_ok": true,
-      "shell_docs_url": "/docs/features/tool-rendering",
-      "shell_docs_status": 404,
-      "shell_docs_ok": false,
-      "framework_mdx": "docs/content/docs/integrations/pydantic-ai/generative-ui/tool-rendering.mdx",
-      "status": "partial"
+    "tool-rendering": {
+      "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/generative-ui/tool-rendering",
+      "shell_docs_path": "/pydantic-ai/unselected/generative-ui/tool-rendering"
     },
-    {
-      "id": "gen-ui-tool-based",
-      "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-tool-based",
-      "og_docs_status": 200,
-      "og_docs_ok": true,
-      "shell_docs_url": "/docs/features/gen-ui-tool-based",
-      "shell_docs_status": 404,
-      "shell_docs_ok": false,
-      "framework_mdx": "docs/content/docs/integrations/pydantic-ai/generative-ui/tool-rendering.mdx",
-      "status": "partial"
+    "gen-ui-tool-based": {
+      "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/generative-ui/your-components/display-only",
+      "shell_docs_path": "/pydantic-ai/unselected/generative-ui/your-components/display-only"
     },
-    {
-      "id": "gen-ui-agent",
-      "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-agent",
-      "og_docs_status": 200,
-      "og_docs_ok": true,
-      "shell_docs_url": "/docs/features/gen-ui-agent",
-      "shell_docs_status": 404,
-      "shell_docs_ok": false,
-      "framework_mdx": "docs/content/docs/integrations/pydantic-ai/generative-ui/state-rendering.mdx",
-      "status": "partial"
+    "gen-ui-agent": {
+      "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/generative-ui/state-rendering",
+      "shell_docs_path": null
     },
-    {
-      "id": "shared-state-read-write",
-      "og_docs_url": null,
-      "og_docs_status": null,
-      "og_docs_ok": false,
-      "shell_docs_url": null,
-      "shell_docs_status": null,
-      "shell_docs_ok": false,
-      "framework_mdx": "docs/content/docs/integrations/pydantic-ai/shared-state/in-app-agent-write.mdx",
-      "status": "missing"
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/shared-state/in-app-agent-write",
+      "shell_docs_path": "/pydantic-ai/unselected/shared-state"
     },
-    {
-      "id": "shared-state-streaming",
-      "og_docs_url": "https://docs.copilotkit.ai/features/shared-state-streaming",
-      "og_docs_status": 200,
-      "og_docs_ok": true,
-      "shell_docs_url": "/docs/features/shared-state-streaming",
-      "shell_docs_status": 404,
-      "shell_docs_ok": false,
-      "framework_mdx": "docs/content/docs/integrations/pydantic-ai/shared-state/predictive-state-updates.mdx",
-      "status": "partial"
+    "shared-state-streaming": {
+      "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/shared-state/predictive-state-updates",
+      "shell_docs_path": "/pydantic-ai/unselected/shared-state"
     },
-    {
-      "id": "subagents",
-      "og_docs_url": "https://docs.copilotkit.ai/features/subagents",
-      "og_docs_status": 200,
-      "og_docs_ok": true,
-      "shell_docs_url": "/docs/features/subagents",
-      "shell_docs_status": 404,
-      "shell_docs_ok": false,
-      "framework_mdx": "docs/content/docs/integrations/pydantic-ai/multi-agent-flows.mdx",
-      "status": "partial"
+    "subagents": {
+      "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/multi-agent-flows",
+      "shell_docs_path": null
     }
-  ],
-  "missing": [
-    {
-      "id": "shared-state-read-write",
-      "reason": "No og_docs_url or shell_docs_url declared in showcase/shared/feature-registry.json"
-    }
-  ]
+  }
 }

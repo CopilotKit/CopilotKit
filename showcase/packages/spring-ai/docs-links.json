@@ -1,120 +1,38 @@
 {
   "framework": "spring-ai",
-  "features": [
-    {
-      "id": "agentic-chat",
-      "name": "Agentic Chat",
-      "og_docs_url": "https://docs.copilotkit.ai/features/agentic-chat",
-      "og_docs_status": "missing",
-      "shell_docs_url": "/spring-ai/docs/features/agentic-chat",
-      "shell_docs_status": "missing",
-      "notes": "No spring-ai MDX under docs/content/docs/integrations/spring-ai; shell returns 404 for /spring-ai/docs/features/*"
+  "features": {
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/agentic-chat-ui",
+      "shell_docs_path": "/unselected/prebuilt-components"
     },
-    {
-      "id": "hitl-in-chat",
-      "name": "In-Chat Human in the Loop",
-      "og_docs_url": "https://docs.copilotkit.ai/features/hitl-in-chat",
-      "og_docs_status": "missing",
-      "shell_docs_url": "/spring-ai/docs/features/hitl-in-chat",
-      "shell_docs_status": "missing",
-      "notes": "No spring-ai-specific docs; (root)/human-in-the-loop.mdx exists as a general fallback but is not framework-scoped"
+    "hitl-in-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop",
+      "shell_docs_path": null
     },
-    {
-      "id": "tool-rendering",
-      "name": "Tool Rendering",
-      "og_docs_url": "https://docs.copilotkit.ai/features/tool-rendering",
-      "og_docs_status": "missing",
-      "shell_docs_url": "/spring-ai/docs/features/tool-rendering",
-      "shell_docs_status": "missing",
-      "notes": "No spring-ai-specific docs; (root)/generative-ui/tool-rendering.mdx exists as general fallback"
+    "tool-rendering": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",
+      "shell_docs_path": "/unselected/generative-ui/tool-rendering"
     },
-    {
-      "id": "gen-ui-tool-based",
-      "name": "Tool-Based Generative UI",
-      "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-tool-based",
-      "og_docs_status": "missing",
-      "shell_docs_url": "/spring-ai/docs/features/gen-ui-tool-based",
-      "shell_docs_status": "missing",
-      "notes": "No spring-ai-specific docs"
+    "gen-ui-tool-based": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/your-components/display-only",
+      "shell_docs_path": "/unselected/generative-ui/your-components/display-only"
     },
-    {
-      "id": "gen-ui-agent",
-      "name": "Agentic Generative UI",
-      "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-agent",
-      "og_docs_status": "missing",
-      "shell_docs_url": "/spring-ai/docs/features/gen-ui-agent",
-      "shell_docs_status": "missing",
-      "notes": "No spring-ai-specific docs; (root)/generative-ui/state-rendering.mdx is the generic fallback"
+    "gen-ui-agent": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/state-rendering",
+      "shell_docs_path": null
     },
-    {
-      "id": "shared-state-read-write",
-      "name": "Shared State (Read + Write)",
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+      "shell_docs_path": "/unselected/shared-state"
+    },
+    "shared-state-streaming": {
+      "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+      "shell_docs_path": "/unselected/shared-state"
+    },
+    "subagents": {
       "og_docs_url": null,
-      "og_docs_status": "missing",
-      "shell_docs_url": "/spring-ai/docs/features/shared-state-read-write",
-      "shell_docs_status": "missing",
-      "notes": "No og_docs_url in feature-registry.json; no spring-ai-specific docs"
-    },
-    {
-      "id": "shared-state-streaming",
-      "name": "State Streaming",
-      "og_docs_url": "https://docs.copilotkit.ai/features/shared-state-streaming",
-      "og_docs_status": "missing",
-      "shell_docs_url": "/spring-ai/docs/features/shared-state-streaming",
-      "shell_docs_status": "missing",
-      "notes": "No spring-ai-specific docs"
-    },
-    {
-      "id": "subagents",
-      "name": "Sub-Agents",
-      "og_docs_url": "https://docs.copilotkit.ai/features/subagents",
-      "og_docs_status": "missing",
-      "shell_docs_url": "/spring-ai/docs/features/subagents",
-      "shell_docs_status": "missing",
-      "notes": "No spring-ai-specific docs"
+      "shell_docs_path": null
     }
-  ],
-  "missing": [
-    {
-      "feature": "agentic-chat",
-      "reason": "no spring-ai MDX under docs/content/docs/integrations/spring-ai/; shell 404"
-    },
-    {
-      "feature": "hitl-in-chat",
-      "reason": "no spring-ai MDX; shell 404"
-    },
-    {
-      "feature": "tool-rendering",
-      "reason": "no spring-ai MDX; shell 404"
-    },
-    {
-      "feature": "gen-ui-tool-based",
-      "reason": "no spring-ai MDX; shell 404"
-    },
-    {
-      "feature": "gen-ui-agent",
-      "reason": "no spring-ai MDX; shell 404"
-    },
-    {
-      "feature": "shared-state-read-write",
-      "reason": "feature-registry has no og_docs_url and no spring-ai MDX; shell 404"
-    },
-    {
-      "feature": "shared-state-streaming",
-      "reason": "no spring-ai MDX; shell 404"
-    },
-    {
-      "feature": "subagents",
-      "reason": "no spring-ai MDX; shell 404"
-    }
-  ],
-  "audit_meta": {
-    "source_priority": "docs/content/docs/integrations/spring-ai/<path>.mdx -> (root)/<path>.mdx",
-    "docs_dir_exists": false,
-    "og_host": "https://docs.copilotkit.ai",
-    "og_validation_note": "docs.copilotkit.ai returns HTTP 200 for every path (SPA-style shell). Status determined by presence of underlying MDX in docs/content/docs, not HTTP code.",
-    "shell_host": "http://localhost:3000",
-    "shell_base_path": "/spring-ai",
-    "shell_validation_note": "/spring-ai/docs/features/* returns 404 on the running shell; no framework is currently serving per-framework docs sub-paths."
-  }
+  },
+  "missing": ["hitl-in-chat", "gen-ui-agent", "subagents"]
 }
