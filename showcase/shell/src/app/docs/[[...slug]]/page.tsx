@@ -16,6 +16,7 @@ import {
 } from "@/components/router-pivot";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { SidebarNav } from "@/components/sidebar-nav";
+import { StoredFrameworkHighlight } from "@/components/stored-framework-highlight";
 import {
   CONTENT_DIR,
   buildNavTree,
@@ -196,7 +197,7 @@ function DocsOverview() {
                     <Link
                       key={i.slug}
                       href={`/${i.slug}`}
-                      className={`group flex items-center gap-2 p-3 rounded-lg border transition-all ${
+                      className={`group relative flex items-center gap-2 p-3 rounded-lg border transition-all ${
                         i.deployed
                           ? "border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm"
                           : "border-[var(--border-dim)] bg-[var(--bg-elevated)] opacity-70"
@@ -216,6 +217,10 @@ function DocsOverview() {
                           soon
                         </span>
                       )}
+                      {/* Marks the framework currently stored in
+                          localStorage so repeat visitors can spot "their"
+                          choice at a glance without an auto-redirect. */}
+                      <StoredFrameworkHighlight slug={i.slug} />
                     </Link>
                   ))}
                 </div>
