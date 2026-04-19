@@ -38,82 +38,11 @@ interface HealthResult {
   status: HealthState;
   checked_at: string;
 }
-interface Variant {
-  name: string;
-  e2e: TestResult | null;
-  smoke: TestResult | null;
-  qa: QAResult | null;
-  health: HealthResult;
-}
 interface DemoStatus {
   e2e: TestResult | null;
   smoke: TestResult | null;
   qa: QAResult | null;
   health: HealthResult;
-  variants?: Variant[];
-}
-
-// Mock variant seeding. Only a few demos get variants so the visualization
-// shows both cases (with / without). Real variants would come from an
-// explicit registration; this is just to exercise the UI.
-const MOCK_VARIANTS: Record<string, string[]> = {
-  "langgraph-python::gen-ui-tool-based": [
-    "default",
-    "long-data",
-    "error",
-    "empty",
-  ],
-  "langgraph-python::agentic-chat": [
-    "default",
-    "streaming",
-    "with-suggestions",
-  ],
-  "langgraph-python::hitl-in-chat": ["approve", "reject"],
-  "langgraph-typescript::agentic-chat": ["default", "long-context", "unicode"],
-};
-
-function mockVariantTest(
-  slug: string,
-  demoId: string,
-  variantName: string,
-  kind: "e2e" | "smoke",
-): TestResult | null {
-  const seed = hash(`${slug}::${demoId}::${variantName}::${kind}`);
-  const state = ["pass-fresh", "pass-stale", "fail", "none"][seed % 4];
-  if (state === "none") return null;
-  return {
-    status: state.startsWith("pass") ? "pass" : "fail",
-    ran_at:
-      state === "pass-fresh"
-        ? hoursAgo(1 + (seed % 5))
-        : hoursAgo(10 + (seed % 60)),
-    url: "https://github.com/CopilotKit/CopilotKit/actions",
-  };
-}
-
-function mockVariantQA(
-  slug: string,
-  demoId: string,
-  variantName: string,
-): QAResult | null {
-  const seed = hash(`${slug}::${demoId}::${variantName}::qa`);
-  const days = seed % 55;
-  if (days > 45) return null;
-  return { reviewed_at: daysAgo(days), url: "https://copilotkit.notion.site" };
-}
-
-function mockVariantHealth(
-  slug: string,
-  demoId: string,
-  variantName: string,
-  parent: HealthState,
-): HealthState {
-  // Variants inherit the parent deploy's live-ness, but simulate some
-  // variant-specific failures (e.g. long-context triggering a 500).
-  const seed = hash(`${slug}::${demoId}::${variantName}::health`);
-  if (parent === "up")
-    return (["up", "up", "up", "up", "down"] as const)[seed % 5];
-  return parent;
 }
 
 // Deterministic hash so mock values are stable across runs.
@@ -204,9 +133,11 @@ async function main() {
   const mockHealth = process.env.GENERATE_STATUS_MOCK_HEALTH === "1";
 
   // Flatten to (slug, demoId, url) tuples for parallel probing.
+  // Informational demos (e.g. cli-start) have no route — skip probing.
   const jobs: Array<{ slug: string; demoId: string; url: string }> = [];
   for (const integ of registry.integrations) {
     for (const demo of integ.demos) {
+      if (!demo.route) continue;
       jobs.push({
         slug: integ.slug,
         demoId: demo.id,
@@ -246,24 +177,11 @@ async function main() {
     for (const demo of integ.demos) {
       const key = `${integ.slug}::${demo.id}`;
       const parentHealth = healthMap.get(key) ?? "unknown";
-      const demoKey = `${integ.slug}::${demo.id}`;
-      const variantNames = MOCK_VARIANTS[demoKey];
-      const variants: Variant[] | undefined = variantNames?.map((name) => ({
-        name,
-        e2e: mockVariantTest(integ.slug, demo.id, name, "e2e"),
-        smoke: mockVariantTest(integ.slug, demo.id, name, "smoke"),
-        qa: mockVariantQA(integ.slug, demo.id, name),
-        health: {
-          status: mockVariantHealth(integ.slug, demo.id, name, parentHealth),
-          checked_at: checkedAt,
-        },
-      }));
       demos[demo.id] = {
         e2e: mockE2E(integ.slug, demo.id),
         smoke: mockSmoke(integ.slug, demo.id),
         qa: mockQA(integ.slug, demo.id),
         health: { status: parentHealth, checked_at: checkedAt },
-        ...(variants ? { variants } : {}),
       };
     }
     integrations[integ.slug] = { demos };
