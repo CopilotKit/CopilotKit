@@ -516,9 +516,38 @@ jobs:
           failed_count=$(echo "$failed" | wc -w | xargs)
 
           # Cap list length for Slack readability (same 200-char cap as
-          # services_list in the payload step).
-          succeeded_list=$(echo "$succeeded" | tr ' ' ',' | sed 's/,/, /g' | cut -c1-200)
-          failed_list=$(echo "$failed" | tr ' ' ',' | sed 's/,/, /g' | cut -c1-200)
+          # services_list in the payload step). `cut -c1-200` used to
+          # truncate mid-slug, producing garbage like `starter-claude-sdk-pyth`;
+          # drop whole comma-separated entries instead and append a single
+          # ellipsis so truncation is legible to humans. Keeps the 200-char
+          # budget so Slack single-line formatting still fits.
+          truncate_csv() {
+            local budget=$1 input=$2 out="" item proposed
+            # Split on single space (entries come from shell word-split),
+            # then render as comma-separated.
+            for item in $input; do
+              if [ -z "$out" ]; then
+                proposed="$item"
+              else
+                proposed="$out, $item"
+              fi
+              if [ ${#proposed} -le "$budget" ]; then
+                out="$proposed"
+              else
+                if [ -z "$out" ]; then
+                  # First item already exceeds the budget — fall back to
+                  # a hard cut so we at least emit something.
+                  out=$(printf '%s' "$item" | cut -c1-"$budget")
+                else
+                  out="$out, …"
+                fi
+                break
+              fi
+            done
+            printf '%s' "$out"
+          }
+          succeeded_list=$(truncate_csv 200 "$succeeded")
+          failed_list=$(truncate_csv 200 "$failed")
 
           {
             echo "have_detail=true"
@@ -537,7 +566,35 @@ jobs:
           LOCKFILE="${{ needs.check-lockfile.result }}"
           BUILD="${{ needs.build.result }}"
           COUNT="${{ steps.summary.outputs.count }}"
-          SERVICES=$(echo "${{ steps.summary.outputs.services }}" | cut -c1-200)
+          # See truncate_csv in steps.legs for the truncation contract —
+          # drop whole entries, not mid-slug characters, then append `…`
+          # if the list exceeds the budget. Duplicate the helper inline
+          # because YAML run blocks don't share shell functions.
+          truncate_csv() {
+            local budget=$1 input=$2 out="" item proposed
+            # Input is comma-separated (jq join(", ")) — normalise to
+            # space separation for the shell word-split below.
+            local ws="${input//,/ }"
+            for item in $ws; do
+              if [ -z "$out" ]; then
+                proposed="$item"
+              else
+                proposed="$out, $item"
+              fi
+              if [ ${#proposed} -le "$budget" ]; then
+                out="$proposed"
+              else
+                if [ -z "$out" ]; then
+                  out=$(printf '%s' "$item" | cut -c1-"$budget")
+                else
+                  out="$out, …"
+                fi
+                break
+              fi
+            done
+            printf '%s' "$out"
+          }
+          SERVICES=$(truncate_csv 200 "${{ steps.summary.outputs.services }}")
 
           # Cancellations can come from concurrency group supersession (rapid
           # pushes), manual cancel via the UI, or an upstream-failure cascade.
