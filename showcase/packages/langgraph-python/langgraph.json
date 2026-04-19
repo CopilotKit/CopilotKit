@@ -12,6 +12,7 @@
     "open_gen_ui_advanced": "./src/agents/open_gen_ui_advanced_agent.py:graph",
     "mcp_apps": "./src/agents/mcp_apps_agent.py:graph",
     "hitl_in_chat": "./src/agents/hitl_in_chat_agent.py:graph",
+    "hitl_in_app": "./src/agents/hitl_in_app.py:graph",
     "shared_state_read_write": "./src/agents/shared_state_read_write.py:graph",
     "readonly_state_agent_context": "./src/agents/readonly_state_agent_context.py:graph",
     "shared_state_streaming": "./src/agents/shared_state_streaming.py:graph",
