@@ -1,46 +1,71 @@
-import Link from "next/link";
-import { FeatureGrid } from "@/components/feature-grid";
-import { SingleCell } from "@/components/cell-single";
+// Feature matrix: one row per feature × integration. Each feature's
+// `kind` (primary | testing) determines its visual grouping.
+// "testing"-kind features render muted and skip the docs row.
+import { FeatureGrid, type CellContext } from "@/components/feature-grid";
+import { CellStatus, urlsFor } from "@/components/cell-pieces";
+import { CommandCell } from "@/components/command-cell";
+
+function Cell(ctx: CellContext) {
+  const isTesting = ctx.feature.kind === "testing";
+
+  // Informational demo (e.g. cli-start) — renders a copy-pasteable command
+  // block in place of the Demo/Code links, but still shows the same docs
+  // row + E2E/Smoke/QA/health badges below so the matrix is consistent.
+  if (ctx.demo.command) {
+    return <CommandCell ctx={ctx} />;
+  }
+
+  const links = urlsFor(ctx);
+
+  return (
+    <div
+      className={`flex flex-col gap-1 text-[11px] ${isTesting ? "opacity-60" : ""}`}
+    >
+      <div className="flex items-center gap-2.5">
+        <a
+          href={links.demoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="whitespace-nowrap text-[var(--accent)] hover:underline"
+        >
+          <span className="text-[var(--text-muted)]">Demo</span> <span>↗</span>
+        </a>
+        <a
+          href={links.codeUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="whitespace-nowrap text-[var(--accent)] hover:underline"
+        >
+          <span className="text-[var(--text-muted)]">Code</span>{" "}
+          <span>{"</>"}</span>
+        </a>
+      </div>
+      <CellStatus ctx={ctx} />
+    </div>
+  );
+}
 
 export default function Page() {
   return (
     <>
-      <FeatureGrid title="Feature Matrix" renderCell={SingleCell} />
-      <VariantLinks />
+      <FeatureGrid title="Feature Matrix" renderCell={Cell} minColWidth={260} />
       <Legend />
     </>
-  );
-}
-
-function VariantLinks() {
-  const options = [
-    { href: "/variants-stack", label: "Variants · Stacked" },
-    { href: "/variants-tabs", label: "Variants · Tabs" },
-    { href: "/variants-aggregate", label: "Variants · Aggregate" },
-    { href: "/variants-grid", label: "Variants · Mini-grid" },
-    { href: "/variants-strip", label: "Variants · Strip" },
-  ];
-  return (
-    <div className="px-8 mt-6 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
-      <span className="font-medium text-[var(--text-secondary)]">
-        Variant layouts (experimental):
-      </span>
-      {options.map((o) => (
-        <Link
-          key={o.href}
-          href={o.href}
-          className="text-[var(--accent)] hover:underline"
-        >
-          {o.label}
-        </Link>
-      ))}
-    </div>
   );
 }
 
 function Legend() {
   return (
     <div className="px-8 pb-8 mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs text-[var(--text-muted)]">
+      <div className="flex items-center gap-1.5">
+        <span className="text-[var(--text-secondary)]">testing</span>
+        rows are muted &amp; hide docs (primary feature = has docs)
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="text-[var(--ok)]">docs-og ✓</span>/
+        <span className="text-[var(--danger)]">docs-shell ✗</span>
+        doc link present / missing
+      </div>
       <div className="flex items-center gap-1.5">
         <span className="text-[var(--accent)] font-medium">Demo ↗</span>/
         <span className="text-[var(--accent)] font-medium">Code {"</>"}</span>
@@ -63,9 +88,9 @@ function Legend() {
       <div className="flex items-center gap-1.5">
         <span className="inline-flex items-center gap-1">
           <span className="inline-block w-2 h-2 rounded-full bg-[var(--ok)]" />
-          up
+          Hosted
         </span>
-        live health probe → hosted URL
+        dot = live probe, click = open hosted URL
       </div>
       <div className="flex items-center gap-1.5">
         <span className="text-[var(--text-muted)]">?</span>
