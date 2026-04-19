@@ -3,6 +3,8 @@ title: Human-in-the-Loop
 icon: "lucide/User"
 description: Allow your agent and users to collaborate on complex tasks.
 hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: hitl-in-chat
 ---
 
 ## What is this?
@@ -29,6 +31,22 @@ Use HITL when you need:
 - **Reliability** — More robust system for real-world use
 
 <FeatureIntegrations feature="hitl" />
+
+## Example: a booking-confirmation picker
+
+The `hitl-in-chat` showcase cell demonstrates a fully-wired pattern: the
+backend agent decides it needs a time, and the frontend pauses the turn
+to let the user pick one. You register a HITL tool on the client with
+`useHumanInTheLoop`, and CopilotKit routes the call through your render
+function:
+
+<Snippet region="hitl-hook" title="frontend/src/app/page.tsx — useHumanInTheLoop" />
+
+The picker UI is fed a static list of candidate slots — this is just data
+the demo page owns, so you can swap in real availability, a calendar API,
+or anything else:
+
+<Snippet region="time-slots" title="frontend/src/app/page.tsx — candidate slots" />
 
 ## Get started by choosing your AI backend
 
