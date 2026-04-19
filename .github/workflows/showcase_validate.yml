@@ -497,25 +497,17 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          # No pip cache: today's tests install only pytest + typing_extensions
-          # (see "Install minimal test deps" below). Caching would key on a
-          # never-used `requirements.txt` and add overhead for no benefit.
-          # Re-add `cache: "pip"` + `cache-dependency-path` if per-package
-          # requirements.txt installs return (see comment in that step).
+          cache: "pip"
+          cache-dependency-path: |
+            showcase/packages/*/requirements.txt
 
       - name: Install minimal test deps
-        # Today's python unit tests (`test_aimock_toggle.py`) are stdlib-only
-        # except for the `typing_extensions` fallback path exercised on 3.10.
-        # Installing each package's full `requirements.txt` (CrewAI graph etc.)
-        # on every PR is a ~30-60s tax that buys nothing for stdlib-only tests.
-        # Install only pytest + typing_extensions here.
-        #
-        # If a future `tests/python/` adds cases that import package runtime
-        # deps (e.g. imports `crewai` or `litellm`), that package's test must
-        # install its own `requirements.txt` in an explicit step OR the loop
-        # below should gain a marker file (e.g. `tests/python/requirements.txt`)
-        # that triggers per-package install. Do NOT regress to installing every
-        # package's full requirements.txt unconditionally.
+        # Always need pytest + typing_extensions. Per-package `requirements.txt`
+        # is installed inside the run loop below so tests that import runtime
+        # deps (openai, google.genai, httpx, opentelemetry, etc.) don't fail at
+        # collection time with ModuleNotFoundError. Conftest-based stub finders
+        # can't help because test_*.py imports the target deps BEFORE conftest
+        # runs.
         run: python -m pip install --quiet pytest typing_extensions
 
       - name: Run showcase package Python unit tests
@@ -523,6 +515,11 @@ jobs:
         # (not e2e, not langgraph which has its own runtime). Each package has
         # its own conftest.py that wires up import paths; we cd into the pkg
         # dir so those apply.
+        #
+        # Before running pytest in a package we install that package's own
+        # `requirements.txt` (if present) so runtime-dep imports in test modules
+        # resolve. Keeps CI parity with real runtime and avoids the fragile
+        # stub-finder dance conftest.py would need to do otherwise.
         run: |
           set -euo pipefail
           failed=0
@@ -533,6 +530,14 @@ jobs:
             found=$((found + 1))
             pkg=$(basename "$pkg_dir")
             echo "--- pytest: $pkg ---"
+            if [ -f "${pkg_dir}requirements.txt" ]; then
+              echo "Installing ${pkg_dir}requirements.txt"
+              python -m pip install --quiet -r "${pkg_dir}requirements.txt" || {
+                echo "::error::pip install failed for $pkg"
+                failed=1
+                continue
+              }
+            fi
             (cd "$pkg_dir" && python -m pytest tests/python/ -v) || failed=1
           done
           if [ "$found" -eq 0 ]; then
