@@ -3,6 +3,7 @@ import type { CellContext } from "@/components/feature-grid";
 import { getDocsStatus, type DocState } from "@/lib/docs-status";
 import { Badge, HealthDot } from "@/components/badges";
 import { getDemoStatus, healthBadge, qaBadge, testBadge } from "@/lib/status";
+import type { Feature, Integration } from "@/lib/registry";
 
 export function urlsFor(ctx: CellContext): {
   demoUrl: string;
@@ -16,24 +17,54 @@ export function urlsFor(ctx: CellContext): {
   };
 }
 
+/**
+ * Row of docs links for a single (integration, feature) cell. Reads the
+ * framework-scoped override from `integration.docs_links.features[<id>]` when
+ * available and falls back to the feature's global `og_docs_url`.
+ *
+ * Shell URLs are always built from `shell_docs_path` as
+ * `${shellUrl}/${integration.slug}/unselected${path}` — the legacy
+ * `feature.shell_docs_url` field is intentionally ignored here.
+ */
 export function DocsRow({
+  integration,
   feature,
   shellUrl,
 }: {
-  feature: { id: string; og_docs_url?: string; shell_docs_url?: string };
+  integration: Integration;
+  feature: Feature;
   shellUrl: string;
 }) {
-  const { og, shell } = getDocsStatus(feature.id);
-  const ogHref = feature.og_docs_url;
-  const shellHref = feature.shell_docs_url
-    ? feature.shell_docs_url.startsWith("http")
-      ? feature.shell_docs_url
-      : `${shellUrl}${feature.shell_docs_url}`
+  const probed = getDocsStatus(feature.id);
+  const override = integration.docs_links?.features?.[feature.id];
+
+  const ogHref = override?.og_docs_url ?? feature.og_docs_url ?? undefined;
+  const shellPath = override?.shell_docs_path ?? undefined;
+  const shellHref = shellPath
+    ? `${shellUrl}/${integration.slug}/unselected${shellPath}`
     : undefined;
+
+  // When a per-column override is curated, trust the curator — the probe
+  // data (`docs-status.json`) was generated against legacy URLs and lags
+  // behind the override. Fall back to probe state only when no override
+  // exists for this cell.
+  const hasOgOverride = override?.og_docs_url !== undefined;
+  const hasShellOverride = override?.shell_docs_path !== undefined;
+  const ogState: DocState = hasOgOverride
+    ? ogHref
+      ? "ok"
+      : "missing"
+    : probed.og;
+  const shellState: DocState = hasShellOverride
+    ? shellHref
+      ? "ok"
+      : "missing"
+    : probed.shell;
+
   return (
     <div className="flex items-center gap-2.5">
-      <DocsLink label="docs-og" href={ogHref} state={og} />
-      <DocsLink label="docs-shell" href={shellHref} state={shell} />
+      <DocsLink label="docs-og" href={ogHref} state={ogState} />
+      <DocsLink label="docs-shell" href={shellHref} state={shellState} />
     </div>
   );
 }
@@ -98,7 +129,13 @@ export function CellStatus({ ctx }: { ctx: CellContext }) {
   const hostedUrl = ctx.hostedUrl || undefined;
   return (
     <>
-      {!isTesting && <DocsRow feature={ctx.feature} shellUrl={ctx.shellUrl} />}
+      {!isTesting && (
+        <DocsRow
+          integration={ctx.integration}
+          feature={ctx.feature}
+          shellUrl={ctx.shellUrl}
+        />
+      )}
       <div className="flex items-center gap-2.5">
         <Badge name="E2E" state={e2e} href={s?.e2e?.url} />
         <Badge name="Smoke" state={smoke} href={s?.smoke?.url} />
