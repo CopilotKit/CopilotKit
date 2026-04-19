@@ -4,9 +4,9 @@ category: popular
 language: typescript
 logo: /logos/mastra.svg
 description: >-
-  TypeScript-native agent framework with built-in tool management,
-  agent memory, and workflow orchestration. Integrates with CopilotKit
-  via the AG-UI protocol adapter.
+  TypeScript-native agent framework with built-in tool management, agent memory,
+  and workflow orchestration. Integrates with CopilotKit via the AG-UI protocol
+  adapter.
 partner_docs: https://docs.copilotkit.ai/integrations/mastra
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/mastra
 copilotkit_version: 2.0.0
@@ -49,6 +49,10 @@ demos:
       - chat-ui
     route: /demos/agentic-chat
     animated_preview_url:
+    highlight:
+      - backend/mastra.ts
+      - frontend/src/app/page.tsx
+      - frontend/src/app/api/copilotkit/route.ts
   - id: hitl-in-chat
     name: In-Chat Human in the Loop
     description: User approves agent actions before execution

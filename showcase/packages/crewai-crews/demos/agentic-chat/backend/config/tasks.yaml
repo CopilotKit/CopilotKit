@@ -1,0 +1,6 @@
+chat_task:
+  description: >
+    Respond helpfully to the user's message. Use tools when relevant.
+  expected_output: >
+    A short, helpful response. Plain text only.
+  agent: assistant

@@ -1,0 +1,12 @@
+[project]
+name = "showcase-langgraph-python"
+version = "0.1.0"
+requires-python = ">=3.12"
+# No top-level deps — workspace members declare theirs in demos/*/pyproject.toml
+
+[tool.uv.workspace]
+members = ["demos/*/backend"]
+
+# Not a real installable package — just a workspace root.
+[tool.uv]
+package = false

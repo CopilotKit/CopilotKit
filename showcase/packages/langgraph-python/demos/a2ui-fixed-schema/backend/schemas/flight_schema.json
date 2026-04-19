@@ -1,0 +1,21 @@
+[
+  {
+    "id": "root",
+    "component": "FlightCard",
+    "origin": { "path": "/origin" },
+    "destination": { "path": "/destination" },
+    "airline": { "path": "/airline" },
+    "price": { "path": "/price" },
+    "action": {
+      "event": {
+        "name": "book_flight",
+        "context": {
+          "origin": { "path": "/origin" },
+          "destination": { "path": "/destination" },
+          "airline": { "path": "/airline" },
+          "price": { "path": "/price" }
+        }
+      }
+    }
+  }
+]

@@ -1,13 +1,22 @@
 {
   "dependencies": ["."],
   "graphs": {
-    "sample_agent": "./src/agents/main.py:graph",
-    "tool_rendering": "./src/agents/tool_rendering_agent.py:graph",
     "a2ui_dynamic": "./src/agents/a2ui_dynamic.py:graph",
     "a2ui_fixed": "./src/agents/a2ui_fixed.py:graph",
-    "reasoning_agent": "./src/agents/reasoning_agent.py:graph",
     "interrupt_agent": "./src/agents/interrupt_agent.py:graph",
+    "sample_agent": "./src/agents/main.py:graph",
+    "mcp_apps": "./src/agents/mcp_apps_agent.py:graph",
     "open_gen_ui": "./src/agents/open_gen_ui_agent.py:graph",
-    "mcp_apps": "./src/agents/mcp_apps_agent.py:graph"
+    "reasoning_agent": "./src/agents/reasoning_agent.py:graph",
+    "tool_rendering": "./src/app/demos/tool-rendering/agent.py:graph",
+    "agentic_chat": "./src/app/demos/agentic-chat/agent.py:graph",
+    "chat_customization_css": "./src/app/demos/chat-customization-css/agent.py:graph",
+    "frontend_tools": "./src/app/demos/frontend-tools/agent.py:graph",
+    "gen_ui_agent": "./src/app/demos/gen-ui-agent/agent.py:graph",
+    "hitl": "./src/app/demos/hitl/agent.py:graph",
+    "shared_state_read": "./src/app/demos/shared-state-read/agent.py:graph",
+    "shared_state_streaming": "./src/app/demos/shared-state-streaming/agent.py:graph",
+    "shared_state_write": "./src/app/demos/shared-state-write/agent.py:graph",
+    "subagents": "./src/app/demos/subagents/agent.py:graph"
   }
 }

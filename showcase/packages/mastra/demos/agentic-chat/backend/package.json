@@ -1,0 +1,8 @@
+{
+  "name": "mastra-cell-agentic-chat-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mastra agent sources for the Agentic Chat cell. Imported in-process by the Next.js frontend — dependencies are declared in frontend/package.json.",
+  "type": "module",
+  "main": "mastra.ts"
+}

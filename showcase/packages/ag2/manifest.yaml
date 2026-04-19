@@ -4,8 +4,9 @@ category: emerging
 language: python
 logo: /logos/ag2.svg
 description: >-
-  CopilotKit integration with AG2. Supports the full range of CopilotKit features
-  including generative UI, shared state, human-in-the-loop, sub-agents, and streaming.
+  CopilotKit integration with AG2. Supports the full range of CopilotKit
+  features including generative UI, shared state, human-in-the-loop, sub-agents,
+  and streaming.
 partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/ag2
 copilotkit_version: 2.0.0

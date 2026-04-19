@@ -46,6 +46,10 @@ demos:
       - chat-ui
     route: /demos/agentic-chat
     animated_preview_url:
+    highlight:
+      - backend/agents/agent.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/api/copilotkit/route.ts
   - id: hitl-in-chat
     name: In-Chat Human in the Loop
     description: User approves agent actions before execution

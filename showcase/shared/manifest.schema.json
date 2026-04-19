@@ -129,7 +129,12 @@
           "backend_files": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "Optional explicit list of backend files (paths relative to package root) to bundle for this demo. When omitted, the bundler falls back to scanning the full agents/ directory."
+            "description": "DEPRECATED. The /code view now shows the demo folder's actual contents recursively; this field is ignored. Will be removed."
+          },
+          "highlight": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Core files to visually highlight in /code. Paths are relative to the demo folder (e.g. 'backend/agent.py', 'frontend/src/app/page.tsx')."
           }
         },
         "additionalProperties": false

@@ -27,7 +27,9 @@ starter:
   description: Full-featured sales pipeline with 5 GenUI rendering strategies
   github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/ms-agent-dotnet
   demo_url: https://showcase-starter-ms-agent-dotnet-production-b8cf.up.railway.app
-  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/ms-agent-dotnet my-copilotkit-app
+  clone_command:
+    npx degit CopilotKit/CopilotKit/showcase/starters/ms-agent-dotnet
+    my-copilotkit-app
 features:
   - agentic-chat
   - hitl-in-chat

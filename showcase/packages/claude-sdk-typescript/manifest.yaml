@@ -3,7 +3,8 @@ slug: claude-sdk-typescript
 category: agent-framework
 language: typescript
 logo: /logos/claude-sdk-typescript.svg
-description: CopilotKit integration with Anthropic's Claude via the Claude SDK for TypeScript
+description: CopilotKit integration with Anthropic's Claude via the Claude SDK
+  for TypeScript
 partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/claude-sdk-typescript
 copilotkit_version: 2.0.0
@@ -98,4 +99,6 @@ starter:
   description: Full-featured sales pipeline with 5 GenUI rendering strategies
   github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/claude-sdk-typescript
   demo_url: https://showcase-starter-claude-sdk-typescript-production.up.railway.app
-  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/claude-sdk-typescript my-copilotkit-app
+  clone_command: npx degit
+    CopilotKit/CopilotKit/showcase/starters/claude-sdk-typescript
+    my-copilotkit-app

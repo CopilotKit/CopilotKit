@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: #fafaf9;
+  color: #1a1a18;
+}
+
+:root {
+  --copilot-kit-background-color: #fafaf9;
+  --copilot-kit-primary-color: #0066ff;
+  --copilot-kit-response-button-background-color: #f5f5f3;
+  --copilot-kit-response-button-color: #1a1a18;
+}

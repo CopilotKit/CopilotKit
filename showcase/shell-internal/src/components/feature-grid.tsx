@@ -97,59 +97,61 @@ export function FeatureGrid({
                     {cat.name}
                   </td>
                 </tr>
-                {cat.features.map((feature) => (
-                  <tr
-                    key={feature.id}
-                    className="border-t border-[var(--border)] hover:bg-[var(--bg-hover)]"
-                  >
-                    <td className="sticky left-0 z-10 bg-[var(--bg-surface)] px-4 py-2 border-r border-[var(--border)] align-top">
-                      <div
-                        className="font-medium text-[var(--text)]"
-                        title={feature.description}
-                      >
-                        {feature.name}
-                      </div>
-                    </td>
-                    {integrations.map((integration) => {
-                      const supported = integration.features.includes(
-                        feature.id,
-                      );
-                      const demo = integration.demos.find(
-                        (d) => d.id === feature.id,
-                      );
-                      return (
-                        <td
-                          key={integration.slug}
-                          className="border-l border-[var(--border)] px-3 py-2 align-top text-left"
+                {cat.features.map((feature) => {
+                  const testing = feature.kind === "testing";
+                  return (
+                    <tr
+                      key={feature.id}
+                      className="border-t border-[var(--border)] hover:bg-[var(--bg-hover)]"
+                    >
+                      <td className="sticky left-0 z-10 bg-[var(--bg-surface)] px-4 py-2 border-r border-[var(--border)] align-top">
+                        <div
+                          className={
+                            testing
+                              ? "font-normal text-[var(--text-muted)] italic"
+                              : "font-medium text-[var(--text)]"
+                          }
+                          title={feature.description}
                         >
-                          {supported && demo ? (
-                            renderCell({
-                              integration,
-                              feature,
-                              hostedUrl: `${integration.backend_url}${demo.route}`,
-                              bundleStale,
-                              shellUrl,
-                            })
-                          ) : supported ? (
-                            <div
-                              className="text-center text-[11px] text-[var(--text-muted)]"
-                              title="Feature supported but no demo yet"
-                            >
-                              —
-                            </div>
-                          ) : (
-                            <div
-                              className="text-center text-base text-[var(--danger)]"
-                              title="Not supported"
-                            >
-                              ✗
-                            </div>
+                          {feature.name}
+                          {testing && (
+                            <span className="ml-2 text-[9px] uppercase tracking-wider text-[var(--text-muted)]">
+                              testing
+                            </span>
                           )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                        </div>
+                      </td>
+                      {integrations.map((integration) => {
+                        const demo = integration.demos.find(
+                          (d) => d.id === feature.id,
+                        );
+                        return (
+                          <td
+                            key={integration.slug}
+                            className="border-l border-[var(--border)] px-3 py-2 align-top text-left"
+                          >
+                            {demo ? (
+                              renderCell({
+                                integration,
+                                feature,
+                                hostedUrl: `${integration.backend_url}${demo.route}`,
+                                bundleStale,
+                                shellUrl,
+                              })
+                            ) : (
+                              <div
+                                className="text-center text-base text-[var(--danger)]"
+                                title="No demo"
+                              >
+                                ✗
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </Fragment>
             ))}
           </tbody>

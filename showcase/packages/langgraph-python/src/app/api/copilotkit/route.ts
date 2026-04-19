@@ -44,7 +44,6 @@ const agentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
-  "prebuilt-chat",
   "prebuilt-sidebar",
   "prebuilt-popup",
   "chat-slots",

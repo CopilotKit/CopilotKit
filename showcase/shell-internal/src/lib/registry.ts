@@ -1,11 +1,16 @@
 import registryData from "../../../shell/src/data/registry.json";
 import { sortOrder } from "./sort-order";
 
+export type FeatureKind = "primary" | "testing";
+
 export interface Feature {
   id: string;
   name: string;
   category: string;
   description: string;
+  kind?: FeatureKind;
+  og_docs_url?: string;
+  shell_docs_url?: string;
 }
 
 export interface FeatureCategory {

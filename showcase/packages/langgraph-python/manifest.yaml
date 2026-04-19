@@ -4,10 +4,10 @@ category: popular
 language: python
 logo: /logos/langgraph-python.svg
 description: >-
-  The most feature-complete CopilotKit integration. LangGraph provides a flexible
-  graph-based framework for building agents with Python. Supports the full range of
-  CopilotKit features including generative UI, shared state, human-in-the-loop,
-  sub-agents, and streaming.
+  The most feature-complete CopilotKit integration. LangGraph provides a
+  flexible graph-based framework for building agents with Python. Supports the
+  full range of CopilotKit features including generative UI, shared state,
+  human-in-the-loop, sub-agents, and streaming.
 partner_docs: https://docs.copilotkit.ai/integrations/langgraph
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/langgraph-python
 copilotkit_version: 2.0.0
@@ -31,13 +31,14 @@ starter:
   description: Full-featured sales pipeline with 5 GenUI rendering strategies
   github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langgraph-python
   demo_url: https://showcase-starter-langgraph-python-production-3f57.up.railway.app
-  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-python my-copilotkit-app
+  clone_command: npx degit
+    CopilotKit/CopilotKit/showcase/starters/langgraph-python my-copilotkit-app
 features:
   - agentic-chat
-  - prebuilt-chat
   - prebuilt-sidebar
   - prebuilt-popup
   - chat-slots
+  - chat-customization-css
   - headless-simple
   - headless-complete
   - agentic-chat-reasoning
@@ -50,7 +51,10 @@ features:
   - mcp-apps
   - open-gen-ui
   - gen-ui-agent
+  - tool-rendering-default-catchall
+  - tool-rendering-custom-catchall
   - tool-rendering
+  - tool-rendering-frontend-tools
   - shared-state-read
   - shared-state-write
   - shared-state-streaming
@@ -63,9 +67,52 @@ demos:
       - chat-ui
     route: /demos/agentic-chat
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/main.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
+  - id: chat-customization-css
+    name: Chat Customization (CSS)
+    description: Default CopilotChat re-themed via CopilotKitCSSProperties
+    tags:
+      - chat-ui
+    route: /demos/chat-customization-css
+    animated_preview_url:
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/theme.css
+  - id: tool-rendering-default-catchall
+    name: Tool Rendering (Default Catch-all)
+    description: Out-of-the-box tool rendering — backend defines the tools; the frontend adds zero custom renderers and relies on CopilotKit's built-in default UI
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering
+    animated_preview_url:
+    highlight:
+      - frontend/src/app/page.tsx
+      - backend/agent.py
+  - id: tool-rendering-custom-catchall
+    name: Tool Rendering (Custom Catch-all)
+    description: Single branded wildcard renderer via useDefaultRenderTool — the same app-designed card paints every tool call
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering
+    animated_preview_url:
+    highlight:
+      - frontend/src/app/page.tsx
+      - frontend/src/app/custom-catchall-renderer.tsx
+      - backend/agent.py
+  - id: tool-rendering-frontend-tools
+    name: Tool Rendering (frontend tools) (testing)
+    description: Tool is defined on the frontend via useFrontendTool; backend has no tools
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering
+    animated_preview_url:
+    highlight:
+      - frontend/src/app/page.tsx
+      - frontend/src/app/weather-card.tsx
+      - backend/agent.py
   - id: frontend-tools
     name: Frontend Tools (In-App Actions)
     description: Agent invokes client-side handlers registered with useFrontendTool
@@ -73,9 +120,9 @@ demos:
       - interactivity
     route: /demos/frontend-tools
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/main.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
   - id: hitl-in-chat
     name: In-Chat Human in the Loop
     description: User approves agent actions before execution
@@ -83,19 +130,23 @@ demos:
       - interactivity
     route: /demos/hitl
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/main.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/time-picker-card.tsx
   - id: tool-rendering
     name: Tool Rendering
-    description: Backend agent tools rendered as UI components
+    description: Custom per-tool renderers (WeatherCard, FlightListCard) plus a wildcard catch-all for every other tool
     tags:
       - agent-capabilities
     route: /demos/tool-rendering
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/tool_rendering_agent.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/weather-card.tsx
+      - frontend/src/app/flight-list-card.tsx
+      - frontend/src/app/custom-catchall-renderer.tsx
   - id: gen-ui-tool-based
     name: Tool-Based Generative UI
     description: Agent uses tools to trigger UI generation
@@ -103,19 +154,22 @@ demos:
       - generative-ui
     route: /demos/gen-ui-tool-based
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/main.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/bar-chart.tsx
+      - frontend/src/app/pie-chart.tsx
   - id: gen-ui-agent
     name: Agentic Generative UI
-    description: Long-running agent tasks with generated UI
+    description: Long-running agent tasks with inline state rendering in-chat
     tags:
       - generative-ui
     route: /demos/gen-ui-agent
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/main.py
+    highlight:
+      - frontend/src/app/page.tsx
+      - frontend/src/app/InlineAgentStateCard.tsx
+      - backend/agent.py
   - id: shared-state-read
     name: Shared State (Reading)
     description: Reading agent state from UI
@@ -123,9 +177,9 @@ demos:
       - agent-state
     route: /demos/shared-state-read
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/main.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
   - id: shared-state-write
     name: Shared State (Writing)
     description: Writing to agent state from UI
@@ -133,9 +187,10 @@ demos:
       - agent-state
     route: /demos/shared-state-write
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/main.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/preferences-card.tsx
   - id: shared-state-streaming
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
@@ -143,9 +198,10 @@ demos:
       - agent-state
     route: /demos/shared-state-streaming
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/main.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/document-view.tsx
   - id: subagents
     name: Sub-Agents
     description: Multiple agents with visible task delegation
@@ -153,19 +209,10 @@ demos:
       - multi-agent
     route: /demos/subagents
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/main.py
-  - id: prebuilt-chat
-    name: "Pre-Built: CopilotChat"
-    description: Full-screen/embedded chat via <CopilotChat />
-    tags:
-      - chat-ui
-    route: /demos/prebuilt-chat
-    animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/main.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/delegation-log.tsx
   - id: prebuilt-sidebar
     name: "Pre-Built: Sidebar"
     description: Docked sidebar chat via <CopilotSidebar />
@@ -173,9 +220,9 @@ demos:
       - chat-ui
     route: /demos/prebuilt-sidebar
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/main.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
   - id: prebuilt-popup
     name: "Pre-Built: Popup"
     description: Floating popup chat via <CopilotPopup />
@@ -183,9 +230,9 @@ demos:
       - chat-ui
     route: /demos/prebuilt-popup
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/main.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
   - id: chat-slots
     name: Chat Customization (Slots)
     description: Customize CopilotChat via its slot system
@@ -193,9 +240,12 @@ demos:
       - chat-ui
     route: /demos/chat-slots
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/main.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/custom-welcome-screen.tsx
+      - frontend/src/app/custom-assistant-message.tsx
+      - frontend/src/app/custom-disclaimer.tsx
   - id: headless-simple
     name: Headless Chat (Simple)
     description: Minimal custom chat surface built on useAgent
@@ -203,9 +253,9 @@ demos:
       - chat-ui
     route: /demos/headless-simple
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/main.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
   - id: headless-complete
     name: Headless Chat (Complete)
     description: Full chat implementation built from scratch on useAgent
@@ -213,9 +263,14 @@ demos:
       - chat-ui
     route: /demos/headless-complete
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/main.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/message-list.tsx
+      - frontend/src/app/user-bubble.tsx
+      - frontend/src/app/assistant-bubble.tsx
+      - frontend/src/app/input-bar.tsx
+      - frontend/src/app/typing-indicator.tsx
   - id: agentic-chat-reasoning
     name: Reasoning
     description: Visible reasoning/thinking chain alongside the final answer
@@ -223,9 +278,10 @@ demos:
       - generative-ui
     route: /demos/agentic-chat-reasoning
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/reasoning_agent.py
+    highlight:
+      - frontend/src/app/page.tsx
+      - frontend/src/app/reasoning-block.tsx
+      - backend/agent.py
   - id: gen-ui-interrupt
     name: Controlled Gen-UI (Interrupt)
     description: Render UI in response to agent interrupts via useInterrupt
@@ -233,9 +289,10 @@ demos:
       - generative-ui
     route: /demos/gen-ui-interrupt
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/interrupt_agent.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/time-picker-card.tsx
   - id: declarative-gen-ui
     name: Declarative Generative UI (A2UI — Dynamic Schema)
     description: Agent emits A2UI schema at runtime
@@ -243,9 +300,10 @@ demos:
       - generative-ui
     route: /demos/declarative-gen-ui
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/a2ui_dynamic.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/api/copilotkit/route.ts
   - id: a2ui-fixed-schema
     name: Declarative Generative UI (A2UI — Fixed Schema)
     description: A2UI rendering against a known client-side schema
@@ -253,9 +311,13 @@ demos:
       - generative-ui
     route: /demos/a2ui-fixed-schema
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/a2ui_fixed.py
+    highlight:
+      - backend/agent.py
+      - backend/schemas/flight_schema.json
+      - backend/schemas/booked_schema.json
+      - frontend/src/app/page.tsx
+      - frontend/src/app/flight-card.tsx
+      - frontend/src/app/catalog.ts
   - id: mcp-apps
     name: MCP Apps
     description: MCP server-driven UI via activity renderers
@@ -263,9 +325,10 @@ demos:
       - generative-ui
     route: /demos/mcp-apps
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/mcp_apps_agent.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/api/copilotkit/route.ts
   - id: open-gen-ui
     name: Fully Open-Ended Generative UI
     description: Agent-generated UI from arbitrary component libraries
@@ -273,6 +336,9 @@ demos:
       - generative-ui
     route: /demos/open-gen-ui
     animated_preview_url:
-    backend_files:
-      - src/agent_server.py
-      - src/agents/open_gen_ui_agent.py
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/sandbox-functions.ts
+      - frontend/src/app/suggestions.ts
+      - frontend/src/app/api/copilotkit/route.ts

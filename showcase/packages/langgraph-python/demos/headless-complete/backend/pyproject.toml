@@ -1,0 +1,15 @@
+[project]
+name = "cell-headless_complete"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "copilotkit>=0.1.86",
+  "langchain>=1.2.0,<2.0.0",
+  "langchain-openai>=1.1.0,<2.0.0",
+  "langgraph>=1.1.0,<2.0.0",
+  "langgraph-cli[inmem]>=0.4.11,<0.5.0",
+  "langgraph-api[inmem]>=0.7.70,<0.8.0",
+]
+
+[tool.uv]
+package = false

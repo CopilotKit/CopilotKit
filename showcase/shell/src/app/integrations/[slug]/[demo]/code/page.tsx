@@ -10,12 +10,54 @@ interface DemoFile {
   filename: string;
   language: string;
   content: string;
+  highlighted?: boolean;
 }
 
 interface DemoContent {
   readme: string | null;
   files: DemoFile[];
   backend_files?: DemoFile[];
+}
+
+type TreeNode =
+  | { kind: "file"; file: DemoFile; name: string }
+  | { kind: "dir"; name: string; children: TreeNode[] };
+
+function buildTree(files: DemoFile[]): TreeNode[] {
+  const root: TreeNode[] = [];
+  for (const file of files) {
+    const parts = file.filename.split("/");
+    let level = root;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const dirName = parts[i];
+      let existing = level.find(
+        (n): n is Extract<TreeNode, { kind: "dir" }> =>
+          n.kind === "dir" && n.name === dirName,
+      );
+      if (!existing) {
+        existing = { kind: "dir", name: dirName, children: [] };
+        level.push(existing);
+      }
+      level = existing.children;
+    }
+    level.push({ kind: "file", file, name: parts[parts.length - 1] });
+  }
+  // Sort each level: directories first, then files; alpha within each group;
+  // but highlighted files float to top within their group.
+  const sort = (nodes: TreeNode[]) => {
+    nodes.sort((a, b) => {
+      if (a.kind !== b.kind) return a.kind === "dir" ? -1 : 1;
+      if (a.kind === "file" && b.kind === "file") {
+        if (!!a.file.highlighted !== !!b.file.highlighted) {
+          return a.file.highlighted ? -1 : 1;
+        }
+      }
+      return a.name.localeCompare(b.name);
+    });
+    for (const n of nodes) if (n.kind === "dir") sort(n.children);
+  };
+  sort(root);
+  return root;
 }
 
 function parseLineRange(spec: string | null): Set<number> {
@@ -30,6 +72,64 @@ function parseLineRange(spec: string | null): Set<number> {
     for (let i = a; i <= end; i++) highlighted.add(i);
   }
   return highlighted;
+}
+
+function FileTree({
+  nodes,
+  depth,
+  activeFilename,
+  onSelect,
+}: {
+  nodes: TreeNode[];
+  depth: number;
+  activeFilename?: string;
+  onSelect: (f: string) => void;
+}) {
+  return (
+    <>
+      {nodes.map((node) => {
+        const indent = { paddingLeft: `${12 + depth * 14}px` };
+        if (node.kind === "dir") {
+          return (
+            <div key={`d:${node.name}:${depth}`}>
+              <div
+                className="py-1 text-[10px] font-mono uppercase tracking-widest text-[var(--text-muted)]"
+                style={indent}
+              >
+                {node.name}/
+              </div>
+              <FileTree
+                nodes={node.children}
+                depth={depth + 1}
+                activeFilename={activeFilename}
+                onSelect={onSelect}
+              />
+            </div>
+          );
+        }
+        const active = activeFilename === node.file.filename;
+        const hl = node.file.highlighted;
+        return (
+          <button
+            key={`f:${node.file.filename}`}
+            onClick={() => onSelect(node.file.filename)}
+            style={indent}
+            className={`block w-full py-1.5 pr-3 text-left text-xs font-mono transition-colors truncate ${
+              active
+                ? "bg-[var(--bg-elevated)] text-[var(--text)]"
+                : hl
+                  ? "text-[var(--text)] hover:bg-[var(--bg-elevated)]/50"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]/50"
+            } ${hl ? "font-semibold" : ""}`}
+            title={hl ? "core file" : undefined}
+          >
+            {hl && <span className="text-[var(--accent)] mr-1">★</span>}
+            {node.name}
+          </button>
+        );
+      })}
+    </>
+  );
 }
 
 export default function StandaloneCodePage() {
@@ -58,9 +158,29 @@ export default function StandaloneCodePage() {
     return [...content.files, ...(content.backend_files ?? [])];
   }, [content]);
 
-  const activeFilename = searchParams.get("file") ?? allFiles[0]?.filename;
+  const hasHighlights = useMemo(
+    () => allFiles.some((f) => f.highlighted),
+    [allFiles],
+  );
+
+  // `view` toggles the sidebar between "core" (highlights only) and "all"
+  // (full tree). Default is "core" when any file is highlighted; otherwise
+  // "all" (with nothing marked core, core view would be empty).
+  const view: "core" | "all" =
+    searchParams.get("view") === "all" ? "all" : hasHighlights ? "core" : "all";
+
+  const visibleFiles: DemoFile[] = useMemo(
+    () => (view === "core" ? allFiles.filter((f) => f.highlighted) : allFiles),
+    [allFiles, view],
+  );
+
+  // Default-open a highlighted file if any; otherwise the first file.
+  const defaultFile =
+    allFiles.find((f) => f.highlighted)?.filename ?? allFiles[0]?.filename;
+  const activeFilename = searchParams.get("file") ?? defaultFile;
   const activeFile =
     allFiles.find((f) => f.filename === activeFilename) ?? allFiles[0];
+  const tree = useMemo(() => buildTree(visibleFiles), [visibleFiles]);
 
   const highlightedLines = useMemo(
     () => parseLineRange(searchParams.get("lines")),
@@ -90,25 +210,58 @@ export default function StandaloneCodePage() {
     router.replace(`?${next.toString()}`, { scroll: false });
   };
 
+  const setView = (v: "core" | "all") => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (v === "all") next.set("view", "all");
+    else next.delete("view"); // "core" is default — omit the param
+    router.replace(`?${next.toString()}`, { scroll: false });
+  };
+
   return (
     <div className="flex h-[calc(100vh-52px)]">
-      <div className="flex h-full w-48 flex-col border-r border-[var(--border)] bg-[var(--bg-surface)]">
-        <div className="p-3 text-[10px] font-mono uppercase tracking-widest text-[var(--text-muted)]">
-          Files
+      <div className="flex h-full w-64 flex-col border-r border-[var(--border)] bg-[var(--bg-surface)]">
+        <div className="flex items-center justify-between px-3 pt-3 pb-2">
+          <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-muted)]">
+            Files
+          </span>
+          {hasHighlights && (
+            <label
+              className="flex items-center gap-2 cursor-pointer select-none"
+              title="Include scaffolding (Dockerfile, configs, etc.)"
+            >
+              <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-secondary)]">
+                show all files
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={view === "all"}
+                onClick={() => setView(view === "all" ? "core" : "all")}
+                className={`relative inline-block h-4 w-7 rounded-full border transition-colors ${
+                  view === "all"
+                    ? "bg-[var(--accent)] border-[var(--accent)]"
+                    : "bg-[var(--bg-muted)] border-[var(--border-strong)]"
+                }`}
+              >
+                <span
+                  className={`absolute top-[1px] left-[1px] h-3 w-3 rounded-full shadow-sm transition-transform ${
+                    view === "all"
+                      ? "bg-white translate-x-3"
+                      : "bg-[var(--text-muted)] translate-x-0"
+                  }`}
+                />
+              </button>
+            </label>
+          )}
         </div>
-        {allFiles.map((file) => (
-          <button
-            key={file.filename}
-            onClick={() => selectFile(file.filename)}
-            className={`px-4 py-2 text-left text-xs font-mono transition-colors ${
-              activeFile?.filename === file.filename
-                ? "bg-[var(--bg-elevated)] text-[var(--text)]"
-                : "text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)]/50"
-            }`}
-          >
-            {file.filename}
-          </button>
-        ))}
+        <div className="overflow-y-auto flex-1">
+          <FileTree
+            nodes={tree}
+            depth={0}
+            activeFilename={activeFile?.filename}
+            onSelect={selectFile}
+          />
+        </div>
         <div className="mt-auto border-t border-[var(--border)] p-3">
           <a
             href={integration.repo}
