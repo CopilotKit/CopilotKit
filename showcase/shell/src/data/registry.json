@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-19T21:09:45.472Z",
+  "generated_at": "2026-04-19T22:22:16.068Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
@@ -87,12 +87,6 @@
         "description": "Floating popup chat via <CopilotPopup />",
         "og_docs_url": "https://docs.copilotkit.ai/features/prebuilt-popup",
         "shell_docs_url": "/docs/features/prebuilt-popup"
-      },
-      {
-        "id": "prebuilt-chat",
-        "name": "Pre-Built: Chat",
-        "category": "chat-ui",
-        "description": "Default docked chat via <CopilotChat />"
       },
       {
         "id": "chat-slots",
@@ -414,7 +408,6 @@
         "agentic-chat",
         "prebuilt-sidebar",
         "prebuilt-popup",
-        "prebuilt-chat",
         "chat-slots",
         "chat-customization-css",
         "headless-simple",
@@ -459,8 +452,9 @@
           "route": "/demos/agentic-chat",
           "animated_preview_url": null,
           "highlight": [
-            "src/agents/main.py",
-            "src/app/demos/agentic-chat/page.tsx"
+            "src/agents/agentic_chat.py",
+            "src/app/demos/agentic-chat/page.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -473,7 +467,8 @@
           "highlight": [
             "src/agents/main.py",
             "src/app/demos/chat-customization-css/page.tsx",
-            "src/app/demos/chat-customization-css/theme.css"
+            "src/app/demos/chat-customization-css/theme.css",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -485,7 +480,8 @@
           "animated_preview_url": null,
           "highlight": [
             "src/app/demos/tool-rendering-default-catchall/page.tsx",
-            "src/agents/tool_rendering_agent.py"
+            "src/agents/tool_rendering_agent.py",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -498,7 +494,8 @@
           "highlight": [
             "src/app/demos/tool-rendering-custom-catchall/page.tsx",
             "src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx",
-            "src/agents/tool_rendering_agent.py"
+            "src/agents/tool_rendering_agent.py",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -510,7 +507,9 @@
           "animated_preview_url": null,
           "highlight": [
             "src/app/demos/tool-rendering-frontend-tools/page.tsx",
-            "src/app/demos/tool-rendering-frontend-tools/weather-card.tsx"
+            "src/app/demos/tool-rendering-frontend-tools/weather-card.tsx",
+            "src/agents/tool_rendering_frontend_tools.py",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -521,8 +520,9 @@
           "route": "/demos/frontend-tools",
           "animated_preview_url": null,
           "highlight": [
-            "src/agents/main.py",
-            "src/app/demos/frontend-tools/page.tsx"
+            "src/agents/frontend_tools.py",
+            "src/app/demos/frontend-tools/page.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -533,8 +533,10 @@
           "route": "/demos/hitl-in-chat",
           "animated_preview_url": null,
           "highlight": [
-            "src/agents/main.py",
-            "src/app/demos/hitl-in-chat/page.tsx"
+            "src/agents/hitl_in_chat_agent.py",
+            "src/app/demos/hitl-in-chat/page.tsx",
+            "src/app/demos/hitl-in-chat/time-picker-card.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -546,7 +548,10 @@
           "animated_preview_url": null,
           "highlight": [
             "src/agents/tool_rendering_agent.py",
-            "src/app/demos/tool-rendering/page.tsx"
+            "src/app/demos/tool-rendering/page.tsx",
+            "src/app/demos/tool-rendering/weather-card.tsx",
+            "src/app/demos/tool-rendering/flight-list-card.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -557,8 +562,10 @@
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null,
           "highlight": [
-            "src/agents/main.py",
-            "src/app/demos/gen-ui-tool-based/page.tsx"
+            "src/agents/gen_ui_tool_based.py",
+            "src/app/demos/gen-ui-tool-based/page.tsx",
+            "src/app/demos/gen-ui-tool-based/bar-chart.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -570,7 +577,9 @@
           "animated_preview_url": null,
           "highlight": [
             "src/app/demos/gen-ui-agent/page.tsx",
-            "src/agents/main.py"
+            "src/app/demos/gen-ui-agent/InlineAgentStateCard.tsx",
+            "src/agents/gen_ui_agent.py",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -580,7 +589,13 @@
           "tags": ["agent-state"],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null,
-          "highlight": ["src/app/demos/shared-state-read-write/page.tsx"]
+          "highlight": [
+            "src/agents/shared_state_read_write.py",
+            "src/app/demos/shared-state-read-write/page.tsx",
+            "src/app/demos/shared-state-read-write/preferences-card.tsx",
+            "src/app/demos/shared-state-read-write/notes-card.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
         },
         {
           "id": "shared-state-streaming",
@@ -590,8 +605,10 @@
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null,
           "highlight": [
-            "src/agents/main.py",
-            "src/app/demos/shared-state-streaming/page.tsx"
+            "src/agents/shared_state_streaming.py",
+            "src/app/demos/shared-state-streaming/page.tsx",
+            "src/app/demos/shared-state-streaming/document-view.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -602,8 +619,10 @@
           "route": "/demos/subagents",
           "animated_preview_url": null,
           "highlight": [
-            "src/agents/main.py",
-            "src/app/demos/subagents/page.tsx"
+            "src/agents/subagents.py",
+            "src/app/demos/subagents/page.tsx",
+            "src/app/demos/subagents/delegation-log.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -615,7 +634,8 @@
           "animated_preview_url": null,
           "highlight": [
             "src/agents/main.py",
-            "src/app/demos/prebuilt-sidebar/page.tsx"
+            "src/app/demos/prebuilt-sidebar/page.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -627,19 +647,8 @@
           "animated_preview_url": null,
           "highlight": [
             "src/agents/main.py",
-            "src/app/demos/prebuilt-popup/page.tsx"
-          ]
-        },
-        {
-          "id": "prebuilt-chat",
-          "name": "Pre-Built: Chat",
-          "description": "Default docked chat via <CopilotChat />",
-          "tags": ["chat-ui"],
-          "route": "/demos/prebuilt-chat",
-          "animated_preview_url": null,
-          "highlight": [
-            "src/agents/main.py",
-            "src/app/demos/prebuilt-chat/page.tsx"
+            "src/app/demos/prebuilt-popup/page.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -651,7 +660,9 @@
           "animated_preview_url": null,
           "highlight": [
             "src/agents/main.py",
-            "src/app/demos/chat-slots/page.tsx"
+            "src/app/demos/chat-slots/page.tsx",
+            "src/app/demos/chat-slots/custom-welcome-screen.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -663,7 +674,8 @@
           "animated_preview_url": null,
           "highlight": [
             "src/agents/main.py",
-            "src/app/demos/headless-simple/page.tsx"
+            "src/app/demos/headless-simple/page.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -674,8 +686,11 @@
           "route": "/demos/headless-complete",
           "animated_preview_url": null,
           "highlight": [
-            "src/agents/main.py",
-            "src/app/demos/headless-complete/page.tsx"
+            "src/agents/headless_complete.py",
+            "src/app/demos/headless-complete/page.tsx",
+            "src/app/demos/headless-complete/message-list.tsx",
+            "src/app/demos/headless-complete/use-rendered-messages.tsx",
+            "src/app/api/copilotkit-mcp-apps/route.ts"
           ]
         },
         {
@@ -687,7 +702,9 @@
           "animated_preview_url": null,
           "highlight": [
             "src/app/demos/agentic-chat-reasoning/page.tsx",
-            "src/agents/reasoning_agent.py"
+            "src/app/demos/agentic-chat-reasoning/reasoning-block.tsx",
+            "src/agents/reasoning_agent.py",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -699,7 +716,9 @@
           "animated_preview_url": null,
           "highlight": [
             "src/agents/interrupt_agent.py",
-            "src/app/demos/gen-ui-interrupt/page.tsx"
+            "src/app/demos/gen-ui-interrupt/page.tsx",
+            "src/app/demos/gen-ui-interrupt/time-picker-card.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -711,7 +730,11 @@
           "animated_preview_url": null,
           "highlight": [
             "src/agents/a2ui_dynamic.py",
-            "src/app/demos/declarative-gen-ui/page.tsx"
+            "src/app/demos/declarative-gen-ui/page.tsx",
+            "src/app/demos/declarative-gen-ui/a2ui/catalog.ts",
+            "src/app/demos/declarative-gen-ui/a2ui/definitions.ts",
+            "src/app/demos/declarative-gen-ui/a2ui/renderers.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -723,10 +746,13 @@
           "animated_preview_url": null,
           "highlight": [
             "src/agents/a2ui_fixed.py",
+            "src/agents/a2ui_schemas/flight_schema.json",
+            "src/agents/a2ui_schemas/booked_schema.json",
             "src/app/demos/a2ui-fixed-schema/page.tsx",
             "src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts",
             "src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts",
-            "src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx"
+            "src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -738,7 +764,8 @@
           "animated_preview_url": null,
           "highlight": [
             "src/agents/mcp_apps_agent.py",
-            "src/app/demos/mcp-apps/page.tsx"
+            "src/app/demos/mcp-apps/page.tsx",
+            "src/app/api/copilotkit-mcp-apps/route.ts"
           ]
         },
         {
@@ -750,7 +777,8 @@
           "animated_preview_url": null,
           "highlight": [
             "src/agents/open_gen_ui_agent.py",
-            "src/app/demos/open-gen-ui/page.tsx"
+            "src/app/demos/open-gen-ui/page.tsx",
+            "src/app/api/copilotkit-ogui/route.ts"
           ]
         },
         {
@@ -763,7 +791,8 @@
           "highlight": [
             "src/agents/open_gen_ui_advanced_agent.py",
             "src/app/demos/open-gen-ui-advanced/page.tsx",
-            "src/app/demos/open-gen-ui-advanced/sandbox-functions.ts"
+            "src/app/demos/open-gen-ui-advanced/sandbox-functions.ts",
+            "src/app/api/copilotkit-ogui/route.ts"
           ]
         },
         {
@@ -776,7 +805,8 @@
           "highlight": [
             "src/agents/a2ui_dynamic_hardcoded.py",
             "src/app/demos/declarative-gen-ui-hardcoded/page.tsx",
-            "src/app/demos/declarative-gen-ui-hardcoded/catalog.tsx"
+            "src/app/demos/declarative-gen-ui-hardcoded/catalog.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -788,7 +818,8 @@
           "animated_preview_url": null,
           "highlight": [
             "src/agents/interrupt_agent.py",
-            "src/app/demos/interrupt-headless/page.tsx"
+            "src/app/demos/interrupt-headless/page.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -800,7 +831,8 @@
           "animated_preview_url": null,
           "highlight": [
             "src/agents/readonly_state_agent_context.py",
-            "src/app/demos/readonly-state-agent-context/page.tsx"
+            "src/app/demos/readonly-state-agent-context/page.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -812,7 +844,8 @@
           "animated_preview_url": null,
           "highlight": [
             "src/agents/reasoning_agent.py",
-            "src/app/demos/reasoning-default-render/page.tsx"
+            "src/app/demos/reasoning-default-render/page.tsx",
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -825,10 +858,9 @@
           "highlight": [
             "src/agents/tool_rendering_reasoning_chain_agent.py",
             "src/app/demos/tool-rendering-reasoning-chain/page.tsx",
-            "src/app/demos/tool-rendering-reasoning-chain/reasoning-block.tsx",
             "src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx",
             "src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx",
-            "src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx"
+            "src/app/api/copilotkit/route.ts"
           ]
         },
         {
@@ -838,7 +870,17 @@
           "tags": ["chat-ui"],
           "route": "/demos/beautiful-chat",
           "animated_preview_url": null,
-          "highlight": ["src/app/demos/beautiful-chat/page.tsx"]
+          "highlight": [
+            "src/agents/beautiful_chat.py",
+            "src/app/demos/beautiful-chat/page.tsx",
+            "src/app/demos/beautiful-chat/components/example-layout/index.tsx",
+            "src/app/demos/beautiful-chat/components/example-canvas/index.tsx",
+            "src/app/demos/beautiful-chat/components/generative-ui/charts/bar-chart.tsx",
+            "src/app/demos/beautiful-chat/components/generative-ui/charts/pie-chart.tsx",
+            "src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx",
+            "src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx",
+            "src/app/api/copilotkit-beautiful-chat/route.ts"
+          ]
         }
       ],
       "docs_links": {

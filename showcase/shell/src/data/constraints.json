@@ -42,7 +42,6 @@
         "reasoning-default-render",
         "prebuilt-sidebar",
         "prebuilt-popup",
-        "prebuilt-chat",
         "chat-slots",
         "headless-simple",
         "headless-complete",

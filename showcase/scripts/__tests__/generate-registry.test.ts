@@ -104,8 +104,8 @@ describe("Registry Generator", () => {
     expect(langgraph.name).toBe("LangGraph (Python)");
     expect(langgraph.category).toBe("popular");
     expect(langgraph.language).toBe("python");
-    expect(langgraph.features.length).toBe(33);
-    expect(langgraph.demos.length).toBe(33);
+    expect(langgraph.features.length).toBe(32);
+    expect(langgraph.demos.length).toBe(32);
   });
 
   it("sorts integrations by sort_order", () => {

@@ -87,12 +87,6 @@
       "shell_docs_url": "/docs/features/prebuilt-popup"
     },
     {
-      "id": "prebuilt-chat",
-      "name": "Pre-Built: Chat",
-      "category": "chat-ui",
-      "description": "Default docked chat via <CopilotChat />"
-    },
-    {
       "id": "chat-slots",
       "name": "Chat Customization (Slots)",
       "category": "chat-ui",
@@ -152,27 +146,27 @@
       "id": "interrupt-headless",
       "name": "Headless Interrupt",
       "category": "controlled-generative-ui",
-      "description": "Resolve langgraph interrupts headlessly via agent.subscribe + copilotkit.runAgent — no chat, no useInterrupt render prop",
+      "description": "Resolve langgraph interrupts headlessly via agent.subscribe + copilotkit.runAgent \u2014 no chat, no useInterrupt render prop",
       "kind": "testing"
     },
     {
       "id": "declarative-gen-ui",
-      "name": "Declarative Generative UI (A2UI — Dynamic Schema)",
+      "name": "Declarative Generative UI (A2UI \u2014 Dynamic Schema)",
       "category": "declarative-generative-ui",
-      "description": "Canonical A2UI BYOC — custom catalog wired via a2ui.catalog; runtime injects render_a2ui automatically",
+      "description": "Canonical A2UI BYOC \u2014 custom catalog wired via a2ui.catalog; runtime injects render_a2ui automatically",
       "og_docs_url": "https://docs.copilotkit.ai/features/declarative-gen-ui",
       "shell_docs_url": "/docs/features/declarative-gen-ui"
     },
     {
       "id": "declarative-gen-ui-hardcoded",
-      "name": "Declarative Generative UI (A2UI — Custom Catalog)",
+      "name": "Declarative Generative UI (A2UI \u2014 Custom Catalog)",
       "category": "declarative-generative-ui",
       "description": "A2UI with a hardcoded client catalog (BYOC) wired via a2ui.catalog",
       "kind": "testing"
     },
     {
       "id": "a2ui-fixed-schema",
-      "name": "Declarative Generative UI (A2UI — Fixed Schema)",
+      "name": "Declarative Generative UI (A2UI \u2014 Fixed Schema)",
       "category": "declarative-generative-ui",
       "description": "A2UI rendering against a known, fixed client-side schema",
       "og_docs_url": "https://docs.copilotkit.ai/features/a2ui-fixed-schema",
@@ -222,7 +216,7 @@
       "id": "tool-rendering-custom-catchall",
       "name": "Tool Rendering (Custom Catch-all)",
       "category": "operational-generative-ui",
-      "description": "Single branded wildcard renderer that paints every tool call — one card handles them all",
+      "description": "Single branded wildcard renderer that paints every tool call \u2014 one card handles them all",
       "kind": "primary",
       "og_docs_url": "https://docs.copilotkit.ai/features/tool-rendering",
       "shell_docs_url": "/docs/features/tool-rendering"
@@ -300,7 +294,7 @@
       "id": "shared-state-read-write",
       "name": "Shared State (Read + Write)",
       "category": "agent-state",
-      "description": "Bidirectional agent state — UI writes preferences, agent writes notes back"
+      "description": "Bidirectional agent state \u2014 UI writes preferences, agent writes notes back"
     },
     {
       "id": "shared-state-streaming",

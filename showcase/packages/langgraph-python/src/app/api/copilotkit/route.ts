@@ -33,7 +33,6 @@ const neutralAssistantCells = [
   "shared-state-write",
   "prebuilt-sidebar",
   "prebuilt-popup",
-  "prebuilt-chat",
   "chat-slots",
   "chat-customization-css",
   "headless-simple",

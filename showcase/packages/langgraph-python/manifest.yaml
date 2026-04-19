@@ -38,7 +38,6 @@ features:
   - agentic-chat
   - prebuilt-sidebar
   - prebuilt-popup
-  - prebuilt-chat
   - chat-slots
   - chat-customization-css
   - headless-simple
@@ -249,17 +248,6 @@ demos:
     highlight:
       - src/agents/main.py
       - src/app/demos/prebuilt-popup/page.tsx
-      - src/app/api/copilotkit/route.ts
-  - id: prebuilt-chat
-    name: "Pre-Built: Chat"
-    description: Default docked chat via <CopilotChat />
-    tags:
-      - chat-ui
-    route: /demos/prebuilt-chat
-    animated_preview_url:
-    highlight:
-      - src/agents/main.py
-      - src/app/demos/prebuilt-chat/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: chat-slots
     name: Chat Customization (Slots)

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-19T21:06:37.723Z",
+  "generated_at": "2026-04-19T22:20:34.575Z",
   "features": {
     "beautiful-chat": {
       "og": "missing",
@@ -20,10 +20,6 @@
     "prebuilt-popup": {
       "og": "notfound",
       "shell": "notfound"
-    },
-    "prebuilt-chat": {
-      "og": "missing",
-      "shell": "missing"
     },
     "chat-slots": {
       "og": "notfound",
