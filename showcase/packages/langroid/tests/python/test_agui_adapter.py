@@ -700,13 +700,25 @@ def test_try_parse_tool_function_call_bytes_arguments():
 
 @pytest.mark.asyncio
 async def test_llm_response_async_failure_emits_run_finished(monkeypatch, caplog):
-    """When ``agent.llm_response_async`` raises *after* RUN_STARTED has
-    been emitted, the generator must emit a sanitized TEXT_MESSAGE
-    triple + RUN_FINISHED (never leave the frontend hanging)."""
+    """When ``agent.llm_response_async`` raises a narrowed runtime error
+    (``openai.APIError`` / ``httpx.HTTPError`` / ``asyncio.TimeoutError``
+    / ``pydantic.ValidationError``) *after* RUN_STARTED has been
+    emitted, the generator must emit a sanitized TEXT_MESSAGE triple +
+    RUN_FINISHED (never leave the frontend hanging).
+
+    Uses ``asyncio.TimeoutError`` as the representative covered
+    exception — it's the simplest of the four to construct and
+    exercises the same code path as the others. The test message is
+    surfaced as ``str(exc)``-free (sanitized) regardless.
+    """
+    import asyncio as _asyncio
 
     class _ExplodingAgent:
         async def llm_response_async(self, user_message: str) -> Any:
-            raise RuntimeError(
+            # TimeoutError doesn't carry the sensitive message the way
+            # a ValueError would, but the sanitization contract is the
+            # same: only the class name leaks, never ``str(exc)``.
+            raise _asyncio.TimeoutError(
                 "secret: postgres://user:pass@host/db /opt/app/internal.py line 99"
             )
 
@@ -729,7 +741,7 @@ async def test_llm_response_async_failure_emits_run_finished(monkeypatch, caplog
 
     content = next(e for e in events if e["type"] == "TEXT_MESSAGE_CONTENT")
     payload = json.loads(content["delta"])
-    assert "RuntimeError" in payload["error"]
+    assert "TimeoutError" in payload["error"]
     # And sanitization still holds — no internal details leak.
     raw_stream = "".join(raw_chunks)
     for needle in ("postgres://", "password", "/opt/app", "internal.py", "line 99"):
@@ -741,6 +753,34 @@ async def test_llm_response_async_failure_emits_run_finished(monkeypatch, caplog
     assert any(r.exc_info for r in caplog.records), (
         "expected logger.exception to capture the llm_response_async failure"
     )
+
+
+@pytest.mark.asyncio
+async def test_llm_response_async_programmer_bug_propagates(monkeypatch):
+    """Programmer bugs (``AttributeError``, ``NameError``, ``TypeError``)
+    from ``agent.llm_response_async`` must NOT be sanitized — they
+    indicate real bugs and must propagate so the outer framework can
+    log/flag them with a real traceback.
+
+    Regression guard for the over-broad ``except Exception`` that
+    previously swallowed every failure as "LLM error", making these
+    kinds of bugs invisible in production logs.
+    """
+
+    class _TypoAgent:
+        async def llm_response_async(self, user_message: str) -> Any:
+            # Simulate a programmer bug — e.g. a typo that references
+            # an attribute that doesn't exist on the response object.
+            raise AttributeError("typo")
+
+    monkeypatch.setattr(agui_adapter, "create_agent", lambda: _TypoAgent())
+
+    req = _FakeRequest(_minimal_run_input(thread_id="t-bug"))
+    resp = await handle_run(req)
+    with pytest.raises(AttributeError, match="typo"):
+        # The exception propagates out of the event_stream generator
+        # when it's drained; the generator itself is lazy.
+        await _collect(resp)
 
 
 # ---------------------------------------------------------------------------

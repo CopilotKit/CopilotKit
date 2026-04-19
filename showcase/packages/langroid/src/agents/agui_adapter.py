@@ -21,6 +21,8 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, AsyncGenerator, Literal, Mapping
 
+import httpx
+import openai
 import pydantic
 from ag_ui.core import (
     EventType,
@@ -370,9 +372,28 @@ async def handle_run(request: Request) -> StreamingResponse:
         # and then RUN_FINISHED to close out the run cleanly. The
         # full traceback is preserved server-side via
         # ``logger.exception``.
+        #
+        # Exception scope: narrowed to the set of runtime failures we
+        # actually expect from ``agent.llm_response_async`` — upstream
+        # LLM API errors (``openai.APIError``), transport failures
+        # (``httpx.HTTPError``), timeouts, and schema drift
+        # (``pydantic.ValidationError``). Programmer bugs
+        # (``AttributeError``, ``NameError``, ``TypeError``) are NOT
+        # sanitized here — they propagate up and surface as real
+        # tracebacks. Any uncaught mid-stream exception is still
+        # handled one level up by the route boundary's try/except, but
+        # with a less operator-friendly "unknown error" message —
+        # that's the right trade: a narrower list keeps legitimate
+        # bugs visible instead of masking them as "Agent run failed:
+        # AttributeError".
         try:
             response = await agent.llm_response_async(user_message)
-        except Exception as exc:
+        except (
+            openai.APIError,
+            httpx.HTTPError,
+            asyncio.TimeoutError,
+            pydantic.ValidationError,
+        ) as exc:
             logger.exception("agent.llm_response_async failed mid-stream")
             err_payload = json.dumps({
                 "error": f"Agent run failed: {exc.__class__.__name__}"
@@ -410,10 +431,13 @@ async def handle_run(request: Request) -> StreamingResponse:
 
         if oai_tool_calls or function_call:
             # Emit synthesized tool-call events for each OAI tool call.
-            # ``_parse_tool_args`` returns ``None`` when args could not be
-            # parsed — in that case we SKIP the tool call entirely rather
-            # than emitting a call with ``{}`` (which renders a meaningless
-            # UI card). The warning already fired inside _parse_tool_args.
+            # ``_parse_tool_args`` returns a ``ParsedArgs`` with
+            # ``status`` in ``{"ok", "empty", "malformed"}``. We only
+            # emit when ``parsed.usable`` (i.e. ``status == "ok"``) —
+            # otherwise we SKIP the tool call entirely rather than
+            # emitting a call with ``{}`` (which renders a meaningless
+            # UI card). The warning already fired inside
+            # ``_parse_tool_args`` on the malformed path.
             calls_to_emit = []
             if oai_tool_calls:
                 for tc in oai_tool_calls:
@@ -596,11 +620,11 @@ async def handle_run(request: Request) -> StreamingResponse:
 def _try_parse_tool(content: str, agent: lr.ChatAgent) -> ToolMessage | None:
     """Try to parse a Langroid ToolMessage from the LLM response content.
 
-    Langroid's `agent.agent_response()` returns a `ChatDocument`, not a
-    `ToolMessage`, so the previous isinstance-based path was effectively
-    dead code. We rely on the JSON fallback, which matches both the
-    Langroid tool envelope (`{"request": ..., ...}`) and the OpenAI
-    function-call shape (`{"name": ..., "arguments": ...}`).
+    Langroid's `agent.llm_response_async(...)` returns a `ChatDocument`,
+    not a `ToolMessage`, so the previous isinstance-based path was
+    effectively dead code. We rely on the JSON fallback, which matches
+    both the Langroid tool envelope (`{"request": ..., ...}`) and the
+    OpenAI function-call shape (`{"name": ..., "arguments": ...}`).
 
     Logging philosophy (matters — this is on the hot path for every
     turn, including plain chat replies like "hello"):
