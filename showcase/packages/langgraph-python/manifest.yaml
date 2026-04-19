@@ -33,6 +33,8 @@ starter:
   demo_url: https://showcase-starter-langgraph-python-production-3f57.up.railway.app
   clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-python my-copilotkit-app
 features:
+  - beautiful-chat
+  - cli-start
   - agentic-chat
   - prebuilt-sidebar
   - prebuilt-popup
@@ -41,24 +43,35 @@ features:
   - headless-simple
   - headless-complete
   - agentic-chat-reasoning
+  - reasoning-default-render
   - frontend-tools
   - gen-ui-tool-based
   - hitl-in-chat
   - gen-ui-interrupt
+  - interrupt-headless
   - declarative-gen-ui
+  - declarative-gen-ui-hardcoded
   - a2ui-fixed-schema
   - mcp-apps
   - open-gen-ui
+  - open-gen-ui-advanced
   - gen-ui-agent
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
   - tool-rendering
   - tool-rendering-frontend-tools
-  - shared-state-read
-  - shared-state-write
+  - tool-rendering-reasoning-chain
+  - shared-state-read-write
   - shared-state-streaming
+  - readonly-state-agent-context
   - subagents
 demos:
+  - id: cli-start
+    name: CLI Start Command
+    description: Copy-paste command to clone the canonical starter
+    tags:
+      - chat-ui
+    command: "npx copilotkit@latest init --framework langgraph-python"
   - id: agentic-chat
     name: Agentic Chat
     description: Natural conversation with frontend tool execution
@@ -131,7 +144,6 @@ demos:
     highlight:
       - src/agents/main.py
       - src/app/demos/hitl-in-chat/page.tsx
-      - src/app/demos/hitl-in-chat/time-picker-card.tsx
   - id: tool-rendering
     name: Tool Rendering
     description: Custom per-tool renderers (WeatherCard, FlightListCard) plus a wildcard catch-all for every other tool
@@ -142,9 +154,6 @@ demos:
     highlight:
       - src/agents/tool_rendering_agent.py
       - src/app/demos/tool-rendering/page.tsx
-      - src/app/demos/tool-rendering/weather-card.tsx
-      - src/app/demos/tool-rendering/flight-list-card.tsx
-      - src/app/demos/tool-rendering/custom-catchall-renderer.tsx
   - id: gen-ui-tool-based
     name: Tool-Based Generative UI
     description: Agent uses tools to trigger UI generation
@@ -165,26 +174,15 @@ demos:
     highlight:
       - src/app/demos/gen-ui-agent/page.tsx
       - src/agents/main.py
-  - id: shared-state-read
-    name: Shared State (Reading)
-    description: Reading agent state from UI
+  - id: shared-state-read-write
+    name: Shared State (Read + Write)
+    description: Bidirectional agent state — UI writes preferences, agent writes notes back
     tags:
       - agent-state
-    route: /demos/shared-state-read
+    route: /demos/shared-state-read-write
     animated_preview_url:
     highlight:
-      - src/agents/main.py
-      - src/app/demos/shared-state-read/page.tsx
-  - id: shared-state-write
-    name: Shared State (Writing)
-    description: Writing to agent state from UI
-    tags:
-      - agent-state
-    route: /demos/shared-state-write
-    animated_preview_url:
-    highlight:
-      - src/agents/main.py
-      - src/app/demos/shared-state-write/page.tsx
+      - src/app/demos/shared-state-read-write/page.tsx
   - id: shared-state-streaming
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
@@ -275,7 +273,6 @@ demos:
     highlight:
       - src/agents/interrupt_agent.py
       - src/app/demos/gen-ui-interrupt/page.tsx
-      - src/app/demos/gen-ui-interrupt/time-picker-card.tsx
   - id: declarative-gen-ui
     name: Declarative Generative UI (A2UI — Dynamic Schema)
     description: Agent emits A2UI schema at runtime
@@ -295,11 +292,10 @@ demos:
     animated_preview_url:
     highlight:
       - src/agents/a2ui_fixed.py
-      - src/agents/a2ui_schemas/flight_schema.json
-      - src/agents/a2ui_schemas/booked_schema.json
       - src/app/demos/a2ui-fixed-schema/page.tsx
-      - src/app/demos/a2ui-fixed-schema/flight-card.tsx
-      - src/app/demos/a2ui-fixed-schema/catalog.ts
+      - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
+      - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
+      - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
   - id: mcp-apps
     name: MCP Apps
     description: MCP server-driven UI via activity renderers

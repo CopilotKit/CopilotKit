@@ -96,7 +96,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "name", "description", "tags", "route"],
+        "required": ["id", "name", "description", "tags"],
         "properties": {
           "id": {
             "type": "string",
@@ -120,7 +120,11 @@
           "route": {
             "type": "string",
             "pattern": "^/",
-            "description": "Route within the package (e.g. /demos/agentic-chat)"
+            "description": "Route within the package (e.g. /demos/agentic-chat). Omit for informational demos that expose `command` instead."
+          },
+          "command": {
+            "type": "string",
+            "description": "Copy-pasteable shell command (e.g. npx degit ...). When present and `route` is omitted, the shell renders an informational cell with a copy button instead of Demo/Code links."
           },
           "animated_preview_url": {
             "type": ["string", "null"],
