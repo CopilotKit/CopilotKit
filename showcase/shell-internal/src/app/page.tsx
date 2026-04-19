@@ -1,29 +1,20 @@
 // Feature matrix: one row per feature × integration. Each feature's
 // `kind` (primary | testing) determines its visual grouping.
 // "testing"-kind features render muted and skip the docs row.
-import { healthBadge, qaBadge, testBadge, getDemoStatus } from "@/lib/status";
 import { FeatureGrid, type CellContext } from "@/components/feature-grid";
-import { Badge, HealthDot } from "@/components/badges";
-import { DocsRow, urlsFor } from "@/components/cell-pieces";
+import { CellStatus, urlsFor } from "@/components/cell-pieces";
 import { CommandCell } from "@/components/command-cell";
 
 function Cell(ctx: CellContext) {
   const isTesting = ctx.feature.kind === "testing";
 
   // Informational demo (e.g. cli-start) — renders a copy-pasteable command
-  // block instead of Demo/Code links + status badges.
+  // block in place of the Demo/Code links, but still shows the same docs
+  // row + E2E/Smoke/QA/health badges below so the matrix is consistent.
   if (ctx.demo.command) {
-    return <CommandCell command={ctx.demo.command} />;
+    return <CommandCell ctx={ctx} />;
   }
 
-  const s = getDemoStatus(ctx.integration.slug, ctx.feature.id);
-  const e2e = testBadge(s?.e2e ?? null, ctx.bundleStale);
-  const smoke = testBadge(s?.smoke ?? null, ctx.bundleStale);
-  const qa = qaBadge(s?.qa ?? null, ctx.bundleStale);
-  const health = healthBadge(
-    s?.health ?? { status: "unknown", checked_at: "" },
-    ctx.bundleStale,
-  );
   const links = urlsFor(ctx);
 
   return (
@@ -49,13 +40,7 @@ function Cell(ctx: CellContext) {
           <span>{"</>"}</span>
         </a>
       </div>
-      {!isTesting && <DocsRow feature={ctx.feature} shellUrl={ctx.shellUrl} />}
-      <div className="flex items-center gap-2.5">
-        <Badge name="E2E" state={e2e} href={s?.e2e?.url} />
-        <Badge name="Smoke" state={smoke} href={s?.smoke?.url} />
-        <Badge name="QA" state={qa} href={s?.qa?.url} />
-        <HealthDot state={health} href={links.hostedUrl} />
-      </div>
+      <CellStatus ctx={ctx} />
     </div>
   );
 }

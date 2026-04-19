@@ -3,17 +3,28 @@
 // Informational cell — copy-pasteable shell command. Rendered when a demo
 // manifest entry declares `command:` instead of a runnable `route:` (e.g.
 // the `cli-start` row). Styled to match the dashboard aesthetic.
+//
+// Renders the command block on top, then the same docs-row + status badges
+// the regular cell does so the matrix stays visually consistent across
+// informational and runnable demos.
 
-export function CommandCell({ command }: { command: string }) {
+import type { CellContext } from "@/components/feature-grid";
+import { CellStatus } from "@/components/cell-pieces";
+
+export function CommandCell({ ctx }: { ctx: CellContext }) {
+  const command = ctx.demo.command ?? "";
   return (
-    <div className="flex items-start gap-1.5">
-      <code
-        className="flex-1 min-w-0 whitespace-pre-wrap break-all rounded border border-[var(--border)] bg-[var(--bg-muted)] px-2 py-1.5 text-[10.5px] font-mono leading-snug text-[var(--text)]"
-        title={command}
-      >
-        {command}
-      </code>
-      <CopyButton text={command} />
+    <div className="flex flex-col gap-1 text-[11px]">
+      <div className="flex items-start gap-1.5">
+        <code
+          className="flex-1 min-w-0 whitespace-pre-wrap break-all rounded border border-[var(--border)] bg-[var(--bg-muted)] px-2 py-1.5 text-[10.5px] font-mono leading-snug text-[var(--text)]"
+          title={command}
+        >
+          {command}
+        </code>
+        <CopyButton text={command} />
+      </div>
+      <CellStatus ctx={ctx} />
     </div>
   );
 }
