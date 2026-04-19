@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Spline_Sans_Mono } from "next/font/google";
 import { BrandNav } from "@/components/brand-nav";
+import { FrameworkProvider } from "@/components/framework-provider";
+import { getIntegrations, getCategoryLabel } from "@/lib/registry";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -25,14 +27,50 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Build framework options once per request from the registry so the
+  // selector (mounted inside BrandNav) and the FrameworkProvider stay in
+  // sync. Integration ordering follows `sort_order`.
+  const integrations = getIntegrations();
+  const frameworkOptions = integrations
+    .slice()
+    .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999))
+    .map((i) => ({
+      slug: i.slug,
+      name: i.name,
+      category: i.category ?? "other",
+      logo: i.logo ?? null,
+      deployed: i.deployed,
+    }));
+  const knownFrameworks = frameworkOptions.map((o) => o.slug);
+  // Category order for the selector — match the integrations page's
+  // typical grouping so the UX is consistent across surfaces.
+  const integrationCategoryIds = [
+    "popular",
+    "agent-framework",
+    "provider-sdk",
+    "enterprise-platform",
+    "protocol",
+    "emerging",
+    "starter",
+  ];
+  const frameworkCategoryOrder = integrationCategoryIds.map((id) => ({
+    id,
+    name: getCategoryLabel(id),
+  }));
+
   return (
     <html
       lang="en"
       className={`${plusJakartaSans.variable} ${splineSansMono.variable}`}
     >
       <body className="min-h-screen">
-        <BrandNav />
-        <main>{children}</main>
+        <FrameworkProvider knownFrameworks={knownFrameworks}>
+          <BrandNav
+            frameworkOptions={frameworkOptions}
+            frameworkCategoryOrder={frameworkCategoryOrder}
+          />
+          <main>{children}</main>
+        </FrameworkProvider>
         <div
           style={{
             position: "fixed",
