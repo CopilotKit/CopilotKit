@@ -153,6 +153,12 @@ def test_agent_server_module_installs_patch():
 
         get = post = put = delete = patch = _decorator
 
+        # agent_server.py installs a ``HealthMiddleware`` via
+        # ``app.add_middleware(...)`` after creating the Strands app — the
+        # stub must accept that call so module execution completes.
+        def add_middleware(self, *a, **k):
+            return None
+
     fake_ag_ui_strands = types.ModuleType("ag_ui_strands")
     fake_ag_ui_strands.create_strands_app = lambda *a, **k: _FakeFastAPI()  # type: ignore[attr-defined]
     fake_ag_ui_strands.StrandsAgent = _AcceptsAnything  # type: ignore[attr-defined]

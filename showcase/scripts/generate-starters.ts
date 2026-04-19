@@ -477,6 +477,30 @@ else
   exit 1
 fi`;
 
+// Prefix each line of the agent's stdout/stderr with [agent] AND capture the
+// real PID of the agent process. Previously this used:
+//
+//   cmd 2>&1 | sed 's/^/[agent] /' &
+//   AGENT_PID=$!
+//
+// That has two bugs:
+//   1. `$!` after a pipeline points to the LAST command in the pipe (the
+//      `sed` process), not the agent. `kill -0 $AGENT_PID` and
+//      `wait -n $AGENT_PID` therefore monitored `sed`, not the agent, which
+//      always looked alive until sed closed stdin — by which time the agent
+//      had already crashed and Railway was mid-restart.
+//   2. `sed` buffers by default, so Python stack traces at crash time could
+//      be discarded when the pipe closed, hiding the real error.
+//
+// Process substitution (`&> >(awk …)`) redirects both streams without
+// creating a pipeline, so `$!` remains the agent's PID. `awk` with
+// `fflush()` line-flushes each prefixed line, so crash output reaches the
+// container logs immediately.
+//
+// Also export PYTHONUNBUFFERED=1 at the entrypoint level so Python-based
+// agents don't buffer their own writes before they reach awk.
+const AGENT_LOG_PREFIX = `&> >(awk '{print "[agent] " $0; fflush()}')`;
+
 function getEntrypointBlock(fw: FrameworkDef): string {
   switch (fw.language) {
     case "python":
@@ -486,13 +510,13 @@ python -m langgraph_cli dev \\
   --config langgraph.json \\
   --host 0.0.0.0 \\
   --port 8123 \\
-  --no-browser 2>&1 | sed 's/^/[agent] /' &
+  --no-browser ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
 sleep 3
 ${AGENT_HEALTH_CHECK}`;
       }
       return `echo "[entrypoint] Starting Python agent server on port 8123..."
-cd /app && python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 2>&1 | sed 's/^/[agent] /' &
+cd /app && python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
 sleep 2
 ${AGENT_HEALTH_CHECK}`;
@@ -503,32 +527,32 @@ npx @langchain/langgraph-cli dev \\
   --config agent/langgraph.json \\
   --host 0.0.0.0 \\
   --port 8123 \\
-  --no-browser 2>&1 | sed 's/^/[agent] /' &
+  --no-browser ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
 sleep 3
 ${AGENT_HEALTH_CHECK}`;
       }
       if (fw.slug === "mastra") {
         return `echo "[entrypoint] Starting Mastra agent on port 8123..."
-PORT=8123 npx mastra dev 2>&1 | sed 's/^/[agent] /' &
+PORT=8123 npx mastra dev ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
 sleep 3
 ${AGENT_HEALTH_CHECK}`;
       }
       return `echo "[entrypoint] Starting TypeScript agent on port 8123..."
-npx tsx agent/index.ts 2>&1 | sed 's/^/[agent] /' &
+npx tsx agent/index.ts ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
 sleep 2
 ${AGENT_HEALTH_CHECK}`;
     case "java":
       return `echo "[entrypoint] Starting Spring AI agent on port 8123..."
-java -jar agent/app.jar --server.port=8123 2>&1 | sed 's/^/[agent] /' &
+java -jar agent/app.jar --server.port=8123 ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
 sleep 5
 ${AGENT_HEALTH_CHECK}`;
     case "csharp":
       return `echo "[entrypoint] Starting .NET agent on port 8123..."
-cd agent && dotnet ProverbsAgent.dll --urls http://0.0.0.0:8123 2>&1 | sed 's/^/[agent] /' &
+cd agent && dotnet ProverbsAgent.dll --urls http://0.0.0.0:8123 ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
 cd /app
 sleep 3
@@ -817,15 +841,28 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     }
 
     // For langgraph starters: convert relative imports to absolute
-    // because langgraph_cli loads modules standalone, not as packages
+    // because langgraph_cli loads modules standalone, not as packages.
+    //
+    // Subdir-aware: `from .X import ...` resolves to the CURRENT package,
+    // which is the directory the file lives in, not `agentDir` flat. A file
+    // at `<agentDir>/tools/get_weather.py` saying `from .types import X` must
+    // become `from <agentDir>.tools.types import X`, not `from <agentDir>.types`.
+    // The previous flat rewrite dropped the `tools` segment and produced
+    // `ModuleNotFoundError: No module named '<agentDir>.types'` at startup,
+    // killing langgraph-fastapi silently inside the entrypoint `sed` pipe.
     if (fw.slug.startsWith("langgraph-")) {
       const lgAgentMod = fw.agentDir.replace(/\//g, ".");
       forEachPyFile(agentDest, (fp) => {
         let content = fs.readFileSync(fp, "utf-8");
-        // from .X import -> from <agentMod>.X import
+        // Compute the file's containing Python package path:
+        // <agentDir>.<relative-subdirs-joined-with-.>
+        const relFromAgent = path.relative(agentDest, path.dirname(fp));
+        const subPkg = relFromAgent.split(path.sep).filter(Boolean).join(".");
+        const filePkg = subPkg ? `${lgAgentMod}.${subPkg}` : lgAgentMod;
+        // from .X import -> from <filePkg>.X import
         content = content.replace(
           /^from \.([\w.]+) import/gm,
-          `from ${lgAgentMod}.$1 import`,
+          `from ${filePkg}.$1 import`,
         );
         fs.writeFileSync(fp, content);
       });

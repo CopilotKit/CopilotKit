@@ -91,6 +91,8 @@ _assert_instrumentor_patched()
 
 import uvicorn  # noqa: E402  (kept after patch for consistent import-ordering policy)
 from dotenv import load_dotenv  # noqa: E402
+from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
+from starlette.responses import JSONResponse  # noqa: E402
 
 from ag_ui_strands import create_strands_app  # noqa: E402  (must follow instrumentor patch)
 from agents.agent import build_showcase_agent  # noqa: E402  (must follow instrumentor patch)
@@ -107,9 +109,18 @@ agent_path = os.getenv("AGENT_PATH", "/")
 app = create_strands_app(agui_agent, agent_path)
 
 
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
+# Serve /health via middleware so it short-circuits BEFORE route resolution.
+# `create_strands_app(..., agent_path="/")` installs a catch-all at the root
+# that shadows any later `@app.get("/health")` decorator. Middleware runs
+# above the routing layer, so /health stays reachable.
+class HealthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.url.path == "/health" and request.method == "GET":
+            return JSONResponse({"status": "ok"})
+        return await call_next(request)
+
+
+app.add_middleware(HealthMiddleware)
 
 
 def main():

@@ -92,9 +92,25 @@ logging.getLogger(__name__).info(
 from ag_ui_crewai.endpoint import add_crewai_crew_fastapi_endpoint
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 from agents.crew import LatestAiDevelopment
 
 app = FastAPI(title="CrewAI (Crews) Agent Server")
+
+
+# Serve /health via middleware so it short-circuits BEFORE route resolution.
+# `add_crewai_crew_fastapi_endpoint(app, crew, "/")` installs a catch-all at
+# the root that shadows any later `@app.get("/health")` decorator. Middleware
+# runs above the routing layer, so the health endpoint stays reachable.
+class HealthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.url.path == "/health" and request.method == "GET":
+            return JSONResponse({"status": "ok"})
+        return await call_next(request)
+
+
+app.add_middleware(HealthMiddleware)
 
 # CORS: `allow_origins=["*"]` is intentional for this LOCAL DEMO / SHOWCASE
 # STARTER package. The agent server binds to localhost:8000 during `pnpm dev`
@@ -114,11 +130,6 @@ app.add_middleware(
 )
 
 add_crewai_crew_fastapi_endpoint(app, LatestAiDevelopment(), "/")
-
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
 
 
 # NOTE: intentionally NO `if __name__ == "__main__": main()` block.

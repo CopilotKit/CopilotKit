@@ -1,25 +1,25 @@
 """Barrel exports for all shared showcase tool implementations."""
 
-from src.agents.types import (
+from src.agents.tools.types import (
     SalesStage,
     SalesTodo,
     Flight,
     WeatherResult,
 )
-from src.agents.get_weather import get_weather_impl
-from src.agents.query_data import query_data_impl
-from src.agents.sales_todos import (
+from src.agents.tools.get_weather import get_weather_impl
+from src.agents.tools.query_data import query_data_impl
+from src.agents.tools.sales_todos import (
     INITIAL_TODOS,
     manage_sales_todos_impl,
     get_sales_todos_impl,
 )
-from src.agents.search_flights import search_flights_impl
-from src.agents.generate_a2ui import (
+from src.agents.tools.search_flights import search_flights_impl
+from src.agents.tools.generate_a2ui import (
     RENDER_A2UI_TOOL_SCHEMA,
     generate_a2ui_impl,
     build_a2ui_operations_from_tool_call,
 )
-from src.agents.schedule_meeting import schedule_meeting_impl
+from src.agents.tools.schedule_meeting import schedule_meeting_impl
 
 __all__ = [
     # Types
