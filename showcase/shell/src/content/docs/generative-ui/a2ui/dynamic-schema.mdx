@@ -99,6 +99,23 @@ empty `create_agent(tools=[])`:
 </Step>
 </Steps>
 
+## Progressive streaming
+
+The secondary LLM's `render_a2ui` tool call streams through LangGraph
+as `TOOL_CALL_ARGS` events. The A2UI middleware:
+
+1. Waits for the full `components` array before emitting anything —
+   the schema must be complete before rendering starts.
+2. Extracts `surfaceId` + `root` from the partial JSON.
+3. Emits `surfaceUpdate` + `beginRendering` once the schema is
+   complete.
+4. Extracts complete `items` objects progressively and emits a
+   `dataModelUpdate` for each — cards appear one by one as data
+   streams in.
+
+A built-in progress indicator shows while the schema is still
+generating and hides automatically once data items start arriving.
+
 ## Customising the generation prompt
 
 The `a2ui_prompt()` helper builds the system prompt handed to the
@@ -118,23 +135,6 @@ prompt = a2ui_prompt(
 The showcase cell ships with the defaults; swap in your own guidelines
 to lock the generated UI to a specific component vocabulary or visual
 language.
-
-## Progressive streaming
-
-The secondary LLM's `render_a2ui` tool call streams through LangGraph
-as `TOOL_CALL_ARGS` events. The A2UI middleware:
-
-1. Waits for the full `components` array before emitting anything —
-   the schema must be complete before rendering starts.
-2. Extracts `surfaceId` + `root` from the partial JSON.
-3. Emits `surfaceUpdate` + `beginRendering` once the schema is
-   complete.
-4. Extracts complete `items` objects progressively and emits a
-   `dataModelUpdate` for each — cards appear one by one as data
-   streams in.
-
-A built-in progress indicator shows while the schema is still
-generating and hides automatically once data items start arriving.
 
 ## When should I use dynamic schemas?
 
