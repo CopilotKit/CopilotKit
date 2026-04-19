@@ -1,5 +1,5 @@
 {
-  "name": "@copilotkit/showcase-cell-langgraph-python-shared-state-agent-readonly",
+  "name": "@copilotkit/showcase-cell-langgraph-python-readonly-state-agent-context",
   "version": "0.1.0",
   "private": true,
   "scripts": {

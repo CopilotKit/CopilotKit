@@ -13,9 +13,8 @@
         "multi-modal",
         "suggestions",
         "shared-state-read-write",
-        "shared-state-agent-readonly",
+        "readonly-state-agent-context",
         "shared-state-streaming",
-        "readables",
         "subagents",
         "voice"
       ],
@@ -50,6 +49,7 @@
         "hitl-in-chat",
         "hitl-in-app",
         "declarative-gen-ui",
+        "declarative-gen-ui-hardcoded",
         "a2ui-fixed-schema",
         "mcp-apps",
         "open-gen-ui",
@@ -59,9 +59,8 @@
         "multi-modal",
         "suggestions",
         "shared-state-read-write",
-        "shared-state-agent-readonly",
+        "readonly-state-agent-context",
         "shared-state-streaming",
-        "readables",
         "subagents",
         "voice"
       ]
@@ -74,9 +73,8 @@
         "multi-modal",
         "suggestions",
         "shared-state-read-write",
-        "shared-state-agent-readonly",
+        "readonly-state-agent-context",
         "shared-state-streaming",
-        "readables",
         "subagents",
         "voice"
       ],

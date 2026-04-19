@@ -49,6 +49,7 @@ features:
   - gen-ui-interrupt
   - interrupt-headless
   - declarative-gen-ui
+  - declarative-gen-ui-hardcoded
   - a2ui-fixed-schema
   - mcp-apps
   - open-gen-ui
@@ -61,7 +62,7 @@ features:
   - tool-rendering-reasoning-chain
   - shared-state-read-write
   - shared-state-streaming
-  - shared-state-agent-readonly
+  - readonly-state-agent-context
   - subagents
 demos:
   - id: agentic-chat
@@ -186,12 +187,12 @@ demos:
       - frontend/src/app/page.tsx
       - frontend/src/app/preferences-card.tsx
       - frontend/src/app/notes-card.tsx
-  - id: shared-state-agent-readonly
-    name: Shared State (Agent Read-Only)
+  - id: readonly-state-agent-context
+    name: Readonly State (Agent Context)
     description: Frontend provides read-only context to the agent via useAgentContext
     tags:
       - agent-state
-    route: /demos/shared-state-agent-readonly
+    route: /demos/readonly-state-agent-context
     animated_preview_url:
     highlight:
       - backend/agent.py
@@ -299,11 +300,22 @@ demos:
       - frontend/src/app/page.tsx
       - frontend/src/app/time-picker-card.tsx
   - id: declarative-gen-ui
-    name: Declarative Generative UI (A2UI — Dynamic Schema)
-    description: Agent emits an A2UI component tree at runtime against a client catalog
+    name: Declarative Generative UI (A2UI)
+    description: Minimal injectA2UITool setup — agent renders dynamic A2UI surfaces against the built-in basicCatalog (no custom client components)
     tags:
       - generative-ui
     route: /demos/declarative-gen-ui
+    animated_preview_url:
+    highlight:
+      - backend/agent.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/api/copilotkit/route.ts
+  - id: declarative-gen-ui-hardcoded
+    name: Declarative Generative UI (A2UI — Custom Catalog)
+    description: A2UI with a hardcoded client catalog (Card/Title/Metric/PrimaryButton) registered via a2ui.catalog on the provider
+    tags:
+      - generative-ui
+    route: /demos/declarative-gen-ui-hardcoded
     animated_preview_url:
     highlight:
       - backend/agent.py

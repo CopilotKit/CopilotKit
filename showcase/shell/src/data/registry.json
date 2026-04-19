@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-19T03:43:42.925Z",
+  "generated_at": "2026-04-19T04:07:54.062Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
@@ -24,10 +24,6 @@
         "name": "Operational Generative UI"
       },
       {
-        "id": "agent-capabilities",
-        "name": "Agent Capabilities"
-      },
-      {
         "id": "interactivity",
         "name": "Interactivity"
       },
@@ -44,16 +40,8 @@
         "name": "Platform"
       },
       {
-        "id": "a2ui",
-        "name": "A2UI"
-      },
-      {
         "id": "byoc",
         "name": "BYOC (Bring Your Own Components)"
-      },
-      {
-        "id": "deep-agents",
-        "name": "Deep Agents"
       }
     ],
     "features": [
@@ -149,9 +137,16 @@
         "id": "declarative-gen-ui",
         "name": "Declarative Generative UI (A2UI — Dynamic Schema)",
         "category": "declarative-generative-ui",
-        "description": "A2UI rendering where the agent emits schema at runtime",
+        "description": "A2UI with the built-in basic catalog — minimal injectA2UITool setup",
         "og_docs_url": "https://docs.copilotkit.ai/features/declarative-gen-ui",
         "shell_docs_url": "/docs/features/declarative-gen-ui"
+      },
+      {
+        "id": "declarative-gen-ui-hardcoded",
+        "name": "Declarative Generative UI (A2UI — Custom Catalog)",
+        "category": "declarative-generative-ui",
+        "description": "A2UI with a hardcoded client catalog (BYOC) wired via a2ui.catalog",
+        "kind": "testing"
       },
       {
         "id": "a2ui-fixed-schema",
@@ -302,35 +297,10 @@
         "shell_docs_url": "/docs/features/shared-state-streaming"
       },
       {
-        "id": "shared-state-agent-readonly",
-        "name": "Shared State (Agent Read-Only)",
+        "id": "readonly-state-agent-context",
+        "name": "Readonly State (Agent Context)",
         "category": "agent-state",
-        "description": "Frontend provides read-only context to the agent via useAgentContext",
-        "kind": "testing"
-      },
-      {
-        "id": "shared-state-io",
-        "name": "Shared State (I/O Schemas)",
-        "category": "agent-state",
-        "description": "Structured output schemas",
-        "og_docs_url": "https://docs.copilotkit.ai/features/shared-state-io",
-        "shell_docs_url": "/docs/features/shared-state-io"
-      },
-      {
-        "id": "shared-state",
-        "name": "Shared State",
-        "category": "agent-state",
-        "description": "Bidirectional state sharing between agent and UI",
-        "og_docs_url": "https://docs.copilotkit.ai/features/shared-state",
-        "shell_docs_url": "/docs/features/shared-state"
-      },
-      {
-        "id": "readables",
-        "name": "Readables (Client Context)",
-        "category": "agent-state",
-        "description": "Passing client-side context to agent",
-        "og_docs_url": "https://docs.copilotkit.ai/features/readables",
-        "shell_docs_url": "/docs/features/readables"
+        "description": "Frontend provides read-only context to the agent via useAgentContext"
       },
       {
         "id": "subagents",
@@ -339,14 +309,6 @@
         "description": "Multiple agents with visible task delegation",
         "og_docs_url": "https://docs.copilotkit.ai/features/subagents",
         "shell_docs_url": "/docs/features/subagents"
-      },
-      {
-        "id": "a2a-chat",
-        "name": "A2A Chat",
-        "category": "multi-agent",
-        "description": "Agent-to-Agent protocol chat with multi-tab agent communication",
-        "og_docs_url": "https://docs.copilotkit.ai/features/a2a-chat",
-        "shell_docs_url": "/docs/features/a2a-chat"
       },
       {
         "id": "auth",
@@ -381,14 +343,6 @@
         "shell_docs_url": "/docs/features/multimodal"
       },
       {
-        "id": "vnext-chat",
-        "name": "vNext Chat",
-        "category": "platform",
-        "description": "Experimental next-generation chat using CopilotKit vNext runtime",
-        "og_docs_url": "https://docs.copilotkit.ai/features/vnext-chat",
-        "shell_docs_url": "/docs/features/vnext-chat"
-      },
-      {
         "id": "byoc-hashbrown",
         "name": "BYOC Hashbrown",
         "category": "byoc",
@@ -397,36 +351,12 @@
         "shell_docs_url": "/docs/features/byoc-hashbrown"
       },
       {
-        "id": "byoc-a2ui",
-        "name": "BYOC A2UI v0.9",
-        "category": "byoc",
-        "description": "Hashbrown-style generative UI on top of A2UI 0.9",
-        "og_docs_url": "https://docs.copilotkit.ai/features/byoc-a2ui",
-        "shell_docs_url": "/docs/features/byoc-a2ui"
-      },
-      {
         "id": "byoc-json-render",
         "name": "BYOC json-render",
         "category": "byoc",
         "description": "Hashbrown-style generative UI built on json-render",
         "og_docs_url": "https://docs.copilotkit.ai/features/byoc-json-render",
         "shell_docs_url": "/docs/features/byoc-json-render"
-      },
-      {
-        "id": "byoc-tambo",
-        "name": "BYOC Tambo",
-        "category": "byoc",
-        "description": "Hashbrown-style generative UI built on Tambo",
-        "og_docs_url": "https://docs.copilotkit.ai/features/byoc-tambo",
-        "shell_docs_url": "/docs/features/byoc-tambo"
-      },
-      {
-        "id": "deep-agents",
-        "name": "Deep Agents",
-        "category": "deep-agents",
-        "description": "Deep agent architecture with nested agent orchestration",
-        "og_docs_url": "https://docs.copilotkit.ai/features/deep-agents",
-        "shell_docs_url": "/docs/features/deep-agents"
       }
     ]
   },
@@ -478,6 +408,7 @@
         "gen-ui-interrupt",
         "interrupt-headless",
         "declarative-gen-ui",
+        "declarative-gen-ui-hardcoded",
         "a2ui-fixed-schema",
         "mcp-apps",
         "open-gen-ui",
@@ -490,7 +421,7 @@
         "tool-rendering-reasoning-chain",
         "shared-state-read-write",
         "shared-state-streaming",
-        "shared-state-agent-readonly",
+        "readonly-state-agent-context",
         "subagents"
       ],
       "demos": [
@@ -630,11 +561,11 @@
           ]
         },
         {
-          "id": "shared-state-agent-readonly",
-          "name": "Shared State (Agent Read-Only)",
+          "id": "readonly-state-agent-context",
+          "name": "Readonly State (Agent Context)",
           "description": "Frontend provides read-only context to the agent via useAgentContext",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-agent-readonly",
+          "route": "/demos/readonly-state-agent-context",
           "animated_preview_url": null,
           "highlight": ["backend/agent.py", "frontend/src/app/page.tsx"]
         },
@@ -751,10 +682,23 @@
         },
         {
           "id": "declarative-gen-ui",
-          "name": "Declarative Generative UI (A2UI — Dynamic Schema)",
-          "description": "Agent emits an A2UI component tree at runtime against a client catalog",
+          "name": "Declarative Generative UI (A2UI)",
+          "description": "Minimal injectA2UITool setup — agent renders dynamic A2UI surfaces against the built-in basicCatalog (no custom client components)",
           "tags": ["generative-ui"],
           "route": "/demos/declarative-gen-ui",
+          "animated_preview_url": null,
+          "highlight": [
+            "backend/agent.py",
+            "frontend/src/app/page.tsx",
+            "frontend/src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "declarative-gen-ui-hardcoded",
+          "name": "Declarative Generative UI (A2UI — Custom Catalog)",
+          "description": "A2UI with a hardcoded client catalog (Card/Title/Metric/PrimaryButton) registered via a2ui.catalog on the provider",
+          "tags": ["generative-ui"],
+          "route": "/demos/declarative-gen-ui-hardcoded",
           "animated_preview_url": null,
           "highlight": [
             "backend/agent.py",

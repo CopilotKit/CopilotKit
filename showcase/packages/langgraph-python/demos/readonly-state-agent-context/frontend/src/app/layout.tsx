@@ -3,7 +3,7 @@ import "@copilotkit/react-core/v2/styles.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Shared State (Agent Read-Only)",
+  title: "Readonly State (Agent Context)",
 };
 
 export default function RootLayout({

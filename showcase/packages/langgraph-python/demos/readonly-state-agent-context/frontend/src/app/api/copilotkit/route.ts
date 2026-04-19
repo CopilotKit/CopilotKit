@@ -1,4 +1,4 @@
-// CopilotKit runtime for the shared-state-agent-readonly cell.
+// CopilotKit runtime for the readonly-state-agent-context cell.
 
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -19,7 +19,7 @@ const agent = new LangGraphAgent({
 
 const runtime = new CopilotRuntime({
   // @ts-ignore
-  agents: { "shared-state-agent-readonly": agent },
+  agents: { "readonly-state-agent-context": agent },
 });
 
 export const POST = async (req: NextRequest) => {

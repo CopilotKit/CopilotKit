@@ -16,9 +16,8 @@ generative_ui:
       - multi-modal
       - suggestions
       - shared-state-read-write
-      - shared-state-agent-readonly
+      - readonly-state-agent-context
       - shared-state-streaming
-      - readables
       - subagents
       - voice
     excluded:
@@ -51,6 +50,7 @@ generative_ui:
       - hitl-in-chat
       - hitl-in-app
       - declarative-gen-ui
+      - declarative-gen-ui-hardcoded
       - a2ui-fixed-schema
       - mcp-apps
       - open-gen-ui
@@ -60,9 +60,8 @@ generative_ui:
       - multi-modal
       - suggestions
       - shared-state-read-write
-      - shared-state-agent-readonly
+      - readonly-state-agent-context
       - shared-state-streaming
-      - readables
       - subagents
       - voice
 
@@ -74,9 +73,8 @@ generative_ui:
       - multi-modal
       - suggestions
       - shared-state-read-write
-      - shared-state-agent-readonly
+      - readonly-state-agent-context
       - shared-state-streaming
-      - readables
       - subagents
       - voice
     excluded:

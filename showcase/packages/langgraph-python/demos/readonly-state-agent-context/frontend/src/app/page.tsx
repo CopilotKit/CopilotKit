@@ -16,7 +16,7 @@ export default function SharedStateAgentReadonlyDemo() {
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit"
-      agent="shared-state-agent-readonly"
+      agent="readonly-state-agent-context"
     >
       <DemoContent />
     </CopilotKit>
@@ -182,7 +182,7 @@ function DemoContent() {
       </aside>
       <main className="flex-1 flex flex-col min-h-0">
         <CopilotChat
-          agentId="shared-state-agent-readonly"
+          agentId="readonly-state-agent-context"
           className="flex-1 min-h-0"
           labels={{
             chatInputPlaceholder: "Ask about your context...",

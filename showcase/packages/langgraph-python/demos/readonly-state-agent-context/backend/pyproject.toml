@@ -1,5 +1,5 @@
 [project]
-name = "cell-shared_state_agent_readonly"
+name = "cell-readonly_state_agent_context"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [

@@ -33,7 +33,7 @@ BOOKED_SCHEMA = a2ui.load_schema(_SCHEMAS_DIR / "booked_schema.json")
 
 
 class Flight(TypedDict):
-    """Shape the LLM should fill in when calling `search_flight`.
+    """Shape the LLM should fill in when calling `display_flight`.
 
     LangGraph serializes this TypedDict into the tool's JSON schema, so
     defining it narrowly is how we steer the LLM to produce data that fits
@@ -47,7 +47,7 @@ class Flight(TypedDict):
 
 
 @tool
-def search_flight(origin: str, destination: str, airline: str, price: str) -> str:
+def display_flight(origin: str, destination: str, airline: str, price: str) -> str:
     """Show a flight card for the given trip.
 
     Use short airport codes (e.g. "SFO", "JFK") for origin/destination and a
@@ -83,11 +83,11 @@ def search_flight(origin: str, destination: str, airline: str, price: str) -> st
 
 graph = create_agent(
     model=ChatOpenAI(model="gpt-4o-mini"),
-    tools=[search_flight],
+    tools=[display_flight],
     middleware=[CopilotKitMiddleware()],
     system_prompt=(
         "You help users find flights. When asked about a flight, call "
-        "search_flight with origin, destination, airline, and price. "
+        "display_flight with origin, destination, airline, and price. "
         "Keep any chat reply to one short sentence."
     ),
 )

@@ -9,8 +9,8 @@ services:
     container_name: showcase-langgraph-python
     env_file: .env
     ports:
-      # 25 cells → external 3200-3224 mapped to internal 10000-10024
-      - "3200-3224:10000-10024"
+      # 30 cells → external 3200-3229 mapped to internal 10000-10029
+      - "3200-3229:10000-10029"
     restart: unless-stopped
 
   langgraph-typescript:
