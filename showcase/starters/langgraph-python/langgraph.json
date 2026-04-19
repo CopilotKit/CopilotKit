@@ -1,6 +1,13 @@
 {
   "dependencies": ["."],
   "graphs": {
-    "sample_agent": "./src/agents/main.py:graph"
+    "sample_agent": "./src/agents/main.py:graph",
+    "tool_rendering": "./src/agents/tool_rendering_agent.py:graph",
+    "a2ui_dynamic": "./src/agents/a2ui_dynamic.py:graph",
+    "a2ui_fixed": "./src/agents/a2ui_fixed.py:graph",
+    "reasoning_agent": "./src/agents/reasoning_agent.py:graph",
+    "interrupt_agent": "./src/agents/interrupt_agent.py:graph",
+    "open_gen_ui": "./src/agents/open_gen_ui_agent.py:graph",
+    "mcp_apps": "./src/agents/mcp_apps_agent.py:graph"
   }
 }
