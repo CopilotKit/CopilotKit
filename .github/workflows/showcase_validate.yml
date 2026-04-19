@@ -546,10 +546,12 @@ jobs:
             #
             # strands: ag_ui_strands==0.1.0 declares `requires-python >=3.12,<3.14`,
             # so `pip install` fails on 3.10 before pytest even runs.
-            # Revisit when ag_ui_strands relaxes its floor or when 3.10
-            # is dropped from the matrix.
-            if [ "$pkg" = "strands" ] && [ "$py_mm" = "3.10" ]; then
-              echo "--- pytest: $pkg --- SKIPPED on Python $py_mm (ag_ui_strands requires >=3.12)"
+            # langroid: tests import `typing.Self` (3.11+); on 3.10 the import fails
+            # at collection time. typing_extensions.Self would fix it but the tests
+            # are tightly coupled to the modern typing module.
+            # Revisit when ag_ui_strands relaxes its floor or when 3.10 is dropped.
+            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ]; }; then
+              echo "--- pytest: $pkg --- SKIPPED on Python $py_mm (requires >=3.11/3.12)"
               continue
             fi
             echo "--- pytest: $pkg ---"
