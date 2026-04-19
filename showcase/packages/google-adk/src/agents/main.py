@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, Optional
+import logging
+from typing import Optional
 
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
@@ -32,6 +33,23 @@ from tools import (
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
+# Module-level OpenAI client — lazily constructed on first use. Rebuilding the
+# client on every generate_a2ui call wastes a few ms per request and, more
+# importantly, re-runs env/credential resolution which is unnecessary.
+_openai_client = None
+
+
+def _get_openai_client():
+    """Return a memoized OpenAI client, constructing it on first call."""
+    global _openai_client
+    if _openai_client is None:
+        from openai import OpenAI
+
+        _openai_client = OpenAI()
+    return _openai_client
+
 
 def get_weather(tool_context: ToolContext, location: str) -> dict:
     """Get the weather for a given location. Ensure location is fully spelled out."""
@@ -44,18 +62,17 @@ def query_data(tool_context: ToolContext, query: str) -> list:
 
 
 def manage_sales_todos(tool_context: ToolContext, todos: list[dict]) -> dict:
-    """
-    Manage the sales pipeline. Pass the complete list of sales todos.
+    """Manage the sales pipeline by persisting the complete todo list.
 
     Args:
-        "todos": {
-            "type": "array",
-            "items": {"type": "object"},
-            "description": "The complete list of sales todos to maintain",
-        }
+        tool_context: ADK-provided tool context; `state["todos"]` is updated.
+        todos: The complete list of sales todos to maintain. Must be the
+            full list (not a delta) — the implementation replaces state
+            wholesale.
 
     Returns:
-        Dict indicating success status
+        A dict with `{"status": "updated", "count": <int>}` where `count`
+        is the number of todos now stored.
     """
     result = manage_sales_todos_impl(todos)
     tool_context.state["todos"] = result
@@ -94,8 +111,6 @@ def generate_a2ui(tool_context: ToolContext) -> dict:
     A secondary LLM designs the UI schema and data. The result is
     returned as an a2ui_operations container for the middleware to detect.
     """
-    from openai import OpenAI
-
     # Extract copilotkit context entries from session state
     copilotkit_state = tool_context.state.get("copilotkit", {})
     context_entries = copilotkit_state.get("context", []) if isinstance(copilotkit_state, dict) else []
@@ -105,7 +120,10 @@ def generate_a2ui(tool_context: ToolContext) -> dict:
         if isinstance(entry, dict) and entry.get("value")
     )
 
-    # Extract conversation messages from session history
+    # Extract conversation messages from session history.
+    # NOTE: `_invocation_context` is an ADK private attribute — narrow the
+    # except to AttributeError so unrelated bugs are not silently swallowed,
+    # and debug-log drift so operators can spot when the ADK shape changes.
     conversation_messages: list[dict] = []
     try:
         session = tool_context._invocation_context.session
@@ -121,10 +139,13 @@ def generate_a2ui(tool_context: ToolContext) -> dict:
                         if text_parts:
                             oai_role = "assistant" if role_str == "model" else "user"
                             conversation_messages.append({"role": oai_role, "content": "".join(text_parts)})
-    except Exception:
-        pass
+    except AttributeError as exc:
+        logger.debug(
+            "generate_a2ui: could not read session history from _invocation_context (%s). "
+            "ADK private-API shape may have drifted.",
+            exc,
+        )
 
-    client = OpenAI()
     tool_schema = {
         "type": "function",
         "function": {
@@ -148,25 +169,57 @@ def generate_a2ui(tool_context: ToolContext) -> dict:
     ]
     llm_messages.extend(conversation_messages)
 
-    response = client.chat.completions.create(
-        model="gpt-4.1",
-        messages=llm_messages,
-        tools=[tool_schema],
-        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
-    )
+    # Wrap the OpenAI call so raw APIError / RateLimitError / AuthenticationError
+    # / timeouts do not bubble up through the ADK tool machinery as uncaught
+    # exceptions. Return a structured error with remediation instead — the LLM
+    # can surface this to the user.
+    try:
+        client = _get_openai_client()
+        response = client.chat.completions.create(
+            model="gpt-4.1",
+            messages=llm_messages,
+            tools=[tool_schema],
+            tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+        )
+    except Exception as exc:  # noqa: BLE001 — openai raises a variety of subclasses
+        logger.exception("generate_a2ui: OpenAI API call failed")
+        return {
+            "error": "a2ui_llm_error",
+            "message": f"Secondary A2UI LLM call failed: {exc.__class__.__name__}",
+            "remediation": (
+                "Verify OPENAI_API_KEY is set and the OpenAI service is reachable. "
+                "See server logs for the full traceback."
+            ),
+        }
 
-    if not response.choices[0].message.tool_calls:
+    if not response.choices:
+        logger.warning("generate_a2ui: OpenAI response contained no choices")
+        return {
+            "error": "a2ui_empty_response",
+            "message": "Secondary A2UI LLM returned no choices.",
+            "remediation": "Retry; if this persists, check OpenAI status.",
+        }
+
+    tool_calls = response.choices[0].message.tool_calls
+    if not tool_calls:
         return {"error": "LLM did not call render_a2ui"}
 
-    tool_call = response.choices[0].message.tool_calls[0]
-    args = json.loads(tool_call.function.arguments)
+    tool_call = tool_calls[0]
+    try:
+        args = json.loads(tool_call.function.arguments)
+    except (ValueError, TypeError) as exc:
+        logger.exception(
+            "generate_a2ui: failed to parse render_a2ui tool arguments as JSON"
+        )
+        return {
+            "error": "a2ui_invalid_arguments",
+            "message": f"Could not parse render_a2ui arguments: {exc}",
+            "remediation": "Retry the request; the secondary LLM emitted malformed JSON.",
+        }
     return build_a2ui_operations_from_tool_call(args)
 
 
 def on_before_agent(callback_context: CallbackContext):
-    """
-    Initialize sales todos state if it doesn't exist.
-    """
     if "todos" not in callback_context.state:
         callback_context.state["todos"] = []
 
@@ -186,8 +239,15 @@ def before_model_modifier(
         ):
             try:
                 todos_json = json.dumps(callback_context.state["todos"], indent=2)
-            except Exception as e:
-                todos_json = f"Error serializing todos: {str(e)}"
+            except (TypeError, ValueError):
+                # Do not leak the raw error into the LLM prompt — it confuses
+                # the model and can bleed internal details to the user. Log
+                # server-side and fall back to the neutral placeholder.
+                logger.exception(
+                    "before_model_modifier: failed to serialize todos state; "
+                    "falling back to neutral placeholder"
+                )
+                todos_json = "No sales todos yet"
         original_instruction = llm_request.config.system_instruction or types.Content(
             role="system", parts=[]
         )
@@ -229,6 +289,12 @@ def simple_after_model_modifier(
        response whose parts contain BOTH text ("I'll check the weather...") AND
        a function_call. Terminating on text alone would skip the tool call and
        strand the UI.
+
+    The partial-event guard below is belt-and-suspenders: entrypoint.sh also
+    sets `ADK_DISABLE_PROGRESSIVE_SSE_STREAMING=1` as a hard workaround for
+    the partial-event behavior. Do NOT remove the partial check thinking the
+    env var makes it redundant — the env var is operator-level and can be
+    disabled; this guard is the last line of defense inside the callback.
     """
     agent_name = callback_context.agent_name
     if agent_name == "SalesPipelineAgent":
@@ -251,7 +317,27 @@ def simple_after_model_modifier(
                 and has_text
                 and not has_function_call
             ):
-                callback_context._invocation_context.end_invocation = True
+                # `_invocation_context` is an ADK private attribute — guard
+                # against shape drift. If the attr disappears in a future ADK
+                # release, log and degrade gracefully rather than crash the
+                # callback (which would stall the whole request).
+                invocation_context = getattr(
+                    callback_context, "_invocation_context", None
+                )
+                if invocation_context is not None:
+                    try:
+                        invocation_context.end_invocation = True
+                    except AttributeError:
+                        logger.debug(
+                            "simple_after_model_modifier: _invocation_context "
+                            "lacks end_invocation; ADK private-API shape may "
+                            "have drifted."
+                        )
+                else:
+                    logger.debug(
+                        "simple_after_model_modifier: callback_context has no "
+                        "_invocation_context attribute; skipping end_invocation."
+                    )
 
         elif llm_response.error_message:
             return None
