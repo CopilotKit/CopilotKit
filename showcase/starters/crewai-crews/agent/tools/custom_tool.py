@@ -5,7 +5,6 @@ Provides weather, query data, and schedule meeting tools for the crew.
 """
 
 import json
-import sys
 import os
 
 from crewai.tools import BaseTool

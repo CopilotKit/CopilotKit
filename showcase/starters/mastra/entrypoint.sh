@@ -31,7 +31,7 @@ else
 fi
 
 echo "[entrypoint] Starting Mastra agent on port 8123..."
-PORT=8123 npx mastra dev &> >(awk '{print "[agent] " $0; fflush()}') &
+PORT=8123 npx mastra dev 2>&1 | sed 's/^/[agent] /' &
 AGENT_PID=$!
 sleep 3
 if kill -0 $AGENT_PID 2>/dev/null; then

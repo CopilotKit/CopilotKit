@@ -31,7 +31,7 @@ else
 fi
 
 echo "[entrypoint] Starting TypeScript agent on port 8123..."
-npx tsx agent/index.ts &> >(awk '{print "[agent] " $0; fflush()}') &
+npx tsx agent/index.ts 2>&1 | sed 's/^/[agent] /' &
 AGENT_PID=$!
 sleep 2
 if kill -0 $AGENT_PID 2>/dev/null; then
