@@ -12,46 +12,48 @@ Display-only generative UI lets you register React components as tools your agen
 <Tabs items={['page.tsx', 'chart.tsx']}>
   <Tab value="page.tsx">
   ```tsx
+  import { z } from "zod";
+  import { useComponent } from "@copilotkit/react-core/v2";
+  import { ChartProps, Chart } from "@/chart.tsx"
 
-useComponent({
-name: "showChart",
-description: "Populate data and show the user a chart",
-parameters: ChartProps,
-render: Chart
-});
+  useComponent({
+    name: "showChart",
+    description: "Populate data and show the user a chart",
+    parameters: ChartProps,
+    render: Chart
+  });
+  ```
+  </Tab>
+  <Tab value="chart.tsx">
+  ```tsx
+  import { z } from "zod";
+  import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
-````
-</Tab>
-<Tab value="chart.tsx">
-```tsx
+  export const ChartProps = z.object({
+    title: z.string(),
+    data: z.array(z.object({ label: z.string(), value: z.number() })),
+  });
 
-export const ChartProps = z.object({
-  title: z.string(),
-  data: z.array(z.object({ label: z.string(), value: z.number() })),
-});
-
-export function Chart({ title, data }: z.infer<typeof ChartProps>) {
-  return (
-    <div>
-      <h3>{title}</h3>
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={data}>
-          <XAxis dataKey="label" /><YAxis /><Tooltip />
-          <Bar dataKey="value" fill="#6366f1" />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-````
-
+  export function Chart({ title, data }: z.infer<typeof ChartProps>) {
+    return (
+      <div>
+        <h3>{title}</h3>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={data}>
+            <XAxis dataKey="label" /><YAxis /><Tooltip />
+            <Bar dataKey="value" fill="#6366f1" />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  }
+  ```
   </Tab>
 </Tabs>
 
 ## When should I use this?
 
 Use display-only generative UI when you want to:
-
 - Display rich UI (cards, charts, tables) inline in the chat
 - Show structured data from agent responses
 - Render previews, status indicators, or visual feedback

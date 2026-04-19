@@ -4,6 +4,8 @@ description: "Learn how to debug errors in CopilotKit with dev console."
 icon: "lucide/TriangleAlert"
 ---
 
+# How to Debug Errors
+
 CopilotKit provides visual error display for local development and debugging. This feature is completely free and requires no API keys.
 
 ## Quick Setup
@@ -23,7 +25,7 @@ export default function App() {
 }
 ```
 
-<Callout type="warn">
+<Callout type="warning">
   Avoid showing the dev console in production as it exposes internal error details to end users.
 </Callout>
 
@@ -86,7 +88,7 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
 | `tool_handler_failed` | A frontend tool handler threw an error |
 
 <Callout type="info">
-  Need to see the full event pipeline — what events your agent emits, whether they reach the client, and where they're dropped? See [Debug Mode](/docs/troubleshooting/debug-mode) for detailed AG-UI event logging.
+  Need to see the full event pipeline — what events your agent emits, whether they reach the client, and where they're dropped? See [Debug Mode](/troubleshooting/debug-mode) for detailed AG-UI event logging.
 </Callout>
 
 ## Troubleshooting
