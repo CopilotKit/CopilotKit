@@ -1,0 +1,144 @@
+{
+  "framework": "crewai-crews",
+  "shell_base_url": "http://localhost:3000/crewai-crews",
+  "og_docs_base_url": "https://docs.copilotkit.ai",
+  "reference_docs_dir": "docs/content/docs/integrations/crewai-flows",
+  "notes": [
+    "No docs/content/docs/integrations/crewai-crews/ directory exists; crewai-crews shares framework docs with crewai-flows.",
+    "All 8 feature og_docs_url paths return HTTP 200 on production docs site.",
+    "All shell_docs_url paths return HTTP 404 on local shell (shell does not serve /docs/* routes)."
+  ],
+  "features": [
+    {
+      "id": "agentic-chat",
+      "og_docs_url": "https://docs.copilotkit.ai/features/agentic-chat",
+      "og_docs_status": 200,
+      "og_docs_ok": true,
+      "shell_docs_url": "/docs/features/agentic-chat",
+      "shell_docs_status": 404,
+      "shell_docs_ok": false,
+      "framework_mdx": "docs/content/docs/integrations/crewai-flows/prebuilt-components.mdx",
+      "status": "partial"
+    },
+    {
+      "id": "hitl-in-chat",
+      "og_docs_url": "https://docs.copilotkit.ai/features/hitl-in-chat",
+      "og_docs_status": 200,
+      "og_docs_ok": true,
+      "shell_docs_url": "/docs/features/hitl-in-chat",
+      "shell_docs_status": 404,
+      "shell_docs_ok": false,
+      "framework_mdx": "docs/content/docs/integrations/crewai-flows/human-in-the-loop/index.mdx",
+      "status": "partial"
+    },
+    {
+      "id": "tool-rendering",
+      "og_docs_url": "https://docs.copilotkit.ai/features/tool-rendering",
+      "og_docs_status": 200,
+      "og_docs_ok": true,
+      "shell_docs_url": "/docs/features/tool-rendering",
+      "shell_docs_status": 404,
+      "shell_docs_ok": false,
+      "framework_mdx": "docs/content/docs/integrations/crewai-flows/generative-ui/tool-rendering.mdx",
+      "status": "partial"
+    },
+    {
+      "id": "gen-ui-tool-based",
+      "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-tool-based",
+      "og_docs_status": 200,
+      "og_docs_ok": true,
+      "shell_docs_url": "/docs/features/gen-ui-tool-based",
+      "shell_docs_status": 404,
+      "shell_docs_ok": false,
+      "framework_mdx": "docs/content/docs/integrations/crewai-flows/generative-ui/your-components/display-only.mdx",
+      "status": "partial"
+    },
+    {
+      "id": "gen-ui-agent",
+      "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-agent",
+      "og_docs_status": 200,
+      "og_docs_ok": true,
+      "shell_docs_url": "/docs/features/gen-ui-agent",
+      "shell_docs_status": 404,
+      "shell_docs_ok": false,
+      "framework_mdx": "docs/content/docs/integrations/crewai-flows/generative-ui/state-rendering.mdx",
+      "status": "partial"
+    },
+    {
+      "id": "shared-state-read-write",
+      "og_docs_url": null,
+      "og_docs_status": null,
+      "og_docs_ok": false,
+      "shell_docs_url": null,
+      "shell_docs_status": null,
+      "shell_docs_ok": false,
+      "framework_mdx": "docs/content/docs/integrations/crewai-flows/shared-state/index.mdx",
+      "status": "red-x",
+      "reason": "No og_docs_url or shell_docs_url registered in feature-registry.json for shared-state-read-write."
+    },
+    {
+      "id": "shared-state-streaming",
+      "og_docs_url": "https://docs.copilotkit.ai/features/shared-state-streaming",
+      "og_docs_status": 200,
+      "og_docs_ok": true,
+      "shell_docs_url": "/docs/features/shared-state-streaming",
+      "shell_docs_status": 404,
+      "shell_docs_ok": false,
+      "framework_mdx": "docs/content/docs/integrations/crewai-flows/shared-state/predictive-state-updates.mdx",
+      "status": "partial"
+    },
+    {
+      "id": "subagents",
+      "og_docs_url": "https://docs.copilotkit.ai/features/subagents",
+      "og_docs_status": 200,
+      "og_docs_ok": true,
+      "shell_docs_url": "/docs/features/subagents",
+      "shell_docs_status": 404,
+      "shell_docs_ok": false,
+      "framework_mdx": "docs/content/docs/integrations/crewai-flows/multi-agent-flows.mdx",
+      "status": "partial"
+    }
+  ],
+  "missing": [
+    {
+      "id": "shared-state-read-write",
+      "reason": "No og_docs_url or shell_docs_url registered in feature-registry.json.",
+      "severity": "red-x"
+    },
+    {
+      "id": "agentic-chat",
+      "reason": "shell_docs_url /docs/features/agentic-chat returns 404 on local shell.",
+      "severity": "shell-only"
+    },
+    {
+      "id": "hitl-in-chat",
+      "reason": "shell_docs_url /docs/features/hitl-in-chat returns 404 on local shell.",
+      "severity": "shell-only"
+    },
+    {
+      "id": "tool-rendering",
+      "reason": "shell_docs_url /docs/features/tool-rendering returns 404 on local shell.",
+      "severity": "shell-only"
+    },
+    {
+      "id": "gen-ui-tool-based",
+      "reason": "shell_docs_url /docs/features/gen-ui-tool-based returns 404 on local shell.",
+      "severity": "shell-only"
+    },
+    {
+      "id": "gen-ui-agent",
+      "reason": "shell_docs_url /docs/features/gen-ui-agent returns 404 on local shell.",
+      "severity": "shell-only"
+    },
+    {
+      "id": "shared-state-streaming",
+      "reason": "shell_docs_url /docs/features/shared-state-streaming returns 404 on local shell.",
+      "severity": "shell-only"
+    },
+    {
+      "id": "subagents",
+      "reason": "shell_docs_url /docs/features/subagents returns 404 on local shell.",
+      "severity": "shell-only"
+    }
+  ]
+}
