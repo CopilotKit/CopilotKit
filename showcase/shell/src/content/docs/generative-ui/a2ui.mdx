@@ -58,19 +58,28 @@ a2ui.begin_rendering(surface_id, root_id)
 a2ui.render(operations=[...])  # wraps and serializes for a tool result
 ```
 
-## Setup in one line
+## Setup
 
-Enable A2UI in your CopilotRuntime and the middleware will handle the
-wire protocol automatically:
+Enable A2UI in your CopilotRuntime by adding `a2ui: true`, or pass an
+object to customise. The middleware handles the wire protocol
+automatically — it intercepts tool results containing A2UI operations
+and renders them as rich surfaces in the chat:
 
 ```typescript title="app/api/copilotkit/route.ts"
 import { CopilotRuntime } from "@copilotkit/runtime";
 
+// Simple — enable with defaults (good for fixed-schema flows)
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
-  // `injectA2UITool: true` auto-injects the `render_a2ui` tool and
-  // catalog schema into the agent (only needed for dynamic schemas).
-  a2ui: { injectA2UITool: true },
+  a2ui: true,
+});
+
+// Or customise — e.g. auto-inject the render tool for dynamic schemas
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  a2ui: {
+    injectA2UITool: true,
+  },
 });
 ```
 
