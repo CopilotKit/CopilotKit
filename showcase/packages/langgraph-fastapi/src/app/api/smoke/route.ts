@@ -4,7 +4,7 @@ const INTEGRATION_SLUG = "langgraph-fastapi";
 const LANGGRAPH_URL = process.env.AGENT_URL || "http://localhost:8123";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 export async function GET() {
   const start = Date.now();
