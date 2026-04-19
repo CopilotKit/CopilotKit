@@ -80,6 +80,34 @@ The result: as the supervisor fans work out to its sub-agents, the log
 grows in real time — giving the user visibility into a process that
 would otherwise be a long opaque spinner.
 
+## Sub-agents vs. multi-agent orchestration
+
+Sub-agents are one shape of multi-agent orchestration — the "supervisor
+fans out to specialists" shape. CopilotKit also supports two
+complementary provider-level modes you can reach for when you need
+coordination between _multiple top-level_ agents rather than one
+supervisor-and-its-tools:
+
+- **Router mode** (default) — omit the `agent` prop on `<CopilotKit>`
+  and the runtime's LLM routes each user turn to the most appropriate
+  registered agent.
+  ```tsx
+  <CopilotKit runtimeUrl="<copilot-runtime-url>">
+    {/* the LLM picks between all registered agents per turn */}
+  </CopilotKit>
+  ```
+- **Agent-lock mode** — pass `agent="<name>"` and every turn is routed
+  to that single agent, no matter what the LLM would pick.
+  ```tsx
+  <CopilotKit runtimeUrl="<copilot-runtime-url>" agent="research">
+    {/* every turn goes to the `research` agent */}
+  </CopilotKit>
+  ```
+
+The sub-agents pattern documented above is _orthogonal_ to those modes —
+a single locked-in supervisor agent can still fan work out to its own
+sub-agents internally.
+
 ## Related
 
 - **[Shared State](/docs/shared-state)** — the channel that makes the

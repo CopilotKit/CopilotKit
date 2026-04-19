@@ -23,61 +23,59 @@ CopilotKit V2 consolidates the frontend into a single package. Both hooks and UI
 
 ## Migration Steps
 
-<Steps>
-<Step>
-### Update `@copilotkit/react-core` imports
+### 1. Update `@copilotkit/react-core` imports
 
 Replace imports from `@copilotkit/react-core` with `@copilotkit/react-core/v2`.
 
 #### Before
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
-import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
+// app imports
+ import { CopilotKit } from "@copilotkit/react-core";
+ import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
 ```
 
 #### After
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-import { useAgent } from "@copilotkit/react-core/v2";
+// app imports
+ import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+ import { useAgent } from "@copilotkit/react-core/v2";
 ```
 
-</Step>
-<Step>
-### Replace `@copilotkit/react-ui` imports
+### 2. Replace `@copilotkit/react-ui` imports
 
 UI components like `CopilotChat`, `CopilotSidebar`, and `CopilotPopup` are now exported from `@copilotkit/react-core/v2`.
 
 #### Before
 ```tsx
-import { CopilotPopup } from "@copilotkit/react-ui";
-import { CopilotSidebar } from "@copilotkit/react-ui";
-import { CopilotChat } from "@copilotkit/react-ui";
+// ui imports
+ import { CopilotPopup } from "@copilotkit/react-ui";
+ import { CopilotSidebar } from "@copilotkit/react-ui";
+ import { CopilotChat } from "@copilotkit/react-ui";
 ```
 
 #### After
 ```tsx
-import { CopilotPopup } from "@copilotkit/react-core/v2";
-import { CopilotSidebar } from "@copilotkit/react-core/v2";
-import { CopilotChat } from "@copilotkit/react-core/v2";
+// ui imports
+ import { CopilotPopup } from "@copilotkit/react-core/v2";
+ import { CopilotSidebar } from "@copilotkit/react-core/v2";
+ import { CopilotChat } from "@copilotkit/react-core/v2";
 ```
 
-</Step>
-<Step>
-### Update your styles import
+### 3. Update your styles import
 
 #### Before
 ```tsx
-import "@copilotkit/react-ui/styles.css";
+// styles import
+ import "@copilotkit/react-ui/styles.css";
 ```
 
 #### After
 ```tsx
-import "@copilotkit/react-core/v2/styles.css";
+// styles import
+ import "@copilotkit/react-core/v2/styles.css";
 ```
 
-</Step>
-<Step>
-### Upgrade `@ag-ui/client` (if using directly)
+### 4. Upgrade `@ag-ui/client` (if using directly)
 
 If you import from `@ag-ui/client` directly, upgrade to the latest version:
 
@@ -87,17 +85,15 @@ npm install @ag-ui/client@latest
 
 Note: If you only use CopilotKit's React packages, `@ag-ui/client` types are already re-exported from `@copilotkit/react-core/v2` and you don't need a separate install.
 
-</Step>
-</Steps>
-
 ## Full Example
 
 ### Before
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotPopup } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
+// full v1 example
+ import { CopilotKit } from "@copilotkit/react-core";
+ import { CopilotPopup } from "@copilotkit/react-ui";
+ import "@copilotkit/react-ui/styles.css";
 
 export function App() {
   return (
@@ -112,8 +108,9 @@ export function App() {
 ### After
 
 ```tsx
-import { CopilotKitProvider, CopilotPopup } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+// full v2 example
+ import { CopilotKitProvider, CopilotPopup } from "@copilotkit/react-core/v2";
+ import "@copilotkit/react-core/v2/styles.css";
 
 export function App() {
   return (
