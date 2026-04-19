@@ -152,7 +152,9 @@ export function isSlugInSmokeMonitorServices(
   const servicesMatch = monitorYaml.match(/SERVICES=\(([\s\S]*?)\)/);
   if (!servicesMatch) return false;
   const block = servicesMatch[1];
-  const pattern = new RegExp(`(?:^|\\s)${escapeRegex(registeredName)}(?=\\s|$)`);
+  const pattern = new RegExp(
+    `(?:^|\\s)${escapeRegex(registeredName)}(?=\\s|$)`,
+  );
   return pattern.test(block);
 }
 
