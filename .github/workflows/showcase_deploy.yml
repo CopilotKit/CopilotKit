@@ -390,7 +390,24 @@ jobs:
                 exit 1
               fi
               HEALTH_URL="https://${DOMAIN}${HEALTH_PATH}"
-              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$HEALTH_URL" 2>/dev/null || echo "000")
+              # Services like `shell` and `shell-dojolike` probe `/` (a Next.js
+              # homepage), which can transiently 5xx or bounce through a 301
+              # chain during cold starts — a single bad response would reset
+              # HEALTHY_STREAK and throw away progress. Retry the probe up to
+              # 3 times within this iteration before treating it as a genuine
+              # non-200; legitimate failures still fail because all 3 tries
+              # must return non-200.
+              HTTP_CODE="000"
+              for probe_try in 1 2 3; do
+                HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$HEALTH_URL" 2>/dev/null || echo "000")
+                if [ "$HTTP_CODE" = "200" ]; then
+                  break
+                fi
+                if [ "$probe_try" -lt 3 ]; then
+                  echo "HTTP check: $HEALTH_URL → $HTTP_CODE (retry $probe_try/3)"
+                  sleep 2
+                fi
+              done
               echo "HTTP check: $HEALTH_URL → $HTTP_CODE"
               if [ "$HTTP_CODE" = "200" ]; then
                 HEALTHY_STREAK=$((HEALTHY_STREAK + 1))
