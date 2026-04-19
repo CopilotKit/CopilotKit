@@ -410,6 +410,13 @@ export default async function DocsPage({
       </div>
     ) : null;
 
+  // Only gate the body behind a framework pick when the page actually
+  // depends on one (i.e. has a `defaultCell` whose code needs a backend
+  // to make sense). Framework-agnostic pages like `/docs/learn/*` —
+  // protocol overviews, concept explainers, architecture diagrams —
+  // render their prose unconditionally.
+  const contentIsFrameworkScoped = showPivot && !!doc.fm.defaultCell;
+
   return (
     <DocsPageView
       slugPath={slugPath}
@@ -418,7 +425,9 @@ export default async function DocsPage({
       backLink={backLink}
       navTree={navTree}
       bannerSlot={pivot}
-      ContentWrapper={showPivot ? FrameworkGuardedContent : undefined}
+      ContentWrapper={
+        contentIsFrameworkScoped ? FrameworkGuardedContent : undefined
+      }
     />
   );
 }
