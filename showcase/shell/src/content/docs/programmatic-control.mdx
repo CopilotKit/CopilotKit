@@ -3,61 +3,22 @@ title: Programmatic Control
 icon: "lucide/Terminal"
 description: Build non-chat agent experiences with full programmatic control.
 hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: headless-simple
 ---
 
 ## What is this?
 
 Programmatic control lets you run agents outside of a chat UI — trigger agent runs, access results, and manage state entirely from code. Build agent-powered features that don't require a chat window.
 
-<Tabs items={['page.tsx']}>
-  <Tab value="page.tsx">
-  ```tsx
+## The headless hooks you'll use
 
-export function AgentButton() {
-const { agent } = useAgent();
-const { copilotkit } = useCopilotKit();
+The same hooks that power a fully-custom chat also power non-chat
+triggers. The live `headless-simple` cell uses `useAgent` +
+`useCopilotKit` to drive a chat turn from a button — you can swap
+the button for any programmatic trigger:
 
-    const handleClick = async () => {
-      await copilotkit.runAgent("Analyze the current data");
-    };
-
-    return (
-      <button onClick={handleClick} disabled={agent.isRunning}>
-        {agent.isRunning ? "Analyzing..." : "Run Analysis"}
-      </button>
-    );
-
-}
-
-````
-</Tab>
-</Tabs>
-
-You can also execute individual tools programmatically — no LLM turn needed:
-
-<Tabs items={['tool-button.tsx']}>
-<Tab value="tool-button.tsx">
-```tsx
-
-export function ToolButton() {
-  const { copilotkit } = useCopilotKit();
-
-  useFrontendTool({
-    name: "summarize",
-    description: "Summarize the document",
-    handler: async () => { /* ... */ },
-  });
-
-  return (
-    <button onClick={() => copilotkit.runTool({ name: "summarize" })}>
-      Summarize
-    </button>
-  );
-}
-````
-
-  </Tab>
-</Tabs>
+<Snippet region="headless-hooks" title="frontend/src/app/page.tsx — headless hooks" />
 
 ## When should I use this?
 

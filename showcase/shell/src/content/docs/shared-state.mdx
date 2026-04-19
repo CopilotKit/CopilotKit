@@ -3,6 +3,8 @@ title: Shared State
 description: Create a two-way connection between your UI and agent state.
 icon: "lucide/Repeat"
 hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: shared-state-read-write
 ---
 
 ## What is shared state?
@@ -22,6 +24,20 @@ Agentic Copilots maintain a shared state that seamlessly connects your UI with t
 />
 
 <InlineDemo integration="langgraph-python" demo="shared-state-read" />
+
+## How it works in code
+
+The `useAgent` hook subscribes your component to state changes. Pass
+`UseAgentUpdate.OnStateChanged` to re-render whenever the agent mutates
+its state — giving you a reactive window into what the agent is doing.
+
+<Snippet region="use-agent" title="frontend/src/app/page.tsx — useAgent subscription" />
+
+Mutating state flows the other direction via `agent.setState`. The demo
+below wires a preferences form so every keystroke lands in the agent's
+state and is available for its next turn:
+
+<Snippet region="set-state" title="frontend/src/app/page.tsx — write to agent state" />
 
 ## When should I use this?
 

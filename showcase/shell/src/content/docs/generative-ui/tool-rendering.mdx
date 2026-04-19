@@ -3,11 +3,40 @@ title: Tool Rendering
 icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: tool-rendering
 ---
 
 ## What is this?
 
 Tool rendering lets you customize how your agent's backend tool calls appear in the chat. Instead of showing raw tool execution, you can render custom React components that display tool arguments, progress, and results.
+
+<InlineDemo integration="langgraph-python" demo="tool-rendering" />
+
+## The shape of a tool renderer
+
+A tool renderer is just a React component registered via `useToolRenderer`.
+It receives the tool-call name, arguments, and (once the agent returns)
+the result. The showcase `tool-rendering` cell wires two of them — one
+for a weather lookup and one for a flight lookup:
+
+<Snippet region="render-weather-tool" title="frontend/src/app/page.tsx — weather renderer" />
+
+<Snippet region="render-flight-tool" title="frontend/src/app/page.tsx — flight renderer" />
+
+## A catch-all renderer
+
+When you want every tool call to render through a single component
+(great for a uniform "calling tool" card), register a catch-all:
+
+<Snippet region="catchall-renderer" title="frontend/src/app/page.tsx — catch-all" />
+
+## The backend tool definition
+
+The frontend renderer only sees what the agent sends down. Here's the
+matching Python definition the agent exposes for `get_weather`:
+
+<Snippet region="weather-tool-backend" title="backend/agent.py — weather tool" />
 
 ## When should I use this?
 

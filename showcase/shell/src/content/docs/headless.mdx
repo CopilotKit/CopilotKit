@@ -3,6 +3,8 @@ title: Headless UI
 icon: "lucide/Code"
 description: Build fully custom chat interfaces with complete rendering control via hooks.
 hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: headless-simple
 ---
 
 ## Full rendering control via hooks
@@ -10,39 +12,23 @@ hideTOC: true
 CopilotKit's headless hooks give you complete control over the chat experience — manage messages, streaming, and tool calls with zero UI opinions.
 Bring your own design system and render everything your way.
 
-<Tabs items={['chat.tsx']}>
-  <Tab value="chat.tsx">
-  ```tsx
+## How it works in code
 
-export default function Chat() {
-const { agent } = useAgent();
-const { copilotkit } = useCopilotKit();
+Three hooks do the heavy lifting: `useAgent` exposes the current
+conversation and run state, `useCopilotKit` gives you the runtime
+handle to drive an agent turn, and `useComponent` lets you register
+custom React components that the agent can render via tool calls:
 
-    return (
-      <div>
-        {agent.messages.map((m) => (
-          <p key={m.id}>{m.content}</p>
-        ))}
-        <button onClick={() => copilotkit.runAgent({ agent })}>
-          {agent.isRunning ? "Thinking..." : "Send"}
-        </button>
-      </div>
-    );
-
-}
-
-```
-</Tab>
-</Tabs>
+<Snippet region="headless-hooks" title="frontend/src/app/page.tsx — headless hooks" />
 
 ## When should I use this?
 
 Use headless UI when you want to:
+
 - Build a completely custom chat interface with your own design system
 - Integrate agent chat into existing UI patterns
 - Have full control over message rendering and interaction
 
 ## Get started by choosing your AI backend
 
-<IntegrationGrid path="headless"/>
-```
+<IntegrationGrid path="headless" />
