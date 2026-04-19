@@ -8,7 +8,7 @@ python -m langgraph_cli dev \
   --config langgraph.json \
   --host 0.0.0.0 \
   --port 8123 \
-  --no-browser 2>&1 | sed 's/^/[langgraph] /' &
+  --no-browser > >(sed 's/^/[langgraph] /') 2>&1 &
 LANGGRAPH_PID=$!
 sleep 3
 
@@ -17,7 +17,7 @@ if ! kill -0 $LANGGRAPH_PID 2>/dev/null; then
 fi
 
 PORT=${PORT:-10000}
-npx next start --port $PORT 2>&1 | sed 's/^/[nextjs] /' &
+npx next start --port $PORT > >(sed 's/^/[nextjs] /') 2>&1 &
 NEXTJS_PID=$!
 
 wait -n
