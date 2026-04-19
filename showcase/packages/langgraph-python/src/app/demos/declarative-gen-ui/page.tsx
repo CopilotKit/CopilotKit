@@ -1,22 +1,23 @@
 "use client";
 
 /**
- * Declarative Generative UI (A2UI) — canonical Bring-Your-Own-Catalog demo.
+ * Declarative Generative UI (A2UI — Dynamic Schema) demo.
  *
- * Pattern (straight from the docs):
+ * Pattern:
  *   1. Define a small set of branded React components + Zod schemas in
  *      `./a2ui/definitions.ts` and `./a2ui/renderers.tsx` (the latter calls
  *      `createCatalog(..., { includeBasicCatalog: true })` and exports
  *      `myCatalog`).
  *   2. Pass that catalog to the provider via
  *      `<CopilotKit a2ui={{ catalog: myCatalog }}>`.
- *   3. Configure the runtime with
- *      `a2ui: { injectA2UITool: true, agents: [...] }` in
- *      `./api/copilotkit/route.ts`. The runtime auto-injects the
- *      `render_a2ui` tool + the catalog schema into the agent's context.
- *   4. The backend agent (`src/agents/a2ui_dynamic.py`) is just a plain
- *      `create_agent` with `CopilotKitMiddleware` and `tools=[]` — no
- *      secondary LLM, no hand-written `render_a2ui` tool.
+ *   3. The dedicated runtime at `/api/copilotkit-declarative-gen-ui` is
+ *      configured with `injectA2UITool: false` — the backend agent
+ *      (`src/agents/a2ui_dynamic.py`) owns the `generate_a2ui` tool
+ *      explicitly, mirroring the working pattern from beautiful-chat and the
+ *      canonical `examples/integrations/langgraph-python` reference. The
+ *      A2UI middleware still serialises the registered catalog schema into
+ *      `copilotkit.context` so the secondary LLM inside `generate_a2ui`
+ *      knows which components are available.
  *
  * Reference:
  *   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui
@@ -35,7 +36,7 @@ export default function DeclarativeGenUIDemo() {
   return (
     // @region[provider-a2ui-prop]
     <CopilotKit
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl="/api/copilotkit-declarative-gen-ui"
       agent="declarative-gen-ui"
       a2ui={{ catalog: myCatalog }}
     >
