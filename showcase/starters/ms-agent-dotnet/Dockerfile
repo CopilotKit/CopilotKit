@@ -23,21 +23,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Create unprivileged runtime user BEFORE any COPY so --chown resolves
+# by name and so recursive chown over /app is never needed (fast builds).
+RUN (groupadd --system --gid 1001 app 2>/dev/null || true) \
+ && (useradd --system --uid 1001 --gid 1001 --no-create-home app 2>/dev/null || true) \
+ && mkdir -p /home/app && chown app:app /home/app
+
 # Next.js build artifacts
-COPY --from=frontend /app/.next ./.next
-COPY --from=frontend /app/node_modules ./node_modules
-COPY --from=frontend /app/package.json ./
+COPY --chown=app:app --from=frontend /app/.next ./.next
+COPY --chown=app:app --from=frontend /app/node_modules ./node_modules
+COPY --chown=app:app --from=frontend /app/package.json ./
 
 # .NET agent
-COPY --from=dotnet-builder /agent/publish ./agent/
+COPY --chown=app:app --from=dotnet-builder /agent/publish ./agent/
 
 # Entrypoint
-COPY entrypoint.sh ./
+COPY --chown=app:app entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
-RUN (groupadd --system --gid 1001 app 2>/dev/null || true) && (useradd --system --uid 1001 --gid 1001 --no-create-home app 2>/dev/null || true)
-RUN mkdir -p /home/app && chown app:app /home/app
-RUN chown -R app:app /app
 USER app
 
 EXPOSE 10000
