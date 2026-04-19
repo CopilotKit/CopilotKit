@@ -402,7 +402,7 @@ jobs:
                 # Reset streak if we had a partial streak and then a non-200
                 HEALTHY_STREAK=0
               fi
-              # SUCCESS but not (yet) responding — may be sleep-on-idle waking up
+              # SUCCESS but not yet responding — app process still booting
             else
               HEALTHY_STREAK=0
             fi
@@ -418,6 +418,9 @@ jobs:
   notify:
     needs: [detect-changes, check-lockfile, build]
     if: always()
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -430,6 +433,83 @@ jobs:
           COUNT=$(echo "$MATRIX" | jq 'length')
           echo "services=$SERVICES" >> $GITHUB_OUTPUT
           echo "count=$COUNT" >> $GITHUB_OUTPUT
+
+      - name: Compute per-leg build results
+        id: legs
+        if: always() && needs.build.result == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          # The build job is a matrix with fail-fast: false, so
+          # `needs.build.result == 'failure'` can mean "ALL legs failed" or
+          # "one leg failed and N others succeeded". Without per-leg detail
+          # the notify step would say "FAILED — N service(s) targeted",
+          # falsely implying every leg failed when only one did.
+          #
+          # Query the Actions API to list every `build (<leg>)` job in this
+          # run and bucket by conclusion. Best-effort: if the API lookup
+          # fails (auth, transient 5xx), the notify step falls back to the
+          # softer "1+ of N failed" wording which doesn't lie either way.
+          set +e
+          jobs_json=$(gh api "/repos/${GH_REPO}/actions/runs/${RUN_ID}/jobs" --paginate 2>/dev/null)
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ] || [ -z "$jobs_json" ]; then
+            echo "::warning::Could not fetch per-leg job results (rc=$rc); notify will use softer wording"
+            echo "have_detail=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Matrix legs are named "build (<leg-name>)" by default. We extract
+          # the leg name from parentheses; anything that doesn't match is
+          # ignored. jq -r emits one SLUG<TAB>CONCLUSION pair per line so
+          # we can bucket in shell without re-parsing JSON.
+          pairs=$(printf '%s' "$jobs_json" | jq -r '
+            .jobs // []
+            | map(select(.name | test("^build \\(.+\\)$")))
+            | map({
+                slug: (.name | capture("^build \\((?<s>.+)\\)$").s),
+                conclusion: (.conclusion // "unknown")
+              })
+            | .[]
+            | "\(.slug)\t\(.conclusion)"
+          ' 2>/dev/null)
+          if [ -z "$pairs" ]; then
+            echo "::warning::No matrix-leg jobs found in run; notify will use softer wording"
+            echo "have_detail=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          succeeded=""
+          failed=""
+          while IFS=$'\t' read -r slug conclusion; do
+            [ -z "$slug" ] && continue
+            case "$conclusion" in
+              success) succeeded="$succeeded $slug" ;;
+              failure|cancelled|timed_out) failed="$failed $slug" ;;
+              *) ;;  # skipped/neutral/unknown — exclude from both lists
+            esac
+          done <<< "$pairs"
+
+          succeeded=$(echo "$succeeded" | xargs)
+          failed=$(echo "$failed" | xargs)
+          succeeded_count=$(echo "$succeeded" | wc -w | xargs)
+          failed_count=$(echo "$failed" | wc -w | xargs)
+
+          # Cap list length for Slack readability (same 200-char cap as
+          # services_list in the payload step).
+          succeeded_list=$(echo "$succeeded" | tr ' ' ',' | sed 's/,/, /g' | cut -c1-200)
+          failed_list=$(echo "$failed" | tr ' ' ',' | sed 's/,/, /g' | cut -c1-200)
+
+          {
+            echo "have_detail=true"
+            echo "succeeded_count=$succeeded_count"
+            echo "failed_count=$failed_count"
+            echo "succeeded_list=$succeeded_list"
+            echo "failed_list=$failed_list"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build Slack payload
         id: payload
@@ -457,13 +537,12 @@ jobs:
 
           # Mid-build cancellation: the build job is a matrix over many
           # services with fail-fast: false. If ANY leg was cancelled while
-          # OTHERS completed (including the warn-not-fail health-probe
-          # timeout branch that exits 0), the aggregate rolls up to
-          # 'cancelled'. Silently skipping would hide those already-run
-          # legs. Additionally, a newer push's detect-changes is path-scoped
-          # and may not target the same services, so the cancelled leg may
-          # never be re-verified. Post a distinct muted message so humans
-          # can spot the anomaly instead of assuming green.
+          # OTHERS completed, the aggregate rolls up to 'cancelled'. Silently
+          # skipping would hide those already-run legs. Additionally, a newer
+          # push's detect-changes is path-scoped and may not target the same
+          # services, so the cancelled leg may never be re-verified. Post a
+          # distinct muted message so humans can spot the anomaly instead of
+          # assuming green.
           if [ "$BUILD" = "cancelled" ]; then
             MSG=":information_source: *Showcase deploy*: cancelled mid-matrix — newer run (or manual retrigger) continuing; inspect if issues persist"
             jq -n --arg text "$MSG | <$URL|View run>" '{text: $text}' > /tmp/slack-payload.json
@@ -490,7 +569,31 @@ jobs:
             echo "should_post=false" >> "$GITHUB_OUTPUT"
             exit 0
           else
-            MSG=":x: *Showcase deploy*: FAILED — ${COUNT} service(s) targeted (${SERVICES})"
+            # Build failed. Distinguish full failure (every leg failed) from
+            # partial failure (some legs passed, some failed). The previous
+            # wording said "FAILED — N service(s) targeted" which implied
+            # ALL N services failed when in fact only a subset did. Use the
+            # per-leg detail from steps.legs when available; fall back to a
+            # softer "1+ of N failed" phrasing if the API lookup didn't
+            # return detail (see the "Compute per-leg build results" step).
+            HAVE_DETAIL="${{ steps.legs.outputs.have_detail }}"
+            FAILED_COUNT="${{ steps.legs.outputs.failed_count }}"
+            SUCCEEDED_COUNT="${{ steps.legs.outputs.succeeded_count }}"
+            FAILED_LIST="${{ steps.legs.outputs.failed_list }}"
+            SUCCEEDED_LIST="${{ steps.legs.outputs.succeeded_list }}"
+            if [ "$HAVE_DETAIL" = "true" ] && [ -n "$FAILED_COUNT" ] && [ "$FAILED_COUNT" -gt 0 ]; then
+              if [ -n "$SUCCEEDED_COUNT" ] && [ "$SUCCEEDED_COUNT" -gt 0 ]; then
+                # Partial failure — some legs passed, some failed.
+                MSG=":x: *Showcase deploy*: ${FAILED_COUNT}/${COUNT} service(s) failed (${FAILED_LIST}) — ${SUCCEEDED_LIST} ok"
+              else
+                # All legs failed.
+                MSG=":x: *Showcase deploy*: FAILED — ${COUNT} service(s) targeted (${SERVICES})"
+              fi
+            else
+              # Softer fallback when per-leg detail isn't available — avoids
+              # the lie that "N of N failed" when we don't actually know.
+              MSG=":x: *Showcase deploy*: 1+ of ${COUNT} service(s) failed (${SERVICES} targeted)"
+            fi
           fi
 
           jq -n --arg text "$MSG | <$URL|View run>" '{text: $text}' > /tmp/slack-payload.json
