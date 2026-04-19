@@ -1,7 +1,58 @@
 ---
-title: "Prebuilt Components"
-icon: "lucide/SendHorizontal"
-description: "Drop-in chat components for your Built-in Agent."
+title: Prebuilt Components
+icon: "lucide/MessageSquare"
+description: Customizable, drop-in components for building AI-powered chat interfaces — CopilotChat, CopilotSidebar, CopilotPopup.
+hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: agentic-chat
 ---
 
-<SharedContent />
+## Pre-built components for agentic chat
+
+CopilotKit's chat components give you a fully functional, customizable AI chat interface out of the box. They handle streaming, generative UI, and deep customization — so you can focus on your agent's behavior, not UI plumbing.
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-chat-ui.mp4"
+  style={{ width: "100%", borderRadius: "0.5rem", marginBottom: "1rem" }}
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+
+<InlineDemo integration="langgraph-python" demo="agentic-chat" />
+
+<Callout type="info">
+Want users to send images, audio, or documents alongside their messages? See the [advanced configuration](./advanced-configuration) guide for multimodal attachments.
+</Callout>
+
+## Drop-in chat in a few lines
+
+Wrap your app in `<CopilotKitProvider>` and drop `<CopilotChat>` where the chat should live. The provider wires the runtime, the session, and the agent registry — everything else is optional configuration:
+
+<Snippet region="provider-setup" title="frontend/src/app/page.tsx — provider + chat" />
+
+## Starter suggestions
+
+`useConfigureSuggestions` lets you seed the chat with contextual prompts the moment a user arrives. The showcase cell uses a single "Write a sonnet" suggestion:
+
+<Snippet region="configure-suggestions" title="frontend/src/app/page.tsx — suggestions" />
+
+## Variants
+
+All three of `CopilotChat`, `CopilotSidebar`, and `CopilotPopup` share the same underlying primitives — they differ only in layout:
+
+- **`CopilotChat`** — an inline, full-surface chat. Good for dedicated chat pages.
+- **`CopilotSidebar`** — a docked sidebar that pushes content. Good for "co-present" layouts.
+- **`CopilotPopup`** — a floating bubble + modal. Good for contextual copilots on landing pages or dashboards.
+
+They all accept the same `labels`, slot props, `welcomeScreen`, `messageView`, and `input` props — swap components without rewriting anything.
+
+## Deep customization
+
+Start with defaults, customize as you need:
+
+- **Labels** — swap any string via the `labels` prop
+- **Slots** — override any sub-component with Tailwind classes, props, or a full replacement. See [Slots](./custom-look-and-feel/slots).
+- **Fully headless** — if slots aren't enough, drop down to [`useCopilotChatHeadless_c`](./custom-look-and-feel/headless-ui) and render everything yourself.
