@@ -316,8 +316,9 @@ demos:
       - backend/schemas/flight_schema.json
       - backend/schemas/booked_schema.json
       - frontend/src/app/page.tsx
-      - frontend/src/app/flight-card.tsx
-      - frontend/src/app/catalog.ts
+      - frontend/src/app/a2ui/definitions.ts
+      - frontend/src/app/a2ui/renderers.tsx
+      - frontend/src/app/a2ui/catalog.ts
   - id: mcp-apps
     name: MCP Apps
     description: MCP server-driven UI via activity renderers
