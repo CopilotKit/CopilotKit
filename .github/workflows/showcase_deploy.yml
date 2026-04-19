@@ -409,8 +409,11 @@ jobs:
 
             sleep 15
           done
-          echo "::warning::Service ${{ matrix.service.dispatch_name }} did not become healthy within 360s"
-          # Don't fail — sleep-on-idle services take time to wake
+          echo "::error::Service ${{ matrix.service.dispatch_name }} did not become healthy within 360s"
+          # Fail the job so Slack alerts fire — silent deploy failures
+          # should never report green. Railway is on the Pro tier and does
+          # not sleep on idle, so a persistent timeout is a real failure.
+          exit 1
 
   notify:
     needs: [detect-changes, check-lockfile, build]
