@@ -243,7 +243,7 @@ export function inlineSnippets(content: string, slugPath: string = ""): string {
       if (!snippetRel && componentName === "SharedContent" && slugPath) {
         // The docs page could live at any of these URL shapes:
         //   - integrations/<framework>/<subpath>    (legacy per-framework docs)
-        //   - built-in-agent/<subpath>              (new built-in-agent tree)
+        //   - unselected/<subpath>              (new unselected tree)
         //   - <subpath>                             (framework-scoped
         //                                            /<framework>/<subpath>,
         //                                            which arrives with no
@@ -252,8 +252,8 @@ export function inlineSnippets(content: string, slugPath: string = ""): string {
         const candidateSubpaths: string[] = [];
         const integrationsMatch = slugPath.match(/^integrations\/[^/]+\/(.+)$/);
         if (integrationsMatch) candidateSubpaths.push(integrationsMatch[1]);
-        if (slugPath.startsWith("built-in-agent/")) {
-          candidateSubpaths.push(slugPath.slice("built-in-agent/".length));
+        if (slugPath.startsWith("unselected/")) {
+          candidateSubpaths.push(slugPath.slice("unselected/".length));
         }
         candidateSubpaths.push(slugPath);
 
