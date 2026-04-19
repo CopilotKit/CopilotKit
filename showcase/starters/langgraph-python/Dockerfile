@@ -17,29 +17,32 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Create unprivileged runtime user BEFORE any COPY so --chown resolves
+# by name and so recursive chown over /app is never needed (fast builds).
+RUN (groupadd --system --gid 1001 app 2>/dev/null || true) \
+ && (useradd --system --uid 1001 --gid 1001 --no-create-home app 2>/dev/null || true) \
+ && mkdir -p /home/app && chown app:app /home/app
+
 # Python dependencies
-COPY src/agents/requirements.txt ./src/agents/requirements.txt
+COPY --chown=app:app src/agents/requirements.txt ./src/agents/requirements.txt
 RUN pip install --no-cache-dir -r src/agents/requirements.txt
 
 # Next.js build artifacts
-COPY --from=frontend /app/.next ./.next
-COPY --from=frontend /app/node_modules ./node_modules
-COPY --from=frontend /app/package.json ./
+COPY --chown=app:app --from=frontend /app/.next ./.next
+COPY --chown=app:app --from=frontend /app/node_modules ./node_modules
+COPY --chown=app:app --from=frontend /app/package.json ./
 
 # Agent code (self-contained — tools + data bundled inside)
-COPY src/agents/ ./src/agents/
+COPY --chown=app:app src/agents/ ./src/agents/
 
 # Framework config
-COPY langgraph.json ./
+COPY --chown=app:app langgraph.json ./
 
 # Entrypoint
-COPY entrypoint.sh ./
+COPY --chown=app:app entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
-RUN (groupadd --system --gid 1001 app 2>/dev/null || true) && (useradd --system --uid 1001 --gid 1001 --no-create-home app 2>/dev/null || true)
-RUN mkdir -p /home/app && chown app:app /home/app
-RUN mkdir -p /app/.langgraph_api
-RUN chown -R app:app /app
+RUN mkdir -p /app/.langgraph_api && chown app:app /app/.langgraph_api
 USER app
 
 EXPOSE 10000

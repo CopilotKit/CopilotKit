@@ -612,7 +612,10 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     Object.keys(fw.extraFiles).some((dest) => !dest.includes("/"))
       ? Object.keys(fw.extraFiles)
           .filter((dest) => !dest.includes("/"))
-          .map((dest) => `\n# Framework config\nCOPY ${dest} ./`)
+          .map(
+            (dest) =>
+              `\n# Framework config\nCOPY --chown=app:app ${dest} ./`,
+          )
           .join("")
       : "";
 
@@ -636,15 +639,19 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     const copyTargets = hasAimockToggle
       ? "agent_server.py aimock_toggle.py"
       : "agent_server.py";
-    dockerExtraCopy += `\n# FastAPI agent server entrypoint\nCOPY ${copyTargets} ./`;
+    dockerExtraCopy += `\n# FastAPI agent server entrypoint\nCOPY --chown=app:app ${copyTargets} ./`;
   }
 
   // Only langgraph starters need `/app/.langgraph_api` (langgraph_cli writes
   // scratch state there). Non-langgraph Python starters (crewai, agno, etc.)
   // never touch that dir — creating it was copy-paste residue that burned a
   // layer per image for nothing. Gate the mkdir to langgraph starters only.
+  //
+  // Ownership is assigned in the same RUN so we never pay the cost of a
+  // recursive chown over `/app` (see Dockerfile templates — every other path
+  // under `/app` lands with `--chown=app:app` at COPY time).
   const langgraphMkdir = fw.slug.startsWith("langgraph-")
-    ? "RUN mkdir -p /app/.langgraph_api\n"
+    ? "RUN mkdir -p /app/.langgraph_api && chown app:app /app/.langgraph_api\n"
     : "";
 
   const vars: Record<string, string> = {
