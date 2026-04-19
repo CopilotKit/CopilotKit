@@ -221,9 +221,7 @@ describe("validate-workflow-starters", () => {
         /missing from:\s+showcase_deploy\.yml workflow_dispatch/,
       );
       // Matrix source should NOT appear for mastra since it's present there
-      expect(r.stderr).not.toMatch(
-        /starter-mastra[\s\S]*ALL_SERVICES matrix/m,
-      );
+      expect(r.stderr).not.toMatch(/starter-mastra[\s\S]*ALL_SERVICES matrix/m);
     });
 
     it("exits 1 when a slug is only missing from the ALL_SERVICES matrix", () => {
