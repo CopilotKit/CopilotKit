@@ -841,15 +841,31 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     }
 
     // For langgraph starters: convert relative imports to absolute
-    // because langgraph_cli loads modules standalone, not as packages
+    // because langgraph_cli loads modules standalone, not as packages.
+    //
+    // Subdir-aware: `from .X import ...` resolves to the CURRENT package,
+    // which is the directory the file lives in, not `agentDir` flat. A file
+    // at `<agentDir>/tools/get_weather.py` saying `from .types import X` must
+    // become `from <agentDir>.tools.types import X`, not `from <agentDir>.types`.
+    // The previous flat rewrite dropped the `tools` segment and produced
+    // `ModuleNotFoundError: No module named '<agentDir>.types'` at startup,
+    // killing langgraph-fastapi silently inside the entrypoint `sed` pipe.
     if (fw.slug.startsWith("langgraph-")) {
       const lgAgentMod = fw.agentDir.replace(/\//g, ".");
       forEachPyFile(agentDest, (fp) => {
         let content = fs.readFileSync(fp, "utf-8");
-        // from .X import -> from <agentMod>.X import
+        // Compute the file's containing Python package path:
+        // <agentDir>.<relative-subdirs-joined-with-.>
+        const relFromAgent = path.relative(agentDest, path.dirname(fp));
+        const subPkg = relFromAgent
+          .split(path.sep)
+          .filter(Boolean)
+          .join(".");
+        const filePkg = subPkg ? `${lgAgentMod}.${subPkg}` : lgAgentMod;
+        // from .X import -> from <filePkg>.X import
         content = content.replace(
           /^from \.([\w.]+) import/gm,
-          `from ${lgAgentMod}.$1 import`,
+          `from ${filePkg}.$1 import`,
         );
         fs.writeFileSync(fp, content);
       });
