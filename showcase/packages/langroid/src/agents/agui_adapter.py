@@ -15,9 +15,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import traceback
 import uuid
 from typing import Any, AsyncGenerator
 
+import pydantic
 from ag_ui.core import (
     EventType,
     RunStartedEvent,
@@ -45,6 +48,29 @@ import langroid as lr
 from langroid.agent.tool_message import ToolMessage
 
 
+logger = logging.getLogger(__name__)
+
+
+# Map tool name -> ToolMessage class for backend execution. Built once at
+# import so a collision surfaces loudly at startup instead of silently
+# shadowing a tool class at runtime.
+_TOOL_BY_NAME: dict[str, type[ToolMessage]] = {
+    cls.default_value("request"): cls for cls in ALL_TOOLS
+}
+if len(_TOOL_BY_NAME) != len(ALL_TOOLS):
+    # Collisions are a programmer error — don't try to recover.
+    seen: set[str] = set()
+    dupes: list[str] = []
+    for cls in ALL_TOOLS:
+        name = cls.default_value("request")
+        if name in seen:
+            dupes.append(name)
+        seen.add(name)
+    raise RuntimeError(
+        f"Duplicate tool request names in ALL_TOOLS: {dupes!r}"
+    )
+
+
 def _sse_line(event: Any) -> str:
     """Format an AG-UI event as an SSE data line (camelCase keys per AG-UI protocol)."""
     if hasattr(event, "model_dump"):
@@ -52,6 +78,38 @@ def _sse_line(event: Any) -> str:
     else:
         data = dict(event)
     return f"data: {json.dumps(data)}\n\n"
+
+
+def _parse_tool_args(raw_args: Any) -> dict:
+    """Coerce tool-call arguments into a dict.
+
+    OpenAI-style arguments arrive as a JSON string; Langroid sometimes
+    passes a pre-parsed dict. Anything else (None, a malformed payload)
+    degrades to an empty dict with a warning — the tool call still fires
+    so the frontend can render its card, just with no params.
+    """
+    if isinstance(raw_args, dict):
+        return raw_args
+    if isinstance(raw_args, str):
+        if not raw_args:
+            return {}
+        try:
+            parsed = json.loads(raw_args)
+        except json.JSONDecodeError as exc:
+            truncated = raw_args[:200]
+            logger.warning(
+                "Failed to JSON-decode tool-call arguments (%s): %r", exc, truncated
+            )
+            return {}
+        if isinstance(parsed, dict):
+            return parsed
+        logger.warning(
+            "Tool-call arguments parsed to non-dict (%s): %r",
+            type(parsed).__name__,
+            str(parsed)[:200],
+        )
+        return {}
+    return {}
 
 
 async def handle_run(request: Request) -> StreamingResponse:
@@ -73,14 +131,45 @@ async def handle_run(request: Request) -> StreamingResponse:
                 conversation_parts.append(f"{role}: {content}")
     user_message = "\n".join(conversation_parts) if conversation_parts else ""
 
+    # Compute the effective thread_id ONCE so every event emitted for this
+    # run (RUN_STARTED, RUN_FINISHED, ...) references the same thread.
+    # Previously RUN_STARTED synthesized a fresh UUID while RUN_FINISHED
+    # fell back to "" on the same missing-thread_id input.
+    thread_id = run_input.thread_id or str(uuid.uuid4())
+
     async def event_stream() -> AsyncGenerator[str, None]:
         run_id = str(uuid.uuid4())
         message_id = str(uuid.uuid4())
 
-        # RUN_STARTED
+        def emit_text_block(msg_id: str, text: str) -> list[str]:
+            """Emit a complete TEXT_MESSAGE_{START,CONTENT,END} triple.
+
+            AG-UI requires TextMessageContentEvent.delta to be non-empty,
+            so this helper short-circuits when `text` is falsy — no events
+            are emitted at all. Returns the SSE lines so the generator can
+            yield them in order.
+            """
+            if not text:
+                return []
+            return [
+                _sse_line(TextMessageStartEvent(
+                    type=EventType.TEXT_MESSAGE_START,
+                    message_id=msg_id,
+                )),
+                _sse_line(TextMessageContentEvent(
+                    type=EventType.TEXT_MESSAGE_CONTENT,
+                    message_id=msg_id,
+                    delta=text,
+                )),
+                _sse_line(TextMessageEndEvent(
+                    type=EventType.TEXT_MESSAGE_END,
+                    message_id=msg_id,
+                )),
+            ]
+
         yield _sse_line(RunStartedEvent(
             type=EventType.RUN_STARTED,
-            thread_id=run_input.thread_id or str(uuid.uuid4()),
+            thread_id=thread_id,
             run_id=run_id,
         ))
 
@@ -91,12 +180,15 @@ async def handle_run(request: Request) -> StreamingResponse:
             # Empty response — just finish
             yield _sse_line(RunFinishedEvent(
                 type=EventType.RUN_FINISHED,
-                thread_id=run_input.thread_id or "",
+                thread_id=thread_id,
                 run_id=run_id,
             ))
             return
 
-        content = response.content if hasattr(response, "content") else str(response)
+        # `response` is a Langroid ChatDocument. `.content` is the canonical
+        # source of text; `str(response)` includes debug formatting and is
+        # not a useful fallback, so default to "" when content is absent.
+        content = getattr(response, "content", None) or ""
 
         # Langroid's OpenAI-backed LLM emits tool calls on
         # `response.oai_tool_calls` (OpenAI tools API) or `response.function_call`
@@ -114,15 +206,7 @@ async def handle_run(request: Request) -> StreamingResponse:
                     fn = getattr(tc, "function", None)
                     name = getattr(fn, "name", None) if fn is not None else None
                     raw_args = getattr(fn, "arguments", {}) if fn is not None else {}
-                    if isinstance(raw_args, str):
-                        try:
-                            args_dict = json.loads(raw_args) if raw_args else {}
-                        except json.JSONDecodeError:
-                            args_dict = {}
-                    elif isinstance(raw_args, dict):
-                        args_dict = raw_args
-                    else:
-                        args_dict = {}
+                    args_dict = _parse_tool_args(raw_args)
                     call_id = getattr(tc, "id", None) or str(uuid.uuid4())
                     if name:
                         calls_to_emit.append((call_id, name, args_dict))
@@ -130,39 +214,23 @@ async def handle_run(request: Request) -> StreamingResponse:
                 # Legacy function_call shape: single call.
                 name = getattr(function_call, "name", None)
                 raw_args = getattr(function_call, "arguments", {}) or {}
-                if isinstance(raw_args, str):
-                    try:
-                        args_dict = json.loads(raw_args) if raw_args else {}
-                    except json.JSONDecodeError:
-                        args_dict = {}
-                elif isinstance(raw_args, dict):
-                    args_dict = raw_args
-                else:
-                    args_dict = {}
+                args_dict = _parse_tool_args(raw_args)
                 if name:
                     calls_to_emit.append((str(uuid.uuid4()), name, args_dict))
 
-            # Map tool name -> ToolMessage class for backend execution.
-            tool_by_name = {
-                cls.default_value("request"): cls for cls in ALL_TOOLS
-            }
-
             for call_id, tool_name, tool_args in calls_to_emit:
-                # TOOL_CALL_START
                 yield _sse_line(ToolCallStartEvent(
                     type=EventType.TOOL_CALL_START,
                     tool_call_id=call_id,
                     tool_call_name=tool_name,
                 ))
 
-                # TOOL_CALL_ARGS
                 yield _sse_line(ToolCallArgsEvent(
                     type=EventType.TOOL_CALL_ARGS,
                     tool_call_id=call_id,
                     delta=json.dumps(tool_args),
                 ))
 
-                # TOOL_CALL_END
                 yield _sse_line(ToolCallEndEvent(
                     type=EventType.TOOL_CALL_END,
                     tool_call_id=call_id,
@@ -170,35 +238,32 @@ async def handle_run(request: Request) -> StreamingResponse:
 
                 # For backend tools, execute and stream the result as text.
                 if tool_name not in FRONTEND_TOOL_NAMES:
-                    tool_cls = tool_by_name.get(tool_name)
+                    tool_cls = _TOOL_BY_NAME.get(tool_name)
                     result: str | None = None
                     if tool_cls is not None:
                         try:
                             tool_instance = tool_cls(**tool_args)
                             result = await asyncio.to_thread(tool_instance.handle)
                         except Exception as exc:  # pragma: no cover - defensive
+                            # Log the full traceback server-side so we can
+                            # debug tool failures, but keep the user-facing
+                            # payload sanitized (no stack, no internals).
+                            logger.warning(
+                                "Tool %s execution failed: %s\n%s",
+                                tool_name,
+                                exc,
+                                traceback.format_exc(),
+                            )
                             result = json.dumps({"error": str(exc)})
 
                     if result:
                         msg_id = str(uuid.uuid4())
-                        yield _sse_line(TextMessageStartEvent(
-                            type=EventType.TEXT_MESSAGE_START,
-                            message_id=msg_id,
-                        ))
-                        yield _sse_line(TextMessageContentEvent(
-                            type=EventType.TEXT_MESSAGE_CONTENT,
-                            message_id=msg_id,
-                            delta=result,
-                        ))
-                        yield _sse_line(TextMessageEndEvent(
-                            type=EventType.TEXT_MESSAGE_END,
-                            message_id=msg_id,
-                        ))
+                        for line in emit_text_block(msg_id, result):
+                            yield line
 
-            # RUN_FINISHED
             yield _sse_line(RunFinishedEvent(
                 type=EventType.RUN_FINISHED,
-                thread_id=run_input.thread_id or "",
+                thread_id=thread_id,
                 run_id=run_id,
             ))
             return
@@ -217,21 +282,18 @@ async def handle_run(request: Request) -> StreamingResponse:
                     continue
                 tool_args[field_name] = getattr(tool_msg, field_name)
 
-            # TOOL_CALL_START
             yield _sse_line(ToolCallStartEvent(
                 type=EventType.TOOL_CALL_START,
                 tool_call_id=tool_call_id,
                 tool_call_name=tool_name,
             ))
 
-            # TOOL_CALL_ARGS
             yield _sse_line(ToolCallArgsEvent(
                 type=EventType.TOOL_CALL_ARGS,
                 tool_call_id=tool_call_id,
                 delta=json.dumps(tool_args),
             ))
 
-            # TOOL_CALL_END
             yield _sse_line(ToolCallEndEvent(
                 type=EventType.TOOL_CALL_END,
                 tool_call_id=tool_call_id,
@@ -240,47 +302,18 @@ async def handle_run(request: Request) -> StreamingResponse:
             # If it's a backend tool, execute it and stream the result as text
             if tool_name not in FRONTEND_TOOL_NAMES:
                 result = await asyncio.to_thread(tool_msg.handle)
-
-                # AG-UI protocol requires TextMessageContentEvent.delta to be
-                # non-empty; skip the whole text-message block if the tool
-                # handler returned nothing.
-                if result:
-                    yield _sse_line(TextMessageStartEvent(
-                        type=EventType.TEXT_MESSAGE_START,
-                        message_id=message_id,
-                    ))
-                    yield _sse_line(TextMessageContentEvent(
-                        type=EventType.TEXT_MESSAGE_CONTENT,
-                        message_id=message_id,
-                        delta=result,
-                    ))
-                    yield _sse_line(TextMessageEndEvent(
-                        type=EventType.TEXT_MESSAGE_END,
-                        message_id=message_id,
-                    ))
+                for line in emit_text_block(message_id, result):
+                    yield line
         else:
-            # Plain text response — stream it. AG-UI requires a non-empty
-            # delta, so skip emission when the LLM returned no text (e.g.
-            # a pure tool-call turn where content was stripped to "").
-            if content:
-                yield _sse_line(TextMessageStartEvent(
-                    type=EventType.TEXT_MESSAGE_START,
-                    message_id=message_id,
-                ))
-                yield _sse_line(TextMessageContentEvent(
-                    type=EventType.TEXT_MESSAGE_CONTENT,
-                    message_id=message_id,
-                    delta=content,
-                ))
-                yield _sse_line(TextMessageEndEvent(
-                    type=EventType.TEXT_MESSAGE_END,
-                    message_id=message_id,
-                ))
+            # Plain text response — stream it. emit_text_block handles the
+            # empty-delta guard (AG-UI requires non-empty deltas, e.g. a
+            # pure tool-call turn where content was stripped to "").
+            for line in emit_text_block(message_id, content):
+                yield line
 
-        # RUN_FINISHED
         yield _sse_line(RunFinishedEvent(
             type=EventType.RUN_FINISHED,
-            thread_id=run_input.thread_id or "",
+            thread_id=thread_id,
             run_id=run_id,
         ))
 
@@ -296,32 +329,54 @@ async def handle_run(request: Request) -> StreamingResponse:
 
 
 def _try_parse_tool(content: str, agent: lr.ChatAgent) -> ToolMessage | None:
-    """Try to parse a Langroid ToolMessage from the LLM response content."""
-    try:
-        msg = agent.agent_response(content)
-        if msg is not None and isinstance(msg, ToolMessage):
-            return msg
-    except Exception:
-        pass
+    """Try to parse a Langroid ToolMessage from the LLM response content.
 
-    # Try JSON-based parsing as fallback
+    Langroid's `agent.agent_response()` returns a `ChatDocument`, not a
+    `ToolMessage`, so the previous isinstance-based path was effectively
+    dead code. We rely on the JSON fallback, which matches both the
+    Langroid tool envelope (`{"request": ..., ...}`) and the OpenAI
+    function-call shape (`{"name": ..., "arguments": ...}`).
+    """
     try:
         data = json.loads(content)
-        request = data.get("request")
+    except (json.JSONDecodeError, TypeError) as exc:
+        logger.warning(
+            "Failed to JSON-decode LLM content for tool parsing (%s): %r",
+            exc,
+            (content or "")[:200],
+        )
+        return None
+
+    try:
+        request = data.get("request") if isinstance(data, dict) else None
         if request:
             for tool_cls in ALL_TOOLS:
                 if tool_cls.default_value("request") == request:
                     return tool_cls(**data)
         # Check for OpenAI function_call style
-        name = data.get("name") or data.get("function", {}).get("name")
-        args = data.get("arguments") or data.get("function", {}).get("arguments", {})
-        if name:
-            if isinstance(args, str):
-                args = json.loads(args)
-            for tool_cls in ALL_TOOLS:
-                if tool_cls.default_value("request") == name:
-                    return tool_cls(**args)
-    except (json.JSONDecodeError, Exception):
-        pass
+        if isinstance(data, dict):
+            name = data.get("name") or (data.get("function", {}) or {}).get("name")
+            args = data.get("arguments") or (data.get("function", {}) or {}).get("arguments", {})
+            if name:
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except json.JSONDecodeError as exc:
+                        logger.warning(
+                            "Failed to JSON-decode function_call.arguments (%s): %r",
+                            exc,
+                            args[:200],
+                        )
+                        return None
+                for tool_cls in ALL_TOOLS:
+                    if tool_cls.default_value("request") == name:
+                        return tool_cls(**args)
+    except (TypeError, pydantic.ValidationError) as exc:
+        logger.warning(
+            "Failed to instantiate ToolMessage from parsed content (%s): %r",
+            exc,
+            str(data)[:200],
+        )
+        return None
 
     return None
