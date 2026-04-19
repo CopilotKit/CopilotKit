@@ -857,10 +857,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
         // Compute the file's containing Python package path:
         // <agentDir>.<relative-subdirs-joined-with-.>
         const relFromAgent = path.relative(agentDest, path.dirname(fp));
-        const subPkg = relFromAgent
-          .split(path.sep)
-          .filter(Boolean)
-          .join(".");
+        const subPkg = relFromAgent.split(path.sep).filter(Boolean).join(".");
         const filePkg = subPkg ? `${lgAgentMod}.${subPkg}` : lgAgentMod;
         // from .X import -> from <filePkg>.X import
         content = content.replace(
