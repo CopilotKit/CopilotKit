@@ -3,74 +3,35 @@
   "features": {
     "agentic-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/quickstart",
-      "og_docs_status": "ok",
-      "shell_docs_url": "http://localhost:3000/ms-agent-python/docs/features/agentic-chat",
-      "shell_docs_status": "missing",
-      "reference_mdx": "docs/content/docs/integrations/microsoft-agent-framework/quickstart.mdx"
+      "shell_docs_path": "/prebuilt-components"
     },
     "hitl-in-chat": {
       "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/human-in-the-loop",
-      "og_docs_status": "ok",
-      "shell_docs_url": "http://localhost:3000/ms-agent-python/docs/features/hitl-in-chat",
-      "shell_docs_status": "missing",
-      "reference_mdx": "docs/content/docs/integrations/microsoft-agent-framework/human-in-the-loop.mdx"
+      "shell_docs_path": "/generative-ui/your-components/interactive"
     },
     "tool-rendering": {
       "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/tool-rendering",
-      "og_docs_status": "ok",
-      "shell_docs_url": "http://localhost:3000/ms-agent-python/docs/features/tool-rendering",
-      "shell_docs_status": "missing",
-      "reference_mdx": "docs/content/docs/integrations/microsoft-agent-framework/generative-ui/tool-rendering.mdx"
+      "shell_docs_path": "/generative-ui/tool-rendering"
     },
     "gen-ui-tool-based": {
       "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/your-components/display-only",
-      "og_docs_status": "ok",
-      "shell_docs_url": "http://localhost:3000/ms-agent-python/docs/features/gen-ui-tool-based",
-      "shell_docs_status": "missing",
-      "reference_mdx": "docs/content/docs/integrations/microsoft-agent-framework/generative-ui/your-components/display-only.mdx"
+      "shell_docs_path": "/generative-ui/your-components/display-only"
     },
     "gen-ui-agent": {
       "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/state-rendering",
-      "og_docs_status": "ok",
-      "shell_docs_url": "http://localhost:3000/ms-agent-python/docs/features/gen-ui-agent",
-      "shell_docs_status": "missing",
-      "reference_mdx": "docs/content/docs/integrations/microsoft-agent-framework/generative-ui/state-rendering.mdx"
+      "shell_docs_path": null
     },
     "shared-state-read-write": {
       "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/shared-state/in-app-agent-write",
-      "og_docs_status": "ok",
-      "shell_docs_url": null,
-      "shell_docs_status": "missing",
-      "reference_mdx": "docs/content/docs/integrations/microsoft-agent-framework/shared-state/in-app-agent-write.mdx"
+      "shell_docs_path": "/shared-state"
     },
     "shared-state-streaming": {
       "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/shared-state/predictive-state-updates",
-      "og_docs_status": "ok",
-      "shell_docs_url": "http://localhost:3000/ms-agent-python/docs/features/shared-state-streaming",
-      "shell_docs_status": "missing",
-      "reference_mdx": "docs/content/docs/integrations/microsoft-agent-framework/shared-state/predictive-state-updates.mdx"
+      "shell_docs_path": null
     },
     "subagents": {
-      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/subagents",
-      "og_docs_status": "ok",
-      "shell_docs_url": "http://localhost:3000/ms-agent-python/docs/features/subagents",
-      "shell_docs_status": "missing",
-      "reference_mdx": null
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework",
+      "shell_docs_path": null
     }
-  },
-  "missing": {
-    "shell_docs_url": [
-      "agentic-chat",
-      "hitl-in-chat",
-      "tool-rendering",
-      "gen-ui-tool-based",
-      "gen-ui-agent",
-      "shared-state-read-write",
-      "shared-state-streaming",
-      "subagents"
-    ],
-    "og_docs_url": [],
-    "reference_mdx": ["subagents"]
-  },
-  "notes": "Shell at http://localhost:3000/ms-agent-python/* does not serve any /docs/* routes; all shell_docs_url probes returned 404. og_docs_urls use the active integration URL scheme https://docs.copilotkit.ai/microsoft-agent-framework/<path>; the /features/<id> URLs recorded in showcase/shared/feature-registry.json are stale and do not resolve. Reference MDX paths verified in docs/content/docs/integrations/microsoft-agent-framework/; subagents has no dedicated MDX in the integration tree (only mentioned in quickstart.mdx)."
+  }
 }
