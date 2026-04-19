@@ -35,14 +35,6 @@ than an LLM-initiated tool call. Typical cases:
 For LLM-initiated pauses — where the model decides on the fly to ask
 the user — prefer [`useHumanInTheLoop`](../human-in-the-loop).
 
-<Callout type="info">
-  Your agent won't be aware of the `interrupt` interaction by default — to
-  LangGraph, `interrupt()` returns the resume value and the model sees only
-  the tool's final return. If you want the model to see the human exchange
-  as part of its conversation, have the tool append the resolution into a
-  message it returns.
-</Callout>
-
 ## The backend: `interrupt()` inside a tool
 
 The showcase `gen-ui-interrupt` cell exposes a `schedule_meeting` tool.
@@ -61,6 +53,15 @@ Two things to note:
 - The return-side contract (`{chosen_label, chosen_time}` or
   `{cancelled: true}`) is entirely yours. The client can send anything
   as the resolve payload; the tool is the one that gives it meaning.
+
+<Callout type="info">
+  The model doesn't see the `interrupt` exchange directly — `interrupt()`
+  returns the resume value to the tool, and the model only sees whatever
+  _string_ the tool ultimately returns. If you want the human answer to
+  be part of the conversation, reflect it in the tool's return string (as
+  this one does: `"Meeting scheduled for ..."` vs `"User did not pick a
+  time"`).
+</Callout>
 
 ## The frontend: `useInterrupt` render prop
 
