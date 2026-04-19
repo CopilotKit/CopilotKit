@@ -15,6 +15,17 @@ jobs:
       packages: read
       actions: write
     steps:
+      - name: Checkout (starters dir only)
+        # Sparse checkout of showcase/starters/ so the "Check image drift"
+        # step can enumerate starter slugs from the filesystem. This keeps
+        # the starter list a single source of truth (directory names under
+        # showcase/starters/) instead of a literal list duplicated in this
+        # workflow.
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: showcase/starters
+          sparse-checkout-cone-mode: false
+
       - name: Restore state from cache
         id: cache-restore
         uses: actions/cache/restore@v4
@@ -183,19 +194,28 @@ jobs:
 
           STALE=""
           STALE_LIST=""
+          # Non-starter services stay literal — they don't live under
+          # showcase/starters/ and each has bespoke provisioning elsewhere.
           SERVICES=(
             shell langgraph-python langgraph-typescript langgraph-fastapi
             mastra crewai-crews pydantic-ai google-adk ag2 agno llamaindex
             strands ms-agent-python ms-agent-dotnet claude-sdk-python
             claude-sdk-typescript langroid spring-ai aimock
-            starter-ag2 starter-agno starter-claude-sdk-python
-            starter-claude-sdk-typescript starter-crewai-crews
-            starter-google-adk starter-langgraph-fastapi
-            starter-langgraph-python starter-langgraph-typescript
-            starter-langroid starter-llamaindex starter-mastra
-            starter-ms-agent-dotnet starter-ms-agent-python
-            starter-pydantic-ai starter-spring-ai starter-strands
           )
+          # Starter slugs are derived from showcase/starters/*/ so adding a
+          # new starter directory automatically extends drift detection.
+          # `template/` is scaffolding, not a deployed service.
+          for dir in showcase/starters/*/; do
+            slug=$(basename "$dir")
+            [ "$slug" = "template" ] && continue
+            SERVICES+=("starter-$slug")
+          done
+          if [ "${#SERVICES[@]}" -eq 19 ]; then
+            # 19 = non-starters only. Sparse checkout failed to populate
+            # showcase/starters/ — fail loudly instead of silently under-checking.
+            echo "::error::No starter directories found under showcase/starters/ — drift check would be incomplete"
+            exit 1
+          fi
           # Compare against the last commits that touched showcase-related paths,
           # NOT main HEAD. Deploys only trigger on showcase/ and examples/integrations/
           # changes, so non-showcase commits shouldn't make images appear stale.

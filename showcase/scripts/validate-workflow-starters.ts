@@ -1,21 +1,20 @@
 /**
  * Workflow Starter-List Validator
  *
- * The starter slug list is duplicated across multiple workflow sources
- * (showcase_deploy.yml's workflow_dispatch options, its ALL_SERVICES matrix,
- * the SERVICES array in showcase_smoke-monitor.yml, etc.). A silent drift
- * — e.g. adding a new starter directory under `showcase/starters/` but
- * forgetting to register it in a workflow — would mean the service is
- * deployable in theory but invisible to drift detection or dispatch UI.
+ * The starter slug list has two remaining literal copies that must stay
+ * in sync with `showcase/starters/*` on disk:
+ *   - showcase_deploy.yml workflow_dispatch.inputs.service.options
+ *     (GH Actions requires literal dropdown options; evaluated pre-checkout)
+ *   - showcase_deploy.yml ALL_SERVICES matrix (per-starter deploy metadata:
+ *     railway_id, dockerfile, health_path — can't be filesystem-derived)
  *
- * This script is the parity gate: for every directory under
- * `showcase/starters/` (excluding `template/`), it verifies that
- * `starter-<slug>` appears in:
- *   - .github/workflows/showcase_deploy.yml `workflow_dispatch.inputs.service.options`
- *   - .github/workflows/showcase_deploy.yml ALL_SERVICES matrix (`dispatch_name`)
- *   - .github/workflows/showcase_smoke-monitor.yml SERVICES array
+ * showcase_smoke-monitor.yml enumerates starters from `showcase/starters/*`
+ * at runtime (sparse checkout + bash glob), so drift there is impossible
+ * and no parity check is needed.
  *
- * Any missing registration is reported with an explicit fix hint.
+ * For every directory under `showcase/starters/` (excluding `template/`),
+ * this script verifies that `starter-<slug>` appears in both deploy.yml
+ * locations above. Missing entries are reported with explicit fix hints.
  *
  * Usage (from showcase/ or showcase/scripts/):
  *   pnpm exec tsx validate-workflow-starters.ts
@@ -46,10 +45,6 @@ const STARTERS_DIR = path.join(SHOWCASE_ROOT, "starters");
 const DEPLOY_WORKFLOW = path.join(
   REPO_ROOT,
   ".github/workflows/showcase_deploy.yml",
-);
-const MONITOR_WORKFLOW = path.join(
-  REPO_ROOT,
-  ".github/workflows/showcase_smoke-monitor.yml",
 );
 
 // Directories under showcase/starters/ that are NOT starter services
@@ -143,21 +138,6 @@ export function isSlugInDeployMatrix(
   return pattern.test(deployYaml);
 }
 
-export function isSlugInSmokeMonitorServices(
-  monitorYaml: string,
-  registeredName: string,
-): boolean {
-  // The SERVICES=( ... ) bash array in the "Check image drift" step.
-  // Match as a word so `starter-ag2` does not match `starter-ag2-anything`.
-  const servicesMatch = monitorYaml.match(/SERVICES=\(([\s\S]*?)\)/);
-  if (!servicesMatch) return false;
-  const block = servicesMatch[1];
-  const pattern = new RegExp(
-    `(?:^|\\s)${escapeRegex(registeredName)}(?=\\s|$)`,
-  );
-  return pattern.test(block);
-}
-
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -188,10 +168,8 @@ export function runValidation(): number {
   }
 
   let deployYaml: string;
-  let monitorYaml: string;
   try {
     deployYaml = readTextFile(DEPLOY_WORKFLOW);
-    monitorYaml = readTextFile(MONITOR_WORKFLOW);
   } catch (err) {
     console.error(
       `[validate-workflow-starters] ${
@@ -213,9 +191,6 @@ export function runValidation(): number {
     }
     if (!isSlugInDeployMatrix(deployYaml, registered)) {
       missingFrom.push(`showcase_deploy.yml ALL_SERVICES matrix`);
-    }
-    if (!isSlugInSmokeMonitorServices(monitorYaml, registered)) {
-      missingFrom.push(`showcase_smoke-monitor.yml SERVICES array`);
     }
 
     if (missingFrom.length > 0) {
