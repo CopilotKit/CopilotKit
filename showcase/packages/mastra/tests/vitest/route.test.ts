@@ -61,11 +61,15 @@ vi.mock("next/server", () => ({
 }));
 
 import { MastraAgent, getLocalAgent } from "@ag-ui/mastra";
-import { CopilotRuntime } from "@copilotkit/runtime";
+import {
+  CopilotRuntime,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
 
 const mockedGetLocalAgents = vi.mocked(MastraAgent.getLocalAgents);
 const mockedGetLocalAgent = vi.mocked(getLocalAgent);
 const mockedCopilotRuntime = vi.mocked(CopilotRuntime);
+const mockedEndpointFactory = vi.mocked(copilotRuntimeNextJSAppRouterEndpoint);
 
 // Dynamic import AFTER vi.mock calls so the module sees the mocks.
 async function importRoute() {
@@ -210,6 +214,41 @@ describe("agent cache memoization", () => {
 
     expect(mockedGetLocalAgents).toHaveBeenCalledTimes(2);
   });
+
+  // Contract lock: resourceId must be derived deterministically from the demo
+  // name (`mastra-<name>`), so that tearing down and rebuilding the agent
+  // cache produces the exact same resourceId. If this ever starts generating
+  // non-stable ids (e.g. someone swaps in randomUUID), Mastra's working-memory
+  // buckets would reset silently on every process restart — data loss with no
+  // error. This test is the sentinel.
+  it("keeps resourceId stable across __resetAgentsCacheForTests() rebuilds", async () => {
+    mockedGetLocalAgents.mockReturnValue({
+      weatherAgent: makeAgent("weather", "mastra-weatherAgent"),
+    });
+    mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
+      makeAgent("demo", resourceId),
+    );
+
+    const route = await importRoute();
+
+    route.__resetAgentsCacheForTests();
+    const firstPass = route.buildAgents();
+    const firstResourceIds: Record<string, string | undefined> = {};
+    for (const name of [...route.demoAgentNames, "weatherAgent"] as const) {
+      firstResourceIds[name] = (
+        firstPass[name as keyof typeof firstPass] as { resourceId?: string }
+      ).resourceId;
+    }
+
+    route.__resetAgentsCacheForTests();
+    const secondPass = route.buildAgents();
+    for (const name of [...route.demoAgentNames, "weatherAgent"] as const) {
+      const after = (
+        secondPass[name as keyof typeof secondPass] as { resourceId?: string }
+      ).resourceId;
+      expect(after).toBe(firstResourceIds[name]);
+    }
+  });
 });
 
 describe("POST happy path", () => {
@@ -297,6 +336,76 @@ describe("POST error handling", () => {
     // Server-side log DOES include the full message (operators need it).
     const loggedArgs = consoleErrorSpy.mock.calls.flat().join(" ");
     expect(loggedArgs).toContain("sk-SECRET-VALUE");
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  // Regression guard: when handleRequest returns a streaming Response that
+  // errors AFTER headers flush (typical SSE / AG-UI failure mode), the error
+  // must be logged server-side with an errorId even though we can no longer
+  // turn the response into a 500. Without the streaming wrapper this test
+  // fails silently: the error is swallowed by the ReadableStream and never
+  // reaches console.error.
+  it("logs mid-stream handleRequest errors with an errorId (SSE/AG-UI failure path)", async () => {
+    mockedGetLocalAgents.mockReturnValue({
+      weatherAgent: makeAgent("weather", "mastra-weatherAgent"),
+    });
+    mockedGetLocalAgent.mockImplementation(({ resourceId }) =>
+      makeAgent("demo", resourceId),
+    );
+
+    // Synthesise a Response whose body fails mid-stream after successfully
+    // emitting one chunk (so headers have been committed before the throw).
+    const midStreamMessage = "midstream-boom-8f3c2";
+    const erroringBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("data: hello\n\n"));
+        // Defer the failure so consumers see at least one chunk first.
+        queueMicrotask(() => {
+          controller.error(new Error(midStreamMessage));
+        });
+      },
+    });
+    const erroringResponse = new Response(erroringBody, {
+      status: 200,
+      headers: { "content-type": "text/event-stream" },
+    });
+    mockedEndpointFactory.mockReturnValueOnce({
+      handleRequest: vi.fn(async () => erroringResponse),
+    } as unknown as ReturnType<typeof copilotRuntimeNextJSAppRouterEndpoint>);
+
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    const route = await importRoute();
+    route.__resetAgentsCacheForTests();
+
+    const fakeReq = {} as unknown as Parameters<typeof route.POST>[0];
+    const res = await route.POST(fakeReq);
+
+    // The response headers are still 200 (streaming commitment) — we cannot
+    // retroactively turn this into a 500.
+    expect(res.status).toBe(200);
+
+    // Drain the body so the wrapper's ReadableStream observes the upstream
+    // error. Consumers will see an aborted stream; our job is the log.
+    const reader = res.body!.getReader();
+    let caught = false;
+    try {
+      while (true) {
+        const { done } = await reader.read();
+        if (done) break;
+      }
+    } catch {
+      caught = true;
+    }
+    expect(caught).toBe(true);
+
+    const loggedArgs = consoleErrorSpy.mock.calls.flat().join(" ");
+    expect(loggedArgs).toContain(midStreamMessage);
+    expect(loggedArgs).toMatch(/"phase":"stream"/);
+    expect(loggedArgs).toMatch(/"errorId":"[0-9a-f-]{36}"/i);
 
     consoleErrorSpy.mockRestore();
   });

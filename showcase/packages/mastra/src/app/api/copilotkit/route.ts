@@ -167,10 +167,87 @@ export function __resetAgentsCacheForTests(): void {
   cachedAgents = null;
 }
 
+// Emit a structured error log with a correlation id. Extracted so both the
+// pre-stream (try/catch) and mid-stream (body wrapper) paths use identical
+// shape — operators grep for `errorId` regardless of where the failure
+// occurred. Returns the generated errorId so callers can include it in
+// client-facing responses when appropriate.
+function logRouteError(err: unknown, phase: "setup" | "stream"): string {
+  const error = err instanceof Error ? err : new Error(String(err));
+  const errorId = crypto.randomUUID();
+  console.error(
+    JSON.stringify({
+      at: new Date().toISOString(),
+      level: "error",
+      phase,
+      errorId,
+      message: error.message,
+      stack: error.stack,
+    }),
+  );
+  return errorId;
+}
+
+// Wrap a streaming Response body with a TransformStream that forwards chunks
+// verbatim but catches any error thrown by the upstream source AFTER headers
+// have been flushed. Without this, a rejection inside handleRequest's SSE
+// loop escapes every try/catch and leaves the frontend with a mute aborted
+// stream — no log, no errorId, no way to correlate.
+//
+// We cannot turn a half-flushed 200 into a 500 (headers are already out) but
+// we CAN guarantee the failure is logged server-side with the same errorId
+// shape as the pre-stream path. Operators grepping logs for the errorId
+// pattern will find both classes of failure.
+function wrapStreamingResponse(response: Response): Response {
+  // Non-streaming (or empty) responses pass through untouched.
+  if (!response.body) {
+    return response;
+  }
+
+  const source = response.body;
+  const monitored = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const reader = source.getReader();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          controller.enqueue(value);
+        }
+        controller.close();
+      } catch (err) {
+        // The frontend will see an aborted stream regardless; our job is to
+        // leave a server-side breadcrumb with a correlation id.
+        logRouteError(err, "stream");
+        try {
+          controller.error(err);
+        } catch {
+          // controller already errored/closed — nothing more to do.
+        }
+      } finally {
+        try {
+          reader.releaseLock();
+        } catch {
+          // lock already released
+        }
+      }
+    },
+    cancel(reason) {
+      return source.cancel(reason);
+    },
+  });
+
+  return new Response(monitored, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+}
+
 // Next.js App Router POST handler for CopilotKit runtime requests. Wraps the
-// runtime's handler so any synchronous construction error (bad mastra config,
-// missing weatherAgent, etc.) surfaces as a structured 500 instead of an
-// unhandled promise rejection.
+// runtime's handler so both synchronous construction errors (bad mastra
+// config, missing weatherAgent, etc.) AND mid-stream errors (thrown after
+// response headers have been flushed) are logged with a correlation id.
 export const POST = async (req: NextRequest) => {
   try {
     const runtime = new CopilotRuntime({
@@ -183,20 +260,10 @@ export const POST = async (req: NextRequest) => {
       endpoint: "/api/copilotkit",
     });
 
-    return await handleRequest(req);
+    const response = await handleRequest(req);
+    return wrapStreamingResponse(response);
   } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
-    const errorId = crypto.randomUUID();
-    // Structured JSON log so operators can cross-reference the errorId.
-    console.error(
-      JSON.stringify({
-        at: new Date().toISOString(),
-        level: "error",
-        errorId,
-        message: error.message,
-        stack: error.stack,
-      }),
-    );
+    const errorId = logRouteError(err, "setup");
     return NextResponse.json(
       { error: "internal runtime error", errorId },
       { status: 500 },
