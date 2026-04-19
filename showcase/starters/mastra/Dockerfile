@@ -34,6 +34,13 @@ RUN rm -f src/mastra/package.json src/mastra/package-lock.json
 COPY --chown=app:app entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
+# Ensure WORKDIR itself is owned by `app` — `WORKDIR /app` at the top of the
+# stage creates /app as root, and `COPY --chown=app:app` only reassigns the
+# copied files, NOT the parent dir. Without this, any CLI that tries to
+# mkdir under /app at runtime (e.g. `mastra dev` -> /app/.mastra,
+# `langgraph-cli dev` -> /app/.langgraph_api, Next.js build caches, etc.)
+# hits EACCES under the unprivileged user and crashes the container.
+RUN chown app:app /app
 USER app
 
 EXPOSE 10000
