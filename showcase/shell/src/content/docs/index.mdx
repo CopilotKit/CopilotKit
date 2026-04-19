@@ -10,71 +10,42 @@ hideHeader: true
 
 ## Welcome to CopilotKit!
 
-CopilotKit is the **frontend stack for agents** and **generative UI**. Connect any agent framework or model to your React app for **chat**, **generative UI**, **canvas apps**, and **human-in-the-loop** workflows.
+CopilotKit is the __frontend stack for agents__ and __generative UI__. Connect any agent framework or model to your React app for __chat__, __generative UI__, __canvas apps__, and __human-in-the-loop__ workflows.
 
 Look below to find right guide for your needs, whether you're starting from nothing or have existing agent you want to give a prebuilt chat UI or fully custom UI.
 
 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 not-prose mb-10 mt-10">
-  <a
-    href="/quickstart"
-    className="group flex items-start gap-3 bg-card border border-border/80 rounded-lg p-4 no-underline hover:border-primary/60 hover:bg-accent/50 transition-colors shadow-sm"
-  >
+  <a href="/quickstart" className="group flex items-start gap-3 bg-card border border-border/80 rounded-lg p-4 no-underline hover:border-primary/60 hover:bg-accent/50 transition-colors shadow-sm">
     <Play className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
     <div>
-      <div className="font-semibold text-foreground group-hover:text-primary mb-1">
-        Quickstart
-      </div>
-      <div className="text-sm text-muted-foreground leading-relaxed">
-        Get up and running in minutes.
-      </div>
+      <div className="font-semibold text-foreground group-hover:text-primary mb-1">Quickstart</div>
+      <div className="text-sm text-muted-foreground leading-relaxed">Get up and running in minutes.</div>
     </div>
   </a>
-  <a
-    href="/reference"
-    className="group flex items-start gap-3 bg-card border border-border/80 rounded-lg p-4 no-underline hover:border-primary/60 hover:bg-accent/50 transition-colors shadow-sm"
-  >
+  <a href="/reference" className="group flex items-start gap-3 bg-card border border-border/80 rounded-lg p-4 no-underline hover:border-primary/60 hover:bg-accent/50 transition-colors shadow-sm">
     <Book className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
     <div>
-      <div className="font-semibold text-foreground group-hover:text-primary mb-1">
-        API Reference
-      </div>
-      <div className="text-sm text-muted-foreground leading-relaxed">
-        Hooks, components, and config.
-      </div>
+      <div className="font-semibold text-foreground group-hover:text-primary mb-1">API Reference</div>
+      <div className="text-sm text-muted-foreground leading-relaxed">Hooks, components, and config.</div>
     </div>
   </a>
-  <a
-    href="/prebuilt-components"
-    className="group flex items-start gap-3 bg-card border border-border/80 rounded-lg p-4 no-underline hover:border-primary/60 hover:bg-accent/50 transition-colors shadow-sm"
-  >
+  <a href="/prebuilt-components" className="group flex items-start gap-3 bg-card border border-border/80 rounded-lg p-4 no-underline hover:border-primary/60 hover:bg-accent/50 transition-colors shadow-sm">
     <MessageSquare className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
     <div>
-      <div className="font-semibold text-foreground group-hover:text-primary mb-1">
-        Chat UI
-      </div>
-      <div className="text-sm text-muted-foreground leading-relaxed">
-        Prebuilt chat with streaming.
-      </div>
+      <div className="font-semibold text-foreground group-hover:text-primary mb-1">Chat UI</div>
+      <div className="text-sm text-muted-foreground leading-relaxed">Prebuilt chat with streaming.</div>
     </div>
   </a>
-  <a
-    href="/generative-ui/your-components/display-only"
-    className="group flex items-start gap-3 bg-card border border-border/80 rounded-lg p-4 no-underline hover:border-primary/60 hover:bg-accent/50 transition-colors shadow-sm"
-  >
+  <a href="/generative-ui/your-components/display-only" className="group flex items-start gap-3 bg-card border border-border/80 rounded-lg p-4 no-underline hover:border-primary/60 hover:bg-accent/50 transition-colors shadow-sm">
     <Layers className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
     <div>
-      <div className="font-semibold text-foreground group-hover:text-primary mb-1">
-        Generative UI
-      </div>
-      <div className="text-sm text-muted-foreground leading-relaxed">
-        Render tools as React components.
-      </div>
+      <div className="font-semibold text-foreground group-hover:text-primary mb-1">Generative UI</div>
+      <div className="text-sm text-muted-foreground leading-relaxed">Render tools as React components.</div>
     </div>
   </a>
 </div>
 
 {/* ── Code Examples ── */}
-
 <LandingCodeShowcase />
 
 ---
@@ -84,97 +55,50 @@ Look below to find right guide for your needs, whether you're starting from noth
 ## Explore by feature
 
 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-8 mt-6 mb-16 not-prose">
-  <a
-    href="/prebuilt-components"
-    className="group flex items-start gap-4 no-underline"
-  >
-    <div className="flex-shrink-0 mt-1">
-      <MessageSquare className="h-6 w-6 text-primary" />
-    </div>
+  <a href="/prebuilt-components" className="group flex items-start gap-4 no-underline">
+    <div className="flex-shrink-0 mt-1"><MessageSquare className="h-6 w-6 text-primary" /></div>
     <div>
-      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">
-        Chat UI &rsaquo;
-      </div>
-      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">
-        Prebuilt chat components with streaming, tool calls, and markdown.
-      </div>
+      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">Chat UI &rsaquo;</div>
+      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">Prebuilt chat components with streaming, tool calls, and markdown.</div>
     </div>
   </a>
   <a href="/headless" className="group flex items-start gap-4 no-underline">
-    <div className="flex-shrink-0 mt-1">
-      <Code className="h-6 w-6 text-primary" />
-    </div>
+    <div className="flex-shrink-0 mt-1"><Code className="h-6 w-6 text-primary" /></div>
     <div>
-      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">
-        Headless UI &rsaquo;
-      </div>
-      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">
-        Full rendering control via hooks — zero opinions on design.
-      </div>
+      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">Headless UI &rsaquo;</div>
+      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">Full rendering control via hooks — zero opinions on design.</div>
     </div>
   </a>
-  <a
-    href="/generative-ui/your-components/display-only"
-    className="group flex items-start gap-4 no-underline"
-  >
-    <div className="flex-shrink-0 mt-1">
-      <Layers className="h-6 w-6 text-primary" />
-    </div>
+  <a href="/generative-ui/your-components/display-only" className="group flex items-start gap-4 no-underline">
+    <div className="flex-shrink-0 mt-1"><Layers className="h-6 w-6 text-primary" /></div>
     <div>
-      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">
-        Generative UI &rsaquo;
-      </div>
-      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">
-        Render agent tools and state as interactive React components.
-      </div>
+      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">Generative UI &rsaquo;</div>
+      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">Render agent tools and state as interactive React components.</div>
     </div>
   </a>
   <a href="/backend" className="group flex items-start gap-4 no-underline">
-    <div className="flex-shrink-0 mt-1">
-      <Server className="h-6 w-6 text-primary" />
-    </div>
+    <div className="flex-shrink-0 mt-1"><Server className="h-6 w-6 text-primary" /></div>
     <div>
-      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">
-        Backend &amp; Runtime &rsaquo;
-      </div>
-      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">
-        Set up the CopilotKit runtime, AG-UI middleware, and endpoints.
-      </div>
+      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">Backend &amp; Runtime &rsaquo;</div>
+      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">Set up the CopilotKit runtime, AG-UI middleware, and endpoints.</div>
     </div>
   </a>
-  <a
-    href="/programmatic-control"
-    className="group flex items-start gap-4 no-underline"
-  >
-    <div className="flex-shrink-0 mt-1">
-      <Bot className="h-6 w-6 text-primary" />
-    </div>
+  <a href="/programmatic-control" className="group flex items-start gap-4 no-underline">
+    <div className="flex-shrink-0 mt-1"><Bot className="h-6 w-6 text-primary" /></div>
     <div>
-      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">
-        Programmatic Control &rsaquo;
-      </div>
-      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">
-        Build non-chat or fully custom experiences.
-      </div>
+      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">Programmatic Control &rsaquo;</div>
+      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">Build non-chat or fully custom experiences.</div>
     </div>
   </a>
   <a href="/reference" className="group flex items-start gap-4 no-underline">
-    <div className="flex-shrink-0 mt-1">
-      <BookOpen className="h-6 w-6 text-primary" />
-    </div>
+    <div className="flex-shrink-0 mt-1"><BookOpen className="h-6 w-6 text-primary" /></div>
     <div>
-      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">
-        API Reference &rsaquo;
-      </div>
-      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">
-        Complete reference for hooks, components, and configuration.
-      </div>
+      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">API Reference &rsaquo;</div>
+      <div className="text-sm text-muted-foreground leading-relaxed mt-0.5">Complete reference for hooks, components, and configuration.</div>
     </div>
   </a>
 </div>
-
-{/* ── Integrations ── */}
-
+ 
 ## Explore by AI backend
 
 <IntegrationGrid />
