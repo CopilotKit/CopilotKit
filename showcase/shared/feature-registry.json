@@ -173,6 +173,7 @@
       "name": "Agentic Generative UI (In-Chat State Rendering)",
       "category": "operational-generative-ui",
       "description": "Long-running agent tasks with generated UI",
+      "kind": "testing",
       "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-agent",
       "shell_docs_url": "/docs/features/gen-ui-agent"
     },
@@ -360,38 +361,6 @@
       "description": "Experimental next-generation chat using CopilotKit vNext runtime",
       "og_docs_url": "https://docs.copilotkit.ai/features/vnext-chat",
       "shell_docs_url": "/docs/features/vnext-chat"
-    },
-    {
-      "id": "a2ui-fixed",
-      "name": "A2UI (Fixed Schema)",
-      "category": "a2ui",
-      "description": "Static A2UI schema rendering",
-      "og_docs_url": "https://docs.copilotkit.ai/features/a2ui-fixed",
-      "shell_docs_url": "/docs/features/a2ui-fixed"
-    },
-    {
-      "id": "a2ui-fixed-streaming",
-      "name": "A2UI (Fixed Schema Streaming)",
-      "category": "a2ui",
-      "description": "Streaming static A2UI",
-      "og_docs_url": "https://docs.copilotkit.ai/features/a2ui-fixed-streaming",
-      "shell_docs_url": "/docs/features/a2ui-fixed-streaming"
-    },
-    {
-      "id": "a2ui-dynamic",
-      "name": "A2UI (Dynamic Schema)",
-      "category": "a2ui",
-      "description": "Agent-generated A2UI schemas",
-      "og_docs_url": "https://docs.copilotkit.ai/features/a2ui-dynamic",
-      "shell_docs_url": "/docs/features/a2ui-dynamic"
-    },
-    {
-      "id": "a2ui-chat",
-      "name": "A2UI Chat",
-      "category": "a2ui",
-      "description": "Chat with rich A2UI surface rendering using A2UI message renderer",
-      "og_docs_url": "https://docs.copilotkit.ai/features/a2ui-chat",
-      "shell_docs_url": "/docs/features/a2ui-chat"
     },
     {
       "id": "byoc-hashbrown",

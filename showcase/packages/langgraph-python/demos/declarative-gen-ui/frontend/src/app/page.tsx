@@ -3,39 +3,36 @@
 /**
  * Declarative Generative UI (A2UI — Dynamic Schema) demo.
  *
- * The backend agent (see `backend/agent.py`) emits an `a2ui_operations`
- * payload at runtime — the schema is declared in the tool result, not in
- * the frontend. The runtime's A2UI middleware (enabled via
- * `a2ui: { injectA2UITool: true }` in `api/copilotkit/route.ts`) detects
- * the operations and forwards them to the renderer below.
+ * The agent (see `backend/agent.py`) emits an `a2ui_operations` payload at
+ * runtime — it *designs* the component tree on the fly using a secondary LLM
+ * with `bind_tools([render_a2ui], tool_choice="render_a2ui")`. The runtime's
+ * A2UI middleware (`a2ui: { injectA2UITool: true }` in
+ * `api/copilotkit/route.ts`) detects the operations and forwards them to the
+ * frontend, where they render against the `demoCatalog` below.
  *
- * The frontend just registers an A2UI activity-message renderer so the
- * payload turns into real components from the default A2UI `basicCatalog`.
+ * The catalog (`./catalog.tsx`) declares a small set of React components
+ * (Card, Title, Metric, PrimaryButton) plus the built-in basic catalog. The
+ * agent sees this catalog as context and picks from it when composing a
+ * surface.
  *
- * Reference: https://docs.copilotkit.ai/generative-ui/a2ui
+ * Reference: https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui
  */
 
-import React, { useMemo } from "react";
+import React from "react";
 import {
   CopilotKit,
   CopilotChat,
   useConfigureSuggestions,
-  createA2UIMessageRenderer,
-  a2uiDefaultTheme,
 } from "@copilotkit/react-core/v2";
 
-export default function DeclarativeGenUIDemo() {
-  // Memoize so the provider's stable-array check is satisfied across renders.
-  const activityRenderers = useMemo(
-    () => [createA2UIMessageRenderer({ theme: a2uiDefaultTheme })],
-    [],
-  );
+import { demoCatalog } from "./catalog";
 
+export default function DeclarativeGenUIDemo() {
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit"
       agent="declarative-gen-ui"
-      renderActivityMessages={activityRenderers}
+      a2ui={{ catalog: demoCatalog }}
     >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
