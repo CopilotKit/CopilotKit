@@ -85,7 +85,7 @@ demos:
       - src/app/demos/agentic-chat/page.tsx
   - id: chat-customization-css
     name: Chat Customization (CSS)
-    description: Default CopilotChat re-themed via CSS overrides
+    description: Default CopilotChat re-themed via CopilotKitCSSProperties
     tags:
       - chat-ui
     route: /demos/chat-customization-css
@@ -285,8 +285,8 @@ demos:
       - src/agents/interrupt_agent.py
       - src/app/demos/gen-ui-interrupt/page.tsx
   - id: declarative-gen-ui
-    name: Declarative Generative UI (A2UI — Dynamic Schema)
-    description: Agent emits A2UI schema at runtime
+    name: Declarative Generative UI (A2UI)
+    description: Canonical A2UI BYOC — custom catalog (Card/StatusBadge/Metric/InfoRow/PrimaryButton) wired via a2ui.catalog on the provider; runtime injects the render_a2ui tool automatically
     tags:
       - generative-ui
     route: /demos/declarative-gen-ui
@@ -318,8 +318,8 @@ demos:
       - src/agents/mcp_apps_agent.py
       - src/app/demos/mcp-apps/page.tsx
   - id: open-gen-ui
-    name: Fully Open-Ended Generative UI
-    description: Agent-generated UI from arbitrary component libraries
+    name: Open-Ended Generative UI
+    description: Minimal — enable open-ended gen UI in the runtime, nothing else
     tags:
       - generative-ui
     route: /demos/open-gen-ui
@@ -328,8 +328,8 @@ demos:
       - src/agents/open_gen_ui_agent.py
       - src/app/demos/open-gen-ui/page.tsx
   - id: open-gen-ui-advanced
-    name: Open-Ended Generative UI (Advanced)
-    description: Open Gen UI with sandbox-function bridges + app-side tools
+    name: Open-Ended Generative UI (Advanced — With App Tool Calling)
+    description: Advanced — sandbox invokes app tools via bridge functions
     tags:
       - generative-ui
     route: /demos/open-gen-ui-advanced
@@ -339,11 +339,10 @@ demos:
       - src/app/demos/open-gen-ui-advanced/page.tsx
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
   - id: declarative-gen-ui-hardcoded
-    name: Declarative Generative UI (Hardcoded Catalog)
-    description: A2UI Dynamic-Schema with a single-file hardcoded catalog
+    name: Declarative Generative UI (A2UI — Custom Catalog)
+    description: A2UI with a hardcoded client catalog (Card/Title/Metric/PrimaryButton) registered via a2ui.catalog on the provider
     tags:
       - generative-ui
-      - testing
     route: /demos/declarative-gen-ui-hardcoded
     animated_preview_url:
     highlight:
@@ -351,19 +350,18 @@ demos:
       - src/app/demos/declarative-gen-ui-hardcoded/page.tsx
       - src/app/demos/declarative-gen-ui-hardcoded/catalog.tsx
   - id: interrupt-headless
-    name: Interrupt (Headless)
-    description: Render-less useInterrupt primitives — button grid, no chat
+    name: Headless Interrupt (testing)
+    description: Resolve langgraph interrupts from a plain button grid — no chat, no useInterrupt render prop
     tags:
       - interactivity
-      - testing
     route: /demos/interrupt-headless
     animated_preview_url:
     highlight:
       - src/agents/interrupt_agent.py
       - src/app/demos/interrupt-headless/page.tsx
   - id: readonly-state-agent-context
-    name: Agent Context (Read-Only)
-    description: Frontend-provided read-only context via useAgentContext
+    name: Readonly State (Agent Context)
+    description: Frontend provides read-only context to the agent via useAgentContext
     tags:
       - agent-state
     route: /demos/readonly-state-agent-context
@@ -373,21 +371,19 @@ demos:
       - src/app/demos/readonly-state-agent-context/page.tsx
   - id: reasoning-default-render
     name: Reasoning (Default Render)
-    description: Reasoning events rendered by CopilotKit's built-in slot
+    description: Built-in CopilotChatReasoningMessage renders without a custom slot
     tags:
       - generative-ui
-      - testing
     route: /demos/reasoning-default-render
     animated_preview_url:
     highlight:
       - src/agents/reasoning_agent.py
       - src/app/demos/reasoning-default-render/page.tsx
   - id: tool-rendering-reasoning-chain
-    name: Tool Rendering (Reasoning Chain)
-    description: Sequential tool calls with interleaved reasoning
+    name: Tool Rendering + Reasoning Chain (testing)
+    description: Sequential tool calls with reasoning tokens rendered side-by-side
     tags:
       - generative-ui
-      - testing
     route: /demos/tool-rendering-reasoning-chain
     animated_preview_url:
     highlight:
@@ -398,8 +394,8 @@ demos:
       - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
       - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
   - id: beautiful-chat
-    name: Beautiful Chat (Showcase)
-    description: Reference CopilotKit experience (port scaffold)
+    name: Beautiful Chat
+    description: Canonical polished starter chat — brand fonts, theme tokens, suggestion pills
     tags:
       - chat-ui
     route: /demos/beautiful-chat
