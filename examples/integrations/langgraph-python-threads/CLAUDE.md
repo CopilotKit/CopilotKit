@@ -19,17 +19,18 @@ This uses CopilotKit's **v2 agent state pattern** where state lives in the agent
 
 ## Architecture
 
-This is a **Turborepo monorepo** with three apps:
+This is a small **npm workspaces monorepo** with three apps:
 
 ### Repository Structure
 
 ```
 apps/
-├── app/                         # Next.js frontend
+├── app/                         # Vite + React frontend
 │   ├── src/
-│   │   ├── app/
-│   │   │   ├── page.tsx        # Main page - wires up all components
-│   │   │   └── api/copilotkit/ # CopilotKit API route
+│   │   ├── App.tsx             # Main app shell - wires up all components
+│   │   ├── main.tsx            # Vite entrypoint
+│   │   └── app/
+│   │       ├── globals.css     # Global styles
 │   │   ├── components/
 │   │   │   ├── canvas/         # Todo list UI
 │   │   │   │   ├── index.tsx   # Canvas container
@@ -46,7 +47,6 @@ apps/
 │   └── src/
 │       ├── todos.py             # Todo tools and state schema
 │       └── query.py             # Example data query tool
-└── mcp/                         # MCP (Model Context Protocol) integration
 ```
 
 ## Key Pattern: Agent State with CopilotKit v2
@@ -222,33 +222,33 @@ export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
 
 ## Tech Stack
 
-- **Frontend**: Next.js 16, React 19, TailwindCSS 4
+- **Frontend**: Vite 7, React 19, TailwindCSS 4
 - **Agent**: LangGraph (Python), OpenAI GPT-5.2
 - **CopilotKit**: React hooks for agent integration (v2)
-- **Monorepo**: Turborepo with pnpm workspaces
-- **Other**: MCP (Model Context Protocol) integration, Recharts for generative UI examples
+- **Monorepo**: npm workspaces + concurrently
+- **Other**: Recharts for generative UI examples
 
 ## Development
 
-This is a Turborepo monorepo using pnpm workspaces.
+This is an npm workspaces monorepo.
 
 ```bash
 # Install dependencies (all apps)
-pnpm install
+npm install
 
-# Start all apps (app, agent, mcp)
-pnpm dev
+# Start all apps (app, bff, agent)
+npm run dev
 
 # Start individually
-pnpm dev:app    # Next.js frontend on port 3000
-pnpm dev:agent  # LangGraph agent on port 8123
-pnpm dev:mcp    # MCP server
+npm run dev:app    # Vite frontend on port 3000
+npm run dev:bff    # CopilotKit runtime BFF on port 4000
+npm run dev:agent  # LangGraph agent on port 8123
 
 # Build all apps
-pnpm build
+npm run build
 
 # Lint all apps
-pnpm lint
+npm run lint
 ```
 
 ### Environment Setup

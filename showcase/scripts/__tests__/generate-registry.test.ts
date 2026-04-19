@@ -1,94 +1,64 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import fs from "fs";
 import path from "path";
-import os from "os";
+import { execFileSync } from "child_process";
+import {
+  FileSnapshotRestorer,
+  execOptsFor,
+  restoreFromGitHead,
+} from "./test-cleanup";
+import { SCRIPTS_DIR, REPO_ROOT, SHELL_DATA_DIR } from "./paths";
 
-const SCRIPT_PATH = path.resolve(__dirname, "..", "generate-registry.ts");
+// `generate-registry.ts` writes to showcase/shell/src/data/registry.json AND
+// showcase/shell/src/data/constraints.json. Without this, every test run
+// leaks regenerated JSON into the working tree. Snapshot in beforeAll;
+// restore after each test and at the end of the suite. Assumes vitest's
+// `fileParallelism: false` config.
+const DATA_FILES = [
+  path.join(SHELL_DATA_DIR, "registry.json"),
+  path.join(SHELL_DATA_DIR, "constraints.json"),
+];
+const dataRestorer = new FileSnapshotRestorer(DATA_FILES);
 
-function createTempDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "showcase-test-"));
+const EXEC_OPTS = execOptsFor(SCRIPTS_DIR);
+
+/** Invoke the generator via argv form — no shell parser involvement. Matches
+ *  the hygiene principle in create-integration.test.ts. A prior revision
+ *  used `execSync(\`npx tsx ${SCRIPT_PATH}\`)` with an interpolated path,
+ *  which is a landmine even when the constant is safe today. */
+function runGenerator(): string {
+  const out = execFileSync("npx", ["tsx", "generate-registry.ts"], EXEC_OPTS);
+  return out.toString();
 }
 
-function setupTestEnv(tmpDir: string) {
-  const packagesDir = path.join(tmpDir, "packages");
-  const sharedDir = path.join(tmpDir, "shared");
-  const shellDir = path.join(tmpDir, "shell", "src", "data");
-
-  fs.mkdirSync(packagesDir, { recursive: true });
-  fs.mkdirSync(sharedDir, { recursive: true });
-  fs.mkdirSync(shellDir, { recursive: true });
-
-  // Copy shared files
-  const realShared = path.resolve(__dirname, "..", "..", "shared");
-  fs.copyFileSync(
-    path.join(realShared, "feature-registry.json"),
-    path.join(sharedDir, "feature-registry.json"),
-  );
-  fs.copyFileSync(
-    path.join(realShared, "manifest.schema.json"),
-    path.join(sharedDir, "manifest.schema.json"),
-  );
-
-  return { packagesDir, sharedDir, shellDir };
-}
-
-function writeManifest(packagesDir: string, slug: string, manifest: string) {
-  const dir = path.join(packagesDir, slug);
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, "manifest.yaml"), manifest);
-}
-
-function runGenerator(tmpDir: string): {
-  code: number;
-  stdout: string;
-  stderr: string;
-} {
-  const { execSync } = require("child_process");
-  try {
-    const stdout = execSync(`npx tsx ${SCRIPT_PATH}`, {
-      cwd: path.join(tmpDir, "scripts-placeholder"),
-      env: {
-        ...process.env,
-        // Override the paths by running from the right context
-      },
-      encoding: "utf-8",
-      timeout: 15000,
-    });
-    return { code: 0, stdout, stderr: "" };
-  } catch (e: any) {
-    return {
-      code: e.status || 1,
-      stdout: e.stdout || "",
-      stderr: e.stderr || "",
-    };
+beforeAll(() => {
+  // Heal a working tree left dirty by a previously crashed run so our
+  // baseline snapshot matches git HEAD, not the leaked state.
+  restoreFromGitHead(REPO_ROOT, DATA_FILES);
+  dataRestorer.snapshot();
+  if (dataRestorer.snapshotMap.size === 0) {
+    throw new Error(
+      `generate-registry.test.ts: data snapshot is empty. Expected to find` +
+        ` tracked files at:\n` +
+        DATA_FILES.map((p) => `  ${p}`).join("\n"),
+    );
   }
-}
+});
+afterEach(() => dataRestorer.restore());
+afterAll(() => dataRestorer.restore());
 
-// Since the generator uses __dirname-relative paths, we test it via the actual script
-// against the real showcase directory, using the existing langgraph-python package.
+// The generator uses __dirname-relative paths, so we test it via the actual
+// script against the real showcase directory, using the existing
+// langgraph-python package.
 
 describe("Registry Generator", () => {
   it("generates registry.json from existing packages", async () => {
-    const { execSync } = await import("child_process");
-    const scriptsDir = path.resolve(__dirname, "..");
-
-    const stdout = execSync("npx tsx generate-registry.ts", {
-      cwd: scriptsDir,
-      encoding: "utf-8",
-      timeout: 15000,
-    });
+    const stdout = runGenerator();
 
     expect(stdout).toContain("Generating integration registry");
     expect(stdout).toContain("LangGraph (Python)");
 
-    const registryPath = path.resolve(
-      scriptsDir,
-      "..",
-      "shell",
-      "src",
-      "data",
-      "registry.json",
-    );
+    const registryPath = path.join(SHELL_DATA_DIR, "registry.json");
     expect(fs.existsSync(registryPath)).toBe(true);
 
     const registry = JSON.parse(fs.readFileSync(registryPath, "utf-8"));
@@ -113,15 +83,13 @@ describe("Registry Generator", () => {
   });
 
   it("sorts integrations by sort_order", () => {
-    const registryPath = path.resolve(
-      __dirname,
-      "..",
-      "..",
-      "shell",
-      "src",
-      "data",
-      "registry.json",
-    );
+    // Run the generator explicitly — afterEach restores shell/src/data JSONs
+    // to HEAD between tests, so we can't rely on test 1's side effect to
+    // leave registry.json populated. Mirrors the `runBundlerAndRead` pattern
+    // in bundle-demo-content.test.ts tests 2-5.
+    runGenerator();
+
+    const registryPath = path.join(SHELL_DATA_DIR, "registry.json");
     const registry = JSON.parse(fs.readFileSync(registryPath, "utf-8"));
 
     // langgraph-python (sort_order: 10) should come before mastra (sort_order: 20)
@@ -143,8 +111,7 @@ describe("Registry Generator", () => {
 
   it("validates feature IDs against the registry", async () => {
     const featureRegistryPath = path.resolve(
-      __dirname,
-      "..",
+      SCRIPTS_DIR,
       "..",
       "shared",
       "feature-registry.json",
@@ -155,8 +122,7 @@ describe("Registry Generator", () => {
     const validIds = new Set(featureRegistry.features.map((f: any) => f.id));
 
     const manifestPath = path.resolve(
-      __dirname,
-      "..",
+      SCRIPTS_DIR,
       "..",
       "packages",
       "langgraph-python",
@@ -171,6 +137,78 @@ describe("Registry Generator", () => {
 
     for (const demo of manifest.demos) {
       expect(validIds.has(demo.id)).toBe(true);
+    }
+  });
+
+  // Regression guard — ensures the snapshot/restore hooks defined at the top
+  // of this file actually heal drift that `generate-registry.ts` produces in
+  // shell/src/data/. If these hooks regress we'll see data-file drift leak
+  // into the working tree (same failure mode as the workflow YAML leak
+  // fixed in create-integration.test.ts).
+  //
+  // The sentinel append below creates transient tracking drift on
+  // shell/src/data/*.json for the duration of the test; a developer with a
+  // git GUI / file watcher will see flicker while it runs. Restore heals it
+  // before the test returns.
+  it("restores shell/src/data JSONs after the generator mutates them", () => {
+    expect(dataRestorer.snapshotMap.size).toBeGreaterThan(0);
+
+    // Run the generator explicitly via the argv-safe helper.
+    runGenerator();
+
+    // Capture pre-sentinel content so we can prove the append landed on
+    // disk via a content check (stronger than byte-length comparison:
+    // resistant to a hypothetical fs shim that updates stat but not bytes).
+    const preAppendContent = new Map<string, Buffer>();
+    for (const p of dataRestorer.snapshotMap.keys()) {
+      preAppendContent.set(p, fs.readFileSync(p));
+    }
+
+    // Force each snapshotted file to differ from its snapshot — appending a
+    // byte the generator would never write. This makes the test independent
+    // of whether the generator's output was byte-identical to the snapshot.
+    const SENTINEL = "\n/* regression-guard-sentinel */\n";
+    const sentinelBuf = Buffer.from(SENTINEL, "utf-8");
+    for (const p of dataRestorer.snapshotMap.keys()) {
+      fs.appendFileSync(p, SENTINEL);
+    }
+
+    // Verify the sentinel actually landed — the file's bytes must now equal
+    // its pre-append content followed by the sentinel bytes, exactly.
+    // Fails red under a readonly-fs mock or a buggy appendFileSync shim.
+    for (const p of dataRestorer.snapshotMap.keys()) {
+      const before = preAppendContent.get(p)!;
+      const expected = Buffer.concat([before, sentinelBuf]);
+      const actual = fs.readFileSync(p);
+      expect(
+        actual.equals(expected),
+        `sentinel append did not land on ${p}`,
+      ).toBe(true);
+    }
+
+    // Restore and assert bit-for-bit against the in-memory snapshot (NOT
+    // against a re-read of disk, which would silently agree with a buggy
+    // restore()).
+    dataRestorer.restore();
+
+    for (const [p, baseline] of dataRestorer.snapshotMap) {
+      const current = fs.readFileSync(p);
+      expect(current.equals(baseline), `data drift not restored: ${p}`).toBe(
+        true,
+      );
+    }
+  });
+
+  // Safety net: every snapshotted data file must match its captured baseline
+  // bit-for-bit at the end of the suite. Mirrors the equivalent check in
+  // create-integration.test.ts.
+  it("leaves every snapshotted data file byte-identical to its baseline", () => {
+    expect(dataRestorer.snapshotMap.size).toBeGreaterThan(0);
+    for (const [p, baseline] of dataRestorer.snapshotMap) {
+      const current = fs.readFileSync(p);
+      expect(current.equals(baseline), `data drift after suite: ${p}`).toBe(
+        true,
+      );
     }
   });
 });

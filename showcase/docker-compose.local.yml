@@ -3,6 +3,18 @@
 # Ports come from shared/local-ports.json; internal port is always 10000 (Railway convention).
 
 services:
+  aimock:
+    # Local aimock so the 17 integration containers can hit a stable LLM mock
+    # on the compose network at http://aimock:4010 instead of the prod Railway
+    # aimock (which can OOM) or direct-to-OpenAI (which costs).
+    build: ./aimock
+    image: showcase-aimock:local
+    container_name: showcase-aimock
+    env_file: .env
+    ports:
+      - "4010:4010"
+    restart: unless-stopped
+
   langgraph-python:
     build: ./packages/langgraph-python
     image: showcase-langgraph-python:local

@@ -407,6 +407,104 @@ describe("parseManifest", () => {
     }
   });
 
+  // --- demo.route validation (added by R2 fix cycle) ---------------------
+  //
+  // `route` is optional on each demo. When present, it must be a non-empty
+  // string that begins with "/demos/". Downstream validators (validate-parity
+  // routeToDirName, bundle-demo-content) rely on the "/demos/" prefix to
+  // strip it uniformly; accepting a bare "/hitl" or a number silently
+  // produces the wrong on-disk directory lookup.
+
+  it("returns {kind:'malformed', subkind:'shape'} when demos[i].route is a number", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: x\ndemos:\n  - id: foo\n    route: 42\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/route/i);
+    }
+  });
+
+  it("returns {kind:'malformed', subkind:'shape'} when demos[i].route is null", () => {
+    // YAML `route: ~` parses to null. hasOwnProp is true but the value is
+    // not a string, so the non-empty-string guard rejects it.
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: x\ndemos:\n  - id: foo\n    route: ~\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/route/i);
+    }
+  });
+
+  it("returns {kind:'malformed', subkind:'shape'} when demos[i].route is an object", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: x\ndemos:\n  - id: foo\n    route:\n      nested: true\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/route/i);
+    }
+  });
+
+  it("returns {kind:'malformed', subkind:'shape'} when demos[i].route is the empty string", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(f, 'slug: x\ndemos:\n  - id: foo\n    route: ""\n');
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/route/i);
+    }
+  });
+
+  it("returns {kind:'malformed', subkind:'shape'} when demos[i].route does not start with /demos/", () => {
+    // Catches the exact anti-pattern the prefix guard exists for: a bare
+    // "/hitl" looks route-shaped but routeToDirName's prefix strip would
+    // return the whole string unchanged, then miss a real directory match.
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: x\ndemos:\n  - id: foo\n    route: /hitl\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/\/demos\//);
+    }
+  });
+
+  it("returns {kind:'ok'} and persists demo.route on the frozen entry when well-formed", () => {
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: x\ndemos:\n  - id: foo\n    route: /demos/hitl-in-chat\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      const first = r.manifest.demos?.[0];
+      expect(first?.id).toBe("foo");
+      expect(first?.route).toBe("/demos/hitl-in-chat");
+      expect(Object.isFrozen(first)).toBe(true);
+    }
+  });
+
+  it("returns {kind:'ok'} with demo.route undefined when route is omitted (backward compat)", () => {
+    // Absence of `route` must not be treated as shape-malformed. Existing
+    // manifests predate this field; they must still parse cleanly and the
+    // frozen demo entry's .route must be undefined (not null, not a
+    // placeholder).
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: x\ndemos:\n  - id: foo\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("ok");
+    if (r.kind === "ok") {
+      const first = r.manifest.demos?.[0];
+      expect(first?.id).toBe("foo");
+      expect(first?.route).toBeUndefined();
+      expect(Object.isFrozen(first)).toBe(true);
+    }
+  });
+
   it("sets demos to a frozen empty readonly array when demos is omitted", () => {
     // `demos` is non-optional in the public type: when absent, return an
     // empty readonly array so consumers can iterate without `?.` chains.

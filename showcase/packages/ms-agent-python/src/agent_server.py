@@ -16,6 +16,8 @@ from agent_framework_ag_ui import add_agent_framework_fastapi_endpoint
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 
 from agents.agent import create_agent
 
@@ -42,6 +44,21 @@ chat_client = _build_chat_client()
 my_agent = create_agent(chat_client)
 
 app = FastAPI(title="CopilotKit + Microsoft Agent Framework (Python)")
+
+
+# Serve /health via middleware so it short-circuits BEFORE route resolution.
+# `add_agent_framework_fastapi_endpoint(..., path="/")` installs a catch-all
+# at the root that shadows any later `@app.get("/health")` decorator.
+# Middleware runs above the routing layer, so /health stays reachable.
+class HealthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.url.path == "/health" and request.method == "GET":
+            return JSONResponse({"status": "ok"})
+        return await call_next(request)
+
+
+app.add_middleware(HealthMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -55,11 +72,6 @@ add_agent_framework_fastapi_endpoint(
     agent=my_agent,
     path="/",
 )
-
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
 
 
 def main():

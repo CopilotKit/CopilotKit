@@ -43,7 +43,6 @@ yarn-error.log*
 next-env.d.ts
 
 # lock files
-package-lock.json
 yarn.lock
 bun.lockb
 
@@ -52,9 +51,6 @@ bun.lockb
 
 # Git worktrees
 .worktrees
-
-# Turbo
-.turbo
 
 # Tools
 .claude

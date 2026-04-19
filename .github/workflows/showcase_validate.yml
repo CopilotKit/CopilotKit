@@ -9,6 +9,11 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/showcase_validate.yml"
+      # Also re-run when starter/workflow files change — the
+      # validate-workflow-starters step below verifies parity between
+      # showcase/starters/* and the SERVICES/options lists in these files.
+      - ".github/workflows/showcase_deploy.yml"
+      - ".github/workflows/showcase_smoke-monitor.yml"
   push:
     branches: [main]
     paths:
@@ -18,6 +23,8 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/showcase_validate.yml"
+      - ".github/workflows/showcase_deploy.yml"
+      - ".github/workflows/showcase_smoke-monitor.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
 # id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
@@ -174,6 +181,17 @@ jobs:
         # install; `npx tsx` could fetch a drifting version on a registry
         # cache miss.
         run: pnpm exec tsx validate-parity.ts
+
+      - name: Run validate-workflow-starters (parity with workflows)
+        working-directory: showcase/scripts
+        # Gate: for every directory under showcase/starters/ (excluding
+        # template/), verify `starter-<slug>` is registered in
+        # showcase_deploy.yml (workflow_dispatch options AND the
+        # ALL_SERVICES matrix) and in showcase_smoke-monitor.yml's
+        # SERVICES array. Catches the silent-drift failure mode where a
+        # new starter ships on disk but is invisible to deploy dispatch
+        # or drift detection.
+        run: pnpm exec tsx validate-workflow-starters.ts
 
       - name: Run validate-pins (ratchet)
         working-directory: showcase/scripts
@@ -361,6 +379,93 @@ jobs:
       # and the PR author's inbox, and we don't want PR-author noise
       # pinging the OSS alerts channel. Tradeoff: a broken PR that sneaks
       # past review won't alert Slack until after merge.
+      #
+      # Extract the failed step name and first meaningful error line so the
+      # Slack payload is actionable at a glance rather than forcing a
+      # click-through to the workflow run. Bare "X failed" alerts bury the
+      # signal; red alerts must carry triage-ready detail per the oss-alerts
+      # policy. Writes `failed_step` and `error_excerpt` to $GITHUB_ENV for
+      # consumption by the notify step below.
+      #
+      # This step must NEVER fail the job (it runs on failure() already; a
+      # crash here would compound the original failure with extraction
+      # noise and could block the notify step). All extraction uses `|| true`
+      # fallbacks so a malformed jobs response or truncated log still yields
+      # sane defaults ("unknown" / "see workflow run for details").
+      - name: Extract failure details for Slack
+        id: extract
+        if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set +e  # best-effort: never block the notify step below
+
+          # --- Find the currently-running job and its first failed step ---
+          # The jobs API returns every job in the run. We identify *this*
+          # job by name (matches `jobs.validate.name`) rather than
+          # job.status=='in_progress', because at this point the step we're
+          # running hasn't flipped the job state yet in the API. Fall back
+          # to the first job with a failed step if the name match misses
+          # (e.g. future rename drift).
+          jobs_json=$(gh api "/repos/${GH_REPO}/actions/runs/${RUN_ID}/jobs" --paginate 2>/dev/null)
+          job_id=$(printf '%s' "$jobs_json" | jq -r '
+            .jobs // []
+            | map(select(.name == "Validate Showcase"))
+            | (.[0].id // empty)
+          ' 2>/dev/null)
+          if [ -z "$job_id" ]; then
+            job_id=$(printf '%s' "$jobs_json" | jq -r '
+              .jobs // []
+              | map(select(.steps // [] | map(.conclusion) | index("failure")))
+              | (.[0].id // empty)
+            ' 2>/dev/null)
+          fi
+          failed_step=$(printf '%s' "$jobs_json" | jq -r --arg id "$job_id" '
+            .jobs // []
+            | map(select((.id|tostring) == $id))
+            | (.[0].steps // [])
+            | map(select(.conclusion == "failure"))
+            | (.[0].name // "unknown step")
+          ' 2>/dev/null)
+          [ -z "$failed_step" ] && failed_step="unknown step"
+
+          # --- Pull log and extract first meaningful error line ------------
+          # `gh run view --log-failed` output is TSV: job\tstep\ttimestamp + content.
+          # Strip the three leading columns to get the raw step output, strip
+          # ANSI escape codes, strip any stray BOM, skip runner/group/env
+          # header noise, then grab the first line matching a recognised
+          # error marker. Truncate to ~300 chars so the Slack payload stays
+          # well under the 800-char budget even with escaping overhead.
+          error_excerpt="see workflow run for details"
+          if [ -n "$job_id" ]; then
+            log_excerpt=$(gh run view "$RUN_ID" --repo "$GH_REPO" --log-failed --job="$job_id" 2>/dev/null \
+              | awk -F'\t' 'NF>=3 { sub(/^[\xEF\xBB\xBF]?[0-9T:.\-Z ]+/, "", $3); print $3 }' \
+              | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' \
+              | grep -vE '^(##\[|shell: |env: |Run |[[:space:]]*$)' \
+              | grep -m1 -E '^\[(FAIL|ERROR)\]|^Error:|^error:|^::error' \
+              | head -c 300)
+            if [ -n "$log_excerpt" ]; then
+              error_excerpt="$log_excerpt"
+            fi
+          fi
+
+          # --- Emit to $GITHUB_ENV using heredoc delimiter -----------------
+          # Heredoc delimiter protects against values that contain `=` or
+          # newlines breaking the KEY=VALUE format. The delimiter is a
+          # long random-ish string unlikely to appear in any log line.
+          {
+            echo "failed_step<<EOF_FAILED_STEP_b3f2"
+            printf '%s\n' "$failed_step"
+            echo "EOF_FAILED_STEP_b3f2"
+            echo "error_excerpt<<EOF_ERROR_EXCERPT_b3f2"
+            printf '%s\n' "$error_excerpt"
+            echo "EOF_ERROR_EXCERPT_b3f2"
+          } >> "$GITHUB_ENV"
+
+          exit 0  # belt-and-suspenders: never propagate a failure
+
       - name: Notify Slack (failure)
         if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK != ''
         uses: slackapi/slack-github-action@v2.1.0
@@ -368,16 +473,117 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           # Defensive: wrap dynamic values via toJSON(format(...)) so that
-          # if github.repository ever contains characters that would break
-          # the JSON payload (quotes, backslashes, newlines), the value is
-          # safely JSON-encoded instead of injected as raw text. Matches
-          # the pattern used in showcase_drift-report.yml. github.run_id is
-          # numeric so safe on its own, but we wrap both for consistency
-          # and defense-in-depth.
+          # if github.repository or the extracted failed_step / error_excerpt
+          # contain characters that would break the JSON payload (quotes,
+          # backslashes, newlines), the value is safely JSON-encoded instead
+          # of injected as raw text. Matches the pattern used in
+          # showcase_drift-report.yml. github.run_id is numeric so safe on
+          # its own, but we wrap it for consistency and defense-in-depth.
+          # env.failed_step and env.error_excerpt are populated by the
+          # preceding "Extract failure details" step (with safe fallbacks if
+          # extraction fails).
           payload: |
-            { "text": ${{ toJSON(format(':x: *Showcase validate*: failed | <https://github.com/{0}/actions/runs/{1}|View run>', github.repository, github.run_id)) }} }
+            { "text": ${{ toJSON(format(':x: *Showcase validate*: failed — {0}: {1} | <https://github.com/{2}/actions/runs/{3}|View run>', env.failed_step, env.error_excerpt, github.repository, github.run_id)) }} }
 
       - name: Log (no Slack — webhook unset)
         if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK == ''
         run: |
           echo "::warning::showcase_validate failed on push but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
+
+  python-unit-tests:
+    name: Python unit tests (${{ matrix.python-version }})
+    # Separate job so pre-existing `validate-parity` failures don't mask new
+    # Python unit-test regressions. pytest runs independently of JS/TS checks.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      # Fail-fast disabled so a 3.10-only regression (e.g. typing_extensions
+      # fallback path breaking) doesn't cancel the 3.12 run and leave us
+      # guessing which version is the actual problem.
+      fail-fast: false
+      matrix:
+        # 3.10 covers the typing_extensions `NotRequired` fallback path used
+        # by aimock_toggle.py (stdlib `NotRequired` only landed in 3.11).
+        # 3.12 is the production/runner default. Pinning both guarantees we
+        # catch a regression in either branch the first time it lands.
+        python-version: ["3.10", "3.12"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: |
+            showcase/packages/*/requirements.txt
+
+      - name: Install minimal test deps
+        # Always need pytest + typing_extensions. pytest-asyncio is required
+        # by langroid's test_agui_adapter.py (16 tests use
+        # `@pytest.mark.asyncio`); without it, pytest reports
+        # "async def functions are not natively supported" and skips them.
+        # pytest-mock is installed pre-emptively as it's commonly used by
+        # showcase package tests and is cheap to install.
+        # Per-package `requirements.txt` is installed inside the run loop
+        # below so tests that import runtime deps (openai, google.genai,
+        # httpx, opentelemetry, etc.) don't fail at collection time with
+        # ModuleNotFoundError. Conftest-based stub finders can't help
+        # because test_*.py imports the target deps BEFORE conftest runs.
+        run: python -m pip install --quiet pytest pytest-asyncio pytest-mock typing_extensions
+
+      - name: Run showcase package Python unit tests
+        # Keep scope narrow: only showcase/packages/*/tests/python/ directories
+        # (not e2e, not langgraph which has its own runtime). Each package has
+        # its own conftest.py that wires up import paths; we cd into the pkg
+        # dir so those apply.
+        #
+        # Before running pytest in a package we install that package's own
+        # `requirements.txt` (if present) so runtime-dep imports in test modules
+        # resolve. Keeps CI parity with real runtime and avoids the fragile
+        # stub-finder dance conftest.py would need to do otherwise.
+        run: |
+          set -euo pipefail
+          failed=0
+          found=0
+          # Current interpreter major.minor (e.g. "3.10", "3.12"). Used
+          # below to skip packages whose runtime deps are incompatible
+          # with the matrix Python on this job.
+          py_mm=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+          for pkg_dir in showcase/packages/*/; do
+            tests_dir="${pkg_dir}tests/python"
+            [ -d "$tests_dir" ] || continue
+            found=$((found + 1))
+            pkg=$(basename "$pkg_dir")
+            # --- Per-package Python-version gates -------------------------
+            # Skip packages whose `requirements.txt` pins a dep whose
+            # `requires-python` excludes this interpreter. Surgical skip
+            # (not matrix exclusion) so the rest of the packages continue
+            # to exercise the 3.10 typing_extensions fallback path.
+            #
+            # strands: ag_ui_strands==0.1.0 declares `requires-python >=3.12,<3.14`,
+            # so `pip install` fails on 3.10 before pytest even runs.
+            # langroid: tests import `typing.Self` (3.11+); on 3.10 the import fails
+            # at collection time. typing_extensions.Self would fix it but the tests
+            # are tightly coupled to the modern typing module.
+            # Revisit when ag_ui_strands relaxes its floor or when 3.10 is dropped.
+            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ]; }; then
+              echo "--- pytest: $pkg --- SKIPPED on Python $py_mm (requires >=3.11/3.12)"
+              continue
+            fi
+            echo "--- pytest: $pkg ---"
+            if [ -f "${pkg_dir}requirements.txt" ]; then
+              echo "Installing ${pkg_dir}requirements.txt"
+              python -m pip install --quiet -r "${pkg_dir}requirements.txt" || {
+                echo "::error::pip install failed for $pkg"
+                failed=1
+                continue
+              }
+            fi
+            (cd "$pkg_dir" && python -m pytest tests/python/ -v) || failed=1
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "::warning::No showcase/packages/*/tests/python/ directories found"
+          fi
+          exit "$failed"

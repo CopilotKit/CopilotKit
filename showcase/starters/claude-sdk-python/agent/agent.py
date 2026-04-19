@@ -36,6 +36,18 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
+
+# Serve /health via middleware so it short-circuits BEFORE route resolution.
+# Any later catch-all mount at "/" (whether added here or by a downstream
+# adapter) would shadow a plain `@app.get("/health")` decorator. Middleware
+# runs above routing so the health endpoint stays reachable regardless.
+class HealthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.url.path == "/health" and request.method == "GET":
+            return JSONResponse({"status": "ok"})
+        return await call_next(request)
 
 load_dotenv()
 
@@ -515,6 +527,8 @@ def create_app() -> FastAPI:
     """Create the FastAPI app with AG-UI endpoint."""
     app = FastAPI(title="Claude Agent SDK (Python) Agent Server")
 
+    app.add_middleware(HealthMiddleware)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -539,9 +553,5 @@ def create_app() -> FastAPI:
                 "X-Accel-Buffering": "no",
             },
         )
-
-    @app.get("/health")
-    async def health() -> dict[str, str]:
-        return {"status": "ok"}
 
     return app

@@ -9,6 +9,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Disable Python stdout buffering so Python-based agents flush tracebacks
+# and log lines to awk (and the container log) the moment they're written.
+# Previously a silent crash during module import would sit in Python's
+# userspace buffer until the process exited, by which point the pipe to the
+# log prefixer had already closed and the error was lost.
+export PYTHONUNBUFFERED=1
+
 echo "========================================="
 echo "[entrypoint] Starting showcase: langgraph-python"
 echo "[entrypoint] Time: $(date -u)"
@@ -28,7 +35,7 @@ python -m langgraph_cli dev \
   --config langgraph.json \
   --host 0.0.0.0 \
   --port 8123 \
-  --no-browser 2>&1 | sed 's/^/[agent] /' &
+  --no-browser &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
 sleep 3
 if kill -0 $AGENT_PID 2>/dev/null; then
@@ -43,7 +50,18 @@ echo "[entrypoint] Starting Next.js frontend on port ${PORT:-10000}..."
 echo "========================================="
 
 PORT=${PORT:-10000}
-npx next start --port $PORT 2>&1 | sed 's/^/[nextjs] /' &
+# Scope NODE_ENV=production to the Next.js invocation ONLY, not the whole
+# container environment. `ENV NODE_ENV=production` at the image level would
+# leak into every child process (agent, shell scripts, healthchecks) — most
+# of which don't interpret NODE_ENV the way Next.js does. `env` prefix binds
+# the value to this single exec so the agent spawned above keeps the host
+# environment intact.
+#
+# Log prefixing uses bash process substitution (`&> >(awk …)`) rather than a
+# pipe (`| sed …`): process substitution leaves `$!` pointing at the real
+# Next.js process, so `wait -n $NEXTJS_PID` monitors the right thing.
+# `awk` with `fflush()` line-flushes each prefixed line to the container log.
+env NODE_ENV=production npx next start --port $PORT &> >(awk '{print "[nextjs] " $0; fflush()}') &
 NEXTJS_PID=$!
 
 echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"

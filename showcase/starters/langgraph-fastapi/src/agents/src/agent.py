@@ -4,7 +4,7 @@ LangGraph agent for the CopilotKit Showcase (FastAPI variant).
 Uses langgraph.prebuilt.create_react_agent with langgraph>=1.1.0.
 """
 
-from src.agents.tools import (
+from src.agents.src.tools import (
     get_weather_impl,
     query_data_impl,
     schedule_meeting_impl,
@@ -13,7 +13,7 @@ from src.agents.tools import (
     search_flights_impl,
     build_a2ui_operations_from_tool_call,
 )
-from src.agents.tools.types import SalesTodo, Flight
+from src.agents.src.tools.types import SalesTodo, Flight
 
 import json
 import time
