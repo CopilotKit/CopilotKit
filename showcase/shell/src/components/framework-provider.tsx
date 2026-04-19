@@ -1,18 +1,22 @@
 "use client";
 
-// FrameworkProvider — tracks the currently selected "agentic backend" via
-// URL-first, localStorage-fallback semantics.
+// FrameworkProvider — tracks the currently "active" agentic backend.
 //
-// Resolution order:
-//   1. The first URL path segment, if it matches a known integration slug
-//      (e.g. `/langgraph-python/agentic-chat-ui` → `langgraph-python`)
-//   2. `localStorage["selectedFramework"]`
-//   3. `null` (no framework selected)
+// IMPORTANT: `framework` is STRICTLY URL-derived. It's non-null only when
+// the user is actually on a framework-scoped route (`/<framework>/...`).
+// On `/docs/...`, `/`, and other non-scoped routes, `framework` is null
+// and the page renders the "no agentic backend selected" state.
 //
-// The URL case is the authoritative one — when the user visits a
-// framework-scoped page we persist that slug back into localStorage so
-// the preference carries across later visits to non-scoped pages like
-// `/docs/...`.
+// `storedFramework` is a separate, advisory signal: the user's last
+// remembered choice from localStorage. Consumers use it to mark "this
+// was your last pick" (e.g. highlight that card in the framework picker)
+// WITHOUT treating it as the active framework. Visiting `/docs/` after
+// previously picking LangChain must still show the unselected state —
+// only explicit navigation to `/langgraph-python/...` (or clicking the
+// card) makes LangChain active.
+//
+// Whenever the URL asserts a framework, we persist it as the new
+// storedFramework so the preference carries.
 
 import React, {
   createContext,
@@ -24,8 +28,19 @@ import React, {
 import { usePathname } from "next/navigation";
 
 export interface FrameworkContextValue {
-  /** Currently active framework slug, or null when none is selected. */
+  /**
+   * Currently ACTIVE framework — strictly URL-derived. Non-null only on
+   * `/<framework>/...` routes. Consumers that render "is this a
+   * framework-scoped view?" chrome (selectors, banners, snippets) should
+   * branch on this field.
+   */
   framework: string | null;
+  /**
+   * Last REMEMBERED framework from localStorage — advisory, does NOT
+   * auto-activate. Use to mark the user's last pick in a picker UI
+   * without implying the current view is scoped to it.
+   */
+  storedFramework: string | null;
   /** All known framework slugs derived from the registry. */
   knownFrameworks: string[];
   /** Persist a new framework preference (does not navigate). */
@@ -88,7 +103,11 @@ export function FrameworkProvider({
     }
   }, [urlFramework, stored]);
 
-  const framework = urlFramework ?? stored;
+  // ACTIVE framework is strictly URL-derived. localStorage NEVER promotes
+  // itself into `framework` — it lives in `storedFramework` where it can
+  // be shown as "your last pick" without implying the current view is
+  // scoped to it.
+  const framework = urlFramework;
 
   const setStoredFramework = (slug: string | null) => {
     writeStoredFramework(slug);
@@ -97,6 +116,7 @@ export function FrameworkProvider({
 
   const value: FrameworkContextValue = {
     framework,
+    storedFramework: stored,
     knownFrameworks,
     setStoredFramework,
   };
@@ -115,6 +135,7 @@ export function useFramework(): FrameworkContextValue {
     // return a neutral, read-only value rather than throwing.
     return {
       framework: null,
+      storedFramework: null,
       knownFrameworks: [],
       setStoredFramework: () => {},
     };
