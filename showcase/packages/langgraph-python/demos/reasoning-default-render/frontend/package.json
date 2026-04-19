@@ -1,5 +1,5 @@
 {
-  "name": "@copilotkit/showcase-cell-langgraph-python-open-gen-ui",
+  "name": "@copilotkit/showcase-cell-langgraph-python-reasoning-default-render",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@ag-ui/core": "^0.0.52",
     "@copilotkit/react-core": "next",
     "@copilotkit/runtime": "next",
     "next": "^15.0.0",

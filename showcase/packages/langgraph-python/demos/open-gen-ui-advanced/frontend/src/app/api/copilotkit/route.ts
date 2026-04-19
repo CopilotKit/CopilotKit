@@ -1,9 +1,4 @@
-// CopilotKit runtime for the minimal Open-Ended Generative UI cell.
-//
-// The only thing that enables Open Generative UI is `openGenerativeUI`
-// on the runtime. That installs the middleware which turns streamed
-// `generateSandboxedUi` tool calls from the agent into
-// `open-generative-ui` activity events for the built-in renderer.
+// CopilotKit runtime for the Open-Ended Generative UI cell.
 
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -24,8 +19,8 @@ const agent = new LangGraphAgent({
 
 const runtime = new CopilotRuntime({
   // @ts-ignore
-  agents: { "open-gen-ui": agent },
-  openGenerativeUI: { agents: ["open-gen-ui"] },
+  agents: { "open-gen-ui-advanced": agent },
+  openGenerativeUI: { agents: ["open-gen-ui-advanced"] },
 });
 
 export const POST = async (req: NextRequest) => {
