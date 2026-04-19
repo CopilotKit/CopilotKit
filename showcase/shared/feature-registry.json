@@ -158,13 +158,6 @@
       "shell_docs_url": "/docs/features/declarative-gen-ui"
     },
     {
-      "id": "declarative-gen-ui-hardcoded",
-      "name": "Declarative Generative UI (A2UI \u2014 Custom Catalog)",
-      "category": "declarative-generative-ui",
-      "description": "A2UI with a hardcoded client catalog (BYOC) wired via a2ui.catalog",
-      "kind": "testing"
-    },
-    {
       "id": "a2ui-fixed-schema",
       "name": "Declarative Generative UI (A2UI \u2014 Fixed Schema)",
       "category": "declarative-generative-ui",

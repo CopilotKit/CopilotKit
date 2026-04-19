@@ -59,8 +59,6 @@ agents["tool-rendering-frontend-tools"] = createAgent(
 );
 // Declarative Generative UI (A2UI — Dynamic Schema) demo uses its own graph.
 agents["declarative-gen-ui"] = createAgent("a2ui_dynamic");
-// Hardcoded-catalog variant of dynamic-schema A2UI.
-agents["declarative-gen-ui-hardcoded"] = createAgent("a2ui_dynamic_hardcoded");
 // Declarative Generative UI (A2UI — Fixed Schema) demo.
 agents["a2ui-fixed-schema"] = createAgent("a2ui_fixed");
 // Dedicated graphs for stub cells (ported from 4084).
@@ -116,11 +114,7 @@ export const POST = async (req: NextRequest) => {
         // A2UI tool injected.
         a2ui: {
           injectA2UITool: true,
-          agents: [
-            "declarative-gen-ui",
-            "declarative-gen-ui-hardcoded",
-            "a2ui-fixed-schema",
-          ],
+          agents: ["declarative-gen-ui", "a2ui-fixed-schema"],
         },
         // @endregion[runtime-inject-tool]
         // NOTE: OpenGenerativeUI is intentionally NOT enabled here — it

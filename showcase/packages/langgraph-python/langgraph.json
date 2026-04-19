@@ -5,7 +5,6 @@
     "tool_rendering": "./src/agents/tool_rendering_agent.py:graph",
     "tool_rendering_reasoning_chain": "./src/agents/tool_rendering_reasoning_chain_agent.py:graph",
     "a2ui_dynamic": "./src/agents/a2ui_dynamic.py:graph",
-    "a2ui_dynamic_hardcoded": "./src/agents/a2ui_dynamic_hardcoded.py:graph",
     "a2ui_fixed": "./src/agents/a2ui_fixed.py:graph",
     "reasoning_agent": "./src/agents/reasoning_agent.py:graph",
     "interrupt_agent": "./src/agents/interrupt_agent.py:graph",

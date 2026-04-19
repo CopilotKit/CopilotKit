@@ -50,7 +50,6 @@ features:
   - gen-ui-interrupt
   - interrupt-headless
   - declarative-gen-ui
-  - declarative-gen-ui-hardcoded
   - a2ui-fixed-schema
   - mcp-apps
   - open-gen-ui
@@ -373,18 +372,6 @@ demos:
       - src/app/demos/open-gen-ui-advanced/page.tsx
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
       - src/app/api/copilotkit-ogui/route.ts
-  - id: declarative-gen-ui-hardcoded
-    name: Declarative Generative UI (A2UI — Custom Catalog)
-    description: A2UI with a hardcoded client catalog (Card/Title/Metric/PrimaryButton) registered via a2ui.catalog on the provider
-    tags:
-      - generative-ui
-    route: /demos/declarative-gen-ui-hardcoded
-    animated_preview_url:
-    highlight:
-      - src/agents/a2ui_dynamic_hardcoded.py
-      - src/app/demos/declarative-gen-ui-hardcoded/page.tsx
-      - src/app/demos/declarative-gen-ui-hardcoded/catalog.tsx
-      - src/app/api/copilotkit/route.ts
   - id: interrupt-headless
     name: Headless Interrupt (testing)
     description: Resolve langgraph interrupts from a plain button grid — no chat, no useInterrupt render prop

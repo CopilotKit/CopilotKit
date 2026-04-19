@@ -69,10 +69,6 @@
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/a2ui/dynamic-schema",
       "shell_docs_path": "/generative-ui/a2ui/dynamic-schema"
     },
-    "declarative-gen-ui-hardcoded": {
-      "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/a2ui/dynamic-schema",
-      "shell_docs_path": "/generative-ui/a2ui/dynamic-schema"
-    },
     "a2ui-fixed-schema": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/a2ui/fixed-schema",
       "shell_docs_path": "/generative-ui/a2ui/fixed-schema"
