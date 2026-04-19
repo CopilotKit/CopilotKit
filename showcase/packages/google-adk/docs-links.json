@@ -1,0 +1,178 @@
+{
+  "framework": "google-adk",
+  "generated_at": "2026-04-19",
+  "docs_priority": [
+    "docs/content/docs/integrations/adk/<path>.mdx",
+    "docs/content/docs/(root)/<path>.mdx"
+  ],
+  "notes": [
+    "Validated og_docs_url (docs.copilotkit.ai) via WebFetch and shell_docs_url (http://localhost:3000/google-adk<path>) via curl.",
+    "The /features/<id> URLs referenced in showcase/shared/feature-registry.json are NOT routable on either docs.copilotkit.ai or the local shell — every /features/* path returns empty/404.",
+    "Framework-specific docs DO exist under /integrations/adk/* and are served by the shell.",
+    "Suggested fixes live in each feature's `suggested_og_docs_url` / `suggested_shell_docs_url` keys."
+  ],
+  "features": [
+    {
+      "id": "agentic-chat",
+      "name": "Pre-Built CopilotChat",
+      "registry_og_docs_url": "https://docs.copilotkit.ai/features/agentic-chat",
+      "registry_shell_docs_url": "/docs/features/agentic-chat",
+      "og_docs_ok": false,
+      "shell_docs_ok": false,
+      "og_status": "empty (page does not exist)",
+      "shell_status": "404",
+      "suggested_og_docs_url": "https://docs.copilotkit.ai/integrations/adk/agentic-chat-ui",
+      "suggested_shell_docs_url": "/integrations/adk/agentic-chat-ui",
+      "suggested_og_ok": false,
+      "suggested_shell_ok": false,
+      "suggested_og_status": "empty",
+      "suggested_shell_status": "404"
+    },
+    {
+      "id": "hitl-in-chat",
+      "name": "In-Chat Human in the Loop",
+      "registry_og_docs_url": "https://docs.copilotkit.ai/features/hitl-in-chat",
+      "registry_shell_docs_url": "/docs/features/hitl-in-chat",
+      "og_docs_ok": false,
+      "shell_docs_ok": false,
+      "og_status": "empty",
+      "shell_status": "404",
+      "suggested_og_docs_url": "https://docs.copilotkit.ai/integrations/adk/human-in-the-loop",
+      "suggested_shell_docs_url": "/integrations/adk/human-in-the-loop",
+      "suggested_og_ok": true,
+      "suggested_shell_ok": true,
+      "suggested_og_status": "200 — title \"Human-in-the-Loop\"",
+      "suggested_shell_status": "200"
+    },
+    {
+      "id": "tool-rendering",
+      "name": "Tool Rendering",
+      "registry_og_docs_url": "https://docs.copilotkit.ai/features/tool-rendering",
+      "registry_shell_docs_url": "/docs/features/tool-rendering",
+      "og_docs_ok": false,
+      "shell_docs_ok": false,
+      "og_status": "empty",
+      "shell_status": "404",
+      "suggested_og_docs_url": "https://docs.copilotkit.ai/integrations/adk/generative-ui/tool-rendering",
+      "suggested_shell_docs_url": "/integrations/adk/generative-ui/tool-rendering",
+      "suggested_og_ok": true,
+      "suggested_shell_ok": true,
+      "suggested_og_status": "200 — title \"Tool Rendering\"",
+      "suggested_shell_status": "200"
+    },
+    {
+      "id": "gen-ui-tool-based",
+      "name": "Controlled Gen-UI (Display)",
+      "registry_og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-tool-based",
+      "registry_shell_docs_url": "/docs/features/gen-ui-tool-based",
+      "og_docs_ok": false,
+      "shell_docs_ok": false,
+      "og_status": "empty",
+      "shell_status": "404",
+      "suggested_og_docs_url": "https://docs.copilotkit.ai/integrations/adk/generative-ui/your-components/display-only",
+      "suggested_shell_docs_url": "/integrations/adk/generative-ui/your-components/display-only",
+      "suggested_og_ok": false,
+      "suggested_shell_ok": false,
+      "suggested_og_status": "empty / stub",
+      "suggested_shell_status": "404"
+    },
+    {
+      "id": "gen-ui-agent",
+      "name": "Agentic Generative UI (In-Chat State Rendering)",
+      "registry_og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-agent",
+      "registry_shell_docs_url": "/docs/features/gen-ui-agent",
+      "og_docs_ok": false,
+      "shell_docs_ok": false,
+      "og_status": "empty",
+      "shell_status": "404",
+      "suggested_og_docs_url": "https://docs.copilotkit.ai/integrations/adk/generative-ui/state-rendering",
+      "suggested_shell_docs_url": "/integrations/adk/generative-ui/state-rendering",
+      "suggested_og_ok": true,
+      "suggested_shell_ok": false,
+      "suggested_og_status": "200 — title \"State Rendering\"",
+      "suggested_shell_status": "500 (server error)"
+    },
+    {
+      "id": "shared-state-read-write",
+      "name": "Shared State (Read + Write)",
+      "registry_og_docs_url": null,
+      "registry_shell_docs_url": null,
+      "og_docs_ok": false,
+      "shell_docs_ok": false,
+      "og_status": "not set in feature-registry",
+      "shell_status": "not set in feature-registry",
+      "suggested_og_docs_url": "https://docs.copilotkit.ai/integrations/adk/shared-state/in-app-agent-write",
+      "suggested_shell_docs_url": "/integrations/adk/shared-state/in-app-agent-write",
+      "suggested_og_ok": true,
+      "suggested_shell_ok": true,
+      "suggested_og_status": "200 — title \"Writing agent state\"",
+      "suggested_shell_status": "200"
+    },
+    {
+      "id": "shared-state-streaming",
+      "name": "State Streaming",
+      "registry_og_docs_url": "https://docs.copilotkit.ai/features/shared-state-streaming",
+      "registry_shell_docs_url": "/docs/features/shared-state-streaming",
+      "og_docs_ok": false,
+      "shell_docs_ok": false,
+      "og_status": "empty",
+      "shell_status": "404",
+      "suggested_og_docs_url": "https://docs.copilotkit.ai/integrations/adk/shared-state/predictive-state-updates",
+      "suggested_shell_docs_url": "/integrations/adk/shared-state/predictive-state-updates",
+      "suggested_og_ok": true,
+      "suggested_shell_ok": false,
+      "suggested_og_status": "200 — title \"Predictive state updates\"",
+      "suggested_shell_status": "500 (server error)"
+    },
+    {
+      "id": "subagents",
+      "name": "Sub-Agents",
+      "registry_og_docs_url": "https://docs.copilotkit.ai/features/subagents",
+      "registry_shell_docs_url": "/docs/features/subagents",
+      "og_docs_ok": false,
+      "shell_docs_ok": false,
+      "og_status": "empty",
+      "shell_status": "404",
+      "suggested_og_docs_url": null,
+      "suggested_shell_docs_url": null,
+      "suggested_og_ok": false,
+      "suggested_shell_ok": false,
+      "suggested_og_status": "no sub-agents/multi-agent page found under integrations/adk or (root)",
+      "suggested_shell_status": "no shell route found"
+    }
+  ],
+  "missing": [
+    {
+      "id": "agentic-chat",
+      "reason": "registry og+shell both dead; no ADK equivalent found (agentic-chat-ui.mdx is under (root)/ only — not under integrations/adk/)"
+    },
+    {
+      "id": "hitl-in-chat",
+      "reason": "registry og+shell dead — fix by repointing to /integrations/adk/human-in-the-loop (verified 200 on both docs site and shell)"
+    },
+    {
+      "id": "tool-rendering",
+      "reason": "registry og+shell dead — fix by repointing to /integrations/adk/generative-ui/tool-rendering (verified 200 on both)"
+    },
+    {
+      "id": "gen-ui-tool-based",
+      "reason": "registry og+shell dead; ADK display-only page is a stub (empty body) and not served by shell"
+    },
+    {
+      "id": "gen-ui-agent",
+      "reason": "registry og+shell dead; suggested ADK state-rendering page is 200 on docs but 500 on shell"
+    },
+    {
+      "id": "shared-state-read-write",
+      "reason": "feature-registry row has no og_docs_url/shell_docs_url at all — add /integrations/adk/shared-state/in-app-agent-write"
+    },
+    {
+      "id": "shared-state-streaming",
+      "reason": "registry og+shell dead; ADK predictive-state-updates page is 200 on docs but 500 on shell"
+    },
+    {
+      "id": "subagents",
+      "reason": "registry og+shell dead; no ADK or (root) documentation page for sub-agents exists — write one or drop the doc link"
+    }
+  ]
+}
