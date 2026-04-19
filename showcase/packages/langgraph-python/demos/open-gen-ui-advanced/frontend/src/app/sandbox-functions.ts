@@ -7,6 +7,12 @@ import { z } from "zod";
  * These are the only bridge between the sandbox and the host page — keep
  * the surface intentionally small.
  */
+// @region[sandbox-function-registration]
+// Each entry is a host-side function the sandboxed UI can call via
+// `Websandbox.connection.remote.<name>(args)`. The `parameters` Zod schema
+// is validated against the sandbox's arguments before the handler runs,
+// and the function descriptions are appended to the agent's context so it
+// knows which bridges are available when generating HTML/JS.
 export const openGenUiSandboxFunctions = [
   {
     name: "notifyHost",
@@ -20,3 +26,4 @@ export const openGenUiSandboxFunctions = [
     },
   },
 ];
+// @endregion[sandbox-function-registration]

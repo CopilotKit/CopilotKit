@@ -22,11 +22,16 @@ const agent = new LangGraphAgent({
   langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
 });
 
+// @region[minimal-runtime-flag]
 const runtime = new CopilotRuntime({
   // @ts-ignore
   agents: { "open-gen-ui": agent },
+  // One flag turns on Open Generative UI for the listed agent(s). The
+  // runtime middleware converts the agent's streamed `generateSandboxedUi`
+  // tool call into `open-generative-ui` activity events.
   openGenerativeUI: { agents: ["open-gen-ui"] },
 });
+// @endregion[minimal-runtime-flag]
 
 export const POST = async (req: NextRequest) => {
   try {

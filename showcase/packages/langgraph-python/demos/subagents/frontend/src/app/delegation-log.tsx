@@ -42,6 +42,7 @@ const SUB_AGENT_STYLE: Record<
   },
 };
 
+// @region[delegation-log-frontend]
 /**
  * Live delegation log — renders the `delegations` slot of agent state.
  *
@@ -125,3 +126,4 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
     </div>
   );
 }
+// @endregion[delegation-log-frontend]

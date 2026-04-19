@@ -18,6 +18,10 @@ import React from "react";
 import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 
 export default function OpenGenUiDemo() {
+  // @region[minimal-provider-setup]
+  // Minimal Open Generative UI frontend: the built-in activity renderer is
+  // registered by CopilotKitProvider, so a plain <CopilotChat /> is enough —
+  // no custom tool renderers, no activity-renderer registration.
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="open-gen-ui">
       <div className="flex justify-center items-center h-screen w-full">
@@ -27,4 +31,5 @@ export default function OpenGenUiDemo() {
       </div>
     </CopilotKit>
   );
+  // @endregion[minimal-provider-setup]
 }

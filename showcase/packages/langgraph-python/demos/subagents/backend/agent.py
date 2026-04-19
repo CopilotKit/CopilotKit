@@ -52,6 +52,10 @@ class AgentState(BaseAgentState):
 # Sub-agents (real LLM agents under the hood)
 # ---------------------------------------------------------------------------
 
+# @region[subagent-setup]
+# Each sub-agent is a full-fledged `create_agent(...)` with its own
+# system prompt. They don't share memory or tools with the supervisor —
+# the supervisor only sees their return value.
 _sub_model = ChatOpenAI(model="gpt-4o-mini")
 
 _research_agent = create_agent(
@@ -81,6 +85,7 @@ _critique_agent = create_agent(
         "2-3 crisp, actionable critiques. No preamble."
     ),
 )
+# @endregion[subagent-setup]
 
 
 def _invoke_sub_agent(agent, task: str) -> str:
@@ -126,6 +131,12 @@ def _delegation_update(
 # ---------------------------------------------------------------------------
 
 
+# @region[supervisor-delegation-tools]
+# Each @tool wraps a sub-agent invocation. The supervisor LLM "calls"
+# these tools to delegate work; each call synchronously runs the
+# matching sub-agent, records the delegation into shared state, and
+# returns the sub-agent's output as a ToolMessage the supervisor can
+# read on its next step.
 @tool
 def research_agent(task: str, runtime: ToolRuntime) -> Command:
     """Delegate a research task to the research sub-agent.
@@ -165,6 +176,7 @@ def critique_agent(task: str, runtime: ToolRuntime) -> Command:
     return _delegation_update(
         state, "critique_agent", task, result, runtime.tool_call_id
     )
+# @endregion[supervisor-delegation-tools]
 
 
 # ---------------------------------------------------------------------------

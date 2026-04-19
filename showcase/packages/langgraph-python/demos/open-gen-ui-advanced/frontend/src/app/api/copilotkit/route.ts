@@ -17,11 +17,16 @@ const agent = new LangGraphAgent({
   langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
 });
 
+// @region[advanced-runtime-config]
+// Server-side config is identical to the minimal cell — the advanced
+// behaviour (sandbox -> host function calls) is wired entirely on the
+// frontend via `openGenerativeUI.sandboxFunctions` on the provider.
 const runtime = new CopilotRuntime({
   // @ts-ignore
   agents: { "open-gen-ui-advanced": agent },
   openGenerativeUI: { agents: ["open-gen-ui-advanced"] },
 });
+// @endregion[advanced-runtime-config]
 
 export const POST = async (req: NextRequest) => {
   try {
