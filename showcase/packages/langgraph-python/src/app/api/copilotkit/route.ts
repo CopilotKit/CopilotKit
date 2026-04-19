@@ -23,25 +23,25 @@ function createAgent(graphId: string = "sample_agent") {
   });
 }
 
-// Register the same agent under all names used by demo pages.
-// Each demo specifies an agent ID; they all route to the same LangGraph graph.
-const agentNames = [
-  "agentic_chat",
-  "frontend_tools",
+// Cells that share the neutral default "helpful, concise assistant" graph.
+// These cells are chrome / UI / docs demos — the agent has no specialized
+// behavior. Each still gets its own registered name so per-cell frontend
+// tool/component registrations scope correctly.
+const neutralAssistantCells = [
   "human_in_the_loop",
-  "gen-ui-tool-based",
-  "gen-ui-agent",
   "shared-state-read",
   "shared-state-write",
   "prebuilt-sidebar",
   "prebuilt-popup",
+  "prebuilt-chat",
   "chat-slots",
   "chat-customization-css",
   "headless-simple",
+  "beautiful-chat",
 ];
 
 const agents: Record<string, LangGraphAgent> = {};
-for (const name of agentNames) {
+for (const name of neutralAssistantCells) {
   agents[name] = createAgent();
 }
 
@@ -53,8 +53,9 @@ agents["tool-rendering-reasoning-chain"] = createAgent(
   "tool_rendering_reasoning_chain",
 );
 // Frontend-tools variant: no backend tools; the frontend owns the tool.
-// The generic sample_agent keeps the chat flowing.
-agents["tool-rendering-frontend-tools"] = createAgent();
+agents["tool-rendering-frontend-tools"] = createAgent(
+  "tool_rendering_frontend_tools",
+);
 // Declarative Generative UI (A2UI — Dynamic Schema) demo uses its own graph.
 agents["declarative-gen-ui"] = createAgent("a2ui_dynamic");
 // Hardcoded-catalog variant of dynamic-schema A2UI.
@@ -64,6 +65,13 @@ agents["a2ui-fixed-schema"] = createAgent("a2ui_fixed");
 // Dedicated graphs for stub cells (ported from 4084).
 agents["shared-state-streaming"] = createAgent("shared_state_streaming");
 agents["subagents"] = createAgent("subagents");
+// Basic cells with their own dedicated graphs (neutral assistant variants
+// split out of main.py so main.py stays a pure default).
+agents["agentic_chat"] = createAgent("agentic_chat");
+agents["frontend_tools"] = createAgent("frontend_tools");
+agents["gen-ui-agent"] = createAgent("gen_ui_agent");
+// Tool-Based Generative UI — chart-viz system prompt lives in its own graph.
+agents["gen-ui-tool-based"] = createAgent("gen_ui_tool_based");
 // Reasoning variants.
 agents["agentic-chat-reasoning"] = createAgent("reasoning_agent");
 agents["reasoning-default-render"] = createAgent("reasoning_agent");
