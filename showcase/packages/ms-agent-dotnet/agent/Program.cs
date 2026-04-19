@@ -4,13 +4,22 @@ using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 using OpenAI;
+using System.ClientModel;
 using System.ComponentModel;
+using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Add(SalesAgentSerializerContext.Default));
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.TypeInfoResolverChain.Add(SalesAgentSerializerContext.Default);
+    // Serialize our enum types (SalesStage, Currency, FlightStatus) as their
+    // member name strings rather than numeric ordinals. This keeps the wire
+    // format human-readable and stable across enum re-ordering.
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 builder.Services.AddAGUI();
 
 WebApplication app = builder.Build();
@@ -27,22 +36,60 @@ await app.RunAsync();
 // =================
 // State Management
 // =================
+
+// Stage of a deal in the sales pipeline. Modeled as an enum so callers and
+// the LLM's structured output both get a closed set of legal values, rather
+// than a free-form string that can drift (finding 11). Serialized as the
+// enum member name via JsonStringEnumConverter on the JsonSerializerOptions.
+public enum SalesStage
+{
+    Prospect,
+    Qualified,
+    Proposal,
+    Negotiation,
+    ClosedWon,
+    ClosedLost,
+}
+
+// Currency code for deal values. Small closed set covers the demo use cases.
+// Previously `Value` was an `int` with no currency indication at all; we now
+// carry currency + decimal amount together (finding 11).
+public enum Currency
+{
+    USD,
+    EUR,
+    GBP,
+    JPY,
+}
+
 public record SalesTodo
 {
+    // Previously `Id = ""` was the default, allowing "invalid" empty-id todos
+    // to exist. ManageSalesTodos would then fill one in via Guid.NewGuid().
+    // Making Id `required` keeps construction explicit, and callers that
+    // genuinely want server-assigned ids should construct with an empty
+    // string and let ReplaceTodos() backfill — that path is preserved.
     [JsonPropertyName("id")]
-    public string Id { get; init; } = "";
+    public required string Id { get; init; }
 
     [JsonPropertyName("title")]
     public string Title { get; init; } = "";
 
     [JsonPropertyName("stage")]
-    public string Stage { get; init; } = "prospect";
+    public SalesStage Stage { get; init; } = SalesStage.Prospect;
 
+    // Deal value as a decimal (money) with explicit currency. Previously an
+    // `int` with no sign or currency semantics.
     [JsonPropertyName("value")]
-    public int Value { get; init; }
+    public decimal Value { get; init; }
 
+    [JsonPropertyName("currency")]
+    public Currency Currency { get; init; } = Currency.USD;
+
+    // Nullable DateOnly — previously a free-form string that accepted any
+    // input. System.Text.Json serializes DateOnly as ISO-8601 "YYYY-MM-DD".
     [JsonPropertyName("dueDate")]
-    public string DueDate { get; init; } = "";
+    public DateOnly? DueDate { get; init; }
 
     [JsonPropertyName("assignee")]
     public string Assignee { get; init; } = "";
@@ -51,14 +98,61 @@ public record SalesTodo
     public bool Completed { get; init; }
 }
 
-public class SalesState
+// SalesState is the server-side in-memory store, SalesStateSnapshot is the
+// wire-format JSON Schema sent to the model. Previously both carried near-
+// identical List<SalesTodo> (finding 9). We consolidate: SalesState holds a
+// read-only list behind an encapsulated replacement API (finding 10), and
+// SalesStateSnapshot is a minimal record that wraps the same list for
+// serialization.
+public sealed class SalesState
 {
-    public List<SalesTodo> Todos { get; set; } = [];
+    private readonly object _stateLock = new();
+    private IReadOnlyList<SalesTodo> _todos = Array.Empty<SalesTodo>();
+
+    public IReadOnlyList<SalesTodo> Todos
+    {
+        get
+        {
+            lock (_stateLock)
+            {
+                return _todos;
+            }
+        }
+    }
+
+    // Atomically replaces the todo list, assigning a server-side id to any
+    // incoming todo whose Id is empty. Called from ManageSalesTodos; the
+    // lock moves inside this method so callers don't need to coordinate.
+    public void ReplaceTodos(IEnumerable<SalesTodo> todos)
+    {
+        ArgumentNullException.ThrowIfNull(todos);
+        var materialized = todos.Select(t => t with
+        {
+            Id = string.IsNullOrEmpty(t.Id) ? Guid.NewGuid().ToString()[..8] : t.Id,
+        }).ToArray();
+
+        lock (_stateLock)
+        {
+            _todos = materialized;
+        }
+    }
 }
 
 // =================
 // Flight Data
 // =================
+
+// Flight operational status. StatusColor was previously a separate string
+// field that could disagree with Status (finding 12); we now derive color
+// from this enum deterministically in FlightInfo.StatusColor.
+public enum FlightStatus
+{
+    OnTime,
+    Delayed,
+    Cancelled,
+    Boarding,
+}
+
 public record FlightInfo
 {
     [JsonPropertyName("airline")]
@@ -88,17 +182,31 @@ public record FlightInfo
     [JsonPropertyName("duration")]
     public string Duration { get; init; } = "";
 
+    // Status as enum (finding 12). Previously `Status` and `StatusColor` were
+    // independent free-form strings that could disagree (e.g. "On Time" with
+    // color "red"). Now StatusColor is derived from Status and the pair is
+    // guaranteed consistent.
     [JsonPropertyName("status")]
-    public string Status { get; init; } = "";
+    public FlightStatus Status { get; init; } = FlightStatus.OnTime;
 
     [JsonPropertyName("statusColor")]
-    public string StatusColor { get; init; } = "";
+    public string StatusColor => Status switch
+    {
+        FlightStatus.OnTime => "green",
+        FlightStatus.Delayed => "yellow",
+        FlightStatus.Cancelled => "red",
+        FlightStatus.Boarding => "blue",
+        _ => "gray",
+    };
 
+    // Price as decimal (money) + separate Currency enum (finding 12). The
+    // old shape carried both a display string like "$342" AND a currency
+    // code "USD" — redundant and easy to get out of sync.
     [JsonPropertyName("price")]
-    public string Price { get; init; } = "";
+    public decimal Price { get; init; }
 
     [JsonPropertyName("currency")]
-    public string Currency { get; init; } = "";
+    public Currency Currency { get; init; } = Currency.USD;
 }
 
 // =================
@@ -106,9 +214,10 @@ public record FlightInfo
 // =================
 public class SalesAgentFactory
 {
+    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
+
     private readonly IConfiguration _configuration;
     private readonly SalesState _state;
-    private readonly object _stateLock = new();
     private readonly OpenAIClient _openAiClient;
     private readonly ILogger _logger;
     private readonly ILoggerFactory _loggerFactory;
@@ -129,11 +238,26 @@ public class SalesAgentFactory
                 "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
                 "or get it using: gh auth token");
 
+        // Finding 8: log the resolved endpoint at startup so operators can tell
+        // whether we're hitting a custom OPENAI_BASE_URL or falling back to the
+        // GitHub Models / Azure default. Previously the fallback was silent.
+        var endpointEnv = Environment.GetEnvironmentVariable("OPENAI_BASE_URL");
+        var endpoint = endpointEnv ?? DefaultOpenAiEndpoint;
+        if (string.IsNullOrEmpty(endpointEnv))
+        {
+            _logger.LogInformation(
+                "OPENAI_BASE_URL not set; using default OpenAI endpoint: {Endpoint}", endpoint);
+        }
+        else
+        {
+            _logger.LogInformation("Using OpenAI endpoint from OPENAI_BASE_URL: {Endpoint}", endpoint);
+        }
+
         _openAiClient = new(
-            new System.ClientModel.ApiKeyCredential(githubToken),
+            new ApiKeyCredential(githubToken),
             new OpenAIClientOptions
             {
-                Endpoint = new Uri(Environment.GetEnvironmentVariable("OPENAI_BASE_URL") ?? "https://models.inference.ai.azure.com")
+                Endpoint = new Uri(endpoint),
             });
     }
 
@@ -167,24 +291,19 @@ public class SalesAgentFactory
     [Description("Get the current sales pipeline")]
     private List<SalesTodo> GetSalesTodos()
     {
-        lock (_stateLock)
-        {
-            _logger.LogInformation("Getting sales todos: {Count} items", _state.Todos.Count);
-            return _state.Todos.ToList();
-        }
+        var todos = _state.Todos;
+        _logger.LogInformation("Getting sales todos: {Count} items", todos.Count);
+        // Return a snapshot list copy — callers (AIFunctionFactory) serialize
+        // this and we don't want concurrent ReplaceTodos mutating mid-serialize.
+        return todos.ToList();
     }
 
     [Description("Update the sales pipeline")]
     private string ManageSalesTodos([Description("The updated list of sales todos")] List<SalesTodo> todos)
     {
+        ArgumentNullException.ThrowIfNull(todos);
         _logger.LogInformation("Updating sales todos: {Count} items", todos.Count);
-        lock (_stateLock)
-        {
-            _state.Todos = todos.Select(t => t with
-            {
-                Id = string.IsNullOrEmpty(t.Id) ? Guid.NewGuid().ToString()[..8] : t.Id
-            }).ToList();
-        }
+        _state.ReplaceTodos(todos);
         return "Pipeline updated";
     }
 
@@ -225,15 +344,15 @@ public class SalesAgentFactory
             new() { Airline = "United Airlines", AirlineLogo = "UA", FlightNumber = "UA 2451",
                      Origin = origin, Destination = destination, Date = "2026-05-15",
                      DepartureTime = "08:00", ArrivalTime = "16:35", Duration = "5h 35m",
-                     Status = "On Time", StatusColor = "green", Price = "$342", Currency = "USD" },
+                     Status = FlightStatus.OnTime, Price = 342m, Currency = Currency.USD },
             new() { Airline = "Delta Air Lines", AirlineLogo = "DL", FlightNumber = "DL 1087",
                      Origin = origin, Destination = destination, Date = "2026-05-15",
                      DepartureTime = "10:30", ArrivalTime = "19:15", Duration = "5h 45m",
-                     Status = "On Time", StatusColor = "green", Price = "$289", Currency = "USD" },
+                     Status = FlightStatus.OnTime, Price = 289m, Currency = Currency.USD },
             new() { Airline = "JetBlue Airways", AirlineLogo = "B6", FlightNumber = "B6 524",
                      Origin = origin, Destination = destination, Date = "2026-05-15",
                      DepartureTime = "14:15", ArrivalTime = "22:50", Duration = "5h 35m",
-                     Status = "On Time", StatusColor = "green", Price = "$315", Currency = "USD" }
+                     Status = FlightStatus.OnTime, Price = 315m, Currency = Currency.USD },
         };
 
         var flightSchema = new object[]
@@ -267,15 +386,21 @@ public class SalesAgentFactory
     }
 
     [Description("Generate dynamic A2UI components using a secondary LLM call")]
-    private string GenerateA2ui([Description("The user's request describing what UI to generate")] string userRequest)
+    private async Task<string> GenerateA2ui(
+        [Description("The user's request describing what UI to generate")] string userRequest,
+        CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Generating A2UI for: {Request}", userRequest);
+        ArgumentNullException.ThrowIfNull(userRequest);
 
-        try
-        {
-            var secondaryChatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        // Correlation id so server logs can be tied to the structured error
+        // we return to the caller / LLM. Callers can quote this in bug
+        // reports without leaking stack traces or internal paths (finding 5).
+        var errorId = Guid.NewGuid().ToString("n")[..8];
+        _logger.LogInformation("Generating A2UI (errorId={ErrorId}) for: {Request}", errorId, userRequest);
 
-            var systemPrompt = @"You are a UI generator. Given a user request, generate A2UI v0.9 components.
+        var secondaryChatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+
+        var systemPrompt = @"You are a UI generator. Given a user request, generate A2UI v0.9 components.
 You MUST respond with ONLY a JSON object (no markdown, no explanation) with this exact structure:
 {
   ""surfaceId"": ""dynamic-surface"",
@@ -286,50 +411,145 @@ You MUST respond with ONLY a JSON object (no markdown, no explanation) with this
 The root component must have id ""root"".
 Available components: Row, Column, Text, Card, Button, Badge, Table, Chart.";
 
-            var messages = new List<ChatMessage>
-            {
-                new(ChatRole.System, systemPrompt),
-                new(ChatRole.User, userRequest)
-            };
-
-            var result = secondaryChatClient.GetResponseAsync(messages).GetAwaiter().GetResult();
-            var content = result.Text;
-
-            var args = JsonDocument.Parse(content).RootElement;
-            var surfaceId = args.TryGetProperty("surfaceId", out var sid) ? sid.GetString() ?? "dynamic-surface" : "dynamic-surface";
-            var catalogId = args.TryGetProperty("catalogId", out var cid) ? cid.GetString() ?? "copilotkit://app-dashboard-catalog" : "copilotkit://app-dashboard-catalog";
-
-            var ops = new List<object>
-            {
-                new { type = "create_surface", surfaceId, catalogId },
-                new { type = "update_components", surfaceId,
-                      components = JsonSerializer.Deserialize<object[]>(args.GetProperty("components").GetRawText()) }
-            };
-
-            if (args.TryGetProperty("data", out var dataElement) && dataElement.ValueKind != JsonValueKind.Null)
-            {
-                ops.Add(new { type = "update_data_model", surfaceId,
-                             data = JsonSerializer.Deserialize<object>(dataElement.GetRawText()) });
-            }
-
-            return JsonSerializer.Serialize(new { a2ui_operations = ops });
-        }
-        catch (Exception ex)
+        var messages = new List<ChatMessage>
         {
-            _logger.LogError(ex, "Failed to generate A2UI");
-            return JsonSerializer.Serialize(new { error = ex.Message });
+            new(ChatRole.System, systemPrompt),
+            new(ChatRole.User, userRequest),
+        };
+
+        // Finding 6: no more `.GetAwaiter().GetResult()` — await directly so
+        // we don't block a thread-pool thread on the outbound LLM call.
+        // Finding 5 + 7: catch only the expected failure modes; programmer
+        // errors (NullReferenceException, OutOfMemoryException, etc.) should
+        // propagate. Return a user-facing structured error that does NOT
+        // include ex.Message verbatim — log the full exception server-side
+        // with the correlation id.
+        string content;
+        try
+        {
+            var result = await secondaryChatClient.GetResponseAsync(messages, cancellationToken: cancellationToken).ConfigureAwait(false);
+            content = result.Text;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): upstream transport failure", errorId);
+            return StructuredError("upstream_unavailable", "The upstream AI service is currently unreachable. Please retry.", "Retry the request in a few seconds.", errorId);
+        }
+        catch (ClientResultException ex)
+        {
+            // Thrown by OpenAI / Microsoft.Extensions.AI when the upstream
+            // responds with a non-success status (rate limit, bad request,
+            // auth failure, etc.). We know the status but do not surface it
+            // verbatim to the model — avoids leaking provider internals.
+            _logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): upstream returned error status {Status}", errorId, ex.Status);
+            return StructuredError("upstream_error", "The upstream AI service returned an error.", "Try rephrasing the request or retrying later.", errorId);
+        }
+        catch (OperationCanceledException)
+        {
+            // Cancellation is a normal signal — don't log as error; caller
+            // decides how to handle. Return a minimal structured error so the
+            // LLM doesn't spin re-trying.
+            throw;
+        }
+
+        // JsonDocument.Parse can throw JsonException on malformed input
+        // (finding 7). Previously unguarded; now isolated from parse-the-
+        // shape errors below so we can return a precise remediation.
+        JsonDocument? jsonDoc;
+        try
+        {
+            jsonDoc = JsonDocument.Parse(content);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): LLM returned malformed JSON", errorId);
+            return StructuredError("malformed_llm_output", "The UI generator produced output that wasn't valid JSON.", "Ask the user to rephrase their request — the model sometimes adds explanatory text around the JSON.", errorId);
+        }
+
+        using (jsonDoc)
+        {
+            try
+            {
+                var args = jsonDoc.RootElement;
+
+                if (args.ValueKind != JsonValueKind.Object)
+                {
+                    _logger.LogError("GenerateA2ui (errorId={ErrorId}): LLM output was JSON but not an object (kind={Kind})", errorId, args.ValueKind);
+                    return StructuredError("malformed_llm_output", "The UI generator output was JSON but not the expected object shape.", "Retry or adjust the prompt.", errorId);
+                }
+
+                var surfaceId = args.TryGetProperty("surfaceId", out var sid) ? sid.GetString() ?? "dynamic-surface" : "dynamic-surface";
+                var catalogId = args.TryGetProperty("catalogId", out var cid) ? cid.GetString() ?? "copilotkit://app-dashboard-catalog" : "copilotkit://app-dashboard-catalog";
+
+                if (!args.TryGetProperty("components", out var componentsElement) || componentsElement.ValueKind != JsonValueKind.Array)
+                {
+                    _logger.LogError("GenerateA2ui (errorId={ErrorId}): LLM output missing 'components' array", errorId);
+                    return StructuredError("malformed_llm_output", "The UI generator output didn't include a components array.", "Retry the request.", errorId);
+                }
+
+                var ops = new List<object>
+                {
+                    new { type = "create_surface", surfaceId, catalogId },
+                    new
+                    {
+                        type = "update_components",
+                        surfaceId,
+                        components = JsonSerializer.Deserialize<object[]>(componentsElement.GetRawText()),
+                    },
+                };
+
+                if (args.TryGetProperty("data", out var dataElement) && dataElement.ValueKind != JsonValueKind.Null)
+                {
+                    ops.Add(new
+                    {
+                        type = "update_data_model",
+                        surfaceId,
+                        data = JsonSerializer.Deserialize<object>(dataElement.GetRawText()),
+                    });
+                }
+
+                return JsonSerializer.Serialize(new { a2ui_operations = ops });
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): shape deserialization failed", errorId);
+                return StructuredError("malformed_llm_output", "The UI generator output didn't match the expected structure.", "Retry the request.", errorId);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): argument validation failed", errorId);
+                return StructuredError("invalid_argument", "One of the arguments was invalid.", "Check the request shape and retry.", errorId);
+            }
         }
     }
+
+    // Structured error payload returned to the LLM/caller. We deliberately
+    // keep this short and categorical — no raw exception messages, no paths,
+    // no internal identifiers beyond the correlation id.
+    private static string StructuredError(string category, string message, string remediation, string errorId) =>
+        JsonSerializer.Serialize(new
+        {
+            error = category,
+            message,
+            remediation,
+            errorId,
+        });
 }
 
 // =================
 // Data Models
 // =================
 
-public class SalesStateSnapshot
+// SalesStateSnapshot is the wire-format shape: what the model emits via
+// JSON Schema and what we serialize as DataContent on the outbound side.
+// Previously this was a separate mutable class that duplicated SalesState.
+// Finding 9: make it an immutable record wrapping the same list type as
+// SalesState exposes, with explicit JsonPropertyName so the schema name
+// doesn't drift from PascalCase to camelCase under default policies.
+public sealed record SalesStateSnapshot(
+    [property: JsonPropertyName("todos")] IReadOnlyList<SalesTodo> Todos)
 {
-    [JsonPropertyName("todos")]
-    public List<SalesTodo> Todos { get; set; } = [];
+    public SalesStateSnapshot() : this(Array.Empty<SalesTodo>()) { }
 }
 
 public class WeatherInfo
@@ -361,7 +581,12 @@ public partial class Program { }
 [JsonSerializable(typeof(SalesStateSnapshot))]
 [JsonSerializable(typeof(SalesTodo))]
 [JsonSerializable(typeof(List<SalesTodo>))]
+[JsonSerializable(typeof(IReadOnlyList<SalesTodo>))]
+[JsonSerializable(typeof(SalesStage))]
+[JsonSerializable(typeof(Currency))]
 [JsonSerializable(typeof(WeatherInfo))]
 [JsonSerializable(typeof(FlightInfo))]
 [JsonSerializable(typeof(List<FlightInfo>))]
+[JsonSerializable(typeof(FlightStatus))]
+[JsonSerializable(typeof(DateOnly))]
 internal sealed partial class SalesAgentSerializerContext : JsonSerializerContext;
