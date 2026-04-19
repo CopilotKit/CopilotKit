@@ -101,6 +101,25 @@ const FRAMEWORKS: FrameworkDef[] = [
     agentDir: "agent",
     devScript:
       'concurrently "next dev --turbopack" "npx @langchain/langgraph-cli dev --config agent/langgraph.json --host 0.0.0.0 --port 8123 --no-browser"',
+    // Agent runtime deps — langgraph-cli loads agent/graph.ts in its own
+    // module context and needs these to resolve. Previously these lived
+    // only in `agent/package.json`, which the typescript Dockerfile
+    // deliberately deletes (to collapse the ESM package boundary between
+    // the Next.js frontend and the agent subtree). Without merging them
+    // into the top-level package.json, the runtime import of graph.ts
+    // fails with `Cannot find module '@langchain/openai'` and the agent
+    // never starts listening on 8123, so /api/health stays at
+    // `agent: "down"`. @langchain/langgraph-cli is here too so `npx`
+    // resolves the binary out of /app/node_modules rather than
+    // re-downloading it on every container boot.
+    extraDependencies: {
+      "@copilotkit/sdk-js": "1.51.4",
+      "@langchain/core": "^1.0.1",
+      "@langchain/langgraph": "1.0.2",
+      "@langchain/langgraph-checkpoint": "1.0.0",
+      "@langchain/langgraph-cli": "^1.1.17",
+      "@langchain/openai": "^1.1.3",
+    },
   },
   {
     slug: "pydantic-ai",
@@ -529,6 +548,27 @@ else
   exit 1
 fi`;
 
+// Previously the entrypoint used:
+//
+//   cmd 2>&1 | sed 's/^/[agent] /' &
+//   AGENT_PID=$!
+//
+// After a pipeline, `$!` points to the LAST command in the pipe (the `sed`
+// process), not the agent. Every subsequent `kill -0 $AGENT_PID` and
+// `wait -n $AGENT_PID` was therefore monitoring `sed`, which stays alive
+// until its stdin closes — long after the agent has crashed. That masked
+// real crashes from the health probe and kept the container "alive" while
+// the agent was dead. `sed` also line-buffers by default, so a stack trace
+// emitted at module import could sit in userspace memory until the pipe
+// closed and never reach the container log.
+//
+// Process substitution (`&> >(awk …)`) redirects both streams without
+// creating a pipeline, so `$!` remains the agent's PID. `awk` with
+// `fflush()` line-flushes each prefixed line so crash output reaches the
+// container log immediately. Paired with `PYTHONUNBUFFERED=1` in
+// entrypoint.template.sh so Python-based agents don't buffer before awk.
+const AGENT_LOG_PREFIX = `&> >(awk '{print "[agent] " $0; fflush()}')`;
+
 function getEntrypointBlock(fw: FrameworkDef): string {
   switch (fw.language) {
     case "python":
@@ -538,13 +578,13 @@ python -m langgraph_cli dev \\
   --config langgraph.json \\
   --host 0.0.0.0 \\
   --port 8123 \\
-  --no-browser 2>&1 | sed 's/^/[agent] /' &
+  --no-browser ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
 sleep 3
 ${AGENT_HEALTH_CHECK}`;
       }
       return `echo "[entrypoint] Starting Python agent server on port 8123..."
-cd /app && python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 2>&1 | sed 's/^/[agent] /' &
+cd /app && python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
 sleep 2
 ${AGENT_HEALTH_CHECK}`;
@@ -555,32 +595,32 @@ npx @langchain/langgraph-cli dev \\
   --config agent/langgraph.json \\
   --host 0.0.0.0 \\
   --port 8123 \\
-  --no-browser 2>&1 | sed 's/^/[agent] /' &
+  --no-browser ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
 sleep 3
 ${AGENT_HEALTH_CHECK}`;
       }
       if (fw.slug === "mastra") {
         return `echo "[entrypoint] Starting Mastra agent on port 8123..."
-PORT=8123 npx mastra dev 2>&1 | sed 's/^/[agent] /' &
+PORT=8123 npx mastra dev ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
 sleep 3
 ${AGENT_HEALTH_CHECK}`;
       }
       return `echo "[entrypoint] Starting TypeScript agent on port 8123..."
-npx tsx agent/index.ts 2>&1 | sed 's/^/[agent] /' &
+npx tsx agent/index.ts ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
 sleep 2
 ${AGENT_HEALTH_CHECK}`;
     case "java":
       return `echo "[entrypoint] Starting Spring AI agent on port 8123..."
-java -jar agent/app.jar --server.port=8123 2>&1 | sed 's/^/[agent] /' &
+java -jar agent/app.jar --server.port=8123 ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
 sleep 5
 ${AGENT_HEALTH_CHECK}`;
     case "csharp":
       return `echo "[entrypoint] Starting .NET agent on port 8123..."
-cd agent && dotnet ProverbsAgent.dll --urls http://0.0.0.0:8123 2>&1 | sed 's/^/[agent] /' &
+cd agent && dotnet ProverbsAgent.dll --urls http://0.0.0.0:8123 ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
 cd /app
 sleep 3
@@ -912,15 +952,53 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     }
 
     // For langgraph starters: convert relative imports to absolute
-    // because langgraph_cli loads modules standalone, not as packages
+    // because langgraph_cli loads modules standalone, not as packages.
+    //
+    // Resolution-aware: `from .<X> import ...` resolves to the CURRENT
+    // package, but sibling imports cross directories. For
+    // langgraph-fastapi, `agent.py` sits at `<agentDir>/src/agent.py` and
+    // references `.tools`, but `tools/` lives at `<agentDir>/tools/` (one
+    // level up, not inside `src/`). A flat rewrite at the file's own
+    // depth produces `<agentDir>.src.tools` which doesn't exist, and the
+    // agent crashes with `ModuleNotFoundError` during module load.
+    //
+    // For each `from .<firstSeg>... import ...`, walk UP from the file's
+    // own dir toward agentDest and rebase the absolute import on the
+    // shallowest directory that actually contains `<firstSeg>/` or
+    // `<firstSeg>.py`. This is correct both for co-located files
+    // (tools/get_weather.py importing `.types`) and for files that
+    // previously depended on `sys.path.insert` shims to reach a sibling
+    // directory (src/agent.py importing `.tools` from `../tools`).
     if (fw.slug.startsWith("langgraph-")) {
       const lgAgentMod = fw.agentDir.replace(/\//g, ".");
       forEachPyFile(agentDest, (fp) => {
         let content = fs.readFileSync(fp, "utf-8");
-        // from .X import -> from <agentMod>.X import
+        const fileDir = path.dirname(fp);
+        const relFromAgent = path.relative(agentDest, fileDir);
+        const subPkgParts = relFromAgent.split(path.sep).filter(Boolean);
         content = content.replace(
           /^from \.([\w.]+) import/gm,
-          `from ${lgAgentMod}.$1 import`,
+          (_match, dotted: string) => {
+            // dotted is e.g. "tools" or "tools.types"; the first segment
+            // must resolve to a real package dir or module file.
+            const firstSeg = dotted.split(".")[0];
+            const parts = [...subPkgParts];
+            while (parts.length >= 0) {
+              const candidateDir = path.join(agentDest, ...parts);
+              const asDir = path.join(candidateDir, firstSeg);
+              const asFile = path.join(candidateDir, `${firstSeg}.py`);
+              if (fs.existsSync(asDir) || fs.existsSync(asFile)) {
+                const basePkg = parts.length
+                  ? `${lgAgentMod}.${parts.join(".")}`
+                  : lgAgentMod;
+                return `from ${basePkg}.${dotted} import`;
+              }
+              if (parts.length === 0) break;
+              parts.pop();
+            }
+            // Fallback: preserve the original flat-rewrite behavior.
+            return `from ${lgAgentMod}.${dotted} import`;
+          },
         );
         fs.writeFileSync(fp, content);
       });
