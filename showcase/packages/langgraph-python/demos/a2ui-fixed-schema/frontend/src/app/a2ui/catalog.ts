@@ -15,7 +15,9 @@ import { flightRenderers } from "./renderers";
 
 export const CATALOG_ID = "copilotkit://flight-fixed-catalog";
 
+// @region[catalog-creation]
 export const fixedCatalog = createCatalog(flightDefinitions, flightRenderers, {
   catalogId: CATALOG_ID,
   includeBasicCatalog: true,
 });
+// @endregion[catalog-creation]

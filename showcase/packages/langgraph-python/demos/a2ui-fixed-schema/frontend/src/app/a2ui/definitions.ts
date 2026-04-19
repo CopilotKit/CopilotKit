@@ -13,6 +13,7 @@
 import { z } from "zod";
 import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
 
+// @region[definitions-types]
 export const flightDefinitions = {
   Title: {
     description: "A prominent heading for the flight card.",
@@ -43,5 +44,6 @@ export const flightDefinitions = {
     }),
   },
 } satisfies CatalogDefinitions;
+// @endregion[definitions-types]
 
 export type FlightDefinitions = typeof flightDefinitions;

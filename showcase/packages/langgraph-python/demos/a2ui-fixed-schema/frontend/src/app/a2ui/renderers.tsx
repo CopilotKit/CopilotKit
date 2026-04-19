@@ -10,6 +10,7 @@ import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
 
 import type { FlightDefinitions } from "./definitions";
 
+// @region[renderers-tsx]
 export const flightRenderers: CatalogRenderers<FlightDefinitions> = {
   Title: ({ props }) => (
     <div
@@ -62,3 +63,4 @@ export const flightRenderers: CatalogRenderers<FlightDefinitions> = {
     </span>
   ),
 };
+// @endregion[renderers-tsx]

@@ -1,0 +1,184 @@
+---
+title: "Fixed Schema A2UI"
+icon: "lucide/FileJson"
+description: "Pre-defined A2UI schema with dynamic data. The fastest approach — no LLM schema generation needed."
+hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: a2ui-fixed-schema
+---
+
+In the fixed-schema approach, you design the UI schema once (by hand,
+or using the [A2UI Composer](https://a2ui-composer.ag-ui.com/)) and
+save it as JSON next to your agent. The agent tool only provides the
+*data* — the surface appears instantly when the tool returns because
+nothing has to be generated at runtime.
+
+<InlineDemo integration="langgraph-python" demo="a2ui-fixed-schema" />
+
+## How it works
+
+1. The schema is loaded from a JSON file at startup via
+   `a2ui.load_schema(...)`.
+2. The agent tool receives data from the primary LLM (e.g. a flight
+   search result).
+3. The tool returns `a2ui.render(...)` with `createSurface` +
+   `updateComponents` + `updateDataModel` operations.
+4. The A2UI middleware intercepts the tool result and the frontend
+   renders the surface using the matching client catalog.
+
+## Schemas as JSON: compositional trees
+
+The showcase's `a2ui-fixed-schema` cell ships a flight card assembled
+compositionally from small sub-components rather than one monolithic
+`FlightCard`:
+
+```
+Card
+ └─ Column
+     ├─ Title        ("Flight Details")
+     ├─ Row          (Airport → Arrow → Airport)
+     ├─ Row          (AirlineBadge · PriceTag)
+     └─ Button       (Book)
+```
+
+That tree lives in `backend/schemas/flight_schema.json`. Components
+without data bindings (like `Title` or `Arrow`) carry their value
+inline; components bound to the LLM's data (like `Airport`) reference
+fields via JSON Pointer paths such as `{ "path": "/origin" }`. The
+A2UI binder resolves those paths *before* the React renderer runs, so
+renderer props are typed as their resolved values (plain `z.string()`,
+not a path-or-literal union).
+
+## The 5-component custom catalog
+
+The frontend catalog declares just the domain-specific primitives —
+Title, Airport, Arrow, AirlineBadge, PriceTag — and merges in
+CopilotKit's basic catalog (Card, Column, Row, Text, Button, …) via
+`includeBasicCatalog: true`.
+
+<Steps>
+<Step>
+### Declare the component definitions
+
+Each component declares its props as a Zod schema. Props are the
+*resolved* values, never the path expressions:
+
+<Snippet region="definitions-types" />
+</Step>
+
+<Step>
+### Implement the React renderers
+
+TypeScript enforces that the renderer map's keys and prop shapes
+match the definitions exactly — refactors stay safe:
+
+<Snippet region="renderers-tsx" />
+</Step>
+
+<Step>
+### Wire the catalog
+
+`createCatalog(..., { includeBasicCatalog: true })` merges the custom
+renderers with CopilotKit's built-ins so the schema can reference
+`Card`, `Column`, `Row`, `Button` alongside the domain primitives:
+
+<Snippet region="catalog-creation" />
+</Step>
+
+<Step>
+### Load the schema JSON at startup
+
+`a2ui.load_schema(path)` is a thin `json.load` wrapper — it parses the
+schema file once at module-import time. The sibling `booked_schema.json`
+is kept ready for the button-click "booked" optimistic swap (see the
+note on action handlers below):
+
+<Snippet region="backend-schema-json-load" />
+</Step>
+
+<Step>
+### Return render operations from the tool
+
+The `display_flight` tool returns `a2ui.render(operations=[…])`. The
+A2UI middleware detects the operations container in the tool result
+and forwards it to the frontend renderer. The LLM only generates the
+four data fields (`origin`, `destination`, `airline`, `price`) — the
+schema does the rest:
+
+<Snippet region="backend-render-operations" />
+</Step>
+</Steps>
+
+## Why compositional beats monolithic
+
+A single big `FlightCard` component would be faster to write but would
+lock the design in place. Assembling the card from Card / Column /
+Row / Title / Airport / Arrow / AirlineBadge / PriceTag gives you:
+
+- **Reusable primitives** — the same `Airport` renderer works in
+  search results, booking confirmations, and future seat maps.
+- **Schema-level design iteration** — re-arranging rows or swapping a
+  badge requires only a JSON edit; the renderer code is untouched.
+- **A2UI Composer compatibility** — hand-written and Composer-built
+  schemas share the same primitive vocabulary.
+
+## Registering the runtime
+
+On the TypeScript side, A2UI's middleware auto-detects the operations
+in any tool result — so even with a fixed schema, the minimum setup
+is `a2ui: {}`. The `a2ui-fixed-schema` cell happens to also keep
+`injectA2UITool: true` so the same agent can be pointed at
+dynamic-schema workflows later without re-configuring.
+
+```typescript title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { "a2ui-fixed-schema": agent },
+  a2ui: { injectA2UITool: true, agents: ["a2ui-fixed-schema"] },
+});
+```
+
+## Action handlers (reference)
+
+The canonical reference pairs fixed schemas with
+`action_handlers={...}` to declare optimistic UI swaps (e.g. replacing
+the flight schema with `BOOKED_SCHEMA` when the user clicks "Book").
+The Python SDK's `a2ui.render` does not yet accept `action_handlers`,
+so the cell omits them — the `booked_schema.json` sibling is retained
+so the swap can be wired up the moment the SDK exposes the handler
+kwarg.
+
+When available, a button declares its action like this:
+
+```json
+{
+  "Button": {
+    "label": "Book",
+    "action": {
+      "name": "book_flight",
+      "context": [
+        { "key": "flightNumber", "value": { "path": "/flightNumber" } },
+        { "key": "price", "value": { "path": "/price" } }
+      ]
+    }
+  }
+}
+```
+
+And the Python tool matches it with a handler keyed by the action
+name (plus a `"*"` catch-all). Until the SDK lands, see the reference
+[fixed-schema guide](https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui/fixed-schema)
+for the full pattern.
+
+## When should I use fixed schemas?
+
+- The surface is well-known — flight cards, product tiles, order
+  summaries, dashboards.
+- You want deterministic, designer-controlled UI. No LLM schema drift.
+- You want the fastest possible first paint — no secondary LLM call.
+
+If the UI must adapt per prompt, reach for
+**[dynamic schemas](./dynamic-schema)** instead.
+
+## Choose your AI backend
+
+<IntegrationGrid path="generative-ui/a2ui" />

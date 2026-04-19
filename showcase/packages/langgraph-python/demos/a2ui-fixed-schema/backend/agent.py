@@ -26,10 +26,12 @@ SURFACE_ID = "flight-fixed-schema"
 
 _SCHEMAS_DIR = Path(__file__).parent / "schemas"
 
+# @region[backend-schema-json-load]
 # Schemas are JSON so they can be authored and reviewed independently of the
 # Python code. `a2ui.load_schema` is just a thin `json.load` wrapper.
 FLIGHT_SCHEMA = a2ui.load_schema(_SCHEMAS_DIR / "flight_schema.json")
 BOOKED_SCHEMA = a2ui.load_schema(_SCHEMAS_DIR / "booked_schema.json")
+# @endregion[backend-schema-json-load]
 
 
 class Flight(TypedDict):
@@ -53,6 +55,7 @@ def display_flight(origin: str, destination: str, airline: str, price: str) -> s
     Use short airport codes (e.g. "SFO", "JFK") for origin/destination and a
     price string like "$289".
     """
+    # @region[backend-render-operations]
     # The A2UI middleware detects the `a2ui_operations` container in this
     # tool result and forwards the ops to the frontend renderer. The frontend
     # catalog resolves `FlightCard` to the local React component.
@@ -79,6 +82,7 @@ def display_flight(origin: str, destination: str, airline: str, price: str) -> s
         # so we omit it for now. The `booked_schema.json` sibling is kept
         # so the schema is ready to wire up once the SDK exposes handlers.
     )
+    # @endregion[backend-render-operations]
 
 
 graph = create_agent(
