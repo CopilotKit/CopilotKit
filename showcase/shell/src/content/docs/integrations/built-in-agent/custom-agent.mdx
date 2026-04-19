@@ -1,6 +1,240 @@
 ---
-title: "Factory Mode"
+title: Factory Mode
 icon: "lucide/Blocks"
-description: "Use BuiltInAgent's factory mode to bring your own AI SDK, TanStack AI, or custom LLM backend."
+description: Use BuiltInAgent's factory mode to bring your own AI SDK, TanStack AI, or custom LLM backend.
 ---
-<CustomAgent />
+
+`BuiltInAgent`'s **factory mode** gives you full control over the LLM call. You provide a factory function that talks to any backend — CopilotKit handles converting the stream to AG-UI events, managing lifecycle, and wiring it into the runtime.
+
+## Simple Mode vs Factory Mode
+
+|  | Simple Mode | Factory Mode |
+|---|---|---|
+| **Setup** | Minimal — pass a model string | You own the LLM call and stream |
+| **Model resolution** | Built-in (`"openai:gpt-4o"`) | You wire up the model yourself |
+| **Tools, MCP, state tools** | Automatically wired | You wire them in your factory |
+| **Backend support** | Vercel AI SDK only | Any backend: AI SDK, TanStack AI, or custom |
+| **Best for** | Quick setup, standard use cases | Full control, non-standard backends |
+
+<Callout type="info">
+If simple mode covers your needs, stick with it — it's simpler. Reach for factory mode only when you need control simple mode doesn't offer.
+</Callout>
+
+## Quick start
+
+You have an existing LLM backend and you want a CopilotKit copilot using it.
+
+### AI SDK
+
+```typescript title="src/copilotkit.ts"
+import {
+  CopilotRuntime,
+  createCopilotEndpoint,
+  InMemoryAgentRunner,
+  BuiltInAgent,
+  convertMessagesToVercelAISDKMessages,
+} from "@copilotkit/runtime/v2";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+const agent = new BuiltInAgent({
+  type: "aisdk",
+  factory: ({ input, abortSignal }) =>
+    streamText({
+      model: openai("gpt-4o"),
+      messages: convertMessagesToVercelAISDKMessages(input.messages),
+      abortSignal,
+    }),
+});
+
+const runtime = new CopilotRuntime({
+  agents: { default: agent },
+  runner: new InMemoryAgentRunner(),
+});
+
+const copilotEndpoint = createCopilotEndpoint({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+export default copilotEndpoint;
+```
+
+### TanStack AI
+
+```typescript title="src/copilotkit.ts"
+import {
+  CopilotRuntime,
+  createCopilotEndpoint,
+  InMemoryAgentRunner,
+  BuiltInAgent,
+  convertInputToTanStackAI,
+} from "@copilotkit/runtime/v2";
+import { chat } from "@tanstack/ai";
+import { openaiText } from "@tanstack/ai-openai";
+
+const agent = new BuiltInAgent({
+  type: "tanstack",
+  factory: ({ input, abortController }) => {
+    const { messages, systemPrompts } = convertInputToTanStackAI(input);
+    return chat({
+      adapter: openaiText("gpt-4o"),
+      messages,
+      systemPrompts,
+      abortController,
+    });
+  },
+});
+```
+
+### Custom backend
+
+```typescript title="src/copilotkit.ts"
+import {
+  CopilotRuntime,
+  createCopilotEndpoint,
+  InMemoryAgentRunner,
+  BuiltInAgent,
+} from "@copilotkit/runtime/v2";
+import { EventType, type BaseEvent } from "@ag-ui/client";
+
+const agent = new BuiltInAgent({
+  type: "custom",
+  factory: async function* ({ input, abortSignal }) {
+    const response = await fetch("https://your-llm-api.com/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: input.messages }),
+      signal: abortSignal,
+    });
+
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    const messageId = crypto.randomUUID();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      yield {
+        type: EventType.TEXT_MESSAGE_CHUNK,
+        role: "assistant",
+        messageId,
+        delta: decoder.decode(value),
+      } as BaseEvent;
+    }
+  },
+});
+```
+
+The frontend setup is the same as Simple Mode — wrap your app with `<CopilotKitProvider>` and drop in a chat component.
+
+## How factory mode works
+
+Factory mode accepts a config with two fields:
+
+- **`type`** — which backend you're using: `"aisdk"`, `"tanstack"`, or `"custom"`
+- **`factory`** — a function that receives the raw request and returns a backend-native stream
+
+The factory receives an `AgentFactoryContext` (from `@copilotkit/runtime/v2`):
+
+```typescript
+interface AgentFactoryContext {
+  input: RunAgentInput; // messages, tools, state, context, threadId, runId, forwardedProps
+  abortController: AbortController; // for TanStack AI (requires AbortController)
+  abortSignal: AbortSignal; // preferred for AI SDK, fetch, and custom backends
+}
+```
+
+CopilotKit handles everything else: `RUN_STARTED` and `RUN_FINISHED` lifecycle events, stream-to-AG-UI conversion, error handling, and abort/cancellation. Your factory never needs to emit lifecycle events.
+
+The factory can be async — return a `Promise` if you need to do setup before streaming:
+
+```typescript
+factory: async ({ input, abortSignal }) => {
+  const apiKey = await getApiKeyFromVault();
+  return streamText({ model: openai("gpt-4o", { apiKey }), ... });
+};
+```
+
+## With tools
+
+Frontend tools (registered via `useFrontendTool` / `useComponent` / `useHumanInTheLoop`) arrive on `input.tools`. Convert them for your backend:
+
+```typescript title="AI SDK with tools"
+import {
+  BuiltInAgent,
+  convertMessagesToVercelAISDKMessages,
+  convertToolsToVercelAITools,
+} from "@copilotkit/runtime/v2";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+const agent = new BuiltInAgent({
+  type: "aisdk",
+  factory: ({ input, abortSignal }) => {
+    const tools = convertToolsToVercelAITools(input.tools);
+    return streamText({
+      model: openai("gpt-4o"),
+      messages: convertMessagesToVercelAISDKMessages(input.messages),
+      tools,
+      abortSignal,
+    });
+  },
+});
+```
+
+### Custom: yield AG-UI events directly
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { EventType, type BaseEvent } from "@ag-ui/client";
+
+const agent = new BuiltInAgent({
+  type: "custom",
+  factory: async function* ({ input }) {
+    const messageId = crypto.randomUUID();
+    const toolCallId = crypto.randomUUID();
+
+    yield {
+      type: EventType.TOOL_CALL_START,
+      parentMessageId: messageId,
+      toolCallId,
+      toolCallName: "getWeather",
+    } as BaseEvent;
+
+    yield {
+      type: EventType.TOOL_CALL_ARGS,
+      toolCallId,
+      delta: JSON.stringify({ city: "San Francisco" }),
+    } as BaseEvent;
+
+    yield {
+      type: EventType.TOOL_CALL_END,
+      toolCallId,
+    } as BaseEvent;
+
+    yield {
+      type: EventType.TOOL_CALL_RESULT,
+      role: "tool",
+      messageId: crypto.randomUUID(),
+      toolCallId,
+      content: JSON.stringify({ temp: 72, city: "San Francisco" }),
+    } as BaseEvent;
+
+    yield {
+      type: EventType.TEXT_MESSAGE_CHUNK,
+      role: "assistant",
+      messageId,
+      delta: "The weather in San Francisco is 72°F.",
+    } as BaseEvent;
+  },
+});
+```
+
+With `type: "custom"` you yield AG-UI events directly. See [AG-UI](/docs/built-in-agent/ag-ui) for the full event reference.
+
+## Tips
+
+- **Pick the type that matches your ecosystem** — AI SDK for Vercel-style stacks, TanStack AI for TanStack apps, Custom when you have an existing LLM gateway or a non-streaming API you want to wrap.
+- **Use `abortSignal`** — forward it to every upstream `fetch` / SDK call so cancellation works end-to-end.
+- **Convert helpers exist for a reason** — `convertMessagesToVercelAISDKMessages`, `convertToolsToVercelAITools`, `convertInputToTanStackAI` handle the shape differences so you don't have to.
+- **Agent state is your responsibility in custom mode** — if you want `agent.state` to update mid-run, emit `STATE_SNAPSHOT` / `STATE_DELTA` events yourself.

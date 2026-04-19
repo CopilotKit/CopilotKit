@@ -1,7 +1,125 @@
 ---
 title: "AG-UI"
-icon: "lucide/Server"
-description: "The AG-UI protocol connects your frontend to your Built-in Agent via event-based Server-Sent Events (SSE)."
+icon: "lucide/Zap"
+description: "How CopilotKit uses the AG-UI protocol to connect your frontend to your Built-in Agent."
 ---
 
-<SharedContent />
+CopilotKit is built on the [AG-UI protocol](https://ag-ui.com) — a lightweight, event-based standard that defines how AI agents communicate with user-facing applications over Server-Sent Events (SSE).
+
+Everything in CopilotKit — messages, state updates, tool calls, and more — flows through AG-UI events. Understanding this layer helps you debug, extend, and build on top of CopilotKit more effectively.
+
+## Accessing your agent with `useAgent`
+
+The `useAgent` hook is your primary interface to the AG-UI agent powering your copilot. It returns an `AbstractAgent` from the AG-UI client library — the same base type that all AG-UI agents implement.
+
+```tsx
+import { useAgent } from "@copilotkit/react-core/v2";
+
+function MyComponent() {
+  const { agent } = useAgent();
+
+  // agent.messages   — conversation history
+  // agent.state      — current agent state
+  // agent.isRunning  — whether the agent is currently running
+}
+```
+
+If you have multiple agents, pass the `agentId` to select one:
+
+```tsx
+const { agent } = useAgent({ agentId: "research-agent" });
+```
+
+The returned `agent` is a standard AG-UI `AbstractAgent`. You can subscribe to its events, read its state, and interact with it using the same interface defined by the [AG-UI specification](https://docs.ag-ui.com).
+
+### Subscribing to AG-UI events
+
+Every agent exposes a `subscribe` method that lets you listen for specific AG-UI events as they stream in. Each callback receives the event and the current agent state:
+
+```tsx
+import { useAgent } from "@copilotkit/react-core/v2";
+import { useEffect } from "react";
+
+function MyComponent() {
+  const { agent } = useAgent();
+
+  useEffect(() => {
+    const subscription = agent.subscribe({
+      // Called on every event
+      onEvent({ event }) {
+        console.log("Event:", event.type, event);
+      },
+
+      // Text message streaming
+      onTextMessageContentEvent({ textMessageBuffer }) {
+        console.log("Streaming text:", textMessageBuffer);
+      },
+
+      // Tool calls
+      onToolCallEndEvent({ toolCallName, toolCallArgs }) {
+        console.log("Tool called:", toolCallName, toolCallArgs);
+      },
+
+      // State updates
+      onStateSnapshotEvent({ agent }) {
+        console.log("State snapshot:", agent.state);
+      },
+
+      // High-level lifecycle
+      onMessagesChanged({ agent }) {
+        console.log("Messages updated:", agent.messages);
+      },
+      onStateChanged({ agent }) {
+        console.log("State changed:", agent.state);
+      },
+    });
+
+    return () => subscription.unsubscribe();
+  }, [agent]);
+}
+```
+
+The full list of subscribable events maps directly to the [AG-UI event types](https://docs.ag-ui.com/concepts/events):
+
+| Event | Callback | Description |
+| --- | --- | --- |
+| Run lifecycle | `onRunStartedEvent`, `onRunFinishedEvent`, `onRunErrorEvent` | Agent run start, completion, and errors |
+| Steps | `onStepStartedEvent`, `onStepFinishedEvent` | Individual step boundaries within a run |
+| Text messages | `onTextMessageStartEvent`, `onTextMessageContentEvent`, `onTextMessageEndEvent` | Streaming text content from the agent |
+| Tool calls | `onToolCallStartEvent`, `onToolCallArgsEvent`, `onToolCallEndEvent`, `onToolCallResultEvent` | Tool invocation lifecycle |
+| State | `onStateSnapshotEvent`, `onStateDeltaEvent` | Full state snapshots and incremental deltas |
+| Messages | `onMessagesSnapshotEvent` | Full message list snapshots |
+| Custom | `onCustomEvent`, `onRawEvent` | Custom and raw events for extensibility |
+| High-level | `onMessagesChanged`, `onStateChanged` | Aggregate notifications after any message or state mutation |
+
+## The proxy pattern
+
+When you use CopilotKit with a runtime, your frontend never talks directly to your agent. Instead, CopilotKit creates a **proxy agent** on the frontend that forwards requests through the Copilot Runtime.
+
+On startup, CopilotKit calls the runtime's `/info` endpoint to discover which agents are available. Each agent is wrapped in a `ProxiedCopilotRuntimeAgent` — a thin client that extends AG-UI's `HttpAgent`. From your component's perspective, this proxy behaves identically to a local AG-UI agent: same `AbstractAgent` interface, same subscribe API, same properties. Under the hood, every `run` call is an HTTP request to your server, and every response is an SSE stream of AG-UI events flowing back.
+
+```tsx title="What your component sees"
+const { agent } = useAgent(); // Returns an AbstractAgent
+agent.messages; // Read messages
+agent.state; // Read state
+agent.subscribe({ /* … */ }); // Subscribe to events
+```
+
+```tsx title="What actually happens"
+// useAgent() → AgentRegistry checks /info → wraps each agent in ProxiedCopilotRuntimeAgent
+// agent.runAgent() → HTTP POST to runtime → runtime routes to your agent → SSE stream back
+```
+
+This indirection is what enables the runtime to provide authentication, middleware, agent routing, and premium features — without changing how you interact with agents on the frontend.
+
+## How the Built-in Agent slots into AG-UI
+
+Even though `BuiltInAgent` looks like a "single-function convenience", it's still an AG-UI `AbstractAgent` under the hood. When you register it with the runtime:
+
+1. A request comes in to your runtime endpoint
+2. The runtime resolves the target agent by ID (`"default"`, `"research-agent"`, …)
+3. It clones the agent (for thread safety) and populates messages, state, and thread context from the request
+4. The `AgentRunner` executes the agent, which produces a stream of AG-UI `BaseEvent`s
+5. Events are encoded as SSE and streamed back to the frontend proxy
+
+Because every agent is an `AbstractAgent`, the same plumbing routes requests to a `BuiltInAgent`, an `HttpAgent` pointing at a remote server, or any custom implementation you register alongside — the frontend never has to care.
