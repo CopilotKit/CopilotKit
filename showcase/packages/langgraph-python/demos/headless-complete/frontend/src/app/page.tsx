@@ -1,19 +1,21 @@
 "use client";
 
 /**
- * Headless Chat (Complete)
+ * Headless Chat (Complete) — TRULY headless.
  *
  * A full chat implementation built from scratch on `useAgent`, without using
- * `<CopilotChat />`. Demonstrates:
+ * `<CopilotChat />` AND without `<CopilotChatMessageView>` or
+ * `<CopilotChatAssistantMessage>`. Demonstrates:
  *   - scrollable messages area with auto-scroll to bottom on new messages
- *   - distinct user vs assistant bubbles (headless shells)
+ *   - distinct user vs assistant bubbles (pure chrome — no chat primitives)
  *   - text input + send button, disabled while running
  *   - stop button to cancel a running agent turn
- *   - the FULL generative UI composition — markdown text, reasoning cards,
- *     tool-call renderings (`useRenderTool` / `useDefaultRenderTool` /
- *     `useComponent` / `useFrontendTool`), A2UI activity messages, MCP Apps
- *     activity messages, and custom-message renderers — delegated to the
- *     canonical primitive `<CopilotChatMessageView>` from react-core v2.
+ *   - the FULL generative UI composition — text, reasoning cards, tool-call
+ *     renderings (`useRenderTool` / `useDefaultRenderTool` / `useComponent` /
+ *     `useFrontendTool`), A2UI activity messages, MCP Apps activity messages,
+ *     and custom-message renderers — re-composed by hand from the low-level
+ *     hooks (`useRenderToolCall`, `useRenderActivityMessage`,
+ *     `useRenderCustomMessages`) inside `use-rendered-messages.tsx`.
  *
  * This file is orchestration only — the provider, the agent wiring, and the
  * top-level send/stop handlers. Presentational pieces (message list, bubbles,
@@ -115,11 +117,12 @@ function Chat() {
   }, [agent]);
 
   // Wrap the chat body in a CopilotChatConfigurationProvider so that the
-  // rendering primitives (useRenderToolCall, useRenderActivityMessage,
-  // useRenderCustomMessages) see a matching (agentId, threadId) pair — without
-  // it, activity-message renderers wouldn't scope to this agent and custom
-  // message renderers would early-return null. This provider is independent
-  // of the <CopilotChat /> component; using it here keeps the surface fully
+  // rendering primitives used inside `useRenderedMessages`
+  // (useRenderToolCall, useRenderActivityMessage, useRenderCustomMessages)
+  // see a matching (agentId, threadId) pair — without it, activity-message
+  // renderers wouldn't scope to this agent and custom message renderers
+  // would early-return null. This provider is independent of the
+  // <CopilotChat /> component; using it here keeps the surface fully
   // headless while still unlocking the full generative-UI composition.
   return (
     <CopilotChatConfigurationProvider agentId={AGENT_ID} threadId={threadId}>
