@@ -99,14 +99,7 @@ agent = create_agent(
 
 Enable A2UI in your CopilotRuntime. The middleware auto-detects `render_a2ui` tool calls:
 
-```typescript title="app/api/copilotkit/route.ts"
-const runtime = new CopilotRuntime({
-  agents: { default: myAgent },
-  a2ui: {
-    injectA2UITool: true,
-  },
-});
-```
+<Snippet region="runtime-inject-tool" />
 </Step>
 </Steps>
 
