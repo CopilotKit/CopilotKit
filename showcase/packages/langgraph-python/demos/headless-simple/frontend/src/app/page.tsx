@@ -34,6 +34,7 @@ function ShowCard({ title, body }: { title: string; body: string }) {
 }
 
 function HeadlessChat() {
+  // @region[headless-hooks]
   const { agent } = useAgent({ agentId: "headless-simple" });
   const { copilotkit } = useCopilotKit();
   const [input, setInput] = useState("");
@@ -49,6 +50,7 @@ function HeadlessChat() {
   });
 
   const renderToolCall = useRenderToolCall();
+  // @endregion[headless-hooks]
 
   const send = () => {
     const text = input.trim();

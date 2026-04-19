@@ -22,6 +22,7 @@ function Chat() {
     "var(--copilot-kit-background-color)",
   );
 
+  // @region[frontend-tool]
   useFrontendTool({
     name: "change_background",
     description:
@@ -39,6 +40,7 @@ function Chat() {
       };
     },
   });
+  // @endregion[frontend-tool]
 
   useConfigureSuggestions({
     suggestions: [

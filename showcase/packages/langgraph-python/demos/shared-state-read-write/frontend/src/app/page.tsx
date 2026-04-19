@@ -37,10 +37,12 @@ export default function SharedStateReadWriteDemo() {
 }
 
 function DemoContent() {
+  // @region[use-agent]
   const { agent } = useAgent({
     agentId: "shared-state-read-write",
     updates: [UseAgentUpdate.OnStateChanged],
   });
+  // @endregion[use-agent]
 
   useConfigureSuggestions({
     suggestions: [
@@ -74,6 +76,7 @@ function DemoContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // @region[set-state]
   // WRITE: every edit in the sidebar goes straight into agent state.
   const handlePreferencesChange = (next: Preferences) => {
     agent.setState({
@@ -81,6 +84,7 @@ function DemoContent() {
       notes, // preserve what the agent has written
     } as RWAgentState);
   };
+  // @endregion[set-state]
 
   // WRITE: let the user clear the agent-authored notes from the UI.
   const handleClearNotes = () => {
