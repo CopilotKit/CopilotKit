@@ -16,6 +16,15 @@ import { WeatherCard } from "./weather-card";
 // for the tool call. No backend tool is invoked; the frontend owns both
 // execution and rendering.
 
+function parseJsonResult<T>(result: unknown): T {
+  if (!result) return {} as T;
+  try {
+    return (typeof result === "string" ? JSON.parse(result) : result) as T;
+  } catch {
+    return {} as T;
+  }
+}
+
 export default function ToolRenderingDemo() {
   return (
     <CopilotKit
@@ -49,13 +58,15 @@ function Chat() {
     },
     render: ({ args, result, status }) => {
       const loading = status !== "complete";
-      const parsed = (result ?? {}) as {
+      // When the handler returns an object, core JSON.stringifies it before
+      // delivering to the renderer (see run-handler.ts). Parse it back here.
+      const parsed = parseJsonResult<{
         city?: string;
         temperature?: number;
         humidity?: number;
         wind_speed?: number;
         conditions?: string;
-      };
+      }>(result);
 
       return (
         <WeatherCard
