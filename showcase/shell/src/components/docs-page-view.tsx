@@ -13,6 +13,7 @@ import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import { SidebarNav } from "@/components/sidebar-nav";
+import { SidebarLink } from "@/components/sidebar-link";
 import { Snippet } from "@/components/snippet";
 import { docsComponents } from "@/lib/mdx-registry";
 import {
@@ -109,20 +110,25 @@ export async function DocsPageView({
     }
     if (node.type === "page") {
       const isActive = node.slug === slugPath;
+      const scope: "docs" | "framework" = slugHrefPrefix.startsWith("/docs")
+        ? "docs"
+        : "framework";
       return (
-        <Link
-          key={node.slug}
-          href={`${slugHrefPrefix}/${node.slug}`}
-          data-active={isActive ? "true" : undefined}
-          className={`block py-[5px] text-[13px] transition-colors ${
-            isActive
-              ? "text-[var(--accent)] font-medium"
-              : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-          }`}
-          style={{ paddingLeft: `${indent}px` }}
-        >
-          {node.title}
-        </Link>
+        <div style={{ paddingLeft: `${indent}px` }} key={node.slug}>
+          <SidebarLink
+            slug={node.slug}
+            scope={scope}
+            fallbackHref={`${slugHrefPrefix}/${node.slug}`}
+            active={isActive}
+            className={`block py-[5px] text-[13px] transition-colors ${
+              isActive
+                ? "text-[var(--accent)] font-medium"
+                : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+            }`}
+          >
+            {node.title}
+          </SidebarLink>
+        </div>
       );
     }
     return (
