@@ -1,24 +1,26 @@
 "use client";
 
 import React from "react";
+// v1 CopilotKit provider enables the v1 `useCoAgentStateRender` hook.
+// Under the hood it also wraps the v2 provider, so v2 components such as
+// `<CopilotChat />` and `useConfigureSuggestions` still work inside it.
+import { CopilotKit, useCoAgentStateRender } from "@copilotkit/react-core";
 import {
-  CopilotKit,
   CopilotChat,
-  useAgent,
-  UseAgentUpdate,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
-import { InlineAgentStateCard } from "./InlineAgentStateCard";
+import { InlineAgentStateCard, type Step } from "./InlineAgentStateCard";
 
 /**
- * Agentic Generative UI — In-Chat State Rendering
+ * Agentic Generative UI — v1 In-Chat State Rendering
  *
- * Demonstrates how to render intermediate agent state inline within the chat
- * transcript while a long-running agent task is in progress. The previous
- * v1 API `useCoAgentStateRender` has been replaced: in v2 you subscribe to
- * state updates via `useAgent({ updates: [OnStateChanged, OnRunStatusChanged] })`
- * and inject the rendered card through the `messageView.children` slot on
- * `<CopilotChat />`.
+ * The agent plans and executes a multi-step task, publishing a structured
+ * `steps` list to its LangGraph state via `copilotkit_emit_state`. The
+ * v1 `useCoAgentStateRender` hook subscribes to that state and renders an
+ * inline progress tracker inside the chat transcript — no `messageView`
+ * plumbing, no manual `useAgent` subscription.
+ *
+ * Reference: https://docs.copilotkit.ai/reference/v1/hooks/useCoAgentStateRender
  */
 export default function GenUiAgentDemo() {
   return (
@@ -32,62 +34,46 @@ export default function GenUiAgentDemo() {
   );
 }
 
-// The agent's state shape is open-ended; we render whatever keys it emits.
-type AgentState = Record<string, unknown> | undefined;
+// State shape mirrors the Python agent's `AgentState.steps` field.
+type AgentState = {
+  steps?: Step[];
+};
 
 function Chat() {
-  // Subscribe to state + run-status changes so the inline progress card
-  // re-renders whenever the agent emits a state update or toggles isRunning.
-  const { agent } = useAgent({
-    agentId: "gen-ui-agent",
-    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
-  });
-
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Run a 3-step task",
-        message:
-          "Run a 3-step task: fetch data, process it, then summarize the result.",
+        title: "Plan a product launch",
+        message: "Plan a product launch for a new mobile app.",
       },
       {
-        title: "Plan a project",
-        message: "Break this down into steps: planning a small web app launch.",
+        title: "Organize a team offsite",
+        message: "Organize a three-day engineering team offsite.",
+      },
+      {
+        title: "Research a competitor",
+        message:
+          "Research our top competitor and summarize their strengths and weaknesses.",
       },
     ],
     available: "always",
   });
 
-  const agentState = agent.state as AgentState;
-  const isRunning = agent.isRunning;
+  // @region[use-coagent-state-render]
+  // Subscribe to the agent's `steps` state. Every time the Python agent
+  // calls `copilotkit_emit_state({"steps": ...})`, this `render` function
+  // re-runs with the fresh state and an updated `status`
+  // ("inProgress" while the agent is running, "complete" when the node
+  // finishes). Returning a React element inlines the card into the chat.
+  useCoAgentStateRender<AgentState>({
+    name: "gen-ui-agent",
+    render: ({ state, status }) => {
+      const steps = state?.steps ?? [];
+      if (steps.length === 0) return null;
+      return <InlineAgentStateCard steps={steps} status={status} />;
+    },
+  });
+  // @endregion[use-coagent-state-render]
 
-  const stateEntries = agentState
-    ? Object.entries(agentState).filter(
-        ([, v]) => v !== undefined && v !== null,
-      )
-    : [];
-
-  return (
-    <CopilotChat
-      agentId="gen-ui-agent"
-      className="h-full rounded-2xl"
-      messageView={{
-        children: ({ messageElements, interruptElement }) => (
-          <div
-            data-testid="copilot-message-list"
-            className="flex flex-col gap-2"
-          >
-            {messageElements}
-            {(isRunning || stateEntries.length > 0) && (
-              <InlineAgentStateCard
-                isRunning={isRunning}
-                stateEntries={stateEntries}
-              />
-            )}
-            {interruptElement}
-          </div>
-        ),
-      }}
-    />
-  );
+  return <CopilotChat agentId="gen-ui-agent" className="h-full rounded-2xl" />;
 }
