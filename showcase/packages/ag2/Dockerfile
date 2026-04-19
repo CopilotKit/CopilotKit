@@ -41,4 +41,11 @@ RUN chmod +x entrypoint.sh
 
 EXPOSE 10000
 ENV NODE_ENV=production
+
+# Drop root before runtime: platforms like Railway enforce non-root by policy,
+# and `chown -R` covers every writable path the runtime process touches.
+RUN groupadd -g 1001 app && useradd -u 1001 -g 1001 -m -d /home/app -s /bin/bash app && \
+    chown -R app:app /app
+USER app
+
 CMD ["./entrypoint.sh"]
