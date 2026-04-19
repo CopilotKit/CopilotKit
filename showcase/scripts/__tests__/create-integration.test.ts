@@ -15,14 +15,7 @@
 // there. No real tracked file is ever mutated — no restorer, no git
 // invocation, no cross-suite shared state.
 
-import {
-  describe,
-  it,
-  expect,
-  beforeAll,
-  afterAll,
-  beforeEach,
-} from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
