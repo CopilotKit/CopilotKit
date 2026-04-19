@@ -1,80 +1,37 @@
 {
   "framework": "claude-sdk-typescript",
-  "features": [
-    {
-      "id": "agentic-chat",
-      "og_docs_url": "https://docs.copilotkit.ai/features/agentic-chat",
-      "og_docs_status": 200,
-      "shell_docs_url": "/docs/features/agentic-chat",
-      "shell_docs_status": 404,
-      "shell_docs_ok": false
+  "features": {
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/prebuilt-components",
+      "shell_docs_path": "/claude-sdk-typescript/unselected/prebuilt-components"
     },
-    {
-      "id": "hitl-in-chat",
-      "og_docs_url": "https://docs.copilotkit.ai/features/hitl-in-chat",
-      "og_docs_status": 200,
-      "shell_docs_url": "/docs/features/hitl-in-chat",
-      "shell_docs_status": 404,
-      "shell_docs_ok": false
+    "hitl-in-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/generative-ui/your-components/interactive",
+      "shell_docs_path": "/claude-sdk-typescript/unselected/generative-ui/your-components/interactive"
     },
-    {
-      "id": "tool-rendering",
-      "og_docs_url": "https://docs.copilotkit.ai/features/tool-rendering",
-      "og_docs_status": 200,
-      "shell_docs_url": "/docs/features/tool-rendering",
-      "shell_docs_status": 404,
-      "shell_docs_ok": false
+    "tool-rendering": {
+      "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/generative-ui/tool-rendering",
+      "shell_docs_path": "/claude-sdk-typescript/unselected/generative-ui/tool-rendering"
     },
-    {
-      "id": "gen-ui-tool-based",
-      "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-tool-based",
-      "og_docs_status": 200,
-      "shell_docs_url": "/docs/features/gen-ui-tool-based",
-      "shell_docs_status": 404,
-      "shell_docs_ok": false
+    "gen-ui-tool-based": {
+      "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/generative-ui/your-components/display-only",
+      "shell_docs_path": "/claude-sdk-typescript/unselected/generative-ui/your-components/display-only"
     },
-    {
-      "id": "gen-ui-agent",
-      "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-agent",
-      "og_docs_status": 200,
-      "shell_docs_url": "/docs/features/gen-ui-agent",
-      "shell_docs_status": 404,
-      "shell_docs_ok": false
+    "gen-ui-agent": {
+      "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/generative-ui/state-rendering",
+      "shell_docs_path": "/claude-sdk-typescript/generative-ui/state-rendering"
     },
-    {
-      "id": "shared-state-read-write",
-      "og_docs_url": null,
-      "og_docs_status": null,
-      "shell_docs_url": null,
-      "shell_docs_status": null,
-      "shell_docs_ok": false
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/shared-state",
+      "shell_docs_path": "/claude-sdk-typescript/unselected/shared-state"
     },
-    {
-      "id": "shared-state-streaming",
-      "og_docs_url": "https://docs.copilotkit.ai/features/shared-state-streaming",
-      "og_docs_status": 200,
-      "shell_docs_url": "/docs/features/shared-state-streaming",
-      "shell_docs_status": 404,
-      "shell_docs_ok": false
+    "shared-state-streaming": {
+      "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/shared-state/predictive-state-updates",
+      "shell_docs_path": "/claude-sdk-typescript/shared-state/streaming"
     },
-    {
-      "id": "subagents",
-      "og_docs_url": "https://docs.copilotkit.ai/features/subagents",
-      "og_docs_status": 200,
-      "shell_docs_url": "/docs/features/subagents",
-      "shell_docs_status": 404,
-      "shell_docs_ok": false
+    "subagents": {
+      "og_docs_url": "https://docs.copilotkit.ai/claude-sdk-typescript/multi-agent/subagents",
+      "shell_docs_path": "/claude-sdk-typescript/multi-agent/subagents"
     }
-  ],
-  "missing": [
-    {
-      "id": "shared-state-read-write",
-      "reason": "No og_docs_url or shell_docs_url in feature-registry.json"
-    }
-  ],
-  "notes": [
-    "og_docs probed via curl -L (200 OK for all registry-defined URLs).",
-    "shell_docs probed via curl against http://localhost:3000/claude-sdk-typescript<path>; all returned 404 — shell does not currently host /docs/features/* routes for any framework (confirmed by cross-probing langgraph-python and langgraph-typescript).",
-    "No claude-sdk-typescript-specific docs folder at docs/content/docs/integrations/claude-sdk-typescript/; reference priority fell back to (root)/<path>.mdx per audit plan."
-  ]
+  }
 }
