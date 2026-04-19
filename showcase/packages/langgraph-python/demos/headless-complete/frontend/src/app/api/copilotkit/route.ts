@@ -1,4 +1,11 @@
 // CopilotKit runtime for the headless-complete cell.
+//
+// `mcpApps` wires the Excalidraw MCP server into the runtime so the
+// agent can call MCP-backed tools. When it does, the MCP Apps
+// middleware emits an activity event that the manual
+// `useRenderActivityMessage` hook inside `use-rendered-messages.tsx`
+// picks up — rendering the sandboxed iframe inline in the headless
+// chat without the cell needing a bespoke activity renderer.
 
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -20,6 +27,15 @@ const agent = new LangGraphAgent({
 const runtime = new CopilotRuntime({
   // @ts-ignore
   agents: { "headless-complete": agent },
+  mcpApps: {
+    servers: [
+      {
+        type: "http",
+        url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com",
+        serverId: "excalidraw",
+      },
+    ],
+  },
 });
 
 export const POST = async (req: NextRequest) => {

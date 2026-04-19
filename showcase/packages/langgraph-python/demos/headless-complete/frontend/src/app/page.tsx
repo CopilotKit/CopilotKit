@@ -28,10 +28,12 @@ import {
   CopilotChatConfigurationProvider,
   useAgent,
   useCopilotKit,
+  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import type { Message } from "@ag-ui/core";
 import { MessageList } from "./message-list";
 import { InputBar } from "./input-bar";
+import { useHeadlessCompleteToolRenderers } from "./tool-renderers";
 
 const AGENT_ID = "headless-complete";
 
@@ -126,17 +128,75 @@ function Chat() {
   // headless while still unlocking the full generative-UI composition.
   return (
     <CopilotChatConfigurationProvider agentId={AGENT_ID} threadId={threadId}>
-      <div className="flex flex-col flex-1 min-h-0">
-        <MessageList messages={messages} isRunning={isRunning} />
-        <InputBar
-          value={input}
-          onChange={setInput}
-          onSubmit={handleSubmit}
-          onStop={handleStop}
-          isRunning={isRunning}
-          canStop={isRunning && messages.length > 0}
-        />
-      </div>
+      <ChatBody
+        messages={messages}
+        isRunning={isRunning}
+        input={input}
+        setInput={setInput}
+        handleSubmit={handleSubmit}
+        handleStop={handleStop}
+      />
     </CopilotChatConfigurationProvider>
+  );
+}
+
+// Nested body — rendered INSIDE CopilotChatConfigurationProvider so the
+// suggestions hook picks up the correct (agentId, threadId) scope and
+// the frontend-registered `useComponent` tool registers against this
+// agent. Tool-call renderers are registered here too; keeping them
+// co-located with the component that reads them through
+// `useRenderToolCall` (inside MessageList -> useRenderedMessages) makes
+// the composition story of the headless cell easy to trace.
+function ChatBody({
+  messages,
+  isRunning,
+  input,
+  setInput,
+  handleSubmit,
+  handleStop,
+}: {
+  messages: Message[];
+  isRunning: boolean;
+  input: string;
+  setInput: (next: string) => void;
+  handleSubmit: () => void;
+  handleStop: () => void;
+}) {
+  useHeadlessCompleteToolRenderers();
+
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Weather in Tokyo",
+        message: "What's the weather in Tokyo?",
+      },
+      {
+        title: "AAPL stock price",
+        message: "What's AAPL trading at right now?",
+      },
+      {
+        title: "Highlight a note",
+        message: "Highlight 'meeting at 3pm' in yellow.",
+      },
+      {
+        title: "Sketch a diagram",
+        message: "Use Excalidraw to sketch a simple system diagram.",
+      },
+    ],
+    available: "always",
+  });
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <MessageList messages={messages} isRunning={isRunning} />
+      <InputBar
+        value={input}
+        onChange={setInput}
+        onSubmit={handleSubmit}
+        onStop={handleStop}
+        isRunning={isRunning}
+        canStop={isRunning && messages.length > 0}
+      />
+    </div>
   );
 }
