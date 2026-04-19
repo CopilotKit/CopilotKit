@@ -216,21 +216,66 @@ jobs:
 
           for SVC in "${SERVICES[@]}"; do
             PKG="showcase-${SVC}"
-            # Get tags for the latest version via GitHub Packages API
-            TAGS=$(gh api "/orgs/copilotkit/packages/container/${PKG}/versions?per_page=1" \
-              --jq '.[0].metadata.container.tags | join(" ")' 2>/dev/null) || true
+            # Query GHCR for the latest package version. The previous
+            # implementation used `gh api ... || true` + `[ -z "$TAGS" ]`
+            # to skip, which silently conflated three distinct cases:
+            #   - new service, not yet published (legitimate, expected)
+            #   - GHCR 404 (legitimate — same as above)
+            #   - GHCR 401/403/5xx (transient API error — NOT legitimate;
+            #     should surface so a broken drift run doesn't look clean)
+            # Split them: capture HTTP status from gh api -i, treat 200+empty
+            # and 404 as "no versions yet" (quiet continue), and warn on any
+            # other non-200 so the run log shows a ::warning:: without
+            # failing the whole drift detector over one flaky service.
+            set +e
+            API_RESPONSE=$(gh api -i "/orgs/copilotkit/packages/container/${PKG}/versions?per_page=1" 2>&1)
+            API_RC=$?
+            set -e
+            # gh api -i emits HTTP headers on stdout followed by a blank
+            # line then the body. Extract the status line (first line
+            # beginning with HTTP/) even if redirects prepended extras.
+            HTTP_STATUS=$(printf '%s\n' "$API_RESPONSE" | awk '/^HTTP\// { status=$2 } END { print status }')
+            # Body is everything after the first blank line.
+            API_BODY=$(printf '%s\n' "$API_RESPONSE" | awk 'blank { print; next } /^\r?$/ { blank=1 }')
 
-            if [ -z "$TAGS" ]; then
-              continue  # No package versions — new service, not yet built
+            if [ "$API_RC" -ne 0 ] && [ -z "$HTTP_STATUS" ]; then
+              # gh itself failed (network, missing binary) with no response
+              # at all — surface as a warning and move on. A brief outage
+              # shouldn't mark every service stale on the next clean run.
+              echo "::warning::${SVC}: gh api call failed (rc=$API_RC), skipping drift check"
+              continue
             fi
+
+            case "$HTTP_STATUS" in
+              200)
+                TAGS=$(printf '%s' "$API_BODY" | jq -r '.[0].metadata.container.tags | join(" ")' 2>/dev/null) || TAGS=""
+                if [ -z "$TAGS" ]; then
+                  echo "  ${SVC}: no package versions yet, skipping"
+                  continue
+                fi
+                ;;
+              404)
+                echo "  ${SVC}: no GHCR package yet (404), skipping"
+                continue
+                ;;
+              *)
+                # 401/403 (auth drift), 5xx (transient), any other surprise.
+                # Warn visibly but don't fail the whole drift run — one
+                # flaky service shouldn't break the monitor.
+                echo "::warning::${SVC}: GHCR returned HTTP ${HTTP_STATUS:-<no status>}, skipping"
+                continue
+                ;;
+            esac
 
             # Image is up to date if it matches EITHER the last showcase/ or
-            # examples/integrations/ commit (deploy triggers on both paths)
+            # examples/integrations/ commit (deploy triggers on both paths).
+            # Use `grep -w` (word boundary) instead of `grep` (substring)
+            # so one SHA isn't accidentally matched as a prefix of another.
             UP_TO_DATE=false
-            if [ -n "$SHOWCASE_SHA" ] && echo "$TAGS" | grep -q "$SHOWCASE_SHA"; then
+            if [ -n "$SHOWCASE_SHA" ] && echo "$TAGS" | grep -qw "$SHOWCASE_SHA"; then
               UP_TO_DATE=true
             fi
-            if [ -n "$EXAMPLES_SHA" ] && echo "$TAGS" | grep -q "$EXAMPLES_SHA"; then
+            if [ -n "$EXAMPLES_SHA" ] && echo "$TAGS" | grep -qw "$EXAMPLES_SHA"; then
               UP_TO_DATE=true
             fi
             if [ "$UP_TO_DATE" = true ]; then
