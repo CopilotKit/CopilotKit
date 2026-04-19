@@ -21,10 +21,16 @@
 //      snapshot time and rewrites only the files that drift. Idempotent. Used
 //      in `afterEach` / `afterAll` as the inner loop.
 //
-// IMPORTANT: this depends on vitest's `fileParallelism: false` setting in
-// vitest.config.ts. Multiple suites snapshotting/restoring the SAME files in
-// parallel would race each other. If you enable file parallelism, you must
-// move to per-suite isolation (tmp cwd + env-var-parameterized scripts).
+// PARALLELISM: the in-memory FileSnapshotRestorer is per-process state, so
+// distinct suites snapshotting DIFFERENT file sets in separate vitest forks
+// do not collide. What DOES need serialization across processes is git —
+// `git checkout HEAD -- <paths>` grabs `.git/index.lock`, and two concurrent
+// invocations (across suites, or between a suite and the pre-commit hook)
+// race for it. `restoreFromGitHead` below acquires a cross-process file lock
+// around every git invocation so parallel fork-pool execution under
+// `fileParallelism: true` is safe. If two suites were to snapshot the SAME
+// path and mutate it, they'd still race at the filesystem layer — callers
+// must keep their snapshot targets disjoint.
 //
 // WINDOWS: callers in sibling test files (create-integration.test.ts,
 // generate-registry.test.ts, bundle-demo-content.test.ts) invoke `npx`
@@ -34,13 +40,27 @@
 // Windows CI those call sites need a `process.platform === "win32"` gate.
 
 import fs from "fs";
+import os from "os";
 import path from "path";
 import crypto from "crypto";
 import { execFileSync } from "child_process";
+import type { StdioOptions } from "child_process";
 
 /** Escape a string for inclusion as a literal in a `RegExp`. */
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Construct an Error with `cause` attached, without relying on the ES2022
+ *  two-argument `Error` constructor (which the TS lib used in this workspace
+ *  does not declare). Runtime behaviour is identical — Node has supported
+ *  `Error.cause` since v16.9 — but the TypeScript signature for our target
+ *  lib (ES2020) only accepts a message, so assigning after construction
+ *  keeps the type-checker happy without dropping diagnostic context. */
+function errorWithCause(message: string, cause: unknown): Error {
+  const err = new Error(message);
+  (err as Error & { cause?: unknown }).cause = cause;
+  return err;
 }
 
 /** Shared exec options for all child_process calls in the test harness.
@@ -56,11 +76,16 @@ function escapeRegExp(s: string): string {
  *  `timeout: 30000` — generators shell out to npx/tsx which cold-boots on
  *  first run; 15s produced flakes on slow CI runners.
  */
-const SAFE_STDIO = Object.freeze([
+// Frozen at runtime (the test-cleanup.test.ts unit asserts the inner array
+// is frozen so suites can't mutate it) but typed as `StdioOptions` — NOT a
+// narrower `readonly` tuple — so spreading `SAFE_EXEC_OPTS` into
+// `execFileSync(..., opts)` doesn't trip the readonly-vs-mutable-array
+// mismatch in the node `@types/node` `StdioOptions` signature.
+const SAFE_STDIO: StdioOptions = Object.freeze([
   "ignore",
   "pipe",
   "pipe",
-] as const) as readonly ["ignore", "pipe", "pipe"];
+]) as StdioOptions;
 
 export const SAFE_EXEC_OPTS = Object.freeze({
   encoding: "utf-8" as const,
@@ -131,6 +156,73 @@ function isCI(): boolean {
   return normalized === "true" || normalized === "1" || normalized === "yes";
 }
 
+/** Cross-process advisory lock via exclusive `mkdir`. Serializes every
+ *  `restoreFromGitHead` invocation across vitest forks so concurrent
+ *  `git checkout HEAD --` calls don't race for `.git/index.lock` (or for
+ *  it with an external git op like the pre-commit hook). Mirrors the
+ *  `proper-lockfile` approach but uses no deps — `fs.mkdirSync` is atomic
+ *  on POSIX and Windows and is the canonical primitive for this pattern.
+ *
+ *  The lock directory lives in `os.tmpdir()` (not repo-local) so a crash
+ *  can't leave a stale lock inside the worktree where `git status` would
+ *  show it. Stale locks older than `STALE_LOCK_MS` are reaped before the
+ *  wait loop to heal any orphan left by a hard-killed previous run.
+ *
+ *  Callers should always release via the returned `release()` in a
+ *  finally — a thrown git error must not leave the lock held. */
+const LOCK_DIR = path.join(os.tmpdir(), "copilotkit-showcase-git-restore.lock");
+const STALE_LOCK_MS = 60_000;
+const WAIT_TIMEOUT_MS = 30_000;
+const WAIT_POLL_MS = 25;
+
+function reapStaleLock(): void {
+  try {
+    const st = fs.statSync(LOCK_DIR);
+    if (Date.now() - st.mtimeMs > STALE_LOCK_MS) {
+      try {
+        fs.rmdirSync(LOCK_DIR);
+      } catch {
+        /* another process already reaped / released it */
+      }
+    }
+  } catch {
+    /* not present */
+  }
+}
+
+function acquireGitLock(): () => void {
+  const start = Date.now();
+  reapStaleLock();
+  for (;;) {
+    try {
+      fs.mkdirSync(LOCK_DIR);
+      return () => {
+        try {
+          fs.rmdirSync(LOCK_DIR);
+        } catch {
+          /* already released */
+        }
+      };
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+      if (Date.now() - start > WAIT_TIMEOUT_MS) {
+        throw new Error(
+          `acquireGitLock: timed out after ${WAIT_TIMEOUT_MS}ms waiting for ${LOCK_DIR}.` +
+            ` A previous run may have crashed holding the lock; remove the directory and retry.`,
+        );
+      }
+      // Busy-wait at 25ms. Node lacks a sync sleep; a tight loop on a
+      // 25ms granularity adds negligible CPU and matches proper-lockfile's
+      // default retry cadence.
+      const deadline = Date.now() + WAIT_POLL_MS;
+      while (Date.now() < deadline) {
+        /* spin */
+      }
+      reapStaleLock();
+    }
+  }
+}
+
 /** Split input paths into tracked vs untracked relative to HEAD. Uses
  *  `git ls-files --error-unmatch` per path; exit 0 = tracked, exit 1 =
  *  untracked. Any OTHER failure (ENOENT git binary, EACCES, corrupt
@@ -169,10 +261,10 @@ function partitionTrackedPaths(
         untracked.push(p);
         continue;
       }
-      throw new Error(
+      throw errorWithCause(
         `partitionTrackedPaths: unexpected git ls-files failure for ${p}` +
           ` (exit ${code ?? "?"}, errno ${errno ?? "n/a"}): ${stderr.trim()}`,
-        { cause: err },
+        err,
       );
     }
   }
@@ -215,6 +307,22 @@ export function restoreFromGitHead(
 ): void {
   if (paths.length === 0) return;
 
+  // Serialize every git invocation against concurrent callers (other vitest
+  // forks, pre-commit hooks) so `git checkout HEAD --` doesn't race for
+  // `.git/index.lock`. Held across partition + diff + checkout + post-heal
+  // diff so any intermediate state is consistent from the caller's POV.
+  const release = acquireGitLock();
+  try {
+    restoreFromGitHeadLocked(repoRoot, paths);
+  } finally {
+    release();
+  }
+}
+
+function restoreFromGitHeadLocked(
+  repoRoot: string,
+  paths: readonly string[],
+): void {
   // Partition BEFORE any destructive op. Mixing untracked paths into
   // `git diff --quiet` would produce exit 128 (pathspec mismatch) and
   // cause the off-CI guard to mis-treat a legitimate dirty-tracked case
@@ -256,20 +364,20 @@ export function restoreFromGitHead(
       const stderr = (err as { stderr?: string }).stderr ?? "";
       if (code === 1) {
         // `git diff --quiet` exits 1 when there ARE differences.
-        throw new Error(
+        throw errorWithCause(
           `restoreFromGitHead: refusing to overwrite uncommitted changes to:\n` +
             tracked.map((p) => `  ${p}`).join("\n") +
             `\nStash, commit, or discard these changes before running the test` +
             ` suite (e.g. \`git checkout HEAD -- <paths>\`).`,
-          { cause: err },
+          err,
         );
       }
       // Any other failure is unexpected now that we've pre-filtered to
       // tracked paths. Re-raise with stderr attached so the caller sees
       // what git actually said.
-      throw new Error(
+      throw errorWithCause(
         `restoreFromGitHead: unexpected git diff failure (exit ${code ?? "?"}): ${stderr.trim()}`,
-        { cause: err },
+        err,
       );
     }
   }
@@ -297,9 +405,9 @@ export function restoreFromGitHead(
     );
     if (!isBenignPathspec) {
       const code = (err as { status?: number }).status;
-      throw new Error(
+      throw errorWithCause(
         `restoreFromGitHead: git checkout failed (exit ${code ?? "?"}): ${stderr.trim()}`,
-        { cause: err },
+        err,
       );
     }
   }
@@ -327,7 +435,7 @@ export function restoreFromGitHead(
       tracked.map((p) => `  ${p}`).join("\n") +
       (stderr.trim() ? `\ngit stderr: ${stderr.trim()}` : "");
     if (isCI()) {
-      throw new Error(msg, { cause: err });
+      throw errorWithCause(msg, err);
     }
     // eslint-disable-next-line no-console
     console.warn(`[test-cleanup] ${msg}`);

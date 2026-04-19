@@ -22,7 +22,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, "..", "..");
-const PACKAGES_DIR = path.join(ROOT, "packages");
+// Both directories are overridable via env so tests can run the generator
+// against an isolated tmpdir — without overrides the generator's writes
+// collided with sibling suites reading the real `showcase/packages/` tree
+// (ENOENT on partial state) and with concurrent `git checkout HEAD --`
+// invocations on `.github/workflows/*.yml` (`.git/index.lock` races). An
+// env var (vs a CLI flag) keeps the public flag surface unchanged and is
+// trivial for test harnesses to set via `execFileSync`'s `env` option.
+const PACKAGES_DIR =
+  process.env.CREATE_INTEGRATION_PACKAGES_DIR ?? path.join(ROOT, "packages");
+const WORKFLOWS_DIR =
+  process.env.CREATE_INTEGRATION_WORKFLOWS_DIR ??
+  path.resolve(ROOT, "..", ".github", "workflows");
 const FEATURE_REGISTRY_PATH = path.join(
   ROOT,
   "shared",
@@ -167,11 +178,6 @@ function generateManifest(args: CLIArgs, features: Feature[]): string {
 }
 
 function generatePackageJson(args: CLIArgs): string {
-  const devCmd =
-    args.language === "typescript"
-      ? '"dev": "next dev --turbopack"'
-      : '"dev": "concurrently \\"next dev --turbopack\\" \\"python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload\\""';
-
   return (
     JSON.stringify(
       {
@@ -317,7 +323,6 @@ ${demoLinks}
 function generateDemoPage(
   featureId: string,
   feature: Feature | undefined,
-  args: CLIArgs,
 ): string {
   return `"use client";
 
@@ -1337,7 +1342,7 @@ async function main() {
     const feature = features.find((f) => f.id === featureId);
     writeFile(
       path.join(packageDir, "src", "app", "demos", featureId, "page.tsx"),
-      generateDemoPage(featureId, feature, args),
+      generateDemoPage(featureId, feature),
     );
     writeFile(
       path.join(packageDir, "src", "app", "demos", featureId, "README.md"),
@@ -1427,7 +1432,7 @@ See the LangGraph Python reference implementation for patterns.
 }
 
 function updateWorkflows(args: CLIArgs) {
-  const workflowsDir = path.resolve(ROOT, "..", ".github", "workflows");
+  const workflowsDir = WORKFLOWS_DIR;
 
   // 1. Update showcase_deploy.yml — add change detection + build job
   const deployPath = path.join(workflowsDir, "showcase_deploy.yml");

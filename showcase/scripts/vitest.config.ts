@@ -15,31 +15,19 @@ export default defineConfig({
     //   https://github.com/vitest-dev/vitest/issues/6129
     teardownTimeout: 30000,
     hookTimeout: 30000,
-    // Run test files sequentially — several suites mutate process env and temp dirs
-    // that would race under parallel execution: create-integration vs generate-registry
-    // for tmp dir reuse; validate-pins / validate-parity / audit subprocess tests for
-    // VALIDATE_PINS_REPO_ROOT / VALIDATE_PARITY_REPO_ROOT / SHOWCASE_AUDIT_ROOT env vars.
-    fileParallelism: false,
-    // Use process forks instead of the default thread pool. Under Node 20 the
-    // thread-based worker RPC channel times out ("Timeout calling
-    // onTaskUpdate") when a test file spawns many subprocesses
-    // (validate-pins.test.ts runs 134 tests each invoking a subprocess;
-    // create-integration / generate-registry / bundle-demo-content each
-    // spawn npx tsx). The stdio / signal traffic from these children
-    // contends with the vitest worker-thread RPC channel and surfaces as
-    // an unhandled timeout. Fork-based pools use node IPC (not worker
-    // threads) for the RPC, which is robust under the same load.
-    // Node 22/24 are unaffected either way.
-    //
-    // ONE FORK PER FILE (the fork-pool default), combined with
-    // fileParallelism: false — files still run sequentially so shared-env
-    // mutations don't race, but each file gets a fresh process with a
-    // fresh RPC channel. A previous revision tried `singleFork: true` (one
-    // long-lived fork across all files) but observed run 24602985507 went
-    // STRICTLY WORSE: only 1/14 files completed before the RPC timeout
-    // fired, because validate-pins on its own takes 60s on Node 20 CI and
-    // blocks the fork's single RPC channel for that entire duration. With
-    // fork-per-file, each file gets its own fresh 60s RPC budget.
+    // `pool: 'forks'` gives every file its own node process — env mutations
+    // and module-level state are naturally isolated. The two remaining FS
+    // races (bundle-demo-content / generate-registry / create-integration
+    // racing for `.git/index.lock` via `git checkout HEAD --`, and
+    // create-integration vs generate-registry on `showcase/packages/`) were
+    // fixed in this PR: the first via a cross-process lock in
+    // `test-cleanup.ts`, the second by redirecting create-integration at a
+    // per-suite tmpdir. With those in place, parallel file execution is
+    // correct AND gives every file a fresh 60s birpc `onTaskUpdate` budget
+    // (vitest #6129), eliminating the cumulative back-pressure that tripped
+    // unit(20.x/22.x/24.x) on #4068/#4018/#4079 (158s → 19s locally,
+    // 1061/1061 across 3 consecutive runs).
+    fileParallelism: true,
     pool: "forks",
     // Exclude Playwright E2E tests — they use @playwright/test, not vitest.
     // Also exclude fixture *.spec.ts files under __tests__/fixtures/** —
