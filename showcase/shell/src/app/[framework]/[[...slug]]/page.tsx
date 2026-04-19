@@ -16,7 +16,7 @@
 // none of which are framework slugs, so there are no collisions.
 
 import React from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { DocsPageView } from "@/components/docs-page-view";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
@@ -71,6 +71,15 @@ export default async function FrameworkScopedDocsPage({
   // No slug → framework landing page
   if (!slugPath) {
     return <FrameworkLandingPage framework={framework} />;
+  }
+
+  // `/<framework>/unselected/<path>` is incoherent — a framework IS
+  // selected, so the URL should never assert the "unselected" state
+  // alongside. Collapse to the framework-scoped path (which serves the
+  // same underlying content, just with Snippets resolved against the
+  // selected framework's cells).
+  if (slugPath.startsWith("unselected/")) {
+    redirect(`/${framework}/${slugPath.slice("unselected/".length)}`);
   }
 
   // When the page doesn't exist at all, 404.
