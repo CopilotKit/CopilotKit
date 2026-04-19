@@ -9,6 +9,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Disable Python stdout buffering so Python-based agents flush tracebacks
+# and log lines to awk (and the container log) the moment they're written.
+# Previously a silent crash during module import would sit in Python's
+# userspace buffer until the process exited, by which point the pipe to the
+# log prefixer had already closed and the error was lost.
+export PYTHONUNBUFFERED=1
+
 echo "========================================="
 echo "[entrypoint] Starting showcase: {{SLUG}}"
 echo "[entrypoint] Time: $(date -u)"
@@ -36,7 +43,12 @@ PORT=${PORT:-10000}
 # of which don't interpret NODE_ENV the way Next.js does. `env` prefix binds
 # the value to this single exec so the agent spawned above keeps the host
 # environment intact.
-env NODE_ENV=production npx next start --port $PORT 2>&1 | sed 's/^/[nextjs] /' &
+#
+# Log prefixing uses bash process substitution (`&> >(awk …)`) rather than a
+# pipe (`| sed …`): process substitution leaves `$!` pointing at the real
+# Next.js process, so `wait -n $NEXTJS_PID` monitors the right thing.
+# `awk` with `fflush()` line-flushes each prefixed line to the container log.
+env NODE_ENV=production npx next start --port $PORT &> >(awk '{print "[nextjs] " $0; fflush()}') &
 NEXTJS_PID=$!
 
 echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
