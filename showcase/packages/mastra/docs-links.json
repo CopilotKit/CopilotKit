@@ -1,5 +1,6 @@
 {
   "framework": "mastra",
+  "audit_date": "2026-04-19",
   "shell_base_url": "http://localhost:3000/mastra",
   "og_docs_base_url": "https://docs.copilotkit.ai",
   "reference_docs_dir": "docs/content/docs/integrations/mastra",

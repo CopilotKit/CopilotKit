@@ -1,0 +1,128 @@
+{
+  "framework": "langgraph-typescript",
+  "generated_at": "2026-04-19",
+  "shell_base": "http://localhost:3000/langgraph-typescript",
+  "reference_docs_priority": [
+    "docs/content/docs/integrations/langgraph/<path>.mdx",
+    "docs/content/docs/(root)/<path>.mdx"
+  ],
+  "notes": [
+    "langgraph-typescript shares the LangGraph canonical docs tree (same as langgraph-python).",
+    "All og_docs_url values in feature-registry.json currently point at https://docs.copilotkit.ai/features/<id> which render the Next.js 404 shell (~673KB page). These are effectively broken links and are reported as og:red-X below.",
+    "All shell_docs_url values point at /docs/features/<id> which are not wired into the showcase shell (shell routes docs under /<framework>/<mdx-slug> or /docs/<mdx-slug>). These are reported as shell:red-X.",
+    "The 'canonical_langgraph_doc' field on each feature records the closest real MDX page in the content tree — useful when remediating og_docs_url / shell_docs_url for this column."
+  ],
+  "features": [
+    {
+      "id": "agentic-chat",
+      "og_docs_url": "https://docs.copilotkit.ai/features/agentic-chat",
+      "og_status": "red-X",
+      "og_reason": "Resolves to Next.js 404 shell (~673KB, no content). Real page lives at /agentic-chat-ui (root) or /integrations/langgraph/agentic-chat-ui.",
+      "shell_docs_url": "/docs/features/agentic-chat",
+      "shell_status": "red-X",
+      "shell_http_code": 404,
+      "canonical_langgraph_doc": "docs/content/docs/(root)/agentic-chat-ui.mdx",
+      "canonical_shell_path": "/langgraph-typescript/agentic-chat-ui"
+    },
+    {
+      "id": "hitl-in-chat",
+      "og_docs_url": "https://docs.copilotkit.ai/features/hitl-in-chat",
+      "og_status": "red-X",
+      "og_reason": "Resolves to Next.js 404 shell. Real canonical page: /integrations/langgraph/generative-ui/your-components/interactive.",
+      "shell_docs_url": "/docs/features/hitl-in-chat",
+      "shell_status": "red-X",
+      "shell_http_code": 404,
+      "canonical_langgraph_doc": "docs/content/docs/integrations/langgraph/generative-ui/your-components/interactive.mdx",
+      "canonical_shell_path": "/langgraph-typescript/generative-ui/your-components/interactive"
+    },
+    {
+      "id": "tool-rendering",
+      "og_docs_url": "https://docs.copilotkit.ai/features/tool-rendering",
+      "og_status": "red-X",
+      "og_reason": "Resolves to Next.js 404 shell. Real canonical page: /integrations/langgraph/generative-ui/tool-rendering.",
+      "shell_docs_url": "/docs/features/tool-rendering",
+      "shell_status": "red-X",
+      "shell_http_code": 404,
+      "canonical_langgraph_doc": "docs/content/docs/integrations/langgraph/generative-ui/tool-rendering.mdx",
+      "canonical_shell_path": "/langgraph-typescript/generative-ui/tool-rendering"
+    },
+    {
+      "id": "gen-ui-tool-based",
+      "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-tool-based",
+      "og_status": "red-X",
+      "og_reason": "Resolves to Next.js 404 shell. Real canonical page: /integrations/langgraph/generative-ui/your-components/display-only.",
+      "shell_docs_url": "/docs/features/gen-ui-tool-based",
+      "shell_status": "red-X",
+      "shell_http_code": 404,
+      "canonical_langgraph_doc": "docs/content/docs/integrations/langgraph/generative-ui/your-components/display-only.mdx",
+      "canonical_shell_path": "/langgraph-typescript/generative-ui/your-components/display-only"
+    },
+    {
+      "id": "gen-ui-agent",
+      "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-agent",
+      "og_status": "red-X",
+      "og_reason": "Resolves to Next.js 404 shell. Real canonical page: /integrations/langgraph/generative-ui/state-rendering.",
+      "shell_docs_url": "/docs/features/gen-ui-agent",
+      "shell_status": "red-X",
+      "shell_http_code": 404,
+      "canonical_langgraph_doc": "docs/content/docs/integrations/langgraph/generative-ui/state-rendering.mdx",
+      "canonical_shell_path": "/langgraph-typescript/generative-ui/state-rendering"
+    },
+    {
+      "id": "shared-state-read-write",
+      "og_docs_url": null,
+      "og_status": "red-X",
+      "og_reason": "Feature has no og_docs_url in feature-registry.json.",
+      "shell_docs_url": null,
+      "shell_status": "red-X",
+      "shell_reason": "Feature has no shell_docs_url in feature-registry.json.",
+      "canonical_langgraph_doc": "docs/content/docs/integrations/langgraph/shared-state/in-app-agent-read.mdx (read) + docs/content/docs/integrations/langgraph/shared-state/in-app-agent-write.mdx (write)",
+      "canonical_shell_path": "/langgraph-typescript/integrations/langgraph/shared-state/in-app-agent-read"
+    },
+    {
+      "id": "shared-state-streaming",
+      "og_docs_url": "https://docs.copilotkit.ai/features/shared-state-streaming",
+      "og_status": "red-X",
+      "og_reason": "Resolves to Next.js 404 shell. Real canonical page: /integrations/langgraph/shared-state/predictive-state-updates.",
+      "shell_docs_url": "/docs/features/shared-state-streaming",
+      "shell_status": "red-X",
+      "shell_http_code": 404,
+      "canonical_langgraph_doc": "docs/content/docs/integrations/langgraph/shared-state/predictive-state-updates.mdx",
+      "canonical_shell_path": "/langgraph-typescript/integrations/langgraph/shared-state/predictive-state-updates"
+    },
+    {
+      "id": "subagents",
+      "og_docs_url": "https://docs.copilotkit.ai/features/subagents",
+      "og_status": "red-X",
+      "og_reason": "Resolves to Next.js 404 shell. Real canonical page: /integrations/langgraph/multi-agent-flows (and /integrations/langgraph/subgraphs).",
+      "shell_docs_url": "/docs/features/subagents",
+      "shell_status": "red-X",
+      "shell_http_code": 404,
+      "canonical_langgraph_doc": "docs/content/docs/integrations/langgraph/multi-agent-flows.mdx",
+      "canonical_shell_path": "/langgraph-typescript/integrations/langgraph/multi-agent-flows"
+    }
+  ],
+  "missing": {
+    "og_docs_url": [
+      "agentic-chat",
+      "hitl-in-chat",
+      "tool-rendering",
+      "gen-ui-tool-based",
+      "gen-ui-agent",
+      "shared-state-read-write",
+      "shared-state-streaming",
+      "subagents"
+    ],
+    "shell_docs_url": [
+      "agentic-chat",
+      "hitl-in-chat",
+      "tool-rendering",
+      "gen-ui-tool-based",
+      "gen-ui-agent",
+      "shared-state-read-write",
+      "shared-state-streaming",
+      "subagents"
+    ],
+    "summary": "8/8 features have broken og_docs_url (all point to /features/<id> which is a stub 404 on docs.copilotkit.ai). 8/8 features have broken shell_docs_url (all point to /docs/features/<id> which is not routed in the showcase shell). 1/8 (shared-state-read-write) has no docs URLs defined at all in feature-registry.json."
+  }
+}
