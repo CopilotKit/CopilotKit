@@ -16,6 +16,7 @@ import {
 import { PropertyReference } from "@/components/property-reference";
 import { getRegistry } from "@/lib/registry";
 import { SidebarNav } from "@/components/sidebar-nav";
+import { Snippet } from "@/components/snippet";
 
 const CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
 // Resolve snippets relative to CONTENT_DIR (which is known to work for filesystem reads)
@@ -630,6 +631,8 @@ const components = {
   CodeGroup: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
+  // Placeholder; swapped for a context-aware `<Snippet>` below so it can
+  // default framework + cell from the current page's slug / frontmatter.
   Snippet: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -1307,6 +1310,47 @@ export default async function DocsPage({
   const title =
     titleMatch?.[1] || slugPath.split("/").pop()?.replace(/-/g, " ") || "Docs";
 
+  // Optional page-level defaults for <Snippet>: pages can declare which
+  // cell/framework they're documenting in their frontmatter, so individual
+  // <Snippet region="..." /> tags don't need to repeat it.
+  //
+  //   ---
+  //   title: Tool Rendering
+  //   snippet_framework: langgraph-python
+  //   snippet_cell: tool-rendering
+  //   ---
+  //
+  // For pages under `integrations/<framework>/...` we infer the framework
+  // from the URL so simpler pages only need `snippet_cell:`.
+  const fmMatch = source.match(/^---([\s\S]*?)---/);
+  const fm = fmMatch?.[1] ?? "";
+  const snippetFrameworkMatch = fm.match(/snippet_framework:\s*(.+?)\s*$/m);
+  const snippetCellMatch = fm.match(/snippet_cell:\s*(.+?)\s*$/m);
+  const integrationFrameworkMatch = slugPath.match(/^integrations\/([^/]+)/);
+  const frameworkSlugMap: Record<string, string> = {
+    // The content directory uses `langgraph` as a prefix, but the showcase
+    // packages use language-qualified slugs. Default to the Python variant
+    // for integration pages since it's the deepest-covered framework.
+    langgraph: "langgraph-python",
+    mastra: "mastra",
+    "microsoft-agent-framework": "ms-agent-python",
+    "pydantic-ai": "pydantic-ai",
+    llamaindex: "llamaindex",
+    agno: "agno",
+    "google-adk": "google-adk",
+    "aws-strands": "strands",
+    crewai: "crewai-crews",
+    ag2: "ag2",
+    "claude-sdk": "claude-sdk-python",
+  };
+  const defaultFramework =
+    snippetFrameworkMatch?.[1]?.replace(/["']/g, "") ??
+    (integrationFrameworkMatch
+      ? (frameworkSlugMap[integrationFrameworkMatch[1]] ??
+        integrationFrameworkMatch[1])
+      : undefined);
+  const defaultCell = snippetCellMatch?.[1]?.replace(/["']/g, "");
+
   // Integration-scoped sidebar: if under integrations/<framework>, scope to that framework
   let navTree: NavNode[];
   let sidebarTitle: string;
@@ -1422,7 +1466,20 @@ export default async function DocsPage({
         <div className="reference-content">
           <MDXRemote
             source={content}
-            components={components}
+            components={{
+              ...components,
+              // Bind page-level defaults so <Snippet region="..." /> works
+              // without repeating framework + cell on every tag. Explicit
+              // `framework`/`cell` props on a tag still override the
+              // defaults.
+              Snippet: (props: Record<string, unknown>) => (
+                <Snippet
+                  {...(props as { region: string })}
+                  defaultFramework={defaultFramework}
+                  defaultCell={defaultCell}
+                />
+              ),
+            }}
             options={{
               mdxOptions: {
                 remarkPlugins: [remarkGfm],
