@@ -1,32 +1,38 @@
-// create-integration.test.ts — exercises the real generator end-to-end, then
-// restores every file it mutates so the working tree is byte-identical to
-// `git HEAD` when the suite exits.
+// create-integration.test.ts — exercises the real generator end-to-end
+// against FULLY ISOLATED tmpdir-backed packages and workflows directories.
 //
-// The generator mutates:
-//   - showcase/packages/test-integration-tmp/** (the scaffolded package)
-//   - .github/workflows/showcase_deploy.yml           (+47 lines per run)
-//   - .github/workflows/showcase_drift-detection.yml  (CI matrix row)
-//   - .github/workflows/starter-smoke.yml             (+1 line per run)
+// Previously the test pointed the generator at the real `showcase/packages/`
+// and `.github/workflows/` trees and snapshotted the mutated files back to
+// HEAD in `afterEach`. Under `fileParallelism: true` that collided with
+// `generate-registry.test.ts` (concurrent `readdirSync` of
+// `showcase/packages/` saw partial state → ENOENT) AND with every suite that
+// healed workflow YAMLs via `git checkout HEAD --` (`.git/index.lock`).
 //
-// This file depends on vitest's `fileParallelism: false` config (see
-// vitest.config.ts). The module-level `workflowRestorer` assumes no sibling
-// suite is concurrently writing to the same files.
+// The generator now honors `CREATE_INTEGRATION_PACKAGES_DIR` and
+// `CREATE_INTEGRATION_WORKFLOWS_DIR` env overrides. This file creates a
+// per-suite tmpdir, seeds it with copies of the real workflow YAMLs (so the
+// generator's regex-based edits still match), and points both env vars
+// there. No real tracked file is ever mutated — no restorer, no git
+// invocation, no cross-suite shared state.
 
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from "vitest";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { execFileSync } from "child_process";
 import yaml from "yaml";
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
-import {
-  FileSnapshotRestorer,
-  execOptsFor,
-  restoreFromGitHead,
-} from "./test-cleanup";
-import { SCRIPTS_DIR, REPO_ROOT, WORKFLOWS_DIR } from "./paths";
+import { execOptsFor } from "./test-cleanup";
+import { SCRIPTS_DIR, WORKFLOWS_DIR as REAL_WORKFLOWS_DIR } from "./paths";
 
-const PACKAGES_DIR = path.resolve(SCRIPTS_DIR, "..", "packages");
 const SCHEMA_PATH = path.resolve(
   SCRIPTS_DIR,
   "..",
@@ -45,82 +51,92 @@ const TEST_SLUG = "test-integration-tmp";
 // do; the primary slug is already consumed by earlier tests in the file.
 const REGRESSION_SLUG = "test-integration-tmp-regression-guard";
 const TEST_SLUGS: readonly string[] = [TEST_SLUG, REGRESSION_SLUG];
-const TEST_DIR = path.join(PACKAGES_DIR, TEST_SLUG);
-const REGRESSION_DIR = path.join(PACKAGES_DIR, REGRESSION_SLUG);
 
-// Exactly the three workflow YAMLs the generator mutates. We deliberately do
-// NOT scan `.github/workflows/` — a wider scope would (a) make restoreFromGitHead
-// block a developer with uncommitted edits to ANY unrelated workflow from
-// running these tests, and (b) increase the chance of unrelated workflow
-// mutations being misattributed to this suite.
-const WORKFLOW_FILES: readonly string[] = [
-  path.join(WORKFLOWS_DIR, "showcase_deploy.yml"),
-  path.join(WORKFLOWS_DIR, "showcase_drift-detection.yml"),
-  path.join(WORKFLOWS_DIR, "starter-smoke.yml"),
+// Exactly the three workflow YAMLs the generator mutates. We seed our
+// tmpdir with copies of these real files so the generator's regex-based
+// edits have the expected anchors to match against.
+const WORKFLOW_BASENAMES: readonly string[] = [
+  "showcase_deploy.yml",
+  "showcase_drift-detection.yml",
+  "starter-smoke.yml",
 ];
 
-// Shared restorer populated in beforeAll and drained by cleanup().
-const workflowRestorer = new FileSnapshotRestorer(WORKFLOW_FILES);
+// Lazily populated in `beforeAll` — cast via ! below because TypeScript can't
+// follow that these are always set before any test runs.
+let TMP_ROOT!: string;
+let TMP_PACKAGES_DIR!: string;
+let TMP_WORKFLOWS_DIR!: string;
+let TEST_DIR!: string;
+let REGRESSION_DIR!: string;
+// Per-suite baseline of each workflow's content, captured once after seeding
+// so `cleanup()` can restore them without re-reading the real files.
+const WORKFLOW_BASELINES = new Map<string, Buffer>();
 
 function cleanup() {
-  // Workflow restoration runs in a finally so a failed package-dir rmSync
-  // (EBUSY on Windows, EACCES on a stuck filehandle, …) can't leak workflow
-  // drift into the next test.
-  try {
-    for (const slug of TEST_SLUGS) {
-      const dir = path.join(PACKAGES_DIR, slug);
-      if (fs.existsSync(dir)) {
-        fs.rmSync(dir, { recursive: true, force: true });
-      }
-    }
-  } finally {
-    workflowRestorer.restore();
-  }
-}
-
-// beforeAll: (1) restore workflows from git so we snapshot a clean baseline
-// even if a previous run crashed between mutation and afterEach, (2) snapshot,
-// (3) remove any stale TEST_DIR / REGRESSION_DIR. Ordering matters — without
-// the git restore a crashed run would seed our snapshot with drifted content
-// and restore() would lock in the drift.
-beforeAll(() => {
-  restoreFromGitHead(REPO_ROOT, WORKFLOW_FILES);
-  workflowRestorer.snapshot();
-  if (workflowRestorer.snapshotMap.size === 0) {
-    throw new Error(
-      `create-integration.test.ts: workflow snapshot is empty. Expected to` +
-        ` find tracked files at:\n` +
-        WORKFLOW_FILES.map((p) => `  ${p}`).join("\n"),
-    );
-  }
+  // Remove any scaffolded package dirs the generator produced.
   for (const slug of TEST_SLUGS) {
-    const dir = path.join(PACKAGES_DIR, slug);
+    const dir = path.join(TMP_PACKAGES_DIR, slug);
     if (fs.existsSync(dir)) {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   }
+  // Restore each seeded workflow to its baseline so the next test starts
+  // with the same anchors the generator's regex edits expect.
+  for (const [p, baseline] of WORKFLOW_BASELINES) {
+    fs.writeFileSync(p, baseline);
+  }
+}
+
+beforeAll(() => {
+  TMP_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), "create-integration-"));
+  TMP_PACKAGES_DIR = path.join(TMP_ROOT, "packages");
+  TMP_WORKFLOWS_DIR = path.join(TMP_ROOT, "workflows");
+  TEST_DIR = path.join(TMP_PACKAGES_DIR, TEST_SLUG);
+  REGRESSION_DIR = path.join(TMP_PACKAGES_DIR, REGRESSION_SLUG);
+
+  fs.mkdirSync(TMP_PACKAGES_DIR, { recursive: true });
+  fs.mkdirSync(TMP_WORKFLOWS_DIR, { recursive: true });
+
+  // Seed our tmp workflows dir from the real files — the generator's regex
+  // edits depend on structural anchors that only exist in the production
+  // YAMLs. A stale/crashed previous run could leave a real file drifted,
+  // but the git-lock-guarded test-cleanup healing on sibling suites will
+  // have already fixed that by the time we run.
+  for (const basename of WORKFLOW_BASENAMES) {
+    const src = path.join(REAL_WORKFLOWS_DIR, basename);
+    const dst = path.join(TMP_WORKFLOWS_DIR, basename);
+    const content = fs.readFileSync(src);
+    fs.writeFileSync(dst, content);
+    WORKFLOW_BASELINES.set(dst, content);
+  }
 });
 
-// `afterEach` + `afterAll` + per-test `cleanup()` at the top of each `it()` is
-// deliberate: `afterEach` is the primary failsafe, `afterAll` handles the last
-// test, and the top-of-body call makes each test independently re-entrant
-// (rerunning a single test in isolation starts from a known-clean state).
-afterEach(cleanup);
-afterAll(cleanup);
+beforeEach(cleanup);
 
-// Shared exec options (from test-cleanup.ts) plus cwd. See SAFE_EXEC_OPTS
-// docstring for the Node-20 stderr-race rationale.
-const EXEC_OPTS = execOptsFor(SCRIPTS_DIR);
+afterAll(() => {
+  fs.rmSync(TMP_ROOT, { recursive: true, force: true });
+});
 
 /** Invoke `npx tsx create-integration/index.ts` with argv-style args so none
  *  of the slug / feature strings ever hit a shell parser. Previous revisions
  *  used `execSync(string)` with interpolated slugs — safe today because the
- *  slugs are constants, but a poor hygiene pattern worth stamping out. */
+ *  slugs are constants, but a poor hygiene pattern worth stamping out.
+ *
+ *  Sets `CREATE_INTEGRATION_{PACKAGES,WORKFLOWS}_DIR` so the generator
+ *  writes entirely inside our per-suite tmpdir. */
 function runGenerator(args: readonly string[]): { stdout: string } {
+  const baseOpts = execOptsFor(SCRIPTS_DIR);
   const stdout = execFileSync(
     "npx",
     ["tsx", "create-integration/index.ts", ...args],
-    EXEC_OPTS,
+    {
+      ...baseOpts,
+      env: {
+        ...process.env,
+        CREATE_INTEGRATION_PACKAGES_DIR: TMP_PACKAGES_DIR,
+        CREATE_INTEGRATION_WORKFLOWS_DIR: TMP_WORKFLOWS_DIR,
+      },
+    },
   );
   return { stdout: stdout.toString() };
 }
@@ -396,8 +412,8 @@ describe("Template Generator", () => {
   it("cleanup restores workflow YAMLs after generator mutation (regression: test-integration-tmp leak)", () => {
     cleanup();
 
-    // Verify we captured at least one workflow to test against.
-    expect(workflowRestorer.snapshotMap.size).toBeGreaterThan(0);
+    // Verify we captured at least one workflow baseline to test against.
+    expect(WORKFLOW_BASELINES.size).toBeGreaterThan(0);
 
     // Run the generator with a dedicated slug so it always has fresh work to
     // do (the generator short-circuits once its slug is registered in any
@@ -419,7 +435,7 @@ describe("Template Generator", () => {
     // by the filesystem via a content check (stronger than byte-length:
     // resistant to a hypothetical fs shim that updates stat but not bytes).
     const preAppendContent = new Map<string, Buffer>();
-    for (const p of workflowRestorer.snapshotMap.keys()) {
+    for (const p of WORKFLOW_BASELINES.keys()) {
       preAppendContent.set(p, fs.readFileSync(p));
     }
 
@@ -428,7 +444,7 @@ describe("Template Generator", () => {
     // immediately below via cleanup().
     const SENTINEL = "\n# regression-guard-sentinel\n";
     const sentinelBuf = Buffer.from(SENTINEL, "utf-8");
-    for (const p of workflowRestorer.snapshotMap.keys()) {
+    for (const p of WORKFLOW_BASELINES.keys()) {
       fs.appendFileSync(p, SENTINEL);
     }
 
@@ -436,7 +452,7 @@ describe("Template Generator", () => {
     // pre-append content followed by sentinel bytes, exactly. Replaces the
     // old tautological `anyMutated` check (which couldn't fail given the
     // append ran unconditionally directly above it).
-    for (const p of workflowRestorer.snapshotMap.keys()) {
+    for (const p of WORKFLOW_BASELINES.keys()) {
       const before = preAppendContent.get(p)!;
       const expected = Buffer.concat([before, sentinelBuf]);
       const actual = fs.readFileSync(p);
@@ -446,12 +462,12 @@ describe("Template Generator", () => {
       ).toBe(true);
     }
 
-    // Run cleanup() and assert bit-for-bit restoration against the module
-    // snapshot (NOT a local re-read of disk — that would silently agree with
-    // a buggy workflowRestorer.restore()).
+    // Run cleanup() and assert bit-for-bit restoration against the in-memory
+    // baseline (NOT a local re-read of disk — that would silently agree with
+    // a buggy cleanup()).
     cleanup();
 
-    for (const [p, baseline] of workflowRestorer.snapshotMap) {
+    for (const [p, baseline] of WORKFLOW_BASELINES) {
       const current = fs.readFileSync(p);
       expect(
         current.equals(baseline),
@@ -464,14 +480,13 @@ describe("Template Generator", () => {
     expect(fs.existsSync(REGRESSION_DIR)).toBe(false);
   });
 
-  // Safety net: every snapshotted workflow must match its captured baseline
-  // bit-for-bit at the end of the suite. Compares against the in-memory
-  // snapshot rather than `git diff`, so a developer editing an unrelated
-  // workflow locally doesn't get spurious failures — we only care about
-  // files the suite knows about.
-  it("leaves every snapshotted workflow byte-identical to its baseline", () => {
-    expect(workflowRestorer.snapshotMap.size).toBeGreaterThan(0);
-    for (const [p, baseline] of workflowRestorer.snapshotMap) {
+  // Safety net: every seeded workflow must match its captured baseline
+  // bit-for-bit at the end of the suite. Operates against our tmpdir-backed
+  // copies — the real `.github/workflows/` YAMLs are never touched by this
+  // suite, so there's nothing in the real tree to drift-check.
+  it("leaves every seeded workflow byte-identical to its baseline", () => {
+    expect(WORKFLOW_BASELINES.size).toBeGreaterThan(0);
+    for (const [p, baseline] of WORKFLOW_BASELINES) {
       const current = fs.readFileSync(p);
       expect(current.equals(baseline), `workflow drift after suite: ${p}`).toBe(
         true,
