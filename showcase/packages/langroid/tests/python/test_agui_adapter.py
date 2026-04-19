@@ -147,8 +147,11 @@ async def test_oai_tool_calls_emit_start_args_end_in_order(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_malformed_args_logs_warning_and_emits_empty_args(monkeypatch, caplog):
-    """Unparseable JSON in ``arguments`` should degrade to ``{}`` and log a warning."""
+async def test_malformed_args_skip_tool_call_and_logs_warning(monkeypatch, caplog):
+    """Unparseable JSON in ``arguments`` must skip the tool call entirely
+    (no TOOL_CALL_* events) — firing a tool with empty args renders a
+    meaningless UI card. A warning must be logged explaining the skip.
+    """
     tool_call = SimpleNamespace(
         id="call-2",
         function=SimpleNamespace(name="change_background", arguments="not json {"),
@@ -161,8 +164,10 @@ async def test_malformed_args_logs_warning_and_emits_empty_args(monkeypatch, cap
         resp = await handle_run(req)
         events = _parse_events(await _collect(resp))
 
-    args_event = next(e for e in events if e["type"] == "TOOL_CALL_ARGS")
-    assert json.loads(args_event["delta"]) == {}
+    types = [e["type"] for e in events]
+    assert types == ["RUN_STARTED", "RUN_FINISHED"], (
+        f"expected no TOOL_CALL_* events on malformed args, got: {types}"
+    )
 
     assert any(
         "Failed to JSON-decode tool-call arguments" in rec.getMessage()
@@ -229,15 +234,14 @@ async def test_empty_content_skips_text_message_events(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_thread_id_stable_when_caller_omits(monkeypatch):
-    """If the caller does not supply a thread_id, the adapter must still
-    emit RUN_STARTED and RUN_FINISHED with the same synthesized thread_id.
-    Previously RUN_STARTED used a fresh UUID while RUN_FINISHED used ""."""
+    """Invariant: RUN_STARTED and RUN_FINISHED MUST share the same
+    ``thread_id``. When the caller omits it, the adapter synthesizes one
+    UUID and reuses it across every event emitted for the run."""
     response = SimpleNamespace(content="hello", oai_tool_calls=None, function_call=None)
     _install_fake_agent(monkeypatch, response)
 
-    # Empty string triggers the same ``or str(uuid.uuid4())`` fallback
-    # that the bug was in — the previous code synthesized a UUID for
-    # RUN_STARTED but emitted "" for RUN_FINISHED.
+    # Empty string triggers the ``run_input.thread_id or str(uuid.uuid4())``
+    # fallback — exactly the same code path as a missing thread_id.
     req = _FakeRequest(_minimal_run_input(thread_id=""))
     resp = await handle_run(req)
     events = _parse_events(await _collect(resp))
@@ -249,6 +253,24 @@ async def test_thread_id_stable_when_caller_omits(monkeypatch):
         f"RUN_STARTED thread_id {started['threadId']!r} must match "
         f"RUN_FINISHED {finished['threadId']!r}"
     )
+
+
+@pytest.mark.asyncio
+async def test_thread_id_from_caller_preserved(monkeypatch):
+    """Invariant: when the caller supplies a thread_id, the adapter MUST
+    preserve it verbatim — no new UUID is synthesized, and RUN_STARTED
+    and RUN_FINISHED both carry the caller's value."""
+    response = SimpleNamespace(content="hello", oai_tool_calls=None, function_call=None)
+    _install_fake_agent(monkeypatch, response)
+
+    req = _FakeRequest(_minimal_run_input(thread_id="abc"))
+    resp = await handle_run(req)
+    events = _parse_events(await _collect(resp))
+
+    started = next(e for e in events if e["type"] == "RUN_STARTED")
+    finished = next(e for e in events if e["type"] == "RUN_FINISHED")
+    assert started["threadId"] == "abc"
+    assert finished["threadId"] == "abc"
 
 
 # ---------------------------------------------------------------------------
@@ -286,18 +308,181 @@ def test_parse_tool_args_valid_json_string():
     assert _parse_tool_args('{"x": 2}') == {"x": 2}
 
 
-def test_parse_tool_args_malformed_returns_empty(caplog):
+def test_parse_tool_args_malformed_returns_none(caplog):
+    """Malformed JSON returns ``None`` (DEGRADED) — callers must skip
+    the tool call rather than fire it with empty args."""
     with caplog.at_level(logging.WARNING, logger=agui_adapter.logger.name):
-        assert _parse_tool_args("not json {") == {}
+        assert _parse_tool_args("not json {") is None
     assert any(
         "Failed to JSON-decode tool-call arguments" in rec.getMessage()
         for rec in caplog.records
     )
 
 
-def test_parse_tool_args_non_dict_json_returns_empty(caplog):
+def test_parse_tool_args_non_dict_json_returns_none(caplog):
+    """Valid JSON but not a dict (e.g. an array) is likewise DEGRADED."""
     with caplog.at_level(logging.WARNING, logger=agui_adapter.logger.name):
-        assert _parse_tool_args("[1, 2, 3]") == {}
+        assert _parse_tool_args("[1, 2, 3]") is None
     assert any(
         "parsed to non-dict" in rec.getMessage() for rec in caplog.records
+    )
+
+
+def test_parse_tool_args_returns_copy():
+    """The dict returned by ``_parse_tool_args`` must be a fresh copy —
+    callers must be free to mutate without affecting the original
+    payload (which may be shared across tool calls)."""
+    original = {"a": 1, "b": 2}
+    returned = _parse_tool_args(original)
+    assert returned == original
+    returned["c"] = 3
+    returned["a"] = 999
+    assert "c" not in original, "caller's mutation leaked into original dict"
+    assert original["a"] == 1, "caller's mutation leaked into original dict"
+
+
+# ---------------------------------------------------------------------------
+# Backend tool execution: happy path + sanitized error on exception
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_backend_tool_execution_happy_path(monkeypatch):
+    """A backend tool (not in FRONTEND_TOOL_NAMES) executes server-side
+    and its result must be streamed back as a TEXT_MESSAGE_{START,
+    CONTENT, END} triple after TOOL_CALL_END."""
+
+    # Stub the backend tool's handler so we don't hit real impls (weather
+    # API, DB, etc.) and we can pin the result string exactly.
+    from agents import agent as agent_module
+
+    def _fake_handle(self):
+        return '{"location": "SF", "temp_f": 68}'
+
+    monkeypatch.setattr(agent_module.GetWeatherTool, "handle", _fake_handle)
+
+    tool_call = SimpleNamespace(
+        id="call-wx",
+        function=SimpleNamespace(
+            name="get_weather",
+            arguments='{"location": "SF"}',
+        ),
+    )
+    response = SimpleNamespace(content="", oai_tool_calls=[tool_call], function_call=None)
+    _install_fake_agent(monkeypatch, response)
+
+    req = _FakeRequest(_minimal_run_input(thread_id="t-wx"))
+    resp = await handle_run(req)
+    events = _parse_events(await _collect(resp))
+
+    types = [e["type"] for e in events]
+    # Backend tools emit TEXT_MESSAGE_* triple after TOOL_CALL_END.
+    assert types == [
+        "RUN_STARTED",
+        "TOOL_CALL_START",
+        "TOOL_CALL_ARGS",
+        "TOOL_CALL_END",
+        "TEXT_MESSAGE_START",
+        "TEXT_MESSAGE_CONTENT",
+        "TEXT_MESSAGE_END",
+        "RUN_FINISHED",
+    ], f"unexpected event sequence: {types}"
+
+    content = next(e for e in events if e["type"] == "TEXT_MESSAGE_CONTENT")
+    assert content["delta"] == '{"location": "SF", "temp_f": 68}'
+
+
+@pytest.mark.asyncio
+async def test_backend_tool_exception_returns_sanitized_error(monkeypatch, caplog):
+    """When a backend tool raises, the error payload streamed to the
+    user must be SANITIZED — no stack frames, no file paths, no
+    ``str(exc)`` (which commonly embeds internal details). Only the
+    tool name and the exception class leak. The full traceback must
+    still be logged server-side via ``logger.exception``."""
+    from agents import agent as agent_module
+
+    def _raise_handle(self):
+        raise RuntimeError(
+            "DB connection failed at /opt/app/secret/internal.py line 42 "
+            "postgres://user:password@host:5432/db traceback frame ..."
+        )
+
+    monkeypatch.setattr(agent_module.GetWeatherTool, "handle", _raise_handle)
+
+    tool_call = SimpleNamespace(
+        id="call-bad",
+        function=SimpleNamespace(
+            name="get_weather",
+            arguments='{"location": "SF"}',
+        ),
+    )
+    response = SimpleNamespace(content="", oai_tool_calls=[tool_call], function_call=None)
+    _install_fake_agent(monkeypatch, response)
+
+    req = _FakeRequest(_minimal_run_input(thread_id="t-err"))
+    with caplog.at_level(logging.ERROR, logger=agui_adapter.logger.name):
+        resp = await handle_run(req)
+        events = _parse_events(await _collect(resp))
+
+    # A TEXT_MESSAGE triple with the sanitized error should be emitted.
+    content = next(e for e in events if e["type"] == "TEXT_MESSAGE_CONTENT")
+    payload = json.loads(content["delta"])
+    assert "error" in payload
+    err = payload["error"]
+
+    # The sanitized error contains the tool name and the exception class.
+    assert "get_weather" in err
+    assert "RuntimeError" in err
+
+    # And MUST NOT contain any of the internal details from the exception
+    # message: file paths, connection strings, stack-frame markers.
+    forbidden = [
+        "/opt/app",
+        "internal.py",
+        "line 42",
+        "postgres://",
+        "password",
+        "traceback",
+    ]
+    for needle in forbidden:
+        assert needle not in err, (
+            f"sanitized error leaked internal detail {needle!r}: {err!r}"
+        )
+
+    # Server-side: the full exception must be logged (logger.exception
+    # attaches exc_info with the traceback).
+    exc_records = [r for r in caplog.records if r.exc_info]
+    assert exc_records, "expected logger.exception to capture traceback server-side"
+
+
+# ---------------------------------------------------------------------------
+# Logging hygiene: plain-text turns must NOT emit warnings
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_plain_text_turn_does_not_warn(monkeypatch, caplog):
+    """A normal chat reply like "hello" is NOT JSON. The adapter's
+    tool-parse fallback must fail silently — warning on every chat turn
+    floods logs and drowns real signal."""
+    response = SimpleNamespace(content="hello", oai_tool_calls=None, function_call=None)
+    _install_fake_agent(monkeypatch, response)
+
+    req = _FakeRequest(_minimal_run_input(thread_id="t-plain"))
+    with caplog.at_level(logging.WARNING, logger=agui_adapter.logger.name):
+        resp = await handle_run(req)
+        events = _parse_events(await _collect(resp))
+
+    # Sanity: content was streamed back as text.
+    content = next(e for e in events if e["type"] == "TEXT_MESSAGE_CONTENT")
+    assert content["delta"] == "hello"
+
+    # The key assertion: NO warning-level log records from the adapter.
+    adapter_warnings = [
+        r for r in caplog.records
+        if r.name == agui_adapter.logger.name and r.levelno >= logging.WARNING
+    ]
+    assert adapter_warnings == [], (
+        "plain-text turn unexpectedly logged warnings: "
+        f"{[r.getMessage() for r in adapter_warnings]}"
     )

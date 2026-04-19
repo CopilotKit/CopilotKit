@@ -16,7 +16,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import traceback
 import uuid
 from typing import Any, AsyncGenerator
 
@@ -54,6 +53,12 @@ logger = logging.getLogger(__name__)
 # Map tool name -> ToolMessage class for backend execution. Built once at
 # import so a collision surfaces loudly at startup instead of silently
 # shadowing a tool class at runtime.
+#
+# IMPORTANT: This map is late-bound at *import time* against the current
+# contents of ``ALL_TOOLS``. Tools added to ``ALL_TOOLS`` *after* this
+# module has been imported will NOT be discoverable by ``handle_run`` —
+# the adapter will treat them as unknown and skip backend execution.
+# If you need to register tools dynamically, rebuild this map explicitly.
 _TOOL_BY_NAME: dict[str, type[ToolMessage]] = {
     cls.default_value("request"): cls for cls in ALL_TOOLS
 }
@@ -80,16 +85,25 @@ def _sse_line(event: Any) -> str:
     return f"data: {json.dumps(data)}\n\n"
 
 
-def _parse_tool_args(raw_args: Any) -> dict:
+def _parse_tool_args(raw_args: Any) -> dict | None:
     """Coerce tool-call arguments into a dict.
 
     OpenAI-style arguments arrive as a JSON string; Langroid sometimes
-    passes a pre-parsed dict. Anything else (None, a malformed payload)
-    degrades to an empty dict with a warning — the tool call still fires
-    so the frontend can render its card, just with no params.
+    passes a pre-parsed dict. Returns a fresh dict on success so callers
+    are free to mutate without affecting the original payload.
+
+    Returns:
+        * ``{}`` when input is genuinely empty (``""``, ``None``, or an
+          unknown non-dict/non-str type that has no arguments to parse).
+        * A fresh ``dict`` copy on successful parse.
+        * ``None`` when parsing was attempted but failed (malformed JSON
+          or non-dict JSON payload). Callers should treat ``None`` as a
+          DEGRADED signal and skip emitting the tool call — firing a
+          tool with empty args produces a meaningless UI card.
     """
     if isinstance(raw_args, dict):
-        return raw_args
+        # Return a shallow copy so callers may mutate safely.
+        return dict(raw_args)
     if isinstance(raw_args, str):
         if not raw_args:
             return {}
@@ -100,7 +114,7 @@ def _parse_tool_args(raw_args: Any) -> dict:
             logger.warning(
                 "Failed to JSON-decode tool-call arguments (%s): %r", exc, truncated
             )
-            return {}
+            return None
         if isinstance(parsed, dict):
             return parsed
         logger.warning(
@@ -108,7 +122,7 @@ def _parse_tool_args(raw_args: Any) -> dict:
             type(parsed).__name__,
             str(parsed)[:200],
         )
-        return {}
+        return None
     return {}
 
 
@@ -200,6 +214,10 @@ async def handle_run(request: Request) -> StreamingResponse:
 
         if oai_tool_calls or function_call:
             # Emit synthesized tool-call events for each OAI tool call.
+            # ``_parse_tool_args`` returns ``None`` when args could not be
+            # parsed — in that case we SKIP the tool call entirely rather
+            # than emitting a call with ``{}`` (which renders a meaningless
+            # UI card). The warning already fired inside _parse_tool_args.
             calls_to_emit = []
             if oai_tool_calls:
                 for tc in oai_tool_calls:
@@ -208,15 +226,25 @@ async def handle_run(request: Request) -> StreamingResponse:
                     raw_args = getattr(fn, "arguments", {}) if fn is not None else {}
                     args_dict = _parse_tool_args(raw_args)
                     call_id = getattr(tc, "id", None) or str(uuid.uuid4())
-                    if name:
+                    if name and args_dict is not None:
                         calls_to_emit.append((call_id, name, args_dict))
+                    elif name:
+                        logger.warning(
+                            "Skipping tool call %s: arguments could not be parsed",
+                            name,
+                        )
             elif function_call is not None:
                 # Legacy function_call shape: single call.
                 name = getattr(function_call, "name", None)
                 raw_args = getattr(function_call, "arguments", {}) or {}
                 args_dict = _parse_tool_args(raw_args)
-                if name:
+                if name and args_dict is not None:
                     calls_to_emit.append((str(uuid.uuid4()), name, args_dict))
+                elif name:
+                    logger.warning(
+                        "Skipping tool call %s: arguments could not be parsed",
+                        name,
+                    )
 
             for call_id, tool_name, tool_args in calls_to_emit:
                 yield _sse_line(ToolCallStartEvent(
@@ -244,17 +272,29 @@ async def handle_run(request: Request) -> StreamingResponse:
                         try:
                             tool_instance = tool_cls(**tool_args)
                             result = await asyncio.to_thread(tool_instance.handle)
-                        except Exception as exc:  # pragma: no cover - defensive
-                            # Log the full traceback server-side so we can
-                            # debug tool failures, but keep the user-facing
-                            # payload sanitized (no stack, no internals).
-                            logger.warning(
-                                "Tool %s execution failed: %s\n%s",
-                                tool_name,
-                                exc,
-                                traceback.format_exc(),
+                        except (
+                            RuntimeError,
+                            ValueError,
+                            TypeError,
+                            KeyError,
+                            pydantic.ValidationError,
+                        ) as exc:
+                            # Log the full traceback server-side (logger.exception
+                            # captures it automatically) so we can debug tool
+                            # failures, but keep the user-facing payload
+                            # sanitized — no stack, no internals, no ``str(exc)``
+                            # (which often embeds file paths, connection strings,
+                            # or full frames). Only the tool name and the
+                            # exception class name leak.
+                            logger.exception(
+                                "Tool %s execution failed", tool_name
                             )
-                            result = json.dumps({"error": str(exc)})
+                            result = json.dumps({
+                                "error": (
+                                    f"Tool {tool_name} failed: "
+                                    f"{exc.__class__.__name__}"
+                                )
+                            })
 
                     if result:
                         msg_id = str(uuid.uuid4())
@@ -275,12 +315,18 @@ async def handle_run(request: Request) -> StreamingResponse:
             tool_name = tool_msg.default_value("request") if hasattr(tool_msg, "default_value") else getattr(tool_msg, "request", "unknown")
             tool_call_id = str(uuid.uuid4())
 
-            # Build tool arguments (exclude metadata fields)
+            # Build tool arguments (exclude metadata fields and unset/None
+            # values — emitting ``{"foo": null}`` forces the frontend to
+            # decide what a null field means, which almost always renders
+            # as an empty input on the tool card).
             tool_args = {}
             for field_name, field_info in tool_msg.model_fields.items():
                 if field_name in ("request", "purpose", "result"):
                     continue
-                tool_args[field_name] = getattr(tool_msg, field_name)
+                value = getattr(tool_msg, field_name)
+                if value is None:
+                    continue
+                tool_args[field_name] = value
 
             yield _sse_line(ToolCallStartEvent(
                 type=EventType.TOOL_CALL_START,
@@ -336,47 +382,90 @@ def _try_parse_tool(content: str, agent: lr.ChatAgent) -> ToolMessage | None:
     dead code. We rely on the JSON fallback, which matches both the
     Langroid tool envelope (`{"request": ..., ...}`) and the OpenAI
     function-call shape (`{"name": ..., "arguments": ...}`).
+
+    Logging philosophy (matters — this is on the hot path for every
+    turn, including plain chat replies like "hello"):
+
+      * JSON decode failure is the common case (plain text). SILENT.
+        Returning ``None`` is the signal.
+      * JSON decoded but didn't match any tool schema: ``debug`` log.
+        Still not interesting for ops dashboards.
+      * JSON decoded AND matched a tool name BUT instantiation failed:
+        ``warning`` log. This is the one that actually deserves
+        attention — the model tried to call a tool and the payload
+        was bad.
     """
     try:
         data = json.loads(content)
-    except (json.JSONDecodeError, TypeError) as exc:
-        logger.warning(
-            "Failed to JSON-decode LLM content for tool parsing (%s): %r",
-            exc,
-            (content or "")[:200],
-        )
+    except (json.JSONDecodeError, TypeError):
+        # Common case: plain text (e.g. "hello"). Silent — logging
+        # every chat turn as a warning drowns the real signal.
         return None
 
-    try:
-        request = data.get("request") if isinstance(data, dict) else None
-        if request:
-            for tool_cls in ALL_TOOLS:
-                if tool_cls.default_value("request") == request:
+    # At this point we parsed valid JSON. Whether it's a tool call or
+    # just arbitrary JSON-shaped content is what we find out next.
+    request = data.get("request") if isinstance(data, dict) else None
+    if request:
+        for tool_cls in ALL_TOOLS:
+            if tool_cls.default_value("request") == request:
+                try:
                     return tool_cls(**data)
-        # Check for OpenAI function_call style
-        if isinstance(data, dict):
-            name = data.get("name") or (data.get("function", {}) or {}).get("name")
-            args = data.get("arguments") or (data.get("function", {}) or {}).get("arguments", {})
-            if name:
-                if isinstance(args, str):
+                except (
+                    TypeError,
+                    ValueError,
+                    KeyError,
+                    pydantic.ValidationError,
+                    pydantic.errors.PydanticUserError,
+                ) as exc:
+                    logger.warning(
+                        "Failed to instantiate tool %s from parsed content "
+                        "(%s: %s): %r",
+                        request,
+                        exc.__class__.__name__,
+                        exc,
+                        str(data)[:200],
+                    )
+                    return None
+
+    # Check for OpenAI function_call style
+    if isinstance(data, dict):
+        name = data.get("name") or (data.get("function", {}) or {}).get("name")
+        args = data.get("arguments") or (data.get("function", {}) or {}).get("arguments", {})
+        if name:
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except json.JSONDecodeError as exc:
+                    logger.warning(
+                        "Failed to JSON-decode function_call.arguments (%s): %r",
+                        exc,
+                        args[:200],
+                    )
+                    return None
+            for tool_cls in ALL_TOOLS:
+                if tool_cls.default_value("request") == name:
                     try:
-                        args = json.loads(args)
-                    except json.JSONDecodeError as exc:
+                        return tool_cls(**args)
+                    except (
+                        TypeError,
+                        ValueError,
+                        KeyError,
+                        pydantic.ValidationError,
+                        pydantic.errors.PydanticUserError,
+                    ) as exc:
                         logger.warning(
-                            "Failed to JSON-decode function_call.arguments (%s): %r",
+                            "Failed to instantiate tool %s from "
+                            "function_call (%s: %s): %r",
+                            name,
+                            exc.__class__.__name__,
                             exc,
-                            args[:200],
+                            str(data)[:200],
                         )
                         return None
-                for tool_cls in ALL_TOOLS:
-                    if tool_cls.default_value("request") == name:
-                        return tool_cls(**args)
-    except (TypeError, pydantic.ValidationError) as exc:
-        logger.warning(
-            "Failed to instantiate ToolMessage from parsed content (%s): %r",
-            exc,
-            str(data)[:200],
-        )
-        return None
 
+    # Valid JSON but no tool match — not interesting enough for warning.
+    logger.debug(
+        "LLM content parsed as JSON but did not match any tool schema: %r",
+        str(data)[:200],
+    )
     return None
