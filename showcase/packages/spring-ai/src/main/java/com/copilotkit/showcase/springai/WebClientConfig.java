@@ -1,5 +1,7 @@
 package com.copilotkit.showcase.springai;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.reactive.function.client.WebClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,18 +30,35 @@ import java.net.http.HttpClient;
  * will happily reuse it for the follow-up tool-result request and trip over
  * {@code Connection reset}. Setting {@code jdk.httpclient.keepalive.timeout=0}
  * before the first HttpClient is created forces a fresh connection per request.
- * The property must be set statically (before any JDK HttpClient is
- * instantiated), so we do it in a {@code static} initializer which Spring
- * invokes when loading this {@link Configuration}.
+ *
+ * <p><b>Authoritative path:</b> {@code entrypoint.sh} passes
+ * {@code -Djdk.httpclient.keepalive.timeout=0} as a JVM arg, which guarantees
+ * the property is set before any class — including this one — is loaded. The
+ * static initializer below is a defensive belt-and-suspenders fallback for
+ * direct {@code java -jar agent.jar} invocations (e.g. IDE debugging or
+ * Maven failsafe) where {@code entrypoint.sh} isn't in play. Because static
+ * initializer ordering across Spring {@code @Configuration} classes is
+ * fragile (this class may be loaded *after* the first {@link HttpClient} is
+ * constructed elsewhere), always prefer the JVM-arg path in production.
  */
 @Configuration
 public class WebClientConfig {
 
+    private static final Logger log = LoggerFactory.getLogger(WebClientConfig.class);
+
     static {
         // Must be set before the first java.net.http.HttpClient is built.
         // Value is in seconds; 0 disables connection keep-alive entirely.
-        if (System.getProperty("jdk.httpclient.keepalive.timeout") == null) {
+        String existing = System.getProperty("jdk.httpclient.keepalive.timeout");
+        if (existing == null) {
             System.setProperty("jdk.httpclient.keepalive.timeout", "0");
+        } else if (!"0".equals(existing.trim())) {
+            // Respect the user's override but warn loudly — a non-zero value
+            // re-enables keep-alive and can resurrect the half-closed-socket
+            // bug the JVM-arg + static-init pair is meant to prevent.
+            log.warn(
+                    "jdk.httpclient.keepalive.timeout is already set to '{}' (non-zero); leaving it alone, but note that keep-alive reuse can trigger 'Connection reset' against aimock/Prism upstreams. Set it to 0 to disable pooling.",
+                    existing);
         }
     }
 

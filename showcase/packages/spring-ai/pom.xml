@@ -64,6 +64,14 @@
             <artifactId>spring</artifactId>
             <version>${ag-ui.version}</version>
         </dependency>
+
+        <!-- Test scope: JUnit 5 + Mockito via Spring Boot starter. Kept test-only
+             so the production JAR stays lean. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

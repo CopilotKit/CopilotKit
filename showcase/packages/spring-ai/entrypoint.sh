@@ -7,27 +7,39 @@ echo "[entrypoint] Starting Spring Boot agent backend..."
 # pooled connection can be half-closed by some upstreams (aimock/Prism) between
 # SSE responses, which trips `Connection reset` on the follow-up tool-result
 # request. Setting this as a JVM arg guarantees it lands before any
-# java.net.http.HttpClient is constructed.
+# java.net.http.HttpClient is constructed. This is the authoritative path;
+# WebClientConfig's static initializer is a defensive fallback only.
 java -Djdk.httpclient.keepalive.timeout=0 -jar /app/agent.jar &
 JAVA_PID=$!
 
-# Wait for Spring Boot to be ready (up to 30 seconds)
-echo "[entrypoint] Waiting for Spring Boot health check..."
-for i in $(seq 1 30); do
+# Wait for Spring Boot to be ready (up to 60 seconds). Cold-start JVM warmup
+# plus Spring context refresh can legitimately exceed 30s under load — we
+# also probe the Java PID each tick as a liveness fallback, so a crashing
+# boot fails fast regardless of the cap.
+STARTUP_TIMEOUT=60
+echo "[entrypoint] Waiting for Spring Boot health check (timeout=${STARTUP_TIMEOUT}s)..."
+SPRING_READY=0
+for i in $(seq 1 "$STARTUP_TIMEOUT"); do
     if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
         echo "[entrypoint] Spring Boot ready after ${i}s"
+        SPRING_READY=1
         break
     fi
-    if ! kill -0 $JAVA_PID 2>/dev/null; then
-        echo "[entrypoint] Spring Boot process died"
+    if ! kill -0 "$JAVA_PID" 2>/dev/null; then
+        echo "[entrypoint] Spring Boot process (pid=${JAVA_PID}) died during startup"
         exit 1
     fi
     sleep 1
 done
 
-# Verify it's actually up
-if ! curl -sf http://localhost:8000/health > /dev/null 2>&1; then
-    echo "[entrypoint] Spring Boot failed to start within 30s"
+if [ "$SPRING_READY" -ne 1 ]; then
+    # Differentiate "slow" from "dead" so operators know whether to raise
+    # the timeout or debug a crash loop.
+    if kill -0 "$JAVA_PID" 2>/dev/null; then
+        echo "[entrypoint] Spring Boot still alive (pid=${JAVA_PID}) but /health did not return 2xx within ${STARTUP_TIMEOUT}s"
+    else
+        echo "[entrypoint] Spring Boot process (pid=${JAVA_PID}) exited before reporting healthy"
+    fi
     exit 1
 fi
 
@@ -35,6 +47,21 @@ echo "[entrypoint] Starting Next.js frontend on port ${PORT:-10000}..."
 npx next start --port ${PORT:-10000} &
 NODE_PID=$!
 
-# Wait for either process to exit
-wait -n $JAVA_PID $NODE_PID
-exit $?
+# Wait for either process to exit. `wait -n` without PID args works on all
+# bash >= 4.3 (align with other showcase entrypoints such as google-adk);
+# the PID-args form requires bash 5.1+ which isn't guaranteed in minimal
+# container images.
+wait -n
+EXIT_CODE=$?
+
+# Identify which process exited so the container log makes the failure mode
+# obvious (java crash vs. next crash vs. clean shutdown).
+if ! kill -0 "$JAVA_PID" 2>/dev/null; then
+    echo "[entrypoint] Java process (pid=${JAVA_PID}) exited (code=${EXIT_CODE})"
+elif ! kill -0 "$NODE_PID" 2>/dev/null; then
+    echo "[entrypoint] Node.js process (pid=${NODE_PID}) exited (code=${EXIT_CODE})"
+else
+    echo "[entrypoint] A child exited (code=${EXIT_CODE}); both PIDs still resolve — race between wait and kill -0"
+fi
+
+exit "$EXIT_CODE"
