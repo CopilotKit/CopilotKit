@@ -34,12 +34,15 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // ROOT = showcase/ (NOT the repo root). This script lives at
 // showcase/scripts/validate-workflow-starters.ts.
-const SHOWCASE_ROOT = path.resolve(__dirname, "..");
 // Resolve the repo root so we can find .github/workflows/ even when
 // invoked from any cwd. Override via env var for tests / fixtures.
+// VALIDATE_WORKFLOW_STARTERS_REPO_ROOT overrides both STARTERS_DIR (via
+// showcase/) and DEPLOY_WORKFLOW (via .github/) so a single env var
+// re-homes every filesystem read.
 const REPO_ROOT =
   process.env.VALIDATE_WORKFLOW_STARTERS_REPO_ROOT ??
-  path.resolve(SHOWCASE_ROOT, "..");
+  path.resolve(__dirname, "..", "..");
+const SHOWCASE_ROOT = path.join(REPO_ROOT, "showcase");
 
 const STARTERS_DIR = path.join(SHOWCASE_ROOT, "starters");
 const DEPLOY_WORKFLOW = path.join(
