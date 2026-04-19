@@ -1,105 +1,120 @@
-"""LangGraph agent for the Declarative Generative UI (A2UI — Dynamic Schema) demo.
+"""
+LangGraph agent for the Declarative Generative UI (A2UI — Dynamic Schema) demo.
 
-The full reference implementation in
-`examples/integrations/langgraph-python/agent/src/a2ui_dynamic_schema.py`
-uses a *secondary LLM* bound to a `render_a2ui` tool to generate A2UI v0.9
-components on the fly from the conversation context.
+A *secondary* LLM generates A2UI v0.9 components at runtime via a structured
+tool call. The primary LLM only decides *when* to render UI and delegates the
+actual schema to `generate_a2ui`.
 
-To keep this showcase demo MINIMAL and deterministic, this version ships a
-**placeholder** `generate_a2ui` tool that emits a fixed, hand-authored A2UI
-payload (a tiny dashboard). The wire format and middleware contract are
-identical to the dynamic case — only the authorship of the schema differs.
-Swap `_build_placeholder_operations()` for a secondary-LLM call to get the
-fully dynamic version.
+Flow:
+1. Primary LLM (gpt-4o-mini) sees the conversation. When the user asks to show
+   or render UI, it calls the `generate_a2ui` tool.
+2. Inside `generate_a2ui`, a secondary LLM (gpt-4.1) is bound to `render_a2ui`
+   (`tool_choice="render_a2ui"`) so it is forced to emit a structured A2UI
+   component tree. The `copilotkit.context` entries injected by the runtime's
+   A2UI middleware carry the available catalog + component schema.
+3. The tool wraps the LLM's output as A2UI operations (createSurface,
+   updateComponents, updateDataModel) and returns them via `a2ui.render(...)`.
+   The runtime's A2UI middleware detects the `a2ui_operations` container in
+   the tool result and forwards it to the renderer on the frontend.
+
+Reference:
+    examples/integrations/langgraph-python/agent/src/a2ui_dynamic_schema.py
 """
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
-from langchain.agents import create_agent
-from langchain.tools import tool
-from langchain_openai import ChatOpenAI
 from copilotkit import CopilotKitMiddleware, a2ui
+from langchain.agents import create_agent
+from langchain.tools import ToolRuntime, tool
+from langchain_core.messages import SystemMessage
+from langchain_core.tools import tool as lc_tool
+from langchain_openai import ChatOpenAI
 
-SURFACE_ID = "dynamic-dashboard"
 
+@lc_tool
+def render_a2ui(
+    surfaceId: str,
+    catalogId: str,
+    components: list[dict],
+    data: dict | None = None,
+) -> str:
+    """Render a dynamic A2UI v0.9 surface.
 
-def _build_placeholder_components() -> list[dict[str, Any]]:
-    """Fixed, hand-authored A2UI v0.9 components mimicking a dynamic response.
-
-    In the real dynamic demo these are produced by a secondary LLM via a
-    `render_a2ui` tool call. We emit only components from the default A2UI
-    basicCatalog so this demo works without registering a custom catalog.
+    Args:
+        surfaceId: Unique surface identifier.
+        catalogId: The catalog ID (use the one from context — typically the
+            basic catalog unless a custom one is registered).
+        components: A2UI v0.9 component array (flat format). The root
+            component must have id "root".
+        data: Optional initial data model for the surface (e.g. list items
+            for data-bound components).
     """
-    return [
-        {
-            "id": "root",
-            "component": "Column",
-            "gap": 12,
-            "children": ["title", "subtitle", "price", "cta"],
-        },
-        {
-            "id": "title",
-            "component": "Text",
-            "text": "Flight SFO → JFK",
-            "variant": "h2",
-        },
-        {
-            "id": "subtitle",
-            "component": "Text",
-            "text": "United Airlines · Tue, Mar 18 · 4h 25m",
-            "variant": "caption",
-        },
-        {
-            "id": "price",
-            "component": "Text",
-            "text": "$289",
-            "variant": "h3",
-        },
-        {
-            "id": "cta",
-            "component": "Button",
-            "child": "cta-label",
-            "variant": "primary",
-            "action": {"event": {"name": "book_flight"}},
-        },
-        {
-            "id": "cta-label",
-            "component": "Text",
-            "text": "Book flight",
-        },
-    ]
+    return "rendered"
 
 
-@tool
-def generate_a2ui(prompt: str) -> str:
-    """Generate a dynamic A2UI surface based on the user's request.
+@tool()
+def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
+    """Generate dynamic A2UI components based on the conversation.
 
-    Call this whenever the user asks to "show" or "render" a card, dashboard,
-    or rich UI. The result is an `a2ui_operations` container that the
-    CopilotKit A2UI middleware detects and forwards to the frontend renderer.
+    A secondary LLM designs the UI schema and data. The result is returned
+    as an `a2ui_operations` container for the middleware to detect.
     """
-    components = _build_placeholder_components()
-    return a2ui.render(
-        operations=[
-            a2ui.create_surface(SURFACE_ID),
-            a2ui.update_components(SURFACE_ID, components),
-        ]
+    # Drop the triggering tool call so the secondary LLM sees only the prior
+    # conversation context.
+    messages = runtime.state["messages"][:-1]
+
+    # The runtime's A2UI middleware injects the available catalog + component
+    # schema as `copilotkit.context` entries. Concatenate them into the system
+    # prompt so the secondary LLM knows which components it may use.
+    context_entries = runtime.state.get("copilotkit", {}).get("context", [])
+    context_text = "\n\n".join(
+        entry.get("value", "")
+        for entry in context_entries
+        if isinstance(entry, dict) and entry.get("value")
     )
+
+    model = ChatOpenAI(model="gpt-4.1")
+    model_with_tool = model.bind_tools(
+        [render_a2ui],
+        tool_choice="render_a2ui",
+    )
+
+    response = model_with_tool.invoke(
+        [SystemMessage(content=context_text), *messages],
+    )
+
+    if not response.tool_calls:
+        return json.dumps({"error": "LLM did not call render_a2ui"})
+
+    args = response.tool_calls[0]["args"]
+    surface_id = args["surfaceId"]
+    catalog_id = args.get("catalogId", a2ui.BASIC_CATALOG_ID)
+    components = args.get("components", [])
+    data = args.get("data")
+
+    ops = [
+        a2ui.create_surface(surface_id, catalog_id=catalog_id),
+        a2ui.update_components(surface_id, components),
+    ]
+    if data:
+        ops.append(a2ui.update_data_model(surface_id, data))
+
+    return a2ui.render(operations=ops)
 
 
 SYSTEM_PROMPT = (
     "You are a demo assistant for Declarative Generative UI (A2UI dynamic "
-    "schema). When the user asks to show or render a dashboard, card, or any "
-    "rich UI, call the `generate_a2ui` tool. Keep chat responses to one short "
-    "sentence — the UI does the talking."
+    "schema). When the user asks to show or render any UI — a card, "
+    "dashboard, form, chart, etc. — call the `generate_a2ui` tool. It will "
+    "design the schema for you. Keep chat replies to one short sentence; "
+    "the UI does the talking."
 )
 
-model = ChatOpenAI(model="gpt-4o-mini")
-
 graph = create_agent(
-    model=model,
+    model=ChatOpenAI(model="gpt-4o-mini"),
     tools=[generate_a2ui],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,

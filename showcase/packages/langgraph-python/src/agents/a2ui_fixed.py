@@ -1,14 +1,20 @@
 """
 LangGraph agent for the Declarative Generative UI (A2UI — Fixed Schema) demo.
 
-Demonstrates fixed-schema A2UI: the component tree (schema) lives on the
-frontend (see `app/demos/a2ui-fixed-schema/page.tsx`). The agent emits A2UI
-operations that only carry *data* matching that fixed shape — here, a flight
-card with { origin, destination, airline, price }.
+Fixed-schema A2UI: the component tree (schema) is authored ahead of time as
+JSON and loaded at startup via `a2ui.load_schema(...)`. The agent only
+streams *data* into the data model at runtime. The frontend registers a
+matching catalog (see `src/app/demos/a2ui-fixed-schema/catalog.ts`) that
+pins the schema's component names (here, `FlightCard`) to real React
+implementations.
+
+Reference:
+    examples/integrations/langgraph-python/agent/src/a2ui_fixed_schema.py
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TypedDict
 
 from copilotkit import CopilotKitMiddleware, a2ui
@@ -19,23 +25,22 @@ from langchain_openai import ChatOpenAI
 CATALOG_ID = "copilotkit://flight-fixed-catalog"
 SURFACE_ID = "flight-fixed-schema"
 
-# A fixed component tree. This mirrors the catalog the frontend registers.
-# The agent only controls *data* via the data model below. Each prop is a
-# top-level key on the component (A2UI v0.9 wire format); the path bindings
-# tell the renderer to pull the value from the data model.
-FIXED_SCHEMA = [
-    {
-        "id": "root",
-        "component": "FlightCard",
-        "origin": {"path": "/origin"},
-        "destination": {"path": "/destination"},
-        "airline": {"path": "/airline"},
-        "price": {"path": "/price"},
-    }
-]
+_SCHEMAS_DIR = Path(__file__).parent / "a2ui_schemas"
+
+# Schemas are JSON so they can be authored and reviewed independently of the
+# Python code. `a2ui.load_schema` is just a thin `json.load` wrapper.
+FLIGHT_SCHEMA = a2ui.load_schema(_SCHEMAS_DIR / "flight_schema.json")
+BOOKED_SCHEMA = a2ui.load_schema(_SCHEMAS_DIR / "booked_schema.json")
 
 
 class Flight(TypedDict):
+    """Shape the LLM should fill in when calling `search_flight`.
+
+    LangGraph serializes this TypedDict into the tool's JSON schema, so
+    defining it narrowly is how we steer the LLM to produce data that fits
+    the frontend `FlightCard` component's props.
+    """
+
     origin: str
     destination: str
     airline: str
@@ -44,11 +49,18 @@ class Flight(TypedDict):
 
 @tool
 def search_flight(origin: str, destination: str, airline: str, price: str) -> str:
-    """Show a flight card for the given trip. Use short airport codes (e.g. "SFO", "JFK")."""
+    """Show a flight card for the given trip.
+
+    Use short airport codes (e.g. "SFO", "JFK") for origin/destination and a
+    price string like "$289".
+    """
+    # The A2UI middleware detects the `a2ui_operations` container in this
+    # tool result and forwards the ops to the frontend renderer. The frontend
+    # catalog resolves `FlightCard` to the local React component.
     return a2ui.render(
         operations=[
             a2ui.create_surface(SURFACE_ID, catalog_id=CATALOG_ID),
-            a2ui.update_components(SURFACE_ID, FIXED_SCHEMA),
+            a2ui.update_components(SURFACE_ID, FLIGHT_SCHEMA),
             a2ui.update_data_model(
                 SURFACE_ID,
                 {
@@ -59,6 +71,14 @@ def search_flight(origin: str, destination: str, airline: str, price: str) -> st
                 },
             ),
         ],
+        # NOTE: The canonical reference (and the docs at
+        # docs/integrations/langgraph/generative-ui/a2ui/fixed-schema.mdx)
+        # also pass `action_handlers={...}` here to declare optimistic UI
+        # transitions — e.g. swapping to BOOKED_SCHEMA when the card's
+        # `book_flight` button is clicked. The Python SDK's `a2ui.render`
+        # does not yet accept that kwarg (see sdk-python/copilotkit/a2ui.py),
+        # so we omit it for now. The `booked_schema.json` sibling is kept
+        # so the schema is ready to wire up once the SDK exposes handlers.
     )
 
 

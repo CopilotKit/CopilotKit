@@ -1,10 +1,10 @@
 """LangGraph agent for the Interrupt-based Generative UI demo.
 
-Defines a backend tool `ask_confirmation(message, details)` that uses
-langgraph's `interrupt()` primitive to pause the run and surface a
-confirmation payload to the frontend. The frontend `useInterrupt`
-renderer receives `event.value == {message, details}` and resolves with
-`{approved: bool}` to resume the graph.
+Defines a backend tool `schedule_meeting(topic, attendee)` that uses
+langgraph's `interrupt()` primitive to pause the run and surface the
+meeting context to the frontend. The frontend `useInterrupt` renderer
+shows a time picker and resolves with `{chosen_time, chosen_label}` or
+`{cancelled: true}`, which this tool turns into a human-readable result.
 """
 
 from __future__ import annotations
@@ -19,55 +19,47 @@ from copilotkit import CopilotKitMiddleware
 
 
 SYSTEM_PROMPT = (
-    "You are a confirmation assistant. Whenever the user asks you to perform "
-    "ANY action (book a flight, delete an account, send an email, schedule a "
-    "meeting, etc.) you MUST call the `ask_confirmation` tool first to get "
-    "user approval before claiming the action has been performed. "
-    "Pass a clear human-readable `message` describing what you're about to do, "
-    "and include any relevant structured data in `details` (e.g. "
-    "`{\"from\": \"SFO\", \"to\": \"JFK\"}`). "
-    "After the tool returns, reply briefly acknowledging whether the action "
-    "was approved or cancelled."
+    "You are a scheduling assistant. Whenever the user asks you to book a "
+    "call / schedule a meeting, you MUST call the `schedule_meeting` tool. "
+    "Pass a short `topic` describing the purpose and `attendee` describing "
+    "who the meeting is with. After the tool returns, confirm briefly "
+    "whether the meeting was scheduled and at what time, or that the user "
+    "cancelled."
 )
 
 
 @tool
-def ask_confirmation(message: str, details: Optional[dict] = None) -> str:
-    """Pause the agent and ask the user to approve or cancel the pending action.
+def schedule_meeting(topic: str, attendee: Optional[str] = None) -> str:
+    """Ask the user to pick a time slot for a call, via an in-chat picker.
 
     Args:
-        message: Short human-readable description of what's about to happen.
-        details: Optional structured payload (e.g. {"from": "SFO", "to": "JFK"})
-            to render alongside the confirmation card.
+        topic: Short human-readable description of the call's purpose.
+        attendee: Who the call is with (optional).
 
     Returns:
-        A short string indicating whether the user approved or cancelled.
+        Human-readable result string describing the chosen slot or
+        indicating the user cancelled.
     """
     # langgraph's `interrupt()` pauses execution and forwards the payload to
-    # the client. The CopilotKit runtime bridges that into an `on_interrupt`
-    # custom event, which the frontend v2 `useInterrupt` hook picks up.
-    response = interrupt({"message": message, "details": details or {}})
+    # the client. The frontend v2 `useInterrupt` hook renders the picker and
+    # calls `resolve(...)` with the user's selection, which comes back here.
+    response: Any = interrupt({"topic": topic, "attendee": attendee})
 
-    # The frontend `resolve(...)` value comes back here. Our demo renderer
-    # resolves with `{approved: bool}`, but be defensive for other shapes.
-    approved = False
     if isinstance(response, dict):
-        approved = bool(response.get("approved"))
-    elif isinstance(response, bool):
-        approved = response
-    elif isinstance(response, str):
-        approved = response.strip().lower() in {"yes", "y", "true", "approve", "approved"}
+        if response.get("cancelled"):
+            return f"User cancelled. Meeting NOT scheduled: {topic}"
+        chosen_label = response.get("chosen_label") or response.get("chosen_time")
+        if chosen_label:
+            return f"Meeting scheduled for {chosen_label}: {topic}"
 
-    if approved:
-        return f"User approved. Action completed: {message}"
-    return f"User cancelled. Action NOT performed: {message}"
+    return f"User did not pick a time. Meeting NOT scheduled: {topic}"
 
 
 model = ChatOpenAI(model="gpt-4o-mini")
 
 graph = create_agent(
     model=model,
-    tools=[ask_confirmation],
+    tools=[schedule_meeting],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,
 )
