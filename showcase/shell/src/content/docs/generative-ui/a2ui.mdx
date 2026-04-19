@@ -35,6 +35,13 @@ Both approaches share the same A2UI wire protocol and the same
 frontend renderer. The difference is *where the schema comes from* and
 *how data reaches the client*.
 
+### When to use which?
+
+| Approach | Schema source | Rendering | Best for |
+|---|---|---|---|
+| **Fixed Schema** | JSON file | Instant (all at once) | Known UI patterns (flight cards, product tiles, dashboards) |
+| **Dynamic Schema** | LLM-generated | Progressive (card by card) | Unknown / varied UI — the agent decides what to show |
+
 ## How it works
 
 Every A2UI surface is assembled from three kinds of operations emitted
