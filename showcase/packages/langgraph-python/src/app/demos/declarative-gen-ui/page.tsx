@@ -1,40 +1,43 @@
 "use client";
 
 /**
- * Declarative Generative UI (A2UI - Dynamic Schema) demo.
+ * Declarative Generative UI (A2UI) — canonical Bring-Your-Own-Catalog demo.
  *
- * The backend agent emits an `a2ui_operations` payload at runtime (the schema
- * is declared in the tool result, not in the frontend). The frontend wires up
- * an A2UI activity-message renderer so that payload renders into real
- * components via the default A2UI basicCatalog.
+ * Pattern (straight from the docs):
+ *   1. Define a small set of branded React components + Zod schemas in
+ *      `./a2ui/definitions.ts` and `./a2ui/renderers.tsx` (the latter calls
+ *      `createCatalog(..., { includeBasicCatalog: true })` and exports
+ *      `myCatalog`).
+ *   2. Pass that catalog to the provider via
+ *      `<CopilotKit a2ui={{ catalog: myCatalog }}>`.
+ *   3. Configure the runtime with
+ *      `a2ui: { injectA2UITool: true, agents: [...] }` in
+ *      `./api/copilotkit/route.ts`. The runtime auto-injects the
+ *      `render_a2ui` tool + the catalog schema into the agent's context.
+ *   4. The backend agent (`src/agents/a2ui_dynamic.py`) is just a plain
+ *      `create_agent` with `CopilotKitMiddleware` and `tools=[]` — no
+ *      secondary LLM, no hand-written `render_a2ui` tool.
  *
- * Backend: src/agents/a2ui_dynamic.py (graph `a2ui_dynamic`). The reference
- * implementation uses a secondary LLM bound to a `render_a2ui` tool to
- * generate the schema; this showcase ships a placeholder fixed payload that
- * follows the same `a2ui_operations` wire format.
+ * Reference:
+ *   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui
  */
 
-import React, { useMemo } from "react";
+import React from "react";
 import {
   CopilotKit,
   CopilotChat,
   useConfigureSuggestions,
-  createA2UIMessageRenderer,
-  a2uiDefaultTheme,
 } from "@copilotkit/react-core/v2";
 
-export default function DeclarativeGenUIDemo() {
-  // Memoize so the provider's stable-array check is satisfied across renders.
-  const activityRenderers = useMemo(
-    () => [createA2UIMessageRenderer({ theme: a2uiDefaultTheme })],
-    [],
-  );
+import { myCatalog } from "./a2ui/catalog";
 
+export default function DeclarativeGenUIDemo() {
   return (
+    // @region[provider-a2ui-prop]
     <CopilotKit
       runtimeUrl="/api/copilotkit"
       agent="declarative-gen-ui"
-      renderActivityMessages={activityRenderers}
+      a2ui={{ catalog: myCatalog }}
     >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
@@ -42,6 +45,7 @@ export default function DeclarativeGenUIDemo() {
         </div>
       </div>
     </CopilotKit>
+    // @endregion[provider-a2ui-prop]
   );
 }
 
@@ -49,12 +53,19 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Show me a flight booking card",
-        message: "Show me a flight booking card from SFO to JFK.",
+        title: "Show a KPI dashboard",
+        message:
+          "Show me a quick KPI dashboard with 3-4 metrics (revenue, signups, churn).",
       },
       {
-        title: "Render a sales dashboard",
-        message: "Render a dashboard with a few key metrics.",
+        title: "Status report",
+        message:
+          "Give me a status report on system health — API, database, and background workers.",
+      },
+      {
+        title: "Service summary card",
+        message:
+          "Summarise our checkout service: owner, region, uptime, and a 'View runbook' button.",
       },
     ],
     available: "always",

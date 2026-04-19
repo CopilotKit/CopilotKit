@@ -1,26 +1,28 @@
 "use client";
 
-// Tool Rendering — PRIMARY (per-tool + catch-all) variant.
+// Tool Rendering — REASONING CHAIN variant.
 //
-// The most sophisticated point in the three-way progression: the same
-// backend tools as the `tool-rendering-default-catchall` and
-// `tool-rendering-custom-catchall` cells are now surfaced via
-// dedicated, branded UI for the two "interesting" tools, with a
-// catch-all covering everything else:
+// A single cell that composes two previously-separate patterns:
 //
-//   get_weather     → <WeatherCard />       (per-tool renderer)
-//   search_flights  → <FlightListCard />    (per-tool renderer)
-//   *               → <CustomCatchallRenderer /> (wildcard fallback)
+//   1. Reasoning tokens rendered via a custom `reasoningMessage` slot —
+//      the same approach used by the `agentic-chat-reasoning` cell.
+//   2. Sequential tool calls rendered with:
+//        get_weather     → <WeatherCard />
+//        search_flights  → <FlightListCard />
+//        *               → <CustomCatchallRenderer />
+//      mirroring the `tool-rendering` (primary) cell.
 
 import React from "react";
 import {
   CopilotKit,
   CopilotChat,
+  CopilotChatReasoningMessage,
   useRenderTool,
   useDefaultRenderTool,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+import { ReasoningBlock } from "./reasoning-block";
 import { WeatherCard } from "./weather-card";
 import { FlightListCard, type Flight } from "./flight-list-card";
 import {
@@ -51,9 +53,12 @@ function parseJsonResult<T>(result: unknown): T {
   }
 }
 
-export default function ToolRenderingDemo() {
+export default function ToolRenderingReasoningChainDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="tool-rendering">
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      agent="tool-rendering-reasoning-chain"
+    >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
@@ -64,14 +69,10 @@ export default function ToolRenderingDemo() {
 }
 
 function Chat() {
-  // @region[render-weather-tool]
-  // Per-tool renderer #1: get_weather → branded WeatherCard.
   useRenderTool(
     {
       name: "get_weather",
-      parameters: z.object({
-        location: z.string(),
-      }),
+      parameters: z.object({ location: z.string() }),
       render: ({ parameters, result, status }) => {
         const loading = status !== "complete";
         const parsed = parseJsonResult<WeatherResult>(result);
@@ -89,10 +90,7 @@ function Chat() {
     },
     [],
   );
-  // @endregion[render-weather-tool]
 
-  // @region[render-flight-tool]
-  // Per-tool renderer #2: search_flights → branded FlightListCard.
   useRenderTool(
     {
       name: "search_flights",
@@ -115,11 +113,7 @@ function Chat() {
     },
     [],
   );
-  // @endregion[render-flight-tool]
 
-  // @region[catchall-renderer]
-  // Wildcard catch-all for every remaining tool (get_stock_price,
-  // roll_dice, anything the agent might add later).
   useDefaultRenderTool(
     {
       render: ({ name, parameters, status, result }) => (
@@ -133,31 +127,30 @@ function Chat() {
     },
     [],
   );
-  // @endregion[catchall-renderer]
 
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
+        title: "Weather + flights to Tokyo",
+        message: "What's the weather in Tokyo?",
       },
+      { title: "Compare two stocks", message: "How is AAPL doing?" },
+      { title: "Chain of dice rolls", message: "Roll a 20-sided die for me." },
       {
-        title: "Find flights",
+        title: "Flights + destination weather",
         message: "Find flights from SFO to JFK.",
-      },
-      {
-        title: "Stock price",
-        message: "What's the current price of AAPL?",
-      },
-      {
-        title: "Roll a d20",
-        message: "Roll a 20-sided die.",
       },
     ],
     available: "always",
   });
 
   return (
-    <CopilotChat agentId="tool-rendering" className="h-full rounded-2xl" />
+    <CopilotChat
+      agentId="tool-rendering-reasoning-chain"
+      className="h-full rounded-2xl"
+      messageView={{
+        reasoningMessage: ReasoningBlock as typeof CopilotChatReasoningMessage,
+      }}
+    />
   );
 }

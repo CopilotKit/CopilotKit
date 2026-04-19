@@ -1,11 +1,62 @@
 [
   {
     "id": "root",
-    "component": "FlightCard",
-    "origin": { "path": "/origin" },
-    "destination": { "path": "/destination" },
-    "airline": { "path": "/airline" },
-    "price": { "path": "/price" },
+    "component": "Card",
+    "child": "content"
+  },
+  {
+    "id": "content",
+    "component": "Column",
+    "children": ["title", "route", "meta", "bookButton"]
+  },
+  {
+    "id": "title",
+    "component": "Title",
+    "text": "Flight Details"
+  },
+  {
+    "id": "route",
+    "component": "Row",
+    "justify": "spaceBetween",
+    "align": "center",
+    "children": ["from", "arrow", "to"]
+  },
+  {
+    "id": "from",
+    "component": "Airport",
+    "code": { "path": "/origin" }
+  },
+  {
+    "id": "arrow",
+    "component": "Arrow"
+  },
+  {
+    "id": "to",
+    "component": "Airport",
+    "code": { "path": "/destination" }
+  },
+  {
+    "id": "meta",
+    "component": "Row",
+    "justify": "spaceBetween",
+    "align": "center",
+    "children": ["airline", "price"]
+  },
+  {
+    "id": "airline",
+    "component": "AirlineBadge",
+    "name": { "path": "/airline" }
+  },
+  {
+    "id": "price",
+    "component": "PriceTag",
+    "amount": { "path": "/price" }
+  },
+  {
+    "id": "bookButton",
+    "component": "Button",
+    "variant": "primary",
+    "child": "bookButtonLabel",
     "action": {
       "event": {
         "name": "book_flight",
@@ -17,5 +68,10 @@
         }
       }
     }
+  },
+  {
+    "id": "bookButtonLabel",
+    "component": "Text",
+    "text": "Book flight"
   }
 ]

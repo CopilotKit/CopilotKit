@@ -6,13 +6,11 @@ import {
 } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
-// Dedicated runtime for the open-gen-ui demo only.
+// Dedicated runtime for the Open Generative UI demos.
 // Isolated here because the `openGenerativeUI` runtime flag sets
 // `openGenerativeUIEnabled: true` globally on the probe response, which
 // causes the CopilotKit provider's setTools effect to wipe per-demo
 // `useFrontendTool`/`useComponent` registrations in the default runtime.
-// By pointing ONLY the open-gen-ui demo at this endpoint, other demos keep
-// their frontend tools intact.
 
 const LANGGRAPH_URL =
   process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123";
@@ -22,9 +20,15 @@ const openGenUiAgent = new LangGraphAgent({
   graphId: "open_gen_ui",
   langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
 });
+const openGenUiAdvancedAgent = new LangGraphAgent({
+  deploymentUrl: LANGGRAPH_URL,
+  graphId: "open_gen_ui_advanced",
+  langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
+});
 
 const agents: Record<string, LangGraphAgent> = {
   "open-gen-ui": openGenUiAgent,
+  "open-gen-ui-advanced": openGenUiAdvancedAgent,
 };
 
 export const POST = async (req: NextRequest) => {
@@ -35,7 +39,9 @@ export const POST = async (req: NextRequest) => {
       runtime: new CopilotRuntime({
         // @ts-ignore -- see main route.ts
         agents,
-        openGenerativeUI: { agents: ["open-gen-ui"] },
+        openGenerativeUI: {
+          agents: ["open-gen-ui", "open-gen-ui-advanced"],
+        },
       }),
     });
     return await handleRequest(req);

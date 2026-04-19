@@ -43,6 +43,7 @@ function Chat() {
     available: "always",
   });
 
+  // @region[frontend-useinterrupt-render]
   useInterrupt({
     agentId: "gen-ui-interrupt",
     renderInChat: true,
@@ -61,6 +62,7 @@ function Chat() {
       );
     },
   });
+  // @endregion[frontend-useinterrupt-render]
 
   return (
     <CopilotChat agentId="gen-ui-interrupt" className="h-full rounded-2xl" />

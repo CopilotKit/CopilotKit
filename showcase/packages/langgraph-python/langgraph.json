@@ -3,11 +3,17 @@
   "graphs": {
     "sample_agent": "./src/agents/main.py:graph",
     "tool_rendering": "./src/agents/tool_rendering_agent.py:graph",
+    "tool_rendering_reasoning_chain": "./src/agents/tool_rendering_reasoning_chain_agent.py:graph",
     "a2ui_dynamic": "./src/agents/a2ui_dynamic.py:graph",
+    "a2ui_dynamic_hardcoded": "./src/agents/a2ui_dynamic_hardcoded.py:graph",
     "a2ui_fixed": "./src/agents/a2ui_fixed.py:graph",
     "reasoning_agent": "./src/agents/reasoning_agent.py:graph",
     "interrupt_agent": "./src/agents/interrupt_agent.py:graph",
     "open_gen_ui": "./src/agents/open_gen_ui_agent.py:graph",
-    "mcp_apps": "./src/agents/mcp_apps_agent.py:graph"
+    "open_gen_ui_advanced": "./src/agents/open_gen_ui_advanced_agent.py:graph",
+    "mcp_apps": "./src/agents/mcp_apps_agent.py:graph",
+    "hitl_in_chat": "./src/agents/hitl_in_chat_agent.py:graph",
+    "shared_state_read_write": "./src/agents/shared_state_read_write.py:graph",
+    "readonly_state_agent_context": "./src/agents/readonly_state_agent_context.py:graph"
   }
 }

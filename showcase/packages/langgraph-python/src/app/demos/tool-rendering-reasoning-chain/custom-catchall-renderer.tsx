@@ -2,7 +2,15 @@
 
 import React from "react";
 
-// Branded catch-all renderer for the tool-rendering-custom-catchall cell.
+// Branded catch-all renderer for tools that don't have a dedicated
+// per-tool renderer. Registered via `useDefaultRenderTool` in page.tsx,
+// this component handles every tool call NOT claimed by a named
+// `useRenderTool` registration (e.g. get_stock_price, roll_dice).
+//
+// Shows the tool name, a status badge, pretty-printed arguments, and
+// the result (as JSON). Each cell is self-contained, so this file is
+// intentionally duplicated from the `tool-rendering-custom-catchall`
+// cell rather than imported across cell boundaries.
 
 export type CatchallToolStatus = "inProgress" | "executing" | "complete";
 

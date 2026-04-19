@@ -1,54 +1,38 @@
 """
 LangGraph agent for the CopilotKit MCP Apps demo.
 
-Defines ONE backend tool (`show_mcp_app`) that the runtime middleware
-(``MCPAppsStubMiddleware`` in ``src/app/api/copilotkit/route.ts``) watches
-for. When the tool call completes, the middleware synthesizes an
-``ACTIVITY_SNAPSHOT`` event with ``activityType="mcp-apps"`` whose content
-matches ``MCPAppsActivityContentSchema`` on the frontend. The middleware
-also handles the follow-up ``__proxiedMCPRequest`` (``resources/read``)
-that the ``MCPAppsActivityRenderer`` fires when mounting, returning a
-minimal pre-baked HTML resource so the sandboxed iframe has something to
-render.
+This agent has no bespoke tools — the CopilotKit runtime is wired with
+``mcpApps: { servers: [...] }`` pointing at the public Excalidraw MCP
+server (see ``src/app/api/copilotkit-mcp-apps/route.ts``). The runtime
+auto-applies the MCP Apps middleware, which exposes the remote MCP
+server's tools to this agent at request time and emits the activity
+events that CopilotKit's built-in ``MCPAppsActivityRenderer`` renders in
+the chat as a sandboxed iframe.
 
-Keeping the activity-event synthesis in the TS middleware (rather than the
-Python agent) sidesteps the fact that the AG-UI LangGraph Python
-integration has no direct hook for emitting ``ACTIVITY_SNAPSHOT`` events.
+Reference:
+https://docs.copilotkit.ai/integrations/langgraph/generative-ui/mcp-apps
 """
 
 from langchain.agents import create_agent
-from langchain.tools import tool
 from langchain_openai import ChatOpenAI
 from copilotkit import CopilotKitMiddleware
 
 SYSTEM_PROMPT = (
-    "You are a demo assistant for MCP Apps. "
-    "When the user asks to see an app or demo, call `show_mcp_app` with "
-    "a short generic title like \"Demo App\" (do NOT invent product names "
-    "such as A2UI, CrewAI, etc.). After the tool call, reply with a single "
-    "short sentence like \"Here's the MCP app.\" — do not name frameworks "
-    "or components that weren't mentioned by the user."
+    "You are a demo assistant whose sole job is to showcase the Excalidraw "
+    "MCP app. You have access to Excalidraw tools via MCP — ALWAYS call "
+    "them when the user asks to draw, sketch, diagram, visualize, or show "
+    "anything. Default to a minimum of 3-5 shapes (rectangles, ellipses, "
+    "arrows) with labels so the canvas is visibly populated — never leave "
+    "it near-empty. If the user's request is vague (e.g. 'show me a "
+    "diagram'), invent a small but concrete example (e.g. a 3-node "
+    "pipeline with labels and arrows) and draw that. After invoking the "
+    "tool, reply with ONE short sentence describing what you drew."
 )
-
-
-@tool
-def show_mcp_app(title: str) -> str:
-    """Show an MCP app UI in the chat.
-
-    The actual activity event (with the sandboxed HTML resource pointer) is
-    synthesized by the TS ``MCPAppsStubMiddleware`` wrapping this agent —
-    this tool simply signals that it was invoked so the middleware can pair
-    the tool call with an ``ACTIVITY_SNAPSHOT`` event.
-
-    Args:
-        title: A short human-readable title for the MCP app card.
-    """
-    return f"Showing MCP app: {title}"
 
 
 graph = create_agent(
     model=ChatOpenAI(model="gpt-4o-mini"),
-    tools=[show_mcp_app],
+    tools=[],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,
 )
