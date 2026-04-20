@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
+from copilotkit import CopilotKitMiddleware
 from deepagents import create_deep_agent
 from langchain.agents.middleware.types import AgentMiddleware, AgentState, OmitFromInput
 from langchain.chat_models import init_chat_model
@@ -50,9 +51,10 @@ def set_steps(
     )
 
 
-class GenUiAgentStateMiddleware(AgentMiddleware):
-    """Registers `GenUiAgentState` so deepagents merges `steps` into its state."""
-
+# `create_deep_agent` does not accept `state_schema=` directly; the only way to
+# extend the graph's state is via a middleware that declares `state_schema`.
+# This one-liner exists solely to register `GenUiAgentState.steps`.
+class _GenUiStateMiddleware(AgentMiddleware):
     state_schema = GenUiAgentState
 
 
@@ -71,5 +73,5 @@ graph = create_deep_agent(
     model=init_chat_model("openai:gpt-4o-mini", temperature=0, use_responses_api=False),
     tools=[set_steps],
     system_prompt=SYSTEM_PROMPT,
-    middleware=[GenUiAgentStateMiddleware()],
+    middleware=[CopilotKitMiddleware(), _GenUiStateMiddleware()],
 ).with_config({"recursion_limit": 200})
