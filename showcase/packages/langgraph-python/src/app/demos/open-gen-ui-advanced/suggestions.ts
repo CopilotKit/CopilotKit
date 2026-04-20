@@ -8,23 +8,29 @@ export const openGenUiSuggestions = [
   {
     title: "Calculator (calls evaluateExpression)",
     message:
-      "Build a modern calculator UI. When the user presses '=', the button handler MUST call " +
-      "`await Websandbox.connection.remote.evaluateExpression({ expression })` with the current " +
-      "display expression, then update the display to the returned numeric value. Show the " +
-      "history of computed values below the display.",
+      "Build a modern calculator UI. Do NOT use a <form> element or type='submit' buttons " +
+      "(the sandbox blocks form submissions). Use <button type='button'> with click handlers. " +
+      "When the user presses '=', the handler MUST `await " +
+      "Websandbox.connection.remote.evaluateExpression({ expression })` with the current " +
+      "display expression, then read `res.value` (when `res.ok` is true) and update the display " +
+      "to that number. Show the history of computed values below the display.",
   },
   {
     title: "Ping the host (calls notifyHost)",
     message:
-      "Build a simple card with a 'Say hi to the host' button. When clicked, the button handler " +
-      "MUST call `await Websandbox.connection.remote.notifyHost({ message: 'Hi from the sandbox!' })` " +
-      "and then display the returned confirmation (including receivedAt timestamp) inside the card.",
+      "Build a simple card with a single 'Say hi to the host' button (type='button', NO <form>). " +
+      "When clicked, the handler MUST `await " +
+      "Websandbox.connection.remote.notifyHost({ message: 'Hi from the sandbox!' })` and then " +
+      "display the returned confirmation object (including `receivedAt` timestamp) inside the card.",
   },
   {
     title: "Inline expression evaluator",
     message:
-      "Build a tiny form with a text input and an 'Evaluate' button. When the user clicks " +
-      "'Evaluate', call `await Websandbox.connection.remote.evaluateExpression({ expression })` with " +
-      "the input value and render the returned result (or error.ok=false message) below the input.",
+      "Build a tiny UI with a text input and an 'Evaluate' button. IMPORTANT: do NOT wrap them in a " +
+      "<form>, and do NOT use type='submit' — the sandbox iframe disallows form submission. Use " +
+      "<button type='button'> wired with addEventListener('click', ...). When clicked, read the " +
+      "input value, call `const res = await " +
+      "Websandbox.connection.remote.evaluateExpression({ expression })`, and then render " +
+      "`res.value` (if `res.ok === true`) or `res.error` (if `res.ok === false`) below the input.",
   },
 ];
