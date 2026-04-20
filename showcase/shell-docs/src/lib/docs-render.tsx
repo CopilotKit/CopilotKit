@@ -71,7 +71,11 @@ export function readMeta(
   if (!fs.existsSync(metaPath)) return null;
   try {
     return JSON.parse(fs.readFileSync(metaPath, "utf-8"));
-  } catch {
+  } catch (err) {
+    // Previously swallowed silently — a malformed meta.json rendered
+    // as "no nav ordering" with zero signal. Log loudly so authors
+    // see the offending path and parse error.
+    console.error("[docs-render] failed to parse", metaPath, err);
     return null;
   }
 }
@@ -417,20 +421,47 @@ export function inlineSnippets(
 // Markdown tables inside JSX container tags
 // ---------------------------------------------------------------------------
 
-const JSX_CONTAINER_TAGS = ["Accordion", "Tab"];
+// JSX container components whose inner Markdown table bodies should be
+// promoted to real HTML tables. Previously only `Accordion` and `Tab`
+// were covered, which silently failed for tables inside `Callout`,
+// `Card`, `Step`, `Tabs`, etc. Keep this list in rough sync with the
+// container-ish entries in mdx-registry.tsx — any JSX component that
+// may wrap prose-like MDX bodies belongs here.
+const JSX_CONTAINER_TAGS = [
+  "Accordion",
+  "Tab",
+  "Tabs",
+  "Callout",
+  "Card",
+  "Cards",
+  "Step",
+  "Steps",
+];
 
 function convertMarkdownTableToHtml(tableLines: string[]): string {
   if (tableLines.length < 2) return tableLines.join("\n");
 
-  const parseRow = (line: string): string[] =>
-    line
-      .split("|")
-      .slice(1, -1)
-      .map((cell) => cell.trim());
+  // Split a GFM table row into cell values. GFM allows tables WITHOUT
+  // the outer leading/trailing pipes (e.g. "a | b | c"), so we can't
+  // unconditionally drop the first and last cells. Instead, drop a
+  // leading/trailing cell only when it's empty (the artifact of an
+  // outer pipe); keep genuine first/last cells.
+  const parseRow = (line: string): string[] => {
+    const cells = line.split("|").map((cell) => cell.trim());
+    if (cells.length > 0 && cells[0] === "") cells.shift();
+    if (cells.length > 0 && cells[cells.length - 1] === "") cells.pop();
+    return cells;
+  };
 
   const headers = parseRow(tableLines[0]);
   const separatorLine = tableLines[1];
-  if (!/^\s*\|[\s:|-]+\|\s*$/.test(separatorLine)) {
+  // Accept GFM separator lines with or without outer pipes. Must
+  // contain at least one `|` and otherwise consist of spaces, colons,
+  // and dashes only.
+  if (
+    !/^\s*[|:\- ]*\|[|:\- ]*\s*$/.test(separatorLine) ||
+    !/\|/.test(separatorLine)
+  ) {
     return tableLines.join("\n");
   }
 
@@ -478,18 +509,28 @@ export function convertTablesInJSX(content: string): string {
       const result: string[] = [];
       let i = 0;
 
+      // A line looks like a table row when it contains at least one
+      // pipe that separates two non-empty cells OR has the classic
+      // leading-pipe form. Accepts both GFM variants.
+      const isTableRow = (s: string): boolean =>
+        /\S\s*\|\s*\S/.test(s) || /^\s*\|.+/.test(s);
+      // Separator: at least one pipe, otherwise only spaces, colons,
+      // and dashes.
+      const isSeparator = (s: string): boolean =>
+        /\|/.test(s) && /^\s*[|:\- ]+\s*$/.test(s);
+
       while (i < lines.length) {
         const line = lines[i];
-        if (/^\s*\|.+\|/.test(line)) {
+        if (isTableRow(line)) {
           const tableLines: string[] = [];
-          while (i < lines.length && /^\s*\|.+\|/.test(lines[i])) {
+          while (
+            i < lines.length &&
+            (isTableRow(lines[i]) || isSeparator(lines[i]))
+          ) {
             tableLines.push(lines[i].trim());
             i++;
           }
-          if (
-            tableLines.length >= 2 &&
-            /^\s*\|[\s:|-]+\|\s*$/.test(tableLines[1])
-          ) {
+          if (tableLines.length >= 2 && isSeparator(tableLines[1])) {
             result.push(convertMarkdownTableToHtml(tableLines));
           } else {
             result.push(...tableLines);
