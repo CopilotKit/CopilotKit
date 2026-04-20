@@ -91,6 +91,28 @@ describe("CopilotKitProvider", () => {
       );
     });
 
+    it("supports function-valued headers and refreshes runtime headers", async () => {
+      const authToken = ref("initial");
+      const { getCore } = mountWithProvider(() => h("div"), {
+        runtimeUrl: "/api/copilotkit",
+        headers: () => ({
+          Authorization: `Bearer ${authToken.value}`,
+        }),
+      });
+
+      expect(getCore().headers).toMatchObject({
+        Authorization: "Bearer initial",
+      });
+
+      authToken.value = "updated";
+      await nextTick();
+      await nextTick();
+
+      expect(getCore().headers).toMatchObject({
+        Authorization: "Bearer updated",
+      });
+    });
+
     it("does not multiply runtime invalidations across multiple useCopilotKit consumers", async () => {
       const mockAgent = new StateCapturingAgent([], "default");
       let coreRef: CopilotKitCoreContextValue | null = null;

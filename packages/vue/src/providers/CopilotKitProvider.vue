@@ -112,10 +112,15 @@ const hasLocalAgents = computed(
   () => Object.keys(mergedAgents.value).length > 0,
 );
 
+const resolvedHeaders = computed(() =>
+  typeof props.headers === "function" ? props.headers() : props.headers,
+);
+
 const mergedHeaders = computed(() => {
-  if (!resolvedPublicKey.value) return props.headers;
-  if (props.headers[HEADER_NAME]) return props.headers;
-  return { ...props.headers, [HEADER_NAME]: resolvedPublicKey.value };
+  const headers = resolvedHeaders.value;
+  if (!resolvedPublicKey.value) return headers;
+  if (headers[HEADER_NAME]) return headers;
+  return { ...headers, [HEADER_NAME]: resolvedPublicKey.value };
 });
 
 const chatApiEndpoint = computed(

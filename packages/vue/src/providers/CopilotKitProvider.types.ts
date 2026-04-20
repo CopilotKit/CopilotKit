@@ -9,7 +9,7 @@ import type {
 
 export interface CopilotKitProviderProps {
   runtimeUrl?: string;
-  headers?: Record<string, string>;
+  headers?: Record<string, string> | (() => Record<string, string>);
   credentials?: RequestCredentials;
   publicApiKey?: string;
   publicLicenseKey?: string;
