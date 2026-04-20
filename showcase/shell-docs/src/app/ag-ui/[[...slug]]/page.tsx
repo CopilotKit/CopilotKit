@@ -1,21 +1,14 @@
 import React from "react";
 import fs from "fs";
 import path from "path";
+import matter from "gray-matter";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import Link from "next/link";
-import {
-  Callout,
-  Cards,
-  Card,
-  Accordions,
-  Accordion,
-} from "@/components/mdx-components";
 import { SidebarNav } from "@/components/sidebar-nav";
-import { PropertyReference } from "@/components/property-reference";
-import { getRegistry } from "@/lib/registry";
+import { docsComponents } from "@/lib/mdx-registry";
 
 const CONTENT_DIR = path.join(process.cwd(), "src/content/ag-ui");
 
@@ -143,18 +136,66 @@ const NAV_DEFINITION: NavTab[] = [
   },
 ];
 
-// Read the title for a given slug from its MDX file
+// Fallback title derived from the slug itself when we can't read a better
+// one from the file (missing file, IO error, malformed frontmatter, etc.).
+function titleFromSlug(slug: string): string {
+  return slug.split("/").pop()?.replace(/-/g, " ") || slug;
+}
+
+// Strip leading `import …` lines from the top of an MDX source without
+// touching `import …` lines that appear inside fenced code blocks (where
+// they're sample code, not MDX imports). Walks line-by-line and tracks
+// whether we're inside a fenced block (``` or ~~~).
+// TODO(dedup): hoist into a shared helper (e.g. @/lib/docs-render) once
+// another route needs this — duplicated in reference/[...slug]/page.tsx.
+function stripImportsFenceAware(source: string): string {
+  const lines = source.split("\n");
+  const out: string[] = [];
+  let inFence = false;
+  let fenceMarker = "";
+  for (const line of lines) {
+    const fenceMatch = line.match(/^\s*(```+|~~~+)/);
+    if (fenceMatch) {
+      if (!inFence) {
+        inFence = true;
+        fenceMarker = fenceMatch[1];
+      } else if (line.trim().startsWith(fenceMarker)) {
+        inFence = false;
+        fenceMarker = "";
+      }
+      out.push(line);
+      continue;
+    }
+    if (!inFence && /^import\s+/.test(line)) continue;
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
+// Read the title for a given slug from its MDX file.
 function getTitleForSlug(slug: string): string {
   const filePath = path.join(CONTENT_DIR, `${slug}.mdx`);
   if (!fs.existsSync(filePath)) {
-    return slug.split("/").pop()?.replace(/-/g, " ") || slug;
+    return titleFromSlug(slug);
   }
-  const raw = fs.readFileSync(filePath, "utf-8");
-  const fmMatch = raw.match(/title:\s*["']?(.+?)["']?\s*$/m);
-  if (fmMatch) return fmMatch[1].replace(/["']$/, "");
-  const headingMatch = raw.match(/^#\s+(.+)$/m);
-  if (headingMatch) return headingMatch[1];
-  return slug.split("/").pop()?.replace(/-/g, " ") || slug;
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch (err) {
+    console.error(`[ag-ui] Failed to read ${filePath}:`, err);
+    return titleFromSlug(slug);
+  }
+  try {
+    const { data, content } = matter(raw);
+    if (typeof data.title === "string" && data.title.length > 0) {
+      return data.title;
+    }
+    const headingMatch = content.match(/^#\s+(.+)$/m);
+    if (headingMatch) return headingMatch[1];
+  } catch (err) {
+    console.error(`[ag-ui] Failed to parse frontmatter in ${filePath}:`, err);
+  }
+  return titleFromSlug(slug);
 }
 
 // Resolved nav types used for rendering
@@ -189,72 +230,16 @@ function getNavTabs(): ResolvedTab[] {
   }));
 }
 
+// AG-UI-specific MDX component map: spread the full shared `docsComponents`
+// registry (which already provides Callout/Cards/Tabs/FrameworkTabs/Snippet/
+// PropertyReference/Steps/Step/InlineDemo/etc.) and only override what's
+// AG-UI-specific. Previously this page declared a tiny subset, so MDX that
+// used anything outside that subset (e.g. <Tabs>, <FrameworkTabs>) silently
+// rendered as raw JSX. The shared `InlineDemo` in the registry already uses
+// `${NEXT_PUBLIC_SHELL_URL}/integrations/...` absolute URLs, so the
+// "Open full demo →" link no longer 404s on the docs host.
 const components = {
-  Callout,
-  Cards,
-  Card,
-  Accordions,
-  Accordion,
-  PropertyReference,
-  InlineDemo: ({
-    integration,
-    demo,
-  }: {
-    integration?: string;
-    demo?: string;
-  }) => {
-    if (!integration || !demo) return null;
-    const reg = getRegistry();
-    const int = reg.integrations.find((i) => i.slug === integration);
-    if (!int || !int.deployed) return null;
-    const demoUrl = `${int.backend_url}/demos/${demo}`;
-    return (
-      <div className="my-6 rounded-xl border border-[var(--border)] overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border)]">
-          <span className="text-xs font-mono text-[var(--text-muted)]">
-            Live Demo: {int.name} — {demo}
-          </span>
-          <a
-            href={`/integrations/${integration}?demo=${demo}`}
-            className="text-xs text-[var(--accent)] hover:underline"
-          >
-            Open full demo →
-          </a>
-        </div>
-        <iframe
-          src={demoUrl}
-          className="w-full"
-          style={{ height: "500px" }}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-          loading="lazy"
-        />
-      </div>
-    );
-  },
-  Note: Callout,
-  Warning: ({ children }: { children: React.ReactNode }) => (
-    <Callout type="warn">{children}</Callout>
-  ),
-  Tip: ({ children }: { children: React.ReactNode }) => (
-    <Callout type="info">{children}</Callout>
-  ),
-  // Mintlify components we shim
-  CardGroup: Cards,
-  Steps: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Step: ({
-    children,
-    title,
-  }: {
-    children: React.ReactNode;
-    title?: string;
-  }) => (
-    <div style={{ marginBottom: "1rem" }}>
-      {title && (
-        <h4 style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{title}</h4>
-      )}
-      {children}
-    </div>
-  ),
+  ...docsComponents,
 };
 
 function OverviewContent() {
@@ -411,13 +396,29 @@ export default async function AgUiDocPage({
     }
   }
 
-  const source = fs.readFileSync(filePath, "utf-8");
-  const content = source.replace(/^---[\s\S]*?---\n?/, "");
-  const titleMatch =
-    source.match(/title:\s*["']?(.+?)["']?\s*$/m) ||
-    content.match(/^#\s+(.+)$/m);
-  const title =
-    titleMatch?.[1] || slugPath.split("/").pop()?.replace(/-/g, " ") || "AG-UI";
+  let source: string;
+  try {
+    source = fs.readFileSync(filePath, "utf-8");
+  } catch (err) {
+    console.error(`[ag-ui] Failed to read ${filePath}:`, err);
+    notFound();
+  }
+
+  let content = "";
+  let title = titleFromSlug(slugPath) || "AG-UI";
+  try {
+    const parsed = matter(source);
+    content = stripImportsFenceAware(parsed.content);
+    if (typeof parsed.data.title === "string" && parsed.data.title.length > 0) {
+      title = parsed.data.title;
+    } else {
+      const headingMatch = parsed.content.match(/^#\s+(.+)$/m);
+      if (headingMatch) title = headingMatch[1];
+    }
+  } catch (err) {
+    console.error(`[ag-ui] Failed to parse MDX in ${filePath}:`, err);
+    notFound();
+  }
 
   return (
     <div className="flex" style={{ height: "calc(100vh - 52px)" }}>
