@@ -41,6 +41,30 @@ jobs:
         with:
           node-version: "20"
 
+      # Restore previous run's pass/fail status from cache so we can emit
+      # a red→green transition alert on recovery. Mirrors the per-service
+      # transition pattern in showcase_smoke-monitor.yml. The restore-keys
+      # prefix gives us the most recently saved state regardless of which
+      # run_id wrote it. Cache TTL is ~7 days; scheduled runs every 6h
+      # plus workflow_run triggers refresh it well within that window.
+      - name: Restore smoke state from cache
+        id: cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: starter-smoke-state.json
+          key: starter-smoke-state-impossible-match
+          restore-keys: |
+            starter-smoke-state-
+
+      - name: Initialize state if missing
+        run: |
+          # First-ever run (or cache eviction): assume "ok" so we don't
+          # emit a false recovery alert on the first green run after
+          # deploying this workflow change.
+          if [ ! -f starter-smoke-state.json ]; then
+            echo '{"lastStatus":"ok","lastFailureAt":""}' > starter-smoke-state.json
+          fi
+
       - name: Install test dependencies
         run: npm ci
         working-directory: showcase/tests
@@ -50,6 +74,7 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       - name: Run starter deployed smoke tests
+        id: playwright
         working-directory: showcase/tests
         # Use github reporter for Actions annotations plus json for programmatic parsing.
         run: npx playwright test e2e/integration-smoke.spec.ts --grep "@starter-health|@starter-agent|@starter-chat" --reporter=github,json
@@ -174,3 +199,86 @@ jobs:
         if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run') && env.SLACK_WEBHOOK == ''
         run: |
           echo "::warning::starter_deployed_smoke failed but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
+
+      # Compute outcome + state transition for the next run. Runs on
+      # success and failure alike (but not when the job is cancelled —
+      # that's indeterminate). Policy: post recovery message on
+      # red→green transition only. green→green is silent.
+      #
+      # This step also decides whether to save state. We save iff the
+      # run had a terminal outcome (passed or failed tests); cancelled
+      # runs leave the prior state untouched so streaks aren't broken.
+      - name: Compute transition + recovery payload
+        id: transition
+        if: always() && !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
+        run: |
+          set +e
+          NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if [ ! -f starter-smoke-state.json ]; then
+            # Shouldn't happen — "Initialize state if missing" runs before
+            # the tests. Belt-and-suspenders fallback so this step never
+            # crashes and leaves state unwritten.
+            echo '{"lastStatus":"ok","lastFailureAt":""}' > starter-smoke-state.json
+          fi
+          PREV_STATUS=$(jq -r '.lastStatus // "ok"' starter-smoke-state.json)
+          PREV_FAILURE_AT=$(jq -r '.lastFailureAt // ""' starter-smoke-state.json)
+
+          # The Playwright step is the only thing that can fail this job.
+          # We infer success vs failure from job.status, which is exposed
+          # by Actions via the `job` context — but step-level `if:` can't
+          # read it directly. Instead, we use the playwright step's
+          # outcome which is reliably set by the preceding step.
+          PLAYWRIGHT_OUTCOME='${{ steps.playwright.outcome }}'
+          case "$PLAYWRIGHT_OUTCOME" in
+            success)
+              NEW_STATUS="ok"
+              NEW_FAILURE_AT=""
+              if [ "$PREV_STATUS" = "failure" ]; then
+                # Red→green transition — emit recovery. Wording mirrors
+                # the smoke-monitor per-service format.
+                RECOVERY_MSG=":white_check_mark: *Starter Deployed Smoke Tests*: recovered (was down since ${PREV_FAILURE_AT})"
+                jq -n --arg text "$RECOVERY_MSG | <$URL|View run>" '{text: $text}' > /tmp/starter-smoke-recovery.json
+                echo "should_post_recovery=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "should_post_recovery=false" >> "$GITHUB_OUTPUT"
+              fi
+              ;;
+            failure|*)
+              # Any non-success outcome is treated as failure for state
+              # tracking. The existing "Alert Slack on failure" step
+              # handles the red alert — we only touch state here.
+              NEW_STATUS="failure"
+              NEW_FAILURE_AT="$NOW"
+              echo "should_post_recovery=false" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+          jq -n \
+            --arg status "$NEW_STATUS" \
+            --arg failureAt "$NEW_FAILURE_AT" \
+            '{lastStatus: $status, lastFailureAt: $failureAt}' \
+            > starter-smoke-state.json
+
+          echo "update_state=true" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Alert Slack on recovery
+        if: >-
+          always() && !cancelled() &&
+          steps.transition.outputs.should_post_recovery == 'true' &&
+          (github.event_name == 'schedule' || github.event_name == 'workflow_run') &&
+          env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload-file-path: /tmp/starter-smoke-recovery.json
+
+      - name: Save smoke state to cache
+        if: always() && steps.transition.outputs.update_state == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: starter-smoke-state.json
+          key: starter-smoke-state-${{ github.run_id }}

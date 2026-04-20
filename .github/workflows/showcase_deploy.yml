@@ -455,6 +455,30 @@ jobs:
           echo "services=$SERVICES" >> $GITHUB_OUTPUT
           echo "count=$COUNT" >> $GITHUB_OUTPUT
 
+      # Restore previous run's pass/fail status from cache so we can emit
+      # a red→green transition alert on recovery. Mirrors the per-service
+      # transition pattern in showcase_smoke-monitor.yml. The restore-keys
+      # prefix gives us the most recently saved state regardless of which
+      # run_id wrote it. Cache TTL is ~7 days, which is fine — deploys run
+      # more frequently than that.
+      - name: Restore deploy state from cache
+        id: cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: showcase-deploy-state.json
+          key: showcase-deploy-state-impossible-match
+          restore-keys: |
+            showcase-deploy-state-
+
+      - name: Initialize state if missing
+        run: |
+          # First-ever run (or cache eviction): assume "ok" so we don't
+          # emit a false recovery alert on the first green run after
+          # deploying this workflow change.
+          if [ ! -f showcase-deploy-state.json ]; then
+            echo '{"lastStatus":"ok","lastFailureAt":""}' > showcase-deploy-state.json
+          fi
+
       - name: Compute per-leg build results
         id: legs
         if: always() && needs.build.result == 'failure'
@@ -568,6 +592,14 @@ jobs:
           LOCKFILE="${{ needs.check-lockfile.result }}"
           BUILD="${{ needs.build.result }}"
           COUNT="${{ steps.summary.outputs.count }}"
+          NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          # Read previous run's status (restored from cache). Mirrors the
+          # smoke-monitor transition pattern: on red→green we post a
+          # recovery message; green→green stays silent.
+          PREV_STATUS=$(jq -r '.lastStatus // "ok"' showcase-deploy-state.json)
+          PREV_FAILURE_AT=$(jq -r '.lastFailureAt // ""' showcase-deploy-state.json)
+
           # See truncate_csv in steps.legs for the truncation contract —
           # drop whole entries, not mid-slug characters, then append `…`
           # if the list exceeds the budget. Duplicate the helper inline
@@ -598,16 +630,25 @@ jobs:
           }
           SERVICES=$(truncate_csv 200 "${{ steps.summary.outputs.services }}")
 
+          # Classify the run outcome into one of:
+          #   failure  → update state→failure, post red alert
+          #   success  → update state→ok, post recovery iff PREV_STATUS=failure
+          #   skip     → no state change, no post (indeterminate)
+          OUTCOME=""
+          MSG=""
+
           # Cancellations can come from concurrency group supersession (rapid
           # pushes), manual cancel via the UI, or an upstream-failure cascade.
           # We handle pre-build and mid-build cancellations differently:
           #
           # Pre-build stages (detect-changes, check-lockfile): no build work
           # has happened yet. Safe to stay silent — any newer run (or the
-          # manual re-trigger) will redo all work from scratch.
+          # manual re-trigger) will redo all work from scratch. Don't touch
+          # state either way — indeterminate outcome.
           if [ "$DETECT" = "cancelled" ] || [ "$LOCKFILE" = "cancelled" ]; then
             echo "Pre-build stage cancelled — newer run will redo all work, skipping Slack notification"
             echo "should_post=false" >> "$GITHUB_OUTPUT"
+            echo "update_state=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -618,33 +659,26 @@ jobs:
           # push's detect-changes is path-scoped and may not target the same
           # services, so the cancelled leg may never be re-verified. Post a
           # distinct muted message so humans can spot the anomaly instead of
-          # assuming green.
+          # assuming green. Don't touch state — indeterminate outcome.
           if [ "$BUILD" = "cancelled" ]; then
             MSG=":information_source: *Showcase deploy*: cancelled mid-matrix — newer run (or manual retrigger) continuing; inspect if issues persist"
             jq -n --arg text "$MSG | <$URL|View run>" '{text: $text}' > /tmp/slack-payload.json
             echo "should_post=true" >> "$GITHUB_OUTPUT"
+            echo "update_state=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # Policy: #oss-alerts should only surface actionable state —
-          # failures and state transitions. Per-run success confirmations
-          # are noise, especially during bulk drift rebuilds which fan out
-          # one showcase_deploy.yml run per service (up to ~18). The
-          # top-line ":package: Image drift detected — N rebuilds triggered"
-          # posted by showcase_smoke-monitor.yml is the aggregate success
-          # signal for bulk rebuilds; ad-hoc single-service pushes/dispatches
-          # stay quiet on success (the Actions UI is the source of truth).
+          # Classify the terminal outcome.
           if [ "$DETECT" = "failure" ] || [ "$LOCKFILE" = "failure" ]; then
+            OUTCOME="failure"
             MSG=":x: *Showcase deploy*: FAILED (pre-build check)"
           elif [ "$BUILD" = "success" ]; then
-            echo "Build succeeded — suppressing per-run success notification (policy: actionable-only)"
-            echo "should_post=false" >> "$GITHUB_OUTPUT"
-            exit 0
+            OUTCOME="success"
           elif [ "$BUILD" = "skipped" ] && [ "$DETECT" = "success" ]; then
-            echo "No changes detected — suppressing notification (policy: actionable-only)"
-            echo "should_post=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          else
+            # No service changes matched the paths filter — run proved
+            # nothing either way. Don't flip state.
+            OUTCOME="skip"
+          elif [ "$BUILD" = "failure" ] || [ -n "$BUILD" ]; then
             # Build failed. Distinguish full failure (every leg failed) from
             # partial failure (some legs passed, some failed). The previous
             # wording said "FAILED — N service(s) targeted" which implied
@@ -652,6 +686,7 @@ jobs:
             # per-leg detail from steps.legs when available; fall back to a
             # softer "1+ of N failed" phrasing if the API lookup didn't
             # return detail (see the "Compute per-leg build results" step).
+            OUTCOME="failure"
             HAVE_DETAIL="${{ steps.legs.outputs.have_detail }}"
             FAILED_COUNT="${{ steps.legs.outputs.failed_count }}"
             SUCCEEDED_COUNT="${{ steps.legs.outputs.succeeded_count }}"
@@ -670,10 +705,48 @@ jobs:
               # the lie that "N of N failed" when we don't actually know.
               MSG=":x: *Showcase deploy*: 1+ of ${COUNT} service(s) failed (${SERVICES} targeted)"
             fi
+          else
+            # BUILD is empty/unknown + no other signal — no-op.
+            OUTCOME="skip"
           fi
 
-          jq -n --arg text "$MSG | <$URL|View run>" '{text: $text}' > /tmp/slack-payload.json
-          echo "should_post=true" >> "$GITHUB_OUTPUT"
+          # Policy: #oss-alerts should only surface actionable state —
+          # failures and red→green transitions. green→green is silent
+          # (suppresses per-run success noise, especially during bulk drift
+          # rebuilds which fan out one showcase_deploy.yml run per service
+          # up to ~18). The top-line ":package: Image drift detected — N
+          # rebuilds triggered" posted by showcase_smoke-monitor.yml is the
+          # aggregate success signal for bulk rebuilds; ad-hoc single-service
+          # pushes/dispatches stay quiet on success.
+          case "$OUTCOME" in
+            failure)
+              jq -n --arg text "$MSG | <$URL|View run>" '{text: $text}' > /tmp/slack-payload.json
+              echo "should_post=true" >> "$GITHUB_OUTPUT"
+              echo "update_state=true" >> "$GITHUB_OUTPUT"
+              echo "new_status=failure" >> "$GITHUB_OUTPUT"
+              echo "new_failure_at=$NOW" >> "$GITHUB_OUTPUT"
+              ;;
+            success)
+              if [ "$PREV_STATUS" = "failure" ]; then
+                # Red→green transition — emit recovery. Wording mirrors
+                # the smoke-monitor per-service format.
+                RECOVERY_MSG=":white_check_mark: *Showcase deploy*: recovered (was down since ${PREV_FAILURE_AT})"
+                jq -n --arg text "$RECOVERY_MSG | <$URL|View run>" '{text: $text}' > /tmp/slack-payload.json
+                echo "should_post=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "Build succeeded (green→green) — suppressing per-run success notification (policy: actionable-only)"
+                echo "should_post=false" >> "$GITHUB_OUTPUT"
+              fi
+              echo "update_state=true" >> "$GITHUB_OUTPUT"
+              echo "new_status=ok" >> "$GITHUB_OUTPUT"
+              echo "new_failure_at=" >> "$GITHUB_OUTPUT"
+              ;;
+            skip)
+              echo "Indeterminate / no-changes run — suppressing notification (policy: actionable-only)"
+              echo "should_post=false" >> "$GITHUB_OUTPUT"
+              echo "update_state=false" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
 
       - name: Post to Slack
         if: always() && steps.payload.outputs.should_post == 'true' && env.SLACK_WEBHOOK_OSS_ALERTS != ''
@@ -684,6 +757,28 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload-file-path: /tmp/slack-payload.json
+
+      # Persist the transition state for the NEXT run to read. We save
+      # iff the payload step classified this run as a terminal outcome
+      # (failure or success); indeterminate runs (cancelled, no-changes)
+      # leave the prior state untouched so streaks aren't broken.
+      - name: Update deploy state file
+        if: always() && steps.payload.outputs.update_state == 'true'
+        run: |
+          NEW_STATUS='${{ steps.payload.outputs.new_status }}'
+          NEW_FAILURE_AT='${{ steps.payload.outputs.new_failure_at }}'
+          jq -n \
+            --arg status "$NEW_STATUS" \
+            --arg failureAt "$NEW_FAILURE_AT" \
+            '{lastStatus: $status, lastFailureAt: $failureAt}' \
+            > showcase-deploy-state.json
+
+      - name: Save deploy state to cache
+        if: always() && steps.payload.outputs.update_state == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: showcase-deploy-state.json
+          key: showcase-deploy-state-${{ github.run_id }}
 
   build-test_integration_tmp:
     name: Build & Push Test Integration
