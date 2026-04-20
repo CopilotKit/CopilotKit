@@ -70,7 +70,7 @@ describe("RegistryReader (stub-based capture)", () => {
     expect(reg.renderToolCalls.map((r) => r.name)).toEqual([
       "a",
       "tool1",
-      "__langgraph_interrupt__",
+      "__useLangGraphInterrupt__",
     ]);
     expect(reg.coAgentStateRenders.map((c) => c.name)).toEqual(["agent1"]);
   });

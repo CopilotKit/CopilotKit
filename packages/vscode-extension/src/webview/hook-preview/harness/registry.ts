@@ -49,6 +49,13 @@ export interface CapturedRegistry {
   renderToolCalls: CapturedRenderToolCall[];
   tools: CapturedTool[];
   coAgentStateRenders: CapturedCoAgentStateRender[];
+  /**
+   * Raw capture list, keyed by hook name — used by `findConfig` to look up
+   * anonymous/nameless hook variants (useLangGraphInterrupt, useInterrupt,
+   * useRenderCustomMessages, useRenderActivityMessage) that can't be found
+   * via the name-keyed slots above.
+   */
+  byHook: Record<string, unknown[]>;
   /** V1 chat-component cache (`<CopilotKit>` keeps this on context). */
   chatComponents: unknown;
 }

@@ -208,17 +208,22 @@ export const HOOK_REGISTRY = [
     importSource: "@copilotkit/react-core/v2",
   },
   {
+    // `useComponent` wraps `useFrontendTool`: the user's `render` is a
+    // ComponentType that receives the tool's `parameters` as props. Same
+    // render-tool shape as the underlying hook, so we surface it there.
     name: "useComponent",
-    category: "data",
-    identityField: null,
-    renderProps: null,
+    category: "render",
+    identityField: "name",
+    renderProps: "render-tool",
     importSource: "@copilotkit/react-core/v2",
   },
   {
+    // `useDefaultTool` wraps `useCopilotAction({ name: "*" })`, so it uses
+    // the V1 action render shape (`{ args, status, result, respond }`).
     name: "useDefaultTool",
-    category: "data",
+    category: "render",
     identityField: "name",
-    renderProps: null,
+    renderProps: "action",
     importSource: "@copilotkit/react-core/v2",
   },
 ] as const satisfies ReadonlyArray<HookDef>;

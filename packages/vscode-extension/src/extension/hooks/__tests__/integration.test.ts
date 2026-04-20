@@ -23,22 +23,44 @@ describe("hooks integration", () => {
         ),
       );
     expect(hooks).toEqual([
-      { hook: "useCoAgentStateRender", name: "basic_agent" },
-      { hook: "useCopilotAction", name: "addTodo" },
-      { hook: "useCopilotAction", name: "removeTodo" },
-      { hook: "useCopilotAction", name: "styledAction" },
+      { hook: "useCoAgentStateRender", name: "forecast_agent" },
+      { hook: "useComponent", name: "sunTimes" },
+      { hook: "useCopilotAction", name: "addLocation" },
+      { hook: "useCopilotAction", name: "removeLocation" },
+      { hook: "useCopilotAction", name: "severeAlert" },
+      { hook: "useCopilotAuthenticatedAction_c", name: "publishAlert" },
+      { hook: "useDefaultRenderTool", name: "defaultWeatherFallback" },
+      { hook: "useDefaultTool", name: null },
+      { hook: "useFrontendTool", name: "precipitationGauge" },
+      { hook: "useHumanInTheLoop", name: "confirmEvacuation" },
+      { hook: "useInterrupt", name: null },
       { hook: "useLangGraphInterrupt", name: null },
-      { hook: "useRenderTool", name: "greetTool" },
+      { hook: "useLazyToolRenderer", name: "historicalTemperatures" },
+      { hook: "useRenderActivityMessage", name: null },
+      { hook: "useRenderCustomMessages", name: null },
+      { hook: "useRenderTool", name: "getWeather" },
+      { hook: "useRenderToolCall", name: "viewRadar" },
     ]);
   });
 
   it("bundles every fixture file without error", async () => {
     for (const fx of [
-      "TodoActions.tsx",
-      "BasicAgent.tsx",
-      "InterruptDemo.tsx",
-      "RenderToolDemo.tsx",
-      "StyledAction.tsx",
+      "AdminIssueAlert.tsx",
+      "ConfirmEvacuation.tsx",
+      "DefaultWeatherCatchAll.tsx",
+      "DefaultWeatherRender.tsx",
+      "ForecastAgent.tsx",
+      "LazyHistoricalChart.tsx",
+      "LocationPermissionInterrupt.tsx",
+      "PrecipGaugeFrontendTool.tsx",
+      "SevereWeatherAlert.tsx",
+      "UnitsPreferenceInterrupt.tsx",
+      "WeatherActions.tsx",
+      "WeatherActivityMessage.tsx",
+      "WeatherComponent.tsx",
+      "WeatherCustomMessage.tsx",
+      "WeatherRadar.tsx",
+      "WeatherTool.tsx",
     ]) {
       const result = await bundleHookSite(path.join(fixturesDir, fx));
       expect(result.success, fx ? `${fx}: ${result.error}` : undefined).toBe(
@@ -50,12 +72,12 @@ describe("hooks integration", () => {
 
   it("collects CSS imports into the bundle result's css field", async () => {
     const result = await bundleHookSite(
-      path.join(fixturesDir, "StyledAction.tsx"),
+      path.join(fixturesDir, "SevereWeatherAlert.tsx"),
     );
     expect(result.success).toBe(true);
     expect(result.css).toBeDefined();
-    expect(result.css).toContain("cpk-hook-fixture-action");
-    expect(result.css).toContain("rebeccapurple");
+    expect(result.css).toContain("cpk-alert");
+    expect(result.css).toContain("cpk-alert-warning");
   }, 60_000);
 
   it("does not externalize Node builtins (guard against 'node_path is not defined')", async () => {
@@ -64,7 +86,7 @@ describe("hooks integration", () => {
     // (or any other `node_<builtin>` self-reference) — that pattern throws
     // 'node_path is not defined' in the webview the moment the bundle runs.
     const result = await bundleHookSite(
-      path.join(fixturesDir, "TodoActions.tsx"),
+      path.join(fixturesDir, "WeatherActions.tsx"),
     );
     expect(result.success).toBe(true);
     const code = result.code!;

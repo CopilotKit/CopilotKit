@@ -10,6 +10,8 @@ export interface HookSelection {
 
 export interface HookBundlePayload {
   bundleCode: string;
+  /** Concatenated CSS collected from `import "*.css"` in the user's source. */
+  bundleCss: string | null;
   selection: HookSelection;
   persistedControls: Record<string, unknown> | null;
   schemaHint: {
@@ -24,6 +26,7 @@ export type ExtensionToWebviewMessage =
   | { type: "error"; message: string };
 
 export type WebviewToExtensionMessage =
+  | { type: "ready" }
   | {
       type: "controlsChanged";
       selection: HookSelection;

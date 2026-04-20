@@ -9,7 +9,7 @@ export function InterruptControls({
   onChange: (v: Values) => void;
 }) {
   return (
-    <div className="hook-controls">
+    <div className="flex flex-col gap-3">
       <RawJsonField
         field={{
           kind: "raw-json",

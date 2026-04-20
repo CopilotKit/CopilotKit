@@ -76,11 +76,19 @@ export function HookLeaf({
   const label = site.name ?? `line:${site.loc.line}`;
   const location = `${relativize(site.filePath, workspaceRoot)}:${site.loc.line}`;
 
+  // Render-category rows are clickable for preview; the "go to source"
+  // button is the escape hatch. Data-category rows have no preview and
+  // fall back to opening source on click so they're still useful.
+  const isRenderable = category === "render";
+  const rowTitle = isRenderable
+    ? `Click to preview \u2014 ${site.hook} \u2022 ${label} \u2022 ${site.filePath}:${site.loc.line}`
+    : `Click to open source \u2014 ${site.hook} \u2022 ${label} \u2022 ${site.filePath}:${site.loc.line}`;
+
   return (
     <div
       className="group flex items-center gap-2 pl-7 pr-2 py-1 hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer"
-      onClick={() => onOpenSource(site)}
-      title={`Click to open source \u2014 ${site.hook} \u2022 ${label} \u2022 ${site.filePath}:${site.loc.line}`}
+      onClick={() => (isRenderable ? onPreview(site) : onOpenSource(site))}
+      title={rowTitle}
     >
       <span
         aria-label={badge.title}
@@ -96,18 +104,19 @@ export function HookLeaf({
       <span className="truncate text-[11px] text-[var(--vscode-descriptionForeground)]">
         {location}
       </span>
-      {category === "render" && (
+      {isRenderable && (
         <span className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onPreview(site);
+              onOpenSource(site);
             }}
-            title="Preview render"
-            className="text-[10px] px-1 py-0.5 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)]"
+            title="Go to source"
+            aria-label="Go to source"
+            className="font-mono text-[11px] leading-none px-1.5 py-0.5 rounded text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)] hover:bg-[var(--vscode-toolbar-hoverBackground)]"
           >
-            {"\u25B7"}
+            {"</>"}
           </button>
         </span>
       )}
