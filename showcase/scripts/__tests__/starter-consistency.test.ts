@@ -209,6 +209,62 @@ describe("Cross-starter consistency", () => {
     }
   });
 
+  /**
+   * langroid starter regressions (see jpr5/ftg-langroid-health).
+   *
+   * The langroid starter entrypoint previously wrapped both backgrounded
+   * services with ``> >(sed 's/^/[agent] /') 2>&1 &`` / ``> >(sed 's/^/[nextjs] /') 2>&1 &``
+   * process-substitution prefixers. In Railway's V2 runtime this pattern
+   * reliably suppressed ALL uvicorn + next.js stdout (neither ``[agent]``
+   * nor ``[nextjs]`` lines appeared in Railway logs) AND caused
+   * ``/api/health`` to return 503 with ``agent:"down"`` — because
+   * Next.js could not reach the Python agent on ``localhost:8123``. The
+   * package entrypoint (showcase/packages/langroid/entrypoint.sh) uses the
+   * plain-``&`` pattern and stays green on the same runtime, so we enforce
+   * the same pattern here.
+   *
+   * The entrypoint also gained a readiness probe: after launching uvicorn,
+   * it polls ``http://127.0.0.1:8123/health`` for up to 30s before starting
+   * Next.js, which closes the cold-start race amplified by Railway's
+   * ``sleepApplication=true``. IPv4-literal (``127.0.0.1``) is load-bearing
+   * — ``localhost`` triggers IPv6-first resolution on Node 22+ and uvicorn
+   * binds IPv4 only. These invariants regression-guard both properties.
+   */
+  describe("langroid starter entrypoint (regression guards)", () => {
+    const langroidEntryPath = path.join(
+      STARTERS_DIR,
+      "langroid",
+      "entrypoint.sh",
+    );
+
+    it("does NOT wrap uvicorn with sed process substitution", () => {
+      const content = fs.readFileSync(langroidEntryPath, "utf-8");
+      // Disallow the ``uvicorn ... > >(sed ...) 2>&1 &`` shape. The
+      // process-substitution wrapper reliably suppressed uvicorn stdout
+      // in Railway and correlated with /api/health 503s.
+      expect(content).not.toMatch(/uvicorn[^\n]*>\s*>\(sed/);
+    });
+
+    it("does NOT wrap next start with sed process substitution", () => {
+      const content = fs.readFileSync(langroidEntryPath, "utf-8");
+      expect(content).not.toMatch(/next start[^\n]*>\s*>\(sed/);
+    });
+
+    it("exports PYTHONUNBUFFERED for visible import-time tracebacks", () => {
+      const content = fs.readFileSync(langroidEntryPath, "utf-8");
+      expect(content).toMatch(/export\s+PYTHONUNBUFFERED=1/);
+    });
+
+    it("probes agent /health before starting Next.js", () => {
+      const content = fs.readFileSync(langroidEntryPath, "utf-8");
+      // Must curl 127.0.0.1:8123/health (IPv4 literal — avoids IPv6-first
+      // resolution on Node 22+).
+      expect(content).toMatch(
+        /curl[^\n]*127\.0\.0\.1:8123\/health[\s\S]*?next start/,
+      );
+    });
+  });
+
   describe("framework-appropriate agent files", () => {
     const pythonFrameworks = FRAMEWORKS.filter((f) => f.language === "python");
     const tsFrameworks = FRAMEWORKS.filter((f) => f.language === "typescript");
