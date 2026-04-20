@@ -1,5 +1,5 @@
 {
-  "name": "@copilotkit/showcase-shell-internal",
+  "name": "@copilotkit/showcase-shell-dashboard",
   "version": "0.1.0",
   "private": true,
   "scripts": {

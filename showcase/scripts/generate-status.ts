@@ -1,5 +1,5 @@
 // Generate showcase/shell/src/data/status.json — the readiness-rollup
-// bundle the shell-internal feature matrix reads to color each cell.
+// bundle the shell-dashboard feature matrix reads to color each cell.
 //
 // Health signals are REAL: we probe every integration's
 // `backend_url + demo.route` in parallel and record up/down/unknown.
