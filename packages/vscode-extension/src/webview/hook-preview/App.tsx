@@ -163,19 +163,7 @@ export function App() {
   // Resolve the captured config once the registry is populated.
   const config = useMemo(() => {
     if (!payload || !registry) return null;
-    const found = findConfig(registry, payload.selection) ?? null;
-    // eslint-disable-next-line no-console
-    console.log(
-      "[App] findConfig: selection =",
-      payload.selection,
-      "renderToolCalls names =",
-      registry.renderToolCalls.map((r) => r.name),
-      "coAgentStateRenders names =",
-      registry.coAgentStateRenders.map((r) => r?.name),
-      "found:",
-      !!found,
-    );
-    return found;
+    return findConfig(registry, payload.selection) ?? null;
   }, [payload, registry]);
 
   // Schema is derived from the captured config's runtime `parameters`,
@@ -229,11 +217,19 @@ export function App() {
     vscode.postMessage({ type: "mountError", error: msg });
   };
 
-  if (!hostRoot || !registry) {
+  // Wait for the bundle to finish loading before mounting Harness. If we
+  // mounted with a placeholder HostRoot, RegistryReader's useEffect would
+  // fire against an unpopulated `window.__copilotkit_captured`, publish an
+  // empty registry, and the gate below would let us through to the
+  // "not captured" branch before the real component ever rendered.
+  if (!hostRoot) {
+    return <div className="hook-preview-wait">Loading bundle…</div>;
+  }
+  if (!registry) {
     return (
       <>
         <Harness
-          HostRoot={hostRoot ?? (() => null)}
+          HostRoot={hostRoot}
           onCapture={setRegistry}
           onMountError={reportMountError}
         />
