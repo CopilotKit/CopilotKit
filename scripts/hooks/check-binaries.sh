@@ -50,5 +50,11 @@ while IFS= read -r f; do
   fi
 done <<< "$STAGED"
 
-[ "$VIOLATIONS" -eq 1 ] && exit 1
+# Explicit `if … then` (instead of `[ … ] && exit 1`) to avoid the brittle
+# `set -e` interaction: with errexit enabled, a failing simple command as
+# the penultimate line is only safe because the trailing `exit 0` follows.
+# The explicit form is robust regardless of what comes after.
+if [ "$VIOLATIONS" -eq 1 ]; then
+  exit 1
+fi
 exit 0
