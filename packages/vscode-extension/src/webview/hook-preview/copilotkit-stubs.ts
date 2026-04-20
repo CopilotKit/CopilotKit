@@ -35,7 +35,19 @@ function ensureCapturedRegistry(): CapturedHookCall[] {
 
 function captureHook(hookName: string) {
   return (config: unknown) => {
-    ensureCapturedRegistry().push({ hook: hookName, config });
+    const reg = ensureCapturedRegistry();
+    reg.push({ hook: hookName, config });
+    // Diagnostic: visible in VS Code webview devtools so we can tell whether
+    // the stub actually fires at preview time. Remove once the preview flow
+    // is confirmed stable in production.
+    // eslint-disable-next-line no-console
+    console.log(
+      "[copilotkit-stub] captured",
+      hookName,
+      (config as { name?: string } | undefined)?.name ?? "(no name)",
+      "→ total:",
+      reg.length,
+    );
   };
 }
 

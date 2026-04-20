@@ -163,7 +163,19 @@ export function App() {
   // Resolve the captured config once the registry is populated.
   const config = useMemo(() => {
     if (!payload || !registry) return null;
-    return findConfig(registry, payload.selection) ?? null;
+    const found = findConfig(registry, payload.selection) ?? null;
+    // eslint-disable-next-line no-console
+    console.log(
+      "[App] findConfig: selection =",
+      payload.selection,
+      "renderToolCalls names =",
+      registry.renderToolCalls.map((r) => r.name),
+      "coAgentStateRenders names =",
+      registry.coAgentStateRenders.map((r) => r?.name),
+      "found:",
+      !!found,
+    );
+    return found;
   }, [payload, registry]);
 
   // Schema is derived from the captured config's runtime `parameters`,

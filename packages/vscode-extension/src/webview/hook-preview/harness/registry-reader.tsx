@@ -20,6 +20,16 @@ export function RegistryReader({
     const captured: CapturedHookCall[] =
       (window as unknown as { __copilotkit_captured?: CapturedHookCall[] })
         .__copilotkit_captured ?? [];
+    // eslint-disable-next-line no-console
+    console.log(
+      "[RegistryReader] useEffect firing; captured.length =",
+      captured.length,
+      "entries:",
+      captured.map((c) => ({
+        hook: c.hook,
+        name: (c.config as { name?: string } | undefined)?.name,
+      })),
+    );
     const registry = buildRegistry(captured);
     onCapture(registry);
     // `onCapture` is stable from App.tsx (setRegistry).
