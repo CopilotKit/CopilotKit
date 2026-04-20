@@ -1,19 +1,19 @@
 ---
 title: "Hook Explorer"
-description: "Discover and live-preview CopilotKit render hooks without leaving VS Code"
+description: "Discover and live-preview CopilotKit render hooks without leaving VS Code."
 icon: "lucide/Binoculars"
 ---
 
 import { Steps, Step } from "fumadocs-ui/components/steps";
 import { Callout } from "fumadocs-ui/components/callout";
 
-The **Hook Explorer** is a sidebar view in the CopilotKit VS Code extension that scans your workspace for every CopilotKit hook call and — for hooks that carry a `render` component — opens a live preview inside VS Code. You get auto-generated form controls for `args`, `state`, `status`, and `result`, and your changes hot-reload as you edit the source file.
+You have a file that calls `useCopilotAction`, `useRenderTool`, `useCoAgentStateRender`, or any of the other render-capable CopilotKit hooks, and you want to iterate on the `render` prop — tweak the layout, test different statuses, feed different args — without running the full chat loop. The Hook Explorer is a sidebar and inline-CodeLens UI inside the [VS Code extension](/vs-code-extension) that does exactly that.
 
-Use it when:
+By the end of this page you'll have:
 
-- You're building an action render and want to iterate without round-tripping through the full chat UI.
-- You want to see every `useCopilotAction` / `useRenderTool` / `useCoAgentStateRender` in your project at a glance.
-- You need to verify how a render behaves at `inProgress` / `executing` / `complete` states without firing a real agent run.
+- Every CopilotKit hook call in your workspace listed in a sidebar.
+- A live preview panel for any render hook, with auto-generated form controls driven by the hook's declared parameters.
+- A one-click `▶️ Preview Component` CodeLens above every hook call in your editor.
 
 ## Prerequisites
 
@@ -21,7 +21,7 @@ Use it when:
 - `@copilotkit/react-core` or `@copilotkit/react-core/v2` imported somewhere in your workspace.
 
 <Callout type="info">
-  The Hook Explorer runs locally against your source files — no runtime or agent is required to use it.
+  The Hook Explorer runs entirely against your source files — no runtime, no API keys, no agent run required.
 </Callout>
 
 ## Explore and preview
@@ -29,74 +29,83 @@ Use it when:
 <Steps>
 
 <Step>
-### Open the Hook Explorer view
+### Open the Hook Explorer
 
-Click the CopilotKit icon in the Activity Bar, then expand **CopilotKit Hooks** in the sidebar. The tree shows two groups:
-
-- **Render hooks** — hooks whose `render` prop can be previewed (`useCopilotAction`, `useRenderTool`, `useCoAgentStateRender`, `useLangGraphInterrupt`, `useHumanInTheLoop`, and friends).
-- **Data hooks** — hooks that don't render anything (`useCopilotReadable`, `useCoAgent`, `useCopilotAdditionalInstructions`, etc.). These are navigable but not previewable.
-
-Each hook type collapses into a list of per-site leaves labeled by the action name (or `line:N` for nameless hooks).
+Click the CopilotKit icon in the Activity Bar and expand the **CopilotKit Hooks** sidebar (first of the three views). You'll see every CopilotKit hook call in your workspace, grouped by hook name. Each row shows the action/tool name (or `line:N` for nameless hooks like `useLangGraphInterrupt`) alongside the file path and line.
 </Step>
 
 <Step>
-### Open source
+### Preview a render hook
 
-Click any leaf to jump to the hook call in your editor — works for both render and data hooks. Handy for finding every `useCopilotReadable` in a large codebase.
+Click any row under a render hook (`useCopilotAction`, `useRenderTool`, …) to open the preview panel in an editor pane. The first time you open a panel for a file, the extension bundles that file through Rolldown with a capture-only stub for `@copilotkit/react-core` — your component mounts into the webview, the hook's config is captured, and the `render` prop is driven by controls on the left (or on top at narrow widths):
+
+- **Status** — `inProgress` / `executing` / `complete`.
+- **Args / parameters** — form built from your hook's `parameters` array (V1) or Zod / Standard Schema (V2). Missing fields, enum options, nested objects and arrays all work.
+- **Result** — editable once status is `complete`.
+- **Hook-specific extras** — `nodeName` for `useCoAgentStateRender`, `toolCallId` for `useRenderTool`, an event-value editor for interrupts.
+
+The rendered output sits inside a labeled frame on the right (or below) so it's unmistakably "the component your `render` returned." Your Tailwind classes and any `.css` imports your file uses are bundled in and injected per load.
 </Step>
 
 <Step>
-### Preview a render
+### Jump to source
 
-Click a leaf under **Render hooks** to open the preview panel. The first time you open a panel for a file, CopilotKit bundles it with your installed `@copilotkit/*` version and mounts it inside a fake provider so the render is captured with its closures intact.
-
-The panel has two columns:
-
-- **Controls** (left) — status dropdown, auto-generated `args` form, result editor, and hook-specific extras like `nodeName` (for `useCoAgentStateRender`) or `toolCallId` (for `useRenderTool`).
-- **Preview** (right) — your render output, re-invoked on every control change.
+Each sidebar row has a `</>` button on hover that opens the file at the exact line of the hook call. For data hooks (non-previewable), the row click itself opens the source — they stay useful as a navigation index even without a preview.
 </Step>
 
 <Step>
-### Edit the source
+### Use the inline CodeLens
 
-Save the file containing the hook. The panel rebundles, re-captures, and re-renders automatically — your form values are preserved wherever the field names and types still match the new schema.
+Open any `.ts` or `.tsx` file that calls a render hook. You'll see a `▶️ Preview Component` CodeLens directly above each hook call — clicking it opens the same preview panel. This is handy when you're already in the source file and don't want to round-trip through the sidebar.
 </Step>
 
 <Step>
-### Toggle status and arguments
+### Edit and re-render
 
-Use the status dropdown to cycle through `inProgress` → `executing` → `complete`. The result editor activates when status is `complete`. Type into the args form to see how your render handles different inputs — tool call arguments, missing fields, enum options, etc.
-
-Form values persist in VS Code workspace state, so your last-used args are restored the next time you open the same hook.
+Save the file. The extension re-scans the file, rebundles the preview, and re-captures. Your form values are preserved wherever the field names and types still match the new schema.
 </Step>
 
 </Steps>
 
-## What gets discovered
+## Hook coverage
 
-The scanner walks your workspace and looks for direct imports from `@copilotkit/react-core` or `@copilotkit/react-core/v2`. It respects your root and nested `.gitignore` files, and skips `node_modules`, `dist`, `.git`, `.next`, `build`, `.turbo`, `out`, plus `.test.*` / `.spec.*` / `.stories.*` files.
+Every render-capable CopilotKit hook is discoverable and previewable:
 
-| Hook | Category | Preview |
+| Hook | Source | Preview shape |
 |---|---|---|
-| `useCopilotAction`, `useCopilotAuthenticatedAction_c` | Render | ✔ |
-| `useCoAgentStateRender` | Render | ✔ |
-| `useLangGraphInterrupt`, `useInterrupt` | Render | ✔ |
-| `useRenderTool`, `useRenderToolCall`, `useDefaultRenderTool`, `useLazyToolRenderer` | Render | ✔ |
-| `useRenderCustomMessages`, `useRenderActivityMessage` | Render | ✔ |
-| `useHumanInTheLoop` | Render | ✔ |
-| `useFrontendTool` | Render | ✔ (when a `render` prop is present) |
-| `useCopilotReadable`, `useCopilotAdditionalInstructions` | Data | — |
-| `useCoAgent`, `useAgent`, `useCopilotChat` | Data | — |
-| `useSuggestions`, `useConfigureSuggestions`, `useCopilotChatSuggestions` | Data | — |
+| `useCopilotAction` | `@copilotkit/react-core` | action (`args`, `status`, `result`) |
+| `useCopilotAuthenticatedAction_c` | `@copilotkit/react-core` | action |
+| `useCoAgentStateRender` | `@copilotkit/react-core` | coagent-state (`state`, `status`, `nodeName`) |
+| `useLangGraphInterrupt` | `@copilotkit/react-core` | interrupt (`event`, `resolve`) |
+| `useRenderTool` | `@copilotkit/react-core/v2` | render-tool (`parameters`, `status`, `toolCallId`) |
+| `useRenderToolCall` | `@copilotkit/react-core/v2` | render-tool |
+| `useDefaultRenderTool` | `@copilotkit/react-core/v2` | render-tool |
+| `useLazyToolRenderer` | `@copilotkit/react-core/v2` | render-tool |
+| `useFrontendTool` | `@copilotkit/react-core/v2` | render-tool |
+| `useComponent` | `@copilotkit/react-core/v2` | render-tool |
+| `useDefaultTool` | `@copilotkit/react-core/v2` | action |
+| `useHumanInTheLoop` | `@copilotkit/react-core/v2` | action |
+| `useInterrupt` | `@copilotkit/react-core/v2` | interrupt |
+| `useRenderCustomMessages` | `@copilotkit/react-core/v2` | custom-messages (`message`) |
+| `useRenderActivityMessage` | `@copilotkit/react-core/v2` | activity-message (`message`) |
 
-## Limitations (MVP)
+Data hooks (`useCopilotReadable`, `useCoAgent`, `useAgent`, `useCopilotChat`, etc.) appear in the sidebar for navigation but have no preview — the row click opens the source.
 
-- **Barrel-file re-exports** aren't resolved — import hooks directly from `@copilotkit/react-core` or `@copilotkit/react-core/v2`. If you re-export through your own index file, the scanner won't pick up the call sites.
-- **Non-CopilotKit providers**: if your component requires `<ThemeProvider>`, Redux, Auth context, or another custom provider to render, the mount will fail. Isolate the hook into a provider-free component for preview.
+Imported render components work too: if your `render` prop is a reference to a component defined in a sibling file (instead of an inline arrow), Rolldown walks the import chain and the preview binds to the actual component.
+
+## Behavior notes
+
+- **Auto-recovery**: if a render prop throws, the preview surface shows a readable error screen — and picking a different hook in the sidebar automatically resets the boundary. You're never stuck on a crashed preview.
+- **Controls persist**: your last-used args, status, and result are stored in VS Code workspace state per hook, so they're restored next time you open the same preview.
+- **Styles flow through**: Tailwind classes in your `render` prop work via the Tailwind browser CDN loaded into the preview panel. Local `.css` imports are collected by the bundler and injected as a `<style>` tag on each load.
+
+## Limitations
+
+- **Barrel-file re-exports aren't resolved** — import hooks directly from `@copilotkit/react-core` or `@copilotkit/react-core/v2`. If you re-export through your own index file, the scanner won't pick up the call sites.
+- **Non-CopilotKit providers**: if your component requires `<ThemeProvider>`, Redux, Auth, or another custom provider to render, the mount will throw. Isolate the hook into a provider-free component for preview, or stub the provider in the preview-only path.
 - **Agent state typing**: `useCoAgentStateRender` state has no runtime schema (types live in TypeScript only), so the state control falls back to a raw-JSON editor.
-- **No fixture files**: control values are stored in VS Code workspace state, not a checked-in file. Sharing preview scenarios with your team is follow-up work.
 - **Dynamic action names**: if `useCopilotAction({ name: someVariable })` uses a non-literal name, the sidebar labels the entry `(dynamic) · file:line` until the runtime capture resolves it.
 
 <Callout type="info">
-  For live inspection of AG-UI events while an agent is actually running, see [AG-UI Event Inspector](/troubleshooting/event-inspector).
+  Need to see the live AG-UI event stream while the agent is actually running? Hook Explorer is the offline, render-first tool — the [AG-UI Event Inspector](/troubleshooting/event-inspector) is the runtime, events-first complement.
 </Callout>
