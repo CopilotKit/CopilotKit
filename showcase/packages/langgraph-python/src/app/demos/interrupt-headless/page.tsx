@@ -1,17 +1,22 @@
 "use client";
 
-// Headless Interrupt cell — hello-world use-case for `useHeadlessInterrupt`.
+// Headless Interrupt cell — demonstrates `useHeadlessInterrupt`.
 //
-// Single button kicks off the agent. The backend calls `schedule_meeting`
-// (LangGraph `interrupt()`), which `useHeadlessInterrupt` surfaces via
-// `pending`. A centered modal (portal'd to <body>, outside any chat
-// surface) offers 4 slots + Cancel. Selecting one calls `resolve(...)`,
-// resumes the agent, closes the modal, and shows the final result in a
-// small card below the kick-off button.
+// Layout: chat on the right, empty app surface on the left. The user
+// triggers the agent from a chat suggestion. When the backend calls
+// `schedule_meeting`, LangGraph's `interrupt()` surfaces via the hook
+// and we render a time-picker popup IN THE APP SURFACE (left pane) —
+// not inside the chat. Picking a slot resolves the interrupt, the
+// popup vanishes, and the agent confirms back in chat.
 
 import React, { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
-import { CopilotKit, useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  useAgent,
+  useConfigureSuggestions,
+  useCopilotKit,
+} from "@copilotkit/react-core/v2";
 
 const INTERRUPT_EVENT_NAME = "on_interrupt";
 
@@ -37,10 +42,35 @@ const DEFAULT_SLOTS: TimeSlot[] = [
 export default function InterruptHeadlessDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="interrupt-headless">
-      <div className="flex min-h-screen w-full items-center justify-center bg-[#FAFAFC] p-6">
-        <HeadlessInterruptPanel />
-      </div>
+      <Layout />
     </CopilotKit>
+  );
+}
+
+function Layout() {
+  const { pending, resolve } = useHeadlessInterrupt("interrupt-headless");
+
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Book a call with sales",
+        message: "Book an intro call with the sales team to discuss pricing.",
+      },
+      {
+        title: "Schedule a 1:1 with Alice",
+        message: "Schedule a 1:1 with Alice next week to review Q2 goals.",
+      },
+    ],
+    available: "always",
+  });
+
+  return (
+    <div className="grid h-screen grid-cols-[1fr_420px] bg-[#FAFAFC]">
+      <AppSurface pending={pending} resolve={resolve} />
+      <div className="border-l border-[#DBDBE5] bg-white">
+        <CopilotChat agentId="interrupt-headless" className="h-full" />
+      </div>
+    </div>
   );
 }
 
@@ -104,172 +134,128 @@ function useHeadlessInterrupt(agentId: string): {
 }
 // @endregion[headless-useinterrupt-primitives]
 
-function HeadlessInterruptPanel() {
-  const { copilotkit } = useCopilotKit();
-  const { agent } = useAgent({ agentId: "interrupt-headless" });
-  const { pending, resolve } = useHeadlessInterrupt("interrupt-headless");
-  const [runId, setRunId] = useState(0);
+type AppSurfaceProps = {
+  pending: InterruptEvent | null;
+  resolve: (response: unknown) => void;
+};
 
-  const kickOff = () => {
-    if (agent.isRunning) return;
-    // Bump the run marker so the old result hides immediately and the
-    // ResultCard only reappears after the NEW run's assistant reply lands.
-    setRunId((n) => n + 1);
-    agent.addMessage({
-      id: crypto.randomUUID(),
-      role: "user",
-      content: "Schedule a meeting with the team.",
-    });
-    void copilotkit.runAgent({ agent }).catch(() => {});
-  };
-
-  // Show the latest assistant message — but only if it was produced AFTER
-  // the most recent kickoff (prevents the previous round's result from
-  // flashing under the button during the second run's pre-interrupt phase).
-  const lastAssistant = [...agent.messages]
-    .reverse()
-    .find((m) => m.role === "assistant" && typeof m.content === "string") as
-    | { content: string }
-    | undefined;
-
-  const busy = agent.isRunning || pending !== null;
-
-  return (
-    <div className="w-full max-w-md">
-      <div
-        className="rounded-2xl border border-[#DBDBE5] bg-white p-8 shadow-sm"
-        data-testid="interrupt-headless-panel"
-      >
-        <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B]">
-          Headless interrupt
-        </div>
-        <h1 className="mb-2 text-xl font-semibold text-[#010507]">
-          Schedule a meeting
-        </h1>
-        <p className="mb-6 text-sm text-[#57575B]">
-          Click the button below. The agent will pause on a LangGraph{" "}
-          <code className="rounded bg-[#F0F0F4] px-1 py-0.5 font-mono text-xs text-[#010507]">
-            interrupt()
-          </code>{" "}
-          and the popup will ask you to pick a time — no chat needed.
-        </p>
-
-        <button
-          type="button"
-          data-testid="interrupt-headless-kickoff"
-          onClick={kickOff}
-          disabled={busy}
-          className="w-full rounded-xl bg-[#010507] px-4 py-3 text-sm font-medium uppercase tracking-[0.12em] text-white transition-colors hover:bg-[#2B2B2B] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {agent.isRunning && !pending
-            ? "Working…"
-            : pending
-              ? "Awaiting your choice…"
-              : "Schedule meeting"}
-        </button>
-
-        {runId > 0 && !pending && lastAssistant?.content ? (
-          <ResultCard content={lastAssistant.content} />
-        ) : null}
-      </div>
-
-      {pending ? (
-        <TimeSlotModal
-          payload={pending.value}
-          onPick={(slot) =>
-            resolve({ chosen_time: slot.iso, chosen_label: slot.label })
-          }
-          onCancel={() => resolve({ cancelled: true })}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-function ResultCard({ content }: { content: string }) {
+function AppSurface({ pending, resolve }: AppSurfaceProps) {
   return (
     <div
-      data-testid="interrupt-headless-result"
-      className="mt-6 rounded-xl border border-[#E9E9EF] bg-[#FAFAFC] p-4"
+      data-testid="interrupt-headless-app-surface"
+      className="relative flex h-full flex-col overflow-hidden"
     >
-      <div className="mb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[#189370]">
-        Result
-      </div>
-      <div className="whitespace-pre-wrap text-sm text-[#010507]">
-        {content}
+      <header className="border-b border-[#DBDBE5] bg-white px-8 py-5">
+        <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B]">
+          Headless interrupt
+        </div>
+        <h1 className="text-xl font-semibold text-[#010507]">Scheduling</h1>
+      </header>
+
+      <div className="relative flex flex-1 items-center justify-center p-8">
+        {pending ? (
+          <TimeSlotPopup
+            payload={pending.value}
+            onPick={(slot) =>
+              resolve({ chosen_time: slot.iso, chosen_label: slot.label })
+            }
+            onCancel={() => resolve({ cancelled: true })}
+          />
+        ) : (
+          <EmptyState />
+        )}
       </div>
     </div>
   );
 }
 
-type TimeSlotModalProps = {
+function EmptyState() {
+  return (
+    <div
+      data-testid="interrupt-headless-empty"
+      className="max-w-sm text-center"
+    >
+      <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-[#DBDBE5] bg-white text-[#85ECCE]">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="3" y="4" width="18" height="18" rx="2" />
+          <path d="M16 2v4M8 2v4M3 10h18" />
+        </svg>
+      </div>
+      <div className="text-sm font-medium text-[#010507]">
+        Nothing scheduled yet
+      </div>
+      <p className="mt-1 text-sm text-[#57575B]">
+        Ask the assistant to book something. When it needs your input, a picker
+        will appear right here.
+      </p>
+    </div>
+  );
+}
+
+type TimeSlotPopupProps = {
   payload: InterruptPayload;
   onPick: (slot: TimeSlot) => void;
   onCancel: () => void;
 };
 
-function TimeSlotModal({ payload, onPick, onCancel }: TimeSlotModalProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
-
-  const content = (
+function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
+  return (
     <div
-      data-testid="interrupt-headless-modal-overlay"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#010507]/40 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="false"
+      data-testid="interrupt-headless-popup"
+      className="w-full max-w-md rounded-2xl border border-[#DBDBE5] bg-white p-6 shadow-[0_20px_40px_-20px_rgba(1,5,7,0.25)]"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        data-testid="interrupt-headless-modal"
-        className="w-full max-w-md rounded-2xl border border-[#DBDBE5] bg-white p-6 shadow-sm"
-      >
-        <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B]">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="inline-flex h-1.5 w-1.5 animate-pulse rounded-full bg-[#85ECCE]" />
+        <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B]">
           Pick a time
-        </div>
-        <h2 className="mb-1 text-lg font-semibold text-[#010507]">
-          {payload.topic ?? "Meeting"}
-        </h2>
-        {payload.attendee ? (
-          <p className="mb-5 text-sm text-[#57575B]">
-            with{" "}
-            <span className="font-medium text-[#010507]">
-              {payload.attendee}
-            </span>
-          </p>
-        ) : (
-          <div className="mb-5" />
-        )}
-
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {DEFAULT_SLOTS.map((slot) => (
-            <button
-              key={slot.iso}
-              type="button"
-              data-testid={`interrupt-headless-slot-${slot.iso}`}
-              onClick={() => onPick(slot)}
-              className="rounded-xl border border-[#DBDBE5] bg-white px-3 py-3 text-sm font-medium text-[#010507] transition-colors hover:border-[#BEC2FF] hover:bg-[#BEC2FF1A]"
-            >
-              {slot.label}
-            </button>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          data-testid="interrupt-headless-cancel"
-          onClick={onCancel}
-          className="mt-4 w-full rounded-xl border border-[#DBDBE5] bg-white px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-[#57575B] transition-colors hover:bg-[#FAFAFC]"
-        >
-          Cancel
-        </button>
+        </span>
       </div>
+      <h2 className="mb-1 text-lg font-semibold text-[#010507]">
+        {payload.topic ?? "Meeting"}
+      </h2>
+      {payload.attendee ? (
+        <p className="mb-5 text-sm text-[#57575B]">
+          with{" "}
+          <span className="font-medium text-[#010507]">{payload.attendee}</span>
+        </p>
+      ) : (
+        <div className="mb-5" />
+      )}
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {DEFAULT_SLOTS.map((slot) => (
+          <button
+            key={slot.iso}
+            type="button"
+            data-testid={`interrupt-headless-slot-${slot.iso}`}
+            onClick={() => onPick(slot)}
+            className="rounded-xl border border-[#DBDBE5] bg-white px-3 py-3 text-sm font-medium text-[#010507] transition-colors hover:border-[#BEC2FF] hover:bg-[#BEC2FF1A]"
+          >
+            {slot.label}
+          </button>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        data-testid="interrupt-headless-cancel"
+        onClick={onCancel}
+        className="mt-4 w-full rounded-xl border border-[#DBDBE5] bg-white px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-[#57575B] transition-colors hover:bg-[#FAFAFC]"
+      >
+        Cancel
+      </button>
     </div>
   );
-
-  return createPortal(content, document.body);
 }
