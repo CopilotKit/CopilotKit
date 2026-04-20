@@ -11,15 +11,20 @@
  *   import "@copilotkit/react-native/polyfills/location";
  */
 
-if (typeof window !== "undefined" && !(window as any).location) {
-  (window as any).location = {
-    hostname: "react-native.invalid",
-    href: "http://react-native.invalid",
-    origin: "http://react-native.invalid",
-    protocol: "http:",
-    host: "react-native.invalid",
-    pathname: "/",
-    search: "",
-    hash: "",
-  };
+export {};
+
+if (typeof window !== "undefined") {
+  const w = window as unknown as Record<string, unknown>;
+  if (!w.location) {
+    w.location = {
+      hostname: "react-native.invalid",
+      href: "http://react-native.invalid",
+      origin: "http://react-native.invalid",
+      protocol: "http:",
+      host: "react-native.invalid",
+      pathname: "/",
+      search: "",
+      hash: "",
+    };
+  }
 }

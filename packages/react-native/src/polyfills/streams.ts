@@ -14,8 +14,10 @@ import {
   TransformStream,
 } from "web-streams-polyfill";
 
-if (typeof globalThis.ReadableStream === "undefined") {
-  (globalThis as any).ReadableStream = ReadableStream;
-  (globalThis as any).WritableStream = WritableStream;
-  (globalThis as any).TransformStream = TransformStream;
+const g = globalThis as Record<string, unknown>;
+
+if (typeof g.ReadableStream === "undefined") {
+  g.ReadableStream = ReadableStream;
+  g.WritableStream = WritableStream;
+  g.TransformStream = TransformStream;
 }

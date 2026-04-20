@@ -9,8 +9,12 @@
  *   import "@copilotkit/react-native/polyfills/dom";
  */
 
+export {};
+
+const g = globalThis as Record<string, unknown>;
+
 // DOMException
-if (typeof (globalThis as any).DOMException === "undefined") {
+if (typeof g.DOMException === "undefined") {
   class DOMExceptionPolyfill extends Error {
     code: number;
     constructor(message?: string, name?: string) {
@@ -19,11 +23,11 @@ if (typeof (globalThis as any).DOMException === "undefined") {
       this.code = 0;
     }
   }
-  (globalThis as any).DOMException = DOMExceptionPolyfill;
+  g.DOMException = DOMExceptionPolyfill;
 }
 
 // Headers
-if (typeof (globalThis as any).Headers === "undefined") {
+if (typeof g.Headers === "undefined") {
   class HeadersPolyfill {
     private _map: Record<string, string> = {};
     constructor(init?: Record<string, string> | HeadersPolyfill) {
@@ -77,5 +81,5 @@ if (typeof (globalThis as any).Headers === "undefined") {
       return this.entries();
     }
   }
-  (globalThis as any).Headers = HeadersPolyfill;
+  g.Headers = HeadersPolyfill;
 }

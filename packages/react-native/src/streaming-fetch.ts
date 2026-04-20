@@ -175,15 +175,8 @@ export function installStreamingFetch(): void {
       }
 
       const onAbort = () => {
-        cleanupAbortListener();
-        const err = createAbortError();
+        fail(createAbortError());
         xhr.abort();
-        errorStream(err);
-        rejectFullText(err);
-        if (!settled) {
-          settled = true;
-          reject(err);
-        }
       };
 
       if (signal) {

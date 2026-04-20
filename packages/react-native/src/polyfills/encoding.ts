@@ -10,9 +10,11 @@
 
 import { TextEncoder, TextDecoder } from "text-encoding";
 
-if (typeof globalThis.TextEncoder === "undefined") {
-  (globalThis as any).TextEncoder = TextEncoder;
+const g = globalThis as Record<string, unknown>;
+
+if (typeof g.TextEncoder === "undefined") {
+  g.TextEncoder = TextEncoder;
 }
-if (typeof globalThis.TextDecoder === "undefined") {
-  (globalThis as any).TextDecoder = TextDecoder;
+if (typeof g.TextDecoder === "undefined") {
+  g.TextDecoder = TextDecoder;
 }

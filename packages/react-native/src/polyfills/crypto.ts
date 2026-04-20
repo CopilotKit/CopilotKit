@@ -11,18 +11,21 @@
  *   import "@copilotkit/react-native/polyfills/crypto";
  */
 
-if (typeof globalThis.crypto === "undefined") {
-  (globalThis as any).crypto = {};
+export {};
+
+const g = globalThis as Record<string, unknown>;
+
+if (typeof g.crypto === "undefined") {
+  g.crypto = {};
 }
-if (!(globalThis.crypto as any).getRandomValues) {
+const cryptoObj = g.crypto as Record<string, unknown>;
+if (!cryptoObj.getRandomValues) {
   console.warn(
     "[CopilotKit] Installing non-cryptographic crypto.getRandomValues polyfill (Math.random). " +
       "This is NOT secure for cryptographic operations. Install 'react-native-get-random-values' " +
       "for a secure implementation.",
   );
-  (globalThis.crypto as any).getRandomValues = function (
-    array: Uint8Array,
-  ): Uint8Array {
+  cryptoObj.getRandomValues = function (array: Uint8Array): Uint8Array {
     for (let i = 0; i < array.length; i++) {
       array[i] = Math.floor(Math.random() * 256);
     }
