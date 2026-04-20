@@ -703,7 +703,7 @@ export function auditPackage(
   // — a single unreadable-demos-dir MUST is clearer than N cascaded
   // missing-demo-dir errors that all trace to the same EACCES root cause.
   if (!demosDirUnreadable) {
-    for (const demo of demos) {
+    for (const demo of auditableDemos) {
       const expectedDir = routeToDirName(demo.route) ?? demo.id;
       if (!demoDirSet.has(expectedDir)) {
         mustErrors.push({
