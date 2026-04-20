@@ -13,8 +13,9 @@
 //     framework for the href. If no framework is active we fall back
 //     to `/docs/<slug>`.
 //
-// The server renderer emits a best-guess default href via `fallbackHref`
-// so the page works fine without JS; the client takes over on mount.
+// `framework` is URL-derived (see framework-provider) so the resolved
+// href is identical during SSR and post-hydration — no transient
+// fallback path needed.
 
 import React from "react";
 import Link from "next/link";
@@ -33,8 +34,13 @@ export interface SidebarLinkProps {
    * = we're on `/<framework>/*`. Affects which prefix we prefer.
    */
   scope: "docs" | "framework";
-  /** Server-rendered fallback (used until the client hydrates). */
-  fallbackHref: string;
+  /**
+   * Deprecated. Previously held a server-rendered best-guess href used
+   * before hydration; the component now resolves the href identically
+   * during SSR and on the client, so this value is ignored. Kept on the
+   * interface for call-site compatibility.
+   */
+  fallbackHref?: string;
 }
 
 export function SidebarLink({
@@ -42,18 +48,16 @@ export function SidebarLink({
   children,
   className,
   active,
-  scope,
-  fallbackHref,
+  scope: _scope,
+  fallbackHref: _fallbackHref,
 }: SidebarLinkProps) {
   const { framework } = useFramework();
 
-  let href = fallbackHref;
-  if (scope === "docs") {
-    href = framework ? `/${framework}/${slug}` : `/docs/${slug}`;
-  } else {
-    // scope === "framework"
-    href = framework ? `/${framework}/${slug}` : `/docs/${slug}`;
-  }
+  // Both scopes currently resolve the same way: use the active
+  // framework when set, otherwise fall through to /docs/<slug>. We
+  // keep `scope` in the props for call-site clarity and future
+  // divergence without any runtime branching.
+  const href = framework ? `/${framework}/${slug}` : `/docs/${slug}`;
 
   return (
     <Link
