@@ -21,6 +21,15 @@ const workspaceSourceAliases: Record<string, string> = {
     import.meta.dirname,
     "../shared/src/index.ts",
   ),
+  // Same __commonJSMin TDZ pattern — dist wraps `graphql` (the npm lib,
+  // CJS) and initialisation order breaks under circular imports from
+  // react-core's runtime client:
+  //   Uncaught ReferenceError: Cannot access 'require_graphql' before initialization
+  // TS source uses ESM imports that rolldown handles cleanly.
+  "@copilotkit/runtime-client-gql": path.resolve(
+    import.meta.dirname,
+    "../runtime-client-gql/src/index.ts",
+  ),
 };
 
 /**
