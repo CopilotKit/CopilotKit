@@ -120,6 +120,11 @@ function WarningBox({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Track languages we've already warned about so each unknown language name
+// only produces one console message per process, regardless of how many
+// <Snippet>s reference it.
+const warnedUnknownLanguages = new Set<string>();
+
 /** Map the bundler's coarse language hint to an hljs language name. */
 function resolveHljsLanguage(lang: string): string | null {
   const map: Record<string, string> = {
@@ -133,7 +138,16 @@ function resolveHljsLanguage(lang: string): string | null {
     markdown: "markdown",
     text: "plaintext",
   };
-  return map[lang] ?? null;
+  const mapped = map[lang];
+  if (mapped) return mapped;
+  if (lang && !warnedUnknownLanguages.has(lang)) {
+    warnedUnknownLanguages.add(lang);
+    console.warn(
+      `[snippet] unknown language "${lang}" — falling back to hljs.highlightAuto. ` +
+        `Add it to resolveHljsLanguage() for deterministic highlighting.`,
+    );
+  }
+  return null;
 }
 
 /**
@@ -319,6 +333,20 @@ export function Snippet({
       return <WarningBox>{result.warning}</WarningBox>;
     }
     reg = result;
+  }
+
+  // Guard against malformed bundler output — if `demo-content.json` is
+  // produced from an in-flight build we could theoretically see a region
+  // missing `code` or with non-string `code`. Render a warning rather than
+  // letting React crash on `undefined`.
+  if (typeof reg.code !== "string") {
+    return (
+      <WarningBox>
+        Snippet for <code>{key}</code> has no <code>code</code> string — check{" "}
+        <code>demo-content.json</code> (region/file may be malformed or the
+        bundle is out of date).
+      </WarningBox>
+    );
   }
 
   const hljsLang = resolveHljsLanguage(reg.language);
