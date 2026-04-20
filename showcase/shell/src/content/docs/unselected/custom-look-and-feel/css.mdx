@@ -1,51 +1,31 @@
 ---
 title: "CSS Customization"
 icon: "lucide/Palette"
-description: "Theme CopilotKit components via CSS variables and class overrides."
+description: "Theme CopilotKit components via CSS variables and class overrides — the quickest path to a custom look."
 hideTOC: true
-snippet_framework: langgraph-python
-snippet_cell: chat-customization-css
 ---
 
 ## What is this?
 
-CopilotKit has a variety of ways to customize the colors and structure of the
-Copilot UI components via plain CSS. You can:
+CopilotKit's chat UI components can be re-skinned purely via CSS — no component overrides, no headless rewrites. This is the **fastest** rung on the customization ladder: keep every built-in feature, change every color.
 
-- Override CopilotKit CSS variables to re-tint the whole UI
-- Target the built-in class names (`.copilotKit...`) for structural tweaks
+You can:
+
+- Override CopilotKit CSS variables (`--copilot-kit-primary-color`, etc.) to re-tint the whole UI
+- Target the built-in `.copilotKit...` class names for structural tweaks
 - Swap fonts per surface (messages, input, bubbles)
 - Replace icons and labels via component props
 
-If you need to change behavior — not just look — see
+If you need to change **behavior** — not just look — see
 [slots](/custom-look-and-feel/slots) or
 [fully headless UI](/custom-look-and-feel/headless-ui).
 
-<InlineDemo integration="langgraph-python" demo="chat-customization-css" />
-
-## Scoping the theme
-
-The demo keeps all of its styling in a sibling `theme.css` file and applies it
-only to the wrapper div holding `<CopilotChat>`. Importing the stylesheet from
-the page module is enough — Next.js bundles it with the route:
-
-<Snippet region="theme-css-import" title="frontend/src/app/page.tsx — import the theme" />
-
-Scoping every selector under a wrapper class keeps the overrides from leaking
-into the rest of the app.
-
-## CSS Variables (Easiest)
+## CSS variables (easiest)
 
 The easiest way to change the colors used in the Copilot UI components is to
-override CopilotKit CSS variables. The demo sets them on the scope wrapper so
-they cascade into every nested chat component:
+override CopilotKit CSS variables on a wrapper element around your chat:
 
-<Snippet region="css-variables" title="frontend/src/app/theme.css — variable overrides" />
-
-Once you've found the right variable, you can also apply the overrides inline
-via the `CopilotKitCSSProperties` helper:
-
-```tsx
+```tsx title="page.tsx"
 import { CopilotKitCSSProperties } from "@copilotkit/react-core/v2";
 
 <div
@@ -57,6 +37,16 @@ import { CopilotKitCSSProperties } from "@copilotkit/react-core/v2";
 >
   <CopilotSidebar />
 </div>
+```
+
+Or apply them from a scoped stylesheet:
+
+```css title="theme.css"
+.chat-css-demo-scope {
+  --copilot-kit-primary-color: #ff006e;
+  --copilot-kit-contrast-color: #ffffff;
+  --copilot-kit-background-color: #fff5f9;
+}
 ```
 
 ### Reference
@@ -73,8 +63,9 @@ import { CopilotKitCSSProperties } from "@copilotkit/react-core/v2";
 
 ## Custom CSS
 
-The CopilotKit CSS is structured to allow customization via CSS classes. You
-can target specific pieces of the UI from your own stylesheet:
+In addition to customizing the colors, the CopilotKit CSS is structured to
+allow customization via CSS classes. Target specific pieces of the UI from
+your own stylesheet:
 
 ```css title="globals.css"
 .copilotKitButton {
@@ -89,16 +80,6 @@ can target specific pieces of the UI from your own stylesheet:
   background: #007AFF;
 }
 ```
-
-The demo's `theme.css` wraps every selector under `.chat-css-demo-scope` so
-the overrides don't leak out — here's the user/assistant bubble block from
-that file:
-
-<Snippet
-  file="src/app/demos/chat-customization-css/theme.css"
-  lines="30-57"
-  title="frontend/src/app/theme.css — user + assistant message bubbles"
-/>
 
 ### Reference
 
@@ -116,9 +97,9 @@ that file:
 | `.copilotKitSidebar` | Styles for sidebar chat mode |
 | `.copilotKitPopup` | Styles for popup chat mode |
 
-## Custom Fonts
+## Custom fonts
 
-You can customize the fonts by updating the `fontFamily` property on the
+Customize the fonts by updating the `fontFamily` property on the
 relevant CopilotKit classes:
 
 ```css title="globals.css"
@@ -131,7 +112,7 @@ relevant CopilotKit classes:
 }
 ```
 
-## Custom Icons
+## Custom icons
 
 Customize icons by passing the `icons` prop to `CopilotSidebar`, `CopilotPopup`,
 or `CopilotChat`:
@@ -145,7 +126,7 @@ or `CopilotChat`:
 />
 ```
 
-## Custom Labels
+## Custom labels
 
 Customize all user-facing copy via the `labels` prop:
 
@@ -158,3 +139,7 @@ Customize all user-facing copy via the `labels` prop:
   }}
 />
 ```
+
+## Get started by choosing your AI backend
+
+<IntegrationGrid path="custom-look-and-feel/css" />
