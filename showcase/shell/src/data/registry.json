@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-20T03:32:53.189Z",
+  "generated_at": "2026-04-20T03:50:11.649Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
@@ -190,14 +190,6 @@
         "description": "Agent-authored UI that can invoke frontend sandbox functions from inside the iframe"
       },
       {
-        "id": "gen-ui-agent",
-        "name": "Agentic Generative UI (In-Chat State Rendering)",
-        "category": "operational-generative-ui",
-        "description": "Agent-state-driven inline UI: the agent emits a live `steps` plan via copilotkit_emit_state and the frontend renders it with useCoAgentStateRender (v1 hook)",
-        "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-agent",
-        "shell_docs_url": "/docs/features/gen-ui-agent"
-      },
-      {
         "id": "tool-rendering-default-catchall",
         "name": "Tool Rendering (Default Catch-all)",
         "category": "operational-generative-ui",
@@ -244,6 +236,14 @@
         "category": "operational-generative-ui",
         "description": "Built-in CopilotChatReasoningMessage renders without a custom slot",
         "kind": "testing"
+      },
+      {
+        "id": "gen-ui-agent",
+        "name": "Agentic Generative UI (In-Chat State Rendering)",
+        "category": "operational-generative-ui",
+        "description": "Agent-state-driven inline UI: the agent emits a live `steps` plan via copilotkit_emit_state and the frontend renders it with useCoAgentStateRender (v1 hook)",
+        "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-agent",
+        "shell_docs_url": "/docs/features/gen-ui-agent"
       },
       {
         "id": "frontend-tools",
