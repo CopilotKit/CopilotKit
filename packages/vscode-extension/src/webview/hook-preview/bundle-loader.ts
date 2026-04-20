@@ -17,6 +17,30 @@ import * as JSXRuntime from "react/jsx-runtime";
  * insertion window and re-throw so the caller's try/catch sees the failure
  * instead of silently staring at an empty hookSite.
  */
+/**
+ * Resolves specifiers that CJS wrappers inside the bundled IIFE still call
+ * via `require(...)`. Rolldown's `globals` config rewrites ESM-style
+ * external references (e.g. `import React from "react"`), but CJS libs
+ * wrapped by `__commonJSMin` keep their verbatim `require("react")` calls,
+ * and the browser has no `require`. Intercept the small set of externals
+ * we control here and fall back to a warning for everything else so a
+ * missing dep doesn't take down the whole IIFE.
+ */
+function createRequireShim() {
+  const deps: Record<string, unknown> = {
+    react: React,
+    "react-dom": ReactDOM,
+    "react-dom/client": ReactDOMClient,
+    "react/jsx-runtime": JSXRuntime,
+    "react/jsx-dev-runtime": JSXRuntime,
+  };
+  return (spec: string): unknown => {
+    if (spec in deps) return deps[spec];
+    console.warn(`[hook-preview] unhandled require("${spec}") — ignoring`);
+    return {};
+  };
+}
+
 export function executeBundle(code: string): unknown {
   (window as unknown as { __copilotkit_deps: unknown }).__copilotkit_deps = {
     React,
@@ -24,6 +48,11 @@ export function executeBundle(code: string): unknown {
     ReactDOMClient,
     JSXRuntime,
   };
+  // CJS wrappers bundled inside the IIFE still invoke `require(...)`; the
+  // browser has no `require` by default. Install a shim that knows our
+  // React externals before executing the script.
+  (window as unknown as { require: (spec: string) => unknown }).require =
+    createRequireShim();
   const nonce = (window as unknown as { __copilotkit_nonce?: string })
     .__copilotkit_nonce;
 
