@@ -234,13 +234,26 @@ export class PreviewPanel {
     );
     const nonce = getNonce();
 
+    // CSP notes:
+    //  - `blob:` in script-src is required by the A2UI catalog loading
+    //    flow in `webview/App.tsx`, which `URL.createObjectURL`s the
+    //    bundled IIFE and loads it via `<script src=blob:…>`. The blob
+    //    content originates from the trusted extension host over
+    //    postMessage (not from any external source), so the general
+    //    concern that "blob: enables arbitrary-string JS" doesn't apply
+    //    to the threat model here: the extension host itself is what
+    //    would have to be compromised to feed malicious content, and if
+    //    it is, CSP on the webview doesn't meaningfully contain damage.
+    //  - The hook-preview panel (`hooks/panel.ts`) doesn't need `blob:`
+    //    because it executes its IIFE via an inline `<script>` that's
+    //    nonce-gated instead.
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; script-src 'nonce-${nonce}' https://cdn.jsdelivr.net; style-src 'unsafe-inline' ${webview.cspSource} https://cdn.jsdelivr.net; font-src ${webview.cspSource} https://cdn.jsdelivr.net; connect-src ${webview.cspSource} https://cdn.jsdelivr.net;">
+    content="default-src 'none'; script-src 'nonce-${nonce}' blob: https://cdn.jsdelivr.net; style-src 'unsafe-inline' ${webview.cspSource} https://cdn.jsdelivr.net; font-src ${webview.cspSource} https://cdn.jsdelivr.net; connect-src ${webview.cspSource} https://cdn.jsdelivr.net;">
   <title>CopilotKit Preview</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <style>
