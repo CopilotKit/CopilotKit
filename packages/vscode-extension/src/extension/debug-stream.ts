@@ -113,9 +113,14 @@ export class DebugStream {
               for (const cb of this.eventCallbacks) {
                 cb(envelope);
               }
-            } catch {
+            } catch (parseErr) {
+              // Include the underlying JSON error so the user can tell a
+              // truncated SSE frame apart from a version-mismatched
+              // runtime (different shapes produce different parse errors).
+              const reason =
+                parseErr instanceof Error ? parseErr.message : String(parseErr);
               this.emitError(
-                `Failed to parse event: ${line.slice(6, 200)}${line.length > 206 ? "..." : ""}`,
+                `Failed to parse event (${reason}): ${line.slice(6, 200)}${line.length > 206 ? "..." : ""}`,
               );
             }
           }

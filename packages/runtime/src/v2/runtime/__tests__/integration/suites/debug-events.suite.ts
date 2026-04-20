@@ -209,6 +209,13 @@ export function debugEventsSuite(
       controller.abort();
     }, 15_000);
 
+    // Regression guard for agentId forwarding on /connect lives in a
+    // dedicated unit test (sse-connect-agent-id.test.ts) — driving /connect
+    // through the integration runtime doesn't emit events in a
+    // test-friendly way, so the unit test feeds a synthetic observable
+    // into handleSseConnect and asserts the envelope carries the route
+    // agentId rather than the literal string "connect".
+
     // ─── HTTP Method Validation ──────────────────────────────────────
 
     it("POST /cpk-debug-events returns 405", async () => {
