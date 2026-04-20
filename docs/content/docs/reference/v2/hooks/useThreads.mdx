@@ -4,6 +4,8 @@ description: "React hook for listing, managing, and syncing conversation threads
 doc_type: reference
 ---
 
+<ThreadsEarlyAccess>
+
 ## Overview
 
 `useThreads` is a React hook for managing conversation threads on the Intelligence Platform. It fetches the thread list for a given agent, keeps it synchronized in realtime via WebSocket, and exposes mutation methods for renaming, archiving, and deleting threads.
@@ -134,3 +136,5 @@ function ThreadList() {
 - **Understand how it works:** [How Threads & Persistence Work](/learn/threads) — architecture, event replay model, and WebSocket sync
 - **Step-by-step guide:** [Threads](/threads) — set up thread management in your app
 - **Tutorial:** [Build a Multi-Conversation Chat App](/learn/tutorials/multi-conversation-chat) — end-to-end walkthrough building a chat app with thread history
+
+</ThreadsEarlyAccess>
