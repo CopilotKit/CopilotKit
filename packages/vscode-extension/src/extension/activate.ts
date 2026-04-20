@@ -117,7 +117,8 @@ export function activate(context: vscode.ExtensionContext): void {
             }
           }
         } catch (err) {
-          const detail = err instanceof Error ? err.stack ?? err.message : String(err);
+          const detail =
+            err instanceof Error ? (err.stack ?? err.message) : String(err);
           catalogOutputChannel.appendLine(
             `[catalog] open ${component.filePath}${fixtureName ? ` (${fixtureName})` : ""}: ${detail}`,
           );

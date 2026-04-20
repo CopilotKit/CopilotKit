@@ -13,7 +13,10 @@ vi.mock("vscode", () => {
     ) {}
   }
   class CodeLens {
-    constructor(public range: Range, public command: unknown) {}
+    constructor(
+      public range: Range,
+      public command: unknown,
+    ) {}
   }
   class EventEmitter<T> {
     private listeners: Array<(v: T) => void> = [];
@@ -119,10 +122,7 @@ describe("HookLensProvider", () => {
     vi.mocked(scanContent).mockReturnValue([]);
     const provider = new HookLensProvider({ appendLine: vi.fn() } as any);
     const liveContent = "live edits not yet saved";
-    provider.provideCodeLenses(
-      makeDoc("/tmp/Foo.tsx", liveContent),
-      noopToken,
-    );
+    provider.provideCodeLenses(makeDoc("/tmp/Foo.tsx", liveContent), noopToken);
     expect(scanContent).toHaveBeenCalledWith("/tmp/Foo.tsx", liveContent);
   });
 

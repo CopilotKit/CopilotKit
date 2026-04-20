@@ -86,10 +86,7 @@ function offsetToLineColumn(
  * directly so the lenses reflect the live buffer, not the last-saved
  * disk version.
  */
-export function scanContent(
-  filePath: string,
-  content: string,
-): HookCallSite[] {
+export function scanContent(filePath: string, content: string): HookCallSite[] {
   if (!hasCopilotKitPrefix(content)) return [];
 
   const lang = filePath.endsWith(".tsx") ? "tsx" : "ts";
