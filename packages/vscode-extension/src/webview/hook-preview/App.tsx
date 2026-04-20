@@ -12,6 +12,7 @@ import { mergeValues } from "./form/schema/normalize";
 import { inferFormSchemaFromConfig } from "./form/schema/infer-from-config";
 import type { FormSchema } from "./form/schema/types";
 import { executeBundle } from "./bundle-loader";
+import { resolveHostRootFn } from "./resolve-host-root";
 import { ControlsDispatch } from "./ControlsDispatch";
 
 declare const acquireVsCodeApi: <T = unknown>() => {
@@ -107,12 +108,19 @@ export function App() {
   const [mountError, setMountError] = useState<string | null>(null);
   const [respondValue, setRespondValue] = useState<unknown>(undefined);
   const [resolveValue, setResolveValue] = useState<unknown>(undefined);
+  // HostRoot must be state (not useMemo) because it's populated AFTER
+  // executeBundle runs in a useEffect. A useMemo keyed on `payload` caches
+  // the pre-bundle value (null) and never recomputes, since payload doesn't
+  // change when the global is written. Setting state inside the effect is
+  // the React-idiomatic way to force a re-render once the bundle is live.
+  const [hostRoot, setHostRoot] = useState<(() => ReactNode) | null>(null);
 
   useEffect(() => {
     const onMessage = (ev: MessageEvent<ExtensionToWebviewMessage>) => {
       if (ev.data.type === "load" || ev.data.type === "reload") {
         setMountError(null);
         setRegistry(null);
+        setHostRoot(null);
         setPayload(ev.data.payload);
       } else if (ev.data.type === "error") {
         setMountError(ev.data.message);
@@ -123,24 +131,30 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!payload) return;
+    if (!payload) {
+      setHostRoot(null);
+      return;
+    }
+    // Clear stale global before running the new bundle so a failed bundle
+    // can't leave us reading last-load's module.
+    delete (window as unknown as { __copilotkit_hookSite?: unknown })
+      .__copilotkit_hookSite;
     try {
       executeBundle(payload.bundleCode);
     } catch (err) {
       setMountError(err instanceof Error ? err.message : String(err));
+      setHostRoot(null);
+      return;
     }
-  }, [payload]);
-
-  const HostRoot = useMemo(() => {
-    if (!payload) return null;
     const mod = (window as unknown as { __copilotkit_hookSite?: unknown })
       .__copilotkit_hookSite as
       | { default?: unknown; [k: string]: unknown }
       | undefined;
-    if (!mod) return null;
-    if (typeof mod.default === "function") return mod.default as () => unknown;
-    const firstFn = Object.values(mod).find((v) => typeof v === "function");
-    return typeof firstFn === "function" ? (firstFn as () => unknown) : null;
+    const fn = resolveHostRootFn(mod);
+    // Wrap in `() =>` so React's setState doesn't treat the function as an
+    // updater — we want hostRoot to BE the render function, not the result
+    // of calling it.
+    setHostRoot(() => fn);
   }, [payload]);
 
   // Resolve the captured config once the registry is populated.
@@ -200,11 +214,11 @@ export function App() {
     vscode.postMessage({ type: "mountError", error: msg });
   };
 
-  if (!HostRoot || !registry) {
+  if (!hostRoot || !registry) {
     return (
       <>
         <Harness
-          HostRoot={(HostRoot ?? (() => null)) as () => ReactNode}
+          HostRoot={hostRoot ?? (() => null)}
           onCapture={setRegistry}
           onMountError={reportMountError}
         />
