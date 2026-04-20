@@ -11,7 +11,7 @@ import MastraIcon from "@/components/ui/icons/mastra";
 import PydanticAiIcon from "@/components/ui/icons/pydantic-ai";
 import { ComponentType } from "react";
 import { MicrosoftIcon } from "@/components/ui/icons/microsoft";
-import { AgentSpecMarkIcon, A2AIcon } from "@/lib/icons/custom-icons";
+import { AgentSpecMarkIcon, A2AIcon, ClaudeAgentSdkIcon } from "@/lib/icons/custom-icons";
 import {
   INTEGRATION_ORDER,
   IntegrationId,
@@ -33,6 +33,7 @@ const INTEGRATION_ICONS: Record<
   ag2: Ag2Icon,
   "agent-spec": AgentSpecMarkIcon,
   agno: AgnoIcon,
+  "claude-agent-sdk": ClaudeAgentSdkIcon,
   "crewai-flows": CrewaiIcon,
   "built-in-agent": CopilotKitMarkIcon,
   langgraph: LanggraphIcon,

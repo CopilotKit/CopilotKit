@@ -370,8 +370,24 @@ export const AgentSpecMarkIcon = (props: IconBaseProps) => (
   </svg>
 );
 
+export const ClaudeAgentSdkIcon = ({ className = "", ...props }: IconBaseProps) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    {...props}
+  >
+    <path
+      d="M15.788 3.204L12.724 12.78l-4.03-9.576H4.852l6.396 17.592h2.904l6.396-17.592h-4.76z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
 export const customIcons = {
   a2a: A2AIcon,
+  claudeAgentSdk: ClaudeAgentSdkIcon,
   adk: ADKIcon,
   awsStrands: AwsStrandsIcon,
   react: FaReact,

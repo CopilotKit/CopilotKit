@@ -1,0 +1,141 @@
+---
+title: Reading agent state
+icon: "lucide/ArrowLeft"
+description: Read the realtime agent state in your native application.
+---
+import { ImageZoom } from "fumadocs-ui/components/image-zoom";
+import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/claude-agent-sdk/run-and-connect.mdx"
+
+<IframeSwitcher
+  id="shared-state-read-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/claude-agent-sdk-typescript/feature/shared_state?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/claude-agent-sdk-typescript/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+<Callout type="info">
+  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/claude-agent-sdk-typescript/feature/shared_state).
+</Callout>
+
+## What is this?
+
+You can easily use the realtime agent state not only in the chat UI, but also in the native application UX.
+
+## When should I use this?
+
+You can use this when you want to provide the user with feedback about your agent's state. As your agent's
+state updates, you can reflect these updates natively in your application.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
+  </Step>
+  <Step>
+    ### Define the Agent with State
+
+    Create your Claude Agent SDK adapter. The adapter automatically provides the `ag_ui_update_state` tool, which the agent uses to update shared state:
+
+    ```typescript title="agent/server.ts"
+    import { ClaudeAgentAdapter } from "@ag-ui/claude-agent-sdk";
+
+    const adapter = new ClaudeAgentAdapter({
+      model: "claude-haiku-4-5",
+      systemPrompt: `You are a helpful assistant. Help users by answering their questions.
+Please use the language specified in state when responding to the user.
+When you need to change the language, use the ag_ui_update_state tool to update the language field.`,
+    });
+    ```
+
+    The adapter injects the current state into the agent's context automatically, and the `ag_ui_update_state` tool is always available for the agent to call.
+
+  </Step>
+  <Step>
+    ### Use the `useAgent` Hook
+    With your agent connected and running all that is left is to call the `useAgent` hook, pass the agent's name, and
+    optionally provide an initial state.
+
+    ```tsx title="ui/app/page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+    // Define the agent state type
+    type AgentState = {
+      language: "english" | "spanish";
+    }
+
+    function YourMainContent() {
+      // [!code highlight:4]
+      const { agent } = useAgent({
+        agentId: "my_agent",
+        initialState: { language: "english" }  // optionally provide an initial state
+      });
+
+      // ...
+
+      return (
+        // style excluded for brevity
+        <div>
+          <h1>Your main content</h1>
+          {/* [!code highlight:1] */}
+          <p>Language: {agent.state?.language}</p>
+        </div>
+      );
+    }
+    ```
+
+    <Callout type="warn" title="Important">
+      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+    </Callout>
+
+    <Callout type="info">
+      The `agent.state` in `useAgent` is reactive and will automatically update when the agent's state changes.
+    </Callout>
+
+  </Step>
+  <Step>
+    ### Give it a try!
+    As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
+    language set to "english" as that's the initial state we set.
+  </Step>
+</Steps>
+
+## Rendering agent state in the chat
+
+You can also render the agent's state in the chat UI. This is useful for informing the user about the agent's state in a
+more in-context way. To do this, you can use the `useAgent` hook with a `render` function.
+
+```tsx title="ui/app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+// Define the agent state type
+type AgentState = {
+  language: "english" | "spanish";
+};
+
+function YourMainContent() {
+  // ...
+  // [!code highlight:7]
+  useAgent({
+    agentId: "my_agent",
+    render: ({ state }) => {
+      if (!state.language) return null;
+      return <div>Language: {state.language}</div>;
+    },
+  });
+  // ...
+}
+```
+
+<Callout type="warn" title="Important">
+  The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+</Callout>
+
+<Callout type="info">
+  The `agent.state` in `useAgent` is reactive and will automatically
+  update when the agent's state changes.
+</Callout>

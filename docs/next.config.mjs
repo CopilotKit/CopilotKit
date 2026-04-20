@@ -122,6 +122,7 @@ const config = {
 
   async rewrites() {
     const integrations = [
+      'claude-agent-sdk',
       'adk',
       'a2a',
       'ag2',

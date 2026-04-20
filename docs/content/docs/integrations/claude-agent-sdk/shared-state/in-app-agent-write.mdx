@@ -1,0 +1,146 @@
+---
+title: Writing agent state
+icon: "lucide/ArrowRight"
+description: Write to agent's state from your application.
+---
+import { IframeSwitcher } from "@/components/content"
+import RunAndConnect from "@/snippets/integrations/claude-agent-sdk/run-and-connect.mdx"
+
+<IframeSwitcher
+  id="shared-state-write-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/claude-agent-sdk-typescript/feature/shared_state?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/claude-agent-sdk-typescript/feature/shared_state?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+<Callout type="info">
+  This example demonstrates writing to shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/claude-agent-sdk-typescript/feature/shared_state).
+</Callout>
+
+## What is this?
+
+This guide shows you how to write to your agent's state from your application.
+
+## When should I use this?
+
+You can use this when you want to provide the user with feedback about what your agent is doing, specifically
+when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
+  </Step>
+  <Step>
+    ### Define the Agent with State
+
+    Create your Claude Agent SDK adapter. State is managed automatically through the `ag_ui_update_state` tool:
+
+    ```typescript title="agent/server.ts"
+    import { ClaudeAgentAdapter } from "@ag-ui/claude-agent-sdk";
+
+    const adapter = new ClaudeAgentAdapter({
+      model: "claude-haiku-4-5",
+      systemPrompt: `You are a helpful assistant. Help users by answering their questions.
+Please use the language specified in state when responding to the user.
+When you need to change the language, use the ag_ui_update_state tool to update the language field.`,
+    });
+    ```
+
+  </Step>
+  <Step>
+    ### Call `agent.setState` from the `useAgent` hook
+    `useAgent` returns an `agent` object with a `setState` method that you can use to update the agent state. Calling this
+    will update the agent state and trigger a rerender of anything that depends on the agent state.
+
+    ```tsx title="ui/app/page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+    // Define the agent state type
+    type AgentState = {
+      language: "english" | "spanish";
+    }
+
+    // Example usage in a pseudo React component
+    function YourMainContent() {
+      const { agent } = useAgent({ // [!code highlight]
+        agentId: "my_agent",
+        initialState: { language: "english" }  // optionally provide an initial state
+      });
+
+      // ...
+
+      const toggleLanguage = () => {
+        agent.setState({ language: agent.state?.language === "english" ? "spanish" : "english" }); // [!code highlight]
+      };
+
+      // ...
+
+      return (
+        // style excluded for brevity
+        <div>
+          <h1>Your main content</h1>
+          {/* [!code highlight:2] */}
+          <p>Language: {agent.state?.language}</p>
+          <button onClick={toggleLanguage}>Toggle Language</button>
+        </div>
+      );
+    }
+    ```
+
+    <Callout type="warn" title="Important">
+      The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+    </Callout>
+
+  </Step>
+  <Step>
+    ### Give it a try!
+    You can now use `agent.setState` to update the agent state and `agent.state` to read it. Try toggling the language button
+    and talking to your agent. You'll see the language change to match the agent's state.
+  </Step>
+</Steps>
+
+## Advanced Usage
+
+### Re-run the agent with a hint about what's changed
+
+The new agent state will be used next time the agent runs.
+If you want to re-run it manually, use `copilotkit.runAgent()`.
+
+The agent will be re-run with the latest updated state. You can also add a hint message before re-running.
+
+```tsx title="ui/app/page.tsx"
+import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+
+// ...
+
+function YourMainContent() {
+  const { agent } = useAgent({
+    agentId: "my_agent",
+  });
+  const { copilotkit } = useCopilotKit(); // [!code highlight]
+
+  // setup to be called when some event in the app occurs
+  const toggleLanguage = async () => {
+    const newLanguage = agent.state?.language === "english" ? "spanish" : "english";
+    agent.setState({ language: newLanguage });
+
+    // add a hint message and re-run the agent
+    // [!code highlight:7]
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content: `the language has been updated to ${newLanguage}`,
+    });
+    await copilotkit.runAgent({ agent });
+  };
+
+  return (
+    // ...
+  );
+}
+```

@@ -4,6 +4,7 @@ import type { NextRequest } from "next/server";
 // All framework slugs for pattern-based redirects
 const FRAMEWORKS = [
   "langgraph",
+  "claude-agent-sdk",
   "adk",
   "agno",
   "crewai-flows",
