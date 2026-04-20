@@ -516,22 +516,22 @@ const JSX_CONTAINER_TAGS = [
   "Steps",
 ];
 
+// Split a GFM table row into cell values. GFM allows tables WITHOUT
+// the outer leading/trailing pipes (e.g. "a | b | c"), so we can't
+// unconditionally drop the first and last cells. Instead, drop a
+// leading/trailing cell only when it's empty (the artifact of an outer
+// pipe); keep genuine first/last cells.
+function parseTableRow(line: string): string[] {
+  const cells = line.split("|").map((cell) => cell.trim());
+  if (cells.length > 0 && cells[0] === "") cells.shift();
+  if (cells.length > 0 && cells[cells.length - 1] === "") cells.pop();
+  return cells;
+}
+
 function convertMarkdownTableToHtml(tableLines: string[]): string {
   if (tableLines.length < 2) return tableLines.join("\n");
 
-  // Split a GFM table row into cell values. GFM allows tables WITHOUT
-  // the outer leading/trailing pipes (e.g. "a | b | c"), so we can't
-  // unconditionally drop the first and last cells. Instead, drop a
-  // leading/trailing cell only when it's empty (the artifact of an
-  // outer pipe); keep genuine first/last cells.
-  const parseRow = (line: string): string[] => {
-    const cells = line.split("|").map((cell) => cell.trim());
-    if (cells.length > 0 && cells[0] === "") cells.shift();
-    if (cells.length > 0 && cells[cells.length - 1] === "") cells.pop();
-    return cells;
-  };
-
-  const headers = parseRow(tableLines[0]);
+  const headers = parseTableRow(tableLines[0]);
   const separatorLine = tableLines[1];
   // Accept GFM separator lines with or without outer pipes. Must
   // contain at least one `|` and otherwise consist of spaces, colons,
@@ -543,7 +543,7 @@ function convertMarkdownTableToHtml(tableLines: string[]): string {
     return tableLines.join("\n");
   }
 
-  const bodyRows = tableLines.slice(2).map(parseRow);
+  const bodyRows = tableLines.slice(2).map(parseTableRow);
   // Escape every interpolated cell value. Without this, any MDX table
   // cell containing `<script>`, `&`, or other HTML-significant chars
   // would inject raw HTML into the rendered page (XSS surface, since
@@ -573,6 +573,16 @@ function convertMarkdownTableToHtml(tableLines: string[]): string {
   return `<table style="width:100%;border-collapse:collapse;margin:0.75rem 0"><thead><tr>${headerHtml}</tr></thead><tbody>\n${bodyHtml}\n</tbody></table>`;
 }
 
+// A line looks like a table row when it contains at least one pipe
+// that separates two non-empty cells OR has the classic leading-pipe
+// form. Accepts both GFM variants (with / without outer pipes).
+const isTableRow = (s: string): boolean =>
+  /\S\s*\|\s*\S/.test(s) || /^\s*\|.+/.test(s);
+
+// Separator: at least one pipe, otherwise only spaces, colons, dashes.
+const isTableSeparator = (s: string): boolean =>
+  /\|/.test(s) && /^\s*[|:\- ]+\s*$/.test(s);
+
 export function convertTablesInJSX(content: string): string {
   const tagPattern = JSX_CONTAINER_TAGS.join("|");
   const regex = new RegExp(
@@ -587,28 +597,18 @@ export function convertTablesInJSX(content: string): string {
       const result: string[] = [];
       let i = 0;
 
-      // A line looks like a table row when it contains at least one
-      // pipe that separates two non-empty cells OR has the classic
-      // leading-pipe form. Accepts both GFM variants.
-      const isTableRow = (s: string): boolean =>
-        /\S\s*\|\s*\S/.test(s) || /^\s*\|.+/.test(s);
-      // Separator: at least one pipe, otherwise only spaces, colons,
-      // and dashes.
-      const isSeparator = (s: string): boolean =>
-        /\|/.test(s) && /^\s*[|:\- ]+\s*$/.test(s);
-
       while (i < lines.length) {
         const line = lines[i];
         if (isTableRow(line)) {
           const tableLines: string[] = [];
           while (
             i < lines.length &&
-            (isTableRow(lines[i]) || isSeparator(lines[i]))
+            (isTableRow(lines[i]) || isTableSeparator(lines[i]))
           ) {
             tableLines.push(lines[i].trim());
             i++;
           }
-          if (tableLines.length >= 2 && isSeparator(tableLines[1])) {
+          if (tableLines.length >= 2 && isTableSeparator(tableLines[1])) {
             result.push(convertMarkdownTableToHtml(tableLines));
           } else {
             result.push(...tableLines);
