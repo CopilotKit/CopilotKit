@@ -340,7 +340,7 @@ function dispatchRoute(
         request,
         threadId: route.threadId,
       });
-    case "debug-events":
+    case "cpk-debug-events":
       return Promise.resolve(handleDebugEvents({ runtime, request }));
   }
 }
@@ -417,7 +417,7 @@ function validateHttpMethod(
     case "info":
     case "threads/list":
     case "threads/messages":
-    case "debug-events":
+    case "cpk-debug-events":
       if (method === "GET") return null;
       return jsonResponse({ error: "Method not allowed" }, 405, {
         Allow: "GET",

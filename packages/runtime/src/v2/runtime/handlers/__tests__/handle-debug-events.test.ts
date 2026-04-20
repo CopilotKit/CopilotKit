@@ -17,7 +17,7 @@ function createMockRuntime(
 }
 
 function createMockRequest(options: { signal?: AbortSignal } = {}): Request {
-  return new Request("http://localhost/debug-events", {
+  return new Request("http://localhost/cpk-debug-events", {
     method: "GET",
     signal: options.signal,
   });

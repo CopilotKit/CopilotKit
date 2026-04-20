@@ -44,7 +44,7 @@ export type RouteInfo =
   | { method: "threads/update"; threadId: string }
   | { method: "threads/archive"; threadId: string }
   | { method: "threads/messages"; threadId: string }
-  | { method: "debug-events" };
+  | { method: "cpk-debug-events" };
 
 /* ------------------------------------------------------------------------------------------------
  * Hook contexts

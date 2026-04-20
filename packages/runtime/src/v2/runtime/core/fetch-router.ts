@@ -74,12 +74,13 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "transcribe" };
   }
 
-  // /debug-events (1 segment)
-  // Reserved route name — matched here before any :agentId-style pattern
-  // below so an agent literally named "debug-events" can't shadow the
-  // debug-stream endpoint. The handler itself returns 404 in production.
-  if (len >= 1 && segments[len - 1] === "debug-events") {
-    return { method: "debug-events" };
+  // /cpk-debug-events (1 segment)
+  // Reserved route name — the `cpk-` prefix makes collision with a
+  // user-named agent essentially impossible. Matched here before any
+  // :agentId-style pattern below so the router never routes through an
+  // agent lookup for this path. Handler returns 404 in production.
+  if (len >= 1 && segments[len - 1] === "cpk-debug-events") {
+    return { method: "cpk-debug-events" };
   }
 
   // /agent/:agentId/run (3 segments)

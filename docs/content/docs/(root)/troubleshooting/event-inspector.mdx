@@ -20,7 +20,7 @@ Use it when:
 - The [CopilotKit VS Code extension](/vs-code-extension) installed
 
 <Callout type="warning">
-  The `/debug-events` endpoint is disabled when `NODE_ENV=production`. This is intentional — it streams internal event data that should not be exposed in production environments.
+  The `/cpk-debug-events` endpoint is disabled when `NODE_ENV=production`. This is intentional — it streams internal event data that should not be exposed in production environments.
 </Callout>
 
 ## Connect and inspect
@@ -29,7 +29,7 @@ Use it when:
 <Step>
 ### Ensure your runtime is running in development mode
 
-The debug event endpoint is available at `GET /debug-events` on your CopilotKit runtime. It activates automatically when `NODE_ENV !== 'production'` — no extra configuration needed. If you're using the default dev setup, you're already good to go.
+The debug event endpoint is available at `GET /cpk-debug-events` on your CopilotKit runtime. It activates automatically when `NODE_ENV !== 'production'` — no extra configuration needed. If you're using the default dev setup, you're already good to go.
 </Step>
 
 <Step>

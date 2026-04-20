@@ -136,9 +136,12 @@ describe("fetch-router", () => {
       expect(result).toEqual({ method: "info" });
     });
 
-    it("matches GET /debug-events", () => {
-      const result = matchRoute("/api/copilotkit/debug-events", basePath);
-      expect(result).toEqual({ method: "debug-events" });
+    it("matches GET /cpk-debug-events", () => {
+      const result = matchRoute(
+        "/api/copilotkit/cpk-debug-events",
+        basePath,
+      );
+      expect(result).toEqual({ method: "cpk-debug-events" });
     });
   });
 
@@ -210,21 +213,21 @@ describe("fetch-router", () => {
       expect(result).toEqual({ method: "agent/run", agentId: "a1" });
     });
 
-    it("matches /debug-events suffix", () => {
-      const result = matchRoute("/api/copilotkit/debug-events");
-      expect(result).toEqual({ method: "debug-events" });
+    it("matches /cpk-debug-events suffix", () => {
+      const result = matchRoute("/api/copilotkit/cpk-debug-events");
+      expect(result).toEqual({ method: "cpk-debug-events" });
     });
 
-    it("matches bare /debug-events", () => {
-      const result = matchRoute("/debug-events");
-      expect(result).toEqual({ method: "debug-events" });
+    it("matches bare /cpk-debug-events", () => {
+      const result = matchRoute("/cpk-debug-events");
+      expect(result).toEqual({ method: "cpk-debug-events" });
     });
   });
 
-  describe("debug-events route with basePath", () => {
-    it("matches /debug-events with /api basePath", () => {
-      const result = matchRoute("/api/debug-events", "/api");
-      expect(result).toEqual({ method: "debug-events" });
+  describe("cpk-debug-events route with basePath", () => {
+    it("matches /cpk-debug-events with /api basePath", () => {
+      const result = matchRoute("/api/cpk-debug-events", "/api");
+      expect(result).toEqual({ method: "cpk-debug-events" });
     });
   });
 });

@@ -76,7 +76,7 @@ export class DebugStream {
     let url: URL;
     try {
       const base = runtimeUrl.endsWith("/") ? runtimeUrl : runtimeUrl + "/";
-      url = new URL("debug-events", base);
+      url = new URL("cpk-debug-events", base);
     } catch {
       this.emitError(`Invalid URL: ${runtimeUrl}`);
       this.handleDisconnect(runtimeUrl);

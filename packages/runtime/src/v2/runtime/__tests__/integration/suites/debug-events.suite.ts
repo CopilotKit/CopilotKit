@@ -135,7 +135,7 @@ export function debugEventsSuite(
 
       // Start the debug stream. For real HTTP servers, fetch blocks until
       // the first chunk arrives, so we also start the agent run concurrently.
-      const debugFetchPromise = doFetch(url("/debug-events"), {
+      const debugFetchPromise = doFetch(url("/cpk-debug-events"), {
         signal: controller.signal,
       });
 
@@ -211,8 +211,8 @@ export function debugEventsSuite(
 
     // ─── HTTP Method Validation ──────────────────────────────────────
 
-    it("POST /debug-events returns 405", async () => {
-      const res = await doFetch(url("/debug-events"), { method: "POST" });
+    it("POST /cpk-debug-events returns 405", async () => {
+      const res = await doFetch(url("/cpk-debug-events"), { method: "POST" });
       expect(res.status).toBe(405);
     });
   });
@@ -235,7 +235,7 @@ export function debugEventsProductionGuardSuite(
         process.env.NODE_ENV = "production";
         const { handler } = createHandler();
         const res = await handler(
-          new Request(`${baseUrl}${basePath}/debug-events`),
+          new Request(`${baseUrl}${basePath}/cpk-debug-events`),
         );
         expect(res.status).toBe(404);
       } finally {
