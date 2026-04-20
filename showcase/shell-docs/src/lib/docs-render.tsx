@@ -9,6 +9,7 @@
 
 import fs from "fs";
 import path from "path";
+import { resolveWithinDir } from "./safe-fs";
 
 export const CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
 export const SNIPPETS_DIR = path.join(CONTENT_DIR, "..", "snippets");
@@ -298,8 +299,12 @@ export function inlineSnippets(content: string, slugPath: string = ""): string {
       }
 
       if (!snippetRel) return match;
-      const snippetPath = path.join(SNIPPETS_DIR, snippetRel);
-      if (!fs.existsSync(snippetPath)) return match;
+      // Even though snippetRel comes from the hardcoded SNIPPET_MAP,
+      // route through resolveWithinDir for defense-in-depth — any
+      // future addition that builds the relative path from user
+      // input is guarded by default.
+      const snippetPath = resolveWithinDir(SNIPPETS_DIR, snippetRel);
+      if (!snippetPath || !fs.existsSync(snippetPath)) return match;
       let snippetContent = fs.readFileSync(snippetPath, "utf-8");
       snippetContent = snippetContent.replace(/^---[\s\S]*?---\n?/, "");
       snippetContent = snippetContent.replace(/^import\s+.+$/gm, "");
@@ -420,14 +425,23 @@ export interface DocFrontmatter {
 export function loadDoc(
   slugPath: string,
 ): { source: string; filePath: string; fm: DocFrontmatter } | null {
-  let filePath = path.join(CONTENT_DIR, `${slugPath}.mdx`);
-  if (!fs.existsSync(filePath)) {
-    const indexPath = path.join(CONTENT_DIR, slugPath, "index.mdx");
-    if (fs.existsSync(indexPath)) {
-      filePath = indexPath;
-    } else {
-      return null;
-    }
+  // Guard against path traversal: slugPath is built from URL segments.
+  // Without resolveWithinDir, a slug like `../../secrets` would escape
+  // CONTENT_DIR via path.join and leak arbitrary files on disk.
+  // Covered by: a request for /docs/..%2F..%2Fpackage must return 404.
+  const mdxResolved = resolveWithinDir(CONTENT_DIR, `${slugPath}.mdx`);
+  const indexResolved = resolveWithinDir(
+    CONTENT_DIR,
+    path.join(slugPath, "index.mdx"),
+  );
+
+  let filePath: string;
+  if (mdxResolved && fs.existsSync(mdxResolved)) {
+    filePath = mdxResolved;
+  } else if (indexResolved && fs.existsSync(indexResolved)) {
+    filePath = indexResolved;
+  } else {
+    return null;
   }
 
   const source = fs.readFileSync(filePath, "utf-8");
@@ -479,16 +493,23 @@ export function buildBreadcrumbs(
     const href = `${opts.slugHrefPrefix}/${partialSlug}`;
     const isLast = i === parts.length - 1;
 
-    const mdxFile = path.join(CONTENT_DIR, `${partialSlug}.mdx`);
-    const indexFile = path.join(CONTENT_DIR, partialSlug, "index.mdx");
-    const dirMeta = readMeta(path.join(CONTENT_DIR, partialSlug));
+    // Guard against path traversal on user-supplied slug segments.
+    // A resolved path that escapes CONTENT_DIR becomes null and we
+    // fall through to the slug-derived label.
+    const mdxFile = resolveWithinDir(CONTENT_DIR, `${partialSlug}.mdx`);
+    const indexFile = resolveWithinDir(
+      CONTENT_DIR,
+      path.join(partialSlug, "index.mdx"),
+    );
+    const dirResolved = resolveWithinDir(CONTENT_DIR, partialSlug);
+    const dirMeta = dirResolved ? readMeta(dirResolved) : null;
 
     let label: string | null = null;
     if (dirMeta?.title) {
       label = dirMeta.title;
-    } else if (fs.existsSync(mdxFile)) {
+    } else if (mdxFile && fs.existsSync(mdxFile)) {
       label = readTitle(mdxFile);
-    } else if (fs.existsSync(indexFile)) {
+    } else if (indexFile && fs.existsSync(indexFile)) {
       label = readTitle(indexFile);
     }
     if (!label) {

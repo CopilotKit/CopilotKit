@@ -20,6 +20,52 @@ import { getRegistry } from "@/lib/registry";
 
 const Callout = DocsCallout;
 
+// Dev-only warning helper for stub components that discard their props.
+// Fires once per component name so HMR / re-renders don't spam the console.
+const __warnedStubs = new Set<string>();
+function warnStub(name: string, propKeys: string[]): void {
+  if (process.env.NODE_ENV === "production") return;
+  if (propKeys.length === 0) return;
+  const key = `${name}:${propKeys.sort().join(",")}`;
+  if (__warnedStubs.has(key)) return;
+  __warnedStubs.add(key);
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[mdx-registry] <${name}> is a non-functional shim — these props were discarded: ${propKeys.join(", ")}. ` +
+      `Override <${name}> in the consuming renderer to make it interactive.`,
+  );
+}
+
+// Wrap a children-only stub so it warns in dev when additional props are
+// passed. Keeps runtime behavior identical (render children) for compat.
+function stub(name: string) {
+  const Stub = ({
+    children,
+    ...rest
+  }: {
+    children?: React.ReactNode;
+    [key: string]: unknown;
+  }) => {
+    const extras = Object.keys(rest);
+    if (extras.length > 0) warnStub(name, extras);
+    return <div>{children}</div>;
+  };
+  Stub.displayName = `MdxStub(${name})`;
+  return Stub;
+}
+
+// Dev-only once-per-key log for silent null returns so MDX authors learn
+// their embed didn't render.
+const __warnedNull = new Set<string>();
+function warnSilentNull(component: string, reason: string): void {
+  if (process.env.NODE_ENV === "production") return;
+  const key = `${component}:${reason}`;
+  if (__warnedNull.has(key)) return;
+  __warnedNull.add(key);
+  // eslint-disable-next-line no-console
+  console.warn(`[mdx-registry] <${component}> rendered nothing — ${reason}`);
+}
+
 export const docsComponents = {
   Callout,
   Cards,
@@ -28,12 +74,29 @@ export const docsComponents = {
   Accordion,
   PropertyReference,
   FeatureIntegrations: ({ feature }: { feature?: string }) => {
-    if (!feature) return null;
+    if (!feature) {
+      warnSilentNull("FeatureIntegrations", "no `feature` prop provided");
+      return null;
+    }
     const reg = getRegistry();
     const supporting = reg.integrations.filter(
       (i) => i.deployed && i.features?.includes(feature),
     );
-    if (supporting.length === 0) return null;
+    if (supporting.length === 0) {
+      warnSilentNull(
+        "FeatureIntegrations",
+        `no deployed integrations support feature="${feature}"`,
+      );
+      if (process.env.NODE_ENV !== "production") {
+        return (
+          <div className="my-6 rounded-md border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
+            [mdx-registry] No deployed integrations support feature &quot;
+            {feature}&quot;.
+          </div>
+        );
+      }
+      return null;
+    }
     return (
       <div className="my-6">
         <div className="text-xs font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
@@ -60,10 +123,24 @@ export const docsComponents = {
     integration?: string;
     demo?: string;
   }) => {
-    if (!integration || !demo) return null;
+    if (!integration || !demo) {
+      warnSilentNull(
+        "InlineDemo",
+        `missing required props (integration=${integration ?? "undefined"}, demo=${demo ?? "undefined"})`,
+      );
+      return null;
+    }
     const reg = getRegistry();
     const int = reg.integrations.find((i) => i.slug === integration);
-    if (!int || !int.deployed) return null;
+    if (!int || !int.deployed) {
+      warnSilentNull(
+        "InlineDemo",
+        !int
+          ? `no integration with slug="${integration}" in registry`
+          : `integration "${integration}" is not deployed`,
+      );
+      return null;
+    }
     // Iframe the integration demo directly (its own backend host). The
     // demo-detail page (<integrations/.../[demo]>) is only served by the
     // SHELL host (showcase.copilotkit.ai), so the "Open full demo" link
@@ -190,9 +267,21 @@ export const docsComponents = {
   CodeGroup: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  Snippet: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  Snippet: ({ children }: { children?: React.ReactNode }) => {
+    // DocsPageView overrides this at consumer sites. If the base registry
+    // is used directly without override, surface a visible dev-mode hint
+    // so authors notice their Snippet isn't rendering real content.
+    if (process.env.NODE_ENV !== "production") {
+      warnSilentNull("Snippet", "runtime override required (base stub)");
+      return (
+        <div className="my-4 rounded-md border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
+          [Snippet] runtime override required
+          {children ? <div className="mt-1">{children}</div> : null}
+        </div>
+      );
+    }
+    return <div>{children}</div>;
+  },
   Info: Callout,
   Caution: ({ children }: { children: React.ReactNode }) => (
     <Callout type="warn">{children}</Callout>
@@ -269,9 +358,7 @@ export const docsComponents = {
   InstallSDKSnippet: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  MCPApps: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  MCPApps: stub("MCPApps"),
   MCPSetup: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -293,9 +380,7 @@ export const docsComponents = {
   ObservabilityConnectors: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  Inspector: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  Inspector: stub("Inspector"),
   DefaultToolRendering: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
