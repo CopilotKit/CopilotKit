@@ -194,13 +194,14 @@ function main() {
       const backendFiles = discoverBackendFiles(pkgRoot);
 
       for (const demo of demos) {
+        const routeDir = demo.route.replace(/^\/demos\//, "");
         const demoDir = path.join(
           PACKAGES_DIR,
           pkgDir,
           "src",
           "app",
           "demos",
-          demo.id,
+          routeDir,
         );
         if (!fs.existsSync(demoDir)) continue;
 
@@ -258,3 +259,27 @@ function main() {
 }
 
 main();
+
+if (process.argv.includes("--watch")) {
+  let timer: NodeJS.Timeout | null = null;
+  const rebundle = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      try {
+        main();
+      } catch (e) {
+        console.error("[watch] bundle failed:", e);
+      }
+    }, 200);
+  };
+  console.log("[watch] watching packages/ for changes...\n");
+  fs.watch(PACKAGES_DIR, { recursive: true }, (_event, filename) => {
+    if (!filename) return;
+    // Only rebundle for demo sources, agent sources, and READMEs
+    if (
+      /(\/demos\/|\/agents\/|\/agent\/|\/mastra\/|README\.md$)/.test(filename)
+    ) {
+      rebundle();
+    }
+  });
+}

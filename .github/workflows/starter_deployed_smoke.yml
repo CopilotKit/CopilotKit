@@ -17,11 +17,16 @@ on:
 permissions:
   contents: read
   packages: read
-  issues: write
 
 jobs:
   starter-deployed-smoke:
     runs-on: ubuntu-latest
+    # Hoist the Slack webhook into an env var so step-level `if:`
+    # expressions can reference it — `secrets.*` is not a valid named
+    # value inside `if:` and causes a workflow startup failure on some
+    # event types. Matches the pattern used in showcase_validate.yml.
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
     if: >-
       github.event_name != 'workflow_run' ||
       github.event.workflow_run.conclusion == 'success'
@@ -36,6 +41,30 @@ jobs:
         with:
           node-version: "20"
 
+      # Restore previous run's pass/fail status from cache so we can emit
+      # a red→green transition alert on recovery. Mirrors the per-service
+      # transition pattern in showcase_smoke-monitor.yml. The restore-keys
+      # prefix gives us the most recently saved state regardless of which
+      # run_id wrote it. Cache TTL is ~7 days; scheduled runs every 6h
+      # plus workflow_run triggers refresh it well within that window.
+      - name: Restore smoke state from cache
+        id: cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: starter-smoke-state.json
+          key: starter-smoke-state-impossible-match
+          restore-keys: |
+            starter-smoke-state-
+
+      - name: Initialize state if missing
+        run: |
+          # First-ever run (or cache eviction): assume "ok" so we don't
+          # emit a false recovery alert on the first green run after
+          # deploying this workflow change.
+          if [ ! -f starter-smoke-state.json ]; then
+            echo '{"lastStatus":"ok","lastFailureAt":""}' > starter-smoke-state.json
+          fi
+
       - name: Install test dependencies
         run: npm ci
         working-directory: showcase/tests
@@ -45,46 +74,211 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       - name: Run starter deployed smoke tests
+        id: playwright
         working-directory: showcase/tests
-        run: npx playwright test e2e/integration-smoke.spec.ts --grep "@starter-health|@starter-agent|@starter-chat"
+        # Use github reporter for Actions annotations plus json for programmatic parsing.
+        run: npx playwright test e2e/integration-smoke.spec.ts --grep "@starter-health|@starter-agent|@starter-chat" --reporter=github,json
         env:
           STARTER_SLUG: ${{ inputs.starter_slug || '' }}
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results.json
 
-      - name: Build Slack payload
-        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
+      # Extract the failed starters + first error line so the Slack
+      # payload is actionable at a glance rather than forcing a
+      # click-through to the workflow run. Bare "X failed" alerts bury
+      # the signal; red alerts must carry triage-ready detail per the
+      # oss-alerts policy.
+      #
+      # Writes `failed_count`, `starters`, `error_excerpt`, and
+      # `extraction_error` to $GITHUB_ENV so the Slack notify step below
+      # can reference them via `env.*` (which is valid inside
+      # `toJSON(format(...))` expressions). We deliberately do NOT fail
+      # this step on any error: all extraction branches fall back to
+      # sentinel values so the notify step still fires with best-effort
+      # content.
+      - name: Extract failure details
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run') && env.SLACK_WEBHOOK != ''
+        id: failures
+        working-directory: showcase/tests
         run: |
-          URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          jq -n --arg text ":rotating_light: *Starter Deployed Smoke Test Failed*\n<$URL|View run>" \
-            '{text: $text}' > /tmp/slack-payload.json
+          set +e  # best-effort: never block the notify step below
+          REPORT=test-results/results.json
+          EXTRACTION_ERROR=""
+          FAILED_COUNT=0
+          STARTERS=""
+          ERROR_EXCERPT="see workflow run for details"
 
+          if [ ! -f "$REPORT" ]; then
+            # Report file never produced (pre-test stage: install,
+            # playwright install, test discovery, etc.).
+            EXTRACTION_ERROR="missing_report"
+            ERROR_EXCERPT="no JSON report produced — pre-test stage failure (install/setup/discovery)"
+          else
+            # Walk the playwright JSON suite tree, pull failed tests with:
+            # title, tags, first error line. Iterate all tests per spec
+            # so multi-project configs don't drop failures.
+            if ! jq -r '
+              [ .. | objects | select(.tests? and .title?) ] as $specs
+              | $specs
+              | map(
+                  . as $spec
+                  | ($spec.tests // [])[] as $t
+                  | ($t.results // [])[-1] as $r
+                  | select($r.status == "failed" or $r.status == "timedOut")
+                  | {
+                      title: $spec.title,
+                      tags: ($spec.title | [scan("@[a-zA-Z0-9_-]+")]),
+                      slug: ((try ($spec.title | capture("\\[Starter\\] (?<s>[a-zA-Z0-9_-]+)").s) catch null) // ($spec.title | .[0:40]) // "unknown"),
+                      error: (
+                        ($r.error.message // $r.errors[0].message // "no error message")
+                        | gsub("\u001b\\[[0-9;?]*[A-Za-z]"; "")
+                        | split("\n")[0]
+                        | .[0:240]
+                      )
+                    }
+                )
+            ' "$REPORT" > /tmp/failures.json 2> /tmp/jq-err.log; then
+              echo "::warning::jq failed to parse $REPORT"
+              echo "jq stderr:"; cat /tmp/jq-err.log
+              echo "[]" > /tmp/failures.json
+              EXTRACTION_ERROR="jq_parse_failed"
+              ERROR_EXCERPT="jq failed to parse Playwright report — check workflow log"
+            else
+              FAILED_COUNT=$(jq 'length' /tmp/failures.json 2>/dev/null || echo 0)
+              STARTERS=$(jq -r '[.[].slug] | unique | map(select(. != "")) | join(", ")' /tmp/failures.json 2>/dev/null || echo "")
+              if [ "$FAILED_COUNT" = "0" ]; then
+                # Report exists but jq matched zero failures — job-level
+                # error (e.g. non-zero exit without failed tests).
+                EXTRACTION_ERROR="no_failures_in_report"
+                ERROR_EXCERPT="no test failures in report — job-level error, check run for details"
+              else
+                # Build first-failure excerpt: slug + first error line,
+                # capped at ~240 chars. Slack payload stays well under
+                # the budget even with JSON escaping overhead.
+                ERROR_EXCERPT=$(jq -r '
+                  .[0]
+                  | "\(.slug): \(.error)"
+                ' /tmp/failures.json 2>/dev/null | head -c 240)
+                [ -z "$ERROR_EXCERPT" ] && ERROR_EXCERPT="see workflow run for details"
+              fi
+            fi
+          fi
+
+          # Emit to $GITHUB_ENV using heredoc delimiters so values
+          # containing `=`, quotes, or newlines don't break KEY=VALUE.
+          {
+            echo "failed_count=${FAILED_COUNT}"
+            echo "extraction_error=${EXTRACTION_ERROR}"
+            echo "starters<<EOF_STARTERS_b3f2"
+            printf '%s\n' "$STARTERS"
+            echo "EOF_STARTERS_b3f2"
+            echo "error_excerpt<<EOF_ERR_EXCERPT_b3f2"
+            printf '%s\n' "$ERROR_EXCERPT"
+            echo "EOF_ERR_EXCERPT_b3f2"
+          } >> "$GITHUB_ENV"
+
+          exit 0  # belt-and-suspenders: never propagate a failure
+
+      # Use inline `payload:` with `toJSON(format(...))` so dynamic
+      # values (starters list, error excerpt) are safely JSON-encoded —
+      # quotes/backslashes/newlines can't break the payload. This
+      # matches the pattern used in showcase_validate.yml (PR #4068) and
+      # replaces the previous `payload-file-path` approach which failed
+      # with `SlackError: Invalid input! Failed to parse file extension`
+      # because slackapi/slack-github-action@v2.1.0 requires `.json` /
+      # `.yaml` / `.yml` and `mktemp` produces extensionless files.
       - name: Alert Slack on failure
-        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run') && env.SLACK_WEBHOOK != ''
         uses: slackapi/slack-github-action@v2.1.0
-        continue-on-error: true
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
-          payload-file-path: /tmp/slack-payload.json
+          payload: |
+            { "text": ${{ toJSON(format(':rotating_light: *Starter Deployed Smoke Test Failed* — {0} failure(s) in [{1}]: {2} | <https://github.com/{3}/actions/runs/{4}|View run>', env.failed_count, env.starters, env.error_excerpt, github.repository, github.run_id)) }} }
 
-      - name: Create GitHub issue on failure
-        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
-        uses: actions/github-script@v7
+      - name: Log (no Slack — webhook unset)
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run') && env.SLACK_WEBHOOK == ''
+        run: |
+          echo "::warning::starter_deployed_smoke failed but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
+
+      # Compute outcome + state transition for the next run. Runs on
+      # success and failure alike (but not when the job is cancelled —
+      # that's indeterminate). Policy: post recovery message on
+      # red→green transition only. green→green is silent.
+      #
+      # This step also decides whether to save state. We save iff the
+      # run had a terminal outcome (passed or failed tests); cancelled
+      # runs leave the prior state untouched so streaks aren't broken.
+      - name: Compute transition + recovery payload
+        id: transition
+        if: always() && !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
+        run: |
+          set +e
+          NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if [ ! -f starter-smoke-state.json ]; then
+            # Shouldn't happen — "Initialize state if missing" runs before
+            # the tests. Belt-and-suspenders fallback so this step never
+            # crashes and leaves state unwritten.
+            echo '{"lastStatus":"ok","lastFailureAt":""}' > starter-smoke-state.json
+          fi
+          PREV_STATUS=$(jq -r '.lastStatus // "ok"' starter-smoke-state.json)
+          PREV_FAILURE_AT=$(jq -r '.lastFailureAt // ""' starter-smoke-state.json)
+
+          # The Playwright step is the only thing that can fail this job.
+          # We infer success vs failure from job.status, which is exposed
+          # by Actions via the `job` context — but step-level `if:` can't
+          # read it directly. Instead, we use the playwright step's
+          # outcome which is reliably set by the preceding step.
+          PLAYWRIGHT_OUTCOME='${{ steps.playwright.outcome }}'
+          case "$PLAYWRIGHT_OUTCOME" in
+            success)
+              NEW_STATUS="ok"
+              NEW_FAILURE_AT=""
+              if [ "$PREV_STATUS" = "failure" ]; then
+                # Red→green transition — emit recovery. Wording mirrors
+                # the smoke-monitor per-service format.
+                RECOVERY_MSG=":white_check_mark: *Starter Deployed Smoke Tests*: recovered (was down since ${PREV_FAILURE_AT})"
+                jq -n --arg text "$RECOVERY_MSG | <$URL|View run>" '{text: $text}' > /tmp/starter-smoke-recovery.json
+                echo "should_post_recovery=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "should_post_recovery=false" >> "$GITHUB_OUTPUT"
+              fi
+              ;;
+            failure|*)
+              # Any non-success outcome is treated as failure for state
+              # tracking. The existing "Alert Slack on failure" step
+              # handles the red alert — we only touch state here.
+              NEW_STATUS="failure"
+              NEW_FAILURE_AT="$NOW"
+              echo "should_post_recovery=false" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+          jq -n \
+            --arg status "$NEW_STATUS" \
+            --arg failureAt "$NEW_FAILURE_AT" \
+            '{lastStatus: $status, lastFailureAt: $failureAt}' \
+            > starter-smoke-state.json
+
+          echo "update_state=true" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Alert Slack on recovery
+        if: >-
+          always() && !cancelled() &&
+          steps.transition.outputs.should_post_recovery == 'true' &&
+          (github.event_name == 'schedule' || github.event_name == 'workflow_run') &&
+          env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@v2.1.0
         with:
-          script: |
-            const title = `Starter deployed smoke test failure - ${new Date().toISOString().split('T')[0]}`;
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: 'starter-health',
-              state: 'open',
-            });
-            const existing = issues.find(i => i.title === title);
-            if (!existing) {
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title,
-                labels: ['starter-health'],
-                body: `Automated starter deployed smoke test failed.\n\n[View run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
-              });
-            }
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload-file-path: /tmp/starter-smoke-recovery.json
+
+      - name: Save smoke state to cache
+        if: always() && steps.transition.outputs.update_state == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: starter-smoke-state.json
+          key: starter-smoke-state-${{ github.run_id }}

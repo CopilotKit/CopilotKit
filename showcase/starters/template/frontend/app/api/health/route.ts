@@ -8,7 +8,7 @@ const AGENT_URL =
 export async function GET(req: NextRequest) {
   let agentStatus = "unknown";
   try {
-    const res = await fetch(`${AGENT_URL}/ok`, {
+    const res = await fetch(`${AGENT_URL}/health`, {
       signal: AbortSignal.timeout(3000),
     });
     agentStatus = res.ok ? "ok" : "error";

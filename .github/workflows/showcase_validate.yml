@@ -4,20 +4,61 @@ on:
   pull_request:
     paths:
       - "showcase/**"
+      - "examples/integrations/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/showcase_validate.yml"
+      # Also re-run when starter/workflow files change — the
+      # validate-workflow-starters step below verifies parity between
+      # showcase/starters/* and the SERVICES/options lists in these files.
+      - ".github/workflows/showcase_deploy.yml"
+      - ".github/workflows/showcase_smoke-monitor.yml"
   push:
     branches: [main]
     paths:
       - "showcase/**"
+      - "examples/integrations/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/showcase_validate.yml"
+      - ".github/workflows/showcase_deploy.yml"
+      - ".github/workflows/showcase_smoke-monitor.yml"
 
+# Least-privilege by default. Individual jobs/steps can widen when needed.
+# id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
+permissions:
+  contents: read
+  id-token: write
+
+# Split concurrency per event so main-branch push runs are never canceled
+# mid-execution (we need Slack failure alerts to fire reliably). PR runs
+# still cancel in progress to keep PR CI responsive.
 concurrency:
-  group: showcase-validate-${{ github.ref }}
-  cancel-in-progress: true
+  group: showcase-validate-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   validate:
     name: Validate Showcase
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Hoist the Slack webhook into an env var so step-level `if:`
+    # expressions can reference it — `secrets.*` is not a valid
+    # named-value inside `if:` and causes a workflow startup failure
+    # on push events.
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+    # Depot (Startup plan, unlimited minutes) for persistent pnpm/npm
+    # cache across runs — cold ubuntu-latest runs were ~18-20m; Depot
+    # typically reduces to ~5-8m. 25m timeout retained as headroom.
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: 25
+    defaults:
+      run:
+        # Pin shell so `set -euo pipefail` + `mapfile` behave the same
+        # across any future runner image changes (default on ubuntu is
+        # already bash, but we lock it explicitly).
+        shell: bash
 
     steps:
       - name: Checkout
@@ -27,38 +68,522 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          # Cache npm for the showcase/shell `npm ci` step below (shell is
+          # NOT a pnpm workspace member; it ships its own package-lock.json).
+          cache: "npm"
+          cache-dependency-path: showcase/shell/package-lock.json
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        # Pinned to a specific minor rather than floating @v4 so that a
+        # silent upstream major/minor change can't alter install semantics
+        # on a random CI run. Bump deliberately when refreshing the toolchain.
+        uses: pnpm/action-setup@v4.4.0
 
       - name: Verify lockfile is up to date
         run: pnpm install --frozen-lockfile --ignore-scripts
 
+      - name: Enforce e2e spec count (baseline per package)
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          # Single source of truth: showcase/scripts/fail-baseline.json
+          # `baselineDemoCount` is read here AND by validate-parity.ts so the
+          # per-package e2e-spec-count floor cannot drift between CI and the
+          # validator. If parsing fails we distinguish JSON syntax errors
+          # from schema failures (missing/non-integer/negative field).
+          set +e
+          MIN=$(node -e "
+            let v;
+            try {
+              v = require('./showcase/scripts/fail-baseline.json');
+            } catch (e) {
+              console.error('fail-baseline.json: JSON syntax error: ' + e.message);
+              process.exit(2);
+            }
+            const n = v.baselineDemoCount;
+            if (typeof n !== 'number' || !Number.isInteger(n) || n < 0) {
+              console.error('fail-baseline.json: schema failure: baselineDemoCount must be a non-negative integer');
+              process.exit(3);
+            }
+            console.log(n);
+          ")
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            # Preserve node's distinct rc (2=JSON syntax, 3=schema) in the
+            # annotation so the CI log pinpoints the cause without re-running.
+            echo "::error::Failed to read baselineDemoCount from showcase/scripts/fail-baseline.json (node exit=$rc; 2=JSON syntax, 3=schema)"
+            exit "$rc"
+          fi
+          failed=0
+          found=0
+          for pkg_dir in showcase/packages/*/; do
+            [ -d "$pkg_dir" ] || continue
+            found=$((found + 1))
+            pkg=$(basename "$pkg_dir")
+            e2e_dir="${pkg_dir}tests/e2e/"
+            if [ ! -d "$e2e_dir" ]; then
+              echo "::error file=$pkg_dir::Package '$pkg' is missing tests/e2e/ directory (required for baseline e2e coverage)"
+              failed=1
+              continue
+            fi
+            # Capture `find` output into a variable first so we can check
+            # its exit status directly. Bash process substitution (used with
+            # `mapfile < <(cmd)`) does NOT propagate the producer's exit
+            # status to the parent shell — `mapfile` only reports its own
+            # usage errors — so a failing `find` (EACCES on a subdir, ELOOP,
+            # transient I/O) would have been silently treated as "zero
+            # specs" and surfaced as the misleading "minimum required"
+            # error instead of the real root cause. Command substitution
+            # propagates `find`'s status via `$?` on the assignment, which
+            # we check immediately. A zero-spec result is a legitimate
+            # success from `find` and is handled by the `$count -lt $MIN`
+            # check below, not treated as a find failure.
+            # Aggregate find failures with the rest of the per-package
+            # failure modes (missing tests/e2e/, below-MIN count) so one bad
+            # package doesn't short-circuit reporting for the others. A
+            # single CI run should surface every problematic package at
+            # once; `exit "$failed"` at the end of the loop reports the
+            # aggregate.
+            if ! find_out=$(find "$e2e_dir" -maxdepth 1 -type f -name '*.spec.ts'); then
+              echo "::error file=$e2e_dir::find failed while enumerating specs for '$pkg'"
+              failed=1
+              continue
+            fi
+            specs=()
+            # Only populate the array if `find` produced output; `mapfile
+            # <<< ""` would otherwise create a single empty element and
+            # inflate the count by one.
+            if [ -n "$find_out" ]; then
+              mapfile -t specs <<< "$find_out"
+            fi
+            count=${#specs[@]}
+            if [ "$count" -lt "$MIN" ]; then
+              echo "::error file=$e2e_dir::Package '$pkg' has $count e2e spec(s); minimum required is $MIN"
+              failed=1
+            else
+              echo "ok: $pkg has $count spec(s)"
+            fi
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "::error::No showcase/packages/*/ directories found — baseline check cannot run"
+            exit 1
+          fi
+          exit "$failed"
+
+      - name: Run validate-parity (MUST checks gating)
+        working-directory: showcase/scripts
+        # MUST failures (missing manifest, missing src/app/demos dir) exit 1 and
+        # fail the PR. SHOULD deviations print warnings and exit 0. See
+        # showcase/scripts/validate-parity.ts for the full policy.
+        #
+        # `pnpm exec` resolves tsx from the pnpm-lock.yaml-pinned workspace
+        # install; `npx tsx` could fetch a drifting version on a registry
+        # cache miss.
+        run: pnpm exec tsx validate-parity.ts
+
+      - name: Run validate-workflow-starters (parity with workflows)
+        working-directory: showcase/scripts
+        # Gate: for every directory under showcase/starters/ (excluding
+        # template/), verify `starter-<slug>` is registered in
+        # showcase_deploy.yml (workflow_dispatch options AND the
+        # ALL_SERVICES matrix) and in showcase_smoke-monitor.yml's
+        # SERVICES array. Catches the silent-drift failure mode where a
+        # new starter ships on disk but is invisible to deploy dispatch
+        # or drift detection.
+        run: pnpm exec tsx validate-workflow-starters.ts
+
+      - name: Run validate-pins (ratchet)
+        working-directory: showcase/scripts
+        # Ratchet gate on pin drift. Baseline (count + SHA-256 hash of sorted
+        # unique FAIL lines) lives in `showcase/scripts/fail-baseline.json`;
+        # see that file for the full ratchet semantics and adjustment
+        # procedure. Weekly backlog visibility is provided by
+        # `.github/workflows/showcase_drift-report.yml`. Drift-to-zero work
+        # is tracked in GitHub issue #4047.
+        run: |
+          set -euo pipefail
+
+          # --- Load + validate baseline -----------------------------------
+          # `node -e` prints either a validated value or an error marker
+          # we match below. We deliberately do NOT let require() throw
+          # out of the subshell; we format a clean CI error instead.
+          #
+          # We distinguish three failure modes with distinct exit codes so
+          # the CI log pinpoints the cause without requiring a re-run:
+          #   exit 2 => JSON syntax error (require() threw)
+          #   exit 3 => schema failure (missing/wrong-typed required field)
+          #   exit 4 => unexpected/unknown top-level field (typo guard)
+          #
+          # The unexpected-field check rejects silent typos like
+          # `validatepinsfailcount` or an accidentally-added `comment`
+          # field (distinct from the allowed leading underscore
+          # `_comment`) that would otherwise leave required fields
+          # undefined and be caught only via the schema branch with a
+          # more confusing message.
+          set +e
+          baseline_json=$(node -e "
+            const ALLOWED = ['_comment', 'validatePinsFailCount', 'validatePinsFailHash', 'baselineDemoCount'];
+            let v;
+            try {
+              v = require('./fail-baseline.json');
+            } catch (e) {
+              console.error('fail-baseline.json: JSON syntax error: ' + e.message);
+              process.exit(2);
+            }
+            const unexpected = Object.keys(v).filter(k => !ALLOWED.includes(k));
+            if (unexpected.length > 0) {
+              console.error('fail-baseline.json: unexpected field(s): ' + unexpected.join(', ') + '. Allowed fields: ' + ALLOWED.join(', '));
+              process.exit(4);
+            }
+            const c = v.validatePinsFailCount;
+            const h = v.validatePinsFailHash;
+            if (typeof c !== 'number' || !Number.isInteger(c) || c < 0) {
+              console.error('fail-baseline.json: schema failure: validatePinsFailCount must be a non-negative integer');
+              process.exit(3);
+            }
+            if (typeof h !== 'string' || !/^[0-9a-f]{64}$/.test(h)) {
+              console.error('fail-baseline.json: schema failure: validatePinsFailHash must be a 64-char lowercase hex SHA-256');
+              process.exit(3);
+            }
+            console.log(JSON.stringify({ count: c, hash: h }));
+          ")
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            # Preserve node's distinct rc (2=JSON syntax, 3=schema, 4=unexpected field)
+            # in the annotation so the CI log pinpoints the cause.
+            echo "::error::fail-baseline.json failed validation (node exit=$rc; 2=JSON syntax, 3=schema, 4=unexpected field)"
+            exit "$rc"
+          fi
+          baseline=$(node -e "console.log(JSON.parse(process.argv[1]).count)" "$baseline_json")
+          baseline_hash=$(node -e "console.log(JSON.parse(process.argv[1]).hash)" "$baseline_json")
+
+          # --- Run validator; separate internal crash from pin-drift exit -
+          # validate-pins exits 0 when FAIL=0, 1 when FAIL>0. Anything else
+          # (2+, uncaught throw, node crash, SIGSEGV) is an internal failure
+          # we must surface distinctly from a legitimate drift report.
+          #
+          # We deliberately keep stdout and stderr in separate variables.
+          # validate-pins.ts emits progress/summary on stdout and `[FAIL]`
+          # lines on stderr; mingling them with `2>&1` allowed progress
+          # chatter (or future stdout additions) to corrupt the hash input.
+          # The hash is computed strictly from stderr.
+          set +e
+          stderr_file=$(mktemp)
+          stdout=$(pnpm exec tsx validate-pins.ts 2>"$stderr_file")
+          rc=$?
+          stderr=$(cat "$stderr_file")
+          rm -f "$stderr_file"
+          set -e
+          # Replay both streams to the job log so humans can debug.
+          printf '%s\n' "$stdout"
+          printf '%s\n' "$stderr" >&2
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
+            # Preserve validate-pins.ts's distinct exit code (2=EXIT_INTERNAL,
+            # 3=EXIT_UNREADABLE, 4+=future) so downstream consumers can
+            # distinguish "validator crashed" from "pin drift found" (which
+            # would be rc=1). Collapsing to `exit 1` would make an internal
+            # crash indistinguishable from legitimate drift in the PR check
+            # signal.
+            echo "::error::validate-pins.ts exited with unexpected code $rc (expected 0 or 1). This indicates an internal failure, not pin drift."
+            exit "$rc"
+          fi
+
+          # --- Parse Summary line (actual FAIL count) ---------------------
+          # Summary line is on stdout. If the validator output format
+          # changed (missing Summary, non-numeric FAIL), fail loudly
+          # instead of silently treating it as zero.
+          #
+          # Scope grep's no-match tolerance to grep alone by wrapping just
+          # the grep stage in a `{ ... || true; }` group. A trailing
+          # `|| true` on the whole pipeline would defeat `pipefail` and
+          # swallow producer/head failures too; we only want to tolerate
+          # grep finding no match (which `[ -z "$summary_line" ]` below
+          # already reports with a precise error).
+          summary_line=$(printf '%s\n' "$stdout" | { grep -E '^[[:space:]]*Summary:' || true; } | head -n 1)
+          if [ -z "$summary_line" ]; then
+            echo "::error::Could not find validate-pins 'Summary:' line in output"
+            exit 1
+          fi
+          # Word-boundary anchored to avoid matching e.g. `NEWFAIL=` or
+          # `TOTALFAIL=` if such tokens are ever added to the Summary line.
+          actual=$(printf '%s\n' "$summary_line" | grep -oE '\bFAIL=[0-9]+\b' | head -n 1 | cut -d= -f2)
+          if [ -z "${actual:-}" ] || ! [[ "$actual" =~ ^[0-9]+$ ]]; then
+            echo "::error::Could not parse FAIL=<int> from Summary line: $summary_line"
+            exit 1
+          fi
+
+          # --- Compute tuple hash of current FAIL set ---------------------
+          # Hash the sorted, deduplicated `[FAIL] ...` lines (stderr only).
+          # This catches the "count equal but set drifted" case: one FAIL
+          # healed while another regressed.
+          #
+          # Scope grep's no-match tolerance to grep alone by wrapping just
+          # the grep stage in a `{ ... || true; }` group. A trailing
+          # `|| true` on the whole pipeline would defeat `pipefail` and
+          # swallow sort/shasum/cut failures too; clean runs with zero
+          # `[FAIL]` lines must not be an error, so we tolerate grep's
+          # no-match here and only here.
+          actual_hash=$(printf '%s\n' "$stderr" | { grep -E '^\[FAIL\]' || true; } | LC_ALL=C sort -u | shasum -a 256 | cut -d' ' -f1)
+
+          echo "validate-pins FAIL: actual=$actual baseline=$baseline"
+          echo "validate-pins HASH: actual=$actual_hash baseline=$baseline_hash"
+
+          if [ "$actual" -gt "$baseline" ]; then
+            echo "::error::Pin drift increased: $actual FAIL(s) vs baseline $baseline. Fix the new drift or, with explicit sign-off, update showcase/scripts/fail-baseline.json (bump validatePinsFailCount to $actual and validatePinsFailHash to $actual_hash)."
+            exit 1
+          fi
+          if [ "$actual" -lt "$baseline" ]; then
+            echo "::error::Pin drift decreased: $actual FAIL(s) vs baseline $baseline. Ratchet down the baseline in showcase/scripts/fail-baseline.json (set validatePinsFailCount=$actual, validatePinsFailHash=$actual_hash)."
+            exit 1
+          fi
+          if [ "$actual_hash" != "$baseline_hash" ]; then
+            echo "::error::Pin drift SET changed (count equal at $actual, hash differs). One FAIL healed while another regressed — net zero on the counter but the failing tuples are not the same set. Update showcase/scripts/fail-baseline.json (validatePinsFailHash=$actual_hash) if this is intentional, or fix the new drift."
+            echo "--- FAIL lines (current) ---"
+            printf '%s\n' "$stderr" | grep -E '^\[FAIL\]' | LC_ALL=C sort -u
+            exit 1
+          fi
+          echo "Pin drift unchanged at baseline ($baseline, hash $baseline_hash)."
+
       - name: Run build pipeline tests
         working-directory: showcase/scripts
-        run: npx vitest run
+        # Use pnpm to resolve the workspace-installed vitest (pinned via
+        # pnpm-lock.yaml) rather than `npx`, which could fetch a different
+        # version on a registry cache miss.
+        run: pnpm exec vitest run
 
       - name: Validate manifests & generate registry
         working-directory: showcase/scripts
-        run: npx tsx generate-registry.ts
+        run: pnpm exec tsx generate-registry.ts
 
       - name: Bundle demo content
         working-directory: showcase/scripts
-        run: npx tsx bundle-demo-content.ts
+        run: pnpm exec tsx bundle-demo-content.ts
 
       - name: Install showcase shell dependencies
         working-directory: showcase/shell
-        run: npm install --ignore-scripts
+        # `showcase/shell` is NOT a pnpm workspace member (see pnpm-workspace.yaml)
+        # and ships its own `package-lock.json`. Use `npm ci` to get a
+        # reproducible install; `npm install` would re-resolve ranges.
+        # npm cache is configured at the setup-node step above via
+        # `cache-dependency-path: showcase/shell/package-lock.json`.
+        run: npm ci --ignore-scripts
 
       - name: Build showcase shell
         working-directory: showcase/shell
         run: npm run build
 
+      # NOTE: Slack failure alert only fires on `push` (i.e. main-branch
+      # merges) by design. PR failures already surface in the PR checks UI
+      # and the PR author's inbox, and we don't want PR-author noise
+      # pinging the OSS alerts channel. Tradeoff: a broken PR that sneaks
+      # past review won't alert Slack until after merge.
+      #
+      # Extract the failed step name and first meaningful error line so the
+      # Slack payload is actionable at a glance rather than forcing a
+      # click-through to the workflow run. Bare "X failed" alerts bury the
+      # signal; red alerts must carry triage-ready detail per the oss-alerts
+      # policy. Writes `failed_step` and `error_excerpt` to $GITHUB_ENV for
+      # consumption by the notify step below.
+      #
+      # This step must NEVER fail the job (it runs on failure() already; a
+      # crash here would compound the original failure with extraction
+      # noise and could block the notify step). All extraction uses `|| true`
+      # fallbacks so a malformed jobs response or truncated log still yields
+      # sane defaults ("unknown" / "see workflow run for details").
+      - name: Extract failure details for Slack
+        id: extract
+        if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set +e  # best-effort: never block the notify step below
+
+          # --- Find the currently-running job and its first failed step ---
+          # The jobs API returns every job in the run. We identify *this*
+          # job by name (matches `jobs.validate.name`) rather than
+          # job.status=='in_progress', because at this point the step we're
+          # running hasn't flipped the job state yet in the API. Fall back
+          # to the first job with a failed step if the name match misses
+          # (e.g. future rename drift).
+          jobs_json=$(gh api "/repos/${GH_REPO}/actions/runs/${RUN_ID}/jobs" --paginate 2>/dev/null)
+          job_id=$(printf '%s' "$jobs_json" | jq -r '
+            .jobs // []
+            | map(select(.name == "Validate Showcase"))
+            | (.[0].id // empty)
+          ' 2>/dev/null)
+          if [ -z "$job_id" ]; then
+            job_id=$(printf '%s' "$jobs_json" | jq -r '
+              .jobs // []
+              | map(select(.steps // [] | map(.conclusion) | index("failure")))
+              | (.[0].id // empty)
+            ' 2>/dev/null)
+          fi
+          failed_step=$(printf '%s' "$jobs_json" | jq -r --arg id "$job_id" '
+            .jobs // []
+            | map(select((.id|tostring) == $id))
+            | (.[0].steps // [])
+            | map(select(.conclusion == "failure"))
+            | (.[0].name // "unknown step")
+          ' 2>/dev/null)
+          [ -z "$failed_step" ] && failed_step="unknown step"
+
+          # --- Pull log and extract first meaningful error line ------------
+          # `gh run view --log-failed` output is TSV: job\tstep\ttimestamp + content.
+          # Strip the three leading columns to get the raw step output, strip
+          # ANSI escape codes, strip any stray BOM, skip runner/group/env
+          # header noise, then grab the first line matching a recognised
+          # error marker. Truncate to ~300 chars so the Slack payload stays
+          # well under the 800-char budget even with escaping overhead.
+          error_excerpt="see workflow run for details"
+          if [ -n "$job_id" ]; then
+            log_excerpt=$(gh run view "$RUN_ID" --repo "$GH_REPO" --log-failed --job="$job_id" 2>/dev/null \
+              | awk -F'\t' 'NF>=3 { sub(/^[\xEF\xBB\xBF]?[0-9T:.\-Z ]+/, "", $3); print $3 }' \
+              | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' \
+              | grep -vE '^(##\[|shell: |env: |Run |[[:space:]]*$)' \
+              | grep -m1 -E '^\[(FAIL|ERROR)\]|^Error:|^error:|^::error' \
+              | head -c 300)
+            if [ -n "$log_excerpt" ]; then
+              error_excerpt="$log_excerpt"
+            fi
+          fi
+
+          # --- Emit to $GITHUB_ENV using heredoc delimiter -----------------
+          # Heredoc delimiter protects against values that contain `=` or
+          # newlines breaking the KEY=VALUE format. The delimiter is a
+          # long random-ish string unlikely to appear in any log line.
+          {
+            echo "failed_step<<EOF_FAILED_STEP_b3f2"
+            printf '%s\n' "$failed_step"
+            echo "EOF_FAILED_STEP_b3f2"
+            echo "error_excerpt<<EOF_ERROR_EXCERPT_b3f2"
+            printf '%s\n' "$error_excerpt"
+            echo "EOF_ERROR_EXCERPT_b3f2"
+          } >> "$GITHUB_ENV"
+
+          exit 0  # belt-and-suspenders: never propagate a failure
+
       - name: Notify Slack (failure)
-        if: failure() && github.event_name == 'push'
+        if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK != ''
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
+          # Defensive: wrap dynamic values via toJSON(format(...)) so that
+          # if github.repository or the extracted failed_step / error_excerpt
+          # contain characters that would break the JSON payload (quotes,
+          # backslashes, newlines), the value is safely JSON-encoded instead
+          # of injected as raw text. Matches the pattern used in
+          # showcase_drift-report.yml. github.run_id is numeric so safe on
+          # its own, but we wrap it for consistency and defense-in-depth.
+          # env.failed_step and env.error_excerpt are populated by the
+          # preceding "Extract failure details" step (with safe fallbacks if
+          # extraction fails).
           payload: |
-            { "text": ":x: *Showcase validate*: failed | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+            { "text": ${{ toJSON(format(':x: *Showcase validate*: failed — {0}: {1} | <https://github.com/{2}/actions/runs/{3}|View run>', env.failed_step, env.error_excerpt, github.repository, github.run_id)) }} }
+
+      - name: Log (no Slack — webhook unset)
+        if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK == ''
+        run: |
+          echo "::warning::showcase_validate failed on push but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
+
+  python-unit-tests:
+    name: Python unit tests (${{ matrix.python-version }})
+    # Separate job so pre-existing `validate-parity` failures don't mask new
+    # Python unit-test regressions. pytest runs independently of JS/TS checks.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      # Fail-fast disabled so a 3.10-only regression (e.g. typing_extensions
+      # fallback path breaking) doesn't cancel the 3.12 run and leave us
+      # guessing which version is the actual problem.
+      fail-fast: false
+      matrix:
+        # 3.10 covers the typing_extensions `NotRequired` fallback path used
+        # by aimock_toggle.py (stdlib `NotRequired` only landed in 3.11).
+        # 3.12 is the production/runner default. Pinning both guarantees we
+        # catch a regression in either branch the first time it lands.
+        python-version: ["3.10", "3.12"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: |
+            showcase/packages/*/requirements.txt
+
+      - name: Install minimal test deps
+        # Always need pytest + typing_extensions. pytest-asyncio is required
+        # by langroid's test_agui_adapter.py (16 tests use
+        # `@pytest.mark.asyncio`); without it, pytest reports
+        # "async def functions are not natively supported" and skips them.
+        # pytest-mock is installed pre-emptively as it's commonly used by
+        # showcase package tests and is cheap to install.
+        # Per-package `requirements.txt` is installed inside the run loop
+        # below so tests that import runtime deps (openai, google.genai,
+        # httpx, opentelemetry, etc.) don't fail at collection time with
+        # ModuleNotFoundError. Conftest-based stub finders can't help
+        # because test_*.py imports the target deps BEFORE conftest runs.
+        run: python -m pip install --quiet pytest pytest-asyncio pytest-mock typing_extensions
+
+      - name: Run showcase package Python unit tests
+        # Keep scope narrow: only showcase/packages/*/tests/python/ directories
+        # (not e2e, not langgraph which has its own runtime). Each package has
+        # its own conftest.py that wires up import paths; we cd into the pkg
+        # dir so those apply.
+        #
+        # Before running pytest in a package we install that package's own
+        # `requirements.txt` (if present) so runtime-dep imports in test modules
+        # resolve. Keeps CI parity with real runtime and avoids the fragile
+        # stub-finder dance conftest.py would need to do otherwise.
+        run: |
+          set -euo pipefail
+          failed=0
+          found=0
+          # Current interpreter major.minor (e.g. "3.10", "3.12"). Used
+          # below to skip packages whose runtime deps are incompatible
+          # with the matrix Python on this job.
+          py_mm=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+          for pkg_dir in showcase/packages/*/; do
+            tests_dir="${pkg_dir}tests/python"
+            [ -d "$tests_dir" ] || continue
+            found=$((found + 1))
+            pkg=$(basename "$pkg_dir")
+            # --- Per-package Python-version gates -------------------------
+            # Skip packages whose `requirements.txt` pins a dep whose
+            # `requires-python` excludes this interpreter. Surgical skip
+            # (not matrix exclusion) so the rest of the packages continue
+            # to exercise the 3.10 typing_extensions fallback path.
+            #
+            # strands: ag_ui_strands==0.1.0 declares `requires-python >=3.12,<3.14`,
+            # so `pip install` fails on 3.10 before pytest even runs.
+            # langroid: tests import `typing.Self` (3.11+); on 3.10 the import fails
+            # at collection time. typing_extensions.Self would fix it but the tests
+            # are tightly coupled to the modern typing module.
+            # Revisit when ag_ui_strands relaxes its floor or when 3.10 is dropped.
+            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ]; }; then
+              echo "--- pytest: $pkg --- SKIPPED on Python $py_mm (requires >=3.11/3.12)"
+              continue
+            fi
+            echo "--- pytest: $pkg ---"
+            if [ -f "${pkg_dir}requirements.txt" ]; then
+              echo "Installing ${pkg_dir}requirements.txt"
+              python -m pip install --quiet -r "${pkg_dir}requirements.txt" || {
+                echo "::error::pip install failed for $pkg"
+                failed=1
+                continue
+              }
+            fi
+            (cd "$pkg_dir" && python -m pytest tests/python/ -v) || failed=1
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "::warning::No showcase/packages/*/tests/python/ directories found"
+          fi
+          exit "$failed"

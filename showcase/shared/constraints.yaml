@@ -6,6 +6,7 @@ generative_ui:
   constrained-declarative:
     allowed:
       - agentic-chat
+      - frontend-tools
       - gen-ui-tool-based
       - useComponent
       - multi-modal
@@ -18,17 +19,20 @@ generative_ui:
       - voice
     excluded:
       - tool-rendering
-      - hitl
+      - hitl-in-chat
+      - hitl-in-app
       - gen-ui-interrupt
       - open-gen-ui
 
   constrained-explicit:
     allowed:
       - agentic-chat
+      - frontend-tools
       - gen-ui-tool-based
       - gen-ui-interrupt
       - gen-ui-agent
-      - hitl
+      - hitl-in-chat
+      - hitl-in-app
       - tool-rendering
       - useComponent
       - multi-modal
@@ -43,6 +47,7 @@ generative_ui:
   open:
     allowed:
       - open-gen-ui
+      - frontend-tools
       - multi-modal
       - suggestions
       - shared-state-read

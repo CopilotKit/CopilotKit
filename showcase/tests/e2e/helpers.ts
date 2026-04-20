@@ -34,13 +34,24 @@ export interface ChatResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Try multiple health endpoint paths, return the first that responds 200.
+ * Probe the health endpoint(s) and return the first 200 response.
+ *
+ * Defaults to `/api/health` only — the standard Next.js convention used by
+ * all deployed showcase backends and starters. Historically this helper also
+ * fell back to `/health`, but every starter now mounts `/api/health` and the
+ * fallback masked legitimate 5xx responses (a 503 "agent degraded" on
+ * `/api/health` would be hidden behind the subsequent 404 from the non-
+ * existent `/health`, reporting the misleading `path=/health` in failures).
+ *
+ * Callers that need to probe a different path (e.g. local Docker starters
+ * with a custom health route) can pass an explicit `paths` array.
+ *
  * Supports retries with delay for cold-start scenarios (e.g. Railway starters).
  */
 export async function checkHealth(
   request: APIRequestContext,
   baseUrl: string,
-  paths: string[] = ["/api/health", "/health"],
+  paths: string[] = ["/api/health"],
   retries: number = 0,
   retryDelayMs: number = 15_000,
 ): Promise<HealthCheckResult> {

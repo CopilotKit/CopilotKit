@@ -3,11 +3,6 @@ title: Interrupt-based
 icon: "lucide/CirclePause"
 description: Learn how to implement Human-in-the-Loop (HITL) using a interrupt-based flow.
 ---
-
-TailoredContent,
-TailoredContentOption,
-} from "@/components/react/tailored-content.tsx";
-
 <IframeSwitcher
   id="human-in-the-loop-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
@@ -18,9 +13,7 @@ TailoredContentOption,
 />
 
 <Callout type="info">
-  This example demonstrates interrupt-based human-in-the-loop (HITL) in the
-  [CopilotKit Feature
-  Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop).
+  This example demonstrates interrupt-based human-in-the-loop (HITL) in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop).
 </Callout>
 
 ## What is this?
@@ -69,6 +62,8 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     <Tab value="TypeScript">
         ```typescript title="agent-js/src/agent.ts"
         // ...
+        import { Annotation } from "@langchain/langgraph";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
         // ...
 
         // This is the state of the agent.
@@ -80,7 +75,6 @@ We're going to have the agent ask us to name it, so we'll need a state property 
         export type AgentState = typeof AgentStateAnnotation.State;
         ```
     </Tab>
-
 </Tabs>
 
 </Step>
@@ -116,7 +110,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                     content=f"You are a helpful assistant named {state.get('agent_name')}..."
                 )
 
-                response = ChatOpenAI(model="gpt-5.2").invoke(
+                response = ChatOpenAI(model="gpt-5.4").invoke(
                     [system_message, *state["messages"]],
                     config
                 )
@@ -129,6 +123,9 @@ We're going to have the agent ask us to name it, so we'll need a state property 
         </Tab>
         <Tab value="TypeScript">
             ```typescript title="agent-js/src/agent.ts"
+            import { interrupt } from "@langchain/langgraph"; // [!code highlight]
+            import { SystemMessage } from "@langchain/core/messages";
+            import { ChatOpenAI } from "@langchain/openai";
 
             // add the agent state definition from the previous step
             export const AgentStateAnnotation = Annotation.Root({
@@ -146,7 +143,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                     content: `You are a helpful assistant named ${agentName}...`,
                 });
 
-                const response = await new ChatOpenAI({ model: "gpt-5.2" }).invoke(
+                const response = await new ChatOpenAI({ model: "gpt-5.4" }).invoke(
                     [systemMessage, ...state.messages],
                     config
                 );
@@ -160,7 +157,6 @@ We're going to have the agent ask us to name it, so we'll need a state property 
             ```
         </Tab>
     </Tabs>
-
 </Step>
 <Step>
     ### Handle the interrupt in your frontend
@@ -169,7 +165,12 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 
     To do this, we'll use the `useInterrupt` hook, give it a component to render, and then call `resolve` with the user's response.
 
+    <Callout type="warn">
+      **`agentId` must match a runtime-registered agent.** If you omit `agentId`, the hook assumes `"default"`. If the IDs don't match, the interrupt will never fire.
+    </Callout>
+
     ```tsx title="app/page.tsx"
+    import { useInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
     // ...
 
     const YourMainContent = () => {
@@ -177,6 +178,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     // [!code highlight:15]
     // styles omitted for brevity
     useInterrupt({
+        agentId: "starterAgent",
         render: ({ event, resolve }) => (
             <div>
                 <p>{event.value}</p>
@@ -237,7 +239,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
                     content=f"You are a helpful assistant..."
                   )
 
-                  response = ChatOpenAI(model="gpt-5.2").invoke(
+                  response = ChatOpenAI(model="gpt-5.4").invoke(
                     [system_message, *state["messages"]],
                     config
                   )
@@ -250,6 +252,9 @@ For this reason, the hook can take an `enabled` argument which will apply it con
             </Tab>
             <Tab value="TypeScript">
                 ```typescript title="agent-js/src/agent.ts"
+                import { interrupt } from "@langchain/langgraph"; // [!code highlight]
+                import { SystemMessage } from "@langchain/core/messages";
+                import { ChatOpenAI } from "@langchain/openai";
 
                 // ... your full state definition
 
@@ -265,7 +270,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
                     content: `You are a helpful assistant...`,
                   });
 
-                  const response = await new ChatOpenAI({ model: "gpt-5.2" }).invoke(
+                  const response = await new ChatOpenAI({ model: "gpt-5.4" }).invoke(
                     [systemMessage, ...state.messages],
                     config
                   );
@@ -285,6 +290,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
         With two `useInterrupt` hooks in our page, we can leverage the `enabled` property to enable each in the right time:
 
         ```tsx title="app/page.tsx"
+        import { useInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
         // ...
 
         const ApproveComponent = ({ content, onAnswer }: { content: string; onAnswer: (approved: boolean) => void }) => (
@@ -314,6 +320,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
             // ...
             // [!code highlight:13]
             useInterrupt({
+                agentId: "starterAgent",
                 enabled: ({ eventValue }) => eventValue.type === 'ask',
                 render: ({ event, resolve }) => (
                     <AskComponent question={event.value.content} onAnswer={answer => resolve(answer)} />
@@ -321,6 +328,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
             });
 
             useInterrupt({
+                agentId: "starterAgent",
                 enabled: ({ eventValue }) => eventValue.type === 'approval',
                 render: ({ event, resolve }) => (
                     <ApproveComponent content={event.value.content} onAnswer={answer => resolve(answer)} />
@@ -331,7 +339,6 @@ For this reason, the hook can take an `enabled` argument which will apply it con
         }
     ```
     </Step>
-
 </Steps>
 
 ### Preprocessing of an interrupt and programmatically handling an interrupt value
@@ -340,65 +347,57 @@ When opting for custom chat UI, some cases may require pre-processing of the inc
 This can be achieved using the `handler` property, which is not required to return a React component.
 
 The return value of the handler will be passed to the `render` method as the `result` argument.
-
 ```tsx title="app/page.tsx"
 // We will assume an interrupt event in the following shape
-type Department = "finance" | "engineering" | "admin";
+type Department = 'finance' | 'engineering' | 'admin'
 interface AuthorizationInterruptEvent {
-  type: "auth";
-  accessDepartment: Department;
+    type: 'auth',
+    accessDepartment: Department,
 }
 
+import { useInterrupt } from "@copilotkit/react-core/v2";
+
 const YourMainContent = () => {
-  const [userEmail, setUserEmail] = useState({ email: "example@user.com" });
-  function getUserByEmail(email: string): {
-    id: string;
-    department: Department;
-  } {
-    // ... an implementation of user fetching
-  }
+    const [userEmail, setUserEmail] = useState({ email: 'example@user.com' })
+    function getUserByEmail(email: string): { id: string; department: Department } {
+        // ... an implementation of user fetching
+    }
 
-  // ...
-  // styles omitted for brevity
-  // [!code highlight:28]
-  useInterrupt({
-    handler: async ({ result, event, resolve }) => {
-      const { department } = await getUserByEmail(userEmail);
-      if (
-        event.value.accessDepartment === department ||
-        department === "admin"
-      ) {
-        // Following the resolution of the event, we will not proceed to the render method
-        resolve({ code: "AUTH_BY_DEPARTMENT" });
-        return;
-      }
+    // ...
+    // styles omitted for brevity
+    // [!code highlight:28]
+    useInterrupt({
+        agentId: "starterAgent",
+        handler: async ({ result, event, resolve }) => {
+            const { department } = await getUserByEmail(userEmail)
+            if (event.value.accessDepartment === department || department === 'admin') {
+                // Following the resolution of the event, we will not proceed to the render method
+                resolve({ code: 'AUTH_BY_DEPARTMENT' })
+                return;
+            }
 
-      return { department, userId };
-    },
-    render: ({ result, event, resolve }) => (
-      <div>
-        <h1>Request for {event.value.type}</h1>
-        <p>
-          Members from {result.department} department cannot access this
-          information
-        </p>
-        <p>You can request access from an administrator to continue.</p>
-        <button
-          onClick={() =>
-            resolve({
-              code: "REQUEST_AUTH",
-              data: { department: result.department, userId: result.userId },
-            })
-          }
-        >
-          Request Access
-        </button>
-        <button onClick={() => resolve({ code: "CANCEL" })}>Cancel</button>
-      </div>
-    ),
-  });
-  // ...
+            return { department, userId }
+        },
+        render: ({ result, event, resolve }) => (
+            <div>
+                <h1>Request for {event.value.type}</h1>
+                <p>Members from {result.department} department cannot access this information</p>
+                <p>You can request access from an administrator to continue.</p>
+                <button
+                    onClick={() => resolve({ code: 'REQUEST_AUTH', data: { department: result.department, userId: result.userId } })}
+                >
+                    Request Access
+                </button>
+                <button
+                    onClick={() => resolve({ code: 'CANCEL' })}
+                >
+                    Cancel
+                </button>
+            </div>
+        )
+    });
+    // ...
 
-  return <div>{/* ... */}</div>;
-};
+    return <div>{/* ... */}</div>
+}
 ```

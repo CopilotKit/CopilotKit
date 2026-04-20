@@ -64,6 +64,24 @@
             <artifactId>spring</artifactId>
             <version>${ag-ui.version}</version>
         </dependency>
+
+        <!-- Caffeine: bounded, time-expiring cache backing BoundedToolCallingManager's
+             per-ChatOptions iteration counter. Prevents the map from growing unbounded
+             on the happy-path (conversation turn completes naturally without hitting the
+             cap) since Spring-AI's outer loop never signals "turn finished" back to the
+             ToolCallingManager. expireAfterAccess(5m) bounds worst-case residency. -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
+
+        <!-- Test scope: JUnit 5 + Mockito via Spring Boot starter. Kept test-only
+             so the production JAR stays lean. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

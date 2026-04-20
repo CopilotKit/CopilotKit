@@ -720,19 +720,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, []);
 
   // Sync defaultThrottleMs to the core instance on prop changes.
-  // Initial value is set synchronously during instance creation (below the
-  // ref init) so child hooks see the correct value on their first render.
+  // Initial value is set synchronously during instance creation (inside the
+  // ref-init block above) so child hooks see the correct value on first render.
   // This effect handles subsequent updates when the prop changes.
   useEffect(() => {
-    if (
-      defaultThrottleMs !== undefined &&
-      (!Number.isFinite(defaultThrottleMs) || defaultThrottleMs < 0)
-    ) {
-      console.error(
-        `CopilotKitProvider: defaultThrottleMs must be a non-negative finite number, got ${defaultThrottleMs}. ` +
-          `useAgent hooks without an explicit throttleMs will fall back to unthrottled.`,
-      );
-    }
     copilotkit.setDefaultThrottleMs(defaultThrottleMs);
   }, [copilotkit, defaultThrottleMs]);
 
