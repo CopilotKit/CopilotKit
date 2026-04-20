@@ -22,10 +22,41 @@ export type NavNode =
   | { type: "section"; title: string }
   | { type: "group"; title: string; slug: string; children: NavNode[] };
 
+/**
+ * Extract the frontmatter block (content between leading `---` fences)
+ * from a raw MDX/Markdown source. Returns empty string when the file
+ * has no frontmatter. Used to scope frontmatter regexes so we don't
+ * accidentally match `title:` or `description:` that happen to appear
+ * inside the MDX body.
+ */
+function extractFrontmatter(raw: string): string {
+  const fmMatch = raw.match(/^---\n([\s\S]*?)\n---/);
+  return fmMatch?.[1] ?? "";
+}
+
+// Escape text for safe interpolation into an HTML attribute/text context.
+// Duplicated here (rather than imported from components/snippet.tsx) to
+// keep docs-render server-only / framework-free — snippet.tsx is a
+// client component and importing it here would pull client code into
+// the server bundle. If this ever grows, extract to a shared util.
+export function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export function readTitle(filePath: string): string | null {
   if (!fs.existsSync(filePath)) return null;
   const raw = fs.readFileSync(filePath, "utf-8");
-  const fmMatch = raw.match(/title:\s*["']?(.+?)["']?\s*$/m);
+  // Restrict frontmatter matches to the frontmatter block so we don't
+  // grab a `title:` line that lives inside an MDX body (e.g. inside a
+  // code sample or example config). Falls back to the first H1 when no
+  // frontmatter title is set.
+  const fm = extractFrontmatter(raw);
+  const fmMatch = fm.match(/^title:\s*["']?(.+?)["']?\s*$/m);
   if (fmMatch) return fmMatch[1].replace(/["']$/, "");
   const headingMatch = raw.match(/^#\s+(.+)$/m);
   if (headingMatch) return headingMatch[1];
@@ -301,10 +332,16 @@ function convertMarkdownTableToHtml(tableLines: string[]): string {
   }
 
   const bodyRows = tableLines.slice(2).map(parseRow);
+  // Escape every interpolated cell value. Without this, any MDX table
+  // cell containing `<script>`, `&`, or other HTML-significant chars
+  // would inject raw HTML into the rendered page (XSS surface, since
+  // the output is fed through dangerouslySetInnerHTML-style paths).
+  // Covered by: docs pages that place untrusted-looking markup inside
+  // `<Accordion>`/`<Callout>` table cells should render as literal text.
   const headerHtml = headers
     .map(
       (h) =>
-        `<th style="padding:6px 12px;border:1px solid var(--border);text-align:left;font-size:0.875rem">${h}</th>`,
+        `<th style="padding:6px 12px;border:1px solid var(--border);text-align:left;font-size:0.875rem">${escapeHtml(h)}</th>`,
     )
     .join("");
   const bodyHtml = bodyRows
@@ -314,7 +351,7 @@ function convertMarkdownTableToHtml(tableLines: string[]): string {
         row
           .map(
             (cell) =>
-              `<td style="padding:6px 12px;border:1px solid var(--border);font-size:0.875rem">${cell}</td>`,
+              `<td style="padding:6px 12px;border:1px solid var(--border);font-size:0.875rem">${escapeHtml(cell)}</td>`,
           )
           .join("") +
         "</tr>",
@@ -396,9 +433,12 @@ export function loadDoc(
   const source = fs.readFileSync(filePath, "utf-8");
   const fmMatch = source.match(/^---([\s\S]*?)---/);
   const fm = fmMatch?.[1] ?? "";
+  // Restrict frontmatter lookups to the `fm` block; previously these
+  // regexes scanned the whole source and could match a `title:` string
+  // that appears inside the MDX body (e.g. in a code sample). Fall
+  // through to the first H1 heading, then to slug-derived fallback.
   const titleMatch =
-    source.match(/title:\s*["']?(.+?)["']?\s*$/m) ||
-    source.match(/^#\s+(.+)$/m);
+    fm.match(/^title:\s*["']?(.+?)["']?\s*$/m) || source.match(/^#\s+(.+)$/m);
   const title =
     titleMatch?.[1]?.replace(/["']$/, "") ||
     slugPath.split("/").pop()?.replace(/-/g, " ") ||
