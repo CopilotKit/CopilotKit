@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useReducer } from "react";
 import type { CopilotKitCoreReact } from "./lib/react-core";
+import type { LicenseContextValue } from "@copilotkit/shared";
 
 export interface CopilotKitContextValue {
   copilotkit: CopilotKitCoreReact;
@@ -40,3 +41,17 @@ export const useCopilotKit = (): CopilotKitContextValue => {
 
   return context;
 };
+
+// License context — shared between web and RN providers.
+// Default is permissive (all features allowed) — providers override via createLicenseContextValue.
+// Inlined here to avoid a runtime import from @copilotkit/shared, which pulls in
+// Node-only deps (jose) that break React Native's Metro bundler.
+export const LicenseContext = createContext<LicenseContextValue>({
+  status: null,
+  license: null,
+  checkFeature: () => true,
+  getLimit: () => null,
+} as LicenseContextValue);
+
+export const useLicenseContext = (): LicenseContextValue =>
+  useContext(LicenseContext);

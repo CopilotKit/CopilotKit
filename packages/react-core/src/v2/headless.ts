@@ -3,20 +3,7 @@
  *
  * No CSS, no web UI components, no DOM dependencies.
  * Used by @copilotkit/react-native.
- *
- * IMPORTANT: This file imports context from the package path (not relative)
- * so that the bundled output keeps it as an external import. This ensures
- * the headless bundle shares the same React context instance as the
- * CopilotKitProvider (which also imports from v2/context).
  */
-
-// Re-export context from the package path so it stays external
-export {
-  CopilotKitContext,
-  useCopilotKit,
-  EMPTY_SET,
-  type CopilotKitContextValue,
-} from "@copilotkit/react-core/v2/context";
 
 export { CopilotKitCoreReact } from "./lib/react-core";
 export type { CopilotKitCoreReactConfig } from "./lib/react-core";

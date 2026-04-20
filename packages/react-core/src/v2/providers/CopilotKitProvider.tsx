@@ -4,7 +4,6 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { FrontendTool } from "@copilotkit/core";
 import type React from "react";
 import {
-  useContext,
   type ReactNode,
   useMemo,
   useEffect,
@@ -12,20 +11,20 @@ import {
   useReducer,
   useRef,
   useState,
-  createContext,
 } from "react";
 // Context extracted to ../context.ts for cross-platform reuse (React Native)
-import { CopilotKitContext, type CopilotKitContextValue } from "../context";
+import {
+  CopilotKitContext,
+  type CopilotKitContextValue,
+  LicenseContext,
+} from "../context";
 export type { CopilotKitContextValue } from "../context";
-export { CopilotKitContext } from "../context";
+export { CopilotKitContext, useLicenseContext } from "../context";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import type { Anchor } from "@copilotkit/web-inspector";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
-import {
-  createLicenseContextValue,
-  type LicenseContextValue,
-} from "@copilotkit/shared";
+import { createLicenseContextValue } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
@@ -84,13 +83,6 @@ const GENERATE_SANDBOXED_UI_DESCRIPTION =
   "3. html (streams in live — the user watches the UI build as HTML is generated)\n" +
   "4. jsFunctions (reusable helper functions)\n" +
   "5. jsExpressions (applied one-by-one — the user sees each expression take effect)";
-const LicenseContext = createContext<LicenseContextValue>(
-  createLicenseContextValue(null),
-);
-
-export const useLicenseContext = (): LicenseContextValue =>
-  useContext(LicenseContext);
-
 // Provider props interface
 export interface CopilotKitProviderProps {
   children: ReactNode;
