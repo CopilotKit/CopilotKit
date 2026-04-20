@@ -137,10 +137,7 @@ describe("fetch-router", () => {
     });
 
     it("matches GET /cpk-debug-events", () => {
-      const result = matchRoute(
-        "/api/copilotkit/cpk-debug-events",
-        basePath,
-      );
+      const result = matchRoute("/api/copilotkit/cpk-debug-events", basePath);
       expect(result).toEqual({ method: "cpk-debug-events" });
     });
   });
