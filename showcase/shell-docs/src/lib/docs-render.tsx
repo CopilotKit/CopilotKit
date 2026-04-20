@@ -264,8 +264,73 @@ export const SUBPATH_TO_COMPONENT: Record<string, string> = {
   "troubleshooting/observability-connectors": "ObservabilityConnectors",
 };
 
-export function inlineSnippets(content: string, slugPath: string = ""): string {
-  let result = content.replace(/^import\s+.+$/gm, "");
+/**
+ * Strip leading `import ...` statements from an MDX source WITHOUT
+ * touching lines inside fenced code blocks. Previously we ran
+ * `/^import\s+.+$/gm` over the whole source, which mangled real code
+ * samples like `import os` inside python fences. This implementation
+ * walks the source line-by-line, tracks fence state with ``` / ~~~,
+ * and only strips `import` lines that appear at the top of the file
+ * (before the first non-import, non-blank content line). Import lines
+ * that appear *later* in the prose are also preserved — the only ones
+ * we want to remove are MDX's JSX component imports, which always sit
+ * in the top-of-file block.
+ *
+ * Covered by: snippet contents that include a Python/JS code fence
+ * with an `import` statement must have the `import` preserved in the
+ * rendered output.
+ */
+function stripLeadingImports(source: string): string {
+  const lines = source.split("\n");
+  const out: string[] = [];
+  let inFence = false;
+  let fenceMarker: string | null = null;
+  let pastHeader = false;
+
+  for (const line of lines) {
+    // Toggle fence state. Match the opening fence's marker (``` or ~~~)
+    // so a stray triple-backtick inside a tilde fence (or vice-versa)
+    // doesn't prematurely close it.
+    const fenceMatch = line.match(/^\s*(```+|~~~+)/);
+    if (fenceMatch) {
+      if (!inFence) {
+        inFence = true;
+        fenceMarker = fenceMatch[1][0]; // '`' or '~'
+      } else if (fenceMarker && line.trimStart().startsWith(fenceMarker)) {
+        inFence = false;
+        fenceMarker = null;
+      }
+      pastHeader = true; // fences are content
+      out.push(line);
+      continue;
+    }
+
+    if (!inFence && !pastHeader) {
+      if (/^\s*$/.test(line)) {
+        // Preserve blank lines in the header region for layout.
+        out.push(line);
+        continue;
+      }
+      if (/^import\s+.+$/.test(line)) {
+        // Drop this top-of-file MDX import line.
+        continue;
+      }
+      // First real content line flips us out of "header" mode.
+      pastHeader = true;
+    }
+
+    out.push(line);
+  }
+
+  return out.join("\n");
+}
+
+export function inlineSnippets(
+  content: string,
+  slugPath: string = "",
+  seen: Set<string> = new Set(),
+): string {
+  let result = stripLeadingImports(content);
 
   result = result.replace(
     /<([A-Z]\w*)\s*(?:components=\{[^}]*\}\s*)?\/>/g,
@@ -298,17 +363,50 @@ export function inlineSnippets(content: string, slugPath: string = ""): string {
         }
       }
 
-      if (!snippetRel) return match;
+      if (!snippetRel) {
+        // Log so docs authors see a clean signal when a <Component />
+        // reference can't be mapped to a snippet file (previously the
+        // component just silently rendered nothing).
+        console.warn(
+          "[docs-render] snippet missing for component",
+          componentName,
+          "from slug",
+          slugPath || "(none)",
+        );
+        return match;
+      }
       // Even though snippetRel comes from the hardcoded SNIPPET_MAP,
       // route through resolveWithinDir for defense-in-depth — any
       // future addition that builds the relative path from user
       // input is guarded by default.
       const snippetPath = resolveWithinDir(SNIPPETS_DIR, snippetRel);
-      if (!snippetPath || !fs.existsSync(snippetPath)) return match;
+      if (!snippetPath || !fs.existsSync(snippetPath)) {
+        console.warn(
+          "[docs-render] snippet file not found",
+          snippetRel,
+          "for component",
+          componentName,
+          "from slug",
+          slugPath || "(none)",
+        );
+        return match;
+      }
+      // Cycle protection: if this snippet file is already in-flight
+      // higher up the recursion, emit a warning and stop. Without
+      // this, a self-referencing or mutually-referencing snippet
+      // loops until the stack overflows.
+      if (seen.has(snippetPath)) {
+        console.warn(
+          "[docs-render] snippet cycle detected, refusing to re-inline",
+          snippetPath,
+        );
+        return `{/* snippet cycle: ${componentName} */}`;
+      }
       let snippetContent = fs.readFileSync(snippetPath, "utf-8");
       snippetContent = snippetContent.replace(/^---[\s\S]*?---\n?/, "");
-      snippetContent = snippetContent.replace(/^import\s+.+$/gm, "");
-      return inlineSnippets(snippetContent, slugPath);
+      const nextSeen = new Set(seen);
+      nextSeen.add(snippetPath);
+      return inlineSnippets(snippetContent, slugPath, nextSeen);
     },
   );
 
