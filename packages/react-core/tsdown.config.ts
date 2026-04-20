@@ -32,7 +32,7 @@ export default defineConfig([
           require: "./dist/v2/context.cjs",
         },
         "./v2/headless": {
-          import: "./dist/v2/headless.js",
+          import: "./dist/v2/headless.mjs",
           require: "./dist/v2/headless.cjs",
         },
         "./v2/styles.css": "./dist/v2/index.css",
@@ -52,9 +52,11 @@ export default defineConfig([
     outDir: "dist/v2",
     external: ["react", "@copilotkit/core", "@copilotkit/shared"],
   },
-  // v2/headless bundles @copilotkit/shared and @copilotkit/core inline so
-  // tree-shaking eliminates Node-only code (telemetry, jose, etc.).
-  // Used by @copilotkit/react-native.
+  // v2/headless: platform-agnostic hooks + CopilotKitCoreReact, used by
+  // @copilotkit/react-native. All @copilotkit/* deps are external — they
+  // contain no Node-only code that would break Metro. Keeping them external
+  // (rather than inlining) ensures the CopilotKitCoreReact class is the same
+  // nominal type as the one in v2/context, avoiding unsafe `as unknown as` casts.
   {
     entry: {
       headless: "src/v2/headless.ts",
@@ -64,11 +66,6 @@ export default defineConfig([
     sourcemap: true,
     target: "es2022",
     outDir: "dist/v2",
-    noExternal: [/@copilotkit\//],
-    // Transitive deps (partial-json, phoenix, @standard-schema/spec) are
-    // intentionally bundled via noExternal — suppress the CI-only error.
-    inlineOnly: false,
-    platform: "browser",
     plugins: [
       {
         name: "externalize-context",
@@ -95,6 +92,8 @@ export default defineConfig([
       "react",
       "@ag-ui/client",
       "@ag-ui/core",
+      "@copilotkit/core",
+      "@copilotkit/shared",
       "@copilotkit/react-core/v2/context",
       "uuid",
       "zod",

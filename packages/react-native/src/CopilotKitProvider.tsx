@@ -76,36 +76,12 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
 
   if (copilotkitRef.current === null) {
-    const instance = new CopilotKitCoreReact({
+    copilotkitRef.current = new CopilotKitCoreReact({
       runtimeUrl,
       runtimeTransport: useSingleEndpoint ? "single" : "rest",
       headers: stableHeaders,
       properties: stableProperties,
     });
-
-    // The headless bundle inlines @copilotkit/core, so TypeScript emits a separate
-    // declaration for CopilotKitCoreReact that is structurally identical but nominally
-    // distinct from the one in @copilotkit/react-core/v2/context. Verify critical
-    // methods once at construction to catch version drift early.
-    const requiredMethods = [
-      "subscribe",
-      "setRuntimeUrl",
-      "setHeaders",
-      "setProperties",
-      "setRuntimeTransport",
-    ] as const;
-    const missing = requiredMethods.filter(
-      (m) => typeof (instance as any)[m] !== "function",
-    );
-    if (missing.length > 0) {
-      throw new Error(
-        "[CopilotKit] CopilotKitCoreReact shape mismatch: headless bundle may have " +
-          "diverged from the context type. Ensure @copilotkit/core versions are aligned. " +
-          `Missing methods: ${missing.join(", ")}`,
-      );
-    }
-
-    copilotkitRef.current = instance;
   }
 
   const copilotkit = copilotkitRef.current;
@@ -173,15 +149,11 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     return () => subscription.unsubscribe();
   }, [copilotkit]);
 
-  // Cast bridges the TS-only nominal mismatch between the headless bundle's
-  // inlined CopilotKitCoreReact type and the context type. Shape is validated
-  // once at construction time above.
-  const contextValue = useMemo(
-    () =>
-      ({
-        copilotkit,
-        executingToolCallIds,
-      }) as unknown as CopilotKitContextValue,
+  const contextValue: CopilotKitContextValue = useMemo(
+    () => ({
+      copilotkit,
+      executingToolCallIds,
+    }),
     [copilotkit, executingToolCallIds],
   );
 

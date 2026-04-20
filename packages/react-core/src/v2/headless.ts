@@ -5,8 +5,11 @@
  * Used by @copilotkit/react-native.
  */
 
-export { CopilotKitCoreReact } from "./lib/react-core";
-export type { CopilotKitCoreReactConfig } from "./lib/react-core";
+// Re-export from context (which is external in this build) so the .d.ts
+// references the same type declaration. This avoids a nominal type mismatch
+// caused by private class members being declared in two separate .d.ts files.
+export { CopilotKitCoreReact } from "./context";
+export type { CopilotKitCoreReactConfig } from "./context";
 
 // Chat configuration provider (no UI, just context)
 export {

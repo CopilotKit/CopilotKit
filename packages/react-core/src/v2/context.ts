@@ -1,8 +1,13 @@
 "use client";
 
 import { createContext, useContext, useEffect, useReducer } from "react";
-import type { CopilotKitCoreReact } from "./lib/react-core";
+import { CopilotKitCoreReact } from "./lib/react-core";
+import type { CopilotKitCoreReactConfig } from "./lib/react-core";
 import type { LicenseContextValue } from "@copilotkit/shared";
+
+// Re-export so headless.ts (and consumers) reference the same type declaration.
+export { CopilotKitCoreReact };
+export type { CopilotKitCoreReactConfig };
 
 export interface CopilotKitContextValue {
   copilotkit: CopilotKitCoreReact;

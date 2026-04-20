@@ -406,25 +406,6 @@ describe("CopilotKitProvider (React Native)", () => {
     });
   });
 
-  // ── Shape validation ──────────────────────────────────────────────────
-
-  describe("shape validation", () => {
-    it("throws when CopilotKitCoreReact instance is missing required methods", () => {
-      // Remove a required method
-      const brokenCore = createMockCore();
-      delete (brokenCore as any).subscribe;
-      hoisted.MockCoreConstructor.mockReturnValue(brokenCore);
-
-      expect(() =>
-        render(
-          <CopilotKitProvider runtimeUrl="https://api.test">
-            <div />
-          </CopilotKitProvider>,
-        ),
-      ).toThrow(/shape mismatch/);
-    });
-  });
-
   // ── Cleanup ───────────────────────────────────────────────────────────
 
   describe("cleanup", () => {
