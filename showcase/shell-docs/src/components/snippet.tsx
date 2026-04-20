@@ -62,6 +62,10 @@ interface DemoRecord {
   files?: DemoFile[];
 }
 
+interface WarningMessage {
+  warning: string;
+}
+
 const demos: Record<string, DemoRecord> = (
   demoContent as { demos: Record<string, DemoRecord> }
 ).demos;
@@ -135,10 +139,25 @@ function resolveHljsLanguage(lang: string): string | null {
 /**
  * Parse a `lines` prop like `"10-20"` or `"5"` into `[start, end]` (1-indexed,
  * inclusive on both ends). Returns null on invalid input.
+ *
+ * Special forms:
+ *   - `"A-"` (trailing dash, no end) — treated as "start to end-of-file"; we
+ *     return `[start, Number.POSITIVE_INFINITY]` and the caller clamps to the
+ *     actual file length.
+ *   - empty string / whitespace — treated as "no range" (equivalent to absent
+ *     `lines`), returning null so the caller renders the full file.
  */
 function parseLineRange(input: string | undefined): [number, number] | null {
   if (!input) return null;
   const trimmed = input.trim();
+  if (trimmed === "") return null;
+  // `A-` → start through end-of-file (caller clamps).
+  const openEnded = trimmed.match(/^(\d+)\s*[-\u2013]\s*$/);
+  if (openEnded) {
+    const start = parseInt(openEnded[1], 10);
+    if (start > 0) return [start, Number.POSITIVE_INFINITY];
+    return null;
+  }
   const dash = trimmed.match(/^(\d+)\s*[-\u2013]\s*(\d+)$/);
   if (dash) {
     const start = parseInt(dash[1], 10);
@@ -162,20 +181,23 @@ function regionFromFile(
   file: DemoFile,
   lines?: string,
 ): Region | WarningMessage {
-  const allLines = file.content.split("\n");
-  if (!lines) {
+  // Strip a single trailing newline so line counts and copied text are
+  // consistent regardless of whether a `lines=` range is supplied.
+  const normalized = file.content.replace(/\n$/, "");
+  const allLines = normalized.split("\n");
+  if (!lines || lines.trim() === "") {
     return {
       file: file.filename,
       startLine: 1,
       endLine: allLines.length,
-      code: file.content.replace(/\n$/, ""),
+      code: normalized,
       language: file.language,
     };
   }
   const range = parseLineRange(lines);
   if (!range) {
     return {
-      warning: `Invalid lines="${lines}" — expected "A-B" or single line "A".`,
+      warning: `Invalid lines="${lines}" — expected "A-B", "A-" (start to end), or single line "A".`,
     };
   }
   const [start, end] = range;
@@ -184,18 +206,22 @@ function regionFromFile(
       warning: `lines="${lines}" is out of range (file has ${allLines.length} lines).`,
     };
   }
-  const slice = allLines.slice(start - 1, end).join("\n");
+  // Clamp `end` once up front; also warn when the author's explicit range
+  // drifted past the file so they notice the source changed under them.
+  const effectiveEnd = Math.min(end, allLines.length);
+  if (Number.isFinite(end) && end > allLines.length) {
+    console.warn(
+      `[snippet] lines="${lines}" end (${end}) exceeds file length (${allLines.length}) for ${file.filename} — clamping.`,
+    );
+  }
+  const slice = allLines.slice(start - 1, effectiveEnd).join("\n");
   return {
     file: file.filename,
     startLine: start,
-    endLine: Math.min(end, allLines.length),
+    endLine: effectiveEnd,
     code: slice,
     language: file.language,
   };
-}
-
-interface WarningMessage {
-  warning: string;
 }
 
 function isWarning(v: Region | WarningMessage): v is WarningMessage {
@@ -297,18 +323,39 @@ export function Snippet({
 
   const hljsLang = resolveHljsLanguage(reg.language);
   let html: string;
+  let highlightFailed = false;
   try {
     html = hljsLang
       ? hljs.highlight(reg.code, { language: hljsLang, ignoreIllegals: true })
           .value
       : hljs.highlightAuto(reg.code).value;
-  } catch {
+  } catch (err) {
     // highlight.js should never throw with ignoreIllegals, but defensively
-    // fall back to unhighlighted text rather than crashing the render.
+    // fall back to unhighlighted text rather than crashing the render. Log
+    // enough context that authors can find the offending snippet.
+    console.warn(
+      `[snippet] highlight failed for ${key} ${reg.file} (language=${reg.language})`,
+      err,
+    );
     html = escapeHtml(reg.code);
+    highlightFailed = true;
+  }
+  // Defense-in-depth: if hljs ever returns a non-string (unknown edge case),
+  // fall back to escaped plain text so `dangerouslySetInnerHTML` can't
+  // receive garbage.
+  if (typeof html !== "string") {
+    html = escapeHtml(reg.code);
+    highlightFailed = true;
   }
 
   const caption = title ?? reg.file;
+  // When highlighting failed we render escaped plain text; drop the `hljs`
+  // class so the output doesn't get styled as though it were highlighted.
+  const codeClassName = highlightFailed
+    ? undefined
+    : hljsLang
+      ? `hljs language-${hljsLang}`
+      : "hljs";
 
   return (
     <figure className="my-5 rounded-lg border border-[var(--border)] overflow-hidden bg-[var(--bg-surface)]">
@@ -327,7 +374,7 @@ export function Snippet({
       )}
       <pre className="text-[12.5px] leading-[1.55] overflow-x-auto p-4 m-0">
         <code
-          className={hljsLang ? `hljs language-${hljsLang}` : "hljs"}
+          className={codeClassName}
           dangerouslySetInnerHTML={{ __html: html }}
         />
       </pre>
