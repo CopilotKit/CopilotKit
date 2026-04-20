@@ -35,6 +35,36 @@ export interface IifeBundleOptions {
 // accessible (e.g. pnpm strict mode).
 const extensionRequire = createRequire(__filename);
 
+// Node builtins can appear in transitive deps of the user's source file
+// (e.g. a markdown lib imports "path"). In an IIFE bundle without a globals
+// map entry, rolldown emits `var node_path = node_path;` which then throws
+// `node_path is not defined` at runtime. Route builtins to empty modules
+// instead of externalizing; the browser code path that actually needs them
+// either never runs or gets a specific shim (crypto).
+const BUILTIN_STUB_ID = "\0copilotkit-builtin-stub";
+const BUILTIN_CRYPTO_SHIM_ID = "\0copilotkit-builtin-crypto";
+
+// Same WebCrypto forwarding shim as tsdown.config.ts uses — react-core's
+// ThreadsProvider calls `randomUUID()` / `uuid.v4()` at first render, and
+// `crypto.randomFillSync` is the most-used entry through the uuid package.
+const CRYPTO_SHIM_SOURCE = `
+const webCrypto = globalThis.crypto;
+export function randomFillSync(buf) {
+  webCrypto.getRandomValues(buf);
+  return buf;
+}
+export function randomBytes(size) {
+  const buf = new Uint8Array(size);
+  webCrypto.getRandomValues(buf);
+  return buf;
+}
+export function randomUUID() {
+  return webCrypto.randomUUID();
+}
+const shim = { randomFillSync, randomBytes, randomUUID };
+export default shim;
+`;
+
 /**
  * Rolldown plugin that resolves bare specifiers using Node's module resolution
  * as a fallback: tries the importer's directory first (the user's project),
@@ -66,12 +96,16 @@ function nodeResolveFallback(
       // specifier (or a matching regex), defer to their intent — they may
       // want to supply a browser polyfill at runtime.
       if (matchesExternal(source, external)) return null;
-      // Node builtins (e.g. "os", "crypto", "stream") can appear in
-      // transitive deps like supports-color or node-fetch. They can't be
-      // bundled into an IIFE, so treat them as external and let rolldown
-      // emit `require("os")` stubs that webviews simply don't execute.
-      if (isBuiltin(source)) {
-        return { id: source, external: true };
+      // Node builtins — route through a virtual module rather than
+      // marking external. In IIFE format without a globals entry, an
+      // external emits `var node_path = node_path;` which is undefined at
+      // runtime. A stub (or WebCrypto shim for `crypto`) avoids that and
+      // keeps the bundled source runnable as long as nothing actually
+      // *calls* the missing API.
+      const bare = source.startsWith("node:") ? source.slice(5) : source;
+      if (isBuiltin(bare)) {
+        if (bare === "crypto") return BUILTIN_CRYPTO_SHIM_ID;
+        return BUILTIN_STUB_ID;
       }
 
       if (importer) {
@@ -91,6 +125,11 @@ function nodeResolveFallback(
       } catch {
         return null;
       }
+    },
+    load(id: string) {
+      if (id === BUILTIN_STUB_ID) return "export default {};";
+      if (id === BUILTIN_CRYPTO_SHIM_ID) return CRYPTO_SHIM_SOURCE;
+      return null;
     },
   };
 }
