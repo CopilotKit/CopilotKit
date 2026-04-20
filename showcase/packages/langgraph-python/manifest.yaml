@@ -142,8 +142,8 @@ demos:
       - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: hitl-in-chat
-    name: In-Chat Human in the Loop
-    description: User approves agent actions before execution
+    name: In-Chat HITL (useHumanInTheLoop — ergonomic API)
+    description: Interactive approval/decision surface rendered inline in the chat via the high-level `useHumanInTheLoop` hook
     tags:
       - interactivity
     route: /demos/hitl-in-chat
@@ -310,8 +310,8 @@ demos:
       - src/agents/reasoning_agent.py
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-interrupt
-    name: Controlled Gen-UI (Interrupt)
-    description: Render UI in response to agent interrupts via useInterrupt
+    name: In-Chat HITL (useInterrupt — low-level primitive)
+    description: Interactive component rendered inline in the chat via the lower-level `useInterrupt` primitive — direct control over the LangGraph interrupt lifecycle
     tags:
       - generative-ui
     route: /demos/gen-ui-interrupt

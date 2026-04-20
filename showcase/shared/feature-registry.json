@@ -128,17 +128,17 @@
     },
     {
       "id": "hitl-in-chat",
-      "name": "Controlled Gen-UI (Interactive) / In-Chat HITL",
+      "name": "In-Chat HITL (useHumanInTheLoop — ergonomic API)",
       "category": "controlled-generative-ui",
-      "description": "Interactive components from the agent; user approves actions from within the chat",
+      "description": "Interactive approval/decision surface rendered inline in the chat. Uses the high-level `useHumanInTheLoop` hook — handles the interrupt lifecycle for you.",
       "og_docs_url": "https://docs.copilotkit.ai/features/hitl-in-chat",
       "shell_docs_url": "/docs/features/hitl-in-chat"
     },
     {
       "id": "gen-ui-interrupt",
-      "name": "Controlled Gen-UI (Interrupt)",
+      "name": "In-Chat HITL (useInterrupt — low-level primitive)",
       "category": "controlled-generative-ui",
-      "description": "Interrupt-based component rendering",
+      "description": "Interactive component rendered inline in the chat via the lower-level `useInterrupt` primitive — direct control over the LangGraph interrupt lifecycle.",
       "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-interrupt",
       "shell_docs_url": "/docs/features/gen-ui-interrupt"
     },
