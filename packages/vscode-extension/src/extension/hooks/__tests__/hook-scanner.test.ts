@@ -156,4 +156,25 @@ describe("hook-scanner scanWorkspace", () => {
     const sites = scanWorkspace(tmp);
     expect(sites.map((s) => s.name)).toEqual(["a"]);
   });
+
+  it("skips files under __tests__, __fixtures__, and __mocks__ directories", () => {
+    write(
+      "src/__tests__/fixtures/fixture.tsx",
+      `import { useCopilotAction } from "@copilotkit/react-core";\nexport function A(){ useCopilotAction({name:"testsFixture",render:()=>null}); return null; }`,
+    );
+    write(
+      "src/__fixtures__/fake.tsx",
+      `import { useCopilotAction } from "@copilotkit/react-core";\nexport function A(){ useCopilotAction({name:"fixtures",render:()=>null}); return null; }`,
+    );
+    write(
+      "src/__mocks__/fake.tsx",
+      `import { useCopilotAction } from "@copilotkit/react-core";\nexport function A(){ useCopilotAction({name:"mocks",render:()=>null}); return null; }`,
+    );
+    write(
+      "src/real.tsx",
+      `import { useCopilotAction } from "@copilotkit/react-core";\nexport function R(){ useCopilotAction({name:"real",render:()=>null}); return null; }`,
+    );
+    const sites = scanWorkspace(tmp);
+    expect(sites.map((s) => s.name)).toEqual(["real"]);
+  });
 });

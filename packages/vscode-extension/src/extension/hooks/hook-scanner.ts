@@ -189,6 +189,12 @@ const HARDCODED_EXCLUDES = new Set([
   "build",
   ".turbo",
   "out",
+  // Test-framework conventions (Jest / Vitest). Fixture files commonly
+  // import from @copilotkit/react-core to exercise the real runtime,
+  // which would otherwise pollute the tree with non-user-code entries.
+  "__tests__",
+  "__fixtures__",
+  "__mocks__",
 ]);
 
 const SKIP_SUFFIXES = [".test.", ".spec.", ".stories."];

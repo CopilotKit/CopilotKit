@@ -1,9 +1,24 @@
 import * as vscode from "vscode";
+import * as path from "node:path";
 import { scanWorkspace } from "./hook-scanner";
 import { HookTreeDataProvider, type HookNode } from "./view-provider";
 import { HookPreviewPanel } from "./panel";
 import { HookControlsStore } from "./persistence";
 import { getHookDef } from "./hook-registry";
+
+/**
+ * True when `filePath` is the workspace root or lives beneath it. Prevents
+ * `onDidSaveTextDocument` firing for a file the user opened via File > Open
+ * (from some other directory on disk) from leaking an entry into the tree.
+ */
+function isInsideWorkspace(
+  filePath: string,
+  workspaceRoot: string | undefined,
+): boolean {
+  if (!workspaceRoot) return false;
+  const rel = path.relative(workspaceRoot, filePath);
+  return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
+}
 
 /**
  * Wires the Hook Explorer feature into the extension's activation context:
@@ -70,6 +85,9 @@ export function activateHookExplorer(
     vscode.workspace.onDidSaveTextDocument((doc) => {
       const filePath = doc.uri.fsPath;
       if (!/\.(ts|tsx)$/.test(filePath)) return;
+      // Drop saves to files outside the active workspace so a stray tab from
+      // File > Open doesn't drop its hook sites into the tree.
+      if (!isInsideWorkspace(filePath, workspaceRoot)) return;
       const existing = saveDebounce.get(filePath);
       if (existing) clearTimeout(existing);
       saveDebounce.set(
