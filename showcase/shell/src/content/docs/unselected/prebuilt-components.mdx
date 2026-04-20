@@ -123,6 +123,17 @@ export function YourApp() {
 
 <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/popup-example.gif" alt="CopilotPopup example" className="w-full rounded-lg my-4" />
 
+## The customization ladder
+
+CopilotKit's design principle: **you should never have to throw the prebuilt UI away** to get the look you want. Step down only when you need more control.
+
+- **Level 1 — Drop in as-is** — the components above, no configuration.
+- **Level 2 — [CSS customization](./custom-look-and-feel/css)** — override theme tokens (`--copilot-kit-primary-color`, etc.) or `.copilotKit...` classes.
+- **Level 3 — [Slots (subcomponents)](./custom-look-and-feel/slots)** — swap message bubble, composer, welcome screen, header, or toggle button with your own React component.
+- **Level 4 — [Fully headless](./custom-look-and-feel/headless-ui)** — compose your own chat from the low-level hooks (`useAgent`, `useCopilotKit`, `useRenderToolCall`).
+
+You can mix all four levels in the same app — change one color token, replace one slot, and keep everything else prebuilt.
+
 ## Deep customization
 
 Start with defaults, customize as you need. All three components support the [slot system](./custom-look-and-feel/slots) — from Tailwind classes to full component replacement:
