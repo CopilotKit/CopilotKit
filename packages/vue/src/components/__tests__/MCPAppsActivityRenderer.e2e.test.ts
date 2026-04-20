@@ -154,6 +154,7 @@ function renderChatWithAgent(
   { withCustomRenderer = false }: { withCustomRenderer?: boolean } = {},
 ) {
   const agentId = "mcp-test-agent";
+  const threadId = `test-thread-${Math.random().toString(36).slice(2)}`;
   agent.agentId = agentId;
 
   const Host = defineComponent({
@@ -165,13 +166,14 @@ function renderChatWithAgent(
     setup() {
       return {
         agentId,
+        threadId,
         agents: { [agentId]: agent },
         withCustomRenderer,
       };
     },
     template: `
       <CopilotKitProvider runtimeUrl="/api/copilotkit" :agents__unsafe_dev_only="agents">
-        <CopilotChatConfigurationProvider thread-id="test-thread" :agent-id="agentId">
+        <CopilotChatConfigurationProvider :thread-id="threadId" :agent-id="agentId">
           <div style="height: 400px;">
             <CopilotChat :welcome-screen="false">
               <template v-if="withCustomRenderer" #activity-mcp-apps="{ content }">

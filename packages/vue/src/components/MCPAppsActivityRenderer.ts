@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { AbstractAgent, RunAgentResult } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 import type { VueActivityMessageRendererProps } from "../types";
+import { useCopilotKit } from "../providers/useCopilotKit";
 
 const PROTOCOL_VERSION = "2025-06-18";
 
@@ -231,6 +232,7 @@ export const MCPAppsActivityRenderer = defineComponent({
     },
   },
   setup(props) {
+    const { copilotkit } = useCopilotKit();
     const containerRef = ref<HTMLDivElement | null>(null);
     const iframeRef = ref<HTMLIFrameElement | null>(null);
     const iframeReady = ref(false);
@@ -476,9 +478,12 @@ export const MCPAppsActivityRenderer = defineComponent({
                         | {
                             role?: string;
                             content?: Array<{ type: string; text?: string }>;
+                            followUp?: boolean;
                           }
                         | undefined;
 
+                      const role =
+                        (params?.role as "user" | "assistant") || "user";
                       const textContent =
                         params?.content
                           ?.filter((part) => part.type === "text" && part.text)
@@ -488,13 +493,27 @@ export const MCPAppsActivityRenderer = defineComponent({
                       if (textContent) {
                         currentAgent.addMessage({
                           id: randomUUID(),
-                          role:
-                            (params?.role as "user" | "assistant") || "user",
+                          role,
                           content: textContent,
                         });
                       }
 
                       sendResponse(msg.id, { isError: false });
+
+                      const shouldFollowUp =
+                        params?.followUp ?? role === "user";
+                      if (shouldFollowUp && textContent) {
+                        void mcpAppsRequestQueue
+                          .enqueue(currentAgent, () =>
+                            copilotkit.value.runAgent({ agent: currentAgent }),
+                          )
+                          .catch((err) => {
+                            console.error(
+                              "[MCPAppsRenderer] ui/message agent run failed:",
+                              err,
+                            );
+                          });
+                      }
                     } catch {
                       sendResponse(msg.id, { isError: true });
                     }

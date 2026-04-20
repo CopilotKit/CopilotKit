@@ -8,6 +8,17 @@ import {
   MCPAppsActivityType,
 } from "../MCPAppsActivityRenderer";
 
+const runCopilotAgent = vi.fn();
+vi.mock("../../providers/useCopilotKit", () => ({
+  useCopilotKit: () => ({
+    copilotkit: {
+      value: {
+        runAgent: runCopilotAgent,
+      },
+    },
+  }),
+}));
+
 function createAgentMock(options?: {
   runResult?: unknown;
   runImpl?: () => Promise<unknown>;
