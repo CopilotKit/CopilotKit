@@ -3,7 +3,7 @@
 # Invoked by lefthook pre-commit. Lives in a standalone file so Windows Git Bash
 # doesn't mangle the quoting when lefthook passes it through `sh.exe -c`.
 
-set -u
+set -eu
 
 VIOLATIONS=0
 STAGED=$(git diff --cached --name-only --diff-filter=ACM)
@@ -33,8 +33,14 @@ fi
 while IFS= read -r f; do
   [ -z "$f" ] && continue
   [ ! -f "$f" ] && continue
+  # Skip lockfiles and a small set of generated data files that legitimately
+  # exceed 1 MB (showcase demo/search/starter content). Keeping the list
+  # explicit — any other file over 1 MB still gets rejected.
   case "$f" in
     pnpm-lock.yaml|*/package-lock.json) continue ;;
+    showcase/shell/src/data/demo-content.json) continue ;;
+    showcase/shell/src/data/search-index.json) continue ;;
+    showcase/shell/src/data/starter-content.json) continue ;;
   esac
   SIZE=$(wc -c < "$f" | tr -d ' ')
   [ -z "$SIZE" ] && continue

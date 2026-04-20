@@ -88,7 +88,12 @@ export function createSseEventResponse({
           debugRunId = e.runId ?? "";
         }
 
-        // Broadcast to debug listeners
+        // Broadcast to debug listeners BEFORE the stream-closed gate below.
+        // Intentional: debug subscribers (e.g. the VS Code Inspector panel)
+        // should still receive trailing events after the SSE client for
+        // this request closed its connection — they're independent
+        // consumers observing the underlying runtime, not the request's
+        // response stream.
         if (debugEventBus) {
           debugEventBus.broadcast(event, {
             agentId: agentId ?? "",

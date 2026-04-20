@@ -537,16 +537,27 @@ function findClosestMatch(
 }
 
 /**
- * Finds the exact line, column, and length of a string value in content.
- * Returns the position for diagnostic highlighting.
+ * Finds the line, column, and length of a string value in content so the
+ * validator can surface a diagnostic at the offending position.
+ *
+ * Limitation: returns the FIRST occurrence of `searchValue`. In a fixture
+ * file with multiple fixtures that share the same search string (e.g.
+ * `"version": "v0.9"` appears in every fixture), the diagnostic for the
+ * second/third/… fixture will land on the first fixture's position. Callers
+ * that need per-fixture precision should pass a `startOffset` pointing at
+ * the opening boundary of the fixture being validated; the fallback when
+ * none is provided keeps the prior behavior.
+ * TODO: plumb per-fixture offsets through `validateFixtureMessages` so the
+ * diagnostic always lands on the right fixture.
  */
 function findValuePosition(
   content: string,
   searchValue?: string,
+  startOffset = 0,
 ): { line: number; col: number; length: number } {
   if (!searchValue) return { line: 0, col: 0, length: 1 };
 
-  const idx = content.indexOf(searchValue);
+  const idx = content.indexOf(searchValue, startOffset);
   if (idx === -1) return { line: 0, col: 0, length: 1 };
 
   // Count lines up to the match

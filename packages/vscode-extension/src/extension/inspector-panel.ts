@@ -15,19 +15,7 @@ export class InspectorPanel {
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly debugStream: DebugStream,
-  ) {
-    this.unsubscribers.push(
-      this.debugStream.onEvent((envelope) => {
-        this.postMessage({ type: "debug-event", envelope });
-      }),
-      this.debugStream.onStatus((status) => {
-        this.postMessage({ type: "connection-status", status });
-      }),
-      this.debugStream.onError((error) => {
-        this.postMessage({ type: "connection-error", error });
-      }),
-    );
-  }
+  ) {}
 
   show(): void {
     if (this.panel) {
@@ -56,7 +44,24 @@ export class InspectorPanel {
       },
     );
 
+    // Subscribe lazily — only while the panel is live. Avoids invoking the
+    // event-envelope callback for every AG-UI event when no panel is open
+    // (e.g. the shared DebugStream is connected for the sidebar inspector).
+    this.unsubscribers.push(
+      this.debugStream.onEvent((envelope) => {
+        this.postMessage({ type: "debug-event", envelope });
+      }),
+      this.debugStream.onStatus((status) => {
+        this.postMessage({ type: "connection-status", status });
+      }),
+      this.debugStream.onError((error) => {
+        this.postMessage({ type: "connection-error", error });
+      }),
+    );
+
     this.panel.onDidDispose(() => {
+      for (const unsub of this.unsubscribers) unsub();
+      this.unsubscribers = [];
       this.panel = null;
       this.ready = false;
       this.messageQueue = [];

@@ -8,9 +8,12 @@ import { HookListViewProvider } from "./hook-list-view-provider";
 import { HookLensProvider } from "./hook-lens-provider";
 
 /**
- * True when `filePath` is the workspace root or lives beneath it. Prevents
+ * True when `filePath` lives strictly beneath `workspaceRoot` (the root
+ * itself is excluded, since the scanner treats it as the walk base — no
+ * file at that exact path could be a valid fixture). Prevents
  * `onDidSaveTextDocument` firing for a file the user opened via File > Open
- * (from some other directory on disk) from leaking an entry into the sidebar.
+ * (from some other directory on disk) from leaking an entry into the
+ * sidebar.
  */
 function isInsideWorkspace(
   filePath: string,

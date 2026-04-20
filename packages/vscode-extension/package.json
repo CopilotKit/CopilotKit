@@ -2,7 +2,7 @@
   "name": "copilotkit-vscode-extension",
   "displayName": "CopilotKit",
   "version": "0.1.0",
-  "private": false,
+  "private": true,
   "description": "Live preview for A2UI catalog components inside VS Code",
   "categories": [
     "Other",

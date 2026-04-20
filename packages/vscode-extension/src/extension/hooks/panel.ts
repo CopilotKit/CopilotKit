@@ -243,17 +243,20 @@ export class HookPreviewPanel {
       ),
     );
     // CSP notes:
-    //  - `script-src 'nonce-${nonce}'` keeps scripts strictly nonced.
+    //  - `script-src 'nonce-${nonce}'` keeps scripts strictly nonced; the
+    //    Tailwind CDN is the single allowed remote script origin.
     //  - `style-src 'unsafe-inline'` is required for React's runtime style
-    //    injection + CopilotKit's transitive CSS-in-JS helpers. We can't
-    //    nonce styles the same way without rewriting every inline style.
-    //  - `connect-src https:` allows the bundled host component's effects
-    //    to talk to real user APIs; the fetch interceptor in the webview
-    //    still filters the dummy CopilotKit runtime URL separately.
+    //    injection + our per-load user-CSS blob. We can't nonce styles the
+    //    same way without rewriting every inline style.
+    //  - `connect-src` is scoped to the Tailwind CDN (source maps) only.
+    //    The preview path doesn't drive a real CopilotKit runtime — all
+    //    hook calls are captured by the in-webview stub — so there's no
+    //    legitimate reason to allow arbitrary https: fetches from inside
+    //    the bundled user code.
     return /* html */ `<!doctype html>
 <html><head>
 <meta charset="utf-8"/>
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}' https://cdn.jsdelivr.net; style-src 'unsafe-inline' https://cdn.jsdelivr.net; connect-src https: https://cdn.jsdelivr.net;"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}' https://cdn.jsdelivr.net; style-src 'unsafe-inline' https://cdn.jsdelivr.net; connect-src https://cdn.jsdelivr.net;"/>
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 <style>
   body { margin: 0; padding: 0;

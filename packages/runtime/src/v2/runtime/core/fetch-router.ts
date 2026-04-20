@@ -75,6 +75,9 @@ function matchSegments(path: string): RouteInfo | null {
   }
 
   // /debug-events (1 segment)
+  // Reserved route name — matched here before any :agentId-style pattern
+  // below so an agent literally named "debug-events" can't shadow the
+  // debug-stream endpoint. The handler itself returns 404 in production.
   if (len >= 1 && segments[len - 1] === "debug-events") {
     return { method: "debug-events" };
   }

@@ -215,14 +215,32 @@ function isIgnoredByAny(filePath: string, stack: IgnoreScope[]): boolean {
 }
 
 /**
+ * Upper bound on files considered by a single `scanWorkspace` pass.
+ * The scanner walks synchronously on the extension host thread, so very
+ * large workspaces would block it. Hitting this cap is a signal that the
+ * user needs to add exclusions (via `.gitignore` or the hardcoded list)
+ * rather than a silent truncation of legitimate results.
+ */
+const MAX_FILES_SCANNED = 20000;
+
+/**
  * Walks the workspace once, inheriting any `.gitignore` encountered along the
  * way as a stack. Skips the hardcoded excludes (case-insensitive) and common
  * test-file suffixes, then runs `scanFile` on each remaining `.ts` / `.tsx`.
+ *
+ * Synchronous by design — the rest of the extension-host state machine
+ * expects `scanWorkspace` to return a fresh snapshot before handing it to
+ * the sidebar provider. A `MAX_FILES_SCANNED` guard keeps the walk bounded
+ * on pathologically large workspaces; partial results get logged by the
+ * caller via the output channel in that case.
  */
 export function scanWorkspace(workspaceDir: string): HookCallSite[] {
   const results: HookCallSite[] = [];
+  let filesSeen = 0;
+  let capped = false;
 
   const walk = (dir: string, inherited: IgnoreScope[]): void => {
+    if (capped) return;
     let entries: fs.Dirent[];
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -246,6 +264,7 @@ export function scanWorkspace(workspaceDir: string): HookCallSite[] {
     }
 
     for (const e of entries) {
+      if (capped) return;
       const full = path.join(dir, e.name);
       if (e.isDirectory()) {
         if (HARDCODED_EXCLUDES.has(e.name.toLowerCase())) continue;
@@ -256,6 +275,10 @@ export function scanWorkspace(workspaceDir: string): HookCallSite[] {
       if (!e.name.endsWith(".ts") && !e.name.endsWith(".tsx")) continue;
       if (SKIP_SUFFIXES.some((s) => e.name.includes(s))) continue;
       if (isIgnoredByAny(full, activeStack)) continue;
+      if (++filesSeen > MAX_FILES_SCANNED) {
+        capped = true;
+        return;
+      }
       results.push(...scanFile(full));
     }
   };

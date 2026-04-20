@@ -21,8 +21,18 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Use the Nx target rather than `pnpm run build` so caching +
+      # input-hashing cover only what this extension actually needs,
+      # instead of rebuilding the entire monorepo on every CI run.
       - name: Build
-        run: pnpm run build
+        run: npx nx run copilotkit-vscode-extension:build
+
+      - name: Type check
+        run: pnpm --filter copilotkit-vscode-extension exec tsc --noEmit
+
+      - name: Lint
+        run: npx nx run copilotkit-vscode-extension:lint
+        continue-on-error: true
 
       - name: Test
         run: npx nx run copilotkit-vscode-extension:test
@@ -51,10 +61,37 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Short-circuit the publish step when the local version already exists
+      # on the Marketplace. Prevents every push-to-main (docs, test, CI-only
+      # changes) from failing `vsce publish` with a duplicate-version error.
+      # Maintainers bump package.json `version` when they actually want
+      # to release.
+      - name: Check for published version
+        id: check
+        working-directory: packages/vscode-extension
+        run: |
+          set -e
+          LOCAL=$(node -p "require('./package.json').version")
+          PUBLISHER=$(node -p "require('./package.json').publisher")
+          NAME=$(node -p "require('./package.json').name")
+          echo "local=$LOCAL" >> "$GITHUB_OUTPUT"
+          PUBLISHED=$(npx --yes vsce show "$PUBLISHER.$NAME" --json 2>/dev/null \
+            | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);console.log(j.versions?.[0]?.version??'')}catch{console.log('')}})" \
+            || echo "")
+          echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
+          if [ -n "$PUBLISHED" ] && [ "$LOCAL" = "$PUBLISHED" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Version $LOCAL already published — skipping."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build
-        run: pnpm run build
+        if: steps.check.outputs.skip != 'true'
+        run: npx nx run copilotkit-vscode-extension:build
 
       - name: Publish to VS Code Marketplace
+        if: steps.check.outputs.skip != 'true'
         run: npx vsce publish --no-dependencies
         working-directory: packages/vscode-extension
         env:
