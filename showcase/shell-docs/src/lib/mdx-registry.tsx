@@ -208,9 +208,11 @@ export const docsComponents = {
   IframeSwitcher: ({
     children,
     src,
+    title,
   }: {
     children?: React.ReactNode;
     src?: string;
+    title?: string;
   }) =>
     src ? (
       <div
@@ -223,7 +225,10 @@ export const docsComponents = {
       >
         <iframe
           src={src}
+          title={title || "Embedded content"}
           style={{ width: "100%", height: "400px", border: "none" }}
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          loading="lazy"
         />
       </div>
     ) : (
@@ -335,7 +340,7 @@ export const docsComponents = {
   ReasoningMessages: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  YouTubeVideo: ({ id }: { id?: string }) =>
+  YouTubeVideo: ({ id, title }: { id?: string; title?: string }) =>
     id ? (
       <div
         style={{
@@ -346,6 +351,7 @@ export const docsComponents = {
       >
         <iframe
           src={`https://www.youtube.com/embed/${id}`}
+          title={title || "YouTube video"}
           style={{
             position: "absolute",
             top: 0,
@@ -355,6 +361,8 @@ export const docsComponents = {
             border: "none",
             borderRadius: "0.5rem",
           }}
+          sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+          loading="lazy"
           allowFullScreen
         />
       </div>
