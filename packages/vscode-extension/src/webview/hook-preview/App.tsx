@@ -496,13 +496,7 @@ function AppInner() {
               {payload.selection.hook}
             </span>
           </div>
-          <div className="relative w-full max-w-3xl">
-            <span
-              aria-hidden
-              className="pointer-events-none absolute -top-2 left-4 select-none rounded-full border border-sky-400/30 bg-neutral-950 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-sky-300"
-            >
-              ⟵ render() →
-            </span>
+          <div className="w-full max-w-3xl">
             <div className="rounded-xl border border-sky-400/20 bg-gradient-to-b from-white/[0.04] to-white/[0.01] p-8 shadow-2xl shadow-black/40 ring-1 ring-inset ring-white/5">
               {rendered}
             </div>
@@ -512,7 +506,7 @@ function AppInner() {
             <code className="mx-1 rounded bg-white/10 px-1 font-mono">
               render
             </code>
-            prop returns. The controls on the left drive its props live.
+            prop returns. The controls on the left/top drive its props live.
           </p>
         </main>
       </div>
