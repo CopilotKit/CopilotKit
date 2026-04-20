@@ -27,12 +27,24 @@ export function PropertyReference({
     collapsable ? true : false,
   );
 
+  // Detect nested <PropertyReference> children so we can auto-collapse them.
+  //
+  // IMPORTANT: We use *reference equality* (`child.type === PropertyReference`)
+  // rather than a name check (`child.type.name === "PropertyReference"`).
+  // In production builds, minifiers (Terser/SWC) rename function components to
+  // short identifiers like `s` or `a`, so `.name` comparisons silently fail and
+  // the `collapsable` prop never propagates. Reference equality is minifier-safe
+  // because both sides point to the same function identity after bundling.
+  //
+  // Known limitation: React.Children.map only walks *direct* children. A
+  // <PropertyReference> wrapped inside a <div> (or any other element) will NOT
+  // be detected here. Callers should nest PropertyReferences as direct
+  // siblings, not wrapped in other elements, for auto-collapse to work.
   const enhancedChildren = React.Children.map(children, (child) => {
-    if (
-      React.isValidElement(child) &&
-      (child.type as any).name === "PropertyReference"
-    ) {
-      return React.cloneElement(child, { collapsable: true } as Props);
+    if (React.isValidElement(child) && child.type === PropertyReference) {
+      return React.cloneElement(child as React.ReactElement<Props>, {
+        collapsable: true,
+      });
     }
     return child;
   });
@@ -65,7 +77,9 @@ export function PropertyReference({
         <div className="flex-1 space-x-3">
           {collapsable ? (
             <button
+              type="button"
               onClick={() => setIsCollapsed(!isCollapsed)}
+              aria-expanded={!isCollapsed}
               className="flex gap-x-2 items-center font-mono font-semibold text-[var(--accent)]"
             >
               <span className="text-xs">
