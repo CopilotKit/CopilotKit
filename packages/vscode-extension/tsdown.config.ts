@@ -177,6 +177,19 @@ export default defineConfig([
     clean: false,
     plugins: [nodeResolveFallback()],
   },
+  // Hook list sidebar webview — browser, ESM.
+  // Doesn't import @copilotkit/react-core, so no node-builtin/CSS stubbing
+  // is needed (unlike hook-preview).
+  {
+    entry: { "hook-list": "src/webview/hook-list/index.tsx" },
+    outDir: "dist/webview",
+    format: ["esm"],
+    platform: "browser",
+    noExternal: [/.*/],
+    dts: false,
+    clean: false,
+    plugins: [nodeResolveFallback()],
+  },
   // Hook-preview webview — browser, ESM.
   // Transitively imports `@copilotkit/react-core`, which pulls in node-fetch
   // (which loads Node builtins) and ambient CSS. Neither is needed at runtime

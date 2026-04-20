@@ -1,9 +1,9 @@
 import type { HookCallSite } from "./hook-scanner";
-import { HOOK_REGISTRY } from "./hook-registry";
+import { HOOK_REGISTRY, type HookDef } from "./hook-registry";
 
 /**
- * Pure (vscode-free) data model for the Hook Explorer tree. Keeping this
- * separate from `view-provider.ts` lets unit tests exercise the shape
+ * Pure (vscode-free) data model for the Hook Explorer. Keeping this
+ * separate from view-provider code lets unit tests exercise the shape
  * without mocking the `vscode` module.
  */
 
@@ -67,6 +67,69 @@ export function buildTreeData(sites: HookCallSite[]): HookNode[] {
   }
 
   return [renderGroup, dataGroup];
+}
+
+/**
+ * Registered hook group for the webview: a hook type with at least one call
+ * site plus its leaves (sorted by identity label).
+ */
+export interface HookGroup {
+  hook: string;
+  category: "render" | "data";
+  sites: HookCallSite[];
+}
+
+export interface GroupedSites {
+  registered: HookGroup[];
+  available: HookDef[];
+}
+
+/**
+ * Groups sites for the webview Hook List. `registered` contains hook types
+ * with ≥1 call site (sorted: render first, then data, alphabetical within).
+ * `available` contains hook types from HOOK_REGISTRY that have zero sites —
+ * shown in the "available hooks" section for discoverability.
+ */
+export function groupSitesByHook(
+  sites: HookCallSite[],
+  registry: ReadonlyArray<HookDef> = HOOK_REGISTRY,
+): GroupedSites {
+  const byHook = new Map<string, HookCallSite[]>();
+  for (const s of sites) {
+    const arr = byHook.get(s.hook) ?? [];
+    arr.push(s);
+    byHook.set(s.hook, arr);
+  }
+
+  const registered: HookGroup[] = [];
+  const available: HookDef[] = [];
+  for (const def of registry) {
+    const entries = byHook.get(def.name);
+    if (entries && entries.length > 0) {
+      const sortedSites = [...entries].sort((a, b) => {
+        const la = a.name ?? `line:${a.loc.line}`;
+        const lb = b.name ?? `line:${b.loc.line}`;
+        return la.localeCompare(lb);
+      });
+      registered.push({
+        hook: def.name,
+        category: def.category,
+        sites: sortedSites,
+      });
+    } else {
+      available.push(def);
+    }
+  }
+
+  // Render hooks first, then data, preserving registry order within each.
+  registered.sort((a, b) => {
+    if (a.category !== b.category) {
+      return a.category === "render" ? -1 : 1;
+    }
+    return 0;
+  });
+
+  return { registered, available };
 }
 
 export function statusKeyForSite(site: HookCallSite): string {

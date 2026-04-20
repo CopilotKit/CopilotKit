@@ -62,6 +62,7 @@
         },
         {
           "id": "copilotkit.hooks",
+          "type": "webview",
           "name": "CopilotKit Hooks"
         },
         {
@@ -148,21 +149,6 @@
         {
           "command": "copilotkit.previewComponentFromSidebar",
           "when": "view == copilotkit.componentPreview"
-        },
-        {
-          "command": "copilotkit.hooks.preview",
-          "when": "view == copilotkit.hooks && viewItem == renderHook",
-          "group": "inline"
-        },
-        {
-          "command": "copilotkit.hooks.openSource",
-          "when": "view == copilotkit.hooks",
-          "group": "1_navigation"
-        },
-        {
-          "command": "copilotkit.hooks.copyIdentity",
-          "when": "view == copilotkit.hooks",
-          "group": "2_utility"
         }
       ]
     }

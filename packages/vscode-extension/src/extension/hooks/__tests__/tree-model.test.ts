@@ -1,0 +1,154 @@
+import { describe, it, expect } from "vitest";
+import {
+  buildTreeData,
+  findLeaf,
+  groupSitesByHook,
+  statusKeyForSite,
+} from "../tree-model";
+import type { HookCallSite } from "../hook-scanner";
+
+const sample: HookCallSite[] = [
+  {
+    filePath: "/ws/a.tsx",
+    hook: "useCopilotAction",
+    name: "addTodo",
+    loc: { line: 10, column: 0, endLine: 10, endColumn: 0 },
+    category: "render",
+  },
+  {
+    filePath: "/ws/a.tsx",
+    hook: "useCopilotAction",
+    name: "removeTodo",
+    loc: { line: 20, column: 0, endLine: 20, endColumn: 0 },
+    category: "render",
+  },
+  {
+    filePath: "/ws/b.tsx",
+    hook: "useCopilotReadable",
+    name: null,
+    loc: { line: 5, column: 0, endLine: 5, endColumn: 0 },
+    category: "data",
+  },
+];
+
+describe("buildTreeData", () => {
+  it("groups sites by category and then by hook type", () => {
+    const tree = buildTreeData(sample);
+    const renderGroup = tree.find((g) => g.label === "Render hooks")!;
+    expect(renderGroup.children.map((c) => c.label)).toContain(
+      "useCopilotAction  (2)",
+    );
+    const dataGroup = tree.find((g) => g.label === "Data hooks")!;
+    expect(dataGroup.children.map((c) => c.label)).toContain(
+      "useCopilotReadable  (1)",
+    );
+  });
+
+  it("hook nodes have sorted leaves with name or file:line", () => {
+    const tree = buildTreeData(sample);
+    const actionNode = tree
+      .find((g) => g.label === "Render hooks")!
+      .children.find((c) => c.label.startsWith("useCopilotAction"))!;
+    expect(actionNode.children.map((c) => c.label)).toEqual([
+      "addTodo",
+      "removeTodo",
+    ]);
+  });
+
+  it("includes empty groups for known hooks not present", () => {
+    const tree = buildTreeData(sample);
+    const renderGroup = tree.find((g) => g.label === "Render hooks")!;
+    const emptyHumanITL = renderGroup.children.find((c) =>
+      c.label.startsWith("useHumanInTheLoop"),
+    );
+    expect(emptyHumanITL?.label).toMatch(/\(0\)$/);
+    expect(emptyHumanITL?.children).toEqual([]);
+  });
+});
+
+describe("findLeaf", () => {
+  it("locates the leaf matching a given site", () => {
+    const tree = buildTreeData(sample);
+    const leaf = findLeaf(tree, sample[0]!);
+    expect(leaf?.label).toBe("addTodo");
+  });
+
+  it("returns null for a site not in the tree", () => {
+    const tree = buildTreeData(sample);
+    const stranger: HookCallSite = {
+      filePath: "/ws/nowhere.tsx",
+      hook: "useCopilotAction",
+      name: "ghost",
+      loc: { line: 1, column: 0, endLine: 1, endColumn: 0 },
+      category: "render",
+    };
+    expect(findLeaf(tree, stranger)).toBeNull();
+  });
+});
+
+describe("statusKeyForSite", () => {
+  it("uses line fallback for nameless hooks", () => {
+    expect(statusKeyForSite(sample[2]!)).toBe(
+      "/ws/b.tsx::useCopilotReadable::line:5",
+    );
+  });
+
+  it("uses name when present", () => {
+    expect(statusKeyForSite(sample[0]!)).toBe(
+      "/ws/a.tsx::useCopilotAction::addTodo",
+    );
+  });
+});
+
+describe("groupSitesByHook", () => {
+  it("only lists registered hook types (≥1 site) in `registered`", () => {
+    const { registered } = groupSitesByHook(sample);
+    const names = registered.map((g) => g.hook);
+    expect(names).toContain("useCopilotAction");
+    expect(names).toContain("useCopilotReadable");
+    expect(registered.find((g) => g.hook === "useCopilotAction")!.sites).toHaveLength(2);
+    expect(registered.find((g) => g.hook === "useCopilotReadable")!.sites).toHaveLength(1);
+  });
+
+  it("puts render groups before data groups", () => {
+    const { registered } = groupSitesByHook(sample);
+    const firstRender = registered.findIndex((g) => g.category === "render");
+    const firstData = registered.findIndex((g) => g.category === "data");
+    expect(firstRender).toBeLessThan(firstData);
+  });
+
+  it("sorts sites within a group by identity label", () => {
+    const { registered } = groupSitesByHook(sample);
+    const action = registered.find((g) => g.hook === "useCopilotAction")!;
+    expect(action.sites.map((s) => s.name)).toEqual(["addTodo", "removeTodo"]);
+  });
+
+  it("puts hook types with zero sites into `available`", () => {
+    const { available } = groupSitesByHook(sample);
+    const names = available.map((d) => d.name);
+    expect(names).toContain("useHumanInTheLoop");
+    expect(names).not.toContain("useCopilotAction");
+    expect(names).not.toContain("useCopilotReadable");
+  });
+
+  it("with empty sites returns empty registered and full available list", () => {
+    const { registered, available } = groupSitesByHook([]);
+    expect(registered).toEqual([]);
+    expect(available.length).toBeGreaterThan(0);
+    expect(available.some((d) => d.name === "useCopilotAction")).toBe(true);
+  });
+
+  it("accepts a custom registry override (defaults to HOOK_REGISTRY)", () => {
+    const { registered, available } = groupSitesByHook(sample, [
+      {
+        name: "useCopilotAction",
+        category: "render",
+        identityField: "name",
+        renderProps: "action",
+        importSource: "@copilotkit/react-core",
+      },
+    ]);
+    expect(registered.map((g) => g.hook)).toEqual(["useCopilotAction"]);
+    expect(available).toEqual([]);
+  });
+});
