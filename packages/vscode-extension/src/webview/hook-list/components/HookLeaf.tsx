@@ -77,13 +77,12 @@ export function HookLeaf({
   const badge = statusBadge(status);
   const label = site.name ?? `line:${site.loc.line}`;
   const location = `${relativize(site.filePath, workspaceRoot)}:${site.loc.line}`;
-  const primaryAction = category === "render" ? onPreview : onOpenSource;
 
   return (
     <div
       className="group flex items-center gap-2 pl-7 pr-2 py-1 hover:bg-[var(--vscode-list-hoverBackground)] cursor-pointer"
-      onClick={() => primaryAction(site)}
-      title={`${site.hook} \u2022 ${label} \u2022 ${site.filePath}:${site.loc.line}`}
+      onClick={() => onOpenSource(site)}
+      title={`Click to open source \u2014 ${site.hook} \u2022 ${label} \u2022 ${site.filePath}:${site.loc.line}`}
     >
       <span
         aria-label={badge.title}
@@ -113,17 +112,6 @@ export function HookLeaf({
             {"\u25B7"}
           </button>
         )}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenSource(site);
-          }}
-          title="Open source"
-          className="text-[10px] px-1 py-0.5 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)]"
-        >
-          {"\u21D7"}
-        </button>
         <button
           type="button"
           onClick={(e) => {
