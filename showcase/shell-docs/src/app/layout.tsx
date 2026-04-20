@@ -66,6 +66,18 @@ export default function RootLayout({
       return true;
     });
 
+  // Distinguish "unset" from "empty" for the commit-SHA overlay.
+  // Docker ARG scope bugs can surface as an empty string rather than
+  // undefined; showing "dev" in that case is misleading. See the
+  // Dockerfile fix for the root cause.
+  const rawSha = process.env.NEXT_PUBLIC_COMMIT_SHA;
+  const commitLabel =
+    rawSha === undefined
+      ? "dev"
+      : rawSha === ""
+        ? "unknown"
+        : rawSha.slice(0, 7);
+
   return (
     <html
       lang="en"
@@ -77,6 +89,7 @@ export default function RootLayout({
           <main>{children}</main>
         </FrameworkProvider>
         <div
+          aria-hidden="true"
           style={{
             position: "fixed",
             bottom: "8px",
@@ -89,7 +102,7 @@ export default function RootLayout({
             userSelect: "none",
           }}
         >
-          {(process.env.NEXT_PUBLIC_COMMIT_SHA || "dev").slice(0, 9)}
+          {commitLabel}
         </div>
       </body>
     </html>
