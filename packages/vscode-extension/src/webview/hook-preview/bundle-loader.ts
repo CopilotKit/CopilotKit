@@ -2,6 +2,7 @@ import React from "react";
 import * as ReactDOM from "react-dom";
 import * as ReactDOMClient from "react-dom/client";
 import * as JSXRuntime from "react/jsx-runtime";
+import { createCopilotkitStubs } from "./copilotkit-stubs";
 
 /**
  * Executes a bundled IIFE string by appending a nonced <script> element to
@@ -42,11 +43,15 @@ function createRequireShim() {
 }
 
 export function executeBundle(code: string): unknown {
+  // Reset captured-hooks registry so a new load starts clean.
+  (window as unknown as { __copilotkit_captured?: unknown[] })
+    .__copilotkit_captured = [];
   (window as unknown as { __copilotkit_deps: unknown }).__copilotkit_deps = {
     React,
     ReactDOM,
     ReactDOMClient,
     JSXRuntime,
+    copilotkitStubs: createCopilotkitStubs(),
   };
   // CJS wrappers bundled inside the IIFE still invoke `require(...)`; the
   // browser has no `require` by default. Install a shim that knows our

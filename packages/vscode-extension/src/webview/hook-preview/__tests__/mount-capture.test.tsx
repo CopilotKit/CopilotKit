@@ -1,14 +1,23 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, waitFor } from "@testing-library/react";
-import { CopilotKit } from "@copilotkit/react-core";
 import { RegistryReader } from "../harness/registry-reader";
 import { invokeRender } from "../adapters";
+import { createCopilotkitStubs } from "../copilotkit-stubs";
 import type {
   CapturedRegistry,
   CapturedRenderToolCall,
 } from "../harness/registry";
-import TodoActions from "../../../../test-workspace/hooks/TodoActions";
 
+/**
+ * End-to-end sanity check for the stub-based capture flow. Mirrors what
+ * happens in the webview at runtime: the IIFE external resolves every
+ * `@copilotkit/react-core` import to `__copilotkit_deps.copilotkitStubs`,
+ * which captures each hook call into `window.__copilotkit_captured`.
+ *
+ * We can't dynamic-import the real fixture here (vitest doesn't apply the
+ * IIFE's alias config), so we inline a local twin of TodoActions that calls
+ * the stubs directly.
+ */
 function findCapturedAction(
   reg: CapturedRegistry | undefined,
   name: string,
@@ -16,20 +25,50 @@ function findCapturedAction(
   return reg?.renderToolCalls.find((r) => r.name === name);
 }
 
-describe("end-to-end: mount real host, capture config, invoke render", () => {
-  it("captures addTodo + removeTodo and invokes addTodo's render with mock args", async () => {
+describe("stub-based capture → render invocation", () => {
+  beforeEach(() => {
+    delete (window as unknown as { __copilotkit_captured?: unknown[] })
+      .__copilotkit_captured;
+  });
+
+  it("captures two actions and invokes the addTodo render with mock args", async () => {
+    const stubs = createCopilotkitStubs() as Record<
+      string,
+      (config: unknown) => void
+    >;
+
+    function TodoActionsTwin() {
+      stubs.useCopilotAction({
+        name: "addTodo",
+        description: "Add a todo item",
+        parameters: [{ name: "text", type: "string", required: true }],
+        available: "frontend",
+        render: ({ args, status }: { args?: { text?: string }; status: string }) => (
+          <div data-testid="add-todo-render">
+            Add: {args?.text} ({status})
+          </div>
+        ),
+      });
+      stubs.useCopilotAction({
+        name: "removeTodo",
+        description: "Remove a todo",
+        parameters: [{ name: "id", type: "string", required: true }],
+        available: "frontend",
+        render: ({ args }: { args?: { id?: string } }) => (
+          <div data-testid="remove-todo-render">Remove: {args?.id}</div>
+        ),
+      });
+      return null;
+    }
+
     const onCapture = vi.fn();
     render(
-      <CopilotKit runtimeUrl="https://mock.local/api">
+      <>
+        <TodoActionsTwin />
         <RegistryReader onCapture={onCapture} />
-        <TodoActions />
-      </CopilotKit>,
+      </>,
     );
 
-    // Wait for the host's registration effect + the reader's deferred capture
-    // to publish a registry that contains addTodo. Returning the resolved
-    // value from waitFor (rather than mutating an outer-scope variable)
-    // keeps the happy-path value stable across retries.
     const addTodo = await waitFor<CapturedRenderToolCall>(() => {
       const latest = onCapture.mock.calls.at(-1)?.[0] as
         | CapturedRegistry
@@ -40,9 +79,6 @@ describe("end-to-end: mount real host, capture config, invoke render", () => {
       return found!;
     });
 
-    // Also verify the registry captured both actions registered in TodoActions.tsx
-    // — locks in that the reader doesn't miss later registrations from the
-    // same component's effect.
     const latest = onCapture.mock.calls.at(-1)?.[0] as
       | CapturedRegistry
       | undefined;

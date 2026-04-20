@@ -1,38 +1,42 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, waitFor } from "@testing-library/react";
-import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
-import { RegistryReader } from "../registry-reader";
+import { RegistryReader, buildRegistry } from "../registry-reader";
+import { createCopilotkitStubs } from "../../copilotkit-stubs";
 import type { CapturedRegistry } from "../registry";
 
-function Host() {
-  useCopilotAction({
-    name: "testAction",
-    description: "d",
-    parameters: [],
-    // `available: "frontend"` routes this through V1's `useRenderToolCall`
-    // (the only valid path for a render-only action in current react-core).
-    // Without `available` AND without `handler`, `getActionConfig` throws
-    // "Invalid action configuration".
-    available: "frontend",
-    render: () => <div data-testid="r">hi</div>,
-  });
-  return null;
+// Reproduces what `executeBundle` does at runtime: installs the stub
+// object whose captured side effects feed into RegistryReader.
+function installStubs() {
+  (window as unknown as { __copilotkit_captured?: unknown[] })
+    .__copilotkit_captured = [];
+  return createCopilotkitStubs() as Record<string, (config: unknown) => void>;
 }
 
-describe("RegistryReader inside real CopilotKit", () => {
-  it("captures the registered action config", async () => {
+describe("RegistryReader (stub-based capture)", () => {
+  beforeEach(() => {
+    delete (window as unknown as { __copilotkit_captured?: unknown[] })
+      .__copilotkit_captured;
+  });
+
+  it("captures useCopilotAction into renderToolCalls", async () => {
+    const stubs = installStubs();
+    function Host() {
+      stubs.useCopilotAction({
+        name: "testAction",
+        description: "d",
+        parameters: [],
+        available: "frontend",
+        render: () => null,
+      });
+      return null;
+    }
     const onCapture = vi.fn();
     render(
-      <CopilotKit runtimeUrl="https://mock.local/api">
-        <RegistryReader onCapture={onCapture} />
+      <>
         <Host />
-      </CopilotKit>,
+        <RegistryReader onCapture={onCapture} />
+      </>,
     );
-
-    // The reader fires an immediate capture + a setTimeout(0) deferred one to
-    // pick up registrations from sibling effects. Wait until the deferred
-    // capture actually contains our action rather than spinning on a fixed
-    // timeout (which is flaky under slow CI).
     await waitFor(() => {
       const latest: CapturedRegistry | undefined =
         onCapture.mock.calls.at(-1)?.[0];
@@ -42,5 +46,32 @@ describe("RegistryReader inside real CopilotKit", () => {
       expect(found).toBeDefined();
       expect(typeof (found as { render?: unknown }).render).toBe("function");
     });
+  });
+
+  it("buildRegistry splits hook calls into the correct slots", () => {
+    const reg = buildRegistry([
+      {
+        hook: "useCopilotAction",
+        config: { name: "a", render: () => null },
+      },
+      {
+        hook: "useCoAgentStateRender",
+        config: { name: "agent1", render: () => null },
+      },
+      {
+        hook: "useRenderTool",
+        config: { name: "tool1", render: () => null },
+      },
+      {
+        hook: "useLangGraphInterrupt",
+        config: { render: () => null },
+      },
+    ]);
+    expect(reg.renderToolCalls.map((r) => r.name)).toEqual([
+      "a",
+      "tool1",
+      "__langgraph_interrupt__",
+    ]);
+    expect(reg.coAgentStateRenders.map((c) => c.name)).toEqual(["agent1"]);
   });
 });
