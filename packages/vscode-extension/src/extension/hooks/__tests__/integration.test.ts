@@ -28,6 +28,7 @@ describe("hooks integration", () => {
       { hook: "useCopilotAction", name: "addLocation" },
       { hook: "useCopilotAction", name: "removeLocation" },
       { hook: "useCopilotAction", name: "severeAlert" },
+      { hook: "useCopilotAction", name: "showAirQuality" },
       { hook: "useCopilotAuthenticatedAction_c", name: "publishAlert" },
       { hook: "useDefaultRenderTool", name: "defaultWeatherFallback" },
       { hook: "useDefaultTool", name: null },
@@ -39,6 +40,7 @@ describe("hooks integration", () => {
       { hook: "useRenderActivityMessage", name: null },
       { hook: "useRenderCustomMessages", name: null },
       { hook: "useRenderTool", name: "getWeather" },
+      { hook: "useRenderTool", name: "pollenReport" },
       { hook: "useRenderToolCall", name: "viewRadar" },
     ]);
   });
@@ -50,6 +52,8 @@ describe("hooks integration", () => {
       "DefaultWeatherCatchAll.tsx",
       "DefaultWeatherRender.tsx",
       "ForecastAgent.tsx",
+      "ImportedAirQuality.tsx",
+      "ImportedPollenReport.tsx",
       "LazyHistoricalChart.tsx",
       "LocationPermissionInterrupt.tsx",
       "PrecipGaugeFrontendTool.tsx",

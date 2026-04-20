@@ -46,9 +46,7 @@ export class HookLensProvider implements vscode.CodeLensProvider {
       const identity = site.name ?? `line:${site.loc.line}`;
       lenses.push(
         new vscode.CodeLens(range, {
-          title: `\u25B6\uFE0F Preview ${site.hook}${
-            site.name ? ` (${site.name})` : ""
-          }`,
+          title: `\u25B6\uFE0F Preview Component`,
           tooltip: `Preview ${site.hook} \u2014 ${identity}`,
           command: "copilotkit.hooks.preview",
           arguments: [site],
