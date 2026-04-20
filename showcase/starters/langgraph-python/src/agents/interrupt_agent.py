@@ -26,6 +26,7 @@ SYSTEM_PROMPT = (
     "cancelled."
 )
 
+# @region[backend-interrupt-tool]
 @tool
 def schedule_meeting(topic: str, attendee: Optional[str] = None) -> str:
     """Ask the user to pick a time slot for a call, via an in-chat picker.
@@ -51,6 +52,7 @@ def schedule_meeting(topic: str, attendee: Optional[str] = None) -> str:
             return f"Meeting scheduled for {chosen_label}: {topic}"
 
     return f"User did not pick a time. Meeting NOT scheduled: {topic}"
+# @endregion[backend-interrupt-tool]
 
 model = ChatOpenAI(model="gpt-4o-mini")
 

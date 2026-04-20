@@ -1,52 +1,62 @@
 """
 LangGraph agent for the CopilotKit MCP Apps demo.
 
-Defines ONE backend tool (`show_mcp_app`) that the runtime middleware
-(``MCPAppsStubMiddleware`` in ``src/app/api/copilotkit/route.ts``) watches
-for. When the tool call completes, the middleware synthesizes an
-``ACTIVITY_SNAPSHOT`` event with ``activityType="mcp-apps"`` whose content
-matches ``MCPAppsActivityContentSchema`` on the frontend. The middleware
-also handles the follow-up ``__proxiedMCPRequest`` (``resources/read``)
-that the ``MCPAppsActivityRenderer`` fires when mounting, returning a
-minimal pre-baked HTML resource so the sandboxed iframe has something to
-render.
+This agent has no bespoke tools — the CopilotKit runtime is wired with
+``mcpApps: { servers: [...] }`` pointing at the public Excalidraw MCP
+server (see ``src/app/api/copilotkit-mcp-apps/route.ts``). The runtime
+auto-applies the MCP Apps middleware, which exposes the remote MCP
+server's tools to this agent at request time and emits the activity
+events that CopilotKit's built-in ``MCPAppsActivityRenderer`` renders in
+the chat as a sandboxed iframe.
 
-Keeping the activity-event synthesis in the TS middleware (rather than the
-Python agent) sidesteps the fact that the AG-UI LangGraph Python
-integration has no direct hook for emitting ``ACTIVITY_SNAPSHOT`` events.
+Reference:
+https://docs.copilotkit.ai/integrations/langgraph/generative-ui/mcp-apps
 """
 
 from langchain.agents import create_agent
-from langchain.tools import tool
 from langchain_openai import ChatOpenAI
 from copilotkit import CopilotKitMiddleware
 
-SYSTEM_PROMPT = (
-    "You are a demo assistant for MCP Apps. "
-    "When the user asks to see an app or demo, call `show_mcp_app` with "
-    "a short generic title like \"Demo App\" (do NOT invent product names "
-    "such as A2UI, CrewAI, etc.). After the tool call, reply with a single "
-    "short sentence like \"Here's the MCP app.\" — do not name frameworks "
-    "or components that weren't mentioned by the user."
-)
+SYSTEM_PROMPT = """\
+You draw simple diagrams in Excalidraw via the MCP tool.
 
-@tool
-def show_mcp_app(title: str) -> str:
-    """Show an MCP app UI in the chat.
+SPEED MATTERS. Produce a correct-enough diagram fast; do not optimize
+for polish. Target: one tool call, done in seconds.
 
-    The actual activity event (with the sandboxed HTML resource pointer) is
-    synthesized by the TS ``MCPAppsStubMiddleware`` wrapping this agent —
-    this tool simply signals that it was invoked so the middleware can pair
-    the tool call with an ``ACTIVITY_SNAPSHOT`` event.
+When the user asks for a diagram:
+1. Call `create_view` ONCE with 3-5 elements total: shapes + arrows +
+   an optional title text.
+2. Use straightforward shapes (rectangle, ellipse, diamond) with plain
+   `label` fields (`{"text": "...", "fontSize": 18}`) on them.
+3. Connect with arrows. Endpoints can be element centers or simple
+   coordinates — you don't need edge anchors / fixedPoint bindings.
+4. Include ONE `cameraUpdate` at the END of the elements array that
+   frames the whole diagram. Use an approved 4:3 size (600x450 or
+   800x600). No opening camera needed.
+5. Reply with ONE short sentence describing what you drew.
 
-    Args:
-        title: A short human-readable title for the MCP app card.
-    """
-    return f"Showing MCP app: {title}"
+Every element needs a unique string `id` (e.g. `"b1"`, `"a1"`,
+`"title"`). Standard sizes: rectangles 160x70, ellipses/diamonds
+120x80, 40-80px gap between shapes.
+
+Do NOT:
+- Call `read_me`. You already know the basic shape API.
+- Make multiple `create_view` calls.
+- Iterate or refine. Ship on the first shot.
+- Add decorative colors / fills / zone backgrounds unless the user
+  explicitly asks for them.
+- Add labels on arrows unless crucial.
+
+If the user asks for something specific (colors, more elements,
+particular layout), follow their lead — but still in ONE call.
+"""
 
 graph = create_agent(
+    # gpt-4o-mini for speed — Excalidraw element emission is simple
+    # JSON and we're biasing hard toward sub-30s generation. A faster
+    # model produces shorter, quicker outputs with acceptable layouts.
     model=ChatOpenAI(model="gpt-4o-mini"),
-    tools=[show_mcp_app],
+    tools=[],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,
 )

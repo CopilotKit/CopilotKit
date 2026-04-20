@@ -3,11 +3,26 @@
   "graphs": {
     "sample_agent": "./src/agents/main.py:graph",
     "tool_rendering": "./src/agents/tool_rendering_agent.py:graph",
+    "tool_rendering_reasoning_chain": "./src/agents/tool_rendering_reasoning_chain_agent.py:graph",
     "a2ui_dynamic": "./src/agents/a2ui_dynamic.py:graph",
     "a2ui_fixed": "./src/agents/a2ui_fixed.py:graph",
     "reasoning_agent": "./src/agents/reasoning_agent.py:graph",
     "interrupt_agent": "./src/agents/interrupt_agent.py:graph",
     "open_gen_ui": "./src/agents/open_gen_ui_agent.py:graph",
-    "mcp_apps": "./src/agents/mcp_apps_agent.py:graph"
+    "open_gen_ui_advanced": "./src/agents/open_gen_ui_advanced_agent.py:graph",
+    "mcp_apps": "./src/agents/mcp_apps_agent.py:graph",
+    "hitl_in_chat": "./src/agents/hitl_in_chat_agent.py:graph",
+    "hitl_in_app": "./src/agents/hitl_in_app.py:graph",
+    "shared_state_read_write": "./src/agents/shared_state_read_write.py:graph",
+    "readonly_state_agent_context": "./src/agents/readonly_state_agent_context.py:graph",
+    "shared_state_streaming": "./src/agents/shared_state_streaming.py:graph",
+    "subagents": "./src/agents/subagents.py:graph",
+    "headless_complete": "./src/agents/headless_complete.py:graph",
+    "agentic_chat": "./src/agents/agentic_chat.py:graph",
+    "frontend_tools": "./src/agents/frontend_tools.py:graph",
+    "frontend_tools_async": "./src/agents/frontend_tools_async.py:graph",
+    "gen_ui_agent": "./src/agents/gen_ui_agent.py:graph",
+    "gen_ui_tool_based": "./src/agents/gen_ui_tool_based.py:graph",
+    "beautiful_chat": "./src/agents/beautiful_chat.py:graph"
   }
 }

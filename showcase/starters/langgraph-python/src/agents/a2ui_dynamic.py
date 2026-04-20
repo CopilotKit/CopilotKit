@@ -1,21 +1,22 @@
 """
 LangGraph agent for the Declarative Generative UI (A2UI — Dynamic Schema) demo.
 
-A *secondary* LLM generates A2UI v0.9 components at runtime via a structured
-tool call. The primary LLM only decides *when* to render UI and delegates the
-actual schema to `generate_a2ui`.
+Pattern (ported from the canonical
+`examples/integrations/langgraph-python/agent/src/a2ui_dynamic_schema.py`):
 
-Flow:
-1. Primary LLM (gpt-4o-mini) sees the conversation. When the user asks to show
-   or render UI, it calls the `generate_a2ui` tool.
-2. Inside `generate_a2ui`, a secondary LLM (gpt-4.1) is bound to `render_a2ui`
-   (`tool_choice="render_a2ui"`) so it is forced to emit a structured A2UI
-   component tree. The `copilotkit.context` entries injected by the runtime's
-   A2UI middleware carry the available catalog + component schema.
-3. The tool wraps the LLM's output as A2UI operations (createSurface,
-   updateComponents, updateDataModel) and returns them via `a2ui.render(...)`.
-   The runtime's A2UI middleware detects the `a2ui_operations` container in
-   the tool result and forwards it to the renderer on the frontend.
+- The agent binds an explicit `generate_a2ui` tool. When called, `generate_a2ui`
+  invokes a secondary LLM bound to `render_a2ui` (tool_choice forced) with the
+  registered client catalog injected as `copilotkit.context`.
+- The tool result returns an `a2ui_operations` container which the A2UI
+  middleware detects in the tool-call result and forwards to the frontend
+  renderer.
+- The runtime (see `src/app/api/copilotkit-declarative-gen-ui/route.ts`) uses
+  `injectA2UITool: false` because the tool binding is owned by the agent here
+  (double-injection would duplicate the tool slot).
+
+This mirrors `beautiful_chat.py` which exercises the same pattern for the
+flagship combined cell — the pattern is confirmed working there (Pie Chart
+click renders a real styled doughnut).
 
 Reference:
     examples/integrations/langgraph-python/agent/src/a2ui_dynamic_schema.py
@@ -33,6 +34,8 @@ from langchain_core.messages import SystemMessage
 from langchain_core.tools import tool as lc_tool
 from langchain_openai import ChatOpenAI
 
+CUSTOM_CATALOG_ID = "declarative-gen-ui-catalog"
+
 @lc_tool
 def render_a2ui(
     surfaceId: str,
@@ -44,12 +47,10 @@ def render_a2ui(
 
     Args:
         surfaceId: Unique surface identifier.
-        catalogId: The catalog ID (use the one from context — typically the
-            basic catalog unless a custom one is registered).
+        catalogId: The catalog ID (use "declarative-gen-ui-catalog").
         components: A2UI v0.9 component array (flat format). The root
             component must have id "root".
-        data: Optional initial data model for the surface (e.g. list items
-            for data-bound components).
+        data: Optional initial data model for the surface.
     """
     return "rendered"
 
@@ -57,16 +58,15 @@ def render_a2ui(
 def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     """Generate dynamic A2UI components based on the conversation.
 
-    A secondary LLM designs the UI schema and data. The result is returned
-    as an `a2ui_operations` container for the middleware to detect.
+    A secondary LLM designs the UI schema and data. The result is returned as
+    an `a2ui_operations` container for the A2UI middleware to detect and
+    forward to the frontend renderer.
     """
-    # Drop the triggering tool call so the secondary LLM sees only the prior
-    # conversation context.
     messages = runtime.state["messages"][:-1]
 
-    # The runtime's A2UI middleware injects the available catalog + component
-    # schema as `copilotkit.context` entries. Concatenate them into the system
-    # prompt so the secondary LLM knows which components it may use.
+    # Pull the A2UI component schema + usage guidelines from the runtime's
+    # `copilotkit.context` (the runtime injects them automatically when the
+    # frontend registers a catalog via `<CopilotKit a2ui={{ catalog }}>`).
     context_entries = runtime.state.get("copilotkit", {}).get("context", [])
     context_text = "\n\n".join(
         entry.get("value", "")
@@ -87,11 +87,13 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     if not response.tool_calls:
         return json.dumps({"error": "LLM did not call render_a2ui"})
 
-    args = response.tool_calls[0]["args"]
-    surface_id = args["surfaceId"]
-    catalog_id = args.get("catalogId", a2ui.BASIC_CATALOG_ID)
+    tool_call = response.tool_calls[0]
+    args = tool_call["args"]
+
+    surface_id = args.get("surfaceId", "dynamic-surface")
+    catalog_id = args.get("catalogId", CUSTOM_CATALOG_ID)
     components = args.get("components", [])
-    data = args.get("data")
+    data = args.get("data", {})
 
     ops = [
         a2ui.create_surface(surface_id, catalog_id=catalog_id),
@@ -103,15 +105,24 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     return a2ui.render(operations=ops)
 
 SYSTEM_PROMPT = (
-    "You are a demo assistant for Declarative Generative UI (A2UI dynamic "
-    "schema). When the user asks to show or render any UI — a card, "
-    "dashboard, form, chart, etc. — call the `generate_a2ui` tool. It will "
-    "design the schema for you. Keep chat replies to one short sentence; "
-    "the UI does the talking."
+    "You are a demo assistant for Declarative Generative UI (A2UI — Dynamic "
+    "Schema). Whenever a response would benefit from a rich visual — a "
+    "dashboard, status report, KPI summary, card layout, info grid, a "
+    "pie/donut chart of part-of-whole breakdowns, a bar chart comparing "
+    "values across categories, or anything more structured than plain text — "
+    "call `generate_a2ui` to draw it. The registered catalog includes "
+    "`Card`, `StatusBadge`, `Metric`, `InfoRow`, `PrimaryButton`, `PieChart`, "
+    "and `BarChart` (in addition to the basic A2UI primitives). Prefer "
+    "`PieChart` for part-of-whole breakdowns (sales by region, traffic "
+    "sources, portfolio allocation) and `BarChart` for comparisons across "
+    "categories (quarterly revenue, headcount by team, signups per month). "
+    "`generate_a2ui` takes no arguments and handles the rendering "
+    "automatically. Keep chat replies to one short sentence; let the UI do "
+    "the talking."
 )
 
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4o-mini"),
+    model=ChatOpenAI(model="gpt-4.1"),
     tools=[generate_a2ui],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,
