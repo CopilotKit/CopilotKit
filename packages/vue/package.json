@@ -2,16 +2,23 @@
   "name": "@copilotkitnext/vue",
   "version": "1.51.4-next.7",
   "description": "Vue 3 components and composables for CopilotKit2",
-  "main": "dist/index.js",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
-    "./styles.css": "./dist/styles.css"
+    "./styles.css": "./dist/styles.css",
+    "./package.json": "./package.json"
   },
   "publishConfig": {
     "access": "public"
@@ -19,7 +26,7 @@
   "scripts": {
     "build": "vite build && pnpm build:css && pnpm build:types",
     "build:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css -m && node scripts/scope-preflight.mjs ./dist/styles.css",
-    "build:types": "vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly --outDir dist --skipLibCheck",
+    "build:types": "vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly --outDir dist --skipLibCheck && cp ./dist/index.d.ts ./dist/index.d.mts && cp ./dist/index.d.ts ./dist/index.d.cts",
     "dev:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css --watch --minify",
     "dev": "concurrently \"pnpm dev:css\" \"vite build --watch\"",
     "test": "vitest run",
@@ -28,6 +35,8 @@
     "test:ui": "vitest --ui",
     "lint": "eslint .",
     "check-types": "vue-tsc --noEmit",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16 --exclude-entrypoints ./styles.css --ignore-rules internal-resolution-error",
     "clean": "rm -rf dist"
   },
   "dependencies": {
