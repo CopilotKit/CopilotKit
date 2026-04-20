@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@copilotkitnext/react": "next",
     "gray-matter": "^4.0.3",
     "highlight.js": "^11.11.1",
     "next": "^15.0.0",

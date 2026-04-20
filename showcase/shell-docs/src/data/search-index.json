@@ -527,7 +527,7 @@
   {
     "type": "page",
     "title": "AG-UI Middleware",
-    "subtitle": "{/* TODO: Content for AG-UI middleware setup guide */}",
+    "subtitle": "AG-UI agents expose a middleware layer via `agent.use(middleware)` — a powerful hook for logging, guardrails, request tr",
     "section": "",
     "href": "/docs/ag-ui-middleware"
   },
@@ -541,329 +541,35 @@
   {
     "type": "page",
     "title": "AG-UI",
-    "subtitle": "",
+    "subtitle": "CopilotKit is built on the [AG-UI protocol](https://ag-ui.com) — a lightweight, event-based standard that defines how AI",
     "section": "Backend",
     "href": "/docs/backend/ag-ui"
   },
   {
     "type": "page",
     "title": "Copilot Runtime",
-    "subtitle": "",
+    "subtitle": "The Copilot Runtime is the backend layer that connects your frontend application to your AI agents. It's set up during t",
     "section": "Backend",
     "href": "/docs/backend/copilot-runtime"
   },
   {
     "type": "page",
     "title": "Factory Mode",
-    "subtitle": "",
+    "subtitle": "`BuiltInAgent`'s factory mode gives you full control over the LLM call. You provide a factory function that talks to any",
     "section": "Backend",
     "href": "/docs/backend/custom-agent"
   },
   {
     "type": "page",
-    "title": "Advanced Configuration",
-    "subtitle": "The `BuiltInAgent` accepts a full set of configuration options to control model behavior, tool calling, and more.",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/advanced-configuration"
-  },
-  {
-    "type": "page",
-    "title": "AG-UI",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/ag-ui"
-  },
-  {
-    "type": "page",
-    "title": "Agent Context",
-    "subtitle": "Share your application's state and context with the Built-in Agent using the `useAgentContext` hook. The agent automatic",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/agent-app-context"
-  },
-  {
-    "type": "page",
-    "title": "Coding Agents",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/coding-agents"
-  },
-  {
-    "type": "page",
-    "title": "Copilot Runtime",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/copilot-runtime"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/custom-look-and-feel/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Slots",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/custom-look-and-feel/slots"
-  },
-  {
-    "type": "page",
-    "title": "Frontend Tools",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/frontend-tools"
-  },
-  {
-    "type": "page",
-    "title": "A2UI",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/generative-ui/a2ui"
-  },
-  {
-    "type": "page",
-    "title": "MCP Apps",
-    "subtitle": "MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, Copilo",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/generative-ui/mcp-apps"
-  },
-  {
-    "type": "page",
-    "title": "Tool Rendering",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/generative-ui/tool-rendering"
-  },
-  {
-    "type": "page",
-    "title": "Display-only",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/generative-ui/your-components/display-only"
-  },
-  {
-    "type": "page",
-    "title": "Interactive",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/generative-ui/your-components/interactive"
-  },
-  {
-    "type": "page",
-    "title": "Overview",
-    "subtitle": "The **Built-in Agent** is CopilotKit's simplest agent option, i.e what you get \"built-in\". It connects directly to an LL",
-    "section": "",
-    "href": "/docs/built-in-agent"
-  },
-  {
-    "type": "page",
-    "title": "Inspector",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/inspector"
-  },
-  {
-    "type": "page",
-    "title": "MCP Servers",
-    "subtitle": "MCP (Model Context Protocol) servers provide additional tools and capabilities to your agent. The Built-in Agent support",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/mcp-servers"
-  },
-  {
-    "type": "page",
-    "title": "Model Selection",
-    "subtitle": "The Built-in Agent uses the [Vercel AI SDK](https://sdk.vercel.ai) under the hood, giving you access to models from Open",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/model-selection"
-  },
-  {
-    "type": "page",
-    "title": "Prebuilt Components",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/prebuilt-components"
-  },
-  {
-    "type": "page",
-    "title": "Fully Headless UI",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/premium/headless-ui"
-  },
-  {
-    "type": "page",
-    "title": "Observability",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/premium/observability"
-  },
-  {
-    "type": "page",
-    "title": "CopilotKit Premium",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/premium/overview"
-  },
-  {
-    "type": "page",
-    "title": "Programmatic Control",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/programmatic-control"
-  },
-  {
-    "type": "page",
-    "title": "Quickstart",
-    "subtitle": "WrenchIcon,",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/quickstart"
-  },
-  {
-    "type": "page",
-    "title": "Server Tools",
-    "subtitle": "Server tools are functions that run on your backend that the Built-in Agent can invoke. They're defined using `defineToo",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/server-tools"
-  },
-  {
-    "type": "page",
-    "title": "Shared State",
-    "subtitle": "Share state bidirectionally between your React app and the Built-in Agent. Your app can read and write agent state, and ",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/shared-state"
-  },
-  {
-    "type": "page",
-    "title": "Common Copilot Issues",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/troubleshooting/common-issues"
-  },
-  {
-    "type": "page",
-    "title": "Error Debugging & Observability",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/troubleshooting/error-debugging"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.10.X",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/troubleshooting/migrate-to-1.10.X"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to 1.8.2",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/troubleshooting/migrate-to-1.8.2"
-  },
-  {
-    "type": "page",
-    "title": "Migrate to V2",
-    "subtitle": "",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/troubleshooting/migrate-to-v2"
-  },
-  {
-    "type": "page",
-    "title": "Next Steps",
-    "subtitle": "This is the end of the tutorial. You can now start building your own copilot-powered apps!",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/next-steps"
-  },
-  {
-    "type": "page",
-    "title": "Overview",
-    "subtitle": "<div>**Time to complete:** 5 minutes</div>",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/overview"
-  },
-  {
-    "type": "page",
-    "title": "Step 1: Checkout the repo",
-    "subtitle": "We'll begin by checking out the base code of the textarea app.",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-1-checkout-repo"
-  },
-  {
-    "type": "page",
-    "title": "Step 2: Setup CopilotKit",
-    "subtitle": "TailoredContent,",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-2-setup-copilotkit"
-  },
-  {
-    "type": "page",
-    "title": "Step 4: Copilot Textarea",
-    "subtitle": "Currently, our app has a simple textarea for replying to emails. Let's replace this with an AI-powered textarea so that ",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-3-copilot-textarea"
-  },
-  {
-    "type": "page",
-    "title": "Step 3: Copilot Readable State",
-    "subtitle": "At this point, we have set up our CopilotKit provider and `<CopilotTextarea />`, and we already benefit from a great AI ",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-4-copilot-readable-state"
-  },
-  {
-    "type": "page",
-    "title": "Next Steps",
-    "subtitle": "This is the end of the tutorial. You can now start building your own copilot-powered apps!",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/tutorials/ai-todo-app/next-steps"
-  },
-  {
-    "type": "page",
-    "title": "Overview",
-    "subtitle": "<div>**Time to complete:** 5 minutes</div>",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/tutorials/ai-todo-app/overview"
-  },
-  {
-    "type": "page",
-    "title": "Step 1: Checkout the repo",
-    "subtitle": "We'll begin by checking out the base code of the todo list app.",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-1-checkout-repo"
-  },
-  {
-    "type": "page",
-    "title": "Step 2: Setup CopilotKit",
-    "subtitle": "TailoredContent,",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-2-setup-copilotkit"
-  },
-  {
-    "type": "page",
-    "title": "Step 3: Copilot Readable State",
-    "subtitle": "At this point, we have a chat popup in our app and we're able to chat directly with our copilot. This is great, but our ",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-3-copilot-readable-state"
-  },
-  {
-    "type": "page",
-    "title": "Step 4: Frontend Tools",
-    "subtitle": "Now it's time to make our copilot even more useful by enabling it to execute tools.",
-    "section": "Built in agent",
-    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-4-frontend-tools"
-  },
-  {
-    "type": "page",
     "title": "Coding Agent Setup",
-    "subtitle": "",
+    "subtitle": "The CopilotKit MCP server equips AI coding agents with deep knowledge about CopilotKit's APIs, patterns, and best practi",
     "section": "",
     "href": "/docs/coding-agent-setup"
   },
   {
     "type": "page",
     "title": "Coding Agents",
-    "subtitle": "",
+    "subtitle": "The CopilotKit MCP server equips AI coding agents with deep knowledge about CopilotKit's APIs, patterns, and best practi",
     "section": "",
     "href": "/docs/coding-agents"
   },
@@ -876,7 +582,14 @@
   },
   {
     "type": "page",
-    "title": "Fully Headless UI",
+    "title": "CSS Customization",
+    "subtitle": "CopilotKit has a variety of ways to customize colors and structures of the Copilot UI components.",
+    "section": "Custom look and feel",
+    "href": "/docs/custom-look-and-feel/css"
+  },
+  {
+    "type": "page",
+    "title": "Headless UI",
     "subtitle": "A headless UI gives you full control over the chat experience — you bring your own components, layout, and styling while",
     "section": "Custom look and feel",
     "href": "/docs/custom-look-and-feel/headless-ui"
@@ -884,21 +597,21 @@
   {
     "type": "page",
     "title": "Reasoning Messages",
-    "subtitle": "",
+    "subtitle": "Some models (like OpenAI's o1, o3, and o4-mini) emit **reasoning tokens** — internal",
     "section": "Custom look and feel",
     "href": "/docs/custom-look-and-feel/reasoning-messages"
   },
   {
     "type": "page",
     "title": "Slots",
-    "subtitle": "Slots let you customize CopilotKit's pre-built chat components without building everything from scratch. Override specif",
+    "subtitle": "Every CopilotKit chat component is built from composable **slots** — named sub-components that you can override individu",
     "section": "Custom look and feel",
     "href": "/docs/custom-look-and-feel/slots"
   },
   {
     "type": "page",
     "title": "CopilotKit in Action",
-    "subtitle": "Need some inspiration? Check out some things we've built with CopilotKit.",
+    "subtitle": "<Card",
     "section": "",
     "href": "/docs/examples"
   },
@@ -919,14 +632,28 @@
   {
     "type": "page",
     "title": "Frontend Tools",
-    "subtitle": "Frontend tools let your AI agents directly interact with and update your application's UI. They bridge the gap between y",
+    "subtitle": "Frontend tools enable you to define client-side functions that your LangChain agent can invoke, with execution happening",
     "section": "",
     "href": "/docs/frontend-tools"
   },
   {
     "type": "page",
-    "title": "A2UI",
-    "subtitle": "A2UI (Agent-to-UI) is a declarative specification for generative UI. It allows agents to render structured UI components",
+    "title": "Dynamic Schema A2UI",
+    "subtitle": "In the dynamic-schema approach, a secondary LLM generates the entire UI — schema, data, and layout — based on the conver",
+    "section": "Generative ui",
+    "href": "/docs/generative-ui/a2ui/dynamic-schema"
+  },
+  {
+    "type": "page",
+    "title": "Fixed Schema A2UI",
+    "subtitle": "In the fixed-schema approach, you design the UI schema once (in a JSON file or using the [A2UI Composer](https://a2ui-co",
+    "section": "Generative ui",
+    "href": "/docs/generative-ui/a2ui/fixed-schema"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "[A2UI](https://a2ui.org) (Agent-to-UI) is a Declarative Generative UI specification led by Google, with CopilotKit as a ",
     "section": "Generative ui",
     "href": "/docs/generative-ui/a2ui"
   },
@@ -967,6 +694,13 @@
   },
   {
     "type": "page",
+    "title": "Reasoning Messages",
+    "subtitle": "Some models (like OpenAI's o1, o3, and o4-mini) emit **reasoning tokens** — internal",
+    "section": "Generative ui",
+    "href": "/docs/generative-ui/reasoning"
+  },
+  {
+    "type": "page",
     "title": "State Rendering",
     "subtitle": "State rendering lets you build UI that reflects your agent's state in real-time. As your agent progresses through nodes ",
     "section": "Generative ui",
@@ -974,8 +708,15 @@
   },
   {
     "type": "page",
+    "title": "Display-only",
+    "subtitle": "`useComponent` lets you register a React component as a tool your agent can invoke. When the agent calls the tool, Copil",
+    "section": "Generative ui",
+    "href": "/docs/generative-ui/tool-based"
+  },
+  {
+    "type": "page",
     "title": "Tool Rendering",
-    "subtitle": "Tool rendering lets you customize how your agent's backend tool calls appear in the chat. Instead of showing raw tool ex",
+    "subtitle": "This example demonstrates the [implementation](#implementation) section applied in the <a href=\"https://feature-viewer.c",
     "section": "Generative ui",
     "href": "/docs/generative-ui/tool-rendering"
   },
@@ -996,9 +737,23 @@
   {
     "type": "page",
     "title": "Headless UI",
-    "subtitle": "CopilotKit's headless hooks give you complete control over the chat experience — manage messages, streaming, and tool ca",
+    "subtitle": "CopilotKit's headless hooks give you complete control over the chat",
     "section": "",
     "href": "/docs/headless"
+  },
+  {
+    "type": "page",
+    "title": "Headless interrupts",
+    "subtitle": "`useInterrupt`'s `render` callback is the 80% path — it keeps the UI",
+    "section": "Human in the loop",
+    "href": "/docs/human-in-the-loop/headless"
+  },
+  {
+    "type": "page",
+    "title": "Interrupts",
+    "subtitle": "This example demonstrates interrupt-based human-in-the-loop (HITL) in the [CopilotKit Feature Viewer](https://feature-vi",
+    "section": "Human in the loop",
+    "href": "/docs/human-in-the-loop/useInterrupt"
   },
   {
     "type": "page",
@@ -1017,7 +772,7 @@
   {
     "type": "page",
     "title": "Inspector",
-    "subtitle": "",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/videos/inspector.mp4\"",
     "section": "",
     "href": "/docs/inspector"
   },
@@ -1430,7 +1185,7 @@
   {
     "type": "page",
     "title": "Factory Mode",
-    "subtitle": "",
+    "subtitle": "`BuiltInAgent`'s **factory mode** gives you full control over the LLM call. You provide a factory function that talks to",
     "section": "Integrations",
     "href": "/docs/integrations/built-in-agent/custom-agent"
   },
@@ -1475,6 +1230,13 @@
     "subtitle": "Server tools are functions that run on your backend that the Built-in Agent can invoke. They're defined using `defineToo",
     "section": "Integrations",
     "href": "/docs/integrations/built-in-agent/server-tools"
+  },
+  {
+    "type": "page",
+    "title": "Shared State",
+    "subtitle": "Share state bidirectionally between your React app and the Built-in Agent. Your app can read and write agent state, and ",
+    "section": "Integrations",
+    "href": "/docs/integrations/built-in-agent/shared-state"
   },
   {
     "type": "page",
@@ -1765,6 +1527,13 @@
   },
   {
     "type": "page",
+    "title": "Fixed Schema A2UI",
+    "subtitle": "In the fixed-schema approach, you design the UI schema once (in a JSON file or using the [A2UI Composer](https://a2ui-co",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/generative-ui/a2ui/fixed-schema"
+  },
+  {
+    "type": "page",
     "title": "MCP Apps",
     "subtitle": "MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, Copilo",
     "section": "Integrations",
@@ -1801,14 +1570,14 @@
   {
     "type": "page",
     "title": "Interrupt-based",
-    "subtitle": "TailoredContent,",
+    "subtitle": "id=\"human-in-the-loop-example\"",
     "section": "Integrations",
     "href": "/docs/integrations/langgraph/generative-ui/your-components/interrupt-based"
   },
   {
     "type": "page",
     "title": "Interrupts",
-    "subtitle": "TailoredContent,",
+    "subtitle": "id=\"human-in-the-loop-example\"",
     "section": "Integrations",
     "href": "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow"
   },
@@ -2178,8 +1947,8 @@
   },
   {
     "type": "page",
-    "title": "Readables",
-    "subtitle": "One of the most common use cases for CopilotKit is to register app state and context using `useCopilotReadble`.",
+    "title": "Agent App Context",
+    "subtitle": "One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.",
     "section": "Integrations",
     "href": "/docs/integrations/mastra/agent-app-context"
   },
@@ -2203,6 +1972,27 @@
     "subtitle": "id=\"tool-based-generative-ui-example\"",
     "section": "Integrations",
     "href": "/docs/integrations/mastra/generative-ui/tool-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Human-in-the-Loop",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/mastra/human-in-the-loop"
+  },
+  {
+    "type": "page",
+    "title": "Interrupts",
+    "subtitle": "Mastra's [tool suspension](https://mastra.ai/docs/agents/agent-approval) provides a native way to implement Human-in-the",
+    "section": "Integrations",
+    "href": "/docs/integrations/mastra/human-in-the-loop/interrupt-flow"
+  },
+  {
+    "type": "page",
+    "title": "Tool-based",
+    "subtitle": "id=\"human-in-the-loop-tool-based-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/mastra/human-in-the-loop/tool-based"
   },
   {
     "type": "page",
@@ -2571,16 +2361,37 @@
   {
     "type": "page",
     "title": "CopilotKit v1.50",
-    "subtitle": "CopilotKit v1.50 is now available. This page gives an overview of what is new, what is coming, and what just stays the s",
+    "subtitle": "CopilotKit v1.50 is now available.  This page gives an overview of what is new, what is coming, and what just stays the ",
     "section": "Learn",
     "href": "/docs/learn/whats-new/v1-50"
   },
   {
     "type": "page",
+    "title": "Sub-Agents",
+    "subtitle": "Sub-agents are the canonical multi-agent pattern: a top-level",
+    "section": "Multi agent",
+    "href": "/docs/multi-agent/subagents"
+  },
+  {
+    "type": "page",
     "title": "Prebuilt Components",
-    "subtitle": "CopilotKit's chat components give you a fully functional, customizable AI chat interface out of the box.",
+    "subtitle": "CopilotKit ships three prebuilt chat components that connect directly to your LangChain agent. Each is a wrapper around ",
     "section": "",
     "href": "/docs/prebuilt-components"
+  },
+  {
+    "type": "page",
+    "title": "CopilotPopup",
+    "subtitle": "CopilotKit ships three prebuilt chat components that connect directly to your LangChain agent. Each is a wrapper around ",
+    "section": "Prebuilt components",
+    "href": "/docs/prebuilt-components/popup"
+  },
+  {
+    "type": "page",
+    "title": "CopilotSidebar",
+    "subtitle": "CopilotKit ships three prebuilt chat components that connect directly to your LangChain agent. Each is a wrapper around ",
+    "section": "Prebuilt components",
+    "href": "/docs/prebuilt-components/sidebar"
   },
   {
     "type": "page",
@@ -2592,28 +2403,28 @@
   {
     "type": "page",
     "title": "Observability",
-    "subtitle": "",
+    "subtitle": "Monitor CopilotKit with first‑class observability hooks that emit structured signals for chat events, user interactions,",
     "section": "Premium",
     "href": "/docs/premium/observability"
   },
   {
     "type": "page",
     "title": "CopilotKit Premium",
-    "subtitle": "",
+    "subtitle": "CopilotKit Premium plans deliver:",
     "section": "Premium",
     "href": "/docs/premium/overview"
   },
   {
     "type": "page",
     "title": "Programmatic Control",
-    "subtitle": "Programmatic control lets you run agents outside of a chat UI — trigger agent runs, access results, and manage state ent",
+    "subtitle": "The `useAgent` hook provides direct access to your LangChain agent from any React component. It gives you real-time acce",
     "section": "",
     "href": "/docs/programmatic-control"
   },
   {
     "type": "page",
     "title": "Quickstart",
-    "subtitle": "Starting from scratch? Use our CLI to get started in minutes, it will bootstrap a",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4\"",
     "section": "",
     "href": "/docs/quickstart"
   },
@@ -2626,51 +2437,450 @@
   },
   {
     "type": "page",
+    "title": "useAgent",
+    "subtitle": "`useAgent` is a React hook that returns an [AG-UI AbstractAgent](https://docs.ag-ui.com/sdk/js/client/abstract-agent) in",
+    "section": "Reference",
+    "href": "/docs/reference/v2/hooks/useAgent"
+  },
+  {
+    "type": "page",
+    "title": "useCapabilities",
+    "subtitle": "`useCapabilities` returns the [AG-UI `AgentCapabilities`](https://docs.ag-ui.com/concepts/capabilities) declared by an a",
+    "section": "Reference",
+    "href": "/docs/reference/v2/hooks/useCapabilities"
+  },
+  {
+    "type": "page",
+    "title": "Readables",
+    "subtitle": "One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.",
+    "section": "Shared state",
+    "href": "/docs/shared-state/agent-readonly"
+  },
+  {
+    "type": "page",
+    "title": "State streaming",
+    "subtitle": "TailoredContent,",
+    "section": "Shared state",
+    "href": "/docs/shared-state/streaming"
+  },
+  {
+    "type": "page",
     "title": "Shared State",
-    "subtitle": "Agentic Copilots maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state ",
+    "subtitle": "This example demonstrates reading from and writing to shared state in the showcase.",
     "section": "",
     "href": "/docs/shared-state"
   },
   {
     "type": "page",
     "title": "Common Copilot Issues",
-    "subtitle": "",
+    "subtitle": "Welcome to the CopilotKit Troubleshooting Guide! Here, you can find answers to common issues",
     "section": "Troubleshooting",
     "href": "/docs/troubleshooting/common-issues"
   },
   {
     "type": "page",
+    "title": "Debug Mode",
+    "subtitle": "When your agent isn't behaving as expected — events are missing, state isn't updating, or tool calls aren't executing — ",
+    "section": "Troubleshooting",
+    "href": "/docs/troubleshooting/debug-mode"
+  },
+  {
+    "type": "page",
     "title": "Error Debugging",
-    "subtitle": "",
+    "subtitle": "CopilotKit provides visual error display for local development and debugging. This feature is completely free and requir",
     "section": "Troubleshooting",
     "href": "/docs/troubleshooting/error-debugging"
   },
   {
     "type": "page",
     "title": "Migrate to 1.10.X",
-    "subtitle": "",
+    "subtitle": "CopilotKit 1.10.X introduces a new headless UI system and simplified message formats. Most existing code will continue t",
     "section": "Troubleshooting",
     "href": "/docs/troubleshooting/migrate-to-1.10.X"
   },
   {
     "type": "page",
     "title": "Migrate to 1.8.2",
-    "subtitle": "",
+    "subtitle": "CopilotKit 1.8.2 introduces a new default look and feel. This includes new use of theming variables, new components, and",
     "section": "Troubleshooting",
     "href": "/docs/troubleshooting/migrate-to-1.8.2"
   },
   {
     "type": "page",
     "title": "Migrate to V2",
-    "subtitle": "",
+    "subtitle": "CopilotKit V2 consolidates the frontend into a single package. Both hooks and UI components are now exported from `@copi",
     "section": "Troubleshooting",
     "href": "/docs/troubleshooting/migrate-to-v2"
   },
   {
     "type": "page",
     "title": "Error Observability Connectors",
-    "subtitle": "",
+    "subtitle": "CopilotKit Premium provides production-grade error observability with the observability solution of your choice via the ",
     "section": "Troubleshooting",
     "href": "/docs/troubleshooting/observability-connectors"
+  },
+  {
+    "type": "page",
+    "title": "Advanced Configuration",
+    "subtitle": "The `BuiltInAgent` accepts a full set of configuration options to control model behavior, tool calling, and more.",
+    "section": "Unselected",
+    "href": "/docs/unselected/advanced-configuration"
+  },
+  {
+    "type": "page",
+    "title": "AG-UI",
+    "subtitle": "CopilotKit is built on the [AG-UI protocol](https://ag-ui.com) — a lightweight, event-based standard that defines how AI",
+    "section": "Unselected",
+    "href": "/docs/unselected/ag-ui"
+  },
+  {
+    "type": "page",
+    "title": "Agent Context",
+    "subtitle": "Share your application's state and context with the Built-in Agent using the `useAgentContext` hook. The agent automatic",
+    "section": "Unselected",
+    "href": "/docs/unselected/agent-app-context"
+  },
+  {
+    "type": "page",
+    "title": "Coding Agents",
+    "subtitle": "",
+    "section": "Unselected",
+    "href": "/docs/unselected/coding-agents"
+  },
+  {
+    "type": "page",
+    "title": "Copilot Runtime",
+    "subtitle": "The Copilot Runtime is the backend layer that connects your frontend application to your AI agents. It's set up during t",
+    "section": "Unselected",
+    "href": "/docs/unselected/copilot-runtime"
+  },
+  {
+    "type": "page",
+    "title": "CSS Customization",
+    "subtitle": "CopilotKit has a variety of ways to customize colors and structures of the Copilot UI components.",
+    "section": "Unselected",
+    "href": "/docs/unselected/custom-look-and-feel/css"
+  },
+  {
+    "type": "page",
+    "title": "Headless UI",
+    "subtitle": "A headless UI gives you full control over the chat experience — you bring your own components, layout, and styling while",
+    "section": "Unselected",
+    "href": "/docs/unselected/custom-look-and-feel/headless-ui"
+  },
+  {
+    "type": "page",
+    "title": "Reasoning Messages",
+    "subtitle": "Some models (like OpenAI's o1, o3, and o4-mini) emit **reasoning tokens** — internal",
+    "section": "Unselected",
+    "href": "/docs/unselected/custom-look-and-feel/reasoning-messages"
+  },
+  {
+    "type": "page",
+    "title": "Slots",
+    "subtitle": "Every CopilotKit chat component is built from composable **slots** — named sub-components that you can override individu",
+    "section": "Unselected",
+    "href": "/docs/unselected/custom-look-and-feel/slots"
+  },
+  {
+    "type": "page",
+    "title": "Frontend Tools",
+    "subtitle": "Frontend tools enable you to define client-side functions that your LangChain agent can invoke, with execution happening",
+    "section": "Unselected",
+    "href": "/docs/unselected/frontend-tools"
+  },
+  {
+    "type": "page",
+    "title": "Dynamic Schema A2UI",
+    "subtitle": "In the dynamic-schema approach, a secondary LLM generates the entire UI — schema, data, and layout — based on the conver",
+    "section": "Unselected",
+    "href": "/docs/unselected/generative-ui/a2ui/dynamic-schema"
+  },
+  {
+    "type": "page",
+    "title": "Fixed Schema A2UI",
+    "subtitle": "In the fixed-schema approach, you design the UI schema once (in a JSON file or using the [A2UI Composer](https://a2ui-co",
+    "section": "Unselected",
+    "href": "/docs/unselected/generative-ui/a2ui/fixed-schema"
+  },
+  {
+    "type": "page",
+    "title": "A2UI",
+    "subtitle": "",
+    "section": "Unselected",
+    "href": "/docs/unselected/generative-ui/a2ui"
+  },
+  {
+    "type": "page",
+    "title": "MCP Apps",
+    "subtitle": "MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, Copilo",
+    "section": "Unselected",
+    "href": "/docs/unselected/generative-ui/mcp-apps"
+  },
+  {
+    "type": "page",
+    "title": "Open Generative UI",
+    "subtitle": "Open Generative UI lets the agent generate complete, sandboxed UI on the fly — HTML, CSS, and JavaScript — and stream it",
+    "section": "Unselected",
+    "href": "/docs/unselected/generative-ui/open-generative-ui"
+  },
+  {
+    "type": "page",
+    "title": "State Rendering",
+    "subtitle": "State rendering lets you build UI that reflects your agent's state in real-time. As your agent progresses through nodes ",
+    "section": "Unselected",
+    "href": "/docs/unselected/generative-ui/state-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Tool Rendering",
+    "subtitle": "This example demonstrates the [implementation](#implementation) section applied in the <a href=\"https://feature-viewer.c",
+    "section": "Unselected",
+    "href": "/docs/unselected/generative-ui/tool-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Display-only",
+    "subtitle": "`useComponent` lets you register a React component as a tool your agent can invoke. When the agent calls the tool, Copil",
+    "section": "Unselected",
+    "href": "/docs/unselected/generative-ui/your-components/display-only"
+  },
+  {
+    "type": "page",
+    "title": "Interactive",
+    "subtitle": "Frontend tools enable you to define client-side functions that your LangChain agent can invoke, with execution happening",
+    "section": "Unselected",
+    "href": "/docs/unselected/generative-ui/your-components/interactive"
+  },
+  {
+    "type": "page",
+    "title": "Interrupt-based",
+    "subtitle": "id=\"human-in-the-loop-example\"",
+    "section": "Unselected",
+    "href": "/docs/unselected/generative-ui/your-components/interrupt-based"
+  },
+  {
+    "type": "page",
+    "title": "Headless interrupts",
+    "subtitle": "`useInterrupt`'s `render` callback is the 80% path — it keeps the UI",
+    "section": "Unselected",
+    "href": "/docs/unselected/human-in-the-loop/headless"
+  },
+  {
+    "type": "page",
+    "title": "Interrupts",
+    "subtitle": "This example demonstrates interrupt-based human-in-the-loop (HITL) in the [CopilotKit Feature Viewer](https://feature-vi",
+    "section": "Unselected",
+    "href": "/docs/unselected/human-in-the-loop/useInterrupt"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "The **Built-in Agent** is CopilotKit's simplest agent option, i.e what you get \"built-in\". It connects directly to an LL",
+    "section": "",
+    "href": "/docs/unselected"
+  },
+  {
+    "type": "page",
+    "title": "Inspector",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/videos/inspector.mp4\"",
+    "section": "Unselected",
+    "href": "/docs/unselected/inspector"
+  },
+  {
+    "type": "page",
+    "title": "MCP Servers",
+    "subtitle": "MCP (Model Context Protocol) servers provide additional tools and capabilities to your agent. The Built-in Agent support",
+    "section": "Unselected",
+    "href": "/docs/unselected/mcp-servers"
+  },
+  {
+    "type": "page",
+    "title": "Model Selection",
+    "subtitle": "The Built-in Agent uses the [Vercel AI SDK](https://sdk.vercel.ai) under the hood, giving you access to models from Open",
+    "section": "Unselected",
+    "href": "/docs/unselected/model-selection"
+  },
+  {
+    "type": "page",
+    "title": "Sub-Agents",
+    "subtitle": "Sub-agents are the canonical multi-agent pattern: a top-level",
+    "section": "Unselected",
+    "href": "/docs/unselected/multi-agent/subagents"
+  },
+  {
+    "type": "page",
+    "title": "Prebuilt Components",
+    "subtitle": "CopilotKit ships three prebuilt chat components that connect directly to your LangChain agent. Each is a wrapper around ",
+    "section": "Unselected",
+    "href": "/docs/unselected/prebuilt-components"
+  },
+  {
+    "type": "page",
+    "title": "Fully Headless UI",
+    "subtitle": "CopilotKit offers **fully headless UI** through the `useCopilotChatHeadless_c` hook. By using this hook, you can build y",
+    "section": "Unselected",
+    "href": "/docs/unselected/premium/headless-ui"
+  },
+  {
+    "type": "page",
+    "title": "Observability",
+    "subtitle": "Monitor your CopilotKit application with first-class observability hooks that emit structured signals for chat events, u",
+    "section": "Unselected",
+    "href": "/docs/unselected/premium/observability"
+  },
+  {
+    "type": "page",
+    "title": "CopilotKit Premium",
+    "subtitle": "CopilotKit Premium plans deliver:",
+    "section": "Unselected",
+    "href": "/docs/unselected/premium/overview"
+  },
+  {
+    "type": "page",
+    "title": "Programmatic Control",
+    "subtitle": "The `useAgent` hook provides direct access to your LangChain agent from any React component. It gives you real-time acce",
+    "section": "Unselected",
+    "href": "/docs/unselected/programmatic-control"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "WrenchIcon,",
+    "section": "Unselected",
+    "href": "/docs/unselected/quickstart"
+  },
+  {
+    "type": "page",
+    "title": "Server Tools",
+    "subtitle": "Server tools are functions that run on your backend that the Built-in Agent can invoke. They're defined using `defineToo",
+    "section": "Unselected",
+    "href": "/docs/unselected/server-tools"
+  },
+  {
+    "type": "page",
+    "title": "Shared State",
+    "subtitle": "Share state bidirectionally between your React app and the Built-in Agent. Your app can read and write agent state, and ",
+    "section": "Unselected",
+    "href": "/docs/unselected/shared-state"
+  },
+  {
+    "type": "page",
+    "title": "Common Copilot Issues",
+    "subtitle": "Welcome to the CopilotKit Troubleshooting Guide! Here, you can find answers to common issues",
+    "section": "Unselected",
+    "href": "/docs/unselected/troubleshooting/common-issues"
+  },
+  {
+    "type": "page",
+    "title": "Error Debugging & Observability",
+    "subtitle": "CopilotKit provides visual error display for local development and debugging. This feature is completely free and requir",
+    "section": "Unselected",
+    "href": "/docs/unselected/troubleshooting/error-debugging"
+  },
+  {
+    "type": "page",
+    "title": "Migrate to 1.10.X",
+    "subtitle": "CopilotKit 1.10.X introduces a new headless UI system and simplified message formats. Most existing code continues to wo",
+    "section": "Unselected",
+    "href": "/docs/unselected/troubleshooting/migrate-to-1.10.X"
+  },
+  {
+    "type": "page",
+    "title": "Migrate to 1.8.2",
+    "subtitle": "CopilotKit 1.8.2 introduces a new default look and feel. This includes new use of theming variables, new components, and",
+    "section": "Unselected",
+    "href": "/docs/unselected/troubleshooting/migrate-to-1.8.2"
+  },
+  {
+    "type": "page",
+    "title": "Migrate to V2",
+    "subtitle": "CopilotKit V2 consolidates the frontend into a single package. Both hooks and UI components are now exported from `@copi",
+    "section": "Unselected",
+    "href": "/docs/unselected/troubleshooting/migrate-to-v2"
+  },
+  {
+    "type": "page",
+    "title": "Next Steps",
+    "subtitle": "This is the end of the tutorial. You can now start building your own copilot-powered apps!",
+    "section": "Unselected",
+    "href": "/docs/unselected/tutorials/ai-powered-textarea/next-steps"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "<div>**Time to complete:** 5 minutes</div>",
+    "section": "Unselected",
+    "href": "/docs/unselected/tutorials/ai-powered-textarea/overview"
+  },
+  {
+    "type": "page",
+    "title": "Step 1: Checkout the repo",
+    "subtitle": "We'll begin by checking out the base code of the textarea app.",
+    "section": "Unselected",
+    "href": "/docs/unselected/tutorials/ai-powered-textarea/step-1-checkout-repo"
+  },
+  {
+    "type": "page",
+    "title": "Step 2: Setup CopilotKit",
+    "subtitle": "TailoredContent,",
+    "section": "Unselected",
+    "href": "/docs/unselected/tutorials/ai-powered-textarea/step-2-setup-copilotkit"
+  },
+  {
+    "type": "page",
+    "title": "Step 4: Copilot Textarea",
+    "subtitle": "Currently, our app has a simple textarea for replying to emails. Let's replace this with an AI-powered textarea so that ",
+    "section": "Unselected",
+    "href": "/docs/unselected/tutorials/ai-powered-textarea/step-3-copilot-textarea"
+  },
+  {
+    "type": "page",
+    "title": "Step 3: Copilot Readable State",
+    "subtitle": "At this point, we have set up our CopilotKit provider and `<CopilotTextarea />`, and we already benefit from a great AI ",
+    "section": "Unselected",
+    "href": "/docs/unselected/tutorials/ai-powered-textarea/step-4-copilot-readable-state"
+  },
+  {
+    "type": "page",
+    "title": "Next Steps",
+    "subtitle": "This is the end of the tutorial. You can now start building your own copilot-powered apps!",
+    "section": "Unselected",
+    "href": "/docs/unselected/tutorials/ai-todo-app/next-steps"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "<div>**Time to complete:** 5 minutes</div>",
+    "section": "Unselected",
+    "href": "/docs/unselected/tutorials/ai-todo-app/overview"
+  },
+  {
+    "type": "page",
+    "title": "Step 1: Checkout the repo",
+    "subtitle": "We'll begin by checking out the base code of the todo list app.",
+    "section": "Unselected",
+    "href": "/docs/unselected/tutorials/ai-todo-app/step-1-checkout-repo"
+  },
+  {
+    "type": "page",
+    "title": "Step 2: Setup CopilotKit",
+    "subtitle": "TailoredContent,",
+    "section": "Unselected",
+    "href": "/docs/unselected/tutorials/ai-todo-app/step-2-setup-copilotkit"
+  },
+  {
+    "type": "page",
+    "title": "Step 3: Copilot Readable State",
+    "subtitle": "At this point, we have a chat popup in our app and we're able to chat directly with our copilot. This is great, but our ",
+    "section": "Unselected",
+    "href": "/docs/unselected/tutorials/ai-todo-app/step-3-copilot-readable-state"
+  },
+  {
+    "type": "page",
+    "title": "Step 4: Frontend Tools",
+    "subtitle": "Now it's time to make our copilot even more useful by enabling it to execute tools.",
+    "section": "Unselected",
+    "href": "/docs/unselected/tutorials/ai-todo-app/step-4-frontend-tools"
   }
 ]
