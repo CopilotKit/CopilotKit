@@ -243,4 +243,16 @@ export default defineConfig([
     clean: false,
     plugins: [stubNodeBuiltinsAndCss(), nodeResolveFallback()],
   },
+  // Catalog-list sidebar webview — browser, ESM.
+  // Same lightweight profile as hook-list: no react-core dep, so no stubbing.
+  {
+    entry: { "catalog-list": "src/webview/catalog-list/index.tsx" },
+    outDir: "dist/webview",
+    format: ["esm"],
+    platform: "browser",
+    noExternal: [/.*/],
+    dts: false,
+    clean: false,
+    plugins: [nodeResolveFallback()],
+  },
 ]);

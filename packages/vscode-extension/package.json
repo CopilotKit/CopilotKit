@@ -67,7 +67,8 @@
         },
         {
           "id": "copilotkit.componentPreview",
-          "name": "A2UI Catalog Components Preview"
+          "type": "webview",
+          "name": "A2UI Catalog"
         }
       ]
     },
@@ -145,12 +146,7 @@
           "group": "navigation"
         }
       ],
-      "view/item/context": [
-        {
-          "command": "copilotkit.previewComponentFromSidebar",
-          "when": "view == copilotkit.componentPreview"
-        }
-      ]
+      "view/item/context": []
     }
   },
   "activationEvents": [],

@@ -3,8 +3,12 @@ import * as path from "node:path";
 import type { DiscoveredComponent } from "./types";
 import { PreviewPanel } from "./preview-panel";
 import { FileWatcher } from "./file-watcher";
-import { ComponentPreviewProvider } from "./sidebar/view-provider";
-import { findFixtureFile, getFixtureNames } from "./sidebar/component-scanner";
+import { CatalogListViewProvider } from "./sidebar/catalog-list-view-provider";
+import {
+  findFixtureFile,
+  getFixtureNames,
+  scanDirectory,
+} from "./sidebar/component-scanner";
 import { parseFixtureJson, validateFixture } from "./fixture-validator";
 import { ComponentRegistry } from "./component-registry";
 import { InspectorPanel } from "./inspector-panel";
@@ -55,22 +59,65 @@ export function activate(context: vscode.ExtensionContext): void {
     registry,
   );
 
-  // Sidebar tree view
-  const sidebarProvider = new ComponentPreviewProvider(workspaceRoot);
-  const treeView = vscode.window.createTreeView("copilotkit.componentPreview", {
-    treeDataProvider: sidebarProvider,
-    showCollapseAll: true,
-  });
-  context.subscriptions.push(treeView);
+  // Sidebar (webview). The provider owns rendering + messaging; workspace
+  // scanning is done here so we can reuse the same pass to seed the
+  // component registry used by fixture validation.
+  let discoveredComponents: DiscoveredComponent[] = workspaceRoot
+    ? scanDirectory(workspaceRoot)
+    : [];
+  for (const comp of discoveredComponents) registry.register(comp.filePath);
 
-  // Populate the registry from discovered components
-  for (const comp of sidebarProvider.getComponents()) {
-    registry.register(comp.filePath);
-  }
+  const rescanCatalogs = () => {
+    discoveredComponents = workspaceRoot ? scanDirectory(workspaceRoot) : [];
+    for (const comp of discoveredComponents) registry.register(comp.filePath);
+    catalogProvider.setComponents(discoveredComponents);
+  };
+
+  const catalogProvider = new CatalogListViewProvider(
+    context.extensionUri,
+    workspaceRoot ?? null,
+    {
+      onPreview: (component, fixtureName) =>
+        previewPanel.show(component, fixtureName),
+      onOpenSource: async (component, fixtureName) => {
+        // Fixture row → open the fixture file and highlight the named key.
+        // Component row → open the component source.
+        const targetPath =
+          fixtureName && component.fixturePath
+            ? component.fixturePath
+            : component.filePath;
+        const doc = await vscode.workspace.openTextDocument(
+          vscode.Uri.file(targetPath),
+        );
+        const editor = await vscode.window.showTextDocument(doc);
+        if (fixtureName) {
+          const text = doc.getText();
+          const idx = text.indexOf(`"${fixtureName}"`);
+          if (idx >= 0) {
+            const pos = doc.positionAt(idx);
+            editor.revealRange(
+              new vscode.Range(pos, pos),
+              vscode.TextEditorRevealType.InCenter,
+            );
+            editor.selection = new vscode.Selection(pos, pos);
+          }
+        }
+      },
+      onRefresh: rescanCatalogs,
+    },
+  );
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      CatalogListViewProvider.viewType,
+      catalogProvider,
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
+  );
+  catalogProvider.setComponents(discoveredComponents);
 
   // File watcher — updates sidebar, preview, and component registry on changes
   const fileWatcher = new FileWatcher((filePath) => {
-    sidebarProvider.refresh();
+    rescanCatalogs();
     previewPanel.handleFileChange(filePath);
 
     // Update registry when catalog files change
@@ -133,9 +180,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Command: Refresh components list
   context.subscriptions.push(
-    vscode.commands.registerCommand("copilotkit.refreshComponents", () => {
-      sidebarProvider.refresh();
-    }),
+    vscode.commands.registerCommand("copilotkit.refreshComponents", () =>
+      rescanCatalogs(),
+    ),
   );
 
   // Shared debug stream — used by both sidebar view and editor panel
