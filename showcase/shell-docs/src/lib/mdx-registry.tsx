@@ -172,17 +172,18 @@ export const docsComponents = {
     </div>
   ),
   video: (props: Record<string, unknown>) => (
+    // Accept user className from MDX — prior impl spread className in then
+    // immediately overrode it to `undefined`, silently dropping it.
     <video
       {...props}
-      className={undefined}
       style={{ borderRadius: "0.5rem", width: "100%", marginBottom: "1rem" }}
     />
   ),
   img: (props: Record<string, unknown>) => (
+    // Accept user className from MDX (see note on `video` above).
     // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
     <img
       {...props}
-      className={undefined}
       style={{ borderRadius: "0.5rem", maxWidth: "100%", marginBottom: "1rem" }}
     />
   ),
@@ -536,19 +537,45 @@ export const docsComponents = {
       {children}
     </a>
   ),
-  Button: ({ children }: { children?: React.ReactNode }) => (
-    <button
-      style={{
-        padding: "0.5rem 1rem",
-        borderRadius: "0.375rem",
-        border: "1px solid var(--border)",
-        background: "var(--bg-surface)",
-        cursor: "pointer",
-      }}
-    >
-      {children}
-    </button>
-  ),
+  Button: ({
+    children,
+    onClick,
+    type,
+    disabled,
+    "aria-label": ariaLabel,
+  }: {
+    children?: React.ReactNode;
+    onClick?: React.MouseEventHandler<HTMLButtonElement>;
+    type?: "button" | "submit" | "reset";
+    disabled?: boolean;
+    "aria-label"?: string;
+  }) => {
+    if (process.env.NODE_ENV !== "production" && !onClick) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[mdx-registry] <Button> rendered without onClick — this is a non-interactive stub. If interactivity is required, wire it up in the consuming MDX renderer.",
+      );
+    }
+    return (
+      <button
+        // Default to type="button" so a Button inside a <form> (rare in
+        // MDX, but possible) does not trigger a submit.
+        type={type ?? "button"}
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        style={{
+          padding: "0.5rem 1rem",
+          borderRadius: "0.375rem",
+          border: "1px solid var(--border)",
+          background: "var(--bg-surface)",
+          cursor: "pointer",
+        }}
+      >
+        {children}
+      </button>
+    );
+  },
   Link: ({ children, href }: { children?: React.ReactNode; href?: string }) => (
     <a href={href} style={{ color: "var(--accent)" }}>
       {children}
