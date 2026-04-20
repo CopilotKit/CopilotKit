@@ -112,8 +112,8 @@ function HeadlessInterruptPanel() {
 
   const kickOff = () => {
     if (agent.isRunning) return;
-    // Reset the transcript so re-runs start from a clean slate.
-    agent.setMessages([]);
+    // Bump the run marker so the old result hides immediately and the
+    // ResultCard only reappears after the NEW run's assistant reply lands.
     setRunId((n) => n + 1);
     agent.addMessage({
       id: crypto.randomUUID(),
@@ -123,6 +123,9 @@ function HeadlessInterruptPanel() {
     void copilotkit.runAgent({ agent }).catch(() => {});
   };
 
+  // Show the latest assistant message — but only if it was produced AFTER
+  // the most recent kickoff (prevents the previous round's result from
+  // flashing under the button during the second run's pre-interrupt phase).
   const lastAssistant = [...agent.messages]
     .reverse()
     .find((m) => m.role === "assistant" && typeof m.content === "string") as
