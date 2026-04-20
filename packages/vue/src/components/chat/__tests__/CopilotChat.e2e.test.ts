@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@testing-library/vue";
 import { computed, defineComponent, onMounted } from "vue";
 import type { PropType } from "vue";
 import { afterEach, describe, expect, it } from "vitest";
+import { EventType } from "@ag-ui/client";
 import { z } from "zod";
 import { useConfigureSuggestions } from "../../../hooks/use-configure-suggestions";
 import {
@@ -128,6 +129,52 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
       agent.emit(runFinishedEvent());
       agent.complete();
+    });
+
+    it("should reset chat running state when backend emits RUN_ERROR", async () => {
+      const agent = new MockStepwiseAgent();
+
+      const StatusProbeHost = defineComponent({
+        components: { CopilotChat },
+        template: `
+          <CopilotChat :welcome-screen="false">
+            <template #chat-view="{ isRunning, onStop, onSubmitMessage }">
+              <div>
+                <button data-testid="submit" @click="onSubmitMessage('trigger run')">submit</button>
+                <span data-testid="running">{{ isRunning ? "running" : "idle" }}</span>
+                <span data-testid="stop-availability">{{ onStop ? "available" : "missing" }}</span>
+              </div>
+            </template>
+          </CopilotChat>
+        `,
+      });
+
+      renderWithCopilotKit({ agent, children: StatusProbeHost });
+
+      expect(screen.getByTestId("running").textContent).toBe("idle");
+      expect(screen.getByTestId("stop-availability").textContent).toBe(
+        "missing",
+      );
+
+      await fireEvent.click(screen.getByTestId("submit"));
+      await agent.emit(runStartedEvent());
+
+      await waitFor(() => {
+        expect(screen.getByTestId("running").textContent).toBe("running");
+        expect(screen.getByTestId("stop-availability").textContent).toBe(
+          "available",
+        );
+      });
+
+      await agent.emit({ type: EventType.RUN_ERROR } as any);
+      await agent.complete();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("running").textContent).toBe("idle");
+        expect(screen.getByTestId("stop-availability").textContent).toBe(
+          "missing",
+        );
+      });
     });
   });
 

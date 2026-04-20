@@ -1,6 +1,7 @@
 import { defineComponent } from "vue";
 import { screen, fireEvent, waitFor, cleanup } from "@testing-library/vue";
 import { afterEach, describe, expect, it } from "vitest";
+import { EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import type { Observable } from "rxjs";
 import {
@@ -132,6 +133,54 @@ describe("useAgent e2e", () => {
         expect(
           screen.getByText("Hello! I received your message."),
         ).toBeDefined();
+      });
+    });
+  });
+
+  describe("run error lifecycle", () => {
+    it("updates useAgent subscribers when run ends with RUN_ERROR", async () => {
+      const agent = new MockStepwiseAgent();
+
+      const RunErrorStatusComponent = defineComponent({
+        setup() {
+          const { agent: hookAgent } = useAgent();
+          const { copilotkit } = useCopilotKit();
+
+          const handleRun = async () => {
+            await copilotkit.value.runAgent({ agent: hookAgent.value });
+          };
+
+          return { hookAgent, handleRun };
+        },
+        template: `
+          <div>
+            <button data-testid="run-btn" @click="handleRun">Run</button>
+            <span data-testid="status">{{ hookAgent?.isRunning ? "running" : "idle" }}</span>
+          </div>
+        `,
+      });
+
+      renderWithCopilotKit({
+        agent,
+        children: RunErrorStatusComponent,
+      });
+
+      expect(screen.getByTestId("status").textContent).toBe("idle");
+
+      await fireEvent.click(screen.getByTestId("run-btn"));
+      await agent.emit(runStartedEvent());
+
+      await waitFor(() => {
+        expect(screen.getByTestId("status").textContent).toBe("running");
+      });
+
+      await agent.emit({
+        type: EventType.RUN_ERROR,
+      } as BaseEvent);
+      await agent.complete();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("status").textContent).toBe("idle");
       });
     });
   });
