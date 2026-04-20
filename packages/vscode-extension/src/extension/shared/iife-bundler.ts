@@ -88,6 +88,42 @@ const shim = { randomFillSync, randomBytes, randomUUID };
 export default shim;
 `;
 
+// Workspace CopilotKit packages ship CJS dist entries that rolldown wraps in
+// `__commonJSMin`. Those wrappers trigger TDZ errors
+// (`Cannot access 'require_<pkg>' before initialization`) when the bundle
+// contains circular imports through the react-core/chat/runtime-client graph.
+// Resolving to the TS source bypasses the CJS wrapper entirely — ESM imports
+// rolldown handles cleanly.
+//
+// Mirrors the `workspaceSourceAliases` map in `tsdown.config.ts`, which does
+// the same redirection for the extension's own webview build. When the
+// extension is running from a monorepo checkout each src path exists; when
+// installed from the marketplace against a user project that pulled the
+// packages from npm, the src path won't exist, we fall through to normal Node
+// resolution, and the CJS TDZ is back as a live concern — that case is a
+// separate production issue tracked outside this file.
+const WORKSPACE_SOURCE_PKGS = [
+  "@copilotkit/a2ui-renderer",
+  "@copilotkit/shared",
+  "@copilotkit/runtime-client-gql",
+];
+
+function buildWorkspaceSourceAliases(): Record<string, string> {
+  const aliases: Record<string, string> = {};
+  for (const pkg of WORKSPACE_SOURCE_PKGS) {
+    try {
+      const pkgJson = extensionRequire.resolve(`${pkg}/package.json`);
+      const srcIndex = path.join(path.dirname(pkgJson), "src", "index.ts");
+      if (fs.existsSync(srcIndex)) aliases[pkg] = srcIndex;
+    } catch {
+      /* package not installed / resolvable — skip */
+    }
+  }
+  return aliases;
+}
+
+const WORKSPACE_SOURCE_ALIASES = buildWorkspaceSourceAliases();
+
 /**
  * Rolldown plugin that resolves bare specifiers using Node's module resolution
  * as a fallback: tries the importer's directory first (the user's project),
@@ -139,6 +175,12 @@ function nodeResolveFallback(
       }
       if (skipPrefixes.some((p) => source === p || source.startsWith(p))) {
         return null;
+      }
+      // Workspace CopilotKit packages → TS source. Must run before Node
+      // resolution, which would find the CJS dist and trigger a TDZ error
+      // under circular imports (see WORKSPACE_SOURCE_PKGS note above).
+      if (source in WORKSPACE_SOURCE_ALIASES) {
+        return { id: WORKSPACE_SOURCE_ALIASES[source] };
       }
 
       if (importer) {
