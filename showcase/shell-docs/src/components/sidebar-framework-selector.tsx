@@ -11,10 +11,15 @@ import React from "react";
 import { FrameworkSelector } from "./framework-selector";
 import { getIntegrations, getCategoryLabel } from "@/lib/registry";
 
-// Keep in sync with the registry's canonical category ordering. Mirrors
-// the ordering used on the integrations page so the selector panel
-// reads the same everywhere.
-const INTEGRATION_CATEGORY_IDS = [
+// Canonical category ordering for framework pickers. Mirrors the
+// ordering used on the integrations page so the selector panel reads
+// the same everywhere.
+//
+// TODO(registry): promote this to `@/lib/registry` alongside
+// getCategoryLabel so the `/` landing grid and this sidebar dropdown
+// share a single source of truth. Leaving in place for now because the
+// registry module is owned by a parallel refactor.
+const FRAMEWORK_CATEGORY_ORDER = [
   "popular",
   "agent-framework",
   "provider-sdk",
@@ -25,9 +30,19 @@ const INTEGRATION_CATEGORY_IDS = [
 ] as const;
 
 export function SidebarFrameworkSelector() {
+  // Sort by explicit sort_order, falling back to alphabetical slug for
+  // stability when multiple integrations share the default. Array#sort
+  // is not guaranteed stable across engines for ties, so we make the
+  // tiebreak explicit — otherwise "soon" integrations shuffle between
+  // renders on builds using different V8 revisions.
   const options = getIntegrations()
     .slice()
-    .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999))
+    .sort((a, b) => {
+      const ao = a.sort_order ?? 999;
+      const bo = b.sort_order ?? 999;
+      if (ao !== bo) return ao - bo;
+      return a.slug.localeCompare(b.slug);
+    })
     .map((i) => ({
       slug: i.slug,
       name: i.name,
@@ -36,7 +51,7 @@ export function SidebarFrameworkSelector() {
       deployed: i.deployed,
     }));
 
-  const categoryOrder = INTEGRATION_CATEGORY_IDS.map((id) => ({
+  const categoryOrder = FRAMEWORK_CATEGORY_ORDER.map((id) => ({
     id,
     name: getCategoryLabel(id),
   }));
