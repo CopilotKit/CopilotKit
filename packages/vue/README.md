@@ -241,7 +241,6 @@ Default reasoning behavior mirrors React semantics:
 import { useThreads } from "@copilotkitnext/vue";
 
 const { threads, isLoading, renameThread, deleteThread } = useThreads({
-  userId: "user-1",
   agentId: "agent-1",
 });
 </script>
@@ -258,7 +257,7 @@ const { threads, isLoading, renameThread, deleteThread } = useThreads({
 </template>
 ```
 
-`useThreads` is a headless composable for Intelligence-platform thread lists. It subscribes to realtime metadata updates when the runtime exposes a websocket URL and returns reactive refs for `threads`, `isLoading`, and `error`.
+`useThreads` is a headless composable for Intelligence-platform thread lists scoped to the runtime-authenticated user and provided `agentId`. It subscribes to realtime metadata updates when the runtime exposes a websocket URL and returns reactive refs for `threads`, `isLoading`, and `error`.
 
 ### `useInterrupt`
 

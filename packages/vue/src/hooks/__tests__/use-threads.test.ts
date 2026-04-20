@@ -1,5 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { defineComponent, h, nextTick, ref } from "vue";
+import type { Ref } from "vue";
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { useCopilotKit } from "../../providers/useCopilotKit";
 
@@ -305,7 +306,7 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-const defaultInput = { userId: "user-1", agentId: "agent-1" };
+const defaultInput = { agentId: "agent-1" };
 
 const sampleThreads = [
   {
@@ -335,8 +336,7 @@ type UseThreadsResult = ReturnType<typeof useThreads>;
 
 function mountHook(
   input: {
-    userId: string | ReturnType<typeof ref<string>>;
-    agentId: string | ReturnType<typeof ref<string>>;
+    agentId: string | Ref<string>;
   } = defaultInput,
 ) {
   let result: UseThreadsResult | undefined;
@@ -591,7 +591,6 @@ describe("useThreads", () => {
   describe("Vue-specific reactive semantics", () => {
     it("reacts to reactive input changes", async () => {
       const copilotkit = setupCopilotKit();
-      const userId = ref("user-1");
       const agentId = ref("agent-1");
 
       fetchMock
@@ -603,6 +602,7 @@ describe("useThreads", () => {
               {
                 ...sampleThreads[0],
                 id: "t-3",
+                agentId: "agent-2",
                 createdById: "user-2",
               },
             ],
@@ -610,13 +610,13 @@ describe("useThreads", () => {
         )
         .mockReturnValueOnce(jsonResponse({ joinToken: "jt-2" }));
 
-      const { getResult } = mountHook({ userId, agentId });
+      const { getResult } = mountHook({ agentId });
 
       await vi.waitFor(() => {
         expect(getResult().isLoading.value).toBe(false);
       });
 
-      userId.value = "user-2";
+      agentId.value = "agent-2";
       copilotkit.value = {
         ...copilotkit.value,
         headers: { Authorization: "Bearer updated" },
@@ -624,7 +624,7 @@ describe("useThreads", () => {
 
       await vi.waitFor(() => {
         expect(fetchMock).toHaveBeenCalledWith(
-          expect.stringContaining("/threads?agentId=agent-1"),
+          expect.stringContaining("/threads?agentId=agent-2"),
           expect.objectContaining({ method: "GET" }),
         );
       });

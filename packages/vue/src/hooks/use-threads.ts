@@ -16,7 +16,6 @@ import { useCopilotKit } from "../providers/useCopilotKit";
 export interface Thread extends CoreThread {}
 
 export interface UseThreadsInput {
-  userId: MaybeRefOrGetter<string>;
   agentId: MaybeRefOrGetter<string>;
 }
 
@@ -44,10 +43,10 @@ function bindThreadStoreSelector<T>(
 /**
  * Vue composable for listing and managing Intelligence platform threads.
  *
- * The hook fetches threads for the current `userId` / `agentId` pair and keeps
- * the result in sync via the core thread store's realtime channel when
- * available. Inputs accept refs/computeds to make thread context changes
- * reactive.
+ * The hook fetches threads for the runtime-authenticated user and the given
+ * `agentId`, then keeps the result in sync via the core thread store's realtime
+ * channel when available. Inputs accept refs/computeds to make thread context
+ * changes reactive.
  */
 export function useThreads(input: UseThreadsInput): UseThreadsResult {
   const { copilotkit } = useCopilotKit();
@@ -55,7 +54,6 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
     fetch: globalThis.fetch,
   });
 
-  const resolvedUserId = computed(() => toValue(input.userId));
   const resolvedAgentId = computed(() => toValue(input.agentId));
   const headersKey = computed(() =>
     JSON.stringify(
@@ -85,10 +83,9 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
       () => copilotkit.value.runtimeUrl,
       headersKey,
       () => copilotkit.value.intelligence?.wsUrl,
-      resolvedUserId,
       resolvedAgentId,
     ],
-    ([runtimeUrl, _headersKey, wsUrl, _userId, agentId]) => {
+    ([runtimeUrl, _headersKey, wsUrl, agentId]) => {
       const context: ɵThreadRuntimeContext | null = runtimeUrl
         ? {
             runtimeUrl,
