@@ -309,8 +309,8 @@ const MemoizedCustomMessage = React.memo(
  * Deduplicates messages by ID. For assistant messages, merges occurrences:
  * recovers non-empty content from any earlier occurrence if the latest wiped it
  * (empty string means the streaming update cleared the field, not blank text),
- * and similarly recovers toolCalls from earlier occurrences if the latest is
- * undefined (an empty array [] is treated as intentional and kept as-is).
+ * and merges toolCalls from all occurrences by id so that no tool call is lost
+ * (an explicit [] is treated as intentional and resets the set).
  * For all other roles, keeps the last entry.
  *
  * @internal Exported for unit testing only — not part of the public API.
@@ -328,9 +328,26 @@ export function deduplicateMessages(messages: Message[]): Message[] {
       // any non-empty content seen earlier. Use { ...existing, ...message } so
       // fields present only in an earlier occurrence are not silently dropped.
       const content = message.content || existing.content;
-      // undefined toolCalls means this chunk had no tool call activity — recover
-      // from earlier occurrences. An explicit [] means all tool calls completed.
-      const toolCalls = message.toolCalls ?? existing.toolCalls;
+      // Merge toolCalls from both occurrences by id so that tool calls from an
+      // earlier chunk are not lost when a later TOOL_CALL_START for the same
+      // parentMessageId creates a second entry (e.g. when a TOOL_CALL_RESULT
+      // was interleaved and the parent was no longer the last message).
+      // Precedence: later occurrence wins for any given id (most up-to-date args).
+      // undefined means no tool call activity in this chunk — fall back to existing.
+      // An explicit [] is intentional ("all tool calls finished") and resets the set.
+      let toolCalls: AssistantMessage["toolCalls"];
+      if (message.toolCalls === undefined) {
+        toolCalls = existing.toolCalls;
+      } else if (existing.toolCalls === undefined || message.toolCalls.length === 0) {
+        toolCalls = message.toolCalls;
+      } else {
+        // Both sides have non-empty toolCalls arrays — union by id, later wins.
+        const merged = new Map(existing.toolCalls.map((tc) => [tc.id, tc]));
+        for (const tc of message.toolCalls) {
+          merged.set(tc.id, tc);
+        }
+        toolCalls = [...merged.values()];
+      }
       acc.set(message.id, {
         ...existing,
         ...message,

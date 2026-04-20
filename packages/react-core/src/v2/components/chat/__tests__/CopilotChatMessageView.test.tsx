@@ -251,6 +251,53 @@ describe("deduplicateMessages", () => {
     expect((result[0] as AssistantMessage).toolCalls).toEqual([]);
   });
 
+  it("merges toolCalls from both occurrences when a TOOL_CALL_START for the same parent follows a TOOL_CALL_RESULT", () => {
+    // Reproduces issue #3644: when a TOOL_CALL_RESULT is interleaved between two
+    // TOOL_CALL_START events for the same parentMessageId, @ag-ui/client creates
+    // a second assistant message with the same id instead of appending to the
+    // existing one (because the parent is no longer the last message).
+    // deduplicateMessages must merge both occurrences' toolCalls by id so no
+    // tool call is silently dropped.
+    const messages: Message[] = [
+      assistantMsg("msg-x", "Thinking...", [
+        toolCall("tool-a", "fetchData"),
+        toolCall("tool-b", "processData"),
+      ]),
+      // Simulates the duplicate entry created by TOOL_CALL_START(tool_c) after a TOOL_CALL_RESULT
+      assistantMsg("msg-x", "", [toolCall("tool-c", "saveData")]),
+    ];
+
+    const result = deduplicateMessages(messages);
+
+    expect(result).toHaveLength(1);
+    const merged = result[0] as AssistantMessage;
+    // Content recovered from the first occurrence
+    expect(merged.content).toBe("Thinking...");
+    // All three tool calls must be present — none dropped
+    expect(merged.toolCalls).toHaveLength(3);
+    expect(merged.toolCalls?.map((tc) => tc.id)).toEqual([
+      "tool-a",
+      "tool-b",
+      "tool-c",
+    ]);
+  });
+
+  it("later occurrence wins for overlapping tool call ids during merge", () => {
+    // When both occurrences share a tool call id, the later entry's arguments
+    // take precedence (most up-to-date data).
+    const messages: Message[] = [
+      assistantMsg("msg-x", "", [toolCall("tc-1", "doWork", '{"step":1}')]),
+      assistantMsg("msg-x", "", [toolCall("tc-1", "doWork", '{"step":2}')]),
+    ];
+
+    const result = deduplicateMessages(messages);
+
+    expect(result).toHaveLength(1);
+    const merged = result[0] as AssistantMessage;
+    expect(merged.toolCalls).toHaveLength(1);
+    expect(merged.toolCalls?.[0]?.function.arguments).toBe('{"step":2}');
+  });
+
   it("handles undefined content on both occurrences without error", () => {
     // assistantMsg with no content arg produces content: undefined.
     // undefined || undefined = undefined — should not throw or produce garbage.
