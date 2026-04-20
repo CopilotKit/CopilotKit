@@ -204,8 +204,20 @@ const allRenderCustomMessages = computed(
   () => props.renderCustomMessages ?? [],
 );
 
-const createCopilotKit = () =>
-  new CopilotKitCoreVue({
+const applyDefaultThrottleMs = (core: CopilotKitCoreVue) => {
+  if (
+    props.defaultThrottleMs !== undefined &&
+    (!Number.isFinite(props.defaultThrottleMs) || props.defaultThrottleMs < 0)
+  ) {
+    console.error(
+      `CopilotKitProvider: defaultThrottleMs must be a non-negative finite number, got ${props.defaultThrottleMs}. useAgent hooks without an explicit throttleMs will fall back to unthrottled.`,
+    );
+  }
+  core.setDefaultThrottleMs(props.defaultThrottleMs);
+};
+
+const createCopilotKit = () => {
+  const core = new CopilotKitCoreVue({
     runtimeUrl: chatApiEndpoint.value,
     runtimeTransport: props.useSingleEndpoint ? "single" : "rest",
     headers: mergedHeaders.value,
@@ -216,6 +228,10 @@ const createCopilotKit = () =>
     renderToolCalls: allRenderToolCalls.value,
     renderCustomMessages: allRenderCustomMessages.value,
   });
+  // Initialize synchronously so child hooks can read the value on first render.
+  applyDefaultThrottleMs(core);
+  return core;
+};
 
 const copilotkit = shallowRef<CopilotKitCoreVue>(createCopilotKit());
 const didMountRef = ref(false);
@@ -312,6 +328,7 @@ function syncRuntimeConfig() {
   copilotkit.value.setCredentials(props.credentials);
   copilotkit.value.setProperties(props.properties);
   copilotkit.value.setAgents__unsafe_dev_only(mergedAgents.value);
+  applyDefaultThrottleMs(copilotkit.value);
 }
 
 watch(
@@ -322,6 +339,7 @@ watch(
     () => props.properties,
     () => mergedAgents.value,
     () => props.useSingleEndpoint,
+    () => props.defaultThrottleMs,
   ],
   () => {
     if (!didMountRef.value) return;

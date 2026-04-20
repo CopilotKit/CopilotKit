@@ -24,6 +24,11 @@ const ALL_UPDATES: UseAgentUpdate[] = [
 export interface UseAgentProps {
   agentId?: MaybeRefOrGetter<string | undefined>;
   updates?: UseAgentUpdate[];
+  /**
+   * Throttle interval (ms) for `OnMessagesChanged` refreshes.
+   * Falls back to provider `defaultThrottleMs` when omitted.
+   */
+  throttleMs?: MaybeRefOrGetter<number | undefined>;
 }
 
 /**
@@ -42,6 +47,22 @@ export function useAgent(props: UseAgentProps = {}) {
   const agentId = computed(() => toValue(props.agentId) ?? DEFAULT_AGENT_ID);
   const { copilotkit } = useCopilotKit();
   const updateFlags = computed(() => props.updates ?? ALL_UPDATES);
+  const providerThrottleMs = computed(() => copilotkit.value.defaultThrottleMs);
+  const hookThrottleMs = computed(() => toValue(props.throttleMs));
+  const effectiveThrottleMs = computed(() => {
+    const resolved = hookThrottleMs.value ?? providerThrottleMs.value ?? 0;
+    if (!Number.isFinite(resolved) || resolved < 0) {
+      const source =
+        hookThrottleMs.value !== undefined
+          ? "hook-level throttleMs"
+          : "provider-level defaultThrottleMs";
+      console.error(
+        `useAgent: ${source} must be a non-negative finite number, got ${resolved}. Falling back to unthrottled.`,
+      );
+      return 0;
+    }
+    return resolved;
+  });
 
   const agent = shallowRef<AbstractAgent>(null!);
   const subscriptionAgent = shallowRef<AbstractAgent | null>(null);
@@ -147,11 +168,13 @@ export function useAgent(props: UseAgentProps = {}) {
   );
 
   watch(
-    [subscriptionAgent, updateFlags],
-    ([a, flags], _old, onCleanup) => {
+    [subscriptionAgent, updateFlags, effectiveThrottleMs],
+    ([a, flags, throttleMs], _old, onCleanup) => {
       if (!a || (flags as UseAgentUpdate[]).length === 0) return;
       let disposed = false;
       let refreshQueued = false;
+      let timerId: ReturnType<typeof setTimeout> | null = null;
+
       const scheduleRefresh = () => {
         if (disposed || refreshQueued) {
           return;
@@ -167,7 +190,32 @@ export function useAgent(props: UseAgentProps = {}) {
       const handlers: Parameters<AbstractAgent["subscribe"]>[0] = {};
       const f = flags as UseAgentUpdate[];
       if (f.includes(UseAgentUpdate.OnMessagesChanged)) {
-        handlers.onMessagesChanged = scheduleRefresh;
+        if (throttleMs > 0) {
+          let throttleActive = false;
+          let pending = false;
+          handlers.onMessagesChanged = () => {
+            if (disposed) return;
+            if (!throttleActive) {
+              throttleActive = true;
+              pending = false;
+              triggerRef(agent);
+              timerId = setTimeout(function trailingEdge() {
+                timerId = null;
+                if (!disposed && pending) {
+                  pending = false;
+                  triggerRef(agent);
+                  timerId = setTimeout(trailingEdge, throttleMs);
+                } else {
+                  throttleActive = false;
+                }
+              }, throttleMs);
+            } else {
+              pending = true;
+            }
+          };
+        } else {
+          handlers.onMessagesChanged = scheduleRefresh;
+        }
       }
       if (f.includes(UseAgentUpdate.OnStateChanged)) {
         handlers.onStateChanged = scheduleRefresh;
@@ -183,6 +231,9 @@ export function useAgent(props: UseAgentProps = {}) {
       const sub = (a as AbstractAgent).subscribe(handlers);
       onCleanup(() => {
         disposed = true;
+        if (timerId !== null) {
+          clearTimeout(timerId);
+        }
         sub.unsubscribe();
       });
     },

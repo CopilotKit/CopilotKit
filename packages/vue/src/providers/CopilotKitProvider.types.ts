@@ -11,6 +11,7 @@ export interface CopilotKitProviderProps {
   runtimeUrl?: string;
   headers?: Record<string, string> | (() => Record<string, string>);
   credentials?: RequestCredentials;
+  defaultThrottleMs?: number;
   publicApiKey?: string;
   publicLicenseKey?: string;
   properties?: Record<string, unknown>;
