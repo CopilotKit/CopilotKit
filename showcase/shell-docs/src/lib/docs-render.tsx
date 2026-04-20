@@ -14,6 +14,29 @@ import { resolveWithinDir } from "./safe-fs";
 export const CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
 export const SNIPPETS_DIR = path.join(CONTENT_DIR, "..", "snippets");
 
+/**
+ * Canonical category ordering for the framework picker / integrations
+ * grid / sidebar framework selector. Defined here so every consumer
+ * imports the same source of truth.
+ *
+ * Consumer files (sidebar-framework-selector.tsx, [[...slug]]/page.tsx)
+ * previously defined this constant independently — any drift between
+ * the copies would show up as divergent category ordering across the
+ * UI. Follow-up: once all consumers import from here, remove their
+ * local duplicates (owned by later blitz agents / registry refactor).
+ */
+export const FRAMEWORK_CATEGORY_ORDER = [
+  "popular",
+  "agent-framework",
+  "provider-sdk",
+  "enterprise-platform",
+  "protocol",
+  "emerging",
+  "starter",
+] as const;
+
+export type FrameworkCategory = (typeof FRAMEWORK_CATEGORY_ORDER)[number];
+
 // ---------------------------------------------------------------------------
 // Nav tree types
 // ---------------------------------------------------------------------------
@@ -244,10 +267,28 @@ export function buildNavTreeFromFilesystem(
 // Snippet inlining (same rules as the docs page)
 // ---------------------------------------------------------------------------
 
+// Maps `<ComponentName />` MDX references to the relative snippet file
+// under SNIPPETS_DIR. Keys are JSX component names (PascalCase) and
+// must match EXACTLY what authors write in MDX — they are not
+// filesystem paths and are case-sensitive on both sides of the map.
+//
+// Aliases (same target under multiple keys) are intentional and exist
+// because the codebase historically shipped both spellings:
+//   - `AgUI` / `AGUI`                — two legal casings; keep both
+//     so authors writing either render correctly. Upstream consumers
+//     reach this via SUBPATH_TO_COMPONENT which uses `AGUI`.
+//   - `FrontendTools` / `FrontEndToolsImpl` — historical name kept
+//     for backward compat with existing MDX that still uses
+//     `<FrontEndToolsImpl />` (confirmed in live docs content). Don't
+//     collapse these without first rewriting all .mdx references.
+//
+// Filename casing: `migrate-to-1.10.X.mdx` and `migrate-to-1.8.2.mdx`
+// match the on-disk files exactly (uppercase X in 1.10.X), verified
+// against src/content/snippets/shared/troubleshooting/.
 export const SNIPPET_MAP: Record<string, string> = {
   A2UI: "shared/generative-ui/a2ui.mdx",
   AgUI: "shared/backend/ag-ui.mdx",
-  AGUI: "shared/backend/ag-ui.mdx",
+  AGUI: "shared/backend/ag-ui.mdx", // alias of AgUI
   CodingAgents: "shared/coding-agents.mdx",
   CommonIssues: "shared/troubleshooting/common-issues.mdx",
   CopilotRuntime: "copilot-runtime.mdx",
@@ -256,7 +297,7 @@ export const SNIPPET_MAP: Record<string, string> = {
   DisplayOnly: "shared/generative-ui/display-only.mdx",
   ErrorDebugging: "shared/troubleshooting/error-debugging.mdx",
   FrontendTools: "shared/app-control/frontend-tools.mdx",
-  FrontEndToolsImpl: "shared/app-control/frontend-tools.mdx",
+  FrontEndToolsImpl: "shared/app-control/frontend-tools.mdx", // alias of FrontendTools
   GenerativeUISpecsOverview: "shared/generative-ui-specs-overview.mdx",
   HeadlessUI: "shared/basics/headless-ui.mdx",
   Inspector: "shared/premium/inspector.mdx",
