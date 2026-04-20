@@ -253,6 +253,13 @@ export function App() {
       </div>
     );
   }
+  // `controls` is seeded via useEffect — so the first render after
+  // `config` lands has `controls === null`, and ControlsDispatch /
+  // adapters would crash on `values.status` etc. Wait one tick for the
+  // seed effect to run before rendering the preview surface.
+  if (!controls) {
+    return <div className="hook-preview-wait">Preparing controls…</div>;
+  }
 
   const renderKind = payload.selection.renderProps;
   const headerLine = (
