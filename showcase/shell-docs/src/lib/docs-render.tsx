@@ -49,8 +49,30 @@ export function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+// Process-scoped memoization for frequently-called filesystem readers.
+// buildNavTree walks the entire content tree on every page render and
+// calls readTitle / readMeta O(pages) times per request. Without this
+// cache each call reopens and re-parses the file from disk. We accept
+// stale-during-process semantics: the cache lives for the life of the
+// Node process, which matches Next.js build-time and server runtime
+// lifetimes. Caches are keyed by absolute path.
+//
+// Memory footprint: titles are tiny strings, meta is a small JSON
+// object — negligible even with hundreds of docs files.
+const titleCache = new Map<string, string | null>();
+const metaCache = new Map<
+  string,
+  { title?: string; pages?: string[]; root?: boolean } | null
+>();
+
 export function readTitle(filePath: string): string | null {
-  if (!fs.existsSync(filePath)) return null;
+  const cacheKey = path.resolve(filePath);
+  if (titleCache.has(cacheKey)) return titleCache.get(cacheKey)!;
+
+  if (!fs.existsSync(filePath)) {
+    titleCache.set(cacheKey, null);
+    return null;
+  }
   const raw = fs.readFileSync(filePath, "utf-8");
   // Restrict frontmatter matches to the frontmatter block so we don't
   // grab a `title:` line that lives inside an MDX body (e.g. inside a
@@ -58,24 +80,39 @@ export function readTitle(filePath: string): string | null {
   // frontmatter title is set.
   const fm = extractFrontmatter(raw);
   const fmMatch = fm.match(/^title:\s*["']?(.+?)["']?\s*$/m);
-  if (fmMatch) return fmMatch[1].replace(/["']$/, "");
-  const headingMatch = raw.match(/^#\s+(.+)$/m);
-  if (headingMatch) return headingMatch[1];
-  return null;
+  let title: string | null = null;
+  if (fmMatch) {
+    title = fmMatch[1].replace(/["']$/, "");
+  } else {
+    const headingMatch = raw.match(/^#\s+(.+)$/m);
+    if (headingMatch) title = headingMatch[1];
+  }
+  titleCache.set(cacheKey, title);
+  return title;
 }
 
 export function readMeta(
   dir: string,
 ): { title?: string; pages?: string[]; root?: boolean } | null {
   const metaPath = path.join(dir, "meta.json");
-  if (!fs.existsSync(metaPath)) return null;
+  const cacheKey = path.resolve(metaPath);
+  if (metaCache.has(cacheKey)) return metaCache.get(cacheKey)!;
+
+  if (!fs.existsSync(metaPath)) {
+    metaCache.set(cacheKey, null);
+    return null;
+  }
   try {
-    return JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+    const parsed = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+    metaCache.set(cacheKey, parsed);
+    return parsed;
   } catch (err) {
     // Previously swallowed silently — a malformed meta.json rendered
     // as "no nav ordering" with zero signal. Log loudly so authors
-    // see the offending path and parse error.
+    // see the offending path and parse error. Cache the null so we
+    // don't re-parse a bad file on every call.
     console.error("[docs-render] failed to parse", metaPath, err);
+    metaCache.set(cacheKey, null);
     return null;
   }
 }
