@@ -44,6 +44,29 @@ const extensionRequire = createRequire(__filename);
 const BUILTIN_STUB_ID = "\0copilotkit-builtin-stub";
 const BUILTIN_CRYPTO_SHIM_ID = "\0copilotkit-builtin-crypto";
 
+// Markdown-pipeline deps pulled in transitively by @copilotkit/react-core's
+// chat UI. None of them are reachable on the hook-preview runtime path
+// (we mount the user's component but never trigger markdown rendering),
+// and several have node-vs-browser conditional exports that produce
+// MISSING_EXPORT errors once Node builtins are stubbed (e.g. vfile's
+// `#minurl` loses `urlToPath` on the browser condition).
+//
+// Each entry lists the named exports dependents statically import. The
+// stub emits those names as `undefined` so rolldown's named-export
+// analysis succeeds; if a new dep breaks the build with a
+// "MISSING_EXPORT" error, add its exports here.
+const STUBBED_TRANSITIVE_DEPS: Record<string, string[]> = {
+  vfile: ["VFile"],
+  "stringify-entities": ["stringifyEntities"],
+  "parse-entities": ["parseEntities"],
+  "character-entities": ["characterEntities"],
+  "character-entities-legacy": ["characterEntitiesLegacy"],
+  "character-reference-invalid": ["characterReferenceInvalid"],
+  "decode-named-character-reference": ["decodeNamedCharacterReference"],
+  "hast-util-to-html": ["toHtml"],
+};
+const STUB_DEP_PREFIX = "\0copilotkit-stub-dep:";
+
 // Same WebCrypto forwarding shim as tsdown.config.ts uses — react-core's
 // ThreadsProvider calls `randomUUID()` / `uuid.v4()` at first render, and
 // `crypto.randomFillSync` is the most-used entry through the uuid package.
@@ -89,23 +112,33 @@ function nodeResolveFallback(
     enforce: "pre" as const,
     resolveId(source: string, importer: string | undefined) {
       if (source.startsWith(".") || path.isAbsolute(source)) return null;
-      if (skipPrefixes.some((p) => source === p || source.startsWith(p))) {
-        return null;
-      }
       // If the caller explicitly configured `external` to include this
       // specifier (or a matching regex), defer to their intent — they may
       // want to supply a browser polyfill at runtime.
       if (matchesExternal(source, external)) return null;
-      // Node builtins — route through a virtual module rather than
-      // marking external. In IIFE format without a globals entry, an
-      // external emits `var node_path = node_path;` which is undefined at
-      // runtime. A stub (or WebCrypto shim for `crypto`) avoids that and
-      // keeps the bundled source runnable as long as nothing actually
-      // *calls* the missing API.
+      // Node builtins MUST be checked before `skipPrefixes` — a caller that
+      // passes ["node:"] as a skip (to avoid treating `node:*` as a bare
+      // specifier for node_modules resolution) would otherwise short-circuit
+      // past our stub, which is the bug that caused
+      // `var node_path = node_path;` to land in the IIFE and throw
+      // 'node_path is not defined' in the webview.
+      //
+      // Route builtins through a virtual module rather than marking them
+      // external. In IIFE format without a globals entry, an external is
+      // emitted as a self-assign that's undefined at runtime; a stub (or
+      // WebCrypto shim for `crypto`) avoids that and keeps the bundled
+      // source runnable as long as nothing actually *calls* the missing API.
       const bare = source.startsWith("node:") ? source.slice(5) : source;
       if (isBuiltin(bare)) {
         if (bare === "crypto") return BUILTIN_CRYPTO_SHIM_ID;
         return BUILTIN_STUB_ID;
+      }
+      // Unreachable markdown-chain deps pulled in by react-core's chat UI.
+      if (source in STUBBED_TRANSITIVE_DEPS) {
+        return STUB_DEP_PREFIX + source;
+      }
+      if (skipPrefixes.some((p) => source === p || source.startsWith(p))) {
+        return null;
       }
 
       if (importer) {
@@ -129,6 +162,13 @@ function nodeResolveFallback(
     load(id: string) {
       if (id === BUILTIN_STUB_ID) return "export default {};";
       if (id === BUILTIN_CRYPTO_SHIM_ID) return CRYPTO_SHIM_SOURCE;
+      if (id.startsWith(STUB_DEP_PREFIX)) {
+        const spec = id.slice(STUB_DEP_PREFIX.length);
+        const names = STUBBED_TRANSITIVE_DEPS[spec] ?? [];
+        const lines = names.map((n) => `export const ${n} = undefined;`);
+        lines.push("export default {};");
+        return lines.join("\n");
+      }
       return null;
     },
   };

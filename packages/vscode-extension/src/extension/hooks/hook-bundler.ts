@@ -29,6 +29,9 @@ export function bundleHookSite(entryPath: string): Promise<HookBundleResult> {
       "react/jsx-runtime": "__copilotkit_deps.JSXRuntime",
       "react/jsx-dev-runtime": "__copilotkit_deps.JSXRuntime",
     },
-    skipSpecifierPrefixes: ["node:", "vscode"],
+    // `node:` no longer needs to be in skipSpecifierPrefixes — the iife-bundler
+    // now stubs Node builtins (prefixed or not) to empty/shim modules so the
+    // IIFE doesn't externalize them as undefined args.
+    skipSpecifierPrefixes: ["vscode"],
   });
 }
