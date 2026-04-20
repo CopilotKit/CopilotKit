@@ -10,9 +10,6 @@
  * ```
  */
 
-// Auto-install polyfills and streaming fetch on import
-import "./polyfills";
-
 // React Native provider (no web dependencies)
 export { CopilotKitProvider } from "./CopilotKitProvider";
 export type { CopilotKitNativeProviderProps } from "./CopilotKitProvider";
@@ -20,6 +17,7 @@ export type { CopilotKitNativeProviderProps } from "./CopilotKitProvider";
 // Re-export context and hooks from react-core (platform-agnostic)
 export {
   useCopilotKit,
+  useLicenseContext,
   CopilotKitContext,
   type CopilotKitContextValue,
 } from "@copilotkit/react-core/v2/context";

@@ -42,8 +42,32 @@ vi.mock("@copilotkit/react-core/v2/headless", () => {
   return { CopilotKitCoreReact };
 });
 
-vi.mock("@copilotkit/react-core/v2/context", () => ({
-  CopilotKitContext: hoisted.RealContext,
+vi.mock("@copilotkit/react-core/v2/context", () => {
+  const _React = require("react");
+  return {
+    CopilotKitContext: hoisted.RealContext,
+    LicenseContext: _React.createContext({
+      status: null,
+      license: null,
+      checkFeature: () => true,
+      getLimit: () => null,
+    }),
+    useLicenseContext: () => ({
+      status: null,
+      license: null,
+      checkFeature: () => true,
+      getLimit: () => null,
+    }),
+  };
+});
+
+vi.mock("@copilotkit/shared", () => ({
+  createLicenseContextValue: () => ({
+    status: null,
+    license: null,
+    checkFeature: () => true,
+    getLimit: () => null,
+  }),
 }));
 
 // Import after mocks

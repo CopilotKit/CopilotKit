@@ -8,6 +8,7 @@ import React, {
 import {
   CopilotKitContext,
   type CopilotKitContextValue,
+  LicenseContext,
 } from "@copilotkit/react-core/v2/context";
 import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
@@ -180,9 +181,21 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     } as unknown as CopilotKitContextValue;
   }, [copilotkit, executingToolCallIds]);
 
+  const licenseContextValue = useMemo(
+    () => ({
+      status: null as null,
+      license: null as null,
+      checkFeature: () => true,
+      getLimit: () => null,
+    }),
+    [],
+  );
+
   return (
     <CopilotKitContext.Provider value={contextValue}>
-      {children}
+      <LicenseContext.Provider value={licenseContextValue}>
+        {children}
+      </LicenseContext.Provider>
     </CopilotKitContext.Provider>
   );
 };

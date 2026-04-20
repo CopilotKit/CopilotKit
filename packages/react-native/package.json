@@ -17,6 +17,10 @@
     "url": "https://github.com/CopilotKit/CopilotKit.git"
   },
   "type": "module",
+  "sideEffects": [
+    "./dist/polyfills.*",
+    "./dist/polyfills/**/*"
+  ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.cts",
@@ -28,6 +32,26 @@
     "./polyfills": {
       "import": "./dist/polyfills.js",
       "require": "./dist/polyfills.cjs"
+    },
+    "./polyfills/streams": {
+      "import": "./dist/polyfills/streams.js",
+      "require": "./dist/polyfills/streams.cjs"
+    },
+    "./polyfills/encoding": {
+      "import": "./dist/polyfills/encoding.js",
+      "require": "./dist/polyfills/encoding.cjs"
+    },
+    "./polyfills/crypto": {
+      "import": "./dist/polyfills/crypto.js",
+      "require": "./dist/polyfills/crypto.cjs"
+    },
+    "./polyfills/dom": {
+      "import": "./dist/polyfills/dom.js",
+      "require": "./dist/polyfills/dom.cjs"
+    },
+    "./polyfills/location": {
+      "import": "./dist/polyfills/location.js",
+      "require": "./dist/polyfills/location.cjs"
     },
     "./package.json": "./package.json"
   },
