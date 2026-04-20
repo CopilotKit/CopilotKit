@@ -88,6 +88,7 @@ export class HookPreviewPanel {
         this.currentSite = null;
         this.webviewReady = false;
         this.pendingMessages = [];
+        this.pendingCapLogged = false;
       });
       this.panel.webview.onDidReceiveMessage((msg) => this.onMessage(msg));
       const nonce = getNonce();
@@ -110,13 +111,29 @@ export class HookPreviewPanel {
     this.panel = null;
   }
 
+  // Cap so a never-ready webview (CSP violation, crashed IIFE, etc.)
+  // can't grow the buffer unbounded while `handleFileChange` fires on
+  // every save. Each queued message can embed a megabyte-scale bundle,
+  // so we keep the cap modest.
+  private static readonly MAX_PENDING_MESSAGES = 32;
+  // Latched so the cap-hit warning logs once per wedged-webview episode.
+  private pendingCapLogged = false;
+
   private post(message: unknown): void {
     const panel = this.panel;
     if (!panel) return;
     if (this.webviewReady) {
       panel.webview.postMessage(message);
-    } else {
+    } else if (
+      this.pendingMessages.length < HookPreviewPanel.MAX_PENDING_MESSAGES
+    ) {
       this.pendingMessages.push(message);
+    } else if (!this.pendingCapLogged) {
+      this.pendingCapLogged = true;
+      this.outputChannel.appendLine(
+        `[hook-preview] pendingMessages cap (${HookPreviewPanel.MAX_PENDING_MESSAGES}) reached — ` +
+          `webview never posted "ready". Check the webview devtools for CSP or bundle errors.`,
+      );
     }
   }
 
@@ -200,6 +217,7 @@ export class HookPreviewPanel {
     if (!isWebviewMsg(raw)) return;
     if (raw.type === "ready") {
       this.webviewReady = true;
+      this.pendingCapLogged = false;
       const queued = this.pendingMessages.splice(0);
       for (const m of queued) this.panel?.webview.postMessage(m);
       return;

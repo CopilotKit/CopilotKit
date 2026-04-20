@@ -77,14 +77,37 @@ export class CatalogListViewProvider implements vscode.WebviewViewProvider {
         this.postComponents();
         break;
       case "preview":
-        void this.callbacks.onPreview(msg.component, msg.fixtureName);
+        // Normalize at the wire boundary — JSON round-trip can turn an
+        // omitted field into explicit `null`, which matches neither
+        // `string` nor `undefined` at the callback's declared type.
+        void this.callbacks.onPreview(
+          msg.component,
+          msg.fixtureName ?? undefined,
+        );
         break;
       case "openSource":
-        void this.callbacks.onOpenSource(msg.component, msg.fixtureName);
+        void this.callbacks.onOpenSource(
+          msg.component,
+          msg.fixtureName ?? undefined,
+        );
         break;
       case "refresh":
         void this.callbacks.onRefresh();
         break;
+      default: {
+        // Exhaustiveness guard — adding a new variant to
+        // `CatalogListFromWebviewMessage` without handling it here will
+        // fail type-check at this line. At runtime, a version-skew
+        // scenario (older host receiving a newer webview's message)
+        // would land here — log so the skew leaves a breadcrumb.
+        const _exhaustive: never = msg;
+        void _exhaustive;
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[catalog-list] unknown wire-protocol message type:",
+          (msg as { type?: unknown }).type,
+        );
+      }
     }
   }
 

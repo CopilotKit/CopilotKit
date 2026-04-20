@@ -85,7 +85,18 @@ export function activateHookExplorer(
       return;
     }
     try {
-      allSites = scanWorkspace(workspaceRoot);
+      const result = scanWorkspace(workspaceRoot);
+      allSites = result.sites;
+      if (result.capped) {
+        const msg =
+          `[scan] hit MAX_FILES_SCANNED cap at ${result.filesScanned} files — ` +
+          `results may be incomplete. Add exclusions via .gitignore or ` +
+          `narrow your workspace folder.`;
+        outputChannel.appendLine(msg);
+        void vscode.window.showWarningMessage(
+          "CopilotKit hook scan was capped — results may be incomplete. See the CopilotKit Hook Explorer output channel for details.",
+        );
+      }
     } catch (err) {
       outputChannel.appendLine(
         `[scan] ${err instanceof Error ? err.message : String(err)}`,
@@ -118,7 +129,7 @@ export function activateHookExplorer(
   // Inline "▶️ Preview …" CodeLens above every render-hook call-site in
   // TypeScript and TypeScript-React files. Same click target as the
   // sidebar ▷ button — just available right where the hook is called.
-  const lensProvider = new HookLensProvider();
+  const lensProvider = new HookLensProvider(outputChannel);
   context.subscriptions.push(
     vscode.languages.registerCodeLensProvider(
       [
@@ -138,8 +149,13 @@ export function activateHookExplorer(
     const next = allSites.filter((s) => s.filePath !== filePath);
     try {
       next.push(...scanFile(filePath));
-    } catch {
-      // scanFile swallows parse / read failures; noop here.
+    } catch (err) {
+      // `scanFile` already swallows parse / read failures; any throw that
+      // reaches here is unexpected (OOM on a huge file, oxc panic, …).
+      // Log so the user has a trail instead of a silent stale list.
+      outputChannel.appendLine(
+        `[scan] ${filePath}: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
     allSites = next;
     viewProvider.setSites(allSites);

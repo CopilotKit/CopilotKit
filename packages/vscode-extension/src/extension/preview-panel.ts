@@ -165,14 +165,13 @@ export class PreviewPanel {
             message: `Fixture validation error:\n${validation.errors.map((e) => e.message).join("\n")}`,
           });
         }
-        const bundleResult = await bundleCatalog(fixturePath);
-        if (bundleResult.success && bundleResult.code) {
-          this.postMessage({
-            type: "error",
-            message:
-              "TypeScript fixture files are validated but not yet evaluated. Use .fixture.json for full support.",
-          });
-        }
+        // Note: TS/TSX fixtures are validated (above) but not yet runtime-
+        // evaluated. The prior code posted a `type: "error"` message on
+        // the successful-bundle path which rendered as a red error banner
+        // — misleading, because a valid fixture is not an error. The
+        // limitation is real but there's nothing the user can do in
+        // response, so we stay silent here until we add a proper "info"
+        // message type to the bridge.
       }
     }
 
@@ -188,11 +187,31 @@ export class PreviewPanel {
     this.postMessage({ type: "fixture-update", fixtures, activeFixture });
   }
 
+  // Cap pendingMessages so a never-ready webview (CSP violation, crashed
+  // script, etc.) can't grow the buffer unbounded while the user keeps
+  // saving fixtures. Matches the 1000-entry cap used by InspectorPanel.
+  private static readonly MAX_PENDING_MESSAGES = 1000;
+  // Latched flag so the cap-reached warning is logged exactly once per
+  // "wedged webview" episode — reset on `ready` so a recovered session
+  // can re-arm the warning if it wedges again.
+  private pendingCapLogged = false;
+
   private postMessage(message: ExtensionToWebviewMessage): void {
     if (this.webviewReady && this.panel) {
       this.panel.webview.postMessage(message);
-    } else {
+    } else if (
+      this.pendingMessages.length < PreviewPanel.MAX_PENDING_MESSAGES
+    ) {
       this.pendingMessages.push(message);
+    } else if (!this.pendingCapLogged) {
+      // Leave a breadcrumb: the webview isn't signalling `ready` and
+      // we've given up buffering. The user's devtools usually has a
+      // CSP violation or a bundle exception waiting to be read.
+      this.pendingCapLogged = true;
+      console.warn(
+        `[CopilotKit preview-panel] pendingMessages cap (${PreviewPanel.MAX_PENDING_MESSAGES}) reached — ` +
+          `webview never posted "ready". Check the webview devtools for CSP or bundle errors.`,
+      );
     }
   }
 
@@ -204,6 +223,9 @@ export class PreviewPanel {
           this.panel?.webview.postMessage(msg);
         }
         this.pendingMessages = [];
+        // Re-arm the cap warning: if the webview wedges again later in
+        // the same session, we want a fresh breadcrumb.
+        this.pendingCapLogged = false;
         break;
       case "request-rebuild":
         if (this.currentComponent) {

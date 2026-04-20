@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { scanFile, type HookCallSite } from "./hook-scanner";
+import { scanContent, type HookCallSite } from "./hook-scanner";
 import { getHookDef } from "./hook-registry";
 
 /**
@@ -10,13 +10,18 @@ import { getHookDef } from "./hook-registry";
  * sidebar uses.
  *
  * Only render-category hooks get a lens; data hooks have nothing to
- * preview. The provider scans the file on demand via the same oxc parser
- * as the sidebar, so lens positions are always in sync with the sidebar
- * list without a separate cache to invalidate.
+ * preview. The provider parses the live document buffer via the same oxc
+ * parser the sidebar uses, so unsaved edits move the lens with them
+ * instead of pinning it to the last-saved version on disk.
  */
 export class HookLensProvider implements vscode.CodeLensProvider {
   private readonly _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChangeCodeLenses = this._onDidChange.event;
+
+  // Required — we always want a trail for oxc panics / unreadable
+  // buffers. Making this optional would silently swallow errors in any
+  // future caller that forgot to pass a channel.
+  constructor(private readonly outputChannel: vscode.OutputChannel) {}
 
   /** Callers invoke this after a relevant file change so lenses refresh. */
   refresh(): void {
@@ -32,8 +37,12 @@ export class HookLensProvider implements vscode.CodeLensProvider {
 
     let sites: HookCallSite[];
     try {
-      sites = scanFile(document.uri.fsPath);
-    } catch {
+      // Use the live buffer so lenses stay aligned with unsaved edits.
+      sites = scanContent(document.uri.fsPath, document.getText());
+    } catch (err) {
+      this.outputChannel.appendLine(
+        `[lens] ${document.uri.fsPath}: ${err instanceof Error ? err.message : String(err)}`,
+      );
       return [];
     }
     const lenses: vscode.CodeLens[] = [];

@@ -11,7 +11,7 @@ const fixturesDir = path.resolve(__dirname, "../../../../test-workspace/hooks");
 
 describe("hooks integration", () => {
   it("scans the fixture workspace and finds the expected hook sites", () => {
-    const sites = scanWorkspace(fixturesDir);
+    const sites = scanWorkspace(fixturesDir).sites;
     const hooks = sites
       .map((s) => ({ hook: s.hook, name: s.name }))
       .sort((a, b) =>

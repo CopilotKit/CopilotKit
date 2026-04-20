@@ -52,6 +52,14 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   }
 
+  // Dedicated output channel so catalog-side errors (open-source
+  // failures, etc.) leave a durable trail rather than only flashing a
+  // toast. Hook Explorer has its own channel in `activate-hook-explorer.ts`.
+  const catalogOutputChannel = vscode.window.createOutputChannel(
+    "CopilotKit A2UI Catalog",
+  );
+  context.subscriptions.push(catalogOutputChannel);
+
   // Preview panel
   const previewPanel = new PreviewPanel(
     context.extensionUri,
@@ -82,25 +90,40 @@ export function activate(context: vscode.ExtensionContext): void {
       onOpenSource: async (component, fixtureName) => {
         // Fixture row → open the fixture file and highlight the named key.
         // Component row → open the component source.
-        const targetPath =
-          fixtureName && component.fixturePath
-            ? component.fixturePath
-            : component.filePath;
-        const doc = await vscode.workspace.openTextDocument(
-          vscode.Uri.file(targetPath),
-        );
-        const editor = await vscode.window.showTextDocument(doc);
-        if (fixtureName) {
-          const text = doc.getText();
-          const idx = text.indexOf(`"${fixtureName}"`);
-          if (idx >= 0) {
-            const pos = doc.positionAt(idx);
-            editor.revealRange(
-              new vscode.Range(pos, pos),
-              vscode.TextEditorRevealType.InCenter,
-            );
-            editor.selection = new vscode.Selection(pos, pos);
+        //
+        // `openTextDocument` throws for missing files, bad encodings, or
+        // locked paths. Without a catch, the user clicks and nothing
+        // happens with no feedback. Surface an information message so
+        // they know the click was received and why it failed.
+        try {
+          const targetPath =
+            fixtureName && component.fixturePath
+              ? component.fixturePath
+              : component.filePath;
+          const doc = await vscode.workspace.openTextDocument(
+            vscode.Uri.file(targetPath),
+          );
+          const editor = await vscode.window.showTextDocument(doc);
+          if (fixtureName) {
+            const text = doc.getText();
+            const idx = text.indexOf(`"${fixtureName}"`);
+            if (idx >= 0) {
+              const pos = doc.positionAt(idx);
+              editor.revealRange(
+                new vscode.Range(pos, pos),
+                vscode.TextEditorRevealType.InCenter,
+              );
+              editor.selection = new vscode.Selection(pos, pos);
+            }
           }
+        } catch (err) {
+          const detail = err instanceof Error ? err.stack ?? err.message : String(err);
+          catalogOutputChannel.appendLine(
+            `[catalog] open ${component.filePath}${fixtureName ? ` (${fixtureName})` : ""}: ${detail}`,
+          );
+          void vscode.window.showErrorMessage(
+            `Could not open ${component.name}: ${err instanceof Error ? err.message : String(err)}`,
+          );
         }
       },
       onRefresh: rescanCatalogs,
@@ -540,24 +563,21 @@ function findClosestMatch(
  * Finds the line, column, and length of a string value in content so the
  * validator can surface a diagnostic at the offending position.
  *
- * Limitation: returns the FIRST occurrence of `searchValue`. In a fixture
- * file with multiple fixtures that share the same search string (e.g.
- * `"version": "v0.9"` appears in every fixture), the diagnostic for the
- * second/third/… fixture will land on the first fixture's position. Callers
- * that need per-fixture precision should pass a `startOffset` pointing at
- * the opening boundary of the fixture being validated; the fallback when
- * none is provided keeps the prior behavior.
- * TODO: plumb per-fixture offsets through `validateFixtureMessages` so the
- * diagnostic always lands on the right fixture.
+ * Known limitation: returns the FIRST occurrence of `searchValue`. In a
+ * fixture file with multiple fixtures that share the same search string
+ * (e.g. `"version": "v0.9"` appears in every fixture), the diagnostic for
+ * the second/third/… fixture will land on the first fixture's position.
+ * Fixing this properly requires threading per-fixture offsets through
+ * `validateFixtureMessages`; tracked as follow-up work rather than adding
+ * an unused parameter here.
  */
 function findValuePosition(
   content: string,
   searchValue?: string,
-  startOffset = 0,
 ): { line: number; col: number; length: number } {
   if (!searchValue) return { line: 0, col: 0, length: 1 };
 
-  const idx = content.indexOf(searchValue, startOffset);
+  const idx = content.indexOf(searchValue);
   if (idx === -1) return { line: 0, col: 0, length: 1 };
 
   // Count lines up to the match

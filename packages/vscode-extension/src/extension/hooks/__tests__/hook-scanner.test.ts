@@ -89,7 +89,7 @@ describe("hook-scanner scanWorkspace", () => {
       "src/b.tsx",
       `import { useCopilotReadable } from "@copilotkit/react-core";\nexport function B(){ useCopilotReadable({description:"d",value:1}); return null; }`,
     );
-    const sites = scanWorkspace(tmp);
+    const sites = scanWorkspace(tmp).sites;
     expect(sites.map((s) => s.hook).sort()).toEqual([
       "useCopilotAction",
       "useCopilotReadable",
@@ -109,7 +109,7 @@ describe("hook-scanner scanWorkspace", () => {
       ".git/x.tsx",
       `import { useCopilotAction } from "@copilotkit/react-core";\nexport function X(){ useCopilotAction({name:"n",render:()=>null}); return null; }`,
     );
-    expect(scanWorkspace(tmp)).toEqual([]);
+    expect(scanWorkspace(tmp).sites).toEqual([]);
   });
 
   it("respects .gitignore patterns", () => {
@@ -126,7 +126,7 @@ describe("hook-scanner scanWorkspace", () => {
       "src/ok.tsx",
       `import { useCopilotAction } from "@copilotkit/react-core";\nexport function X(){ useCopilotAction({name:"ok",render:()=>null}); return null; }`,
     );
-    const sites = scanWorkspace(tmp);
+    const sites = scanWorkspace(tmp).sites;
     expect(sites.map((s) => s.name)).toEqual(["ok"]);
   });
 
@@ -140,7 +140,7 @@ describe("hook-scanner scanWorkspace", () => {
       "src/feature/ok.tsx",
       `import { useCopilotAction } from "@copilotkit/react-core";\nexport function X(){ useCopilotAction({name:"yes",render:()=>null}); return null; }`,
     );
-    const sites = scanWorkspace(tmp);
+    const sites = scanWorkspace(tmp).sites;
     expect(sites.map((s) => s.name)).toEqual(["yes"]);
   });
 
@@ -153,7 +153,7 @@ describe("hook-scanner scanWorkspace", () => {
       "src/a.tsx",
       `import { useCopilotAction } from "@copilotkit/react-core";\nexport function A(){ useCopilotAction({name:"a",render:()=>null}); return null; }`,
     );
-    const sites = scanWorkspace(tmp);
+    const sites = scanWorkspace(tmp).sites;
     expect(sites.map((s) => s.name)).toEqual(["a"]);
   });
 
@@ -174,7 +174,7 @@ describe("hook-scanner scanWorkspace", () => {
       "src/real.tsx",
       `import { useCopilotAction } from "@copilotkit/react-core";\nexport function R(){ useCopilotAction({name:"real",render:()=>null}); return null; }`,
     );
-    const sites = scanWorkspace(tmp);
+    const sites = scanWorkspace(tmp).sites;
     expect(sites.map((s) => s.name)).toEqual(["real"]);
   });
 });

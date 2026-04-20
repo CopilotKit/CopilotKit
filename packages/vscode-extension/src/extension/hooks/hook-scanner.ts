@@ -78,9 +78,19 @@ function offsetToLineColumn(
   };
 }
 
-export function scanFile(filePath: string): HookCallSite[] {
-  const content = readFile(filePath);
-  if (!content || !hasCopilotKitPrefix(content)) return [];
+/**
+ * Parse a file's content and return the hook call-sites within.
+ *
+ * Callers that already have the file's text in memory (e.g. an unsaved
+ * editor buffer from a CodeLens provider) should call `scanContent`
+ * directly so the lenses reflect the live buffer, not the last-saved
+ * disk version.
+ */
+export function scanContent(
+  filePath: string,
+  content: string,
+): HookCallSite[] {
+  if (!hasCopilotKitPrefix(content)) return [];
 
   const lang = filePath.endsWith(".tsx") ? "tsx" : "ts";
   let ast: any;
@@ -92,6 +102,20 @@ export function scanFile(filePath: string): HookCallSite[] {
     return [];
   }
 
+  return extractSites(filePath, content, ast);
+}
+
+export function scanFile(filePath: string): HookCallSite[] {
+  const content = readFile(filePath);
+  if (!content) return [];
+  return scanContent(filePath, content);
+}
+
+function extractSites(
+  filePath: string,
+  content: string,
+  ast: any,
+): HookCallSite[] {
   const localToCanonical = new Map<string, string>();
 
   for (const node of ast.body) {
@@ -223,6 +247,14 @@ function isIgnoredByAny(filePath: string, stack: IgnoreScope[]): boolean {
  */
 const MAX_FILES_SCANNED = 20000;
 
+export interface ScanWorkspaceResult {
+  sites: HookCallSite[];
+  /** True when the walk stopped early at `MAX_FILES_SCANNED`. */
+  capped: boolean;
+  /** Number of .ts/.tsx files considered before the cap tripped. */
+  filesScanned: number;
+}
+
 /**
  * Walks the workspace once, inheriting any `.gitignore` encountered along the
  * way as a stack. Skips the hardcoded excludes (case-insensitive) and common
@@ -231,10 +263,11 @@ const MAX_FILES_SCANNED = 20000;
  * Synchronous by design — the rest of the extension-host state machine
  * expects `scanWorkspace` to return a fresh snapshot before handing it to
  * the sidebar provider. A `MAX_FILES_SCANNED` guard keeps the walk bounded
- * on pathologically large workspaces; partial results get logged by the
- * caller via the output channel in that case.
+ * on pathologically large workspaces; when it trips, `capped: true` is
+ * returned so callers can surface a user-visible warning instead of
+ * silently presenting a truncated list.
  */
-export function scanWorkspace(workspaceDir: string): HookCallSite[] {
+export function scanWorkspace(workspaceDir: string): ScanWorkspaceResult {
   const results: HookCallSite[] = [];
   let filesSeen = 0;
   let capped = false;
@@ -284,5 +317,5 @@ export function scanWorkspace(workspaceDir: string): HookCallSite[] {
   };
 
   walk(workspaceDir, []);
-  return results;
+  return { sites: results, capped, filesScanned: filesSeen };
 }
