@@ -2,7 +2,7 @@
  * Sync docs from main CopilotKit docs to the showcase platform.
  *
  * Reads changed files from docs/content/docs/ and docs/snippets/,
- * applies structural transforms, and writes to showcase/shell/src/content/.
+ * applies structural transforms, and writes to showcase/shell-docs/src/content/.
  *
  * Usage:
  *   npx tsx showcase/scripts/sync-docs-from-main.ts
@@ -21,12 +21,15 @@ const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, "../..");
 const MAIN_DOCS = path.join(ROOT, "docs/content/docs");
 const MAIN_SNIPPETS = path.join(ROOT, "docs/snippets");
-const SHOWCASE_DOCS = path.join(ROOT, "showcase/shell/src/content/docs");
+// MDX docs content moved from shell to shell-docs (which owns the docs
+// hostname). Sync target updated in lockstep — all docs authoring/sync
+// flows through shell-docs now.
+const SHOWCASE_DOCS = path.join(ROOT, "showcase/shell-docs/src/content/docs");
 const SHOWCASE_SNIPPETS = path.join(
   ROOT,
-  "showcase/shell/src/content/snippets",
+  "showcase/shell-docs/src/content/snippets",
 );
-const SYNC_MARKER = path.join(ROOT, "showcase/shell/.docs-sync-sha");
+const SYNC_MARKER = path.join(ROOT, "showcase/shell-docs/.docs-sync-sha");
 
 // LangChain -> LangGraph exclusions (these intentionally keep "LangChain")
 const LANGCHAIN_EXCLUSIONS = [
@@ -220,7 +223,7 @@ function transformContent(content: string, filePath: string): string {
  * Strips the (root)/ directory prefix if present.
  */
 function mainToShowcasePath(mainPath: string): string {
-  // docs/content/docs/(root)/quickstart.mdx -> showcase/shell/src/content/docs/quickstart.mdx
+  // docs/content/docs/(root)/quickstart.mdx -> showcase/shell-docs/src/content/docs/quickstart.mdx
   let rel = path.relative(MAIN_DOCS, mainPath);
   // Strip (root)/ prefix
   if (rel.startsWith("(root)/") || rel.startsWith("(root)\\")) {

@@ -58,13 +58,14 @@ const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, "..");
 const PACKAGES_DIR = path.join(ROOT, "packages");
-const OUTPUT_PATH = path.join(
-  ROOT,
-  "shell",
-  "src",
-  "data",
-  "demo-content.json",
-);
+// demo-content is consumed by BOTH shells:
+//   - shell: integration pages + demo drawer read the bundle at runtime
+//   - shell-docs: <Snippet> (docs routes) imports directly at build time
+// so we dual-emit. Paths array is iterated at write time.
+const OUTPUT_PATHS = [
+  path.join(ROOT, "shell", "src", "data", "demo-content.json"),
+  path.join(ROOT, "shell-docs", "src", "data", "demo-content.json"),
+];
 
 interface DemoFile {
   filename: string;
@@ -318,7 +319,11 @@ function main() {
 
   if (!fs.existsSync(PACKAGES_DIR)) {
     console.log("No packages directory found.");
-    fs.writeFileSync(OUTPUT_PATH, JSON.stringify(bundle, null, 2) + "\n");
+    const json = JSON.stringify(bundle, null, 2) + "\n";
+    for (const outputPath of OUTPUT_PATHS) {
+      fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+      fs.writeFileSync(outputPath, json);
+    }
     return;
   }
 
@@ -468,11 +473,14 @@ function main() {
     }
   }
 
-  fs.mkdirSync(path.dirname(OUTPUT_PATH), { recursive: true });
-  fs.writeFileSync(OUTPUT_PATH, JSON.stringify(bundle, null, 2) + "\n");
-  console.log(
-    `\nBundled ${Object.keys(bundle.demos).length} demos to ${OUTPUT_PATH}\n`,
-  );
+  const json = JSON.stringify(bundle, null, 2) + "\n";
+  for (const outputPath of OUTPUT_PATHS) {
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    fs.writeFileSync(outputPath, json);
+    console.log(
+      `\nBundled ${Object.keys(bundle.demos).length} demos to ${outputPath}`,
+    );
+  }
 }
 
 try {

@@ -24,10 +24,18 @@ const FEATURE_REGISTRY_PATH = path.join(
   "shared",
   "feature-registry.json",
 );
-const OUTPUT_DIR = path.join(ROOT, "shell", "src", "data");
-const OUTPUT_PATH = path.join(OUTPUT_DIR, "registry.json");
+// Registry is consumed by BOTH shells:
+//   - shell: home grid, integrations catalog, matrix, middleware
+//   - shell-docs: docs routes (framework lookup, MDX renderer)
+// so we dual-emit. constraints.json is shell-only (integration-explorer).
+const SHELL_OUTPUT_DIR = path.join(ROOT, "shell", "src", "data");
+const SHELL_DOCS_OUTPUT_DIR = path.join(ROOT, "shell-docs", "src", "data");
+const OUTPUT_DIRS = [SHELL_OUTPUT_DIR, SHELL_DOCS_OUTPUT_DIR];
 const CONSTRAINTS_PATH = path.join(ROOT, "shared", "constraints.yaml");
-const CONSTRAINTS_OUTPUT_PATH = path.join(OUTPUT_DIR, "constraints.json");
+const CONSTRAINTS_OUTPUT_PATH = path.join(
+  SHELL_OUTPUT_DIR,
+  "constraints.json",
+);
 
 function loadSchema() {
   const raw = fs.readFileSync(SCHEMA_PATH, "utf-8");
@@ -253,12 +261,15 @@ function main() {
     integrations,
   };
 
-  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-  fs.writeFileSync(OUTPUT_PATH, JSON.stringify(registry, null, 2) + "\n");
-
-  console.log(
-    `\nRegistry generated: ${OUTPUT_PATH} (${integrations.length} integrations)\n`,
-  );
+  const registryJson = JSON.stringify(registry, null, 2) + "\n";
+  for (const dir of OUTPUT_DIRS) {
+    fs.mkdirSync(dir, { recursive: true });
+    const outputPath = path.join(dir, "registry.json");
+    fs.writeFileSync(outputPath, registryJson);
+    console.log(
+      `\nRegistry generated: ${outputPath} (${integrations.length} integrations)`,
+    );
+  }
 
   // Write constraints.json for the shell's client-side filtering
   fs.writeFileSync(
