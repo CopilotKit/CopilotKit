@@ -136,9 +136,12 @@ export function App() {
       return;
     }
     // Clear stale global before running the new bundle so a failed bundle
-    // can't leave us reading last-load's module.
-    delete (window as unknown as { __copilotkit_hookSite?: unknown })
-      .__copilotkit_hookSite;
+    // can't leave us reading last-load's module. `delete` would throw here
+    // because rolldown's IIFE emits `var __copilotkit_hookSite = …` at the
+    // top level, which binds a non-configurable property on `window` — so
+    // we assign `undefined` and treat that as "not set" in the read below.
+    (window as unknown as { __copilotkit_hookSite?: unknown })
+      .__copilotkit_hookSite = undefined;
     try {
       executeBundle(payload.bundleCode);
     } catch (err) {
