@@ -23,7 +23,7 @@ From a developer's perspective, threads involve three things:
 
 | What you use | What it does |
 |-------------|-------------|
-| `useThreads` hook | Lists, renames, archives, and deletes threads. Stays in sync across tabs and devices via WebSocket. |
+| `useThreads` hook | Lists, renames, archives, and deletes threads. Pagination via `hasMoreThreads` / `fetchMoreThreads`. Stays in sync across tabs and devices via WebSocket. |
 | `CopilotChat` with `threadId` | Connects to a specific thread, loads its history, and streams new events in realtime. |
 | `CopilotRuntime` | Server-side layer that executes agents, stores thread data on the Intelligence Platform, and relays events to connected clients. |
 
@@ -113,6 +113,16 @@ If the WebSocket connection drops (network change, server restart, laptop sleep)
 ### Thread locked
 
 If a thread already has an active run and another client tries to start a new run on the same thread, the request is rejected with a **409 Conflict**. This prevents two agent runs from interleaving events on the same thread. The existing run must complete or be stopped before a new one can begin.
+
+The runtime acquires a Redis-backed lock on the thread for the duration of each run. You can tune this behavior on the runtime:
+
+| Option | Default | Max | Description |
+|--------|---------|-----|-------------|
+| `lockTtlSeconds` | `20` | `3600` (1 hour) | How long the lock is held before it expires automatically. |
+| `lockHeartbeatIntervalSeconds` | `15` | `3000` (50 min) | How often the runtime renews the lock during a run. The heartbeat always runs — you only need to adjust the interval. |
+| `lockKeyPrefix` | — | — | Custom Redis key prefix for the thread lock. Useful when multiple apps share a Redis instance. |
+
+If a run completes normally, the lock is released immediately. The TTL is a safety net for cases where the runtime crashes without releasing the lock.
 
 ## Design decisions
 

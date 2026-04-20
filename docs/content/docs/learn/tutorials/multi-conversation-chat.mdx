@@ -228,9 +228,9 @@ A chat application with a thread sidebar — similar to ChatGPT or Claude's conv
     const {
       threads,
       isLoading,
-      hasNextPage, // [!code highlight]
-      isFetchingNextPage, // [!code highlight]
-      fetchNextPage, // [!code highlight]
+      hasMoreThreads, // [!code highlight]
+      isFetchingMoreThreads, // [!code highlight]
+      fetchMoreThreads, // [!code highlight]
       renameThread,
       archiveThread,
     } = useThreads({
@@ -239,13 +239,13 @@ A chat application with a thread sidebar — similar to ChatGPT or Claude's conv
     });
 
     // At the bottom of the thread list:
-    {hasNextPage && (
+    {hasMoreThreads && (
       <button
         className="m-3 p-2 text-sm text-gray-500 hover:text-gray-700"
-        onClick={fetchNextPage}
-        disabled={isFetchingNextPage}
+        onClick={fetchMoreThreads}
+        disabled={isFetchingMoreThreads}
       >
-        {isFetchingNextPage ? "Loading..." : "Load older conversations"}
+        {isFetchingMoreThreads ? "Loading..." : "Load older conversations"}
       </button>
     )}
     ```
