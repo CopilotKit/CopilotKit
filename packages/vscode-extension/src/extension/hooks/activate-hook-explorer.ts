@@ -5,6 +5,7 @@ import { HookPreviewPanel } from "./panel";
 import { HookControlsStore } from "./persistence";
 import { getHookDef } from "./hook-registry";
 import { HookListViewProvider } from "./hook-list-view-provider";
+import { HookLensProvider } from "./hook-lens-provider";
 
 /**
  * True when `filePath` is the workspace root or lives beneath it. Prevents
@@ -111,6 +112,20 @@ export function activateHookExplorer(
 
   doScan();
 
+  // Inline "▶️ Preview …" CodeLens above every render-hook call-site in
+  // TypeScript and TypeScript-React files. Same click target as the
+  // sidebar ▷ button — just available right where the hook is called.
+  const lensProvider = new HookLensProvider();
+  context.subscriptions.push(
+    vscode.languages.registerCodeLensProvider(
+      [
+        { language: "typescript", scheme: "file" },
+        { language: "typescriptreact", scheme: "file" },
+      ],
+      lensProvider,
+    ),
+  );
+
   // Per-file debounce map — batches rapid-fire saves (e.g. format-on-save
   // followed by a manual save) into a single rescan.
   const saveDebounce = new Map<string, NodeJS.Timeout>();
@@ -125,6 +140,7 @@ export function activateHookExplorer(
     }
     allSites = next;
     viewProvider.setSites(allSites);
+    lensProvider.refresh();
   };
 
   /**
