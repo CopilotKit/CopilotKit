@@ -32,10 +32,7 @@ const SHELL_OUTPUT_DIR = path.join(ROOT, "shell", "src", "data");
 const SHELL_DOCS_OUTPUT_DIR = path.join(ROOT, "shell-docs", "src", "data");
 const OUTPUT_DIRS = [SHELL_OUTPUT_DIR, SHELL_DOCS_OUTPUT_DIR];
 const CONSTRAINTS_PATH = path.join(ROOT, "shared", "constraints.yaml");
-const CONSTRAINTS_OUTPUT_PATH = path.join(
-  SHELL_OUTPUT_DIR,
-  "constraints.json",
-);
+const CONSTRAINTS_OUTPUT_PATH = path.join(SHELL_OUTPUT_DIR, "constraints.json");
 
 function loadSchema() {
   const raw = fs.readFileSync(SCHEMA_PATH, "utf-8");

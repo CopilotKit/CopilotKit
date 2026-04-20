@@ -26,13 +26,7 @@ const REGISTRY_PATH = path.join(ROOT, "shared", "feature-registry.json");
 // emitting under shell/data for the dashboard to read. The CONTENT scan
 // source is shell-docs — the "shell_docs_url" field points at paths that
 // now serve from docs.showcase.copilotkit.ai.
-const SHELL_DOCS_ROOT = path.join(
-  ROOT,
-  "shell-docs",
-  "src",
-  "content",
-  "docs",
-);
+const SHELL_DOCS_ROOT = path.join(ROOT, "shell-docs", "src", "content", "docs");
 const OUTPUT_PATH = path.join(ROOT, "shell", "src", "data", "docs-status.json");
 
 type DocState = "ok" | "missing" | "notfound" | "error";
