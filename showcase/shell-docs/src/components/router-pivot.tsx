@@ -36,17 +36,30 @@ export interface RouterPivotProps {
 }
 
 /**
- * Wrap MDX body so it only renders when a framework is selected.
- * On `/docs/<feature>` we don't show code — the user hasn't told us
- * which backend to render it for.
+ * Wrap MDX body so it only renders when the user has no framework to
+ * land on. On `/docs/<feature>`:
+ *   - URL has a framework → impossible (handled by a framework-scoped
+ *     route, not this one).
+ *   - User has a storedFramework → they're about to be redirected by
+ *     RouterPivot; hide the body to avoid flashing docs that will be
+ *     replaced in a tick.
+ *   - Neither → render the body so the user sees the pivot + any MDX
+ *     copy that accompanies it.
+ *
+ * Covered by: visit /docs/foo with no localStorage entry → MDX body
+ * visible alongside the pivot; visit with localStorage=langgraph-python
+ * → body hidden while redirect runs.
  */
 export function FrameworkGuardedContent({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { framework } = useFramework();
-  if (!framework) return null;
+  const { framework, storedFramework } = useFramework();
+  // Hide only when we're about to redirect to a framework-scoped page
+  // (URL framework present, or a stored preference will trigger
+  // redirect). When neither exists we want the pivot + MDX body.
+  if (framework || storedFramework) return null;
   return <>{children}</>;
 }
 
@@ -59,36 +72,49 @@ export function RouterPivot({
   featureDescription,
 }: RouterPivotProps) {
   const router = useRouter();
-  const { framework } = useFramework();
+  const { framework, storedFramework } = useFramework();
 
-  // When the user arrives on `/docs/<feature>` but already has a
-  // framework preference stored, skip the pivot and jump straight to
-  // the framework-scoped page. This preserves the "picked-once, sticks"
-  // behaviour across visits.
+  // Redirect target: prefer URL framework (should never happen on
+  // `/docs/*` since that route prefix isn't a known framework, but we
+  // still honour it if a future route passes us a framework-scoped
+  // URL), then fall back to the user's stored preference.
+  //
+  // NOTE: this used to read `framework` only, which on `/docs/*` is
+  // always null because the URL prefix `docs` is never in
+  // `knownFrameworks`. That silently broke the "picked-once, sticks"
+  // feature — users with a stored preference never got redirected.
+  //
+  // Covered by: visit /docs/<feature> with localStorage set → redirected
+  // to /<framework>/<feature>; visit with no localStorage → pivot grid
+  // rendered.
+  const target = framework ?? storedFramework;
+
   useEffect(() => {
-    if (framework) {
-      router.replace(`/${framework}/${slugPath}`);
+    if (target) {
+      router.replace(`/${target}/${slugPath}`);
     }
-  }, [framework, router, slugPath]);
+  }, [target, router, slugPath]);
 
-  // If the provider already knows a framework we'll be redirected in a
-  // tick — render a lightweight placeholder instead of the full pivot
-  // to avoid flashing the grid at the user.
-  if (framework) {
+  // If we have a redirect target we'll be redirected in a tick —
+  // render a lightweight placeholder instead of the full pivot to
+  // avoid flashing the grid at the user.
+  if (target) {
     return (
       <div className="text-xs text-[var(--text-muted)]">
-        Loading {framework} view…
+        Loading {target} view…
       </div>
     );
   }
 
   const withCell = new Set(frameworksWithCell ?? []);
 
-  // Promote frameworks that have the cell tagged; everything else is
-  // shown below as "coming soon".
-  const supported = options.filter((o) => withCell.has(o.slug));
+  // Promote frameworks that are deployed AND have a cell tagged for
+  // this feature. Deployed frameworks without a cell are shown under
+  // "coming soon". Undeployed frameworks are omitted entirely —
+  // surfacing them in either bucket would point users at a dead link.
+  const supported = options.filter((o) => o.deployed && withCell.has(o.slug));
   const unsupported = options.filter(
-    (o) => !withCell.has(o.slug) && o.deployed,
+    (o) => o.deployed && !withCell.has(o.slug),
   );
 
   return (
