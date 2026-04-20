@@ -120,8 +120,34 @@ const HOOK_PREVIEW_STUBBED_DEPS: Record<string, string[]> = {
   "parse-entities": ["parseEntities"],
 };
 
+// Browser-compatible shim for Node's `crypto`. Most transitive users we hit
+// (e.g. the `uuid` npm package via react-core's ThreadsProvider) call
+// `randomFillSync(buf)` or `randomUUID()`. The webview has WebCrypto on
+// `globalThis.crypto`; we forward the handful of APIs the Node version
+// exposes that actually get called at module-init / first-render time.
+// If more APIs get exercised, extend this shim rather than going back to
+// an empty-module stub.
+const CRYPTO_SHIM_SOURCE = `
+const webCrypto = globalThis.crypto;
+export function randomFillSync(buf) {
+  webCrypto.getRandomValues(buf);
+  return buf;
+}
+export function randomBytes(size) {
+  const buf = new Uint8Array(size);
+  webCrypto.getRandomValues(buf);
+  return buf;
+}
+export function randomUUID() {
+  return webCrypto.randomUUID();
+}
+const shim = { randomFillSync, randomBytes, randomUUID };
+export default shim;
+`;
+
 function stubNodeBuiltinsAndCss() {
   const EMPTY_MODULE_ID = "\0empty-module";
+  const CRYPTO_SHIM_ID = "\0copilotkit-crypto-shim";
   const STUB_PREFIX = "\0stub:";
   return {
     name: "stub-node-builtins-and-css",
@@ -129,6 +155,7 @@ function stubNodeBuiltinsAndCss() {
     resolveId(source: string) {
       if (source.endsWith(".css")) return EMPTY_MODULE_ID;
       const bare = source.startsWith("node:") ? source.slice(5) : source;
+      if (bare === "crypto") return CRYPTO_SHIM_ID;
       if (NODE_BUILTINS.has(bare)) return EMPTY_MODULE_ID;
       if (source in HOOK_PREVIEW_STUBBED_DEPS) {
         return STUB_PREFIX + source;
@@ -138,6 +165,9 @@ function stubNodeBuiltinsAndCss() {
     load(id: string) {
       if (id === EMPTY_MODULE_ID) {
         return "export default {};";
+      }
+      if (id === CRYPTO_SHIM_ID) {
+        return CRYPTO_SHIM_SOURCE;
       }
       if (id.startsWith(STUB_PREFIX)) {
         const spec = id.slice(STUB_PREFIX.length);
